@@ -20,6 +20,9 @@ import com.facebook.buck.jvm.cd.command.BaseJarCommand;
 import com.facebook.buck.jvm.cd.serialization.java.JarParametersSerializer;
 import com.facebook.buck.jvm.cd.serialization.java.ResolvedJavacOptionsSerializer;
 import com.facebook.buck.jvm.java.Jsr199Javac.ResolvedJsr199Javac;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Level;
 import org.junit.Test;
@@ -41,9 +44,59 @@ public class CompilerCommandDefaultsTest {
     assertEquals(AbiGenerationMode.SOURCE_ONLY, command.getAbiGenerationMode());
     assertTrue(command.getTrackClassUsage());
     assertEquals(RelPath.get("dep.jar"), command.getCompileTimeClasspathPaths().get(0));
+    assertTrue(command.getJarToJarDirMap().isEmpty());
     assertEquals(RelPath.get("buck-out/v2"), command.getBuckOut());
     assertTrue(command.getResolvedJavac() instanceof ResolvedJsr199Javac);
     assertTrue(command.getResolvedJavacOptions().getDebug());
+  }
+
+  @Test
+  public void abiDirectoriesPreserveClasspathOrderAndDuplicateJars() {
+    var model =
+        com.facebook.buck.cd.model.java.BaseJarCommand.newBuilder()
+            .setResolvedJavacOptions(javaOptions())
+            .addAllCompileTimeClasspathAbiAndDirPaths(
+                List.of("b jar.jar", "b dir", "a.jar", "", "b jar.jar", "b dir"))
+            .build();
+
+    var command = BaseJarCommand.Companion.fromProto(model, Optional.of(RelPath.get("scratch")));
+
+    assertEquals(
+        List.of(RelPath.get("b jar.jar"), RelPath.get("a.jar"), RelPath.get("b jar.jar")),
+        command.getCompileTimeClasspathPaths());
+    assertEquals(Map.of(Paths.get("b jar.jar"), Paths.get("b dir")), command.getJarToJarDirMap());
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void abiDirectoriesRejectIncompletePairs() {
+    var model =
+        com.facebook.buck.cd.model.java.BaseJarCommand.newBuilder()
+            .setResolvedJavacOptions(javaOptions())
+            .addCompileTimeClasspathAbiAndDirPaths("dep.jar")
+            .build();
+    BaseJarCommand.Companion.fromProto(model, Optional.empty());
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void abiDirectoriesRejectConflictingDirectories() {
+    var model =
+        com.facebook.buck.cd.model.java.BaseJarCommand.newBuilder()
+            .setResolvedJavacOptions(javaOptions())
+            .addAllCompileTimeClasspathAbiAndDirPaths(
+                List.of("dep.jar", "first-dir", "dep.jar", "second-dir"))
+            .build();
+    BaseJarCommand.Companion.fromProto(model, Optional.empty());
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void abiDirectoriesRejectTwoClasspaths() {
+    var model =
+        com.facebook.buck.cd.model.java.BaseJarCommand.newBuilder()
+            .setResolvedJavacOptions(javaOptions())
+            .addCompileTimeClasspathPaths("dep.jar")
+            .addAllCompileTimeClasspathAbiAndDirPaths(List.of("dep.jar", "dep-dir"))
+            .build();
+    BaseJarCommand.Companion.fromProto(model, Optional.empty());
   }
 
   @Test

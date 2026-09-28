@@ -45,6 +45,7 @@ public class JavaCDCommand implements JvmCDCommand {
   private int loggingLevel = 0;
 
   private final JavaStepsBuilder stepsBuilder;
+  private final ImmutableMap<Path, Path> jarToJarDirMap;
   private final PostBuildParams postBuildParams;
 
   public JavaCDCommand(String[] args, ImmutableMap<String, String> env)
@@ -69,6 +70,7 @@ public class JavaCDCommand implements JvmCDCommand {
         BuildJavaCommand.Companion.fromProto(proto.getBuildCommand(), Optional.of(buckScratchPath));
     this.postBuildParams = PostBuildParams.Companion.fromProto(proto.getPostBuildParams());
     this.stepsBuilder = new JavaStepsBuilder(buildJavaCommand);
+    this.jarToJarDirMap = buildJavaCommand.getBaseJarCommand().getJarToJarDirMap();
   }
 
   public void maybeWriteClassAbi() throws IOException {
@@ -104,7 +106,7 @@ public class JavaCDCommand implements JvmCDCommand {
       DepFileUtils.usedClassesToDepFile(
           postBuildParams.getUsedClassesPaths(),
           postBuildParams.getDepFile(),
-          Optional.ofNullable(postBuildParams.getJarToJarDirMap()),
+          jarToJarDirMap,
           false);
     }
   }

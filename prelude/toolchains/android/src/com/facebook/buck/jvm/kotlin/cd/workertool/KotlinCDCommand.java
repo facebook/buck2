@@ -286,7 +286,7 @@ public class KotlinCDCommand implements JvmCDCommand {
       DepFileUtils.usedClassesToDepFile(
           usedClassesMapPaths,
           postBuildParams.getDepFile(),
-          Optional.ofNullable(postBuildParams.getJarToJarDirMap()),
+          buildKotlinCommand.getBaseJarCommand().getJarToJarDirMap(),
           buildKotlinCommand.getKotlinExtraParams().getShouldActionRunIncrementally());
     }
   }

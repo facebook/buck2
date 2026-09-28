@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -36,22 +35,9 @@ public class DepFileUtils {
   public static void usedClassesToDepFile(
       List<Path> usedClassesMapPaths,
       Path depFileOutput,
-      Optional<Path> jarToJarDirMapPath,
+      Map<Path, Path> jarToJarDirMap,
       boolean append)
       throws IOException {
-    ImmutableMap<Path, Path> jarToJarDirMap;
-    if (jarToJarDirMapPath.isPresent()) {
-      jarToJarDirMap =
-          Files.readAllLines(jarToJarDirMapPath.get()).stream()
-              // TODO(ianc) fix this, we shouldn't be adding the same jar to the classpath multiple
-              // times
-              .distinct()
-              .map(line -> line.split(" "))
-              .collect(ImmutableMap.toImmutableMap(x -> Paths.get(x[0]), x -> Paths.get(x[1])));
-    } else {
-      jarToJarDirMap = ImmutableMap.of();
-    }
-
     List<Path> allUsedPaths = new ArrayList<>();
     for (Path usedClassesMapPath : usedClassesMapPaths) {
       ImmutableMap<Path, Set<Path>> usedClassesMap =

@@ -156,13 +156,13 @@ def command_abi_generation_mode(target_type: TargetType, abi_generation_mode: [A
 def _source_only_abi_jars(entries: list[JavaClasspathEntry]):
     return [entry.abi for entry in entries]
 
-def _source_only_abi_to_abi_dir(entries: list[JavaClasspathEntry]):
-    return [cmd_args(entry.abi, entry.abi_as_dir, delimiter = " ") for entry in entries if entry.abi_as_dir]
+def _source_only_abi_and_dir(entries: list[JavaClasspathEntry]):
+    return [path for entry in entries for path in (entry.abi, entry.abi_as_dir or "")]
 
 SourceOnlyAbiCompilingDepsTSet = transitive_set(
     args_projections = {
+        "source_only_abi_and_dir": _source_only_abi_and_dir,
         "source_only_abi_jars": _source_only_abi_jars,
-        "source_only_abi_to_abi_dir": _source_only_abi_to_abi_dir,
     },
 )
 
@@ -258,26 +258,33 @@ def encode_base_jar_command(
     source_only_abi_compiling_deps: JavaCompilingDepsTSet | SourceOnlyAbiCompilingDepsTSet | None,
     track_class_usage: bool,
     provide_classpath_snapshot: bool = False,
+    use_abi_dirs: bool = False,
+    incremental_metadata_ignored_inputs_tag: ArtifactTag | None = None,
 ) -> struct:
     jar_parameters = encode_jar_params(remove_classes, output_paths, manifest_file)
     qualified_name = get_qualified_name(label, target_type)
     if target_type == TargetType("source_only_abi"):
         expect(source_only_abi_compiling_deps != None)
         # A list-valued JSON projection would introduce an extra array level.
-        compiling_classpath = classpath_jars_tag.tag_artifacts(cmd_args(source_only_abi_compiling_deps.project_as_args("source_only_abi_jars")))
+        compiling_classpath = cmd_args(source_only_abi_compiling_deps.project_as_args("source_only_abi_and_dir" if use_abi_dirs else "source_only_abi_jars"))
         compiling_classpath_snapshot = []
     else:
         expect(source_only_abi_compiling_deps == None)
 
+        if use_abi_dirs:
+            compiling_classpath = cmd_args(compiling_deps_tset.project_as_args("abi_and_dir", ordering = "topological")) if compiling_deps_tset else []
+        else:
+            compiling_classpath = compiling_deps_tset.project_as_json("javacd_json", ordering = "topological") if compiling_deps_tset else []
         # The snapshot inputs are tagged for association with dep_files, but they are not marked as used,
         # as they serve the incremental compiler's internal needs,
         # which are utilized after the build system has determined whether a rebuild is necessary.
-        compiling_classpath = classpath_jars_tag.tag_artifacts(
-            compiling_deps_tset.project_as_json("javacd_json", ordering = "topological") if compiling_deps_tset else []
-        )
         compiling_classpath_snapshot = classpath_jars_tag.tag_artifacts(
             compiling_deps_tset.project_as_json("abi_snapshot_json", ordering = "topological") if provide_classpath_snapshot and compiling_deps_tset else []
         )
+
+    compiling_classpath = classpath_jars_tag.tag_artifacts(compiling_classpath)
+    if use_abi_dirs and incremental_metadata_ignored_inputs_tag:
+        compiling_classpath = incremental_metadata_ignored_inputs_tag.tag_artifacts(compiling_classpath)
 
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
@@ -297,7 +304,8 @@ def encode_base_jar_command(
 
     return struct(
         outputPathsValue = encode_output_paths(label, output_paths, target_type),
-        compileTimeClasspathPaths = compiling_classpath,
+        compileTimeClasspathPaths = [] if use_abi_dirs else compiling_classpath,
+        compileTimeClasspathAbiAndDirPaths = compiling_classpath if use_abi_dirs else [],
         compileTimeClasspathSnapshotPaths = compiling_classpath_snapshot,
         javaSrcs = srcs,
         abiGenerationMode = encode_abi_generation_mode(command_abi_generation_mode(target_type, abi_generation_mode)),
@@ -322,7 +330,6 @@ def setup_dep_files(
     classpath_jars_tag: ArtifactTag,
     used_classes_json_outputs: list[cmd_args],
     used_jars_json_output: Artifact | None,
-    abi_to_abi_dir_map: TransitiveSetArgsProjection | None,
     uses_content_based_paths: bool,
 ):
     dep_file = declare_prefixed_output(actions, actions_identifier, "jar/dep-file.txt", uses_content_based_paths)
@@ -331,11 +338,6 @@ def setup_dep_files(
     post_build_params["depFile"] = classpath_jars_tag.tag_artifacts(dep_file.as_output())
     if used_jars_json_output != None:
         post_build_params["usedJarsFile"] = used_jars_json_output.as_output()
-
-    if abi_to_abi_dir_map:
-        abi_to_abi_dir_map_file = declare_prefixed_output(actions, actions_identifier, "abi_to_abi_dir_map", uses_content_based_paths)
-        actions.write(abi_to_abi_dir_map_file, abi_to_abi_dir_map)
-        post_build_params["jarToJarDirMap"] = classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map_file)
 
 FORCE_PERSISTENT_WORKERS = read_root_config("build", "require_persistent_workers", "false").lower() == "true"
 
@@ -513,6 +515,8 @@ def encode_command(
     classpath_jars_tag: ArtifactTag,
     source_only_abi_compiling_deps: JavaCompilingDepsTSet | SourceOnlyAbiCompilingDepsTSet | None,
     track_class_usage: bool,
+    use_abi_dirs: bool = False,
+    incremental_metadata_ignored_inputs_tag: ArtifactTag | None = None,
 ) -> struct:
     base_jar_command = encode_base_jar_command(
         target_type,
@@ -535,6 +539,8 @@ def encode_command(
         source_only_abi_compiling_deps = source_only_abi_compiling_deps,
         track_class_usage = track_class_usage,
         provide_classpath_snapshot = provide_classpath_snapshot,
+        use_abi_dirs = use_abi_dirs,
+        incremental_metadata_ignored_inputs_tag = incremental_metadata_ignored_inputs_tag,
     )
 
     if kotlin_extra_params:
@@ -667,7 +673,6 @@ def generate_abi_jars(
                 source_only_abi_classpath_jars_tag,
                 source_only_abi_dir,
                 source_only_abi_target_type,
-                source_only_abi_compiling_deps = source_only_abi_compiling_deps,
             )
             source_only_abi = source_only_abi_output_paths.jar
 

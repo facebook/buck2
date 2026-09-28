@@ -39,7 +39,6 @@ load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "BuildMode",
     "OutputPaths",
-    "SourceOnlyAbiCompilingDepsTSet",  # @unused Used as a type
     "TargetType",
     "base_qualified_name",
     "declare_prefixed_output",
@@ -117,7 +116,6 @@ def create_jar_artifact_javacd(
         class_abi_jar,
         class_abi_output_dir,
         srcs,
-        compiling_deps_tset,
         track_class_usage,
         debug_port,
         uses_content_based_paths,
@@ -138,6 +136,7 @@ def create_jar_artifact_javacd(
         abi_generation_mode = abi_generation_mode,
         resources_map = resources_map,
         extra_arguments = extra_arguments,
+        use_abi_dirs = bool(not is_creating_subtarget and srcs and track_class_usage and java_toolchain.dep_files == DepFiles("per_class")),
     )
     command = command_builder(
         build_mode = BuildMode("LIBRARY"),
@@ -157,7 +156,6 @@ def create_jar_artifact_javacd(
         abi_dir = class_abi_output_dir if should_create_class_abi else None,
         target_type = TargetType("library"),
         is_creating_subtarget = is_creating_subtarget,
-        source_only_abi_compiling_deps = None,
     )
     jar_postprocessor = ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None
     final_jar_output = prepare_final_jar(
@@ -242,6 +240,7 @@ def _command_builder(
     abi_generation_mode: AbiGenerationMode,
     resources_map: dict[str, Artifact],
     extra_arguments: cmd_args,
+    use_abi_dirs: bool,
 ):
     return partial(
         encode_command,
@@ -261,6 +260,7 @@ def _command_builder(
         extra_arguments = extra_arguments,
         kotlin_extra_params = None,
         provide_classpath_snapshot = False,
+        use_abi_dirs = use_abi_dirs,
     )
 
 # buildifier: disable=uninitialized
@@ -272,7 +272,6 @@ def _define_javacd_action(
     class_abi_jar: [Artifact, None],
     class_abi_output_dir: [Artifact, None],
     srcs: list[Artifact],
-    compiling_deps_tset: [JavaCompilingDepsTSet, None],
     track_class_usage: bool,
     debug_port: [int, None],
     uses_content_based_paths: bool,
@@ -286,7 +285,6 @@ def _define_javacd_action(
     abi_dir: Artifact | None,
     target_type: TargetType,
     is_creating_subtarget: bool = False,
-    source_only_abi_compiling_deps: JavaCompilingDepsTSet | SourceOnlyAbiCompilingDepsTSet | None = None,
 ):
     expect(java_toolchain.javacd, "java_toolchain.javacd must be set for javacd protocol")
     compiler = java_toolchain.javacd
@@ -326,15 +324,6 @@ def _define_javacd_action(
         and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class"))
         and track_class_usage
     ):
-        abi_to_abi_dir_map = None
-        if java_toolchain.dep_files == DepFiles("per_class"):
-            if target_type == TargetType("source_only_abi"):
-                expect(source_only_abi_compiling_deps != None)
-                abi_to_abi_dir_map = source_only_abi_compiling_deps.project_as_args("source_only_abi_to_abi_dir")
-                args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = abi_to_abi_dir_map)))
-            elif compiling_deps_tset:
-                abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
-                args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = abi_to_abi_dir_map)))
         used_classes_json_outputs = [cmd_args(output_paths.jar.as_output(), format = "{}/used-classes.json", parent = 1)]
         if target_type == TargetType("library"):
             used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json", uses_content_based_paths)
@@ -345,7 +334,6 @@ def _define_javacd_action(
             classpath_jars_tag,
             used_classes_json_outputs,
             used_jars_json_output,
-            abi_to_abi_dir_map,
             uses_content_based_paths,
         )
 

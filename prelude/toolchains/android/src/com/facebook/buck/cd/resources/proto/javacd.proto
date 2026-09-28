@@ -72,6 +72,10 @@ message BaseJarCommand {
   reserved 20;
   reserved "pathToClasses";
   string annotationsPath = 23;
+  // Alternating ABI jar and directory paths, in classpath order. An empty
+  // directory keeps jar-level dep-file tracking. Mutually exclusive with
+  // compileTimeClasspathPaths.
+  repeated string compileTimeClasspathAbiAndDirPaths = 24;
 }
 
 enum AbiGenerationMode {
