@@ -256,9 +256,7 @@ impl ReDirectorySerializer {
 }
 
 fn proto_serialize<M: prost::Message>(m: &M) -> Vec<u8> {
-    let mut serialized_buf = Vec::new();
-    m.encode(&mut serialized_buf).unwrap();
-    serialized_buf
+    m.encode_to_vec()
 }
 
 impl DirectoryDigester<ActionDirectoryMember, TrackedFileDigest> for ReDirectorySerializer {
