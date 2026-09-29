@@ -23,7 +23,9 @@ async def test_docs_agent_prints_agent_context_schema(buck: Buck) -> None:
 
 # Rules
 
-ALWAYS pass `--agent-context key=value` to every `buck2` or `buck` invocation, following the repository-defined schema below. For multiple entries, repeat the flag: `--agent-context key1=value1 --agent-context key2=value2`.
+ALWAYS pass `--agent-context direct_call=true` for every `buck2` or `buck` command you invoke directly.
+
+Also provide `--agent-context key=value` entries following the repository-defined schema below. For multiple entries, repeat the flag: `--agent-context direct_call=true --agent-context key=value`.
 
 # `--agent-context` schema
 
