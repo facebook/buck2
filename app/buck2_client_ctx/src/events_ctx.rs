@@ -535,6 +535,19 @@ impl EventsCtx {
         .await
     }
 
+    /// Records and displays a client event through the same subscribers as daemon events.
+    pub async fn instant_event(
+        &mut self,
+        trace_id: TraceId,
+        data: impl Into<buck2_data::instant_event::Data>,
+    ) -> buck2_error::Result<()> {
+        let instant = buck2_data::InstantEvent {
+            data: Some(data.into()),
+        };
+        let event = BuckEvent::new(SystemTime::now(), trace_id, None, None, instant.into());
+        self.handle_events(vec![event], &mut None).await
+    }
+
     async fn handle_events(
         &mut self,
         events: Vec<BuckEvent>,

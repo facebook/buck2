@@ -441,6 +441,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::MaterializeCopyMissingFile => rank!(tier0),
 
         // Input errors
+        ErrorTag::AgentAdviceBlocked => rank!(input),
         ErrorTag::ClapMatch => rank!(input),
         ErrorTag::CopyOutputs => rank!(input),
         ErrorTag::ReFailedPrecondition => rank!(input),

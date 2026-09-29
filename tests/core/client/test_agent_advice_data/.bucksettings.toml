@@ -1,0 +1,6 @@
+[agent_advice]
+build_intent_mode = "block"
+build_intent_message = '''
+Choose check, test, or build.
+Continue building when artifacts or linking are needed.
+'''

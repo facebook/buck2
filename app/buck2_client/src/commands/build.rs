@@ -47,6 +47,7 @@ use dupe::Dupe;
 use crate::commands::build::out::copy_to_out;
 use crate::print::PrintOutputs;
 
+mod advice;
 mod out;
 
 #[derive(Debug, clap::Parser)]
@@ -241,6 +242,7 @@ impl StreamingCommand for BuildCommand {
         ctx: &mut ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
+        advice::check_build_intent(&self.patterns, ctx, events_ctx).await?;
         let context = ctx.client_context(matches, &self)?;
 
         let result = buckd

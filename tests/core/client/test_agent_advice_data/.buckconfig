@@ -1,0 +1,16 @@
+[repositories]
+    root = .
+[repository_aliases]
+    prelude = root
+[buildfile]
+    name = TARGETS.fixture
+[buck2]
+    materializations = deferred
+
+[agent_context]
+    enforced_clients = test_enforced_client
+[agent_context#intent]
+    required = true
+    values = build|test
+[agent_context#attempt]
+    required = true

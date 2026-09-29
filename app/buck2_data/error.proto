@@ -462,6 +462,9 @@ enum ErrorTag {
   // A `SubscriptionRequest` read from the client's stdin had no request set
   SUBSCRIPTION_EMPTY_REQUEST = 25000;
 
+  // The agent must reconsider or acknowledge advice before the command runs.
+  AGENT_ADVICE_BLOCKED = 26000;
+
   // Misc error conversions
   CLAP = 9001;
   CLAP_MATCH = 90011;

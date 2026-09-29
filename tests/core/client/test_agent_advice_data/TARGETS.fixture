@@ -1,0 +1,4 @@
+load(":defs.bzl", "pass_")
+
+pass_(name = "pass")
+pass_(name = "other")
