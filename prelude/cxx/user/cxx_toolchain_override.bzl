@@ -217,6 +217,7 @@ def _cxx_toolchain_override(ctx):
     base_binary_utilities_info = base_toolchain.binary_utilities_info
     binary_utilities_info = BinaryUtilitiesInfo(
         bolt = _pick_bin(ctx.attrs.bolt, base_binary_utilities_info.bolt),
+        elf_stamp = _pick_bin(ctx.attrs.elf_stamp, base_binary_utilities_info.elf_stamp),
         nm = _pick_bin(ctx.attrs.nm, base_binary_utilities_info.nm),
         objcopy = _pick_bin(ctx.attrs.objcopy, base_binary_utilities_info.objcopy),
         objdump = _pick_bin(ctx.attrs.objdump, base_binary_utilities_info.objdump),
@@ -305,6 +306,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "cxx_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "cxx_preprocessor_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "dwp": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "elf_stamp": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "force_full_hybrid_if_capable": attrs.option(attrs.bool(), default = None),
         "generate_gc_sections": attrs.option(attrs.bool(), default = None),
         "generate_linker_maps": attrs.option(attrs.bool(), default = None),

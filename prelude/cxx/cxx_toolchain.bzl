@@ -248,6 +248,7 @@ def cxx_toolchain_impl(ctx):
     utilities_info = BinaryUtilitiesInfo(
         bolt = ctx.attrs.bolt[RunInfo] if ctx.attrs.bolt else None,
         custom_tools = {name: dep[RunInfo] for name, dep in ctx.attrs.custom_tools.items()},
+        elf_stamp = ctx.attrs.elf_stamp[RunInfo] if ctx.attrs.elf_stamp else None,
         nm = ctx.attrs.nm[RunInfo],
         objcopy = ctx.attrs.objcopy_for_shared_library_interface[RunInfo],
         objdump = ctx.attrs.objdump[RunInfo] if ctx.attrs.objdump else None,
@@ -340,6 +341,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "cxx_compiler": dep_type(providers = [RunInfo]),
         "default_deps": attrs.list(dep_type(), default = []),
         "dwp": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "elf_stamp": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "gcno_files": attrs.bool(default = False),
         "generate_gc_sections": attrs.bool(default = False),
         "generate_linker_maps": attrs.bool(default = False),

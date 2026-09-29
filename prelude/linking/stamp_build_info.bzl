@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_is_gnu",
@@ -76,11 +77,41 @@ def stamp_build_info(
             name = stem.removesuffix(PRE_STAMPED_SUFFIX) if stem.endswith(PRE_STAMPED_SUFFIX) else stem + "-stamped"
             stamped_output = ctx.actions.declare_output(name + ext, has_content_based_path = has_content_based_path)
 
-        return add_elf_sections(
-            ctx,
+        toolchain = get_cxx_toolchain_info(ctx)
+
+        # elf_stamp adds the section itself when the link did not reserve
+        # one, so stamping has no link-side prerequisites. Exec-platform
+        # toolchains omit elf_stamp (to break the toolchain -> elf_stamp ->
+        # toolchain cycle); objcopy adds the section there instead.
+        elf_stamp = toolchain.binary_utilities_info.elf_stamp
+        if not elf_stamp:
+            return add_elf_sections(
+                ctx,
+                obj,
+                {"fb_build_info": build_info_json},
+                stamped_output,
+                category = "stamp_build_info",
+            )
+
+        cmd = cmd_args([
+            elf_stamp,
+            "--section",
+            cmd_args(build_info_json, format = "fb_build_info={}"),
             obj,
-            {"fb_build_info": build_info_json},
-            stamped_output,
+            stamped_output.as_output(),
+        ])
+
+        # This can be run remotely, but it's often cheaper to do this locally for large
+        # binaries, especially on CI using limited hybrid
+        prefer_local = not getattr(ctx.attrs, "optimize_for_action_throughput", False)
+
+        ctx.actions.run(
+            cmd,
+            identifier = obj.short_path,
             category = "stamp_build_info",
+            prefer_local = prefer_local,
+            prefer_remote = not prefer_local,
+            allow_cache_upload = toolchain.cxx_compiler_info.allow_cache_upload,
         )
+        return stamped_output
     return obj

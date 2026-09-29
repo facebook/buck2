@@ -281,7 +281,10 @@ def link(
         )
     )
 
-    # stamp only executable targets
+    # Stamp only executable targets. An internal link never runs the ld
+    # wrapper, so there is no fb_build_info placeholder and the stamper adds
+    # the section; an external link runs the wrapper, which reserves the
+    # placeholder when the rule stamps.
     if build_mode in [GoBuildMode("exe"), GoBuildMode("pie")]:
         output = stamp_build_info(ctx, output, has_content_based_path = True)
 

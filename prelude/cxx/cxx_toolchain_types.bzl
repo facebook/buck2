@@ -103,6 +103,7 @@ BinaryUtilitiesInfo = provider(
         "bolt": provider_field(typing.Any, default = None),
         "custom_tools": provider_field(dict[str, RunInfo], default = {}),
         "dwp": provider_field(typing.Any, default = None),
+        "elf_stamp": provider_field([RunInfo, None], default = None),
         "nm": provider_field(typing.Any, default = None),
         "objcopy": provider_field(typing.Any, default = None),
         "objdump": provider_field(typing.Any, default = None),
