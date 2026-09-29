@@ -82,6 +82,50 @@ impl<T: Clone> SettingKey<T> {
     }
 }
 
+/// Applies to direct agent build requests; acknowledgement is handled per invocation.
+#[derive(
+    Allocative,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq
+)]
+#[serde(rename_all = "snake_case")]
+pub enum BuildIntentMode {
+    #[default]
+    Off,
+    Warn,
+    Block,
+}
+
+const AGENT_ADVICE_BUILD_INTENT_MODE: SettingKey<BuildIntentMode> = SettingKey {
+    metadata: SettingKeyMetadata {
+        key: SettingKeyRef {
+            section: "agent_advice",
+            name: "build_intent_mode",
+        },
+        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+    },
+    internal_default: Some(BuildIntentMode::Off),
+    oss_default: Some(BuildIntentMode::Off),
+};
+
+const AGENT_ADVICE_BUILD_INTENT_MESSAGE: SettingKey<&'static str> = SettingKey {
+    metadata: SettingKeyMetadata {
+        key: SettingKeyRef {
+            section: "agent_advice",
+            name: "build_intent_message",
+        },
+        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+    },
+    internal_default: None,
+    oss_default: None,
+};
+
 const LOG_URL: SettingKey<&'static str> = SettingKey {
     metadata: SettingKeyMetadata {
         key: SettingKeyRef {
@@ -165,6 +209,8 @@ const HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE: SettingKey<PageOutOnIdleIs
     };
 
 pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
+    AGENT_ADVICE_BUILD_INTENT_MODE.metadata,
+    AGENT_ADVICE_BUILD_INTENT_MESSAGE.metadata,
     HYDRATION_ENABLE_PAGING.metadata,
     HYDRATION_PAGE_OUT_ON_IDLE.metadata,
     HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE.metadata,
@@ -175,14 +221,24 @@ pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
     not(fbcode_build),
     expect(dead_code, reason = "Settings rollouts are internal-only")
 )]
-pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] =
-    &[HydrationSection::METADATA, LogDownloadSection::METADATA];
+pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
+    AgentAdviceSection::METADATA,
+    HydrationSection::METADATA,
+    LogDownloadSection::METADATA,
+];
 
 pub(crate) fn find_setting_metadata<'a>(
     metadata: &'a [SettingKeyMetadata],
     key: SettingKeyRef<'_>,
 ) -> Option<&'a SettingKeyMetadata> {
     metadata.iter().find(|metadata| metadata.key == key)
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
+#[serde(deny_unknown_fields)]
+struct AgentAdviceSectionData {
+    build_intent_mode: Option<BuildIntentMode>,
+    build_intent_message: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
@@ -204,9 +260,47 @@ struct HydrationSectionData {
 #[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
     #[serde(default)]
+    agent_advice: AgentAdviceSectionData,
+    #[serde(default)]
     hydration: HydrationSectionData,
     #[serde(default)]
     log_download: LogDownloadSectionData,
+}
+
+/// Settings controlling advice for direct agent builds.
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Allocative
+)]
+#[serde(transparent)]
+pub struct AgentAdviceSection(Arc<AgentAdviceSectionData>);
+
+impl AgentAdviceSection {
+    /// Bump when the section's settings schema or semantics change.
+    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
+        section_name: "agent_advice",
+        section_version: 0,
+    };
+
+    pub fn build_intent_mode(&self) -> BuildIntentMode {
+        AGENT_ADVICE_BUILD_INTENT_MODE
+            .resolve(self.0.build_intent_mode)
+            .expect("Build intent mode should have a default")
+    }
+
+    pub fn build_intent_message(&self) -> Option<&str> {
+        self.0
+            .build_intent_message
+            .as_deref()
+            .or_else(|| AGENT_ADVICE_BUILD_INTENT_MESSAGE.default_value())
+    }
 }
 
 /// Settings controlling hydration/paging behavior.
@@ -294,6 +388,8 @@ impl LogDownloadSection {
 #[serde(deny_unknown_fields)]
 pub struct BuckSettings {
     #[serde(default)]
+    pub agent_advice: AgentAdviceSection,
+    #[serde(default)]
     pub hydration: HydrationSection,
     #[serde(default)]
     pub log_download: LogDownloadSection,
@@ -302,6 +398,7 @@ pub struct BuckSettings {
 impl From<BuckSettingsData> for BuckSettings {
     fn from(data: BuckSettingsData) -> Self {
         Self {
+            agent_advice: AgentAdviceSection(Arc::new(data.agent_advice)),
             hydration: HydrationSection(Arc::new(data.hydration)),
             log_download: LogDownloadSection(Arc::new(data.log_download)),
         }
@@ -345,6 +442,59 @@ mod tests {
     use super::*;
     use crate::settings::parser::resolve_setting_flags;
     use crate::settings::parser::table;
+
+    #[test]
+    fn test_default_agent_advice() {
+        let advice = BuckSettings::empty().agent_advice;
+        assert_eq!(advice.build_intent_mode(), BuildIntentMode::Off);
+        assert_eq!(advice.build_intent_message(), None);
+    }
+
+    #[test]
+    fn test_build_intent_modes() -> buck2_error::Result<()> {
+        for (name, expected) in [
+            ("off", BuildIntentMode::Off),
+            ("warn", BuildIntentMode::Warn),
+            ("block", BuildIntentMode::Block),
+        ] {
+            let settings = resolve_setting_flags(vec![table(&format!(
+                "[agent_advice]\nbuild_intent_mode = \"{name}\""
+            ))])?;
+            assert_eq!(settings.agent_advice.build_intent_mode(), expected);
+            assert_eq!(settings.agent_advice.build_intent_message(), None);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_build_intent_multiline_message() -> buck2_error::Result<()> {
+        let settings = resolve_setting_flags(vec![table(
+            r#"[agent_advice]
+build_intent_mode = "warn"
+build_intent_message = """
+Use check for compilation-only validation.
+Use test to execute tests.
+"""
+"#,
+        )])?;
+        assert_eq!(
+            settings.agent_advice.build_intent_message(),
+            Some("Use check for compilation-only validation.\nUse test to execute tests.\n")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_agent_advice_settings() {
+        for invalid in [
+            "build_intent_mode = \"ask\"",
+            "build_intent_mode = true",
+            "build_intent_message = 123",
+        ] {
+            resolve_setting_flags(vec![table(&format!("[agent_advice]\n{invalid}"))])
+                .expect_err("Agent advice settings must match the typed schema");
+        }
+    }
 
     #[test]
     fn test_default_log_use_manifold() {
