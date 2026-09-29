@@ -10,7 +10,6 @@
 
 
 import json
-import os
 import platform
 import re
 import sys
@@ -20,10 +19,15 @@ from typing import List
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.assert_occurrences import (
     assert_occurrences,
     assert_occurrences_regex,
+)
+from buck2.tests.e2e_util.helper.http_server import (
+    download_configs,
+    sha1_hex,
+    StaticHttpServer,
 )
 from buck2.tests.e2e_util.helper.utils import random_string, read_what_ran
 
@@ -385,30 +389,71 @@ async def test_toolchain_deps(buck: Buck) -> None:
         "SHA256",
     ],
 )
-async def test_http_deferral(buck: Buck, digest_algorithm: str) -> None:
+async def test_download_file_fetches_once_across_restarts(
+    buck: Buck, digest_algorithm: str
+) -> None:
     with open(buck.cwd / ".buckconfig", "a") as f:
         f.write("[buck2]\n")
         f.write(f"digest_algorithms = {digest_algorithm}\n")
+        f.write("sqlite_materializer_state = true\n")
 
-    target = "//:download"
+    content = random_string().encode()
+    async with StaticHttpServer({"/file": content}) as server:
+        configs = download_configs(server.url("/file"), content)
+        target = "//:download"
 
-    # Check it was deferred
-    res = await buck.build(target, "--materializations=none")
-    output = res.get_build_report().output_for_target(target)
-    assert not os.path.exists(output)
+        res = await buck.build(target, *configs)
+        output = res.get_build_report().output_for_target(target)
+        assert output.read_bytes() == content
+        assert server.count("GET", "/file") == 1
 
-    # Check it can be materialized
-    res = await buck.build(target)
-    assert os.path.exists(output)
+        # The file is still on disk, so a new daemon has no reason to fetch it again.
+        await buck.kill()
+        await buck.build(target, *configs)
+        assert output.read_bytes() == content
+        assert server.count("GET", "/file") == 1
 
 
 @buck_test(inplace=False, data_dir="http_deferral")
-@env(
-    "BUCK2_TEST_INJECTED_MISSING_DIGESTS",
-    "1a45666759704bf08fc670aa96118a0415c470fc:221",
-)
-async def test_http_deferral_uploads(buck: Buck) -> None:
-    await buck.build("//:target", "--no-remote-cache")
+async def test_download_file_is_uploaded_from_disk(buck: Buck) -> None:
+    content = random_string().encode()
+    # Force the uploader to treat the download as missing from the CAS even if it is there.
+    buck.set_env(
+        "BUCK2_TEST_INJECTED_MISSING_DIGESTS",
+        f"{sha1_hex(content)}:{len(content)}",
+    )
+    async with StaticHttpServer({"/file": content}) as server:
+        await buck.build(
+            "//:target",
+            "--remote-only",
+            "--no-remote-cache",
+            *download_configs(server.url("/file"), content),
+        )
+        assert server.count("GET", "/file") == 1
+
+
+@buck_test(inplace=False, data_dir="http_deferral")
+async def test_download_file_uses_cas_when_present(buck: Buck) -> None:
+    content = random_string().encode()
+    async with StaticHttpServer({"/file": content}) as server:
+        configs = download_configs(server.url("/file"), content)
+
+        # Running an RE action on the download uploads its content to the CAS.
+        await buck.build("//:target", "--remote-only", "--no-remote-cache", *configs)
+        assert server.count("GET", "/file") == 1
+
+        # A second download of the same content finds it in the CAS, so it neither contacts
+        # the server nor touches the disk until something needs the file...
+        target = "//:download_again"
+        res = await buck.build(target, "--materializations=none", *configs)
+        output = res.get_build_report().output_for_target(target)
+        assert not output.exists()
+        assert server.count("GET", "/file") == 1
+
+        # ...and then it comes out of the CAS.
+        await buck.build(target, *configs)
+        assert output.read_bytes() == content
+        assert server.count("GET", "/file") == 1
 
 
 @buck_test(inplace=False, data_dir="no_output")

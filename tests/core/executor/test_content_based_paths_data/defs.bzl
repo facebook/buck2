@@ -315,8 +315,8 @@ def _download_with_content_based_path_impl(ctx: AnalysisContext):
         sha1 = "1a45666759704bf08fc670aa96118a0415c470fc"
         dummy_sha_256 = None
     else:
-        # sha256 is not actually supported for deferrable downloads, but we do need to provide either a sha1 or a sha256.
-        # So, this causes us to fall into the "non-deferrable" code path, which is what we want.
+        # The digest config only accepts sha1 here, so a sha256 alone gives the action no usable
+        # digest, which is the path this case wants to exercise.
         sha1 = None
         dummy_sha_256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 

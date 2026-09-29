@@ -10,7 +10,6 @@
 
 
 import asyncio
-import hashlib
 import json
 import os
 import platform
@@ -21,7 +20,8 @@ from aiohttp import web
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import filter_events
+from buck2.tests.e2e_util.helper.http_server import sha1_hex, StaticHttpServer
+from buck2.tests.e2e_util.helper.utils import filter_events, random_string
 
 # Taken from the ActionExecutionKind enum in data.proto.
 ACTION_EXECUTION_KIND_LOCAL = 1
@@ -279,8 +279,9 @@ async def test_download_file(buck: Buck) -> None:
     routes = web.RouteTableDef()
 
     attempt = 0
-    body: bytes = b"foobar"
-    sha1 = hashlib.sha1(body).hexdigest()
+    # Fresh content, so the CAS cannot already have it and the download really happens.
+    body: bytes = random_string().encode()
+    sha1 = sha1_hex(body)
 
     @routes.get("/")
     async def hello(request: web.Request) -> web.Response:
@@ -311,15 +312,51 @@ async def test_download_file(buck: Buck) -> None:
 
     await runner.cleanup()
 
+    # HEAD, then the GET's two retried errors and its success.
     assert attempt == 4
+
+
+@buck_test(data_dir="actions")
+async def test_download_file_without_head_support(buck: Buck) -> None:
+    content = random_string().encode()
+    async with StaticHttpServer({"/file": content}, allow_head=False) as server:
+        result = await buck.build(
+            "//download_file:",
+            "-c",
+            f"test.sha1={sha1_hex(content)}",
+            "-c",
+            f"test.url={server.url('/file')}",
+        )
+        output = result.get_build_report().output_for_target("//download_file:test")
+        assert output.read_bytes() == content
+        assert server.count("HEAD", "/file") == 1
+        assert server.count("GET", "/file") == 1
+
+
+@buck_test(data_dir="actions")
+async def test_download_file_wrong_size(buck: Buck) -> None:
+    content = random_string().encode()
+    async with StaticHttpServer({"/file": content}) as server:
+        await expect_failure(
+            buck.build(
+                "//download_file:",
+                "-c",
+                f"test.sha1={sha1_hex(content)}",
+                "-c",
+                f"test.url={server.url('/file')}",
+                "-c",
+                f"test.size_bytes={len(content) + 1}",
+            ),
+            stderr_regex=f"Downloaded size \\({len(content)}\\) does not match expected size \\({len(content) + 1}\\)",
+        )
 
 
 @buck_test(data_dir="actions")
 async def test_download_file_timeout_after_retries(buck: Buck) -> None:
     routes = web.RouteTableDef()
 
-    body: bytes = b"foobar"
-    sha1 = hashlib.sha1(body).hexdigest()
+    body: bytes = random_string().encode()
+    sha1 = sha1_hex(body)
 
     @routes.get("/always_times_out")
     async def always_times_out(request: web.Request) -> web.Response:
