@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::any::Any;
 use std::fmt;
 use std::sync::Arc;
 
@@ -132,9 +133,13 @@ pub struct DeclareArtifactPayload {
     pub artifact: ArtifactValue,
 }
 
+/// Why a materialization is requested. Final outputs are accounted separately by clean-stale
+/// (they stay on disk longer). A final output that is not `required` may be skipped altogether
+/// when the daemon runs with `materializations = deferred_skip_final_artifacts`; a skipped
+/// artifact reports success without being put on disk.
 #[derive(Clone, Copy, Debug, Dupe, Eq, PartialEq)]
 pub enum MaterializationPurpose {
-    FinalOutput,
+    FinalOutput { required: bool },
     IntermediateOnly,
 }
 
@@ -147,6 +152,57 @@ impl MaterializerBackgroundCleanupGuard {
         Self {
             _guard: Box::new(guard),
         }
+    }
+}
+
+/// What a consumer asks the materializer to put on disk.
+pub struct MaterializeRequest {
+    /// Each value is materialized at its path. The exhaustiveness markings inside a value are
+    /// honored; the paths themselves say nothing about their parents, which are left alone.
+    pub artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+    pub purpose: MaterializationPurpose,
+    /// Attributed with any CAS traffic this request causes.
+    pub re_use_case: RemoteExecutorUseCase,
+}
+
+#[must_use = "check the per-artifact results and hold the lease while reading the paths"]
+pub struct MaterializeResponse {
+    /// One per requested artifact, in request order.
+    pub results: Vec<Result<(), MaterializationError>>,
+    pub lease: ReadLease,
+}
+
+impl MaterializeResponse {
+    /// The lease once every artifact materialized, else the first error. Callers that can make
+    /// progress with some of the artifacts missing look at `results` instead.
+    pub fn ensure_results_ok(self) -> Result<ReadLease, MaterializationError> {
+        for result in self.results {
+            result?;
+        }
+        Ok(self.lease)
+    }
+}
+
+/// Held by the caller of [`Materializer::materialize`] for as long as it reads the paths that
+/// request put on disk. Holding it tells the materializer those paths are in use, and an
+/// implementation may hold off conflicting writes until it is dropped. The deferred
+/// materializer does not, so today the guard only fixes the scope callers hold it over.
+#[must_use = "hold the lease while reading the materialized paths"]
+pub struct ReadLease {
+    /// Released on drop; carries whatever an implementation needs to release.
+    _guard: Option<Box<dyn Any + Send + Sync>>,
+}
+
+impl ReadLease {
+    /// A lease no implementation acts on.
+    pub fn noop() -> Self {
+        Self { _guard: None }
+    }
+}
+
+impl fmt::Debug for ReadLease {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("ReadLease")
     }
 }
 
@@ -187,6 +243,14 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         &self,
         artifacts: Vec<DeclareArtifactPayload>,
     ) -> buck2_error::Result<()>;
+
+    /// Puts the requested artifacts on disk at their paths and reports one result per artifact.
+    /// This is how consumers (local actions reading their inputs, final materialization) ask for
+    /// content; the `declare_*` methods remain for producers.
+    async fn materialize(
+        &self,
+        request: MaterializeRequest,
+    ) -> buck2_error::Result<MaterializeResponse>;
 
     async fn declare_copy_impl(
         &self,

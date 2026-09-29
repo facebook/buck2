@@ -1150,7 +1150,7 @@ mod state_machine {
             let (sender, receiver) = oneshot::channel();
             dm.testing_process_one_command(MaterializerCommand::Ensure(
                 vec![symlink_path.clone()],
-                MaterializationPurpose::FinalOutput,
+                MaterializationPurpose::FinalOutput { required: true },
                 EventDispatcher::null(),
                 None,
                 sender,
@@ -2338,6 +2338,132 @@ mod state_machine {
             assert_eq!(returned_path, nonexistent);
             assert!(matches!(returned_entry, ActionDirectoryEntry::Dir(_)));
 
+            Ok(())
+        })
+        .await
+    }
+
+    fn file_value(digest_config: DigestConfig, content: &[u8]) -> ArtifactValue {
+        ArtifactValue::file(FileMetadata {
+            digest: TrackedFileDigest::from_content(content, digest_config.cas_digest_config()),
+            is_executable: false,
+        })
+    }
+
+    fn request(
+        artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        purpose: MaterializationPurpose,
+    ) -> MaterializeRequest {
+        MaterializeRequest {
+            artifacts,
+            purpose,
+            re_use_case: RemoteExecutorUseCase::buck2_default(),
+        }
+    }
+
+    #[tokio::test]
+    async fn materialize_request_yields_one_result_per_path_in_order() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let io = Arc::new(StubIoHandler::new(temp_root()));
+            let digest_config = io.digest_config();
+            let (dm, _events) = make_materializer(io.dupe(), None).await;
+
+            let existing = make_path("foo/existing");
+            let existing_value = file_value(digest_config, b"existing");
+            dm.declare_existing(vec![DeclareArtifactPayload {
+                path: existing.clone(),
+                artifact: existing_value.dupe(),
+            }])
+            .await?;
+
+            let remote = make_path("foo/remote");
+            let remote_value = file_value(digest_config, b"remote");
+            let materializer: &dyn Materializer = &dm;
+            materializer
+                .declare_cas_many(
+                    Arc::new(CasDownloadInfo::new_declared(
+                        RemoteExecutorUseCase::buck2_default(),
+                    )),
+                    vec![DeclareArtifactPayload {
+                        path: remote.clone(),
+                        artifact: remote_value.dupe(),
+                    }],
+                )
+                .await?;
+
+            // Nothing declared this one; this materializer takes it to be on disk already.
+            let undeclared = make_path("foo/undeclared");
+
+            let response = dm
+                .materialize(request(
+                    vec![
+                        (remote.clone(), remote_value),
+                        (existing.clone(), existing_value),
+                        (undeclared, file_value(digest_config, b"undeclared")),
+                    ],
+                    MaterializationPurpose::IntermediateOnly,
+                ))
+                .await?;
+            assert_eq!(response.results.len(), 3);
+            drop(response.ensure_results_ok()?);
+
+            // Only the CAS-declared path had anything to do; the request declared nothing.
+            assert_eq!(
+                io.take_log(),
+                vec![(Op::Clean, remote.clone()), (Op::Materialize, remote)]
+            );
+            dm.abort();
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn materialize_request_skips_unrequired_final_outputs_when_configured()
+    -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let io = Arc::new(StubIoHandler::new(temp_root()));
+            let digest_config = io.digest_config();
+            let (mut dm, _events) = make_materializer(io.dupe(), None).await;
+            dm.materialize_final_artifacts = false;
+
+            let path = make_path("foo/final");
+            let value = file_value(digest_config, b"final");
+            let materializer: &dyn Materializer = &dm;
+            materializer
+                .declare_cas_many(
+                    Arc::new(CasDownloadInfo::new_declared(
+                        RemoteExecutorUseCase::buck2_default(),
+                    )),
+                    vec![DeclareArtifactPayload {
+                        path: path.clone(),
+                        artifact: value.dupe(),
+                    }],
+                )
+                .await?;
+
+            let response = dm
+                .materialize(request(
+                    vec![(path.clone(), value.dupe())],
+                    MaterializationPurpose::FinalOutput { required: false },
+                ))
+                .await?;
+            assert_eq!(response.results.len(), 1);
+
+            let response = dm
+                .materialize(request(
+                    vec![(path.clone(), value)],
+                    MaterializationPurpose::FinalOutput { required: true },
+                ))
+                .await?;
+            drop(response.ensure_results_ok()?);
+            // One clean from the declare and one materialization from the required request: the
+            // skipped request touched nothing.
+            assert_eq!(
+                io.take_log(),
+                vec![(Op::Clean, path.clone()), (Op::Materialize, path)]
+            );
+            dm.abort();
             Ok(())
         })
         .await
