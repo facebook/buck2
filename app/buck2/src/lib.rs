@@ -93,6 +93,8 @@ fn parse_isolation_dir(s: &str) -> buck2_error::Result<FileNameBuf> {
     FileNameBuf::try_from(s.to_owned()).buck_error_context("isolation dir must be a directory name")
 }
 
+const AGENT_CONTEXT_ARG_ID: &str = "agent_context";
+
 /// Options of `buck2` command, before subcommand.
 #[derive(Clone, Debug, clap::Parser)]
 #[clap(next_help_heading = "Universal Options")]
@@ -159,7 +161,13 @@ struct BeforeSubcommandOptions {
     /// Examples:
     ///   --agent-context intent=fix,attempt=2,prior_error=missing_target
     ///   --agent-context intent=build --agent-context attempt=1
-    #[clap(long, global = true, value_delimiter = ',', value_parser = buck_error_clap_parser(parse_agent_context))]
+    #[clap(
+        id = AGENT_CONTEXT_ARG_ID,
+        long = "agent-context",
+        value_name = "AGENT_CONTEXT",
+        value_delimiter = ',',
+        value_parser = buck_error_clap_parser(parse_agent_context)
+    )]
     agent_context: Vec<AgentContextEntry>,
 
     /// Do not launch a daemon process, run buck server in client process.
@@ -206,6 +214,35 @@ pub(crate) struct Opt {
 }
 
 impl Opt {
+    fn clap_command() -> clap::Command {
+        // Clap replaces a global argument's entire value list at subcommand boundaries.
+        // Local registrations preserve independently supplied entries for from_clap_matches.
+        let command = Self::command();
+        let agent_context = command
+            .get_arguments()
+            .find(|arg| arg.get_id() == AGENT_CONTEXT_ARG_ID)
+            .expect("agent_context is declared in BeforeSubcommandOptions")
+            .clone();
+
+        fn add_to_subcommands(command: clap::Command, arg: &clap::Arg) -> clap::Command {
+            command
+                .mut_subcommands(|subcommand| add_to_subcommands(subcommand.arg(arg.clone()), arg))
+        }
+
+        add_to_subcommands(command, &agent_context)
+    }
+
+    fn from_clap_matches(mut matches: &clap::ArgMatches) -> Result<Self, clap::Error> {
+        let mut opt = Self::from_arg_matches(matches)?;
+        while let Some((_, subcommand)) = matches.subcommand() {
+            if let Some(entries) = subcommand.get_many::<AgentContextEntry>(AGENT_CONTEXT_ARG_ID) {
+                opt.common_opts.agent_context.extend(entries.cloned());
+            }
+            matches = subcommand;
+        }
+        Ok(opt)
+    }
+
     pub(crate) fn exec(
         self,
         process: ProcessContext<'_>,
@@ -242,7 +279,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
         expanded_argv: expanded_args,
     };
 
-    let clap = Opt::command();
+    let clap = Opt::clap_command();
     let matches = match clap.try_get_matches_from(argv.expanded_argv.args()) {
         Ok(matches) => matches,
         Err(e) => {
@@ -334,7 +371,7 @@ struct ParsedArgv {
 
 impl ParsedArgv {
     fn parse(argv: Argv, matches: clap::ArgMatches) -> buck2_error::Result<Self> {
-        let opt: Opt = Opt::from_arg_matches(&matches)?;
+        let opt = Opt::from_clap_matches(&matches)?;
 
         if opt.common_opts.help_wrapper {
             return Err(buck2_error!(
@@ -584,8 +621,10 @@ impl CommandKind {
             CommandKind::Uquery(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Debug(cmd) => cmd.exec(matches, command_ctx, events_ctx),
             CommandKind::Complete(cmd) => cmd.exec(matches, command_ctx, events_ctx),
-            CommandKind::Completion(cmd) => cmd.exec(Opt::command(), matches, command_ctx),
-            CommandKind::Docs(cmd) => cmd.exec(Opt::command(), matches, command_ctx, events_ctx),
+            CommandKind::Completion(cmd) => cmd.exec(Opt::clap_command(), matches, command_ctx),
+            CommandKind::Docs(cmd) => {
+                cmd.exec(Opt::clap_command(), matches, command_ctx, events_ctx)
+            }
             CommandKind::Profile(cmd) => cmd.exec(matches, command_ctx, events_ctx),
             CommandKind::Rage(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Init(cmd) => cmd.exec(matches, command_ctx),
@@ -641,5 +680,129 @@ impl CommandKind {
             CommandKind::Subscribe(cmd) => cmd.logging_name(),
             CommandKind::ExpandExternalCell(cmd) => cmd.logging_name(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn agent_context(args: &[&str]) -> Vec<AgentContextEntry> {
+        let matches = Opt::clap_command()
+            .try_get_matches_from(std::iter::once("buck2").chain(args.iter().copied()))
+            .expect("test arguments should parse");
+        Opt::from_clap_matches(&matches)
+            .expect("test arguments should construct Opt")
+            .common_opts
+            .agent_context
+    }
+
+    fn entries(values: &[&str]) -> Vec<AgentContextEntry> {
+        values
+            .iter()
+            .map(|value| parse_agent_context(value).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn agent_context_accumulates_across_subcommand() {
+        for args in [
+            [
+                "--agent-context",
+                "direct_call=true",
+                "--agent-context",
+                "reason=verify",
+                "build",
+                "//foo:bar",
+            ],
+            [
+                "build",
+                "//foo:bar",
+                "--agent-context",
+                "direct_call=true",
+                "--agent-context",
+                "reason=verify",
+            ],
+            [
+                "--agent-context",
+                "direct_call=true",
+                "build",
+                "//foo:bar",
+                "--agent-context",
+                "reason=verify",
+            ],
+        ] {
+            assert_eq!(
+                agent_context(&args),
+                entries(&["direct_call=true", "reason=verify"])
+            );
+        }
+    }
+
+    #[test]
+    fn agent_context_preserves_nested_and_repeated_entries() {
+        assert_eq!(
+            agent_context(&[
+                "--agent-context=reason=outer",
+                "docs",
+                "--agent-context=reason=middle",
+                "agent",
+                "--agent-context=reason=inner",
+            ]),
+            entries(&["reason=outer", "reason=middle", "reason=inner"]),
+        );
+    }
+
+    #[test]
+    fn agent_context_preserves_comma_separated_entries() {
+        assert_eq!(
+            agent_context(&[
+                "--agent-context=direct_call=true,advice_ack=build_intent",
+                "build",
+                "//foo:bar",
+                "--agent-context",
+                "direct_call=false,advice_ack=other",
+            ]),
+            entries(&[
+                "direct_call=true",
+                "advice_ack=build_intent",
+                "direct_call=false",
+                "advice_ack=other",
+            ]),
+        );
+    }
+
+    #[test]
+    fn agent_context_excludes_arguments_after_separator() {
+        for command in ["run", "test"] {
+            assert_eq!(
+                agent_context(&[
+                    "--agent-context",
+                    "direct_call=true",
+                    command,
+                    "//foo:bar",
+                    "--",
+                    "--agent-context",
+                    "direct_call=false",
+                ]),
+                entries(&["direct_call=true"]),
+            );
+        }
+    }
+
+    #[test]
+    fn agent_context_excludes_implicit_run_arguments() {
+        assert_eq!(
+            agent_context(&[
+                "--agent-context",
+                "direct_call=true",
+                "run",
+                "//foo:bar",
+                "program-arg",
+                "--agent-context",
+                "direct_call=false",
+            ]),
+            entries(&["direct_call=true"]),
+        );
     }
 }

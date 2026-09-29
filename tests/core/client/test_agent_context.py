@@ -184,6 +184,25 @@ async def test_agent_context_invalid_key_format(buck: Buck) -> None:
 
 
 @buck_test(write_invocation_record=True)
+async def test_agent_context_argfile_before_subcommand(buck: Buck) -> None:
+    (buck.cwd / "context.args").write_text("--agent-context=intent=build\n")
+    result = await buck.run_buck_command(
+        "@context.args",
+        "--client-metadata",
+        "id=test_enforced_client",
+        "build",
+        "//:pass",
+        "--agent-context",
+        "attempt=1",
+    )
+    context = result.invocation_record()["agent_context"]
+    assert [entry for entry in context if entry["key"] in {"intent", "attempt"}] == [
+        {"key": "intent", "value": "build"},
+        {"key": "attempt", "value": "1"},
+    ]
+
+
+@buck_test(write_invocation_record=True)
 async def test_agent_context_logged_to_invocation_record(buck: Buck) -> None:
     """Agent context should appear in the invocation record."""
     res = await buck.build(
