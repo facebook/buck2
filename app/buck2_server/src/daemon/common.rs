@@ -94,6 +94,11 @@ pub struct CommandExecutorFactory {
     cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
+    /// What every executor handed out attributes its materializer-side CAS traffic to, whatever
+    /// use case its RE work runs under: reading happens for the command, on the machine running
+    /// it, while the RE request and the uploads that feed it belong to the action's executor
+    /// configuration.
+    invocation_re_use_case: RemoteExecutorUseCase,
     memory_tracker: Option<MemoryTrackerHandle>,
     incremental_db_state: Arc<IncrementalDbState>,
     deduplicate_get_digests_ttl_calls: bool,
@@ -120,6 +125,7 @@ impl CommandExecutorFactory {
         materialize_failed_inputs: bool,
         materialize_failed_outputs: bool,
         re_use_case_override: Option<RemoteExecutorUseCase>,
+        invocation_re_use_case: RemoteExecutorUseCase,
         memory_tracker: Option<MemoryTrackerHandle>,
         incremental_db_state: Arc<IncrementalDbState>,
         deduplicate_get_digests_ttl_calls: bool,
@@ -150,6 +156,7 @@ impl CommandExecutorFactory {
             cache_upload_permission_checker,
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
+            invocation_re_use_case,
             memory_tracker,
             incremental_db_state,
             deduplicate_get_digests_ttl_calls,
@@ -206,6 +213,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 worker_pool,
                 self.memory_tracker.dupe(),
                 self.daemon_id.dupe(),
+                self.invocation_re_use_case,
             )
         };
 
@@ -243,6 +251,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 materializer: self.materializer.dupe(),
                 incremental_db_state: self.incremental_db_state.dupe(),
                 re_client: self.get_prepared_re_client(*re_use_case),
+                invocation_re_use_case: self.invocation_re_use_case,
                 re_action_key: re_action_key.clone(),
                 re_max_queue_time: options.re_max_queue_time,
                 re_resource_units: options.re_resource_units,
@@ -311,6 +320,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 materializer: self.materializer.dupe(),
                                 incremental_db_state: self.incremental_db_state.dupe(),
                                 re_client: self.get_prepared_re_client(remote_options.re_use_case),
+                                invocation_re_use_case: self.invocation_re_use_case,
                                 re_action_key: remote_options.re_action_key.clone(),
                                 upload_all_actions: self.upload_all_actions,
                                 knobs: self.executor_global_knobs.dupe(),
@@ -331,6 +341,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 materializer: self.materializer.dupe(),
                                 incremental_db_state: self.incremental_db_state.dupe(),
                                 re_client: self.get_prepared_re_client(remote_options.re_use_case),
+                                invocation_re_use_case: self.invocation_re_use_case,
                                 re_action_key: remote_options.re_action_key.clone(),
                                 upload_all_actions: self.upload_all_actions,
                                 knobs: self.executor_global_knobs.dupe(),
