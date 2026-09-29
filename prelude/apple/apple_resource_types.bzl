@@ -10,6 +10,7 @@ load("@prelude//:artifacts.bzl", "ArtifactOutputs")
 load(":apple_asset_catalog_types.bzl", "AppleAssetCatalogSpec")
 load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
 load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
+load(":xcassets_asset_symbols.bzl", "MetaXcassetsAssetSymbolSpec")
 
 # Represents the values for the `destination` field of `apple_resource`
 #
@@ -52,9 +53,17 @@ CxxResourceSpec = record(
     resources = field(dict[str, ArtifactOutputs], {}),
 )
 
+# A selected asset catalog with the resource-graph target that provided it.
+SelectedAppleAssetCatalogSpec = record(
+    asset_catalog_spec = field(AppleAssetCatalogSpec),
+    xcassets_symbol_spec = field([MetaXcassetsAssetSymbolSpec, None], None),
+    target = field(Label),
+)
+
 AppleResourceSelectionOutput = record(
     resource_specs = field(list[AppleResourceSpec]),
     asset_catalog_specs = field(list[AppleAssetCatalogSpec]),
+    selected_asset_catalog_specs = field(list[SelectedAppleAssetCatalogSpec], []),
     core_data_specs = field(list[AppleCoreDataSpec]),
     scene_kit_assets_spec = field(list[SceneKitAssetsSpec]),
     cxx_resource_specs = field(list[CxxResourceSpec]),
