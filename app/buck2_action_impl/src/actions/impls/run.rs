@@ -1095,6 +1095,7 @@ impl RunAction {
                     ctx.digest_config(),
                     ctx.fs(),
                     ctx.materializer(),
+                    ctx.invocation_re_use_case(),
                     found_dep_file_entry,
                     &result,
                 ),
