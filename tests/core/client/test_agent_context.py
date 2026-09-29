@@ -6,8 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
-
+from __future__ import annotations
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -220,3 +219,44 @@ async def test_agent_context_logged_to_invocation_record(buck: Buck) -> None:
     entry_map = {e["key"]: e["value"] for e in agent_context}
     assert entry_map["intent"] == "build"
     assert entry_map["attempt"] == "1"
+    assert record.get("agent_direct_call") is None
+
+
+@buck_test(write_invocation_record=True)
+async def test_agent_direct_call_logged_to_invocation_record(buck: Buck) -> None:
+    for value, expected in [("true", True), ("false", False), ("invalid", None)]:
+        res = await buck.build(
+            "//:pass",
+            "--client-metadata",
+            "id=test_enforced_client",
+            "--agent-context",
+            f"intent=build,attempt=1,direct_call={value}",
+        )
+        record = res.invocation_record()
+        assert record.get("agent_direct_call") is expected
+        assert {"key": "direct_call", "value": value} in record["agent_context"]
+
+
+@buck_test(write_invocation_record=True)
+async def test_agent_direct_call_last_value_wins(buck: Buck) -> None:
+    for value, expected in [("false", False), ("invalid", None)]:
+        res = await buck.build(
+            "//:pass",
+            "--agent-context",
+            "direct_call=true",
+            "--agent-context",
+            f"direct_call={value}",
+        )
+        assert res.invocation_record().get("agent_direct_call") is expected
+
+
+@buck_test(write_invocation_record=True)
+async def test_agent_direct_call_alone_does_not_require_context(buck: Buck) -> None:
+    res = await buck.build(
+        "//:pass",
+        "--client-metadata",
+        "id=test_enforced_client",
+        "--agent-context",
+        "direct_call=true",
+    )
+    assert res.invocation_record()["agent_direct_call"] is True

@@ -164,6 +164,18 @@ mod tests {
     }
 
     #[test]
+    fn test_env_metadata_does_not_inherit_direct_call() {
+        let result = parse_agent_env_metadata("id=codex,direct_call=true");
+        assert_eq!(
+            result,
+            vec![AgentContextEntry {
+                key: buck2_data::AgentContextEntry::KEY_ID.to_owned(),
+                value: "codex".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
     fn test_env_metadata_no_invocation_id() {
         let meta = "id=some_agent";
         let result = parse_agent_env_metadata(meta);

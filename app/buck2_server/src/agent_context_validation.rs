@@ -34,8 +34,12 @@ pub(crate) fn validate_agent_context(
     client_id: Option<&str>,
     entries: &[buck2_data::AgentContextEntry],
 ) -> buck2_error::Result<()> {
-    // If no entries provided or no schema defined, nothing to validate.
-    if entries.is_empty() || schema.is_empty() {
+    // The built-in marker must not opt an otherwise context-free call into schema enforcement.
+    if schema.is_empty()
+        || entries
+            .iter()
+            .all(|entry| entry.key == AgentContextEntry::KEY_DIRECT_CALL)
+    {
         return Ok(());
     }
 
@@ -81,9 +85,10 @@ pub(crate) fn validate_agent_context(
         let key = &entry.key;
         let value = &entry.value;
 
-        // Skip keys injected from BUCK2_CLIENT_METADATA env var —
-        // these are not user-provided --agent-context fields.
-        if AgentContextEntry::ENV_INJECTED_KEYS.contains(&key.as_str()) {
+        // Built-in telemetry keys do not need repository schema entries.
+        if AgentContextEntry::ENV_INJECTED_KEYS.contains(&key.as_str())
+            || key.as_str() == AgentContextEntry::KEY_DIRECT_CALL
+        {
             continue;
         }
 
@@ -150,6 +155,67 @@ mod tests {
         }
     }
 
+    fn schema_with_required_fields() -> AgentContextSchema {
+        let config = parse(
+            &[(
+                "test",
+                "[agent_context]\n\
+                 enforced_clients = claude_code\n\
+                 [agent_context#intent]\n\
+                 required = true\n\
+                 values = build|test\n",
+            )],
+            "test",
+        )
+        .expect("test agent context schema should parse");
+        AgentContextSchema::from_config(&config)
+    }
+
+    #[test]
+    fn test_direct_call_alone_does_not_enable_schema_enforcement() {
+        let schema = schema_with_required_fields();
+        let entries = [entry("direct_call", "true")];
+        assert!(validate_agent_context(&schema, Some("claude_code"), &entries).is_ok());
+    }
+
+    #[test]
+    fn test_custom_context_without_direct_call() {
+        let schema = schema_with_required_fields();
+        let entries = [entry("intent", "build")];
+        assert!(validate_agent_context(&schema, Some("claude_code"), &entries).is_ok());
+    }
+
+    #[test]
+    fn test_direct_call_bypasses_schema_validation() {
+        let schema = schema_with_required_fields();
+        for value in ["true", "false", "invalid"] {
+            let entries = [entry("direct_call", value), entry("intent", "build")];
+            assert!(validate_agent_context(&schema, Some("claude_code"), &entries).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_direct_call_does_not_bypass_required_custom_fields() {
+        let schema = schema_with_required_fields();
+        let entries = [entry("direct_call", "true"), entry("intent", "")];
+        let error = validate_agent_context(&schema, Some("claude_code"), &entries)
+            .expect_err("empty required intent should be rejected");
+        assert!(
+            error
+                .to_string()
+                .contains("Missing required agent-context field")
+        );
+    }
+
+    #[test]
+    fn test_direct_call_does_not_bypass_custom_field_values() {
+        let schema = schema_with_required_fields();
+        let entries = [entry("direct_call", "true"), entry("intent", "invalid")];
+        let error = validate_agent_context(&schema, Some("claude_code"), &entries)
+            .expect_err("invalid intent should be rejected");
+        assert!(error.to_string().contains("Invalid agent-context value"));
+    }
+
     #[test]
     fn test_env_injected_keys_bypass_validation() {
         let schema = schema_with_intent();
@@ -174,7 +240,11 @@ mod tests {
     #[test]
     fn test_unknown_key_still_rejected() {
         let schema = schema_with_intent();
-        let entries = vec![entry("id", "claude_code"), entry("bogus_key", "value")];
+        let entries = vec![
+            entry("id", "claude_code"),
+            entry("direct_call", "true"),
+            entry("bogus_key", "value"),
+        ];
         assert!(validate_agent_context(&schema, Some("claude_code"), &entries).is_err());
     }
 }

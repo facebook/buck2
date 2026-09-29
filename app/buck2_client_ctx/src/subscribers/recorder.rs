@@ -1184,6 +1184,12 @@ impl InvocationRecorder {
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             should_restart: Some(self.should_restart),
             client_metadata: std::mem::take(&mut self.client_metadata),
+            agent_direct_call: self
+                .agent_context
+                .iter()
+                .rev()
+                .find(|entry| entry.key == buck2_data::AgentContextEntry::KEY_DIRECT_CALL)
+                .and_then(|entry| entry.value.parse::<bool>().ok()),
             agent_context: std::mem::take(&mut self.agent_context),
             errors,
             target_rule_type_names: unique_and_sorted(

@@ -3382,6 +3382,10 @@ message InvocationRecord {
   // Agent context entries passed via --agent-context.
   repeated AgentContextEntry agent_context = 437;
 
+  // Last direct_call context entry parsed as true/false. Unset if absent or
+  // invalid.
+  optional bool agent_direct_call = 760;
+
   // DICE page-in overhead for this invocation, computed as the delta between
   // the first and last snapshot of the command.
   optional uint64 page_in_count = 438;

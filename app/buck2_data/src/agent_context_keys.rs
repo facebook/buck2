@@ -15,4 +15,7 @@ impl crate::AgentContextEntry {
     pub const KEY_ID: &'static str = "id";
     pub const KEY_INVOCATION_ID: &'static str = "invocation_id";
     pub const ENV_INJECTED_KEYS: &'static [&'static str] = &[Self::KEY_ID, Self::KEY_INVOCATION_ID];
+
+    /// Per-invocation marker supplied on the command line, never inherited from agent metadata.
+    pub const KEY_DIRECT_CALL: &'static str = "direct_call";
 }
