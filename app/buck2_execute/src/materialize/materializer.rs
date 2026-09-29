@@ -160,6 +160,11 @@ pub struct MaterializeRequest {
     /// Each value is materialized at its path. The exhaustiveness markings inside a value are
     /// honored; the paths themselves say nothing about their parents, which are left alone.
     pub artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+    /// Paths the caller is about to produce content at: its outputs and scratch paths. They stop
+    /// being tracked, and the response's `outputs` lease holds them for writing. It is granted
+    /// together with the read lease over `artifacts`, which is what lets one unit of work hold
+    /// everything it needs without ever waiting while holding (problem-path-locking.md).
+    pub outputs: Vec<ProjectRelativePathBuf>,
     pub purpose: MaterializationPurpose,
     /// Attributed with any CAS traffic this request causes.
     pub re_use_case: RemoteExecutorUseCase,
@@ -170,17 +175,34 @@ pub struct MaterializeResponse {
     /// One per requested artifact, in request order.
     pub results: Vec<Result<(), MaterializationError>>,
     pub lease: ReadLease,
+    /// The write lease over the request's `outputs`; `None` when it had none.
+    pub outputs: Option<WriteLease>,
 }
 
 impl MaterializeResponse {
-    /// The lease once every artifact materialized, else the first error. Callers that can make
-    /// progress with some of the artifacts missing look at `results` instead.
+    /// For requests without outputs: the read lease once every artifact materialized, else the
+    /// first error. Callers that can make progress with some of the artifacts missing look at
+    /// `results` instead.
     pub fn ensure_results_ok(self) -> Result<ReadLease, MaterializationError> {
+        debug_assert!(
+            self.outputs.is_none(),
+            "a request with outputs takes its leases through `into_leases`"
+        );
+        Ok(self.into_leases()?.0)
+    }
+
+    /// Both leases once every artifact materialized, else the first error.
+    pub fn into_leases(self) -> Result<(ReadLease, Option<WriteLease>), MaterializationError> {
         for result in self.results {
             result?;
         }
-        Ok(self.lease)
+        Ok((self.lease, self.outputs))
     }
+}
+
+/// Released on drop; carries whatever an implementation needs to release.
+struct Lease {
+    guard: Option<Box<dyn Any + Send + Sync>>,
 }
 
 /// Held by the caller of [`Materializer::materialize`] for as long as it reads the paths that
@@ -189,20 +211,71 @@ impl MaterializeResponse {
 /// materializer does not, so today the guard only fixes the scope callers hold it over.
 #[must_use = "hold the lease while reading the materialized paths"]
 pub struct ReadLease {
-    /// Released on drop; carries whatever an implementation needs to release.
-    _guard: Option<Box<dyn Any + Send + Sync>>,
+    _lease: Lease,
 }
 
 impl ReadLease {
     /// A lease no implementation acts on.
     pub fn noop() -> Self {
-        Self { _guard: None }
+        Self {
+            _lease: Lease { guard: None },
+        }
+    }
+
+    /// A lease released by dropping `guard`.
+    pub fn new(guard: impl Any + Send + Sync) -> Self {
+        Self {
+            _lease: Lease {
+                guard: Some(Box::new(guard)),
+            },
+        }
     }
 }
 
 impl fmt::Debug for ReadLease {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("ReadLease")
+    }
+}
+
+/// Held by a caller that produces content at paths it asked for through
+/// [`Materializer::prepare_outputs`] or the outputs of a [`Materializer::materialize`] request,
+/// up to and including the report or publish that makes that content tracked; both take the
+/// lease, so that content can only ever be reported by whoever holds its paths. Holding it tells
+/// the materializer nothing else may touch those paths; the deferred materializer does not
+/// enforce that, so there the guard only fixes the scope.
+#[must_use = "hold the lease while producing the outputs"]
+pub struct WriteLease {
+    lease: Lease,
+}
+
+impl WriteLease {
+    /// A lease no implementation acts on.
+    pub fn noop() -> Self {
+        Self {
+            lease: Lease { guard: None },
+        }
+    }
+
+    /// A lease released by dropping `guard`, which the implementation gets back from
+    /// [`WriteLease::guard`] when the lease is passed to it.
+    pub fn new(guard: impl Any + Send + Sync) -> Self {
+        Self {
+            lease: Lease {
+                guard: Some(Box::new(guard)),
+            },
+        }
+    }
+
+    /// What the lease was created with; `None` for a no-op lease.
+    pub fn guard(&self) -> Option<&(dyn Any + Send + Sync)> {
+        self.lease.guard.as_deref()
+    }
+}
+
+impl fmt::Debug for WriteLease {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("WriteLease")
     }
 }
 
@@ -238,9 +311,11 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         MaterializerBackgroundCleanupGuard::new(())
     }
 
-    /// Declare that a set of artifacts exist on disk already.
+    /// Reports content the caller put on disk at the paths of `artifacts`, which it holds
+    /// `lease` for. From then on the content is the artifact at each path.
     async fn declare_existing(
         &self,
+        lease: &WriteLease,
         artifacts: Vec<DeclareArtifactPayload>,
     ) -> buck2_error::Result<()>;
 
@@ -272,6 +347,17 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> buck2_error::Result<Vec<ArtifactValue>>;
 
+    /// Stops tracking `paths` and returns the write lease the caller holds while it produces
+    /// content there, up to and including the report or publish that makes that content
+    /// tracked. Nothing on disk is touched: deleting what is there is the caller's job, done
+    /// under the lease, since only the caller knows whether it wants a clean slate or a
+    /// workspace kept across runs. A caller that also reads inputs asks for both in one
+    /// [`Materializer::materialize`] request instead.
+    async fn prepare_outputs(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<WriteLease>;
+
     /// Ask the materializer if the artifacts at the set of paths match what is on disk or
     /// declared. Returns Ok(Ok) if they do and Ok(Err) if they don't. It's a result not a boolean
     /// so you can't ignore it.
@@ -291,16 +377,6 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     ///
     /// This method does not guarantee that the artifact was materialized.
     async fn has_artifact_at(&self, path: ProjectRelativePathBuf) -> buck2_error::Result<bool>;
-
-    /// Declare an artifact at `path` exists. This will overwrite any pre-existing materialization
-    /// methods for this file and indicate that no materialization is necessary.
-    async fn invalidate(&self, path: ProjectRelativePathBuf) -> buck2_error::Result<()> {
-        self.invalidate_many(vec![path]).await
-    }
-
-    /// Declare an artifact at `path` exists. This will overwrite any pre-existing materialization
-    /// methods for this file and indicate that no materialization is necessary.
-    async fn invalidate_many(&self, paths: Vec<ProjectRelativePathBuf>) -> buck2_error::Result<()>;
 
     /// Materialize artifacts paths. Returns a Stream with each element corresponding to one of the
     /// input paths, in the order that they were passed. This method provides access to

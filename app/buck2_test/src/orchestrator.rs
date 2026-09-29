@@ -125,6 +125,7 @@ use buck2_execute_impl::executors::local::EnvironmentBuilder;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
 use buck2_execute_impl::executors::local::materialize_inputs;
+use buck2_execute_impl::executors::local::output_paths;
 use buck2_execute_impl::executors::local::prep_scratch_path;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -1112,15 +1113,16 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         let re_use_case = invocation_re_use_case(&self.dice.ctx());
 
         // This prepares a command that the test runner executes out of process after this
-        // returns; buck2 never sees that process, so the inputs' lease has no scope to cover
-        // here and goes with the result. Tests buck2 runs itself go through the local
-        // executor, which holds its lease across the run.
+        // returns; buck2 never sees that process, so neither lease has a scope to cover here
+        // and both go with the result. Tests buck2 runs itself go through the local executor,
+        // which holds its leases across the run.
         let materialized_inputs = materialize_inputs(
             fs,
             materializer,
             &execution_request,
             self.dice.global_data().get_digest_config(),
             re_use_case,
+            output_paths(fs, &execution_request)?,
         )
         .await?;
 
@@ -1129,7 +1131,6 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         create_output_dirs(
             fs,
             &execution_request,
-            materializer.dupe(),
             blocking_executor,
             self.cancellations,
         )
@@ -1142,6 +1143,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
                 &local_resource_setup_command.execution_request,
                 self.dice.global_data().get_digest_config(),
                 re_use_case,
+                output_paths(fs, &local_resource_setup_command.execution_request)?,
             )
             .await?;
             let blocking_executor = self.dice.ctx().get_blocking_executor();
@@ -1151,7 +1153,6 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             create_output_dirs(
                 fs,
                 &local_resource_setup_command.execution_request,
-                materializer.dupe(),
                 blocking_executor,
                 self.cancellations,
             )

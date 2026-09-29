@@ -76,6 +76,7 @@ impl ArtifactMaterializer for DiceComputationsData {
                     let response = materializer
                         .materialize(MaterializeRequest {
                             artifacts,
+                            outputs: Vec::new(),
                             purpose: MaterializationPurpose::FinalOutput { required },
                             re_use_case,
                         })

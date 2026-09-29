@@ -128,6 +128,7 @@ async fn create_unhashed_outputs_via_materializer_impl(
     let response = materializer
         .materialize(MaterializeRequest {
             artifacts: declarations,
+            outputs: Vec::new(),
             purpose: MaterializationPurpose::FinalOutput { required },
             re_use_case,
         })

@@ -344,8 +344,9 @@ impl DownloadFileAction {
         };
 
         // Whatever is at the path is stale or untracked; the `declare_existing` below replaces
-        // the materializer's record of it, so the disk has to be cleared to match.
-        materializer.invalidate_many(vec![path.clone()]).await?;
+        // the materializer's record of it, so the disk has to be cleared to match. The lease is
+        // held until that report is in.
+        let output_lease = materializer.prepare_outputs(vec![path.clone()]).await?;
         ctx.blocking_executor()
             .execute_io(
                 Box::new(CleanOutputPaths {
@@ -393,10 +394,13 @@ impl DownloadFileAction {
             }),
         };
         materializer
-            .declare_existing(vec![DeclareArtifactPayload {
-                path,
-                artifact: value.dupe(),
-            }])
+            .declare_existing(
+                &output_lease,
+                vec![DeclareArtifactPayload {
+                    path,
+                    artifact: value.dupe(),
+                }],
+            )
             .await?;
 
         Ok((value, ActionExecutionKind::Simple))

@@ -27,6 +27,7 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::materialize::materializer::WriteLease;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
@@ -168,7 +169,11 @@ impl ParanoidDownloader {
                     .execute_io(Box::new(MoveOutputsIntoPlace { mapping }), cancellations)
                     .await?;
 
-                materializer.declare_existing(artifacts).await?;
+                materializer
+                    // FIXME(materializer): this producer takes no lease over the paths it
+                    // writes yet; problem-path-locking.md.
+                    .declare_existing(&WriteLease::noop(), artifacts)
+                    .await?;
 
                 buck2_error::Ok(())
             })

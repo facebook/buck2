@@ -67,6 +67,7 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::MaterializerBackgroundCleanupGuard;
 use buck2_execute::materialize::materializer::MaterializerIterItem;
 use buck2_execute::materialize::materializer::ReadLease;
+use buck2_execute::materialize::materializer::WriteLease;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_hash::BuckMutSet;
@@ -431,6 +432,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
     async fn declare_existing(
         &self,
+        _lease: &WriteLease,
         artifacts: Vec<DeclareArtifactPayload>,
     ) -> buck2_error::Result<()> {
         let cmd =
@@ -447,40 +449,50 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
     ) -> buck2_error::Result<MaterializeResponse> {
         let MaterializeRequest {
             artifacts,
+            outputs,
             purpose,
             // Every download this materializer issues runs under the use case its artifact was
             // declared with, so there is nothing to attribute to the requester.
             re_use_case: _,
         } = request;
 
-        if purpose == (MaterializationPurpose::FinalOutput { required: false })
-            && !self.materialize_final_artifacts
-        {
-            return Ok(MaterializeResponse {
-                results: artifacts.iter().map(|_| Ok(())).collect(),
-                lease: ReadLease::noop(),
-            });
-        }
-
-        let paths = artifacts.into_iter().map(|(path, _)| path).collect();
-        let (sender, recv) = oneshot::channel();
-        self.command_sender
-            .send(MaterializerCommand::Ensure(
-                paths,
-                purpose,
-                get_dispatcher(),
-                current_span(),
-                sender,
-            ))
-            .buck_error_context("Sending Ensure() command.")?;
-        let materialization_fut = recv
-            .await
-            .buck_error_context("Receiving materialization future from command thread.")?;
-        let results = materialization_fut.collect::<Vec<_>>().await;
+        // The outputs' preparation and the inputs' materialization are independent here, and
+        // the executor used to run them side by side.
+        let prepare = async {
+            if outputs.is_empty() {
+                Ok(None)
+            } else {
+                self.prepare_outputs(outputs).await.map(Some)
+            }
+        };
+        let ensure = async {
+            if purpose == (MaterializationPurpose::FinalOutput { required: false })
+                && !self.materialize_final_artifacts
+            {
+                return buck2_error::Ok(artifacts.iter().map(|_| Ok(())).collect());
+            }
+            let paths = artifacts.into_iter().map(|(path, _)| path).collect();
+            let (sender, recv) = oneshot::channel();
+            self.command_sender
+                .send(MaterializerCommand::Ensure(
+                    paths,
+                    purpose,
+                    get_dispatcher(),
+                    current_span(),
+                    sender,
+                ))
+                .buck_error_context("Sending Ensure() command.")?;
+            let materialization_fut = recv
+                .await
+                .buck_error_context("Receiving materialization future from command thread.")?;
+            Ok(materialization_fut.collect::<Vec<_>>().await)
+        };
+        let (outputs, results) = futures::future::try_join(prepare, ensure).await?;
 
         Ok(MaterializeResponse {
             results,
             lease: ReadLease::noop(),
+            outputs,
         })
     }
 
@@ -629,20 +641,12 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         Ok(has_artifact)
     }
 
-    async fn invalidate_many(&self, paths: Vec<ProjectRelativePathBuf>) -> buck2_error::Result<()> {
-        let (sender, recv) = oneshot::channel();
-
-        self.command_sender
-            .send(MaterializerCommand::InvalidateFilePaths(
-                paths,
-                sender,
-                get_dispatcher(),
-                current_span(),
-            ))?;
-
-        // Wait on future to finish before invalidation can continue.
-        let invalidate_fut = recv.await?;
-        invalidate_fut.await
+    async fn prepare_outputs(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<WriteLease> {
+        self.invalidate_many(paths).await?;
+        Ok(WriteLease::noop())
     }
 
     async fn materialize_many(
@@ -787,6 +791,26 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 }
 
 impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
+    /// Stops tracking `paths`. Whatever is on disk there is left alone.
+    pub(crate) async fn invalidate_many(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<()> {
+        let (sender, recv) = oneshot::channel();
+
+        self.command_sender
+            .send(MaterializerCommand::InvalidateFilePaths(
+                paths,
+                sender,
+                get_dispatcher(),
+                current_span(),
+            ))?;
+
+        // Wait on future to finish before invalidation can continue.
+        let invalidate_fut = recv.await?;
+        invalidate_fut.await
+    }
+
     /// Spawns two threads (`materialization_loop` and `command_loop`).
     /// Creates and returns a new `DeferredMaterializer` that aborts those
     /// threads when dropped.

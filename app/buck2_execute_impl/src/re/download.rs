@@ -165,6 +165,7 @@ pub async fn download_action_results<'a>(
                             request,
                             digest_config,
                             invocation_re_use_case,
+                            Vec::new(),
                         )
                         .await
                         {

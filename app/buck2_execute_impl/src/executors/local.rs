@@ -76,6 +76,7 @@ use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::ReadLease;
+use buck2_execute::materialize::materializer::WriteLease;
 use buck2_execute_local::CommandResult;
 use buck2_execute_local::DefaultKillProcess;
 use buck2_execute_local::GatherOutputStatus;
@@ -101,7 +102,6 @@ use derive_more::From;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
-use futures::future;
 use futures::future::Either;
 use futures::future::FutureExt;
 use futures::future::Shared;
@@ -308,7 +308,6 @@ impl LocalExecutor {
                     create_output_dirs(
                         &self.artifact_fs,
                         request,
-                        self.materializer.as_ref(),
                         &*self.blocking_executor,
                         cancellations,
                     ),
@@ -558,45 +557,39 @@ impl LocalExecutor {
             async {
                 let start = Instant::now();
 
-                let (r1, r2) = future::join(
-                    async {
-                        materialize_inputs(
-                            &self.artifact_fs,
-                            self.materializer.as_ref(),
-                            request,
-                            digest_config,
-                            self.invocation_re_use_case,
-                        )
-                        .await
-                    },
-                    async {
-                        if !request.outputs_cleanup {
-                            // When user requests to not perform a cleanup for a specific action
-                            // output from previous run of that action could actually be used as the
-                            // input during current run (e.g. extra output which is an incremental state describing the actual output).
-                            materialize_build_outputs(
-                                &self.artifact_fs,
-                                &self.incremental_db_state,
-                                self.materializer.as_ref(),
-                                request,
-                            )
-                            .await?;
+                if !request.outputs_cleanup {
+                    // When user requests to not perform a cleanup for a specific action
+                    // output from previous run of that action could actually be used as the
+                    // input during current run (e.g. extra output which is an incremental state describing the actual output).
+                    materialize_build_outputs(
+                        &self.artifact_fs,
+                        &self.incremental_db_state,
+                        self.materializer.as_ref(),
+                        request,
+                    )
+                    .await?;
+                }
 
-                            // TODO(minglunli): There might be a dedup opportunity here to save some copying/materialization
-                            // if the paths already exist on disk, should explore that
-                            self.prepare_content_based_incremental_actions(request, cancellations)
-                                .await?;
-
-                            buck2_error::Ok(())
-                        } else {
-                            Ok(())
-                        }
-                    },
+                // One request for the inputs' read lease and the outputs' write lease, held
+                // until the outputs have been reported. Everything this run deletes or writes
+                // under its output paths happens under the latter, including the per-attempt
+                // cleanup in `exec_once`, so a retry never acquires again.
+                let materialized_inputs = materialize_inputs(
+                    &self.artifact_fs,
+                    self.materializer.as_ref(),
+                    request,
+                    digest_config,
+                    self.invocation_re_use_case,
+                    output_paths(&self.artifact_fs, request)?,
                 )
-                .await;
+                .await?;
 
-                let materialized_inputs = r1?;
-                r2?;
+                if !request.outputs_cleanup {
+                    // TODO(minglunli): There might be a dedup opportunity here to save some copying/materialization
+                    // if the paths already exist on disk, should explore that
+                    self.prepare_content_based_incremental_actions(request, cancellations)
+                        .await?;
+                }
 
                 buck2_error::Ok((materialized_inputs, Instant::now() - start))
             },
@@ -605,18 +598,19 @@ impl LocalExecutor {
         .await;
 
         let (materialized_inputs, input_materialization_duration) = match executor_stage_result {
-            Ok((materialized_inputs, input_materialization_duration)) => {
-                (materialized_inputs, input_materialization_duration)
-            }
+            Ok(x) => x,
             Err(e) => return manager.error("materialize_inputs_failed", e),
         };
         // The command reads its inputs until its outputs have been hashed, which is the end of
-        // this function.
+        // this function; its hold on the outputs lasts as long.
         let MaterializedInputPaths {
             scratch: scratch_path,
             lease: _inputs_lease,
+            outputs: outputs_lease,
             ..
         } = materialized_inputs;
+        // An action with neither outputs nor a scratch path has nothing to report under it.
+        let outputs_lease = outputs_lease.unwrap_or_else(WriteLease::noop);
 
         manager.start_waiting_category(WaitingCategory::Unknown);
 
@@ -764,7 +758,7 @@ impl LocalExecutor {
                 // it, that's detected when BuckActionExecutor.execute validates
                 // that all outputs were actually returned.
                 let (outputs, hashing_time) = match self
-                    .calculate_and_declare_output_values(request, digest_config)
+                    .calculate_and_declare_output_values(request, digest_config, &outputs_lease)
                     .boxed()
                     .await
                 {
@@ -864,7 +858,7 @@ impl LocalExecutor {
             }
             GatherOutputStatus::TimedOut(duration) => {
                 let (outputs, hashing_time) = match self
-                    .calculate_and_declare_output_values(request, digest_config)
+                    .calculate_and_declare_output_values(request, digest_config, &outputs_lease)
                     .boxed()
                     .await
                 {
@@ -907,6 +901,7 @@ impl LocalExecutor {
         &self,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
+        outputs_lease: &WriteLease,
     ) -> buck2_error::Result<(
         BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
         HashingInfo,
@@ -984,7 +979,9 @@ impl LocalExecutor {
             .iter()
             .map(|(p, _, _)| p.clone())
             .collect();
-        self.materializer.declare_existing(to_declare).await?;
+        self.materializer
+            .declare_existing(outputs_lease, to_declare)
+            .await?;
         buck2_util::future::try_join_all(output_path_to_content_based_path_copies.into_iter().map(
             |(path, value, copied_artifacts)| {
                 self.materializer
@@ -1180,10 +1177,6 @@ impl LocalExecutor {
             })
             .collect::<buck2_error::Result<Vec<_>>>()?;
 
-        self.materializer
-            .invalidate_many(outputs_to_delete.clone())
-            .await?;
-
         // Need to clean the placeholder paths before execution as there could be stale outputs that can cause unexpected behavior
         self.blocking_executor
             .execute_io(
@@ -1346,10 +1339,14 @@ pub struct MaterializedInputPaths {
     pub paths: Vec<ProjectRelativePathBuf>,
     /// Held for as long as the inputs are needed.
     pub lease: ReadLease,
+    /// Held while the command produces its outputs and scratch content, up to and including
+    /// their report; `None` when there were no such paths.
+    pub outputs: Option<WriteLease>,
 }
 
 /// Materialize all inputs artifact for CommandExecutionRequest so the command can be executed
-/// locally.
+/// locally, and take the write lease over `outputs` and the request's scratch path in the same
+/// request.
 ///
 /// This also discovers the scratch directory if any was passed, but does not yet do anything with
 /// it - call `prep_scratch_path`.
@@ -1359,6 +1356,7 @@ pub async fn materialize_inputs(
     request: &CommandExecutionRequest,
     digest_config: DigestConfig,
     re_use_case: RemoteExecutorUseCase,
+    mut outputs: Vec<ProjectRelativePathBuf>,
 ) -> buck2_error::Result<MaterializedInputPaths> {
     let mut artifacts = vec![];
     let mut scratch = ScratchPath(None);
@@ -1419,9 +1417,7 @@ pub async fn materialize_inputs(
                 ));
             }
             CommandExecutionInput::ScratchPath(path) => {
-                // FIXME: the action writes into its scratch path, so under a materializer that
-                // enforces leases it belongs with the outputs' write lease, not this request's
-                // read lease (problem-path-locking.md). Nothing acts on either lease yet.
+                // The action writes into its scratch path, so it is an output for leasing.
                 let path = artifact_fs.buck_out_path_resolver().resolve_scratch(path)?;
 
                 if scratch.0.is_some() {
@@ -1429,6 +1425,7 @@ pub async fn materialize_inputs(
                         "Multiple scratch paths for one action"
                     ));
                 }
+                outputs.push(path.clone());
                 scratch.0 = Some(path);
             }
             CommandExecutionInput::IncrementalRemoteOutput(..) => {
@@ -1451,12 +1448,13 @@ pub async fn materialize_inputs(
     let response = materializer
         .materialize(MaterializeRequest {
             artifacts,
+            outputs,
             purpose: MaterializationPurpose::IntermediateOnly,
             re_use_case,
         })
         .await?;
-    let lease = match response.ensure_results_ok() {
-        Ok(lease) => lease,
+    let (lease, outputs) = match response.into_leases() {
+        Ok(leases) => leases,
         Err(MaterializationError::NotFound { source }) => {
             let corrupted = source.info.origin.guaranteed_by_action_cache();
 
@@ -1476,6 +1474,7 @@ pub async fn materialize_inputs(
         scratch,
         paths,
         lease,
+        outputs,
     })
 }
 
@@ -1588,13 +1587,32 @@ async fn materialize_build_outputs(
     Ok(paths)
 }
 
-/// Create any output dirs requested by the command. Note that this makes no effort to delete
-/// the output paths first. Eventually it should, but right now this happens earlier. This
-/// would be a separate refactor.
+/// The command's output paths as `create_output_dirs` prepares them, for the write lease that
+/// covers the run.
+pub fn output_paths(
+    artifact_fs: &ArtifactFs,
+    request: &CommandExecutionRequest,
+) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
+    request
+        .outputs()
+        .map(|output| {
+            Ok(output
+                .resolve(
+                    artifact_fs,
+                    Some(&ContentBasedPathHash::for_output_artifact()),
+                )?
+                .path
+                .to_owned())
+        })
+        .collect()
+}
+
+/// Clears the command's output paths when the command asks for it and creates the directories
+/// its outputs need. Runs once per attempt, under the write lease the caller holds over those
+/// paths (`Materializer::prepare_outputs`).
 pub async fn create_output_dirs(
     artifact_fs: &ArtifactFs,
     request: &CommandExecutionRequest,
-    materializer: &dyn Materializer,
     blocking_executor: &dyn BlockingExecutor,
     cancellations: &CancellationContext,
 ) -> buck2_error::Result<()> {
@@ -1608,16 +1626,8 @@ pub async fn create_output_dirs(
         })
         .collect::<buck2_error::Result<Vec<_>>>()?;
 
-    // Invalidate all the output paths this action might provide. Note that this is a bit
-    // approximative: we might have previous instances of this action that declared
-    // different outputs with a different materialization method that will become invalid
-    // now. However, nothing should reference those stale outputs, so while this does not
-    // do a good job of cleaning up garbage, it prevents using invalid artifacts.
-    let output_paths = outputs.map(|output| output.path.to_owned());
-    materializer.invalidate_many(output_paths.clone()).await?;
-
     if request.outputs_cleanup {
-        // TODO(scottcao): Move this deletion logic into materializer itself.
+        let output_paths = outputs.map(|output| output.path.to_owned());
         blocking_executor
             .execute_io(
                 Box::new(CleanOutputPaths {

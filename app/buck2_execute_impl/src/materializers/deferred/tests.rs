@@ -756,8 +756,11 @@ mod state_machine {
             let artifact = ArtifactValue::file(io.digest_config().empty_file());
             let (dm, _daemon_dispatcher_events) = make_materializer(io, None).await;
 
-            dm.declare_existing(vec![DeclareArtifactPayload { path, artifact }])
-                .await?;
+            dm.declare_existing(
+                &WriteLease::noop(),
+                vec![DeclareArtifactPayload { path, artifact }],
+            )
+            .await?;
 
             let source = dm.allocative().await?.flamegraph().write();
             assert!(
@@ -1225,10 +1228,13 @@ mod state_machine {
             });
             let (mut dm, _events) = make_materializer(io, None).await;
             dm.materialize_final_artifacts = false;
-            dm.declare_existing(vec![DeclareArtifactPayload {
-                path: path.clone(),
-                artifact: value.dupe(),
-            }])
+            dm.declare_existing(
+                &WriteLease::noop(),
+                vec![DeclareArtifactPayload {
+                    path: path.clone(),
+                    artifact: value.dupe(),
+                }],
+            )
             .await?;
             assert!(dm.has_artifact_at(path.clone()).await?);
 
@@ -2368,6 +2374,7 @@ mod state_machine {
     ) -> MaterializeRequest {
         MaterializeRequest {
             artifacts,
+            outputs: Vec::new(),
             purpose,
             re_use_case: RemoteExecutorUseCase::buck2_default(),
         }
@@ -2382,10 +2389,13 @@ mod state_machine {
 
             let existing = make_path("foo/existing");
             let existing_value = file_value(digest_config, b"existing");
-            dm.declare_existing(vec![DeclareArtifactPayload {
-                path: existing.clone(),
-                artifact: existing_value.dupe(),
-            }])
+            dm.declare_existing(
+                &WriteLease::noop(),
+                vec![DeclareArtifactPayload {
+                    path: existing.clone(),
+                    artifact: existing_value.dupe(),
+                }],
+            )
             .await?;
 
             let remote = make_path("foo/remote");
@@ -2424,6 +2434,38 @@ mod state_machine {
                 io.take_log(),
                 vec![(Op::Clean, remote.clone()), (Op::Materialize, remote)]
             );
+            dm.abort();
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn prepare_outputs_untracks_without_touching_disk() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let io = Arc::new(StubIoHandler::new(temp_root()));
+            let digest_config = io.digest_config();
+            let (dm, _events) = make_materializer(io.dupe(), None).await;
+
+            let path = make_path("foo/output");
+            io.fs().write_file(&path, "previous", false)?;
+            dm.declare_existing(
+                &WriteLease::noop(),
+                vec![DeclareArtifactPayload {
+                    path: path.clone(),
+                    artifact: file_value(digest_config, b"previous"),
+                }],
+            )
+            .await?;
+            assert!(dm.has_artifact_at(path.clone()).await?);
+
+            let _lease = dm.prepare_outputs(vec![path.clone()]).await?;
+            assert!(!dm.has_artifact_at(path.clone()).await?);
+            assert!(
+                io.fs().resolve(&path).exists(),
+                "deleting what is there is the caller's job"
+            );
+            assert_eq!(io.take_log(), vec![]);
             dm.abort();
             Ok(())
         })
