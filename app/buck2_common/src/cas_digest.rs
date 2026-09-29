@@ -33,6 +33,8 @@ use static_interner::Intern;
 use strong_hash::StrongHash;
 use triomphe::Arc;
 
+use crate::file_ops::metadata::FileDigest;
+
 /// The number of bytes required by a SHA-1 hash
 pub const SHA1_SIZE: usize = 20;
 
@@ -211,7 +213,7 @@ impl CasDigestConfig {
 
     /// Allow optimizing the empty file digest path, we do that by having the CasDigestConfig hold
     /// a cell for it (later in this stack).
-    pub fn empty_file_digest(self) -> crate::file_ops::metadata::TrackedFileDigest {
+    pub fn empty_file_digest(self) -> TrackedFileDigest {
         self.inner.empty_file_digest.dupe()
     }
 
@@ -279,7 +281,7 @@ struct CasDigestConfigInner {
     preferred_algorithm: DigestAlgorithm,
     digest160: Option<DigestAlgorithm>,
     digest256: Option<DigestAlgorithm>,
-    empty_file_digest: crate::file_ops::metadata::TrackedFileDigest,
+    empty_file_digest: TrackedFileDigest,
     /// A potentially different configuration to use when digesting source files.
     source: SourceFilesConfig,
 }
@@ -329,8 +331,8 @@ impl CasDigestConfigInner {
             *slot = Some(algo);
         }
 
-        let empty_file_digest = TrackedCasDigest {
-            inner: Arc::new(TrackedCasDigestInner {
+        let empty_file_digest = TrackedFileDigest {
+            inner: Arc::new(TrackedFileDigestInner {
                 data: CasDigest::from_content_for_algorithm(&[], preferred_algorithm),
                 expires: AtomicI64::new(0),
             }),
@@ -686,11 +688,9 @@ impl<Kind: CasDigestKind> CasDigest<Kind> {
     }
 }
 
-pub trait CasDigestKind: Sized + 'static {
-    /// This needs to be a concrete implementation since we share the empty instance in a static
-    /// but we can't have static generics.
-    fn empty_digest(config: CasDigestConfig) -> Option<TrackedCasDigest<Self>>;
-}
+/// What a [`CasDigest`] is a digest of. Phantom: it keeps digests of files, actions and dep files
+/// from being passed for one another, and nothing else.
+pub trait CasDigestKind: Sized + 'static {}
 
 #[derive(Display)]
 #[display("{}", hex::encode(&of.raw_digest().as_bytes()[0..4]))]
@@ -725,20 +725,18 @@ pub enum CasDigestParseError {
 /// Note that for directory, the expiry represents that of the directory's blob, not its underlying
 /// contents.
 #[derive(Allocative, Debug, Pagable)]
-#[allocative(bound = "")]
-struct TrackedCasDigestInner<Kind: CasDigestKind> {
-    data: CasDigest<Kind>,
+struct TrackedFileDigestInner {
+    data: FileDigest,
     expires: AtomicI64,
 }
 
 #[derive(Display, Allocative, Pagable)]
-#[allocative(bound = "")]
 #[display("{}", self.data())]
-pub struct TrackedCasDigest<Kind: CasDigestKind> {
-    inner: Arc<TrackedCasDigestInner<Kind>>,
+pub struct TrackedFileDigest {
+    inner: Arc<TrackedFileDigestInner>,
 }
 
-impl<Kind: CasDigestKind> Clone for TrackedCasDigest<Kind> {
+impl Clone for TrackedFileDigest {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -746,41 +744,41 @@ impl<Kind: CasDigestKind> Clone for TrackedCasDigest<Kind> {
     }
 }
 
-impl<Kind: CasDigestKind> Dupe for TrackedCasDigest<Kind> {}
+impl Dupe for TrackedFileDigest {}
 
-impl<Kind: CasDigestKind> Borrow<CasDigest<Kind>> for TrackedCasDigest<Kind> {
-    fn borrow(&self) -> &CasDigest<Kind> {
+impl Borrow<FileDigest> for TrackedFileDigest {
+    fn borrow(&self) -> &FileDigest {
         self.data()
     }
 }
 
-impl<Kind: CasDigestKind> Borrow<CasDigest<Kind>> for &TrackedCasDigest<Kind> {
-    fn borrow(&self) -> &CasDigest<Kind> {
+impl Borrow<FileDigest> for &TrackedFileDigest {
+    fn borrow(&self) -> &FileDigest {
         self.data()
     }
 }
 
-impl<Kind: CasDigestKind> PartialOrd for TrackedCasDigest<Kind> {
+impl PartialOrd for TrackedFileDigest {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<Kind: CasDigestKind> Ord for TrackedCasDigest<Kind> {
+impl Ord for TrackedFileDigest {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.data().cmp(other.data())
     }
 }
 
-impl<Kind: CasDigestKind> PartialEq for TrackedCasDigest<Kind> {
+impl PartialEq for TrackedFileDigest {
     fn eq(&self, other: &Self) -> bool {
         self.data().eq(other.data())
     }
 }
 
-impl<Kind: CasDigestKind> Eq for TrackedCasDigest<Kind> {}
+impl Eq for TrackedFileDigest {}
 
-impl<Kind: CasDigestKind> Hash for TrackedCasDigest<Kind> {
+impl Hash for TrackedFileDigest {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.data().hash(state)
     }
@@ -793,13 +791,13 @@ impl<Kind: CasDigestKind> StrongHash for CasDigest<Kind> {
     }
 }
 
-impl<Kind: CasDigestKind> StrongHash for TrackedCasDigest<Kind> {
+impl StrongHash for TrackedFileDigest {
     fn strong_hash<H: Hasher>(&self, state: &mut H) {
         self.data().strong_hash(state)
     }
 }
 
-impl<Kind: CasDigestKind> fmt::Debug for TrackedCasDigest<Kind> {
+impl fmt::Debug for TrackedFileDigest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -810,76 +808,52 @@ impl<Kind: CasDigestKind> fmt::Debug for TrackedCasDigest<Kind> {
     }
 }
 
-impl<Kind: CasDigestKind> buck2_core::directory_digest::DirectoryDigest for TrackedCasDigest<Kind> {}
+impl buck2_core::directory_digest::DirectoryDigest for TrackedFileDigest {}
 
-impl<Kind: CasDigestKind> TrackedCasDigest<Kind> {
-    pub fn new(data: CasDigest<Kind>, config: CasDigestConfig) -> Self
-    where
-        Kind: CasDigestKind,
-    {
+impl TrackedFileDigest {
+    pub fn new(data: FileDigest, config: CasDigestConfig) -> Self {
         if data.size() == 0 {
             return Self::empty(config);
         }
 
         Self {
-            inner: Arc::new(TrackedCasDigestInner {
+            inner: Arc::new(TrackedFileDigestInner {
                 data,
                 expires: AtomicI64::new(0),
             }),
         }
     }
 
-    pub fn new_expires(
-        data: CasDigest<Kind>,
-        expiry: jiff::Timestamp,
-        config: CasDigestConfig,
-    ) -> Self
-    where
-        Kind: CasDigestKind,
-    {
+    pub fn new_expires(data: FileDigest, expiry: jiff::Timestamp, config: CasDigestConfig) -> Self {
         if data.size() == 0 {
             return Self::empty(config);
         }
         Self {
-            inner: Arc::new(TrackedCasDigestInner {
+            inner: Arc::new(TrackedFileDigestInner {
                 data,
                 expires: AtomicI64::new(expiry.as_second()),
             }),
         }
     }
 
-    pub fn empty(config: CasDigestConfig) -> Self
-    where
-        Kind: CasDigestKind,
-    {
-        match Kind::empty_digest(config) {
-            Some(o) => o,
-            None => Self {
-                inner: Arc::new(TrackedCasDigestInner {
-                    data: CasDigest::empty(config),
-                    expires: AtomicI64::new(0),
-                }),
-            },
-        }
+    pub fn empty(config: CasDigestConfig) -> Self {
+        config.empty_file_digest()
     }
 
-    pub fn from_content(bytes: &[u8], config: CasDigestConfig) -> Self
-    where
-        Kind: CasDigestKind,
-    {
+    pub fn from_content(bytes: &[u8], config: CasDigestConfig) -> Self {
         if bytes.is_empty() {
             return Self::empty(config);
         }
 
         Self {
-            inner: Arc::new(TrackedCasDigestInner {
+            inner: Arc::new(TrackedFileDigestInner {
                 data: CasDigest::from_content(bytes, config),
                 expires: AtomicI64::new(0),
             }),
         }
     }
 
-    pub fn data(&self) -> &CasDigest<Kind> {
+    pub fn data(&self) -> &FileDigest {
         &self.inner.data
     }
 

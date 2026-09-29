@@ -14,9 +14,7 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 use std::sync::Mutex;
 
-use buck2_common::cas_digest::TrackedCasDigest;
 use buck2_common::file_ops::metadata::FileDigest;
-use buck2_common::file_ops::metadata::FileDigestKind;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -93,7 +91,7 @@ impl Uploader {
         deduplicate_get_digests_ttl_calls: bool,
     ) -> buck2_error::Result<(
         Vec<InlinedBlobWithDigest>,
-        BuckMutSet<&'a TrackedCasDigest<FileDigestKind>>,
+        BuckMutSet<&'a TrackedFileDigest>,
     )> {
         // RE mentions they usually take 5-10 minutes of leeway so we mirror this here.
         let now = Timestamp::now();
