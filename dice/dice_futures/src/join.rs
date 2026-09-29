@@ -234,11 +234,11 @@ impl<F: Future, M: Outcomes<F>> JoinCore<F, M> {
                 }
                 let mut guard = shared.get().woken.lock();
                 // Bail early if this was a spurious wake
-                if !guard.is_empty() {
+                if !guard.list.is_empty() {
                     // We cannot be caught holding this lock while polling, because a poll might wake
                     // one of our branches, which needs this same lock -- a deadlock. So we swap the
                     // woken list out for an empty one and release the lock before draining.
-                    let mut woken = std::mem::replace(&mut *guard, MiniVec::new());
+                    let mut woken = guard.take();
                     drop(guard);
                     for idx in woken.drain(..) {
                         let waker = Shared::borrowed_waker(shared, idx as usize);
@@ -251,8 +251,8 @@ impl<F: Future, M: Outcomes<F>> JoinCore<F, M> {
                     // `woken` is now an empty buffer; attempt to put it back so that we don't end
                     // up with each `wake` allocating.
                     let mut guard = shared.get().woken.lock();
-                    if guard.is_empty() {
-                        *guard = woken;
+                    if guard.list.is_empty() {
+                        guard.list = woken;
                     } else {
                         // Another wake has happened in the meantime, so we certainly can't just
                         // clobber the existing buffer. There may be some temptation to swap and
@@ -358,9 +358,76 @@ struct Shared {
     /// As always with these locks, it absolutely must not be held across any unknown code without
     /// risking a deadlock, including particularly `poll` and `wake` calls. That's why this lock
     /// must also be separate from the `AtomicWaker` below.
-    woken: Mutex<MiniVec<u32>>,
+    woken: Mutex<Woken>,
     /// The join future's own waker.
     parent: AtomicWaker,
+}
+
+/// Once this many wakes are recorded, `Woken` stops finding duplicates by scanning its list and
+/// allocates a bitset instead. Joins whose wakes stay below it, including every join narrower
+/// than it, never allocate the bitset.
+///
+/// In benchmarks, values from 16 to 256 performed within a few percent of each other; the
+/// threshold mainly exists to spare narrow joins an allocation they do not need.
+const WOKEN_BITSET_THRESHOLD: usize = 32;
+
+/// The set of branches woken since the join was last polled, in wake order.
+struct Woken {
+    list: MiniVec<u32>,
+    /// One bit per branch, set iff the index is in `list`. Allocated when `list` first reaches
+    /// `WOKEN_BITSET_THRESHOLD` and kept for the rest of the join.
+    seen: Option<Box<[u64]>>,
+}
+
+impl Woken {
+    fn new() -> Self {
+        Woken {
+            list: MiniVec::new(),
+            seen: None,
+        }
+    }
+
+    /// Records branch `i` of `n`, returning whether it was newly added.
+    fn insert(&mut self, i: u32, n: u32) -> bool {
+        if self.seen.is_none() && self.list.len() >= WOKEN_BITSET_THRESHOLD {
+            let mut seen = vec![0u64; (n as usize).div_ceil(64)].into_boxed_slice();
+            for &idx in self.list.iter() {
+                seen[idx as usize / 64] |= 1u64 << (idx % 64);
+            }
+            self.seen = Some(seen);
+        }
+        let added = match &mut self.seen {
+            Some(seen) => {
+                let (word, bit) = (&mut seen[i as usize / 64], 1u64 << (i % 64));
+                let added = *word & bit == 0;
+                *word |= bit;
+                added
+            }
+            None => !self.list.contains(&i),
+        };
+        if added {
+            self.list.push(i);
+        }
+        added
+    }
+
+    /// Takes the recorded indexes, leaving the set empty.
+    ///
+    /// The bits are cleared here rather than as the caller drains, because the caller
+    /// releases the lock before polling: a branch that re-wakes mid-drain must see itself as
+    /// absent, or its wake is dropped and the join hangs.
+    fn take(&mut self) -> MiniVec<u32> {
+        let list = std::mem::replace(&mut self.list, MiniVec::new());
+        if let Some(seen) = &mut self.seen {
+            // Every set bit belongs to an index in `list`, so zeroing each listed index's whole
+            // word clears them all. Unlike clearing the whole bitset, this costs O(list) rather
+            // than O(n) per poll.
+            for &idx in list.iter() {
+                seen[idx as usize / 64] = 0;
+            }
+        }
+        list
+    }
 }
 
 /// The type of the entries `i_u32` in the `[Shared, 0_u32, ...]` allocation. Just to make it
@@ -398,7 +465,7 @@ impl Shared {
             ptr.write(Shared {
                 refcount: AtomicU32::new(1),
                 n: n.try_into().unwrap(),
-                woken: Mutex::new(MiniVec::new()),
+                woken: Mutex::new(Woken::new()),
                 parent: AtomicWaker::new(),
             });
             for entry in 0..table_entries {
@@ -498,11 +565,10 @@ unsafe fn wake_by_ref_raw(data: *const ()) {
     let shared = unsafe { &*shared };
     {
         let mut woken = shared.woken.lock();
-        if woken.contains(&i) {
+        if !woken.insert(i, shared.n) {
             // Already recorded; whoever recorded it also woke the parent.
             return;
         }
-        woken.push(i);
     }
     shared.parent.wake();
 }
@@ -664,6 +730,64 @@ mod tests {
         };
         assert!(stray.is_none(), "waker should have been consumed by fire");
         assert_eq!(counter.0.load(Ordering::SeqCst), 1);
+    }
+
+    /// A branch that counts its polls and stays pending, parking its waker for the test.
+    struct PollCounter(Arc<(AtomicUsize, Mutex<Option<Waker>>)>);
+
+    impl Future for PollCounter {
+        type Output = ();
+
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
+            self.0.0.fetch_add(1, Ordering::SeqCst);
+            *self.0.1.lock() = Some(cx.waker().clone());
+            Poll::Pending
+        }
+    }
+
+    /// Duplicate wakes must be ignored both below and above `WOKEN_BITSET_THRESHOLD`, including
+    /// wakes recorded before the bitset existed, and a drain must forget every wake it took.
+    #[test]
+    fn test_wake_dedup_across_bitset_threshold() {
+        let n = WOKEN_BITSET_THRESHOLD * 2;
+        let states: Vec<_> = (0..n)
+            .map(|_| Arc::new((AtomicUsize::new(0), Mutex::new(None))))
+            .collect();
+        let mut j = Box::pin(join_all(states.iter().cloned().map(PollCounter)));
+        let waker = Waker::noop();
+        let polls = || {
+            states
+                .iter()
+                .map(|s| s.0.load(Ordering::SeqCst))
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(poll_once(&mut j, waker), Poll::Pending);
+        let branch_wakers: Vec<Waker> =
+            states.iter().map(|s| s.1.lock().clone().unwrap()).collect();
+
+        for _ in 0..2 {
+            branch_wakers[..WOKEN_BITSET_THRESHOLD]
+                .iter()
+                .for_each(Waker::wake_by_ref);
+        }
+        for _ in 0..2 {
+            branch_wakers.iter().for_each(Waker::wake_by_ref);
+        }
+        assert_eq!(poll_once(&mut j, waker), Poll::Pending);
+        assert_eq!(
+            polls(),
+            vec![2; n],
+            "each branch should be polled by the opening sweep and then once by the drain"
+        );
+
+        branch_wakers.iter().for_each(Waker::wake_by_ref);
+        assert_eq!(poll_once(&mut j, waker), Poll::Pending);
+        assert_eq!(
+            polls(),
+            vec![3; n],
+            "the drain should have forgotten every wake it took"
+        );
     }
 
     #[test]
