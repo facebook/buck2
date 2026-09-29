@@ -4,13 +4,13 @@ oncall("build_infra")
 
 buck2_core_tests(
     target_extra_attrs = {
-        "test_actions": {
+        "test_download_file": {
             "deps": [
                 "fbcode//buck2/tests/e2e_util:http_server",
                 "fbsource//third-party/pypi/aiohttp:aiohttp",
             ],
             "env": {
-                # `cpe::x2p` resolves `localhost` incorrectly, and test fails.
+                # `cpe::x2p` resolves `localhost` incorrectly, and the downloads fail.
                 "CPE_RUST_X2P_SUPPORTS_VPNLESS": "0",
             },
         },

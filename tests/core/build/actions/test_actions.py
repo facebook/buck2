@@ -9,19 +9,16 @@
 # pyre-strict
 
 
-import asyncio
 import json
 import os
 import platform
 import socket
 from pathlib import Path
 
-from aiohttp import web
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.http_server import sha1_hex, StaticHttpServer
-from buck2.tests.e2e_util.helper.utils import filter_events, random_string
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 # Taken from the ActionExecutionKind enum in data.proto.
 ACTION_EXECUTION_KIND_LOCAL = 1
@@ -272,150 +269,6 @@ async def test_anon_targets(buck: Buck) -> None:
         buck.build("//anon_invalid_defaults/anon_rule:bad_anon_rule"),
         stderr_regex="Attr type `attrs.plugin_dep\\(\\)` is not supported for anon rules",
     )
-
-
-@buck_test(data_dir="actions")
-async def test_download_file(buck: Buck) -> None:
-    routes = web.RouteTableDef()
-
-    attempt = 0
-    # Fresh content, so the CAS cannot already have it and the download really happens.
-    body: bytes = random_string().encode()
-    sha1 = sha1_hex(body)
-
-    @routes.get("/")
-    async def hello(request: web.Request) -> web.Response:
-        nonlocal attempt
-        attempt += 1
-        if attempt > 2:
-            return web.Response(body=body)
-        if attempt > 1:
-            return web.Response(status=500)
-        return web.Response(status=429)
-
-    app = web.Application()
-    app.add_routes(routes)
-
-    sock = socket.socket()
-    sock.bind(("localhost", 0))
-
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.SockSite(runner, sock)
-    await site.start()
-
-    port = sock.getsockname()[1]
-    url = f"http://localhost:{port}"
-    await buck.build(
-        "//download_file:", "-c", f"test.sha1={sha1}", "-c", f"test.url={url}"
-    )
-
-    await runner.cleanup()
-
-    # HEAD, then the GET's two retried errors and its success.
-    assert attempt == 4
-
-
-@buck_test(data_dir="actions")
-async def test_download_file_without_head_support(buck: Buck) -> None:
-    content = random_string().encode()
-    async with StaticHttpServer({"/file": content}, allow_head=False) as server:
-        result = await buck.build(
-            "//download_file:",
-            "-c",
-            f"test.sha1={sha1_hex(content)}",
-            "-c",
-            f"test.url={server.url('/file')}",
-        )
-        output = result.get_build_report().output_for_target("//download_file:test")
-        assert output.read_bytes() == content
-        assert server.count("HEAD", "/file") == 1
-        assert server.count("GET", "/file") == 1
-
-
-@buck_test(data_dir="actions")
-async def test_download_file_wrong_size(buck: Buck) -> None:
-    content = random_string().encode()
-    async with StaticHttpServer({"/file": content}) as server:
-        await expect_failure(
-            buck.build(
-                "//download_file:",
-                "-c",
-                f"test.sha1={sha1_hex(content)}",
-                "-c",
-                f"test.url={server.url('/file')}",
-                "-c",
-                f"test.size_bytes={len(content) + 1}",
-            ),
-            stderr_regex=f"Downloaded size \\({len(content)}\\) does not match expected size \\({len(content) + 1}\\)",
-        )
-
-
-@buck_test(data_dir="actions")
-async def test_download_file_timeout_after_retries(buck: Buck) -> None:
-    routes = web.RouteTableDef()
-
-    body: bytes = random_string().encode()
-    sha1 = sha1_hex(body)
-
-    @routes.get("/always_times_out")
-    async def always_times_out(request: web.Request) -> web.Response:
-        await asyncio.sleep(3)
-        return web.Response(body=body)
-
-    attempt = 0
-
-    @routes.get("/times_out_twice")
-    async def times_out_twice(request: web.Request) -> web.Response:
-        nonlocal attempt
-        attempt += 1
-        if attempt > 2:
-            return web.Response(body=body)
-        await asyncio.sleep(3)
-        return web.Response(body=body)
-
-    app = web.Application()
-    app.add_routes(routes)
-
-    sock = socket.socket()
-    sock.bind(("localhost", 0))
-
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.SockSite(runner, sock)
-    await site.start()
-
-    port = sock.getsockname()[1]
-    url = f"http://localhost:{port}"
-
-    # These are daemon startup configs, need these to be written in a buckconfig rather
-    # than passed as an invocation config.
-    #
-    # Add an aggressive read timeout.
-    with open(buck.cwd / ".buckconfig", "a") as buckconfig:
-        buckconfig.write("[http]\nread_timeout_ms = 50\n")
-
-    await expect_failure(
-        buck.build(
-            "//download_file:",
-            "-c",
-            f"test.sha1={sha1}",
-            "-c",
-            f"test.url={url}/always_times_out",
-        ),
-        stderr_regex="Timed out while making request to",
-    )
-
-    result = await buck.build(
-        "//download_file:",
-        "-c",
-        f"test.sha1={sha1}",
-        "-c",
-        f"test.url={url}/times_out_twice",
-    )
-    assert "Retrying a HTTP error after" in result.stderr
-
-    await runner.cleanup()
 
 
 @buck_test(data_dir="actions")
