@@ -62,7 +62,6 @@ use futures::pin_mut;
 use itertools::Itertools;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
-use tokio::sync::Semaphore;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::time::timeout;
@@ -179,9 +178,6 @@ pub struct ConcurrencyHandler {
     /// Source of `CommandId`s. Deliberately outside the coordinator so that a command has an
     /// identity before it sends its first message.
     next_command_id: AtomicUsize,
-    /// Serializes updates without blocking the coordinator.
-    #[allocative(skip)]
-    update_permit: Semaphore,
 }
 
 #[derive(Allocative)]
@@ -233,6 +229,11 @@ enum CoordinatorMessage {
     BeforeUpdate {
         command: CommandId,
         response: oneshot::Sender<buck2_error::Result<PreUpdateDecision>>,
+    },
+    AcquireUpdate {
+        command: CommandId,
+        attempt: UpdateAttemptId,
+        response: oneshot::Sender<buck2_error::Result<()>>,
     },
     AfterUpdate {
         command: CommandId,
@@ -289,6 +290,8 @@ struct AdmissionCoordinator {
 struct CoordinatorSnapshot {
     active_commands: usize,
     pending_commands: usize,
+    update_in_flight: bool,
+    update_waiters: usize,
     cleanup_in_progress: bool,
     previously_tainted: bool,
 }
@@ -339,6 +342,7 @@ struct CompletedUpdate {
 }
 
 struct PendingUpdate {
+    command: CommandId,
     attempt: UpdateAttemptId,
     conflict_on_arrival: Option<DiceEquality>,
     dice_was_idle: BoxFuture<'static, bool>,
@@ -557,6 +561,23 @@ impl CoordinatorState {
             .get(&command)
             .map(|pending| &pending.request)
             .ok_or_else(|| internal_error!("command `{command}` is not pending admission"))
+    }
+
+    fn ensure_update_attempt_current(
+        &self,
+        command: CommandId,
+        attempt: UpdateAttemptId,
+    ) -> buck2_error::Result<()> {
+        let pending = self
+            .pending_commands
+            .get(&command)
+            .ok_or_else(|| internal_error!("command `{command}` is not pending admission"))?;
+        if pending.update_attempt != Some(attempt) {
+            return Err(internal_error!(
+                "update attempt `{attempt}` is not current for command `{command}`"
+            ));
+        }
+        Ok(())
     }
 
     fn admit_command(
@@ -834,17 +855,7 @@ impl CoordinatorState {
         command: CommandId,
         update: CompletedUpdate,
     ) -> buck2_error::Result<AdmissionOutcome> {
-        let pending = self
-            .pending_commands
-            .get(&command)
-            .ok_or_else(|| internal_error!("command `{command}` is not pending admission"))?;
-        if pending.update_attempt != Some(update.attempt) {
-            return Err(internal_error!(
-                "update attempt `{}` is not current for command `{}`",
-                update.attempt,
-                command
-            ));
-        }
+        self.ensure_update_attempt_current(command, update.attempt)?;
 
         let request = self
             .pending_commands
@@ -947,6 +958,19 @@ impl AdmissionCoordinator {
             .await
     }
 
+    async fn acquire_update(
+        &self,
+        command: CommandId,
+        attempt: UpdateAttemptId,
+    ) -> buck2_error::Result<()> {
+        self.request(|response| CoordinatorMessage::AcquireUpdate {
+            command,
+            attempt,
+            response,
+        })
+        .await
+    }
+
     async fn after_update(
         &self,
         command: CommandId,
@@ -1003,9 +1027,17 @@ struct AdmissionCoordinatorTask {
     data: CoordinatorState,
     dice: Arc<Dice>,
     sender: mpsc::WeakUnboundedSender<CoordinatorMessage>,
+    update_in_flight: Option<(CommandId, UpdateAttemptId)>,
+    update_waiters: VecDeque<UpdateWaiter>,
     blocked_waiters: SmallMap<CommandId, oneshot::Sender<()>>,
     #[cfg(test)]
     active_commands: Arc<AtomicUsize>,
+}
+
+struct UpdateWaiter {
+    command: CommandId,
+    attempt: UpdateAttemptId,
+    response: oneshot::Sender<buck2_error::Result<()>>,
 }
 
 impl AdmissionCoordinatorTask {
@@ -1021,6 +1053,8 @@ impl AdmissionCoordinatorTask {
             },
             dice,
             sender,
+            update_in_flight: None,
+            update_waiters: VecDeque::new(),
             blocked_waiters: SmallMap::new(),
             #[cfg(test)]
             active_commands: Arc::new(AtomicUsize::new(0)),
@@ -1041,6 +1075,11 @@ impl AdmissionCoordinatorTask {
                     let owns_command = self.data.pending_commands.contains_key(&command);
                     self.respond(command, owns_command, response, result);
                 }
+                CoordinatorMessage::AcquireUpdate {
+                    command,
+                    attempt,
+                    response,
+                } => self.acquire_update(command, attempt, response),
                 CoordinatorMessage::AfterUpdate {
                     command,
                     update,
@@ -1074,6 +1113,8 @@ impl AdmissionCoordinatorTask {
                     let _ignored = response.send(Ok(CoordinatorSnapshot {
                         active_commands: self.data.active_commands.len(),
                         pending_commands: self.data.pending_commands.len(),
+                        update_in_flight: self.update_in_flight.is_some(),
+                        update_waiters: self.update_waiters.len(),
                         cleanup_in_progress: matches!(
                             self.data.dice_status,
                             DiceStatus::CleanupStarting { .. } | DiceStatus::Cleanup { .. }
@@ -1140,10 +1181,80 @@ impl AdmissionCoordinatorTask {
         });
     }
 
+    fn acquire_update(
+        &mut self,
+        command: CommandId,
+        attempt: UpdateAttemptId,
+        response: oneshot::Sender<buck2_error::Result<()>>,
+    ) {
+        if let Err(error) = self.data.ensure_update_attempt_current(command, attempt) {
+            let _ignored = response.send(Err(error));
+            return;
+        }
+        if self
+            .update_in_flight
+            .is_some_and(|(updating, _)| updating == command)
+            || self
+                .update_waiters
+                .iter()
+                .any(|waiter| waiter.command == command)
+        {
+            let _ignored = response.send(Err(internal_error!(
+                "command `{command}` requested the update lane more than once"
+            )));
+            return;
+        }
+
+        self.update_waiters.push_back(UpdateWaiter {
+            command,
+            attempt,
+            response,
+        });
+        self.grant_next_update();
+    }
+
+    fn grant_next_update(&mut self) {
+        if self.update_in_flight.is_some() {
+            return;
+        }
+
+        while let Some(waiter) = self.update_waiters.pop_front() {
+            let result = self
+                .data
+                .ensure_update_attempt_current(waiter.command, waiter.attempt);
+            if let Err(error) = result {
+                let _ignored = waiter.response.send(Err(error));
+                continue;
+            }
+
+            self.update_in_flight = Some((waiter.command, waiter.attempt));
+            if waiter.response.send(Ok(())).is_ok() {
+                return;
+            }
+            self.update_in_flight = None;
+        }
+    }
+
+    fn finish_update(&mut self, command: CommandId, attempt: UpdateAttemptId) {
+        if self.update_in_flight == Some((command, attempt)) {
+            self.update_in_flight = None;
+            self.grant_next_update();
+        }
+    }
+
     fn release_command(&mut self, command: CommandId) {
         self.blocked_waiters.shift_remove(&command);
+        self.update_waiters
+            .retain(|waiter| waiter.command != command);
         let effect = self.data.release_command(command);
         self.apply_effect(effect);
+        if self
+            .update_in_flight
+            .is_some_and(|(updating, _)| updating == command)
+        {
+            self.update_in_flight = None;
+            self.grant_next_update();
+        }
     }
 
     fn after_update(
@@ -1151,12 +1262,25 @@ impl AdmissionCoordinatorTask {
         command: CommandId,
         update: CompletedUpdate,
     ) -> buck2_error::Result<PostUpdateDecision> {
+        if self.update_in_flight != Some((command, update.attempt)) {
+            return Err(internal_error!(
+                "command `{command}` completed update attempt `{}` without owning the update lane",
+                update.attempt
+            ));
+        }
+        let attempt = update.attempt;
         let AdmissionOutcome { decision, effects } =
-            self.data.decide_after_update_for(command, update)?;
-
-        match decision {
+            match self.data.decide_after_update_for(command, update) {
+                Ok(outcome) => outcome,
+                Err(error) => {
+                    self.finish_update(command, attempt);
+                    return Err(error);
+                }
+            };
+        let result = match decision {
             AdmissionDecision::RetryAfterCleanup => {
                 let DiceStatus::Cleanup { future, epoch } = &self.data.dice_status else {
+                    self.finish_update(command, attempt);
                     return Err(internal_error!(
                         "cleanup retry requested while DICE is not being cleaned"
                     ));
@@ -1195,7 +1319,9 @@ impl AdmissionCoordinatorTask {
                 decision,
                 effects,
             })),
-        }
+        };
+        self.finish_update(command, attempt);
+        result
     }
 
     fn apply_effect(&mut self, effect: StateEffect) {
@@ -1327,7 +1453,6 @@ impl ConcurrencyHandler {
             dice,
             exclusive_command_lock: ExclusiveCommandLock::new(),
             next_command_id: AtomicUsize::new(0),
-            update_permit: Semaphore::new(1),
         })
     }
 
@@ -1462,11 +1587,11 @@ impl ConcurrencyHandler {
         early_timings: &mut EarlyCommandTimingBuilder,
         events: &E,
     ) -> buck2_error::Result<UpdatedTransaction> {
-        let _update_permit = self
-            .update_permit
-            .acquire()
-            .await
-            .expect("`update_permit` is never closed");
+        // `enter` holds the command lease across this call. Any error or cancellation releases
+        // the command, and `release_command` also releases an update lane owned by that command.
+        self.coordinator
+            .acquire_update(pending.command, pending.attempt)
+            .await?;
         let dice_was_idle = pending.dice_was_idle.await;
 
         let updater = self.dice.updater();
@@ -1688,6 +1813,7 @@ impl ConcurrencyHandler {
             };
 
             let pending_update = PendingUpdate {
+                command: command_id,
                 attempt,
                 conflict_on_arrival,
                 // Enqueue the sample before the update because committing a transaction makes
@@ -1699,7 +1825,7 @@ impl ConcurrencyHandler {
             // this might cause some churn, but concurrent commands don't happen much and
             // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
             //
-            // This runs under `update_permit` and outside the coordinator, so it can continue
+            // The coordinator serializes updates without awaiting them, so it can continue
             // processing command exits while this command is talking to the file watcher.
             let UpdatedTransaction {
                 transaction,
@@ -2424,6 +2550,10 @@ mod tests {
         };
 
         let version = dice.updater().commit().await.equality_token();
+        concurrency
+            .coordinator
+            .acquire_update(command_id, attempt)
+            .await?;
         let (response, receiver) = oneshot::channel();
         drop(receiver);
         assert!(
@@ -2487,6 +2617,10 @@ mod tests {
         let mut updater = dice.updater();
         updater.changed_to(vec![(K, ())])?;
         let transaction = updater.commit().await;
+        concurrency
+            .coordinator
+            .acquire_update(command_id, attempt)
+            .await?;
         let (response, receiver) = oneshot::channel();
         drop(receiver);
         assert!(
@@ -2569,6 +2703,7 @@ mod tests {
         else {
             panic!("the first command should update");
         };
+        coordinator.acquire_update(first, first_attempt).await?;
         let first_decision = coordinator
             .after_update(
                 first,
@@ -2611,6 +2746,7 @@ mod tests {
         else {
             panic!("the blocked command should update");
         };
+        coordinator.acquire_update(blocked, blocked_attempt).await?;
         let PostUpdateDecision::Block { wake, .. } = coordinator
             .after_update(
                 blocked,
@@ -2681,6 +2817,10 @@ mod tests {
         else {
             panic!("the first command should update");
         };
+        concurrency
+            .coordinator
+            .acquire_update(first_id, first_attempt)
+            .await?;
         assert!(
             matches!(
                 concurrency
@@ -2724,6 +2864,10 @@ mod tests {
         else {
             panic!("the cancelled command should update");
         };
+        concurrency
+            .coordinator
+            .acquire_update(cancelled_id, cancelled_attempt)
+            .await?;
         let (response, receiver) = oneshot::channel();
         drop(receiver);
         assert!(
@@ -2774,6 +2918,10 @@ mod tests {
         else {
             panic!("the retry should update");
         };
+        concurrency
+            .coordinator
+            .acquire_update(retry_id, retry_attempt)
+            .await?;
         let effects = match concurrency
             .coordinator
             .after_update(
@@ -3267,6 +3415,9 @@ mod tests {
             }
         });
         wait_for_coordinator_counts(&concurrency, 2, 0).await?;
+        let snapshot = concurrency.coordinator.snapshot().await?;
+        assert!(snapshot.update_in_flight);
+        assert_eq!(snapshot.update_waiters, 1);
 
         queued.abort();
         assert!(
@@ -3276,6 +3427,9 @@ mod tests {
                 .is_cancelled()
         );
         wait_for_coordinator_counts(&concurrency, 1, 0).await?;
+        let snapshot = concurrency.coordinator.snapshot().await?;
+        assert!(snapshot.update_in_flight);
+        assert_eq!(snapshot.update_waiters, 0);
 
         updating.abort();
         assert!(
@@ -3285,6 +3439,71 @@ mod tests {
                 .is_cancelled()
         );
         wait_for_coordinator_counts(&concurrency, 0, 0).await?;
+        let snapshot = concurrency.coordinator.snapshot().await?;
+        assert!(!snapshot.update_in_flight);
+        assert_eq!(snapshot.update_waiters, 0);
+
+        TestCommand::new()
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn update_lane_survives_a_thousand_cancelled_waiters() -> buck2_error::Result<()> {
+        const COMMANDS: usize = 1_000;
+
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let mut command_ids = Vec::with_capacity(COMMANDS);
+        let mut receivers = Vec::with_capacity(COMMANDS);
+
+        for index in 0..COMMANDS {
+            let command = concurrency.allocate_command_id();
+            let PreUpdateDecision::Update { attempt, .. } = concurrency
+                .coordinator
+                .begin(AdmissionRequest {
+                    command_id: command,
+                    command: CommandData {
+                        trace_id: TraceId::new(),
+                        display_command: format!("buck2 storm {index}"),
+                        preemption_setting: PreemptibleWhen::Never,
+                        preempt: None,
+                    },
+                    is_nested: false,
+                    exit_when: ExitWhen::ExitNever,
+                })
+                .await?
+            else {
+                panic!("an idle coordinator should prepare every update");
+            };
+            let (response, receiver) = oneshot::channel();
+            concurrency
+                .coordinator
+                .sender
+                .send(CoordinatorMessage::AcquireUpdate {
+                    command,
+                    attempt,
+                    response,
+                })
+                .map_err(|_| internal_error!("concurrency admission coordinator stopped"))?;
+            command_ids.push(command);
+            receivers.push(receiver);
+        }
+
+        let snapshot = concurrency.coordinator.snapshot().await?;
+        assert_eq!(snapshot.pending_commands, COMMANDS);
+        assert!(snapshot.update_in_flight);
+        assert_eq!(snapshot.update_waiters, COMMANDS - 1);
+
+        drop(receivers);
+        command_ids
+            .into_iter()
+            .for_each(|command| concurrency.coordinator.release(command));
+
+        let snapshot = concurrency.coordinator.snapshot().await?;
+        assert_eq!(snapshot.pending_commands, 0);
+        assert!(!snapshot.update_in_flight);
+        assert_eq!(snapshot.update_waiters, 0);
 
         TestCommand::new()
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
