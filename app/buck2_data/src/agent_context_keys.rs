@@ -18,4 +18,11 @@ impl crate::AgentContextEntry {
 
     /// Per-invocation marker supplied on the command line, never inherited from agent metadata.
     pub const KEY_DIRECT_CALL: &'static str = "direct_call";
+
+    /// Acknowledges one advice ID for this invocation; repeated entries acknowledge separate IDs.
+    pub const KEY_ADVICE_ACK: &'static str = "advice_ack";
+
+    /// CLI-only protocol keys whose interpretation belongs to Buck, not the repository schema.
+    pub const BUILTIN_CLI_KEYS: &'static [&'static str] =
+        &[Self::KEY_DIRECT_CALL, Self::KEY_ADVICE_ACK];
 }

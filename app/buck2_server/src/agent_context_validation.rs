@@ -34,11 +34,11 @@ pub(crate) fn validate_agent_context(
     client_id: Option<&str>,
     entries: &[buck2_data::AgentContextEntry],
 ) -> buck2_error::Result<()> {
-    // The built-in marker must not opt an otherwise context-free call into schema enforcement.
+    // Built-in CLI metadata must not opt an otherwise context-free call into schema enforcement.
     if schema.is_empty()
         || entries
             .iter()
-            .all(|entry| entry.key == AgentContextEntry::KEY_DIRECT_CALL)
+            .all(|entry| AgentContextEntry::BUILTIN_CLI_KEYS.contains(&entry.key.as_str()))
     {
         return Ok(());
     }
@@ -85,9 +85,9 @@ pub(crate) fn validate_agent_context(
         let key = &entry.key;
         let value = &entry.value;
 
-        // Built-in telemetry keys do not need repository schema entries.
+        // Built-in keys do not need repository schema entries.
         if AgentContextEntry::ENV_INJECTED_KEYS.contains(&key.as_str())
-            || key.as_str() == AgentContextEntry::KEY_DIRECT_CALL
+            || AgentContextEntry::BUILTIN_CLI_KEYS.contains(&key.as_str())
         {
             continue;
         }
@@ -172,10 +172,14 @@ mod tests {
     }
 
     #[test]
-    fn test_direct_call_alone_does_not_enable_schema_enforcement() {
+    fn test_builtin_cli_keys_alone_do_not_enable_schema_enforcement() {
         let schema = schema_with_required_fields();
-        let entries = [entry("direct_call", "true")];
-        assert!(validate_agent_context(&schema, Some("claude_code"), &entries).is_ok());
+        for builtin in [
+            entry("direct_call", "true"),
+            entry("advice_ack", "build_intent"),
+        ] {
+            assert!(validate_agent_context(&schema, Some("claude_code"), &[builtin]).is_ok());
+        }
     }
 
     #[test]
@@ -186,34 +190,50 @@ mod tests {
     }
 
     #[test]
-    fn test_direct_call_bypasses_schema_validation() {
+    fn test_builtin_cli_keys_bypass_schema_validation() {
         let schema = schema_with_required_fields();
-        for value in ["true", "false", "invalid"] {
-            let entries = [entry("direct_call", value), entry("intent", "build")];
+        for builtin in [
+            entry("direct_call", "true"),
+            entry("direct_call", "false"),
+            entry("direct_call", "invalid"),
+            entry("advice_ack", "build_intent"),
+            entry("advice_ack", "other_advice"),
+        ] {
+            let entries = [builtin, entry("intent", "build")];
             assert!(validate_agent_context(&schema, Some("claude_code"), &entries).is_ok());
         }
     }
 
     #[test]
-    fn test_direct_call_does_not_bypass_required_custom_fields() {
+    fn test_builtin_cli_keys_do_not_bypass_required_custom_fields() {
         let schema = schema_with_required_fields();
-        let entries = [entry("direct_call", "true"), entry("intent", "")];
-        let error = validate_agent_context(&schema, Some("claude_code"), &entries)
-            .expect_err("empty required intent should be rejected");
-        assert!(
-            error
-                .to_string()
-                .contains("Missing required agent-context field")
-        );
+        for builtin in [
+            entry("direct_call", "true"),
+            entry("advice_ack", "build_intent"),
+        ] {
+            let entries = [builtin, entry("intent", "")];
+            let error = validate_agent_context(&schema, Some("claude_code"), &entries)
+                .expect_err("empty required intent should be rejected");
+            assert!(
+                error
+                    .to_string()
+                    .contains("Missing required agent-context field")
+            );
+        }
     }
 
     #[test]
-    fn test_direct_call_does_not_bypass_custom_field_values() {
+    fn test_builtin_cli_keys_do_not_bypass_custom_field_values() {
         let schema = schema_with_required_fields();
-        let entries = [entry("direct_call", "true"), entry("intent", "invalid")];
-        let error = validate_agent_context(&schema, Some("claude_code"), &entries)
-            .expect_err("invalid intent should be rejected");
-        assert!(error.to_string().contains("Invalid agent-context value"));
+        for builtin in [
+            entry("direct_call", "true"),
+            entry("advice_ack", "build_intent"),
+        ] {
+            let entries = [builtin, entry("intent", "invalid")];
+            let error = validate_agent_context(&schema, Some("claude_code"), &entries)
+                .expect_err("invalid intent should be rejected");
+            assert!(error.to_string().contains("Invalid agent-context value"));
+        }
     }
 
     #[test]

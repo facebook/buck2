@@ -164,8 +164,8 @@ mod tests {
     }
 
     #[test]
-    fn test_env_metadata_does_not_inherit_direct_call() {
-        let result = parse_agent_env_metadata("id=codex,direct_call=true");
+    fn test_env_metadata_does_not_inherit_cli_protocol_keys() {
+        let result = parse_agent_env_metadata("id=codex,direct_call=true,advice_ack=build_intent");
         assert_eq!(
             result,
             vec![AgentContextEntry {
