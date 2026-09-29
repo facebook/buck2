@@ -623,6 +623,7 @@ def _compile_single_cxx(
     cuda_shared_plan_identifier: str | None,
     shared_compile_args: CxxSharedCompileCommandArgs,
     shared_auxiliary_args: CxxSharedCompileCommandArgs,
+    shared_dryrun_args: CxxSharedCompileCommandArgs | None,
     pch_object: OutputArtifact | None,
     json_error: OutputArtifact | None,
 ) -> CudaDistributedCompileSpec | None:
@@ -694,13 +695,14 @@ def _compile_single_cxx(
     )
     cuda_prepare_cmd = None
     if prepare_cuda_dist:
+        expect(shared_dryrun_args != None, "distributed CUDA prepare requires dry-run compile args")
         cuda_prepare_cmd = _get_base_compile_cmd(
             src = src,
             src_args = src_args,
             cxx_compile_cmd = cxx_compile_cmd,
             base_compile_cmd_override = base_compile_cmd_override,
             source_override = _CUDA_DRYRUN_SOURCE_PLACEHOLDER,
-            shared_args = shared_compile_args,
+            shared_args = shared_dryrun_args,
         )
 
     if index_store:
@@ -956,6 +958,7 @@ def _get_shared_compile_command_args(
     flavors: set[CxxCompileFlavor],
     flavor_flags: dict[str, list[str]],
     use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none"),
+    cuda_dryrun: bool = False,
 ) -> CxxSharedCompileCommandArgs:
     before_src = cmd_args()
 
@@ -964,7 +967,12 @@ def _get_shared_compile_command_args(
     elif use_header_units == UseHeaderUnitsMode("stub") and cxx_compile_cmd.header_unit_stubs_argsfile:
         before_src.add(cmd_args(hidden = cxx_compile_cmd.header_unit_stubs_argsfile.file))
 
-    before_src.add(cxx_compile_cmd.argsfile.cmd_form)
+    if cuda_dryrun:
+        dryrun_form = cxx_compile_cmd.argsfile.cmd_form_cuda_dryrun
+        expect(dryrun_form != None, "compile argsfile has no CUDA dry-run form")
+        before_src.add(dryrun_form)
+    else:
+        before_src.add(cxx_compile_cmd.argsfile.cmd_form)
 
     for flavor in flavors:
         flags = flavor_flags.get(flavor.value)
@@ -1062,6 +1070,7 @@ def _cxx_dynamic_compile(
     cuda_shared_plan_identifier = _cuda_plan_identifier(flavors_set) if shared_cuda_dist_output != None else None
     shared_compile_args = {}
     shared_auxiliary_args = {}
+    shared_dryrun_args = {}
     for extension, shared_info in shared_infos.items():
         flavor_flags = build_flavor_flags(toolchain.compiler_flavor_flags, shared_info.cxx_compile_cmd.compiler_type)
         shared_compile_args[extension] = _get_shared_compile_command_args(
@@ -1077,6 +1086,15 @@ def _cxx_dynamic_compile(
             flavors = flavors_set,
             flavor_flags = toolchain.compiler_flavor_flags,
         )
+        if extension == ".cu" and cuda_compile_style == CudaCompileStyle("dist"):
+            shared_dryrun_args[extension] = _get_shared_compile_command_args(
+                bitcode_args = bitcode_args,
+                cxx_compile_cmd = shared_info.cxx_compile_cmd,
+                flavors = flavors_set,
+                flavor_flags = flavor_flags,
+                use_header_units = use_header_units,
+                cuda_dryrun = True,
+            )
     for i in range(len(infos)):
         extension = infos[i].src.extension
         is_cuda = extension == ".cu"
@@ -1121,6 +1139,7 @@ def _cxx_dynamic_compile(
             cuda_shared_plan_identifier = cuda_shared_plan_identifier,
             shared_compile_args = shared_compile_args[extension],
             shared_auxiliary_args = shared_auxiliary_args[extension],
+            shared_dryrun_args = shared_dryrun_args.get(extension),
             pch_object = pch_object.get(i),
             json_error = json_error.get(i),
         )
@@ -2410,14 +2429,25 @@ def _mk_argsfiles(
     if argsfile_for_buck_action_rerun != None:
         input_args.append(argsfile_for_buck_action_rerun)
 
+    argsfile_format = "-@{}" if is_nasm else "@{}"
     cmd_form = cmd_args(
         headers_tag.tag_artifacts(argsfile),
-        format = "-@{}" if is_nasm else "@{}",
+        format = argsfile_format,
         hidden = input_args,
     )
+
+    # The NVCC dry run expands the flags and reads header maps, nothing else behind them.
+    cmd_form_cuda_dryrun = None
+    if ext.value == ".cu":
+        cmd_form_cuda_dryrun = cmd_args(
+            argsfile,
+            format = argsfile_format,
+            hidden = [file_args, preprocessor.set.project_as_args("header_maps")],
+        )
     return CompileArgsfile(
         file = argsfile,
         cmd_form = cmd_form,
+        cmd_form_cuda_dryrun = cmd_form_cuda_dryrun,
         args = args,
         args_without_file_prefix_args = args_without_file_prefix_args,
         file_prefix_specs = file_prefix_specs[0] if file_prefix_specs else None,

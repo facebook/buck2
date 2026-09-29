@@ -51,6 +51,9 @@ CPreprocessorArgs = record(
     coverage_prefix_args = field(list[typing.Any], []),
     # Arguments used for module precompilation, replacing args
     precompile_args = field(list[typing.Any], []),
+    # Header maps named by `args`, without the header trees behind them. Tools
+    # that resolve a header map by reading it need these and nothing else.
+    header_maps = field(list[Artifact], []),
 )
 
 HeaderUnit = record(
@@ -123,6 +126,9 @@ def _cpreprocessor_precompile_args(pres: list[CPreprocessor]):
         args.add(pre.args.precompile_args)
     return args
 
+def _cpreprocessor_header_maps(pres: list[CPreprocessor]):
+    return cmd_args(hidden = [pre.args.header_maps for pre in pres])
+
 def _cpreprocessor_header_units_args_impl(pres: list[CPreprocessor], stub: bool):
     args = cmd_args()
     for pre in pres:
@@ -194,6 +200,7 @@ CPreprocessorTSet = transitive_set(
         "args": _cpreprocessor_args,
         "coverage_prefix_args": _cpreprocessor_coverage_prefix_args,
         "file_prefix_args": _cpreprocessor_file_prefix_args,
+        "header_maps": _cpreprocessor_header_maps,
         "header_unit_stubs_args": _cpreprocessor_header_unit_stubs_args,
         "header_units_args": _cpreprocessor_header_units_args,
         "include_dirs": _cpreprocessor_include_dirs,
@@ -383,9 +390,12 @@ def get_exported_preprocessor_args(
     # Propagate the exported header tree.
     file_prefix_args = []
     coverage_prefix_args = []
+    header_maps = []
     if header_root != None:
         args.extend(_header_style_args(style, header_root.include_path, compiler_type))
         precompile_args.extend(_header_style_args(style, precompile_root.include_path, compiler_type))
+        if header_root.header_map != None:
+            header_maps.append(header_root.header_map)
         if header_root.file_prefix_args != None:
             file_prefix_args.append(header_root.file_prefix_args)
         if header_root.coverage_prefix_args != None:
@@ -404,10 +414,13 @@ def get_exported_preprocessor_args(
     for pre in extra_preprocessors:
         args.extend(pre.args.args)
         precompile_args.extend(pre.args.precompile_args)
+        header_maps.extend(pre.args.header_maps)
 
     if not args and not file_prefix_args and not coverage_prefix_args and not precompile_args:
         return _EMPTY_CPREPROCESSOR_ARGS
-    return CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args, coverage_prefix_args = coverage_prefix_args, precompile_args = precompile_args)
+    return CPreprocessorArgs(
+        args = args, file_prefix_args = file_prefix_args, coverage_prefix_args = coverage_prefix_args, precompile_args = precompile_args, header_maps = header_maps
+    )
 
 def cxx_private_preprocessor_info(
     ctx: AnalysisContext,
@@ -508,6 +521,7 @@ def _get_private_preprocessor_args(
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     file_prefix_args = []
     coverage_prefix_args = []
+    header_maps = []
     header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs)
     header_root = prepare_headers(
@@ -522,6 +536,8 @@ def _get_private_preprocessor_args(
     )
     if header_root != None:
         args.extend(_format_include_arg("-I", header_root.include_path, compiler_type))
+        if header_root.header_map != None:
+            header_maps.append(header_root.header_map)
         if header_root.file_prefix_args != None:
             file_prefix_args.append(header_root.file_prefix_args)
         if header_root.coverage_prefix_args != None:
@@ -536,7 +552,7 @@ def _get_private_preprocessor_args(
 
     if not args and not file_prefix_args and not coverage_prefix_args:
         return _EMPTY_CPREPROCESSOR_ARGS
-    return CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args, coverage_prefix_args = coverage_prefix_args)
+    return CPreprocessorArgs(args = args, file_prefix_args = file_prefix_args, coverage_prefix_args = coverage_prefix_args, header_maps = header_maps)
 
 def _by_language_cxx(x: dict[typing.Any, typing.Any]) -> list[typing.Any]:
     return cxx_by_language_ext(x, ".cpp")

@@ -73,6 +73,8 @@ HeaderStyle = enum(
 
 Headers = record(
     include_path = field(cmd_args),
+    # The header map on the include path, when the header mode uses one.
+    header_map = field(Artifact | None, None),
     # NOTE(agallagher): Used for module hack replacement.
     symlink_tree = field(Artifact | None, None),
     # -fdebug-prefix-map args that map symlinked headers to source path
@@ -268,6 +270,7 @@ def prepare_headers(
         hmap = _mk_hmap(actions, cxx_toolchain_info, output_name, headers, allow_cache_upload, uses_content_based_paths)
         return Headers(
             include_path = cmd_args(hmap, hidden = srcs.values()),
+            header_map = hmap,
         )
     symlink_dir = actions.symlinked_dir(
         output_name,
@@ -298,6 +301,7 @@ def prepare_headers(
             coverage_prefix_args = cmd_args(cmd_args(symlink_dir, format = "-fcoverage-prefix-map={}=" + replacement))
         return Headers(
             include_path = cmd_args(hmap, hidden = symlink_dir),
+            header_map = hmap,
             symlink_tree = symlink_dir,
             file_prefix_args = file_prefix_args,
             coverage_prefix_args = coverage_prefix_args,
