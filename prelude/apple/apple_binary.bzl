@@ -14,6 +14,7 @@ load(
     "@prelude//apple:modularization_dependency_graph.bzl",
     "create_modularization_dep_graph_subtargets_and_provider",
 )
+load("@prelude//apple:xcassets_asset_symbols.bzl", "meta_xcassets_asset_symbol_usage_providers_and_subtargets")
 # @oss-disable[end= ]: load(
     # @oss-disable[end= ]: "@prelude//apple/meta_only:linker_outputs.bzl",
     # @oss-disable[end= ]: "extra_distributed_thin_lto_opt_outputs_merger",
@@ -260,6 +261,9 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
         all_deps = non_exported_deps + exported_deps
 
+        meta_xcassets_usage_providers, meta_xcassets_usage_subtargets = meta_xcassets_asset_symbol_usage_providers_and_subtargets(ctx, cxx_srcs, swift_srcs)
+        cxx_output.sub_targets.update(meta_xcassets_usage_subtargets)
+
         index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, swift_index_stores, all_deps)
         cxx_output.sub_targets.update(index_store_subtargets)
 
@@ -339,6 +343,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             + validation_providers
             + diagnostics_providers
             + target_stats_providers
+            + meta_xcassets_usage_providers
         )
 
         if cxx_output.xplugins_debug_artifacts_info:

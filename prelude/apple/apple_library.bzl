@@ -15,6 +15,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
+load("@prelude//apple:xcassets_asset_symbols.bzl", "meta_xcassets_asset_symbol_usage_providers_and_subtargets")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions")
 # @oss-disable[end= ]: load(
     # @oss-disable[end= ]: "@prelude//apple/meta_only:linker_outputs.bzl",
@@ -499,6 +500,10 @@ def apple_library_rule_constructor_params_and_swift_providers(
         extra_apple_providers = _make_apple_library_info_provider(ctx, swift_objc_header) + _make_apple_library_for_distribution_info_provider(
             ctx, swift_library_for_distribution_output
         )
+    meta_xcassets_usage_providers, meta_xcassets_usage_subtargets = (
+        ([], {}) if is_test_target else meta_xcassets_asset_symbol_usage_providers_and_subtargets(ctx, cxx_srcs, swift_srcs)
+    )
+    extra_apple_providers += meta_xcassets_usage_providers
 
     # Always provide a valid JSON object, so that tooling can depend on its existance
     modulemap_info_json = {"modulemap": exported_pre.modulemap_artifact} if (exported_pre and exported_pre.modulemap_artifact) else {}
@@ -515,6 +520,7 @@ def apple_library_rule_constructor_params_and_swift_providers(
         "swiftinterface": [DefaultInfo(default_output = swift_compile_result.swiftinterface)],
         "swiftmodule": [DefaultInfo(default_output = None)],
     }
+    subtargets.update(meta_xcassets_usage_subtargets)
     if swift_compile and swift_compile.compiled_underlying_pcm_artifact:
         subtargets["underlying-pcm"] = [DefaultInfo(default_output = swift_compile.compiled_underlying_pcm_artifact)]
 
