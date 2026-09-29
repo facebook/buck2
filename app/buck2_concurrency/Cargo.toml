@@ -9,7 +9,6 @@ license.workspace = true
 
 [dependencies]
 allocative.workspace = true
-async-condvar-fair.workspace = true
 async-trait.workspace = true
 buck2_cli_proto.workspace = true
 buck2_core.workspace = true

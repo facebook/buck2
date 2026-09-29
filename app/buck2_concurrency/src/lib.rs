@@ -24,7 +24,6 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use allocative::Allocative;
-use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_cli_proto::client_context::ExitWhen;
 use buck2_cli_proto::client_context::PreemptibleWhen;
@@ -42,6 +41,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_util::early_command_timing::EXCLUSIVE_COMMAND_WAIT;
 use buck2_util::early_command_timing::EarlyCommandTimingBuilder;
+use buck2_util::rtabort;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::Display;
@@ -62,9 +62,8 @@ use futures::pin_mut;
 use itertools::Itertools;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
-use tokio::sync::Mutex;
-use tokio::sync::MutexGuard;
 use tokio::sync::Semaphore;
+use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::time::timeout;
 
@@ -121,7 +120,6 @@ enum AdmissionDecision {
 
 #[derive(Debug)]
 struct AdmittedCommand {
-    registration: RegisteredCommand,
     state: AdmittedState,
     nested_warning: Option<NestedInvocationWarning>,
 }
@@ -170,31 +168,30 @@ enum PreUpdateDecision {
 /// any computation result that occurs in one is directly reusable by another.
 #[derive(Allocative)]
 pub struct ConcurrencyHandler {
-    data: Mutex<ConcurrencyHandlerData>,
-    // use an async condvar because the `wait` to `notify` spans across an async function (namely
-    // the entire command execution).
+    /// The mutable admission state lives in the coordinator task and cannot be traversed through
+    /// this handle by `Allocative`.
     #[allocative(skip)]
-    cond: Condvar,
+    coordinator: AdmissionCoordinator,
     dice: Arc<Dice>,
     /// Used to prevent commands (clean --stale) from running in parallel with dice commands
     exclusive_command_lock: ExclusiveCommandLock,
-    /// Source of `CommandId`s. Deliberately outside `data` so that a command has an identity
-    /// before it competes for the lock.
+    /// Source of `CommandId`s. Deliberately outside the coordinator so that a command has an
+    /// identity before it sends its first message.
     next_command_id: AtomicUsize,
-    /// Commands waiting for admission. The separate mutex allows synchronous `Drop` cleanup.
-    queued_commands: Arc<parking_lot::Mutex<SmallMap<CommandId, TraceId>>>,
-    /// Serializes updates independently of the state lock.
+    /// Serializes updates without blocking the coordinator.
     #[allocative(skip)]
     update_permit: Semaphore,
 }
 
 #[derive(Allocative)]
-struct ConcurrencyHandlerData {
+struct CoordinatorState {
     /// the currently active `Dice` being used. Commands can only run concurrently if these are
     /// "equivalent".
     dice_status: DiceStatus,
     /// A list of the currently running commands.
     active_commands: SmallMap<CommandId, CommandData>,
+    /// Commands that entered admission but have not begun execution.
+    pending_commands: SmallMap<CommandId, AdmissionRequest>,
     /// The epoch of the last ActiveDice we assigned.
     cleanup_epoch: usize,
     /// Whether this has been tainted previously.
@@ -223,19 +220,79 @@ enum AdmissionEvent {
     CommandExited(RegisteredCommand),
 }
 
+enum CoordinatorMessage {
+    Begin {
+        request: AdmissionRequest,
+        response: oneshot::Sender<buck2_error::Result<PreUpdateDecision>>,
+    },
+    BeforeUpdate {
+        command: CommandId,
+        response: oneshot::Sender<buck2_error::Result<PreUpdateDecision>>,
+    },
+    AfterUpdate {
+        command: CommandId,
+        update: CompletedUpdate,
+        response: oneshot::Sender<buck2_error::Result<PostUpdateDecision>>,
+    },
+    CleanupCompleted {
+        epoch: usize,
+        response: Option<oneshot::Sender<buck2_error::Result<()>>>,
+    },
+    QueuedTraces {
+        asking: CommandId,
+        response: oneshot::Sender<buck2_error::Result<QueuedTraces>>,
+    },
+    Release {
+        command: CommandId,
+        response: Option<oneshot::Sender<buck2_error::Result<()>>>,
+    },
+    #[cfg(test)]
+    Snapshot(oneshot::Sender<buck2_error::Result<CoordinatorSnapshot>>),
+}
+
+enum PostUpdateDecision {
+    Outcome(AdmissionOutcome),
+    AwaitCleanup {
+        future: Shared<BoxFuture<'static, ()>>,
+        epoch: usize,
+    },
+    Block {
+        blocking: BlockingCommand,
+        effects: AdmissionEffects,
+        wake: oneshot::Receiver<()>,
+    },
+}
+
+impl PostUpdateDecision {
+    fn restore_preemptions(self, state: &mut CoordinatorState) {
+        match self {
+            Self::Outcome(outcome) => outcome.effects.restore_preemptions(state),
+            Self::Block { effects, .. } => effects.restore_preemptions(state),
+            Self::AwaitCleanup { .. } => {}
+        }
+    }
+}
+
+#[derive(Clone)]
+struct AdmissionCoordinator {
+    sender: mpsc::UnboundedSender<CoordinatorMessage>,
+    #[cfg(test)]
+    active_commands: Arc<AtomicUsize>,
+}
+
+#[cfg(test)]
+struct CoordinatorSnapshot {
+    active_commands: usize,
+    pending_commands: usize,
+    cleanup_in_progress: bool,
+    previously_tainted: bool,
+}
+
 #[derive(Debug, Eq, PartialEq)]
 enum StateEffect {
     None,
     /// Every waiter must re-evaluate because several equivalent commands may now be admissible.
     WakeWaiters,
-}
-
-impl StateEffect {
-    fn execute(self, cond: &Condvar) {
-        if matches!(self, Self::WakeWaiters) {
-            cond.notify_all();
-        }
-    }
 }
 
 #[derive(Allocative)]
@@ -247,25 +304,20 @@ struct CommandData {
     preempt: Option<oneshot::Sender<()>>,
 }
 
+#[derive(Allocative)]
 struct AdmissionRequest {
     command_id: CommandId,
-    command: Option<CommandData>,
+    command: CommandData,
     is_nested: bool,
     exit_when: ExitWhen,
 }
 
-impl AdmissionRequest {
-    fn command(&self) -> buck2_error::Result<&CommandData> {
-        self.command
-            .as_ref()
-            .ok_or_else(|| internal_error!("command `{}` was already admitted", self.command_id))
-    }
-
-    fn take_command(&mut self) -> buck2_error::Result<CommandData> {
-        self.command
-            .take()
-            .ok_or_else(|| internal_error!("command `{}` was already admitted", self.command_id))
-    }
+enum PendingAdmissionDecision {
+    Retain(AdmissionOutcome),
+    Admit {
+        state: AdmittedState,
+        effects: AdmissionEffects,
+    },
 }
 
 struct CompletedUpdate {
@@ -296,7 +348,10 @@ struct CleanupRequest {
 }
 
 enum AdmissionEffect {
-    Preempt(oneshot::Sender<()>),
+    Preempt {
+        command: CommandId,
+        sender: oneshot::Sender<()>,
+    },
     DiceEquality(bool),
 }
 
@@ -307,16 +362,21 @@ impl AdmissionEffects {
         Self(Vec::new())
     }
 
-    fn after_state_comparison(data: &mut ConcurrencyHandlerData, is_same_state: bool) -> Self {
-        let preemptions = data.active_commands.values_mut().filter_map(|command| {
-            match command.preemption_setting {
+    fn after_state_comparison(data: &mut CoordinatorState, is_same_state: bool) -> Self {
+        let preemptions = data
+            .active_commands
+            .iter_mut()
+            .filter_map(|(command_id, command)| match command.preemption_setting {
                 PreemptibleWhen::Never => None,
                 PreemptibleWhen::OnDifferentState if is_same_state => None,
-                PreemptibleWhen::Always | PreemptibleWhen::OnDifferentState => {
-                    command.preempt.take().map(AdmissionEffect::Preempt)
-                }
-            }
-        });
+                PreemptibleWhen::Always | PreemptibleWhen::OnDifferentState => command
+                    .preempt
+                    .take()
+                    .map(|sender| AdmissionEffect::Preempt {
+                        command: *command_id,
+                        sender,
+                    }),
+            });
 
         if is_same_state {
             Self(
@@ -335,11 +395,24 @@ impl AdmissionEffects {
 
     fn execute<E: CommandEvents>(self, events: &E) {
         self.0.into_iter().for_each(|effect| match effect {
-            AdmissionEffect::Preempt(sender) => {
+            AdmissionEffect::Preempt { sender, .. } => {
                 let _ignored = sender.send(());
             }
             AdmissionEffect::DiceEquality(is_equal) => {
                 events.instant(DiceEqualityCheck { is_equal }.into());
+            }
+        });
+    }
+
+    fn restore_preemptions(self, state: &mut CoordinatorState) {
+        self.0.into_iter().for_each(|effect| {
+            let AdmissionEffect::Preempt { command, sender } = effect else {
+                return;
+            };
+            if let Some(command) = state.active_commands.get_mut(&command)
+                && command.preempt.is_none()
+            {
+                command.preempt = Some(sender);
             }
         });
     }
@@ -360,7 +433,7 @@ impl AdmissionOutcome {
 
     fn after_state_comparison(
         decision: AdmissionDecision,
-        data: &mut ConcurrencyHandlerData,
+        data: &mut CoordinatorState,
         is_same_state: bool,
     ) -> Self {
         Self {
@@ -421,7 +494,7 @@ impl DiceStatus {
     }
 }
 
-impl ConcurrencyHandlerData {
+impl CoordinatorState {
     fn has_no_active_commands(&self) -> bool {
         self.active_commands.is_empty()
     }
@@ -442,20 +515,33 @@ impl ConcurrencyHandlerData {
         Ok(RegisteredCommand(command))
     }
 
-    fn ensure_command_can_register(&self, request: &AdmissionRequest) -> buck2_error::Result<()> {
-        request.command()?;
-        if self.active_commands.contains_key(&request.command_id) {
+    fn begin_admission(
+        &mut self,
+        request: AdmissionRequest,
+    ) -> buck2_error::Result<PreUpdateDecision> {
+        let command = request.command_id;
+        if self.active_commands.contains_key(&command)
+            || self.pending_commands.contains_key(&command)
+        {
             return Err(internal_error!(
                 "command id `{}` is already registered",
-                request.command_id
+                command
             ));
         }
-        Ok(())
+
+        self.pending_commands.insert(command, request);
+        self.decide_before_update_for(command)
+    }
+
+    fn pending_command(&self, command: CommandId) -> buck2_error::Result<&AdmissionRequest> {
+        self.pending_commands
+            .get(&command)
+            .ok_or_else(|| internal_error!("command `{command}` is not pending admission"))
     }
 
     fn admit_command(
         &mut self,
-        request: &mut AdmissionRequest,
+        request: AdmissionRequest,
         state: AdmittedState,
         effects: AdmissionEffects,
     ) -> AdmissionOutcome {
@@ -463,15 +549,10 @@ impl ConcurrencyHandlerData {
             AdmittedState::Concurrent {
                 state: RunState::NestedSameState,
                 ..
-            } => {
-                let command = request
-                    .command()
-                    .expect("command availability was checked before admission");
-                Some(NestedInvocationWarning {
-                    running: ConcurrentTraces::running_and(&self.active_commands, command),
-                    display_command: command.display_command.clone(),
-                })
-            }
+            } => Some(NestedInvocationWarning {
+                running: ConcurrentTraces::running_and(&self.active_commands, &request.command),
+                display_command: request.command.display_command.clone(),
+            }),
             AdmittedState::Fresh { .. }
             | AdmittedState::Concurrent {
                 state: RunState::ParallelSameState,
@@ -480,18 +561,11 @@ impl ConcurrencyHandlerData {
         };
 
         let command_id = request.command_id;
-        let registration = self
-            .register_command(
-                command_id,
-                request
-                    .take_command()
-                    .expect("command availability was checked before admission"),
-            )
+        self.register_command(command_id, request.command)
             .expect("command availability was checked before registration");
 
         AdmissionOutcome {
             decision: AdmissionDecision::Admit(AdmittedCommand {
-                registration,
                 state,
                 nested_warning,
             }),
@@ -585,29 +659,36 @@ impl ConcurrencyHandlerData {
         }
     }
 
+    fn decide_before_update_for(
+        &self,
+        command: CommandId,
+    ) -> buck2_error::Result<PreUpdateDecision> {
+        Ok(self.decide_before_update(self.pending_command(command)?))
+    }
+
     fn decide_after_update(
         &mut self,
-        request: &mut AdmissionRequest,
+        request: &AdmissionRequest,
         update: CompletedUpdate,
-    ) -> buck2_error::Result<AdmissionOutcome> {
+    ) -> buck2_error::Result<PendingAdmissionDecision> {
         if matches!(request.exit_when, ExitWhen::ExitDifferentState)
             && !request.is_nested
             && update
                 .conflict_on_arrival
                 .is_some_and(|version| update.version != version)
         {
-            return Ok(AdmissionOutcome::without_effects(
-                AdmissionDecision::RejectDifferentState {
+            return Ok(PendingAdmissionDecision::Retain(
+                AdmissionOutcome::without_effects(AdmissionDecision::RejectDifferentState {
                     compared_with_active_state: false,
                     running: ConcurrentTraces::running(&self.active_commands),
-                },
+                }),
             ));
         }
 
         let active_version = match &self.dice_status {
             DiceStatus::CleanupStarting { .. } | DiceStatus::Cleanup { .. } => {
-                return Ok(AdmissionOutcome::without_effects(
-                    AdmissionDecision::RetryAfterCleanup,
+                return Ok(PendingAdmissionDecision::Retain(
+                    AdmissionOutcome::without_effects(AdmissionDecision::RetryAfterCleanup),
                 ));
             }
             DiceStatus::Available {
@@ -618,19 +699,18 @@ impl ConcurrencyHandlerData {
                     self.has_no_active_commands(),
                     "an idle DICE state cannot have registered commands"
                 );
-                self.ensure_command_can_register(request)?;
+                self.ensure_command_can_register(request.command_id)?;
                 let tainted = !update.dice_was_idle;
                 let previously_tainted = self.previously_tainted;
                 self.dice_status = DiceStatus::active(update.version);
                 self.previously_tainted |= tainted;
-                return Ok(self.admit_command(
-                    request,
-                    AdmittedState::Fresh {
+                return Ok(PendingAdmissionDecision::Admit {
+                    state: AdmittedState::Fresh {
                         tainted,
                         previously_tainted,
                     },
-                    AdmissionEffects::none(),
-                ));
+                    effects: AdmissionEffects::none(),
+                });
             }
         };
 
@@ -639,44 +719,46 @@ impl ConcurrencyHandlerData {
             let cleanup = self
                 .begin_cleanup()
                 .expect("cleanup decision requires no active commands");
-            return Ok(AdmissionOutcome::without_effects(
-                AdmissionDecision::StartCleanup(cleanup),
+            return Ok(PendingAdmissionDecision::Retain(
+                AdmissionOutcome::without_effects(AdmissionDecision::StartCleanup(cleanup)),
             ));
         }
 
         match determine_bypass_semaphore(is_same_state, request.is_nested) {
             BypassSemaphore::Error => {
-                let command = request.command()?;
                 let warning = NestedInvocationWarning {
-                    running: ConcurrentTraces::running_and(&self.active_commands, command),
-                    display_command: command.display_command.clone(),
+                    running: ConcurrentTraces::running_and(&self.active_commands, &request.command),
+                    display_command: request.command.display_command.clone(),
                 };
-                Ok(AdmissionOutcome::after_state_comparison(
-                    AdmissionDecision::RejectNestedDifferentState(warning),
-                    self,
-                    false,
+                Ok(PendingAdmissionDecision::Retain(
+                    AdmissionOutcome::after_state_comparison(
+                        AdmissionDecision::RejectNestedDifferentState(warning),
+                        self,
+                        false,
+                    ),
                 ))
             }
             BypassSemaphore::Run(state) => {
-                self.ensure_command_can_register(request)?;
+                self.ensure_command_can_register(request.command_id)?;
                 let effects = AdmissionEffects::after_state_comparison(self, true);
-                Ok(self.admit_command(
-                    request,
-                    AdmittedState::Concurrent {
+                Ok(PendingAdmissionDecision::Admit {
+                    state: AdmittedState::Concurrent {
                         state,
                         previously_tainted: self.previously_tainted,
                     },
                     effects,
-                ))
+                })
             }
             BypassSemaphore::Block if matches!(request.exit_when, ExitWhen::ExitDifferentState) => {
-                Ok(AdmissionOutcome::after_state_comparison(
-                    AdmissionDecision::RejectDifferentState {
-                        compared_with_active_state: true,
-                        running: ConcurrentTraces::running(&self.active_commands),
-                    },
-                    self,
-                    false,
+                Ok(PendingAdmissionDecision::Retain(
+                    AdmissionOutcome::after_state_comparison(
+                        AdmissionDecision::RejectDifferentState {
+                            running: ConcurrentTraces::running(&self.active_commands),
+                            compared_with_active_state: true,
+                        },
+                        self,
+                        false,
+                    ),
                 ))
             }
             BypassSemaphore::Block => {
@@ -689,12 +771,376 @@ impl ConcurrencyHandlerData {
                     trace_id: active.trace_id.dupe(),
                     display_command: active.display_command.clone(),
                 };
-                Ok(AdmissionOutcome::after_state_comparison(
-                    AdmissionDecision::Block(blocking),
-                    self,
-                    false,
+                Ok(PendingAdmissionDecision::Retain(
+                    AdmissionOutcome::after_state_comparison(
+                        AdmissionDecision::Block(blocking),
+                        self,
+                        false,
+                    ),
                 ))
             }
+        }
+    }
+
+    fn ensure_command_can_register(&self, command: CommandId) -> buck2_error::Result<()> {
+        if self.active_commands.contains_key(&command) {
+            return Err(internal_error!(
+                "command id `{}` is already registered",
+                command
+            ));
+        }
+        Ok(())
+    }
+
+    fn decide_after_update_for(
+        &mut self,
+        command: CommandId,
+        update: CompletedUpdate,
+    ) -> buck2_error::Result<AdmissionOutcome> {
+        let request = self
+            .pending_commands
+            .shift_remove(&command)
+            .ok_or_else(|| internal_error!("command `{command}` is not pending admission"))?;
+        match self.decide_after_update(&request, update) {
+            Ok(PendingAdmissionDecision::Admit { state, effects }) => {
+                Ok(self.admit_command(request, state, effects))
+            }
+            Ok(PendingAdmissionDecision::Retain(outcome)) => {
+                self.pending_commands.insert(command, request);
+                Ok(outcome)
+            }
+            Err(error) => {
+                self.pending_commands.insert(command, request);
+                Err(error)
+            }
+        }
+    }
+
+    fn queued_traces(&self, asking: CommandId) -> QueuedTraces {
+        QueuedTraces(ConcurrentTraces(
+            self.pending_commands
+                .iter()
+                .filter(|(queued, _)| **queued != asking)
+                .map(|(_, request)| request.command.trace_id.dupe())
+                .collect(),
+        ))
+    }
+
+    fn release_command(&mut self, command: CommandId) -> StateEffect {
+        if self.pending_commands.shift_remove(&command).is_some() {
+            return StateEffect::None;
+        }
+
+        if self.active_commands.contains_key(&command) {
+            return self.apply_event(AdmissionEvent::CommandExited(RegisteredCommand(command)));
+        }
+
+        StateEffect::None
+    }
+}
+
+impl AdmissionCoordinator {
+    fn new(dice: Arc<Dice>) -> Self {
+        let (sender, receiver) = mpsc::unbounded_channel();
+        let task = AdmissionCoordinatorTask::new(dice, sender.downgrade());
+        #[cfg(test)]
+        let active_commands = task.active_commands.dupe();
+        let task = tokio::task::spawn(task.run(receiver));
+        let _monitor = tokio::task::spawn(async move {
+            if let Err(error) = task.await
+                && error.is_panic()
+            {
+                // The coordinator owns all admission state, so it cannot be recovered in place.
+                // Abort the daemon and let the client start a healthy replacement.
+                rtabort!("concurrency admission coordinator panicked: {error}");
+            }
+        });
+        Self {
+            sender,
+            #[cfg(test)]
+            active_commands,
+        }
+    }
+
+    async fn request<T>(
+        &self,
+        make_message: impl FnOnce(oneshot::Sender<buck2_error::Result<T>>) -> CoordinatorMessage,
+    ) -> buck2_error::Result<T> {
+        let (response, receiver) = oneshot::channel();
+        self.sender
+            .send(make_message(response))
+            .map_err(|_| internal_error!("concurrency admission coordinator stopped"))?;
+        receiver
+            .await
+            .map_err(|_| internal_error!("concurrency admission coordinator stopped"))?
+    }
+
+    async fn begin(&self, request: AdmissionRequest) -> buck2_error::Result<PreUpdateDecision> {
+        self.request(|response| CoordinatorMessage::Begin { request, response })
+            .await
+    }
+
+    async fn before_update(&self, command: CommandId) -> buck2_error::Result<PreUpdateDecision> {
+        self.request(|response| CoordinatorMessage::BeforeUpdate { command, response })
+            .await
+    }
+
+    async fn after_update(
+        &self,
+        command: CommandId,
+        update: CompletedUpdate,
+    ) -> buck2_error::Result<PostUpdateDecision> {
+        self.request(|response| CoordinatorMessage::AfterUpdate {
+            command,
+            update,
+            response,
+        })
+        .await
+    }
+
+    async fn cleanup_completed(&self, epoch: usize) -> buck2_error::Result<()> {
+        self.request(|response| CoordinatorMessage::CleanupCompleted {
+            epoch,
+            response: Some(response),
+        })
+        .await
+    }
+
+    async fn queued_traces(&self, asking: CommandId) -> buck2_error::Result<QueuedTraces> {
+        self.request(|response| CoordinatorMessage::QueuedTraces { asking, response })
+            .await
+    }
+
+    fn release(&self, command: CommandId) {
+        let _ignored = self.sender.send(CoordinatorMessage::Release {
+            command,
+            response: None,
+        });
+    }
+
+    async fn release_and_wait(&self, command: CommandId) -> buck2_error::Result<()> {
+        self.request(|response| CoordinatorMessage::Release {
+            command,
+            response: Some(response),
+        })
+        .await
+    }
+
+    #[cfg(test)]
+    fn active_command_count(&self) -> usize {
+        self.active_commands.load(Ordering::Acquire)
+    }
+
+    #[cfg(test)]
+    async fn snapshot(&self) -> buck2_error::Result<CoordinatorSnapshot> {
+        self.request(CoordinatorMessage::Snapshot).await
+    }
+}
+
+struct AdmissionCoordinatorTask {
+    data: CoordinatorState,
+    dice: Arc<Dice>,
+    sender: mpsc::WeakUnboundedSender<CoordinatorMessage>,
+    blocked_waiters: SmallMap<CommandId, oneshot::Sender<()>>,
+    #[cfg(test)]
+    active_commands: Arc<AtomicUsize>,
+}
+
+impl AdmissionCoordinatorTask {
+    fn new(dice: Arc<Dice>, sender: mpsc::WeakUnboundedSender<CoordinatorMessage>) -> Self {
+        Self {
+            data: CoordinatorState {
+                dice_status: DiceStatus::idle(),
+                active_commands: SmallMap::new(),
+                pending_commands: SmallMap::new(),
+                cleanup_epoch: 0,
+                previously_tainted: false,
+            },
+            dice,
+            sender,
+            blocked_waiters: SmallMap::new(),
+            #[cfg(test)]
+            active_commands: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    async fn run(mut self, mut receiver: mpsc::UnboundedReceiver<CoordinatorMessage>) {
+        while let Some(message) = receiver.recv().await {
+            match message {
+                CoordinatorMessage::Begin { request, response } => {
+                    let command = request.command_id;
+                    let result = self.data.begin_admission(request);
+                    let owns_command = result.is_ok();
+                    self.respond(command, owns_command, response, result);
+                }
+                CoordinatorMessage::BeforeUpdate { command, response } => {
+                    let result = self.data.decide_before_update_for(command);
+                    let owns_command = self.data.pending_commands.contains_key(&command);
+                    self.respond(command, owns_command, response, result);
+                }
+                CoordinatorMessage::AfterUpdate {
+                    command,
+                    update,
+                    response,
+                } => {
+                    let result = self.after_update(command, update);
+                    let owns_command = self.data.pending_commands.contains_key(&command)
+                        || self.data.active_commands.contains_key(&command);
+                    self.respond_after_update(command, owns_command, response, result);
+                }
+                CoordinatorMessage::CleanupCompleted { epoch, response } => {
+                    let effect = self
+                        .data
+                        .apply_event(AdmissionEvent::CleanupCompleted { epoch });
+                    self.apply_effect(effect);
+                    if let Some(response) = response {
+                        let _ignored = response.send(Ok(()));
+                    }
+                }
+                CoordinatorMessage::QueuedTraces { asking, response } => {
+                    let _ignored = response.send(Ok(self.data.queued_traces(asking)));
+                }
+                CoordinatorMessage::Release { command, response } => {
+                    self.release_command(command);
+                    if let Some(response) = response {
+                        let _ignored = response.send(Ok(()));
+                    }
+                }
+                #[cfg(test)]
+                CoordinatorMessage::Snapshot(response) => {
+                    let _ignored = response.send(Ok(CoordinatorSnapshot {
+                        active_commands: self.data.active_commands.len(),
+                        pending_commands: self.data.pending_commands.len(),
+                        cleanup_in_progress: matches!(
+                            self.data.dice_status,
+                            DiceStatus::CleanupStarting { .. } | DiceStatus::Cleanup { .. }
+                        ),
+                        previously_tainted: self.data.previously_tainted,
+                    }));
+                }
+            }
+            #[cfg(test)]
+            self.publish_active_commands();
+        }
+    }
+
+    #[cfg(test)]
+    fn publish_active_commands(&self) {
+        self.active_commands
+            .store(self.data.active_commands.len(), Ordering::Release);
+    }
+
+    fn respond<T>(
+        &mut self,
+        command: CommandId,
+        owns_command: bool,
+        response: oneshot::Sender<buck2_error::Result<T>>,
+        result: buck2_error::Result<T>,
+    ) {
+        if response.send(result).is_err() && owns_command {
+            self.release_command(command);
+        }
+    }
+
+    fn respond_after_update(
+        &mut self,
+        command: CommandId,
+        owns_command: bool,
+        response: oneshot::Sender<buck2_error::Result<PostUpdateDecision>>,
+        result: buck2_error::Result<PostUpdateDecision>,
+    ) {
+        if let Err(result) = response.send(result) {
+            if let Ok(decision) = result {
+                match decision {
+                    PostUpdateDecision::AwaitCleanup { future, epoch } => {
+                        self.finish_abandoned_cleanup(future, epoch);
+                    }
+                    decision => decision.restore_preemptions(&mut self.data),
+                }
+            }
+            if owns_command {
+                self.release_command(command);
+            }
+        }
+    }
+
+    fn finish_abandoned_cleanup(&self, future: Shared<BoxFuture<'static, ()>>, epoch: usize) {
+        let Some(sender) = self.sender.upgrade() else {
+            return;
+        };
+        let _cleanup = tokio::task::spawn(async move {
+            future.await;
+            let _ignored = sender.send(CoordinatorMessage::CleanupCompleted {
+                epoch,
+                response: None,
+            });
+        });
+    }
+
+    fn release_command(&mut self, command: CommandId) {
+        self.blocked_waiters.shift_remove(&command);
+        let effect = self.data.release_command(command);
+        self.apply_effect(effect);
+    }
+
+    fn after_update(
+        &mut self,
+        command: CommandId,
+        update: CompletedUpdate,
+    ) -> buck2_error::Result<PostUpdateDecision> {
+        let AdmissionOutcome { decision, effects } =
+            self.data.decide_after_update_for(command, update)?;
+
+        match decision {
+            AdmissionDecision::RetryAfterCleanup => {
+                let DiceStatus::Cleanup { future, epoch } = &self.data.dice_status else {
+                    return Err(internal_error!(
+                        "cleanup retry requested while DICE is not being cleaned"
+                    ));
+                };
+                Ok(PostUpdateDecision::AwaitCleanup {
+                    future: future.clone(),
+                    epoch: *epoch,
+                })
+            }
+            AdmissionDecision::StartCleanup(request) => {
+                let epoch = request.epoch;
+                // `wait_for_idle` enqueues its DICE query before returning. A live caller retains
+                // its transaction until this reply; a cancelled caller has already dropped it, so
+                // either ordering preserves the cleanup handshake.
+                let future = self.dice.wait_for_idle().boxed().shared();
+                let effect = self.data.apply_event(AdmissionEvent::CleanupPrepared {
+                    request,
+                    future: future.clone(),
+                });
+                self.apply_effect(effect);
+                Ok(PostUpdateDecision::AwaitCleanup { future, epoch })
+            }
+            AdmissionDecision::Block(blocking) => {
+                let (wake, receiver) = oneshot::channel();
+                assert!(
+                    self.blocked_waiters.insert(command, wake).is_none(),
+                    "a command cannot register two blocked waits"
+                );
+                Ok(PostUpdateDecision::Block {
+                    blocking,
+                    effects,
+                    wake: receiver,
+                })
+            }
+            decision => Ok(PostUpdateDecision::Outcome(AdmissionOutcome {
+                decision,
+                effects,
+            })),
+        }
+    }
+
+    fn apply_effect(&mut self, effect: StateEffect) {
+        if matches!(effect, StateEffect::WakeWaiters) {
+            let waiters = std::mem::take(&mut self.blocked_waiters);
+            waiters.into_iter().for_each(|(_, waiter)| {
+                let _ignored = waiter.send(());
+            });
         }
     }
 }
@@ -814,17 +1260,10 @@ impl ExclusiveCommandLock {
 impl ConcurrencyHandler {
     pub fn new(dice: Arc<Dice>) -> Arc<Self> {
         Arc::new(ConcurrencyHandler {
-            data: Mutex::new(ConcurrencyHandlerData {
-                dice_status: DiceStatus::idle(),
-                active_commands: SmallMap::new(),
-                cleanup_epoch: 0,
-                previously_tainted: false,
-            }),
-            cond: Condvar::new(),
+            coordinator: AdmissionCoordinator::new(dice.dupe()),
             dice,
             exclusive_command_lock: ExclusiveCommandLock::new(),
             next_command_id: AtomicUsize::new(0),
-            queued_commands: Arc::new(parking_lot::Mutex::new(SmallMap::new())),
             update_permit: Semaphore::new(1),
         })
     }
@@ -832,27 +1271,6 @@ impl ConcurrencyHandler {
     /// Allocates the next `CommandId`. Returns a distinct value to every caller.
     fn allocate_command_id(&self) -> CommandId {
         CommandId(self.next_command_id.fetch_add(1, Ordering::Relaxed))
-    }
-
-    /// Records a command as queued until the returned token is dropped.
-    fn mark_queued(&self, command: CommandId, trace_id: TraceId) -> QueuedCommand {
-        self.queued_commands.lock().insert(command, trace_id);
-        QueuedCommand {
-            queued: self.queued_commands.dupe(),
-            command,
-        }
-    }
-
-    /// Queued commands other than the command receiving the message.
-    fn queued_traces(&self, asking: CommandId) -> QueuedTraces {
-        QueuedTraces(ConcurrentTraces(
-            self.queued_commands
-                .lock()
-                .iter()
-                .filter(|(queued, _)| **queued != asking)
-                .map(|(_, trace)| trace.dupe())
-                .collect(),
-        ))
     }
 
     /// Enters a critical section that requires concurrent command synchronization,
@@ -909,18 +1327,19 @@ impl ConcurrencyHandler {
         let (preempt_sender, preempt_receiver) = oneshot::channel::<()>();
         let request = AdmissionRequest {
             command_id,
-            command: Some(CommandData {
+            command: CommandData {
                 trace_id: events.trace_id().dupe(),
                 display_command: format_command(&sanitized_argv),
                 preemption_setting: preemptible,
                 preempt: Some(preempt_sender),
-            }),
+            },
             is_nested: is_nested_invocation,
             exit_when,
         };
+        let lease = CommandLease::new(self.coordinator.clone(), command_id);
 
         let inner_events = events.dupe();
-        let (_guard, transaction) = events
+        let admission = events
             .span(DiceSynchronizeSectionStart {}.into(), {
                 let early_command_timing = &mut early_command_timing;
 
@@ -941,19 +1360,28 @@ impl ConcurrencyHandler {
                     )
                 })
             })
-            .await?;
+            .await;
+        let transaction = match admission {
+            Ok(transaction) => transaction,
+            Err(error) => {
+                lease.release().await;
+                return Err(error);
+            }
+        };
 
         let result = exec(transaction, early_command_timing);
         pin_mut!(result);
         pin_mut!(preempt_receiver);
 
-        match future::select(result, preempt_receiver).await {
+        let result = match future::select(result, preempt_receiver).await {
             Either::Left((result, _)) => Ok(result),
             Either::Right((_preemption, _)) => {
                 events.instant(CommandPreempted {}.into());
                 Err(ConcurrencyHandlerError::ExitOnPreemption.into())
             }
-        }
+        };
+        lease.release().await;
+        result
     }
 
     /// How long a command may block before its user is first told what it is queued
@@ -1003,12 +1431,12 @@ impl ConcurrencyHandler {
         })
     }
 
-    async fn await_cleanup<'a, E: CommandEvents>(
-        &'a self,
+    async fn await_cleanup<E: CommandEvents>(
+        &self,
         events: &E,
         future: Shared<BoxFuture<'static, ()>>,
         epoch: usize,
-    ) -> MutexGuard<'a, ConcurrencyHandlerData> {
+    ) -> buck2_error::Result<()> {
         events
             .span(
                 buck2_data::DiceCleanupStart { epoch: epoch as _ }.into(),
@@ -1016,43 +1444,16 @@ impl ConcurrencyHandler {
             )
             .await;
 
-        let mut data = self.data.lock().await;
-        let effect = data.apply_event(AdmissionEvent::CleanupCompleted { epoch });
-        drop(data);
-        effect.execute(&self.cond);
-        self.data.lock().await
+        self.coordinator.cleanup_completed(epoch).await
     }
 
-    async fn prepare_cleanup(
+    async fn wait_for_blocked_command<E: CommandEvents>(
         &self,
-        request: CleanupRequest,
-        transaction: DiceTransaction,
-    ) -> MutexGuard<'_, ConcurrencyHandlerData> {
-        let future = self.dice.wait_for_idle().boxed().shared();
-        drop(transaction);
-
-        let mut data = self.data.lock().await;
-        let effect = data.apply_event(AdmissionEvent::CleanupPrepared { request, future });
-        assert_eq!(
-            effect,
-            StateEffect::WakeWaiters,
-            "the cleanup request should still be awaiting its future"
-        );
-        drop(data);
-        effect.execute(&self.cond);
-        self.data.lock().await
-    }
-
-    async fn wait_for_blocked_command<'a, E: CommandEvents>(
-        &'a self,
         events: &E,
-        data: MutexGuard<'a, ConcurrencyHandlerData>,
         effects: AdmissionEffects,
         blocking: BlockingCommand,
-    ) -> MutexGuard<'a, ConcurrencyHandlerData> {
-        // `wait_baton` registers the waiter and releases `data` synchronously. In contrast, the
-        // body of `Condvar::wait` would not run until its future was first polled.
-        let wait = self.cond.wait_baton((data, &self.data));
+        wake: oneshot::Receiver<()>,
+    ) -> buck2_error::Result<()> {
         effects.execute(events);
 
         events
@@ -1063,16 +1464,16 @@ impl ConcurrencyHandler {
                 }
                 .into(),
                 Box::pin(async {
-                    pin_mut!(wait);
+                    pin_mut!(wake);
                     let mut waited = Duration::ZERO;
                     let mut next_warning = Self::BLOCKED_COMMAND_FIRST_WARNING;
-                    let data = loop {
-                        match timeout(next_warning, &mut wait).await {
-                            Ok((data, baton)) => {
-                                if let Some(baton) = baton {
-                                    baton.dispose();
-                                }
-                                break data;
+                    let result = loop {
+                        match timeout(next_warning, &mut wake).await {
+                            Ok(Ok(())) => break buck2_error::Ok(()),
+                            Ok(Err(_)) => {
+                                break Err(internal_error!(
+                                    "concurrency admission coordinator stopped"
+                                ));
                             }
                             Err(_elapsed) => {
                                 waited += next_warning;
@@ -1088,7 +1489,7 @@ impl ConcurrencyHandler {
                         }
                     };
                     (
-                        data,
+                        result,
                         DiceBlockConcurrentCommandEnd {
                             ending_active_trace_id: blocking.trace_id.to_string(),
                         }
@@ -1100,13 +1501,12 @@ impl ConcurrencyHandler {
     }
 
     async fn finish_admission<E: CommandEvents>(
-        self: &Arc<Self>,
+        &self,
         events: &E,
         transaction_observer: &dyn CommandTransactionObserver,
         ready: ReadyToExecute,
-    ) -> buck2_error::Result<(OnExecExit, DiceTransaction)> {
+    ) -> buck2_error::Result<DiceTransaction> {
         let AdmittedCommand {
-            registration,
             state,
             nested_warning,
         } = ready.admitted;
@@ -1120,7 +1520,6 @@ impl ConcurrencyHandler {
             } => (false, previously_tainted, false),
         };
 
-        let drop_guard = OnExecExit::new(self.dupe(), registration);
         ready.effects.execute(events);
 
         if no_active_dice_state {
@@ -1163,7 +1562,7 @@ impl ConcurrencyHandler {
             .on_transaction_committed(&ready.transaction)
             .await?;
 
-        Ok((drop_guard, ready.transaction))
+        Ok(ready.transaction)
     }
 
     async fn wait_for_others<E: CommandEvents>(
@@ -1171,9 +1570,9 @@ impl ConcurrencyHandler {
         updates: &dyn DiceUpdater,
         early_timings: &mut EarlyCommandTimingBuilder,
         events: E,
-        mut request: AdmissionRequest,
+        request: AdmissionRequest,
         transaction_observer: &dyn CommandTransactionObserver,
-    ) -> buck2_error::Result<(OnExecExit, DiceTransaction)> {
+    ) -> buck2_error::Result<DiceTransaction> {
         #![expect(
             clippy::await_holding_invalid_type,
             reason = "the tracing span must remain entered across this operation"
@@ -1186,13 +1585,10 @@ impl ConcurrencyHandler {
         // descheduled from this executor thread, so this may show up in the wrong places
         let _enter = span.enter();
 
-        // Keep the command visible across cleanup and update retries, not only condvar waits.
-        let queued = self.mark_queued(request.command_id, request.command()?.trace_id.dupe());
-
-        let mut data = self.data.lock().await;
+        let command_id = request.command_id;
+        let mut before_update = self.coordinator.begin(request).await?;
 
         let ready = loop {
-            let before_update = data.decide_before_update(&request);
             match &before_update {
                 PreUpdateDecision::WaitForCleanupStart
                 | PreUpdateDecision::WaitForCleanup { .. } => {
@@ -1205,17 +1601,15 @@ impl ConcurrencyHandler {
 
             let conflict_on_arrival = match before_update {
                 PreUpdateDecision::WaitForCleanupStart => {
-                    data = self.cond.wait((data, &self.data)).await;
-                    continue;
+                    return Err(internal_error!("coordinator exposed an unprepared cleanup"));
                 }
                 PreUpdateDecision::WaitForCleanup { future, epoch } => {
-                    drop(data);
-                    data = self.await_cleanup(&events, future, epoch).await;
+                    self.await_cleanup(&events, future, epoch).await?;
+                    before_update = self.coordinator.before_update(command_id).await?;
                     continue;
                 }
                 PreUpdateDecision::RejectNotIdle { running } => {
-                    drop(data);
-                    let queued = self.queued_traces(request.command_id);
+                    let queued = self.coordinator.queued_traces(command_id).await?;
                     return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle)
                         .with_buck_error_context(|| {
                             format!(
@@ -1231,7 +1625,7 @@ impl ConcurrencyHandler {
             let pending_update = PendingUpdate {
                 conflict_on_arrival,
                 // Enqueue the sample before the update because committing a transaction makes
-                // DICE non-idle. The returned future can be awaited after releasing the state lock.
+                // DICE non-idle. The returned future can be awaited after the coordinator reply.
                 dice_was_idle: self.dice.is_idle().boxed(),
             };
 
@@ -1239,31 +1633,29 @@ impl ConcurrencyHandler {
             // this might cause some churn, but concurrent commands don't happen much and
             // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
             //
-            // This runs under `update_permit` and *not* the state lock, so other commands can
-            // reach a decision while this one is talking to the file watcher.
-            drop(data);
+            // This runs under `update_permit` and outside the coordinator, so it can continue
+            // processing command exits while this command is talking to the file watcher.
             let UpdatedTransaction {
                 transaction,
                 update,
             } = self
                 .complete_update(pending_update, updates, early_timings, &events)
                 .await?;
-            data = self.data.lock().await;
 
-            let AdmissionOutcome { decision, effects } =
-                data.decide_after_update(&mut request, update)?;
-
-            match decision {
-                AdmissionDecision::RejectDifferentState {
-                    running,
-                    compared_with_active_state,
-                } => {
+            match self.coordinator.after_update(command_id, update).await? {
+                PostUpdateDecision::Outcome(AdmissionOutcome {
+                    decision:
+                        AdmissionDecision::RejectDifferentState {
+                            running,
+                            compared_with_active_state,
+                        },
+                    effects,
+                }) => {
                     if compared_with_active_state {
                         tracing::debug!("ActiveDice has an active_transaction");
                     }
-                    drop(data);
                     effects.execute(&events);
-                    let queued = self.queued_traces(request.command_id);
+                    let queued = self.coordinator.queued_traces(command_id).await?;
                     return Err(ConcurrencyHandlerError::ExitWhenDifferentState)
                         .with_buck_error_context(|| {
                             format!(
@@ -1271,18 +1663,24 @@ impl ConcurrencyHandler {
                             )
                         });
                 }
-                AdmissionDecision::RetryAfterCleanup => {
+                PostUpdateDecision::AwaitCleanup { future, epoch } => {
                     // Dropping the transaction releases its `ActiveTransactionGuard`. The retry
                     // awaits the cleanup future, which cannot complete while that guard is alive.
                     drop(transaction);
+                    self.await_cleanup(&events, future, epoch).await?;
+                    before_update = self.coordinator.before_update(command_id).await?;
                     continue;
                 }
-                AdmissionDecision::Admit(
-                    admitted @ AdmittedCommand {
-                        state: AdmittedState::Fresh { .. },
-                        ..
-                    },
-                ) => {
+                PostUpdateDecision::Outcome(AdmissionOutcome {
+                    decision:
+                        AdmissionDecision::Admit(
+                            admitted @ AdmittedCommand {
+                                state: AdmittedState::Fresh { .. },
+                                ..
+                            },
+                        ),
+                    effects,
+                }) => {
                     tracing::debug!("ActiveDice has no active_transaction");
                     break ReadyToExecute {
                         transaction,
@@ -1290,17 +1688,15 @@ impl ConcurrencyHandler {
                         effects,
                     };
                 }
-                AdmissionDecision::StartCleanup(cleanup) => {
-                    drop(data);
-                    data = self.prepare_cleanup(cleanup, transaction).await;
-                    continue;
-                }
-                AdmissionDecision::RejectNestedDifferentState(NestedInvocationWarning {
-                    running,
-                    display_command,
+                PostUpdateDecision::Outcome(AdmissionOutcome {
+                    decision:
+                        AdmissionDecision::RejectNestedDifferentState(NestedInvocationWarning {
+                            running,
+                            display_command,
+                        }),
+                    effects,
                 }) => {
                     tracing::debug!("ActiveDice has an active_transaction");
-                    drop(data);
                     effects.execute(&events);
                     return Err(
                         ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
@@ -1310,12 +1706,16 @@ impl ConcurrencyHandler {
                         .into(),
                     );
                 }
-                AdmissionDecision::Admit(
-                    admitted @ AdmittedCommand {
-                        state: AdmittedState::Concurrent { .. },
-                        ..
-                    },
-                ) => {
+                PostUpdateDecision::Outcome(AdmissionOutcome {
+                    decision:
+                        AdmissionDecision::Admit(
+                            admitted @ AdmittedCommand {
+                                state: AdmittedState::Concurrent { .. },
+                                ..
+                            },
+                        ),
+                    effects,
+                }) => {
                     tracing::debug!("ActiveDice has an active_transaction");
                     break ReadyToExecute {
                         transaction,
@@ -1323,20 +1723,36 @@ impl ConcurrencyHandler {
                         effects,
                     };
                 }
-                AdmissionDecision::Block(blocking) => {
+                PostUpdateDecision::Block {
+                    blocking,
+                    effects,
+                    wake,
+                } => {
                     tracing::debug!("ActiveDice has an active_transaction");
-                    data = self
-                        .wait_for_blocked_command(&events, data, effects, blocking)
-                        .await;
+                    drop(transaction);
+                    self.wait_for_blocked_command(&events, effects, blocking, wake)
+                        .await?;
+                    before_update = self.coordinator.before_update(command_id).await?;
+                }
+                PostUpdateDecision::Outcome(AdmissionOutcome {
+                    decision:
+                        AdmissionDecision::RetryAfterCleanup
+                        | AdmissionDecision::StartCleanup(_)
+                        | AdmissionDecision::Block(_),
+                    ..
+                }) => {
+                    return Err(internal_error!(
+                        "coordinator returned an unprocessed admission decision"
+                    ));
                 }
             }
         };
 
         tracing::info!("Acquired access to DICE");
-        drop(queued);
-        drop(data);
-        self.finish_admission(&events, transaction_observer, ready)
-            .await
+        let transaction = self
+            .finish_admission(&events, transaction_observer, ready)
+            .await?;
+        Ok(transaction)
     }
 
     /// Access dice without locking for dumps.
@@ -1377,7 +1793,7 @@ fn format_elapsed(elapsed: Duration) -> String {
     }
 }
 
-/// Trace IDs captured under the state lock and formatted after it is released.
+/// Trace IDs captured by the coordinator and formatted by the command task.
 #[derive(Debug)]
 struct ConcurrentTraces(Vec<TraceId>);
 
@@ -1405,15 +1821,40 @@ impl ConcurrentTraces {
     }
 }
 
-/// Deregisters a queued command, whether it was admitted or gave up waiting.
-struct QueuedCommand {
-    queued: Arc<parking_lot::Mutex<SmallMap<CommandId, TraceId>>>,
-    command: CommandId,
+/// Releases a command from the coordinator whether it is pending or active.
+struct CommandLease {
+    coordinator: AdmissionCoordinator,
+    command: Option<CommandId>,
 }
 
-impl Drop for QueuedCommand {
+impl CommandLease {
+    fn new(coordinator: AdmissionCoordinator, command: CommandId) -> Self {
+        Self {
+            coordinator,
+            command: Some(command),
+        }
+    }
+
+    async fn release(mut self) {
+        let command = self
+            .command
+            .take()
+            .expect("a command lease can only be released once");
+        if let Err(error) = self.coordinator.release_and_wait(command).await {
+            tracing::warn!(
+                ?error,
+                "failed to release command from concurrency coordinator"
+            );
+        }
+    }
+}
+
+impl Drop for CommandLease {
     fn drop(&mut self) {
-        self.queued.lock().shift_remove(&self.command);
+        if let Some(command) = self.command.take() {
+            tracing::info!("Command has exited: {command}");
+            self.coordinator.release(command);
+        }
     }
 }
 
@@ -1438,30 +1879,6 @@ impl fmt::Display for ConcurrentTraces {
             "{}",
             self.0.iter().collect::<SmallSet<_>>().iter().join(", ")
         )
-    }
-}
-
-/// Held to execute a command so that when the command is canceled, we properly remove its state
-/// from the handler so that it's no longer registered as a ongoing command.
-struct OnExecExit(Option<(Arc<ConcurrencyHandler>, RegisteredCommand)>);
-
-impl OnExecExit {
-    fn new(handler: Arc<ConcurrencyHandler>, command: RegisteredCommand) -> Self {
-        Self(Some((handler, command)))
-    }
-}
-
-impl Drop for OnExecExit {
-    fn drop(&mut self) {
-        let this = self.0.take().expect("dropped twice");
-        tracing::info!("Command has exited: {}", this.1.0);
-
-        tokio::task::spawn(async move {
-            let mut data = this.0.data.lock().await;
-            let effect = data.apply_event(AdmissionEvent::CommandExited(this.1));
-            drop(data);
-            effect.execute(&this.0.cond);
-        });
     }
 }
 
@@ -1592,11 +2009,11 @@ mod tests {
             if matches!(&data, buck2_data::instant_event::Data::DiceEqualityCheck(_))
                 && let Some((concurrency, expected)) = &self.0.expected_active_commands_on_equality
             {
-                let state = concurrency
-                    .data
-                    .try_lock()
-                    .expect("DICE equality was reported with the state lock held");
-                assert_eq!(state.active_commands.len(), *expected);
+                assert_eq!(
+                    concurrency.coordinator.active_command_count(),
+                    *expected,
+                    "DICE equality was reported before registration"
+                );
             }
             self.0.recorded.lock().push(RecordedEvent::Instant(data));
         }
@@ -1662,6 +2079,22 @@ mod tests {
         }
     }
 
+    struct BlockingUpdater {
+        entered: Arc<Barrier>,
+    }
+
+    #[async_trait]
+    impl DiceUpdater for BlockingUpdater {
+        async fn update(
+            &self,
+            _ctx: DiceTransactionUpdater,
+            _early_timings: &mut EarlyCommandTimingBuilder,
+        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
+            self.entered.wait().await;
+            future::pending().await
+        }
+    }
+
     struct FailingObserver;
 
     #[async_trait]
@@ -1720,6 +2153,14 @@ mod tests {
         ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
             ctx.changed_to(vec![(K, ())])?;
             Ok((ctx, Default::default()))
+        }
+    }
+
+    fn updater_for_state_match(same_state: bool) -> &'static dyn DiceUpdater {
+        if same_state {
+            &NoChanges
+        } else {
+            &CtxDifferent
         }
     }
 
@@ -1785,31 +2226,495 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_queued_command_is_named_only_while_it_waits() {
+    async fn a_queued_command_is_named_only_while_it_waits() -> buck2_error::Result<()> {
         let concurrency = ConcurrencyHandler::new(make_default_dice());
         let asking = concurrency.allocate_command_id();
-        assert_eq!(concurrency.queued_traces(asking).to_string(), "");
+        assert_eq!(
+            concurrency
+                .coordinator
+                .queued_traces(asking)
+                .await?
+                .to_string(),
+            ""
+        );
 
         let trace = TraceId::new();
         let command_id = concurrency.allocate_command_id();
         {
-            let _queued = concurrency.mark_queued(command_id, trace.dupe());
+            let _lease = CommandLease::new(concurrency.coordinator.clone(), command_id);
+            let _decision = concurrency
+                .coordinator
+                .begin(AdmissionRequest {
+                    command_id,
+                    command: CommandData {
+                        trace_id: trace.dupe(),
+                        display_command: "buck2".to_owned(),
+                        preemption_setting: PreemptibleWhen::Never,
+                        preempt: None,
+                    },
+                    is_nested: false,
+                    exit_when: ExitWhen::ExitNever,
+                })
+                .await?;
             assert_eq!(
-                concurrency.queued_traces(asking).to_string(),
+                concurrency
+                    .coordinator
+                    .queued_traces(asking)
+                    .await?
+                    .to_string(),
                 format!(". Queued behind: {trace}")
             );
 
             // The command being told is queued too, and must not be named to itself.
-            assert_eq!(concurrency.queued_traces(command_id).to_string(), "");
+            assert_eq!(
+                concurrency
+                    .coordinator
+                    .queued_traces(command_id)
+                    .await?
+                    .to_string(),
+                ""
+            );
+            assert_eq!(
+                concurrency.coordinator.snapshot().await?.pending_commands,
+                1
+            );
         }
 
-        // Dropping the token is the only deregistration, so it has to cover both leaving the
-        // blocking path normally and being cancelled inside it.
-        assert_eq!(concurrency.queued_traces(asking).to_string(), "");
+        assert_eq!(
+            concurrency
+                .coordinator
+                .queued_traces(asking)
+                .await?
+                .to_string(),
+            ""
+        );
+        assert_eq!(
+            concurrency.coordinator.snapshot().await?.pending_commands,
+            0
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_dropped_begin_reply_releases_pending_ownership() -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let command_id = concurrency.allocate_command_id();
+        let (response, receiver) = oneshot::channel();
+        drop(receiver);
+
+        assert!(
+            concurrency
+                .coordinator
+                .sender
+                .send(CoordinatorMessage::Begin {
+                    request: AdmissionRequest {
+                        command_id,
+                        command: CommandData {
+                            trace_id: TraceId::new(),
+                            display_command: "buck2".to_owned(),
+                            preemption_setting: PreemptibleWhen::Never,
+                            preempt: None,
+                        },
+                        is_nested: false,
+                        exit_when: ExitWhen::ExitNever,
+                    },
+                    response,
+                })
+                .is_ok(),
+            "the coordinator should still be running"
+        );
+
+        let snapshot = concurrency.coordinator.snapshot().await?;
+        assert_eq!(snapshot.pending_commands, 0);
+        assert_eq!(snapshot.active_commands, 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_dropped_admission_reply_releases_active_ownership() -> buck2_error::Result<()> {
+        let dice = make_default_dice();
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let command_id = concurrency.allocate_command_id();
+        let decision = concurrency
+            .coordinator
+            .begin(AdmissionRequest {
+                command_id,
+                command: CommandData {
+                    trace_id: TraceId::new(),
+                    display_command: "buck2".to_owned(),
+                    preemption_setting: PreemptibleWhen::Never,
+                    preempt: None,
+                },
+                is_nested: false,
+                exit_when: ExitWhen::ExitNever,
+            })
+            .await?;
+        assert!(
+            matches!(
+                decision,
+                PreUpdateDecision::Update {
+                    conflict_on_arrival: None
+                }
+            ),
+            "an idle coordinator should request an update"
+        );
+
+        let version = dice.updater().commit().await.equality_token();
+        let (response, receiver) = oneshot::channel();
+        drop(receiver);
+        assert!(
+            concurrency
+                .coordinator
+                .sender
+                .send(CoordinatorMessage::AfterUpdate {
+                    command: command_id,
+                    update: CompletedUpdate {
+                        version,
+                        conflict_on_arrival: None,
+                        dice_was_idle: true,
+                    },
+                    response,
+                })
+                .is_ok(),
+            "the coordinator should still be running"
+        );
+
+        let snapshot = concurrency.coordinator.snapshot().await?;
+        assert_eq!(snapshot.pending_commands, 0);
+        assert_eq!(snapshot.active_commands, 0);
+
+        TestCommand::new()
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_dropped_cleanup_reply_still_finishes_cleanup() -> buck2_error::Result<()> {
+        let dice = make_default_dice();
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        TestCommand::new()
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+
+        let command_id = concurrency.allocate_command_id();
+        let PreUpdateDecision::Update {
+            conflict_on_arrival,
+        } = concurrency
+            .coordinator
+            .begin(AdmissionRequest {
+                command_id,
+                command: CommandData {
+                    trace_id: TraceId::new(),
+                    display_command: "buck2".to_owned(),
+                    preemption_setting: PreemptibleWhen::Never,
+                    preempt: None,
+                },
+                is_nested: false,
+                exit_when: ExitWhen::ExitNever,
+            })
+            .await?
+        else {
+            panic!("an available coordinator should request an update");
+        };
+
+        let mut updater = dice.updater();
+        updater.changed_to(vec![(K, ())])?;
+        let transaction = updater.commit().await;
+        let (response, receiver) = oneshot::channel();
+        drop(receiver);
+        assert!(
+            concurrency
+                .coordinator
+                .sender
+                .send(CoordinatorMessage::AfterUpdate {
+                    command: command_id,
+                    update: CompletedUpdate {
+                        version: transaction.equality_token(),
+                        conflict_on_arrival,
+                        dice_was_idle: false,
+                    },
+                    response,
+                })
+                .is_ok(),
+            "the coordinator should still be running"
+        );
+
+        let snapshot = concurrency.coordinator.snapshot().await?;
+        assert!(snapshot.cleanup_in_progress);
+        assert_eq!(snapshot.pending_commands, 0);
+        assert_eq!(snapshot.active_commands, 0);
+        drop(transaction);
+
+        timeout(Duration::from_secs(10), async {
+            loop {
+                if !concurrency
+                    .coordinator
+                    .snapshot()
+                    .await?
+                    .cleanup_in_progress
+                {
+                    return Ok::<(), buck2_error::Error>(());
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the abandoned cleanup should finish")?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn coordinator_shutdown_wakes_blocked_waiters_and_stops() -> buck2_error::Result<()> {
+        let dice = make_default_dice();
+        let first_version = dice.updater().commit().await.equality_token();
+        let different_version = {
+            let mut updater = dice.updater();
+            updater.changed_to(vec![(K, ())])?;
+            updater.commit().await.equality_token()
+        };
+        let (sender, receiver) = mpsc::unbounded_channel();
+        let task = AdmissionCoordinatorTask::new(dice, sender.downgrade());
+        let active_commands = task.active_commands.dupe();
+        let task = tokio::spawn(task.run(receiver));
+        let coordinator = AdmissionCoordinator {
+            sender,
+            active_commands,
+        };
+
+        let first = CommandId(0);
+        coordinator
+            .begin(AdmissionRequest {
+                command_id: first,
+                command: CommandData {
+                    trace_id: TraceId::new(),
+                    display_command: "buck2 first".to_owned(),
+                    preemption_setting: PreemptibleWhen::Never,
+                    preempt: None,
+                },
+                is_nested: false,
+                exit_when: ExitWhen::ExitNever,
+            })
+            .await?;
+        let first_decision = coordinator
+            .after_update(
+                first,
+                CompletedUpdate {
+                    version: first_version,
+                    conflict_on_arrival: None,
+                    dice_was_idle: true,
+                },
+            )
+            .await?;
+        assert!(
+            matches!(
+                first_decision,
+                PostUpdateDecision::Outcome(AdmissionOutcome {
+                    decision: AdmissionDecision::Admit(_),
+                    ..
+                })
+            ),
+            "the first command should be admitted"
+        );
+
+        let blocked = CommandId(1);
+        coordinator
+            .begin(AdmissionRequest {
+                command_id: blocked,
+                command: CommandData {
+                    trace_id: TraceId::new(),
+                    display_command: "buck2 blocked".to_owned(),
+                    preemption_setting: PreemptibleWhen::Never,
+                    preempt: None,
+                },
+                is_nested: false,
+                exit_when: ExitWhen::ExitNever,
+            })
+            .await?;
+        let PostUpdateDecision::Block { wake, .. } = coordinator
+            .after_update(
+                blocked,
+                CompletedUpdate {
+                    version: different_version,
+                    conflict_on_arrival: Some(first_version),
+                    dice_was_idle: false,
+                },
+            )
+            .await?
+        else {
+            panic!("the different-state command should block");
+        };
+
+        drop(coordinator);
+        assert!(
+            timeout(Duration::from_secs(10), wake)
+                .await
+                .expect("the blocked waiter should wake when the coordinator stops")
+                .is_err(),
+            "a stopped coordinator must close blocked wake channels"
+        );
+        timeout(Duration::from_secs(10), task)
+            .await
+            .expect("the coordinator task should stop after its last sender drops")
+            .expect("the coordinator task should not panic");
+        Ok(())
+    }
+
+    async fn dropped_reply_preserves_preemption(
+        preemption_setting: PreemptibleWhen,
+        same_state: bool,
+    ) -> buck2_error::Result<()> {
+        let dice = make_default_dice();
+        let first_version = dice.updater().commit().await.equality_token();
+        let different_version = {
+            let mut updater = dice.updater();
+            updater.changed_to(vec![(K, ())])?;
+            updater.commit().await.equality_token()
+        };
+        let arriving_version = if same_state {
+            first_version
+        } else {
+            different_version
+        };
+        let concurrency = ConcurrencyHandler::new(dice);
+
+        let first_id = concurrency.allocate_command_id();
+        let (preempt, mut preempted) = oneshot::channel();
+        concurrency
+            .coordinator
+            .begin(AdmissionRequest {
+                command_id: first_id,
+                command: CommandData {
+                    trace_id: TraceId::new(),
+                    display_command: "buck2 first".to_owned(),
+                    preemption_setting,
+                    preempt: Some(preempt),
+                },
+                is_nested: false,
+                exit_when: ExitWhen::ExitNever,
+            })
+            .await?;
+        assert!(
+            matches!(
+                concurrency
+                    .coordinator
+                    .after_update(
+                        first_id,
+                        CompletedUpdate {
+                            version: first_version,
+                            conflict_on_arrival: None,
+                            dice_was_idle: true,
+                        },
+                    )
+                    .await?,
+                PostUpdateDecision::Outcome(AdmissionOutcome {
+                    decision: AdmissionDecision::Admit(_),
+                    ..
+                })
+            ),
+            "the first command should be admitted"
+        );
+
+        let cancelled_id = concurrency.allocate_command_id();
+        concurrency
+            .coordinator
+            .begin(AdmissionRequest {
+                command_id: cancelled_id,
+                command: CommandData {
+                    trace_id: TraceId::new(),
+                    display_command: "buck2 cancelled".to_owned(),
+                    preemption_setting: PreemptibleWhen::Never,
+                    preempt: None,
+                },
+                is_nested: false,
+                exit_when: ExitWhen::ExitNever,
+            })
+            .await?;
+        let (response, receiver) = oneshot::channel();
+        drop(receiver);
+        assert!(
+            concurrency
+                .coordinator
+                .sender
+                .send(CoordinatorMessage::AfterUpdate {
+                    command: cancelled_id,
+                    update: CompletedUpdate {
+                        version: arriving_version,
+                        conflict_on_arrival: Some(first_version),
+                        dice_was_idle: false,
+                    },
+                    response,
+                })
+                .is_ok(),
+            "the coordinator should still be running"
+        );
+
+        let snapshot = concurrency.coordinator.snapshot().await?;
+        assert_eq!(snapshot.pending_commands, 0);
+        assert_eq!(snapshot.active_commands, 1);
+        assert_matches!(
+            preempted.try_recv(),
+            Err(oneshot::error::TryRecvError::Empty),
+            "a cancelled arrival must not preempt the active command"
+        );
+
+        let retry_id = concurrency.allocate_command_id();
+        concurrency
+            .coordinator
+            .begin(AdmissionRequest {
+                command_id: retry_id,
+                command: CommandData {
+                    trace_id: TraceId::new(),
+                    display_command: "buck2 retry".to_owned(),
+                    preemption_setting: PreemptibleWhen::Never,
+                    preempt: None,
+                },
+                is_nested: false,
+                exit_when: ExitWhen::ExitNever,
+            })
+            .await?;
+        let effects = match concurrency
+            .coordinator
+            .after_update(
+                retry_id,
+                CompletedUpdate {
+                    version: arriving_version,
+                    conflict_on_arrival: Some(first_version),
+                    dice_was_idle: false,
+                },
+            )
+            .await?
+        {
+            PostUpdateDecision::Outcome(AdmissionOutcome {
+                decision: AdmissionDecision::Admit(_),
+                effects,
+            }) => effects,
+            PostUpdateDecision::Block { effects, .. } => effects,
+            _ => panic!("the retry should compare against the active command"),
+        };
+        effects.execute(&TestEvents::new());
+        preempted
+            .await
+            .expect("the retry should retain the ability to preempt");
+
+        concurrency.coordinator.release_and_wait(retry_id).await?;
+        concurrency.coordinator.release_and_wait(first_id).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_dropped_same_state_reply_preserves_always_preemption() -> buck2_error::Result<()> {
+        dropped_reply_preserves_preemption(PreemptibleWhen::Always, true).await
+    }
+
+    #[tokio::test]
+    async fn a_dropped_different_state_reply_preserves_conditional_preemption()
+    -> buck2_error::Result<()> {
+        dropped_reply_preserves_preemption(PreemptibleWhen::OnDifferentState, false).await
     }
 
     /// Blocked commands are not in `active_commands` — nothing registers until after the wait —
-    /// so before the queued registry a "daemon is busy" message could not mention them at all.
+    /// so the pending registry is what makes them visible in a "daemon is busy" message.
     #[tokio::test]
     async fn a_blocked_command_is_named_as_queued() -> buck2_error::Result<()> {
         let concurrency = ConcurrencyHandler::new(make_default_dice());
@@ -1877,7 +2782,14 @@ mod tests {
         // never registered, so nothing is filtered out of the view it gets.
         let probe = concurrency.allocate_command_id();
         tokio::time::timeout(Duration::from_secs(10), async {
-            while concurrency.queued_traces(probe).to_string().is_empty() {
+            while concurrency
+                .coordinator
+                .queued_traces(probe)
+                .await
+                .expect("coordinator should be running")
+                .to_string()
+                .is_empty()
+            {
                 tokio::task::yield_now().await;
             }
         })
@@ -1970,25 +2882,21 @@ mod tests {
             }
         }
 
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
-        let command_id = concurrency.allocate_command_id();
+        let command_id = CommandId(0);
+        let mut data = CoordinatorState {
+            dice_status: DiceStatus::idle(),
+            active_commands: SmallMap::new(),
+            pending_commands: SmallMap::new(),
+            cleanup_epoch: 0,
+            previously_tainted: false,
+        };
 
         let (preempt_sender, _preempt_receiver) = oneshot::channel::<()>();
-        let first = concurrency
-            .data
-            .lock()
-            .await
-            .register_command(command_id, command_with(Some(preempt_sender)))?;
-        let _first = OnExecExit::new(concurrency.dupe(), first);
+        data.register_command(command_id, command_with(Some(preempt_sender)))?;
 
-        let duplicate = concurrency
-            .data
-            .lock()
-            .await
-            .register_command(command_id, command_with(None));
+        let duplicate = data.register_command(command_id, command_with(None));
         assert!(duplicate.is_err(), "a repeated id should be refused");
 
-        let data = concurrency.data.lock().await;
         let registered = data
             .active_commands
             .get(&command_id)
@@ -2009,10 +2917,15 @@ mod tests {
             preemption_setting: PreemptibleWhen::Never,
             preempt: None,
         };
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
-        let first_id = concurrency.allocate_command_id();
-        let second_id = concurrency.allocate_command_id();
-        let mut data = concurrency.data.lock().await;
+        let first_id = CommandId(0);
+        let second_id = CommandId(1);
+        let mut data = CoordinatorState {
+            dice_status: DiceStatus::idle(),
+            active_commands: SmallMap::new(),
+            pending_commands: SmallMap::new(),
+            cleanup_epoch: 0,
+            previously_tainted: false,
+        };
         let first = data.register_command(first_id, command())?;
         let second = data.register_command(second_id, command())?;
 
@@ -2115,6 +3028,11 @@ mod tests {
             self
         }
 
+        fn exit_when(mut self, exit_when: ExitWhen) -> Self {
+            self.exit_when = exit_when;
+            self
+        }
+
         fn nested_invocation(mut self, is_nested_invocation: bool) -> Self {
             self.is_nested_invocation = is_nested_invocation;
             self
@@ -2168,18 +3086,13 @@ mod tests {
         }
     }
 
-    /// Waits until finished commands have been deregistered.
-    ///
-    /// `enter` returning does not mean the command is no longer registered: `OnExecExit::drop` only
-    /// spawns the removal, so the entry lingers in `active_commands` until that detached task
-    /// acquires the lock. Anything that observes registration afterwards — `ExitWhen::ExitNotIdle`
-    /// in particular — races the reaper without this.
+    /// Waits until the coordinator has processed all command releases.
     async fn wait_for_commands_to_be_reaped(
         concurrency: &ConcurrencyHandler,
     ) -> buck2_error::Result<()> {
         // Short timeouts are too flaky in OD environments under load.
         tokio::time::timeout(Duration::from_secs(10), async {
-            while !concurrency.data.lock().await.has_no_active_commands() {
+            while concurrency.coordinator.active_command_count() != 0 {
                 tokio::task::yield_now().await;
             }
         })
@@ -2187,7 +3100,245 @@ mod tests {
         .buck_error_context("Timed out waiting for finished commands to be deregistered")
     }
 
-    /// Direct tests of the `ConcurrencyHandlerData` state machine.
+    async fn wait_for_coordinator_counts(
+        concurrency: &ConcurrencyHandler,
+        pending: usize,
+        active: usize,
+    ) -> buck2_error::Result<()> {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let snapshot = concurrency.coordinator.snapshot().await?;
+                if snapshot.pending_commands == pending && snapshot.active_commands == active {
+                    return buck2_error::Ok(());
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .buck_error_context("Timed out waiting for coordinator command counts")?
+    }
+
+    #[tokio::test]
+    async fn command_release_precedes_the_next_admission() -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+
+        TestCommand::new()
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+
+        TestCommand::new()
+            .exit_when(ExitWhen::ExitNotIdle)
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancellation_during_and_behind_update_releases_pending_commands()
+    -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let entered = Arc::new(Barrier::new(2));
+        let updater = Arc::new(BlockingUpdater {
+            entered: entered.dupe(),
+        });
+
+        let updating = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let updater = updater.dupe();
+            async move {
+                TestCommand::new()
+                    .run(&concurrency, updater.as_ref(), |_, _timing| async move {})
+                    .await
+            }
+        });
+        entered.wait().await;
+
+        let queued = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            async move {
+                TestCommand::new()
+                    .run(&concurrency, &NoChanges, |_, _timing| async move {})
+                    .await
+            }
+        });
+        wait_for_coordinator_counts(&concurrency, 2, 0).await?;
+
+        queued.abort();
+        assert!(
+            queued
+                .await
+                .expect_err("the queued update should be cancelled")
+                .is_cancelled()
+        );
+        wait_for_coordinator_counts(&concurrency, 1, 0).await?;
+
+        updating.abort();
+        assert!(
+            updating
+                .await
+                .expect_err("the running update should be cancelled")
+                .is_cancelled()
+        );
+        wait_for_coordinator_counts(&concurrency, 0, 0).await?;
+
+        TestCommand::new()
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancelling_a_blocked_command_releases_pending_ownership() -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let block = Arc::new(RwLock::new(()));
+        let blocked = block.write().await;
+        let entered = Arc::new(Barrier::new(2));
+
+        let active = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let block = block.dupe();
+            let entered = entered.dupe();
+            async move {
+                TestCommand::new()
+                    .run(&concurrency, &NoChanges, |_, _timing| async move {
+                        entered.wait().await;
+                        let _guard = block.read().await;
+                    })
+                    .await
+            }
+        });
+        entered.wait().await;
+
+        let events = TestEvents::new();
+        let waiter = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let events = events.dupe();
+            async move {
+                TestCommand::new()
+                    .dispatcher(events)
+                    .run(&concurrency, &CtxDifferent, |_, _timing| async move {})
+                    .await
+            }
+        });
+        events
+            .wait_for(|event| {
+                matches!(
+                    event,
+                    RecordedEvent::SpanStart(
+                        buck2_data::span_start_event::Data::DiceBlockConcurrentCommand(..)
+                    )
+                )
+            })
+            .await?;
+
+        waiter.abort();
+        assert!(
+            waiter
+                .await
+                .expect_err("the blocked command should be cancelled")
+                .is_cancelled()
+        );
+        wait_for_coordinator_counts(&concurrency, 0, 1).await?;
+
+        drop(blocked);
+        active.await??;
+        TestCommand::new()
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancelling_during_observation_releases_active_ownership() -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let entered = Arc::new(Barrier::new(2));
+        let observer = Arc::new(BlockingObserver {
+            entered: entered.dupe(),
+            release: Arc::new(Barrier::new(2)),
+            fail: false,
+        });
+
+        let command = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let observer = observer.dupe();
+            async move {
+                TestCommand::new()
+                    .run_with_observer(
+                        &concurrency,
+                        &NoChanges,
+                        observer.as_ref(),
+                        |_, _timing| async move {},
+                    )
+                    .await
+            }
+        });
+        entered.wait().await;
+        wait_for_coordinator_counts(&concurrency, 0, 1).await?;
+
+        command.abort();
+        assert!(
+            command
+                .await
+                .expect_err("the observed command should be cancelled")
+                .is_cancelled()
+        );
+        wait_for_coordinator_counts(&concurrency, 0, 0).await?;
+
+        TestCommand::new()
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancelling_while_awaiting_cleanup_leaves_the_handler_usable() -> buck2_error::Result<()>
+    {
+        let dice = make_default_dice();
+        let concurrency = ConcurrencyHandler::new(dice.dupe());
+
+        TestCommand::new()
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+        let held_transaction = dice.updater().commit().await;
+
+        let events = TestEvents::new();
+        let cleaning = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let events = events.dupe();
+            async move {
+                TestCommand::new()
+                    .dispatcher(events)
+                    .run(&concurrency, &CtxDifferent, |_, _timing| async move {})
+                    .await
+            }
+        });
+        events
+            .wait_for(|event| {
+                matches!(
+                    event,
+                    RecordedEvent::SpanStart(buck2_data::span_start_event::Data::DiceCleanup(..))
+                )
+            })
+            .await?;
+
+        cleaning.abort();
+        assert!(
+            cleaning
+                .await
+                .expect_err("the cleanup waiter should be cancelled")
+                .is_cancelled()
+        );
+        wait_for_coordinator_counts(&concurrency, 0, 0).await?;
+
+        drop(held_transaction);
+        TestCommand::new()
+            .run(&concurrency, &CtxDifferent, |_, _timing| async move {})
+            .await?;
+        Ok(())
+    }
+
+    /// Direct tests of the `CoordinatorState` state machine.
     ///
     /// These exercise the transition methods as plain functions rather than through `enter`. That
     /// makes cases reachable that the command path cannot produce deterministically — notably the
@@ -2211,10 +3362,11 @@ mod tests {
             DiceStatus::active(dice.updater().commit().await.equality_token())
         }
 
-        fn data_with(dice_status: DiceStatus, cleanup_epoch: usize) -> ConcurrencyHandlerData {
-            ConcurrencyHandlerData {
+        fn data_with(dice_status: DiceStatus, cleanup_epoch: usize) -> CoordinatorState {
+            CoordinatorState {
                 dice_status,
                 active_commands: SmallMap::new(),
+                pending_commands: SmallMap::new(),
                 cleanup_epoch,
                 previously_tainted: false,
             }
@@ -2234,7 +3386,7 @@ mod tests {
 
             AdmissionRequest {
                 command_id: CommandId(NEXT_COMMAND_ID.fetch_add(1, Ordering::Relaxed)),
-                command: Some(a_command()),
+                command: a_command(),
                 is_nested,
                 exit_when,
             }
@@ -2252,11 +3404,14 @@ mod tests {
         }
 
         fn decide_after_update(
-            data: &mut ConcurrencyHandlerData,
-            mut request: AdmissionRequest,
+            data: &mut CoordinatorState,
+            request: AdmissionRequest,
             update: CompletedUpdate,
         ) -> AdmissionOutcome {
-            data.decide_after_update(&mut request, update)
+            let command = request.command_id;
+            data.begin_admission(request)
+                .expect("test command should begin admission");
+            data.decide_after_update_for(command, update)
                 .expect("test command should be eligible for admission")
         }
 
@@ -2587,19 +3742,12 @@ mod tests {
             let parent_trace = parent.trace_id.dupe();
             data.active_commands.insert(CommandId(0), parent);
 
-            let mut request = request(true, ExitWhen::ExitNever);
+            let request = request(true, ExitWhen::ExitNever);
             let command_id = request.command_id;
-            let command_trace = request
-                .command()
-                .expect("test request should contain its command")
-                .trace_id
-                .dupe();
+            let command_trace = request.command.trace_id.dupe();
 
-            let outcome = data
-                .decide_after_update(&mut request, completed_update(version, None))
-                .expect("nested same-state command should be admitted");
+            let outcome = decide_after_update(&mut data, request, completed_update(version, None));
             let AdmissionDecision::Admit(AdmittedCommand {
-                registration,
                 nested_warning: Some(warning),
                 ..
             }) = outcome.decision
@@ -2607,13 +3755,12 @@ mod tests {
                 panic!("nested admission should carry a warning");
             };
 
-            assert_eq!(registration.0, command_id);
             assert!(
                 data.active_commands.contains_key(&command_id),
                 "admission should atomically register the command"
             );
             assert!(
-                request.command.is_none(),
+                !data.pending_commands.contains_key(&command_id),
                 "the admitted command should leave pending state"
             );
             assert_eq!(
@@ -2626,12 +3773,14 @@ mod tests {
         async fn admission_reducer_sequence() {
             let dice = make_default_dice();
             let (first_version, second_version) = distinct_versions(&dice).await;
-            let mut first_request = request(false, ExitWhen::ExitNever);
+            let first_request = request(false, ExitWhen::ExitNever);
+            let first_command = first_request.command_id;
             let mut data = data_with(DiceStatus::idle(), 0);
 
             assert!(
                 matches!(
-                    data.decide_before_update(&first_request),
+                    data.begin_admission(first_request)
+                        .expect("the first command should begin admission"),
                     PreUpdateDecision::Update {
                         conflict_on_arrival: None
                     }
@@ -2639,11 +3788,10 @@ mod tests {
                 "idle state proceeds without a conflict snapshot"
             );
             let AdmissionDecision::Admit(AdmittedCommand {
-                registration: first_registration,
                 state: AdmittedState::Fresh { .. },
                 ..
             }) = data
-                .decide_after_update(&mut first_request, completed_update(first_version, None))
+                .decide_after_update_for(first_command, completed_update(first_version, None))
                 .expect("the first command should be admitted")
                 .decision
             else {
@@ -2661,15 +3809,14 @@ mod tests {
                 },
             );
 
-            let mut same_state_request = request(false, ExitWhen::ExitNever);
-            let same_state = data
-                .decide_after_update(
-                    &mut same_state_request,
-                    completed_update(first_version, None),
-                )
-                .expect("same-state command should be admitted");
+            let same_state_request = request(false, ExitWhen::ExitNever);
+            let same_state_command = same_state_request.command_id;
+            let same_state = decide_after_update(
+                &mut data,
+                same_state_request,
+                completed_update(first_version, None),
+            );
             let AdmissionDecision::Admit(AdmittedCommand {
-                registration: same_state_registration,
                 state:
                     AdmittedState::Concurrent {
                         state: RunState::ParallelSameState,
@@ -2696,7 +3843,7 @@ mod tests {
             assert_matches!(
                 preempted.try_recv(),
                 Err(oneshot::error::TryRecvError::Empty),
-                "effects are deferred until the caller releases the state lock"
+                "effects are deferred until the state transition returns"
             );
             different_state.effects.execute(&TestEvents::new());
             preempted
@@ -2704,9 +3851,8 @@ mod tests {
                 .expect("the different-state effect should preempt the active command");
 
             data.active_commands.shift_remove(&CommandId(0));
-            data.active_commands.shift_remove(&first_registration.0);
-            data.active_commands
-                .shift_remove(&same_state_registration.0);
+            data.active_commands.shift_remove(&first_command);
+            data.active_commands.shift_remove(&same_state_command);
             let AdmissionDecision::StartCleanup(cleanup) = decide_after_update(
                 &mut data,
                 request(false, ExitWhen::ExitNever),
@@ -3567,7 +4713,7 @@ mod tests {
 
         tokio::time::timeout(Duration::from_secs(10), async {
             loop {
-                let active = concurrency.data.lock().await.active_commands.len();
+                let active = concurrency.coordinator.active_command_count();
                 if active == 1 {
                     break;
                 }
@@ -3800,9 +4946,9 @@ mod tests {
         Ok(())
     }
 
-    /// A slow observer runs after registration without holding the state lock.
+    /// A slow observer runs after registration without blocking the coordinator.
     #[tokio::test]
-    async fn a_slow_observer_runs_after_registration_without_the_state_lock()
+    async fn a_slow_observer_runs_after_registration_outside_the_coordinator()
     -> buck2_error::Result<()> {
         let concurrency = ConcurrencyHandler::new(make_default_dice());
 
@@ -3837,21 +4983,15 @@ mod tests {
             .await
             .buck_error_context("the observer was never reached")?;
 
-        let data = concurrency
-            .data
-            .try_lock()
-            .expect("the observer is running with the state lock held");
+        let snapshot = concurrency.coordinator.snapshot().await?;
         assert_eq!(
-            data.active_commands.len(),
-            1,
+            snapshot.active_commands, 1,
             "the command must register before its observer runs"
         );
         assert!(
             !exec_ran.load(Ordering::SeqCst),
             "command execution started before its observer completed"
         );
-        drop(data);
-
         release.wait().await;
         let joined = tokio::time::timeout(Duration::from_secs(10), command)
             .await
@@ -3898,16 +5038,11 @@ mod tests {
             .await
             .buck_error_context("the observer was never reached")?;
 
-        let data = concurrency
-            .data
-            .try_lock()
-            .expect("the observer is running with the state lock held");
+        let snapshot = concurrency.coordinator.snapshot().await?;
         assert_eq!(
-            data.active_commands.len(),
-            1,
+            snapshot.active_commands, 1,
             "the command must be registered before its observer runs"
         );
-        drop(data);
 
         let waiter_events = TestEvents::new();
         let waiter_ran = Arc::new(AtomicBool::new(false));
@@ -3959,7 +5094,7 @@ mod tests {
         assert!(waiter_ran.load(Ordering::SeqCst));
 
         wait_for_commands_to_be_reaped(&concurrency).await?;
-        assert!(concurrency.data.lock().await.has_no_active_commands());
+        assert_eq!(concurrency.coordinator.active_command_count(), 0);
 
         Ok(())
     }
@@ -3982,15 +5117,13 @@ mod tests {
             "the command should surface the observer failure"
         );
 
-        // Asynchronous, because the failed command did register and is removed by its guard.
+        // The failed command registered before its observer ran, so its lease must release it.
         wait_for_commands_to_be_reaped(&concurrency).await?;
-        {
-            let data = concurrency.data.lock().await;
-            assert!(
-                data.has_no_active_commands(),
-                "a command that failed after registering must still be reaped"
-            );
-        }
+        assert_eq!(
+            concurrency.coordinator.active_command_count(),
+            0,
+            "a command that failed after registering must still be released"
+        );
 
         // Same state: reuses the version the failed command installed, rather than installing a
         // fresh one. `DiceEqualityCheck` is only emitted when an existing `ActiveDice` is compared
@@ -4142,7 +5275,7 @@ mod tests {
         );
 
         assert!(
-            concurrency.data.lock().await.previously_tainted,
+            concurrency.coordinator.snapshot().await?.previously_tainted,
             "Taint should latch for subsequent commands"
         );
 
@@ -4459,7 +5592,7 @@ mod tests {
 
         buck2_util::future::try_join_all(tasks).await?;
 
-        assert!(!concurrency.data.lock().await.previously_tainted);
+        assert!(!concurrency.coordinator.snapshot().await?.previously_tainted);
 
         Ok(())
     }
@@ -4572,8 +5705,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_exit_when_not_idle_with_same_state() -> buck2_error::Result<()> {
+    async fn check_exit_when_not_idle_while_busy(same_state: bool) -> buck2_error::Result<()> {
         let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -4585,7 +5717,7 @@ mod tests {
 
         let barrier = Arc::new(Barrier::new(2));
 
-        // Start first command (same state, will run)
+        // Start first command.
         let fut1 = tokio::spawn({
             let concurrency = concurrency.dupe();
             let barrier = barrier.dupe();
@@ -4615,12 +5747,12 @@ mod tests {
 
         barrier.wait().await;
 
-        // Start second command with --exit-when=notidle (same state, should fail)
+        // A second command with --exit-when=notidle should fail regardless of state equality.
         let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
             concurrency
                 .enter(
                     TestEvents::with_trace(traces2),
-                    &NoChanges,
+                    updater_for_state_match(same_state),
                     |_, _timing| async move {
                         // Should never reach here
                         panic!("Command should have failed before execution");
@@ -4660,97 +5792,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_exit_when_not_idle_with_different_state() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
-
-        let traces1 = TraceId::new();
-        let traces2 = TraceId::new();
-
-        let block1 = Arc::new(RwLock::new(()));
-        let blocked1 = block1.write().await;
-
-        let barrier = Arc::new(Barrier::new(2));
-
-        // Start first command (different state)
-        let fut1 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            let barrier = barrier.dupe();
-            let b = block1.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        TestEvents::with_trace(traces1),
-                        &NoChanges,
-                        |_, _timing| async move {
-                            barrier.wait().await;
-                            let _g = b.read().await;
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        CancellationContext::testing(),
-                        PreemptibleWhen::Never,
-                        &NoTelemetry,
-                        ExitWhen::ExitNever,
-                        EarlyCommandTimingBuilder::new(Instant::now()),
-                    )
-                    .await
-            }
-        });
-
-        barrier.wait().await;
-
-        // Start second command with --exit-when=notidle (different state, should fail)
-        let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
-            concurrency
-                .enter(
-                    TestEvents::with_trace(traces2),
-                    &CtxDifferent, // Different state
-                    |_, _timing| async move {
-                        // Should never reach here
-                        panic!("Command should have failed before execution");
-                    },
-                    false,
-                    Vec::new(),
-                    None,
-                    CancellationContext::testing(),
-                    PreemptibleWhen::Never,
-                    &NoTelemetry,
-                    ExitWhen::ExitNotIdle,
-                    EarlyCommandTimingBuilder::new(Instant::now()),
-                )
-                .await
-        }));
-
-        // Second command should fail immediately
-        // Bounded: without the `--exit-when=notidle` gate this command blocks forever rather
-        // than refusing, so an unbounded await turns a regression into a 10 minute harness
-        // timeout instead of a fast failure.
-        let fut2_result = tokio::time::timeout(Duration::from_secs(10), fut2)
-            .await
-            .expect("`--exit-when=notidle` should refuse immediately, not block")?;
-        let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
-        assert!(
-            fut2_error
-                .tags()
-                .contains(&buck2_error::ErrorTag::DaemonIsBusy),
-            "Expected DaemonIsBusy error tag"
-        );
-
-        // Clean up first command
-        drop(blocked1);
-        fut1.await??;
-
-        Ok(())
+    async fn test_exit_when_not_idle_while_busy_with_same_or_different_state()
+    -> buck2_error::Result<()> {
+        check_exit_when_not_idle_while_busy(true).await?;
+        check_exit_when_not_idle_while_busy(false).await
     }
 
-    // This test was moved to the top of the file
-
-    #[tokio::test]
-    async fn test_multiple_exit_when_not_idle_commands_with_same_state() -> buck2_error::Result<()>
-    {
+    async fn check_multiple_exit_when_not_idle_commands(
+        same_state: bool,
+    ) -> buck2_error::Result<()> {
         let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -4798,7 +5848,7 @@ mod tests {
             concurrency
                 .enter(
                     TestEvents::with_trace(traces2),
-                    &NoChanges,
+                    updater_for_state_match(same_state),
                     |_, _timing| async move {
                         panic!("Should not execute");
                     },
@@ -4818,7 +5868,7 @@ mod tests {
             concurrency
                 .enter(
                     TestEvents::with_trace(traces3),
-                    &NoChanges,
+                    updater_for_state_match(same_state),
                     |_, _timing| async move {
                         panic!("Should not execute");
                     },
@@ -4861,6 +5911,13 @@ mod tests {
         fut1.await??;
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_multiple_exit_when_not_idle_commands_with_same_or_different_state()
+    -> buck2_error::Result<()> {
+        check_multiple_exit_when_not_idle_commands(true).await?;
+        check_multiple_exit_when_not_idle_commands(false).await
     }
 
     #[tokio::test]
@@ -5057,99 +6114,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_multiple_exit_when_not_idle_commands_with_different_state()
-    -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
-
-        let traces1 = TraceId::new();
-        let traces2 = TraceId::new();
-
-        let block1 = Arc::new(RwLock::new(()));
-        let blocked1 = block1.write().await;
-
-        let barrier = Arc::new(Barrier::new(2));
-
-        // Start first command with --exit-when=notidle
-        let fut1 = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            let barrier = barrier.dupe();
-            let b = block1.dupe();
-
-            async move {
-                concurrency
-                    .enter(
-                        TestEvents::with_trace(traces1),
-                        &NoChanges,
-                        |_, _timing| async move {
-                            barrier.wait().await;
-                            let _g = b.read().await;
-                        },
-                        false,
-                        Vec::new(),
-                        None,
-                        CancellationContext::testing(),
-                        PreemptibleWhen::Never,
-                        &NoTelemetry,
-                        ExitWhen::ExitNotIdle,
-                        EarlyCommandTimingBuilder::new(Instant::now()),
-                    )
-                    .await
-            }
-        });
-
-        barrier.wait().await;
-
-        // Start second and third commands with --exit-when=notidle (should both fail)
-        let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
-            concurrency
-                .enter(
-                    TestEvents::with_trace(traces2),
-                    &CtxDifferent,
-                    |_, _timing| async move {
-                        // Just a quick task
-                        tokio::task::yield_now().await;
-                    },
-                    false,
-                    Vec::new(),
-                    None,
-                    CancellationContext::testing(),
-                    PreemptibleWhen::Never,
-                    &NoTelemetry,
-                    ExitWhen::ExitNotIdle,
-                    EarlyCommandTimingBuilder::new(Instant::now()),
-                )
-                .await
-        }));
-
-        // Both second and third commands should fail
-        // Bounded: without the `--exit-when=notidle` gate this command blocks forever rather
-        // than refusing, so an unbounded await turns a regression into a 10 minute harness
-        // timeout instead of a fast failure.
-        let fut2_result = tokio::time::timeout(Duration::from_secs(10), fut2)
-            .await
-            .expect("`--exit-when=notidle` should refuse immediately, not block")?;
-        let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
-        assert!(
-            fut2_error
-                .tags()
-                .contains(&buck2_error::ErrorTag::DaemonIsBusy)
-        );
-
-        // Clean up first command
-        drop(blocked1);
-        fut1.await??;
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_exit_when_not_idle_allows_command_when_daemon_idle_with_same_state()
-    -> buck2_error::Result<()> {
-        // This test verifies that when the daemon is idle (no command is currently running),
-        // a command with --exit-when=notidle should succeed if it has the same state as the
-        // previous command that has finished.
+    async fn check_exit_when_not_idle_allows_command_when_daemon_idle(
+        same_state: bool,
+    ) -> buck2_error::Result<()> {
         let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -5178,12 +6145,11 @@ mod tests {
 
         wait_for_commands_to_be_reaped(&concurrency).await?;
 
-        // Daemon should now be idle
-        // Second command with --exit-when=notidle and same state should succeed
+        // The daemon is idle, so state equality must not affect admission.
         let result = concurrency
             .enter(
                 TestEvents::with_trace(traces2),
-                &NoChanges, // Same state as first command
+                updater_for_state_match(same_state),
                 |_, _timing| async move {
                     // Quick task
                     tokio::task::yield_now().await;
@@ -5208,66 +6174,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_exit_when_not_idle_allows_command_when_daemon_idle_with_different_state()
+    async fn test_exit_when_not_idle_allows_command_when_daemon_idle_with_any_state()
     -> buck2_error::Result<()> {
-        // This test verifies that when the daemon is idle (no command is currently running),
-        // a command with --exit-when=notidle should succeed even if it has a different state
-        // than previous commands.
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
-
-        let traces1 = TraceId::new();
-        let traces2 = TraceId::new();
-
-        // First command runs to completion with NoChanges state
-        concurrency
-            .enter(
-                TestEvents::with_trace(traces1),
-                &NoChanges,
-                |_, _timing| async move {
-                    // Quick task that finishes
-                    tokio::task::yield_now().await;
-                },
-                false,
-                Vec::new(),
-                None,
-                CancellationContext::testing(),
-                PreemptibleWhen::Never,
-                &NoTelemetry,
-                ExitWhen::ExitNever,
-                EarlyCommandTimingBuilder::new(Instant::now()),
-            )
-            .await?;
-
-        wait_for_commands_to_be_reaped(&concurrency).await?;
-
-        // Daemon should now be idle
-        // Second command with --exit-when=notidle and different state should succeed
-        let result = concurrency
-            .enter(
-                TestEvents::with_trace(traces2),
-                &CtxDifferent, // Different state than first command
-                |_, _timing| async move {
-                    // Quick task
-                    tokio::task::yield_now().await;
-                    "success"
-                },
-                false,
-                Vec::new(),
-                None,
-                CancellationContext::testing(),
-                PreemptibleWhen::Never,
-                &NoTelemetry,
-                ExitWhen::ExitNotIdle,
-                EarlyCommandTimingBuilder::new(Instant::now()),
-            )
-            .await;
-
-        // Should succeed since daemon is idle, regardless of state difference
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "success");
-
-        Ok(())
+        check_exit_when_not_idle_allows_command_when_daemon_idle(true).await?;
+        check_exit_when_not_idle_allows_command_when_daemon_idle(false).await
     }
 
     fn get_early_command_timing_duration(

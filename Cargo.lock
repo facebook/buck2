@@ -1762,7 +1762,6 @@ version = "0.1.0"
 dependencies = [
  "allocative",
  "assert_matches",
- "async-condvar-fair",
  "async-trait",
  "buck2_cli_proto",
  "buck2_core",

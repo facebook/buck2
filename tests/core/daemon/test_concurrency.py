@@ -422,7 +422,7 @@ async def test_multiple_exit_when_not_idle_commands(
 async def test_exit_when_not_idle_after_command_exits(
     buck: Buck, same_state: bool
 ) -> None:
-    """ """
+    """Verify --exit-when=notidle succeeds after the previous command exits."""
 
     # create a coroutine that can return a result
     async def process(
@@ -443,23 +443,14 @@ async def test_exit_when_not_idle_after_command_exits(
     task_a = asyncio.create_task(process(a))
     await asyncio.wait_for(task_a, timeout=10)
 
-    for _attempt in range(100):
-        try:
-            result_b = await buck.build(
-                "-c",
-                "foo.bar=1" if same_state else "foo.bar=2",
-                "--exit-when=notidle",
-                ":short_running_target",
-                "--local-only",
-                "--no-remote-cache",
-            )
-            break
-        except BuckException as error:
-            if error.process.returncode != 4 or "daemon is busy" not in error.stderr:
-                raise
-            await asyncio.sleep(0.1)
-    else:
-        raise AssertionError("Concurrency state did not become idle after command exit")
+    result_b = await buck.build(
+        "-c",
+        "foo.bar=1" if same_state else "foo.bar=2",
+        "--exit-when=notidle",
+        ":short_running_target",
+        "--local-only",
+        "--no-remote-cache",
+    )
 
     exit_code_a, stderr_a = task_a.result()
     assert "daemon is busy" not in stderr_a
