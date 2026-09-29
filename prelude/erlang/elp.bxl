@@ -178,6 +178,10 @@ def _elp_config(ctx):
         if deps:
             deps_list = [_resolve_target_label(tgt.raw_target(), alias_map) for tgt in deps.value()]
 
+        test_binary_lib = attrs.get("_test_binary_lib")
+        if test_binary_lib:
+            deps_list.append(_resolve_target_label(test_binary_lib.value().raw_target(), alias_map))
+
         apps = attrs.get("applications")
         if apps:
             apps_list = [_resolve_target_label(tgt.raw_target(), alias_map) for tgt in apps.value()]
