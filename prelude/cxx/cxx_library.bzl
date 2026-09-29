@@ -1216,6 +1216,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     # If we don't have link input for this link style, we pass in `None` so
                     # that omnibus knows to avoid it.
                     include_in_android_mergemap = getattr(ctx.attrs, "include_in_android_merge_map_output", True) and default_output != None,
+                    # Attach this library's per-source compile commands so app rules can aggregate a
+                    # native compile-command database. Gated (default off) to keep this off the graph
+                    # for normal builds; see _emit_native_build_commands.
+                    compile_cmds = compiled_srcs.compile_cmds.src_compile_cmds if getattr(ctx.attrs, "_emit_native_build_commands", False) else [],
                     link_infos = library_outputs.link_infos,
                     shared_libs = shared_libs,
                     linker_flags = linker_flags,
@@ -1374,6 +1378,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                             deps = non_exported_deps,
                             exported_deps = exported_deps,
                             include_in_android_mergemap = getattr(ctx.attrs, "include_in_android_merge_map_output", True) and default_output != None,
+                            compile_cmds = compiled_srcs.compile_cmds.src_compile_cmds if getattr(ctx.attrs, "_emit_native_build_commands", False) else [],
                             link_infos = library_outputs.link_infos,
                             shared_libs = shared_libs,
                             linker_flags = linker_flags,

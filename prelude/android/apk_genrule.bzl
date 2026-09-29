@@ -22,10 +22,10 @@ load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//utils:expect.bzl", "expect")
 
-# Native-library debug sub-targets that the wrapped android_apk/android_aab only
-# exposes in some configurations (e.g. relinker or native merging enabled).
-# Forward whichever happen to be present so they stay reachable through the
-# apk_genrule wrapper.
+# Native-library debug sub-targets forwarded through the apk_genrule wrapper only if present on the
+# wrapped android_apk/android_aab. These exist only in certain configurations (e.g. relinked_libs
+# and native_merge_debug require the relinker or native merging). Always-present sub-targets like
+# native_libs, linker_commands and native_build_commands are forwarded in the required set below.
 _OPTIONAL_NATIVE_LIB_SUBTARGETS = [
     "gatorade_phase_evidence",
     "native_merge_debug",
@@ -141,6 +141,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                         ],
                         "linker_argsfiles": [input_android_aab_subtargets["linker_argsfiles"][DefaultInfo]],
                         "linker_commands": [input_android_aab_subtargets["linker_commands"][DefaultInfo]],
+                        "native_build_commands": [input_android_aab_subtargets["native_build_commands"][DefaultInfo]],
                         "native_libs": [input_android_aab_subtargets["native_libs"][DefaultInfo]],
                         "unstripped_native_libraries": [input_android_aab_subtargets["unstripped_native_libraries"][DefaultInfo]],
                         "unstripped_native_libraries_files": [input_android_aab_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
@@ -158,6 +159,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                 {
                     "linker_argsfiles": [input_android_aab_subtargets["linker_argsfiles"][DefaultInfo]],
                     "linker_commands": [input_android_aab_subtargets["linker_commands"][DefaultInfo]],
+                    "native_build_commands": [input_android_aab_subtargets["native_build_commands"][DefaultInfo]],
                     "native_libs": [input_android_aab_subtargets["native_libs"][DefaultInfo]],
                     "unstripped_native_libraries": [input_android_aab_subtargets["unstripped_native_libraries"][DefaultInfo]],
                     "unstripped_native_libraries_files": [input_android_aab_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
@@ -182,6 +184,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                 "linker_argsfiles": [input_android_apk_subtargets["linker_argsfiles"][DefaultInfo]],
                 "linker_commands": [input_android_apk_subtargets["linker_commands"][DefaultInfo]],
                 "manifest": [input_android_apk_subtargets["manifest"][DefaultInfo]],
+                "native_build_commands": [input_android_apk_subtargets["native_build_commands"][DefaultInfo]],
                 "native_libs": [input_android_apk_subtargets["native_libs"][DefaultInfo]],
                 "unstripped_native_libraries": [input_android_apk_subtargets["unstripped_native_libraries"][DefaultInfo]],
                 "unstripped_native_libraries_files": [input_android_apk_subtargets["unstripped_native_libraries_files"][DefaultInfo]],

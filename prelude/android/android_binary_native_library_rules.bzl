@@ -16,6 +16,13 @@ load(
 )
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
+load(
+    "@prelude//android:native_build_commands.bzl",
+    "EMIT_NATIVE_BUILD_COMMANDS",
+    "NATIVE_BUILD_COMMAND_KINDS",
+    "native_build_command_entry",
+    "record_link_command",
+)
 load("@prelude//android:relinker_linker_outputs.bzl", "get_extra_relinker_args")
 load("@prelude//android:util.bzl", "EnhancementContext", "merge_extra_linker_args")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
@@ -224,6 +231,17 @@ def get_android_binary_native_library_info(
         enhance_ctx.debug_output("native_libs", ctx.actions.write("native_libs", [], has_content_based_path = False))
         enhance_ctx.debug_output("linker_argsfiles", ctx.actions.symlinked_dir("linker_argsfiles", {}, has_content_based_path = False))
         enhance_ctx.debug_output("linker_commands", ctx.actions.write("linker_commands", [], has_content_based_path = False))
+        enhance_ctx.debug_output(
+            "native_build_commands",
+            ctx.actions.write_json("native_build_commands", [], has_content_based_path = False),
+            # Expose the same empty per-kind filter sub_targets as the main path so
+            # TARGET[native_build_commands][<kind>] resolves uniformly (to empty JSON) even on
+            # apps with no native libraries.
+            sub_targets = {
+                kind: [DefaultInfo(default_outputs = [ctx.actions.write_json("native_build_commands.{}.json".format(kind), [], has_content_based_path = False)])]
+                for kind in NATIVE_BUILD_COMMAND_KINDS
+            },
+        )
         enhance_ctx.debug_output("unstripped_native_libraries", ctx.actions.write("unstripped_native_libraries", [], has_content_based_path = False))
         enhance_ctx.debug_output(
             "unstripped_native_libraries_json", ctx.actions.write_json("unstripped_native_libraries_json", {}, has_content_based_path = False)
@@ -277,6 +295,20 @@ def get_android_binary_native_library_info(
         non_root_module_lib_assets,
     ]
 
+    # [native_build_commands] outputs. `native_build_commands` (full) + the per-kind filters are
+    # produced by a final combine action (see below) that merges two fragments: the "base" fragment
+    # (all commands known by the end of the outer dynamic lambda) and the late-Gatorade "codegen"
+    # fragment. The codegen commands (clang --codegen-library) are constructed inside a NESTED
+    # Gatorade dynamic that runs after the outer lambda, so they cannot be folded in by the outer
+    # lambda directly and instead flow through this fragment + combine.
+    native_build_commands = ctx.actions.declare_output("native_build_commands.json", has_content_based_path = False)
+    native_build_commands_by_kind = {
+        kind: ctx.actions.declare_output("native_build_commands.{}.json".format(kind), has_content_based_path = False) for kind in NATIVE_BUILD_COMMAND_KINDS
+    }
+    native_build_commands_base = ctx.actions.declare_output("native_build_commands.base.json", has_content_based_path = False)
+    native_build_commands_codegen = ctx.actions.declare_output("native_build_commands.late_gatorade_codegen.json", has_content_based_path = False)
+    dynamic_outputs.append(native_build_commands_base)
+
     fake_input = ctx.actions.write("dynamic.trigger", "", has_content_based_path = False)
 
     # some cases don't actually need to use a dynamic_output, but it's simplest to consistently use it anyway. we need some fake input to allow that.
@@ -301,6 +333,12 @@ def get_android_binary_native_library_info(
 
     linkable_nodes_by_platform = {}
 
+    # Analysis-scope [native_build_commands] entries (e.g. compute_mergemap) that run before the
+    # dynamic lambda. The lambda seeds its own list from a copy of this, then appends the
+    # in-lambda link/bolt commands. Entries created inside the frozen lambda cannot be appended
+    # here, so anything produced at analysis time is collected into this list instead.
+    native_build_command_entries = []
+
     has_native_merging = native_library_merge_sequence or native_library_merge_map
     enable_relinker = getattr(ctx.attrs, "enable_relinker", False)
     defer_relink = getattr(ctx.attrs, "defer_relink", False) and enable_relinker
@@ -314,10 +352,25 @@ def get_android_binary_native_library_info(
         )
         dynamic_outputs.append(middle_gatorade_products)
 
+    # The outer lambda owns the codegen fragment. With late Gatorade, the nested Gatorade dynamic
+    # (gatorade_libraries or gatorade_deferred_libs) binds it through the passed OutputArtifact;
+    # otherwise the outer lambda binds it with an empty list, so the combine always has both inputs.
+    # @oss-disable[end= ]: will_capture_late_gatorade_codegen = is_late_gatorade_enabled(ctx)
+    will_capture_late_gatorade_codegen = False # @oss-enable
+    dynamic_outputs.append(native_build_commands_codegen)
+
     if has_native_merging or enable_relinker:
         native_merge_debug = ctx.actions.declare_output("native_merge_debug", dir = True, has_content_based_path = False)
         dynamic_outputs.append(native_merge_debug)
 
+    # Argsfiles referenced by [native_build_commands][compile] entries, attached as other_outputs
+    # below. Keyed by the Artifact, not short_path: short_path is only the extension-based filename
+    # (e.g. `.cpp.cxx_compile_argsfile`), identical across every library and platform.
+    compile_argsfiles = {}
+
+    # EMIT_NATIVE_BUILD_COMMANDS also needs the node map (compile entries read each node's
+    # compile_cmds), so compile capture works on apps that neither merge nor relink.
+    if has_native_merging or enable_relinker or EMIT_NATIVE_BUILD_COMMANDS:
         # We serialize info about the linkable graph and the apk module mapping and pass that to an
         # external subcommand to apply a merge sequence algorithm and return us the merge mapping.
         for platform, deps in deps_by_platform.items():
@@ -328,6 +381,10 @@ def get_android_binary_native_library_info(
             linkables_debug = ctx.actions.write("linkables." + platform, list(graph_node_map.keys()), has_content_based_path = False)
             enhance_ctx.debug_output("linkables." + platform, linkables_debug)
             linkable_nodes_by_platform[platform] = graph_node_map
+            if EMIT_NATIVE_BUILD_COMMANDS:
+                for node in graph_node_map.values():
+                    for cc in node.compile_cmds:
+                        compile_argsfiles[cc.cxx_compile_cmd.argsfile.file] = None
 
     jni_onload_check_report = None
     if has_native_merging and ctx.attrs._android_toolchain[AndroidToolchainInfo].jni_onload_check:
@@ -383,8 +440,25 @@ def get_android_binary_native_library_info(
             native_library_merge_dir = ctx.actions.declare_output("merge_sequence_output", has_content_based_path = False)
             native_library_merge_map = native_library_merge_dir.project("merge.map")
             split_groups_map = native_library_merge_dir.project("split_groups.map")
-            mergemap_cmd.add(cmd_args(native_library_merge_dir.as_output(), format = "--output={}"))
-            ctx.actions.run(mergemap_cmd, category = "compute_mergemap", allow_cache_upload = True)
+
+            # Record the mergemap command before adding the output as an `as_output()` (which
+            # cannot be re-serialized by write_json); reference the plain output artifact instead.
+            native_build_command_entries.append(
+                native_build_command_entry(
+                    kind = "mergemap",
+                    category = "compute_mergemap",
+                    arch = None,
+                    soname = None,
+                    output = native_library_merge_dir.short_path,
+                    argv = cmd_args(mergemap_cmd, cmd_args(native_library_merge_dir, format = "--output={}")),
+                )
+            )
+
+            ctx.actions.run(
+                cmd_args(mergemap_cmd, cmd_args(native_library_merge_dir.as_output(), format = "--output={}")),
+                category = "compute_mergemap",
+                allow_cache_upload = True,
+            )
         else:
             native_library_merge_dir = ctx.actions.declare_output("merge_sequence_output", dir = True, has_content_based_path = False)
             native_library_merge_map = native_library_merge_dir.project("merge.map")
@@ -401,6 +475,7 @@ def get_android_binary_native_library_info(
                 apk_module_graph_file,
                 native_library_merge_non_asset_libs,
                 native_library_merge_dir,
+                # @oss-disable[end= ]: native_build_command_entries,
             ]
             # @oss-disable[end= ]: early_gatorade_libraries(*args)
 
@@ -419,6 +494,9 @@ def get_android_binary_native_library_info(
     def dynamic_native_libs_info(ctx: AnalysisContext, artifacts, outputs):
         middle_gatorade_outputs_by_platform = {}
         middle_gatorade_relinked_libraries_by_platform = {}
+        # Seed with the analysis-scope entries (frozen list, read-only copy), then append the
+        # in-lambda link/relink/merge/bolt commands as the pipeline produces them.
+        native_cmd_entries = list(native_build_command_entries)
         get_module_from_target = all_targets_in_root_module
         get_module_tdeps = all_targets_in_root_module
         get_calculated_module_deps = all_targets_in_root_module
@@ -553,9 +631,50 @@ def get_android_binary_native_library_info(
             final_shared_libs_by_platform = original_shared_libs_by_platform
 
         relinked_libs_for_extra_outputs = {}
+
+        # [native_build_commands][merge]: record every per-soname merge link here, once, before any
+        # relink reassigns final_shared_libs_by_platform. This is the single capture point for merge
+        # links across all paths (inline relink, deferred relink, and late-Gatorade), which is why
+        # the finalization step below never labels anything kind=merge.
+        if has_native_merging:
+            for platform, libs in final_shared_libs_by_platform.items():
+                for soname, lib in libs.items():
+                    record_link_command(native_cmd_entries, "merge", platform, soname, lib.lib)
+
+        # [native_build_commands][compile]: emit one entry per source in every linkable node that
+        # carries compile commands (populated only when `-c cxx.emit_native_build_commands=true`, so
+        # this whole block is skipped otherwise). Attribute each to the FINAL merged soname via the
+        # merge map (falling back to the node's own pre-merge soname), keeping the per-library soname
+        # in pre_merge_soname. The soname is best-effort: split groups, static-only nodes, and
+        # late-gatorade code motion make it approximate — consumers should cross-reference merge.map.
+        if EMIT_NATIVE_BUILD_COMMANDS:
+            for platform, node_map in linkable_nodes_by_platform.items():
+                merged_by_label = merged_shared_lib_targets_by_platform.get(platform, {})
+                for node_label, node in node_map.items():
+                    pre_merge_soname = node.default_soname
+                    for cc in node.compile_cmds:
+                        # A source compiled more than once in the same node (different flavors/flags)
+                        # carries a non-None index; append it so those entries get distinct identifiers.
+                        identifier = "{}/{}/{}".format(platform, node_label.raw_target(), cc.src.short_path)
+                        if cc.index != None:
+                            identifier += "/{}".format(cc.index)
+                        native_cmd_entries.append(
+                            native_build_command_entry(
+                                kind = "compile",
+                                category = cc.cxx_compile_cmd.category,
+                                arch = platform,
+                                soname = merged_by_label.get(node_label, pre_merge_soname),
+                                pre_merge_soname = pre_merge_soname,
+                                output = cc.src.short_path,
+                                argv = cmd_args(cc.cxx_compile_cmd.base_compile_cmd, cc.cxx_compile_cmd.argsfile.cmd_form, cc.args),
+                                argsfile = cc.cxx_compile_cmd.argsfile.file,
+                                identifier = identifier,
+                            )
+                        )
+
         if enable_relinker and not defer_relink:
             unrelinked_shared_libs_by_platform = final_shared_libs_by_platform
-            final_shared_libs_by_platform, middle_gatorade_outputs_by_platform = _relink_for_native_libs(ctx, final_shared_libs_by_platform)
+            final_shared_libs_by_platform, middle_gatorade_outputs_by_platform = _relink_for_native_libs(ctx, final_shared_libs_by_platform, native_cmd_entries)
             middle_gatorade_relinked_libraries_by_platform = final_shared_libs_by_platform
             relinked_libs_for_extra_outputs = final_shared_libs_by_platform
             _link_library_subtargets(
@@ -582,7 +701,7 @@ def get_android_binary_native_library_info(
             # The relinked libs are exposed as [relinked_libs] sub-target for the combine genrule.
             # A JSON manifest listing the <abi>/<soname> entries is produced alongside so that
             # the combine script knows exactly which libraries to replace without guessing.
-            relinked_libs_by_platform, middle_gatorade_outputs_by_platform = _relink_for_native_libs(ctx, final_shared_libs_by_platform)
+            relinked_libs_by_platform, middle_gatorade_outputs_by_platform = _relink_for_native_libs(ctx, final_shared_libs_by_platform, native_cmd_entries)
             middle_gatorade_relinked_libraries_by_platform = relinked_libs_by_platform
             relinked_libs_for_extra_outputs = relinked_libs_by_platform
 
@@ -601,6 +720,8 @@ def get_android_binary_native_library_info(
                     # @oss-disable[end= ]: relinked_libs_by_platform,
                     # @oss-disable[end= ]: deferred_gatorade_output,
                     # @oss-disable[end= ]: [outputs[relinked_libs_output], outputs[relinked_libs_manifest]],
+                    # @oss-disable[end= ]: native_cmd_entries,
+                    # @oss-disable[end= ]: outputs[native_build_commands_codegen],
                 # @oss-disable[end= ]: )
             else:
                 _write_native_libs_dir_and_manifest(
@@ -635,8 +756,10 @@ def get_android_binary_native_library_info(
                 middle_gatorade_relinked_libraries_by_platform,
             )
 
-        if ctx.attrs._android_toolchain[AndroidToolchainInfo].cross_module_native_deps_check:
-            # note: can only detect these if linkable_nodes_by_platform is created, ie. if using relinker or merging
+        if ctx.attrs._android_toolchain[AndroidToolchainInfo].cross_module_native_deps_check and (has_native_merging or enable_relinker):
+            # note: can only detect these if linkable_nodes_by_platform is created, ie. if using relinker or merging.
+            # EMIT_NATIVE_BUILD_COMMANDS also builds it on apps that do neither; those apps never ran
+            # this check, so it stays gated on merging/relinking.
             cross_module_link_errors = []
             for linkable_nodes in linkable_nodes_by_platform.values():
                 for target, node in linkable_nodes.items():
@@ -690,11 +813,21 @@ def get_android_binary_native_library_info(
                 all_prebuilt_native_library_dirs,
                 get_module_from_target,
                 native_lib_dynamic_outputs,
+                # @oss-disable[end= ]: native_cmd_entries,
+                # @oss-disable[end= ]: outputs[native_build_commands_codegen],
             ]
             # @oss-disable[end= ]: subtarget_shared_libs_by_platform = gatorade_libraries(*args)
         else:
             subtarget_shared_libs_by_platform = _post_native_lib_graph_finalization_steps(
-                ctx, final_shared_libs_by_platform, all_prebuilt_native_library_dirs, get_module_from_target, **native_lib_dynamic_outputs
+                ctx,
+                final_shared_libs_by_platform,
+                all_prebuilt_native_library_dirs,
+                get_module_from_target,
+                native_cmd_entries = native_cmd_entries,
+                # Only record the libs finalized here as plain kind=link when the app neither merges
+                # nor relinks; otherwise merge/relink links are already captured at their own sites.
+                record_final_link = not has_native_merging and not enable_relinker,
+                **native_lib_dynamic_outputs,
             )
 
         # Subtargets can't be created or changed from within dynamic actions, so the individual
@@ -712,7 +845,37 @@ def get_android_binary_native_library_info(
             native_merge_debug,
         )
 
+        # Write the "base" fragment: every native-build command known by the end of this lambda.
+        # with_inputs = False embeds each argv/argsfile as text without materializing the produced
+        # .o/.so, matching the linker_commands writer. The final [native_build_commands] JSON and its
+        # per-kind filters are produced by the combine action below (which folds in the late-Gatorade
+        # codegen fragment).
+        ctx.actions.write_json(outputs[native_build_commands_base], native_cmd_entries, with_inputs = False)
+
+        # On paths that don't capture late-Gatorade codegen, bind its fragment here (empty) so the
+        # combine action always has both inputs. On the capturing path the nested Gatorade dynamic
+        # binds it instead.
+        if not will_capture_late_gatorade_codegen:
+            ctx.actions.write_json(outputs[native_build_commands_codegen], [], with_inputs = False)
+
     ctx.actions.dynamic_output(dynamic = dynamic_inputs, inputs = [], outputs = [o.as_output() for o in dynamic_outputs], f = dynamic_native_libs_info)
+
+    # Combine the base fragment with the late-Gatorade codegen fragment into the final
+    # [native_build_commands] JSON and its per-kind filters. Both fragments were written with
+    # with_inputs = False, so their entries are already-rendered plain JSON; read them back and
+    # re-emit. This runs after the (possibly nested) writers of both fragments complete.
+    def _combine_native_build_commands(ctx: AnalysisContext, artifacts, outputs):
+        entries = artifacts[native_build_commands_base].read_json() + artifacts[native_build_commands_codegen].read_json()
+        ctx.actions.write_json(outputs[native_build_commands], entries)
+        for kind in NATIVE_BUILD_COMMAND_KINDS:
+            ctx.actions.write_json(outputs[native_build_commands_by_kind[kind]], [entry for entry in entries if entry["kind"] == kind])
+
+    ctx.actions.dynamic_output(
+        dynamic = [native_build_commands_base, native_build_commands_codegen],
+        inputs = [],
+        outputs = [native_build_commands.as_output()] + [native_build_commands_by_kind[kind].as_output() for kind in NATIVE_BUILD_COMMAND_KINDS],
+        f = _combine_native_build_commands,
+    )
     combined_asset_libs = ctx.actions.declare_output("combined_asset_libs", dir = True, has_content_based_path = False)
     ctx.actions.run(
         cmd_args([
@@ -755,6 +918,29 @@ def get_android_binary_native_library_info(
 
     enhance_ctx.debug_output("linker_argsfiles", linker_argsfiles)
     enhance_ctx.debug_output("linker_commands", linker_commands)
+    # Materialize the argsfiles a consumer needs to expand an entry's `@argsfile` on disk:
+    #  - link-family kinds (merge/link/relink/bolt) -> the linker_argsfiles symlinked_dir built in
+    #    finalization from every final lib's linker_argsfile;
+    #  - compile -> the per-source compile argsfiles collected at analysis time above.
+    # mergemap has no argsfile; Gatorade argsfiles are recorded by path only (see
+    # native_build_commands.bzl `argsfile` note), so those kinds get no extra outputs here.
+    compile_argsfiles_outputs = list(compile_argsfiles.keys())
+    _kind_argsfile_outputs = {kind: [linker_argsfiles] for kind in ["merge", "link", "relink", "bolt"]}
+    _kind_argsfile_outputs["compile"] = compile_argsfiles_outputs
+    enhance_ctx.debug_output(
+        "native_build_commands",
+        native_build_commands,
+        other_outputs = [linker_argsfiles] + compile_argsfiles_outputs,
+        sub_targets = {
+            kind: [
+                DefaultInfo(
+                    default_outputs = [native_build_commands_by_kind[kind]],
+                    other_outputs = _kind_argsfile_outputs.get(kind, []),
+                )
+            ]
+            for kind in NATIVE_BUILD_COMMAND_KINDS
+        },
+    )
     enhance_ctx.debug_output("unstripped_native_libraries", unstripped_native_libraries, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_json", unstripped_native_libraries_json, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_files", unstripped_native_libraries_files)
@@ -854,17 +1040,24 @@ def _post_native_lib_graph_finalization_steps(
     root_module_metadata_assets: Artifact,
     non_root_module_metadata_assets: Artifact,
     non_root_module_lib_assets: Artifact,
+    native_cmd_entries = None,
+    # True only on apps that neither merge nor relink: then the libs finalized here ARE the plain
+    # per-library links, recorded kind=link. When merging/relinking, those commands are captured at
+    # their own sites (kind=merge / kind=relink) and this must stay False to avoid double-recording.
+    record_final_link: bool = False,
 ) -> dict[str, dict[str, SharedLibrary]]:
     bolt_args = getattr(ctx.attrs, "native_library_bolt_args", None)
     pre_bolt_libs_by_platform = {}
     if bolt_args and len(bolt_args) != 0:
-        final_shared_libs_by_platform, pre_bolt_libs_by_platform = _bolt_libraries(ctx, final_shared_libs_by_platform, bolt_args)
+        final_shared_libs_by_platform, pre_bolt_libs_by_platform = _bolt_libraries(
+            ctx, final_shared_libs_by_platform, bolt_args, native_cmd_entries, record_final_link
+        )
 
     unstripped_libs = {}
     linker_argsfiles_list = []
     linker_commands_json = []
     for platform, libs in final_shared_libs_by_platform.items() + pre_bolt_libs_by_platform.items():
-        for lib in libs.values():
+        for soname, lib in libs.items():
             unstripped_libs[lib.lib.output] = platform
             if lib.lib.linker_argsfile:
                 linker_argsfiles_list.append(lib.lib)
@@ -873,6 +1066,14 @@ def _post_native_lib_graph_finalization_steps(
                 "command": lib.lib.linker_command,
                 "filename": lib.lib.output.short_path,
             })
+
+            # Record the plain per-library link for [native_build_commands][link], but only on apps
+            # that neither merge nor relink (record_final_link). Merge and relink links are captured
+            # at their own sites, and on those paths the libs seen here are either already-recorded
+            # (merge/relink outputs) or command-less (late-gatorade dummies), so recording here would
+            # double-count or add null entries.
+            if record_final_link:
+                record_link_command(native_cmd_entries, "link", platform, soname, lib.lib)
 
     ctx.actions.symlinked_dir(linker_argsfiles, {"{}".format(lib.output.basename): lib.linker_argsfile for lib in linker_argsfiles_list})
     ctx.actions.write_json(linker_commands, linker_commands_json, with_inputs = False)
@@ -2307,7 +2508,11 @@ def _create_merged_link_args(
     return LinkArgs(infos = links), shlib_deps, link_traversal_cache
 
 def _bolt_libraries(
-    ctx: AnalysisContext, libraries_by_platform: dict[str, dict[str, SharedLibrary]], bolt_args: dict[str, ArgLike]
+    ctx: AnalysisContext,
+    libraries_by_platform: dict[str, dict[str, SharedLibrary]],
+    bolt_args: dict[str, ArgLike],
+    native_cmd_entries = None,
+    record_underlying_link: bool = False,
 ) -> (
     dict[str, dict[str, SharedLibrary]],
     dict[str, dict[str, SharedLibrary]],
@@ -2325,6 +2530,13 @@ def _bolt_libraries(
             if not soname in bolt_args:
                 bolted_libraries[soname] = original_shared_library
                 continue
+
+            # On plain-link apps (record_underlying_link), record the bolted soname's underlying link
+            # BEFORE the swap: the bolted/pre-bolt objects below are command-less, so finalization
+            # skips them and this plain link would otherwise be lost. When merging/relinking, that
+            # underlying command is already captured at the merge/relink site, so skip it here.
+            if record_underlying_link:
+                record_link_command(native_cmd_entries, "link", platform, soname, original_shared_library.lib)
 
             # Create pre-BOLT copy with .pre_bolt.so suffix
             pre_bolt_soname = soname.removesuffix(".so") + ".pre_bolt.so"
@@ -2356,6 +2568,8 @@ def _bolt_libraries(
                 prebolt_lib = original_shared_library,
                 output_path = output_path,
                 bolt_args = bolt_args[soname],
+                native_cmd_entries = native_cmd_entries,
+                platform = platform,
             )
 
     return bolted_libraries_by_platform, pre_bolt_libraries_by_platform
@@ -2383,7 +2597,9 @@ def _bolt_libraries(
 # 5. extract the list of undefined symbols in the relinked libs (i.e. those symbols needed from dependencies and what had been
 #    used in (1) above from higher nodes).
 
-def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict[str, SharedLibrary]]) -> dict[str, dict[str, SharedLibrary]]:
+def relink_libraries(
+    ctx: AnalysisContext, libraries_by_platform: dict[str, dict[str, SharedLibrary]], native_cmd_entries = None
+) -> dict[str, dict[str, SharedLibrary]]:
     relinker_extra_deps = getattr(ctx.attrs, "relinker_extra_deps", None)
     relinker_extra_args = getattr(ctx.attrs, "relinker_extra_args", {})
     relinker_extra_args_all = getattr(ctx.attrs, "relinker_extra_args_all", [])
@@ -2469,12 +2685,13 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
             needed_symbols_files[soname] = unioned_needed_symbols_file
 
             relinked_libraries[soname] = shared_lib
+            record_link_command(native_cmd_entries, "relink", platform, soname, shared_lib.lib)
 
     return relinked_libraries_by_platform
 
-def _relink_for_native_libs(ctx: AnalysisContext, libraries_by_platform: dict[str, dict[str, SharedLibrary]]) -> tuple:
-    return (relink_libraries(ctx, libraries_by_platform), {}) # @oss-enable
-    # @oss-disable[end= ]: return relink_for_native_libs(ctx, libraries_by_platform, relink_libraries, create_shared_lib)
+def _relink_for_native_libs(ctx: AnalysisContext, libraries_by_platform: dict[str, dict[str, SharedLibrary]], native_cmd_entries = None) -> tuple:
+    return (relink_libraries(ctx, libraries_by_platform, native_cmd_entries), {}) # @oss-enable
+    # @oss-disable[end= ]: return relink_for_native_libs(ctx, libraries_by_platform, relink_libraries, create_shared_lib, native_cmd_entries)
 
 def extract_provided_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo, lib: Artifact) -> Artifact:
     return extract_defined_syms(ctx, toolchain, lib, "relinker_extract_provided_symbols")
@@ -2600,7 +2817,13 @@ def create_shared_lib(
     )
 
 def _create_bolt_lib(
-    ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, prebolt_lib: SharedLibrary, output_path: str, bolt_args: list[ArgLike]
+    ctx: AnalysisContext,
+    cxx_toolchain: CxxToolchainInfo,
+    prebolt_lib: SharedLibrary,
+    output_path: str,
+    bolt_args: list[ArgLike],
+    native_cmd_entries = None,
+    platform = None,
 ) -> SharedLibrary:
     soname = prebolt_lib.soname.ensure_str()
     bolt_output = ctx.actions.declare_output(output_path, has_content_based_path = False)
@@ -2623,6 +2846,27 @@ def _create_bolt_lib(
         identifier = output_path,
         allow_cache_upload = True,
     )
+
+    # Record the bolt command for [native_build_commands], referencing the plain output artifact
+    # (not `as_output()`, which cannot be re-serialized by write_json).
+    if native_cmd_entries != None:
+        native_cmd_entries.append(
+            native_build_command_entry(
+                kind = "bolt",
+                category = "bolt",
+                arch = platform,
+                soname = soname,
+                output = bolt_output.short_path,
+                argv = cmd_args(
+                    cmd_args(cxx_toolchain.binary_utilities_info.bolt),
+                    prebolt_lib.lib.output,
+                    "-o",
+                    bolt_output,
+                    bolt_args,
+                ),
+                identifier = output_path,
+            )
+        )
 
     linked_object = LinkedObject(
         output = bolt_output,

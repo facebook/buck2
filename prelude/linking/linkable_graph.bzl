@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:compile_types.bzl", "CxxSrcCompileCommand")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 # TODO(mattpayne): Add this back once the type is supported by dependency mgmt
@@ -100,6 +101,11 @@ LinkableNode = record(
     ignore_force_static_follows_dependents = field(bool),
     # Should this library only be used for build time linkage
     stub = field(bool),
+    # Per-source C/C++ compile commands for this node, used to aggregate an app-level native
+    # compile-command database (the [native_build_commands][compile] sub-target). Populated only when
+    # compile-command capture is enabled (see cxx_library); empty otherwise and for nodes with no
+    # sources (e.g. prebuilt libraries).
+    compile_cmds = field(list[CxxSrcCompileCommand], []),
     # Only allow constructing within this file.
     _private = _DisallowConstruction,
 )
@@ -165,6 +171,7 @@ def create_linkable_node(
     linker_flags: [LinkerFlags, None] = None,
     ignore_force_static_follows_dependents: bool = False,
     stub: bool = False,
+    compile_cmds: list[CxxSrcCompileCommand] = [],
 ) -> LinkableNode:
     for output_style in _get_required_outputs_for_linkage(preferred_linkage):
         expect(
@@ -191,6 +198,7 @@ def create_linkable_node(
         linker_flags = linker_flags,
         ignore_force_static_follows_dependents = ignore_force_static_follows_dependents,
         stub = stub,
+        compile_cmds = compile_cmds,
         _private = _DisallowConstruction(),
     )
 

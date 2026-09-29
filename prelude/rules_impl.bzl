@@ -18,6 +18,7 @@ load("@prelude//:sh_test.bzl", "sh_test_impl")
 load("@prelude//:test_suite.bzl", "test_suite_impl")
 load("@prelude//android:android.bzl", _android_implemented_rules = "implemented_rules")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
+load("@prelude//android:native_build_commands.bzl", "EMIT_NATIVE_BUILD_COMMANDS")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
@@ -305,6 +306,7 @@ control how the dependencies of this library are linked, use `link_style` instea
         "third_party_project": attrs.option(attrs.string(), default = None),
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": toolchains_common.cxx(),
+        "_emit_native_build_commands": attrs.default_only(attrs.bool(default = EMIT_NATIVE_BUILD_COMMANDS)),
         "_is_building_android_binary": is_building_android_binary_attr(),
     }
     | apple_common.extra_xcode_sources()
