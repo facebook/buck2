@@ -19,6 +19,7 @@ load(
 )
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
+load("@prelude//android:native_build_commands.bzl", "GATORADE_PHASE_SUBTARGETS")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//utils:expect.bzl", "expect")
 
@@ -37,6 +38,11 @@ _OPTIONAL_NATIVE_LIB_SUBTARGETS = [
 
 def _forward_optional_native_lib_subtargets(input_subtargets: dict) -> dict:
     return {name: [input_subtargets[name][DefaultInfo]] for name in _OPTIONAL_NATIVE_LIB_SUBTARGETS if name in input_subtargets}
+
+# The top-level Gatorade-phase sub-targets (`TARGET[early_gatorade]` etc.) are always present on the
+# wrapped android_apk/android_aab, so forward them in the required set at every wrapper site.
+def _forward_gatorade_phase_subtargets(input_subtargets: dict) -> dict:
+    return {name: [input_subtargets[name][DefaultInfo]] for name in GATORADE_PHASE_SUBTARGETS}
 
 def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     expect((ctx.attrs.apk == None) != (ctx.attrs.aab == None), "Exactly one of 'apk' and 'aab' must be specified")
@@ -147,6 +153,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                         "unstripped_native_libraries_files": [input_android_aab_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
                         "unstripped_native_libraries_json": [input_android_aab_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
                     }
+                    | _forward_gatorade_phase_subtargets(input_android_aab_subtargets)
                     | _forward_optional_native_lib_subtargets(input_android_aab_subtargets),
                 ),
                 AndroidDerivedApkInfo(
@@ -165,6 +172,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                     "unstripped_native_libraries_files": [input_android_aab_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
                     "unstripped_native_libraries_json": [input_android_aab_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
                 }
+                | _forward_gatorade_phase_subtargets(input_android_aab_subtargets)
                 | _forward_optional_native_lib_subtargets(input_android_aab_subtargets)
             )
             default_providers = [
@@ -190,6 +198,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                 "unstripped_native_libraries_files": [input_android_apk_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
                 "unstripped_native_libraries_json": [input_android_apk_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
             }
+            | _forward_gatorade_phase_subtargets(input_android_apk_subtargets)
             | _forward_optional_native_lib_subtargets(input_android_apk_subtargets)
         )
         expect(

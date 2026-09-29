@@ -19,6 +19,7 @@ load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CP
 load(
     "@prelude//android:native_build_commands.bzl",
     "EMIT_NATIVE_BUILD_COMMANDS",
+    "GATORADE_PHASE_SUBTARGETS",
     "NATIVE_BUILD_COMMAND_KINDS",
     "native_build_command_entry",
     "record_link_command",
@@ -242,6 +243,11 @@ def get_android_binary_native_library_info(
                 for kind in NATIVE_BUILD_COMMAND_KINDS
             },
         )
+        # The top-level Gatorade-phase sub-targets output that phase's produced artifacts (an empty
+        # dir here: an app with no native libraries runs no Gatorade phase), so they resolve
+        # uniformly. See the main path for the populated case.
+        for gatorade_phase in GATORADE_PHASE_SUBTARGETS:
+            enhance_ctx.debug_output(gatorade_phase, ctx.actions.symlinked_dir(gatorade_phase, {}, has_content_based_path = False))
         enhance_ctx.debug_output("unstripped_native_libraries", ctx.actions.write("unstripped_native_libraries", [], has_content_based_path = False))
         enhance_ctx.debug_output(
             "unstripped_native_libraries_json", ctx.actions.write_json("unstripped_native_libraries_json", {}, has_content_based_path = False)
@@ -338,6 +344,18 @@ def get_android_binary_native_library_info(
     # in-lambda link/bolt commands. Entries created inside the frozen lambda cannot be appended
     # here, so anything produced at analysis time is collected into this list instead.
     native_build_command_entries = []
+
+    # TARGET[<phase>] Gatorade-phase product sub-targets. Each outputs the full set of artifacts that
+    # phase's gatorade invocation(s) produce, as a symlinked_dir (like [native_libs]).
+    #  - early runs at analysis scope: early_gatorade_libraries fills this {relpath: artifact} map,
+    #    and early_gatorade_products is built from it below.
+    #  - middle reuses middle_gatorade_products, declared below and materialized inside the dynamic
+    #    lambda when the middle phase runs.
+    #  - late runs inside the nested Gatorade dynamics, so its dir is declared here, appended to
+    #    dynamic_outputs, and bound inside (empty when the phase is off).
+    early_gatorade_product_mapping = {}
+    late_gatorade_products = ctx.actions.declare_output("late_gatorade_products", dir = True, has_content_based_path = False)
+    dynamic_outputs.append(late_gatorade_products)
 
     has_native_merging = native_library_merge_sequence or native_library_merge_map
     enable_relinker = getattr(ctx.attrs, "enable_relinker", False)
@@ -476,6 +494,7 @@ def get_android_binary_native_library_info(
                 native_library_merge_non_asset_libs,
                 native_library_merge_dir,
                 # @oss-disable[end= ]: native_build_command_entries,
+                # @oss-disable[end= ]: early_gatorade_product_mapping,
             ]
             # @oss-disable[end= ]: early_gatorade_libraries(*args)
 
@@ -722,6 +741,7 @@ def get_android_binary_native_library_info(
                     # @oss-disable[end= ]: [outputs[relinked_libs_output], outputs[relinked_libs_manifest]],
                     # @oss-disable[end= ]: native_cmd_entries,
                     # @oss-disable[end= ]: outputs[native_build_commands_codegen],
+                    # @oss-disable[end= ]: outputs[late_gatorade_products],
                 # @oss-disable[end= ]: )
             else:
                 _write_native_libs_dir_and_manifest(
@@ -815,6 +835,7 @@ def get_android_binary_native_library_info(
                 native_lib_dynamic_outputs,
                 # @oss-disable[end= ]: native_cmd_entries,
                 # @oss-disable[end= ]: outputs[native_build_commands_codegen],
+                # @oss-disable[end= ]: outputs[late_gatorade_products],
             ]
             # @oss-disable[end= ]: subtarget_shared_libs_by_platform = gatorade_libraries(*args)
         else:
@@ -857,6 +878,12 @@ def get_android_binary_native_library_info(
         # binds it instead.
         if not will_capture_late_gatorade_codegen:
             ctx.actions.write_json(outputs[native_build_commands_codegen], [], with_inputs = False)
+
+        # TARGET[late_gatorade] products are bound inside the nested Gatorade dynamic (which knows the
+        # output library graph); on every non-late path the outer lambda binds it empty here, mirroring
+        # the native_build_commands_codegen fragment's ownership.
+        if not will_capture_late_gatorade_codegen:
+            ctx.actions.symlinked_dir(outputs[late_gatorade_products], {})
 
     ctx.actions.dynamic_output(dynamic = dynamic_inputs, inputs = [], outputs = [o.as_output() for o in dynamic_outputs], f = dynamic_native_libs_info)
 
@@ -941,6 +968,23 @@ def get_android_binary_native_library_info(
             for kind in NATIVE_BUILD_COMMAND_KINDS
         },
     )
+    # TARGET[<phase>] Gatorade-phase product sub-targets: building one runs that phase and outputs
+    # the artifacts its gatorade invocation(s) produce (a symlinked_dir, like [native_libs]). Early's
+    # products were collected at analysis scope; middle/late were bound inside the dynamic lambda.
+    # middle_gatorade_products is only declared when the middle phase runs, so otherwise the
+    # sub-target resolves to an empty dir.
+    early_gatorade_products = ctx.actions.symlinked_dir("early_gatorade_products", early_gatorade_product_mapping, has_content_based_path = False)
+    gatorade_phase_products = {
+        "early_gatorade": early_gatorade_products,
+        "late_gatorade": late_gatorade_products,
+        "middle_gatorade": middle_gatorade_products or ctx.actions.symlinked_dir("middle_gatorade_products", {}, has_content_based_path = False),
+    }
+    expect(
+        sorted(gatorade_phase_products.keys()) == sorted(GATORADE_PHASE_SUBTARGETS),
+        "gatorade_phase_products must cover exactly GATORADE_PHASE_SUBTARGETS",
+    )
+    for gatorade_phase, products in gatorade_phase_products.items():
+        enhance_ctx.debug_output(gatorade_phase, products)
     enhance_ctx.debug_output("unstripped_native_libraries", unstripped_native_libraries, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_json", unstripped_native_libraries_json, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_files", unstripped_native_libraries_files)

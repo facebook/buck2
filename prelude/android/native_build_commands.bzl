@@ -35,6 +35,19 @@ NATIVE_BUILD_COMMAND_KINDS = [
     "bolt",
 ]
 
+# The Gatorade phases exposed as top-level product sub-targets on Android app targets: building
+# `TARGET[early_gatorade]` runs that phase and outputs the artifacts its gatorade invocation(s)
+# produce, as a directory (like [native_libs]). Kept in this leaf module as the single source of
+# truth for both the app rule that registers them and apk_genrule.bzl that forwards them through the
+# redex/repack/resign wrapper. (Unrelated to NATIVE_BUILD_COMMAND_KINDS above, which is the separate
+# [native_build_commands] JSON schema; these names coincide with those Gatorade kinds only by
+# convention.)
+GATORADE_PHASE_SUBTARGETS = [
+    "early_gatorade",
+    "middle_gatorade",
+    "late_gatorade",
+]
+
 # One entry in the [native_build_commands] JSON. `argv` is embedded as an ArgLike via
 # write_json(with_inputs = False) so an entry renders its command without materializing the produced
 # artifact, and `argsfile` lets a consumer expand the full flag list when the argv references an
