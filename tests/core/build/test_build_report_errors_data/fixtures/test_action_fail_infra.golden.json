@@ -26,6 +26,7 @@
                 "stderr_content": "<STRING_HASH>",
                 "stdout_content": "<STRING_HASH>"
               },
+              "category_key": "IO_NOT_CONNECTED",
               "cause_index": 0,
               "error_category": "ENVIRONMENT",
               "error_tags": [

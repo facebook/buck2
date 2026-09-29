@@ -278,6 +278,8 @@ struct BuildReportError {
     /// common bzl file), but error stack will be different.
     cause_index: usize,
     error_category: String,
+    /// The same key buck2 logs as `category_key` in its error telemetry.
+    category_key: String,
 }
 
 #[derive(Derivative, Serialize, Eq, PartialEq, Ord, PartialOrd, Hash, Clone)]
@@ -963,6 +965,7 @@ impl<'a> BuildReportCollector<'a> {
             error_tags: Vec<String>,
             action_error: Option<BuildReportActionError>,
             error_category: String,
+            category_key: String,
         }
 
         let mut temp = Vec::with_capacity(errors.len());
@@ -972,6 +975,7 @@ impl<'a> BuildReportCollector<'a> {
             let root = e.root_id();
             let error_report: ErrorReport = e.into();
             let error_category = error_report.category().to_string();
+            let category_key = error_report.category_key.clone().unwrap_or_default();
             let message = if let Some(telemetry_message) = error_report.telemetry_message {
                 telemetry_message
             } else {
@@ -1005,6 +1009,7 @@ impl<'a> BuildReportCollector<'a> {
                     )
                 }),
                 error_category,
+                category_key,
             });
         }
         // Sort the errors. This sort *almost* guarantees full determinism, but unfortunately
@@ -1054,6 +1059,7 @@ impl<'a> BuildReportCollector<'a> {
                 error_tags: info.error_tags,
                 cause_index,
                 error_category: info.error_category,
+                category_key: info.category_key,
             });
         }
 

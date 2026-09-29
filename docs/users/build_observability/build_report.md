@@ -255,6 +255,11 @@ Error {
 
     # Error category for the error. One of "USER", "INFRA", "ENVIRONMENT".
     error_category: str,
+
+    # A finer-grained key identifying the category of this error, derived from the
+    # error's tags and source location. Matches the `category_key` buck2 logs to
+    # its error telemetry, so it can be used to join build report errors with it.
+    category_key: str,
 }
 
 ActionError {
