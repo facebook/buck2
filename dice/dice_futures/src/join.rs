@@ -539,6 +539,7 @@ impl Drop for SharedHandle {
 mod tests {
     use std::future::poll_fn;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
     use std::task::Wake;
@@ -970,5 +971,200 @@ mod tests {
                 }
             }
         });
+    }
+
+    /// A branch that re-wakes from inside its own `poll` a fixed number of times.
+    ///
+    /// This is the interesting case for the `woken` bookkeeping: `JoinCore::poll` releases
+    /// the lock before draining, so a branch waking itself during the drain races whatever
+    /// the drain is doing to that branch's record.
+    struct SelfWakingBranch {
+        idx: usize,
+        left: u32,
+    }
+
+    impl Future for SelfWakingBranch {
+        type Output = usize;
+
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<usize> {
+            let this = self.get_mut();
+            if this.left == 0 {
+                return Poll::Ready(this.idx);
+            }
+            this.left -= 1;
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        }
+    }
+
+    /// A branch woken entirely from outside, so that its wakes can be issued in parallel
+    /// with the drain rather than from inside it.
+    struct Slot {
+        done: AtomicBool,
+        waker: Mutex<Option<Waker>>,
+    }
+
+    struct Driven {
+        idx: usize,
+        slot: Arc<Slot>,
+    }
+
+    impl Future for Driven {
+        type Output = usize;
+
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<usize> {
+            let this = self.get_mut();
+            // Park before testing `done`, so a driver that flips it in between still finds a
+            // waker to fire.
+            *this.slot.waker.lock() = Some(cx.waker().clone());
+            if this.slot.done.load(Ordering::Acquire) {
+                return Poll::Ready(this.idx);
+            }
+            Poll::Pending
+        }
+    }
+
+    /// Wide-join stress over the `woken` bookkeeping, in two phases.
+    ///
+    /// The deferred materializer joins one future per stale artifact path, which reaches
+    /// ~200k branches on a large buck-out. Both phases hold the woken list near full width
+    /// for the whole run, which is the state a production daemon was found in and what makes
+    /// any per-wake cost that scales with the list length dominate everything else.
+    ///
+    /// Phase 1 sweeps width using self-waking branches: the drain takes the list, then every
+    /// branch it polls re-adds itself. This measures the bookkeeping cost cleanly, but it
+    /// cannot produce lock contention -- `join_all` is a single tokio task, so the drain
+    /// always runs on one worker, and a self-wake is issued from inside that same poll. The
+    /// worker count is irrelevant to that.
+    ///
+    /// Phase 2 therefore delivers every wake from a pool of OS threads running in parallel
+    /// with the drain, which is the only way to race `take()` across a thread boundary --
+    /// the case where a cleared record and an in-flight wake can lose each other.
+    ///
+    /// Phase 2 is a correctness probe, not a second benchmark. Its timing is reported for
+    /// completeness but should not be read as a speedup: externally woken branches do not
+    /// re-add themselves on poll, so the list does not stay wide and the scan never
+    /// dominates. Lock contention is measurably not the mechanism here -- the cost comes
+    /// from the drain regenerating a full-width list on a single thread, which phase 1
+    /// captures.
+    ///
+    /// A dropped wake shows up as a hang rather than a wrong answer, hence the timeouts.
+    #[test]
+    fn stress_wide_join_scaling_and_contention() {
+        const SELF_WAKES: u32 = 2;
+        const DRIVER_THREADS: usize = 8;
+        const SPURIOUS_ROUNDS: u32 = 2;
+        const CONTENDED_N: usize = 50_000;
+
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(8)
+            .enable_time()
+            .build()
+            .unwrap();
+
+        let mut report = String::new();
+        rt.block_on(async {
+            for n in [1_000usize, 10_000, 50_000, 100_000, 200_000] {
+                let futs: Vec<_> = (0..n)
+                    .map(|idx| SelfWakingBranch {
+                        idx,
+                        left: SELF_WAKES,
+                    })
+                    .collect();
+
+                let start = std::time::Instant::now();
+                let handle = tokio::spawn(join_all(futs));
+                let out = tokio::time::timeout(std::time::Duration::from_secs(180), handle)
+                    .await
+                    .unwrap_or_else(|_| panic!("HANG in wide join, n={n} -- a wake was lost"))
+                    .unwrap();
+                let elapsed = start.elapsed();
+
+                assert_eq!(out, (0..n).collect::<Vec<_>>(), "wrong outputs at n={n}");
+                report.push_str(&format!("uncontended n={n:>7}  elapsed={elapsed:>12.1?}\n"));
+            }
+
+            let n = CONTENDED_N;
+            let slots: Vec<Arc<Slot>> = (0..n)
+                .map(|_| {
+                    Arc::new(Slot {
+                        done: AtomicBool::new(false),
+                        waker: Mutex::new(None),
+                    })
+                })
+                .collect();
+            let futs: Vec<_> = slots
+                .iter()
+                .enumerate()
+                .map(|(idx, slot)| Driven {
+                    idx,
+                    slot: slot.clone(),
+                })
+                .collect();
+
+            let start = std::time::Instant::now();
+            let handle = tokio::spawn(join_all(futs));
+
+            // Interleaved rather than contiguous shares, so the threads' wakes land on
+            // adjacent indexes and contend the same bookkeeping rather than partitioning it.
+            let drivers: Vec<_> = (0..DRIVER_THREADS)
+                .map(|t| {
+                    let mine: Vec<Arc<Slot>> = slots
+                        .iter()
+                        .skip(t)
+                        .step_by(DRIVER_THREADS)
+                        .cloned()
+                        .collect();
+                    std::thread::spawn(move || {
+                        // Take one waker clone per slot up front, after the join's opening
+                        // sweep has registered them all. Cloning per wake instead puts a mutex
+                        // and a refcount bump in front of every wake, which throttles the
+                        // drivers enough that the drain keeps up and the list never grows --
+                        // hiding the very cost this phase exists to measure.
+                        let mut wakers = Vec::with_capacity(mine.len());
+                        for s in &mine {
+                            loop {
+                                if let Some(w) = s.waker.lock().clone() {
+                                    wakers.push(w);
+                                    break;
+                                }
+                                std::thread::yield_now();
+                            }
+                        }
+                        for _ in 0..SPURIOUS_ROUNDS {
+                            for w in &wakers {
+                                w.wake_by_ref();
+                            }
+                        }
+                        for s in &mine {
+                            s.done.store(true, Ordering::Release);
+                        }
+                        for w in &wakers {
+                            w.wake_by_ref();
+                        }
+                    })
+                })
+                .collect();
+
+            let out = tokio::time::timeout(std::time::Duration::from_secs(300), handle)
+                .await
+                .unwrap_or_else(|_| panic!("HANG in contended join -- a wake was lost"))
+                .unwrap();
+            let elapsed = start.elapsed();
+            for d in drivers {
+                d.join().unwrap();
+            }
+
+            assert_eq!(
+                out,
+                (0..n).collect::<Vec<_>>(),
+                "wrong outputs under contention"
+            );
+            report.push_str(&format!(
+                "contended  n={n:>7}  elapsed={elapsed:>12.1?}  ({DRIVER_THREADS} driver threads)\n"
+            ));
+        });
+        drop(std::fs::write("/tmp/join_stress.txt", &report));
+        println!("{report}");
     }
 }
