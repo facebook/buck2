@@ -317,6 +317,16 @@ impl ReConnectionHandle {
             data: Arc::downgrade(&self.connection),
         }
     }
+
+    pub fn release_temporary_memory(&self) -> buck2_error::Result<()> {
+        if let Some(result) = self
+            .connection
+            .with_client(RemoteExecutionClient::release_temporary_memory)
+        {
+            result?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Dupe)]

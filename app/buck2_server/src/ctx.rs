@@ -229,7 +229,7 @@ pub struct ServerCommandContext<'a> {
     // This ensures that there's only one RE connection during the lifetime of this context. It's possible
     // that we give out other handles, but we don't depend on the lifetimes of those for this guarantee. We
     // also use this to send a RemoteExecutionSessionCreated if the connection is made.
-    _re_connection_handle: ReConnectionHandle,
+    re_connection_handle: ReConnectionHandle,
 
     /// Starlark profiler instrumentation requested throughout the duration of this command. Usually associated with
     /// the `buck2 profile` command.
@@ -389,7 +389,7 @@ impl<'a> ServerCommandContext<'a> {
             config_overrides: client_context.config_overrides.clone(),
             oncall,
             client_id_from_client_metadata,
-            _re_connection_handle: re_connection_handle,
+            re_connection_handle,
             cert_state,
             starlark_profiling_manager,
             buck_out_dir,
@@ -564,6 +564,10 @@ impl<'a> ServerCommandContext<'a> {
         // The heartbeat guard's last snapshot; reused to gate idle page-out on disk
         // headroom without a fresh stat.
         let command_end_snapshot = self.heartbeat_guard_handle.take().unwrap().finalize().await;
+
+        if let Err(e) = self.re_connection_handle.release_temporary_memory() {
+            tracing::warn!("Failed to release RE client temporary memory: {e}");
+        }
 
         // Emits this command's DICE paging telemetry and, if eligible, schedules an
         // idle page-out.

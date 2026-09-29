@@ -495,6 +495,14 @@ impl RemoteExecutionClient {
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::ReExperimentName))
     }
 
+    pub fn release_temporary_memory(&self) -> buck2_error::Result<()> {
+        self.data
+            .client
+            .client()
+            .release_temporary_memory()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+    }
+
     pub fn fill_network_stats(&self, stats: &mut RemoteExecutionClientStats) {
         stats.uploads = RemoteExecutionClientOpStats::from(&self.data.uploads);
         stats.downloads = RemoteExecutionClientOpStats::from(&self.data.downloads);

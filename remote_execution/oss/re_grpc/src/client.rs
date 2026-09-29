@@ -1131,6 +1131,10 @@ impl REClient {
     pub fn get_experiment_name(&self) -> anyhow::Result<Option<String>> {
         Ok(None)
     }
+
+    pub fn release_temporary_memory(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionResult2> {
