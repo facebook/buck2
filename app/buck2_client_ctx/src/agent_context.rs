@@ -11,6 +11,7 @@
 use std::sync::LazyLock;
 
 use buck2_core::buck2_env;
+use buck2_data::AgentContextEntry as AgentContextKeys;
 use regex::Regex;
 
 /// A key / value entry from --agent-context. Used to track agent intent,
@@ -19,6 +20,42 @@ use regex::Regex;
 pub struct AgentContextEntry {
     pub key: String,
     pub value: String,
+}
+
+/// Agent metadata for one invocation, preserving entry order and repeated keys.
+#[derive(Debug)]
+pub struct AgentContext {
+    entries: Vec<AgentContextEntry>,
+}
+
+impl AgentContext {
+    /// Creates a context from the collected CLI and environment entries.
+    pub fn new(entries: Vec<AgentContextEntry>) -> Self {
+        Self { entries }
+    }
+
+    /// Only the last direct-call marker determines whether the call is direct.
+    pub fn is_direct_call(&self) -> bool {
+        self.entries
+            .iter()
+            .rev()
+            .find(|entry| entry.key == AgentContextKeys::KEY_DIRECT_CALL)
+            .is_some_and(|entry| entry.value == "true")
+    }
+
+    /// An invocation can acknowledge multiple advice IDs through repeated entries.
+    pub fn is_advice_acknowledged(&self, advice_id: &str) -> bool {
+        self.entries
+            .iter()
+            .any(|entry| entry.key == AgentContextKeys::KEY_ADVICE_ACK && entry.value == advice_id)
+    }
+
+    pub(crate) fn to_proto(&self) -> Vec<buck2_data::AgentContextEntry> {
+        self.entries
+            .iter()
+            .map(AgentContextEntry::to_proto)
+            .collect()
+    }
 }
 
 impl AgentContextEntry {
@@ -97,6 +134,38 @@ pub enum AgentContextError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn context(values: &[&str]) -> AgentContext {
+        AgentContext::new(
+            values
+                .iter()
+                .map(|value| parse_agent_context(value).expect("test context should parse"))
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn direct_call_uses_last_value() {
+        assert!(context(&["direct_call=false", "direct_call=true"]).is_direct_call());
+        for value in ["false", "invalid", "TRUE", ""] {
+            assert!(
+                !context(&["direct_call=true", &format!("direct_call={value}")]).is_direct_call()
+            );
+        }
+        assert!(!context(&["id=codex"]).is_direct_call());
+    }
+
+    #[test]
+    fn acknowledgements_are_exact_and_repeatable() {
+        let acknowledged = context(&["advice_ack=build_intent", "advice_ack=other"]);
+        assert!(acknowledged.is_advice_acknowledged("build_intent"));
+        assert!(acknowledged.is_advice_acknowledged("other"));
+        for value in ["other", "*", "", "build_intent,other"] {
+            assert!(
+                !context(&[&format!("advice_ack={value}")]).is_advice_acknowledged("build_intent")
+            );
+        }
+    }
 
     #[test]
     fn test_parse_single_entry() {

@@ -76,7 +76,6 @@ use itertools::Itertools;
 use termwiz::istty::IsTty;
 use tokio::sync::mpsc::Receiver;
 
-use crate::agent_context::AgentContextEntry;
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
 use crate::common::CommonBuildConfigurationOptions;
@@ -572,11 +571,7 @@ impl InvocationRecorder {
             );
         }
 
-        self.agent_context = ctx
-            .agent_context
-            .iter()
-            .map(AgentContextEntry::to_proto)
-            .collect();
+        self.agent_context = ctx.agent_context().to_proto();
 
         self.command_name = Some(command_name);
     }
