@@ -8,14 +8,13 @@
  * above-listed licenses.
  */
 
-use std::borrow::Borrow;
+mod interner;
+
 use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::Read;
 use std::marker::PhantomData;
-use std::sync::atomic::AtomicI64;
-use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use derivative::Derivative;
@@ -31,9 +30,12 @@ use sha1::Sha1;
 use sha2::Sha256;
 use static_interner::Intern;
 use strong_hash::StrongHash;
-use triomphe::Arc;
 
-use crate::file_ops::metadata::FileDigest;
+pub use crate::cas_digest::interner::DigestInterner;
+pub use crate::cas_digest::interner::DigestInternerStats;
+pub use crate::cas_digest::interner::TrackedFileDigest;
+pub use crate::cas_digest::interner::file_digest_interner;
+pub use crate::cas_digest::interner::file_digest_interner_stats;
 
 /// The number of bytes required by a SHA-1 hash
 pub const SHA1_SIZE: usize = 20;
@@ -331,12 +333,10 @@ impl CasDigestConfigInner {
             *slot = Some(algo);
         }
 
-        let empty_file_digest = TrackedFileDigest {
-            inner: Arc::new(TrackedFileDigestInner {
-                data: CasDigest::from_content_for_algorithm(&[], preferred_algorithm),
-                expires: AtomicI64::new(0),
-            }),
-        };
+        let empty_file_digest = TrackedFileDigest::from_parts(
+            CasDigest::from_content_for_algorithm(&[], preferred_algorithm),
+            0,
+        );
 
         let source = match preferred_source_algorithm {
             Some(algo) => SourceFilesConfig::UseThis(
@@ -720,166 +720,10 @@ pub enum CasDigestParseError {
     InvalidSize(#[source] std::num::ParseIntError),
 }
 
-/// A digest to interact with RE. This, despite the name, can be a file or a directory. We track
-/// the sha1 and the size of the underlying blob. We *also* keep track of its expiry in the CAS.
-/// Note that for directory, the expiry represents that of the directory's blob, not its underlying
-/// contents.
-#[derive(Allocative, Debug, Pagable)]
-struct TrackedFileDigestInner {
-    data: FileDigest,
-    expires: AtomicI64,
-}
-
-#[derive(Display, Allocative, Pagable)]
-#[display("{}", self.data())]
-pub struct TrackedFileDigest {
-    inner: Arc<TrackedFileDigestInner>,
-}
-
-impl Clone for TrackedFileDigest {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
-    }
-}
-
-impl Dupe for TrackedFileDigest {}
-
-impl Borrow<FileDigest> for TrackedFileDigest {
-    fn borrow(&self) -> &FileDigest {
-        self.data()
-    }
-}
-
-impl Borrow<FileDigest> for &TrackedFileDigest {
-    fn borrow(&self) -> &FileDigest {
-        self.data()
-    }
-}
-
-impl PartialOrd for TrackedFileDigest {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for TrackedFileDigest {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.data().cmp(other.data())
-    }
-}
-
-impl PartialEq for TrackedFileDigest {
-    fn eq(&self, other: &Self) -> bool {
-        self.data().eq(other.data())
-    }
-}
-
-impl Eq for TrackedFileDigest {}
-
-impl Hash for TrackedFileDigest {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.data().hash(state)
-    }
-}
-
 impl<Kind: CasDigestKind> StrongHash for CasDigest<Kind> {
     fn strong_hash<H: Hasher>(&self, state: &mut H) {
         self.raw_digest().as_bytes().strong_hash(state);
         self.size().strong_hash(state);
-    }
-}
-
-impl StrongHash for TrackedFileDigest {
-    fn strong_hash<H: Hasher>(&self, state: &mut H) {
-        self.data().strong_hash(state)
-    }
-}
-
-impl fmt::Debug for TrackedFileDigest {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "[{} expires at {}]",
-            self,
-            self.inner.expires.load(Ordering::Relaxed)
-        )
-    }
-}
-
-impl buck2_core::directory_digest::DirectoryDigest for TrackedFileDigest {}
-
-impl TrackedFileDigest {
-    pub fn new(data: FileDigest, config: CasDigestConfig) -> Self {
-        if data.size() == 0 {
-            return Self::empty(config);
-        }
-
-        Self {
-            inner: Arc::new(TrackedFileDigestInner {
-                data,
-                expires: AtomicI64::new(0),
-            }),
-        }
-    }
-
-    pub fn new_expires(data: FileDigest, expiry: jiff::Timestamp, config: CasDigestConfig) -> Self {
-        if data.size() == 0 {
-            return Self::empty(config);
-        }
-        Self {
-            inner: Arc::new(TrackedFileDigestInner {
-                data,
-                expires: AtomicI64::new(expiry.as_second()),
-            }),
-        }
-    }
-
-    pub fn empty(config: CasDigestConfig) -> Self {
-        config.empty_file_digest()
-    }
-
-    pub fn from_content(bytes: &[u8], config: CasDigestConfig) -> Self {
-        if bytes.is_empty() {
-            return Self::empty(config);
-        }
-
-        Self {
-            inner: Arc::new(TrackedFileDigestInner {
-                data: CasDigest::from_content(bytes, config),
-                expires: AtomicI64::new(0),
-            }),
-        }
-    }
-
-    pub fn data(&self) -> &FileDigest {
-        &self.inner.data
-    }
-
-    pub fn raw_digest(&self) -> &RawDigest {
-        self.inner.data.raw_digest()
-    }
-
-    pub fn size(&self) -> u64 {
-        self.inner.data.size()
-    }
-
-    pub fn expires(&self) -> buck2_error::Result<jiff::Timestamp> {
-        let expires = self.inner.expires.load(Ordering::Relaxed);
-        jiff::Timestamp::from_second(expires).map_err(|_| {
-            buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Environment,
-                "CAS Digest expiration is out of the representable time range: {}",
-                expires
-            )
-        })
-    }
-
-    pub fn update_expires(&self, time: jiff::Timestamp) {
-        self.inner
-            .expires
-            .store(time.as_second(), Ordering::Relaxed)
     }
 }
 
@@ -955,9 +799,7 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::file_ops::metadata::FileDigest;
     use crate::file_ops::metadata::FileDigestKind;
-    use crate::file_ops::metadata::TrackedFileDigest;
 
     #[test]
     fn test_digest_from_str() {
@@ -1117,40 +959,5 @@ mod tests {
         ] {
             assert_eq!(v, v.to_string().parse().unwrap());
         }
-    }
-
-    #[test]
-    fn test_new_expires_empty_does_not_mutate_shared_singleton() {
-        // For zero-size data, `new_expires` must return the shared empty-digest
-        // singleton without touching its expiration. The previous implementation
-        // called `update_expires` on the singleton, corrupting the expiration
-        // observed by every other holder of the empty digest.
-        let config = testing::sha1();
-
-        // The singleton is created with expiration at the unix epoch.
-        let original_expiry = TrackedFileDigest::empty(config).expires().unwrap();
-        assert_eq!(
-            original_expiry,
-            jiff::Timestamp::UNIX_EPOCH,
-            "empty-digest singleton should start at the unix epoch"
-        );
-
-        let requested = jiff::Timestamp::now() + jiff::SignedDuration::from_hours(24 * 7);
-        let from_empty =
-            TrackedFileDigest::new_expires(FileDigest::empty(config), requested, config);
-
-        // The shared singleton is untouched ...
-        assert_eq!(
-            TrackedFileDigest::empty(config).expires().unwrap(),
-            original_expiry,
-            "new_expires on empty data must not mutate the shared empty-digest singleton"
-        );
-        // ... and the value returned for empty data is that same untouched
-        // singleton, not one carrying the requested (future) expiration.
-        assert_eq!(
-            from_empty.expires().unwrap(),
-            original_expiry,
-            "new_expires on empty data should return the singleton, ignoring the requested expiry"
-        );
     }
 }
