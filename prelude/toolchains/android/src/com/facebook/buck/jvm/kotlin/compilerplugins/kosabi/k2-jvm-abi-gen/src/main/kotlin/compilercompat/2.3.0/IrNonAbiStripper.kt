@@ -726,12 +726,37 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
       // SKIP_BODIES dropped the delegating constructor call for a bodyless constructor (e.g. a
       // primary constructor whose body was stripped) and left the synthetic <init>$default overload
       // holding skipBodies error expressions. An empty replacement body is a bare RETURN that the
-      // JVM verifier rejects, so synthesize a super-delegation instead -- the same well-formed stub
-      // used for inner-class constructors above.
+      // JVM verifier rejects, so synthesize a well-formed delegation. Value-class secondary
+      // constructors must delegate to their primary constructor; other constructors delegate to
+      // their superclass as above.
       declaration.body =
-          createSuperDelegatingConstructorBody(declaration) ?: irFactory.createBlockBody(-1, -1)
+          if (parentClass.isValue && parentClass.primaryConstructor != declaration) {
+            createValueClassDelegatingConstructorBody(declaration)
+                ?: irFactory.createBlockBody(-1, -1)
+          } else {
+            createSuperDelegatingConstructorBody(declaration) ?: irFactory.createBlockBody(-1, -1)
+          }
     }
     return super.visitConstructor(declaration)
+  }
+
+  /**
+   * Builds a body that delegates a value-class secondary constructor to its primary constructor.
+   * Kotlin 2.3 lowers a super-delegating stub to a STATIC_INLINE_CLASS_CONSTRUCTOR containing an
+   * INSTANCE_INITIALIZER_CALL, which JVM codegen cannot emit. A this()-delegation lowers to the
+   * expected constructor-impl that returns the underlying value.
+   */
+  private fun createValueClassDelegatingConstructorBody(constructor: IrConstructor): IrBody? {
+    val primaryConstructor = constructor.parentAsClass.primaryConstructor ?: return null
+    val builder = DeclarationIrBuilder(pluginContext, constructor.symbol)
+    val delegatingCall = builder.irDelegatingConstructorCall(primaryConstructor)
+    primaryConstructor.valueParameters.forEachIndexed { index, parameter ->
+      val defaultArgument =
+          generateDefaultValue(parameter.type)
+              ?: IrConstImpl.constNull(-1, -1, parameter.type.makeNullable())
+      delegatingCall.putValueArgument(index, defaultArgument)
+    }
+    return irFactory.createBlockBody(-1, -1).apply { statements.add(delegatingCall) }
   }
 
   /**
