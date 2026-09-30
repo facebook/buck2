@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
 
+#[cfg(not(fbcode_build))]
 use anyhow::Context;
 use tracing::instrument;
 
@@ -44,19 +45,11 @@ pub(crate) fn resolve_buckconfig_sysroot(
     project_root: &Path,
     universe_targets: &[Target],
 ) -> Result<Sysroot, anyhow::Error> {
+    #[cfg(fbcode_build)]
+    let sysroot = project_root.join("third-party/rust-toolchain/rustup/current/basic");
+    #[cfg(not(fbcode_build))]
     let sysroot: PathBuf = {
-        // TODO(diliopoulos): remove hardcoded path to toolchain sysroot and replace with something
-        // derived from buck, e.g.
-        //
-        // $ buck cquery -u fbcode//buck2/integrations/rust-project:rust-project -a compiler fbcode//buck2/platform/rust:rust_bootstrap
-        // ...
-        //     "compiler": "fbcode//tools/build/buck/wrappers:rust-platform010-clang-17-nosan-compiler (fbcode//buck2/platform/execution:linux-x86_64#54c5d1cbad5316cb)"
-        // $ buck cquery -u fbcode//buck2/integrations/rust-project:rust-project -a exe fbcode//tools/build/buck/wrappers:rust-platform010-clang-17-nosan-compiler
-        // ...
-        //     "exe": "fbcode//third-party-buck/platform010/build/rust:bin/rustc (fbcode//buck2/platform/execution:linux-x86_64#54c5d1cbad5316cb)",
-        let fbsource_rustc =
-            project_root.join("third-party/rust-toolchain/rustup/current/basic/bin/rustc");
-        let mut sysroot_cmd = Command::new(fbsource_rustc);
+        let mut sysroot_cmd = Command::new("rustc");
         sysroot_cmd
             .arg("--print=sysroot")
             .stdin(Stdio::null())
