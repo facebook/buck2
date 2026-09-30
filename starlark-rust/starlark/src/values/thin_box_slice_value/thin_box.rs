@@ -69,21 +69,20 @@ impl<T> ThinBoxSliceLayout<T> {
 
 /// Tag of a slice whose length is in the allocation's header, and of the empty slice.
 const TAG_HEADER: usize = TAGS_NEVER_VALUE[0];
-/// Tags of the slices short enough that the tag itself is the length, so they have no header.
-/// Length zero is the null address and length one never reaches this type (`PackedImpl` stores
-/// it inline), so the two patterns left after `TAG_HEADER` cover lengths two and three.
+/// Tag of a slice of length two, which has no header: the tag is the length. Length zero is the
+/// null address and length one never reaches this type (`PackedImpl` stores it inline). The
+/// third never-value pattern is `Deferred`'s, so length three carries a header.
 const TAG_LEN_2: usize = TAGS_NEVER_VALUE[1];
-const TAG_LEN_3: usize = TAGS_NEVER_VALUE[2];
 
 /// `Box<[T]>` but thin.
 ///
 /// The word is the address of the first element with a tag in its low bits, so every allocation
 /// is aligned to `TAG_MASK + 1`, whatever `T`'s own alignment (a `Value` is only word aligned on
-/// 32-bit targets). For all but the shortest slices the tag is `TAG_HEADER` and the length sits
-/// in a header before the elements; for lengths two and three the tag is the length and there is
-/// no header. Skipping the header for short slices was measured at 0.8% wall time and 0.2% max
-/// RSS on a large analysis (D66773980) when it covered lengths two through four, so changes to
-/// the encoding should be benchmarked.
+/// 32-bit targets). For all but length two the tag is `TAG_HEADER` and the length sits in a
+/// header before the elements; for length two the tag is the length and there is no header.
+/// Skipping the header for short slices was measured at 0.8% wall time and 0.2% max RSS on a
+/// large analysis (D66773980) when it covered lengths two through four, so changes to the
+/// encoding should be benchmarked.
 ///
 /// The current implementation returns what amounts to a null pointer for an
 /// empty list. An alternative would be to return a valid pointer to a
@@ -135,10 +134,12 @@ impl<T> AllocatedThinBoxSlice<T> {
         }
     }
 
-    /// Whether `word` is the representation of one of these, as opposed to a `Value`.
+    /// Whether `word` is the representation of one of these, as opposed to a `Value` or a
+    /// `Deferred` field's unread word.
     #[inline]
     pub(super) fn is_word(word: usize) -> bool {
-        TAGS_NEVER_VALUE.contains(&(word & TAG_MASK))
+        let tag = word & TAG_MASK;
+        tag == TAG_HEADER || tag == TAG_LEN_2
     }
 
     /// The word, which nothing frees unless the handle is rebuilt from it.
@@ -151,7 +152,6 @@ impl<T> AllocatedThinBoxSlice<T> {
     const fn tag_for_len(len: usize) -> usize {
         match len {
             2 => TAG_LEN_2,
-            3 => TAG_LEN_3,
             _ => TAG_HEADER,
         }
     }
@@ -204,7 +204,6 @@ impl<T> AllocatedThinBoxSlice<T> {
 
         match self.tag() {
             TAG_LEN_2 => 2,
-            TAG_LEN_3 => 3,
             tag => {
                 debug_assert!(tag == TAG_HEADER);
                 unsafe {
@@ -401,6 +400,7 @@ mod tests {
     use super::TAG_HEADER;
     use super::ThinBoxSliceHeader;
     use crate::values::layout::pointer::TAG_MASK;
+    use crate::values::layout::pointer::TAGS_NEVER_VALUE;
 
     #[test]
     fn test_empty() {
@@ -428,14 +428,14 @@ mod tests {
         thin.run_drop();
     }
 
-    /// Lengths two and three have no header word; everything longer does.
+    /// Length two has no header word; everything longer does.
     #[test]
     fn test_short_lengths_have_no_header() {
         let element = mem::size_of::<String>();
         let header = mem::size_of::<ThinBoxSliceHeader>();
         for len in 0..8 {
             let (tag, layout) = AllocatedThinBoxSlice::<String>::layout_for_len(len);
-            let expected = if len == 2 || len == 3 {
+            let expected = if len == 2 {
                 assert_ne!(tag, TAG_HEADER);
                 len * element
             } else {
@@ -455,6 +455,16 @@ mod tests {
             assert!(AllocatedThinBoxSlice::<String>::is_word(word), "len {i}");
             assert_eq!(word & !TAG_MASK == 0, i == 0, "len {i}");
             thin.run_drop();
+        }
+    }
+
+    /// The third never-value pattern is left to `Deferred`: a word carrying it is not a slice.
+    #[test]
+    fn test_deferred_word_is_not_a_slice() {
+        for body in [0usize, 8, 1 << 20] {
+            assert!(!AllocatedThinBoxSlice::<String>::is_word(
+                body | TAGS_NEVER_VALUE[2]
+            ));
         }
     }
 
