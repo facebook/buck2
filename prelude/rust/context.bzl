@@ -17,7 +17,7 @@ load("@prelude//linking:link_info.bzl", "LinkStrategy")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
-load(":build_params.bzl", "BuildParams", "CrateType", "Emit", "ProfileMode")
+load(":build_params.bzl", "BuildParams", "CrateType", "Emit", "MetadataKind", "ProfileMode")
 load(
     ":crate_name.bzl",
     "CrateName",  # @unused Used as a type
@@ -47,6 +47,11 @@ CommonArgsInfo = record(
     crate_map = field(list[(CrateName, Label)]),
 )
 
+DependencyArgsInfo = record(
+    args = field(cmd_args),
+    crate_map = field(list[(CrateName, Label)]),
+)
+
 # Compile info which is reusable between multiple compilation command performed
 # by the same rule.
 CompileContext = record(
@@ -54,6 +59,8 @@ CompileContext = record(
     clippy_wrapper = field(cmd_args),
     # Memoized common args for reuse.
     common_args = field(dict[(CrateType, Emit, LinkStrategy, bool, bool, bool, ProfileMode), CommonArgsInfo]),
+    # Memoized dependency args for reuse across emits with the same inputs.
+    dependency_args = field(dict[(CrateType, LinkStrategy, MetadataKind, bool), DependencyArgsInfo]),
     cxx_toolchain_info = field(CxxToolchainInfo),
     dep_ctx = field(DepCollectionContext),
     exec_is_windows = field(bool),
@@ -129,6 +136,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     return CompileContext(
         clippy_wrapper = clippy_wrapper,
         common_args = {},
+        dependency_args = {},
         cxx_toolchain_info = cxx_toolchain_info,
         dep_ctx = dep_ctx,
         exec_is_windows = exec_is_windows,

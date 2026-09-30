@@ -102,6 +102,7 @@ load(
     ":context.bzl",
     "CommonArgsInfo",
     "CompileContext",
+    "DependencyArgsInfo",
     "output_filename",
     "strip_build_info_linker_flags",
 )
@@ -1269,29 +1270,41 @@ def _compute_common_args(
         # link args.
         dep_metadata_kind = MetadataKind("full")
 
-    dep_args, dep_argsfiles, crate_map = dependency_args(
-        ctx = ctx,
-        internal_tools_info = compile_ctx.internal_tools_info,
-        transitive_dependency_dirs = compile_ctx.transitive_dependency_dirs,
-        toolchain_info = compile_ctx.toolchain_info,
-        deps = resolve_rust_deps(ctx, dep_ctx),
-        subdir = subdir,
-        dep_link_strategy = params.dep_link_strategy,
-        dep_metadata_kind = dep_metadata_kind,
-        is_rustdoc_test = is_rustdoc_test,
-    )
-
-    dep_args.add(
-        cmd_args(
-            hidden = compile_ctx.transitive_srcs.project_as_args("artifacts") if compile_ctx else [],
+    dependency_args_key = (crate_type, params.dep_link_strategy, dep_metadata_kind, is_rustdoc_test)
+    cached_dependency_args = compile_ctx.dependency_args.get(dependency_args_key)
+    if cached_dependency_args == None:
+        dep_args, dep_argsfiles, crate_map = dependency_args(
+            ctx = ctx,
+            internal_tools_info = compile_ctx.internal_tools_info,
+            transitive_dependency_dirs = compile_ctx.transitive_dependency_dirs,
+            toolchain_info = compile_ctx.toolchain_info,
+            deps = resolve_rust_deps(ctx, dep_ctx),
+            subdir = subdir,
+            dep_link_strategy = params.dep_link_strategy,
+            dep_metadata_kind = dep_metadata_kind,
+            is_rustdoc_test = is_rustdoc_test,
         )
-    )
 
-    # Add dep_argsfiles to dep_args becuase rustc_action supports nested @argfiles
-    dep_args.add(dep_argsfiles)
+        dep_args.add(
+            cmd_args(
+                hidden = compile_ctx.transitive_srcs.project_as_args("artifacts") if compile_ctx else [],
+            )
+        )
 
-    if crate_type == CrateType("proc-macro"):
-        dep_args.add("--extern=proc_macro")
+        # Add dep_argsfiles to dep_args because rustc_action supports nested @argfiles.
+        dep_args.add(dep_argsfiles)
+
+        if crate_type == CrateType("proc-macro"):
+            dep_args.add("--extern=proc_macro")
+
+        cached_dependency_args = DependencyArgsInfo(
+            args = dep_args,
+            crate_map = crate_map,
+        )
+        compile_ctx.dependency_args[dependency_args_key] = cached_dependency_args
+
+    dep_args = cached_dependency_args.args
+    crate_map = cached_dependency_args.crate_map
 
     toolchain_info = compile_ctx.toolchain_info
     edition = ctx.attrs.edition or toolchain_info.default_edition or fail("missing 'edition' attribute, and there is no 'default_edition' set by the toolchain")
