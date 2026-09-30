@@ -685,32 +685,38 @@ impl REClient {
         }
     }
 
-    pub async fn get_action_result(
-        &self,
+    pub fn get_action_result<'a>(
+        &'a self,
         metadata: &RemoteExecutionMetadata,
         request: ActionResultRequest,
-    ) -> anyhow::Result<ActionResultResponse> {
-        retry(|| async {
-            let res = self
-                .action_cache_client()
-                .await?
-                .get_action_result(with_re_metadata(
-                    GetActionResultRequest {
-                        instance_name: self.instance_name.as_str().to_owned(),
-                        action_digest: Some(tdigest_to(&request.digest)),
-                        ..Default::default()
-                    },
-                    metadata,
-                    self.runtime_opts.use_fbcode_metadata,
-                ))
-                .await?;
+    ) -> impl Future<Output = anyhow::Result<ActionResultResponse>> + Send + use<'a> {
+        let action_digest = tdigest_to(&request.digest);
+        let headers = with_re_metadata((), metadata, self.runtime_opts.use_fbcode_metadata)
+            .into_parts()
+            .0;
+        async move {
+            retry(|| async {
+                let res = self
+                    .action_cache_client()
+                    .await?
+                    .get_action_result(tonic::Request::from_parts(
+                        headers.clone(),
+                        Default::default(),
+                        GetActionResultRequest {
+                            instance_name: self.instance_name.as_str().to_owned(),
+                            action_digest: Some(action_digest.clone()),
+                            ..Default::default()
+                        },
+                    ))
+                    .await?;
 
-            Ok(ActionResultResponse {
-                action_result: convert_action_result(res.into_inner())?,
-                ttl: 0,
+                Ok(ActionResultResponse {
+                    action_result: convert_action_result(res.into_inner())?,
+                    ttl: 0,
+                })
             })
-        })
-        .await
+            .await
+        }
     }
 
     pub fn write_action_result<'a>(
@@ -958,43 +964,54 @@ impl REClient {
         }
     }
 
-    pub async fn download(
-        &self,
+    pub fn download<'a>(
+        &'a self,
         metadata: &RemoteExecutionMetadata,
         request: DownloadRequest,
-    ) -> anyhow::Result<DownloadResponse> {
-        download_impl(
-            &self.instance_name,
-            request,
-            self.bystream_compressor,
-            self.capabilities.max_total_batch_size,
-            |re_request| async move {
-                let resp = self
-                    .cas_client()
-                    .await?
-                    .batch_read_blobs(with_re_metadata(
-                        re_request,
-                        metadata,
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?;
-                Ok(resp.into_inner())
-            },
-            |read_request| async move {
-                let response = self
-                    .bytestream_client()
-                    .await?
-                    .read(with_re_metadata(
-                        read_request,
-                        metadata,
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?
-                    .into_inner();
-                Ok(Box::pin(response.into_stream()))
-            },
-        )
-        .await
+    ) -> impl Future<Output = anyhow::Result<DownloadResponse>> + Send + use<'a> {
+        let headers = with_re_metadata((), metadata, self.runtime_opts.use_fbcode_metadata)
+            .into_parts()
+            .0;
+        async move {
+            download_impl(
+                &self.instance_name,
+                request,
+                self.bystream_compressor,
+                self.capabilities.max_total_batch_size,
+                |re_request| {
+                    let headers = headers.clone();
+                    async move {
+                        let resp = self
+                            .cas_client()
+                            .await?
+                            .batch_read_blobs(tonic::Request::from_parts(
+                                headers,
+                                Default::default(),
+                                re_request,
+                            ))
+                            .await?;
+                        Ok(resp.into_inner())
+                    }
+                },
+                |read_request| {
+                    let headers = headers.clone();
+                    async move {
+                        let response = self
+                            .bytestream_client()
+                            .await?
+                            .read(tonic::Request::from_parts(
+                                headers,
+                                Default::default(),
+                                read_request,
+                            ))
+                            .await?
+                            .into_inner();
+                        Ok(Box::pin(response.into_stream()))
+                    }
+                },
+            )
+            .await
+        }
     }
 
     pub async fn get_digests_ttl(
