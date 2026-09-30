@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//android:android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
+load("@prelude//android:android_toolchain.bzl", "AidlToolchainInfo", "AndroidPlatformInfo", "AndroidToolchainInfo")
 load("@prelude//csharp:toolchain.bzl", "CSharpToolchainInfo")
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//go_bootstrap:go_bootstrap.bzl", "GoBootstrapToolchainInfo")
@@ -38,6 +38,9 @@ def _toolchain(lang: str, providers: list[typing.Any], *, default: typing.Any = 
 
 def _android_toolchain():
     return _toolchain("android", [AndroidToolchainInfo, AndroidPlatformInfo, TestListingInfo])
+
+def _android_aidl_toolchain():
+    return _toolchain("android_aidl", [AidlToolchainInfo])
 
 def _csharp_toolchain():
     return _toolchain("csharp", [CSharpToolchainInfo])
@@ -117,6 +120,7 @@ def _test_toolchain():
 
 toolchains_common = struct(
     android = _android_toolchain,
+    android_aidl = _android_aidl_toolchain,
     csharp = _csharp_toolchain,
     cxx = _cxx_toolchain,
     cython = _cython_toolchain,

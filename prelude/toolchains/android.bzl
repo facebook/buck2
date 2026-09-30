@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//android:android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
+load("@prelude//android:android_toolchain.bzl", "AidlToolchainInfo", "AndroidPlatformInfo", "AndroidToolchainInfo")
 load("@prelude//target_stats:target_stats_tools.bzl", "TargetStatsToolsInfo")
 load("@prelude//tests:test_listing.bzl", "TestListingInfo")
 
@@ -83,12 +83,34 @@ android_sdk_tools = rule(
     },
 )
 
+def system_android_aidl_toolchain(name, android_sdk_tools_target, **kwargs):
+    kwargs["aidl"] = "{}[aidl]".format(android_sdk_tools_target)
+    kwargs["framework_aidl_file"] = "{}[framework.aidl]".format(android_sdk_tools_target)
+    _system_android_aidl_toolchain_rule(name = name, **kwargs)
+
+def _system_android_aidl_toolchain_rule_impl(ctx):
+    return [
+        DefaultInfo(),
+        AidlToolchainInfo(
+            aidl = ctx.attrs.aidl[RunInfo],
+            framework_aidl_file = ctx.attrs.framework_aidl_file,
+        ),
+    ]
+
+_system_android_aidl_toolchain_rule = rule(
+    attrs = {
+        "aidl": attrs.exec_dep(providers = [RunInfo]),
+        "framework_aidl_file": attrs.source(),
+    },
+    impl = _system_android_aidl_toolchain_rule_impl,
+    is_toolchain_rule = True,
+)
+
 def system_android_toolchain(name, android_sdk_tools_target, jdk_system_image, **kwargs):
     kwargs["aapt2_filter_resources"] = "prelude//android/tools:filter_extra_resources"
     kwargs["aapt2"] = "{}[aapt2]".format(android_sdk_tools_target)
     kwargs["aar_builder"] = "prelude//toolchains/android/src/com/facebook/buck/android/aar:aar_builder_binary"
     kwargs["adb"] = "{}[adb]".format(android_sdk_tools_target)
-    kwargs["aidl"] = "{}[aidl]".format(android_sdk_tools_target)
     kwargs["android_jar"] = "{}[android.jar]".format(android_sdk_tools_target)
     kwargs["android_optional_jars"] = []
     kwargs["apk_builder"] = "prelude//toolchains/android/src/com/facebook/buck/android/apk:apk_builder_binary"
@@ -106,7 +128,6 @@ def system_android_toolchain(name, android_sdk_tools_target, jdk_system_image, *
     kwargs["filter_dex_class_names"] = "prelude//android/tools:filter_dex"
     kwargs["filter_prebuilt_native_library_dir"] = "prelude//android/tools:filter_prebuilt_native_library_dir"
     kwargs["filter_resources"] = "prelude//toolchains/android/src/com/facebook/buck/android/resources/filter:filter_resources_binary"
-    kwargs["framework_aidl_file"] = "{}[framework.aidl]".format(android_sdk_tools_target)
     # @oss-disable[end= ]: kwargs["gatorade_mergemap_tool"] = "prelude//android/tools/meta_only:gatorade_mergemap_tool"
     kwargs["generate_build_config"] = "prelude//toolchains/android/src/com/facebook/buck/android/build_config:generate_build_config_binary"
     kwargs["generate_manifest"] = "prelude//toolchains/android/src/com/facebook/buck/android/manifest:generate_manifest_binary"
@@ -169,7 +190,6 @@ def system_android_toolchain_rule_impl(ctx):
             aapt2_filter_resources = ctx.attrs.aapt2_filter_resources[RunInfo],
             aar_builder = ctx.attrs.aar_builder[RunInfo],
             adb = ctx.attrs.adb[RunInfo],
-            aidl = ctx.attrs.aidl[RunInfo],
             android_bootclasspath = [ctx.attrs.android_jar],
             android_jar = ctx.attrs.android_jar,
             android_optional_jars = ctx.attrs.android_optional_jars,
@@ -188,7 +208,6 @@ def system_android_toolchain_rule_impl(ctx):
             filter_dex_class_names = ctx.attrs.filter_dex_class_names,
             filter_prebuilt_native_library_dir = ctx.attrs.filter_prebuilt_native_library_dir,
             filter_resources = ctx.attrs.filter_resources,
-            framework_aidl_file = ctx.attrs.framework_aidl_file,
             # @oss-disable[end= ]: gatorade_mergemap_tool = ctx.attrs.gatorade_mergemap_tool[RunInfo],
             generate_build_config = ctx.attrs.generate_build_config,
             generate_manifest = ctx.attrs.generate_manifest,
@@ -230,7 +249,6 @@ system_android_toolchain_rule = rule(
         "aapt2_filter_resources": attrs.dep(providers = [RunInfo]),
         "aar_builder": attrs.dep(providers = [RunInfo]),
         "adb": attrs.dep(providers = [RunInfo]),
-        "aidl": attrs.dep(providers = [RunInfo]),
         "android_jar": attrs.source(),
         "android_optional_jars": attrs.list(attrs.source()),
         "apk_builder": attrs.dep(providers = [RunInfo]),
@@ -249,7 +267,6 @@ system_android_toolchain_rule = rule(
         "filter_dex_class_names": attrs.dep(providers = [RunInfo]),
         "filter_prebuilt_native_library_dir": attrs.dep(providers = [RunInfo]),
         "filter_resources": attrs.dep(providers = [RunInfo]),
-        "framework_aidl_file": attrs.source(),
         # @oss-disable[end= ]: "gatorade_mergemap_tool": attrs.dep(providers = [RunInfo]),
         "generate_build_config": attrs.dep(providers = [RunInfo]),
         "generate_manifest": attrs.dep(providers = [RunInfo]),

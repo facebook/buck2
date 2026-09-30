@@ -12,13 +12,19 @@ AndroidPlatformInfo = provider(
     }
 )
 
+AidlToolchainInfo = provider(
+    fields = {
+        "aidl": provider_field(typing.Any, default = None),
+        "framework_aidl_file": provider_field(typing.Any, default = None),
+    }
+)
+
 AndroidToolchainInfo = provider(
     fields = {
         "aapt2": provider_field(typing.Any, default = None),
         "aapt2_filter_resources": provider_field(typing.Any, default = None),
         "aar_builder": provider_field(typing.Any, default = None),
         "adb": provider_field(typing.Any, default = None),
-        "aidl": provider_field(typing.Any, default = None),
         "android_bootclasspath": provider_field(typing.Any, default = None),
         "android_bootclasspath_snapshots": provider_field(typing.Any, default = []),
         "android_error_handler": provider_field(typing.Any, default = None),
@@ -41,7 +47,6 @@ AndroidToolchainInfo = provider(
         "filter_dex_class_names": provider_field(typing.Any, default = None),
         "filter_prebuilt_native_library_dir": provider_field(typing.Any, default = None),
         "filter_resources": provider_field(typing.Any, default = None),
-        "framework_aidl_file": provider_field(typing.Any, default = None),
         # @oss-disable[end= ]: "gatorade_mergemap_tool": provider_field(typing.Any, default = None),
         "generate_build_config": provider_field(typing.Any, default = None),
         "generate_manifest": provider_field(typing.Any, default = None),

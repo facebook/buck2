@@ -1594,7 +1594,7 @@ gen_aidl = prelude_rule(
                 A list of rules that must be built before this rule.
             """,
             ),
-            "_android_toolchain": toolchains_common.android(),
+            "_aidl_toolchain": toolchains_common.android_aidl(),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_java_toolchain": toolchains_common.java_for_android(),
         }
