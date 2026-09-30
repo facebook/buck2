@@ -3623,7 +3623,27 @@ mod tests {
         TestCommand::new()
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
             .await?;
-        let held_transaction = dice.updater().commit().await;
+
+        let key = ControlledCleanupTestKey {
+            entered: Arc::new(Barrier::new(2)),
+            release: Arc::new(Barrier::new(2)),
+        };
+        {
+            let transaction = dice.updater().commit().await;
+            let compute = transaction.compute(&key).fuse();
+            let entered = key.entered.wait().fuse();
+            futures::pin_mut!(compute);
+            futures::pin_mut!(entered);
+
+            futures::select! {
+                _ = compute => panic!("compute finished before it was released"),
+                _ = entered => {}
+            }
+        }
+        assert!(
+            !dice.is_idle().await,
+            "DICE should have a task pending cancellation"
+        );
 
         let events = TestEvents::new();
         let cleaning = tokio::spawn({
@@ -3654,7 +3674,7 @@ mod tests {
         );
         wait_for_coordinator_counts(&concurrency, 0, 0).await?;
 
-        drop(held_transaction);
+        key.release.wait().await;
         TestCommand::new()
             .run(&concurrency, &CtxDifferent, |_, _timing| async move {})
             .await?;
@@ -5704,6 +5724,47 @@ mod tests {
         #[derivative(Debug = "ignore", Hash = "ignore", PartialEq = "ignore")]
         #[pagable(discard = "Arc::new(Mutex::new(()))")]
         is_executing: Arc<Mutex<()>>,
+    }
+
+    #[derive(Clone, Dupe, Derivative, Allocative, Display, Pagable)]
+    #[derivative(Hash, Eq, PartialEq, Debug)]
+    #[display("ControlledCleanupTestKey")]
+    #[pagable_typetag(dice::DiceKeyDyn)]
+    struct ControlledCleanupTestKey {
+        #[allocative(skip)]
+        #[derivative(Debug = "ignore", Hash = "ignore", PartialEq = "ignore")]
+        #[pagable(discard = "Arc::new(Barrier::new(2))")]
+        entered: Arc<Barrier>,
+        #[allocative(skip)]
+        #[derivative(Debug = "ignore", Hash = "ignore", PartialEq = "ignore")]
+        #[pagable(discard = "Arc::new(Barrier::new(2))")]
+        release: Arc<Barrier>,
+    }
+
+    #[async_trait::async_trait]
+    impl Key for ControlledCleanupTestKey {
+        type Value = ();
+
+        async fn compute(
+            &self,
+            _ctx: &mut DiceComputations,
+            cancellation: &CancellationContext,
+        ) -> Self::Value {
+            cancellation
+                .critical_section(|| async {
+                    self.entered.wait().await;
+                    self.release.wait().await;
+                })
+                .await;
+        }
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_me, _other| true)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            PagableValueSerialize::<Self::Value>::new()
+        }
     }
 
     #[async_trait::async_trait]
