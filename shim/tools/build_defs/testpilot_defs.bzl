@@ -17,5 +17,6 @@
 # string literals the prelude references so that BUCK file parses.
 
 tpx_labels = struct(
+    heavyweight = "heavyweight",
     long_running = "long_running",
 )

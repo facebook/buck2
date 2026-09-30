@@ -10,6 +10,7 @@ load(
     "@fbsource//tools/build_defs/default_platform_defs.bzl",
     _ANDROID = "ANDROID",
     _APPLE = "APPLE",
+    _APPLETVOS = "APPLETVOS",
     _CXX = "CXX",
     _FBCODE = "FBCODE",
     _IOS = "IOS",
@@ -20,9 +21,11 @@ load(
 
 ANDROID = _ANDROID
 APPLE = _APPLE
+APPLETVOS = _APPLETVOS
 CXX = _CXX
 FBCODE = _FBCODE
 IOS = _IOS
 MACOSX = _MACOSX
 WATCHOS = _WATCHOS
 WINDOWS = _WINDOWS
+ALL_APPLE_SDKS = (_IOS, _APPLETVOS, _MACOSX, _WATCHOS)

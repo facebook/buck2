@@ -6,20 +6,5 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-def is_arvr_mode():
-    return False
-
-def is_fbcode():
-    return True
-
-def is_xplat():
-    return False
-
-def is_fbcode_compatible():
-    return False
-
-def is_fbcode_mode_mac():
-    return False
-
-def is_fbcode_mode_win():
-    return False
+def ci_hint(*_args, **_kwargs):
+    pass
