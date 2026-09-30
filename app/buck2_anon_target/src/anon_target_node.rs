@@ -107,7 +107,7 @@ impl fmt::Display for AnonTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{} (anon: {:x}) ({})",
+            "{} (anon: {:016x}) ({})",
             self.name(),
             self.strong_hash,
             self.exec_cfg()
@@ -134,7 +134,7 @@ impl AnonTarget {
         buck2_data::AnonTarget {
             name: Some(self.name().as_proto()),
             execution_configuration: Some(self.exec_cfg().cfg().as_proto()),
-            hash: format!("{:x}", self.strong_hash),
+            hash: format!("{:016x}", self.strong_hash),
         }
     }
 
@@ -316,6 +316,10 @@ impl BaseDeferredKeyDyn for AnonTarget {
         let cell_relative_path = self.name().pkg().cell_relative_path().as_str();
         let mut configuration_path_hash = CompactString::with_capacity(16);
         let path_hash = if path_resolution_method == BuckOutPathKind::Configuration {
+            // Unpadded on purpose, unlike the key's `Display` and every other
+            // key hash: this hex is baked into existing output paths, and
+            // padding it would change ~1/16 of anon paths and invalidate
+            // their action cache entries.
             write!(&mut configuration_path_hash, "{:x}", self.strong_hash)
                 .expect("u64 hex formatting fits in 16 bytes");
             configuration_path_hash.as_str()
