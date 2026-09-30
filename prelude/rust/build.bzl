@@ -599,7 +599,7 @@ def rust_compile(
         emit == Emit("link")
         and compile_ctx.toolchain_info.advanced_unstable_linking
         # FIXME(JakobDegen): We should probably not support cdylib or staticlib under AUL
-        and params.crate_type not in [CrateType("proc-macro"), CrateType("staticlib"), CrateType("cdylib")]
+        and params.crate_type not in [CrateType("rlib"), CrateType("proc-macro"), CrateType("staticlib"), CrateType("cdylib")]
     ):
         fail('rustc-driven linking is not supported with `advanced_unstable_linking`: binaries compile via `Emit("rlib")` and link through cxx')
 
@@ -1262,9 +1262,9 @@ def _compute_common_args(
 
     dep_metadata_kind = dep_metadata_of_emit(emit)
 
-    if dep_metadata_kind == MetadataKind("link") and (is_rustdoc_test or (compile_ctx.dep_ctx.advanced_unstable_linking and crate_type == CrateType("cdylib"))):
+    if dep_metadata_kind == MetadataKind("link") and (is_rustdoc_test or (compile_ctx.dep_ctx.advanced_unstable_linking and crate_type_linked(crate_type))):
         # AUL rlibs compile against full metadata, so Rustdoc tests and
-        # rustc-linked cdylibs need the same full metadata deps to avoid crate
+        # rustc-linked outputs need the same full metadata deps to avoid crate
         # hash mismatches. The linker receives the real rlibs through inherited
         # link args.
         dep_metadata_kind = MetadataKind("full")
@@ -1502,7 +1502,14 @@ def crate_root(ctx: AnalysisContext, default_roots: list[str]) -> str:
         + "\nOr add 'crate_root = \"src/example.rs\"' to your attributes to disambiguate. candidates={}".format(candidates)
     )
 
-def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, infallible_diagnostics: bool, profile_mode: ProfileMode | None) -> str:
+def _explain(
+    crate_type: CrateType,
+    link_strategy: LinkStrategy,
+    emit: Emit,
+    infallible_diagnostics: bool,
+    profile_mode: ProfileMode | None,
+    advanced_unstable_linking: bool,
+) -> str:
     base = None
     if emit == Emit("metadata-full"):
         link_strategy_suffix = {
@@ -1516,7 +1523,11 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, inf
         base = "diag" if infallible_diagnostics else "check"
 
     if emit == Emit("rlib"):
-        base = ("rlib" if crate_type == CrateType("rlib") else "rlib-from-link") + {
+        if crate_type == CrateType("rlib"):
+            base = "rlib-no-meta" if advanced_unstable_linking else "rlib"
+        else:
+            base = "rlib-from-link"
+        base += {
             LinkStrategy("static"): "",
             LinkStrategy("static_pic"): " [pic]",
             LinkStrategy("shared"): " [shared]",
@@ -1654,6 +1665,13 @@ def _rustc_emit(
             effective_emit = "link"
         else:
             effective_emit = emit.value
+
+        # Pipelined builds still need metadata in `metadata-full`'s hollow rlib;
+        # native-linkable artifacts can omit it.
+        if compile_ctx.toolchain_info.advanced_unstable_linking and (
+            (emit == Emit("rlib") and crate_type == CrateType("rlib")) or (emit == Emit("link") and crate_type == CrateType("dylib"))
+        ):
+            emit_args.add("-Zembed-metadata=no")
 
         if emit_output == None:
             emit_args.add(cmd_args("--emit=", effective_emit, delimiter = ""))
@@ -1839,6 +1857,7 @@ def _rustc_invoke(
             emit = common_args.emit,
             infallible_diagnostics = infallible_diagnostics,
             profile_mode = profile_mode,
+            advanced_unstable_linking = toolchain_info.advanced_unstable_linking,
         )
 
     if incremental_enabled:

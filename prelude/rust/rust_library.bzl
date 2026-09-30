@@ -202,6 +202,19 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
         param_subtargets.setdefault(params, {})
         if LinkageLang("rust") in langs:
+            metadata_link = link
+            if toolchain_info.advanced_unstable_linking and params.crate_type == CrateType("rlib"):
+                # Rustc-produced staticlibs need code and metadata in one rlib.
+                rlib_for_staticlib = rust_compile(
+                    ctx = ctx,
+                    compile_ctx = compile_ctx,
+                    emit = Emit("link"),
+                    params = params,
+                    default_roots = _DEFAULT_ROOTS,
+                    incremental_enabled = ctx.attrs.incremental_enabled,
+                )
+                metadata_link = rlib_for_staticlib
+
             if toolchain_info.nightly_features:
                 # Pipelined build: dependents that need full metadata compile
                 # against the `-Zno-codegen` "hollow rlib" instead of waiting
@@ -219,7 +232,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 # wait for the real rlib instead.
                 metadata_full = link
             param_metadata_outputs[params] = {
-                MetadataKind("link"): link,
+                MetadataKind("link"): metadata_link,
                 MetadataKind("full"): metadata_full,
                 MetadataKind("fast"): meta_fast,
             }
@@ -400,6 +413,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         doctests_enabled = False
 
     if toolchain_info.nightly_features:
+        rustdoc_test_metadata_kind = MetadataKind("full") if toolchain_info.advanced_unstable_linking else MetadataKind("link")
         rustdoc_test_params = build_params(
             rule = RuleType("binary"),
             proc_macro = ctx.attrs.proc_macro,
@@ -412,7 +426,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rustdoc_test = generate_rustdoc_test(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            rlib = param_output[static_library_params].output,
+            rlib = param_metadata_outputs[static_library_params][rustdoc_test_metadata_kind].output,
             link_infos = link_infos,
             params = rustdoc_test_params,
             default_roots = _DEFAULT_ROOTS,
