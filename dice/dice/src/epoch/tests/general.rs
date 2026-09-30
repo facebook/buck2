@@ -739,3 +739,80 @@ async fn test_is_idle_respects_active_transactions() {
     assert!(dice.is_idle().await);
     dice.wait_for_idle().await;
 }
+
+#[tokio::test]
+async fn compute_with_key_returns_the_shared_key_allocation() -> anyhow::Result<()> {
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Leaf(usize);
+
+    #[async_trait]
+    impl Key for Leaf {
+        type Value = usize;
+
+        async fn compute(
+            &self,
+            _ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            self.0 + 1
+        }
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Requester(usize);
+
+    #[async_trait]
+    impl Key for Requester {
+        type Value = (Arc<Leaf>, usize);
+
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            let (key, value) = ctx.compute_with_key(&Leaf(7)).await.unwrap();
+            (key, *value)
+        }
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let ctx = dice.updater().commit().await;
+    let mut ctx = ctx.ctx();
+
+    let (a, b) = ctx
+        .compute2(
+            async |ctx| ctx.compute(&Requester(1)).await,
+            async |ctx| ctx.compute(&Requester(2)).await,
+        )
+        .await;
+    let (a, b) = (a?, b?);
+
+    assert_eq!(a.1, 8);
+    assert_eq!(b.1, 8);
+    // Each requester built its own `Leaf(7)`; both got the one DICE kept.
+    assert!(Arc::ptr_eq(&a.0, &b.0));
+    let (direct, _) = ctx.compute_with_key(&Leaf(7)).await?;
+    assert!(Arc::ptr_eq(&a.0, &direct));
+
+    Ok(())
+}

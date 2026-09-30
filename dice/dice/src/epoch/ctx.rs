@@ -156,6 +156,27 @@ impl<'d> TrackedComputations<'d> {
         })
     }
 
+    /// Like [`Self::compute`], but also returns the key allocation DICE
+    /// retains for `key`. Equal keys share one allocation regardless of who
+    /// requested them, so this costs an index lookup by position, not a hash.
+    pub(crate) fn compute_with_key<'a, K>(
+        &'a mut self,
+        key: &K,
+    ) -> impl Future<Output = DiceResult<(StdArc<K>, &'d <K as Key>::Value)>> + use<'a, 'd, K>
+    where
+        K: Key,
+    {
+        self.ctx_data().compute_opaque(key).map(move |r| {
+            r.map(|opaque| {
+                let key = self.ctx_data().canonical_key::<K>(opaque.derive_from_key);
+                (
+                    key,
+                    Self::opaque_into_value_impl(self.dep_trackers_holder(), opaque),
+                )
+            })
+        })
+    }
+
     /// Compute "opaque" value where the value is only accessible via projections.
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
@@ -625,6 +646,17 @@ pub(crate) struct ComputeCtx {
 }
 
 impl ComputeCtx {
+    /// The allocation the key index holds for an already indexed `key`.
+    pub(crate) fn canonical_key<K: Key>(&self, key: DiceKey) -> StdArc<K> {
+        self.transaction_data
+            .dice
+            .key_index
+            .get(key)
+            .dupe()
+            .downcast::<K>()
+            .expect("a key indexed as `K` is stored as `K`")
+    }
+
     /// Compute "opaque" value where the value is only accessible via projections.
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather

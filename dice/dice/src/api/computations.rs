@@ -69,6 +69,22 @@ impl<'d> DiceComputations<'d> {
         self.0.compute(key)
     }
 
+    /// Like [`Self::compute`], but also returns the key allocation DICE
+    /// retains for `key`.
+    ///
+    /// Equal keys resolve to the same allocation whoever requests them, so a
+    /// caller that keeps references to many computed keys can hold this one
+    /// instead of keeping its own copy of each key alive.
+    pub fn compute_with_key<'a, K>(
+        &'a mut self,
+        key: &K,
+    ) -> impl Future<Output = DiceResult<(Arc<K>, &'d <K as Key>::Value)>> + use<'a, 'd, K>
+    where
+        K: Key,
+    {
+        self.0.compute_with_key(key)
+    }
+
     /// Compute "opaque" value where the value is only accessible via projections.
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
