@@ -12,7 +12,6 @@ package gobuckifylib
 
 import (
 	"reflect"
-	"slices"
 	"testing"
 )
 
@@ -54,136 +53,72 @@ func TestTargetLabelFromImportPath(t *testing.T) {
 }
 
 func TestBuckTargetNormalise(t *testing.T) {
-	tests := []struct {
-		name                     string
-		target                   *BuckTarget
-		totalPlatformNumber      int
-		wantCommonDeps           []string
-		wantPlatformDepsLen      int
-		wantTargetCompatibleWith map[string][]string
+	targets := make(BuckTargets)
+	for _, platform := range []struct {
+		os      string
+		imports []string
 	}{
-		{
-			name: "move common deps and clean-up target_compatible_with",
-			target: &BuckTarget{
-				Name:       "test",
+		{"linux", []string{"example.com/common/dep1", "example.com/common/dep2", "example.com/linux/dep"}},
+		{"darwin", []string{"example.com/common/dep1", "example.com/common/dep2", "example.com/darwin/dep"}},
+	} {
+		for _, cgoEnabled := range []bool{false, true} {
+			targets.AddPackage(&Package{
 				ImportPath: "github.com/example/test",
-				CommonDeps: []string{},
-				PlatformDeps: map[string]*OSDeps{
-					"linux": {
-						OS: "linux",
-						ArchDeps: map[string]*ArchDeps{
-							"x86_64": {
-								Arch: "x86_64",
-								Deps: func() *StringSet {
-									s := NewSet()
-									s.Add("common/dep1")
-									s.Add("common/dep2")
-									s.Add("linux/dep")
-									return s
-								}(),
-							},
-						},
-					},
-					"darwin": {
-						OS: "darwin",
-						ArchDeps: map[string]*ArchDeps{
-							"x86_64": {
-								Arch: "x86_64",
-								Deps: func() *StringSet {
-									s := NewSet()
-									s.Add("common/dep1")
-									s.Add("common/dep2")
-									s.Add("darwin/dep")
-									return s
-								}(),
-							},
-						},
-					},
-				},
-				TargetCompatibleWith: map[string][]string{
-					"linux":  {"x86_64"},
-					"darwin": {"x86_64"},
-				},
-			},
-			totalPlatformNumber:      2,
-			wantCommonDeps:           []string{"common/dep1", "common/dep2"},
-			wantPlatformDepsLen:      2, // Both platforms still have platform-specific deps
-			wantTargetCompatibleWith: nil,
-		},
-		{
-			name: "remove empty platform deps",
-			target: &BuckTarget{
-				Name:       "test",
-				ImportPath: "github.com/example/test",
-				CommonDeps: []string{},
-				PlatformDeps: map[string]*OSDeps{
-					"linux": {
-						OS: "linux",
-						ArchDeps: map[string]*ArchDeps{
-							"x86_64": {
-								Arch: "x86_64",
-								Deps: NewSet(),
-							},
-						},
-					},
-					"darwin": {
-						OS: "darwin",
-						ArchDeps: map[string]*ArchDeps{
-							"x86_64": {
-								Arch: "x86_64",
-								Deps: NewSet(),
-							},
-						},
-					},
-				},
-				TargetCompatibleWith: map[string][]string{
-					"linux":  {"x86_64"},
-					"darwin": {"x86_64"},
-				},
-			},
-			totalPlatformNumber: 4,
-			wantCommonDeps:      []string{},
-			wantPlatformDepsLen: 0, // All platform deps should be removed as they're now empty
-			wantTargetCompatibleWith: map[string][]string{
-				"linux":  {"x86_64"},
-				"darwin": {"x86_64"},
-			},
-		},
+				Imports:    platform.imports,
+			}, platform.os, "x86_64", cgoEnabled)
+		}
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.target.Normalise(tt.totalPlatformNumber)
+	target := targets["github.com/example/test"]
+	target.Normalise(4)
 
-			// Check CommonDeps
-			if !reflect.DeepEqual(tt.target.CommonDeps, tt.wantCommonDeps) {
-				t.Errorf("CommonDeps = %v, want %v", tt.target.CommonDeps, tt.wantCommonDeps)
-			}
+	if !reflect.DeepEqual(target.CommonDeps, []string{"example.com/common/dep1", "example.com/common/dep2"}) {
+		t.Errorf("CommonDeps = %v", target.CommonDeps)
+	}
+	if len(target.PlatformDeps) != 2 {
+		t.Errorf("PlatformDeps length = %d, want 2", len(target.PlatformDeps))
+	}
+	for os, want := range map[string]string{
+		"linux":  "example.com/linux/dep",
+		"darwin": "example.com/darwin/dep",
+	} {
+		archDeps := target.PlatformDeps[os].ArchDeps["x86_64"]
+		if archDeps.CommonDeps == nil {
+			t.Errorf("%s common architecture deps = nil", os)
+			continue
+		}
+		if got := archDeps.CommonDeps.SortedList(); !reflect.DeepEqual(got, []string{want}) {
+			t.Errorf("%s common architecture deps = %v, want %v", os, got, []string{want})
+		}
+		if len(archDeps.CgoDeps) != 0 {
+			t.Errorf("%s CGO deps = %v, want none", os, archDeps.CgoDeps)
+		}
+	}
+	if target.TargetCompatibleWith != nil {
+		t.Errorf("TargetCompatibleWith = %v, want nil", target.TargetCompatibleWith)
+	}
 
-			// Check PlatformDeps length
-			if len(tt.target.PlatformDeps) != tt.wantPlatformDepsLen {
-				t.Errorf("PlatformDeps length = %d, want %d", len(tt.target.PlatformDeps), tt.wantPlatformDepsLen)
-			}
-
-			// Check TargetCompatibleWith
-			if !reflect.DeepEqual(tt.target.TargetCompatibleWith, tt.wantTargetCompatibleWith) {
-				t.Errorf("TargetCompatibleWith = %v, want %v", tt.target.TargetCompatibleWith, tt.wantTargetCompatibleWith)
-			}
-		})
+	for _, cgoEnabled := range []bool{false, true} {
+		targets.AddPackage(&Package{
+			ImportPath: "github.com/example/empty",
+		}, "linux", "x86_64", cgoEnabled)
+	}
+	emptyTarget := targets["github.com/example/empty"]
+	emptyTarget.Normalise(2)
+	if len(emptyTarget.PlatformDeps) != 0 {
+		t.Errorf("PlatformDeps = %v, want none", emptyTarget.PlatformDeps)
 	}
 }
 
 func TestBuckTargetsAddPackage(t *testing.T) {
 	tests := []struct {
-		name           string
-		pkg            *Package
-		buckOS         string
-		buckArch       string
-		wantName       string
-		wantImportPath string
-		wantIsBinary   bool
-		wantEmbedFiles []string
-		wantDepsCount  int
+		name          string
+		pkg           *Package
+		buckOS        string
+		buckArch      string
+		wantName      string
+		wantIsBinary  bool
+		wantDepsCount int
 	}{
 		{
 			name: "add library package",
@@ -193,13 +128,11 @@ func TestBuckTargetsAddPackage(t *testing.T) {
 				Imports:    []string{"github.com/example/dep1", "github.com/example/dep2", "fmt"},
 				EmbedFiles: []string{"embed1.txt", "embed2.txt"},
 			},
-			buckOS:         "linux",
-			buckArch:       "x86_64",
-			wantName:       "testpkg",
-			wantImportPath: "github.com/example/testpkg",
-			wantIsBinary:   false,
-			wantEmbedFiles: []string{"embed1.txt", "embed2.txt"},
-			wantDepsCount:  2, // Only non-stdlib deps
+			buckOS:        "linux",
+			buckArch:      "x86_64",
+			wantName:      "testpkg",
+			wantIsBinary:  false,
+			wantDepsCount: 2, // Only non-stdlib deps
 		},
 		{
 			name: "add binary package",
@@ -209,20 +142,18 @@ func TestBuckTargetsAddPackage(t *testing.T) {
 				Imports:    []string{"github.com/example/dep1", "fmt"},
 				EmbedFiles: []string{},
 			},
-			buckOS:         "darwin",
-			buckArch:       "arm64",
-			wantName:       "cmd",
-			wantImportPath: "github.com/example/cmd",
-			wantIsBinary:   true,
-			wantEmbedFiles: []string{},
-			wantDepsCount:  1, // Only non-stdlib deps
+			buckOS:        "darwin",
+			buckArch:      "arm64",
+			wantName:      "cmd",
+			wantIsBinary:  true,
+			wantDepsCount: 1, // Only non-stdlib deps
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			targets := make(BuckTargets)
-			targets.AddPackage(tt.pkg, tt.buckOS, tt.buckArch)
+			targets.AddPackage(tt.pkg, tt.buckOS, tt.buckArch, true)
 
 			// Check if the package was added
 			target, exists := targets[tt.pkg.ImportPath]
@@ -235,16 +166,16 @@ func TestBuckTargetsAddPackage(t *testing.T) {
 				t.Errorf("Target name = %q, want %q", target.Name, tt.wantName)
 			}
 
-			if target.ImportPath != tt.wantImportPath {
-				t.Errorf("Target import path = %q, want %q", target.ImportPath, tt.wantImportPath)
+			if target.ImportPath != tt.pkg.ImportPath {
+				t.Errorf("Target import path = %q, want %q", target.ImportPath, tt.pkg.ImportPath)
 			}
 
 			if target.IsBinary != tt.wantIsBinary {
 				t.Errorf("Target IsBinary = %v, want %v", target.IsBinary, tt.wantIsBinary)
 			}
 
-			if !reflect.DeepEqual(target.EmbedFiles.SortedList(), tt.wantEmbedFiles) {
-				t.Errorf("Target EmbedFiles = %v, want %v", target.EmbedFiles.SortedList(), tt.wantEmbedFiles)
+			if !reflect.DeepEqual(target.EmbedFiles.SortedList(), tt.pkg.EmbedFiles) {
+				t.Errorf("Target EmbedFiles = %v, want %v", target.EmbedFiles.SortedList(), tt.pkg.EmbedFiles)
 			}
 
 			// Check platform deps
@@ -258,18 +189,27 @@ func TestBuckTargetsAddPackage(t *testing.T) {
 				t.Fatalf("Arch deps not found for %s", tt.buckArch)
 			}
 
-			if archDeps.Deps.Len() != tt.wantDepsCount {
-				t.Errorf("Deps count = %d, want %d", archDeps.Deps.Len(), tt.wantDepsCount)
+			deps, exists := archDeps.CgoDeps["prelude//go/constraints:cgo_enabled[true]"]
+			if !exists {
+				t.Fatal("CGO-enabled deps not found")
+			}
+
+			if deps.Len() != tt.wantDepsCount {
+				t.Errorf("Deps count = %d, want %d", deps.Len(), tt.wantDepsCount)
 			}
 
 			// Check TargetCompatibleWith
-			archList, exists := target.TargetCompatibleWith[tt.buckOS]
+			archMap, exists := target.TargetCompatibleWith[tt.buckOS]
 			if !exists {
 				t.Fatalf("TargetCompatibleWith not found for %s", tt.buckOS)
 			}
 
-			if !slices.Contains(archList, tt.buckArch) {
-				t.Errorf("Arch %s not found in TargetCompatibleWith for OS %s", tt.buckArch, tt.buckOS)
+			cgoConstraints, exists := archMap[tt.buckArch]
+			if !exists {
+				t.Fatalf("Arch %s not found in TargetCompatibleWith for OS %s", tt.buckArch, tt.buckOS)
+			}
+			if _, exists := (*cgoConstraints)["prelude//go/constraints:cgo_enabled[true]"]; !exists {
+				t.Error("CGO-enabled constraint not found in TargetCompatibleWith")
 			}
 		})
 	}
@@ -278,15 +218,14 @@ func TestBuckTargetsAddPackage(t *testing.T) {
 func TestAddPackageMultiplePlatforms(t *testing.T) {
 	targets := make(BuckTargets)
 	pkg := &Package{
-		Name:       "testpkg",
 		ImportPath: "github.com/example/testpkg",
 		Imports:    []string{"github.com/example/dep1", "github.com/example/dep2"},
 	}
 
 	// Add the same package for multiple platforms
-	targets.AddPackage(pkg, "linux", "x86_64")
-	targets.AddPackage(pkg, "linux", "arm64")
-	targets.AddPackage(pkg, "darwin", "x86_64")
+	targets.AddPackage(pkg, "linux", "x86_64", true)
+	targets.AddPackage(pkg, "linux", "arm64", true)
+	targets.AddPackage(pkg, "darwin", "x86_64", true)
 
 	target, exists := targets[pkg.ImportPath]
 	if !exists {
@@ -327,5 +266,59 @@ func TestAddPackageMultiplePlatforms(t *testing.T) {
 	}
 	if len(linuxDeps.ArchDeps) != 2 {
 		t.Errorf("Expected 2 architectures for Linux in PlatformDeps, got %d", len(linuxDeps.ArchDeps))
+	}
+}
+
+func TestAddPackageMultipleCgoConfigurations(t *testing.T) {
+	const importPath = "github.com/example/testpkg"
+	targets := make(BuckTargets)
+	targets.AddPackage(&Package{
+		ImportPath: importPath,
+		Imports:    []string{"github.com/example/common", "github.com/example/nocgo"},
+	}, "linux", "x86_64", false)
+	targets.AddPackage(&Package{
+		ImportPath: importPath,
+		Imports:    []string{"github.com/example/common", "github.com/example/cgo"},
+	}, "linux", "x86_64", true)
+
+	target := targets[importPath]
+	target.Normalise(2)
+
+	if !reflect.DeepEqual(target.CommonDeps, []string{"github.com/example/common"}) {
+		t.Errorf("CommonDeps = %v", target.CommonDeps)
+	}
+	archDeps := target.PlatformDeps["linux"].ArchDeps["x86_64"]
+	got := archDeps.CgoDeps["prelude//go/constraints:cgo_enabled[false]"].SortedList()
+	if !reflect.DeepEqual(got, []string{"github.com/example/nocgo"}) {
+		t.Errorf("CGO-disabled deps = %v", got)
+	}
+	got = archDeps.CgoDeps["prelude//go/constraints:cgo_enabled[true]"].SortedList()
+	if !reflect.DeepEqual(got, []string{"github.com/example/cgo"}) {
+		t.Errorf("CGO-enabled deps = %v", got)
+	}
+	if target.TargetCompatibleWith != nil {
+		t.Errorf("TargetCompatibleWith = %v, want nil", target.TargetCompatibleWith)
+	}
+}
+
+func TestAddCgoOnlyPackage(t *testing.T) {
+	targets := make(BuckTargets)
+	targets.AddPackage(&Package{
+		ImportPath: "github.com/example/testpkg",
+		Imports:    []string{"github.com/example/cgo"},
+	}, "linux", "x86_64", true)
+
+	target := targets["github.com/example/testpkg"]
+	target.Normalise(2)
+
+	if len(target.CommonDeps) != 0 {
+		t.Errorf("CommonDeps = %v, want none", target.CommonDeps)
+	}
+	if target.TargetCompatibleWith == nil {
+		t.Fatal("TargetCompatibleWith = nil, want CGO-enabled compatibility")
+	}
+	cgoConstraints := target.TargetCompatibleWith["linux"]["x86_64"]
+	if got := cgoConstraints.SortedList(); !reflect.DeepEqual(got, []string{"prelude//go/constraints:cgo_enabled[true]"}) {
+		t.Errorf("CGO constraints = %v", got)
 	}
 }

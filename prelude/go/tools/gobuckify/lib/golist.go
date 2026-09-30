@@ -40,7 +40,11 @@ type Package struct {
 	Module     *Module
 }
 
-func QueryGoList(workDir, rootModuleName, goOS, goArch string, extraArgs ...string) (chan *Package, chan error) {
+func QueryGoList(
+	workDir, rootModuleName, goOS, goArch string,
+	cgoEnabled bool,
+	extraArgs ...string,
+) (chan *Package, chan error) {
 	pkgChan := make(chan *Package, 1000) // 1000 is a guess, but should be enough
 	errChan := make(chan error, 1)
 	go func() {
@@ -56,9 +60,12 @@ func QueryGoList(workDir, rootModuleName, goOS, goArch string, extraArgs ...stri
 		// filename suffixes (e.g. `*_darwin.go`) and `//go:build` expressions (e.g.
 		// `!linux`). Passing the platform only via `-tags` is insufficient -- the host's
 		// own GOOS/GOARCH tags stay set, so negative and file-suffix constraints are
-		// mis-evaluated and platform-specific deps get silently dropped. CGO_ENABLED is
-		// forced on for consistent behaviour across host machines.
-		cmd.Env = append(os.Environ(), "CGO_ENABLED=1", "GOOS="+goOS, "GOARCH="+goArch)
+		// mis-evaluated and platform-specific deps get silently dropped.
+		cgoEnabledValue := "0"
+		if cgoEnabled {
+			cgoEnabledValue = "1"
+		}
+		cmd.Env = append(os.Environ(), "CGO_ENABLED="+cgoEnabledValue, "GOOS="+goOS, "GOARCH="+goArch)
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
@@ -135,46 +142,46 @@ type CollectPackagesResult struct {
 	Modules     map[string]*Module
 }
 
-// CollectPackages queries go list for all platforms and collects packages into BuckTargets and unique Modules
+// CollectPackages queries go list for all platform and CGO configurations and
+// collects packages into BuckTargets and unique Modules.
 func CollectPackages(cfg *Config, thirdPartyDir, rootModuleName string) (*CollectPackagesResult, error) {
 	type result struct {
-		pkg      *Package
-		buckOS   string
-		buckArch string
+		pkg        *Package
+		buckOS     string
+		buckArch   string
+		cgoEnabled bool
 	}
 
-	results := make(chan *result, 1000*len(cfg.Platforms))
+	results := make(chan *result, 2*1000*len(cfg.Platforms))
 	mainErrChan := make(chan error)
 
 	// Limit concurrency to avoid OOMs as `go list` can use a lot of memory
-	maxConcurrency := 10
-	semaphore := make(chan struct{}, maxConcurrency)
+	semaphore := make(chan struct{}, 10)
 
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 	for _, p := range cfg.Platforms {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		for _, cgoEnabled := range []bool{false, true} {
+			wg.Go(func() {
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
 
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }()
-
-			// GOOS/GOARCH are passed via the environment (see QueryGoList), not as
-			// build tags, so `go list` evaluates each platform's constraints correctly.
-			pkgChan, errChan := QueryGoList(
-				thirdPartyDir, rootModuleName, p.GoOS, p.GoArch,
-				fmt.Sprintf("-tags=%s", strings.Join(cfg.DefaultTags, ",")),
-			)
-			pkgCount := 0
-			for pkg := range pkgChan {
-				pkgCount++
-				results <- &result{pkg: pkg, buckOS: p.BuckOS, buckArch: p.BuckArch}
-			}
-			slog.Info("Found packages", "count", pkgCount, "os", p.GoOS, "arch", p.GoArch)
-			for err := range errChan {
-				mainErrChan <- fmt.Errorf("error querying golist for %s: %w", p, err)
-			}
-		}()
+				// GOOS/GOARCH and CGO_ENABLED are passed via the environment (see
+				// QueryGoList), so `go list` evaluates each configuration correctly.
+				pkgChan, errChan := QueryGoList(
+					thirdPartyDir, rootModuleName, p.GoOS, p.GoArch, cgoEnabled,
+					fmt.Sprintf("-tags=%s", strings.Join(cfg.DefaultTags, ",")),
+				)
+				pkgCount := 0
+				for pkg := range pkgChan {
+					pkgCount++
+					results <- &result{pkg: pkg, buckOS: p.BuckOS, buckArch: p.BuckArch, cgoEnabled: cgoEnabled}
+				}
+				slog.Info("Found packages", "count", pkgCount, "os", p.GoOS, "arch", p.GoArch, "cgo_enabled", cgoEnabled)
+				for err := range errChan {
+					mainErrChan <- fmt.Errorf("error querying golist for %v with cgo_enabled=%t: %w", p, cgoEnabled, err)
+				}
+			})
+		}
 	}
 
 	go func() {
@@ -197,7 +204,7 @@ func CollectPackages(cfg *Config, thirdPartyDir, rootModuleName string) (*Collec
 				resultsClosed = true
 				continue
 			}
-			buckTargets.AddPackage(res.pkg, res.buckOS, res.buckArch)
+			buckTargets.AddPackage(res.pkg, res.buckOS, res.buckArch, res.cgoEnabled)
 			if res.pkg.Module != nil {
 				modules[res.pkg.Module.Path] = res.pkg.Module
 			}
