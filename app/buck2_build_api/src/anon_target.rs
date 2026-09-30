@@ -9,10 +9,13 @@
  */
 
 use std::fmt::Display;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_hash::BuckMutMap;
@@ -20,6 +23,8 @@ use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::rule_type::StarlarkRuleType;
+use buck2_util::late_binding::LateBinding;
+use dice::DiceComputations;
 use dupe::Dupe;
 use starlark::collections::SmallMap;
 use starlark::environment::Module;
@@ -58,6 +63,40 @@ pub trait AnonTargetDyn: Send + Sync + Display {
         exec_resolution: ExecutionPlatformResolution,
     ) -> buck2_error::Result<ValueOfUnchecked<'v, StructRef<'static>>>;
 }
+
+/// Rendered description of an anon target, for introspection commands.
+#[derive(Debug, serde::Serialize)]
+pub struct AnonTargetNodeInfo {
+    /// The anon target's name (a target label in the synthetic `anon` cell).
+    pub name: String,
+    /// The package of `name`.
+    pub package: String,
+    /// Hash identifying the key (rule + attrs + execution configuration).
+    pub hash: String,
+    pub rule_type: String,
+    /// `"bzl"` or `"bxl"`.
+    pub variant: &'static str,
+    pub execution_configuration: String,
+    /// Attr name to rendered attr value.
+    pub attrs: serde_json::Value,
+    /// Configured targets this anon target depends on through its attrs.
+    pub deps: Vec<String>,
+    /// Anon targets whose promise artifacts appear in this target's attrs.
+    pub promise_artifact_deps: Vec<String>,
+}
+
+/// Renders the `BaseDeferredKey::AnonTarget` key of an anon target.
+///
+/// Implemented in `buck2_anon_target`, where the key can be downcast; DICE is needed to
+/// load the rule's `AttributeSpec`, which holds the attr names.
+pub static GET_ANON_TARGET_NODE_INFO: LateBinding<
+    for<'c, 'd> fn(
+        &'c mut DiceComputations<'d>,
+        Arc<dyn BaseDeferredKeyDyn>,
+    ) -> Pin<
+        Box<dyn Future<Output = buck2_error::Result<AnonTargetNodeInfo>> + Send + 'c>,
+    >,
+> = LateBinding::new("GET_ANON_TARGET_NODE_INFO");
 
 // Container for analysis results of the anon target dependents.
 pub struct AnonTargetDependentAnalysisResults<'v> {

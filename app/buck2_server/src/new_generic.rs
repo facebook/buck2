@@ -40,6 +40,12 @@ pub(crate) async fn new_generic_command(
         NewGenericRequest::DebugEval(e) => NewGenericResponse::DebugEval(
             OTHER_SERVER_COMMANDS.get()?.debug_eval(context, e).await?,
         ),
+        NewGenericRequest::DebugAnonTargets(e) => NewGenericResponse::DebugAnonTargets(
+            OTHER_SERVER_COMMANDS
+                .get()?
+                .debug_anon_targets(context, e)
+                .await?,
+        ),
         NewGenericRequest::Explain(m) => NewGenericResponse::Explain(
             OTHER_SERVER_COMMANDS
                 .get()?

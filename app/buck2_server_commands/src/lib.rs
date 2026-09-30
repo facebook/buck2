@@ -14,6 +14,7 @@
 
 pub(crate) mod build;
 pub(crate) mod complete;
+pub(crate) mod debug_anon_targets;
 pub(crate) mod debug_eval;
 pub(crate) mod expand_external_cells;
 pub(crate) mod explain;

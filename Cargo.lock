@@ -3052,6 +3052,8 @@ dependencies = [
  "futures 0.3.34",
  "itertools 0.15.0",
  "jiff",
+ "regex",
+ "serde_json",
  "starlark_map",
  "tokio",
  "tokio-stream",

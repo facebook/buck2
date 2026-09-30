@@ -18,6 +18,7 @@ use buck2_log_common::chrome_trace::ChromeTraceCommand;
 
 use crate::allocative::AllocativeCommand;
 use crate::allocator_stats::AllocatorStatsCommand;
+use crate::anon_targets::AnonTargetsCommand;
 use crate::crash::CrashCommand;
 use crate::daemon_dir::DaemonDirCommand;
 use crate::dice_dump::DiceDumpCommand;
@@ -40,6 +41,7 @@ use crate::upload_re_logs::UploadReLogsCommand;
 
 mod allocative;
 mod allocator_stats;
+mod anon_targets;
 mod crash;
 mod daemon_dir;
 mod dice_dump;
@@ -99,6 +101,9 @@ pub enum DebugCommand {
     #[clap(subcommand)]
     Paranoid(ParanoidCommand),
     Eval(EvalCommand),
+    /// List the anon targets requested while analyzing the deps closure of the given
+    /// targets.
+    AnonTargets(AnonTargetsCommand),
     ThreadDump(ThreadDumpCommand),
     /// Control DICE node value page-out / page-in.
     #[clap(subcommand)]
@@ -134,6 +139,7 @@ impl DebugCommand {
             DebugCommand::PersistEventLogs(cmd) => cmd.exec(matches, ctx, events_ctx),
             DebugCommand::Paranoid(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Eval(cmd) => ctx.exec(cmd, matches, events_ctx),
+            DebugCommand::AnonTargets(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::ThreadDump(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Hydration(cmd) => ctx.exec(cmd, matches, events_ctx),
         }
