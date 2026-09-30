@@ -552,7 +552,7 @@ impl ManagedRemoteExecutionClient {
     pub async fn write_action_result(
         &self,
         digest: ActionDigest,
-        result: TActionResult2,
+        result: &mut TActionResult2,
         platform: &RE::Platform,
         write_type: ActionCacheWriteType,
     ) -> buck2_error::Result<WriteActionResultResponse> {
@@ -562,7 +562,7 @@ impl ManagedRemoteExecutionClient {
             applicability = testing
         )? {
             Ok(WriteActionResultResponse {
-                actual_action_result: result,
+                actual_action_result: result.clone(),
                 ..Default::default()
             })
         } else {

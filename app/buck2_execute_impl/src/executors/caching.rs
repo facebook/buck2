@@ -169,7 +169,7 @@ impl CacheUploader {
                     }
 
                     // upload ActionResult to ActionCache
-                    let result: TActionResult2 = match self
+                    let mut result: TActionResult2 = match self
                         .upload_files_and_directories(
                             result,
                             &mut file_digests,
@@ -184,14 +184,11 @@ impl CacheUploader {
                             return (CacheUploadOutcome::FailedUploadOutputs { error }, None);
                         }
                     };
-                    // Skip expensive clone if it's not needed
-                    let result_for_dep_file = has_depfile_entry.then(|| result.clone());
-
                     if let Err(error) = self
                         .re_client
                         .write_action_result(
                             digest,
-                            result,
+                            &mut result,
                             &self.platform.to_re_platform(),
                             ActionCacheWriteType::LocalCacheUpload,
                         )
@@ -205,7 +202,10 @@ impl CacheUploader {
                         );
                     }
 
-                    (CacheUploadOutcome::Success, result_for_dep_file)
+                    (
+                        CacheUploadOutcome::Success,
+                        has_depfile_entry.then_some(result),
+                    )
                 }
                 .await;
 
@@ -240,7 +240,7 @@ impl CacheUploader {
         &self,
         info: &CacheUploadInfo<'_>,
         result: &CommandExecutionResult,
-        action_result: Option<TActionResult2>,
+        action_result: Option<&mut TActionResult2>,
         dep_file_bundle: &mut dyn IntoRemoteDepFile,
         remote_dep_file_action: &ActionDigestAndBlobs,
         error_on_cache_upload: bool,
@@ -254,9 +254,9 @@ impl CacheUploader {
             },
             async {
                 let outcome = async {
-                    let mut action_result = action_result.ok_or(
-                        DepFileReActionResultMissingError(remote_dep_file_key.clone()),
-                    )?;
+                    let action_result = action_result.ok_or(DepFileReActionResultMissingError(
+                        remote_dep_file_key.clone(),
+                    ))?;
 
                     if let Err(rejected) = self.check_upload_permission(info).await? {
                         return Ok(rejected);
@@ -522,6 +522,13 @@ impl CacheUploader {
     }
 }
 
+#[cfg(fbcode_build)] // Relies on fbcode future sizes
+buck2_util::size_assert::words_of_async_fn_future!(
+    CacheUploader::upload_dep_file,
+    (_, _, _, _, _, _, _),
+    ~540
+);
+
 #[derive(Debug, buck2_error::Error)]
 #[error("Missing action result for dep file key `{0}`")]
 #[buck2(tag = Tier0)]
@@ -538,13 +545,13 @@ impl UploadCache for CacheUploader {
         &self,
         info: &CacheUploadInfo<'_>,
         res: &CommandExecutionResult,
-        re_result: Option<TActionResult2>,
+        re_result: Option<&mut TActionResult2>,
         dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
     ) -> buck2_error::Result<CacheUploadResults> {
         let error_on_cache_upload = error_on_cache_upload().buck_error_context("cache_upload")?;
 
-        let (cache_upload_outcome, action_result) = if res.was_locally_executed() {
+        let (cache_upload_outcome, mut local_result) = if res.was_locally_executed() {
             tracing::debug!(
                 "Uploading action result for `{}`",
                 action_digest_and_blobs.action
@@ -559,13 +566,19 @@ impl UploadCache for CacheUploader {
             )
             .await?
         } else if dep_file_bundle.is_some() {
-            (CacheUploadOutcome::HadDepFileBundle, re_result)
+            (CacheUploadOutcome::HadDepFileBundle, None)
         } else {
             tracing::info!(
                 "Cache upload for `{}` not attempted",
                 action_digest_and_blobs.action
             );
             (CacheUploadOutcome::NonLocalExecution, None)
+        };
+        // A local upload re-sends the result it just wrote; anything else re-sends RE's.
+        let action_result = if res.was_locally_executed() {
+            local_result.as_mut()
+        } else {
+            re_result
         };
 
         let should_upload_dep_file =

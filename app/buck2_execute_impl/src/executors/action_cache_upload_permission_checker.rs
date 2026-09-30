@@ -57,7 +57,7 @@ impl ActionCacheUploadPermissionChecker {
         platform: &RePlatformFields,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Result<(), String>> {
-        let (action, action_result) = empty_action_result(platform, digest_config)?;
+        let (action, mut action_result) = empty_action_result(platform, digest_config)?;
 
         // This is CAS upload, if it fails, something is very broken.
         re_client
@@ -68,7 +68,7 @@ impl ActionCacheUploadPermissionChecker {
         let result = re_client
             .write_action_result(
                 action.action,
-                action_result.clone(),
+                &mut action_result,
                 &platform.to_re_platform(),
                 ActionCacheWriteType::PermissionCheck,
             )
@@ -120,3 +120,10 @@ impl ActionCacheUploadPermissionChecker {
             .buck_error_context("Upload for permission check")
     }
 }
+
+#[cfg(fbcode_build)] // Relies on fbcode future sizes
+buck2_util::size_assert::words_of_async_fn_future!(
+    ActionCacheUploadPermissionChecker::has_permission_to_upload_to_cache,
+    (_, _, _, _),
+    ~77
+);

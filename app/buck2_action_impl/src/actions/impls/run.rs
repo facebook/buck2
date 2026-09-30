@@ -1663,12 +1663,12 @@ impl Action for RunAction {
             && !result.was_served_by_remote_dep_file_cache()
             && (allow_cache_upload || supports_remote_dep_files || force_cache_upload()?)
         {
-            let re_result = result.action_result.take();
+            let mut re_result = result.action_result.take();
             let upload_result = ctx
                 .cache_upload(
                     &action_and_blobs,
                     &result,
-                    re_result,
+                    re_result.as_mut(),
                     // match needed for coercion, https://github.com/rust-lang/rust/issues/108999
                     if supports_remote_dep_files {
                         Some(&mut dep_file_bundle)
