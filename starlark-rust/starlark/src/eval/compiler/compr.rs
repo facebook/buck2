@@ -82,6 +82,7 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
             match x {
                 ClauseP::For(f) => {
                     ifs.reverse();
+                    ifs.shrink_to_fit();
                     return Ok((Some(f), ifs));
                 }
                 ClauseP::If(x) => {
@@ -96,6 +97,7 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
             }
         }
         ifs.reverse();
+        ifs.shrink_to_fit();
         Ok((None, ifs))
     }
 
@@ -219,6 +221,7 @@ impl<'f> ClausesCompiled<'f> {
     fn new(clauses: Vec<ClauseCompiled<'f>>, last: ClauseCompiled<'f>) -> ClausesCompiled<'f> {
         let mut clauses = clauses;
         clauses.push(last);
+        clauses.shrink_to_fit();
         ClausesCompiled { clauses }
     }
 

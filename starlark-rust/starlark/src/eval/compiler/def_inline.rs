@@ -20,6 +20,7 @@
 pub(crate) mod local_as_value;
 
 use starlark_derive::StarlarkPagable;
+use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate as starlark;
 use crate::eval::compiler::args::ArgsCompiledValue;
@@ -278,30 +279,21 @@ impl<'fm> InlineDefCallSite<'_, '_, '_, '_, '_, 'fm> {
                 ExprCompiled::logical_bin_op(*op, l, r)
             }
             ExprCompiled::List(xs) => {
-                let xs = xs
-                    .iter()
-                    .map(|x| self.inline(x))
-                    .collect::<Result<Vec<_>, CannotInline>>()?;
+                let xs = xs.try_map(|x| self.inline(x))?;
                 IrSpanned {
                     span,
                     node: ExprCompiled::List(xs),
                 }
             }
             ExprCompiled::Tuple(xs) => {
-                let xs = xs
-                    .iter()
-                    .map(|x| self.inline(x))
-                    .collect::<Result<Vec<_>, CannotInline>>()?;
+                let xs = xs.try_map(|x| self.inline(x))?;
                 IrSpanned {
                     span,
                     node: ExprCompiled::tuple(xs, self.ctx.frozen_heap()),
                 }
             }
             ExprCompiled::Dict(xs) => {
-                let xs = xs
-                    .iter()
-                    .map(|(x, y)| Ok((self.inline(x)?, self.inline(y)?)))
-                    .collect::<Result<Vec<_>, CannotInline>>()?;
+                let xs = xs.try_map(|(x, y)| Ok((self.inline(x)?, self.inline(y)?)))?;
                 IrSpanned {
                     span,
                     node: ExprCompiled::Dict(xs),

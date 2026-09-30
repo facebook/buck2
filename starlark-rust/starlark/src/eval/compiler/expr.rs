@@ -1309,10 +1309,7 @@ impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
                 ExprCompiled::List(xs)
             }
             ExprP::Dict(exprs) => {
-                let xs = exprs
-                    .iter()
-                    .map(|(k, v)| Ok((self.expr(k)?, self.expr(v)?)))
-                    .collect::<Result<_, CompilerInternalError>>()?;
+                let xs = exprs.try_map(|(k, v)| Ok((self.expr(k)?, self.expr(v)?)))?;
                 ExprCompiled::Dict(xs)
             }
             ExprP::If(cond_then_expr_else_expr) => {
@@ -1502,6 +1499,7 @@ impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
                 };
 
                 let mut args = ArgsCompiledValue::default();
+                args.reserve_pos_exact(expressions.len());
                 for expr in expressions {
                     args.push_pos(self.expr(expr)?);
                 }
@@ -1526,9 +1524,6 @@ impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
         &mut self,
         exprs: &[CstExpr<'fm>],
     ) -> Result<Vec<IrSpanned<'fm, ExprCompiled<'fm>>>, CompilerInternalError> {
-        exprs
-            .iter()
-            .map(|e| self.expr(e))
-            .collect::<Result<_, CompilerInternalError>>()
+        exprs.try_map(|e| self.expr(e))
     }
 }

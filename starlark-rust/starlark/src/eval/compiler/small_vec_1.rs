@@ -103,6 +103,12 @@ impl<T> SmallVec1<T> {
         }
     }
 
+    pub(crate) fn shrink_to_fit(&mut self) {
+        if let SmallVec1::Vec(v) = self {
+            v.shrink_to_fit();
+        }
+    }
+
     pub(crate) fn extend(&mut self, that: SmallVec1<T>) {
         *self = match (mem::replace(self, SmallVec1::Vec(Vec::new())), that) {
             (SmallVec1::Vec(vec), right) if vec.is_empty() => right,

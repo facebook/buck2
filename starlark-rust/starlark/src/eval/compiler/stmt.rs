@@ -218,6 +218,10 @@ impl<'f> StmtsCompiled<'f> {
         StmtsCompiled(SmallVec1::One(stmt))
     }
 
+    pub(crate) fn shrink_to_fit(&mut self) {
+        self.0.shrink_to_fit();
+    }
+
     pub(crate) fn is_empty(&self) -> bool {
         match &self.0 {
             SmallVec1::One(_) => false,
@@ -317,8 +321,8 @@ impl<'f> StmtsCompiled<'f> {
     fn if_stmt(
         span: FrameSpan<'f>,
         cond: IrSpanned<'f, ExprCompiled<'f>>,
-        t: StmtsCompiled<'f>,
-        f: StmtsCompiled<'f>,
+        mut t: StmtsCompiled<'f>,
+        mut f: StmtsCompiled<'f>,
     ) -> StmtsCompiled<'f> {
         let cond = ExprCompiledBool::new(cond);
         match cond.node {
@@ -338,6 +342,8 @@ impl<'f> StmtsCompiled<'f> {
                     if t.is_empty() && f.is_empty() {
                         Self::expr(cond)
                     } else {
+                        t.shrink_to_fit();
+                        f.shrink_to_fit();
                         StmtsCompiled::one(IrSpanned {
                             span,
                             node: StmtCompiled::If(Box::new((cond, t, f))),
@@ -352,11 +358,12 @@ impl<'f> StmtsCompiled<'f> {
         span: FrameSpan<'f>,
         var: IrSpanned<'f, AssignCompiledValue<'f>>,
         over: IrSpanned<'f, ExprCompiled<'f>>,
-        body: StmtsCompiled<'f>,
+        mut body: StmtsCompiled<'f>,
     ) -> StmtsCompiled<'f> {
         if over.is_iterable_empty() {
             return StmtsCompiled::empty();
         }
+        body.shrink_to_fit();
         StmtsCompiled::one(IrSpanned {
             span,
             node: StmtCompiled::For(Box::new((var, over, body))),
@@ -442,10 +449,7 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
                 AssignCompiledValue::Index(e, idx)
             }
             AssignTargetP::Tuple(v) => {
-                let v = v
-                    .iter()
-                    .map(|x| self.assign_target(x))
-                    .collect::<Result<_, CompilerInternalError>>()?;
+                let v = v.try_map(|x| self.assign_target(x))?;
                 AssignCompiledValue::Tuple(v)
             }
             AssignTargetP::Identifier(ident) => {

@@ -180,6 +180,10 @@ impl<'f> ArgsCompiledValue<'f> {
     pub(crate) fn push_pos(&mut self, expr: IrSpanned<'f, ExprCompiled<'f>>) {
         self.pos_named.push(expr)
     }
+
+    pub(crate) fn reserve_pos_exact(&mut self, n: usize) {
+        self.pos_named.reserve_exact(n);
+    }
 }
 
 impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
@@ -187,7 +191,17 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
         &mut self,
         args: &CallArgsP<CstPayload<'fm>>,
     ) -> Result<ArgsCompiledValue<'fm>, CompilerInternalError> {
+        let (pos_named_count, named_count) =
+            args.args
+                .iter()
+                .fold((0, 0), |(pos_named, named), arg| match &arg.node {
+                    ArgumentP::Positional(_) => (pos_named + 1, named),
+                    ArgumentP::Named(..) => (pos_named + 1, named + 1),
+                    ArgumentP::Args(_) | ArgumentP::KwArgs(_) => (pos_named, named),
+                });
         let mut res = ArgsCompiledValue::default();
+        res.pos_named.reserve_exact(pos_named_count);
+        res.names.reserve_exact(named_count);
         for x in &args.args {
             match &x.node {
                 ArgumentP::Positional(x) => res.pos_named.push(self.expr(x)?),
@@ -200,6 +214,10 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
                 ArgumentP::KwArgs(x) => res.kwargs = Some(self.expr(x)?),
             }
         }
+        // Any drift between the pre-counts and the pushes above silently
+        // reintroduces doubling slack.
+        debug_assert_eq!(pos_named_count, res.pos_named.len());
+        debug_assert_eq!(named_count, res.names.len());
         Ok(res)
     }
 }

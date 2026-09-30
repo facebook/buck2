@@ -580,10 +580,7 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
 
         // The parameters run in the scope of the parent, so compile them with the outer
         // scope
-        let params: Vec<_> = params
-            .iter()
-            .map(|x| self.parameter(x))
-            .collect::<Result<_, CompilerInternalError>>()?;
+        let params: Vec<_> = params.try_map(|x| self.parameter(x))?;
         let params = ParametersCompiled::new(function_name, params, indices);
         let return_type = self.expr_for_type(return_type).map(|t| t.node);
 
@@ -595,7 +592,8 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
         self.enter_scope(scope_id);
 
         let docstring = DocString::extract_raw_starlark_docstring(suite);
-        let body = self.stmt(suite, false)?;
+        let mut body = self.stmt(suite, false)?;
+        body.shrink_to_fit();
         let scope_id = self.exit_scope();
         let scope_names = self.scope_data.get_scope(scope_id);
 
