@@ -26,6 +26,7 @@ load(
     "from_named_set",
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
+load(":cxx_flags.bzl", "cxx_flags_linker_flags")
 load(
     ":cxx_toolchain_types.bzl",
     "LinkerType",
@@ -67,8 +68,8 @@ def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
 
     return exported_deps
 
-def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
-    flags = cxx_attr_linker_flags(ctx)
+def cxx_attr_linker_flags_all(ctx: AnalysisContext, cxx_flags: list[Dependency] = []) -> LinkerFlags:
+    flags = cxx_attr_linker_flags(ctx, cxx_flags)
 
     local_linker_script_flags_attr = getattr(ctx.attrs, "local_linker_script_flags", None)
     if local_linker_script_flags_attr:
@@ -94,8 +95,8 @@ def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLi
     return filter_and_map_idx(MergedLinkInfo, first_order_deps)
 
 # Linker flags
-def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    linker_flags = list(ctx.attrs.linker_flags)
+def cxx_attr_linker_flags(ctx: AnalysisContext, cxx_flags: list[Dependency] = []) -> list[typing.Any]:
+    linker_flags = cxx_flags_linker_flags(ctx.actions, cxx_flags) + ctx.attrs.linker_flags
     return linker_flags
 
 def cxx_attr_link_style(ctx: AnalysisContext) -> LinkStyle:

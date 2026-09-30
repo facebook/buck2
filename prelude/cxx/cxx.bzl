@@ -25,6 +25,7 @@ load(
     "@prelude//cxx:cuda.bzl",
     "CudaCompileStyle",
 )
+load("@prelude//cxx:cxx_flags.bzl", "cxx_attr_flags")
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
@@ -258,6 +259,7 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         generate_sub_targets = sub_target_params,
         generate_providers = provider_params,
         compiler_flags = ctx.attrs.compiler_flags,
+        cxx_flags = cxx_attr_flags(ctx),
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
@@ -338,6 +340,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         exe_allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
         extra_link_roots = linkables(ctx.attrs.link_group_deps),
         compiler_flags = ctx.attrs.compiler_flags,
+        cxx_flags = cxx_attr_flags(ctx),
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
@@ -1052,6 +1055,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
         extra_link_roots = linkables(ctx.attrs.link_group_deps),
         compiler_flags = ctx.attrs.compiler_flags,
+        cxx_flags = cxx_attr_flags(ctx),
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,

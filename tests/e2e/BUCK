@@ -16,6 +16,11 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
+    name = "test_cxx_flags",
+    srcs = ["test_cxx_flags.py"],
+)
+
+buck2_e2e_test(
     name = "test_linker_argsfile",
     srcs = ["test_linker_argsfile.py"],
 )

@@ -11,6 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//cxx:cxx_flags.bzl", "CxxFlagsInfo")
 load(":common.bzl", "CxxSourceType", "DefaultDepsMode", "IncludeType", "RawHeadersAsHeadersMode", "RuntimeDependencyHandling")
 
 def _srcs_arg():
@@ -498,6 +499,20 @@ def _expect_eligible_for_dedupe_arg():
         "expect_eligible_for_dedupe": attrs.bool(default = False),
     }
 
+def _flags_arg():
+    return {
+        "flags": attrs.list(
+            attrs.dep(providers = [CxxFlagsInfo]),
+            default = [],
+            doc = """
+            `cxx_flags` targets whose flags apply before this target's own. Their transitive
+             definitions are combined into a shared argsfile, with nested flags first and
+             direct entries in list order. Repeated and diamond dependencies contribute once.
+             They cannot contribute `exported_*` or post-linker flag categories.
+        """,
+        ),
+    }
+
 cxx_common = struct(
     srcs_arg = _srcs_arg,
     deps_arg = _deps_arg,
@@ -534,5 +549,6 @@ cxx_common = struct(
     use_fbcc_rust_wrapper_arg = _use_fbcc_rust_wrapper_arg,
     use_content_based_paths_arg = _use_content_based_paths_arg,
     expect_eligible_for_dedupe_arg = _expect_eligible_for_dedupe_arg,
+    flags_arg = _flags_arg,
     supports_stripping = _supports_stripping,
 )

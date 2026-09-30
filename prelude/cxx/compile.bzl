@@ -58,6 +58,12 @@ load(
     "get_output_flags",
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(
+    ":cxx_flags.bzl",
+    "CxxFlagsInfo",
+    "cxx_flags_projection_name",
+    "cxx_flags_tset",
+)
 load(":cxx_library_utility.bzl", "EMPTY_DEFAULT_INFO")
 load(":cxx_sources.bzl", "CxxSrcWithFlags")
 load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode", "compiler_info_with_argsfiles")
@@ -2101,6 +2107,49 @@ def _filter_precompile_args(args: list[typing.Any]) -> list[typing.Any]:
         [_filter_precompile_args(arg) if type(arg) == type([]) else arg if not should_ignore(arg) else None for arg in args],
     )
 
+def _cxx_flags_args(flags, ext: str, is_precompile: bool):
+    if not is_precompile:
+        return flags.project_as_args(
+            cxx_flags_projection_name(ext),
+            ordering = "postorder",
+        )
+
+    values = flags.traverse(ordering = "postorder")
+    args = [
+        [
+            value.preprocessor_flags,
+            cxx_by_language_ext(value.lang_preprocessor_flags, ext),
+            cxx_by_language_ext(value.lang_compiler_flags, ext),
+            value.compiler_flags,
+        ]
+        for value in values
+    ]
+    return _filter_precompile_args(args)
+
+def _cxx_flags_argsfile_anon_impl(ctx: AnalysisContext):
+    flags = cxx_flags_tset(ctx.actions, ctx.attrs.flags)
+    if flags == None:
+        fail("cxx flags argsfile requires at least one `cxx_flags` target")
+    args = _cxx_flags_args(flags, ctx.attrs.src_extension, ctx.attrs.is_precompile)
+    content = create_cmd_args(ctx.attrs.is_nasm, ctx.attrs.is_xcode_argsfile, args)
+    argsfile, _ = ctx.actions.write("cxx_flags_args", content, allow_args = True, has_content_based_path = True)
+    return [DefaultInfo(default_outputs = [argsfile])]
+
+_cxx_flags_argsfile_anon_rule = anon_rule(
+    impl = _cxx_flags_argsfile_anon_impl,
+    attrs = {
+        "flags": attrs.list(attrs.dep(providers = [CxxFlagsInfo])),
+        "is_nasm": attrs.bool(),
+        "is_precompile": attrs.bool(),
+        "is_xcode_argsfile": attrs.bool(),
+        "src_extension": attrs.string(),
+    },
+    artifact_promise_mappings = {
+        "argsfile": lambda x: x[DefaultInfo].default_outputs[0],
+    },
+    doc = "Creates a shared argsfile from one or more nested `cxx_flags` targets.",
+)
+
 def _filter_precompile_argsfile_anon_impl(ctx: AnalysisContext):
     argsfile = ctx.actions.declare_output("filtered_args", has_content_based_path = True)
     ctx.actions.run(
@@ -2272,6 +2321,39 @@ def _mk_argsfiles(
         args_list.append(compiler_type_flags)
 
     make_compiler_type_argsfile()
+
+    def make_cxx_flags_argsfile():
+        flag_deps = impl_params.cxx_flags
+        if not flag_deps:
+            return
+
+        flags = cxx_flags_tset(actions, flag_deps)
+        projection = flags.project_as_args(
+            cxx_flags_projection_name(ext.value),
+            ordering = "postorder",
+        )
+        if impl_params.anon_targets_allowed:
+            argsfile = actions.anon_target(
+                _cxx_flags_argsfile_anon_rule,
+                {
+                    "flags": flag_deps,
+                    "is_nasm": is_nasm,
+                    "is_precompile": is_precompile,
+                    "is_xcode_argsfile": is_xcode_argsfile,
+                    "src_extension": ext.value,
+                },
+            ).artifact("argsfile")
+            argsfile = actions.assert_has_content_based_path(argsfile)
+        else:
+            argsfile = mk_argsfile(
+                filename_prefix + "cxx_flags_args",
+                _cxx_flags_args(flags, ext.value, is_precompile),
+            )
+
+        argsfiles.append(argsfile_with_artifacts(argsfile, projection))
+        args_list.append(projection)
+
+    make_cxx_flags_argsfile()
 
     def make_deps_argsfile():
         deps_args = []

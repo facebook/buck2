@@ -452,7 +452,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     # Gather link inputs.
     own_link_flags = (
         get_cxx_toolchain_info(ctx).linker_info.binary_linker_flags
-        + cxx_attr_linker_flags(ctx)
+        + cxx_attr_linker_flags(ctx, impl_params.cxx_flags)
         + impl_params.extra_link_flags
         + impl_params.extra_exported_link_flags
     )

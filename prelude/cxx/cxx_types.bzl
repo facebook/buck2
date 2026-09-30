@@ -253,6 +253,7 @@ CxxRuleConstructorParams = record(
     extra_shared_library_interfaces = field([list[Artifact], None], None),
     # Compiler flags
     compiler_flags = field(list[typing.Any], []),
+    cxx_flags = field(list[Dependency], []),
     lang_compiler_flags = field(dict[typing.Any, typing.Any], {}),
     # Preprocessor flags
     preprocessor_flags = field(list[typing.Any], []),

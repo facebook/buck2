@@ -108,6 +108,17 @@ def _encode_link_info(info: LinkInfo, flags: list, artifacts: list[Artifact]):
         [m.version for m in info.metadata],
     ]
 
+def _anon_link_flags(values: list) -> list:
+    result = []
+    for value in values:
+        if isinstance(value, TransitiveSetArgsProjection) and value.projection_name == "linker_flags":
+            # Anonymous attrs accept resolved macros, but not transitive-set projections.
+            for shared_flags in value.transitive_set.traverse(ordering = "postorder"):
+                result.extend(shared_flags.linker_flags)
+        else:
+            result.append(value)
+    return result
+
 def serialize_anon_attrs(output: str, result_type: CxxLinkResultType, opts: LinkOptions) -> dict[str, typing.Any]:
     # Anonymous links cannot run distributed ThinLTO (its dynamic outputs are
     # unsupported in anon targets; every anonymous caller disables it), and the
@@ -121,8 +132,9 @@ def serialize_anon_attrs(output: str, result_type: CxxLinkResultType, opts: Link
     artifacts = []
     for link in opts.links:
         if link.flags != None:
-            recipe.append([_LINK_ARGS_FLAGS_TAG, len(link.flags)])
-            flags.extend(link.flags)
+            link_flags = _anon_link_flags(link.flags)
+            recipe.append([_LINK_ARGS_FLAGS_TAG, len(link_flags)])
+            flags.extend(link_flags)
         elif link.infos != None:
             recipe.append([_LINK_ARGS_INFOS_TAG, [_encode_link_info(info, flags, artifacts) for info in link.infos]])
         else:

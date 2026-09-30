@@ -424,7 +424,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     """
     Defines the outputs for a cxx library, return the default output and any subtargets and providers based upon the requested params.
     """
-
     if not cxx_platform_supported(ctx):
         sub_targets = {}
 
@@ -1141,7 +1140,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     sub_targets.update(mod_dep_graph_subtargets)
     providers.append(mod_dep_graph_info)
 
-    linker_flags = cxx_attr_linker_flags_all(ctx)
+    linker_flags = cxx_attr_linker_flags_all(ctx, impl_params.cxx_flags)
 
     # Omnibus root provider.
     linkable_root = None
@@ -1749,7 +1748,7 @@ def _form_library_outputs(
     gcno_files = []
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
-    linker_flags = cxx_attr_linker_flags_all(ctx)
+    linker_flags = cxx_attr_linker_flags_all(ctx, impl_params.cxx_flags)
 
     # Add in exported linker flags.
     def ldflags(inner: LinkInfo) -> LinkInfo:
@@ -2386,7 +2385,7 @@ def _shared_library(
     # does, but the intent of exported link flags are to wrap the link output
     # that we propagate up the tree, rather than being used locally when
     # generating a link product.
-    linker_flags = cxx_attr_linker_flags_all(ctx)
+    linker_flags = cxx_attr_linker_flags_all(ctx, impl_params.cxx_flags)
     link_info = LinkInfo(
         dist_thin_lto_codegen_flags = getattr(ctx.attrs, "dist_thin_lto_codegen_flags", []),
         pre_flags = (linker_flags.flags + linker_flags.exported_flags + getattr(ctx.attrs, "local_linker_flags", [])),

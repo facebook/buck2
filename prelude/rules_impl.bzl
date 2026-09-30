@@ -27,6 +27,7 @@ load("@prelude//csharp:csharp.bzl", "csharp_library_impl", "prebuilt_dotnet_libr
 load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
+load("@prelude//cxx:cxx_flags.bzl", "cxx_flags_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_extra_attributes", "cxx_toolchain_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
@@ -178,6 +179,7 @@ extra_implemented_rules = struct(
     prebuilt_dotnet_library = prebuilt_dotnet_library_impl,
     # c++
     cxx_binary = cxx_binary_impl,
+    cxx_flags = cxx_flags_impl,
     cxx_test = cxx_test_impl,
     cxx_toolchain = cxx_toolchain_impl,
     cxx_genrule = genrule_impl,
