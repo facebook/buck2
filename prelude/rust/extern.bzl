@@ -26,6 +26,12 @@ def extern_arg(flags: list[str], crate: CrateName, lib: Artifact) -> cmd_args:
     else:
         flags = ",".join(flags) + ":"
 
+    if type(crate.simple) == "string" and crate.dynamic == None:
+        return cmd_args(
+            lib,
+            format = "--extern={}{}={{}}".format(flags, crate.simple),
+        )
+
     return cmd_args(
         "--extern=",
         flags,
@@ -43,7 +49,10 @@ def extern_arg(flags: list[str], crate: CrateName, lib: Artifact) -> cmd_args:
 #
 #     --crate-map=$(cat path/to/REALNAME)=//path/to:target
 #
-def crate_map_arg(crate: CrateName, label: Label) -> cmd_args:
+def crate_map_arg(crate: CrateName, label: Label) -> cmd_args | str:
+    if type(crate.simple) == "string" and crate.dynamic == None:
+        return "--crate-map={}={}".format(crate.simple, str(label.raw_target()))
+
     return cmd_args(
         "--crate-map=",
         crate_name_as_cmd_arg(crate),
