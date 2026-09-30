@@ -368,7 +368,6 @@ impl<'a> ServerCommandContext<'a> {
         let paging_manager = PagingManager::new(
             base_context.tenant.dupe(),
             base_context.repo().page_out_on_idle,
-            base_context.daemon.allow_multiple_idle_page_outs,
             total_disk_space_bytes,
         );
 

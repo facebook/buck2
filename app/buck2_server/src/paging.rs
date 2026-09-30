@@ -72,8 +72,6 @@ pub(crate) struct PagingManager {
     tenant: Arc<TenantState>,
     /// Resource-pressure thresholds for automatic idle page-out, `Some` iff enabled.
     page_out_on_idle: Option<PageOutThresholds>,
-    /// Running more than one automatic idle page-out during this daemon's lifetime.
-    allow_multiple_idle_page_outs: bool,
     total_disk_space_bytes: Option<u64>,
     page_in_baseline: IntentionallyStdHashMap<String, buck2_data::DicePageInKeyTypeStats>,
     /// `None` when pagable storage is not configured.
@@ -84,7 +82,6 @@ impl PagingManager {
     pub(crate) fn new(
         tenant: Arc<TenantState>,
         page_out_on_idle: Option<PageOutThresholds>,
-        allow_multiple_idle_page_outs: bool,
         total_disk_space_bytes: Option<u64>,
     ) -> PagingManager {
         let page_in_baseline = page_in_proto_map(&tenant);
@@ -92,7 +89,6 @@ impl PagingManager {
         PagingManager {
             tenant,
             page_out_on_idle,
-            allow_multiple_idle_page_outs,
             total_disk_space_bytes,
             page_in_baseline,
             data_key_io_baseline,
@@ -157,7 +153,6 @@ impl PagingManager {
         let page_out_started = if triggers_idle_page_out {
             spawn_page_out_on_idle(
                 self.page_out_on_idle,
-                self.allow_multiple_idle_page_outs,
                 self.tenant.dice_manager.dupe(),
                 dispatcher.dupe(),
                 free_disk_bytes,
@@ -303,10 +298,6 @@ static PAGE_OUT_DONE: LazyLock<Notify> = LazyLock::new(Notify::new);
 /// Cleared only on daemon restart.
 static PAGE_OUT_FAILED: AtomicBool = AtomicBool::new(false);
 
-/// Set immediately before the first automatic idle page-out is spawned. By
-/// default it is never cleared, limiting automatic page-out to one run per daemon.
-static IDLE_PAGE_OUT_HAS_RUN: AtomicBool = AtomicBool::new(false);
-
 /// Whether a background idle page-out is running, for `buck2 debug hydration
 /// status`. A manual `page-out` isn't tracked: it holds the exclusive command
 /// lock, so a concurrent `status` blocks behind it and never observes it mid-run.
@@ -361,7 +352,6 @@ impl PageOutGuard {
 
 impl Drop for PageOutGuard {
     fn drop(&mut self) {
-        // Publish `IDLE_PAGE_OUT_HAS_RUN` before another scheduler acquires the guard.
         PAGE_OUT.store(IDLE, Ordering::Release);
         PAGE_OUT_DONE.notify_waiters();
     }
@@ -378,12 +368,10 @@ pub(crate) struct PageOutThresholds {
 /// Spawn a background idle page-out if it should run, returning the outcome:
 /// [`PageOutStarted::Started`] if one was scheduled (not whether it succeeds), else the
 /// reason it wasn't — disabled, not enough disk headroom, another command active, one
-/// already running, one already ran, or nothing to page out. When commands overlap,
-/// only the last to finish still sees itself as the sole active command, so only it
-/// starts one.
+/// already running, or nothing to page out. When commands overlap, only the last to
+/// finish still sees itself as the sole active command, so only it starts one.
 pub(crate) async fn spawn_page_out_on_idle(
     thresholds: Option<PageOutThresholds>,
-    allow_multiple_idle_page_outs: bool,
     dice_manager: Arc<ConcurrencyHandler>,
     dispatcher: EventDispatcher,
     free_disk_bytes: Option<u64>,
@@ -411,10 +399,6 @@ pub(crate) async fn spawn_page_out_on_idle(
         return PageOutStarted::AlreadyRunning;
     };
 
-    if IDLE_PAGE_OUT_HAS_RUN.load(Ordering::Relaxed) && !allow_multiple_idle_page_outs {
-        return PageOutStarted::AlreadyRan;
-    }
-
     // Re-check under the guard: a command that started in the window above (which
     // wouldn't have cancelled us) mustn't slip through. Also bail if there is nothing
     // to page out.
@@ -425,7 +409,6 @@ pub(crate) async fn spawn_page_out_on_idle(
         return PageOutStarted::NothingToPageOut;
     }
 
-    IDLE_PAGE_OUT_HAS_RUN.store(true, Ordering::Relaxed);
     let context_dispatcher = dispatcher.clone();
     tokio::spawn(with_dispatcher_async(context_dispatcher, async move {
         if let Err(e) = page_out_on_idle(guard, dice_manager, dispatcher).await {

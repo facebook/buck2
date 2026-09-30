@@ -959,9 +959,6 @@ pub struct DaemonStateData {
     /// Semaphores for running actions locally. These need to be shared across commands.
     #[allocative(skip)]
     pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
-
-    /// Running more than one automatic idle page-out during this daemon's lifetime.
-    pub(crate) allow_multiple_idle_page_outs: bool,
 }
 
 impl DaemonStateData {
@@ -1196,12 +1193,6 @@ impl DaemonState {
                 )
                 .await?;
 
-            let allow_multiple_idle_page_outs = tenant_state_factory
-                .init_ctx
-                .daemon_startup_config
-                .hydration
-                .as_ref()
-                .is_some_and(|h| h.allow_multiple_idle_page_outs);
             let tenants = TenantStateRegistry::new(tenant).await?;
             Ok(Arc::new(DaemonStateData {
                 tenants,
@@ -1216,7 +1207,6 @@ impl DaemonState {
                 daemon_id: daemon_id.dupe(),
                 daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
-                allow_multiple_idle_page_outs,
             }))
         };
         let daemon_listener_span = tracing::Span::current();
