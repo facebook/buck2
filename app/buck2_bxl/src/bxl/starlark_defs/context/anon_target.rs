@@ -27,6 +27,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderColle
 use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::scope::scope_and_collect_with_dice;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_error::BuckErrorOptionContext;
@@ -306,7 +307,7 @@ async fn eval_bxl_for_anon_target_inner(
 
         let action_factory = bxl_ctx.state;
 
-        tokio::task::block_in_place(|| {
+        let requested_anon_targets = tokio::task::block_in_place(|| {
             reentrant_eval
                 .with_evaluator(|eval| run_anon_target_promises(action_factory, &bxl_ctx, eval))
         })?;
@@ -352,6 +353,7 @@ async fn eval_bxl_for_anon_target_inner(
                 num_declared_actions,
                 num_declared_artifacts,
                 validations,
+                requested_anon_targets,
             ),
         ))
     })
@@ -380,11 +382,12 @@ impl<'me, 'v, 'a, 'e> RunAnonPromisesAccessor<'v, 'a, 'e>
     }
 }
 
+/// Returns the anon target keys requested by the resolved promises.
 pub(crate) fn run_anon_target_promises<'v, 'a, 'e>(
     actions: ValueTyped<'v, AnalysisActions<'v>>,
     ctx: &BxlContext<'v>,
     eval: &mut Evaluator<'v, 'a, 'e>,
-) -> buck2_error::Result<()> {
+) -> buck2_error::Result<Vec<BaseDeferredKey>> {
     let mut accessor = BxlAnonPromisesAccessor(eval, ctx);
     // TODO(cjhopman): The approach here is pretty against the general model that we want. Ideally
     // we'd like to split this into two steps:
@@ -399,7 +402,7 @@ pub(crate) fn run_anon_target_promises<'v, 'a, 'e>(
     // a proper span for dice access.
     tokio::runtime::Handle::current()
         .block_on(actions.run_promises(&mut accessor))
-        .map(|_| ())
+        .map(|run| run.requested_anon_targets)
 }
 
 pub(crate) fn init_eval_bxl_for_anon_target() {

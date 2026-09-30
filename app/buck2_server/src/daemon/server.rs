@@ -290,6 +290,7 @@ impl TenantStateInitPreferences {
             Some(root_config),
             self.detect_cycles,
             tenting_acl_provider,
+            self.daemon_startup_config.buck_settings.dupe(),
             hydration.map(|_| dice_state_path),
             hydration.map_or_else(Default::default, |h| h.pagable_storage_backend),
         )

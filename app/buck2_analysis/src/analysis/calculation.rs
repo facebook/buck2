@@ -490,11 +490,7 @@ pub struct AnonTargetSplitData {
     pub part2_time_span: TimeSpan,
 }
 
-/// Timestamps captured around `run_promises()` for splitting analysis nodes.
-pub struct AnalysisSplitInstants {
-    pub pre_promises: std::time::Instant,
-    pub post_promises: std::time::Instant,
-}
+pub use buck2_build_api::analysis::AnalysisSplitInstants;
 
 #[derive(Clone)]
 pub struct AnalysisWithExtraData {

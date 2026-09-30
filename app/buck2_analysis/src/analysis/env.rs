@@ -9,13 +9,13 @@
  */
 
 use std::sync::Arc;
-use std::time::Instant;
 
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessorPair;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
+use buck2_build_api::interpreter::rule_defs::context::PromisesRun;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::validation_info::ValidationInfo;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -299,21 +299,13 @@ async fn run_analysis_with_env_underlying(
             Ok((ctx, list_res))
         })?;
 
-        let pre_promises = Instant::now();
-        let resolved_any = ctx
+        let PromisesRun {
+            split_instants,
+            requested_anon_targets,
+        } = ctx
             .actions
             .run_promises(&mut RunAnonPromisesAccessorPair(&mut reentrant_eval, dice))
             .await?;
-        let post_promises = Instant::now();
-
-        let split_instants = if resolved_any {
-            Some(AnalysisSplitInstants {
-                pre_promises,
-                post_promises,
-            })
-        } else {
-            None
-        };
 
         // Pull the ctx object back out, and steal ctx.action's state back
         let analysis_registry = ctx.take_state();
@@ -347,6 +339,7 @@ async fn run_analysis_with_env_underlying(
                     declared_actions,
                     declared_artifacts,
                     validations,
+                    requested_anon_targets,
                 ),
                 split_instants,
             ),

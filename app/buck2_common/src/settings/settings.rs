@@ -208,9 +208,22 @@ const HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE: SettingKey<PageOutOnIdleIs
         oss_default: Some(PageOutOnIdleIsolationDirScope::All),
     };
 
+const ANALYSIS_RECORD_REQUESTED_ANON_TARGETS: SettingKey<bool> = SettingKey {
+    metadata: SettingKeyMetadata {
+        key: SettingKeyRef {
+            section: "analysis",
+            name: "record_requested_anon_targets",
+        },
+        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+    },
+    internal_default: Some(true),
+    oss_default: Some(true),
+};
+
 pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
     AGENT_ADVICE_BUILD_INTENT_MODE.metadata,
     AGENT_ADVICE_BUILD_INTENT_MESSAGE.metadata,
+    ANALYSIS_RECORD_REQUESTED_ANON_TARGETS.metadata,
     HYDRATION_ENABLE_PAGING.metadata,
     HYDRATION_PAGE_OUT_ON_IDLE.metadata,
     HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE.metadata,
@@ -223,6 +236,7 @@ pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
 )]
 pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
     AgentAdviceSection::METADATA,
+    AnalysisSection::METADATA,
     HydrationSection::METADATA,
     LogDownloadSection::METADATA,
 ];
@@ -239,6 +253,12 @@ pub(crate) fn find_setting_metadata<'a>(
 struct AgentAdviceSectionData {
     build_intent_mode: Option<BuildIntentMode>,
     build_intent_message: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
+#[serde(deny_unknown_fields)]
+struct AnalysisSectionData {
+    record_requested_anon_targets: Option<bool>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
@@ -261,6 +281,8 @@ struct HydrationSectionData {
 pub(crate) struct BuckSettingsData {
     #[serde(default)]
     agent_advice: AgentAdviceSectionData,
+    #[serde(default)]
+    analysis: AnalysisSectionData,
     #[serde(default)]
     hydration: HydrationSectionData,
     #[serde(default)]
@@ -300,6 +322,36 @@ impl AgentAdviceSection {
             .build_intent_message
             .as_deref()
             .or_else(|| AGENT_ADVICE_BUILD_INTENT_MESSAGE.default_value())
+    }
+}
+
+/// Settings controlling what analysis records beyond its providers.
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Allocative
+)]
+#[serde(transparent)]
+pub struct AnalysisSection(Arc<AnalysisSectionData>);
+
+impl AnalysisSection {
+    /// Bump when the section's settings schema or semantics change.
+    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
+        section_name: "analysis",
+        section_version: 1,
+    };
+
+    /// Whether each analysis keeps the list of anon targets it requested.
+    pub fn record_requested_anon_targets(&self) -> bool {
+        ANALYSIS_RECORD_REQUESTED_ANON_TARGETS
+            .resolve(self.0.record_requested_anon_targets)
+            .expect("record_requested_anon_targets should have a default")
     }
 }
 
@@ -390,6 +442,8 @@ pub struct BuckSettings {
     #[serde(default)]
     pub agent_advice: AgentAdviceSection,
     #[serde(default)]
+    pub analysis: AnalysisSection,
+    #[serde(default)]
     pub hydration: HydrationSection,
     #[serde(default)]
     pub log_download: LogDownloadSection,
@@ -399,6 +453,7 @@ impl From<BuckSettingsData> for BuckSettings {
     fn from(data: BuckSettingsData) -> Self {
         Self {
             agent_advice: AgentAdviceSection(Arc::new(data.agent_advice)),
+            analysis: AnalysisSection(Arc::new(data.analysis)),
             hydration: HydrationSection(Arc::new(data.hydration)),
             log_download: LogDownloadSection(Arc::new(data.log_download)),
         }

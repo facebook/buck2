@@ -11,6 +11,7 @@
 //! Typed buck settings, replaces buckconfig for core buck2 settings.
 
 pub mod args;
+pub mod dice;
 pub mod parser;
 mod path;
 #[cfg(fbcode_build)]

@@ -119,6 +119,7 @@ mod tests {
                         0,
                         0,
                         None,
+                        Vec::new(),
                     ))
                 }
                 DeferredHolderKey::DynamicLambda(..) => {

@@ -41,6 +41,7 @@ use buck2_build_api::deferred::calculation::DeferredHolder;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
 use buck2_build_api::deferred::calculation::GET_PROMISED_ARTIFACT;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
+use buck2_build_api::interpreter::rule_defs::context::PromisesRun;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_build_signals::env::WaitingData;
@@ -230,7 +231,7 @@ impl BuildSignalsNodeKeyImpl for AnonTargetKey {
 }
 
 impl AnonTargetKey {
-    fn downcast(key: Arc<dyn BaseDeferredKeyDyn>) -> buck2_error::Result<Self> {
+    pub(crate) fn downcast(key: Arc<dyn BaseDeferredKeyDyn>) -> buck2_error::Result<Self> {
         Ok(AnonTargetKey(
             key.into_any()
                 .downcast()
@@ -416,6 +417,16 @@ impl AnonTargetKey {
         dice.compute(self).await?.as_ref().duped_err()
     }
 
+    /// Like [`Self::resolve`], also returning the key allocation DICE holds
+    /// for this anon target, shared by all its requesters.
+    pub(crate) async fn resolve_with_key<'d>(
+        &self,
+        dice: &mut DiceComputations<'d>,
+    ) -> buck2_error::Result<(Arc<AnonTargetKey>, &'d AnalysisResult)> {
+        let (key, result) = dice.compute_with_key(self).await?;
+        Ok((key, result.as_ref().duped_err()?))
+    }
+
     fn run_analysis<'a>(
         &'a self,
         dice: &'a mut DiceComputations<'_>,
@@ -556,21 +567,13 @@ impl AnonTargetKey {
                 Ok((ctx, list_res))
             })?;
 
-            let pre_promises = Instant::now();
-            let resolved_any = ctx
+            let PromisesRun {
+                split_instants,
+                requested_anon_targets,
+            } = ctx
                 .actions
                 .run_promises(&mut RunAnonPromisesAccessorPair(&mut reentrant_eval, dice))
                 .await?;
-            let post_promises = Instant::now();
-
-            let split_instants = if resolved_any {
-                Some(AnalysisSplitInstants {
-                    pre_promises,
-                    post_promises,
-                })
-            } else {
-                None
-            };
 
             let res_typed = ProviderCollection::try_from_value(list_res)?;
             let res = env.heap().alloc(res_typed);
@@ -613,6 +616,7 @@ impl AnonTargetKey {
                         num_declared_actions,
                         num_declared_artifacts,
                         validations,
+                        requested_anon_targets,
                     ),
                     split_instants,
                 ),

@@ -12,16 +12,21 @@ use std::cell::OnceCell;
 use std::rc::Rc;
 
 use async_trait::async_trait;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use dice::DiceComputations;
 use starlark::eval::Evaluator;
 
 #[async_trait(?Send)]
 pub trait AnonPromisesDyn<'v>: 'v {
+    /// Resolves the pending promises. When `record_requested` is set, returns the
+    /// anon target keys that were resolved (as the allocations DICE shares between
+    /// requesters); otherwise returns nothing.
     async fn run_promises<'a, 'e: 'a>(
         self: Box<Self>,
         accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e>,
-    ) -> buck2_error::Result<()>
+        record_requested: bool,
+    ) -> buck2_error::Result<Vec<BaseDeferredKey>>
     where
         'v: 'a;
 }

@@ -14,8 +14,11 @@ use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::time::Instant;
 
 use allocative::Allocative;
+use buck2_common::settings::dice::HasBuckSettings;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -48,7 +51,9 @@ use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::structs::StructRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark_map::small_set::SmallSet;
 
+use crate::analysis::AnalysisSplitInstants;
 use crate::analysis::anon_promises_dyn::RunAnonPromisesAccessor;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
@@ -70,6 +75,22 @@ pub struct AnalysisActions<'v> {
     pub digest_config: DigestConfig,
 }
 
+/// What one `AnalysisActions::run_promises` call did.
+pub struct PromisesRun {
+    /// Timestamps around promise resolution.
+    pub split_instants: Option<AnalysisSplitInstants>,
+    /// The anon targets those promises requested, deduplicated, in first-request
+    /// order; empty when recording is off.
+    pub requested_anon_targets: Vec<BaseDeferredKey>,
+}
+
+impl PromisesRun {
+    /// Whether at least one promise batch was resolved.
+    pub fn resolved_any(&self) -> bool {
+        self.split_instants.is_some()
+    }
+}
+
 impl<'v> AnalysisActions<'v> {
     pub fn state(&self) -> buck2_error::Result<RefMut<'_, AnalysisRegistry<'v>>> {
         let state = self
@@ -82,31 +103,59 @@ impl<'v> AnalysisActions<'v> {
             .internal_error("state to be present during execution")
     }
 
+    /// Resolves every pending promise (looping, since `promise.map` can enqueue more), then
+    /// asserts short paths and resolves consumer promise artifacts.
     pub async fn run_promises<'a, 'e: 'a>(
         &self,
         accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e>,
-    ) -> buck2_error::Result<bool>
+    ) -> buck2_error::Result<PromisesRun>
     where
         'v: 'a,
     {
-        // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
-        // We keep going until there are no promises left.
+        let pre_promises = Instant::now();
         let mut resolved_any = false;
+        let mut record_requested = None;
+        let mut requested_anon_targets: SmallSet<BaseDeferredKey> = SmallSet::new();
         loop {
+            // Bind first so the state borrow ends before the promises run.
             let promises = self.state()?.take_promises();
-            if let Some(promises) = promises {
-                resolved_any = true;
-                promises.run_promises(accessor).await?;
-            } else {
-                break;
-            }
+            let Some(promises) = promises else { break };
+            resolved_any = true;
+            let record = match record_requested {
+                Some(record) => record,
+                None => {
+                    let record = accessor
+                        .with_dice(|dice| {
+                            async move {
+                                buck2_error::Ok(
+                                    dice.global_data()
+                                        .get_buck_settings()
+                                        .analysis
+                                        .record_requested_anon_targets(),
+                                )
+                            }
+                            .boxed_local()
+                        })
+                        .await?;
+                    record_requested = Some(record);
+                    record
+                }
+            };
+            requested_anon_targets.extend(promises.run_promises(accessor, record).await?);
         }
 
         accessor
             .with_dice(|dice| self.assert_short_paths_and_resolve(dice).boxed_local())
             .await?;
+        let post_promises = Instant::now();
 
-        Ok(resolved_any)
+        Ok(PromisesRun {
+            split_instants: resolved_any.then_some(AnalysisSplitInstants {
+                pre_promises,
+                post_promises,
+            }),
+            requested_anon_targets: requested_anon_targets.into_iter().collect(),
+        })
     }
 
     // Called after `run_promises()` to assert short paths and resolve consumer's promise artifacts.

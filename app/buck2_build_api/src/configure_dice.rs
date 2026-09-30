@@ -18,6 +18,8 @@ use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::settings::BuckSettings;
+use buck2_common::settings::dice::SetBuckSettings;
 use buck2_common::tenting::SetTentingAclProvider;
 use buck2_common::tenting::TentingAclProvider;
 use buck2_core::rollout_percentage::RolloutPercentage;
@@ -40,6 +42,7 @@ pub async fn configure_dice_for_buck(
     root_config: Option<&LegacyBuckConfig>,
     detect_cycles: Option<DetectCycles>,
     tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
+    buck_settings: BuckSettings,
     // Path to open pagable DICE storage at, or `None` to leave paging disabled.
     dice_state_path: Option<&Path>,
     // On-disk backend for pagable storage (`buck2_hydration.pagable_storage_backend`).
@@ -63,6 +66,7 @@ pub async fn configure_dice_for_buck(
     let mut dice = Dice::builder();
     dice.set_io_provider(io);
     dice.set_digest_config(digest_config);
+    dice.set_buck_settings(buck_settings);
     dice.set_tenting_acl_provider(tenting_acl_provider);
     let invalidation_tracking_enabled = match root_config {
         Some(c) => c

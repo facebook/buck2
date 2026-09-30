@@ -170,6 +170,7 @@ fn mock_analysis_for_action_resolution(
             0,
             0,
             None,
+            Vec::new(),
         )),
     );
 

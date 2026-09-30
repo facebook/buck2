@@ -12,6 +12,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
@@ -34,6 +35,12 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
 use crate::validation::transitive_validations::TransitiveValidations;
 
+/// Timestamps around promise resolution, for splitting analysis nodes.
+pub struct AnalysisSplitInstants {
+    pub pre_promises: std::time::Instant,
+    pub post_promises: std::time::Instant,
+}
+
 #[derive(Debug, Clone, Dupe, Allocative, pagable::Pagable)]
 pub struct AnalysisResult {
     analysis_values: Arc<RecordedAnalysisValues>,
@@ -47,6 +54,10 @@ pub struct AnalysisResult {
     pub num_declared_artifacts: u64,
     /// `None` means there are no `ValidationInfo` providers in transitive dependencies.
     pub validations: Option<TransitiveValidations>,
+    /// The anon targets requested (and therefore analyzed) during this analysis, deduplicated,
+    /// in first-request order. Always `BaseDeferredKey::AnonTarget` entries holding the key
+    /// allocation DICE shares between every requester of the same anon target.
+    requested_anon_targets: Arc<[BaseDeferredKey]>,
 }
 
 impl AnalysisResult {
@@ -58,6 +69,7 @@ impl AnalysisResult {
         num_declared_actions: u64,
         num_declared_artifacts: u64,
         validations: Option<TransitiveValidations>,
+        requested_anon_targets: Vec<BaseDeferredKey>,
     ) -> Self {
         Self {
             analysis_values: Arc::new(analysis_values),
@@ -66,7 +78,12 @@ impl AnalysisResult {
             num_declared_actions,
             num_declared_artifacts,
             validations,
+            requested_anon_targets: requested_anon_targets.into(),
         }
+    }
+
+    pub fn requested_anon_targets(&self) -> &[BaseDeferredKey] {
+        &self.requested_anon_targets
     }
 
     pub fn providers(&self) -> buck2_error::Result<FrozenProviderCollectionValueRef<'_>> {

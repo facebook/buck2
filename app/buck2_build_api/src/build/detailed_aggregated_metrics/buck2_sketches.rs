@@ -720,6 +720,7 @@ mod tests {
             0,
             0,
             None,
+            Vec::new(),
         ));
 
         let mut state = BuckMutMap::default();
