@@ -557,6 +557,7 @@ impl UploadCache for CacheUploader {
                 action_digest_and_blobs.action
             );
             // TODO(bobyf, torozco) should these be critical sections?
+            // Boxed so the common non-local paths do not carry the local-upload future.
             self.upload_local_outputs(
                 info,
                 res,
@@ -564,6 +565,7 @@ impl UploadCache for CacheUploader {
                 error_on_cache_upload,
                 dep_file_bundle.is_some(),
             )
+            .boxed()
             .await?
         } else if dep_file_bundle.is_some() {
             (CacheUploadOutcome::HadDepFileBundle, None)
