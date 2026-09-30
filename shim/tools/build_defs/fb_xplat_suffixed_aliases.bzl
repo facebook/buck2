@@ -6,14 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//utils:buckconfig.bzl", "read_bool")
-load("@shim//tools/build_defs:platform_defs.bzl", "APPLETVOS", "IOS", "MACOSX")
+load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
 
-DEFAULT_APPLE_SDKS = (IOS, APPLETVOS, MACOSX)
-
-FBANDROID_CPPFLAGS = []
-
-WINDOWS_CLANG_CXX_FLAGS = []
-
-def should_enable_gflags():
-    return read_bool("folly", "have_libgflags_override", False)
+def create_forwarding_aliases(name, actual_name, visibility = None, **kwargs):
+    _unused = kwargs  # @unused
+    fb_native.alias(
+        name = name,
+        actual = actual_name,
+        visibility = visibility or ["PUBLIC"],
+    )

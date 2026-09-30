@@ -6,14 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//utils:buckconfig.bzl", "read_bool")
-load("@shim//tools/build_defs:platform_defs.bzl", "APPLETVOS", "IOS", "MACOSX")
-
-DEFAULT_APPLE_SDKS = (IOS, APPLETVOS, MACOSX)
-
-FBANDROID_CPPFLAGS = []
-
-WINDOWS_CLANG_CXX_FLAGS = []
-
-def should_enable_gflags():
-    return read_bool("folly", "have_libgflags_override", False)
+def fb_dirsync_rule(name, fbcode_rule, xplat_rule = None, **kwargs):
+    _unused = xplat_rule  # @unused
+    fbcode_rule(name = name, **kwargs)

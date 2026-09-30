@@ -6,14 +6,21 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//utils:buckconfig.bzl", "read_bool")
-load("@shim//tools/build_defs:platform_defs.bzl", "APPLETVOS", "IOS", "MACOSX")
+def _read():
+    return None
 
-DEFAULT_APPLE_SDKS = (IOS, APPLETVOS, MACOSX)
+def _soname(name):
+    return name
 
-FBANDROID_CPPFLAGS = []
+def _create_alias(*_args, **_kwargs):
+    pass
 
-WINDOWS_CLANG_CXX_FLAGS = []
+def _write(*_args, **_kwargs):
+    pass
 
-def should_enable_gflags():
-    return read_bool("folly", "have_libgflags_override", False)
+dirsync_redirect = struct(
+    create_alias = _create_alias,
+    read = _read,
+    soname = _soname,
+    write = _write,
+)
