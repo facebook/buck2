@@ -1128,22 +1128,20 @@ impl RemoteExecutionClientImpl {
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
         metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<()> {
+        let upload = self.client().get_cas_client().upload(
+            metadata,
+            UploadRequest {
+                files_with_digest: Some(files_with_digest),
+                inlined_blobs_with_digest: Some(inlined_blobs_with_digest),
+                directories: Some(directories),
+                upload_only_missing: true,
+                ..Default::default()
+            },
+        );
         with_error_handler(
             "upload_files_and_directories",
             self.get_session_id(),
-            self.client()
-                .get_cas_client()
-                .upload(
-                    metadata,
-                    UploadRequest {
-                        files_with_digest: Some(files_with_digest),
-                        inlined_blobs_with_digest: Some(inlined_blobs_with_digest),
-                        directories: Some(directories),
-                        upload_only_missing: true,
-                        ..Default::default()
-                    },
-                )
-                .await,
+            upload.await,
         )?;
         Ok(())
     }
@@ -1862,13 +1860,10 @@ impl RemoteExecutionClientImpl {
         blob: InlinedBlobWithDigest,
         metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<TDigest> {
-        with_error_handler(
-            "upload_blob",
-            self.get_session_id(),
-            self.client()
-                .upload_blob_with_digest(blob.blob, blob.digest, metadata)
-                .await,
-        )
+        let upload = self
+            .client()
+            .upload_blob_with_digest(blob.blob, blob.digest, metadata);
+        with_error_handler("upload_blob", self.get_session_id(), upload.await)
     }
 
     async fn materialize_files(
@@ -1988,42 +1983,41 @@ impl RemoteExecutionClientImpl {
         platform: &RE::Platform,
         write_type: ActionCacheWriteType,
     ) -> buck2_error::Result<WriteActionResultResponse> {
-        let (storage_cost_bytes, compute_cost_ms) =
-            if matches!(write_type, ActionCacheWriteType::LocalCacheUpload) {
-                let (storage, compute) = action_result_costs(result);
-                (Some(storage), Some(compute))
-            } else {
-                (None, None)
-            };
+        let (write, storage_cost_bytes, compute_cost_ms) = {
+            let (storage_cost_bytes, compute_cost_ms) =
+                if matches!(write_type, ActionCacheWriteType::LocalCacheUpload) {
+                    let (storage, compute) = action_result_costs(result);
+                    (Some(storage), Some(compute))
+                } else {
+                    (None, None)
+                };
 
-        // The request needs to own the result; lend it for the call and hand it back
-        // whether or not the write succeeded.
-        let request = WriteActionResultRequest {
-            action_digest: digest.to_re(),
-            action_result: std::mem::take(result),
-            platform: Some(re_platform(platform)),
-            ..Default::default()
-        };
-        let attributes =
-            BTreeMap::from([("write_type".to_owned(), write_type.as_str().to_owned())]);
-        let metadata = RemoteExecutionMetadata {
-            platform: Some(re_platform(platform)),
-            client_context: Some(TClientContextMetadata {
-                attributes,
+            // The request needs to own the result; lend it for serialization and hand it back.
+            let request = WriteActionResultRequest {
+                action_digest: digest.to_re(),
+                action_result: std::mem::take(result),
+                platform: Some(re_platform(platform)),
                 ..Default::default()
-            }),
-            ..use_case.metadata(None)
-        };
-        let response = with_error_handler(
-            "write_action_result",
-            self.get_session_id(),
-            self.client()
+            };
+            let attributes =
+                BTreeMap::from([("write_type".to_owned(), write_type.as_str().to_owned())]);
+            let metadata = RemoteExecutionMetadata {
+                platform: Some(re_platform(platform)),
+                client_context: Some(TClientContextMetadata {
+                    attributes,
+                    ..Default::default()
+                }),
+                ..use_case.metadata(None)
+            };
+            let write = self
+                .client()
                 .get_action_cache_client()
-                .write_action_result(&metadata, &request)
-                .await,
-        );
-        *result = request.action_result;
-        let response = response?;
+                .write_action_result(&metadata, &request);
+            *result = request.action_result;
+            (write, storage_cost_bytes, compute_cost_ms)
+        };
+        let response =
+            with_error_handler("write_action_result", self.get_session_id(), write.await)?;
 
         trace_action_digest(
             &digest,
@@ -2043,7 +2037,7 @@ impl RemoteExecutionClientImpl {
 buck2_util::size_assert::words_of_async_fn_future!(
     RemoteExecutionClientImpl::write_action_result,
     (_, _, _, _, _, _),
-    ~425
+    ~38
 );
 
 #[cfg(fbcode_build)] // Relies on fbcode future sizes

@@ -713,36 +713,42 @@ impl REClient {
         .await
     }
 
-    pub async fn write_action_result(
-        &self,
+    pub fn write_action_result<'a>(
+        &'a self,
         metadata: &RemoteExecutionMetadata,
         request: &WriteActionResultRequest,
-    ) -> anyhow::Result<WriteActionResultResponse> {
-        let action_result = convert_t_action_result2(&request.action_result)?;
+    ) -> impl Future<Output = anyhow::Result<WriteActionResultResponse>> + Send + use<'a> {
+        let action_result = convert_t_action_result2(&request.action_result);
+        let action_digest = request.action_digest.clone();
+        let headers = with_re_metadata((), metadata, self.runtime_opts.use_fbcode_metadata)
+            .into_parts()
+            .0;
+        async move {
+            let action_result = action_result?;
+            retry(|| async {
+                let res = self
+                    .action_cache_client()
+                    .await?
+                    .update_action_result(tonic::Request::from_parts(
+                        headers.clone(),
+                        Default::default(),
+                        UpdateActionResultRequest {
+                            instance_name: self.instance_name.as_str().to_owned(),
+                            action_digest: Some(tdigest_to(&action_digest)),
+                            action_result: Some(action_result.clone()),
+                            results_cache_policy: None,
+                            ..Default::default()
+                        },
+                    ))
+                    .await?;
 
-        retry(|| async {
-            let res = self
-                .action_cache_client()
-                .await?
-                .update_action_result(with_re_metadata(
-                    UpdateActionResultRequest {
-                        instance_name: self.instance_name.as_str().to_owned(),
-                        action_digest: Some(tdigest_to(&request.action_digest)),
-                        action_result: Some(action_result.clone()),
-                        results_cache_policy: None,
-                        ..Default::default()
-                    },
-                    metadata,
-                    self.runtime_opts.use_fbcode_metadata,
-                ))
-                .await?;
-
-            Ok(WriteActionResultResponse {
-                actual_action_result: convert_action_result(res.into_inner())?,
-                ttl_seconds: 0,
+                Ok(WriteActionResultResponse {
+                    actual_action_result: convert_action_result(res.into_inner())?,
+                    ttl_seconds: 0,
+                })
             })
-        })
-        .await
+            .await
+        }
     }
 
     pub async fn execute_with_progress(
@@ -875,57 +881,68 @@ impl REClient {
         Ok(stream.boxed())
     }
 
-    pub async fn upload(
-        &self,
+    pub fn upload<'a>(
+        &'a self,
         metadata: &RemoteExecutionMetadata,
         request: UploadRequest,
-    ) -> anyhow::Result<UploadResponse> {
-        upload_impl(
-            &self.instance_name,
-            request,
-            self.bystream_compressor,
-            self.capabilities.max_total_batch_size,
-            self.runtime_opts.max_concurrent_uploads_per_action,
-            |re_request| async move {
-                let resp = self
-                    .cas_client()
-                    .await?
-                    .batch_update_blobs(with_re_metadata(
-                        re_request,
-                        metadata,
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?;
-                Ok(resp.into_inner())
-            },
-            |segments| async move {
-                let resp = self
-                    .bytestream_client()
-                    .await?
-                    .write(with_re_metadata(
-                        futures::stream::iter(segments),
-                        metadata,
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?;
-                Ok(resp.into_inner())
-            },
-        )
-        .await
+    ) -> impl Future<Output = anyhow::Result<UploadResponse>> + Send + use<'a> {
+        let headers = with_re_metadata((), metadata, self.runtime_opts.use_fbcode_metadata)
+            .into_parts()
+            .0;
+        async move {
+            upload_impl(
+                &self.instance_name,
+                request,
+                self.bystream_compressor,
+                self.capabilities.max_total_batch_size,
+                self.runtime_opts.max_concurrent_uploads_per_action,
+                |re_request| {
+                    let headers = headers.clone();
+                    async move {
+                        let resp = self
+                            .cas_client()
+                            .await?
+                            .batch_update_blobs(tonic::Request::from_parts(
+                                headers,
+                                Default::default(),
+                                re_request,
+                            ))
+                            .await?;
+                        Ok(resp.into_inner())
+                    }
+                },
+                |segments| {
+                    let headers = headers.clone();
+                    async move {
+                        let resp = self
+                            .bytestream_client()
+                            .await?
+                            .write(tonic::Request::from_parts(
+                                headers,
+                                Default::default(),
+                                futures::stream::iter(segments),
+                            ))
+                            .await?;
+                        Ok(resp.into_inner())
+                    }
+                },
+            )
+            .await
+        }
     }
 
-    pub async fn upload_blob_with_digest(
-        &self,
+    pub fn upload_blob_with_digest<'a>(
+        &'a self,
         blob: Vec<u8>,
         digest: TDigest,
         metadata: &RemoteExecutionMetadata,
-    ) -> anyhow::Result<TDigest> {
+    ) -> impl Future<Output = anyhow::Result<TDigest>> + Send + use<'a> {
         let blob = InlinedBlobWithDigest {
             digest: digest.clone(),
             blob,
             ..Default::default()
         };
-        self.upload(
+        let upload = self.upload(
             metadata,
             UploadRequest {
                 inlined_blobs_with_digest: Some(vec![blob]),
@@ -934,9 +951,11 @@ impl REClient {
                 upload_only_missing: false,
                 ..Default::default()
             },
-        )
-        .await?;
-        Ok(digest)
+        );
+        async move {
+            upload.await?;
+            Ok(digest)
+        }
     }
 
     pub async fn download(
