@@ -25,7 +25,6 @@ use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::eval::bc::compiler::if_compiler::write_if_else;
 use crate::eval::bc::instr_impl::*;
-use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::bc::stack_ptr::BcSlot;
 use crate::eval::bc::stack_ptr::BcSlotIn;
 use crate::eval::bc::stack_ptr::BcSlotInRange;
@@ -258,15 +257,10 @@ impl<'f> IrSpanned<'f, ExprCompiled<'f>> {
                             );
                         });
                     } else {
-                        let key_spans = xs.map(|(k, _v)| k.span);
                         write_exprs(xs.iter().flat_map(|(k, v)| [k, v]), bc, |kvs, bc| {
-                            bc.write_instr_explicit::<InstrDictNPop>(
-                                BcInstrSlowArg {
-                                    span,
-                                    spans: key_spans,
-                                },
-                                (kvs, target),
-                            );
+                            let spans_offset =
+                                bc.add_dictnpop_spans(xs.iter().map(|(k, _)| k.span));
+                            bc.write_instr::<InstrDictNPop>(span, (kvs, target, spans_offset));
                         });
                     }
                 }

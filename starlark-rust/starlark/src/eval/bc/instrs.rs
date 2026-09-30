@@ -48,6 +48,7 @@ use crate::eval::bc::repr::BcInstrRepr;
 use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::bc::writer::BcStatementLocations;
+use crate::eval::runtime::frame_span::FrameSpan;
 use crate::pagable::StarlarkDeserialize;
 use crate::pagable::StarlarkDeserializeContext;
 use crate::pagable::StarlarkSerialize;
@@ -112,6 +113,7 @@ fn empty_instrs() -> &'static [u64] {
             arg: BcInstrEndArg {
                 end_addr: BcAddr(0),
                 slow_args: Vec::new(),
+                dictnpop_spans: Box::default(),
                 local_names: Box::default(),
             },
             _align: [],
@@ -532,13 +534,18 @@ impl<'v> BcInstrsWriter<'v> {
 
     pub(crate) fn finish(
         mut self,
-        slow_args: Vec<(BcAddr, BcInstrSlowArg<'v>)>,
-        stmt_locs: BcStatementLocations<'v>,
+        mut slow_args: Vec<(BcAddr, BcInstrSlowArg<'v>)>,
+        dictnpop_spans: Box<[FrameSpan<'v>]>,
+        mut stmt_locs: BcStatementLocations<'v>,
         local_names: Box<[StringValue<'v>]>,
     ) -> BcInstrs<'v> {
+        slow_args.shrink_to_fit();
+        stmt_locs.locs.shrink_to_fit();
+        stmt_locs.stmts.shrink_to_fit();
         self.write::<InstrEnd>(BcInstrEndArg {
             end_addr: self.ip(),
             slow_args,
+            dictnpop_spans,
             local_names,
         });
         // We cannot destructure `self` to fetch `instrs` because `Self` has `drop,
@@ -585,7 +592,12 @@ mod tests {
         let mut bc = BcInstrsWriter::<'static>::new();
         bc.write::<InstrConst>((Value::new_bool(true), BcSlot(0).to_out()));
         bc.write::<InstrReturn>(BcSlot(0).to_in());
-        let bc = bc.finish(Vec::new(), BcStatementLocations::new(), local_names);
+        let bc = bc.finish(
+            Vec::new(),
+            Box::default(),
+            BcStatementLocations::new(),
+            local_names,
+        );
         if mem::size_of::<usize>() == 8 {
             assert_eq!(
                 "0: Const True ->&abc; 24: Return &abc; 32: End",

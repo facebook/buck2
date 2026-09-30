@@ -128,6 +128,30 @@ error: Value of type `list` is not hashable
 }
 
 #[test]
+fn test_dict_key_spans_after_nested_dicts() {
+    let mut a = Assert::new();
+    let source = "\
+def dicts(good_key, bad_key):
+    first = {good_key: {good_key: 0}}
+    return {good_key: first, bad_key: 1}
+";
+    a.module("dicts.bzl", source);
+    for prelude in [source, "load('dicts.bzl', 'dicts')"] {
+        a.is_true(&format!("{prelude}\ndicts(0, 1)[1] == 1"));
+        for (key, message) in [("0", "key repeated"), ("[]", "not hashable")] {
+            let error = a.fail(&format!("{prelude}\ndicts(0, {key})"), message);
+            assert_eq!(
+                "bad_key",
+                error
+                    .span()
+                    .expect("dictionary key error span")
+                    .source_span(),
+            );
+        }
+    }
+}
+
+#[test]
 fn test_do_not_inline_too_large_functions() {
     let mut a = Assert::new();
     a.module("a0.bzl", "def a0(): return noop()");

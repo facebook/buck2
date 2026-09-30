@@ -162,6 +162,7 @@ pub(crate) struct BcWriter<'f> {
     instrs: BcInstrsWriter<'f>,
     /// Instruction spans, used for errors.
     slow_args: Vec<(BcAddr, BcInstrSlowArg<'f>)>,
+    dictnpop_spans: Vec<FrameSpan<'f>>,
     /// For each statement, will store the span for the first instruction and any instruction after a call.
     stmt_locs: BcStatementLocations<'f>,
     /// The last-written opcode
@@ -199,6 +200,7 @@ impl<'f> BcWriter<'f> {
         BcWriter {
             instrs: BcInstrsWriter::new(),
             slow_args: Vec::new(),
+            dictnpop_spans: Vec::new(),
             stmt_locs: BcStatementLocations::new(),
             last_opcode: BcOpcode::End,
             stack_size: 0,
@@ -217,6 +219,7 @@ impl<'f> BcWriter<'f> {
         let BcWriter {
             instrs,
             slow_args: spans,
+            dictnpop_spans,
             stmt_locs,
             last_opcode: _,
             stack_size,
@@ -233,7 +236,12 @@ impl<'f> BcWriter<'f> {
         assert!(for_loops.is_empty());
         Bc {
             local_count: local_names.len().try_into().unwrap(),
-            instrs: instrs.finish(spans, stmt_locs, local_names),
+            instrs: instrs.finish(
+                spans,
+                dictnpop_spans.into_boxed_slice(),
+                stmt_locs,
+                local_names,
+            ),
             max_stack_size,
             max_loop_depth,
         }
@@ -246,6 +254,19 @@ impl<'f> BcWriter<'f> {
     /// Current offset.
     fn ip(&self) -> BcAddr {
         self.instrs.ip()
+    }
+
+    pub(crate) fn add_dictnpop_spans(
+        &mut self,
+        spans: impl IntoIterator<Item = FrameSpan<'f>>,
+    ) -> u32 {
+        let offset = self
+            .dictnpop_spans
+            .len()
+            .try_into()
+            .expect("too many dictionary key spans");
+        self.dictnpop_spans.extend(spans);
+        offset
     }
 
     /// Version of instruction write with explicit slow arg arg.
@@ -285,13 +306,7 @@ impl<'f> BcWriter<'f> {
         span: FrameSpan<'f>,
         arg: I::Arg,
     ) -> (BcAddr, *const I::Arg) {
-        self.write_instr_ret_arg_explicit::<I>(
-            BcInstrSlowArg {
-                span,
-                ..Default::default()
-            },
-            arg,
-        )
+        self.write_instr_ret_arg_explicit::<I>(BcInstrSlowArg { span }, arg)
     }
 
     pub(crate) fn write_instr_explicit<I: BcInstr<'f>>(
@@ -304,13 +319,7 @@ impl<'f> BcWriter<'f> {
 
     /// Write an instruction.
     pub(crate) fn write_instr<I: BcInstr<'f>>(&mut self, span: FrameSpan<'f>, arg: I::Arg) {
-        self.write_instr_explicit::<I>(
-            BcInstrSlowArg {
-                span,
-                ..Default::default()
-            },
-            arg,
-        );
+        self.write_instr_explicit::<I>(BcInstrSlowArg { span }, arg);
     }
 
     /// Write load constant instruction.

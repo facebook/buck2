@@ -54,31 +54,35 @@ pub(crate) struct Bc<'v> {
 }
 
 impl<'v> Bc<'v> {
-    /// Find span for instruction.
+    /// Find the end instruction and its argument from an instruction pointer.
     #[cold]
     #[inline(never)]
-    pub(crate) fn slow_arg_at_ptr<'b>(addr_ptr: BcPtrAddr<'b>) -> &'b BcInstrSlowArg<'v> {
+    pub(crate) fn end_arg_at_ptr<'b>(
+        addr_ptr: BcPtrAddr<'b>,
+    ) -> (BcPtrAddr<'b>, &'b BcInstrEndArg<'v>) {
         let mut ptr = addr_ptr;
         loop {
             let opcode = ptr.get_opcode();
             if opcode == BcOpcode::End {
-                let end_of_bc = ptr.get_instr::<'v, InstrEnd>();
-                let BcInstrEndArg {
-                    slow_args,
-                    end_addr,
-                    ..
-                } = &end_of_bc.arg;
-                let code_start_ptr = ptr.sub(*end_addr);
-                let addr = addr_ptr.offset_from(code_start_ptr);
-                for (next_addr, next_span) in slow_args {
-                    if *next_addr == addr {
-                        return next_span;
-                    }
-                }
-                panic!("span not found for addr: {addr}");
+                return (ptr, &ptr.get_instr::<'v, InstrEnd>().arg);
             }
             ptr = ptr.add(opcode.size_of_repr());
         }
+    }
+
+    /// Find span for instruction.
+    #[cold]
+    #[inline(never)]
+    pub(crate) fn slow_arg_at_ptr<'b>(addr_ptr: BcPtrAddr<'b>) -> &'b BcInstrSlowArg<'v> {
+        let (end_ptr, end_arg) = Self::end_arg_at_ptr(addr_ptr);
+        let code_start_ptr = end_ptr.sub(end_arg.end_addr);
+        let addr = addr_ptr.offset_from(code_start_ptr);
+        for (next_addr, next_span) in &end_arg.slow_args {
+            if *next_addr == addr {
+                return next_span;
+            }
+        }
+        panic!("span not found for addr: {addr}");
     }
 
     #[cold]

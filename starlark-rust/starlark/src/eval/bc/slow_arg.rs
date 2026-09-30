@@ -28,8 +28,6 @@ use crate::values::StringValue;
 pub(crate) struct BcInstrSlowArg<'v> {
     /// Instruction code span.
     pub(crate) span: FrameSpan<'v>,
-    /// Spans when an instruction needs multiple spans.
-    pub(crate) spans: Vec<FrameSpan<'v>>,
 }
 
 #[derive(Debug, StarlarkPagable)]
@@ -38,6 +36,8 @@ pub(crate) struct BcInstrEndArg<'v> {
     pub(crate) end_addr: BcAddr,
     /// Spans of all instructions.
     pub(crate) slow_args: Vec<(BcAddr, BcInstrSlowArg<'v>)>,
+    /// Dictionary key spans, indexed by the offset stored in `InstrDictNPop`.
+    pub(crate) dictnpop_spans: Box<[FrameSpan<'v>]>,
     /// Frame local names.
     pub(crate) local_names: Box<[StringValue<'v>]>,
 }

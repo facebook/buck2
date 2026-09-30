@@ -997,13 +997,13 @@ impl<'v> InstrNoFlowImpl<'v> for InstrDictOfConstsImpl {
 }
 
 impl<'v> InstrNoFlowImpl<'v> for InstrDictNPopImpl {
-    type Arg = (BcSlotInRange, BcSlotOut);
+    type Arg = (BcSlotInRange, BcSlotOut, u32);
 
     fn run_with_args(
         eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         ip: BcPtrAddr,
-        (npops, target): &(BcSlotInRange, BcSlotOut),
+        (npops, target, spans_offset): &(BcSlotInRange, BcSlotOut, u32),
     ) -> crate::Result<()> {
         let items = frame.get_bc_slot_range(*npops);
         debug_assert!(items.len().is_multiple_of(2));
@@ -1014,16 +1014,18 @@ impl<'v> InstrNoFlowImpl<'v> for InstrDictNPopImpl {
             let k = match k.get_hashed() {
                 Ok(k) => k,
                 Err(e) => {
-                    let spans = &Bc::slow_arg_at_ptr(ip).spans;
-                    return Err(add_span_to_expr_error(e, spans[i], eval).into_error());
+                    let (_, end_arg) = Bc::end_arg_at_ptr(ip);
+                    let span = end_arg.dictnpop_spans[*spans_offset as usize + i];
+                    return Err(add_span_to_expr_error(e, span, eval).into_error());
                 }
             };
             let prev = dict.insert_hashed(k, v);
             if prev.is_some() {
                 let e =
                     crate::Error::new_other(EvalError::DuplicateDictionaryKey(k.key().to_string()));
-                let spans = &Bc::slow_arg_at_ptr(ip).spans;
-                return Err(add_span_to_expr_error(e, spans[i], eval).into_error());
+                let (_, end_arg) = Bc::end_arg_at_ptr(ip);
+                let span = end_arg.dictnpop_spans[*spans_offset as usize + i];
+                return Err(add_span_to_expr_error(e, span, eval).into_error());
             }
         }
         let dict = eval.heap().alloc_dict(dict);
