@@ -238,7 +238,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
         }
 
         let remote_executor_new = |options: &RemoteExecutorOptions,
-                                   re_use_case: &RemoteExecutorUseCase,
+                                   re_client: &ManagedRemoteExecutionClient,
                                    re_action_key: &Option<String>,
                                    remote_cache_enabled: bool,
                                    dependencies: &[RemoteExecutorDependency],
@@ -250,7 +250,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 revision: self.revision.dupe(),
                 materializer: self.materializer.dupe(),
                 incremental_db_state: self.incremental_db_state.dupe(),
-                re_client: self.get_prepared_re_client(*re_use_case),
+                re_client: re_client.dupe(),
                 invocation_re_use_case: self.invocation_re_use_case,
                 re_action_key: re_action_key.clone(),
                 re_max_queue_time: options.re_max_queue_time,
@@ -305,6 +305,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     applicability = testing
                 )?;
 
+                let re_client = self.get_prepared_re_client(remote_options.re_use_case);
+
                 let cache_checker_new = || -> (Arc<dyn PreparedCommandOptionalExecutor>, Arc<dyn PreparedCommandOptionalExecutor>) {
                     if disable_caching {
                         return (
@@ -319,7 +321,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 artifact_fs: artifact_fs.dupe(),
                                 materializer: self.materializer.dupe(),
                                 incremental_db_state: self.incremental_db_state.dupe(),
-                                re_client: self.get_prepared_re_client(remote_options.re_use_case),
+                                re_client: re_client.dupe(),
                                 invocation_re_use_case: self.invocation_re_use_case,
                                 re_action_key: remote_options.re_action_key.clone(),
                                 upload_all_actions: self.upload_all_actions,
@@ -340,7 +342,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 artifact_fs: artifact_fs.dupe(),
                                 materializer: self.materializer.dupe(),
                                 incremental_db_state: self.incremental_db_state.dupe(),
-                                re_client: self.get_prepared_re_client(remote_options.re_use_case),
+                                re_client: re_client.dupe(),
                                 invocation_re_use_case: self.invocation_re_use_case,
                                 re_action_key: remote_options.re_action_key.clone(),
                                 upload_all_actions: self.upload_all_actions,
@@ -362,7 +364,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         RemoteEnabledExecutor::Remote(remote) if !self.strategy.ban_remote() => {
                             Some(Arc::new(remote_executor_new(
                                 remote,
-                                &remote_options.re_use_case,
+                                &re_client,
                                 &remote_options.re_action_key,
                                 remote_options.remote_cache_enabled,
                                 &remote_options.dependencies,
@@ -381,7 +383,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             let local = local_executor_new(local);
                             let remote = remote_executor_new(
                                 remote,
-                                &remote_options.re_use_case,
+                                &re_client,
                                 &remote_options.re_action_key,
                                 remote_options.remote_cache_enabled,
                                 &remote_options.dependencies,
@@ -443,7 +445,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     Arc::new(CacheUploader::new(
                         artifact_fs.dupe(),
                         self.materializer.dupe(),
-                        self.get_prepared_re_client(remote_options.re_use_case),
+                        re_client.dupe(),
                         self.invocation_re_use_case,
                         remote_options.re_properties.clone(),
                         None,
@@ -458,7 +460,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     Arc::new(CacheUploader::new(
                         artifact_fs.dupe(),
                         self.materializer.dupe(),
-                        self.get_prepared_re_client(remote_options.re_use_case),
+                        re_client.dupe(),
                         self.invocation_re_use_case,
                         remote_options.re_properties.clone(),
                         max_bytes,

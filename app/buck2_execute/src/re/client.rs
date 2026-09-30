@@ -253,6 +253,7 @@ impl RemoteExecutionClient {
     pub async fn action_cache(
         &self,
         action_digest: ActionDigest,
+        metadata: &RemoteExecutionMetadata,
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
     ) -> buck2_error::Result<Option<ActionResultResponse>> {
@@ -263,7 +264,7 @@ impl RemoteExecutionClient {
             .op(self
                 .data
                 .client
-                .action_cache(action_digest, use_case, platform))
+                .action_cache(action_digest, metadata, use_case, platform))
             .await
     }
 
@@ -304,7 +305,7 @@ impl RemoteExecutionClient {
         files_with_digest: Vec<NamedDigest>,
         directories: Vec<remote_execution::Path>,
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
-        use_case: RemoteExecutorUseCase,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<()> {
         self.data
             .uploads
@@ -312,7 +313,7 @@ impl RemoteExecutionClient {
                 files_with_digest,
                 directories,
                 inlined_blobs_with_digest,
-                use_case,
+                metadata,
             ))
             .await
     }
@@ -360,12 +361,12 @@ impl RemoteExecutionClient {
     pub async fn materialize_files(
         &self,
         files: Vec<NamedDigestWithPermissions>,
-        use_case: RemoteExecutorUseCase,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<()> {
         let stat = self
             .data
             .materializes
-            .op(self.data.client.materialize_files(files, use_case))
+            .op(self.data.client.materialize_files(files, metadata))
             .await?;
         self.data.local_cache.update(&stat);
         Ok(())
@@ -393,11 +394,11 @@ impl RemoteExecutionClient {
     pub async fn download_blob(
         &self,
         digest: &TDigest,
-        use_case: RemoteExecutorUseCase,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<Vec<u8>> {
         self.data
             .downloads
-            .op(self.data.client.download_blob(digest, use_case))
+            .op(self.data.client.download_blob(digest, metadata))
             .await
             .map(|r| {
                 self.data.local_cache.update(&r.1);
@@ -408,11 +409,11 @@ impl RemoteExecutionClient {
     pub async fn upload_blob(
         &self,
         blob: InlinedBlobWithDigest,
-        use_case: RemoteExecutorUseCase,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<TDigest> {
         self.data
             .uploads
-            .op(self.data.client.upload_blob(blob, use_case))
+            .op(self.data.client.upload_blob(blob, metadata))
             .await
     }
 
@@ -452,11 +453,11 @@ impl RemoteExecutionClient {
         &self,
         digests: Vec<TDigest>,
         ttl: Duration,
-        use_case: RemoteExecutorUseCase,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<()> {
         self.data
             .extend_digest_ttl
-            .op(self.data.client.extend_digest_ttl(digests, ttl, use_case))
+            .op(self.data.client.extend_digest_ttl(digests, ttl, metadata))
             .await
     }
 
@@ -1069,6 +1070,7 @@ impl RemoteExecutionClientImpl {
     async fn action_cache(
         &self,
         action_digest: ActionDigest,
+        metadata: &RemoteExecutionMetadata,
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
     ) -> buck2_error::Result<Option<ActionResultResponse>> {
@@ -1086,7 +1088,7 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_action_cache_client()
                 .get_action_result(
-                    &use_case.metadata(None),
+                    metadata,
                     ActionResultRequest {
                         digest: action_digest.to_re(),
                         platform: Some(re_platform(platform)),
@@ -1124,7 +1126,7 @@ impl RemoteExecutionClientImpl {
         files_with_digest: Vec<NamedDigest>,
         directories: Vec<remote_execution::Path>,
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
-        use_case: RemoteExecutorUseCase,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<()> {
         with_error_handler(
             "upload_files_and_directories",
@@ -1132,7 +1134,7 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_cas_client()
                 .upload(
-                    &use_case.metadata(None),
+                    metadata,
                     UploadRequest {
                         files_with_digest: Some(files_with_digest),
                         inlined_blobs_with_digest: Some(inlined_blobs_with_digest),
@@ -1826,7 +1828,7 @@ impl RemoteExecutionClientImpl {
     pub async fn download_blob(
         &self,
         digest: &TDigest,
-        use_case: RemoteExecutorUseCase,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<(Vec<u8>, TLocalCacheStats)> {
         let re_action = format!("download_blob for digest {digest}");
         let response = with_error_handler(
@@ -1835,7 +1837,7 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_cas_client()
                 .download(
-                    &use_case.metadata(None),
+                    metadata,
                     DownloadRequest {
                         inlined_digests: Some(vec![digest.clone()]),
                         ..Default::default()
@@ -1858,13 +1860,13 @@ impl RemoteExecutionClientImpl {
     pub async fn upload_blob(
         &self,
         blob: InlinedBlobWithDigest,
-        use_case: RemoteExecutorUseCase,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<TDigest> {
         with_error_handler(
             "upload_blob",
             self.get_session_id(),
             self.client()
-                .upload_blob_with_digest(blob.blob, blob.digest, &use_case.metadata(None))
+                .upload_blob_with_digest(blob.blob, blob.digest, metadata)
                 .await,
         )
     }
@@ -1872,7 +1874,7 @@ impl RemoteExecutionClientImpl {
     async fn materialize_files(
         &self,
         files: Vec<NamedDigestWithPermissions>,
-        use_case: RemoteExecutorUseCase,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<TLocalCacheStats> {
         if buck2_env!(
             "BUCK2_TEST_FAIL_RE_DOWNLOADS",
@@ -1885,8 +1887,6 @@ impl RemoteExecutionClientImpl {
                 RE::TCodeReasonGroup::DIGEST_NOT_FOUND,
             ));
         }
-
-        let use_case = &use_case;
 
         let futs = chunks(files, self.download_chunk_size).map(|chunk| async move {
             let _permit = self
@@ -1906,7 +1906,7 @@ impl RemoteExecutionClientImpl {
                 self.client()
                     .get_cas_client()
                     .download(
-                        &use_case.metadata(None),
+                        metadata,
                         DownloadRequest {
                             file_digests: Some(chunk),
                             ..Default::default()
@@ -1959,9 +1959,8 @@ impl RemoteExecutionClientImpl {
         &self,
         digests: Vec<TDigest>,
         ttl: Duration,
-        use_case: RemoteExecutorUseCase,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<()> {
-        let use_case = &use_case;
         // TODO(arr): use batch API from RE when it becomes available
         with_error_handler(
             "extend_digest_ttl",
@@ -1969,7 +1968,7 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_cas_client()
                 .extend_digest_ttl(
-                    &use_case.metadata(None),
+                    metadata,
                     ExtendDigestsTtlRequest {
                         digests,
                         ttl: ttl.as_secs() as i64,
