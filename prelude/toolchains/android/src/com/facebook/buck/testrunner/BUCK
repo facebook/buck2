@@ -202,7 +202,6 @@ buck_java_library(
         "InstrumentationTestRunnerForClout.java",
         "RunShellCommand.java",
     ],
-    required_for_source_only_abi = True,
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
     source = "11", # @oss-enable
