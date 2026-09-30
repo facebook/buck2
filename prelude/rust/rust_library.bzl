@@ -413,7 +413,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         doctests_enabled = False
 
     if toolchain_info.nightly_features:
-        rustdoc_test_metadata_kind = MetadataKind("full") if toolchain_info.advanced_unstable_linking else MetadataKind("link")
+        rustdoc_test_metadata_kind = MetadataKind("full") if toolchain_info.advanced_unstable_linking and not ctx.attrs.proc_macro else MetadataKind("link")
         rustdoc_test_params = build_params(
             rule = RuleType("binary"),
             proc_macro = ctx.attrs.proc_macro,
