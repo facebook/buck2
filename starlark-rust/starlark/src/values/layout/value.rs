@@ -131,8 +131,11 @@ enum ValueValueError {
 /// reads. `None`, the booleans, the empty string and the empty containers are statics
 /// ([`AllocStaticSimple`](crate::values::AllocStaticSimple)) in no heap, and count as frozen.
 #[derive(Clone_, Copy_, Dupe_, ProvidesStaticType, Allocative)]
-#[allocative(skip)] // Value is owned by heap.
+#[allocative(skip)]
+// Value is owned by heap.
 // One possible change: moving to Forward during GC.
+// Transparent so that a `Deferred<Value>` can hand out `&Value` over its word.
+#[repr(transparent)]
 pub struct Value<'v>(pub(crate) Pointer<'v>);
 
 impl Default for Value<'_> {

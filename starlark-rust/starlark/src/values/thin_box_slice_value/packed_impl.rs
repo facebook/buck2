@@ -26,6 +26,11 @@ use static_assertions::assert_eq_size;
 
 use crate::pagable::StarlarkDeserialize;
 use crate::pagable::StarlarkSerialize;
+use crate::values::Freeze;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
+use crate::values::Trace;
+use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::thin_box_slice_value::thin_box::AllocatedThinBoxSlice;
 
@@ -89,6 +94,18 @@ impl<'v> PackedImpl<'v> {
             Either::Right(allocated) => allocated,
         }
     }
+
+    fn as_mut_slice(&mut self) -> &mut [Value<'v>] {
+        let word = ptr::from_mut(self);
+        if AllocatedThinBoxSlice::<Value<'v>>::is_word(self.0.get()) {
+            // SAFETY: as in `unpack`, with exclusive access through `&mut self`.
+            unsafe { &mut *word.cast::<AllocatedThinBoxSlice<Value<'v>>>() }
+        } else {
+            // SAFETY: as in `unpack`, with exclusive access through `&mut self`. A traced
+            // `Value` stays a `Value`, so the word keeps its inline form.
+            std::slice::from_mut(unsafe { &mut *word.cast::<Value<'v>>() })
+        }
+    }
 }
 
 impl<'v> From<Either<Value<'v>, AllocatedThinBoxSlice<Value<'v>>>> for PackedImpl<'v> {
@@ -128,7 +145,29 @@ impl<'v> allocative::Allocative for PackedImpl<'v> {
 /// A `Box<[Value<'v>]>` in one word.
 ///
 /// Bit packing keeps this pointer-sized and allocation free for lengths zero and one.
+// Transparent so that a `Deferred<ThinBoxSliceValue>` can hand out a reference over its word.
+#[repr(transparent)]
 pub struct ThinBoxSliceValue<'v>(PackedImpl<'v>);
+
+unsafe impl<'v> Trace<'v> for ThinBoxSliceValue<'v> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        self.0.as_mut_slice().trace(tracer)
+    }
+}
+
+impl<'v> Freeze<'v> for ThinBoxSliceValue<'v> {
+    type Frozen<'fv> = ThinBoxSliceValue<'fv>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        // Collecting the fallible iterator directly loses the exact length, so the
+        // thin slice would be built through a growing `Vec`.
+        let mut values = Vec::with_capacity(self.len());
+        for v in self.iter() {
+            values.push(v.freeze(freezer)?);
+        }
+        Ok(ThinBoxSliceValue::from_iter(values))
+    }
+}
 
 assert_eq_size!(Option<ThinBoxSliceValue<'static>>, usize);
 
@@ -164,6 +203,12 @@ impl<'v> Deref for ThinBoxSliceValue<'v> {
     #[inline]
     fn deref(&self) -> &Self::Target {
         self.0.as_slice()
+    }
+}
+
+impl<'v> Clone for ThinBoxSliceValue<'v> {
+    fn clone(&self) -> Self {
+        self.iter().copied().collect()
     }
 }
 

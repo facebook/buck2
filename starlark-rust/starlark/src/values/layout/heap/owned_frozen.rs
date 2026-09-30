@@ -137,6 +137,18 @@ where
         }
     }
 
+    /// The owner and the brand-erased value, for storing the value beside the owner in
+    /// another shape. The owner keeps the value alive exactly as it did here.
+    ///
+    /// # SAFETY
+    ///
+    /// The value must stay paired with the returned owner, or one that keeps its heap
+    /// alive, and be given a brand again only through that owner. Dropping the owner
+    /// while keeping the value leaves the value pointing into a freed heap.
+    pub(crate) unsafe fn into_parts(self) -> (OwnedFrozen<()>, T) {
+        (OwnedFrozen::for_heap(self.heap_ref), self.v)
+    }
+
     /// Forget the brand of `v`.
     ///
     /// # SAFETY
@@ -526,6 +538,21 @@ where
             heap_ref: owner.heap_ref,
             // SAFETY: Caller promised
             v: unsafe { OwnedFrozen::<T>::erase_brand(v) },
+        }
+    }
+
+    /// Reattaches a value whose brand was erased by [`OwnedFrozen::into_parts`] to its owner.
+    ///
+    /// # SAFETY
+    ///
+    /// `owner` must be the heap `v` was erased from, or one that keeps that heap alive.
+    pub(crate) unsafe fn from_erased(owner: OwnedFrozenRef<'f, ()>, v: T) -> Self
+    where
+        for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv>,
+    {
+        Self {
+            heap_ref: owner.heap_ref,
+            v,
         }
     }
 

@@ -43,7 +43,11 @@ use crate::values::layout::heap::repr::AValueHeapEntry;
 use crate::values::types::int::inline_int::InlineInt;
 
 /// Tagged pointer logically equivalent to `*mut AValueHeader`.
+///
+/// Transparent so that `Value`, which is transparent over it, has the layout
+/// of `NonZeroUsize`: `Deferred` reinterprets a word as a `Value` on that basis.
 #[derive(Clone, Copy, Dupe, PartialEq, Eq, Hash, Allocative)]
+#[repr(transparent)]
 pub(crate) struct RawPointer(pub(crate) NonZeroUsize);
 
 impl Debug for RawPointer {
@@ -177,6 +181,7 @@ impl RawPointer {
 
 // A tagged pointer to a value, branded with the heap it belongs to.
 #[derive(Clone, Copy, Dupe)]
+#[repr(transparent)]
 pub(crate) struct Pointer<'p> {
     ptr: RawPointer,
     // Make sure we are invariant in all the types/lifetimes, and are not `Send` or `Sync`
@@ -253,9 +258,12 @@ impl PointerTags {
 }
 
 /// The tag patterns no `Value` carries. Anything that must share a word with a `Value` and be
-/// told apart from one by the low bits alone (`ThinBoxSliceValue`'s out-of-line storage) tags
-/// itself with these.
+/// told apart from one by the low bits alone tags itself with these: the first two belong to
+/// `ThinBoxSliceValue`'s out-of-line storage, the third to `Deferred`.
 pub(crate) const TAGS_NEVER_VALUE: [usize; 3] = [0b011, 0b110, 0b111];
+/// The word of a `Deferred` field that has not been read yet. Never a `Value` and never a
+/// `ThinBoxSliceValue`, so an unread field of either type is told apart by this pattern alone.
+pub(crate) const TAG_DEFERRED: usize = TAGS_NEVER_VALUE[2];
 
 // `PointerTags` and `TAGS_NEVER_VALUE` partition the tag space, so a new `Value` encoding has to
 // take its pattern from the latter and move that pattern's users off it.
