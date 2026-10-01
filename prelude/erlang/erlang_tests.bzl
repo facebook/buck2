@@ -290,7 +290,12 @@ def link_output(ctx: AnalysisContext, beam: Artifact, data_dir: [Artifact, None]
     }
     if data_dir:
         link_spec[data_dir.basename] = data_dir
-    return ctx.actions.symlinked_dir(ctx.attrs.name, link_spec, has_content_based_path = False)
+
+    # Keep this name short. Common Test names each run's log directory after the last two
+    # components of this path (`ct_run:get_name/1`, here `__<target>__.suite`), followed by the
+    # suite, the group and, for a single-case run, the case name. That name must fit the 255-byte
+    # file name limit, or CT cannot create the log directory and runs nothing.
+    return ctx.actions.symlinked_dir("suite", link_spec, has_content_based_path = False)
 
 def generate_file_map_target(suite: str, prefix: str | None, dir_name: str) -> str | None:
     suite_dir = paths.dirname(suite)
