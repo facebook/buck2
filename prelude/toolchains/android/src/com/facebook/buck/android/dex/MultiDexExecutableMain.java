@@ -160,16 +160,11 @@ public class MultiDexExecutableMain {
         Optional.ofNullable(minSdkVersionString).map(Integer::parseInt);
     Path d8OutputDir = Files.createTempDirectory("d8_output_dir");
     Path canaryClassDirectory = Files.createTempDirectory("canary_classes");
-    ImmutableList<Path> filesToDex =
-        Files.readAllLines(Paths.get(filesToDexList)).stream()
-            .map(Paths::get)
-            .collect(ImmutableList.toImmutableList());
+    ImmutableList<Path> filesToDex = readInputPaths(Paths.get(filesToDexList));
     ImmutableSet<Path> classpathFiles =
         classpathFilesList == null
             ? ImmutableSet.of()
-            : Files.readAllLines(classpathFilesList).stream()
-                .map(Paths::get)
-                .collect(ImmutableSet.toImmutableSet());
+            : ImmutableSet.copyOf(readInputPaths(classpathFilesList));
     ImmutableSet<Path> classpath =
         ImmutableSet.copyOf(Sets.difference(classpathFiles, ImmutableSet.copyOf(filesToDex)));
 
@@ -209,9 +204,7 @@ public class MultiDexExecutableMain {
         Preconditions.checkState(primaryDexFilesToDexList != null);
         Preconditions.checkState(primaryDexPatternsPathString == null);
         ImmutableList<Path> primaryDexFilesToDex =
-            Files.readAllLines(Paths.get(primaryDexFilesToDexList)).stream()
-                .map(Paths::get)
-                .collect(ImmutableList.toImmutableList());
+            readInputPaths(Paths.get(primaryDexFilesToDexList));
         Predicate<String> matchesAllFiles = f -> true;
         PrimaryDexClassNamesHolder primaryDexClassNamesHolder =
             getPrimaryDexClassNames(primaryDexFilesToDex, matchesAllFiles, deobfuscateFunction);
@@ -388,6 +381,22 @@ public class MultiDexExecutableMain {
     // existing .dex file to overflow.
     createSecondaryDexOutputWithCanaries(
         d8OutputDir, moduleDexFilesEmitted, canariesCreated, minSdkVersion);
+  }
+
+  static ImmutableList<Path> readInputPaths(Path inputList) throws IOException {
+    ImmutableList.Builder<Path> inputs = ImmutableList.builder();
+    for (String line : Files.readAllLines(inputList)) {
+      Path path = Paths.get(line);
+      String name = path.getFileName().toString();
+      // JarSplitter emits an empty, comment-free ZIP for the unused side of a split. Avoid
+      // passing these to D8: its classpath lookup scans every provider for each requested class.
+      // A valid ZIP this small has no entries, so use its size without opening it.
+      if ((name.endsWith(".jar") || name.endsWith(".zip")) && Files.size(path) == ZipFile.ENDHDR) {
+        continue;
+      }
+      inputs.add(path);
+    }
+    return inputs.build();
   }
 
   private static ImmutableList<String> getDeobfuscatedClassNames(
