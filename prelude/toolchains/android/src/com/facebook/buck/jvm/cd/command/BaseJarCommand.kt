@@ -122,7 +122,8 @@ class BaseJarCommand(
           ResolvedJavacOptionsSerializer.deserialize(model.resolvedJavacOptions),
           buildTarget,
           RelPath.get("buck-out/v2"),
-          RelPathSerializer.deserialize(model.annotationsPath),
+          if (model.annotationsPath.isEmpty()) scratchDir.get().resolveRel("__gen__")
+          else RelPathSerializer.deserialize(model.annotationsPath),
           ImmutableMap.copyOf(jarToJarDirMap),
       )
     }

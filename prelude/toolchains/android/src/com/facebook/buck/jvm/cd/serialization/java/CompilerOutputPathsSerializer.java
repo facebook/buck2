@@ -37,7 +37,8 @@ public class CompilerOutputPathsSerializer {
         tmpDir.get().resolveRel("__classes__"),
         toRelPath(outputPaths.getOutputJarDirPath()),
         toOptionalRelPath(outputPaths.getAbiJarPath()),
-        toRelPath(outputPaths.getAnnotationPath()),
+        toOptionalRelPath(outputPaths.getAnnotationPath())
+            .orElseGet(() -> tmpDir.get().resolveRel("__gen__")),
         outputPaths.getPathToSourcesList().isEmpty()
             ? tmpDir.map(p -> p.resolveRel("__srcs__")).get()
             : toRelPath(outputPaths.getPathToSourcesList()),

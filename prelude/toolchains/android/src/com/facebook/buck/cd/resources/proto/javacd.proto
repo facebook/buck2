@@ -71,6 +71,7 @@ message BaseJarCommand {
   repeated string compileTimeClasspathSnapshotPaths = 19;
   reserved 20;
   reserved "pathToClasses";
+  // Optional. When omitted, generated sources stay in BUCK_SCRATCH_PATH.
   string annotationsPath = 23;
   // Alternating ABI jar and directory paths, in classpath order. An empty
   // directory keeps jar-level dep-file tracking. Mutually exclusive with
@@ -119,6 +120,7 @@ message OutputPathsValue {
     reserved "classesDir";
     string outputJarDirPath = 2;
     string abiJarPath = 3;
+    // Optional. When omitted, generated sources stay in BUCK_SCRATCH_PATH.
     string annotationPath = 4;
     string pathToSourcesList = 5;
     string workingDirectory = 6;

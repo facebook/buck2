@@ -88,7 +88,7 @@ def encode_target_type(target_type: TargetType) -> str:
 
 OutputPaths = record(
     jar = Artifact,
-    annotations = Artifact,
+    annotations = Artifact | None,
 )
 
 def qualified_name_with_subtarget(label: Label) -> str:
@@ -108,19 +108,25 @@ def get_qualified_name(label: Label, target_type: TargetType) -> str:
         TargetType("source_only_abi"): base_qualified_name(label) + "[source-only-abi]",
     }[target_type]
 
-def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: Label, uses_content_based_paths: bool) -> OutputPaths:
+def define_output_paths(
+    actions: AnalysisActions,
+    prefix: [str, None],
+    label: Label,
+    uses_content_based_paths: bool,
+    declare_annotations: bool = True,
+) -> OutputPaths:
     # currently, javacd requires that at least some outputs are in the root
     # output dir. so we put all of them there. If javacd is updated we
     # could consolidate some of these into one subdir.
     return OutputPaths(
         jar = declare_prefixed_output(actions, prefix, "jar/{}.jar".format(label.name), uses_content_based_paths),
-        annotations = declare_prefixed_output(actions, prefix, "__gen__", uses_content_based_paths, dir = True),
+        annotations = declare_prefixed_output(actions, prefix, "__gen__", uses_content_based_paths, dir = True) if declare_annotations else None,
     )
 
 def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetType) -> struct:
     paths = struct(
         outputJarDirPath = cmd_args(paths.jar.as_output(), parent = 1),
-        annotationPath = paths.annotations.as_output(),
+        annotationPath = paths.annotations.as_output() if paths.annotations else None,
         outputJarPath = paths.jar.as_output(),
     )
 
@@ -316,7 +322,7 @@ def encode_base_jar_command(
         ],
         resolvedJavacOptions = resolved_java_options,
         jarParameters = jar_parameters,
-        annotationsPath = output_paths.annotations.as_output(),
+        annotationsPath = output_paths.annotations.as_output() if output_paths.annotations else None,
     )
 
 def setup_dep_files(
@@ -586,7 +592,7 @@ def generate_abi_jars(
             source_abi_identifier = declare_prefixed_name("source_abi", actions_identifier)
             source_abi_target_type = TargetType("source_abi")
             source_abi_qualified_name = get_qualified_name(label, source_abi_target_type)
-            source_abi_output_paths = define_output_paths(actions, source_abi_identifier, label, uses_content_based_paths)
+            source_abi_output_paths = define_output_paths(actions, source_abi_identifier, label, uses_content_based_paths, declare_annotations = False)
             source_abi_classpath_jars_tag = actions.artifact_tag()
             source_abi_dir = declare_prefixed_output(actions, source_abi_identifier, "source-abi-dir", uses_content_based_paths, dir = True)
 
@@ -624,7 +630,7 @@ def generate_abi_jars(
             source_only_abi_identifier = declare_prefixed_name("source_only_abi", actions_identifier)
             source_only_abi_target_type = TargetType("source_only_abi")
             source_only_abi_qualified_name = get_qualified_name(label, source_only_abi_target_type)
-            source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier, label, uses_content_based_paths)
+            source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier, label, uses_content_based_paths, declare_annotations = False)
             source_only_abi_classpath_jars_tag = actions.artifact_tag()
             source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", uses_content_based_paths, dir = True)
             if source_only_abi_compiling_deps == None:
