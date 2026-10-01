@@ -150,11 +150,12 @@ public class CompilerCommandDefaultsTest {
         com.facebook.buck.cd.model.kotlin.KotlinExtraParams.newBuilder()
             .setStandardLibraryClassPath("stdlib.jar")
             .setAnnotationProcessingClassPath("kapt.jar")
-            .setKotlinClassesDir("classes")
             .setLanguageVersion("2.2")
             .build();
 
-    var parameters = KotlinExtraParamsSerializer.deserialize(javaOptions(), model);
+    var parameters =
+        KotlinExtraParamsSerializer.deserialize(
+            javaOptions(), model, Optional.of(RelPath.get("scratch")));
 
     assertEquals(
         Optional.of(
@@ -170,5 +171,57 @@ public class CompilerCommandDefaultsTest {
                 .setSourceLevel("8")
                 .setTargetLevel("8"))
         .build();
+  }
+
+  @Test
+  public void classesUseScratchForResourcesAndJarEntries() {
+    for (var type :
+        List.of(
+            com.facebook.buck.cd.model.java.BuildTargetValue.Type.LIBRARY,
+            com.facebook.buck.cd.model.java.BuildTargetValue.Type.SOURCE_ABI,
+            com.facebook.buck.cd.model.java.BuildTargetValue.Type.SOURCE_ONLY_ABI)) {
+      var model =
+          com.facebook.buck.cd.model.java.BaseJarCommand.newBuilder()
+              .setBuildTargetValue(
+                  com.facebook.buck.cd.model.java.BuildTargetValue.newBuilder().setType(type))
+              .setResolvedJavacOptions(javaOptions())
+              .setJarParameters(
+                  com.facebook.buck.cd.model.java.JarParameters.newBuilder().setJarPath("out.jar"))
+              .addResourcesMap(
+                  com.facebook.buck.cd.model.common.RelPathMapEntry.newBuilder()
+                      .setKey("input/resource.txt")
+                      .setValue("pkg/resource.txt"))
+              .build();
+      var command = BaseJarCommand.Companion.fromProto(model, Optional.of(RelPath.get("scratch")));
+      var classes = RelPath.get("scratch/__classes__");
+      assertEquals(classes, command.getCompilerOutputPathsValue().getByType(type).getClassesDir());
+      assertEquals(List.of(classes), List.copyOf(command.getJarParameters().getEntriesToJar()));
+      assertEquals(
+          Map.of(
+              RelPath.get("input/resource.txt"),
+              RelPath.get("scratch/__classes__/pkg/resource.txt")),
+          command.getResourcesMap());
+    }
+  }
+
+  @Test
+  public void kotlinClassesUseScratchOrPersistentIncrementalState() {
+    for (int mode = 0; mode < 3; mode++) {
+      var model =
+          com.facebook.buck.cd.model.kotlin.KotlinExtraParams.newBuilder()
+              .setStandardLibraryClassPath("stdlib.jar")
+              .setAnnotationProcessingClassPath("kapt.jar")
+              .setLanguageVersion("2.2")
+              .setIncrementalStateDir("state")
+              .setShouldKotlincRunIncrementally(mode == 1)
+              .setShouldKsp2RunIncrementally(mode == 2)
+              .build();
+      var parameters =
+          KotlinExtraParamsSerializer.deserialize(
+              javaOptions(), model, Optional.of(RelPath.get("scratch")));
+      assertEquals(
+          RelPath.get((mode == 0 ? "scratch" : "state") + "/__kotlin_classes__").toAbsolutePath(),
+          parameters.getKotlinClassesDir());
+    }
   }
 }

@@ -578,13 +578,6 @@ def build_kotlin_library(
                     ]
                 }
 
-            if outputs and outputs.kotlin_classes:
-                extra_sub_targets = extra_sub_targets | {
-                    "kotlin_classes": [
-                        DefaultInfo(default_output = outputs.kotlin_classes),
-                    ]
-                }
-
             for subtarget_name, tracking_artifact in tracking_outputs.items():
                 extra_sub_targets = extra_sub_targets | {
                     subtarget_name: [

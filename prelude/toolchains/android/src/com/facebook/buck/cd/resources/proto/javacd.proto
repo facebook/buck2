@@ -115,7 +115,8 @@ message OutputPathsValue {
   string libraryTargetFullyQualifiedName = 4;
 
   message OutputPaths {
-    string classesDir = 1;
+    reserved 1;
+    reserved "classesDir";
     string outputJarDirPath = 2;
     string abiJarPath = 3;
     string annotationPath = 4;

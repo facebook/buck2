@@ -34,7 +34,7 @@ public class CompilerOutputPathsSerializer {
   public static CompilerOutputPaths deserialize(
       OutputPathsValue.OutputPaths outputPaths, Optional<RelPath> tmpDir) {
     return new CompilerOutputPaths(
-        toRelPath(outputPaths.getClassesDir()),
+        tmpDir.get().resolveRel("__classes__"),
         toRelPath(outputPaths.getOutputJarDirPath()),
         toOptionalRelPath(outputPaths.getAbiJarPath()),
         toRelPath(outputPaths.getAnnotationPath()),

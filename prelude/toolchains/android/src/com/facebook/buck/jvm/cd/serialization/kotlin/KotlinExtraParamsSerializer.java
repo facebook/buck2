@@ -11,6 +11,7 @@
 package com.facebook.buck.jvm.cd.serialization.kotlin;
 
 import com.facebook.buck.core.filesystems.AbsPath;
+import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.cd.serialization.AbsPathSerializer;
 import com.facebook.buck.jvm.cd.serialization.java.ResolvedJavacOptionsSerializer;
@@ -39,7 +40,8 @@ public class KotlinExtraParamsSerializer {
   /** Protocol buffer model to internal buck representation. */
   public static KotlinExtraParams deserialize(
       com.facebook.buck.cd.model.java.ResolvedJavacOptions resolvedJavacOptions,
-      com.facebook.buck.cd.model.kotlin.KotlinExtraParams kotlinExtraParams) {
+      com.facebook.buck.cd.model.kotlin.KotlinExtraParams kotlinExtraParams,
+      Optional<RelPath> scratchDir) {
     return new KotlinExtraParams(
         kotlinExtraParams.getExtraClassPathsList().stream()
             .map(AbsPathSerializer::deserialize)
@@ -86,7 +88,11 @@ public class KotlinExtraParamsSerializer {
             .map(AbsPathSerializer::deserialize),
         kotlinExtraParams.getShouldKsp2RunIncrementally(),
         kotlinExtraParams.getLanguageVersion(),
-        AbsPathSerializer.deserialize(kotlinExtraParams.getKotlinClassesDir()),
+        (kotlinExtraParams.getShouldKotlincRunIncrementally()
+                    || kotlinExtraParams.getShouldKsp2RunIncrementally()
+                ? AbsPathSerializer.deserialize(kotlinExtraParams.getIncrementalStateDir())
+                : scratchDir.get().toAbsolutePath())
+            .resolve("__kotlin_classes__"),
         Optional.of(kotlinExtraParams.getJavaBinary()).filter(s -> !s.isEmpty()),
         kotlinExtraParams.getApplicabilityClasspathList().stream()
             .map(AbsPathSerializer::deserialize)

@@ -112,7 +112,6 @@ def create_jar_artifact_kotlincd(
     uses_content_based_paths = uses_content_based_paths or kotlin_toolchain.allow_experimental_content_based_path_hashing
 
     output_paths = define_output_paths(actions, actions_identifier, label, uses_content_based_paths)
-    kotlin_classes = declare_prefixed_output(actions, actions_identifier, "__kotlin_classes__", uses_content_based_paths, dir = True)
 
     # Only create class-abi inline for class-mode targets. For source_only targets,
     # the fallback in cd_jar_creator_util.bzl (create_abi) handles class-abi generation
@@ -219,7 +218,6 @@ def create_jar_artifact_kotlincd(
         should_ksp2_run_incrementally = should_ksp2_run_incrementally,
         incremental_state_dir = incremental_state_dir,
         language_version = language_version,
-        kotlin_classes = kotlin_classes,
         source_only_abi_applicability_classpath = source_only_abi_applicability_classpath,
     )
 
@@ -327,7 +325,6 @@ def create_jar_artifact_kotlincd(
                 incremental_state_dir = incremental_state_dir,
                 abi_jar_snapshot = abi_jar_snapshot,
                 used_jars_json = used_jars_json,
-                kotlin_classes = kotlin_classes,
             ),
             proto,
             tracking_outputs,
@@ -363,7 +360,6 @@ def _encode_kotlin_extra_params(
     should_ksp2_run_incrementally: bool,
     incremental_state_dir: Artifact | None,
     language_version: str,
-    kotlin_classes: Artifact,
     source_only_abi_applicability_classpath: cmd_args = cmd_args(),
 ):
     kosabiPluginOptionsMap = {}
@@ -399,7 +395,6 @@ def _encode_kotlin_extra_params(
         shouldKsp2RunIncrementally = should_ksp2_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         languageVersion = language_version,
-        kotlinClassesDir = kotlin_classes.as_output(),
         javaBinary = cmd_args(kotlin_toolchain.java_binary_for_kotlincd[RunInfo], delimiter = " ") if kotlin_toolchain.java_binary_for_kotlincd else "",
         applicabilityClasspath = source_only_abi_applicability_classpath,
     )

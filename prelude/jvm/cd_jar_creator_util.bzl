@@ -88,7 +88,6 @@ def encode_target_type(target_type: TargetType) -> str:
 
 OutputPaths = record(
     jar = Artifact,
-    classes = Artifact,
     annotations = Artifact,
 )
 
@@ -115,13 +114,11 @@ def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: La
     # could consolidate some of these into one subdir.
     return OutputPaths(
         jar = declare_prefixed_output(actions, prefix, "jar/{}.jar".format(label.name), uses_content_based_paths),
-        classes = declare_prefixed_output(actions, prefix, "__classes__", uses_content_based_paths, dir = True),
         annotations = declare_prefixed_output(actions, prefix, "__gen__", uses_content_based_paths, dir = True),
     )
 
 def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetType) -> struct:
     paths = struct(
-        classesDir = paths.classes.as_output(),
         outputJarDirPath = cmd_args(paths.jar.as_output(), parent = 1),
         annotationPath = paths.annotations.as_output(),
         outputJarPath = paths.jar.as_output(),
@@ -140,7 +137,6 @@ def encode_jar_params(remove_classes: list[str], output_paths: OutputPaths, mani
         removeEntryPredicate = struct(
             patterns = remove_classes,
         ),
-        entriesToJar = [output_paths.classes.as_output()],
         manifestFile = manifest_file,
     )
 
@@ -314,7 +310,7 @@ def encode_base_jar_command(
         resourcesMap = [
             {
                 "key": v,
-                "value": cmd_args([output_paths.classes.as_output(), "/", k], delimiter = ""),
+                "value": k,
             }
             for (k, v) in resources_map.items()
         ],
@@ -595,14 +591,7 @@ def generate_abi_jars(
             source_abi_dir = declare_prefixed_output(actions, source_abi_identifier, "source-abi-dir", uses_content_based_paths, dir = True)
 
             if kotlin_extra_params_builder:
-                source_abi_kotlin_classes = declare_prefixed_output(
-                    actions,
-                    source_abi_identifier,
-                    "__kotlin_classes__",
-                    uses_content_based_paths,
-                    dir = True,
-                )
-                source_abi_kotlin_extra_params = kotlin_extra_params_builder(kotlin_classes = source_abi_kotlin_classes)
+                source_abi_kotlin_extra_params = kotlin_extra_params_builder()
                 source_abi_encode_abi_command = encode_abi_command(kotlin_extra_params = source_abi_kotlin_extra_params, provide_classpath_snapshot = False)
             else:
                 source_abi_encode_abi_command = encode_abi_command
@@ -642,14 +631,7 @@ def generate_abi_jars(
                 source_only_abi_compiling_deps = get_source_only_abi_compiling_deps(actions, compiling_deps_tset, source_only_abi_deps)
 
             if kotlin_extra_params_builder:
-                source_only_abi_kotlin_classes = declare_prefixed_output(
-                    actions,
-                    source_only_abi_identifier,
-                    "__kotlin_classes__",
-                    uses_content_based_paths,
-                    dir = True,
-                )
-                source_only_abi_kotlin_extra_params = kotlin_extra_params_builder(kotlin_classes = source_only_abi_kotlin_classes)
+                source_only_abi_kotlin_extra_params = kotlin_extra_params_builder()
                 source_only_abi_encode_abi_command = encode_abi_command(
                     kotlin_extra_params = source_only_abi_kotlin_extra_params, provide_classpath_snapshot = False
                 )

@@ -76,22 +76,51 @@ class BaseJarCommand(
       if (paths.isEmpty()) {
         classpath.addAll(RelPathSerializer.toListOfRelPath(model.compileTimeClasspathPathsList))
       }
+      val buildTarget = BuildTargetValueSerializer.deserialize(model.buildTargetValue)
+      val outputPathsValue =
+          CompilerOutputPathsValueSerializer.deserialize(model.outputPathsValue, scratchDir)
+      val outputPaths =
+          when {
+            buildTarget.isSourceOnlyAbi -> outputPathsValue.sourceOnlyAbiCompilerOutputPath
+            buildTarget.isSourceAbi -> outputPathsValue.sourceAbiCompilerOutputPath
+            else -> outputPathsValue.libraryCompilerOutputPath
+          }
+      val resources = RelPathSerializer.toResourceMap(model.resourcesMapList)
+      val jarParameters =
+          if (model.hasJarParameters()) {
+            val parameters = JarParametersSerializer.deserialize(model.jarParameters)
+            if (parameters.entriesToJar.isEmpty()) {
+              parameters.copy(
+                  entriesToJar =
+                      ImmutableSortedSet.orderedBy(RelPath.comparator())
+                          .add(outputPaths.classesDir)
+                          .build(),
+              )
+            } else {
+              parameters
+            }
+          } else {
+            null
+          }
       return BaseJarCommand(
           AbiGenerationMode.CLASS,
           model.abiGenerationMode,
           model.trackClassUsage,
           model.trackClassUsage,
-          CompilerOutputPathsValueSerializer.deserialize(model.outputPathsValue, scratchDir),
+          outputPathsValue,
           classpath.build(),
           RelPathSerializer.toListOfRelPath(model.compileTimeClasspathSnapshotPathsList),
           RelPathSerializer.toSortedSetOfRelPath(model.getJavaSrcsList()),
-          RelPathSerializer.toResourceMap(model.resourcesMapList),
-          if (model.hasJarParameters()) JarParametersSerializer.deserialize(model.jarParameters)
-          else null,
+          ImmutableMap.copyOf(
+              resources.mapValues { (_, destination) ->
+                outputPaths.classesDir.resolveRel(destination.toString())
+              },
+          ),
+          jarParameters,
           AbsPathSerializer.deserialize(""),
           JdkProvidedInMemoryJavac.createJsr199Javac(),
           ResolvedJavacOptionsSerializer.deserialize(model.resolvedJavacOptions),
-          BuildTargetValueSerializer.deserialize(model.buildTargetValue),
+          buildTarget,
           RelPath.get("buck-out/v2"),
           RelPathSerializer.deserialize(model.annotationsPath),
           ImmutableMap.copyOf(jarToJarDirMap),
