@@ -89,13 +89,15 @@ def _get_at_most_one_attribute(ctx: AnalysisContext, xs: list[typing.Any], attr_
 def _get_target(ctx: AnalysisContext) -> str:
     return ctx.label.package + ":" + ctx.label.name
 
-def _get_actool_command(
+def get_actool_flags(ctx: AnalysisContext, specs: list[AppleAssetCatalogSpec]) -> list[typing.Any]:
+    """Returns the flags `compile_apple_asset_catalog` passes to actool for `specs`."""
+    return _actool_flags(ctx, _merge_asset_catalog_specs(ctx, specs), get_apple_asset_catalogs_compilation_options(ctx))
+
+def _actool_flags(
     ctx: AnalysisContext,
     info: AppleAssetCatalogSpec,
-    catalog_output: OutputArtifact,
-    plist_output: OutputArtifact,
     compilation_options: AppleAssetCatalogsCompilationOptions,
-) -> cmd_args:
+) -> list[typing.Any]:
     external_name = get_apple_sdk_name(ctx)
     sdk_metadata = get_apple_sdk_metadata_for_sdk_name(external_name)
     target_device = sdk_metadata.target_device_flags
@@ -104,20 +106,13 @@ def _get_actool_command(
     if not actool_platform:
         actool_platform = external_name
 
-    actool = ctx.attrs._apple_toolchain[AppleToolchainInfo].actool
-    actool_command = cmd_args(
-        [
-            actool,
-            "--platform",
-            actool_platform,
-            "--minimum-deployment-target",
-            get_bundle_min_target_version(ctx, ctx.attrs.binary),
-            "--compile",
-            '"$TMPDIR"',
-            "--output-partial-info-plist",
-            plist_output,
-        ]
-        + target_device
+    return [
+        "--platform",
+        actool_platform,
+        "--minimum-deployment-target",
+        get_bundle_min_target_version(ctx, ctx.attrs.binary),
+    ] + (
+        target_device
         + (["--app-icon", info.app_icon.value] if info.app_icon else [])
         + (["--launch-image", info.launch_image.value] if info.launch_image else [])
         + (["--notices"] if compilation_options.enable_notices else [])
@@ -127,6 +122,26 @@ def _get_actool_command(
         + ["--optimization", compilation_options.optimization]
         + ["--output-format", compilation_options.output_format]
         + compilation_options.extra_flags
+    )
+
+def _get_actool_command(
+    ctx: AnalysisContext,
+    info: AppleAssetCatalogSpec,
+    catalog_output: OutputArtifact,
+    plist_output: OutputArtifact,
+    compilation_options: AppleAssetCatalogsCompilationOptions,
+) -> cmd_args:
+    flags = _actool_flags(ctx, info, compilation_options)
+    actool = ctx.attrs._apple_toolchain[AppleToolchainInfo].actool
+    actool_command = cmd_args(
+        [actool]
+        + flags
+        + [
+            "--compile",
+            '"$TMPDIR"',
+            "--output-partial-info-plist",
+            plist_output,
+        ]
         + info.dirs
     )
 
