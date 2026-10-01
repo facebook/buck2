@@ -56,6 +56,7 @@ _RESOURCE_BUNDLE_FIELDS = [
     "privacy_manifest",
     "resource_group",
     "resource_group_map",
+    "versioned_macos_bundle",
     "within_view",
     "visibility",
 ] + get_apple_info_plist_build_system_identification_attrs().keys()

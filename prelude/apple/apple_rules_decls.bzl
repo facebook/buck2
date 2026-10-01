@@ -92,6 +92,7 @@ load(
     "get_swift_incremental_file_hashing_attrs",
     "get_swift_incremental_logging_attrs",
     "get_swift_incremental_remote_outputs_attrs",
+    "get_versioned_macos_bundle_attr",
 )
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
@@ -1768,6 +1769,7 @@ apple_resource_bundle = prelude_rule(
             "product_name_from_module_name": attrs.bool(default = False),
             "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
             "universal": attrs.option(attrs.bool(), default = None),
+            "versioned_macos_bundle": get_versioned_macos_bundle_attr(),
             # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
             "_apple_toolchain": get_apple_resources_toolchain_attr(),
             # Because `apple_resource_bundle` is a proxy for `apple_bundle`, we need to get `name`

@@ -80,6 +80,9 @@ def _versioned_macos_bundle_default_value():
         "config//features/apple/constraints:versioned_macos_bundle_true": True,
     })
 
+def get_versioned_macos_bundle_attr():
+    return attrs.bool(default = _versioned_macos_bundle_default_value())
+
 def _include_build_info_file_default_value():
     return select({
         "DEFAULT": select({
@@ -155,7 +158,7 @@ def _apple_bundle_like_common_attrs():
         "provisioning_profile_filter": attrs.option(attrs.string(), default = None),
         "skip_adhoc_resigning_scrubbed_frameworks": attrs.option(attrs.bool(), default = None),
         "strict_provisioning_profile_search": attrs.option(attrs.bool(), default = None),
-        "versioned_macos_bundle": attrs.bool(default = _versioned_macos_bundle_default_value()),
+        "versioned_macos_bundle": get_versioned_macos_bundle_attr(),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_bundling_cache_buster": attrs.option(attrs.string(), default = None),
