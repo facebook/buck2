@@ -9,7 +9,11 @@
 
 import unittest
 
-from cxx.dist_lto.tools.dist_lto_opt_gnu import _fbcc_prefix_end, _filter_flags
+from cxx.dist_lto.tools.dist_lto_opt_gnu import (
+    _compiler_wrapper_passthrough_arg_index,
+    _compiler_wrapper_prefix_end,
+    _filter_flags,
+)
 
 
 class TestDistLtoOpt(unittest.TestCase):
@@ -47,62 +51,72 @@ class TestDistLtoOpt(unittest.TestCase):
             ],
         )
 
-    def test_fbcc_prefix_end_tp2_with_log_fbcc(self):
-        """TP2 toolchain: --log-fbcc is consumed by fbcc and included in prefix."""
+    def test_compiler_wrapper_prefix_end_with_consumed_arg(self):
         opt_args = [
             "--",
-            "buck-out/fbcc",
-            "--cc=fbcode/third-party-buck/platform010/build/llvm-fb/19/bin/clang++",
+            "buck-out/compiler-wrapper",
+            "--cc=toolchain/clang++",
             "--log-fbcc=False",
             "--target=x86_64-redhat-linux-gnu",
             "-nostdinc",
         ]
-        self.assertEqual(_fbcc_prefix_end(opt_args), 4)
+        self.assertEqual(_compiler_wrapper_prefix_end(opt_args), 4)
 
-    def test_fbcc_prefix_end_buckified_no_log_fbcc(self):
-        """Buckified toolchain: --target is NOT consumed by fbcc and must be
-        excluded from prefix to avoid breaking -cc1 mode."""
+    def test_compiler_wrapper_prefix_end_excludes_passthrough_args(self):
         opt_args = [
             "--",
-            "buck-out/fbcc",
-            "--cc=buck-out/v2/art/fbsource/third-party/llvm-fb/19/__build/bin/clang++__/out/clang++",
+            "buck-out/compiler-wrapper",
+            "--cc=buck-out/toolchain/clang++",
             "--target=x86_64-redhat-linux-gnu",
             "-nostdinc",
             "-nostdinc++",
         ]
-        self.assertEqual(_fbcc_prefix_end(opt_args), 3)
+        self.assertEqual(_compiler_wrapper_prefix_end(opt_args), 3)
 
-    def test_fbcc_prefix_end_minimal(self):
-        """Minimal case: only --cc= present."""
+    def test_compiler_wrapper_prefix_end_minimal(self):
         opt_args = [
             "--",
-            "buck-out/fbcc",
-            "--cc=some/clang++",
+            "buck-out/compiler-wrapper",
+            "--cc=toolchain/clang++",
         ]
-        self.assertEqual(_fbcc_prefix_end(opt_args), 3)
+        self.assertEqual(_compiler_wrapper_prefix_end(opt_args), 3)
 
-    def test_fbcc_prefix_end_with_fbcc_debug_info(self):
-        """--fbcc-create-external-debug-info is consumed by fbcc."""
+    def test_compiler_wrapper_prefix_end_multitoken_command(self):
         opt_args = [
             "--",
-            "buck-out/fbcc",
-            "--cc=some/clang++",
+            "/usr/bin/python3",
+            "buck-out/compiler-wrapper.py",
+            "--cc=toolchain/clang++",
+            "--log-fbcc=False",
+            "--target=x86_64-redhat-linux-gnu",
+        ]
+        self.assertEqual(_compiler_wrapper_passthrough_arg_index(opt_args), 3)
+        self.assertEqual(_compiler_wrapper_prefix_end(opt_args), 5)
+
+    def test_compiler_wrapper_prefix_end_requires_passthrough_arg(self):
+        with self.assertRaisesRegex(ValueError, "missing a --cc argument"):
+            _compiler_wrapper_prefix_end(["--", "buck-out/compiler-wrapper"])
+
+    def test_compiler_wrapper_prefix_end_with_consumed_debug_arg(self):
+        opt_args = [
+            "--",
+            "buck-out/compiler-wrapper",
+            "--cc=toolchain/clang++",
             "--fbcc-create-external-debug-info=/tmp/foo.dwo",
             "--target=x86_64-redhat-linux-gnu",
         ]
-        self.assertEqual(_fbcc_prefix_end(opt_args), 4)
+        self.assertEqual(_compiler_wrapper_prefix_end(opt_args), 4)
 
-    def test_fbcc_prefix_end_multiple_consumed_flags(self):
-        """Multiple fbcc-consumed flags in a row."""
+    def test_compiler_wrapper_prefix_end_multiple_consumed_args(self):
         opt_args = [
             "--",
-            "buck-out/fbcc",
-            "--cc=some/clang++",
+            "buck-out/compiler-wrapper",
+            "--cc=toolchain/clang++",
             "--log-fbcc=True",
             "--fbcc-create-external-debug-info=/tmp/foo.dwo",
             "--target=x86_64-redhat-linux-gnu",
         ]
-        self.assertEqual(_fbcc_prefix_end(opt_args), 5)
+        self.assertEqual(_compiler_wrapper_prefix_end(opt_args), 5)
 
     def test_filter_flags_hhvm_case_rev_0f8618f31(self):
         inputs = [
