@@ -350,11 +350,11 @@ impl<'v> ProviderCollection<'v> {
         &self,
         index: Value<'v>,
         op: GetOp,
-    ) -> buck2_error::Result<Either<Value<'v>, Arc<ProviderId>>> {
+    ) -> buck2_error::Result<Either<Value<'v>, &'v ProviderId>> {
         match index.as_provider_callable() {
             Some(callable) => {
-                let provider_id = callable.id()?.dupe();
-                match self.providers.get(provider_id.as_ref()) {
+                let provider_id = callable.id()?.as_ref();
+                match self.providers.get(provider_id) {
                     Some(v) => Ok(Either::Left(v.to_value())),
                     None => Ok(Either::Right(provider_id)),
                 }
