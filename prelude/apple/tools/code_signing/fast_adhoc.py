@@ -15,6 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
+from xml.parsers.expat import ExpatError
 
 # @oss-disable[end= ]: from ..meta_only.codesign_rust.check_adhoc_signature import (
     # @oss-disable[end= ]: read_signature_info,
@@ -24,7 +25,9 @@ from .apple_platform import ApplePlatform
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-def _find_executable_for_signed_path(path: Path, platform: ApplePlatform) -> Path:
+def _find_executable_for_signed_path(
+    path: Path, platform: ApplePlatform
+) -> Optional[Path]:
     extension = path.suffix
     if extension not in [".app", ".appex", ".framework"]:
         return path
@@ -32,13 +35,20 @@ def _find_executable_for_signed_path(path: Path, platform: ApplePlatform) -> Pat
     contents_subdir = "Contents/MacOS" if platform.is_desktop() else ""
     contents_dir = path / contents_subdir
 
-    # Read binary name from Info.plist
+    # Bundles without a readable CFBundleExecutable (e.g. versioned macOS
+    # frameworks, synthetic test bundles) cannot be proven pre-signed, so
+    # callers fall back to the normal signing path.
     info_plist_path = path / (
         "Contents/Info.plist" if platform.is_desktop() else "Info.plist"
     )
-    with open(info_plist_path, "rb") as file:
-        plist = plistlib.load(file)
-    executable_name = plist["CFBundleExecutable"]
+    try:
+        with open(info_plist_path, "rb") as file:
+            plist = plistlib.load(file)
+    except (OSError, plistlib.InvalidFileException, ExpatError):
+        return None
+    executable_name = plist.get("CFBundleExecutable")
+    if not isinstance(executable_name, str):
+        return None
 
     return contents_dir / executable_name
 
@@ -115,6 +125,11 @@ def _read_signature_info_macos(
     if check_entitlements:
         # Adhoc entitlements do not require postprocessing, so we just need to check existence
         binary_path = _find_executable_for_signed_path(path, platform)
+        if binary_path is None:
+            _LOGGER.info(
+                f"  Could not find an executable for `{path}`, not skipping adhoc signing"
+            )
+            return None
         otool_arg: List[Union[str, Path]] = [
             "/usr/bin/otool",
             "-s",
@@ -146,6 +161,11 @@ def _read_signature_info(
         return _read_signature_info_macos(path, platform, check_entitlements)
     # @oss-disable[end= ]: elif sys.platform == "linux":
         # @oss-disable[end= ]: binary = _find_executable_for_signed_path(path, platform)
+        # @oss-disable[end= ]: if binary is None:
+            # @oss-disable[end= ]: _LOGGER.info(
+                # @oss-disable[end= ]: f"  Could not find an executable for `{path}`, not skipping adhoc signing"
+            # @oss-disable[end= ]: )
+            # @oss-disable[end= ]: return None
         # @oss-disable[end= ]: return read_signature_info(binary, check_entitlements)
     return None
 
