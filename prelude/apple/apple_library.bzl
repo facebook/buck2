@@ -61,6 +61,7 @@ load(
     "IndexStoreFactory",
 )
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_flags.bzl", "cxx_attr_flags")
 load(
     "@prelude//cxx:cxx_library.bzl",
     "CxxLibraryOutput",  # @unused Used as a type
@@ -624,6 +625,7 @@ def apple_library_rule_constructor_params_and_swift_providers(
         extra_distributed_thin_lto_opt_outputs_merger = _extra_distributed_thin_lto_opt_outputs_merger,
         swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
         compiler_flags = ctx.attrs.compiler_flags,
+        cxx_flags = cxx_attr_flags(ctx),
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,

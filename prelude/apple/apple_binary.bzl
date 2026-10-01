@@ -41,6 +41,7 @@ load(
 )
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
+load("@prelude//cxx:cxx_flags.bzl", "cxx_attr_flags")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps", "cxx_attr_link_style")
 load(
     "@prelude//cxx:cxx_sources.bzl",
@@ -197,6 +198,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             link_groups_force_static_follows_dependents = False,
             swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
             compiler_flags = ctx.attrs.compiler_flags + extension_compiler_flags,
+            cxx_flags = cxx_attr_flags(ctx),
             lang_compiler_flags = ctx.attrs.lang_compiler_flags,
             preprocessor_flags = ctx.attrs.preprocessor_flags,
             lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
