@@ -261,6 +261,20 @@ impl CacheUploader {
                     if let Err(rejected) = self.check_upload_permission(info).await? {
                         return Ok(rejected);
                     }
+                    // The entry outlives any one build, and this runs after every cache hit of
+                    // the action, so a lookup is cheaper than materializing and uploading again.
+                    // A failed lookup is treated as a miss.
+                    if matches!(
+                        self.re_client
+                            .action_cache(
+                                remote_dep_file_action.action,
+                                &self.platform.to_re_platform(),
+                            )
+                            .await,
+                        Ok(Some(_))
+                    ) {
+                        return Ok(CacheUploadOutcome::DepFileEntryExists);
+                    }
                     let remote_dep_file = dep_file_bundle
                         .make_remote_dep_file(
                             info.digest_config,

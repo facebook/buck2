@@ -1192,9 +1192,13 @@ async def test_re_dep_file_remote_upload(buck: Buck) -> None:
 @env("BUCK_LOG", "buck2_action_impl=debug,buck2_execute_impl::executors::caching=debug")
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
 async def test_re_dep_file_cache_hit_upload(buck: Buck) -> None:
+    # The upload is skipped when the dep file entry already exists, so the key must be fresh.
+    cache_buster = f"test.cache_buster={random_string()}"
     target = [
         "root//:dep_files",
         "--remote-only",
+        "-c",
+        cache_buster,
         "-c",
         # Ensure we don't get a dep file cache hit
         "test.remote_dep_file_cache_enabled=false",
@@ -1229,6 +1233,8 @@ async def test_re_dep_file_cache_hit_upload(buck: Buck) -> None:
     await buck.build(
         "root//:dep_files",
         "--remote-only",
+        "-c",
+        cache_buster,
         "-c",
         "test.remote_dep_file_cache_enabled=true",
         "-c",

@@ -105,6 +105,7 @@ pub enum CacheUploadOutcome {
     ExecutorUploadDisabled,
     HadDepFileBundle,
     NonLocalExecution,
+    DepFileEntryExists,
 }
 
 impl CacheUploadOutcome {
@@ -136,6 +137,7 @@ impl CacheUploadOutcome {
             Self::FailedOther { .. } => buck2_data::UploadResult::FailedOther,
             Self::ExecutorUploadDisabled { .. } => buck2_data::UploadResult::ExecutorUploadDisabled,
             Self::HadDepFileBundle => buck2_data::UploadResult::HadDepFileBundle,
+            Self::DepFileEntryExists => buck2_data::UploadResult::DepFileEntryExists,
             Self::NonLocalExecution => buck2_data::UploadResult::NonLocalExecution,
         }
     }
@@ -145,6 +147,7 @@ impl CacheUploadOutcome {
             Self::Success
             | Self::ExecutorUploadDisabled { .. }
             | Self::HadDepFileBundle
+            | Self::DepFileEntryExists
             | Self::NonLocalExecution => String::new(),
             Self::RejectedOutputExceedsLimit { max_bytes, .. } => {
                 format!("Rejected: OutputExceedsLimit({max_bytes})")
@@ -165,6 +168,7 @@ impl CacheUploadOutcome {
             Self::Success
             | Self::ExecutorUploadDisabled { .. }
             | Self::HadDepFileBundle
+            | Self::DepFileEntryExists
             | Self::NonLocalExecution => None,
             Self::RejectedOutputExceedsLimit { .. } | Self::RejectedSymlinkOutput { .. } => None,
             Self::RejectedPermissionDenied { .. } => Some(TCode::PERMISSION_DENIED.to_string()),
@@ -206,6 +210,7 @@ impl CacheUploadOutcome {
             }
             Self::ExecutorUploadDisabled { .. }
             | Self::HadDepFileBundle
+            | Self::DepFileEntryExists
             | Self::NonLocalExecution => {
                 info!("Cache upload for `{}` not attempted", digest_str);
             }

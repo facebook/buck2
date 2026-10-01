@@ -1664,6 +1664,9 @@ impl Action for RunAction {
             && (allow_cache_upload || supports_remote_dep_files || force_cache_upload()?)
         {
             let mut re_result = result.action_result.take();
+            // TODO(jtbraun): D121882458 moves this upload off the action's critical path. Worth
+            // adopting if missing entries, e.g. after a cache bust, make these uploads visible in
+            // build wall time; its in-flight limit has to rise first or it drops most seeding uploads.
             let upload_result = ctx
                 .cache_upload(
                     &action_and_blobs,
