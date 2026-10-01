@@ -503,7 +503,7 @@ impl CacheUploader {
             stdout_digest,
             stderr_raw,
             stderr_digest,
-            execution_metadata: TExecutedActionMetadata {
+            execution_metadata: Box::new(TExecutedActionMetadata {
                 worker,
                 execution_dir: "".to_owned(),
                 execution_start_timestamp: systemtime_to_ttimestamp(
@@ -514,7 +514,7 @@ impl CacheUploader {
                 )?,
                 execution_attempts: 1,
                 ..Default::default()
-            },
+            }),
             ..Default::default()
         };
 

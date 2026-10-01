@@ -1231,7 +1231,7 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
         stderr_raw: Some(action_result.stderr_raw),
         stderr_digest: action_result.stderr_digest.map(tdigest_from),
 
-        execution_metadata: TExecutedActionMetadata {
+        execution_metadata: Box::new(TExecutedActionMetadata {
             worker: execution_metadata.worker,
             queued_timestamp: ttimestamp_from(execution_metadata.queued_timestamp),
             worker_start_timestamp: ttimestamp_from(execution_metadata.worker_start_timestamp),
@@ -1263,7 +1263,7 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
             execution_attempts: 0,
             last_queued_timestamp: Default::default(),
             ..Default::default()
-        },
+        }),
         ..Default::default()
     };
 

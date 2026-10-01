@@ -98,7 +98,7 @@ pub struct TActionResult2 {
     pub stdout_digest: Option<TDigest>,
     pub stderr_raw: Option<Vec<u8>>,
     pub stderr_digest: Option<TDigest>,
-    pub execution_metadata: TExecutedActionMetadata,
+    pub execution_metadata: Box<TExecutedActionMetadata>,
     pub auxiliary_metadata: Vec<TAny>,
     pub output_symlinks: Vec<TSymlink>,
     // Compatibility with the Thrift structs
