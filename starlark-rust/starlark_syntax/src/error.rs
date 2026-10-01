@@ -176,6 +176,15 @@ impl Error {
             Error(self.0.map(ErrorKind::into_internal_error))
         }
     }
+
+    /// Change error kind to deferred read error.
+    pub fn into_deferred_read_error(self) -> Error {
+        if let ErrorKind::DeferredRead(_) = self.kind() {
+            self
+        } else {
+            Error(self.0.map(ErrorKind::into_deferred_read_error))
+        }
+    }
 }
 
 fn fmt_impl(this: &Error, is_debug: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -244,6 +253,9 @@ pub enum ErrorKind {
     Freeze(anyhow::Error),
     /// Indicates a logic bug in starlark
     Internal(anyhow::Error),
+    /// A field of a value restored from storage could not be read back.
+    /// Not caused by the Starlark code being evaluated.
+    DeferredRead(anyhow::Error),
     /// Error from user provided native function
     /// (but not from native functions provided by starlark crate).
     /// When a native function declares `anyhow::Result<_>`
@@ -268,6 +280,7 @@ impl ErrorKind {
             Self::Freeze(_) => None,
             Self::Parser(_) => None,
             Self::Internal(_) => None,
+            Self::DeferredRead(e) => e.source(),
             Self::Native(e) => e.source(),
             Self::Other(e) => e.source(),
         }
@@ -286,6 +299,7 @@ impl ErrorKind {
             Self::Freeze(e) => Self::Freeze(e.context(context)),
             Self::Parser(e) => Self::Parser(e.context(context)),
             Self::Internal(e) => Self::Internal(e.context(context)),
+            Self::DeferredRead(e) => Self::DeferredRead(e.context(context)),
             Self::Native(e) => Self::Native(e.context(context)),
             Self::Other(e) => Self::Other(e.context(context)),
         }
@@ -303,8 +317,27 @@ impl ErrorKind {
             | ErrorKind::Freeze(e)
             | ErrorKind::Parser(e)
             | ErrorKind::StackOverflow(e)
+            | ErrorKind::DeferredRead(e)
             | ErrorKind::Native(e)
             | ErrorKind::Other(e) => ErrorKind::Internal(e),
+        }
+    }
+
+    /// Change type to `DeferredRead`.
+    pub(crate) fn into_deferred_read_error(self) -> ErrorKind {
+        match self {
+            ErrorKind::Internal(e)
+            | ErrorKind::Fail(e)
+            | ErrorKind::Value(e)
+            | ErrorKind::Function(e)
+            | ErrorKind::Scope(e)
+            | ErrorKind::Freeze(e)
+            | ErrorKind::Parser(e)
+            | ErrorKind::StackOverflow(e)
+            | ErrorKind::RuntimeType(_, e)
+            | ErrorKind::DeferredRead(e)
+            | ErrorKind::Native(e)
+            | ErrorKind::Other(e) => ErrorKind::DeferredRead(e),
         }
     }
 }
@@ -321,6 +354,7 @@ impl fmt::Debug for ErrorKind {
             Self::Freeze(e) => fmt::Debug::fmt(e, f),
             Self::Parser(e) => fmt::Debug::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {e}"),
+            Self::DeferredRead(e) => fmt::Debug::fmt(e, f),
             Self::Native(e) => fmt::Debug::fmt(e, f),
             Self::Other(e) => fmt::Debug::fmt(e, f),
         }
@@ -339,6 +373,7 @@ impl fmt::Display for ErrorKind {
             Self::Freeze(e) => fmt::Display::fmt(e, f),
             Self::Parser(e) => fmt::Display::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {e}"),
+            Self::DeferredRead(e) => fmt::Display::fmt(e, f),
             Self::Native(e) => fmt::Display::fmt(e, f),
             Self::Other(e) => fmt::Display::fmt(e, f),
         }

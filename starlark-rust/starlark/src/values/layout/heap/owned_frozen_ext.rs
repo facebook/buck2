@@ -28,9 +28,9 @@ use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 
 use crate::any::IsStaticType;
+use crate::pagable::StarlarkSerialize;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
-use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
 use crate::values::Deferred;
 use crate::values::DeferredWord;
@@ -207,7 +207,7 @@ where
 /// without a format change.
 fn serialize_owned_frozen(
     owner: &FrozenHeapArc,
-    value: Value<'_>,
+    value: &impl StarlarkSerialize,
     serializer: &mut dyn PagableSerializer,
 ) -> pagable::Result<()> {
     // Serialize the owner heap (via pagable arc mechanism).
@@ -220,7 +220,9 @@ fn serialize_owned_frozen(
     state.ensure_chunk_index_registered(owner)?;
 
     let mut ctx = StarlarkSerializerImpl::new_with_root(serializer, state, owner);
-    ctx.serialize_value(value).map_err(|e| e.into_anyhow())?;
+    value
+        .starlark_serialize(&mut ctx)
+        .map_err(|e| e.into_anyhow())?;
 
     Ok(())
 }
@@ -245,7 +247,7 @@ fn deserialize_owned_frozen<'de, D: PagableDeserializer<'de> + ?Sized>(
 
 impl PagableSerialize for OwnedFrozen<Value<'static>> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        self.by_ref(|v| serialize_owned_frozen(self.heap_arc(), *v, serializer))
+        self.by_ref(|v| serialize_owned_frozen(self.heap_arc(), v, serializer))
     }
 }
 
@@ -258,8 +260,8 @@ impl PagableSerialize for OwnedFrozen<Value<'static>> {
 /// `Debug` and memory accounting do not materialize the value.
 ///
 /// The owner is retained from construction or deserialization until this
-/// wrapper is dropped. Deserialization currently remains eager; no pending
-/// owned values are constructed.
+/// wrapper is dropped. Deserialization is eager by default and can be deferred
+/// by the storage policy. Unread values require their storage to remain open.
 pub struct DeferredOwnedFrozen<T: DeferredWord + IsStaticType> {
     owner: OwnedFrozen<()>,
     value: Deferred<T>,
@@ -353,9 +355,7 @@ impl<T: DeferredWord + IsStaticType + Allocative> Allocative for DeferredOwnedFr
 
 impl PagableSerialize for DeferredOwnedFrozen<Value<'static>> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        // An unread value could copy its pointer through; see `Deferred`'s serialize.
-        let value = self.read().map_err(crate::Error::into_anyhow)?;
-        serialize_owned_frozen(self.owner.heap_arc(), value.value(), serializer)
+        serialize_owned_frozen(self.owner.heap_arc(), &self.value, serializer)
     }
 }
 
@@ -363,8 +363,7 @@ impl<'de> PagableDeserialize<'de> for DeferredOwnedFrozen<Value<'static>> {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        // Always resident for now, as for `Deferred`.
-        Ok(Self::new(OwnedFrozen::pagable_deserialize(deserializer)?))
+        deserialize_deferred_owned_frozen(deserializer)
     }
 }
 
@@ -375,8 +374,7 @@ where
     for<'fv> ValueTyped<'fv, T::Reinfect<'fv>>: HeapSendable<'fv> + HeapSyncable<'fv>,
 {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        let value = self.read().map_err(crate::Error::into_anyhow)?;
-        serialize_owned_frozen(self.owner.heap_arc(), value.value().to_value(), serializer)
+        serialize_owned_frozen(self.owner.heap_arc(), &self.value, serializer)
     }
 }
 
@@ -389,8 +387,27 @@ where
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        Ok(Self::new(OwnedFrozen::pagable_deserialize(deserializer)?))
+        deserialize_deferred_owned_frozen(deserializer)
     }
+}
+
+fn deserialize_deferred_owned_frozen<'de, T, D>(
+    deserializer: &mut D,
+) -> pagable::Result<DeferredOwnedFrozen<T>>
+where
+    T: DeferredWord + IsStaticType + Copy,
+    for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+    D: PagableDeserializer<'de> + ?Sized,
+{
+    let owner = OwnedFrozen::<()>::pagable_deserialize(deserializer)?;
+    let origin = owner.heap_arc().dupe();
+    StarlarkDeserializerImpl::recover_root_from_pagable_in(deserializer.as_dyn(), &origin, |ctx| {
+        // SAFETY: `owner` is the exact heap of `ctx`. The erased field stays
+        // private in the owning wrapper and every public access restores a brand.
+        let value = unsafe { Deferred::<T>::deserialize_owned(ctx) }
+            .map_err(|error| error.into_anyhow())?;
+        Ok(DeferredOwnedFrozen { owner, value })
+    })
 }
 
 impl<'de> PagableDeserialize<'de> for OwnedFrozen<Value<'static>> {
@@ -407,7 +424,7 @@ where
     for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
 {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        self.by_ref(|v| serialize_owned_frozen(self.heap_arc(), v.to_value(), serializer))
+        self.by_ref(|v| serialize_owned_frozen(self.heap_arc(), v, serializer))
     }
 }
 
@@ -438,14 +455,11 @@ mod tests {
     use crate as starlark;
     use crate::any::ProvidesStaticType;
     use crate::starlark_complex_value;
-    use crate::values::Deferred;
     use crate::values::DeferredOwnedFrozen;
     use crate::values::OwnedFrozen;
     use crate::values::StarlarkValue;
-    use crate::values::ThinBoxSliceValue;
     use crate::values::Value;
     use crate::values::ValueTyped;
-    use crate::values::any_complex::StarlarkAnyComplex;
     use crate::values::layout::heap::name::StarlarkTestHeapName;
 
     #[allow(dead_code)]
@@ -593,74 +607,680 @@ mod tests {
         assert_eq!(result, "read: contents");
     }
 
-    #[derive(
-        Debug,
-        ProvidesStaticType,
-        Allocative,
-        starlark_derive::StarlarkPagable
-    )]
-    struct ResidentFields<'v> {
-        optional: Deferred<Option<Value<'v>>>,
-        children: Deferred<ThinBoxSliceValue<'v>>,
+    #[cfg(feature = "pagable")]
+    #[cfg(fbcode_build)]
+    mod paging {
+        use std::cell::Cell;
+        use std::sync::Condvar;
+        use std::sync::Mutex;
+        use std::sync::atomic::AtomicUsize;
+        use std::sync::atomic::Ordering;
+
+        use super::*;
+        use crate::values::Deferred;
+        use crate::values::ThinBoxSliceValue;
+        use crate::values::any_complex::StarlarkAnyComplex;
+
+        #[derive(
+            Debug,
+            ProvidesStaticType,
+            Allocative,
+            starlark_derive::StarlarkPagable
+        )]
+        struct DeferredTestFields<'v> {
+            value: Deferred<Value<'v>>,
+            optional: Deferred<Option<Value<'v>>>,
+            children: Deferred<ThinBoxSliceValue<'v>>,
+            tail: u32,
+        }
+
+        crate::register_starlark_any_complex!(frozen DeferredTestFields<'_>);
+
+        type DeferredTestRoot = DeferredOwnedFrozen<
+            ValueTyped<'static, StarlarkAnyComplex<DeferredTestFields<'static>>>,
+        >;
+
+        fn deferred_test_root(present: bool, count: usize) -> DeferredTestRoot {
+            DeferredOwnedFrozen::new(OwnedFrozen::build(
+                StarlarkTestHeapName::frozen_heap_name(),
+                |heap| {
+                    heap.alloc_simple_typed(StarlarkAnyComplex {
+                        value: DeferredTestFields {
+                            value: Deferred::new(heap.alloc("single")),
+                            optional: Deferred::new(present.then(|| heap.alloc("optional"))),
+                            children: Deferred::new(
+                                (0..count)
+                                    .map(|i| heap.alloc(format!("child-{i}")))
+                                    .collect(),
+                            ),
+                            tail: 0x12345678,
+                        },
+                    })
+                },
+            ))
+        }
+
+        #[test]
+        fn test_deferred_fields_read_only_on_demand() {
+            use pagable::PagableDeserialize;
+            use pagable::PagableDeserializer;
+            use pagable::PagableSerialize;
+            use pagable::testing::TestingDeserializer;
+            use pagable::testing::TestingSerializer;
+
+            for present in [false, true] {
+                for count in [0, 1, 3] {
+                    let source = deferred_test_root(present, count);
+                    let mut ser = TestingSerializer::new();
+                    source.pagable_serialize(&mut ser).unwrap();
+                    let bytes = ser.finish();
+                    drop(source);
+
+                    let mut de = TestingDeserializer::new(&bytes);
+                    let storage = de.storage();
+                    storage
+                        .storage_context()
+                        .get_or_init(|| crate::pagable::DeferredFieldReadsEnabled);
+                    let root = DeferredTestRoot::pagable_deserialize(&mut de).unwrap();
+                    drop(de);
+                    assert!(
+                        root.peek().is_none(),
+                        "the owned root itself remains unread"
+                    );
+                    assert_eq!(format!("{root:?}"), "<unread>");
+
+                    root.by_ref(|root| {
+                        let fields = &root.as_ref().value;
+                        assert_eq!(
+                            fields.tail, 0x12345678,
+                            "deferring must consume the exact field wire prefix"
+                        );
+                        assert!(fields.value.peek().is_none());
+                        assert_eq!(fields.children.len(), count);
+                        assert_eq!(fields.children.peek().is_none(), count != 0);
+                        assert_eq!(fields.optional.peek().is_none(), present);
+                        assert_eq!(fields.value.read().unwrap().unpack_str(), Some("single"));
+                        assert_eq!(
+                            fields.children.peek().is_none(),
+                            count != 0,
+                            "reading one field does not load its siblings"
+                        );
+                        assert_eq!(
+                            fields
+                                .optional
+                                .read()
+                                .unwrap()
+                                .map(|v| v.unpack_str().unwrap()),
+                            present.then_some("optional")
+                        );
+                        assert_eq!(
+                            fields
+                                .children
+                                .read()
+                                .unwrap()
+                                .iter()
+                                .map(|v| v.unpack_str().unwrap().to_owned())
+                                .collect::<Vec<_>>(),
+                            (0..count).map(|i| format!("child-{i}")).collect::<Vec<_>>(),
+                        );
+                    })
+                    .unwrap();
+                    assert!(root.peek().is_some());
+                }
+            }
+        }
+
+        #[test]
+        fn test_deferred_owned_concurrent_reads_and_storage_lifetime() {
+            use pagable::PagableDeserialize;
+            use pagable::PagableDeserializer;
+            use pagable::PagableSerialize;
+            use pagable::testing::TestingDeserializer;
+            use pagable::testing::TestingSerializer;
+
+            let source = deferred_test_root(true, 3);
+            let mut ser = TestingSerializer::new();
+            source.pagable_serialize(&mut ser).unwrap();
+            let bytes = ser.finish();
+            drop(source);
+            let mut de = TestingDeserializer::new(&bytes);
+            let storage = de.storage();
+            storage
+                .storage_context()
+                .get_or_init(|| crate::pagable::DeferredFieldReadsEnabled);
+            let root = DeferredTestRoot::pagable_deserialize(&mut de).unwrap();
+            drop(de);
+
+            let barrier = std::sync::Barrier::new(8);
+            std::thread::scope(|scope| {
+                for _ in 0..8 {
+                    scope.spawn(|| {
+                        barrier.wait();
+                        root.by_ref(|root| {
+                            let fields = &root.as_ref().value;
+                            assert_eq!(fields.children.read().unwrap().len(), 3);
+                            assert_eq!(fields.value.read().unwrap().unpack_str(), Some("single"));
+                        })
+                        .unwrap();
+                    });
+                }
+            });
+            let weak = storage.downgrade();
+            drop(storage);
+            assert!(
+                weak.upgrade().is_none(),
+                "pending fields must not retain the storage cache"
+            );
+            root.by_ref(|root| {
+                let fields = &root.as_ref().value;
+                assert_eq!(
+                    fields.value.read().unwrap().unpack_str(),
+                    Some("single"),
+                    "already read values outlive storage"
+                );
+                assert!(fields.optional.peek().is_none());
+                for _ in 0..2 {
+                    let error = fields
+                        .optional
+                        .read()
+                        .expect_err("a read after storage closed must fail");
+                    assert!(
+                        format!("{error:#}").contains("storage has been closed"),
+                        "{error:#}"
+                    );
+                    assert!(
+                        fields.optional.is_pending(),
+                        "failed reads leave the field retryable"
+                    );
+                }
+            })
+            .unwrap();
+        }
+
+        #[derive(Debug, Allocative)]
+        struct PanicWhenRead;
+
+        impl crate::pagable::StarlarkSerialize for PanicWhenRead {
+            fn starlark_serialize(
+                &self,
+                _: &mut dyn crate::pagable::StarlarkSerializeContext,
+            ) -> crate::Result<()> {
+                Ok(())
+            }
+        }
+
+        impl<'fv> crate::pagable::StarlarkDeserialize<'fv> for PanicWhenRead {
+            fn starlark_deserialize(
+                _: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
+            ) -> crate::Result<Self> {
+                panic!("injected deferred deserializer panic");
+            }
+        }
+
+        #[derive(
+            Debug,
+            ProvidesStaticType,
+            Allocative,
+            starlark_derive::StarlarkPagable
+        )]
+        struct DeferredPanicData {
+            failure: PanicWhenRead,
+        }
+
+        crate::register_starlark_any_complex!(frozen DeferredPanicData);
+
+        /// Deserialization entered, and the test's permission to finish it.
+        static READ_GATE: (Mutex<(bool, bool)>, Condvar) =
+            (Mutex::new((false, false)), Condvar::new());
+        static GATED_READS: AtomicUsize = AtomicUsize::new(0);
+
+        /// Parks the resolving thread inside deserialization until the test releases it.
+        #[derive(Debug, Allocative)]
+        struct BlockWhenRead;
+
+        impl crate::pagable::StarlarkSerialize for BlockWhenRead {
+            fn starlark_serialize(
+                &self,
+                _: &mut dyn crate::pagable::StarlarkSerializeContext,
+            ) -> crate::Result<()> {
+                Ok(())
+            }
+        }
+
+        impl<'fv> crate::pagable::StarlarkDeserialize<'fv> for BlockWhenRead {
+            fn starlark_deserialize(
+                _: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
+            ) -> crate::Result<Self> {
+                GATED_READS.fetch_add(1, Ordering::SeqCst);
+                let (lock, changed) = &READ_GATE;
+                let mut gate = lock.lock().unwrap();
+                gate.0 = true;
+                changed.notify_all();
+                while !gate.1 {
+                    gate = changed.wait(gate).unwrap();
+                }
+                Ok(BlockWhenRead)
+            }
+        }
+
+        #[derive(
+            Debug,
+            ProvidesStaticType,
+            Allocative,
+            starlark_derive::StarlarkPagable
+        )]
+        struct DeferredBlockData {
+            gate: BlockWhenRead,
+        }
+
+        crate::register_starlark_any_complex!(frozen DeferredBlockData);
+
+        thread_local! {
+            /// The root a `ReenterWhenRead` reads again from inside its own resolution.
+            static REENTER: Cell<usize> = const { Cell::new(0) };
+        }
+
+        /// Reads the field it is being resolved for, as a cyclic value graph would.
+        #[derive(Debug, Allocative)]
+        struct ReenterWhenRead;
+
+        impl crate::pagable::StarlarkSerialize for ReenterWhenRead {
+            fn starlark_serialize(
+                &self,
+                _: &mut dyn crate::pagable::StarlarkSerializeContext,
+            ) -> crate::Result<()> {
+                Ok(())
+            }
+        }
+
+        impl<'fv> crate::pagable::StarlarkDeserialize<'fv> for ReenterWhenRead {
+            fn starlark_deserialize(
+                _: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
+            ) -> crate::Result<Self> {
+                let root = REENTER.get();
+                assert_ne!(root, 0, "the test must name the root to re-read");
+                // SAFETY: the test keeps the root alive across the read that reaches here.
+                let root = unsafe { &*(root as *const DeferredOwnedFrozen<Value<'static>>) };
+                root.value.read()?;
+                Ok(ReenterWhenRead)
+            }
+        }
+
+        #[derive(
+            Debug,
+            ProvidesStaticType,
+            Allocative,
+            starlark_derive::StarlarkPagable
+        )]
+        struct DeferredReenterData {
+            reenter: ReenterWhenRead,
+        }
+
+        crate::register_starlark_any_complex!(frozen DeferredReenterData);
+
+        #[test]
+        fn test_second_reader_waits_for_the_resolving_thread() {
+            use pagable::PagableDeserialize;
+            use pagable::PagableDeserializer;
+            use pagable::PagableSerialize;
+            use pagable::testing::TestingDeserializer;
+            use pagable::testing::TestingSerializer;
+
+            use crate::pagable::starlark_deserialize_context::StarlarkDeserWaitGraph;
+
+            *READ_GATE.0.lock().unwrap() = (false, false);
+            GATED_READS.store(0, Ordering::SeqCst);
+            let source: OwnedFrozen<Value<'static>> =
+                OwnedFrozen::build(StarlarkTestHeapName::frozen_heap_name(), |heap| {
+                    heap.alloc_simple(StarlarkAnyComplex {
+                        value: DeferredBlockData {
+                            gate: BlockWhenRead,
+                        },
+                    })
+                });
+            let mut ser = TestingSerializer::new();
+            source.pagable_serialize(&mut ser).unwrap();
+            let bytes = ser.finish();
+            drop(source);
+            let mut de = TestingDeserializer::new(&bytes);
+            let storage = de.storage();
+            storage
+                .storage_context()
+                .get_or_init(|| crate::pagable::DeferredFieldReadsEnabled);
+            let root = DeferredOwnedFrozen::<Value<'static>>::pagable_deserialize(&mut de).unwrap();
+            drop(de);
+            assert!(root.value.is_pending());
+
+            std::thread::scope(|scope| {
+                let resolver = scope.spawn(|| {
+                    root.read().unwrap();
+                });
+                {
+                    let (lock, changed) = &READ_GATE;
+                    let mut gate = lock.lock().unwrap();
+                    while !gate.0 {
+                        gate = changed.wait(gate).unwrap();
+                    }
+                }
+                assert!(
+                    !root.value.is_pending() && root.peek().is_none(),
+                    "the resolver holds the field while it deserializes"
+                );
+                let waiter = scope.spawn(|| {
+                    root.read().unwrap();
+                });
+                let graph = storage
+                    .storage_context()
+                    .get::<StarlarkDeserWaitGraph>()
+                    .expect("page-in created the wait graph");
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+                while graph.waiting_threads() == 0 {
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "the second reader never blocked on the field"
+                    );
+                    std::thread::yield_now();
+                }
+                {
+                    let (lock, changed) = &READ_GATE;
+                    lock.lock().unwrap().1 = true;
+                    changed.notify_all();
+                }
+                resolver.join().unwrap();
+                waiter.join().unwrap();
+            });
+            assert_eq!(
+                GATED_READS.load(Ordering::SeqCst),
+                1,
+                "the waiter takes the resolver's value instead of resolving again"
+            );
+            assert!(root.peek().is_some());
+        }
+
+        #[test]
+        fn test_reading_a_field_from_its_own_resolution_is_a_cycle() {
+            use pagable::PagableDeserialize;
+            use pagable::PagableDeserializer;
+            use pagable::PagableSerialize;
+            use pagable::testing::TestingDeserializer;
+            use pagable::testing::TestingSerializer;
+
+            let source: OwnedFrozen<Value<'static>> =
+                OwnedFrozen::build(StarlarkTestHeapName::frozen_heap_name(), |heap| {
+                    heap.alloc_simple(StarlarkAnyComplex {
+                        value: DeferredReenterData {
+                            reenter: ReenterWhenRead,
+                        },
+                    })
+                });
+            let mut ser = TestingSerializer::new();
+            source.pagable_serialize(&mut ser).unwrap();
+            let bytes = ser.finish();
+            drop(source);
+            let mut de = TestingDeserializer::new(&bytes);
+            de.storage()
+                .storage_context()
+                .get_or_init(|| crate::pagable::DeferredFieldReadsEnabled);
+            let root = DeferredOwnedFrozen::<Value<'static>>::pagable_deserialize(&mut de).unwrap();
+            REENTER.set(std::ptr::from_ref(&root) as usize);
+            let error = root
+                .value
+                .read()
+                .expect_err("re-reading a field from its own resolution must fail");
+            REENTER.set(0);
+            assert!(
+                format!("{error:#}").contains("cyclic deferred field read"),
+                "{error:#}"
+            );
+            assert!(
+                root.value.is_pending(),
+                "the failed read restores the pending record"
+            );
+        }
+
+        #[test]
+        #[cfg(panic = "unwind")]
+        fn test_deferred_deserializer_panic_releases_field_and_slot() {
+            use pagable::PagableDeserialize;
+            use pagable::PagableDeserializer;
+            use pagable::PagableSerialize;
+            use pagable::testing::TestingDeserializer;
+            use pagable::testing::TestingSerializer;
+
+            let source: OwnedFrozen<Value<'static>> =
+                OwnedFrozen::build(StarlarkTestHeapName::frozen_heap_name(), |heap| {
+                    heap.alloc_simple(StarlarkAnyComplex {
+                        value: DeferredPanicData {
+                            failure: PanicWhenRead,
+                        },
+                    })
+                });
+            let mut ser = TestingSerializer::new();
+            source.pagable_serialize(&mut ser).unwrap();
+            let bytes = ser.finish();
+            drop(source);
+            let mut de = TestingDeserializer::new(&bytes);
+            de.storage()
+                .storage_context()
+                .get_or_init(|| crate::pagable::DeferredFieldReadsEnabled);
+            let root = DeferredOwnedFrozen::<Value<'static>>::pagable_deserialize(&mut de).unwrap();
+            let panic =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| root.read().map(drop)))
+                    .expect_err("the injected panic must unwind through the read");
+            let message = panic
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .or_else(|| panic.downcast_ref::<&str>().copied())
+                .unwrap();
+            assert!(
+                message.contains("injected deferred deserializer panic"),
+                "{message}"
+            );
+            assert!(
+                root.value.is_pending(),
+                "unwinding must restore the pending record"
+            );
+            let error = root
+                .read()
+                .err()
+                .expect("the recorded slot failure must be reported");
+            assert!(
+                format!("{error:#}").contains("value deserialization did not complete"),
+                "{error:#}"
+            );
+            assert!(
+                root.value.is_pending(),
+                "a failed read must restore the pending record"
+            );
+        }
+
+        #[test]
+        fn test_deferred_typed_value_rejects_wrong_type_and_releases_claim() {
+            use pagable::PagableDeserialize;
+            use pagable::PagableDeserializer;
+            use pagable::PagableSerialize;
+            use pagable::testing::TestingDeserializer;
+            use pagable::testing::TestingSerializer;
+
+            let source: OwnedFrozen<Value<'static>> =
+                OwnedFrozen::build(StarlarkTestHeapName::frozen_heap_name(), |heap| {
+                    heap.alloc("wrong root type")
+                });
+            let mut ser = TestingSerializer::new();
+            source.pagable_serialize(&mut ser).unwrap();
+            let bytes = ser.finish();
+            drop(source);
+            let mut de = TestingDeserializer::new(&bytes);
+            de.storage()
+                .storage_context()
+                .get_or_init(|| crate::pagable::DeferredFieldReadsEnabled);
+            let root = DeferredTestRoot::pagable_deserialize(&mut de).unwrap();
+            for _ in 0..2 {
+                let error = root
+                    .read()
+                    .err()
+                    .expect("a deferred typed value must reject a string");
+                assert!(format!("{error:#}").contains("resolved to a"), "{error:#}");
+                assert!(
+                    root.value.is_pending(),
+                    "type errors must not leave a resolving sentinel"
+                );
+            }
+        }
+
+        #[test]
+        fn test_unread_deferred_owned_reserialization() {
+            use pagable::PagableDeserialize;
+            use pagable::PagableSerialize;
+            use pagable::storage::handle::PagableStorageHandle;
+            use pagable::storage::in_memory::InMemoryPagableStorage;
+            use pagable::storage::support::SerializerForPaging;
+            use pagable::storage::traits::ArcSerCache;
+
+            let backing = InMemoryPagableStorage::new();
+            let storage = backing.handle();
+            storage
+                .storage_context()
+                .get_or_init(|| crate::pagable::DeferredFieldReadsEnabled);
+            let source = deferred_test_root(true, 3);
+            let mut ser = SerializerForPaging::new(storage.storage_context());
+            source.pagable_serialize(&mut ser).unwrap();
+            let (bytes, arcs) = ser.finish();
+            let key = storage
+                .page_out_item(bytes, arcs, &ArcSerCache::new(), storage.storage_context())
+                .unwrap();
+            storage.flush().unwrap();
+            drop(source);
+            storage.arc_cache().clear();
+
+            let handle = PagableStorageHandle::new(storage.clone());
+            let data = storage.fetch_data_blocking(&key).unwrap();
+            let mut de = handle.root_deserializer(key, &data);
+            let root = DeferredTestRoot::pagable_deserialize(&mut de).unwrap();
+            assert!(root.peek().is_none());
+            let mut ser = SerializerForPaging::new(storage.storage_context());
+            root.pagable_serialize(&mut ser).unwrap();
+            let (bytes, arcs) = ser.finish();
+            let copied = storage
+                .page_out_item(bytes, arcs, &ArcSerCache::new(), storage.storage_context())
+                .unwrap();
+            assert_eq!(
+                key, copied,
+                "unread reserialization keeps the wire data and dependency slots unchanged"
+            );
+            assert!(
+                root.peek().is_none(),
+                "same-storage serialization must not force a read"
+            );
+
+            let other = InMemoryPagableStorage::new();
+            let mut ser = SerializerForPaging::new(other.storage_context());
+            assert!(
+                root.pagable_serialize(&mut ser).is_err(),
+                "a stored owner's row cannot be silently reused in unrelated storage"
+            );
+            drop(ser);
+
+            drop(de);
+            drop(root);
+            storage.arc_cache().clear();
+            let mut de = handle.root_deserializer(copied, &data);
+            let restored = DeferredTestRoot::pagable_deserialize(&mut de).unwrap();
+            restored
+                .by_ref(|root| {
+                    assert_eq!(
+                        root.as_ref().value.value.read().unwrap().unpack_str(),
+                        Some("single")
+                    );
+                    assert_eq!(root.as_ref().value.children.read().unwrap().len(), 3);
+                })
+                .unwrap();
+        }
     }
 
-    crate::register_starlark_any_complex!(frozen ResidentFields<'_>);
-
-    #[test]
     #[cfg(feature = "pagable")]
-    fn test_deferred_fields_round_trip_is_resident() {
-        use pagable::PagableDeserialize;
-        use pagable::PagableSerialize;
-        use pagable::testing::TestingDeserializer;
-        use pagable::testing::TestingSerializer;
+    mod resident_paging {
+        use super::*;
+        use crate::values::Deferred;
+        use crate::values::ThinBoxSliceValue;
+        use crate::values::any_complex::StarlarkAnyComplex;
 
-        for present in [false, true] {
-            let owned: OwnedFrozen<
-                ValueTyped<'static, StarlarkAnyComplex<ResidentFields<'static>>>,
-            > = OwnedFrozen::build(StarlarkTestHeapName::frozen_heap_name(), |heap| {
-                heap.alloc_simple_typed(StarlarkAnyComplex {
-                    value: ResidentFields {
-                        optional: Deferred::new(present.then(Value::new_none)),
-                        children: Deferred::new(ThinBoxSliceValue::from_iter([
-                            heap.alloc("a"),
-                            heap.alloc("b"),
-                            heap.alloc("c"),
-                        ])),
-                    },
-                })
-            });
-            let deferred = DeferredOwnedFrozen::new(owned);
-            let mut serializer = TestingSerializer::new();
-            deferred.pagable_serialize(&mut serializer).unwrap();
-            let bytes = serializer.finish();
-            drop(deferred);
-            let mut deserializer = TestingDeserializer::new(&bytes);
-            let restored = DeferredOwnedFrozen::<ValueTyped<StarlarkAnyComplex<ResidentFields>>>::pagable_deserialize(&mut deserializer).unwrap();
-            assert_eq!(
-                restored
-                    .by_ref(|root| root.as_ref().value.children.len())
-                    .unwrap(),
-                3,
-            );
-            let fields = &restored
-                .peek()
-                .expect("eager deserialization")
-                .value()
-                .as_ref()
-                .value;
-            let optional = fields.optional.peek().expect("resident optional field");
-            assert_eq!(optional.is_some(), present);
-            if let Some(value) = optional {
-                assert!(value.is_none());
+        #[derive(
+            Debug,
+            ProvidesStaticType,
+            Allocative,
+            starlark_derive::StarlarkPagable
+        )]
+        struct ResidentFields<'v> {
+            optional: Deferred<Option<Value<'v>>>,
+            children: Deferred<ThinBoxSliceValue<'v>>,
+        }
+
+        crate::register_starlark_any_complex!(frozen ResidentFields<'_>);
+
+        #[test]
+        fn test_deferred_fields_round_trip_is_resident() {
+            use pagable::PagableDeserialize;
+            use pagable::PagableSerialize;
+            use pagable::testing::TestingDeserializer;
+            use pagable::testing::TestingSerializer;
+
+            for present in [false, true] {
+                let owned: OwnedFrozen<
+                    ValueTyped<'static, StarlarkAnyComplex<ResidentFields<'static>>>,
+                > = OwnedFrozen::build(StarlarkTestHeapName::frozen_heap_name(), |heap| {
+                    heap.alloc_simple_typed(StarlarkAnyComplex {
+                        value: ResidentFields {
+                            optional: Deferred::new(present.then(Value::new_none)),
+                            children: Deferred::new(ThinBoxSliceValue::from_iter([
+                                heap.alloc("a"),
+                                heap.alloc("b"),
+                                heap.alloc("c"),
+                            ])),
+                        },
+                    })
+                });
+                let deferred = DeferredOwnedFrozen::new(owned);
+                let mut serializer = TestingSerializer::new();
+                deferred.pagable_serialize(&mut serializer).unwrap();
+                let bytes = serializer.finish();
+                drop(deferred);
+                let mut deserializer = TestingDeserializer::new(&bytes);
+                #[cfg(not(fbcode_build))]
+                {
+                    use pagable::PagableDeserializer;
+
+                    deserializer
+                        .storage_context()
+                        .get_or_init(|| crate::pagable::DeferredFieldReadsEnabled);
+                }
+                let restored = DeferredOwnedFrozen::<ValueTyped<StarlarkAnyComplex<ResidentFields>>>::pagable_deserialize(&mut deserializer).unwrap();
+                assert_eq!(
+                    restored
+                        .by_ref(|root| root.as_ref().value.children.len())
+                        .unwrap(),
+                    3,
+                );
+                let fields = &restored
+                    .peek()
+                    .expect("eager deserialization")
+                    .value()
+                    .as_ref()
+                    .value;
+                let optional = fields.optional.peek().expect("resident optional field");
+                assert_eq!(optional.is_some(), present);
+                if let Some(value) = optional {
+                    assert!(value.is_none());
+                }
+                let children = fields.children.peek().expect("resident slice field");
+                assert_eq!(
+                    children
+                        .iter()
+                        .map(|v| v.unpack_str().unwrap())
+                        .collect::<Vec<_>>(),
+                    ["a", "b", "c"]
+                );
             }
-            let children = fields.children.peek().expect("resident slice field");
-            assert_eq!(
-                children
-                    .iter()
-                    .map(|v| v.unpack_str().unwrap())
-                    .collect::<Vec<_>>(),
-                ["a", "b", "c"]
-            );
         }
     }
 }

@@ -22,6 +22,7 @@ use pagable::PagableDeserializer;
 use crate::any::IsStaticType;
 use crate::any::ProvidesStaticType;
 use crate::values::Value;
+use crate::values::deferred::DeferredReadContext;
 
 /// Trait for Starlark values that can be deserialized at the brand `'fv`.
 ///
@@ -76,6 +77,13 @@ pub trait StarlarkDeserializeContext<'de, 'fv> {
     /// targets. Owning results wait for all construction dependencies to succeed
     /// before publishing the resulting graph.
     fn deserialize_value(&mut self) -> crate::Result<Value<'fv>>;
+
+    /// Capture this heap's context for a deferred field, when enabled.
+    /// Contexts without an owning heap keep reading fields eagerly.
+    #[doc(hidden)]
+    fn deferred_read_context(&mut self) -> Option<DeferredReadContext<'fv>> {
+        None
+    }
 }
 
 /// `Self`, a type at some brand `'v`, is deserializable at the brand `'fv`.

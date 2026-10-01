@@ -81,6 +81,7 @@ pub use starlark_deserialize::StarlarkDeserialize;
 pub use starlark_deserialize::StarlarkDeserializeAt;
 pub use starlark_deserialize::StarlarkDeserializeContext;
 pub use starlark_deserialize::starlark_deserialize_field;
+pub use starlark_deserialize_context::DeferredFieldReadsEnabled;
 pub use starlark_deserialize_context::PartialDeserStats;
 #[doc(hidden)]
 pub use starlark_deserialize_context::starlark_deserialization_state_retained_bytes;
@@ -94,6 +95,9 @@ pub use starlark_serialize::StarlarkSerializeScope;
 pub use starlark_serialize_context::StarlarkSerializerImpl;
 #[doc(hidden)]
 pub use starlark_serialize_context::starlark_serialization_state_retained_bytes;
+
+#[doc(hidden)]
+pub use crate::values::deferred::DeferredReadContext;
 
 #[cfg(all(test, feature = "pagable"))]
 mod state_benchmark;

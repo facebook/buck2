@@ -64,6 +64,8 @@ use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::pagable::static_value::get_static_value_by_id;
 use crate::values::Value;
+#[cfg(fbcode_build)]
+use crate::values::deferred::DeferredReadContext;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
@@ -1085,11 +1087,18 @@ impl StorageState for StarlarkHeapBindings {}
 #[derive(Allocative)]
 pub(crate) struct StarlarkDeserScope {
     heap_bindings: Arc<StarlarkHeapBindings>,
+    defer_field_reads: bool,
     /// Storage-scoped: scopes over the same storage share it, so claims
     /// coordinate across roots.
     #[allocative(skip)]
     wait_graph: Arc<StarlarkDeserWaitGraph>,
 }
+
+/// Marks a storage whose deferred Starlark fields materialize only when read.
+/// Install before deserializing any values; absent, fields are read eagerly.
+pub struct DeferredFieldReadsEnabled;
+
+impl StorageState for DeferredFieldReadsEnabled {}
 
 impl PageInState for StarlarkDeserScope {}
 
@@ -1295,6 +1304,12 @@ pub(crate) struct StarlarkDeserWaitGraph {
 impl StorageState for StarlarkDeserWaitGraph {}
 
 impl StarlarkDeserWaitGraph {
+    /// Threads blocked on a claimed value or field right now.
+    #[cfg(all(test, fbcode_build))]
+    pub(crate) fn waiting_threads(&self) -> usize {
+        self.lock_waiters().len()
+    }
+
     fn lock_waiters(&self) -> MutexGuard<'_, HashMap<ThreadId, DeserWaitKey>> {
         self.waiters.lock().expect("wait-for graph lock poisoned")
     }
@@ -1467,6 +1482,7 @@ impl StarlarkDeserScope {
     ) -> Self {
         Self {
             heap_bindings,
+            defer_field_reads: false,
             wait_graph,
         }
     }
@@ -1701,10 +1717,12 @@ impl<'de> StarlarkDeserializerImpl<'_, 'de, '_> {
         let storage_context = deserializer.storage_context();
         deserializer.page_in_scope().get_or_init(|| {
             register_heap_key_index(storage_context);
-            StarlarkDeserScope::new(
+            let mut scope = StarlarkDeserScope::new(
                 storage_context.get_or_init(StarlarkHeapBindings::default),
                 storage_context.get_or_init(StarlarkDeserWaitGraph::default),
-            )
+            );
+            scope.defer_field_reads = storage_context.get::<DeferredFieldReadsEnabled>().is_some();
+            scope
         })
     }
 }
@@ -1728,6 +1746,23 @@ impl<'de, 'fv> StarlarkDeserializeContext<'de, 'fv> for StarlarkDeserializerImpl
         }
         .resolve(&serialized)
     }
+
+    #[cfg(fbcode_build)]
+    fn deferred_read_context(&mut self) -> Option<DeferredReadContext<'fv>> {
+        if !self.scope.defer_field_reads {
+            return None;
+        }
+        // SAFETY: this context's brand names `origin`; its scope, storage,
+        // and page-in scope all belong to this same deserialization.
+        Some(unsafe {
+            DeferredReadContext::new(
+                self.scope.dupe(),
+                self.pagable.storage(),
+                self.pagable.page_in_scope().dupe(),
+                self.origin.as_ref()?.downgrade()?,
+            )
+        })
+    }
 }
 
 struct StarlarkValueResolver<'a, 'fv> {
@@ -1738,6 +1773,44 @@ struct StarlarkValueResolver<'a, 'fv> {
     page_in_scope: &'a PageInScope,
     origin: Option<&'a FrozenHeapArc>,
     brand: PhantomData<Value<'fv>>,
+}
+
+/// Borrowed context for resolving a field against its owning heap.
+#[cfg(any(fbcode_build, all(test, feature = "pagable")))]
+pub(crate) struct DeferredResolveContext<'a> {
+    pub(crate) scope: &'a Arc<StarlarkDeserScope>,
+    pub(crate) storage: &'a PagableStorageHandle,
+    #[cfg(not(fbcode_build))]
+    pub(crate) storage_context: &'a StorageContext,
+    pub(crate) page_in_scope: &'a PageInScope,
+    pub(crate) origin: &'a FrozenHeapArc,
+}
+
+/// Resolve saved pointers at a fresh brand, retaining their target heaps on
+/// the context's origin. The deferred field's adapter restores its original brand.
+#[cfg(any(fbcode_build, all(test, feature = "pagable")))]
+pub(crate) fn with_deferred_values<R>(
+    refs: &[SerializedFrozenValue],
+    context: DeferredResolveContext<'_>,
+    f: impl for<'fv> FnOnce(&mut dyn Iterator<Item = crate::Result<Value<'fv>>>) -> R,
+) -> R {
+    // The callback can inspect and publish these values before its caller's
+    // constructor finishes, so construction-only references must not escape.
+    let _root = ActiveClaim::root();
+    let mut resolver = StarlarkValueResolver {
+        scope: context.scope,
+        storage: context.storage,
+        #[cfg(not(fbcode_build))]
+        storage_context: context.storage_context,
+        page_in_scope: context.page_in_scope,
+        origin: Some(context.origin),
+        brand: PhantomData,
+    };
+    f(&mut refs.iter().map(|value| {
+        resolver
+            .resolve(value)
+            .map_err(crate::Error::into_deferred_read_error)
+    }))
 }
 
 impl<'fv> StarlarkValueResolver<'_, 'fv> {
@@ -1988,13 +2061,17 @@ mod tests {
 
     use super::ActiveClaim;
     use super::ClaimResult;
+    use super::DeferredResolveContext;
     use super::DeserWaitKey;
     use super::HeapValueId;
     use super::MIN_HEAP_BINDING_PRUNE_INTERVAL;
     use super::StarlarkDeserScope;
     use super::StarlarkDeserWaitGraph;
+    use super::StarlarkDeserializerImpl;
     use super::StarlarkHeapBindings;
+    use super::with_deferred_values;
     use crate::pagable::error::PagableError;
+    use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
     use crate::values::FrozenHeapName;
     use crate::values::OwnedFrozen;
     use crate::values::OwnedFrozenHeap;
@@ -2333,6 +2410,61 @@ mod tests {
         let id = handle.thread().id();
         handle.join().unwrap();
         id
+    }
+
+    #[test]
+    fn test_deferred_read_requires_ready_value_inside_constructor() {
+        let heap = OwnedFrozenHeap::new();
+        heap.with(|heap| {
+            heap.alloc("unfinished field target");
+        });
+        let owner = heap.seal(FrozenHeapName::user("deferred_read_root_boundary"));
+        let mut ser = TestingSerializer::new();
+        owner.pagable_serialize(&mut ser).unwrap();
+        let bytes = ser.finish();
+        drop(owner);
+        let mut de = TestingDeserializer::new(&bytes);
+        let restored = OwnedFrozen::<()>::pagable_deserialize(&mut de).unwrap();
+        let heap = restored.heap_arc();
+        let state = heap.deser_state().unwrap();
+        let scope = StarlarkDeserializerImpl::get_or_create_scope(&mut de);
+        let storage = de.storage();
+        let value = HeapValueId {
+            heap_ptr: heap.downgrade().unwrap().heap_ptr(),
+            value_index: 0,
+        };
+        let ClaimResult::Claimed(_slot) = state.try_claim(value, &storage).unwrap() else {
+            panic!("the cold slot must be unclaimed");
+        };
+        let graph = scope.wait_graph();
+        let _claim = graph.claim(value, std::thread::current().id());
+        let _active = ActiveClaim::enter(graph, value, state.heap_id);
+        let serialized = SerializedFrozenValue::HeapPtr {
+            heap_id: state.heap_id,
+            value_index: 0,
+            is_str: true,
+        };
+        let result = with_deferred_values(
+            &[serialized],
+            DeferredResolveContext {
+                scope: &scope,
+                storage: &storage,
+                #[cfg(not(fbcode_build))]
+                storage_context: de.storage_context(),
+                page_in_scope: de.page_in_scope(),
+                origin: heap,
+            },
+            |values| values.next().unwrap().map(|_| ()),
+        );
+        let error = result.expect_err("a deferred read cannot publish its unfinished constructor");
+        assert!(
+            format!("{error:#}").contains("depends on its unfinished constructor"),
+            "{error:#}"
+        );
+        assert!(
+            ActiveClaim::current(graph).is_some(),
+            "the enclosing construction context is restored after the read"
+        );
     }
 
     #[test]

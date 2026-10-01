@@ -32,8 +32,8 @@ use crate::pagable::static_value::StaticValueId;
 /// `value_index` is the value's position in the heap's serialization order
 /// (drop bump first, then non-drop bump). It resolves either through the
 /// resident heap's chunk index or the heap's lazy-deserialization state.
-#[derive(Debug)]
-pub(super) enum SerializedFrozenValue {
+#[derive(Debug, Clone)]
+pub(crate) enum SerializedFrozenValue {
     HeapPtr {
         heap_id: HeapRefId,
         value_index: u32,
