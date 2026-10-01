@@ -359,6 +359,34 @@ fn check_concrete_and_dyn_arc_views(dyn_first: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// A weak handle reaches the storage only while some strong handle keeps it open,
+/// and an upgraded handle keeps it open for as long as it is held.
+#[test]
+fn weak_storage_handle_upgrades_only_while_storage_is_open() {
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let weak = handle.downgrade();
+
+    let upgraded = weak.upgrade().expect("the storage is still open");
+    assert!(
+        std::ptr::eq(upgraded.storage_context(), handle.storage_context()),
+        "upgrading returns a handle to the same storage"
+    );
+
+    drop(handle);
+    drop(backing);
+    assert!(
+        weak.upgrade().is_some(),
+        "the upgraded handle alone keeps the storage open"
+    );
+
+    drop(upgraded);
+    assert!(
+        weak.upgrade().is_none(),
+        "no strong handle remains, so the storage is closed"
+    );
+}
+
 #[test]
 fn page_out_preserves_dyn_then_concrete_arc_view() -> anyhow::Result<()> {
     check_concrete_and_dyn_arc_views(true)

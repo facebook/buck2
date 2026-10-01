@@ -10,6 +10,7 @@
 
 use std::any::TypeId;
 use std::sync::Arc;
+use std::sync::Weak;
 
 use dupe::Dupe;
 
@@ -37,7 +38,29 @@ pub struct PagableStorageHandle {
     backing_storage: Arc<dyn PagableStorage>,
 }
 
+/// A storage reference that cannot keep the storage's own cached values alive.
+#[derive(Clone)]
+pub struct WeakPagableStorageHandle {
+    backing_storage: Weak<dyn PagableStorage>,
+}
+
+impl WeakPagableStorageHandle {
+    /// Retain the storage for an operation, or return `None` after it closes.
+    pub fn upgrade(&self) -> Option<PagableStorageHandle> {
+        self.backing_storage
+            .upgrade()
+            .map(PagableStorageHandle::new)
+    }
+}
+
 impl PagableStorageHandle {
+    /// Refer to storage from one of its cached values without an ownership cycle.
+    pub fn downgrade(&self) -> WeakPagableStorageHandle {
+        WeakPagableStorageHandle {
+            backing_storage: Arc::downgrade(&self.backing_storage),
+        }
+    }
+
     /// Deserializes data from storage for the given key.
     ///
     /// This method will be implemented to fetch data from storage and deserialize it
