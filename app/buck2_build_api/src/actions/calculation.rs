@@ -114,10 +114,6 @@ async fn build_action_no_redirect(
 ) -> buck2_error::Result<ActionOutputs> {
     let inputs = action.inputs()?;
     let waiting_data = WaitingData::new();
-    let executor = ctx
-        .get_action_executor(action.execution_config())
-        .await
-        .buck_error_context(format!("for action `{action}`"))?;
 
     let ensured_inputs = if inputs.is_empty() {
         BuckIndexMap::default()
@@ -139,6 +135,11 @@ async fn build_action_no_redirect(
         }
         results
     };
+
+    let executor = ctx
+        .get_action_executor(action.execution_config())
+        .await
+        .buck_error_context(format!("for action `{action}`"))?;
 
     let now = TimeSpan::start_now();
 
