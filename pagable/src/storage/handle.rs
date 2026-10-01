@@ -21,6 +21,7 @@ use crate::PageInScope;
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::context::PagableDeserializerImpl;
+use crate::deferred_value::HeldCell;
 use crate::deser_recipe::PagableDeserializerRecipeImpl;
 use crate::pagable_arc::PagableArc;
 use crate::page_in_scope::ArcKey;
@@ -135,6 +136,7 @@ impl PagableStorageHandle {
 
         // First thread to reach here deserializes; others block.
         let arc = cell.get_or_try_init(|| -> crate::Result<Box<dyn ArcEraseDyn>> {
+            let _held = HeldCell::enter();
             let data = storage.fetch_data_blocking(key)?;
             let mut deserializer = page_in_scope.deserializer(&data, self);
             let recipe: Arc<dyn PagableDeserializerRecipe> = Arc::new(
@@ -170,6 +172,7 @@ impl PagableStorageHandle {
         // its row's key on it, or a page-out in that window would serialize
         // the arc itself in place of the row.
         let arc = cell.get_or_init(|| {
+            let _held = HeldCell::enter();
             let arc = make();
             storage.associate_arc_with_data_key(&*arc, key);
             arc

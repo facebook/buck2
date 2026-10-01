@@ -577,6 +577,88 @@ fn inline_arc_key_fallback_preserves_input() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn deferred_arc_skips_fetch_then_preserves_identity() -> anyhow::Result<()> {
+    let mem = InMemoryPagableStorage::new();
+    let storage = Arc::new(CountingStorage::new(mem.handle()));
+    let keys = serialize_shared_arc_items(&storage, 2)?;
+    let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+    let data = storage.fetch_data_blocking(&keys[0])?;
+    let mut de = handle.root_deserializer(keys[0], &data);
+    let _: u8 = crate::PagableDeserialize::pagable_deserialize(&mut de)?;
+    let before = storage.fetch_count.load(Ordering::SeqCst);
+    let deferred = crate::DeferredValue::<Arc<Vec<u8>>>::deserialize_arc(&mut de, true)?;
+    assert!(!deferred.is_resolved());
+    assert_eq!(storage.fetch_count.load(Ordering::SeqCst), before);
+    let loaded = deferred.read()?;
+    assert_eq!(storage.fetch_count.load(Ordering::SeqCst), before + 1);
+    assert_eq!(loaded.as_slice(), &[0xAB; 1000]);
+
+    let mut eager_de = handle.root_deserializer(keys[0], &data);
+    let _: u8 = crate::PagableDeserialize::pagable_deserialize(&mut eager_de)?;
+    let eager = crate::DeferredValue::<Arc<Vec<u8>>>::deserialize_arc(&mut eager_de, false)?;
+    assert!(eager.is_resolved());
+    assert!(Arc::ptr_eq(loaded, eager.read()?));
+    assert_eq!(storage.fetch_count.load(Ordering::SeqCst), before + 1);
+    Ok(())
+}
+
+#[test]
+fn unread_native_field_serializes_to_another_storage() -> anyhow::Result<()> {
+    let mem = InMemoryPagableStorage::new();
+    let storage = Arc::new(CountingStorage::new(mem.handle()));
+    let keys = serialize_shared_arc_items(&storage, 1)?;
+    let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+    let data = storage.fetch_data_blocking(&keys[0])?;
+    let mut de = handle.root_deserializer(keys[0], &data);
+    let _: u8 = crate::PagableDeserialize::pagable_deserialize(&mut de)?;
+    let deferred = crate::DeferredValue::<Arc<Vec<u8>>>::deserialize_arc(&mut de, true)?;
+
+    let destination = InMemoryPagableStorage::new();
+    let target = destination.handle();
+    let context = target.storage_context();
+    let mut serializer = SerializerForPaging::new(context);
+    deferred.pagable_serialize(&mut serializer)?;
+    let (bytes, arcs) = serializer.finish();
+    let key = target
+        .page_out_item(bytes, arcs, &ArcSerCache::new(), context)
+        .map_err(|e| match e {
+            PageOutError::Failed(e) => e,
+            PageOutError::AlreadyFailed => anyhow::anyhow!("unexpected prior page-out failure"),
+        })?;
+    drop(de);
+    drop(handle);
+    drop(storage);
+    drop(mem);
+    drop(deferred);
+    target.arc_cache().clear();
+    let target_handle = PagableStorageHandle::new(target.clone());
+    let data = target.fetch_data_blocking(&key)?;
+    let mut de = target_handle.root_deserializer(key, &data);
+    let loaded = crate::DeferredValue::<Arc<Vec<u8>>>::deserialize_arc(&mut de, true)?;
+    assert_eq!(loaded.read()?.as_slice(), &[0xAB; 1000]);
+    Ok(())
+}
+
+#[test]
+fn unread_native_field_does_not_keep_storage_alive() -> anyhow::Result<()> {
+    let mem = InMemoryPagableStorage::new();
+    let storage = Arc::new(CountingStorage::new(mem.handle()));
+    let keys = serialize_shared_arc_items(&storage, 1)?;
+    let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+    let data = storage.fetch_data_blocking(&keys[0])?;
+    let mut de = handle.root_deserializer(keys[0], &data);
+    let _: u8 = crate::PagableDeserialize::pagable_deserialize(&mut de)?;
+    let deferred = crate::DeferredValue::<Arc<Vec<u8>>>::deserialize_arc(&mut de, true)?;
+    let weak = Arc::downgrade(&storage);
+    drop(de);
+    drop(handle);
+    drop(storage);
+    assert!(weak.upgrade().is_none());
+    assert!(deferred.read().is_err());
+    Ok(())
+}
+
 /// A lazily bound arc is created once per key and shared with every later
 /// binder, and an arc already cached under the key wins over `make`.
 #[test]

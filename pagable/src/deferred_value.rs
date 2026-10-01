@@ -1,0 +1,437 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is dual-licensed under either the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree or the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree. You may select, at your option, one of the
+ * above-listed licenses.
+ */
+
+//! Fallible, demand-loaded native fields.
+//!
+//! A field, not a `PagableArc`: readers get a plain `&T` borrowed from the
+//! owner, so a field cannot be evicted while the owner is alive. Eviction is
+//! the owner's unit, a DICE value or an arc dropped when unreferenced, after
+//! which the field comes back deferred. `PagableArc` evicts independently of
+//! its owner, which needs every read to go through a pin guard; that suits a
+//! large, rarely read value under an owner that never goes away, and nothing
+//! else. A resolved field therefore stays resident for the owner's lifetime,
+//! and page-out references a restored arc by its key rather than reading the
+//! fields under it.
+
+use std::any::TypeId;
+use std::cell::Cell;
+use std::fmt;
+use std::sync::Arc;
+
+use allocative::Allocative;
+use once_cell::sync::OnceCell;
+use parking_lot::Mutex;
+
+use crate::PagableDeserializer;
+use crate::PagableDeserializerRecipe;
+use crate::PagableSerialize;
+use crate::PagableSerializer;
+use crate::arc_erase::ArcErase;
+use crate::arc_erase::ArcEraseDyn;
+use crate::arc_erase::deserialize_arc;
+use crate::page_in_scope::ArcKey;
+use crate::storage::handle::PagableStorageHandle;
+use crate::storage::handle::WeakPagableStorageHandle;
+
+/// A resident value, or a fallible loader shared by all clones of the field.
+///
+/// Serialization resolves unread fields before writing them, including when
+/// writing into another storage backend, using the value's normal serializer
+/// rather than forwarding an unread source-storage key.
+#[derive(Clone, Allocative)]
+pub struct DeferredValue<T>(DeferredValueState<T>);
+
+#[derive(Clone, Allocative)]
+enum DeferredValueState<T> {
+    Ready(T),
+    Pending(Arc<PendingValue<T>>),
+}
+
+#[derive(Allocative)]
+struct PendingValue<T> {
+    value: OnceCell<T>,
+    /// Released after a successful load.
+    load: Mutex<Option<Loader<T>>>,
+}
+
+/// What an unread field still holds.
+///
+/// A concrete type rather than a closure so memory reports can attribute it:
+/// allocative has to skip a closure, and everything it captures then shows up
+/// only as unattributed allocation.
+#[derive(Allocative)]
+enum Loader<T> {
+    /// A stored arc, restored by key.
+    Arc(ArcLoader<T>),
+    #[cfg(test)]
+    Custom(#[allocative(skip)] Box<dyn Fn() -> crate::Result<T> + Send + Sync>),
+}
+
+/// Restores a stored arc on demand from the storage it came from.
+#[derive(Allocative)]
+struct ArcLoader<T> {
+    #[allocative(skip)]
+    storage: WeakPagableStorageHandle,
+    #[allocative(skip)]
+    key: ArcKey,
+    #[allocative(skip)]
+    restore: fn(&PagableStorageHandle, &ArcKey) -> crate::Result<T>,
+}
+
+impl<T> Loader<T> {
+    fn load(&self) -> crate::Result<T> {
+        match self {
+            Loader::Arc(loader) => loader.load(),
+            #[cfg(test)]
+            Loader::Custom(load) => load(),
+        }
+    }
+}
+
+impl<T> ArcLoader<T> {
+    fn load(&self) -> crate::Result<T> {
+        let storage = self
+            .storage
+            .upgrade()
+            .ok_or_else(|| anyhow::anyhow!("storage closed before deferred field read"))?;
+        (self.restore)(&storage, &self.key)
+    }
+}
+
+impl<T> PendingValue<T> {
+    fn load(&self) -> crate::Result<T> {
+        let mut loader = self.load.lock();
+        let value = loader
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("resolved native field has no loader"))?
+            .load()?;
+        // Released so a resolved field retains only its value.
+        *loader = None;
+        Ok(value)
+    }
+}
+
+thread_local! {
+    /// Native cells this thread is initializing; see [`HeldCell`].
+    static HELD_CELLS: Cell<u32> = const { Cell::new(0) };
+}
+
+/// Marks the calling thread as initializing a native cell - a pending field or
+/// an arc-cache entry - for the guard's lifetime.
+///
+/// While one is held, a cold [`DeferredValue::read`] is refused instead of
+/// blocking. A thread that holds a cell and waits on a field could complete a
+/// wait cycle with another thread, and the cells detect no cycles. Waits between
+/// arc-cache cells alone cannot cycle, because rows are content addressed, so
+/// refusing field reads is what rules deadlock out.
+pub(crate) struct HeldCell(());
+
+impl HeldCell {
+    pub(crate) fn enter() -> Self {
+        HELD_CELLS.with(|n| n.set(n.get() + 1));
+        HeldCell(())
+    }
+}
+
+impl Drop for HeldCell {
+    fn drop(&mut self) {
+        HELD_CELLS.with(|n| n.set(n.get() - 1));
+    }
+}
+
+fn holding_cell() -> bool {
+    HELD_CELLS.with(|n| n.get()) > 0
+}
+
+/// Runs a blocking load, telling an enclosing Tokio runtime that this worker
+/// thread will block. A single-threaded runtime cannot spare its only thread.
+fn blocking<R>(load: impl FnOnce() -> crate::Result<R>) -> crate::Result<R> {
+    #[cfg(feature = "tokio")]
+    if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+        return match runtime.runtime_flavor() {
+            tokio::runtime::RuntimeFlavor::MultiThread => tokio::task::block_in_place(load),
+            _ => Err(anyhow::anyhow!(
+                "a deferred native field requires a blocking-capable runtime",
+            )),
+        };
+    }
+    load()
+}
+
+impl<T> DeferredValue<T> {
+    /// Construct a field that needs no storage access.
+    pub fn new(value: T) -> Self {
+        Self(DeferredValueState::Ready(value))
+    }
+
+    /// Defer a native load. The loader must not retain the storage cache that
+    /// owns the field. It also cannot perform a cold read of any deferred field,
+    /// its own included: `read` refuses that while a cell is held (see
+    /// [`HeldCell`]), so such a loader fails instead of deadlocking.
+    fn pending_loader(loader: Loader<T>) -> Self {
+        Self(DeferredValueState::Pending(Arc::new(PendingValue {
+            value: OnceCell::new(),
+            load: Mutex::new(Some(loader)),
+        })))
+    }
+
+    #[cfg(test)]
+    fn pending(load: impl Fn() -> crate::Result<T> + Send + Sync + 'static) -> Self {
+        Self::pending_loader(Loader::Custom(Box::new(load)))
+    }
+
+    /// Resolve once, sharing the result across readers. Failed loads may be
+    /// retried; no partially initialized value is exposed.
+    ///
+    /// Fails without loading when called while this thread is restoring another
+    /// value, because such a read could deadlock; see `HeldCell` in this module.
+    pub fn read(&self) -> crate::Result<&T> {
+        match &self.0 {
+            DeferredValueState::Ready(value) => Ok(value),
+            DeferredValueState::Pending(pending) => match pending.value.get() {
+                Some(value) => Ok(value),
+                None => {
+                    if holding_cell() {
+                        return Err(anyhow::anyhow!(
+                            "Cold deferred field read while this thread is restoring another value; refused because it could deadlock"
+                        ));
+                    }
+                    blocking(|| {
+                        let _held = HeldCell::enter();
+                        pending.value.get_or_try_init(|| pending.load())
+                    })
+                }
+            },
+        }
+    }
+
+    /// Whether reading this field can return without invoking its loader.
+    pub fn is_resolved(&self) -> bool {
+        match &self.0 {
+            DeferredValueState::Ready(_) => true,
+            DeferredValueState::Pending(pending) => pending.value.get().is_some(),
+        }
+    }
+}
+
+impl<A: ArcErase> DeferredValue<A> {
+    /// Consume an existing Arc edge without fetching its row when enabled.
+    /// Inline testing formats, which have no stable keys, remain eager.
+    pub fn deserialize_arc<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+        enabled: bool,
+    ) -> crate::Result<Self> {
+        if enabled && let Some(key) = deserializer.take_arc_key()? {
+            fn restore<A: ArcErase>(
+                storage: &PagableStorageHandle,
+                key: &ArcKey,
+            ) -> crate::Result<A> {
+                fn decode<A: ArcErase>(
+                    deserializer: &mut dyn PagableDeserializer<'_>,
+                    _recipe: Arc<dyn PagableDeserializerRecipe>,
+                ) -> crate::Result<Box<dyn ArcEraseDyn>> {
+                    Ok(Box::new(A::deserialize_inner(deserializer)?))
+                }
+                let value = storage.deserialize_arc_by_key(key, TypeId::of::<A>(), decode::<A>)?;
+                value
+                    .as_arc_any()
+                    .downcast_ref::<A>()
+                    .map(ArcErase::dupe_strong)
+                    .ok_or_else(|| anyhow::anyhow!("deferred arc type mismatch"))
+            }
+            return Ok(Self::pending_loader(Loader::Arc(ArcLoader {
+                storage: deserializer.storage().downgrade(),
+                key,
+                restore: restore::<A>,
+            })));
+        }
+        Ok(Self::new(deserialize_arc(deserializer)?))
+    }
+}
+
+impl<T: PagableSerialize> PagableSerialize for DeferredValue<T> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        self.read()?.pagable_serialize(serializer)
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for DeferredValue<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.0 {
+            DeferredValueState::Ready(value) => f.debug_tuple("Ready").field(value).finish(),
+            DeferredValueState::Pending(pending) => f
+                .debug_tuple("Deferred")
+                .field(&pending.value.get())
+                .finish(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Barrier;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+
+    use super::*;
+
+    #[test]
+    fn concurrent_clones_load_once() -> crate::Result<()> {
+        let loads = Arc::new(AtomicUsize::new(0));
+        let count = loads.clone();
+        let value = DeferredValue::pending(move || {
+            count.fetch_add(1, Ordering::Relaxed);
+            Ok(42)
+        });
+        let barrier = Arc::new(Barrier::new(8));
+        std::thread::scope(|scope| {
+            let handles = (0..8)
+                .map(|_| {
+                    let value = value.clone();
+                    let barrier = barrier.clone();
+                    scope.spawn(move || {
+                        barrier.wait();
+                        assert_eq!(*value.read().expect("native value should load"), 42);
+                    })
+                })
+                .collect::<Vec<_>>();
+            for handle in handles {
+                handle.join().expect("reader should not panic");
+            }
+        });
+        assert!(value.is_resolved());
+        assert_eq!(loads.load(Ordering::Relaxed), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn cold_read_inside_a_load_is_refused() {
+        let inner = DeferredValue::pending(|| Ok(1));
+        let inner_for_loader = inner.clone();
+        let outer = DeferredValue::pending(move || Ok(*inner_for_loader.read()? + 1));
+        let error = outer.read().expect_err("a nested cold read must fail");
+        assert!(error.to_string().contains("could deadlock"), "{error:#}");
+        assert!(!inner.is_resolved(), "the refused read must not load");
+        assert!(!outer.is_resolved());
+
+        // Resolved fields stay readable inside a load, and the outer field
+        // loads normally once nothing cold is left beneath it.
+        assert_eq!(*inner.read().expect("a top-level read loads"), 1);
+        assert_eq!(
+            *outer
+                .read()
+                .expect("reading a resolved field inside a load is fine"),
+            2
+        );
+    }
+
+    #[test]
+    fn cold_read_while_holding_a_cell_is_refused() {
+        let value = DeferredValue::pending(|| Ok(3));
+        let ready = DeferredValue::new(4);
+        {
+            let _held = HeldCell::enter();
+            assert!(value.read().is_err());
+            assert_eq!(*ready.read().expect("resident values need no load"), 4);
+        }
+        assert_eq!(*value.read().expect("the guard is released on drop"), 3);
+    }
+
+    #[test]
+    fn failure_can_be_retried() -> crate::Result<()> {
+        let count = AtomicUsize::new(0);
+        let value = DeferredValue::pending(move || {
+            if count.fetch_add(1, Ordering::Relaxed) == 0 {
+                anyhow::bail!("first read failed");
+            }
+            Ok(17)
+        });
+        assert!(value.read().is_err());
+        assert!(!value.is_resolved());
+        assert_eq!(*value.read()?, 17);
+        Ok(())
+    }
+
+    #[test]
+    fn successful_read_releases_the_loader() -> crate::Result<()> {
+        let retained = Arc::new(17);
+        let weak = Arc::downgrade(&retained);
+        let value = DeferredValue::pending(move || Ok(*retained));
+        assert!(weak.upgrade().is_some());
+        assert_eq!(*value.read()?, 17);
+        assert!(weak.upgrade().is_none());
+        Ok(())
+    }
+
+    #[cfg(feature = "tokio")]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn multi_thread_runtime_reads_on_a_worker() -> crate::Result<()> {
+        let value = DeferredValue::pending(|| Ok(17));
+        // The test body runs on the thread driving `block_on`, where `block_in_place` just
+        // calls the loader; only a spawned task runs on a worker it must hand off.
+        let read = tokio::spawn(async move { value.read().copied() })
+            .await
+            .expect("the reading task does not panic")?;
+        assert_eq!(read, 17);
+        Ok(())
+    }
+
+    #[cfg(feature = "tokio")]
+    #[tokio::test]
+    async fn single_thread_runtime_rejects_unresolved_reads() -> crate::Result<()> {
+        let value = DeferredValue::pending(|| Ok(17));
+        assert!(value.read().is_err());
+        assert!(!value.is_resolved());
+        assert_eq!(*DeferredValue::new(17).read()?, 17);
+        Ok(())
+    }
+
+    #[test]
+    fn unread_field_reports_its_loader_to_allocative() -> crate::Result<()> {
+        use crate::storage::in_memory::InMemoryPagableStorage;
+        use crate::storage::support::SerializerForPaging;
+        use crate::storage::traits::ArcSerCache;
+
+        let mem = InMemoryPagableStorage::new();
+        let storage = mem.handle();
+        let value: Arc<Vec<u8>> = Arc::new(vec![4, 5, 6]);
+        let mut serializer = SerializerForPaging::new(storage.storage_context());
+        value.pagable_serialize(&mut serializer)?;
+        let (data, arcs) = serializer.finish();
+        let key = storage
+            .page_out_item(data, arcs, &ArcSerCache::new(), storage.storage_context())
+            .map_err(|e| anyhow::anyhow!("{e:?}"))?;
+        let handle = PagableStorageHandle::new(storage.clone());
+        let row = storage.fetch_data_blocking(&key)?;
+        let mut deserializer = handle.root_deserializer(key, &row);
+        let deferred: DeferredValue<Arc<Vec<u8>>> =
+            DeferredValue::deserialize_arc(&mut deserializer, true)?;
+        drop(deserializer);
+
+        let mut graph = allocative::FlameGraphBuilder::default();
+        graph.visit_root(&deferred);
+        let flame = graph.finish_and_write_flame_graph();
+        assert!(flame.contains("ArcLoader"), "{flame}");
+        Ok(())
+    }
+
+    #[cfg(panic = "unwind")]
+    #[test]
+    fn panicking_loader_can_be_retried() -> crate::Result<()> {
+        let count = AtomicUsize::new(0);
+        let value = DeferredValue::pending(move || {
+            assert_ne!(count.fetch_add(1, Ordering::Relaxed), 0, "injected panic");
+            Ok(17)
+        });
+        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| value.read())).is_err());
+        assert_eq!(*value.read()?, 17);
+        Ok(())
+    }
+}

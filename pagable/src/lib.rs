@@ -38,6 +38,7 @@ pub use typetag::PagableTypeTag;
 
 pub mod arc_erase;
 pub mod context;
+mod deferred_value;
 pub mod deser_recipe;
 pub mod flavors;
 mod hashers;
@@ -53,6 +54,7 @@ pub mod traits;
 pub mod typetag;
 pub mod value_serialize;
 
+pub use deferred_value::DeferredValue;
 pub use deser_recipe::PagableDeserializerRecipe;
 pub use deser_recipe::PagableDeserializerRecipeImpl;
 pub use impls::StaticStr;
