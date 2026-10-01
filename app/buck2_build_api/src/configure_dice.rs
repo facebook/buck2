@@ -29,6 +29,7 @@ use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceStorage;
 use dice::PagableStorageBackend;
+use starlark::pagable::DeferredFieldReadsEnabled;
 
 use crate::actions::execute::dice_data::SetInvalidationTrackingConfig;
 use crate::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsHandle;
@@ -47,6 +48,7 @@ pub async fn configure_dice_for_buck(
     dice_state_path: Option<&Path>,
     // On-disk backend for pagable storage (`buck2_hydration.pagable_storage_backend`).
     pagable_storage_backend: PagableStorageBackend,
+    defer_field_reads: bool,
 ) -> buck2_error::Result<Arc<Dice>> {
     let detect_cycles = detect_cycles.map_or_else(
         || {
@@ -99,6 +101,11 @@ pub async fn configure_dice_for_buck(
         let storage = DiceStorage::open(&path, backend).map_err(|e| {
             buck2_error::conversion::from_any_with_tag(e, buck2_error::ErrorTag::Environment)
         })?;
+        if defer_field_reads {
+            storage
+                .storage_context()
+                .get_or_init(|| DeferredFieldReadsEnabled);
+        }
         dice.set_pagable_storage(storage);
     }
 

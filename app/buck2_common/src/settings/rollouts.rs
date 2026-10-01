@@ -199,6 +199,7 @@ mod tests {
             r#"
                 [hydration.1]
                 enable_paging = true
+                defer_field_reads = true
                 page_out_on_idle = true
                 page_out_on_idle_isolation_dir_scope = "non_default"
             "#,
@@ -211,6 +212,7 @@ mod tests {
                 r#"
                     [hydration]
                     enable_paging = true
+                    defer_field_reads = true
                     page_out_on_idle = true
                     page_out_on_idle_isolation_dir_scope = "non_default"
                 "#,

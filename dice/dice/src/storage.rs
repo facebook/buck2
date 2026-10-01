@@ -177,7 +177,8 @@ impl DiceStorage {
         self.page_in_metrics.snapshot()
     }
 
-    pub(crate) fn storage_context(&self) -> &StorageContext {
+    /// Storage-scoped configuration and state for pagable value implementations.
+    pub fn storage_context(&self) -> &StorageContext {
         self.storage.storage_context()
     }
 

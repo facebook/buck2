@@ -293,6 +293,10 @@ impl TenantStateInitPreferences {
             self.daemon_startup_config.buck_settings.dupe(),
             hydration.map(|_| dice_state_path),
             hydration.map_or_else(Default::default, |h| h.pagable_storage_backend),
+            self.daemon_startup_config
+                .buck_settings
+                .hydration
+                .defer_field_reads(),
         )
         .await
     }

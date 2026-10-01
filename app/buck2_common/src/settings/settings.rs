@@ -164,6 +164,20 @@ const HYDRATION_ENABLE_PAGING: SettingKey<bool> = SettingKey {
     oss_default: None,
 };
 
+const HYDRATION_DEFER_FIELD_READS: SettingKey<bool> = SettingKey {
+    metadata: SettingKeyMetadata {
+        key: SettingKeyRef {
+            section: "hydration",
+            name: "defer_field_reads",
+        },
+        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+    },
+    // Not in any rollout stanza yet: binaries built before this key would reject
+    // a stanza naming it. Rolling it out needs the section version bump above.
+    internal_default: Some(false),
+    oss_default: Some(false),
+};
+
 const HYDRATION_PAGE_OUT_ON_IDLE: SettingKey<bool> = SettingKey {
     metadata: SettingKeyMetadata {
         key: SettingKeyRef {
@@ -225,6 +239,7 @@ pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
     AGENT_ADVICE_BUILD_INTENT_MESSAGE.metadata,
     ANALYSIS_RECORD_REQUESTED_ANON_TARGETS.metadata,
     HYDRATION_ENABLE_PAGING.metadata,
+    HYDRATION_DEFER_FIELD_READS.metadata,
     HYDRATION_PAGE_OUT_ON_IDLE.metadata,
     HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE.metadata,
     LOG_USE_MANIFOLD.metadata,
@@ -272,6 +287,7 @@ struct LogDownloadSectionData {
 #[serde(deny_unknown_fields)]
 struct HydrationSectionData {
     enable_paging: Option<bool>,
+    defer_field_reads: Option<bool>,
     page_out_on_idle: Option<bool>,
     page_out_on_idle_isolation_dir_scope: Option<PageOutOnIdleIsolationDirScope>,
 }
@@ -371,7 +387,9 @@ impl AnalysisSection {
 pub struct HydrationSection(Arc<HydrationSectionData>);
 
 impl HydrationSection {
-    /// Bump when the section's settings schema or semantics change.
+    /// Bump when the section's settings schema or semantics change. A rollout
+    /// stanza is selected only by the exact version, so a bump must ship with a
+    /// copy of every key from the previous version's stanza.
     pub(crate) const METADATA: SectionMetadata = SectionMetadata {
         section_name: "hydration",
         section_version: 1,
@@ -380,6 +398,13 @@ impl HydrationSection {
     /// Returns `None` when legacy buckconfig should determine the behavior.
     pub fn enable_paging(&self) -> Option<bool> {
         HYDRATION_ENABLE_PAGING.resolve(self.0.enable_paging)
+    }
+
+    /// Materialize deferred Starlark fields on first access after page-in.
+    pub fn defer_field_reads(&self) -> bool {
+        HYDRATION_DEFER_FIELD_READS
+            .resolve(self.0.defer_field_reads)
+            .expect("Deferred field reads should have a default")
     }
 
     /// Returns `None` when legacy buckconfig should determine the behavior.
@@ -584,6 +609,7 @@ Use test to execute tests.
     fn test_default_hydration_settings() {
         let hydration = BuckSettings::empty().hydration;
         assert_eq!(hydration.enable_paging(), None);
+        assert!(!hydration.defer_field_reads());
         assert_eq!(hydration.page_out_on_idle(), None);
         assert!(
             hydration.page_out_on_idle_applies_to_isolation_dir(
@@ -599,9 +625,10 @@ Use test to execute tests.
     #[test]
     fn test_hydration_settings() -> buck2_error::Result<()> {
         let settings = resolve_setting_flags(vec![table(
-            "[hydration]\nenable_paging = true\npage_out_on_idle = false\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
+            "[hydration]\nenable_paging = true\ndefer_field_reads = true\npage_out_on_idle = false\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
         )])?;
         assert_eq!(settings.hydration.enable_paging(), Some(true));
+        assert!(settings.hydration.defer_field_reads());
         assert_eq!(settings.hydration.page_out_on_idle(), Some(false));
         assert!(
             !settings
