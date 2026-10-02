@@ -842,6 +842,330 @@ simple(name = "lib", visibility = ["PUBLIC"])
     );
 }
 
+/// Loads `root//etc:lib` under an `etc/PACKAGE` containing `package_file`
+/// and returns the (expected) error.
+async fn etc_package_error(package_file: &str) -> String {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file("etc/PACKAGE", package_file);
+    fs.write_file(
+        "etc/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib")
+"#,
+    );
+
+    let ctx = calculation(&fs).await;
+    let err = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc:lib"))
+        .await
+        .expect_err("invalid PACKAGE must be rejected");
+    format!("{err:?}")
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_rejected() {
+    let cases: &[(&str, &str, &[&str])] = &[
+        (
+            "exemptions without visibility",
+            r#"
+package(
+    visibility_exempt_targets = ["//etc/legacy:"],
+)
+"#,
+            &["requires an explicit `visibility=`"],
+        ),
+        (
+            // Also an invalid target pattern: pins missing-visibility precedence.
+            "exemptions with visibility = None",
+            r#"
+package(
+    visibility = None,
+    visibility_exempt_targets = ["//etc/legacy:lib"],
+)
+"#,
+            &["requires an explicit `visibility=`"],
+        ),
+        (
+            "duplicate package() call",
+            r#"
+package(
+    visibility = ["//etc/allowed/..."],
+)
+package(
+    visibility_exempt_targets = ["//etc/legacy:"],
+)
+"#,
+            &["at most once"],
+        ),
+        (
+            "target pattern",
+            r#"
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["//etc/legacy:lib"],
+)
+"#,
+            &["target patterns (`cell//pkg:name`) are not accepted"],
+        ),
+        (
+            "garbage",
+            r#"
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["not a pattern"],
+)
+"#,
+            &["not a pattern", "is not a valid pattern"],
+        ),
+        (
+            "unknown cell",
+            r#"
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["nosuchcell//etc:"],
+)
+"#,
+            &["nosuchcell//etc:", "unknown cell alias"],
+        ),
+        (
+            "PUBLIC entry",
+            r#"
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["PUBLIC"],
+)
+"#,
+            &["not a valid `visibility_exempt_targets` entry"],
+        ),
+        (
+            "PUBLIC visibility",
+            r#"
+package(
+    visibility = ["PUBLIC"],
+    visibility_exempt_targets = ["//etc/legacy:"],
+)
+"#,
+            &["vacuous with a `visibility` list containing"],
+        ),
+        (
+            "mixed PUBLIC visibility",
+            r#"
+package(
+    visibility = ["PUBLIC", "//etc/allowed/..."],
+    visibility_exempt_targets = ["//etc/legacy:"],
+)
+"#,
+            &["vacuous with a `visibility` list containing"],
+        ),
+        (
+            "outside subtree",
+            r#"
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["//other:"],
+)
+"#,
+            &["outside this PACKAGE's subtree"],
+        ),
+        (
+            "outside subtree, recursive",
+            r#"
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["//other/..."],
+)
+"#,
+            &["outside this PACKAGE's subtree"],
+        ),
+        (
+            "covers subtree",
+            r#"
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["//etc/..."],
+)
+"#,
+            &["entire subtree"],
+        ),
+    ];
+
+    for (name, package_file, expected) in cases {
+        let msg = etc_package_error(package_file).await;
+        assert!(
+            expected.iter().all(|e| msg.contains(e)),
+            "{name}: expected error containing {expected:?}, got: {msg}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_package_visibility_empty_list_with_empty_exempts_succeeds() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+package(
+    visibility = [],
+    visibility_exempt_targets = [],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib")
+"#,
+    );
+
+    let ctx = calculation(&fs).await;
+
+    let lib = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc:lib"))
+        .await
+        .unwrap();
+    assert!(
+        lib.visibility_intersection().is_unrestricted(),
+        "off mode without a marker must leave the empty declaration dormant, got: {}",
+        lib.visibility_intersection(),
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_empty_list_with_exempts() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    // `[]` is deny-all, not the `Public` identity.
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+enforce_visibility_intersection()
+package(
+    visibility = [],
+    visibility_exempt_targets = ["//etc/legacy:"],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/legacy/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+    fs.write_file(
+        "etc/other/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+
+    let ctx = calculation(&fs).await;
+
+    let legacy = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/legacy:lib"))
+        .await
+        .unwrap();
+    let other = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/other:lib"))
+        .await
+        .unwrap();
+    let outside = TargetLabel::testing_parse("root//elsewhere:x");
+
+    assert!(
+        legacy.is_visible_to(&outside).unwrap(),
+        "exempt definer must skip the deny-all layer"
+    );
+    assert!(
+        !other.is_visible_to(&outside).unwrap(),
+        "non-exempt definer must still be restricted by the deny-all layer"
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_none_with_empty_exempts_succeeds() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+package(
+    visibility = None,
+    visibility_exempt_targets = [],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib")
+"#,
+    );
+
+    let ctx = calculation(&fs).await;
+
+    let lib = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc:lib"))
+        .await
+        .unwrap();
+    assert!(
+        lib.visibility_intersection().is_unrestricted(),
+        "None visibility must stay Unset and contribute nothing, got: {}",
+        lib.visibility_intersection(),
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_exact_declaring_package_accepted() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    // `//etc:` leaves packages below `etc` restricted, so it is not vacuous.
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["//etc:"],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib")
+"#,
+    );
+
+    let ctx = calculation(&fs).await;
+
+    let node = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc:lib"))
+        .await
+        .unwrap();
+    assert!(
+        node.visibility_intersection().is_unrestricted(),
+        "off mode without a marker must leave exemptions dormant, got: {}",
+        node.visibility_intersection(),
+    );
+}
+
 #[tokio::test]
 async fn test_package_visibility_exempt_targets_dormant_when_off() {
     let fs = ProjectRootTemp::new().unwrap();
