@@ -48,7 +48,7 @@ def archive_type(url_or_path: str, typ: str | None) -> str:
 #
 # 1. The cmd_args with the unarchive command
 # 2. A bool indicating whether the prefix still needs to be stripped (in cases where the tool used to uncompress does not support this feature).
-def _unarchive_cmd(ext_type: str, archive: Artifact, strip_prefix: [str, None]) -> (cmd_args, bool):
+def _unarchive_cmd(ext_type: str, archive: Artifact, strip_prefix: [str, None], exclude_flags: list) -> (cmd_args, bool):
     if ext_type in _TAR_FLAGS:
         return cmd_args(
             "tar",
@@ -57,6 +57,9 @@ def _unarchive_cmd(ext_type: str, archive: Artifact, strip_prefix: [str, None]) 
             "-f",
             archive,
             _tar_strip_prefix_flags(strip_prefix),
+            exclude_flags,
+            # Must come last -- see _tar_member_patterns.
+            _tar_member_patterns(strip_prefix),
         ), False
     elif ext_type == "zip":
         # gnutar does not intrinsically support zip
@@ -68,8 +71,15 @@ def _tar_strip_prefix_flags(strip_prefix: [str, None]) -> list[str]:
     if strip_prefix:
         # count nonempty path components in the prefix
         count = len(filter(lambda c: c != "", strip_prefix.split("/")))
-        return ["--strip-components=" + str(count), strip_prefix]
+        return ["--strip-components=" + str(count)]
     return []
+
+# Restricting extraction to `strip_prefix` is done with a member pattern, which
+# is a positional argument. bsdtar (`tar` on macOS, `tar.exe` on Windows) stops
+# parsing options at the first positional, so every flag has to be emitted
+# before these.
+def _tar_member_patterns(strip_prefix: [str, None]) -> list[str]:
+    return [strip_prefix] if strip_prefix else []
 
 # buck-out on Windows on eden is a symlink. bsdtar which ships with Windows will
 # not extract files when the cwd contains a path segment that is a symlink (as
@@ -81,6 +91,7 @@ def _windows_unpack_ps1(out: OutputArtifact, archive: Artifact, ext_type: str, s
     tar = '"$env:SystemRoot\\System32\\tar.exe"'
     quoted_archive = cmd_args(archive, format = "'{}'")
     strip = _tar_strip_prefix_flags(strip_prefix)
+    members = _tar_member_patterns(strip_prefix)
 
     lines = [
         "$ErrorActionPreference = 'Stop'",
@@ -98,16 +109,16 @@ def _windows_unpack_ps1(out: OutputArtifact, archive: Artifact, ext_type: str, s
             "if (-not $scratch) { $scratch = [System.IO.Path]::GetTempPath() }",
             "$tmp = Join-Path $scratch 'http_archive_unpack.tar'",
             cmd_args("zstd", "-d", "-f", quoted_archive, "-o", '"$tmp"', delimiter = " "),
-            cmd_args("&", tar, "-x", "-C", '"$real"', "-f", '"$tmp"', strip, exclude_flags, delimiter = " "),
+            cmd_args("&", tar, "-x", "-C", '"$real"', "-f", '"$tmp"', strip, exclude_flags, members, delimiter = " "),
             "Remove-Item -LiteralPath $tmp -Force",
         ]
     elif ext_type == "zip":
         return lines + [
-            cmd_args("&", tar, "-x", "-C", '"$real"', "-f", quoted_archive, strip, delimiter = " "),
+            cmd_args("&", tar, "-x", "-C", '"$real"', "-f", quoted_archive, strip, members, delimiter = " "),
         ]
     elif ext_type in _TAR_FLAGS:
         return lines + [
-            cmd_args("&", tar, _TAR_FLAGS[ext_type], "-x", "-C", '"$real"', "-f", quoted_archive, strip, exclude_flags, delimiter = " "),
+            cmd_args("&", tar, _TAR_FLAGS[ext_type], "-x", "-C", '"$real"', "-f", quoted_archive, strip, exclude_flags, members, delimiter = " "),
         ]
     else:
         fail("unsupported archive type on Windows: {}".format(ext_type))
@@ -193,7 +204,7 @@ def unarchive(
         unpack_ext = "ps1"
         unpack_interpreter = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
     else:
-        unarchive_cmd, needs_strip_prefix = _unarchive_cmd(ext_type, archive, strip_prefix)
+        unarchive_cmd, needs_strip_prefix = _unarchive_cmd(ext_type, archive, strip_prefix, exclude_flags)
         unpack_ext = "sh"
         unpack_interpreter = ["/bin/sh"]
 
@@ -206,7 +217,7 @@ def unarchive(
         script_lines = [
             cmd_args(script_output.as_output(), format = "mkdir -p {}"),
             cmd_args(script_output.as_output(), format = "cd {}"),
-            cmd_args([unarchive_cmd] + exclude_flags, delimiter = " ", relative_to = script_output.as_output()),
+            cmd_args(unarchive_cmd, delimiter = " ", relative_to = script_output.as_output()),
         ]
 
     script, _ = ctx.actions.write(
