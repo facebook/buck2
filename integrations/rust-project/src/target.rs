@@ -191,15 +191,6 @@ impl TargetInfo {
         canonicalize_to_vcs_path(&p, project_root)
     }
 
-    pub(crate) fn overridden_dep_names(&self) -> FxHashMap<Target, String> {
-        let mut overridden = FxHashMap::default();
-        for (name, target) in &self.named_deps {
-            overridden.insert(target.clone(), name.to_owned());
-        }
-
-        overridden
-    }
-
     pub(crate) fn cfg(&self) -> Vec<String> {
         // we need to take the existing features and prefix `feature=`
         let feature_cfgs = self.features.iter().map(|f| format!("feature=\"{f}\""));

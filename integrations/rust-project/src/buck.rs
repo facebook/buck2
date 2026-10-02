@@ -121,7 +121,13 @@ pub(crate) fn to_project_json(
         let info = target_index.get(target).unwrap();
 
         let dep_targets = resolve_aliases(&info.deps, &aliases, &proc_macros);
-        let deps = as_deps(&dep_targets, info, &targets_to_ids, &target_index);
+        let overridden_names = resolve_named_deps(&info.named_deps, &aliases, &proc_macros);
+        let deps = as_deps(
+            &dep_targets,
+            overridden_names,
+            &targets_to_ids,
+            &target_index,
+        );
 
         let edition = match &info.edition {
             Some(edition) => edition.clone(),
@@ -375,15 +381,31 @@ fn resolve_aliases(
     resolved_targets
 }
 
+/// `named_deps` is a mapping from names used in Rust source code for imports to
+/// target names. Return the reverse mapping target->name, but ensure target
+/// names are fully resolved (not aliases).
+fn resolve_named_deps(
+    named_deps: &FxHashMap<String, Target>,
+    aliases: &FxHashMap<Target, AliasedTargetInfo>,
+    proc_macros: &FxHashMap<Target, MacroOutput>,
+) -> FxHashMap<Target, String> {
+    named_deps
+        .iter()
+        .flat_map(|(name, target)| {
+            resolve_aliases(std::slice::from_ref(target), aliases, proc_macros)
+                .into_iter()
+                .map(|resolved| (resolved, name.to_owned()))
+        })
+        .collect()
+}
+
 /// Convert `dep_targets` to `Dep` values.
 fn as_deps(
     dep_targets: &[Target],
-    info: &TargetInfo,
+    overridden_names: FxHashMap<Target, String>,
     target_to_ids: &FxHashMap<&Target, usize>,
     target_index: &FxHashMap<Target, TargetInfo>,
 ) -> Vec<Dep> {
-    let overridden_names = info.overridden_dep_names();
-
     let mut seen_targets = FxHashSet::default();
 
     let mut deps = vec![];
@@ -1515,7 +1537,17 @@ fn named_deps_underscores() {
     targets_to_ids.insert(&bar_target, 0);
 
     let dep_targets = resolve_aliases(&info.deps, &FxHashMap::default(), &FxHashMap::default());
-    let deps = as_deps(&dep_targets, &info, &targets_to_ids, &target_index);
+    let overridden_names = resolve_named_deps(
+        &info.named_deps,
+        &FxHashMap::default(),
+        &FxHashMap::default(),
+    );
+    let deps = as_deps(
+        &dep_targets,
+        overridden_names,
+        &targets_to_ids,
+        &target_index,
+    );
 
     assert_eq!(
         deps,
