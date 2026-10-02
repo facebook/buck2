@@ -30,7 +30,6 @@ load("@prelude//utils:buckconfig.bzl", "read")
 _SUPPORTED_IOS_PLATFORMS = [
     ios_platforms.IPHONEOS_ARM64,
     ios_platforms.IPHONESIMULATOR_ARM64,
-    ios_platforms.IPHONESIMULATOR_X86_64,
 ]
 
 _SUPPORTED_APPLETV_PLATFORMS = [
@@ -52,7 +51,6 @@ _SUPPORTED_WATCHOS_PLATFORMS = [
     watch_platforms.WATCHOS_ARM64,
     watch_platforms.WATCHOS_ARM64_32,
     watch_platforms.WATCHSIMULATOR_ARM64,
-    watch_platforms.WATCHSIMULATOR_X86_64,
 ]
 
 _ANALYSIS_CONSTRAINTS = ["ovr_config//bitcode/constraints:bitcode_mode[bitcode]"]
