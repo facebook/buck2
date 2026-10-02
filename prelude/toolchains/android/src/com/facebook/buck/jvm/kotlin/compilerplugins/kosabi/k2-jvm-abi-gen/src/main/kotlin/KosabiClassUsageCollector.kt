@@ -32,6 +32,8 @@ import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
 import org.jetbrains.kotlin.fir.declarations.utils.classId
 import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.declarations.utils.sourceElement
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
+import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
@@ -41,6 +43,7 @@ import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.types.ConeErrorType
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.resolvedType
@@ -52,6 +55,8 @@ import org.jetbrains.kotlin.load.java.structure.JavaTypeParameter
 import org.jetbrains.kotlin.load.java.structure.impl.VirtualFileBoundJavaClass
 import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinarySourceElement
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.Name
 
 private const val JAR_FILE_SEPARATOR = "!/"
 private const val STUBSGEN_STUBS_JAR = "stubgen_stubs.jar"
@@ -97,12 +102,41 @@ class KosabiClassUsageCollector {
     for (firImport in firFile.imports) {
       val fqName = firImport.importedFqName ?: continue
       if (fqName.isRoot) continue
-      val classId = ClassId.topLevel(fqName)
-      @OptIn(SymbolInternals::class)
-      val symbol = session.symbolProvider.getClassLikeSymbolByClassId(classId) ?: continue
-      @OptIn(SymbolInternals::class) val firClass = symbol.fir
+      @OptIn(SymbolInternals::class) val firClass = resolveImport(fqName, session) ?: continue
       recordClassDeclaration(firClass, session)
     }
+  }
+
+  @OptIn(SymbolInternals::class)
+  private fun resolveImport(
+      fqName: FqName,
+      session: FirSession,
+  ): FirClassLikeDeclaration? {
+    val segments = fqName.pathSegments().map { it.asString() }
+    for (i in segments.size - 1 downTo 1) {
+      var classId = ClassId.topLevel(FqName.fromSegments(segments.take(i)))
+      for (j in i until segments.size) {
+        classId = classId.createNestedClassId(Name.identifier(segments[j]))
+      }
+      session.symbolProvider
+          .getClassLikeSymbolByClassId(classId)
+          ?.takeIf {
+            it.classId == classId
+          }
+          ?.let {
+            return it.fir
+          }
+    }
+    val topLevelId = ClassId.topLevel(fqName)
+    session.symbolProvider
+        .getClassLikeSymbolByClassId(topLevelId)
+        ?.takeIf {
+          it.classId == topLevelId
+        }
+        ?.let {
+          return it.fir
+        }
+    return null
   }
 
   @OptIn(SymbolInternals::class)
@@ -118,6 +152,18 @@ class KosabiClassUsageCollector {
 
     val symbol = session.symbolProvider.getClassLikeSymbolByClassId(classId) ?: return
     recordClassDeclaration(symbol.fir, session)
+  }
+
+  private fun recordAnnotation(annotation: FirAnnotation, session: FirSession) {
+    recordType(annotation.annotationTypeRef.coneType, session)
+    if (annotation is FirAnnotationCall) {
+      annotation.argumentList.arguments.forEach { it.accept(ExpressionUsageVisitor(session)) }
+    }
+  }
+
+  private fun recordTypeRef(typeRef: FirTypeRef, session: FirSession) {
+    typeRef.annotations.forEach { recordAnnotation(it, session) }
+    recordType(typeRef.coneType, session)
   }
 
   @OptIn(SymbolInternals::class)
@@ -250,6 +296,10 @@ class KosabiClassUsageCollector {
       }
       qualifiedAccessExpression.acceptChildren(this)
     }
+
+    override fun visitAnnotationCall(annotationCall: FirAnnotationCall) {
+      recordAnnotation(annotationCall, session)
+    }
   }
 
   private inner class ClassUsageVisitor(private val session: FirSession) :
@@ -259,6 +309,9 @@ class KosabiClassUsageCollector {
     }
 
     override fun visitFile(file: org.jetbrains.kotlin.fir.declarations.FirFile) {
+      for (annotation in file.annotations) {
+        recordAnnotation(annotation, session)
+      }
       for (declaration in file.declarations) {
         declaration.accept(this)
       }
@@ -266,10 +319,10 @@ class KosabiClassUsageCollector {
 
     override fun visitRegularClass(regularClass: FirRegularClass) {
       for (superTypeRef in regularClass.superTypeRefs) {
-        recordType(superTypeRef.coneType, session)
+        recordTypeRef(superTypeRef, session)
       }
       for (annotation in regularClass.annotations) {
-        recordType(annotation.annotationTypeRef.coneType, session)
+        recordAnnotation(annotation, session)
       }
       for (declaration in regularClass.declarations) {
         declaration.accept(this)
@@ -277,20 +330,26 @@ class KosabiClassUsageCollector {
     }
 
     override fun visitNamedFunctionCompat(simpleFunction: FirNamedFunctionCompat) {
-      recordType(simpleFunction.returnTypeRef.coneType, session)
+      recordTypeRef(simpleFunction.returnTypeRef, session)
       for (valueParameter in simpleFunction.valueParameters) {
-        recordType(valueParameter.returnTypeRef.coneType, session)
+        recordTypeRef(valueParameter.returnTypeRef, session)
+        for (annotation in valueParameter.annotations) {
+          recordAnnotation(annotation, session)
+        }
       }
       for (annotation in simpleFunction.annotations) {
-        recordType(annotation.annotationTypeRef.coneType, session)
+        recordAnnotation(annotation, session)
       }
     }
 
     override fun visitProperty(property: org.jetbrains.kotlin.fir.declarations.FirProperty) {
-      recordType(property.returnTypeRef.coneType, session)
+      recordTypeRef(property.returnTypeRef, session)
       for (annotation in property.annotations) {
-        recordType(annotation.annotationTypeRef.coneType, session)
+        recordAnnotation(annotation, session)
       }
+      property.getter?.annotations.orEmpty().forEach { recordAnnotation(it, session) }
+      property.setter?.annotations.orEmpty().forEach { recordAnnotation(it, session) }
+      property.backingField?.annotations.orEmpty().forEach { recordAnnotation(it, session) }
       // Walk const val initializers — these are part of the ABI (inlined constants)
       // and may reference classes not visible from declaration-level types alone.
       // Example: const val x: Int = B.bConst  references B.Companion
@@ -303,19 +362,28 @@ class KosabiClassUsageCollector {
         constructor: org.jetbrains.kotlin.fir.declarations.FirConstructor,
     ) {
       for (valueParameter in constructor.valueParameters) {
-        recordType(valueParameter.returnTypeRef.coneType, session)
+        recordTypeRef(valueParameter.returnTypeRef, session)
+        for (annotation in valueParameter.annotations) {
+          recordAnnotation(annotation, session)
+        }
       }
       for (annotation in constructor.annotations) {
-        recordType(annotation.annotationTypeRef.coneType, session)
+        recordAnnotation(annotation, session)
       }
     }
 
     override fun visitEnumEntry(enumEntry: FirEnumEntry) {
-      recordType(enumEntry.returnTypeRef.coneType, session)
+      recordTypeRef(enumEntry.returnTypeRef, session)
+      for (annotation in enumEntry.annotations) {
+        recordAnnotation(annotation, session)
+      }
     }
 
     override fun visitTypeAlias(typeAlias: FirTypeAlias) {
-      recordType(typeAlias.expandedTypeRef.coneType, session)
+      recordTypeRef(typeAlias.expandedTypeRef, session)
+      for (annotation in typeAlias.annotations) {
+        recordAnnotation(annotation, session)
+      }
     }
   }
 
