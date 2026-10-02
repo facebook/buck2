@@ -48,24 +48,14 @@ RustAnalyzerInfo = provider(
 )
 
 def _compute_rust_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[Dependency]:
-    # Modeled after https://rust-analyzer.github.io/book/non_cargo_based_projects.html:
-    #
-    # "If provided, rust-analyzer automatically adds dependencies on sysroot crates. Conversely, if
-    # you omit this path, you can specify sysroot dependencies yourself..."
-    #
-    # In the case of buck2, if you do not supply rust.sysroot_src_path, then we will model the sysroot
-    # as explicit dependencies in the crate graph.
-    if read_config("rust", "sysroot_src_path"):
-        explicit_sysroot_deps = None
-    else:
-        explicit_sysroot_deps = dep_ctx.explicit_sysroot_deps
-
     dep_ctx = DepCollectionContext(
-        advanced_unstable_linking = dep_ctx.advanced_unstable_linking if explicit_sysroot_deps != None else False,
+        advanced_unstable_linking = False,
         # Include doc deps here for any doctests that may be present in the target.
         include_doc_deps = True,
         is_proc_macro = dep_ctx.is_proc_macro,
-        explicit_sysroot_deps = explicit_sysroot_deps,
+        # Rust Analyzer handles the sysroot separately. We omit the sysroot deps here and will
+        # instead pass a path to the sysroot as a separate config.
+        explicit_sysroot_deps = None,
         panic_runtime = dep_ctx.panic_runtime,
     )
 
