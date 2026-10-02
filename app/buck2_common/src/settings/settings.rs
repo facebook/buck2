@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_fs::paths::file_name::FileName;
 use dupe::Dupe;
+use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -234,6 +235,49 @@ const ANALYSIS_RECORD_REQUESTED_ANON_TARGETS: SettingKey<bool> = SettingKey {
     oss_default: Some(true),
 };
 
+/// Controls whether ordinary `package(visibility=...)` declarations are
+/// intersected into the visibility cap by default.
+///
+/// * `off` (default): legacy behavior; only `enforce_visibility_intersection()`
+///   boundaries enforce the cap.
+/// * `audit`: the default cap is shadow-evaluated; would-block edges are
+///   reported, not fatal.
+/// * `enforce`: ordinary PACKAGE visibility is enforced by default; the marker
+///   is redundant.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Allocative,
+    Pagable
+)]
+#[serde(rename_all = "snake_case")]
+pub enum PackageVisibilityDefaultIntersection {
+    #[default]
+    Off,
+    Audit,
+    Enforce,
+}
+
+const PACKAGE_VISIBILITY_DEFAULT_INTERSECTION: SettingKey<PackageVisibilityDefaultIntersection> =
+    SettingKey {
+        metadata: SettingKeyMetadata {
+            key: SettingKeyRef {
+                section: "package_visibility",
+                name: "default_intersection",
+            },
+            // Enforcement control: overrides must not be able to weaken it.
+            overridable_in: &[],
+        },
+        internal_default: Some(PackageVisibilityDefaultIntersection::Off),
+        oss_default: Some(PackageVisibilityDefaultIntersection::Off),
+    };
+
 pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
     AGENT_ADVICE_BUILD_INTENT_MODE.metadata,
     AGENT_ADVICE_BUILD_INTENT_MESSAGE.metadata,
@@ -244,6 +288,7 @@ pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
     HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE.metadata,
     LOG_USE_MANIFOLD.metadata,
     LOG_URL.metadata,
+    PACKAGE_VISIBILITY_DEFAULT_INTERSECTION.metadata,
 ];
 #[cfg_attr(
     not(fbcode_build),
@@ -254,6 +299,7 @@ pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
     AnalysisSection::METADATA,
     HydrationSection::METADATA,
     LogDownloadSection::METADATA,
+    PackageVisibilitySection::METADATA,
 ];
 
 pub(crate) fn find_setting_metadata<'a>(
@@ -294,6 +340,12 @@ struct HydrationSectionData {
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
 #[serde(deny_unknown_fields)]
+struct PackageVisibilitySectionData {
+    default_intersection: Option<PackageVisibilityDefaultIntersection>,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
     #[serde(default)]
     agent_advice: AgentAdviceSectionData,
@@ -303,6 +355,8 @@ pub(crate) struct BuckSettingsData {
     hydration: HydrationSectionData,
     #[serde(default)]
     log_download: LogDownloadSectionData,
+    #[serde(default)]
+    package_visibility: PackageVisibilitySectionData,
 }
 
 /// Settings controlling advice for direct agent builds.
@@ -461,6 +515,35 @@ impl LogDownloadSection {
     }
 }
 
+/// Settings controlling PACKAGE visibility intersection.
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Allocative
+)]
+#[serde(transparent)]
+pub struct PackageVisibilitySection(Arc<PackageVisibilitySectionData>);
+
+impl PackageVisibilitySection {
+    /// Bump when the section's settings schema or semantics change.
+    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
+        section_name: "package_visibility",
+        section_version: 0,
+    };
+
+    pub fn default_intersection(&self) -> PackageVisibilityDefaultIntersection {
+        PACKAGE_VISIBILITY_DEFAULT_INTERSECTION
+            .resolve(self.0.default_intersection)
+            .unwrap_or_default()
+    }
+}
+
 #[derive(Clone, Dupe, Debug, Serialize, Deserialize, PartialEq, Eq, Allocative)]
 #[serde(deny_unknown_fields)]
 pub struct BuckSettings {
@@ -472,6 +555,8 @@ pub struct BuckSettings {
     pub hydration: HydrationSection,
     #[serde(default)]
     pub log_download: LogDownloadSection,
+    #[serde(default)]
+    pub package_visibility: PackageVisibilitySection,
 }
 
 impl From<BuckSettingsData> for BuckSettings {
@@ -481,6 +566,7 @@ impl From<BuckSettingsData> for BuckSettings {
             analysis: AnalysisSection(Arc::new(data.analysis)),
             hydration: HydrationSection(Arc::new(data.hydration)),
             log_download: LogDownloadSection(Arc::new(data.log_download)),
+            package_visibility: PackageVisibilitySection(Arc::new(data.package_visibility)),
         }
     }
 }

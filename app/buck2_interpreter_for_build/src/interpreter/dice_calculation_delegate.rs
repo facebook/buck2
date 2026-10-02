@@ -44,6 +44,7 @@ use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
 use buck2_node::super_package::SuperPackage;
 use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
@@ -506,6 +507,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let configs = self.configs;
         let ctx = &mut *self.ctx;
 
+        let package_visibility_default_intersection = ctx
+            .per_transaction_data()
+            .get_package_visibility_default_intersection();
+
         let eval_kind = StarlarkEvalKind::LoadPackageFile(path.dupe());
         let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
 
@@ -520,6 +525,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 deps.get_loaded_modules(),
                 provider,
                 cancellation,
+                package_visibility_default_intersection,
             )
             .with_buck_error_context(|| format!("evaluating Starlark PACKAGE file `{path}`"))
     }

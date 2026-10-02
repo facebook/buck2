@@ -11,6 +11,7 @@
 use std::cell::RefCell;
 use std::sync::Arc;
 
+use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::super_package::SuperPackage;
@@ -47,6 +48,8 @@ pub struct PackageFileEvalCtx {
     pub(crate) enforces_visibility_intersection: RefCell<bool>,
     /// `true` iff this PACKAGE called `enforce_within_view_intersection()`.
     pub(crate) enforces_within_view_intersection: RefCell<bool>,
+    /// Effective `package_visibility.default_intersection` for this evaluation.
+    pub(crate) package_visibility_default_intersection: PackageVisibilityDefaultIntersection,
 }
 
 impl PackageFileEvalCtx {
@@ -127,8 +130,13 @@ impl PackageFileEvalCtx {
 
         // Extend the inherited cap with this PACKAGE's contribution
         // (no-op if it didn't opt in or didn't pass `package(visibility=...)`).
+        let enforces_by_default = matches!(
+            self.package_visibility_default_intersection,
+            PackageVisibilityDefaultIntersection::Audit
+                | PackageVisibilityDefaultIntersection::Enforce
+        );
         let visibility_cap = match (
-            self.enforces_visibility_intersection.into_inner(),
+            enforces_by_default || self.enforces_visibility_intersection.into_inner(),
             explicit_visibility,
         ) {
             (true, Some(raw)) => self.parent.visibility_cap().intersect_with(&raw),

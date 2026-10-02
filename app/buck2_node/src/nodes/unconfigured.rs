@@ -250,6 +250,24 @@ impl TargetNode {
         }))
     }
 
+    /// Testing-only: clone with the given cap, modelling PACKAGE evaluation
+    /// for harnesses without PACKAGE files. Call stack is dropped (debug-only).
+    pub fn testing_with_visibility_cap(&self, cap: VisibilityPatternList) -> TargetNode {
+        TargetNode::new(
+            self.0.rule.dupe(),
+            Arc::new(Package {
+                buildfile_path: self.0.package.buildfile_path.dupe(),
+                oncall: self.0.package.oncall.dupe(),
+                visibility_cap: cap,
+            }),
+            self.0.label.dupe(),
+            self.0.attributes.clone(),
+            None,
+            self.0.package_cfg_modifiers.dupe(),
+            self.0.test_config_unification_rollout,
+        )
+    }
+
     pub fn rule_kind(&self) -> RuleKind {
         self.0.rule.rule_kind
     }
@@ -349,6 +367,15 @@ impl TargetNode {
             return Ok(false);
         }
         self.0.package.visibility_cap.matches_target(target)
+    }
+
+    /// Audit-mode helper: true for cap-induced blocks (downgraded to
+    /// warnings), distinguishing them from genuine visibility violations (fail in every mode).
+    pub fn is_visible_to_ignoring_cap(&self, target: &TargetLabel) -> buck2_error::Result<bool> {
+        if self.label().pkg() == target.pkg() {
+            return Ok(true);
+        }
+        self.visibility()?.0.matches_target(target)
     }
 
     pub fn not_visible_to_error(&self, consumer: TargetLabel) -> VisibilityError {

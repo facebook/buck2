@@ -20,6 +20,7 @@ use allocative::Allocative;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
@@ -622,6 +623,7 @@ impl InterpreterForDir {
         loaded_modules: LoadedModules,
         eval_provider: StarlarkEvaluatorProvider,
         cancellation: &CancellationContext,
+        package_visibility_default_intersection: PackageVisibilityDefaultIntersection,
     ) -> buck2_error::Result<SuperPackage> {
         BuckStarlarkModule::with_profiling(|env| {
             let env = self.create_env(
@@ -637,6 +639,7 @@ impl InterpreterForDir {
                 test_config_unification_rollout: RefCell::new(None),
                 enforces_visibility_intersection: RefCell::new(false),
                 enforces_within_view_intersection: RefCell::new(false),
+                package_visibility_default_intersection,
             });
 
             let (finished_eval, eval_result) = self.eval(

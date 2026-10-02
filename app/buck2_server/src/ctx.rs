@@ -111,6 +111,7 @@ use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
+use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
 use buck2_resource_control::HasResourceControl;
 use buck2_server_ctx::bxl::InitBxlStreamingTracker;
 use buck2_server_ctx::concurrency::DiceUpdater;
@@ -1087,6 +1088,12 @@ impl DiceCommandUpdater<'_, '_> {
                 .map(|v| Box::new(v) as _),
         );
         data.set_keep_going(self.keep_going);
+        data.set_package_visibility_default_intersection(
+            self.cmd_ctx
+                .base_context
+                .daemon
+                .package_visibility_default_intersection,
+        );
         data.set_critical_path_backend(critical_path_backend);
         data.init_local_resource_registry();
         data.init_bxl_streaming_tracker();

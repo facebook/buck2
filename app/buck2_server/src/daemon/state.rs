@@ -33,6 +33,7 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::parse_buckconfig_metadata;
+use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_common::tenant::TenantKey;
@@ -959,6 +960,10 @@ pub struct DaemonStateData {
     /// Semaphores for running actions locally. These need to be shared across commands.
     #[allocative(skip)]
     pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
+
+    /// Effective `package_visibility.default_intersection`, fixed for the daemon's
+    /// lifetime (sourced from `DaemonStartupConfig.buck_settings`).
+    pub(crate) package_visibility_default_intersection: PackageVisibilityDefaultIntersection,
 }
 
 impl DaemonStateData {
@@ -1193,6 +1198,12 @@ impl DaemonState {
                 )
                 .await?;
 
+            let package_visibility_default_intersection = tenant_state_factory
+                .init_ctx
+                .daemon_startup_config
+                .buck_settings
+                .package_visibility
+                .default_intersection();
             let tenants = TenantStateRegistry::new(tenant).await?;
             Ok(Arc::new(DaemonStateData {
                 tenants,
@@ -1207,6 +1218,7 @@ impl DaemonState {
                 daemon_id: daemon_id.dupe(),
                 daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
+                package_visibility_default_intersection,
             }))
         };
         let daemon_listener_span = tracing::Span::current();

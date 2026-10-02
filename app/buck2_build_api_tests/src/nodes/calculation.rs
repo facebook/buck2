@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
+use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_configured::execution::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
@@ -45,6 +46,7 @@ use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::targets_map::TargetsMap;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::nodes::unconfigured::testing::TargetNodeExt;
+use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
 use buck2_node::provider_id_set::ProviderIdSet;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -133,6 +135,7 @@ async fn test_get_node() -> buck2_error::Result<()> {
 
     let mut data = UserComputationData::new();
     set_fallback_executor_config(&mut data.data, CommandExecutorConfig::testing_local());
+    data.set_package_visibility_default_intersection(PackageVisibilityDefaultIntersection::Off);
     let computations = DiceBuilder::new()
         .mock_and_return(InterpreterResultsKey(pkg), Ok(Arc::new(eval_result)))
         .mock_and_return(ExecutionPlatformsKey, Ok(None))

@@ -25,6 +25,7 @@ pub mod nodes;
 pub mod oncall;
 pub mod package;
 pub mod package_values_calculation;
+pub mod package_visibility;
 pub mod provider_id_set;
 pub mod query;
 pub mod rule;

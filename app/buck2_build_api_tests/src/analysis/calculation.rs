@@ -23,6 +23,7 @@ use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
+use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_configured::execution::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
@@ -55,6 +56,14 @@ use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::testing
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter_basic;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::rule::register_rule_function;
+use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_node::nodes::targets_map::TargetsMap;
+use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
+use buck2_node::super_package::SuperPackage;
+use buck2_node::visibility::VisibilityPatternList;
+use buck2_node::visibility::VisibilitySpecification;
+use dice::DetectCycles;
+use dice::Dice;
 use dice::UserComputationData;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
@@ -152,15 +161,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
             data.set_digest_config(DigestConfig::testing_default());
             data.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::new());
         })
-        .build({
-            let mut data = UserComputationData::new();
-            data.set_keep_going(true);
-            data.set_starlark_debugger_handle(None);
-            set_fallback_executor_config(&mut data.data, CommandExecutorConfig::testing_local());
-            data.data.set(EventDispatcher::null());
-            data.spawner = Arc::new(BuckSpawner::current_runtime().unwrap());
-            data
-        })
+        .build(testing_user_data(PackageVisibilityDefaultIntersection::Off))
         .unwrap();
     setup_interpreter_basic(
         &mut dice,
@@ -219,6 +220,254 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
             .is_some(),
         true
     );
+
+    Ok(())
+}
+
+fn testing_user_data(mode: PackageVisibilityDefaultIntersection) -> UserComputationData {
+    let mut data = UserComputationData::new();
+    data.set_keep_going(true);
+    data.set_starlark_debugger_handle(None);
+    set_fallback_executor_config(&mut data.data, CommandExecutorConfig::testing_local());
+    data.data.set(EventDispatcher::null());
+    data.spawner = Arc::new(BuckSpawner::current_runtime().unwrap());
+    data.set_package_visibility_default_intersection(mode);
+    data
+}
+
+#[tokio::test]
+async fn test_audit_never_fails_and_enforce_does() -> buck2_error::Result<()> {
+    let bzlfile = ImportPath::testing_new("cell//pkg:foo.bzl");
+    let resolver = CellResolver::testing_with_names_and_paths(&[
+        (
+            CellName::testing_new("root"),
+            CellRootPathBuf::testing_new(""),
+        ),
+        (
+            CellName::testing_new("cell"),
+            CellRootPathBuf::testing_new("cell"),
+        ),
+    ]);
+    let mut interpreter = Tester::with_cells((
+        CellAliasResolver::new(
+            CellName::testing_new("cell"),
+            IntentionallyStdHashMap::new(),
+        )?,
+        resolver.dupe(),
+        LegacyBuckConfig::empty(),
+        CellPathWithAllowedRelativeDir::new(CellPath::testing_new("cell//pkg"), None),
+    ))?;
+    interpreter.additional_globals(register_rule_function);
+    interpreter.additional_globals(register_provider);
+    interpreter.additional_globals(register_builtin_providers);
+    let module = interpreter
+        .eval_import(
+            &bzlfile,
+            indoc!(r#"
+                            FooInfo = provider(fields=["str"])
+
+                            def impl(ctx):
+                                str = ""
+                                if ctx.attrs.dep:
+                                    str = ctx.attrs.dep[FooInfo].str
+                                return [FooInfo(str=(str + ctx.attrs.str)), DefaultInfo()]
+                            foo_binary = rule(impl=impl, attrs={"dep": attrs.option(attrs.dep(providers=[FooInfo]), default = None), "str": attrs.string()})
+                        "#),
+            LoadedModules::default(),
+        )?;
+
+    let loaded_modules = LoadedModules {
+        map: OrderedMap::from_iter([(
+            OwnedStarlarkModulePath::LoadFile(bzlfile.clone()),
+            module.dupe(),
+        )]),
+    };
+    let pkg_eval_res = Arc::new(interpreter.eval_build_file_with_loaded_modules(
+        &BuildFilePath::testing_new("cell//pkg:BUCK"),
+        indoc!(
+            r#"
+                    load(":foo.bzl", "FooInfo", "foo_binary")
+
+                    foo_binary(
+                        name = "rule1",
+                        str = "a",
+                        dep = "//lib:rule2",
+                    )
+                "#
+        ),
+        loaded_modules.clone(),
+        PackageListing::testing_new(&[], "BUCK"),
+    )?);
+    let lib_buck = |rule2_visibility: &str| {
+        format!(
+            r#"
+load(":foo.bzl", "FooInfo", "foo_binary")
+
+foo_binary(
+    name = "rule2",
+    str = "b",
+    dep = ":rule3",
+    visibility = [{rule2_visibility}],
+)
+foo_binary(
+    name = "rule3",
+    str = "c",
+    dep = None,
+)
+"#
+        )
+    };
+    let lib_eval_res_public = Arc::new(interpreter.eval_build_file_with_loaded_modules(
+        &BuildFilePath::testing_new("cell//lib:BUCK"),
+        &lib_buck("\"PUBLIC\""),
+        loaded_modules.clone(),
+        PackageListing::testing_new(&[], "BUCK"),
+    )?);
+    let lib_eval_res_restricted = Arc::new(interpreter.eval_build_file_with_loaded_modules(
+        &BuildFilePath::testing_new("cell//lib:BUCK"),
+        &lib_buck("\"//other:thing\""),
+        loaded_modules,
+        PackageListing::testing_new(&[], "BUCK"),
+    )?);
+
+    let fs = ProjectRootTemp::new()?;
+
+    // `Tester` has no PACKAGE files, so inject the cap into both the
+    // `SuperPackage` and each node's embedded `Package` (what `is_visible_to` reads).
+    let capped_lib_eval_res = |base: &EvaluationResult, cap: VisibilityPatternList| {
+        Arc::new(EvaluationResult::new(
+            base.buildfile_path().dupe(),
+            base.imports().to_vec(),
+            SuperPackage::new(
+                base.super_package().package_values().dupe(),
+                base.super_package().visibility().dupe(),
+                base.super_package().within_view().dupe(),
+                cap.dupe(),
+                base.super_package().within_view_cap().dupe(),
+                base.super_package().cfg_constructor().cloned(),
+                base.super_package().test_config_unification_rollout(),
+            )
+            .unwrap(),
+            TargetsMap::from_iter(
+                base.targets()
+                    .values()
+                    .map(|node| node.to_owned().testing_with_visibility_cap(cap.dupe())),
+            ),
+        ))
+    };
+
+    let restrictive_cap = || VisibilitySpecification::testing_parse(&["cell//other/..."]).0;
+
+    // Fresh DICE per mode: the mode is per-transaction data, not a DICE key,
+    // so flipping it cannot invalidate an existing instance.
+    for (case, base_lib_eval_res, mode, cap, should_fail) in [
+        (
+            "cap-induced edge",
+            &lib_eval_res_public,
+            PackageVisibilityDefaultIntersection::Off,
+            VisibilityPatternList::Public,
+            false,
+        ),
+        (
+            "cap-induced edge",
+            &lib_eval_res_public,
+            PackageVisibilityDefaultIntersection::Audit,
+            restrictive_cap(),
+            false,
+        ),
+        (
+            "cap-induced edge",
+            &lib_eval_res_public,
+            PackageVisibilityDefaultIntersection::Enforce,
+            restrictive_cap(),
+            true,
+        ),
+        (
+            "genuine violation",
+            &lib_eval_res_restricted,
+            PackageVisibilityDefaultIntersection::Off,
+            VisibilityPatternList::Public,
+            true,
+        ),
+        (
+            "genuine violation",
+            &lib_eval_res_restricted,
+            PackageVisibilityDefaultIntersection::Audit,
+            VisibilityPatternList::Public,
+            true,
+        ),
+        (
+            "genuine violation",
+            &lib_eval_res_restricted,
+            PackageVisibilityDefaultIntersection::Enforce,
+            VisibilityPatternList::Public,
+            true,
+        ),
+    ] {
+        let mut data_builder = Dice::builder();
+        data_builder.set_testing_io_provider(&fs);
+        data_builder.set_digest_config(DigestConfig::testing_default());
+        data_builder.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::new());
+        let dice = data_builder.build(DetectCycles::Enabled);
+
+        let target = TargetLabel::testing_parse("cell//pkg:rule1")
+            .configure(ConfigurationData::testing_new());
+
+        let mut updater = dice.updater_with_data(testing_user_data(mode));
+        updater.changed_to(vec![(
+            EvalImportKey(OwnedStarlarkModulePath::LoadFile(bzlfile.clone())),
+            Ok(module.dupe()),
+        )])?;
+        updater.changed_to(vec![(
+            InterpreterResultsKey(PackageLabel::testing_parse("cell//pkg")),
+            Ok(pkg_eval_res.dupe()),
+        )])?;
+        updater.changed_to(vec![(
+            InterpreterResultsKey(PackageLabel::testing_parse("cell//lib")),
+            Ok(capped_lib_eval_res(base_lib_eval_res, cap)),
+        )])?;
+        updater.changed_to(vec![(ExecutionPlatformsKey, Ok(None))])?;
+        setup_interpreter_basic(
+            &mut updater,
+            resolver.dupe(),
+            BuildInterpreterConfiguror::new(
+                None,
+                InterpreterHostPlatform::Linux,
+                InterpreterHostArchitecture::X86_64,
+                None,
+                false,
+                false,
+                InferTargetNames::No,
+                None,
+            )?,
+        )?;
+        let txn = updater.commit().await;
+        let mut ctx = txn.ctx();
+        if should_fail {
+            let Err(e) = ctx.get_analysis_result(&target).await.require_compatible() else {
+                panic!("{case} must fail in {mode:?} mode");
+            };
+            let msg = format!("{e:?}");
+            assert!(
+                msg.contains("is not visible to"),
+                "{case} must fail in {mode:?} mode, got: {msg}"
+            );
+        } else {
+            let analysis = ctx
+                .get_analysis_result(&target)
+                .await
+                .require_compatible()?;
+            assert!(
+                analysis
+                    .providers()
+                    .unwrap()
+                    .value()
+                    .get_provider_raw(&ProviderId::testing_new(bzlfile.path().clone(), "FooInfo"))
+                    .is_some(),
+                "{case} must actually run analysis, not vacuously succeed"
+            );
+        }
+    }
 
     Ok(())
 }

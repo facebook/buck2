@@ -7,4 +7,4 @@ Command failed:
 Error looking up configured node root//outside_consumer:c (<unspecified>)
 
 Caused by:
-    `root//intersect/public_target:t` is not visible to `root//outside_consumer:c` (visibility = ["PUBLIC"]). Capped to ["root//intersect/..."] by `enforce_visibility_intersection()` in an ancestor PACKAGE.
+    `root//intersect/public_target:t` is not visible to `root//outside_consumer:c` (visibility = ["PUBLIC"]). Capped to ["root//intersect/..."] by an ancestor PACKAGE's visibility.

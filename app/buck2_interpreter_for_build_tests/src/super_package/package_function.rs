@@ -8,12 +8,16 @@
  * above-listed licenses.
  */
 
+use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
+use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
 
 use crate::tests::calculation;
+use crate::tests::calculation_with_package_visibility_mode;
 
 const RULES_BZL: &str = r#"
 simple = rule(
@@ -21,6 +25,29 @@ simple = rule(
     attrs = {},
 )
 "#;
+
+/// Evaluate target `root//juxtaposition:a` under a `PACKAGE` file with the
+/// given body and the given default-intersection mode.
+async fn target_a_with_package(
+    package_body: &str,
+    mode: PackageVisibilityDefaultIntersection,
+) -> TargetNode {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file("juxtaposition/PACKAGE", package_body);
+    fs.write_file(
+        "juxtaposition/BUCK",
+        "load(\"//:rules.bzl\", \"simple\")\nsimple(name = \"a\")\n",
+    );
+
+    let ctx = calculation_with_package_visibility_mode(&fs, mode).await;
+
+    ctx.ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
+        .await
+        .unwrap()
+}
 
 #[tokio::test]
 async fn test_package() {
@@ -399,6 +426,87 @@ simple(name = "a")
     assert_eq!(
         &VisibilitySpecification::testing_parse(&["root//aaa/...", "root//bbb/..."]),
         a.visibility().unwrap(),
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_off_ignores_ordinary_visibility() {
+    let a = target_a_with_package(
+        "package(\n    visibility = [\"//allowed/...\"],\n)\n",
+        PackageVisibilityDefaultIntersection::Off,
+    )
+    .await;
+
+    assert!(
+        matches!(a.visibility_cap(), VisibilityPatternList::Public),
+        "off mode without a marker must leave the cap at Public, got: {}",
+        a.visibility_cap(),
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_marker_enforces_when_off() {
+    let a = target_a_with_package(
+        "enforce_visibility_intersection()\npackage(\n    visibility = [\"//allowed/...\"],\n)\n",
+        PackageVisibilityDefaultIntersection::Off,
+    )
+    .await;
+
+    assert!(
+        a.visibility_cap()
+            .matches_target(&TargetLabel::testing_parse("root//allowed:lib"))
+            .unwrap(),
+        "marker-selected visibility must cap to //allowed/..."
+    );
+    assert!(
+        !a.visibility_cap()
+            .matches_target(&TargetLabel::testing_parse("root//other:lib"))
+            .unwrap(),
+        "marker-selected visibility must block //other/..."
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_enforce_without_marker() {
+    let a = target_a_with_package(
+        "package(\n    visibility = [\"//allowed/...\"],\n)\n",
+        PackageVisibilityDefaultIntersection::Enforce,
+    )
+    .await;
+
+    assert!(
+        a.visibility_cap()
+            .matches_target(&TargetLabel::testing_parse("root//allowed:lib"))
+            .unwrap(),
+        "enforce mode must cap to //allowed/... without a marker"
+    );
+    assert!(
+        !a.visibility_cap()
+            .matches_target(&TargetLabel::testing_parse("root//other:lib"))
+            .unwrap(),
+        "enforce mode must block //other/... without a marker"
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_audit_computes_cap_like_enforce() {
+    let a = target_a_with_package(
+        "package(\n    visibility = [\"//allowed/...\"],\n)\n",
+        PackageVisibilityDefaultIntersection::Audit,
+    )
+    .await;
+
+    assert!(
+        a.visibility_cap()
+            .matches_target(&TargetLabel::testing_parse("root//allowed:lib"))
+            .unwrap(),
+        "audit mode must cap to //allowed/... like enforce"
+    );
+    assert!(
+        !a.visibility_cap()
+            .matches_target(&TargetLabel::testing_parse("root//other:lib"))
+            .unwrap(),
+        "audit mode must block //other/... like enforce"
     );
 }
 

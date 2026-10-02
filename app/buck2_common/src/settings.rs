@@ -19,3 +19,5 @@ mod rollouts;
 pub mod settings;
 
 pub use settings::BuckSettings;
+pub use settings::PackageVisibilityDefaultIntersection;
+pub use settings::PackageVisibilitySection;

@@ -13,6 +13,7 @@ use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::file_ops::io::initialize_read_dir_cache;
 use buck2_common::legacy_configs::cells::ExternalBuckconfigData;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
+use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -32,6 +33,7 @@ use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
+use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
@@ -40,6 +42,13 @@ use dupe::Dupe;
 use indoc::indoc;
 
 pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
+    calculation_with_package_visibility_mode(fs, PackageVisibilityDefaultIntersection::Off).await
+}
+
+pub(crate) async fn calculation_with_package_visibility_mode(
+    fs: &ProjectRootTemp,
+    package_visibility_default_intersection: PackageVisibilityDefaultIntersection,
+) -> DiceTransaction {
     let mut dice = Dice::builder();
     dice.set(EventDispatcher::null());
     dice.set_testing_io_provider(fs);
@@ -49,6 +58,8 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     initialize_read_dir_cache(&mut per_transaction_data);
     per_transaction_data.data.set(EventDispatcher::null());
     per_transaction_data.set_starlark_debugger_handle(None);
+    per_transaction_data
+        .set_package_visibility_default_intersection(package_visibility_default_intersection);
     let mut ctx = dice.updater_with_data(per_transaction_data);
 
     let resolver = CellResolver::testing_with_name_and_path(

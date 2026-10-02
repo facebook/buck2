@@ -27,6 +27,7 @@ use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
+use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -76,6 +77,7 @@ use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculationImpl;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
+use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
 use buck2_node::rule::RuleIncomingTransition;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
@@ -362,6 +364,9 @@ async fn check_plugin_deps(
     target_label: &ConfiguredTargetLabel,
     plugin_deps: &PluginLists,
 ) -> buck2_error::Result<()> {
+    let package_visibility = ctx
+        .per_transaction_data()
+        .get_package_visibility_default_intersection();
     for (_, dep_label, elem_kind) in plugin_deps.iter() {
         if *elem_kind == PluginListElemKind::Direct {
             let dep_node = ctx
@@ -373,14 +378,36 @@ async fn check_plugin_deps(
             if dep_node.is_toolchain_rule() {
                 return Err(PluginDepError::PluginDepIsToolchainRule(dep_label.dupe()).into());
             }
-            if !dep_node.is_visible_to(target_label.unconfigured())? {
-                return Err(dep_node
-                    .not_visible_to_error(target_label.unconfigured().dupe())
-                    .into());
-            }
+            check_dep_visibility(&dep_node, *target_label.unconfigured(), package_visibility)?;
         }
     }
     Ok(())
+}
+
+/// Under `audit`, a dep blocked only by its package's visibility intersection is
+/// reported as a soft error instead of failing. A dep whose own `visibility`
+/// rejects the consumer fails in every mode.
+fn check_dep_visibility(
+    dep: &TargetNode,
+    consumer: TargetLabel,
+    package_visibility: PackageVisibilityDefaultIntersection,
+) -> buck2_error::Result<()> {
+    if dep.is_visible_to(&consumer)? {
+        return Ok(());
+    }
+    let err = dep.not_visible_to_error(consumer);
+    if package_visibility == PackageVisibilityDefaultIntersection::Audit
+        && dep.is_visible_to_ignoring_cap(&consumer)?
+    {
+        soft_error!(
+            "package_visibility_audit_would_block",
+            err.into(),
+            quiet: false,
+            low_cardinality_key_for_additional_logview_samples: Some(Box::new(dep.label().pkg())),
+        )?;
+        return Ok(());
+    }
+    Err(err.into())
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -401,10 +428,11 @@ impl ErrorsAndIncompatibilities {
         target_label: &TargetConfiguredTargetLabel,
         result: ResultMaybeCompatible<&ConfiguredTargetNode>,
         check_visibility: CheckVisibility,
+        package_visibility: PackageVisibilityDefaultIntersection,
         list: &mut Vec<ConfiguredTargetNode>,
     ) {
         list.extend(
-            self.unpack_dep(target_label, result, check_visibility)
+            self.unpack_dep(target_label, result, check_visibility, package_visibility)
                 .map(Dupe::dupe),
         );
     }
@@ -414,6 +442,7 @@ impl ErrorsAndIncompatibilities {
         target_label: &TargetConfiguredTargetLabel,
         result: ResultMaybeCompatible<&'x ConfiguredTargetNode>,
         check_visibility: CheckVisibility,
+        package_visibility: PackageVisibilityDefaultIntersection,
     ) -> Option<&'x ConfiguredTargetNode> {
         match result {
             ResultMaybeCompatible::Err(e) => {
@@ -429,15 +458,13 @@ impl ErrorsAndIncompatibilities {
                 if CheckVisibility::No == check_visibility {
                     return Some(dep);
                 }
-                match dep.is_visible_to(target_label.unconfigured()) {
-                    Ok(true) => {
+                match check_dep_visibility(
+                    dep.target_node(),
+                    *target_label.unconfigured(),
+                    package_visibility,
+                ) {
+                    Ok(()) => {
                         return Some(dep);
-                    }
-                    Ok(false) => {
-                        self.errs.push(
-                            dep.not_visible_to_error(target_label.unconfigured().dupe())
-                                .into(),
-                        );
                     }
                     Err(e) => {
                         self.errs.push(e);
@@ -537,9 +564,16 @@ pub(crate) async fn gather_deps(
     let mut plugin_lists = traversal.plugin_lists;
     let mut deps = Vec::new();
     let mut errors_and_incompats = ErrorsAndIncompatibilities::default();
+    let package_visibility = ctx
+        .per_transaction_data()
+        .get_package_visibility_default_intersection();
     for (res, (_, plugin_kind_sets)) in dep_results.into_iter().zip(traversal.deps) {
-        let Some(dep) = errors_and_incompats.unpack_dep(target_label, res, CheckVisibility::Yes)
-        else {
+        let Some(dep) = errors_and_incompats.unpack_dep(
+            target_label,
+            res,
+            CheckVisibility::Yes,
+            package_visibility,
+        ) else {
             continue;
         };
 
@@ -982,11 +1016,15 @@ async fn compute_configured_target_node_no_transition(
     // point above.
     let partial_target_label =
         &TargetConfiguredTargetLabel::new_without_exec_cfg(target_label.dupe());
+    let package_visibility = ctx
+        .per_transaction_data()
+        .get_package_visibility_default_intersection();
     for dep in toolchain_dep_results {
         errors_and_incompats.unpack_dep_into(
             partial_target_label,
             dep,
             CheckVisibility::Yes,
+            package_visibility,
             &mut deps,
         );
     }
@@ -995,6 +1033,7 @@ async fn compute_configured_target_node_no_transition(
             partial_target_label,
             dep,
             check_visibility,
+            package_visibility,
             &mut exec_deps,
         );
     }

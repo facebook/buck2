@@ -183,6 +183,36 @@ opted-in subtree, a refused dependency is reported together with both the
 target's own `within_view` and the cap, since widening the target's own list
 alone cannot get past the cap.
 
+#### `package_visibility.default_intersection` Buck setting
+
+Set this in the repo-root `.bucksettings.toml` (this enforcement control is
+not overridable via `.bucksettings.local.toml` or `--setting` flags):
+
+```toml
+[package_visibility]
+default_intersection = "off"  # off | audit | enforce
+```
+
+This typed Buck setting controls whether ordinary `package(visibility=...)`
+declarations are intersected into the cap by default, without requiring an
+`enforce_visibility_intersection()` marker in every `PACKAGE` file:
+
+| Setting   | Ordinary `PACKAGE` visibility               | Marker-selected boundary                |
+|-----------|---------------------------------------------|-----------------------------------------|
+| `off`     | Legacy behavior                             | Enforced                                |
+| `audit`   | Shadow-evaluated; reported, none fatal      | Shadow-evaluated; reported, none fatal  |
+| `enforce` | Enforced; the marker is redundant           | Enforced                                |
+
+Under `audit`, cap-induced would-block edges are reported as soft errors
+(`package_visibility_audit_would_block`) instead of failing. Note
+`buck2 audit visibility` still lists all violations and exits non-zero.
+Genuine target-level violations fail in every mode, including `audit`, so a
+rollout never masks a real violation.
+
+The default is `off`. Parsing and validation of `PACKAGE` files does not
+depend on the current setting, so an emergency `enforce` to `off` flip never
+turns valid `PACKAGE` files into evaluation errors.
+
 #### [`read_config`](../../api/build#read_config)
 
 `PACKAGE` files are able to call `read_config` to read buckconfigs.
