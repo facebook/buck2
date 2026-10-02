@@ -78,7 +78,7 @@ buck_prebuilt_jar(
 # buck build prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi:api-stubber-main --show-simple-output | xargs frecli --use-case android_build_infra_tools cas upload-blob
 buck_prebuilt_artifact(
     name = "api-stubber-main_jar.jar",
-    # @oss-disable[end= ]: cas_digest = "3ea4825239cf3cd3afc0a244c6a87c9270c7c0d2ff0ffe6bf2c4ef9292f6fc01:27183911",
+    # @oss-disable[end= ]: cas_digest = "4269ee7bbe43d17c80b9295d5e5c5070213a24fc14f96f6f2a20f5f64a148163:26810133",
     oss_sha1 = "59b1fcca9ec544a86df64fb544fce3bfcee7eaa8",
     oss_url = "https://github.com/facebook/buck2/releases/download/androidToolchain%2F2025-04-03/api-stubber-main_jar.jar",
 )

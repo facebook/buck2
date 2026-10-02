@@ -109,7 +109,10 @@ class AbiFilteringClassVisitor extends ClassVisitor {
     if (methodsWithRetainedBody.contains(name)
         || (name.endsWith("$annotations"))
         || (name.endsWith("$default")
-            && methodsWithRetainedBody.contains(name.substring(0, name.length() - 8)))) {
+            && methodsWithRetainedBody.contains(name.substring(0, name.length() - 8)))
+        || (name.endsWith("$$forInline")
+            && methodsWithRetainedBody.contains(
+                name.substring(0, name.length() - "$$forInline".length())))) {
       if (name.equals("<init>") && (access & (Opcodes.ACC_PRIVATE | Opcodes.ACC_SYNTHETIC)) == 0) {
         hasVisibleConstructor = true;
       }

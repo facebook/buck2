@@ -10,15 +10,22 @@
 
 package com.facebook.buck.jvm.java.abi;
 
+import static org.junit.Assert.assertSame;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.Before;
 import org.junit.Test;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 public class AbiFilteringClassVisitorTest {
@@ -88,6 +95,32 @@ public class AbiFilteringClassVisitorTest {
         new AbiFilteringClassVisitor(
             mockVisitor, ImmutableList.of("foo"), ImmutableSet.of(), false);
     testIncludesMethodWithAccess(Opcodes.ACC_PRIVATE);
+  }
+
+  @Test
+  public void testIncludesForInlineVariantOfRetainedMethod() {
+    filteringVisitor =
+        new AbiFilteringClassVisitor(
+            mockVisitor, ImmutableList.of("foo"), ImmutableSet.of(), false);
+    int access = Opcodes.ACC_PRIVATE | Opcodes.ACC_SYNTHETIC;
+    MethodVisitor delegate = mock(MethodVisitor.class);
+    when(mockVisitor.visitMethod(access, "foo$$forInline", "()V", null, null)).thenReturn(delegate);
+    MethodVisitor result =
+        filteringVisitor.visitMethod(access, "foo$$forInline", "()V", null, null);
+    verify(mockVisitor).visitMethod(access, "foo$$forInline", "()V", null, null);
+    // Full visitor (body kept): the delegate is returned directly, not wrapped
+    // in the code-skipping visitor used for ordinary ABI stubs.
+    assertSame(delegate, result);
+  }
+
+  @Test
+  public void testExcludesForInlineVariantOfNonRetainedMethod() {
+    filteringVisitor =
+        new AbiFilteringClassVisitor(
+            mockVisitor, ImmutableList.of("bar"), ImmutableSet.of(), false);
+    filteringVisitor.visitMethod(
+        Opcodes.ACC_PRIVATE | Opcodes.ACC_SYNTHETIC, "foo$$forInline", "()V", null, null);
+    verify(mockVisitor, never()).visitMethod(anyInt(), anyString(), anyString(), any(), any());
   }
 
   @Test
