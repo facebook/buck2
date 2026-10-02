@@ -14,6 +14,7 @@ import com.facebook.buck.cd.model.java.AbiGenerationMode;
 import com.facebook.buck.jvm.java.abi.kotlin.InlineFunctionScope;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -48,6 +49,28 @@ public abstract class StubJarEntry {
   public abstract List<String> getInlineFunctions();
 
   public abstract boolean extendsInlineFunctionScope();
+
+  public boolean isFilePrivateKotlinClass() {
+    return false;
+  }
+
+  @Nullable
+  public String getClassName() {
+    return null;
+  }
+
+  public Set<String> getReferencedClassNames() {
+    return Collections.emptySet();
+  }
+
+  public boolean isScopeCaptured() {
+    return false;
+  }
+
+  @Nullable
+  public String getScopeOuterClass() {
+    return null;
+  }
 
   private static boolean isStubbableResource(LibraryReader input, Path path) {
     return input.isResource(path);

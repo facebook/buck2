@@ -7735,6 +7735,150 @@ public class StubJarTest {
   }
 
   @Test
+  public void kotlinKeepsFilePrivateInterfaceImplementedByPublicEnum() throws IOException {
+    if (!isValidForKotlin()) {
+      return;
+    }
+
+    if (testingMode.equals(MODE_SOURCE_BASED)) {
+      return;
+    }
+
+    // A file-private supertype that a retained class still references must be kept, otherwise
+    // consumers fail with "cannot access ... which is a supertype of ...".
+    tester = new Tester(Language.KOTLIN);
+    tester
+        .setSourceFile(
+            "A.kt",
+            "package com.example.buck",
+            "@Suppress(\"EXPOSED_SUPER_INTERFACE\")",
+            "public enum class RegexLike : FlagEnum<RegexLike> {",
+            "  A;",
+            "  override fun flagValue(): Int = ordinal",
+            "}",
+            "private interface FlagEnum<T> {",
+            "  fun flagValue(): Int",
+            "}")
+        .addExpectedStub("com/example/buck/RegexLike")
+        .addExpectedStub("com/example/buck/FlagEnum")
+        .createAndCheckStubJar();
+  }
+
+  @Test
+  public void kotlinKeepsTransitivelyReferencedFilePrivateClasses() throws IOException {
+    if (!isValidForKotlin()) {
+      return;
+    }
+
+    if (testingMode.equals(MODE_SOURCE_BASED)) {
+      return;
+    }
+
+    tester = new Tester(Language.KOTLIN);
+    tester
+        .setSourceFile(
+            "A.kt",
+            "package com.example.buck",
+            "@Suppress(\"EXPOSED_SUPER_CLASS\")",
+            "open class A : Mid()",
+            "private open class Mid : Base {",
+            "  override fun name(): String = \"mid\"",
+            "}",
+            "private interface Base {",
+            "  fun name(): String",
+            "}")
+        .addExpectedStub("com/example/buck/A")
+        .addExpectedStub("com/example/buck/Mid")
+        .addExpectedStub("com/example/buck/Base")
+        .createAndCheckStubJar();
+  }
+
+  @Test
+  public void kotlinExcludesFilePrivateClassesReferencedOnlyByExcludedOnes() throws IOException {
+    if (!isValidForKotlin()) {
+      return;
+    }
+
+    if (testingMode.equals(MODE_SOURCE_BASED)) {
+      return;
+    }
+
+    // UnusedImpl references UnusedBase, but nothing written references either of them,
+    // so both stay excluded.
+    tester = new Tester(Language.KOTLIN);
+    tester
+        .setSourceFile(
+            "A.kt",
+            "package com.example.buck",
+            "open class A {",
+            "  fun publicMethod(): String = \"hello\"",
+            "}",
+            "private interface UnusedBase {",
+            "  fun unused(): Int",
+            "}",
+            "private class UnusedImpl : UnusedBase {",
+            "  override fun unused(): Int = 1",
+            "}")
+        .addExpectedStub("com/example/buck/A")
+        .createAndCheckStubJar();
+  }
+
+  @Test
+  public void kotlinExcludesNestedClassOfUnreferencedFilePrivateInlineScope() throws IOException {
+    if (!isValidForKotlin()) {
+      return;
+    }
+
+    if (testingMode.equals(MODE_SOURCE_BASED)) {
+      return;
+    }
+
+    // The lambda nested in UnusedHolder.provide is captured by an inline scope, but its
+    // outer is a file-private class that nothing references, so both must be dropped.
+    tester = new Tester(Language.KOTLIN);
+    tester
+        .setSourceFile(
+            "A.kt",
+            "package com.example.buck",
+            "open class A {",
+            "  fun publicMethod(): String = \"hello\"",
+            "}",
+            "private class UnusedHolder {",
+            "  inline fun provide(): () -> Unit = { println(\"unused\") }",
+            "}")
+        .addExpectedStub("com/example/buck/A")
+        .createAndCheckStubJar();
+  }
+
+  @Test
+  public void kotlinKeepsNestedClassOfReferencedFilePrivateInlineScope() throws IOException {
+    if (!isValidForKotlin()) {
+      return;
+    }
+
+    if (testingMode.equals(MODE_SOURCE_BASED)) {
+      return;
+    }
+
+    // UsedHolder is kept via A's supertype edge, so its inline scope stays live and the
+    // nested lambda must be kept with it.
+    tester = new Tester(Language.KOTLIN);
+    tester
+        .setSourceFile(
+            "A.kt",
+            "package com.example.buck",
+            "@Suppress(\"EXPOSED_SUPER_CLASS\")",
+            "open class A : UsedHolder()",
+            "private open class UsedHolder {",
+            "  inline fun provide(): () -> Unit = { println(\"used\") }",
+            "}")
+        .addExpectedStub("com/example/buck/A")
+        .addExpectedStub("com/example/buck/UsedHolder")
+        .addExpectedStub("com/example/buck/UsedHolder$provide$1")
+        .createAndCheckStubJar();
+  }
+
+  @Test
   public void doNotStripClassSuffixIfItDoesNotExist() {
     assertEquals("A.aut", StubJar.pathWithoutClassSuffix(Paths.get("A.aut")));
   }

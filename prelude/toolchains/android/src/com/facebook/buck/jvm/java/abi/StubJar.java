@@ -17,10 +17,17 @@ import com.facebook.buck.jvm.java.lang.model.ElementsExtended;
 import com.facebook.buck.util.zip.JarBuilder;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -137,6 +144,10 @@ public class StubJar {
                 .collect(Collectors.toSet())
             : Collections.emptySet();
 
+    Map<String, StubJarEntry> deferredEntries = new HashMap<>();
+    Set<String> referencedByWritten = new HashSet<>();
+    List<StubJarEntry> writtenExistingEntries = new ArrayList<>();
+
     for (Path path : paths) {
       StubJarEntry entry =
           StubJarEntry.of(
@@ -150,13 +161,70 @@ public class StubJar {
       if (entry == null) {
         continue;
       }
-      entry.write(writer);
+      String className = entry.getClassName();
+      String scopeOuter = entry.getScopeOuterClass();
+      // Entries visit outer-first, so a scope-captured class whose outer is already deferred
+      // cannot be written yet: it must drop with its outer unless the fixpoint keeps it.
+      boolean scopeDeferred =
+          className != null
+              && entry.isScopeCaptured()
+              && scopeOuter != null
+              && deferredEntries.containsKey(scopeOuter);
+      if ((entry.isFilePrivateKotlinClass() && className != null) || scopeDeferred) {
+        deferredEntries.put(className, entry);
+      } else {
+        entry.write(writer);
+        if (entry instanceof StubJarExistingEntry) {
+          writtenExistingEntries.add(entry);
+        } else {
+          referencedByWritten.addAll(entry.getReferencedClassNames());
+        }
+      }
       if (inlineFunctionScope != null) {
         String pathNoSuffix = pathWithoutClassSuffix(path);
         inlineFunctionScope.createScopes(pathNoSuffix, entry.getInlineFunctions());
         if (entry.extendsInlineFunctionScope()) {
           inlineFunctionScope.extendScope(pathNoSuffix);
         }
+      }
+    }
+
+    if (!deferredEntries.isEmpty()) {
+      for (StubJarEntry existingEntry : writtenExistingEntries) {
+        referencedByWritten.addAll(existingEntry.getReferencedClassNames());
+      }
+
+      // keptNames only grows and each pass that changes anything adds to it, so this terminates.
+      Set<String> keptNames = new TreeSet<>();
+      Deque<String> worklist = new ArrayDeque<>(referencedByWritten);
+      boolean changed = true;
+      while (changed) {
+        changed = false;
+        while (!worklist.isEmpty()) {
+          String referencedName = worklist.removeFirst();
+          StubJarEntry deferred = deferredEntries.get(referencedName);
+          if (deferred != null && keptNames.add(referencedName)) {
+            worklist.addAll(deferred.getReferencedClassNames());
+            changed = true;
+          }
+        }
+        for (Map.Entry<String, StubJarEntry> e : deferredEntries.entrySet()) {
+          StubJarEntry deferred = e.getValue();
+          String outer = deferred.getScopeOuterClass();
+          if (!deferred.isScopeCaptured()
+              || outer == null
+              || keptNames.contains(e.getKey())
+              || !keptNames.contains(outer)) {
+            continue;
+          }
+          keptNames.add(e.getKey());
+          worklist.addAll(deferred.getReferencedClassNames());
+          changed = true;
+        }
+      }
+
+      for (String keptName : keptNames) {
+        deferredEntries.get(keptName).write(writer);
       }
     }
   }

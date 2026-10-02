@@ -10,14 +10,19 @@
 
 package com.facebook.buck.jvm.java.abi;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Write an entry to stub jar by directly copy an existing abi. */
 class StubJarExistingEntry extends StubJarEntry {
   private final LibraryReader existingAbiInput;
   private final Path path;
+  @Nullable private Set<String> referencedClassNames;
 
   public static StubJarExistingEntry of(LibraryReader existingAbiInput, Path path) {
     return new StubJarExistingEntry(existingAbiInput, path);
@@ -41,5 +46,19 @@ class StubJarExistingEntry extends StubJarEntry {
   @Override
   public boolean extendsInlineFunctionScope() {
     return false;
+  }
+
+  @Override
+  public Set<String> getReferencedClassNames() {
+    if (referencedClassNames == null) {
+      ClassReferenceTracker tracker = new ClassReferenceTracker();
+      try {
+        existingAbiInput.visitClass(path, tracker, /* skipCode */ true);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+      referencedClassNames = tracker.getReferencedClassNames();
+    }
+    return referencedClassNames;
   }
 }

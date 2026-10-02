@@ -87,6 +87,15 @@ public final class InlineFunctionScope {
       return true;
     }
 
+    return isCapturedByOuterScope(classNode);
+  }
+
+  /**
+   * Whether {@code classNode} is nested in an inline scope owned by its outer class. Unlike {@link
+   * #captures}, this ignores the ownerless $sam$i wrappers, so a true result always identifies the
+   * capturing outer via {@code classNode.outerClass}.
+   */
+  public boolean isCapturedByOuterScope(ClassNode classNode) {
     if (classNode.outerClass == null) {
       return false;
     }
