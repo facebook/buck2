@@ -5,9 +5,10 @@ title: Type checking
 
 # Python type checking
 
-The Python prelude can type check `python_library` and `python_binary` targets
-(and their tests). Type checking is **opt-in**, and it needs a type checker to be
-provided by your Python toolchain: the prelude does not ship one.
+The Python prelude can type check `python_library`, `python_binary` and
+`python_test` targets. Type checking is **opt-in**, and it needs a type
+checker to be provided by your Python toolchain: the prelude does not ship
+one.
 
 ## Turning it on for a target
 
@@ -33,17 +34,25 @@ The related attributes are:
 ## Running the type checker
 
 When the toolchain provides a `type_checker`, each Python target gets a
-`[typecheck]` subtarget. Build it to type check that target and its
-dependencies:
+`[typecheck]` subtarget. Build it to type check that target's sources, with
+its dependencies provided as inputs (the dependencies' own `[typecheck]`
+subtargets are not built as part of this):
 
 ```sh
 buck2 build //path/to:lib[typecheck]
 ```
 
 The output is a JSON file with the checker's results. If `typing` is not
-enabled on the target, the subtarget builds successfully and produces an empty
-result. If `shard_typing` is enabled, there is also one `[typecheck][shard_<path>]`
-subtarget per source file.
+enabled on the target, the subtarget builds successfully and produces an
+empty result.
+
+`[typecheck]` also has its own sub-subtargets, which let you check (or
+fetch the result of checking) a subset of the sources individually. If
+`shard_typing` is **not** enabled (or typing is disabled), there is a single
+`[typecheck][shard_default]` covering all sources. If `shard_typing` **is**
+enabled, `shard_default` is replaced by one `[typecheck][shard_<path>]`
+subtarget per source file instead, with `/` in the path sanitized to `+`
+(for example, `[typecheck][shard_foo+bar.py]` for `foo/bar.py`).
 
 To check many targets at once, use the BXL scripts in the prelude:
 
@@ -55,8 +64,10 @@ buck2 bxl prelude//python/typecheck/batch.bxl:run -- --target //path/to/...
 buck2 bxl prelude//python/typecheck/batch_files.bxl:run -- --source path/to/file.py
 ```
 
-Pass `--keep-going` to continue past targets that fail to load, and (for
-`batch.bxl`) `--enable-sharding` to shard the check within each target.
+Pass `--keep-going` to continue past targets that fail to load. (`batch.bxl`
+also accepts an `--enable-sharding` flag, but as of this writing it has no
+effect — sharding is controlled entirely by the per-target `shard_typing`
+attribute.)
 
 ## Providing a type checker
 
@@ -84,7 +95,9 @@ You are responsible for the checker itself. Buck2 runs it as:
 
 - `sources`: a list of manifests for the sources being checked
 - `dependencies`: a list of manifests for the dependencies
-- `typeshed`: the manifest of typeshed stubs
+- `typeshed`: the manifest of typeshed stubs, or `null` if the toolchain
+  doesn't set `typeshed_stubs`. Adapters that assume a manifest is always
+  present will need to handle this case.
 - `py_version`: the Python version to check against
 - `system_platform`: the platform to check against
 
@@ -104,8 +117,9 @@ action itself, before Buck2 can turn the result into validation output.
 
 ### What is a type checker, and where do typeshed stubs come from?
 
-The `type_checker` is any executable that follows the input/output contract
-below; Buck2 does not ship one. Popular choices include
+The `type_checker` is any executable that follows the [Input](#input) and
+[Output](#output) contract described above; Buck2 does not ship one. Popular
+choices include
 [Pyre](https://pyre-check.org/), [mypy](https://mypy-lang.org/),
 [Pyright](https://microsoft.github.io/pyright/) and
 [ty](https://docs.astral.sh/ty/), Astral's type checker.
@@ -170,7 +184,7 @@ SEVERITY_MAP = {
     "blocker": "error",
     "critical": "error",
     "major": "error",
-    "minor": "warning",
+    "minor": "warn",
     "info": "info",
 }
 
