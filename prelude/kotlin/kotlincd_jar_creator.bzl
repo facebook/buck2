@@ -210,7 +210,7 @@ def create_jar_artifact_kotlincd(
         extra_kotlinc_arguments = extra_kotlinc_arguments,
         bootclasspath_entries = bootclasspath_entries,
         bootclasspath_snapshot_entries = bootclasspath_snapshot_entries,
-        friend_paths = friend_paths,
+        friend_paths = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths) if friend_path.library_output],
         target_level = target_level,
         should_use_jvm_abi_gen = should_use_jvm_abi_gen,
         kosabi_applicability_cell_root = kosabi_applicability_cell_root,
@@ -272,7 +272,7 @@ def create_jar_artifact_kotlincd(
             extra_kotlinc_arguments = extra_kotlinc_arguments,
             bootclasspath_entries = bootclasspath_entries,
             bootclasspath_snapshot_entries = bootclasspath_snapshot_entries,
-            friend_paths = friend_paths,
+            friend_paths = get_source_only_friend_path_abis(friend_paths, source_only_abi_deps),
             target_level = target_level,
             should_use_jvm_abi_gen = should_use_jvm_abi_gen,
             kosabi_applicability_cell_root = None,
@@ -346,13 +346,38 @@ def create_jar_artifact_kotlincd(
             {},
         )
 
+def get_source_only_friend_path_abis(friend_paths: list[Dependency], source_only_abi_deps: list[Dependency]) -> list[Artifact]:
+    """Returns friend ABI jars restricted to the source-only ABI classpath."""
+    if not friend_paths:
+        return []
+
+    # Friendship grants internal access to a library already on the classpath; it does not add
+    # that library to the classpath. Passing an excluded friend's jar to a source-only action
+    # therefore only creates an unnecessary build dependency.
+    # Match the reduced classpath by artifact, including aliases of the same library.
+    explicit_abis = set()
+    for dep in source_only_abi_deps:
+        info = dep.get(JavaLibraryInfo)
+        if info and info.library_output:
+            explicit_abis.add(info.library_output.abi)
+
+    friends = []
+    for dep in friend_paths:
+        info = dep.get(JavaLibraryInfo)
+        if not info or not info.library_output:
+            continue
+        entry = info.library_output
+        if entry.required_for_source_only_abi or entry.abi in explicit_abis:
+            friends.append(entry.abi)
+    return friends
+
 def _encode_kotlin_extra_params(
     kotlin_toolchain: KotlinToolchainInfo,
     kotlin_compiler_plugins: list[(Dependency, dict[str, [str, cmd_args]])],
     extra_kotlinc_arguments: list,
     bootclasspath_entries: list[Artifact],
     bootclasspath_snapshot_entries: list[Artifact],
-    friend_paths: list[Dependency],
+    friend_paths: list[Artifact],
     target_level: int,
     should_use_jvm_abi_gen: bool,
     kosabi_applicability_cell_root,
@@ -384,7 +409,7 @@ def _encode_kotlin_extra_params(
         jvmAbiGenPlugin = kotlin_toolchain.jvm_abi_gen_plugin,
         kotlinCompilerPlugins = {plugin[DefaultInfo].default_outputs[0]: {"params": plugin_options} for plugin, plugin_options in kotlin_compiler_plugins},
         kosabiPluginOptions = struct(**kosabiPluginOptionsMap),
-        friendPaths = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths) if friend_path.library_output],
+        friendPaths = friend_paths,
         kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
         jvmTarget = get_kotlinc_compatible_target(str(target_level)),
         shouldUseJvmAbiGen = should_use_jvm_abi_gen,
