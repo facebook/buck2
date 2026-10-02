@@ -94,3 +94,31 @@ async def test_invalid_exemption_is_rejected(
         buck.targets(f"root//{package}:t"),
         stderr_regex=stderr_regex,
     )
+
+
+@buck_test()
+async def test_audit_visibility_lists_would_blocks(buck: Buck) -> None:
+    set_default_intersection(buck, "audit")
+    result = await buck.audit_visibility(
+        "root//outside:uses_legacy", "root//outside:uses_strict"
+    )
+    assert (
+        "would block: root//outside -> root//boundary/strict (1 edges)" in result.stderr
+    )
+    assert "1 edges across 1 package pairs would be blocked" in result.stderr
+    assert "root//boundary/legacy" not in result.stderr
+
+
+@buck_test()
+async def test_audit_visibility_audit_mode_still_fails_real_violations(
+    buck: Buck,
+) -> None:
+    set_default_intersection(buck, "audit")
+    await expect_failure(
+        buck.audit_visibility("root//outside:uses_legacy_inherits_default"),
+        stderr_regex=r"`root//boundary/legacy:inherits_default` is not visible to",
+    )
+    await expect_failure(
+        buck.audit_visibility("root//outside:uses_marked_legacy"),
+        stderr_regex=r"`root//marked/inner/legacy:t` is not visible to",
+    )

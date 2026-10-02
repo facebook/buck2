@@ -8,15 +8,20 @@
  * above-listed licenses.
  */
 
+use std::collections::BTreeMap;
+
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_cmd_audit_client::visibility::AuditVisibilityCommand;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
+use buck2_common::settings::PackageVisibilityDefaultIntersection;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::nodes::lookup::TargetNodeLookup;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
 use buck2_query::query::environment::QueryTargetDepsSuccessors;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
@@ -38,10 +43,17 @@ enum VisibilityCommandError {
     DepNodeNotFound(String, String),
 }
 
+/// Under `audit`, edges blocked only by `Default` intersection layers are
+/// listed per `(consumer package, dep package)` instead of failing. Unlike the
+/// build-time soft errors, this sees every edge regardless of DICE caching.
 async fn verify_visibility(
     ctx: DiceTransaction,
     targets: TargetSet<TargetNode>,
 ) -> buck2_error::Result<()> {
+    let audit = ctx
+        .per_transaction_data()
+        .get_package_visibility_default_intersection()
+        == PackageVisibilityDefaultIntersection::Audit;
     let mut new_targets: TargetSet<TargetNode> = TargetSet::new();
 
     let visit = |target| {
@@ -68,12 +80,20 @@ async fn verify_visibility(
         .await?;
 
     let mut visibility_errors = Vec::new();
+    let mut would_block: BTreeMap<(PackageLabel, PackageLabel), usize> = BTreeMap::new();
 
     for target in new_targets.iter() {
         for dep in target.deps() {
             match new_targets.get(dep) {
                 Some(val) => {
-                    if !val.is_visible_to(target.label())? {
+                    if val.is_visible_to(target.label())? {
+                        continue;
+                    }
+                    if audit && val.is_visible_to_ignoring_default_layers(target.label())? {
+                        *would_block
+                            .entry((target.label().pkg(), val.label().pkg()))
+                            .or_default() += 1;
+                    } else {
                         visibility_errors.push(val.not_visible_to_error(target.label().dupe()));
                     }
                 }
@@ -87,6 +107,17 @@ async fn verify_visibility(
                 }
             }
         }
+    }
+
+    if !would_block.is_empty() {
+        for ((consumer, dep), edges) in &would_block {
+            buck2_client_ctx::eprintln!("would block: {} -> {} ({} edges)", consumer, dep, edges)?;
+        }
+        buck2_client_ctx::eprintln!(
+            "{} edges across {} package pairs would be blocked under `package_visibility.default_intersection = \"enforce\"`",
+            would_block.values().sum::<usize>(),
+            would_block.len(),
+        )?;
     }
 
     for err in &visibility_errors {

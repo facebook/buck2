@@ -244,8 +244,11 @@ requiring an `enforce_visibility_intersection()` marker in every `PACKAGE` file:
 | `enforce` | Enforced; the marker is redundant           | Enforced                                |
 
 Under `audit`, edges blocked only by ordinary `PACKAGE` visibility are reported
-as soft errors (`package_visibility_audit_would_block`) instead of failing. Note
-`buck2 audit visibility` still lists all violations and exits non-zero.
+as soft errors (`package_visibility_audit_would_block`) instead of failing.
+These are sampled and emitted only when a target is first evaluated, so to size
+a rollout run `buck2 audit visibility <patterns>`: under `audit` it lists every
+would-block edge, grouped by consumer and dependency package, and exits non-zero
+only for violations that fail in every mode.
 Marker-selected boundaries and genuine target-level violations fail in every
 mode, so `audit` is never weaker than `off` and a rollout never masks a real
 violation.
