@@ -62,6 +62,7 @@ jiff.workspace = true
 libc.workspace = true
 lsp-server.workspace = true
 lsp-types.workspace = true
+pagable.workspace = true
 parking_lot.workspace = true
 pin-project.workspace = true
 prost.workspace = true

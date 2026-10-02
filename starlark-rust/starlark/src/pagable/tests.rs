@@ -51,6 +51,7 @@ use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::singleton_heap_name;
 use crate::starlark_simple_value;
 use crate::values::AllocFrozenValue;
+use crate::values::Deferred;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapName;
 use crate::values::FrozenValueTyped;
@@ -3941,6 +3942,181 @@ fn test_unread_dependency_is_bound_but_not_read() -> crate::Result<()> {
     assert!(
         !dep.heap_arc().is_header_loaded(),
         "nothing pointed into the dependency, so its row stays in storage"
+    );
+    Ok(())
+}
+
+#[derive(
+    Debug,
+    ProvidesStaticType,
+    Allocative,
+    starlark_derive::StarlarkPagable
+)]
+struct DeferredRef<'v> {
+    target: Deferred<Value<'v>>,
+}
+
+crate::register_starlark_any_complex!(frozen DeferredRef<'_>);
+
+/// Storage whose rows can be made unreadable one key at a time.
+#[cfg(fbcode_build)]
+struct FailingRowStorage {
+    inner: Arc<dyn pagable::storage::traits::PagableStorage>,
+    unreadable: std::sync::Mutex<Vec<pagable::DataKey>>,
+}
+
+#[cfg(fbcode_build)]
+impl FailingRowStorage {
+    fn check(&self, key: &pagable::DataKey) -> anyhow::Result<()> {
+        if self.unreadable.lock().unwrap().contains(key) {
+            return Err(anyhow::anyhow!("row {key:?} is unreadable"));
+        }
+        Ok(())
+    }
+}
+
+// Written out by hand because `async_trait` is not a dependency of this crate.
+#[cfg(fbcode_build)]
+impl pagable::storage::traits::PagableStorage for FailingRowStorage {
+    fn arc_cache(&self) -> &pagable::storage::traits::DeserializedArcCache {
+        self.inner.arc_cache()
+    }
+
+    fn fetch_data_blocking(
+        &self,
+        key: &pagable::DataKey,
+    ) -> anyhow::Result<Arc<pagable::storage::data::PagableData>> {
+        self.check(key)?;
+        self.inner.fetch_data_blocking(key)
+    }
+
+    fn fetch_data<'life0, 'life1, 'async_trait>(
+        &'life0 self,
+        key: &'life1 pagable::DataKey,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<
+                    Output = anyhow::Result<Arc<pagable::storage::data::PagableData>>,
+                > + Send
+                + 'async_trait,
+        >,
+    >
+    where
+        'life0: 'async_trait,
+        'life1: 'async_trait,
+        Self: 'async_trait,
+    {
+        Box::pin(async move {
+            self.check(key)?;
+            self.inner.fetch_data(key).await
+        })
+    }
+
+    fn schedule_for_paging(&self, arc: Box<dyn pagable::arc_erase::ArcEraseDyn>) {
+        self.inner.schedule_for_paging(arc)
+    }
+
+    fn storage_context(&self) -> &pagable::StorageContext {
+        self.inner.storage_context()
+    }
+
+    fn store_data(
+        &self,
+        data: pagable::storage::data::PagableData,
+    ) -> anyhow::Result<pagable::DataKey> {
+        self.inner.store_data(data)
+    }
+}
+
+#[cfg(fbcode_build)]
+#[test]
+fn test_unreadable_dependency_heap_is_recorded_as_a_deferred_read_failure() -> crate::Result<()> {
+    use std::sync::Mutex;
+
+    use pagable::DeferredReadFailures;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    use crate::pagable::DeferredFieldReadsEnabled;
+
+    let dep = ErasingHeap::new();
+    let target = dep.alloc_str("in the dependency");
+    let dep_ref = dep.into_ref_named(TestHeapName::heap_name("unreadable_dep"));
+
+    let owner = ErasingHeap::new();
+    owner.add_reference(dep_ref.owner());
+    let root_fv = owner.with(|heap| {
+        erase(heap.alloc_simple(StarlarkAnyComplex {
+            value: DeferredRef {
+                target: Deferred::new(ErasingHeap::restore_one(heap, target)),
+            },
+        }))
+    });
+    let owner_ref = owner.into_ref_named(TestHeapName::heap_name("unreadable_owner"));
+    // SAFETY: `owner_ref` owns the arena hosting `root_fv`.
+    let ofv: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner_ref, root_fv) };
+
+    let backing = InMemoryPagableStorage::new();
+    let failing = Arc::new(FailingRowStorage {
+        inner: backing.handle(),
+        unreadable: Mutex::new(Vec::new()),
+    });
+    let handle = PagableStorageHandle::new(failing.clone());
+    handle
+        .storage_context()
+        .get_or_init(|| DeferredFieldReadsEnabled);
+    let failures = handle
+        .storage_context()
+        .get_or_init(DeferredReadFailures::default);
+    let key = ser_owned_frozen_value_into_storage(&backing, &ofv)?;
+    drop(ofv);
+    drop(dep_ref);
+
+    let restored = deser_owned_frozen_from_storage(&backing, &handle, &key)?;
+    let fields = restored
+        .as_ref()
+        .value()
+        .downcast_ref::<StarlarkAnyComplex<DeferredRef>>()
+        .expect("the restored root is a DeferredRef");
+    assert!(
+        fields.value.target.peek().is_none(),
+        "the pointer into the dependency is deferred"
+    );
+    let dep = restored
+        .owner()
+        .refs()
+        .next()
+        .expect("the owner retains its dependency");
+    assert!(
+        !dep.heap_arc().is_header_loaded(),
+        "the dependency is a skeleton"
+    );
+    let dep_row = dep
+        .heap_arc()
+        .deser_state()
+        .and_then(|state| state.source())
+        .map(|source| source.key)
+        .expect("a skeleton knows its row");
+    assert!(
+        failures.snapshot().is_empty(),
+        "the eager page-in records nothing"
+    );
+
+    failing.unreadable.lock().unwrap().push(dep_row);
+    let error = fields
+        .value
+        .target
+        .read()
+        .expect_err("a dependency whose row is unreadable cannot be read");
+    let failures = failures.snapshot();
+    assert_eq!(failures.len(), 1, "{failures:?}");
+    assert!(
+        failures[0].starts_with("heap `TestHeapName(unreadable_owner)`: "),
+        "the failure names the heap owning the field: {failures:?} ({error:#})"
+    );
+    assert!(
+        fields.value.target.peek().is_none(),
+        "the field stays unread"
     );
     Ok(())
 }

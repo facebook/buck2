@@ -43,13 +43,14 @@ use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
 use derive_more::From;
 use dupe::Dupe;
+#[cfg(fbcode_build)]
+use pagable::DeferredReadFailures;
 use pagable::PagableCursor;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableDeserializerRecipe;
 use pagable::PageInScope;
 use pagable::PageInState;
-#[cfg(not(fbcode_build))]
 use pagable::StorageContext;
 use pagable::StorageState;
 use pagable::storage::handle::PagableStorageHandle;
@@ -1100,6 +1101,33 @@ pub struct DeferredFieldReadsEnabled;
 
 impl StorageState for DeferredFieldReadsEnabled {}
 
+/// Records a deferred read that failed on `heap` in the storage's
+/// [`DeferredReadFailures`]. Only deferred reads report: an eager page-in
+/// that fails falls back to recomputing.
+#[cfg(fbcode_build)]
+fn record_deferred_read_failure(
+    storage_context: &StorageContext,
+    heap: &FrozenHeapArc,
+    error: &crate::Error,
+) {
+    let heap = heap
+        .name()
+        .map_or_else(|| "<unnamed heap>".to_owned(), ToString::to_string);
+    storage_context
+        .get_or_init(DeferredReadFailures::default)
+        .record(format!("heap `{heap}`: {error:#}"));
+}
+
+/// The published `pagable` predates `DeferredReadFailures`; the OSS build has
+/// no host that reads it either. Compiled only where `with_deferred_values` is.
+#[cfg(all(not(fbcode_build), test, feature = "pagable"))]
+fn record_deferred_read_failure(
+    _storage_context: &StorageContext,
+    _heap: &FrozenHeapArc,
+    _error: &crate::Error,
+) {
+}
+
 impl PageInState for StarlarkDeserScope {}
 
 /// Estimate memory retained by cached Starlark heap deserialization state.
@@ -1797,6 +1825,10 @@ pub(crate) fn with_deferred_values<R>(
     // The callback can inspect and publish these values before its caller's
     // constructor finishes, so construction-only references must not escape.
     let _root = ActiveClaim::root();
+    #[cfg(fbcode_build)]
+    let storage_context = context.storage.storage_context();
+    #[cfg(not(fbcode_build))]
+    let storage_context = context.storage_context;
     let mut resolver = StarlarkValueResolver {
         scope: context.scope,
         storage: context.storage,
@@ -1809,6 +1841,11 @@ pub(crate) fn with_deferred_values<R>(
     f(&mut refs.iter().map(|value| {
         resolver
             .resolve(value)
+            .inspect_err(|error| {
+                if matches!(value, SerializedFrozenValue::HeapPtr { .. }) {
+                    record_deferred_read_failure(storage_context, context.origin, error);
+                }
+            })
             .map_err(crate::Error::into_deferred_read_error)
     }))
 }

@@ -37,6 +37,7 @@ use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::deserialize_arc;
 use crate::page_in_scope::ArcKey;
+use crate::read_failures::DeferredReadFailures;
 use crate::storage::handle::PagableStorageHandle;
 use crate::storage::handle::WeakPagableStorageHandle;
 
@@ -101,7 +102,12 @@ impl<T> ArcLoader<T> {
             .storage
             .upgrade()
             .ok_or_else(|| anyhow::anyhow!("storage closed before deferred field read"))?;
-        (self.restore)(&storage, &self.key)
+        (self.restore)(&storage, &self.key).inspect_err(|error| {
+            storage
+                .storage_context()
+                .get_or_init(DeferredReadFailures::default)
+                .record(format!("arc {:?}: {error:#}", self.key.key));
+        })
     }
 }
 
@@ -419,6 +425,50 @@ mod tests {
         graph.visit_root(&deferred);
         let flame = graph.finish_and_write_flame_graph();
         assert!(flame.contains("ArcLoader"), "{flame}");
+        Ok(())
+    }
+
+    #[test]
+    fn failed_arc_load_is_recorded_as_a_deferred_read_failure() -> crate::Result<()> {
+        use crate::storage::in_memory::InMemoryPagableStorage;
+        use crate::storage::support::SerializerForPaging;
+        use crate::storage::traits::ArcSerCache;
+
+        let mem = InMemoryPagableStorage::new();
+        let storage = mem.handle();
+        // One byte with the varint continuation bit set: as `Vec<u64>` it is a
+        // truncated integer, so decoding the row under that type fails.
+        let value: Arc<Vec<u8>> = Arc::new(vec![0xC8]);
+        let mut serializer = SerializerForPaging::new(storage.storage_context());
+        value.pagable_serialize(&mut serializer)?;
+        let (data, arcs) = serializer.finish();
+        let key = storage
+            .page_out_item(data, arcs, &ArcSerCache::new(), storage.storage_context())
+            .map_err(|e| anyhow::anyhow!("{e:?}"))?;
+        drop(value);
+        storage.arc_cache().clear();
+        let handle = PagableStorageHandle::new(storage.clone());
+        let row = storage.fetch_data_blocking(&key)?;
+        let mut deserializer = handle.root_deserializer(key, &row);
+        let deferred: DeferredValue<Arc<Vec<u64>>> =
+            DeferredValue::deserialize_arc(&mut deserializer, true)?;
+        drop(deserializer);
+        let failures = handle
+            .storage_context()
+            .get_or_init(DeferredReadFailures::default);
+        assert!(
+            failures.snapshot().is_empty(),
+            "nothing failed during page-in"
+        );
+
+        deferred
+            .read()
+            .expect_err("the arc's row does not decode as a `Vec<u64>`");
+        let recorded = failures.snapshot();
+        assert_eq!(recorded.len(), 1, "{recorded:?}");
+        assert!(recorded[0].starts_with("arc "), "{recorded:?}");
+        assert_eq!(failures.snapshot(), recorded, "the record persists");
+        assert!(!deferred.is_resolved());
         Ok(())
     }
 

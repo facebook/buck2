@@ -3001,6 +3001,7 @@ dependencies = [
  "libc",
  "lsp-server",
  "lsp-types",
+ "pagable",
  "parking_lot 0.12.5",
  "pin-project",
  "prost",

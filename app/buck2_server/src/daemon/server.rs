@@ -99,6 +99,7 @@ use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
 use futures::future::BoxFuture;
 use futures::stream;
+use pagable::DeferredReadFailures;
 use rand::Rng as _;
 use rand::SeedableRng;
 use tokio::runtime::Handle;
@@ -749,6 +750,24 @@ impl BuckdServer {
                         )
                         .await;
 
+                        // Build failures are reported inside a successful response, so the
+                        // command's own result does not say whether a deferred read failed.
+                        if let Some(payload) = deferred_read_failures(
+                            context.base_context.tenant.dice_manager.unsafe_dice(),
+                        ) {
+                            dispatch.instant_event(buck2_data::StructuredError {
+                                payload,
+                                quiet: false,
+                                task: Some(false),
+                                soft_error_category: Some(buck2_data::SoftError {
+                                    category: "paging_deferred_read_failed".to_owned(),
+                                    is_quiet: false,
+                                }),
+                                daemon_in_memory_state_is_corrupted: true,
+                                ..Default::default()
+                            });
+                        }
+
                         // Finalize the command, emitting its paging telemetry and (if
                         // eligible) scheduling an idle page-out.
                         context.finalize(opts.triggers_idle_page_out()).await?;
@@ -845,6 +864,26 @@ impl BuckdServer {
 }
 
 #[allow(clippy::result_large_err)]
+/// The message for the finishing command's corrupted-state report when a
+/// deferred read has failed on paged-out data. A value paged back in cannot be
+/// repaired once a field it kept in storage fails to read, so the daemon has to
+/// be replaced, and every command that finishes before that happens says so:
+/// the client only restarts a command that failed, so a report consumed by an
+/// unrelated command that succeeded would be lost.
+fn deferred_read_failures(dice: &Dice) -> Option<String> {
+    let failures = dice
+        .pagable_storage_context()?
+        .get::<DeferredReadFailures>()?
+        .snapshot();
+    if failures.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "Deferred reads of paged-out data failed: [{}]. The daemon's in-memory state cannot be repaired; restarting the daemon",
+        failures.join("; ")
+    ))
+}
+
 fn convert_positive_duration(proto_duration: &prost_types::Duration) -> Result<Duration, Status> {
     if proto_duration.seconds < 0 || proto_duration.nanos < 0 {
         return Err(Status::new(

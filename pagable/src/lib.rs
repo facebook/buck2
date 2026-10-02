@@ -46,6 +46,7 @@ mod impls;
 mod pagable_arc;
 mod page_in_scope;
 mod partial_pagable_arc;
+mod read_failures;
 pub mod storage;
 #[cfg(test)]
 mod test;
@@ -64,6 +65,7 @@ pub use impls::static_value::StaticValue;
 pub use page_in_scope::ArcKey;
 pub use page_in_scope::PageInScope;
 pub use page_in_scope::PageInState;
+pub use read_failures::DeferredReadFailures;
 pub use storage::data::DataKey;
 pub use traits::Pagable;
 pub use traits::PagableBoxDeserialize;
