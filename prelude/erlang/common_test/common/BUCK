@@ -13,6 +13,8 @@ erlang_application(
     applications = [
         "kernel",
         "stdlib",
+        "crypto",
+        "common_test",
     ],
     erl_opts = [
         "+debug_info",
