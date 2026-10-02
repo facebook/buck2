@@ -116,6 +116,7 @@ load(
     "AppleDebuggableInfo",
     "get_aggregated_debug_info",
 )
+load(":xcassets_bundle_catalogs.bzl", "XcassetsBundleResourceCatalogs", "xcassets_bundle_catalogs_providers")
 load(":xcode.bzl", "apple_xcode_data_add_xctoolchain")
 
 _INSTALL_DATA_FILE_NAME = "install_apple_data.json"
@@ -146,6 +147,7 @@ AppleBundlePartListOutput = record(
     codesign_manifest_parts = field(list[AppleBundleCodesignManifestTreePart]),
     # Signing context parts for inner bundles
     signing_context_parts = field(list[AppleBundleSigningContextTreePart]),
+    xcassets_catalogs = field([XcassetsBundleResourceCatalogs, None], None),
 )
 
 _AppleBundleBinaryParts = record(
@@ -376,6 +378,7 @@ def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartList
         info_plist_part = resource_part_list.info_plist_part,
         codesign_manifest_parts = resource_part_list.codesign_manifest_parts,
         signing_context_parts = resource_part_list.signing_context_parts,
+        xcassets_catalogs = resource_part_list.xcassets_catalogs,
     )
 
 def _infer_apple_bundle_type(ctx: AnalysisContext) -> AppleBundleType:
@@ -618,6 +621,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         + bundle_result.providers
         + validation_providers
     )
+    providers += xcassets_bundle_catalogs_providers(ctx, apple_bundle_part_list_output.xcassets_catalogs)
     if xplugins_debug_info:
         providers.append(xplugins_debug_info)
     providers.append(xplugins_function_mapping_manifest_info)

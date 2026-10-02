@@ -58,6 +58,7 @@ load(
     "get_resource_group_info",
 )
 load(":scene_kit_assets.bzl", "compile_scene_kit_assets")
+load(":xcassets_bundle_catalogs.bzl", "XcassetsBundleResourceCatalogs", "create_xcassets_bundle_resource_catalogs")
 
 AppleBundleResourcePartListOutput = record(
     # Resource parts to be copied into an Apple bundle, *excluding* binaries
@@ -70,6 +71,7 @@ AppleBundleResourcePartListOutput = record(
     # Parts which have an associated signing context, it would contain
     # a _subset_ of the `resource_parts` parts.
     signing_context_parts = field(list[AppleBundleSigningContextTreePart]),
+    xcassets_catalogs = field([XcassetsBundleResourceCatalogs, None], None),
 )
 
 def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleResourcePartListOutput:
@@ -116,6 +118,13 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
         )
         parts.append(asset_catalog_part)
 
+    xcassets_catalogs = create_xcassets_bundle_resource_catalogs(
+        ctx,
+        selection,
+        asset_catalog_result,
+        lambda bundle_info: _copied_bundle_spec(bundle_info).destination,
+    )
+
     extra_plist = asset_catalog_result.catalog_plist if asset_catalog_result != None else None
     info_plist_part = process_info_plist(ctx = ctx, override_input = extra_plist)
 
@@ -151,6 +160,7 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
         info_plist_part = info_plist_part,
         codesign_manifest_parts = first_level_codesign_manifest_parts,
         signing_context_parts = first_level_signing_context_parts,
+        xcassets_catalogs = xcassets_catalogs,
     )
 
 # Same logic as in v1, see `buck_client/src/com/facebook/buck/apple/ApplePkgInfo.java`
