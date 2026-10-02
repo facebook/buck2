@@ -34,6 +34,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.declarations.utils.sourceElement
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
+import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
 import org.jetbrains.kotlin.fir.references.symbol
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
@@ -45,6 +46,10 @@ import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.fir.types.upperBoundIfFlexible
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitorVoid
+import org.jetbrains.kotlin.load.java.structure.JavaClass
+import org.jetbrains.kotlin.load.java.structure.JavaClassifier
+import org.jetbrains.kotlin.load.java.structure.JavaTypeParameter
+import org.jetbrains.kotlin.load.java.structure.impl.VirtualFileBoundJavaClass
 import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinarySourceElement
 import org.jetbrains.kotlin.name.ClassId
 
@@ -118,6 +123,13 @@ class KosabiClassUsageCollector {
   @OptIn(SymbolInternals::class)
   private fun recordClassDeclaration(firClass: FirClassLikeDeclaration, session: FirSession) {
     when (firClass) {
+      is FirJavaClass -> {
+        when (firClass.origin) {
+          is FirDeclarationOrigin.Java.Library ->
+              recordJavaClass(firClass.toBinaryJavaClassCompat())
+          else -> firClass.sourceElement?.let(::recordSource)
+        }
+      }
       is FirRegularClass -> {
         if (firClass.origin is FirDeclarationOrigin.BuiltIns) return
         val className = firClass.symbol.classId.asSingleFqName().asString()
@@ -135,6 +147,28 @@ class KosabiClassUsageCollector {
         recordType(firClass.expandedTypeRef.coneType, session)
       }
       else -> {}
+    }
+  }
+
+  private fun recordJavaClass(clazz: JavaClass) {
+    val className = clazz.fqName?.asString() ?: return
+    if (!visitedClasses.add(className)) return
+
+    if (clazz !is VirtualFileBoundJavaClass) {
+      error("Unsupported kind of a JavaClass: ${clazz::class}")
+    }
+    clazz.virtualFile?.path?.let(::addFile)
+
+    clazz.supertypes.mapNotNull { it.classifier }.forEach(::recordJavaClassifier)
+
+    clazz.annotations.mapNotNull { it.resolve() }.forEach(::recordJavaClass)
+  }
+
+  private fun recordJavaClassifier(classifier: JavaClassifier) {
+    when (classifier) {
+      is JavaTypeParameter -> return
+      is JavaClass -> recordJavaClass(classifier)
+      else -> error("Unsupported kind of a JavaClassifier: ${classifier::class}")
     }
   }
 
