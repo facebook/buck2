@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use buck2_common::settings::PackageVisibilityDefaultIntersection;
+use buck2_core::pattern::package::PackagePattern;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::super_package::SuperPackage;
@@ -32,10 +33,26 @@ pub(crate) struct PackageFileVisibilityFields {
     pub(crate) visibility: VisibilitySpecification,
     pub(crate) within_view: WithinViewSpecification,
     pub(crate) inherit: bool,
-    /// `true` iff the user passed a non-`None` `visibility=` list. Omitted or
-    /// `visibility=None` are both `false` and contribute nothing to the
-    /// intersection (unlike `visibility=[]`, which is a non-None empty list).
-    pub(crate) visibility_was_set: bool,
+    pub(crate) visibility_source: VisibilitySource,
+}
+
+/// Whether the `package()` call passed an explicit `visibility=` list.
+///
+/// A non-empty `visibility_exempt_targets` requires an explicit `visibility=`
+/// (validated in `package()`), so "exemptions without visibility" is
+/// unrepresentable: only the `Explicit` variant carries exemptions. Omitted or
+/// `visibility=None` are both `Unset` and contribute nothing to the intersection
+/// (unlike `visibility=[]`, which is a non-`None` empty list).
+#[derive(Debug, Default)]
+pub(crate) enum VisibilitySource {
+    #[default]
+    Unset,
+    /// Carries this call's exemptions, matched against the package containing
+    /// the target being defined; dormant unless this call's visibility
+    /// contributes to the intersection.
+    Explicit {
+        exemptions: ThinArcSlice<PackagePattern>,
+    },
 }
 
 #[derive(Debug)]
@@ -85,10 +102,18 @@ impl PackageFileEvalCtx {
 
         // Captured before `inherit=True` is applied. `None` when omitted —
         // omitted must NOT contribute an empty list to the intersection.
-        let explicit_visibility: Option<VisibilityPatternList> = visibility_fields
+        let (explicit_visibility, explicit_exemptions): (
+            Option<VisibilityPatternList>,
+            ThinArcSlice<PackagePattern>,
+        ) = match visibility_fields
             .as_ref()
-            .filter(|f| f.visibility_was_set)
-            .map(|f| f.visibility.0.dupe());
+            .map(|f| (&f.visibility, &f.visibility_source))
+        {
+            Some((visibility, VisibilitySource::Explicit { exemptions })) => {
+                (Some(visibility.0.dupe()), exemptions.dupe())
+            }
+            _ => (None, ThinArcSlice::empty()),
+        };
 
         // Captured before `inherit=True` is applied, like `explicit_visibility`.
         // An omitted `within_view=` parses to `Public`, the identity of the
@@ -145,7 +170,7 @@ impl PackageFileEvalCtx {
             (Some(origin), Some(raw)) => {
                 self.parent
                     .visibility_intersection()
-                    .with_layer(raw, ThinArcSlice::empty(), origin)
+                    .with_layer(raw, explicit_exemptions, origin)
             }
             _ => self.parent.visibility_intersection().dupe(),
         };

@@ -87,7 +87,8 @@ in context of `bzl` file evaluation results in an error.
 def package(
     inherit: bool = False,
     visibility: list[str] | tuple[str, ...] = [],
-    within_view: list[str] | tuple[str, ...] = []
+    within_view: list[str] | tuple[str, ...] = [],
+    visibility_exempt_targets: list[str] | tuple[str, ...] = []
 ) -> None
 ```
 
@@ -103,6 +104,42 @@ deps, and not transitive deps.
 
 If `inherit` is `True`, then the `visibility` and `within_view` will be
 inherited from the nearest parent `PACKAGE`.
+
+`visibility_exempt_targets` preserves existing dependency edges through
+explicit, reviewable exemptions while a boundary is enforced:
+
+```python
+package(
+    visibility = ["fbcode//etc/allowed/..."],
+    visibility_exempt_targets = [
+        "fbcode//etc/legacy/client:",
+        "fbcode//etc/generated/...",
+    ],
+)
+```
+
+Exemptions accept exact-package (`//pkg:`) and recursive (`//pkg/...`)
+patterns. A non-empty list requires an explicit `visibility=` in the same
+call. An exemption skips only that call's local visibility layer, for targets
+defined in a matching package: it cannot weaken an ancestor's restriction,
+and it never grants consumer visibility. Each entry must lie within the
+declaring `PACKAGE`'s own subtree, in the same cell: entries elsewhere,
+including in a nested cell, are rejected. Exemptions are also rejected when
+the layer itself would be vacuous: a `visibility` list containing `"PUBLIC"`
+collapses to `Public` (which contributes nothing to the intersection), and a
+recursive entry covering the declaring `PACKAGE`'s entire
+directory would skip the layer for every target that could inherit it. The
+declaration remains valid in every `package_visibility.default_intersection`
+mode, including `off` (where it is dormant unless a marker-selected boundary
+contributes the layer).
+
+Exemptions lift only the intersection layer, so two cases stay restricted:
+
+- A target without its own `visibility` inherits the `PACKAGE`'s `visibility`
+  list as its target visibility, which an exemption does not lift. Give such
+  targets an explicit `visibility` to benefit from an exemption.
+- A nested cell under a boundary inherits the parent cell's layer, and since
+  exemptions cannot name another cell, it cannot be exempted from it.
 
 #### [`enforce_visibility_intersection`](../../api/build#enforce_visibility_intersection)
 

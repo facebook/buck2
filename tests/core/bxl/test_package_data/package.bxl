@@ -128,25 +128,31 @@ def _read_package_visibility_cap_impl(ctx):
     # No ancestor restricts visibility at the root: the legacy shape is ["PUBLIC"] (no restriction).
     asserts.equals(bxl.read_package_visibility_cap("root//"), ["PUBLIC"])
 
-    # `cap_dir` opts into intersection-based visibility, so its explicit
+    # `intersection_dir` opts into intersection-based visibility, so its explicit
     # `package(visibility=...)` propagates as the intersection. Exercise both input forms.
-    cap_pkg_path = ctx.unconfigured_targets("root//cap_dir:cap_dummy").label.package_path
-    asserts.equals(bxl.read_package_visibility_cap(cap_pkg_path), ["root//cap_dir/..."])
+    pkg_path = ctx.unconfigured_targets("root//intersection_dir:intersection_dummy").label.package_path
+    asserts.equals(bxl.read_package_visibility_cap(pkg_path), ["root//intersection_dir/..."])
     asserts.equals(
-        bxl.read_package_visibility_cap("root//cap_dir"),
-        ["root//cap_dir/..."],
+        bxl.read_package_visibility_cap("root//intersection_dir"),
+        ["root//intersection_dir/..."],
     )
 
-    # `cap_dir/sub_dir` declares its own visibility but does not opt in, so its intersection
-    # is the one propagated from the `cap_dir` ancestor -- and is distinct from the
-    # package's own visibility. This exercises ancestor->descendant intersection propagation.
+    # `intersection_dir/sub_dir` doesn't opt in, so it inherits the ancestor intersection,
+    # distinct from its own visibility. Exercises ancestor->descendant propagation.
     asserts.equals(
-        bxl.read_package_visibility_cap("root//cap_dir/sub_dir"),
-        ["root//cap_dir/..."],
+        bxl.read_package_visibility_cap("root//intersection_dir/sub_dir"),
+        ["root//intersection_dir/..."],
     )
     asserts.equals(
-        bxl.read_package_visibility("root//cap_dir/sub_dir"),
+        bxl.read_package_visibility("root//intersection_dir/sub_dir"),
         ["root//other:thing"],
+    )
+
+    # `intersection_dir/exempt_dir` declares an exemption on its own layer. The legacy
+    # shape cannot represent exemptions and collapses, ignoring them.
+    asserts.equals(
+        bxl.read_package_visibility_cap("root//intersection_dir/exempt_dir"),
+        {"intersection": [["root//intersection_dir/..."], ["root//intersection_dir/..."]]},
     )
 
 read_package_visibility_cap = bxl_main(
@@ -191,18 +197,27 @@ def _read_package_visibility_intersection_impl(ctx):
     # No ancestor restricts visibility at the root: no layers.
     asserts.equals(_intersection_layers("root//"), [])
 
-    # `cap_dir` contributes one exemption-free layer. Exercise both input forms.
-    expected = [(["root//cap_dir/..."], [])]
-    cap_pkg_path = ctx.unconfigured_targets("root//cap_dir:cap_dummy").label.package_path
-    asserts.equals(_intersection_layers(cap_pkg_path), expected)
-    asserts.equals(_intersection_layers("root//cap_dir"), expected)
+    # `intersection_dir` contributes one exemption-free layer. Exercise both input forms.
+    expected = [(["root//intersection_dir/..."], [])]
+    pkg_path = ctx.unconfigured_targets("root//intersection_dir:intersection_dummy").label.package_path
+    asserts.equals(_intersection_layers(pkg_path), expected)
+    asserts.equals(_intersection_layers("root//intersection_dir"), expected)
     asserts.equals(
-        type(bxl.read_package_visibility_intersection("root//cap_dir")[0]),
+        type(bxl.read_package_visibility_intersection("root//intersection_dir")[0]),
         "bxl.VisibilityIntersectionLayer",
     )
 
     # Propagated descendant sees the same layer.
-    asserts.equals(_intersection_layers("root//cap_dir/sub_dir"), expected)
+    asserts.equals(_intersection_layers("root//intersection_dir/sub_dir"), expected)
+
+    # The exempt dir adds a second layer carrying its exemption.
+    asserts.equals(
+        _intersection_layers("root//intersection_dir/exempt_dir"),
+        [
+            (["root//intersection_dir/..."], []),
+            (["root//intersection_dir/..."], ["root//intersection_dir/exempt_dir:"]),
+        ],
+    )
 
 read_package_visibility_intersection = bxl_main(
     impl = _read_package_visibility_intersection_impl,

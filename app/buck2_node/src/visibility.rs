@@ -94,7 +94,10 @@ pub enum VisibilityPattern {
 /// `Target` patterns (`//pkg:name`) can never match a package, so they are
 /// rejected — the original [`ParsedPattern`] is handed back for error reporting —
 /// rather than silently never matching.
-fn within_scope_from_parsed(
+///
+/// Shared with `visibility_exempt_targets` parsing, so the two cannot drift
+/// apart in which pattern kinds they accept.
+pub fn within_scope_from_parsed(
     pattern: ParsedPattern<TargetPatternExtra>,
 ) -> Result<PackagePattern, ParsedPattern<TargetPatternExtra>> {
     match pattern {
@@ -417,6 +420,13 @@ impl VisibilityPatternList {
         }
     }
 
+    /// Whether this list is the intersection identity: `Public` contributes
+    /// nothing when layered (`VisibilityIntersection::with_layer` drops such
+    /// layers along with their exemptions).
+    pub fn is_intersection_identity(&self) -> bool {
+        matches!(self, VisibilityPatternList::Public)
+    }
+
     pub fn matches_target(&self, target: &TargetLabel) -> buck2_error::Result<bool> {
         match self {
             VisibilityPatternList::Public => Ok(true),
@@ -579,7 +589,7 @@ impl VisibilityIntersection {
         exemptions: ThinArcSlice<PackagePattern>,
         origin: VisibilityLayerOrigin,
     ) -> Self {
-        if matches!(patterns, VisibilityPatternList::Public) {
+        if patterns.is_intersection_identity() {
             return self.dupe();
         }
         let mut layers = Vec::with_capacity(self.layers.len() + 1);

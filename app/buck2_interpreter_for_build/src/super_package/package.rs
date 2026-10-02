@@ -12,15 +12,21 @@ use std::cell::RefCell;
 
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
+use buck2_core::pattern::package::PackagePattern;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::visibility::StarlarkTargetNameGlob;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::VisibilityWithinViewBuilder;
 use buck2_node::visibility::WithinViewSpecification;
+use buck2_node::visibility::within_scope_from_parsed;
+use buck2_util::arc_str::ThinArcSlice;
 use either::Either;
+use starlark::collections::SmallSet;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -31,6 +37,7 @@ use starlark::values::none::NoneType;
 use crate::interpreter::build_context::BuildContext;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
 use crate::super_package::eval_ctx::PackageFileVisibilityFields;
+use crate::super_package::eval_ctx::VisibilitySource;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -41,6 +48,32 @@ enum PackageFileError {
     EnforceIntersectionAtMostOnce(&'static str),
     #[error("`{0}()` can only be called from a `PACKAGE` file")]
     EnforceIntersectionMustBeDirect(&'static str),
+    #[error(
+        "`visibility_exempt_targets` requires an explicit `visibility=` in the same `package()` call"
+    )]
+    ExemptTargetsRequireVisibility,
+    #[error(
+        "invalid `visibility_exempt_targets` entry `{0}`: target patterns (`cell//pkg:name`) are not accepted; exemptions select whole packages (exact-package `cell//pkg:` or recursive `cell//pkg/...`)"
+    )]
+    InvalidExemptTarget(String),
+    #[error("`visibility_exempt_targets` entry `{0}` is not a valid pattern: {1}")]
+    InvalidExemptTargetSyntax(String, String),
+    #[error(
+        "`PUBLIC` is not a valid `visibility_exempt_targets` entry (it is a target name, not a package pattern)"
+    )]
+    PublicNotAllowedInExemptTargets,
+    #[error(
+        "`visibility_exempt_targets` is vacuous with a `visibility` list containing `\"PUBLIC\"`: any such list collapses to `Public`, which contributes nothing to the intersection, so the exemptions have no effect"
+    )]
+    ExemptTargetsWithPublicVisibility,
+    #[error(
+        "`visibility_exempt_targets` entry `{0}` covers this PACKAGE's entire subtree, making the visibility layer vacuous: every target that could inherit it is exempt"
+    )]
+    ExemptTargetCoversSubtree(String),
+    #[error(
+        "`visibility_exempt_targets` entry `{0}` is outside this PACKAGE's subtree: exemptions only apply to targets defined under this PACKAGE's directory"
+    )]
+    ExemptTargetOutsideSubtree(String),
 }
 
 fn add_visibility_pattern<'v>(
@@ -150,6 +183,68 @@ fn enforce_intersection(
     Ok(NoneType)
 }
 
+/// Cell-local, unlike `PACKAGE` inheritance: an entry in a cell nested under
+/// `declaring_dir` is rejected.
+fn exemption_within_subtree(pattern: &PackagePattern, declaring_dir: &CellPath) -> bool {
+    let entry_dir = match pattern {
+        PackagePattern::Package(label) => label.as_cell_path(),
+        PackagePattern::Recursive(path) => path.as_ref(),
+    };
+    entry_dir.starts_with(declaring_dir.as_ref())
+}
+
+/// Whether a recursive exemption covers the declaring `PACKAGE`'s own directory,
+/// which would exempt every package that inherits this layer.
+fn exemption_covers_declaring_dir(pattern: &PackagePattern, declaring_dir: &CellPath) -> bool {
+    match pattern {
+        PackagePattern::Package(_) => false,
+        PackagePattern::Recursive(path) => declaring_dir.as_ref().starts_with(path.as_ref()),
+    }
+}
+
+fn parse_exempt_target_pattern(
+    value: &str,
+    cell_name: CellName,
+    cell_resolver: &CellResolver,
+    cell_alias_resolver: &CellAliasResolver,
+) -> buck2_error::Result<PackagePattern> {
+    if value == VisibilityPattern::PUBLIC {
+        return Err(buck2_error::Error::from(
+            PackageFileError::PublicNotAllowedInExemptTargets,
+        ));
+    }
+    let parsed = ParsedPattern::<TargetPatternExtra>::parse_precise(
+        value,
+        cell_name,
+        cell_resolver,
+        cell_alias_resolver,
+    )
+    .map_err(|e| PackageFileError::InvalidExemptTargetSyntax(value.to_owned(), format!("{e:#}")))?;
+    within_scope_from_parsed(parsed).map_err(|_| {
+        buck2_error::Error::from(PackageFileError::InvalidExemptTarget(value.to_owned()))
+    })
+}
+
+fn parse_exempt_targets(
+    patterns: &[&str],
+    cell_name: CellName,
+    cell_resolver: &CellResolver,
+    cell_alias_resolver: &CellAliasResolver,
+) -> buck2_error::Result<ThinArcSlice<PackagePattern>> {
+    let mut seen = SmallSet::with_capacity(patterns.len());
+    patterns
+        .iter()
+        .map(|pattern| {
+            parse_exempt_target_pattern(pattern, cell_name, cell_resolver, cell_alias_resolver)
+        })
+        .filter_map(|parsed| match parsed {
+            Ok(pattern) if seen.insert(pattern.clone()) => Some(Ok(pattern)),
+            Ok(_) => None,
+            Err(error) => Some(Err(error)),
+        })
+        .collect()
+}
+
 /// Globals for `PACKAGE` files and `bzl` files included from `PACKAGE` files.
 #[starlark_module]
 pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
@@ -175,11 +270,23 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
         >,
         #[starlark(require=named, default=UnpackListOrTuple::default())]
         within_view: UnpackListOrTuple<Either<&'v str, &'v StarlarkTargetNameGlob>>,
+        #[starlark(require=named, default=UnpackListOrTuple::default())]
+        visibility_exempt_targets: UnpackListOrTuple<&'v str>,
         eval: &mut Evaluator,
     ) -> starlark::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
         let package_file_eval_ctx = build_context.additional.require_package_file("package")?;
+        if package_file_eval_ctx.visibility.borrow().is_some() {
+            return Err(buck2_error::Error::from(PackageFileError::AtMostOnce).into());
+        }
         let visibility_provided = visibility.into_option();
+        // Validated regardless of `package_visibility.default_intersection`, so an
+        // emergency enforce-to-off flip cannot turn valid PACKAGE files into errors.
+        if visibility_provided.is_none() && !visibility_exempt_targets.items.is_empty() {
+            return Err(
+                buck2_error::Error::from(PackageFileError::ExemptTargetsRequireVisibility).into(),
+            );
+        }
         let visibility = parse_visibility(
             visibility_provided
                 .as_ref()
@@ -194,18 +301,46 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
             build_context.cell_info().cell_resolver(),
             build_context.cell_info().cell_alias_resolver(),
         )?;
-
-        match &mut *package_file_eval_ctx.visibility.borrow_mut() {
-            Some(_) => return Err(buck2_error::Error::from(PackageFileError::AtMostOnce).into()),
-            x => {
-                *x = Some(PackageFileVisibilityFields {
-                    visibility,
-                    within_view,
-                    inherit,
-                    visibility_was_set: visibility_provided.is_some(),
-                })
+        let exemptions = parse_exempt_targets(
+            &visibility_exempt_targets.items,
+            build_context.cell_info().name().name(),
+            build_context.cell_info().cell_resolver(),
+            build_context.cell_info().cell_alias_resolver(),
+        )?;
+        if !exemptions.is_empty() && visibility.0.is_intersection_identity() {
+            return Err(buck2_error::Error::from(
+                PackageFileError::ExemptTargetsWithPublicVisibility,
+            )
+            .into());
+        }
+        let declaring_dir: CellPath = package_file_eval_ctx.path.dir().to_owned();
+        for pattern in exemptions.iter() {
+            if exemption_covers_declaring_dir(pattern, &declaring_dir) {
+                return Err(
+                    buck2_error::Error::from(PackageFileError::ExemptTargetCoversSubtree(
+                        pattern.to_string(),
+                    ))
+                    .into(),
+                );
             }
+            if !exemption_within_subtree(pattern, &declaring_dir) {
+                return Err(buck2_error::Error::from(
+                    PackageFileError::ExemptTargetOutsideSubtree(pattern.to_string()),
+                )
+                .into());
+            }
+        }
+        let visibility_source = match visibility_provided {
+            Some(_) => VisibilitySource::Explicit { exemptions },
+            None => VisibilitySource::Unset,
         };
+
+        *package_file_eval_ctx.visibility.borrow_mut() = Some(PackageFileVisibilityFields {
+            visibility,
+            within_view,
+            inherit,
+            visibility_source,
+        });
 
         Ok(NoneType)
     }
@@ -242,5 +377,78 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
         enforce_intersection(eval, "enforce_within_view_intersection", |ctx| {
             &ctx.enforces_within_view_intersection
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::package::PackageLabel;
+
+    use super::*;
+
+    fn declaring_dir(package: &str) -> CellPath {
+        PackageLabel::testing_parse(package)
+            .as_cell_path()
+            .to_owned()
+    }
+
+    #[test]
+    fn exemption_within_subtree_same_cell() {
+        let declaring = declaring_dir("root//etc");
+        assert!(exemption_within_subtree(
+            &PackagePattern::Package(PackageLabel::testing_parse("root//etc/legacy")),
+            &declaring,
+        ));
+        assert!(exemption_within_subtree(
+            &PackagePattern::Recursive(declaring_dir("root//etc/generated")),
+            &declaring,
+        ));
+        assert!(!exemption_within_subtree(
+            &PackagePattern::Package(PackageLabel::testing_parse("root//other")),
+            &declaring,
+        ));
+    }
+
+    #[test]
+    fn exemption_within_subtree_rejects_other_cell() {
+        let declaring = declaring_dir("root//");
+        assert!(!exemption_within_subtree(
+            &PackagePattern::Recursive(declaring_dir("other//generated")),
+            &declaring,
+        ));
+        assert!(!exemption_within_subtree(
+            &PackagePattern::Package(PackageLabel::testing_parse("other//generated")),
+            &declaring,
+        ));
+    }
+
+    #[test]
+    fn exemption_covers_declaring_dir_recursive_same_cell() {
+        let declaring = declaring_dir("root//etc");
+        assert!(exemption_covers_declaring_dir(
+            &PackagePattern::Recursive(declaring_dir("root//etc")),
+            &declaring,
+        ));
+        assert!(exemption_covers_declaring_dir(
+            &PackagePattern::Recursive(declaring_dir("root//")),
+            &declaring,
+        ));
+        assert!(!exemption_covers_declaring_dir(
+            &PackagePattern::Recursive(declaring_dir("root//etc/generated")),
+            &declaring,
+        ));
+        assert!(!exemption_covers_declaring_dir(
+            &PackagePattern::Package(PackageLabel::testing_parse("root//etc")),
+            &declaring,
+        ));
+    }
+
+    #[test]
+    fn exemption_covers_declaring_dir_ignores_nested_cell() {
+        let declaring = declaring_dir("root//");
+        assert!(!exemption_covers_declaring_dir(
+            &PackagePattern::Recursive(declaring_dir("other//")),
+            &declaring,
+        ));
     }
 }

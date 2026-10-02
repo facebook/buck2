@@ -405,8 +405,8 @@ pub(crate) fn register_read_package_visibility_functions(builder: &mut GlobalsBu
     ///
     /// Returns a list of pattern strings, `["PUBLIC"]` when no ancestor restricts
     /// visibility (the default), or `{"intersection": [list, ...]}` for several
-    /// layers. Kept for backwards compatibility; new callers should use
-    /// `read_package_visibility_intersection`.
+    /// layers. Omits `visibility_exempt_targets` exemptions. Kept for backwards
+    /// compatibility; new callers should use `read_package_visibility_intersection`.
     ///
     /// The `package_path` parameter accepts any of the following:
     /// - A `PackagePath`
@@ -431,8 +431,7 @@ pub(crate) fn register_read_package_visibility_functions(builder: &mut GlobalsBu
     }
 
     /// Read the per-layer visibility intersection propagated from
-    /// `enforce_visibility_intersection()` in ancestor `PACKAGE` files for the
-    /// given package path.
+    /// `enforce_visibility_intersection()` in ancestor `PACKAGE` files.
     ///
     /// Returns one `bxl.VisibilityIntersectionLayer` per contributing layer, or
     /// an empty list when no ancestor restricts visibility.

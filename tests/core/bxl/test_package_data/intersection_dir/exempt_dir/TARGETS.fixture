@@ -9,5 +9,5 @@
 load("//:defs.bzl", "foo_library")
 
 foo_library(
-    name = "cap_dummy",
+    name = "intersection_exempt_dummy",
 )

@@ -58,21 +58,45 @@ async def test_audit_package_values_select(buck: Buck) -> None:
 async def test_audit_package_values_visibility_intersection(
     buck: Buck,
 ) -> None:
-    stdout = (await buck.audit("package-values", "//capped/child")).stdout
+    stdout = (await buck.audit("package-values", "//intersection/child")).stdout
     result = json.loads(stdout)
-    pkg = result["root//capped/child"]
+    pkg = result["root//intersection/child"]
     # Legacy collapsed shape is kept for backwards compatibility.
-    cap = pkg["visibility_cap"]
-    assert isinstance(cap, dict), f"Expected dict for intersection, got {type(cap)}"
-    assert "intersection" in cap
-    assert len(cap["intersection"]) == 2
+    legacy = pkg["visibility_cap"]
+    assert isinstance(legacy, dict), (
+        f"Expected dict for intersection, got {type(legacy)}"
+    )
+    assert "intersection" in legacy
+    assert len(legacy["intersection"]) == 2
     # New per-layer shape never collapses.
     layers = pkg["visibility_intersection"]
     assert len(layers) == 2
-    assert layers[0]["patterns"] == ["root//capped/..."]
+    assert layers[0]["patterns"] == ["root//intersection/..."]
     assert layers[0]["exempt_targets"] == []
-    assert layers[1]["patterns"] == ["root//capped/child/..."]
+    assert layers[1]["patterns"] == ["root//intersection/child/..."]
     assert layers[1]["exempt_targets"] == []
+
+
+@buck_test()
+async def test_audit_package_values_visibility_intersection_exempt(
+    buck: Buck,
+) -> None:
+    stdout = (await buck.audit("package-values", "//intersection/exempt")).stdout
+    result = json.loads(stdout)
+    pkg = result["root//intersection/exempt"]
+    intersection = pkg["visibility_intersection"]
+    assert intersection == [
+        {"patterns": ["root//intersection/..."], "exempt_targets": []},
+        {
+            "patterns": ["root//intersection/exempt/..."],
+            "exempt_targets": ["root//intersection/exempt:"],
+        },
+    ], f"Unexpected exempt intersection shape: {intersection}"
+    # Legacy collapsed shape ignores exemptions.
+    legacy = pkg["visibility_cap"]
+    assert legacy == {
+        "intersection": [["root//intersection/..."], ["root//intersection/exempt/..."]],
+    }, f"Unexpected legacy shape: {legacy}"
 
 
 @buck_test()
@@ -142,6 +166,27 @@ async def test_targets_package_values_regex(buck: Buck) -> None:
 async def test_targets_streaming_package_values(buck: Buck) -> None:
     stdout = (await buck.targets("--streaming", "--package-values", "//...")).stdout
     golden(
-        output=stdout,
+        output=_sort_streaming_targets(stdout),
         rel_path="targets-streaming-package-values.golden.json",
     )
+
+
+def _sort_streaming_targets(stdout: str) -> str:
+    decoder = json.JSONDecoder()
+    index = stdout.index("[") + 1
+    entries: list[tuple[dict[str, object], str]] = []
+    while True:
+        index += len(stdout[index:]) - len(stdout[index:].lstrip(" \t\r\n,"))
+        if stdout[index] == "]":
+            break
+        entry, end = decoder.raw_decode(stdout, index)
+        entries.append((entry, stdout[index:end]))
+        index = end
+
+    ordered = sorted(
+        entries,
+        key=lambda entry: (entry[0]["buck.package"], entry[0]["name"]),
+    )
+    if not ordered:
+        return "[]\n"
+    return "[\n" + ",\n".join(f"  {raw}" for _, raw in ordered) + "\n]\n"
