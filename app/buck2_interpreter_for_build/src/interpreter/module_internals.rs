@@ -205,7 +205,10 @@ impl ModuleInternals {
                             package: Arc::new(Package {
                                 buildfile_path: self.buildfile_path.dupe(),
                                 oncall,
-                                visibility_cap: self.super_package.visibility_cap().dupe(),
+                                visibility_intersection: self
+                                    .super_package
+                                    .visibility_intersection()
+                                    .for_defining_package(self.buildfile_path.package()),
                             }),
                             recorder: TargetsRecorder::new(),
                         });

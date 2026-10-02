@@ -11,8 +11,14 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
+
+
+def set_default_intersection(buck: Buck, mode: str) -> None:
+    (buck.cwd / ".bucksettings.toml").write_text(
+        f'[package_visibility]\ndefault_intersection = "{mode}"\n'
+    )
 
 
 @buck_test()
@@ -128,4 +134,25 @@ async def test_calling_twice_in_one_package_is_rejected(buck: Buck) -> None:
     golden(
         output=sanitize_stderr(result.stderr),
         rel_path="golden/test_calling_twice_in_one_package_is_rejected.golden.txt",
+    )
+
+
+@buck_test()
+@env("BUCK2_HARD_ERROR", "false")
+async def test_audit_mode_still_enforces_marker_boundary(buck: Buck) -> None:
+    set_default_intersection(buck, "audit")
+    for consumer in ["root//outside_consumer:c", "root//leak_destination/consumer:c"]:
+        await expect_failure(
+            buck.ctargets(consumer),
+            stderr_regex=r"is not visible to.*Restricted to.*by an ancestor PACKAGE's visibility",
+        )
+
+
+@buck_test()
+@env("BUCK2_HARD_ERROR", "false")
+async def test_audit_mode_still_enforces_own_visibility(buck: Buck) -> None:
+    set_default_intersection(buck, "audit")
+    await expect_failure(
+        buck.ctargets("root//intersect/sub_a/consumer:c"),
+        stderr_regex=r"is not visible to",
     )

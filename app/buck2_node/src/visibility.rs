@@ -13,6 +13,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::package::PackagePattern;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -48,11 +49,11 @@ pub enum VisibilityError {
         "`{0}` is not visible to `{1}` (visibility = {2}). Restricted to {3} by an ancestor PACKAGE's visibility."
     )]
     #[buck2(input, tag = Visibility)]
-    NotVisibleToWithCap(
+    NotVisibleToWithIntersection(
         TargetLabel,
         TargetLabel,
         VisibilitySpecification,
-        VisibilityPatternList,
+        VisibilityIntersection,
     ),
 }
 
@@ -501,6 +502,185 @@ impl AnyMatches for VisibilityPatternList {
     }
 }
 
+/// An exemption skips only this layer, for targets defined in a matching
+/// package. It cannot weaken any other layer's restriction, and it never
+/// grants consumer visibility.
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
+pub(crate) struct VisibilityIntersectionLayer {
+    pub(crate) patterns: VisibilityPatternList,
+    pub(crate) exemptions: ThinArcSlice<PackagePattern>,
+    pub(crate) origin: VisibilityLayerOrigin,
+}
+
+/// Why a `PACKAGE`'s visibility became an intersection layer.
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative, Pagable)]
+pub enum VisibilityLayerOrigin {
+    /// The `PACKAGE` called `enforce_visibility_intersection()`: enforced in
+    /// every mode, including `audit`.
+    Marker,
+    /// Contributed only because `package_visibility.default_intersection` is
+    /// `audit` or `enforce`; `audit` reports rather than fails its blocks.
+    Default,
+}
+
+/// The visibility intersection propagated from `enforce_visibility_intersection()`
+/// boundaries (or, when default intersection is enabled, from every explicit
+/// `package(visibility=...)`). A target is visible to a consumer only if its
+/// own visibility and every non-exempt layer match the consumer.
+///
+/// Empty layers = no restriction.
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
+pub struct VisibilityIntersection {
+    layers: ThinArcSlice<VisibilityIntersectionLayer>,
+}
+
+impl VisibilityIntersection {
+    pub fn unrestricted() -> Self {
+        Self {
+            layers: ThinArcSlice::empty(),
+        }
+    }
+
+    pub fn is_unrestricted(&self) -> bool {
+        self.layers.is_empty()
+    }
+
+    /// Intersect one more `PACKAGE`'s explicit visibility into this intersection.
+    /// `Public` is the identity and contributes nothing (any exemptions on a
+    /// `Public` layer are vacuous and dropped).
+    pub fn with_layer(
+        &self,
+        patterns: VisibilityPatternList,
+        exemptions: ThinArcSlice<PackagePattern>,
+        origin: VisibilityLayerOrigin,
+    ) -> Self {
+        if matches!(patterns, VisibilityPatternList::Public) {
+            return self.dupe();
+        }
+        let mut layers = Vec::with_capacity(self.layers.len() + 1);
+        layers.extend(self.layers.iter().cloned());
+        layers.push(VisibilityIntersectionLayer {
+            patterns,
+            exemptions,
+            origin,
+        });
+        Self {
+            layers: ThinArcSlice::from_iter(layers),
+        }
+    }
+
+    /// The layers that apply to targets defined in `defining_package`: layers
+    /// exempting it are dropped. Exemptions key off the defining package only;
+    /// they never grant a consumer visibility by themselves. Each build file
+    /// computes this once for its `Package`, so per-edge checks never consult
+    /// exemptions.
+    pub fn for_defining_package(&self, defining_package: PackageLabel) -> Self {
+        let exempts = |layer: &VisibilityIntersectionLayer| {
+            layer
+                .exemptions
+                .iter()
+                .any(|exemption| exemption.matches(defining_package))
+        };
+        if !self.layers.iter().any(exempts) {
+            return self.dupe();
+        }
+        Self {
+            layers: self
+                .layers
+                .iter()
+                .filter(|layer| !exempts(layer))
+                .cloned()
+                .collect(),
+        }
+    }
+
+    /// Whether `consumer` passes every layer. Exemptions are not consulted:
+    /// call this on the result of
+    /// [`for_defining_package`](Self::for_defining_package).
+    pub fn matches(&self, consumer: &TargetLabel) -> buck2_error::Result<bool> {
+        self.matches_layers(*consumer, |_| true)
+    }
+
+    /// Like [`matches`](Self::matches), but only `Marker` layers can block.
+    pub fn matches_marker_layers(&self, consumer: &TargetLabel) -> buck2_error::Result<bool> {
+        self.matches_layers(*consumer, |layer| {
+            layer.origin == VisibilityLayerOrigin::Marker
+        })
+    }
+
+    fn matches_layers(
+        &self,
+        consumer: TargetLabel,
+        include: impl Fn(&VisibilityIntersectionLayer) -> bool,
+    ) -> buck2_error::Result<bool> {
+        for layer in self.layers.iter().filter(|layer| include(layer)) {
+            if !layer.patterns.matches_target(&consumer)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
+    /// Collapsed shape: `["PUBLIC"]` when empty, the single layer's
+    /// patterns for one layer, `{"intersection": [...]}` for several. Exemptions
+    /// are not included.
+    pub fn to_json(&self) -> serde_json::Value {
+        let parts = self
+            .layers
+            .iter()
+            .map(|layer| layer.patterns.to_json())
+            .collect::<Vec<_>>();
+        match parts.as_slice() {
+            [] => serde_json::json!([VisibilityPattern::PUBLIC]),
+            [single] => single.clone(),
+            many => serde_json::json!({ "intersection": many }),
+        }
+    }
+}
+
+struct VisibilityIntersectionLayerQuoted<'a>(&'a VisibilityIntersectionLayer);
+
+struct QuotedExemption<'a>(&'a PackagePattern);
+
+impl Display for QuotedExemption<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "\"{}\"", self.0)
+    }
+}
+
+impl Display for VisibilityIntersectionLayerQuoted<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0.patterns, f)?;
+        if !self.0.exemptions.is_empty() {
+            write!(f, " except ")?;
+            display_container::fmt_container(
+                f,
+                "[",
+                "]",
+                self.0.exemptions.iter().map(QuotedExemption),
+            )?;
+        }
+        Ok(())
+    }
+}
+
+impl Display for VisibilityIntersection {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.layers.is_empty() {
+            return write!(f, "[\"{}\"]", VisibilityPattern::PUBLIC);
+        }
+        let mut first = true;
+        for layer in self.layers.iter() {
+            if !first {
+                write!(f, " AND ")?;
+            }
+            first = false;
+            Display::fmt(&VisibilityIntersectionLayerQuoted(layer), f)?;
+        }
+        Ok(())
+    }
+}
+
 /// Represents the visibility spec of a target. Note that targets in the same package will ignore the
 /// visibility spec of each other.
 #[derive(
@@ -713,7 +893,7 @@ mod tests {
     fn extend_with_intersection_returns_internal_error() {
         let a = VisibilityPatternList::testing_parse(&["root//foo:"]);
         let b = VisibilityPatternList::testing_parse(&["root//bar:"]);
-        let intersection = a.intersect_with(&b);
+        let intersection = VisibilityPatternList::Intersection([a, b].into_iter().collect());
         let public = VisibilityPatternList::Public;
 
         assert!(public.extend_with(&intersection).is_err());
@@ -827,23 +1007,17 @@ mod tests {
                 .collect(),
         );
         let package = VisibilityPatternList::testing_parse(&["root//foo:"]);
-        let intersection = glob.intersect_with(&package);
+        let intersection = VisibilityIntersection::unrestricted()
+            .with_layer(glob, ThinArcSlice::empty(), VisibilityLayerOrigin::Default)
+            .with_layer(
+                package,
+                ThinArcSlice::empty(),
+                VisibilityLayerOrigin::Default,
+            );
 
-        assert!(
-            intersection
-                .matches_target(&label("root//foo:unit-test"))
-                .unwrap()
-        );
-        assert!(
-            !intersection
-                .matches_target(&label("root//foo:library"))
-                .unwrap()
-        );
-        assert!(
-            !intersection
-                .matches_target(&label("root//bar:unit-test"))
-                .unwrap()
-        );
+        assert!(intersection.matches(&label("root//foo:unit-test")).unwrap());
+        assert!(!intersection.matches(&label("root//foo:library")).unwrap());
+        assert!(!intersection.matches(&label("root//bar:unit-test")).unwrap());
     }
 
     #[test]
@@ -1094,5 +1268,216 @@ mod tests {
         let list = VisibilityPatternList::testing_parse(&["root//foo:"]);
         assert!(list.any_matches(&|s| Ok(s == "root//foo:")).unwrap(),);
         assert!(!list.any_matches(&|s| Ok(s == "root//bar:")).unwrap(),);
+    }
+
+    fn exempt(s: &str) -> PackagePattern {
+        within_scope_from_parsed(ParsedPattern::testing_parse(s))
+            .unwrap_or_else(|_| panic!("test exemption must be a package pattern, got: {s}"))
+    }
+
+    fn exempt_slice(patterns: &[&str]) -> ThinArcSlice<PackagePattern> {
+        patterns.iter().map(|s| exempt(s)).collect()
+    }
+
+    fn single_layer_intersection(patterns: &[&str], exemptions: &[&str]) -> VisibilityIntersection {
+        VisibilityIntersection::unrestricted().with_layer(
+            VisibilityPatternList::testing_parse(patterns),
+            exempt_slice(exemptions),
+            VisibilityLayerOrigin::Default,
+        )
+    }
+
+    fn defining_package(target: &str) -> PackageLabel {
+        label(target).pkg()
+    }
+
+    #[test]
+    fn visibility_intersection_public_matches_everything() {
+        let intersection = VisibilityIntersection::unrestricted();
+        assert!(intersection.is_unrestricted());
+        assert!(
+            intersection
+                .for_defining_package(defining_package("root//other:thing"))
+                .matches(&label("root//any:thing"))
+                .unwrap()
+        );
+        assert_eq!(intersection.to_json(), serde_json::json!(["PUBLIC"]));
+        assert_eq!(intersection.to_string(), r#"["PUBLIC"]"#);
+    }
+
+    #[test]
+    fn visibility_intersection_with_layer_public_is_identity() {
+        let intersection = VisibilityIntersection::unrestricted().with_layer(
+            VisibilityPatternList::Public,
+            exempt_slice(&["root//foo:"]),
+            VisibilityLayerOrigin::Default,
+        );
+        assert!(intersection.is_unrestricted());
+        assert_eq!(intersection, VisibilityIntersection::unrestricted());
+    }
+
+    #[test]
+    fn visibility_intersection_marker_layers_ignore_default_layers() {
+        let intersection = VisibilityIntersection::unrestricted()
+            .with_layer(
+                VisibilityPatternList::testing_parse(&["root//a/..."]),
+                ThinArcSlice::empty(),
+                VisibilityLayerOrigin::Marker,
+            )
+            .with_layer(
+                VisibilityPatternList::testing_parse(&["root//a/b/..."]),
+                ThinArcSlice::empty(),
+                VisibilityLayerOrigin::Default,
+            );
+        let default_blocked = label("root//a/c:consumer");
+        assert!(!intersection.matches(&default_blocked).unwrap());
+        assert!(
+            intersection
+                .matches_marker_layers(&default_blocked)
+                .unwrap()
+        );
+        let marker_blocked = label("root//other:consumer");
+        assert!(!intersection.matches_marker_layers(&marker_blocked).unwrap());
+    }
+
+    #[test]
+    fn visibility_intersection_layer_blocks_non_matching_consumer() {
+        let intersection = single_layer_intersection(&["root//allowed/..."], &[]);
+        assert!(!intersection.is_unrestricted());
+        assert!(
+            intersection
+                .for_defining_package(defining_package("root//etc:lib"))
+                .matches(&label("root//allowed:lib"))
+                .unwrap()
+        );
+        assert!(
+            !intersection
+                .for_defining_package(defining_package("root//etc:lib"))
+                .matches(&label("root//other:lib"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn visibility_intersection_exact_exemption_skips_only_matching_definer() {
+        let intersection =
+            single_layer_intersection(&["root//allowed/..."], &["root//etc/legacy:"]);
+        // Exempt definer skips the layer, even for an otherwise-blocked consumer.
+        assert!(
+            intersection
+                .for_defining_package(defining_package("root//etc/legacy:lib"))
+                .matches(&label("root//other:lib"))
+                .unwrap()
+        );
+        assert!(
+            !intersection
+                .for_defining_package(defining_package("root//etc/other:lib"))
+                .matches(&label("root//other:lib"))
+                .unwrap()
+        );
+        assert!(
+            intersection
+                .for_defining_package(defining_package("root//etc/other:lib"))
+                .matches(&label("root//allowed:lib"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn visibility_intersection_recursive_exemption_covers_nested_packages() {
+        let intersection =
+            single_layer_intersection(&["root//allowed/..."], &["root//etc/generated/..."]);
+        assert!(
+            intersection
+                .for_defining_package(defining_package("root//etc/generated:lib"))
+                .matches(&label("root//other:lib"))
+                .unwrap()
+        );
+        assert!(
+            intersection
+                .for_defining_package(defining_package("root//etc/generated/sub:lib"))
+                .matches(&label("root//other:lib"))
+                .unwrap()
+        );
+        assert!(
+            !intersection
+                .for_defining_package(defining_package("root//etc/handwritten:lib"))
+                .matches(&label("root//other:lib"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn visibility_intersection_exemption_cannot_weaken_other_layers() {
+        let intersection = single_layer_intersection(&["root//allowed/..."], &[]).with_layer(
+            VisibilityPatternList::testing_parse(&["root//extra/..."]),
+            exempt_slice(&["root//etc/sub:"]),
+            VisibilityLayerOrigin::Default,
+        );
+        // Exempt from the second layer only: the first still blocks outsiders.
+        assert!(
+            !intersection
+                .for_defining_package(defining_package("root//etc/sub:lib"))
+                .matches(&label("root//other:lib"))
+                .unwrap()
+        );
+        assert!(
+            intersection
+                .for_defining_package(defining_package("root//etc/sub:lib"))
+                .matches(&label("root//allowed:lib"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn visibility_intersection_deep_nesting_stays_flat_and_conjunctive() {
+        let intersection = single_layer_intersection(&["root//a/..."], &[])
+            .with_layer(
+                VisibilityPatternList::testing_parse(&["root//a/b/..."]),
+                ThinArcSlice::empty(),
+                VisibilityLayerOrigin::Default,
+            )
+            .with_layer(
+                VisibilityPatternList::testing_parse(&["root//a/b/c/..."]),
+                exempt_slice(&["root//a/b/c/legacy:"]),
+                VisibilityLayerOrigin::Default,
+            );
+        assert!(
+            intersection
+                .for_defining_package(defining_package("root//a/b/c:lib"))
+                .matches(&label("root//a/b/c:lib"))
+                .unwrap()
+        );
+        // Outside the middle layer: blocked even though the outer allows.
+        assert!(
+            !intersection
+                .for_defining_package(defining_package("root//a/b/c:lib"))
+                .matches(&label("root//a/other:lib"))
+                .unwrap()
+        );
+        // Exempt from the innermost layer only: outer layers still block.
+        assert!(
+            !intersection
+                .for_defining_package(defining_package("root//a/b/c/legacy:lib"))
+                .matches(&label("root//elsewhere:lib"))
+                .unwrap()
+        );
+        assert!(
+            intersection
+                .for_defining_package(defining_package("root//a/b/c/legacy:lib"))
+                .matches(&label("root//a/b/c:lib"))
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn visibility_intersection_empty_layer_blocks_everyone() {
+        let intersection = single_layer_intersection(&[], &[]);
+        assert!(
+            !intersection
+                .for_defining_package(defining_package("root//any:lib"))
+                .matches(&label("root//any:lib"))
+                .unwrap()
+        );
     }
 }

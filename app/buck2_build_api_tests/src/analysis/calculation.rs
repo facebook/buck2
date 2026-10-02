@@ -60,8 +60,10 @@ use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
 use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
 use buck2_node::super_package::SuperPackage;
-use buck2_node::visibility::VisibilityPatternList;
+use buck2_node::visibility::VisibilityIntersection;
+use buck2_node::visibility::VisibilityLayerOrigin;
 use buck2_node::visibility::VisibilitySpecification;
+use buck2_util::arc_str::ThinArcSlice;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::UserComputationData;
@@ -236,7 +238,7 @@ fn testing_user_data(mode: PackageVisibilityDefaultIntersection) -> UserComputat
 }
 
 #[tokio::test]
-async fn test_audit_never_fails_and_enforce_does() -> buck2_error::Result<()> {
+async fn test_audit_downgrades_only_default_layers() -> buck2_error::Result<()> {
     let bzlfile = ImportPath::testing_new("cell//pkg:foo.bzl");
     let resolver = CellResolver::testing_with_names_and_paths(&[
         (
@@ -332,75 +334,108 @@ foo_binary(
 
     let fs = ProjectRootTemp::new()?;
 
-    // `Tester` has no PACKAGE files, so inject the cap into both the
+    // `Tester` has no PACKAGE files, so inject the intersection into both the
     // `SuperPackage` and each node's embedded `Package` (what `is_visible_to` reads).
-    let capped_lib_eval_res = |base: &EvaluationResult, cap: VisibilityPatternList| {
-        Arc::new(EvaluationResult::new(
-            base.buildfile_path().dupe(),
-            base.imports().to_vec(),
-            SuperPackage::new(
-                base.super_package().package_values().dupe(),
-                base.super_package().visibility().dupe(),
-                base.super_package().within_view().dupe(),
-                cap.dupe(),
-                base.super_package().within_view_cap().dupe(),
-                base.super_package().cfg_constructor().cloned(),
-                base.super_package().test_config_unification_rollout(),
-            )
-            .unwrap(),
-            TargetsMap::from_iter(
-                base.targets()
-                    .values()
-                    .map(|node| node.to_owned().testing_with_visibility_cap(cap.dupe())),
-            ),
-        ))
-    };
-
-    let restrictive_cap = || VisibilitySpecification::testing_parse(&["cell//other/..."]).0;
+    let lib_eval_res_with_intersection =
+        |base: &EvaluationResult, intersection: VisibilityIntersection| {
+            Arc::new(EvaluationResult::new(
+                base.buildfile_path().dupe(),
+                base.imports().to_vec(),
+                SuperPackage::new(
+                    base.super_package().package_values().dupe(),
+                    base.super_package().visibility().dupe(),
+                    base.super_package().within_view().dupe(),
+                    intersection.dupe(),
+                    base.super_package().within_view_cap().dupe(),
+                    base.super_package().cfg_constructor().cloned(),
+                    base.super_package().test_config_unification_rollout(),
+                )
+                .unwrap(),
+                TargetsMap::from_iter(base.targets().values().map(|node| {
+                    node.to_owned()
+                        .testing_with_visibility_intersection(intersection.dupe())
+                })),
+            ))
+        };
 
     // Fresh DICE per mode: the mode is per-transaction data, not a DICE key,
     // so flipping it cannot invalidate an existing instance.
-    for (case, base_lib_eval_res, mode, cap, should_fail) in [
+    let restrictive = |origin| {
+        VisibilityIntersection::unrestricted().with_layer(
+            VisibilitySpecification::testing_parse(&["cell//other/..."]).0,
+            ThinArcSlice::empty(),
+            origin,
+        )
+    };
+    for (case, base_lib_eval_res, mode, intersection, should_fail) in [
         (
-            "cap-induced edge",
+            "unrestricted baseline",
             &lib_eval_res_public,
             PackageVisibilityDefaultIntersection::Off,
-            VisibilityPatternList::Public,
+            VisibilityIntersection::unrestricted(),
             false,
         ),
         (
-            "cap-induced edge",
+            "intersection-induced edge",
             &lib_eval_res_public,
             PackageVisibilityDefaultIntersection::Audit,
-            restrictive_cap(),
+            restrictive(VisibilityLayerOrigin::Default),
             false,
         ),
         (
-            "cap-induced edge",
+            "intersection-induced edge",
             &lib_eval_res_public,
             PackageVisibilityDefaultIntersection::Enforce,
-            restrictive_cap(),
+            restrictive(VisibilityLayerOrigin::Default),
+            true,
+        ),
+        (
+            "marker boundary",
+            &lib_eval_res_public,
+            PackageVisibilityDefaultIntersection::Off,
+            restrictive(VisibilityLayerOrigin::Marker),
+            true,
+        ),
+        (
+            "marker boundary",
+            &lib_eval_res_public,
+            PackageVisibilityDefaultIntersection::Audit,
+            restrictive(VisibilityLayerOrigin::Marker),
+            true,
+        ),
+        (
+            "marker boundary",
+            &lib_eval_res_public,
+            PackageVisibilityDefaultIntersection::Enforce,
+            restrictive(VisibilityLayerOrigin::Marker),
             true,
         ),
         (
             "genuine violation",
             &lib_eval_res_restricted,
             PackageVisibilityDefaultIntersection::Off,
-            VisibilityPatternList::Public,
+            VisibilityIntersection::unrestricted(),
             true,
         ),
         (
             "genuine violation",
             &lib_eval_res_restricted,
             PackageVisibilityDefaultIntersection::Audit,
-            VisibilityPatternList::Public,
+            VisibilityIntersection::unrestricted(),
+            true,
+        ),
+        (
+            "genuine violation under a default layer",
+            &lib_eval_res_restricted,
+            PackageVisibilityDefaultIntersection::Audit,
+            restrictive(VisibilityLayerOrigin::Default),
             true,
         ),
         (
             "genuine violation",
             &lib_eval_res_restricted,
             PackageVisibilityDefaultIntersection::Enforce,
-            VisibilityPatternList::Public,
+            VisibilityIntersection::unrestricted(),
             true,
         ),
     ] {
@@ -424,7 +459,10 @@ foo_binary(
         )])?;
         updater.changed_to(vec![(
             InterpreterResultsKey(PackageLabel::testing_parse("cell//lib")),
-            Ok(capped_lib_eval_res(base_lib_eval_res, cap)),
+            Ok(lib_eval_res_with_intersection(
+                base_lib_eval_res,
+                intersection,
+            )),
         )])?;
         updater.changed_to(vec![(ExecutionPlatformsKey, Ok(None))])?;
         setup_interpreter_basic(

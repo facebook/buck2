@@ -63,7 +63,7 @@ use crate::package::Package;
 use crate::rule::Rule;
 use crate::rule_type::RuleType;
 use crate::visibility::VisibilityError;
-use crate::visibility::VisibilityPatternList;
+use crate::visibility::VisibilityIntersection;
 use crate::visibility::VisibilitySpecification;
 
 /// Describes a target including its name, type, and the values that the user provided.
@@ -220,11 +220,12 @@ impl TargetNodeData {
         })
     }
 
-    /// Cap inherited from `enforce_visibility_intersection()`. `Public` = no cap.
+    /// Intersection inherited from `enforce_visibility_intersection()`.
+    /// Empty = no restriction.
     /// Stored on `Package` (per build file), so all targets in the same BUCK
-    /// file share the same cap allocation.
-    pub fn visibility_cap(&self) -> &VisibilityPatternList {
-        &self.package.visibility_cap
+    /// file share the same allocation.
+    pub fn visibility_intersection(&self) -> &VisibilityIntersection {
+        &self.package.visibility_intersection
     }
 }
 
@@ -250,15 +251,18 @@ impl TargetNode {
         }))
     }
 
-    /// Testing-only: clone with the given cap, modelling PACKAGE evaluation
-    /// for harnesses without PACKAGE files. Call stack is dropped (debug-only).
-    pub fn testing_with_visibility_cap(&self, cap: VisibilityPatternList) -> TargetNode {
+    /// Testing-only: clone with the given intersection, modelling PACKAGE
+    /// evaluation for harnesses without PACKAGE files. Call stack is dropped (debug-only).
+    pub fn testing_with_visibility_intersection(
+        &self,
+        intersection: VisibilityIntersection,
+    ) -> TargetNode {
         TargetNode::new(
             self.0.rule.dupe(),
             Arc::new(Package {
                 buildfile_path: self.0.package.buildfile_path.dupe(),
                 oncall: self.0.package.oncall.dupe(),
-                visibility_cap: cap,
+                visibility_intersection: intersection,
             }),
             self.0.label.dupe(),
             self.0.attributes.clone(),
@@ -366,28 +370,43 @@ impl TargetNode {
         if !self.visibility()?.0.matches_target(target)? {
             return Ok(false);
         }
-        self.0.package.visibility_cap.matches_target(target)
+        self.0.package.visibility_intersection.matches(target)
     }
 
-    /// Audit-mode helper: true for cap-induced blocks (downgraded to
-    /// warnings), distinguishing them from genuine visibility violations (fail in every mode).
-    pub fn is_visible_to_ignoring_cap(&self, target: &TargetLabel) -> buck2_error::Result<bool> {
+    /// Audit-mode helper: true for blocks caused only by `Default` intersection
+    /// layers (downgraded to warnings), distinguishing them from own-visibility
+    /// and marker-boundary violations (fail in every mode).
+    pub fn is_visible_to_ignoring_default_layers(
+        &self,
+        target: &TargetLabel,
+    ) -> buck2_error::Result<bool> {
         if self.label().pkg() == target.pkg() {
             return Ok(true);
         }
-        self.visibility()?.0.matches_target(target)
+        if !self.visibility()?.0.matches_target(target)? {
+            return Ok(false);
+        }
+        self.0
+            .package
+            .visibility_intersection
+            .matches_marker_layers(target)
     }
 
     pub fn not_visible_to_error(&self, consumer: TargetLabel) -> VisibilityError {
-        let cap = self.0.package.visibility_cap.dupe();
-        if matches!(cap, VisibilityPatternList::Public) {
+        let intersection = self.0.package.visibility_intersection.dupe();
+        if intersection.is_unrestricted() {
             VisibilityError::NotVisibleTo(self.label().dupe(), consumer)
         } else {
             let visibility = self
                 .visibility()
                 .map(|v| v.dupe())
                 .unwrap_or(VisibilitySpecification::DEFAULT);
-            VisibilityError::NotVisibleToWithCap(self.label().dupe(), consumer, visibility, cap)
+            VisibilityError::NotVisibleToWithIntersection(
+                self.label().dupe(),
+                consumer,
+                visibility,
+                intersection,
+            )
         }
     }
 
@@ -497,9 +516,9 @@ impl TargetNode {
         self.label().hash(state);
         self.rule_type().hash(state);
         self.package_cfg_modifiers().hash(state);
-        // Hash the visibility_cap so that tightening the visibility
+        // Hash the visibility intersection so that tightening the visibility
         // at the PACKAGE level still invalidates the target hash
-        self.visibility_cap().hash(state);
+        self.visibility_intersection().hash(state);
         self.attrs(AttrInspectOptions::All).for_each(|x| {
             // We deliberately don't hash the attribute, as if the value being passed to analysis
             // stays the same, we don't care if the attribute that generated it changed.
@@ -843,7 +862,7 @@ pub mod testing {
                 Arc::new(Package {
                     buildfile_path,
                     oncall: None,
-                    visibility_cap: VisibilityPatternList::Public,
+                    visibility_intersection: VisibilityIntersection::unrestricted(),
                 }),
                 label,
                 attributes,

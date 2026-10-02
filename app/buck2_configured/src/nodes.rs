@@ -384,9 +384,10 @@ async fn check_plugin_deps(
     Ok(())
 }
 
-/// Under `audit`, a dep blocked only by its package's visibility intersection is
-/// reported as a soft error instead of failing. A dep whose own `visibility`
-/// rejects the consumer fails in every mode.
+/// Under `audit`, a dep blocked only by `Default` intersection layers is reported
+/// as a soft error instead of failing. A dep whose own `visibility` or a
+/// `Marker` layer rejects the consumer fails in every mode, so `audit` is never
+/// weaker than `off`.
 fn check_dep_visibility(
     dep: &TargetNode,
     consumer: TargetLabel,
@@ -397,7 +398,7 @@ fn check_dep_visibility(
     }
     let err = dep.not_visible_to_error(consumer);
     if package_visibility == PackageVisibilityDefaultIntersection::Audit
-        && dep.is_visible_to_ignoring_cap(&consumer)?
+        && dep.is_visible_to_ignoring_default_layers(&consumer)?
     {
         soft_error!(
             "package_visibility_audit_would_block",

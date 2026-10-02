@@ -200,14 +200,15 @@ declarations are intersected into the cap by default, without requiring an
 | Setting   | Ordinary `PACKAGE` visibility               | Marker-selected boundary                |
 |-----------|---------------------------------------------|-----------------------------------------|
 | `off`     | Legacy behavior                             | Enforced                                |
-| `audit`   | Shadow-evaluated; reported, none fatal      | Shadow-evaluated; reported, none fatal  |
+| `audit`   | Shadow-evaluated; reported, none fatal      | Enforced                                |
 | `enforce` | Enforced; the marker is redundant           | Enforced                                |
 
-Under `audit`, cap-induced would-block edges are reported as soft errors
-(`package_visibility_audit_would_block`) instead of failing. Note
+Under `audit`, edges blocked only by ordinary `PACKAGE` visibility are reported
+as soft errors (`package_visibility_audit_would_block`) instead of failing. Note
 `buck2 audit visibility` still lists all violations and exits non-zero.
-Genuine target-level violations fail in every mode, including `audit`, so a
-rollout never masks a real violation.
+Marker-selected boundaries and genuine target-level violations fail in every
+mode, so `audit` is never weaker than `off` and a rollout never masks a real
+violation.
 
 The default is `off`. Parsing and validation of `PACKAGE` files does not
 depend on the current setting, so an emergency `enforce` to `off` flip never

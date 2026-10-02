@@ -422,7 +422,9 @@ pub(crate) fn register_read_package_visibility_functions(builder: &mut GlobalsBu
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         let super_package = read_super_package(package_path, eval)?;
-        Ok(eval.heap().alloc(super_package.visibility_cap().to_json()))
+        Ok(eval
+            .heap()
+            .alloc(super_package.visibility_intersection().to_json()))
     }
 
     /// Read the `within_view` cap propagated from `enforce_within_view_intersection()`

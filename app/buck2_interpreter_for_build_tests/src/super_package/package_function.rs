@@ -13,7 +13,6 @@ use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
 
 use crate::tests::calculation;
@@ -438,9 +437,9 @@ async fn test_package_visibility_off_ignores_ordinary_visibility() {
     .await;
 
     assert!(
-        matches!(a.visibility_cap(), VisibilityPatternList::Public),
-        "off mode without a marker must leave the cap at Public, got: {}",
-        a.visibility_cap(),
+        a.visibility_intersection().is_unrestricted(),
+        "off mode without a marker must leave the intersection empty, got: {}",
+        a.visibility_intersection(),
     );
 }
 
@@ -453,14 +452,14 @@ async fn test_package_visibility_marker_enforces_when_off() {
     .await;
 
     assert!(
-        a.visibility_cap()
-            .matches_target(&TargetLabel::testing_parse("root//allowed:lib"))
+        a.visibility_intersection()
+            .matches(&TargetLabel::testing_parse("root//allowed:lib"))
             .unwrap(),
-        "marker-selected visibility must cap to //allowed/..."
+        "marker-selected visibility must restrict to //allowed/..."
     );
     assert!(
-        !a.visibility_cap()
-            .matches_target(&TargetLabel::testing_parse("root//other:lib"))
+        !a.visibility_intersection()
+            .matches(&TargetLabel::testing_parse("root//other:lib"))
             .unwrap(),
         "marker-selected visibility must block //other/..."
     );
@@ -475,21 +474,21 @@ async fn test_package_visibility_enforce_without_marker() {
     .await;
 
     assert!(
-        a.visibility_cap()
-            .matches_target(&TargetLabel::testing_parse("root//allowed:lib"))
+        a.visibility_intersection()
+            .matches(&TargetLabel::testing_parse("root//allowed:lib"))
             .unwrap(),
-        "enforce mode must cap to //allowed/... without a marker"
+        "enforce mode must restrict to //allowed/... without a marker"
     );
     assert!(
-        !a.visibility_cap()
-            .matches_target(&TargetLabel::testing_parse("root//other:lib"))
+        !a.visibility_intersection()
+            .matches(&TargetLabel::testing_parse("root//other:lib"))
             .unwrap(),
         "enforce mode must block //other/... without a marker"
     );
 }
 
 #[tokio::test]
-async fn test_package_visibility_audit_computes_cap_like_enforce() {
+async fn test_package_visibility_audit_computes_intersection_like_enforce() {
     let a = target_a_with_package(
         "package(\n    visibility = [\"//allowed/...\"],\n)\n",
         PackageVisibilityDefaultIntersection::Audit,
@@ -497,14 +496,14 @@ async fn test_package_visibility_audit_computes_cap_like_enforce() {
     .await;
 
     assert!(
-        a.visibility_cap()
-            .matches_target(&TargetLabel::testing_parse("root//allowed:lib"))
+        a.visibility_intersection()
+            .matches(&TargetLabel::testing_parse("root//allowed:lib"))
             .unwrap(),
-        "audit mode must cap to //allowed/... like enforce"
+        "audit mode must restrict to //allowed/... like enforce"
     );
     assert!(
-        !a.visibility_cap()
-            .matches_target(&TargetLabel::testing_parse("root//other:lib"))
+        !a.visibility_intersection()
+            .matches(&TargetLabel::testing_parse("root//other:lib"))
             .unwrap(),
         "audit mode must block //other/... like enforce"
     );

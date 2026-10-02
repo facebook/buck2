@@ -15,9 +15,11 @@ use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::super_package::SuperPackage;
+use buck2_node::visibility::VisibilityLayerOrigin;
 use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
+use buck2_util::arc_str::ThinArcSlice;
 use dupe::Dupe;
 use starlark_map::small_map::SmallMap;
 
@@ -30,9 +32,9 @@ pub(crate) struct PackageFileVisibilityFields {
     pub(crate) visibility: VisibilitySpecification,
     pub(crate) within_view: WithinViewSpecification,
     pub(crate) inherit: bool,
-    /// `true` iff the user passed a non-`None` `visibility=` list. Omitted
-    /// or `visibility=None` are both `false` and contribute nothing to the
-    /// cap (unlike `visibility=[]`, which is a non-None empty list).
+    /// `true` iff the user passed a non-`None` `visibility=` list. Omitted or
+    /// `visibility=None` are both `false` and contribute nothing to the
+    /// intersection (unlike `visibility=[]`, which is a non-None empty list).
     pub(crate) visibility_was_set: bool,
 }
 
@@ -48,7 +50,6 @@ pub struct PackageFileEvalCtx {
     pub(crate) enforces_visibility_intersection: RefCell<bool>,
     /// `true` iff this PACKAGE called `enforce_within_view_intersection()`.
     pub(crate) enforces_within_view_intersection: RefCell<bool>,
-    /// Effective `package_visibility.default_intersection` for this evaluation.
     pub(crate) package_visibility_default_intersection: PackageVisibilityDefaultIntersection,
 }
 
@@ -83,7 +84,7 @@ impl PackageFileEvalCtx {
         let visibility_fields = self.visibility.into_inner();
 
         // Captured before `inherit=True` is applied. `None` when omitted —
-        // omitted must NOT contribute an empty list to the cap.
+        // omitted must NOT contribute an empty list to the intersection.
         let explicit_visibility: Option<VisibilityPatternList> = visibility_fields
             .as_ref()
             .filter(|f| f.visibility_was_set)
@@ -128,19 +129,25 @@ impl PackageFileEvalCtx {
                 None => self.parent.test_config_unification_rollout(),
             };
 
-        // Extend the inherited cap with this PACKAGE's contribution
-        // (no-op if it didn't opt in or didn't pass `package(visibility=...)`).
         let enforces_by_default = matches!(
             self.package_visibility_default_intersection,
             PackageVisibilityDefaultIntersection::Audit
                 | PackageVisibilityDefaultIntersection::Enforce
         );
-        let visibility_cap = match (
-            enforces_by_default || self.enforces_visibility_intersection.into_inner(),
-            explicit_visibility,
-        ) {
-            (true, Some(raw)) => self.parent.visibility_cap().intersect_with(&raw),
-            _ => self.parent.visibility_cap().dupe(),
+        let origin = if self.enforces_visibility_intersection.into_inner() {
+            Some(VisibilityLayerOrigin::Marker)
+        } else if enforces_by_default {
+            Some(VisibilityLayerOrigin::Default)
+        } else {
+            None
+        };
+        let visibility_intersection = match (origin, explicit_visibility) {
+            (Some(origin), Some(raw)) => {
+                self.parent
+                    .visibility_intersection()
+                    .with_layer(raw, ThinArcSlice::empty(), origin)
+            }
+            _ => self.parent.visibility_intersection().dupe(),
         };
 
         let within_view_cap = match (
@@ -155,7 +162,7 @@ impl PackageFileEvalCtx {
             merged_package_values,
             visibility,
             within_view,
-            visibility_cap,
+            visibility_intersection,
             within_view_cap,
             cfg_constructor,
             test_config_unification_rollout,
