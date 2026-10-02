@@ -891,7 +891,7 @@ def get_android_binary_native_library_info(
     # [native_build_commands] JSON and its per-kind filters. Both fragments were written with
     # with_inputs = False, so their entries are already-rendered plain JSON; read them back and
     # re-emit. This runs after the (possibly nested) writers of both fragments complete.
-    def _combine_native_build_commands(ctx: AnalysisContext, artifacts, outputs):
+    def combine_native_build_commands(ctx: AnalysisContext, artifacts, outputs):
         entries = artifacts[native_build_commands_base].read_json() + artifacts[native_build_commands_codegen].read_json()
         ctx.actions.write_json(outputs[native_build_commands], entries)
         for kind in NATIVE_BUILD_COMMAND_KINDS:
@@ -901,7 +901,7 @@ def get_android_binary_native_library_info(
         dynamic = [native_build_commands_base, native_build_commands_codegen],
         inputs = [],
         outputs = [native_build_commands.as_output()] + [native_build_commands_by_kind[kind].as_output() for kind in NATIVE_BUILD_COMMAND_KINDS],
-        f = _combine_native_build_commands,
+        f = combine_native_build_commands,
     )
     combined_asset_libs = ctx.actions.declare_output("combined_asset_libs", dir = True, has_content_based_path = False)
     ctx.actions.run(
@@ -952,8 +952,8 @@ def get_android_binary_native_library_info(
     # mergemap has no argsfile; Gatorade argsfiles are recorded by path only (see
     # native_build_commands.bzl `argsfile` note), so those kinds get no extra outputs here.
     compile_argsfiles_outputs = list(compile_argsfiles.keys())
-    _kind_argsfile_outputs = {kind: [linker_argsfiles] for kind in ["merge", "link", "relink", "bolt"]}
-    _kind_argsfile_outputs["compile"] = compile_argsfiles_outputs
+    kind_argsfile_outputs = {kind: [linker_argsfiles] for kind in ["merge", "link", "relink", "bolt"]}
+    kind_argsfile_outputs["compile"] = compile_argsfiles_outputs
     enhance_ctx.debug_output(
         "native_build_commands",
         native_build_commands,
@@ -962,7 +962,7 @@ def get_android_binary_native_library_info(
             kind: [
                 DefaultInfo(
                     default_outputs = [native_build_commands_by_kind[kind]],
-                    other_outputs = _kind_argsfile_outputs.get(kind, []),
+                    other_outputs = kind_argsfile_outputs.get(kind, []),
                 )
             ]
             for kind in NATIVE_BUILD_COMMAND_KINDS
