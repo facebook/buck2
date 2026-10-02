@@ -81,6 +81,11 @@ impl Error {
         self.0.inner()
     }
 
+    /// The underlying error, without the kind or the diagnostic.
+    pub fn inner(&self) -> &anyhow::Error {
+        self.kind().inner()
+    }
+
     /// Convert the error into the underlying kind
     pub fn into_kind(self) -> ErrorKind {
         self.0.into_inner()
@@ -268,6 +273,24 @@ pub enum ErrorKind {
 }
 
 impl ErrorKind {
+    /// The underlying error, whatever the kind.
+    pub fn inner(&self) -> &anyhow::Error {
+        match self {
+            Self::Fail(e)
+            | Self::StackOverflow(e)
+            | Self::Value(e)
+            | Self::Function(e)
+            | Self::Scope(e)
+            | Self::Parser(e)
+            | Self::Freeze(e)
+            | Self::Internal(e)
+            | Self::RuntimeType(_, e)
+            | Self::DeferredRead(e)
+            | Self::Native(e)
+            | Self::Other(e) => e,
+        }
+    }
+
     /// The source of the error, akin to `[std::error::Error::source]`
     pub fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {

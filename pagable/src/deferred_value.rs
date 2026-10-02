@@ -38,6 +38,7 @@ use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::deserialize_arc;
 use crate::page_in_scope::ArcKey;
 use crate::read_failures::DeferredReadFailures;
+use crate::read_failures::ReadRefused;
 use crate::storage::handle::PagableStorageHandle;
 use crate::storage::handle::WeakPagableStorageHandle;
 
@@ -106,7 +107,7 @@ impl<T> ArcLoader<T> {
             storage
                 .storage_context()
                 .get_or_init(DeferredReadFailures::default)
-                .record(format!("arc {:?}: {error:#}", self.key.key));
+                .record_error(format_args!("arc {:?}", self.key.key), error);
         })
     }
 }
@@ -163,9 +164,9 @@ fn blocking<R>(load: impl FnOnce() -> crate::Result<R>) -> crate::Result<R> {
     if let Ok(runtime) = tokio::runtime::Handle::try_current() {
         return match runtime.runtime_flavor() {
             tokio::runtime::RuntimeFlavor::MultiThread => tokio::task::block_in_place(load),
-            _ => Err(anyhow::anyhow!(
+            _ => Err(anyhow::Error::new(ReadRefused(
                 "a deferred native field requires a blocking-capable runtime",
-            )),
+            ))),
         };
     }
     load()
@@ -205,9 +206,9 @@ impl<T> DeferredValue<T> {
                 Some(value) => Ok(value),
                 None => {
                     if holding_cell() {
-                        return Err(anyhow::anyhow!(
-                            "Cold deferred field read while this thread is restoring another value; refused because it could deadlock"
-                        ));
+                        return Err(anyhow::Error::new(ReadRefused(
+                            "Cold deferred field read while this thread is restoring another value; refused because it could deadlock",
+                        )));
                     }
                     blocking(|| {
                         let _held = HeldCell::enter();

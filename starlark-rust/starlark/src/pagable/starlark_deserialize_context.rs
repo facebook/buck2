@@ -1115,7 +1115,7 @@ fn record_deferred_read_failure(
         .map_or_else(|| "<unnamed heap>".to_owned(), ToString::to_string);
     storage_context
         .get_or_init(DeferredReadFailures::default)
-        .record(format!("heap `{heap}`: {error:#}"));
+        .record_error(format_args!("heap `{heap}`"), error.inner());
 }
 
 /// The published `pagable` predates `DeferredReadFailures`; the OSS build has

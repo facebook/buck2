@@ -23,6 +23,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use bytesize::ByteSize;
+use pagable::ReadTimedOut;
 use pagable::arc_erase::ArcEraseDyn;
 use pagable::storage::data::DataKey;
 use pagable::storage::data::PagableData;
@@ -80,10 +81,12 @@ fn sqlite_read_error(
     waits: u32,
 ) -> anyhow::Error {
     if is_busy(&error) {
-        return anyhow::anyhow!(
-            "sqlite read of key {key:?} gave up after {waits} waits of {BUSY_TIMEOUT:?} for the \
-             shard's lock (SQLITE_BUSY): a page-out commit was in progress"
-        );
+        return anyhow::Error::new(ReadTimedOut {
+            key: *key,
+            waited: BUSY_TIMEOUT,
+            attempts: waits,
+            waiting_for: "the shard's lock (SQLITE_BUSY): a page-out commit was in progress",
+        });
     }
     anyhow::anyhow!("{what} failed for key {key:?}: {error}")
 }
