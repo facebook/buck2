@@ -12,6 +12,7 @@
 ## read\_package\_value
 ## read\_package\_visibility
 ## read\_package\_visibility\_cap
+## read\_package\_visibility\_intersection
 ## read\_package\_within\_view
 ## read\_package\_within\_view\_cap
 ## utarget\_set

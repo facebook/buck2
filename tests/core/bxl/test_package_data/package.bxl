@@ -125,11 +125,11 @@ read_package_within_view = bxl_main(
 )
 
 def _read_package_visibility_cap_impl(ctx):
-    # No ancestor caps visibility at the root, so the cap is PUBLIC (no restriction).
+    # No ancestor restricts visibility at the root: the legacy shape is ["PUBLIC"] (no restriction).
     asserts.equals(bxl.read_package_visibility_cap("root//"), ["PUBLIC"])
 
     # `cap_dir` opts into intersection-based visibility, so its explicit
-    # `package(visibility=...)` propagates as the cap. Exercise both input forms.
+    # `package(visibility=...)` propagates as the intersection. Exercise both input forms.
     cap_pkg_path = ctx.unconfigured_targets("root//cap_dir:cap_dummy").label.package_path
     asserts.equals(bxl.read_package_visibility_cap(cap_pkg_path), ["root//cap_dir/..."])
     asserts.equals(
@@ -137,9 +137,9 @@ def _read_package_visibility_cap_impl(ctx):
         ["root//cap_dir/..."],
     )
 
-    # `cap_dir/sub_dir` declares its own visibility but does not opt in, so its cap
+    # `cap_dir/sub_dir` declares its own visibility but does not opt in, so its intersection
     # is the one propagated from the `cap_dir` ancestor -- and is distinct from the
-    # package's own visibility. This exercises ancestor->descendant cap propagation.
+    # package's own visibility. This exercises ancestor->descendant intersection propagation.
     asserts.equals(
         bxl.read_package_visibility_cap("root//cap_dir/sub_dir"),
         ["root//cap_dir/..."],
@@ -181,5 +181,30 @@ def _read_package_within_view_cap_impl(ctx):
 
 read_package_within_view_cap = bxl_main(
     impl = _read_package_within_view_cap_impl,
+    cli_args = {},
+)
+
+def _intersection_layers(package_path):
+    return [(layer.patterns, layer.exempt_targets) for layer in bxl.read_package_visibility_intersection(package_path)]
+
+def _read_package_visibility_intersection_impl(ctx):
+    # No ancestor restricts visibility at the root: no layers.
+    asserts.equals(_intersection_layers("root//"), [])
+
+    # `cap_dir` contributes one exemption-free layer. Exercise both input forms.
+    expected = [(["root//cap_dir/..."], [])]
+    cap_pkg_path = ctx.unconfigured_targets("root//cap_dir:cap_dummy").label.package_path
+    asserts.equals(_intersection_layers(cap_pkg_path), expected)
+    asserts.equals(_intersection_layers("root//cap_dir"), expected)
+    asserts.equals(
+        type(bxl.read_package_visibility_intersection("root//cap_dir")[0]),
+        "bxl.VisibilityIntersectionLayer",
+    )
+
+    # Propagated descendant sees the same layer.
+    asserts.equals(_intersection_layers("root//cap_dir/sub_dir"), expected)
+
+read_package_visibility_intersection = bxl_main(
+    impl = _read_package_visibility_intersection_impl,
     cli_args = {},
 )

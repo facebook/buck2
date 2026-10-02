@@ -45,6 +45,7 @@ use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::time::StarlarkInstant;
+use crate::bxl::starlark_defs::visibility_intersection::StarlarkVisibilityIntersectionLayer;
 
 /// Global methods on the target set.
 #[starlark_module]
@@ -399,11 +400,13 @@ pub(crate) fn register_read_package_visibility_functions(builder: &mut GlobalsBu
         Ok(eval.heap().alloc(super_package.within_view().to_json()))
     }
 
-    /// Read the visibility cap propagated from `enforce_visibility_intersection()` in
-    /// ancestor `PACKAGE` files for the given package path.
+    /// Read the visibility intersection propagated from `enforce_visibility_intersection()` in
+    /// ancestor `PACKAGE` files for the given package path, in the legacy collapsed shape.
     ///
-    /// Returns the same JSON-shaped value as `buck2 audit package-values`: a list of
-    /// pattern strings, or `["PUBLIC"]` when no ancestor caps visibility (the default).
+    /// Returns a list of pattern strings, `["PUBLIC"]` when no ancestor restricts
+    /// visibility (the default), or `{"intersection": [list, ...]}` for several
+    /// layers. Kept for backwards compatibility; new callers should use
+    /// `read_package_visibility_intersection`.
     ///
     /// The `package_path` parameter accepts any of the following:
     /// - A `PackagePath`
@@ -424,7 +427,40 @@ pub(crate) fn register_read_package_visibility_functions(builder: &mut GlobalsBu
         let super_package = read_super_package(package_path, eval)?;
         Ok(eval
             .heap()
-            .alloc(super_package.visibility_intersection().to_json()))
+            .alloc(super_package.visibility_intersection().to_legacy_json()))
+    }
+
+    /// Read the per-layer visibility intersection propagated from
+    /// `enforce_visibility_intersection()` in ancestor `PACKAGE` files for the
+    /// given package path.
+    ///
+    /// Returns one `bxl.VisibilityIntersectionLayer` per contributing layer, or
+    /// an empty list when no ancestor restricts visibility.
+    ///
+    /// The `package_path` parameter accepts any of the following:
+    /// - A `PackagePath`
+    /// - A string representing a package path (e.g., "root//some/package")
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_read_package_visibility_intersection(ctx):
+    ///     node = ctx.unconfigured_targets("root//some/package:target")
+    ///     for layer in bxl.read_package_visibility_intersection(node.label.package_path):
+    ///         ctx.output.print(layer.patterns, layer.exempt_targets)
+    ///
+    ///     layers = bxl.read_package_visibility_intersection("root//path/to/pkg")
+    /// ```
+    fn read_package_visibility_intersection<'v>(
+        #[starlark(require = pos)] package_path: PackagePathArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<Vec<StarlarkVisibilityIntersectionLayer>> {
+        let super_package = read_super_package(package_path, eval)?;
+        Ok(super_package
+            .visibility_intersection()
+            .layers()
+            .iter()
+            .map(|layer| StarlarkVisibilityIntersectionLayer(layer.dupe()))
+            .collect())
     }
 
     /// Read the `within_view` cap propagated from `enforce_within_view_intersection()`

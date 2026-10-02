@@ -489,17 +489,43 @@ async fn test_package_visibility_enforce_without_marker() {
 
 #[tokio::test]
 async fn test_package_visibility_audit_computes_intersection_like_enforce() {
-    let a = target_a_with_package(
-        "package(\n    visibility = [\"//allowed/...\"],\n)\n",
-        PackageVisibilityDefaultIntersection::Audit,
-    )
-    .await;
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "juxtaposition/PACKAGE",
+        r#"
+package(
+    visibility = ["//allowed/..."],
+)
+"#,
+    );
+    fs.write_file(
+        "juxtaposition/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "a")
+# Explicit `PUBLIC` own-visibility isolates the intersection: any blocking
+# below comes from the intersection layer, not from the target itself.
+simple(name = "b", visibility = ["PUBLIC"])
+"#,
+    );
+
+    let ctx =
+        calculation_with_package_visibility_mode(&fs, PackageVisibilityDefaultIntersection::Audit)
+            .await;
+
+    let a = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
+        .await
+        .unwrap();
 
     assert!(
         a.visibility_intersection()
             .matches(&TargetLabel::testing_parse("root//allowed:lib"))
             .unwrap(),
-        "audit mode must restrict to //allowed/... like enforce"
+        "audit mode must cap to //allowed/... like enforce"
     );
     assert!(
         !a.visibility_intersection()
@@ -507,6 +533,38 @@ async fn test_package_visibility_audit_computes_intersection_like_enforce() {
             .unwrap(),
         "audit mode must block //other/... like enforce"
     );
+
+    // `b` is `PUBLIC`, so the intersection alone decides.
+    let b = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:b"))
+        .await
+        .unwrap();
+    let allowed = TargetLabel::testing_parse("root//allowed:lib");
+    let other = TargetLabel::testing_parse("root//other:lib");
+    assert!(b.is_visible_to(&allowed).unwrap());
+    assert!(!b.is_visible_to(&other).unwrap());
+
+    let enforce_ctx = calculation_with_package_visibility_mode(
+        &fs,
+        PackageVisibilityDefaultIntersection::Enforce,
+    )
+    .await;
+    let enforce_b = enforce_ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:b"))
+        .await
+        .unwrap();
+    for consumer in [&allowed, &other] {
+        assert_eq!(
+            b.visibility_intersection().matches(consumer).unwrap(),
+            enforce_b
+                .visibility_intersection()
+                .matches(consumer)
+                .unwrap(),
+            "audit and enforce intersections must agree for {consumer}",
+        );
+    }
 }
 
 #[tokio::test]

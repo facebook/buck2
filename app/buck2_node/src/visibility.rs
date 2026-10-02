@@ -506,7 +506,7 @@ impl AnyMatches for VisibilityPatternList {
 /// package. It cannot weaken any other layer's restriction, and it never
 /// grants consumer visibility.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
-pub(crate) struct VisibilityIntersectionLayer {
+pub struct VisibilityIntersectionLayer {
     pub(crate) patterns: VisibilityPatternList,
     pub(crate) exemptions: ThinArcSlice<PackagePattern>,
     pub(crate) origin: VisibilityLayerOrigin,
@@ -521,6 +521,27 @@ pub enum VisibilityLayerOrigin {
     /// Contributed only because `package_visibility.default_intersection` is
     /// `audit` or `enforce`; `audit` reports rather than fails its blocks.
     Default,
+}
+
+impl VisibilityIntersectionLayer {
+    pub fn patterns(&self) -> &VisibilityPatternList {
+        &self.patterns
+    }
+
+    pub fn exemptions(&self) -> &[PackagePattern] {
+        &self.exemptions
+    }
+
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "patterns": self.patterns.to_json(),
+            "exempt_targets": self
+                .exemptions
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+        })
+    }
 }
 
 /// The visibility intersection propagated from `enforce_visibility_intersection()`
@@ -543,6 +564,10 @@ impl VisibilityIntersection {
 
     pub fn is_unrestricted(&self) -> bool {
         self.layers.is_empty()
+    }
+
+    pub fn layers(&self) -> &[VisibilityIntersectionLayer] {
+        &self.layers
     }
 
     /// Intersect one more `PACKAGE`'s explicit visibility into this intersection.
@@ -621,10 +646,19 @@ impl VisibilityIntersection {
         Ok(true)
     }
 
-    /// Collapsed shape: `["PUBLIC"]` when empty, the single layer's
-    /// patterns for one layer, `{"intersection": [...]}` for several. Exemptions
-    /// are not included.
+    /// One object per layer; never collapses, unlike `to_legacy_json`.
     pub fn to_json(&self) -> serde_json::Value {
+        self.layers
+            .iter()
+            .map(VisibilityIntersectionLayer::to_json)
+            .collect()
+    }
+
+    /// Legacy collapsed shape, for the `visibility_cap` back-compat attr only:
+    /// exemption-free layers collapse exactly as before, so existing output is
+    /// unchanged. Exemptions are ignored here (exact for exemption-free
+    /// intersections, approximate otherwise); new consumers must read `to_json`.
+    pub fn to_legacy_json(&self) -> serde_json::Value {
         let parts = self
             .layers
             .iter()
@@ -1301,7 +1335,8 @@ mod tests {
                 .matches(&label("root//any:thing"))
                 .unwrap()
         );
-        assert_eq!(intersection.to_json(), serde_json::json!(["PUBLIC"]));
+        assert_eq!(intersection.to_json(), serde_json::json!([]));
+        assert_eq!(intersection.to_legacy_json(), serde_json::json!(["PUBLIC"]));
         assert_eq!(intersection.to_string(), r#"["PUBLIC"]"#);
     }
 
@@ -1467,6 +1502,102 @@ mod tests {
                 .for_defining_package(defining_package("root//a/b/c/legacy:lib"))
                 .matches(&label("root//a/b/c:lib"))
                 .unwrap()
+        );
+    }
+
+    #[test]
+    fn visibility_intersection_legacy_json_preserves_legacy_shapes() {
+        assert_eq!(
+            VisibilityIntersection::unrestricted().to_legacy_json(),
+            serde_json::json!(["PUBLIC"])
+        );
+        assert_eq!(
+            single_layer_intersection(&["root//some_dir/..."], &[]).to_legacy_json(),
+            serde_json::json!(["root//some_dir/..."])
+        );
+        assert_eq!(
+            single_layer_intersection(&["root//a/..."], &[])
+                .with_layer(
+                    VisibilityPatternList::testing_parse(&["root//b/..."]),
+                    ThinArcSlice::empty(),
+                    VisibilityLayerOrigin::Default
+                )
+                .to_legacy_json(),
+            serde_json::json!({"intersection": [["root//a/..."], ["root//b/..."]]})
+        );
+    }
+
+    #[test]
+    fn visibility_intersection_to_json_carries_exemptions() {
+        assert_eq!(
+            single_layer_intersection(
+                &["root//allowed/..."],
+                &["root//etc/legacy:", "root//etc/generated/..."]
+            )
+            .to_json(),
+            serde_json::json!([{
+                "patterns": ["root//allowed/..."],
+                "exempt_targets": ["root//etc/legacy:", "root//etc/generated/..."],
+            }])
+        );
+    }
+
+    #[test]
+    fn visibility_intersection_to_json_is_uniform_per_layer() {
+        assert_eq!(
+            single_layer_intersection(&["root//a/..."], &[]).to_json(),
+            serde_json::json!([{
+                "patterns": ["root//a/..."],
+                "exempt_targets": [],
+            }])
+        );
+        assert_eq!(
+            single_layer_intersection(&["root//a/..."], &[])
+                .with_layer(
+                    VisibilityPatternList::testing_parse(&["root//b/..."]),
+                    ThinArcSlice::empty(),
+                    VisibilityLayerOrigin::Default
+                )
+                .to_json(),
+            serde_json::json!([
+                {"patterns": ["root//a/..."], "exempt_targets": []},
+                {"patterns": ["root//b/..."], "exempt_targets": []},
+            ])
+        );
+    }
+
+    #[test]
+    fn visibility_intersection_display_renders_exemptions() {
+        let intersection =
+            single_layer_intersection(&["root//allowed/..."], &["root//etc/legacy:"]).with_layer(
+                VisibilityPatternList::testing_parse(&["root//extra/..."]),
+                ThinArcSlice::empty(),
+                VisibilityLayerOrigin::Default,
+            );
+        assert_eq!(
+            intersection.to_string(),
+            r#"["root//allowed/..."] except ["root//etc/legacy:"] AND ["root//extra/..."]"#,
+        );
+    }
+
+    #[test]
+    fn visibility_intersection_display_lists_every_exemption() {
+        let intersection = single_layer_intersection(
+            &["root//allowed/..."],
+            &["root//etc/legacy:", "root//etc/generated/..."],
+        );
+        assert_eq!(
+            intersection.to_string(),
+            r#"["root//allowed/..."] except ["root//etc/legacy:", "root//etc/generated/..."]"#,
+        );
+    }
+
+    #[test]
+    fn visibility_intersection_legacy_json_ignores_exemptions() {
+        assert_eq!(
+            single_layer_intersection(&["root//allowed/..."], &["root//etc/legacy:"])
+                .to_legacy_json(),
+            serde_json::json!(["root//allowed/..."])
         );
     }
 

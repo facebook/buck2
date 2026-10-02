@@ -58,3 +58,8 @@ async def test_read_package_visibility_cap(buck: Buck) -> None:
 @buck_test()
 async def test_read_package_within_view_cap(buck: Buck) -> None:
     await buck.bxl("//package.bxl:read_package_within_view_cap")
+
+
+@buck_test()
+async def test_read_package_visibility_intersection(buck: Buck) -> None:
+    await buck.bxl("//package.bxl:read_package_visibility_intersection")

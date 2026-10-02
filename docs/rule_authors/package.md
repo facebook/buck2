@@ -119,25 +119,28 @@ target that declares its own `visibility` ignores the `PACKAGE` visibility
 entirely. `enforce_visibility_intersection()` changes this to
 intersection-based visibility for the current `PACKAGE` and all of its
 descendants: every target's effective visibility is the intersection (logical
-AND) of its own `visibility` and a propagating cap.
+AND) of its own `visibility` and a propagating visibility intersection.
 
-The cap is built from the explicit `package(visibility=...)` list of each
-opted-in ancestor `PACKAGE`. Because the cap only tightens visibility, a target
-can never be made visible to more than its own `visibility` allows. Declaring a
-broader `visibility` on the target cannot escape the cap.
+The intersection is built from the explicit `package(visibility=...)` list of
+each opted-in ancestor `PACKAGE`. Because the intersection only tightens
+visibility, a target can never be made visible to more than its own
+`visibility` allows. Declaring a broader `visibility` on the target cannot
+escape the intersection.
 
 `"PUBLIC"` is the identity of the intersection, so a target with
-`visibility=["PUBLIC"]` is silently clipped to the cap rather than rejected.
+`visibility=["PUBLIC"]` is silently clipped to the intersection rather than
+rejected.
 
 Calling `enforce_visibility_intersection()` without a non-`None`
 `package(visibility=...)` in the same file (i.e. `visibility` omitted or set to
-`None`) contributes nothing to the cap. The parent's cap simply propagates
-unchanged, so a directory can opt into enforcement without further narrowing
-what its parents already allow.
+`None`) contributes nothing to the intersection. The parent's intersection
+simply propagates unchanged, so a directory can opt into enforcement without
+further narrowing what its parents already allow.
 
-The propagated cap can be inspected via `buck2 audit package-values`. When a
-visibility check fails because of the cap, the error reports the cap that
-blocked it.
+The propagated intersection can be inspected via `buck2 audit package-values`
+(`visibility_intersection`; the legacy `visibility_cap` output is kept for
+backwards compatibility). When a visibility check fails because of the
+intersection, the error reports the intersection that blocked it.
 
 #### [`enforce_within_view_intersection`](../../api/build#enforce_within_view_intersection)
 
@@ -194,8 +197,8 @@ default_intersection = "off"  # off | audit | enforce
 ```
 
 This typed Buck setting controls whether ordinary `package(visibility=...)`
-declarations are intersected into the cap by default, without requiring an
-`enforce_visibility_intersection()` marker in every `PACKAGE` file:
+declarations contribute to the visibility intersection by default, without
+requiring an `enforce_visibility_intersection()` marker in every `PACKAGE` file:
 
 | Setting   | Ordinary `PACKAGE` visibility               | Marker-selected boundary                |
 |-----------|---------------------------------------------|-----------------------------------------|

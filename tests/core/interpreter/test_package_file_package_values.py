@@ -51,19 +51,28 @@ async def test_audit_package_values_select(buck: Buck) -> None:
     assert "within_view" in pkg
     assert "visibility_cap" in pkg
     assert "within_view_cap" in pkg
+    assert "visibility_intersection" in pkg
 
 
 @buck_test()
-async def test_audit_package_values_visibility_cap_intersection(
+async def test_audit_package_values_visibility_intersection(
     buck: Buck,
 ) -> None:
     stdout = (await buck.audit("package-values", "//capped/child")).stdout
     result = json.loads(stdout)
     pkg = result["root//capped/child"]
+    # Legacy collapsed shape is kept for backwards compatibility.
     cap = pkg["visibility_cap"]
     assert isinstance(cap, dict), f"Expected dict for intersection, got {type(cap)}"
     assert "intersection" in cap
     assert len(cap["intersection"]) == 2
+    # New per-layer shape never collapses.
+    layers = pkg["visibility_intersection"]
+    assert len(layers) == 2
+    assert layers[0]["patterns"] == ["root//capped/..."]
+    assert layers[0]["exempt_targets"] == []
+    assert layers[1]["patterns"] == ["root//capped/child/..."]
+    assert layers[1]["exempt_targets"] == []
 
 
 @buck_test()

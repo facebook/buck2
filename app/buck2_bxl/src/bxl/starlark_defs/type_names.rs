@@ -45,6 +45,7 @@ use crate::bxl::starlark_defs::result::StarlarkResult;
 use crate::bxl::starlark_defs::target_universe::StarlarkTargetUniverse;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
+use crate::bxl::starlark_defs::visibility_intersection::StarlarkVisibilityIntersectionLayer;
 
 #[starlark_module]
 #[starlark_types(
@@ -78,6 +79,7 @@ use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
     StarlarkLazyUqueryCtx as LazyUqueryContext,
     StarlarkLazyCqueryCtx as LazyCqueryContext,
     StarlarkFailedArtifactIterable<'_> as FailedArtifactsIterable,
-    StarlarkProvidersArtifactIterable<'_> as BuiltArtifactsIterable
+    StarlarkProvidersArtifactIterable<'_> as BuiltArtifactsIterable,
+    StarlarkVisibilityIntersectionLayer as VisibilityIntersectionLayer
 )]
 pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuilder) {}

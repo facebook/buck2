@@ -13,6 +13,7 @@
     ],
     "within_view_cap": [
       "PUBLIC"
-    ]
+    ],
+    "visibility_intersection": []
   }
 }
