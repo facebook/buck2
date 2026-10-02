@@ -1,5 +1,5 @@
-# Consumer OUTSIDE the cap. Even though `intersect/public_target:t`
-# declares `visibility=["PUBLIC"]`, the cap clips it to
+# Consumer OUTSIDE the intersection. Even though `intersect/public_target:t`
+# declares `visibility=["PUBLIC"]`, the intersection clips it to
 # `root//intersect/...` -- so this consumer cannot depend.
 stub(
     name = "c",

@@ -1,5 +1,5 @@
 # Consumer in `root//intersect/sub_b/...`. Matches BOTH the target's
-# declared `root//intersect/sub_b/...` AND the cap, so the dep is
+# declared `root//intersect/sub_b/...` AND the intersection, so the dep is
 # allowed.
 stub(
     name = "c",

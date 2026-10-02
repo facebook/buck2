@@ -1,5 +1,5 @@
-# Consumer INSIDE the child's explicit `visibility=[...]` cap term.
-# Both visibility (matches parent's broad list) AND cap
+# Consumer INSIDE the child's explicit `visibility=[...]` intersection term.
+# Both visibility (matches parent's broad list) AND intersection
 # (matches the narrowed list) check pass. The dep is allowed.
 stub(
     name = "c",

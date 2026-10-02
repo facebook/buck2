@@ -6,5 +6,5 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-def setup_cap():
+def setup_intersection():
     enforce_visibility_intersection()

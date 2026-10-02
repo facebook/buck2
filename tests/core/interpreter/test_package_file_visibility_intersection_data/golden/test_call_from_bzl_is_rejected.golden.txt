@@ -14,7 +14,7 @@ Caused by:
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     Traceback (most recent call last):
       * indirect_call/PACKAGE:7, in <module>
-          setup_cap()
-      * indirect_call/helper.bzl:10, in setup_cap
+          setup_intersection()
+      * indirect_call/helper.bzl:10, in setup_intersection
           enforce_visibility_intersection()
     

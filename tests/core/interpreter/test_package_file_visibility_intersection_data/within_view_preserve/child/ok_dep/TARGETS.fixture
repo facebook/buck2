@@ -1,6 +1,6 @@
 # Allowed: the dep is under `within_view_preserve/...`, matching the
 # inherited within_view. Visibility is PUBLIC -- silently clipped to
-# the cap (no rejection) by intersection.
+# the intersection (no rejection).
 stub(
     name = "c",
     visibility = ["PUBLIC"],

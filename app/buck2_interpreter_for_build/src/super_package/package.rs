@@ -212,12 +212,13 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
 
     /// Opts this PACKAGE and its descendants into intersection-based
     /// visibility: every target's effective visibility is ANDed with a
-    /// propagating cap built from each opted-in ancestor PACKAGE's
-    /// explicit `package(visibility=...)` list. `"PUBLIC"` is the
-    /// identity, so `visibility=["PUBLIC"]` targets are silently clipped
-    /// rather than rejected. Calling this without a non-`None`
+    /// propagating visibility intersection built from each opted-in
+    /// ancestor PACKAGE's explicit `package(visibility=...)` list.
+    /// `"PUBLIC"` is the identity, so `visibility=["PUBLIC"]` targets are
+    /// silently clipped rather than rejected. Calling this without a non-`None`
     /// `package(visibility=...)` (omitted or `visibility=None`) adds
-    /// nothing to the cap — the parent's cap propagates unchanged.
+    /// nothing to the intersection — the parent's intersection propagates
+    /// unchanged.
     ///
     /// Can only be called from a `PACKAGE` file.
     fn enforce_visibility_intersection(eval: &mut Evaluator) -> starlark::Result<NoneType> {

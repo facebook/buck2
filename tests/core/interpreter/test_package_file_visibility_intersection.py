@@ -19,7 +19,7 @@ from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
 async def test_optin_inside_consumer_can_depend_on_public_target(
     buck: Buck,
 ) -> None:
-    # PUBLIC clipped to cap; inside consumer matches.
+    # PUBLIC clipped to the intersection; inside consumer matches.
     await buck.ctargets("root//intersect/inside_consumer:c")
 
 
@@ -28,10 +28,10 @@ async def test_optin_clips_public_target_for_outside_consumer(
     buck: Buck,
 ) -> None:
     # PUBLIC silently clipped (not rejected); outside consumer fails.
-    # Locks the diagnostic: error mentions visibility attr and cap.
+    # Locks the diagnostic: error mentions visibility attr and the restriction.
     result = await expect_failure(
         buck.ctargets("root//outside_consumer:c"),
-        stderr_regex=r"is not visible to.*visibility = .*Capped to.*by an ancestor PACKAGE's visibility",
+        stderr_regex=r"is not visible to.*visibility = .*Restricted to.*by an ancestor PACKAGE's visibility",
     )
     golden(
         output=sanitize_stderr(result.stderr),
@@ -40,52 +40,54 @@ async def test_optin_clips_public_target_for_outside_consumer(
 
 
 @buck_test()
-async def test_optin_cap_blocks_target_visibility_leaking_outside_cap(
+async def test_optin_intersection_blocks_visibility_leak_outside(
     buck: Buck,
 ) -> None:
-    # Target's own `visibility` lists `leak_destination/...`; cap blocks it.
+    # Target's own `visibility` lists `leak_destination/...`; the
+    # intersection blocks it.
     # Differs from `enforce_strict_visibility` which would allow this leak.
     result = await expect_failure(
         buck.ctargets("root//leak_destination/consumer:c"),
-        stderr_regex=r"is not visible to.*Capped to.*by an ancestor PACKAGE's visibility",
+        stderr_regex=r"is not visible to.*Restricted to.*by an ancestor PACKAGE's visibility",
     )
     golden(
         output=sanitize_stderr(result.stderr),
-        rel_path="golden/test_optin_cap_blocks_target_visibility_leaking_outside_cap.golden.txt",
+        rel_path="golden/test_optin_intersection_blocks_visibility_leak_outside.golden.txt",
     )
 
 
 @buck_test()
 async def test_optin_target_own_visibility_match_passes(buck: Buck) -> None:
-    # Consumer matches both visibility attr and cap.
+    # Consumer matches both visibility attr and intersection.
     await buck.ctargets("root//intersect/sub_b/consumer:c")
 
 
 @buck_test()
-async def test_inherit_true_child_can_still_tighten_cap(buck: Buck) -> None:
+async def test_inherit_true_child_can_still_tighten(buck: Buck) -> None:
     # Regression: with `inherit=True`, the child contributes its EXPLICIT
-    # `visibility=B` to the cap (not `parent.visibility ∪ B`), so a
-    # tighter child cap is not silently absorbed into the parent's.
+    # `visibility=B` to the intersection (not `parent.visibility ∪ B`), so a
+    # tighter child intersection is not silently absorbed into the parent's.
     result = await expect_failure(
         buck.ctargets("root//inherit_test/other/consumer:c"),
         stderr_regex=r"is not visible to",
     )
     golden(
         output=sanitize_stderr(result.stderr),
-        rel_path="golden/test_inherit_true_child_can_still_tighten_cap.golden.txt",
+        rel_path="golden/test_inherit_true_child_can_still_tighten.golden.txt",
     )
     await buck.ctargets("root//inherit_test/restricted_child/inside/consumer:c")
 
 
 @buck_test()
-async def test_package_with_omitted_visibility_does_not_empty_cap(
+async def test_package_with_omitted_visibility_does_not_empty_intersection(
     buck: Buck,
 ) -> None:
     # Regression: `package(inherit=True, within_view=[...])` (no `visibility=`)
     # combined with `enforce_visibility_intersection()` must NOT contribute an
-    # empty list to the cap. Before the fix, the omitted `visibility=` defaulted
-    # to `[]` and was treated as an explicit empty contribution, intersecting
-    # the cap down to the empty set and blocking all consumers.
+    # empty list to the intersection. Before the fix, the omitted `visibility=`
+    # defaulted to `[]` and was treated as an explicit empty contribution,
+    # narrowing the intersection down to the empty set and blocking all
+    # consumers.
     await buck.ctargets("root//inherit_test/no_vis_child/inside_consumer:c")
 
 

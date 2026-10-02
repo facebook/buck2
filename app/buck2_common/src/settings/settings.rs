@@ -235,13 +235,13 @@ const ANALYSIS_RECORD_REQUESTED_ANON_TARGETS: SettingKey<bool> = SettingKey {
     oss_default: Some(true),
 };
 
-/// Controls whether ordinary `package(visibility=...)` declarations are
-/// intersected into the visibility cap by default.
+/// Controls whether ordinary `package(visibility=...)` declarations
+/// contribute to the visibility intersection by default.
 ///
 /// * `off` (default): legacy behavior; only `enforce_visibility_intersection()`
-///   boundaries enforce the cap.
-/// * `audit`: the default cap is shadow-evaluated; would-block edges are
-///   reported, not fatal.
+///   boundaries contribute.
+/// * `audit`: the default intersection is shadow-evaluated; would-block edges
+///   are reported, not fatal.
 /// * `enforce`: ordinary PACKAGE visibility is enforced by default; the marker
 ///   is redundant.
 #[derive(
