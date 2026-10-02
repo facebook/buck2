@@ -25,8 +25,6 @@ simple = rule(
 )
 "#;
 
-/// Evaluate target `root//juxtaposition:a` under a `PACKAGE` file with the
-/// given body and the given default-intersection mode.
 async fn target_a_with_package(
     package_body: &str,
     mode: PackageVisibilityDefaultIntersection,
@@ -525,7 +523,7 @@ simple(name = "b", visibility = ["PUBLIC"])
         a.visibility_intersection()
             .matches(&TargetLabel::testing_parse("root//allowed:lib"))
             .unwrap(),
-        "audit mode must cap to //allowed/... like enforce"
+        "audit mode must restrict to //allowed/... like enforce"
     );
     assert!(
         !a.visibility_intersection()
@@ -565,6 +563,506 @@ simple(name = "b", visibility = ["PUBLIC"])
             "audit and enforce intersections must agree for {consumer}",
         );
     }
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_skip_layer() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+enforce_visibility_intersection()
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["//etc/legacy:"],
+)
+"#,
+    );
+    // `PUBLIC`, so any blocking comes from the intersection layer.
+    fs.write_file(
+        "etc/legacy/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+    fs.write_file(
+        "etc/other/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+
+    let ctx = calculation(&fs).await;
+
+    let legacy = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/legacy:lib"))
+        .await
+        .unwrap();
+    let other = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/other:lib"))
+        .await
+        .unwrap();
+    let outside = TargetLabel::testing_parse("root//elsewhere:x");
+    let allowed = TargetLabel::testing_parse("root//etc/allowed:x");
+
+    assert!(
+        legacy.is_visible_to(&outside).unwrap(),
+        "exempt definer must skip the layer"
+    );
+    assert!(
+        !other.is_visible_to(&outside).unwrap(),
+        "non-exempt definer must still be restricted"
+    );
+    assert!(legacy.is_visible_to(&allowed).unwrap());
+    assert!(other.is_visible_to(&allowed).unwrap());
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_do_not_grant_visibility() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+enforce_visibility_intersection()
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["//etc/legacy:"],
+)
+"#,
+    );
+    // No explicit visibility: the target keeps the restrictive PACKAGE
+    // default. The exemption skips the intersection layer but grants nothing.
+    fs.write_file(
+        "etc/legacy/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib")
+"#,
+    );
+
+    let ctx = calculation(&fs).await;
+
+    let legacy = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/legacy:lib"))
+        .await
+        .unwrap();
+
+    assert!(
+        !legacy
+            .is_visible_to(&TargetLabel::testing_parse("root//elsewhere:x"))
+            .unwrap(),
+        "exemptions must not grant consumer visibility"
+    );
+    assert!(
+        legacy
+            .is_visible_to(&TargetLabel::testing_parse("root//etc/allowed:x"))
+            .unwrap(),
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_recursive() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+enforce_visibility_intersection()
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["//etc/generated/..."],
+)
+"#,
+    );
+    for dir in ["etc/generated", "etc/generated/sub", "etc/handwritten"] {
+        fs.write_file(
+            &format!("{dir}/BUCK"),
+            r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+        );
+    }
+
+    let ctx = calculation(&fs).await;
+    let outside = TargetLabel::testing_parse("root//elsewhere:x");
+
+    for dir in ["etc/generated", "etc/generated/sub"] {
+        let target = ctx
+            .ctx()
+            .get_target_node(&TargetLabel::testing_parse(&format!("root//{dir}:lib")))
+            .await
+            .unwrap();
+        assert!(
+            target.is_visible_to(&outside).unwrap(),
+            "recursive exemption must cover {dir}"
+        );
+    }
+
+    let handwritten = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/handwritten:lib"))
+        .await
+        .unwrap();
+    assert!(
+        !handwritten.is_visible_to(&outside).unwrap(),
+        "packages outside the recursive exemption must still be restricted"
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_cannot_weaken_ancestor() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+enforce_visibility_intersection()
+package(
+    visibility = ["//etc/allowed/..."],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/sub/PACKAGE",
+        r#"
+enforce_visibility_intersection()
+package(
+    visibility = ["//etc/allowed/...", "//etc/extra/..."],
+    visibility_exempt_targets = ["//etc/sub:"],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/sub/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+
+    let ctx = calculation(&fs).await;
+
+    let lib = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/sub:lib"))
+        .await
+        .unwrap();
+
+    assert!(
+        !lib.is_visible_to(&TargetLabel::testing_parse("root//elsewhere:x"))
+            .unwrap(),
+        "exemption must not weaken an ancestor restriction"
+    );
+    assert!(
+        !lib.is_visible_to(&TargetLabel::testing_parse("root//etc/extra:x"))
+            .unwrap(),
+        "ancestor layer blocks consumers the descendant would allow"
+    );
+    assert!(
+        lib.is_visible_to(&TargetLabel::testing_parse("root//etc/allowed:x"))
+            .unwrap(),
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_deep_nesting_ancestor_wins() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+enforce_visibility_intersection()
+package(
+    visibility = ["//etc/allowed/...", "//etc/extra/..."],
+)
+"#,
+    );
+    // Middle layer is narrower than root: it binds consumers root would allow.
+    fs.write_file(
+        "etc/sub/PACKAGE",
+        r#"
+enforce_visibility_intersection()
+package(
+    visibility = ["//etc/allowed/..."],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/sub/leaf/PACKAGE",
+        r#"
+enforce_visibility_intersection()
+package(
+    visibility = ["//etc/allowed/...", "//etc/leaf/..."],
+    visibility_exempt_targets = ["//etc/sub/leaf:"],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/sub/leaf/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+
+    let ctx = calculation(&fs).await;
+
+    let lib = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/sub/leaf:lib"))
+        .await
+        .unwrap();
+
+    assert!(
+        !lib.is_visible_to(&TargetLabel::testing_parse("root//elsewhere:x"))
+            .unwrap(),
+        "inner exemption must not weaken outer layers"
+    );
+    assert!(
+        !lib.is_visible_to(&TargetLabel::testing_parse("root//etc/extra:x"))
+            .unwrap(),
+        "middle layer must still block consumers the outer layer would allow"
+    );
+    assert!(
+        lib.is_visible_to(&TargetLabel::testing_parse("root//etc/allowed:x"))
+            .unwrap(),
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_dormant_when_off() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["//etc/legacy:"],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/legacy/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib")
+"#,
+    );
+
+    let ctx = calculation(&fs).await;
+
+    let legacy = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/legacy:lib"))
+        .await
+        .unwrap();
+    assert!(
+        legacy.visibility_intersection().is_unrestricted(),
+        "off mode without a marker must leave exemptions dormant, got: {}",
+        legacy.visibility_intersection(),
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_enforce_without_marker() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["//etc/legacy:"],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/legacy/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+    fs.write_file(
+        "etc/other/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+
+    let ctx = calculation_with_package_visibility_mode(
+        &fs,
+        PackageVisibilityDefaultIntersection::Enforce,
+    )
+    .await;
+
+    let legacy = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/legacy:lib"))
+        .await
+        .unwrap();
+    let other = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/other:lib"))
+        .await
+        .unwrap();
+    let outside = TargetLabel::testing_parse("root//elsewhere:x");
+
+    assert!(
+        legacy.is_visible_to(&outside).unwrap(),
+        "exempt definer must skip the layer in enforce mode"
+    );
+    assert!(
+        !other.is_visible_to(&outside).unwrap(),
+        "non-exempt definer must still be restricted in enforce mode"
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_inherit_uses_pre_inherit_list() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+package(
+    visibility = ["//parent/..."],
+)
+"#,
+    );
+    // The layer snapshots this call's explicit list BEFORE `inherit=True`
+    // merges the parent's: `//parent/...` must not leak into the layer.
+    fs.write_file(
+        "etc/child/PACKAGE",
+        r#"
+enforce_visibility_intersection()
+package(
+    inherit = True,
+    visibility = ["//etc/child/allowed/..."],
+    visibility_exempt_targets = ["//etc/child/legacy:"],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/child/legacy/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+    fs.write_file(
+        "etc/child/other/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+
+    let ctx = calculation(&fs).await;
+
+    let legacy = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/child/legacy:lib"))
+        .await
+        .unwrap();
+    let other = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/child/other:lib"))
+        .await
+        .unwrap();
+    let outside = TargetLabel::testing_parse("root//elsewhere:x");
+    let parent = TargetLabel::testing_parse("root//parent:x");
+    let allowed = TargetLabel::testing_parse("root//etc/child/allowed:x");
+
+    assert!(
+        legacy.is_visible_to(&outside).unwrap(),
+        "exempt definer must skip the layer"
+    );
+    assert!(
+        !other.is_visible_to(&outside).unwrap(),
+        "non-exempt definer must still be restricted"
+    );
+    assert!(
+        !other.is_visible_to(&parent).unwrap(),
+        "inherited parent visibility must not leak into the layer"
+    );
+    assert!(
+        other.is_visible_to(&allowed).unwrap(),
+        "this call's explicit list forms the layer"
+    );
+}
+
+#[tokio::test]
+async fn test_package_visibility_exempt_targets_audit_without_marker() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    fs.write_file("rules.bzl", RULES_BZL);
+    fs.write_file(
+        "etc/PACKAGE",
+        r#"
+package(
+    visibility = ["//etc/allowed/..."],
+    visibility_exempt_targets = ["//etc/legacy:"],
+)
+"#,
+    );
+    fs.write_file(
+        "etc/legacy/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+    fs.write_file(
+        "etc/other/BUCK",
+        r#"
+load("//:rules.bzl", "simple")
+simple(name = "lib", visibility = ["PUBLIC"])
+"#,
+    );
+
+    let ctx =
+        calculation_with_package_visibility_mode(&fs, PackageVisibilityDefaultIntersection::Audit)
+            .await;
+
+    let legacy = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/legacy:lib"))
+        .await
+        .unwrap();
+    let other = ctx
+        .ctx()
+        .get_target_node(&TargetLabel::testing_parse("root//etc/other:lib"))
+        .await
+        .unwrap();
+    let outside = TargetLabel::testing_parse("root//elsewhere:x");
+
+    assert!(
+        legacy.is_visible_to(&outside).unwrap(),
+        "exempt definer must skip the layer in audit mode"
+    );
+    assert!(
+        !other.is_visible_to(&outside).unwrap(),
+        "non-exempt definer must still be restricted in audit mode"
+    );
 }
 
 #[tokio::test]
