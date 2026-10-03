@@ -9,6 +9,7 @@
  */
 
 use allocative::Allocative;
+use dice_core::BranchId;
 use dupe::Dupe;
 
 use crate::HashMap;
@@ -26,7 +27,7 @@ pub(crate) struct VersionTracker {
     /// The caches of versions no transaction holds any more. Held weakly: the workers still
     /// running in a cache keep it alive, and it goes away with the last of them.
     #[allocative(skip)]
-    draining: Vec<WeakSharedCache>,
+    draining: Vec<(VersionNumber, WeakSharedCache)>,
 }
 
 #[derive(Debug, Allocative)]
@@ -74,24 +75,32 @@ impl VersionTracker {
         entry.ref_count -= 1;
         if entry.ref_count == 0 {
             let data = self.active_versions.remove(&v).expect("existed above");
-            self.draining.retain(|cache| cache.is_alive());
-            self.draining.push(data.per_transaction_data.downgrade());
+            self.draining.retain(|(_, cache)| cache.is_alive());
+            self.draining
+                .push((v, data.per_transaction_data.downgrade()));
         }
     }
 
-    /// Every task that may still be running, whether its transaction is alive or gone.
+    /// Every task that may still be running, whether its transaction is alive or gone, at the
+    /// versions of `branch`, or at every version with `None`.
     ///
-    /// This scans every task of every cache, so it costs time proportional to the work in
-    /// flight; callers ask at command boundaries, not on hot paths.
-    pub(crate) fn pending_tasks(&mut self) -> Vec<DiceTask> {
+    /// This scans every task of every cache in scope, so it costs time proportional to the work
+    /// in flight; callers ask at command boundaries, not on hot paths.
+    pub(crate) fn pending_tasks(&mut self, branch: Option<BranchId>) -> Vec<DiceTask> {
+        let in_scope = |v: &VersionNumber| branch.is_none_or(|b| v.branch() == b);
         let mut pending = Vec::new();
-        for active in self.active_versions.values() {
-            pending.extend(active.per_transaction_data.pending_tasks());
+        for (v, active) in &self.active_versions {
+            if in_scope(v) {
+                pending.extend(active.per_transaction_data.pending_tasks());
+            }
         }
-        self.draining.retain(|weak| {
+        self.draining.retain(|(v, weak)| {
             let Some(cache) = weak.upgrade() else {
                 return false;
             };
+            if !in_scope(v) {
+                return true;
+            }
             let tasks = cache.pending_tasks();
             let keep = !tasks.is_empty();
             pending.extend(tasks);

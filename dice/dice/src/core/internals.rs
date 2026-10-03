@@ -115,8 +115,8 @@ impl ActorState {
         self.graph.update(key, update, invalidation_paths)
     }
 
-    pub(super) fn pending_tasks(&mut self) -> Vec<DiceTask> {
-        self.version_tracker.pending_tasks()
+    pub(super) fn pending_tasks(&mut self, branch: Option<BranchId>) -> Vec<DiceTask> {
+        self.version_tracker.pending_tasks(branch)
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
@@ -478,11 +478,11 @@ mod tests {
         cache.testing_insert_task(never_cancel_key1, never_cancel_task1);
 
         // Running work counts whether or not a transaction is holding the cache.
-        assert_eq!(core.pending_tasks().len(), 3);
+        assert_eq!(core.pending_tasks(None).len(), 3);
 
         core.drop_ctx_at_version(v);
 
-        assert_eq!(core.pending_tasks().len(), 3);
+        assert_eq!(core.pending_tasks(None).len(), 3);
 
         // The cache goes on accepting work from the tasks still running in it.
         let SharedCacheInsert::Inserted(prepared) = cache.insert(DiceKey { index: 999 }) else {
@@ -513,12 +513,12 @@ mod tests {
 
         core.drop_ctx_at_version(v);
 
-        assert_eq!(core.pending_tasks().len(), 2);
+        assert_eq!(core.pending_tasks(None).len(), 2);
 
         // Like the workers of a real transaction would, these handles are what keeps the draining
         // caches visible.
         drop((cache, cache2));
-        assert!(core.pending_tasks().is_empty());
+        assert!(core.pending_tasks(None).is_empty());
     }
 
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash, Pagable)]

@@ -946,6 +946,42 @@ async fn a_new_root_shares_only_what_certificates_allow() -> anyhow::Result<()> 
     assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 2);
     Ok(())
 }
+
+/// Idleness can be asked of one branch: work on another leaves it idle.
+#[tokio::test]
+async fn idleness_is_per_branch() {
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let fork_point = dice.updater().commit().await.version();
+    let branch = dice.fork(fork_point).await;
+    let branch_ctx = dice.updater_on(branch).commit().await;
+
+    let barrier1 = Arc::new(tokio::sync::Semaphore::new(0));
+    let barrier2 = Arc::new(tokio::sync::Semaphore::new(0));
+    let key = KeyThatRuns {
+        barrier1: barrier1.dupe(),
+        barrier2: barrier2.dupe(),
+        is_ran: Arc::new(AtomicBool::new(false)),
+    };
+
+    let req = branch_ctx.compute(&key);
+    barrier1.acquire().await.unwrap().forget();
+
+    assert!(!dice.is_idle().await);
+    assert!(!dice.is_idle_on(branch).await);
+    assert!(dice.is_idle_on(BranchId::FIRST).await);
+    dice.wait_for_idle_on(BranchId::FIRST).await;
+
+    // The same holds once the transaction is gone and the compute is only draining.
+    drop(req);
+    drop(branch_ctx);
+    assert!(dice.is_idle_on(BranchId::FIRST).await);
+
+    barrier2.add_permits(1);
+    dice.wait_for_idle_on(branch).await;
+    assert!(dice.is_idle_on(branch).await);
+    assert!(dice.is_idle().await);
+}
+
 /// A compute that is in a critical section when its transaction is dropped keeps running, the
 /// keys it requests from there are computed for it, and what it computes is kept.
 #[tokio::test]

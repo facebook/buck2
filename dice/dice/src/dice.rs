@@ -258,10 +258,22 @@ impl Dice {
 
     /// Waits until no computation is running. See [`Dice::is_idle`] for what that means.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
+        self.wait_for_idle_in(None)
+    }
+
+    /// Waits until no computation is running on `branch`. See [`Dice::is_idle_on`].
+    pub fn wait_for_idle_on(&self, branch: BranchId) -> impl Future<Output = ()> + 'static + use<> {
+        self.wait_for_idle_in(Some(branch))
+    }
+
+    fn wait_for_idle_in(
+        &self,
+        branch: Option<BranchId>,
+    ) -> impl Future<Output = ()> + 'static + use<> {
         let state_handle = self.state_handle.dupe();
         async move {
             loop {
-                let tasks = state_handle.pending_tasks().await;
+                let tasks = state_handle.pending_tasks(branch).await;
                 if tasks.is_empty() {
                     return;
                 }
@@ -282,7 +294,13 @@ impl Dice {
     /// The state query is enqueued before this method returns, so callers may preserve its ordering
     /// while awaiting the result later.
     pub fn is_idle(&self) -> impl Future<Output = bool> + use<> {
-        let tasks = self.state_handle.pending_tasks();
+        let tasks = self.state_handle.pending_tasks(None);
+        async move { tasks.await.is_empty() }
+    }
+
+    /// [`Dice::is_idle`], for the transactions on `branch` alone.
+    pub fn is_idle_on(&self, branch: BranchId) -> impl Future<Output = bool> + use<> {
+        let tasks = self.state_handle.pending_tasks(Some(branch));
         async move { tasks.await.is_empty() }
     }
 
