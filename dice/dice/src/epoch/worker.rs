@@ -127,7 +127,7 @@ impl DiceTaskWorker {
         state_handle: CoreStateHandle,
         task_state: DiceWorkerStateLookupNode,
     ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
-        let v = self.eval.epoch_state.get_version();
+        let v = self.eval.version_state.get_version();
 
         let state_result = state_handle
             .lookup_key(VersionedGraphKey::new(v, self.k))
@@ -296,7 +296,7 @@ impl DiceTaskWorker {
         let res = {
             match result.value.into_valid_value() {
                 Ok(value) => {
-                    let v = self.eval.epoch_state.get_version();
+                    let v = self.eval.version_state.get_version();
                     // If the dependencies still match and equality can reuse the old value,
                     // restore it so `update_computed` can compare it with the recomputed value.
                     if !old_value_hydration_failed
@@ -512,7 +512,7 @@ async fn check_dependency(
     cycles: &KeyComputingUserCycleDetectorData,
 ) -> Result<CheckDependencyResult, TransactionCancelled> {
     let dep_result = eval
-        .epoch_state
+        .version_state
         .compute_opaque(
             edge.key,
             parent_key,

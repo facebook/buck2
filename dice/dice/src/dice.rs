@@ -428,7 +428,7 @@ pub(crate) mod testing {
     use dupe::Dupe;
 
     use crate::dice::Dice;
-    use crate::epoch::evaluator::VersionEpochState;
+    use crate::epoch::evaluator::VersionState;
     use crate::updater::ActiveTransactionGuard;
     use crate::versions::VersionNumber;
 
@@ -436,7 +436,7 @@ pub(crate) mod testing {
         pub(crate) async fn testing_shared_ctx(
             &self,
             v: VersionNumber,
-        ) -> (VersionEpochState, ActiveTransactionGuard) {
+        ) -> (VersionState, ActiveTransactionGuard) {
             let guard = ActiveTransactionGuard::new(v, self.state_handle.dupe());
             self.state_handle.ctx_at_version(v, guard).await
         }

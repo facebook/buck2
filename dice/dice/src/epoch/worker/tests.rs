@@ -186,7 +186,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
 
     let (ctx, _guard) = dice.testing_shared_ctx(v1).await;
     let eval = TransactionData {
-        epoch_state: ctx.dupe(),
+        version_state: ctx.dupe(),
         user_data: user_data.dupe(),
         dice: dice.dupe(),
     };
@@ -213,7 +213,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
 
     let (ctx, _guard) = dice.testing_shared_ctx(v2).await;
     let eval = TransactionData {
-        epoch_state: ctx.dupe(),
+        version_state: ctx.dupe(),
         user_data: user_data.dupe(),
         dice: dice.dupe(),
     };
@@ -300,7 +300,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     let eval = TransactionData {
-        epoch_state: ctx.dupe(),
+        version_state: ctx.dupe(),
         user_data: user_data.dupe(),
         dice: dice.dupe(),
     };
@@ -329,7 +329,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     let eval = TransactionData {
-        epoch_state: ctx.dupe(),
+        version_state: ctx.dupe(),
         user_data: user_data.dupe(),
         dice: dice.dupe(),
     };
@@ -380,7 +380,7 @@ async fn spawn_with_no_previously_cancelled_task() {
 
     let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
-        epoch_state: shared_ctx.dupe(),
+        version_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
         dice: dice.dupe(),
     };
@@ -409,7 +409,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
 
     let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
-        epoch_state: shared_ctx.dupe(),
+        version_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
         dice: dice.dupe(),
     };
@@ -474,7 +474,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
 
     let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
-        epoch_state: shared_ctx.dupe(),
+        version_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
         dice: dice.dupe(),
     };
@@ -551,7 +551,7 @@ async fn writes_after_the_last_transaction_is_dropped_are_accepted() {
 
     let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
-        epoch_state: shared_ctx.dupe(),
+        version_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
         dice: dice.dupe(),
     };
@@ -660,7 +660,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
 
     let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
-        epoch_state: shared_ctx.dupe(),
+        version_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
         dice: dice.dupe(),
     };
@@ -842,7 +842,7 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
     let (ctx, _guard) = dice.testing_shared_ctx(version).await;
 
     let eval = TransactionData {
-        epoch_state: ctx.dupe(),
+        version_state: ctx.dupe(),
         user_data: user_data.dupe(),
         dice: dice.dupe(),
     };
@@ -926,7 +926,7 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     let (ctx, _guard) = dice.testing_shared_ctx(version).await;
 
     let eval = TransactionData {
-        epoch_state: ctx.dupe(),
+        version_state: ctx.dupe(),
         user_data: user_data.dupe(),
         dice: dice.dupe(),
     };

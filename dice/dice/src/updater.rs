@@ -24,7 +24,7 @@ use crate::api::user_data::UserComputationData;
 use crate::arc::Arc;
 use crate::core::state::CoreStateHandle;
 use crate::epoch::ctx::TransactionCtx;
-use crate::epoch::evaluator::VersionEpochState;
+use crate::epoch::evaluator::VersionState;
 use crate::key::DiceKey;
 use crate::value::DiceKeyValue;
 use crate::value::DiceValidValue;
@@ -119,7 +119,7 @@ impl TransactionUpdater {
         self.dice.state_handle.unstable_drop_everything()
     }
 
-    async fn commit_to_state(self) -> (VersionEpochState, ActiveTransactionGuard) {
+    async fn commit_to_state(self) -> (VersionState, ActiveTransactionGuard) {
         let v = self
             .dice
             .state_handle

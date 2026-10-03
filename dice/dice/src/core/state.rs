@@ -36,7 +36,7 @@ use crate::core::versions::introspection::VersionIntrospectable;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::PagableNodeCounts;
 use crate::epoch::cache::TransactionResult;
-use crate::epoch::evaluator::VersionEpochState;
+use crate::epoch::evaluator::VersionState;
 use crate::epoch::task::dice::DiceTask;
 use crate::key::DiceKey;
 use crate::metrics::Metrics;
@@ -172,7 +172,7 @@ impl CoreStateHandle {
         &self,
         version: VersionNumber,
         guard: ActiveTransactionGuard,
-    ) -> impl Future<Output = (VersionEpochState, ActiveTransactionGuard)> + use<> {
+    ) -> impl Future<Output = (VersionState, ActiveTransactionGuard)> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
             StateRequest::CtxAtVersion {
@@ -377,7 +377,7 @@ pub(super) enum StateRequest {
     CtxAtVersion {
         version: VersionNumber,
         guard: ActiveTransactionGuard,
-        resp: Sender<(VersionEpochState, ActiveTransactionGuard)>,
+        resp: Sender<(VersionState, ActiveTransactionGuard)>,
     },
     /// Report that a computation context at a version has been dropped
     DropCtxAtVersion { version: VersionNumber },

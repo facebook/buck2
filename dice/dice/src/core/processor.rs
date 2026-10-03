@@ -15,7 +15,7 @@ use crate::core::internals::ActorState;
 use crate::core::state::CoreStateHandle;
 use crate::core::state::QueueCounters;
 use crate::core::state::StateRequest;
-use crate::epoch::evaluator::VersionEpochState;
+use crate::epoch::evaluator::VersionState;
 use crate::metrics::PagingMemoryMetrics;
 
 pub(super) struct StateProcessor {
@@ -77,7 +77,7 @@ impl StateProcessor {
             } => {
                 let cache = self.state.ctx_at_version(version);
 
-                let ctx = VersionEpochState::new(version, cache);
+                let ctx = VersionState::new(version, cache);
                 let _ignored = resp.send((ctx, guard));
             }
             StateRequest::DropCtxAtVersion { version } => self.state.drop_ctx_at_version(version),

@@ -60,7 +60,7 @@ use crate::versions::VersionNumber;
 /// Context that is shared for all current live computations of the same version.
 #[derive(Derivative, Dupe, Clone)]
 #[derivative(Debug)]
-pub(crate) struct VersionEpochState {
+pub(crate) struct VersionState {
     version: VersionNumber,
     #[derivative(Debug = "ignore")]
     cache: SharedCache,
@@ -71,7 +71,7 @@ enum LookupResult<'d> {
     NeedsRestart(PreparedDiceTask<'d>, Option<PreviouslyCancelledTask>),
 }
 
-impl VersionEpochState {
+impl VersionState {
     pub(crate) fn new(v: VersionNumber, cache: SharedCache) -> Self {
         Self { version: v, cache }
     }
@@ -193,7 +193,7 @@ impl VersionEpochState {
 /// Evaluates Keys
 #[derive(Clone, Dupe)]
 pub(crate) struct TransactionData {
-    pub(super) epoch_state: VersionEpochState,
+    pub(super) version_state: VersionState,
     pub(super) user_data: Arc<UserComputationData>,
     pub(super) dice: StdArc<Dice>,
 }
@@ -266,7 +266,7 @@ impl TransactionData {
                 //     the recompute and normal cases.
                 //  3. This is insanity.
                 let base = self
-                    .epoch_state
+                    .version_state
                     .compute_opaque(
                         proj.base(),
                         ParentKey::Some(key), // the parent requesting the projection base is the projection itself

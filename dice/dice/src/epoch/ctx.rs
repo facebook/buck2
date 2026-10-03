@@ -47,7 +47,7 @@ use crate::epoch::branches::LinearRecomputeArena;
 use crate::epoch::branches::ParallelArena;
 use crate::epoch::branches::ParallelBranchFuture;
 use crate::epoch::evaluator::TransactionData;
-use crate::epoch::evaluator::VersionEpochState;
+use crate::epoch::evaluator::VersionState;
 use crate::key::CowDiceKeyHashed;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
@@ -82,7 +82,7 @@ impl Dupe for TransactionCtx {}
 
 impl TransactionCtx {
     pub(crate) fn new(
-        per_live_version_ctx: VersionEpochState,
+        per_live_version_ctx: VersionState,
         user_data: Arc<UserComputationData>,
         dice: StdArc<Dice>,
         live_version_guard: ActiveTransactionGuard,
@@ -90,7 +90,7 @@ impl TransactionCtx {
         Self {
             ctx: ComputeCtx {
                 transaction_data: TransactionData {
-                    epoch_state: per_live_version_ctx,
+                    version_state: per_live_version_ctx,
                     user_data,
                     dice,
                 },
@@ -675,7 +675,7 @@ impl ComputeCtx {
             .index(CowDiceKeyHashed::key_ref(key));
 
         self.transaction_data
-            .epoch_state
+            .version_state
             .compute_opaque(
                 dice_key,
                 self.parent_key,
@@ -710,7 +710,7 @@ impl ComputeCtx {
             .index(CowDiceKeyHashed::proj_ref(base.derive_from_key, key));
 
         self.transaction_data
-            .epoch_state
+            .version_state
             .compute_projection(
                 dice_key,
                 base.derive_from,
@@ -737,7 +737,7 @@ impl ComputeCtx {
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        self.transaction_data.epoch_state.get_version()
+        self.transaction_data.version_state.get_version()
     }
 
     pub(crate) fn store_evaluation_data<T: Send + Sync + 'static>(
