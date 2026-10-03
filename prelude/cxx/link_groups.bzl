@@ -302,6 +302,8 @@ BuildLinkGroupsContext = record(
     pic_behavior = field(PicBehavior),
     link_group_libs = field(dict[str, ([Label, None], LinkInfos)]),
     link_group_roots = field(dict[str, Label] | None, None),  # If none, derived from link_group_libs
+    # False only when the mappings are known to contain no MATCH_DIRECT_DEPS targets.
+    may_have_match_direct_deps = field(bool, True),
     prefer_stripped = field(bool, False),
     prefer_optimized = field(bool, False),
     transformation_spec_context = field(TransformationSpecContext | None, None),
@@ -560,14 +562,15 @@ def get_filtered_labels_to_links_map(
     # A MATCH_DIRECT_DEPS target is included only if there's a target in the current
     # link group which has a direct dependency on that MATCH_DIRECT_DEPS target.
     match_direct_deps_for_current_group = set()
-    for target in linkables:
-        target_link_group = build_context.link_group_mappings.get(target)
-        if target_link_group == link_group or target_link_group == MATCH_ALL_LABEL:
-            node = build_context.linkable_graph.nodes[target]
-            for dep in node.deps + node.exported_deps:
-                dep_link_group = build_context.link_group_mappings.get(dep)
-                if dep_link_group == MATCH_DIRECT_DEPS_LABEL:
-                    match_direct_deps_for_current_group.add(dep)
+    if build_context.may_have_match_direct_deps:
+        for target in linkables:
+            target_link_group = build_context.link_group_mappings.get(target)
+            if target_link_group == link_group or target_link_group == MATCH_ALL_LABEL:
+                node = build_context.linkable_graph.nodes[target]
+                for dep in node.deps + node.exported_deps:
+                    dep_link_group = build_context.link_group_mappings.get(dep)
+                    if dep_link_group == MATCH_DIRECT_DEPS_LABEL:
+                        match_direct_deps_for_current_group.add(dep)
 
     output_style = (
         get_lib_output_style(build_context.link_strategy, Linkage("any"), build_context.pic_behavior)
@@ -1156,6 +1159,14 @@ def create_link_groups(
 
     link_group_libs = {name: (None, lib) for name, lib in link_group_shared_links.items()}
 
+    # All groups share these mappings, so checking for MATCH_DIRECT_DEPS once is sufficient.
+    may_have_match_direct_deps = False
+    if link_group_mappings:
+        for target in link_group_mappings:
+            if link_group_mappings[target] == MATCH_DIRECT_DEPS_LABEL:
+                may_have_match_direct_deps = True
+                break
+
     build_groups_context = BuildLinkGroupsContext(
         public_nodes = public_nodes,
         linkable_graph = linkable_graph,
@@ -1168,6 +1179,7 @@ def create_link_groups(
         # TODO(agallagher): Should we support alternate link strategies
         # (e.g. bottom-up with symbol errors)?
         link_group_roots = {},
+        may_have_match_direct_deps = may_have_match_direct_deps,
         prefer_stripped = prefer_stripped_objects,
         transformation_spec_context = transformation_spec_context,
     )
