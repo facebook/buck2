@@ -292,15 +292,34 @@ def is_link_group_shlib(label: Label, ctx: LinkGroupContext):
 
     return False
 
+BuildLinkGroupsContext = record(
+    public_nodes = field(set[Label] | None),
+    linkable_graph = field(ReducedLinkableGraph),
+    link_groups = field(dict[str, Group]),
+    link_group_mappings = field(dict[Label, str] | None),
+    link_group_preferred_linkage = field(dict[Label, Linkage]),
+    link_strategy = field(LinkStrategy),
+    pic_behavior = field(PicBehavior),
+    link_group_libs = field(dict[str, ([Label, None], LinkInfos)]),
+    link_group_roots = field(dict[str, Label] | None, None),  # If none, derived from link_group_libs
+    prefer_stripped = field(bool, False),
+    prefer_optimized = field(bool, False),
+    transformation_spec_context = field(TransformationSpecContext | None, None),
+)
+
 def _transitively_update_shared_linkage(
-    linkable_graph_node_map: dict[Label, LinkableNode],
-    link_group: [str, None],
-    link_strategy: LinkStrategy,
-    link_group_preferred_linkage: dict[Label, Linkage],
+    link_group: str | None,
+    build_context: BuildLinkGroupsContext,
     link_group_roots: dict[Label, str],
-    pic_behavior: PicBehavior,
-    link_group_mappings: [dict[Label, str], None],
 ):
+    # Reuse the context instead of rechecking its entire typed dictionaries
+    # every time we process a link group.
+    linkable_graph_node_map = build_context.linkable_graph.nodes
+    link_strategy = build_context.link_strategy
+    link_group_preferred_linkage = build_context.link_group_preferred_linkage
+    pic_behavior = build_context.pic_behavior
+    link_group_mappings = build_context.link_group_mappings
+
     # Identify targets whose shared linkage style may be propagated to
     # dependencies. Implicitly created root libraries are skipped.
     shared_lib_roots = []
@@ -430,21 +449,6 @@ def collect_linkables(
 def _should_fixup_link_order(link_strategy: LinkStrategy) -> bool:
     return link_strategy == LinkStrategy("shared")
 
-BuildLinkGroupsContext = record(
-    public_nodes = field(set[Label] | None),
-    linkable_graph = field(ReducedLinkableGraph),
-    link_groups = field(dict[str, Group]),
-    link_group_mappings = field(dict[Label, str] | None),
-    link_group_preferred_linkage = field(dict[Label, Linkage]),
-    link_strategy = field(LinkStrategy),
-    pic_behavior = field(PicBehavior),
-    link_group_libs = field(dict[str, ([Label, None], LinkInfos)]),
-    link_group_roots = field(dict[str, Label] | None, None),  # If none, derived from link_group_libs
-    prefer_stripped = field(bool, False),
-    prefer_optimized = field(bool, False),
-    transformation_spec_context = field(TransformationSpecContext | None, None),
-)
-
 def get_filtered_labels_to_links_map(
     link_group: str | None,
     linkables: list[Label],
@@ -469,13 +473,9 @@ def get_filtered_labels_to_links_map(
     # Transitively update preferred linkage to avoid runtime issues from
     # missing dependencies (e.g. for prebuilt shared libs).
     _transitively_update_shared_linkage(
-        build_context.linkable_graph.nodes,
         link_group,
-        build_context.link_strategy,
-        build_context.link_group_preferred_linkage,
+        build_context,
         link_group_roots,
-        build_context.pic_behavior,
-        build_context.link_group_mappings,
     )
 
     linkable_map = {}
@@ -750,8 +750,9 @@ def _find_all_relevant_roots(
     link_group_mappings: dict[Label, str],  # target label to link group name
     roots: list[Label],
     link_strategy: LinkStrategy,
-    linkable_graph_node_map: dict[Label, LinkableNode],
+    linkable_graph: ReducedLinkableGraph,
 ) -> dict[str, set[Label]]:
+    linkable_graph_node_map = linkable_graph.nodes
     relevant_roots = {}
     link_groups_for_full_traversal = set()  # list[str]
 
@@ -764,7 +765,7 @@ def _find_all_relevant_roots(
         if spec.root != None:
             relevant_roots[spec.group.name] = set(spec.root.deps)
         else:
-            roots_from_mappings, has_empty_root = _get_roots_from_mappings(spec, linkable_graph_node_map)
+            roots_from_mappings, has_empty_root = _get_roots_from_mappings(spec, linkable_graph)
             relevant_roots[spec.group.name] = set(roots_from_mappings)
             if has_empty_root or always_traverse_all_roots:
                 link_groups_for_full_traversal.add(spec.group.name)
@@ -840,7 +841,8 @@ def find_relevant_roots(
 
     return relevant_roots
 
-def _get_roots_from_mappings(spec: LinkGroupLibSpec, linkable_graph_node_map: dict[Label, LinkableNode]) -> (list[Label], bool):
+def _get_roots_from_mappings(spec: LinkGroupLibSpec, linkable_graph: ReducedLinkableGraph) -> (list[Label], bool):
+    # Keep the graph wrapped so checking this parameter doesn't visit every node.
     roots = []
     has_empty_root = False
     for mapping in spec.group.mappings:
@@ -853,7 +855,7 @@ def _get_roots_from_mappings(spec: LinkGroupLibSpec, linkable_graph_node_map: di
             # Otherwise add to traversal only if we sure it is in deps graph.
             roots.extend(mapping.roots)
         else:
-            roots.extend([root for root in mapping.roots if root in linkable_graph_node_map])
+            roots.extend([root for root in mapping.roots if root in linkable_graph.nodes])
     return (roots, has_empty_root)
 
 _CreatedLinkGroup = record(
@@ -1137,7 +1139,7 @@ def create_link_groups(
         link_group_mappings,
         executable_deps + other_roots,
         link_strategy,
-        linkable_graph.nodes,
+        linkable_graph,
     )
 
     pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
