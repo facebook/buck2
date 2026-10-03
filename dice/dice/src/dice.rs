@@ -125,6 +125,19 @@ impl Dice {
         self.state_handle.current_version(branch)
     }
 
+    /// Deletes `branch`, releasing every value that only it retained. The branches forked from
+    /// it move to its parent, or become roots, and keep seeing exactly what they saw.
+    ///
+    /// Transactions still running on the branch keep working, but without reuse: nothing
+    /// resolves for them any more, injected keys included, and nothing they compute is kept. One
+    /// that requests an injected key it has not seen before fails as if the key had never been
+    /// injected; callers that want running transactions to finish should wait for the branch to
+    /// be idle first ([`Self::wait_for_idle_on`]). Starting a transaction on the branch,
+    /// committing to it or forking from it afterwards is an error that panics.
+    pub fn delete_branch(&self, branch: BranchId) {
+        self.state_handle.delete_branch(branch)
+    }
+
     /// An updater for [`BranchId::FIRST`].
     pub fn updater(self: &StdArc<Self>) -> DiceTransactionUpdater {
         self.updater_with_data(UserComputationData::new())

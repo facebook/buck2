@@ -92,6 +92,11 @@ impl ActorState {
     pub(super) fn new_root(&mut self) -> BranchId {
         self.graph.new_root()
     }
+
+    pub(super) fn delete_branch(&mut self, branch: BranchId) {
+        self.graph.delete_branch(branch);
+    }
+
     pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
         self.version_tracker.drop_at_version(v);
     }

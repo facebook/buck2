@@ -189,6 +189,13 @@ impl CoreStateHandle {
         let (resp, recv) = oneshot::channel();
         self.call(StateRequest::NewRoot { resp }, recv)
     }
+
+    /// Deletes a branch. Fire-and-forget; any subsequent state requests are guaranteed to see
+    /// the deletion because state requests are processed FIFO.
+    pub(crate) fn delete_branch(&self, branch: BranchId) {
+        self.request(StateRequest::DeleteBranch { branch })
+    }
+
     /// Obtains the shared state ctx at the given version
     pub(crate) fn ctx_at_version(
         &self,
@@ -408,6 +415,8 @@ pub(super) enum StateRequest {
     },
     /// Starts a new branch with no parent
     NewRoot { resp: Sender<BranchId> },
+    /// Deletes a branch
+    DeleteBranch { branch: BranchId },
     /// Obtains the shared state ctx at the given version
     CtxAtVersion {
         version: VersionNumber,

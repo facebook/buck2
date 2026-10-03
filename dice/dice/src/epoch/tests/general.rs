@@ -886,7 +886,7 @@ async fn a_branch_diverges_from_its_fork_point() -> anyhow::Result<()> {
 
 /// A new root starts with nothing injected. It shares with the branches before it only what a
 /// certificate lets it: a value whose inputs it has injected identically is reused, one whose
-/// inputs differ is computed anew.
+/// inputs differ is computed anew, and deleting the root leaves the others alone.
 #[tokio::test]
 async fn a_new_root_shares_only_what_certificates_allow() -> anyhow::Result<()> {
     #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
@@ -932,6 +932,7 @@ async fn a_new_root_shares_only_what_certificates_allow() -> anyhow::Result<()> 
     let mut updater = dice.updater_on(root);
     updater.changed_to(vec![(Foo(0), 1)])?;
     let root_ctx = updater.commit().await;
+    assert_eq!(root_ctx.version().branch(), root);
     assert_eq!(*root_ctx.compute(&Counted).await?, 11);
     assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 1);
 
@@ -942,9 +943,101 @@ async fn a_new_root_shares_only_what_certificates_allow() -> anyhow::Result<()> 
     assert_eq!(*root_ctx.compute(&Counted).await?, 12);
     assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 2);
     assert_eq!(dice.pagable_node_counts().await.resident, 2);
+
+    drop(root_ctx);
+    dice.delete_branch(root);
+    assert_eq!(dice.pagable_node_counts().await.resident, 1);
     assert_eq!(*first_ctx.compute(&Counted).await?, 11);
     assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 2);
     Ok(())
+}
+
+/// Deleting a branch releases what only it retained. A transaction still running on it is still
+/// served, from its own cache and by computing afresh, but nothing it computes is kept.
+#[tokio::test]
+async fn deleting_a_branch_releases_its_values_and_strands_its_transactions() -> anyhow::Result<()>
+{
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Counted;
+
+    static COUNTED_COMPUTES: AtomicUsize = AtomicUsize::new(0);
+
+    #[async_trait]
+    impl Key for Counted {
+        type Value = i32;
+
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            COUNTED_COMPUTES.fetch_add(1, Ordering::SeqCst);
+            *ctx.compute(&Foo(0)).await.unwrap() + 10
+        }
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let mut updater = dice.updater();
+    updater.changed_to(vec![(Foo(0), 1)])?;
+    let root_ctx = updater.commit().await;
+
+    let branch = dice.fork(root_ctx.version()).await;
+    let mut updater = dice.updater_on(branch);
+    updater.changed_to(vec![(Foo(0), 2)])?;
+    let branch_ctx = updater.commit().await;
+    assert_eq!(*branch_ctx.compute(&Counted).await?, 12);
+    assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 1);
+    assert_eq!(dice.pagable_node_counts().await.resident, 1);
+
+    dice.delete_branch(branch);
+    assert_eq!(dice.pagable_node_counts().await.resident, 0);
+
+    // The stranded transaction still answers from its own cache, and computes what it has not
+    // seen; neither is kept.
+    assert_eq!(*branch_ctx.compute(&Counted).await?, 12);
+    assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 1);
+    assert_eq!(*branch_ctx.compute(&Foo(0)).await?, 2);
+    let stranded = dice.updater_on(branch);
+    drop(stranded);
+    assert_eq!(dice.pagable_node_counts().await.resident, 0);
+
+    // The branch it was forked from never saw any of it.
+    assert_eq!(*root_ctx.compute(&Counted).await?, 11);
+    assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 2);
+    assert_eq!(dice.pagable_node_counts().await.resident, 1);
+    Ok(())
+}
+
+/// Deletion takes the branch's injected keys with everything else. A transaction stranded on it
+/// is still served the ones it has seen, from its own cache, and one it requests for the first
+/// time fails as if it had never been injected.
+// The panic is raised in a spawned worker that nothing awaits, so the requester only sees it if
+// the panic aborts; under unwinding (as with `cargo test`) the request hangs instead.
+#[cfg(panic = "abort")]
+#[tokio::test]
+#[should_panic(expected = "Injected Keys must be injected onto the graph before being requested")]
+async fn a_stranded_transaction_fails_on_an_unseen_injected_key() {
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root_ctx = dice.updater().commit().await;
+    let branch = dice.fork(root_ctx.version()).await;
+    let mut updater = dice.updater_on(branch);
+    updater.changed_to(vec![(Foo(0), 1), (Foo(1), 2)]).unwrap();
+    let branch_ctx = updater.commit().await;
+    assert_eq!(*branch_ctx.compute(&Foo(0)).await.unwrap(), 1);
+
+    dice.delete_branch(branch);
+    assert_eq!(*branch_ctx.compute(&Foo(0)).await.unwrap(), 1);
+    branch_ctx.compute(&Foo(1)).await.unwrap();
 }
 
 /// Idleness can be asked of one branch: work on another leaves it idle.

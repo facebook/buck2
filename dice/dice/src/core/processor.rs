@@ -97,6 +97,7 @@ impl StateProcessor {
                 // ignore error if the requester dropped it.
                 let _ = resp.send(self.state.new_root());
             }
+            StateRequest::DeleteBranch { branch } => self.state.delete_branch(branch),
             StateRequest::LookupKey { key, resp } => drop(resp.send(self.state.lookup_key(key))),
             StateRequest::UpdateComputed {
                 key,

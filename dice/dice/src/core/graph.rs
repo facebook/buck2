@@ -90,9 +90,6 @@ pub(crate) enum ValueUpdate {
 #[derive(Allocative, Default)]
 struct KeyValues {
     mint: RevisionMint,
-    /// Whether the key's values are asserted rather than computed. Every value of an asserted key
-    /// is retained, since none can be recomputed and the key's assertion history names them all.
-    asserted: bool,
     /// Whether the key is an `InjectedKey`, which takes no part in paging. A computed key whose
     /// values are asserted (buck2 does this for its pageable starlark roots) pages like any other.
     injected: bool,
@@ -155,7 +152,6 @@ impl KeyValues {
     /// An injected value, compared against every retained value so that a key returned to an
     /// earlier value gets that value's revision back.
     fn intern_asserted(&mut self, value: DiceValidValue, storage: StorageType) -> Revision {
-        self.asserted = true;
         self.injected = matches!(storage, StorageType::Injected);
         for (revision, stored) in &self.entries {
             if stored.as_hydrated().is_some_and(|e| e.equality(&value)) {
@@ -354,26 +350,52 @@ impl VersionedGraph {
     pub(crate) fn take(&mut self) {
         self.core.take();
         let keys: Vec<DiceKey> = self.values.keys().copied().collect();
+        self.release_unreferenced(keys);
+    }
+
+    /// Deletes `branch` (see [`CoreState::delete_branch`]) and releases every value that only it
+    /// referenced. The transactions still running on it are served without reuse from then on:
+    /// their lookups resolve nothing and their writes are not retained.
+    pub(crate) fn delete_branch(&mut self, branch: BranchId) {
+        let affected = self.core.delete_branch(branch);
+        self.release_unreferenced(affected);
+    }
+
+    /// Drops every value of `keys` that no claim or assertion names any more.
+    fn release_unreferenced(&mut self, keys: impl IntoIterator<Item = DiceKey>) {
+        let core = &self.core;
         let mut dropped = Vec::new();
         for key in keys {
-            let taken = self.with_values(key, |kv| {
-                if kv.asserted {
-                    SmallVec::new()
-                } else {
+            Self::with_values_of(&mut self.values, &mut self.index, key, |kv| {
+                let (kept, unreferenced): (SmallVec<_>, SmallVec<_>) =
                     std::mem::take(&mut kv.entries)
-                }
+                        .into_iter()
+                        .partition(|(revision, _)| core.is_referenced(key, *revision));
+                kv.entries = kept;
+                dropped.extend(unreferenced);
             });
-            dropped.push(taken);
+        }
+        if dropped.is_empty() {
+            return;
         }
         // There may be a lot to drop; do it off the actor thread.
         std::thread::Builder::new()
-            .name("dice-drop-everything".to_owned())
+            .name("dice-drop-values".to_owned())
             .spawn(move || drop(dropped))
             .expect("failed to spawn thread");
     }
 
     pub(crate) fn get(&self, at: VersionedGraphKey) -> VersionedGraphResult {
         let (key, v) = (at.k, at.v);
+        if !self.core.is_live(v.branch()) {
+            // Nothing is known about a deleted branch any more, its untracked-input histories
+            // included. The ε handed out here is never retained: `update` keeps nothing that a
+            // transaction on a deleted branch writes.
+            return VersionedGraphResult::Unknown {
+                candidate: None,
+                epsilon: EpsilonToken::INITIAL,
+            };
+        }
         match self.core.lookup(key, v) {
             Lookup::Valid { revision, source } => {
                 let invalidation_paths = match &source {
@@ -428,6 +450,9 @@ impl VersionedGraph {
     ) -> DiceComputedValue {
         let key = at.k;
         let invalidation_paths = invalidation_paths.for_dependent(key);
+        if !self.core.is_live(at.v.branch()) {
+            return self.update_unretained(key, update, invalidation_paths);
+        }
         let (cert, value): (Arc<DiceCert>, MaybeResident<DiceValidValue>) = match update {
             ValueUpdate::Computed {
                 value,
@@ -481,6 +506,32 @@ impl VersionedGraph {
             ));
         }
         DiceComputedValue::new(value.into_payload(), paths, revision)
+    }
+
+    /// A write from a transaction on a deleted branch. The core knows nothing about the branch
+    /// any more, so the certificate cannot be placed: the value goes back to the transaction as
+    /// it is, under a revision that is minted for it but never stored, and nothing is retained.
+    fn update_unretained(
+        &mut self,
+        key: DiceKey,
+        update: ValueUpdate,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) -> DiceComputedValue {
+        match update {
+            ValueUpdate::Computed { value, .. } => {
+                let revision = self.with_values(key, |kv| kv.mint.mint());
+                DiceComputedValue::new(
+                    MaybeResident::Resident(value).into_payload(),
+                    invalidation_paths,
+                    revision,
+                )
+            }
+            ValueUpdate::DependencyValidated { candidate } => DiceComputedValue::new(
+                candidate.entry.into_payload(),
+                invalidation_paths,
+                candidate.cert.revision,
+            ),
+        }
     }
 
     /// The number of keys the state holds anything for.
@@ -614,8 +665,8 @@ impl VersionedGraph {
 
     /// Asserts, by full scan, that the paging index matches the values, that the core's own
     /// invariants hold, and that values and claims reference each other exactly: every
-    /// certificate a claim pins has its value retained, and every computed value retained is
-    /// named by some claim.
+    /// certificate a claim pins has its value retained, and every value retained is named by
+    /// some claim or assertion.
     #[cfg(test)]
     pub(crate) fn assert_consistent(&self) {
         self.core.check_invariants();
@@ -636,13 +687,11 @@ impl VersionedGraph {
                     cert.revision
                 );
             }
-            if !kv.asserted {
-                for (revision, _) in &kv.entries {
-                    assert!(
-                        self.core.is_referenced(*key, *revision),
-                        "{key:?} retains {revision:?}, which no claim names"
-                    );
-                }
+            for (revision, _) in &kv.entries {
+                assert!(
+                    self.core.is_referenced(*key, *revision),
+                    "{key:?} retains {revision:?}, which no claim or assertion names"
+                );
             }
         }
         candidates.sort_unstable();

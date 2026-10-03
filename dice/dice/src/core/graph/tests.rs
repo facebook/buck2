@@ -29,6 +29,7 @@ use crate::api::key::ValueSerialize;
 use crate::api::storage_type::StorageType;
 use crate::core::graph::ValueUpdate;
 use crate::core::graph::VersionedGraph;
+use crate::core::graph::revision::EpsilonToken;
 use crate::core::graph::types::Candidate;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
@@ -581,6 +582,66 @@ fn a_fork_shares_and_then_keeps_the_values_it_resolves() {
     assert_ne!(first.revision(), second.revision());
     assert_eq!(at_child(&graph), first.revision());
     assert_eq!(graph.pagable_node_counts().resident, 2);
+}
+
+/// Deleting a branch releases the values only it referenced, injected ones included, and leaves
+/// the ones its fork point resolves alone. Its versions then resolve nothing, and a write from
+/// them is handed back without being retained.
+#[test]
+fn deleting_a_branch_releases_its_values_and_retains_nothing_written_from_it() {
+    let mut graph = with_leaf();
+    let root = BranchId::FIRST;
+    let v2 = graph.head(root);
+    let shared = compute(&mut graph, key(1), v2, value(1));
+    let child = graph.fork(v2);
+    let child_v2 = graph.commit(
+        child,
+        [(
+            key(0),
+            ChangeType::UpdateValue(value(200), StorageType::Injected),
+            InvalidationSourcePriority::Normal,
+        )],
+    );
+    graph.assert_consistent();
+    let own = compute(&mut graph, key(1), child_v2, value(2));
+    assert_ne!(shared.revision(), own.revision());
+    assert_eq!(graph.pagable_node_counts().resident, 2);
+    assert_eq!(graph.values.get(&key(0)).unwrap().entries.len(), 2);
+
+    graph.delete_branch(child);
+    graph.assert_consistent();
+    assert_eq!(graph.pagable_node_counts().resident, 1);
+    assert_eq!(graph.values.get(&key(0)).unwrap().entries.len(), 1);
+    assert_eq!(
+        graph
+            .get(VersionedGraphKey::new(v2, key(1)))
+            .unpack_match()
+            .unwrap()
+            .0
+            .revision(),
+        shared.revision()
+    );
+
+    match graph.get(VersionedGraphKey::new(child_v2, key(1))) {
+        VersionedGraphResult::Unknown {
+            candidate: None, ..
+        } => {}
+        other => panic!("a deleted branch resolves nothing, got {other:?}"),
+    }
+    let late = value(3);
+    let returned = graph.update(
+        VersionedGraphKey::new(child_v2, key(1)),
+        ValueUpdate::Computed {
+            value: late.dupe(),
+            deps: SeriesParallelDeps::None,
+            epsilon: EpsilonToken::INITIAL,
+        },
+        TrackedInvalidationPaths::clean(),
+    );
+    graph.assert_consistent();
+    assert!(returned.testing_resident_value().instance_equal(&late));
+    assert!(returned.revision().unwrap().as_u32() > own.revision().unwrap().as_u32());
+    assert_eq!(graph.pagable_node_counts().resident, 1);
 }
 
 /// `take` keeps the per-key revision counters, so a value computed after it can never collide
