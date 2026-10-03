@@ -218,8 +218,7 @@ impl Dice {
         &CYCLES
     }
 
-    /// Waits until no computation started by a transaction that has since been dropped is still
-    /// running.
+    /// Waits until no computation is running. See [`Dice::is_idle`] for what that means.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
         let state_handle = self.state_handle.dupe();
         async move {
@@ -236,8 +235,11 @@ impl Dice {
         }
     }
 
-    /// Whether no computation started by a transaction that has since been dropped is still
-    /// running.
+    /// Whether no computation is running: every key any transaction, alive or dropped, ever
+    /// requested has been computed or cancelled. A transaction that is alive but computing
+    /// nothing leaves dice idle.
+    ///
+    /// This is a snapshot: any transaction can start a computation right after it is taken.
     ///
     /// The state query is enqueued before this method returns, so callers may preserve its ordering
     /// while awaiting the result later.

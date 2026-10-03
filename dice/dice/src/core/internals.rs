@@ -464,6 +464,9 @@ mod tests {
         cache.testing_insert_task(blocked_key2, blocked_task2.dupe());
         cache.testing_insert_task(never_cancel_key1, never_cancel_task1);
 
+        // Running work counts whether or not a transaction is holding the cache.
+        assert_eq!(core.pending_tasks().len(), 3);
+
         core.drop_ctx_at_version(v);
 
         assert_eq!(core.pending_tasks().len(), 3);

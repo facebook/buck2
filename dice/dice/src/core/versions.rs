@@ -79,9 +79,15 @@ impl VersionTracker {
         }
     }
 
-    /// Every task of a dropped transaction that may still be running.
+    /// Every task that may still be running, whether its transaction is alive or gone.
+    ///
+    /// This scans every task of every cache, so it costs time proportional to the work in
+    /// flight; callers ask at command boundaries, not on hot paths.
     pub(crate) fn pending_tasks(&mut self) -> Vec<DiceTask> {
         let mut pending = Vec::new();
+        for active in self.active_versions.values() {
+            pending.extend(active.per_transaction_data.pending_tasks());
+        }
         self.draining.retain(|weak| {
             let Some(cache) = weak.upgrade() else {
                 return false;
