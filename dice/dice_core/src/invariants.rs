@@ -23,10 +23,11 @@ use crate::state::CoreState;
 impl<E: Env> CoreState<E> {
     /// Checks, by full scan, everything the state promises about itself: the branch tree, the
     /// histories, Invariants 1 to 3 of `incrementality.md` §4.6 (3 as an equality of edge
-    /// sets), the exactness of every `closed_index` and of the key count, and that no key is both
-    /// asserted and certified. Panics with the first violation found. Meant for tests and fuzzers
-    /// after every operation; the master invariant itself is not a property of the state alone
-    /// and is checked against the recorded history by the test oracle instead.
+    /// sets), the exactness of every `closed_index` and of the key count, that no key is both
+    /// asserted and certified, and that nothing refers to a deleted branch. Panics with the first
+    /// violation found. Meant for tests and fuzzers after every operation; the master invariant
+    /// itself is not a property of the state alone and is checked against the recorded history by
+    /// the test oracle instead.
     pub fn check_invariants(&self) {
         self.check_branches();
         self.check_slots();
@@ -57,6 +58,7 @@ impl<E: Env> CoreState<E> {
                 );
             }
             for (child, seq) in branch.children.iter() {
+                assert!(self.is_live(*child), "{b:?} lists deleted {child:?}");
                 assert_eq!(
                     self.branch(*child).parent,
                     Some(Version::new(b, *seq)),
@@ -86,7 +88,9 @@ impl<E: Env> CoreState<E> {
     }
 
     fn check_slots(&self) {
-        let mut closed: Vec<KeySet> = self.branches().map(|_| KeySet::default()).collect();
+        let mut closed: Vec<KeySet> = (0..self.branches.len())
+            .map(|_| KeySet::default())
+            .collect();
         for (key, slots) in &self.slots {
             if self.assertions.contains_key(key) {
                 assert!(
@@ -99,6 +103,11 @@ impl<E: Env> CoreState<E> {
                 assert!(
                     branches.insert(slot.branch),
                     "{key:?} has two slots at {:?}",
+                    slot.branch
+                );
+                assert!(
+                    self.is_live(slot.branch),
+                    "{key:?} has a slot on deleted {:?}",
                     slot.branch
                 );
                 let branch = self.branch(slot.branch);
@@ -146,6 +155,7 @@ impl<E: Env> CoreState<E> {
             let mut branches = HashSet::new();
             for (b, history) in histories {
                 assert!(branches.insert(*b), "{key:?} has two histories at {b:?}");
+                assert!(self.is_live(*b), "{key:?} has a history on deleted {b:?}");
                 self.check_history(&format!("history of {key:?}"), *b, history.entries());
             }
         }

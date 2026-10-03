@@ -16,6 +16,7 @@ use crate::branch::Branch;
 use crate::cert::Cert;
 use crate::collections::KeyMap;
 use crate::env::Env;
+use crate::history::Entry;
 use crate::history::History;
 use crate::ids::BranchId;
 use crate::ids::EpsilonToken;
@@ -26,6 +27,7 @@ use crate::ids::Version;
 use crate::resolve::Resolved;
 use crate::slot::Claim;
 use crate::slot::Slot;
+use crate::slot::Window;
 
 pub(crate) type KeySlots<E> = SmallVec<[Slot<E>; 1]>;
 pub(crate) type KeyAssertions<E> =
@@ -39,10 +41,13 @@ pub(crate) type KeyAssertions<E> =
 #[derive(Allocative)]
 #[allocative(bound = "E: Env")]
 pub struct CoreState<E: Env> {
-    pub(crate) branches: Vec<Branch>,
+    /// Indexed by [`BranchId`]; `None` once a branch is deleted. Ids are never reused, so a
+    /// version of a deleted branch stays distinct from every version of a live one.
+    pub(crate) branches: Vec<Option<Branch>>,
     /// A key's slots, one per branch it has a claim or an untracked-input history on. A key stays
-    /// in the map once certified, even with no slots left after [`Self::take`]: that memory is what
-    /// lets [`Self::commit`] refuse to assert a key that has been certified.
+    /// in the map once certified, even with no slots left after [`Self::take`] or
+    /// [`Self::delete_branch`]: that memory is what lets [`Self::commit`] refuse to assert a key
+    /// that has been certified.
     pub(crate) slots: KeyMap<KeySlots<E>>,
     pub(crate) assertions: KeyMap<KeyAssertions<E>>,
     /// The number of distinct keys across `slots` and `assertions`. Neither map ever drops a key.
@@ -113,7 +118,7 @@ impl<E: Env> CoreState<E> {
     /// A state with one root, [`BranchId::FIRST`], at its initial version [`Version::FIRST`].
     pub fn new() -> Self {
         CoreState {
-            branches: vec![Branch::root(Seq::FIRST)],
+            branches: vec![Some(Branch::root(Seq::FIRST))],
             slots: KeyMap::default(),
             assertions: KeyMap::default(),
             key_count: 0,
@@ -124,7 +129,7 @@ impl<E: Env> CoreState<E> {
     /// what is asserted at it and the certificates whose premises hold there.
     pub fn new_root(&mut self) -> BranchId {
         let b = BranchId::from_index(self.branches.len());
-        self.branches.push(Branch::root(Seq::FIRST));
+        self.branches.push(Some(Branch::root(Seq::FIRST)));
         b
     }
 
@@ -143,9 +148,17 @@ impl<E: Env> CoreState<E> {
         self.branch(b).parent
     }
 
-    /// All branches, parents before children.
+    /// All live branches, parents before children.
     pub fn branches(&self) -> impl Iterator<Item = BranchId> + '_ {
-        (0..self.branches.len()).map(BranchId::from_index)
+        self.branches
+            .iter()
+            .enumerate()
+            .filter_map(|(index, branch)| branch.as_ref().map(|_| BranchId::from_index(index)))
+    }
+
+    /// Whether `b` has not been deleted.
+    pub fn is_live(&self, b: BranchId) -> bool {
+        self.branches.get(b.index()).is_some_and(Option::is_some)
     }
 
     /// `lookup(k, v)` (§5.1).
@@ -213,10 +226,15 @@ impl<E: Env> CoreState<E> {
             .map(|claim| &claim.cert)
     }
 
-    /// Whether some claim of `key`, on any branch, names `revision`. An environment retaining
-    /// values by revision can release any that is not.
+    /// Whether some claim of `key`, or some entry of its assertion histories, names `revision`.
+    /// An environment retaining values by revision can release any that is not.
     pub fn is_referenced(&self, key: Key, revision: Revision) -> bool {
         self.pinned_certs(key).any(|cert| cert.revision == revision)
+            || self.assertions.get(&key).is_some_and(|histories| {
+                histories
+                    .iter()
+                    .any(|(_, history)| history.entries().iter().any(|e| e.revision == revision))
+            })
     }
 
     /// Forgets every claim and every reverse-dependency edge, keeping the histories of untracked
@@ -225,7 +243,7 @@ impl<E: Env> CoreState<E> {
     /// environment which shares work between transactions by version does not hand the forgotten
     /// state's work to transactions that start after the take.
     pub fn take(&mut self) {
-        for branch in &mut self.branches {
+        for branch in self.branches.iter_mut().flatten() {
             branch.rdeps.clear();
             branch.closed_index.clear();
             branch.head = branch.head.next();
@@ -238,12 +256,128 @@ impl<E: Env> CoreState<E> {
         }
     }
 
+    /// Deletes `b`, forgetting its claims, its edges and its histories (§5.5). The branches
+    /// forked from `b` move to `b`'s parent, or become roots, and keep resolving exactly what
+    /// they resolved before. `b`'s id is never reused, and every operation but [`Self::write`]
+    /// panics when given it or one of its versions afterwards; `write` installs nothing there.
+    ///
+    /// Returns the keys that had a claim or an assertion history on `b`: the only keys for which
+    /// [`Self::is_referenced`] may have changed.
+    pub fn delete_branch(&mut self, b: BranchId) -> Vec<Key> {
+        let branch = self.branches[b.index()]
+            .take()
+            .unwrap_or_else(|| panic!("{b:?} has been deleted"));
+        for &(child, fork_seq) in branch.children.iter() {
+            self.materialize_inheritance(b, fork_seq, child);
+            self.branch_mut(child).parent = branch.parent;
+            if let Some(parent) = branch.parent {
+                self.branch_mut(parent.branch())
+                    .children
+                    .push((child, parent.seq()));
+            }
+        }
+        if let Some(parent) = branch.parent {
+            self.branch_mut(parent.branch()).remove_child(b);
+        }
+
+        let mut affected = Vec::new();
+        for (key, slots) in self.slots.iter_mut() {
+            if let Some(index) = slots.iter().position(|slot| slot.branch == b) {
+                if slots[index].claim.is_some() {
+                    affected.push(*key);
+                }
+                slots.remove(index);
+            }
+        }
+        for (key, histories) in self.assertions.iter_mut() {
+            if let Some(index) = histories.iter().position(|(hb, _)| *hb == b) {
+                histories.remove(index);
+                affected.push(*key);
+            }
+        }
+        affected
+    }
+
+    /// Gives `child`, forked from `b` at `fork_seq`, its own copy of everything it resolved
+    /// through `b` (§5.5), so that `b` can go without `child`'s resolution changing: `b`'s claim
+    /// of each key `child` has no claim of, open if it covered the fork point and empty
+    /// otherwise, and the entry in force at the fork point of each of `b`'s histories, at
+    /// `child`'s first seq. A key `child` has a claim of, and a history `child` owns from its
+    /// first seq on, never delegated to `b` and need nothing.
+    fn materialize_inheritance(&mut self, b: BranchId, fork_seq: Seq, child: BranchId) {
+        let first = self.branch(child).first;
+        let keys: Vec<Key> = self
+            .slots
+            .iter()
+            .filter(|(_, slots)| slots.iter().any(|slot| slot.branch == b))
+            .map(|(key, _)| *key)
+            .collect();
+        for key in keys {
+            let slot = self.slot(key, b).expect("filtered above");
+            let claim = slot.claim.as_ref().map(|claim| Claim {
+                cert: claim.cert.clone(),
+                window: if claim.window.covers(fork_seq) {
+                    Window::open(first)
+                } else {
+                    Window::empty(first)
+                },
+                data: claim.data.clone(),
+            });
+            let dirty = slot.untracked.at(fork_seq).map(|entry| Entry {
+                seq: first,
+                revision: entry.revision,
+                data: entry.data,
+            });
+            if let Some(claim) = claim
+                && self
+                    .slot(key, child)
+                    .is_none_or(|slot| slot.claim.is_none())
+            {
+                self.set_claim(key, child, Some(claim));
+            }
+            if let Some(entry) = dirty {
+                let untracked = &mut self.slot_or_insert(key, child).untracked;
+                if untracked.first().is_none_or(|own| own.seq > first) {
+                    untracked.insert_first(entry);
+                }
+            }
+        }
+
+        let asserted: Vec<Key> = self
+            .assertions
+            .iter()
+            .filter(|(_, histories)| histories.iter().any(|(hb, _)| *hb == b))
+            .map(|(key, _)| *key)
+            .collect();
+        for key in asserted {
+            let inherited = self.assertions[&key]
+                .iter()
+                .find(|(hb, _)| *hb == b)
+                .and_then(|(_, history)| history.at(fork_seq))
+                .map(|entry| Entry {
+                    seq: first,
+                    revision: entry.revision,
+                    data: entry.data,
+                });
+            if let Some(entry) = inherited {
+                let history = self.assertion_history_mut(key, child);
+                if history.first().is_none_or(|own| own.seq > first) {
+                    history.insert_first(entry);
+                }
+            }
+        }
+    }
+
     pub(crate) fn branch(&self, b: BranchId) -> &Branch {
-        &self.branches[b.index()]
+        self.branches[b.index()]
+            .as_ref()
+            .unwrap_or_else(|| panic!("{b:?} has been deleted"))
     }
 
     pub(crate) fn branch_mut(&mut self, b: BranchId) -> &mut Branch {
-        &mut self.branches[b.index()]
+        self.branches[b.index()]
+            .as_mut()
+            .unwrap_or_else(|| panic!("{b:?} has been deleted"))
     }
 
     pub(crate) fn slot(&self, key: Key, b: BranchId) -> Option<&Slot<E>> {

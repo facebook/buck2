@@ -61,6 +61,19 @@ impl<R, T> History<R, T> {
         self.entries().last()
     }
 
+    /// Prepends an assertion, which must be earlier than every existing one.
+    pub(crate) fn insert_first(&mut self, entry: Entry<R, T>) {
+        if let Some(first) = self.first() {
+            assert!(
+                entry.seq < first.seq,
+                "a prepended assertion precedes the history ({:?} before {:?})",
+                entry.seq,
+                first.seq
+            );
+        }
+        self.entries.insert(0, entry);
+    }
+
     /// Appends an assertion, which must be later than every existing one.
     pub(crate) fn push(&mut self, entry: Entry<R, T>) {
         if let Some(last) = self.last() {

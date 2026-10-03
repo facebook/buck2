@@ -75,3 +75,18 @@ fn roots_share_the_initial_epsilon() {
     assert_eq!(s.valid_at(k(0), v2), Some(r(2)));
     assert_eq!(s.valid_at(k(0), s.head(first)), Some(r(1)));
 }
+
+/// A root is a branch like any other to delete, the first one included.
+#[test]
+fn roots_can_be_deleted() {
+    let mut s = State::new();
+    let root = s.new_root();
+    s.assert_at(root, k(0), r(1));
+    assert_eq!(s.delete_checked(root), vec![k(0)]);
+    assert!(!s.is_live(root));
+    s.delete_checked(BranchId::FIRST);
+    assert_eq!(s.branches().count(), 0);
+    let again = s.new_root();
+    assert_ne!(again, root);
+    assert_eq!(s.branches().collect::<Vec<_>>(), vec![again]);
+}

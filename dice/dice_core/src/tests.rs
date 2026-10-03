@@ -28,6 +28,7 @@ use crate::ids::BranchId;
 mod cascade;
 mod commit;
 mod cycles;
+mod delete;
 mod epsilon;
 mod fork;
 mod resolution;
@@ -79,6 +80,7 @@ pub(crate) trait StateExt {
     fn commit_checked(&mut self, b: BranchId, changes: Vec<Change<()>>) -> Version;
     fn write_checked(&mut self, cert: &TestCert) -> WriteOutcome;
     fn fork_checked(&mut self, from: Version) -> BranchId;
+    fn delete_checked(&mut self, b: BranchId) -> Vec<Key>;
     fn take_checked(&mut self);
     fn valid_at(&self, key: Key, v: Version) -> Option<Revision>;
     fn candidate_at(&self, key: Key, v: Version) -> Option<Revision>;
@@ -121,6 +123,13 @@ impl StateExt for State {
         let b = self.fork(from);
         self.check_invariants();
         b
+    }
+
+    fn delete_checked(&mut self, b: BranchId) -> Vec<Key> {
+        let mut affected = self.delete_branch(b);
+        self.check_invariants();
+        affected.sort();
+        affected
     }
 
     fn take_checked(&mut self) {

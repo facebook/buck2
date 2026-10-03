@@ -64,7 +64,7 @@ impl<E: Env> CoreState<E> {
         // Branch ids increase from parent to child, so id order is ancestor-first.
         for index in 0..self.branches.len() {
             let b = BranchId::from_index(index);
-            if self.attached(key, b).is_some() {
+            if !self.is_live(b) || self.attached(key, b).is_some() {
                 continue;
             }
             let cover = self.cover(b, &cert);

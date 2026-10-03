@@ -37,7 +37,7 @@ impl<E: Env> CoreState<E> {
             );
         }
         let child = BranchId::from_index(self.branches.len());
-        self.branches.push(Branch::forked(from));
+        self.branches.push(Some(Branch::forked(from)));
         self.branch_mut(b).children.push((child, s));
         let first = self.branch(child).first;
 

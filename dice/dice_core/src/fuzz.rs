@@ -189,6 +189,19 @@ impl Run {
             .record_version(self.state.head(root), None, Vec::new());
         root
     }
+
+    /// Deletes one of the live branches, chosen by `index`, unless it is the last one. The oracle
+    /// keeps the deleted versions: the facts about them stay true, the surviving branches still
+    /// descend from them there, and they are just never asked about again.
+    fn delete(&mut self, index: usize) {
+        let live: Vec<BranchId> = self.state.branches().collect();
+        if live.len() < 2 {
+            return;
+        }
+        self.state.delete_branch(live[index % live.len()]);
+        self.state.check_invariants();
+    }
+
     fn write(&mut self, cert: &TestCert) {
         self.state.write(cert.clone(), ());
         self.state.check_invariants();
@@ -273,6 +286,9 @@ enum Op {
         branch: usize,
         seq: usize,
     },
+    Delete {
+        branch: usize,
+    },
     NewRoot,
     Take,
 }
@@ -310,10 +326,13 @@ fn gen_ops(rng: &mut Rng, count: usize) -> Vec<Op> {
                     .collect(),
                 epsilon: rng.below(4),
             },
-            72..=97 => Op::Lookup {
+            72..=95 => Op::Lookup {
                 key: rng.below(KEYS),
                 branch: rng.below(MAX_BRANCHES),
                 seq: rng.below(16),
+            },
+            96..=97 => Op::Delete {
+                branch: rng.below(MAX_BRANCHES),
             },
             _ => Op::Take,
         })
@@ -377,6 +396,7 @@ fn run_ops(_seed: u64, ops: &[Op]) {
                 let v = version_of(&run.state, *branch, *seq);
                 run.check_lookup(any_key(*key), v);
             }
+            Op::Delete { branch } => run.delete(*branch),
             Op::NewRoot => {
                 if run.state.branches().count() < MAX_BRANCHES {
                     run.new_root();
@@ -415,6 +435,9 @@ enum HonestOp {
         branch: usize,
         seq: usize,
     },
+    Delete {
+        branch: usize,
+    },
     NewRoot,
     Take,
 }
@@ -445,10 +468,13 @@ fn gen_honest_ops(rng: &mut Rng, count: usize) -> Vec<HonestOp> {
                 seq: rng.below(16),
             },
             37 => HonestOp::NewRoot,
-            38..=97 => HonestOp::Query {
+            38..=95 => HonestOp::Query {
                 key: rng.below(KEYS),
                 branch: rng.below(MAX_BRANCHES),
                 seq: rng.below(16),
+            },
+            96..=97 => HonestOp::Delete {
+                branch: rng.below(MAX_BRANCHES),
             },
             _ => HonestOp::Take,
         })
@@ -716,6 +742,7 @@ fn run_honest_ops(seed: u64, ops: &[HonestOp]) {
                     honest.ensure(any_key(*key), v);
                 }
             }
+            HonestOp::Delete { branch } => honest.run.delete(*branch),
             HonestOp::NewRoot => {
                 if honest.run.state.branches().count() < MAX_BRANCHES {
                     let root = honest.run.new_root();

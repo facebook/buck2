@@ -56,6 +56,18 @@ impl Branch {
         }
     }
 
+    /// Forgets `child`, which must be one of this branch's children. Children are unordered.
+    pub(crate) fn remove_child(&mut self, child: BranchId) {
+        let index = self
+            .children
+            .iter()
+            .position(|(c, _)| *c == child)
+            .unwrap_or_else(|| panic!("{child:?} is not a child of this branch"));
+        let last = self.children.len() - 1;
+        self.children.as_mut_slice().swap(index, last);
+        self.children.pop();
+    }
+
     pub(crate) fn add_edge(&mut self, dep: Key, dependent: Key) {
         self.rdeps.entry(dep).or_default().push(dependent);
     }
