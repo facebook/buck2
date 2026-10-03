@@ -217,9 +217,9 @@ impl<E: Env> CoreState<E> {
 
     /// Forgets every claim and every reverse-dependency edge, keeping the histories of untracked
     /// inputs and of injected keys, so that only asserted keys resolve afterwards (§2.3). Every
-    /// branch gets a fresh head version, identical in content to the old one: the environment
-    /// rejects writes by version, and the new head separates the transactions that observed the
-    /// forgotten state from those that start after it. Returns the root's new head.
+    /// branch gets a fresh head version, identical in content to the old one, so that an
+    /// environment which shares work between transactions by version does not hand the forgotten
+    /// state's work to transactions that start after the take. Returns the root's new head.
     pub fn take(&mut self) -> Version {
         for branch in &mut self.branches {
             branch.rdeps.clear();

@@ -25,7 +25,6 @@ use crate::core::graph::revision::EpsilonToken;
 use crate::core::graph::revision::Revision;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::state::CoreStateHandle;
-use crate::core::versions::VersionEpoch;
 use crate::deps::RecordingDepsTracker;
 use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
@@ -63,7 +62,6 @@ use crate::versions::VersionNumber;
 #[derivative(Debug)]
 pub(crate) struct VersionEpochState {
     version: VersionNumber,
-    pub(crate) version_epoch: VersionEpoch,
     #[derivative(Debug = "ignore")]
     cache: SharedCache,
 }
@@ -74,12 +72,8 @@ enum LookupResult<'d> {
 }
 
 impl VersionEpochState {
-    pub(crate) fn new(v: VersionNumber, version_epoch: VersionEpoch, cache: SharedCache) -> Self {
-        Self {
-            version: v,
-            version_epoch,
-            cache,
-        }
+    pub(crate) fn new(v: VersionNumber, cache: SharedCache) -> Self {
+        Self { version: v, cache }
     }
 
     fn lookup_entry(&self, key: DiceKey, parent_key: ParentKey) -> LookupResult<'_> {
@@ -133,7 +127,6 @@ impl VersionEpochState {
                 DiceTaskWorker::spawn(
                     key,
                     prepared_dice_task,
-                    self.version_epoch,
                     eval,
                     cycles,
                     previously_cancelled_task,
@@ -180,7 +173,6 @@ impl VersionEpochState {
                     handle,
                     key,
                     self.version,
-                    self.version_epoch,
                     eval_result,
                 );
                 transaction.finished(key);
@@ -408,7 +400,6 @@ fn handle_project_eval_result(
     handle: ProjectionTaskCompletionHandle,
     k: DiceKey,
     v: VersionNumber,
-    version_epoch: VersionEpoch,
     eval_result: KeyEvaluationResult,
 ) -> TransactionResult<DiceComputedValue> {
     let KeyEvaluationResult {
@@ -424,7 +415,6 @@ fn handle_project_eval_result(
         Ok(valid_value) => {
             let rx = state.update_computed(
                 VersionedGraphKey::new(v, k),
-                version_epoch,
                 storage,
                 valid_value,
                 deps.certify(),

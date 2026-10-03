@@ -30,7 +30,6 @@ use crate::core::graph::types::Candidate;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
 use crate::core::state::CoreStateHandle;
-use crate::core::versions::VersionEpoch;
 use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
@@ -78,14 +77,12 @@ pub(crate) type WorkerResult<T> = Result<T, WorkerCancelled>;
 pub(crate) struct DiceTaskWorker {
     k: DiceKey,
     eval: TransactionData,
-    version_epoch: VersionEpoch,
 }
 
 impl DiceTaskWorker {
     pub(crate) fn spawn(
         k: DiceKey,
         prepared_task: PreparedDiceTask,
-        version_epoch: VersionEpoch,
         eval: TransactionData,
         cycles: UserCycleDetectorData,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
@@ -94,11 +91,7 @@ impl DiceTaskWorker {
         let spawner_ctx = eval.user_data.dupe();
         let state_handle = eval.dice.state_handle.dupe();
 
-        let worker = DiceTaskWorker {
-            k,
-            eval,
-            version_epoch,
-        };
+        let worker = DiceTaskWorker { k, eval };
 
         spawn_prepared_task(prepared_task, &*spawner, &spawner_ctx, move |handle| {
             // NOTE: important to run prevent cancellation eagerly in the sync scope to prevent
@@ -257,7 +250,6 @@ impl DiceTaskWorker {
                                 let response = state_handle
                                     .revalidate(
                                         VersionedGraphKey::new(v, self.k),
-                                        self.version_epoch,
                                         self.eval.storage_type(self.k),
                                         to_revalidate,
                                         invalidation_paths,
@@ -332,7 +324,6 @@ impl DiceTaskWorker {
                     state_handle
                         .update_computed(
                             VersionedGraphKey::new(v, self.k),
-                            self.version_epoch,
                             result.storage,
                             value,
                             result.deps.certify(),

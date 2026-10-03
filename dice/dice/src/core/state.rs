@@ -32,7 +32,6 @@ use crate::core::graph::types::VersionedGraphResult;
 use crate::core::internals::ActorState;
 use crate::core::internals::PagableStatusRaw;
 use crate::core::processor::StateProcessor;
-use crate::core::versions::VersionEpoch;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::PagableNodeCounts;
@@ -204,7 +203,6 @@ impl CoreStateHandle {
     pub(crate) fn update_computed(
         &self,
         key: VersionedGraphKey,
-        epoch: VersionEpoch,
         storage: StorageType,
         value: DiceValidValue,
         deps: SeriesParallelDeps,
@@ -215,7 +213,6 @@ impl CoreStateHandle {
         self.call(
             StateRequest::UpdateComputed {
                 key,
-                epoch,
                 storage,
                 value,
                 deps,
@@ -232,7 +229,6 @@ impl CoreStateHandle {
     pub(crate) fn revalidate(
         &self,
         key: VersionedGraphKey,
-        epoch: VersionEpoch,
         storage: StorageType,
         candidate: Candidate,
         invalidation_paths: TrackedInvalidationPaths,
@@ -241,7 +237,6 @@ impl CoreStateHandle {
         self.call(
             StateRequest::Revalidate {
                 key,
-                epoch,
                 storage,
                 candidate,
                 resp,
@@ -394,7 +389,6 @@ pub(super) enum StateRequest {
     /// Report that a value has been computed
     UpdateComputed {
         key: VersionedGraphKey,
-        epoch: VersionEpoch,
         /// The storage selection for the key,
         storage: StorageType,
         /// The newly computed value
@@ -411,7 +405,6 @@ pub(super) enum StateRequest {
     /// Report that a candidate certificate has been verified to hold at the version
     Revalidate {
         key: VersionedGraphKey,
-        epoch: VersionEpoch,
         /// The storage selection for the key,
         storage: StorageType,
         /// The certificate that was verified

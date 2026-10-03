@@ -19,7 +19,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
-use assert_matches::assert_matches;
 use async_trait::async_trait;
 use derive_more::Display;
 use dice_error::DiceError;
@@ -49,7 +48,6 @@ use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
 use crate::arc::Arc;
 use crate::core::graph::revision::Revision;
-use crate::core::versions::VersionEpoch;
 use crate::deps::RecordingDepsTracker;
 use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
@@ -158,21 +156,13 @@ impl Key for Finish {
 
 fn spawn_task(
     k: DiceKey,
-    version_epoch: VersionEpoch,
     eval: TransactionData,
     cycles: UserCycleDetectorData,
     previously_cancelled_task: Option<PreviouslyCancelledTask>,
 ) -> (DiceTask, DicePromise<'static>) {
     let prepared_task = DiceTask::prepare_testing(k);
     let task = prepared_task.task().clone_arc();
-    let promise = DiceTaskWorker::spawn(
-        k,
-        prepared_task,
-        version_epoch,
-        eval,
-        cycles,
-        previously_cancelled_task,
-    );
+    let promise = DiceTaskWorker::spawn(k, prepared_task, eval, cycles, previously_cancelled_task);
     (task, promise)
 }
 
@@ -317,7 +307,6 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let (task, _initial_promise) = spawn_task(
         key.dupe(),
-        ctx.version_epoch,
         eval.dupe(),
         UserCycleDetectorData::testing_new(),
         None,
@@ -347,7 +336,6 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let (task, _initial_promise) = spawn_task(
         key.dupe(),
-        ctx.version_epoch,
         eval.dupe(),
         UserCycleDetectorData::testing_new(),
         None,
@@ -399,13 +387,7 @@ async fn spawn_with_no_previously_cancelled_task() {
     let cycles = UserCycleDetectorData::testing_new();
     let previously_cancelled_task = None;
 
-    let (task, _initial_promise) = spawn_task(
-        k,
-        VersionEpoch::testing_new(0),
-        eval,
-        cycles,
-        previously_cancelled_task,
-    );
+    let (task, _initial_promise) = spawn_task(k, eval, cycles, previously_cancelled_task);
 
     assert!(
         task.depended_on_by(ParentKey::None)
@@ -459,8 +441,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     }
 
     let k = dice.key_index.index_key(CancellableNeverFinish);
-    let (previous_task, prev_task_promise) =
-        spawn_task(k, VersionEpoch::testing_new(0), eval.dupe(), cycles, None);
+    let (previous_task, prev_task_promise) = spawn_task(k, eval.dupe(), cycles, None);
 
     drop(prev_task_promise);
 
@@ -471,13 +452,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
     let cycles = UserCycleDetectorData::testing_new();
-    let (task, _initial_promise) = spawn_task(
-        k,
-        VersionEpoch::testing_new(0),
-        eval,
-        cycles,
-        previously_cancelled_task,
-    );
+    let (task, _initial_promise) = spawn_task(k, eval, cycles, previously_cancelled_task);
 
     assert!(
         task.depended_on_by(ParentKey::None)
@@ -530,8 +505,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     }
 
     let k = dice.key_index.index_key(Finish);
-    let (previous_task, prev_task_promise) =
-        spawn_task(k, VersionEpoch::testing_new(0), eval.dupe(), cycles, None);
+    let (previous_task, prev_task_promise) = spawn_task(k, eval.dupe(), cycles, None);
     // wait for it to finish then trigger cancel
     previous_task
         .depended_on_by(ParentKey::None)
@@ -549,13 +523,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
     let cycles = UserCycleDetectorData::testing_new();
-    let (task, _initial_promise) = spawn_task(
-        k,
-        VersionEpoch::testing_new(0),
-        eval,
-        cycles,
-        previously_cancelled_task,
-    );
+    let (task, _initial_promise) = spawn_task(k, eval, cycles, previously_cancelled_task);
 
     assert!(
         task.depended_on_by(ParentKey::None)
@@ -574,8 +542,9 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     assert!(!is_ran.load(Ordering::SeqCst));
 }
 
+/// A worker outliving the last transaction at its version still gets its result stored.
 #[tokio::test]
-async fn mismatch_epoch_results_in_cancelled_result() {
+async fn writes_after_the_last_transaction_is_dropped_are_accepted() {
     let dice = Dice::new(DiceData::new(), None);
 
     let (shared_ctx, guard) = dice.testing_shared_ctx(VersionNumber::testing_new(1)).await;
@@ -588,20 +557,17 @@ async fn mismatch_epoch_results_in_cancelled_result() {
     };
     let cycles = UserCycleDetectorData::testing_new();
 
-    // trigger dice to delete and update the epoch
     drop(guard);
 
     let k = dice.key_index.index_key(Finish);
-    let (task, _initial_promise) =
-        spawn_task(k, shared_ctx.version_epoch, eval.dupe(), cycles, None);
-    // wait for it to finish then trigger cancel
-    assert_matches!(
+    let (task, _initial_promise) = spawn_task(k, eval.dupe(), cycles, None);
+    assert!(
         task.depended_on_by(ParentKey::None)
             .unwrap()
             .await
             .as_ref()
-            .into_dice_result(),
-        Err(_) => {}
+            .into_dice_result()
+            .is_ok()
     );
 }
 
@@ -700,15 +666,13 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
     };
     let cycles = UserCycleDetectorData::testing_new();
 
-    let (first_task, first_task_promise) =
-        spawn_task(k, VersionEpoch::testing_new(0), eval.dupe(), cycles, None);
+    let (first_task, first_task_promise) = spawn_task(k, eval.dupe(), cycles, None);
     is_started.notified().await;
     drop(first_task_promise);
 
     let cycles = UserCycleDetectorData::testing_new();
     let (second_task, second_task_promise) = spawn_task(
         k,
-        VersionEpoch::testing_new(0),
         eval.dupe(),
         cycles,
         Some(PreviouslyCancelledTask::new(
@@ -721,7 +685,6 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
     let cycles = UserCycleDetectorData::testing_new();
     let (third_task, _third_task_promise) = spawn_task(
         k,
-        VersionEpoch::testing_new(0),
         eval,
         cycles,
         Some(PreviouslyCancelledTask::new(

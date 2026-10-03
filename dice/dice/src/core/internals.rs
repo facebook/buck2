@@ -17,7 +17,6 @@ use crate::core::graph::VersionedGraph;
 use crate::core::graph::introspection::VersionedGraphIntrospectable;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
-use crate::core::versions::VersionEpoch;
 use crate::core::versions::VersionTracker;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::dice::PagableNodeCounts;
@@ -80,7 +79,7 @@ impl ActorState {
         self.graph.commit(updates)
     }
 
-    pub(super) fn ctx_at_version(&mut self, v: VersionNumber) -> (VersionEpoch, SharedCache) {
+    pub(super) fn ctx_at_version(&mut self, v: VersionNumber) -> SharedCache {
         self.version_tracker.at(v)
     }
 
@@ -104,7 +103,6 @@ impl ActorState {
     pub(super) fn update_computed(
         &mut self,
         key: VersionedGraphKey,
-        epoch: VersionEpoch,
         storage: StorageType,
         update: ValueUpdate,
         invalidation_paths: TrackedInvalidationPaths,
@@ -114,11 +112,7 @@ impl ActorState {
                 "Injected keys should not receive update calls, as those are only from a compute() finishing and InjectedKeys have no compute()"
             );
         }
-        if self.version_tracker.is_cancelled(key.v, epoch) {
-            TransactionResult::make_cancelled()
-        } else {
-            TransactionResult::ok(self.graph.update(key, update, invalidation_paths))
-        }
+        TransactionResult::ok(self.graph.update(key, update, invalidation_paths))
     }
 
     pub(super) fn get_tasks_pending_cancellation(&mut self) -> Vec<DiceTask> {
@@ -129,8 +123,7 @@ impl ActorState {
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
-        let first_kept = self.graph.take();
-        self.version_tracker.discard_before(first_kept);
+        self.graph.take();
     }
 
     /// Evict values that still share the exact allocation serialized by page-out.
@@ -285,37 +278,33 @@ mod tests {
         let mut core = ActorState::new(None);
         let v = VersionNumber::testing_new(1);
 
-        let (epoch, ctx) = core.ctx_at_version(v);
+        let ctx = core.ctx_at_version(v);
 
-        let (epoch1, ctx1) = core.ctx_at_version(v);
+        let ctx1 = core.ctx_at_version(v);
         assert!(ctx.ptr_eq(&ctx1));
-        assert_eq!(epoch, epoch1);
 
         // if you drop one, there is still reference so getting the same version should give the
         // same instance of ctx
         core.drop_ctx_at_version(v);
-        let (epoch2, ctx2) = core.ctx_at_version(v);
+        let ctx2 = core.ctx_at_version(v);
         assert!(ctx.ptr_eq(&ctx2));
-        assert_eq!(epoch1, epoch2);
 
         // drop all references, should give a different ctx instance
         core.drop_ctx_at_version(v);
         core.drop_ctx_at_version(v);
-        let (another_epoch, another) = core.ctx_at_version(v);
+        let another = core.ctx_at_version(v);
         assert!(!ctx.ptr_eq(&another));
-        assert_ne!(another_epoch, epoch);
     }
 
     #[test]
     fn non_pageable_nodes_are_not_page_out_candidates() {
         let mut core = ActorState::new(None);
         let v = VersionNumber::FIRST;
-        let (epoch, _ctx) = core.ctx_at_version(v);
+        let _ctx = core.ctx_at_version(v);
 
         let compute = |core: &mut ActorState, index: u32| {
             let res = core.update_computed(
                 VersionedGraphKey::new(v, DiceKey { index }),
-                epoch,
                 StorageType::Normal,
                 ValueUpdate::Computed {
                     value: DiceValidValue::testing_new(DiceKeyValue::<K>::new(index as usize)),
@@ -354,16 +343,17 @@ mod tests {
         assert_eq!(candidates(&core), vec![1]);
     }
 
-    /// A write from a transaction that predates an `unstable_take` is rejected.
+    /// A write from a transaction that predates an `unstable_take` is a certificate like any
+    /// other: it installs wherever it holds, the new head included.
     #[test]
-    fn writes_from_before_a_take_are_cancelled() {
+    fn writes_from_before_a_take_are_accepted() {
         let mut core = ActorState::new(None);
         let v = VersionNumber::FIRST;
-        let (epoch, _ctx) = core.ctx_at_version(v);
+        let _ctx = core.ctx_at_version(v);
         core.unstable_drop_everything();
+        let key = DiceKey { index: 0 };
         let res = core.update_computed(
-            VersionedGraphKey::new(v, DiceKey { index: 0 }),
-            epoch,
+            VersionedGraphKey::new(v, key),
             StorageType::Normal,
             ValueUpdate::Computed {
                 value: DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
@@ -372,8 +362,14 @@ mod tests {
             },
             TrackedInvalidationPaths::clean(),
         );
-        assert!(res.unpack().is_err());
-        assert_eq!(core.current_version(), VersionNumber::testing_new(2));
+        assert!(res.unpack().is_ok());
+        let head = core.current_version();
+        assert_eq!(head, VersionNumber::testing_new(2));
+        assert!(
+            core.lookup_key(VersionedGraphKey::new(head, key))
+                .unpack_match()
+                .is_some()
+        );
     }
 
     async fn make_finished_cancelling_task(key: DiceKey) -> DiceTask {
@@ -459,7 +455,7 @@ mod tests {
         let mut core = ActorState::new(None);
         let v = VersionNumber::testing_new(1);
 
-        let (_epoch, cache) = core.ctx_at_version(v);
+        let cache = core.ctx_at_version(v);
 
         let completed_key1 = DiceKey { index: 10 };
         let completed_key2 = DiceKey { index: 20 };
@@ -508,7 +504,7 @@ mod tests {
         let _p = arrive_cancel1.acquire().await.unwrap();
         let _p = arrive_cancel2.acquire().await.unwrap();
 
-        let (_epoch, cache) = core.ctx_at_version(v);
+        let cache = core.ctx_at_version(v);
 
         let never_cancel_tasks2 = make_never_cancellable_task(DiceKey { index: 300 }).await;
 

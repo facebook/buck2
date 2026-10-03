@@ -75,9 +75,9 @@ impl StateProcessor {
                 guard,
                 resp,
             } => {
-                let (version_epoch, cache) = self.state.ctx_at_version(version);
+                let cache = self.state.ctx_at_version(version);
 
-                let ctx = VersionEpochState::new(version, version_epoch, cache);
+                let ctx = VersionEpochState::new(version, cache);
                 let _ignored = resp.send((ctx, guard));
             }
             StateRequest::DropCtxAtVersion { version } => self.state.drop_ctx_at_version(version),
@@ -88,7 +88,6 @@ impl StateProcessor {
             StateRequest::LookupKey { key, resp } => drop(resp.send(self.state.lookup_key(key))),
             StateRequest::UpdateComputed {
                 key,
-                epoch,
                 storage,
                 value,
                 deps,
@@ -99,7 +98,6 @@ impl StateProcessor {
                 // ignore error if the requester dropped it.
                 drop(resp.send(self.state.update_computed(
                     key,
-                    epoch,
                     storage,
                     ValueUpdate::Computed {
                         value,
@@ -111,7 +109,6 @@ impl StateProcessor {
             }
             StateRequest::Revalidate {
                 key,
-                epoch,
                 storage,
                 candidate,
                 invalidation_paths,
@@ -120,7 +117,6 @@ impl StateProcessor {
                 // ignore error if the requester dropped it.
                 drop(resp.send(self.state.update_computed(
                     key,
-                    epoch,
                     storage,
                     ValueUpdate::DependencyValidated { candidate },
                     invalidation_paths,
