@@ -33,10 +33,13 @@ use crate::cells::name::CellName;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::Configuration;
 use crate::configuration::pair::ConfigurationNoExec;
+use crate::package::PackageLabel;
 use crate::pattern::pattern::ParsedPattern;
+use crate::pattern::pattern::split_providers_name;
 use crate::pattern::pattern_type::ProvidersPatternExtra;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::label::TargetLabel;
+use crate::target::name::TargetNameRef;
 
 #[derive(
     Display,
@@ -204,6 +207,15 @@ size_assert::words_of_type!(ProvidersLabel, 2);
 impl ProvidersLabel {
     pub fn new(target: TargetLabel, name: ProvidersName) -> Self {
         ProvidersLabel { target, name }
+    }
+
+    /// Parse a target name and optional subtarget selectors within a resolved package.
+    pub fn parse_in_package(package: PackageLabel, target: &str) -> buck2_error::Result<Self> {
+        let (target, providers) = split_providers_name(target)?;
+        Ok(Self::new(
+            TargetLabel::new(package, TargetNameRef::new(target)?),
+            providers,
+        ))
     }
 
     pub fn default_for(target: TargetLabel) -> Self {

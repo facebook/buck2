@@ -13,6 +13,7 @@
 use buck2_common::file_ops::metadata::FileDigest;
 use buck2_core::cells::CellResolver;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_data::ToProtoMessage;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -32,12 +33,10 @@ pub(crate) fn build_configured_target_handle(
     package_oncall: Option<String>,
 ) -> buck2_error::Result<ConfiguredTarget> {
     let label = target.target().unconfigured();
-    let cell = label.pkg().cell_name().to_string();
-    let package = label.pkg().cell_relative_path().to_string();
-    let target_name = if cfg!(fbcode_build) {
-        label.name().to_string()
+    let providers_label = if cfg!(fbcode_build) {
+        ProvidersLabel::default_for(label.clone())
     } else {
-        label.name().to_string() + &target.name().to_string()
+        target.unconfigured()
     };
     let configuration = target.cfg().to_string();
     let package_project_relative_path = cell_resolver
@@ -46,9 +45,7 @@ pub(crate) fn build_configured_target_handle(
 
     Ok(ConfiguredTarget {
         handle: session.register(target),
-        cell,
-        package,
-        target: target_name,
+        label: providers_label,
         configuration,
         package_project_relative_path: package_project_relative_path.into(),
         test_config_unification_rollout,
