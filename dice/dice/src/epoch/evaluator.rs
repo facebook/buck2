@@ -87,9 +87,6 @@ impl VersionState {
                 SharedCacheInsert::Inserted(prepared_task) => {
                     return LookupResult::NeedsRestart(prepared_task, None);
                 }
-                SharedCacheInsert::TransactionCancelled(result) => {
-                    return LookupResult::Finished(result);
-                }
             },
         };
 
@@ -152,9 +149,6 @@ impl VersionState {
             SharedCacheLookup::Vacant => match self.cache.insert_projection(key) {
                 SharedCacheInsert::Occupied(task) => Err(task.get()),
                 SharedCacheInsert::Inserted(new_task) => Ok(new_task),
-                SharedCacheInsert::TransactionCancelled(r) => {
-                    return r.dupe();
-                }
             },
         };
 

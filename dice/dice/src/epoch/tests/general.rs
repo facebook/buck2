@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::sync::Barrier;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
@@ -815,4 +816,113 @@ async fn compute_with_key_returns_the_shared_key_allocation() -> anyhow::Result<
     assert!(Arc::ptr_eq(&a.0, &direct));
 
     Ok(())
+}
+
+/// A compute that is in a critical section when its transaction is dropped keeps running, the
+/// keys it requests from there are computed for it, and what it computes is kept.
+#[tokio::test]
+async fn a_dropped_transaction_still_serves_its_computes() {
+    #[derive(Clone, Dupe, Debug, Derivative, Allocative, Display, PagablePanic)]
+    #[derivative(PartialEq, Eq, Hash)]
+    #[display("{:?}", self)]
+    #[allocative(skip)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Outer {
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
+        started: Arc<tokio::sync::Semaphore>,
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
+        proceed: Arc<tokio::sync::Semaphore>,
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
+        done: Arc<tokio::sync::Semaphore>,
+        #[derivative(Hash = "ignore", PartialEq = "ignore")]
+        inner_value: Arc<AtomicUsize>,
+    }
+
+    #[async_trait]
+    impl Key for Outer {
+        type Value = ();
+
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            cancellations: &CancellationContext,
+        ) -> Self::Value {
+            cancellations
+                .critical_section(|| async move {
+                    self.started.add_permits(1);
+                    let _p = self.proceed.acquire().await.unwrap();
+                    let inner = *ctx.compute(&Inner).await.unwrap();
+                    self.inner_value.store(inner, Ordering::SeqCst);
+                    self.done.add_permits(1);
+                })
+                .await
+        }
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| true)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Inner;
+
+    static INNER_COMPUTES: AtomicUsize = AtomicUsize::new(0);
+
+    #[async_trait]
+    impl Key for Inner {
+        type Value = usize;
+
+        async fn compute(
+            &self,
+            _ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            INNER_COMPUTES.fetch_add(1, Ordering::SeqCst);
+            42
+        }
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let ctx = dice.updater().commit().await;
+
+    let key = Outer {
+        started: Arc::new(tokio::sync::Semaphore::new(0)),
+        proceed: Arc::new(tokio::sync::Semaphore::new(0)),
+        done: Arc::new(tokio::sync::Semaphore::new(0)),
+        inner_value: Arc::new(AtomicUsize::new(0)),
+    };
+
+    let req = ctx.compute(&key);
+    key.started.acquire().await.unwrap().forget();
+
+    // Everything that refers to the compute goes away while it sits in its critical section.
+    drop(req);
+    drop(ctx);
+    assert!(!dice.is_idle().await);
+
+    key.proceed.add_permits(1);
+    key.done.acquire().await.unwrap().forget();
+    assert_eq!(key.inner_value.load(Ordering::SeqCst), 42);
+
+    dice.wait_for_idle().await;
+    assert!(dice.is_idle().await);
+
+    // The value the abandoned compute produced for `Inner` was kept.
+    let ctx = dice.updater().commit().await;
+    assert_eq!(*ctx.compute(&Inner).await.unwrap(), 42);
+    assert_eq!(INNER_COMPUTES.load(Ordering::SeqCst), 1);
 }

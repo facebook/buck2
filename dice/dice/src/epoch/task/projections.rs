@@ -140,24 +140,16 @@ impl ProjectionTaskCompletionHandle {
     ) -> TransactionResult<DiceComputedValue> {
         ProjectionTask::insert_computed(self.0.take().unwrap(), result)
     }
-
-    pub(crate) fn cancel(mut self, token: TransactionCancelled) {
-        self.0.take().unwrap().cancel(token);
-    }
 }
 
 impl Drop for ProjectionTaskCompletionHandle {
     fn drop(&mut self) {
         if let Some(t) = self.0.take() {
+            t.cancel(TransactionCancelled);
             // Attempt to enforce that this handle was completed or cancelled. Cancellation paths
             // tend to be a bit poorly tested though, so do that in unit tests only.
-            #[cfg(not(test))]
-            t.cancel(TransactionCancelled);
             #[cfg(test)]
-            {
-                drop(t);
-                unreachable!();
-            }
+            unreachable!();
         }
     }
 }

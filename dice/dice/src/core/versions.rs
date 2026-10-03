@@ -13,13 +13,20 @@ use dupe::Dupe;
 
 use crate::HashMap;
 use crate::epoch::cache::SharedCache;
+use crate::epoch::cache::WeakSharedCache;
+use crate::epoch::task::dice::DiceTask;
 use crate::versions::VersionNumber;
 
-/// The transactions in flight: one shared task cache per active version.
+/// The transactions in flight: one shared task cache per active version, and the caches of the
+/// versions whose transactions are all gone while a task of theirs may still be running.
 #[derive(Allocative)]
 pub(crate) struct VersionTracker {
     /// Tracks the currently active versions and how many contexts are holding each of them.
     active_versions: HashMap<VersionNumber, ActiveVersionData>,
+    /// The caches of versions no transaction holds any more. Held weakly: the workers still
+    /// running in a cache keep it alive, and it goes away with the last of them.
+    #[allocative(skip)]
+    draining: Vec<WeakSharedCache>,
 }
 
 #[derive(Debug, Allocative)]
@@ -32,6 +39,7 @@ impl VersionTracker {
     pub(crate) fn new() -> Self {
         VersionTracker {
             active_versions: HashMap::default(),
+            draining: Vec::new(),
         }
     }
 
@@ -55,28 +63,35 @@ impl VersionTracker {
         entry.per_transaction_data.dupe()
     }
 
-    /// Drops reference to a VersionNumber given the token
-    pub(crate) fn drop_at_version(&mut self, v: VersionNumber) -> Option<SharedCache> {
-        let ref_count = {
-            let entry = self
-                .active_versions
-                .get_mut(&v)
-                .expect("shouldn't be able to return version without obtaining one");
+    /// Drops one reference to `v`. The last one dropped leaves the version's cache to drain:
+    /// the tasks in it go on as they were, but no later transaction shares them.
+    pub(crate) fn drop_at_version(&mut self, v: VersionNumber) {
+        let entry = self
+            .active_versions
+            .get_mut(&v)
+            .expect("shouldn't be able to return version without obtaining one");
 
-            entry.ref_count -= 1;
-            entry.ref_count
-        };
-
-        if ref_count == 0 {
-            Some(
-                self.active_versions
-                    .remove(&v)
-                    .expect("existed above")
-                    .per_transaction_data,
-            )
-        } else {
-            None
+        entry.ref_count -= 1;
+        if entry.ref_count == 0 {
+            let data = self.active_versions.remove(&v).expect("existed above");
+            self.draining.retain(|cache| cache.is_alive());
+            self.draining.push(data.per_transaction_data.downgrade());
         }
+    }
+
+    /// Every task of a dropped transaction that may still be running.
+    pub(crate) fn pending_tasks(&mut self) -> Vec<DiceTask> {
+        let mut pending = Vec::new();
+        self.draining.retain(|weak| {
+            let Some(cache) = weak.upgrade() else {
+                return false;
+            };
+            let tasks = cache.pending_tasks();
+            let keep = !tasks.is_empty();
+            pending.extend(tasks);
+            keep
+        });
+        pending
     }
 }
 

@@ -31,7 +31,6 @@ use futures::future::BoxFuture;
 use parking_lot::Mutex;
 
 use super::handle::DiceTaskHandle;
-use crate::epoch::cache::TransactionCancelled;
 use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::promise::DicePromise;
@@ -89,6 +88,7 @@ impl DiceTask {
         self.as_ref().is_cancelled()
     }
 
+    #[cfg(test)]
     pub(crate) fn is_pending(&self) -> bool {
         self.as_ref().is_pending()
     }
@@ -487,15 +487,6 @@ impl<'d> DiceTaskRef<'d> {
         }
     }
 
-    /// Cancels the task, ensuring no new workers can be started, and return whether any work is
-    /// pending
-    pub(crate) fn cancel(&self, token: TransactionCancelled) -> bool {
-        drop(self.internal.maybe_value.set(TransactionResult::err(token)));
-        let mut guard = self.internal.starter_lock.lock();
-        drop(guard.take());
-        self.is_pending()
-    }
-
     #[cfg(test)]
     pub(crate) fn is_ready(&self) -> bool {
         match self.internal.read_value() {
@@ -507,10 +498,9 @@ impl<'d> DiceTaskRef<'d> {
     #[cfg(test)]
     pub(crate) fn is_cancelled(&self) -> bool {
         // The worker was cancelled iff it produced no value at all (`Pending`, i.e. `maybe_value`
-        // unset) and its most recent generation has terminated (`terminated >= started`). A
-        // transaction cancellation is not this case: it stores a `TransactionCancelled` result, so
-        // it reads back as `Finished`. `>=` (rather than `==`) is defensive against a brief
-        // ordering window where `terminated` could momentarily exceed `started`.
+        // unset) and its most recent generation has terminated (`terminated >= started`). `>=`
+        // (rather than `==`) is defensive against a brief ordering window where `terminated`
+        // could momentarily exceed `started`.
         match self.internal.read_value() {
             ReadValueResult::Finished(_) => false,
             ReadValueResult::Pending {
@@ -638,27 +628,19 @@ pub(crate) fn spawn_prepared_task<'d, S>(
     DicePromise::pending(dependent_future)
 }
 
+/// Spawns a task outside of any cache, returning it along with its first dependent, which keeps
+/// it running for as long as it is held.
 #[cfg(test)]
 pub(crate) fn spawn_dice_task<S>(
     key: DiceKey,
     spawner: &dyn dice_futures::spawner::Spawner<S>,
     ctx: &S,
-    f: impl for<'a> FnOnce(
-        &'a mut DiceTaskHandle,
-    ) -> futures::future::BoxFuture<'a, Box<dyn std::any::Any + Send>>
-    + Send
-    + 'static,
-) -> DiceTask {
+    f: impl for<'a> FnOnce(&'a mut DiceTaskHandle) -> BoxFuture<'a, ()> + Send,
+) -> (DiceTask, DicePromise<'static>) {
     let prepared_task = DiceTask::prepare_testing(key);
     let task = prepared_task.task().clone_arc();
-    let promise = spawn_prepared_task(prepared_task, spawner, ctx, |handle| {
-        async move {
-            let _ignored = f(handle).await;
-        }
-        .boxed()
-    });
-    std::mem::forget(promise);
-    task
+    let promise = spawn_prepared_task(prepared_task, spawner, ctx, f);
+    (task, promise)
 }
 
 pub struct DiceTaskSpawner {

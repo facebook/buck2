@@ -122,8 +122,8 @@ impl StateProcessor {
                     invalidation_paths,
                 )));
             }
-            StateRequest::GetTasksPendingCancellation { resp } => {
-                let _ignored = resp.send(self.state.get_tasks_pending_cancellation());
+            StateRequest::PendingTasks { resp } => {
+                let _ignored = resp.send(self.state.pending_tasks());
             }
             StateRequest::UnstableDropEverything => self.state.unstable_drop_everything(),
             StateRequest::PagedOutKeys { resp } => {

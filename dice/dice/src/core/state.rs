@@ -246,12 +246,10 @@ impl CoreStateHandle {
         )
     }
 
-    /// Get all the tasks pending cancellation
-    pub(crate) fn get_tasks_pending_cancellation(
-        &self,
-    ) -> impl Future<Output = Vec<DiceTask>> + use<> {
+    /// Every task of a dropped transaction that may still be running
+    pub(crate) fn pending_tasks(&self) -> impl Future<Output = Vec<DiceTask>> + use<> {
         let (resp, recv) = oneshot::channel();
-        self.call(StateRequest::GetTasksPendingCancellation { resp }, recv)
+        self.call(StateRequest::PendingTasks { resp }, recv)
     }
 
     /// For unstable take
@@ -414,8 +412,8 @@ pub(super) enum StateRequest {
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<TransactionResult<DiceComputedValue>>,
     },
-    /// Get all the tasks pending cancellation
-    GetTasksPendingCancellation { resp: Sender<Vec<DiceTask>> },
+    /// Every task of a dropped transaction that may still be running
+    PendingTasks { resp: Sender<Vec<DiceTask>> },
     /// For unstable take
     UnstableDropEverything,
     /// Collect the keys of all paged-out graph nodes.

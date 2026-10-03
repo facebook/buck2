@@ -16,11 +16,9 @@ use assert_matches::assert_matches;
 use async_trait::async_trait;
 use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
-use dice_futures::spawner::Spawner;
 use dice_futures::spawner::TokioSpawner;
 use dupe::Dupe;
 use futures::FutureExt;
-use futures::future::BoxFuture;
 use futures::pin_mut;
 use futures::poll;
 use pagable::Pagable;
@@ -38,11 +36,8 @@ use crate::api::key::ValueSerialize;
 use crate::arc::Arc;
 use crate::core::graph::revision::Revision;
 use crate::epoch::cache::TransactionResult;
-use crate::epoch::task::dice::DiceTask;
 use crate::epoch::task::dice::DiceTaskDependedOnByResult;
-use crate::epoch::task::dice::spawn_prepared_task;
-use crate::epoch::task::handle::DiceTaskHandle;
-use crate::epoch::task::promise::DicePromise;
+use crate::epoch::task::spawn_dice_task;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
 use crate::value::DiceComputedValue;
@@ -74,18 +69,6 @@ impl Key for K {
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         NoValueSerialize::<Self::Value>::new()
     }
-}
-
-fn spawn_dice_task<S>(
-    key: DiceKey,
-    spawner: &dyn Spawner<S>,
-    ctx: &S,
-    f: impl for<'a> FnOnce(&'a mut DiceTaskHandle) -> BoxFuture<'a, ()> + Send,
-) -> (DiceTask, DicePromise<'static>) {
-    let prepared_task = DiceTask::prepare_testing(key);
-    let task = prepared_task.task().clone_arc();
-    let promise = spawn_prepared_task(prepared_task, spawner, ctx, f);
-    (task, promise)
 }
 
 #[tokio::test]
@@ -395,9 +378,7 @@ async fn task_that_already_cancelled_returns_cancelled() {
         |_handle| async move { futures::future::pending().await }.boxed()
     });
 
-    // Cancel the worker by dropping its only dependent. Note this is worker cancellation, not
-    // transaction cancellation: `cancel` would instead store a `TransactionCancelled` result, which
-    // reads back as `Finished` rather than triggering a restart.
+    // Cancel the worker by dropping its only dependent.
     drop(initial_promise);
     task.as_ref().await_termination().await;
 

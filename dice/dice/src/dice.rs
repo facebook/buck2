@@ -218,26 +218,32 @@ impl Dice {
         &CYCLES
     }
 
-    /// Wait until all active versions have exited.
+    /// Waits until no computation started by a transaction that has since been dropped is still
+    /// running.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
-        let rx = self.state_handle.get_tasks_pending_cancellation();
+        let state_handle = self.state_handle.dupe();
         async move {
-            let tasks = rx.await;
-            dice_futures::join::join_all(tasks.iter().map(|t| t.as_ref().await_termination()))
-                .await;
+            loop {
+                let tasks = state_handle.pending_tasks().await;
+                if tasks.is_empty() {
+                    return;
+                }
+                // A running task may still start others, so this looks again once the ones seen
+                // here are done.
+                dice_futures::join::join_all(tasks.iter().map(|t| t.as_ref().await_termination()))
+                    .await;
+            }
         }
     }
 
-    /// Returns whether there are no tasks pending cancellation.
+    /// Whether no computation started by a transaction that has since been dropped is still
+    /// running.
     ///
     /// The state query is enqueued before this method returns, so callers may preserve its ordering
     /// while awaiting the result later.
     pub fn is_idle(&self) -> impl Future<Output = bool> + use<> {
-        let tasks = self.state_handle.get_tasks_pending_cancellation();
-        async move {
-            let tasks = tasks.await;
-            tasks.iter().all(|task| !task.is_pending())
-        }
+        let tasks = self.state_handle.pending_tasks();
+        async move { tasks.await.is_empty() }
     }
 
     /// Page out every resident computed value to the configured `DiceStorage`.

@@ -34,13 +34,11 @@ use crate::value::PageOutResult;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
-/// Everything the actor thread owns: the graph, the transactions in flight, and the tasks whose
-/// cancellation is pending.
+/// Everything the actor thread owns: the graph and the transactions in flight.
 #[derive(allocative::Allocative)]
 pub(super) struct ActorState {
     version_tracker: VersionTracker,
     graph: VersionedGraph,
-    pending_termination_tasks: Vec<DiceTask>,
     /// Shared with `DiceStorage`, which measures the page-in side. `None` when
     /// pagable storage is not configured and there is nothing to account for.
     #[allocative(skip)]
@@ -67,7 +65,6 @@ impl ActorState {
         Self {
             version_tracker: VersionTracker::new(),
             graph: VersionedGraph::new(),
-            pending_termination_tasks: Vec::new(),
             paging_memory,
         }
     }
@@ -88,12 +85,7 @@ impl ActorState {
     }
 
     pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
-        if let Some(evicted_cache) = self.version_tracker.drop_at_version(v) {
-            self.pending_termination_tasks
-                .retain(|task| task.is_pending());
-            self.pending_termination_tasks
-                .extend(evicted_cache.cancel_pending_tasks());
-        }
+        self.version_tracker.drop_at_version(v);
     }
 
     pub(super) fn lookup_key(&mut self, key: VersionedGraphKey) -> VersionedGraphResult {
@@ -115,11 +107,8 @@ impl ActorState {
         TransactionResult::ok(self.graph.update(key, update, invalidation_paths))
     }
 
-    pub(super) fn get_tasks_pending_cancellation(&mut self) -> Vec<DiceTask> {
-        self.pending_termination_tasks
-            .retain(|task| task.is_pending());
-
-        self.pending_termination_tasks.clone()
+    pub(super) fn pending_tasks(&mut self) -> Vec<DiceTask> {
+        self.version_tracker.pending_tasks()
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
@@ -212,8 +201,6 @@ impl ActorState {
 
 #[cfg(test)]
 mod tests {
-    use std::any::Any;
-
     use allocative::Allocative;
     use async_trait::async_trait;
     use derive_more::Display;
@@ -239,8 +226,8 @@ mod tests {
     use crate::core::internals::ValueUpdate;
     use crate::deps::graph::SeriesParallelDeps;
     use crate::epoch::cache::SharedCacheInsert;
-    use crate::epoch::cache::TransactionCancelled;
     use crate::epoch::task::dice::DiceTask;
+    use crate::epoch::task::dice::spawn_prepared_task;
     use crate::epoch::task::dice::testing_helpers::make_completed_task;
     use crate::epoch::task::spawn_dice_task;
     use crate::key::DiceKey;
@@ -372,21 +359,18 @@ mod tests {
         );
     }
 
-    async fn make_finished_cancelling_task(key: DiceKey) -> DiceTask {
-        let finished_cancelling_tasks = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
+    /// A task whose only dependent went away and whose cancellation has landed.
+    async fn make_cancelled_task(key: DiceKey) -> DiceTask {
+        let (task, promise) = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
             async move {
                 let _handle = handle;
                 futures::future::pending().await
             }
             .boxed()
         });
-        finished_cancelling_tasks
-            .as_ref()
-            .cancel(TransactionCancelled);
-
-        finished_cancelling_tasks.as_ref().await_termination().await;
-
-        finished_cancelling_tasks
+        drop(promise);
+        task.as_ref().await_termination().await;
+        task
     }
 
     struct BlockCancel(Arc<Semaphore>);
@@ -397,61 +381,58 @@ mod tests {
         }
     }
 
-    async fn make_yet_to_cancel_tasks(key: DiceKey) -> (DiceTask, BlockCancel, Arc<Semaphore>) {
+    /// A task whose only dependent went away while it sits in a critical section, so that its
+    /// cancellation lands once the returned `BlockCancel` is dropped.
+    async fn make_blocked_task(key: DiceKey) -> (DiceTask, BlockCancel) {
         let block_cancel = Arc::new(Semaphore::new(0));
-        let arrive_cancel = Arc::new(Semaphore::new(0));
+        let arrive = Arc::new(Semaphore::new(0));
         let block_cancel_task = block_cancel.dupe();
-        let arrive_cancel_task = arrive_cancel.dupe();
-        let yet_to_cancel_tasks = spawn_dice_task(key, &TokioSpawner, &(), move |handle| {
+        let arrive_task = arrive.dupe();
+        let (task, promise) = spawn_dice_task(key, &TokioSpawner, &(), move |handle| {
             let block_cancel = block_cancel_task.dupe();
-            let arrive_cancel = arrive_cancel_task.dupe();
+            let arrive = arrive_task.dupe();
             async move {
                 handle
                     .cancellation_ctx()
                     .critical_section(|| async move {
-                        arrive_cancel.add_permits(1);
+                        arrive.add_permits(1);
                         let _guard = block_cancel.acquire().await.unwrap();
-                        arrive_cancel.add_permits(1);
                     })
                     .await;
-
-                Box::new(()) as Box<dyn Any + Send>
             }
             .boxed()
         });
-        arrive_cancel.acquire().await.unwrap().forget();
+        arrive.acquire().await.unwrap().forget();
+        drop(promise);
 
-        (
-            yet_to_cancel_tasks,
-            BlockCancel(block_cancel),
-            arrive_cancel,
-        )
+        (task, BlockCancel(block_cancel))
     }
 
+    /// A task whose only dependent went away while it sits in a critical section it never leaves.
     async fn make_never_cancellable_task(key: DiceKey) -> DiceTask {
-        let arrive_never_cancel = Arc::new(Semaphore::new(0));
-        let arrive_never_cancel_task = arrive_never_cancel.dupe();
-        let never_cancel_tasks = spawn_dice_task(key, &TokioSpawner, &(), move |handle| {
-            let arrive_never_cancel = arrive_never_cancel_task.dupe();
+        let arrive = Arc::new(Semaphore::new(0));
+        let arrive_task = arrive.dupe();
+        let (task, promise) = spawn_dice_task(key, &TokioSpawner, &(), move |handle| {
+            let arrive = arrive_task.dupe();
             async move {
                 handle
                     .cancellation_ctx()
                     .critical_section(|| async move {
-                        arrive_never_cancel.add_permits(1);
+                        arrive.add_permits(1);
                         futures::future::pending().await
                     })
                     .await
             }
             .boxed()
         });
+        arrive.acquire().await.unwrap().forget();
+        drop(promise);
 
-        arrive_never_cancel.acquire().await.unwrap().forget();
-
-        never_cancel_tasks
+        task
     }
 
     #[tokio::test]
-    async fn state_tracks_pending_cancellation() {
+    async fn pending_tasks_are_those_still_running() {
         let mut core = ActorState::new(None);
         let v = VersionNumber::testing_new(1);
 
@@ -462,57 +443,66 @@ mod tests {
         let completed_task1 = make_completed_task::<K>(completed_key1, 1);
         let completed_task2 = make_completed_task::<K>(completed_key2, 2);
 
-        let finished_cancelling_key1 = DiceKey { index: 30 };
-        let finished_cancelling_key2 = DiceKey { index: 40 };
-        let finished_cancelling_tasks1 =
-            make_finished_cancelling_task(finished_cancelling_key1).await;
-        let finished_cancelling_tasks2 =
-            make_finished_cancelling_task(finished_cancelling_key2).await;
+        let cancelled_key1 = DiceKey { index: 30 };
+        let cancelled_key2 = DiceKey { index: 40 };
+        let cancelled_task1 = make_cancelled_task(cancelled_key1).await;
+        let cancelled_task2 = make_cancelled_task(cancelled_key2).await;
 
-        let pending_key1 = DiceKey { index: 50 };
-        let pending_key2 = DiceKey { index: 60 };
-        let (yet_to_cancel_tasks1, guard1, arrive_cancel1) =
-            make_yet_to_cancel_tasks(pending_key1).await;
-        let (yet_to_cancel_tasks2, guard2, arrive_cancel2) =
-            make_yet_to_cancel_tasks(pending_key2).await;
+        let blocked_key1 = DiceKey { index: 50 };
+        let blocked_key2 = DiceKey { index: 60 };
+        let (blocked_task1, guard1) = make_blocked_task(blocked_key1).await;
+        let (blocked_task2, guard2) = make_blocked_task(blocked_key2).await;
 
         let never_cancel_key1 = DiceKey { index: 100500 };
-        let never_cancel_tasks1 = make_never_cancellable_task(never_cancel_key1).await;
+        let never_cancel_task1 = make_never_cancellable_task(never_cancel_key1).await;
 
         cache.testing_insert_task(completed_key1, completed_task1);
         cache.testing_insert_task(completed_key2, completed_task2);
-        cache.testing_insert_task(finished_cancelling_key1, finished_cancelling_tasks1);
-        cache.testing_insert_task(finished_cancelling_key2, finished_cancelling_tasks2);
-        cache.testing_insert_task(pending_key1, yet_to_cancel_tasks1);
-        cache.testing_insert_task(pending_key2, yet_to_cancel_tasks2);
-        cache.testing_insert_task(never_cancel_key1, never_cancel_tasks1);
+        cache.testing_insert_task(cancelled_key1, cancelled_task1);
+        cache.testing_insert_task(cancelled_key2, cancelled_task2);
+        cache.testing_insert_task(blocked_key1, blocked_task1.dupe());
+        cache.testing_insert_task(blocked_key2, blocked_task2.dupe());
+        cache.testing_insert_task(never_cancel_key1, never_cancel_task1);
 
         core.drop_ctx_at_version(v);
 
-        assert_eq!(core.get_tasks_pending_cancellation().len(), 3);
+        assert_eq!(core.pending_tasks().len(), 3);
 
-        assert!(matches!(
-            cache.insert(DiceKey { index: 999 },),
-            SharedCacheInsert::TransactionCancelled(_)
+        // The cache goes on accepting work from the tasks still running in it.
+        let SharedCacheInsert::Inserted(prepared) = cache.insert(DiceKey { index: 999 }) else {
+            panic!("the cache should accept new tasks");
+        };
+        // Run it to termination so that it does not count as pending below.
+        let inserted = prepared.task().clone_arc();
+        drop(spawn_prepared_task(
+            prepared,
+            &TokioSpawner,
+            &(),
+            |_handle| async {}.boxed(),
         ));
+        inserted.as_ref().await_termination().await;
 
-        // let the cancellable tasks cancel
+        // Let the blocked tasks leave their critical sections, at which point their
+        // cancellations land.
         drop(guard1);
         drop(guard2);
+        blocked_task1.as_ref().await_termination().await;
+        blocked_task2.as_ref().await_termination().await;
 
-        // wait for the cancellable tasks to actually cancel
-        let _p = arrive_cancel1.acquire().await.unwrap();
-        let _p = arrive_cancel2.acquire().await.unwrap();
+        let cache2 = core.ctx_at_version(v);
 
-        let cache = core.ctx_at_version(v);
+        let never_cancel_task2 = make_never_cancellable_task(DiceKey { index: 300 }).await;
 
-        let never_cancel_tasks2 = make_never_cancellable_task(DiceKey { index: 300 }).await;
-
-        cache.testing_insert_task(DiceKey { index: 300 }, never_cancel_tasks2);
+        cache2.testing_insert_task(DiceKey { index: 300 }, never_cancel_task2);
 
         core.drop_ctx_at_version(v);
 
-        assert_eq!(core.get_tasks_pending_cancellation().len(), 2);
+        assert_eq!(core.pending_tasks().len(), 2);
+
+        // Like the workers of a real transaction would, these handles are what keeps the draining
+        // caches visible.
+        drop((cache, cache2));
+        assert!(core.pending_tasks().is_empty());
     }
 
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash, Pagable)]
