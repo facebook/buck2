@@ -331,8 +331,9 @@ LinkInfoArgumentFilter = enum(
     "exclude_object_files_and_lazy_archives",
 )
 
-def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFilter = LinkInfoArgumentFilter("all")) -> cmd_args:
-    result = cmd_args()
+def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFilter = LinkInfoArgumentFilter("all"), args: cmd_args | None = None) -> cmd_args:
+    """Append selected link arguments to args, or create a new command line, and return it."""
+    result = args if args != None else cmd_args()
 
     do_pre_post_flags = argument_type_filter == LinkInfoArgumentFilter("all") or argument_type_filter == LinkInfoArgumentFilter(
         "exclude_object_files_and_lazy_archives"
@@ -756,7 +757,8 @@ def unpack_link_args(args: LinkArgs, link_ordering: [LinkOrdering, None] = None,
         return cmd
 
     if args.infos != None:
-        cmd.add([link_info_to_args(info) for info in args.infos])
+        for info in args.infos:
+            link_info_to_args(info, args = cmd)
         return cmd
 
     if args.flags != None:

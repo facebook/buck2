@@ -1,6 +1,6 @@
 load(":graph_utils_tests.bzl", "test_find_cycle", "test_post_order_traversal", "test_pre_order_traversal")
 load(":headers_tests.bzl", "test_infer_include_prefix")
-load(":link_info_tests.bzl", "test_get_lib_output_style")
+load(":link_info_tests.bzl", "test_get_lib_output_style", "test_link_info_append")
 
 oncall("build_infra")
 
@@ -13,3 +13,5 @@ test_pre_order_traversal()
 test_post_order_traversal()
 
 test_infer_include_prefix()
+
+test_link_info_append(name = "link_info_append")
