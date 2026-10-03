@@ -10,7 +10,7 @@
 
 use std::default::Default;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ProcessStats {
     pub rss_bytes: Option<u64>,
     pub max_rss_bytes: Option<u64>,
@@ -179,8 +179,10 @@ mod tests {
         }
         assert!(process_stats.max_rss_bytes.unwrap() > 0);
         if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
-            let rss_bytes = process_stats.rss_bytes.unwrap();
-            assert!(rss_bytes > 0);
+            let rss_bytes = process_stats
+                .rss_bytes
+                .unwrap_or_else(|| panic!("no rss in {process_stats:?}"));
+            assert!(rss_bytes > 0, "{process_stats:?}");
         }
     }
 
@@ -199,8 +201,13 @@ mod tests {
     #[test]
     fn test_proc_self_stat_read() {
         if cfg!(target_os = "linux") {
-            let stat = ProcSelfStat::read().unwrap();
-            assert!(stat.rss > 0);
+            // Read it here too, so that a failure says which step failed.
+            let raw = std::fs::read_to_string("/proc/self/stat")
+                .unwrap_or_else(|e| panic!("reading /proc/self/stat: {e}"));
+            let stat =
+                ProcSelfStat::parse(&raw).unwrap_or_else(|| panic!("could not parse {raw:?}"));
+            assert!(stat.rss > 0, "{raw:?}");
+            assert!(ProcSelfStat::read().is_some());
         }
     }
 }
