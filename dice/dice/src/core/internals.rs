@@ -85,6 +85,10 @@ impl ActorState {
         self.graph.head(branch)
     }
 
+    pub(super) fn fork(&mut self, from: VersionNumber) -> BranchId {
+        self.graph.fork(from)
+    }
+
     pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
         self.version_tracker.drop_at_version(v);
     }

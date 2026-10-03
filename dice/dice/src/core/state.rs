@@ -178,6 +178,12 @@ impl CoreStateHandle {
         self.call(StateRequest::CurrentVersion { branch, resp }, recv)
     }
 
+    /// Starts a new branch at `from`
+    pub(crate) fn fork(&self, from: VersionNumber) -> impl Future<Output = BranchId> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::Fork { from, resp }, recv)
+    }
+
     /// Obtains the shared state ctx at the given version
     pub(crate) fn ctx_at_version(
         &self,
@@ -385,6 +391,11 @@ pub(super) enum StateRequest {
     CurrentVersion {
         branch: BranchId,
         resp: Sender<VersionNumber>,
+    },
+    /// Starts a new branch at `from`
+    Fork {
+        from: VersionNumber,
+        resp: Sender<BranchId>,
     },
     /// Obtains the shared state ctx at the given version
     CtxAtVersion {

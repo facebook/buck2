@@ -814,6 +814,75 @@ async fn compute_with_key_returns_the_shared_key_allocation() -> anyhow::Result<
     Ok(())
 }
 
+/// A branch starts out seeing its fork point, shares the values computed there, and diverges
+/// from the branch it was forked from with its own commits.
+#[tokio::test]
+async fn a_branch_diverges_from_its_fork_point() -> anyhow::Result<()> {
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Derived;
+
+    static DERIVED_COMPUTES: AtomicUsize = AtomicUsize::new(0);
+
+    #[async_trait]
+    impl Key for Derived {
+        type Value = i32;
+
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            DERIVED_COMPUTES.fetch_add(1, Ordering::SeqCst);
+            *ctx.compute(&Foo(0)).await.unwrap() + 10
+        }
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+
+    let mut updater = dice.updater();
+    updater.changed_to(vec![(Foo(0), 1)])?;
+    let root_ctx = updater.commit().await;
+    assert_eq!(*root_ctx.compute(&Derived).await?, 11);
+
+    let branch = dice.fork(root_ctx.0.get_version()).await;
+    assert_ne!(branch, dice.root());
+    let mut updater = dice.updater_on(branch);
+    assert_eq!(updater.branch(), branch);
+
+    // The branch sees its fork point, and reuses what was computed there.
+    let fork_point = updater.existing_state().await;
+    assert_eq!(fork_point.0.get_version().branch(), branch);
+    assert_eq!(*fork_point.compute(&Foo(0)).await?, 1);
+    assert_eq!(*fork_point.compute(&Derived).await?, 11);
+    assert_eq!(DERIVED_COMPUTES.load(Ordering::SeqCst), 1);
+
+    // A commit on the branch changes only the branch.
+    updater.changed_to(vec![(Foo(0), 2)])?;
+    let branch_ctx = updater.commit().await;
+    assert_eq!(branch_ctx.0.get_version().branch(), branch);
+    assert_eq!(dice.head(branch).await, branch_ctx.0.get_version());
+    assert_eq!(*branch_ctx.compute(&Derived).await?, 12);
+    assert_eq!(DERIVED_COMPUTES.load(Ordering::SeqCst), 2);
+
+    assert_eq!(*root_ctx.compute(&Derived).await?, 11);
+    let root_now = dice.updater().existing_state().await;
+    assert_eq!(root_now.0.get_version(), root_ctx.0.get_version());
+    assert_eq!(*root_now.compute(&Derived).await?, 11);
+    assert_eq!(DERIVED_COMPUTES.load(Ordering::SeqCst), 2);
+
+    Ok(())
+}
+
 /// A compute that is in a critical section when its transaction is dropped keeps running, the
 /// keys it requests from there are computed for it, and what it computes is kept.
 #[tokio::test]

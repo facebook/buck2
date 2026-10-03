@@ -288,6 +288,12 @@ impl VersionedGraph {
         self.core.head(branch)
     }
 
+    /// A new branch whose state is `from`'s. It shares every value it resolves with the branch
+    /// it was forked from.
+    pub(crate) fn fork(&mut self, from: VersionNumber) -> BranchId {
+        self.core.fork(from)
+    }
+
     /// The one path through which a key's values change, so that the paging index follows.
     fn with_values<R>(&mut self, key: DiceKey, f: impl FnOnce(&mut KeyValues) -> R) -> R {
         Self::with_values_of(&mut self.values, &mut self.index, key, f)

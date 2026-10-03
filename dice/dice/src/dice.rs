@@ -14,6 +14,7 @@ use std::sync::Arc as StdArc;
 
 use allocative::Allocative;
 use dice_core::BranchId;
+use dice_core::Version;
 use dupe::Dupe;
 use pagable::StorageContext;
 use pagable::storage::handle::PagableStorageHandle;
@@ -107,6 +108,18 @@ impl Dice {
     /// The branch that [`Dice::updater`] commits to.
     pub fn root(&self) -> BranchId {
         BranchId::ROOT
+    }
+
+    /// Starts a branch whose state is `from`'s: its first version sees exactly what `from` sees,
+    /// and the commits made to it diverge from there. `from` may be any version of a live
+    /// branch, its head included.
+    pub fn fork(&self, from: Version) -> impl Future<Output = BranchId> + use<> {
+        self.state_handle.fork(from)
+    }
+
+    /// The branch's newest version.
+    pub fn head(&self, branch: BranchId) -> impl Future<Output = Version> + use<> {
+        self.state_handle.current_version(branch)
     }
 
     /// An updater for the root branch.

@@ -551,6 +551,35 @@ fn page_out_index_tracks_the_values() {
     );
 }
 
+/// A fork resolves the values of the branch it was forked from without writes of its own, and
+/// keeps them retained after that branch has moved on to others.
+#[test]
+fn a_fork_shares_and_then_keeps_the_values_it_resolves() {
+    let mut graph = with_leaf();
+    let root = graph.root();
+    let v2 = graph.head(root);
+    let first = compute(&mut graph, key(1), v2, value(1));
+    let child = graph.fork(v2);
+    graph.assert_consistent();
+    let child_v1 = graph.head(child);
+    let at_child = |graph: &VersionedGraph| {
+        graph
+            .get(VersionedGraphKey::new(child_v1, key(1)))
+            .unpack_match()
+            .expect("the child resolves what its fork point resolved")
+            .0
+            .revision()
+    };
+    assert_eq!(at_child(&graph), first.revision());
+    assert_eq!(graph.pagable_node_counts().resident, 1);
+
+    let v3 = inject(&mut graph, key(0), 200);
+    let second = compute(&mut graph, key(1), v3, value(2));
+    assert_ne!(first.revision(), second.revision());
+    assert_eq!(at_child(&graph), first.revision());
+    assert_eq!(graph.pagable_node_counts().resident, 2);
+}
+
 /// `take` keeps the per-key revision counters, so a value computed after it can never collide
 /// with a revision handed out before it.
 #[test]
