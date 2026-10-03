@@ -683,17 +683,15 @@ impl ComputeCtx {
                 self.cycles
                     .subrequest(dice_key, &self.transaction_data.dice.key_index),
             )
-            .map(move |result| {
-                result.as_ref().into_dice_result().map(|dice_value| {
-                    OpaqueValue::new(
-                        dice_key,
-                        dice_value
-                            .resident_value()
-                            .expect("a task always pages in the value it hands back"),
-                        dice_value.revision(),
-                        dice_value.invalidation_paths(),
-                    )
-                })
+            .map(move |dice_value| {
+                Ok(OpaqueValue::new(
+                    dice_key,
+                    dice_value
+                        .resident_value()
+                        .expect("a task always pages in the value it hands back"),
+                    dice_value.revision(),
+                    dice_value.invalidation_paths(),
+                ))
             })
     }
 
@@ -709,17 +707,14 @@ impl ComputeCtx {
             .key_index
             .index(CowDiceKeyHashed::proj_ref(base.derive_from_key, key));
 
-        self.transaction_data
-            .version_state
-            .compute_projection(
-                dice_key,
-                base.derive_from,
-                base.revision,
-                base.invalidation_paths,
-                &self.transaction_data,
-            )
-            .into_dice_result()
-            .map(|r| (dice_key, r))
+        let value = self.transaction_data.version_state.compute_projection(
+            dice_key,
+            base.derive_from,
+            base.revision,
+            base.invalidation_paths,
+            &self.transaction_data,
+        );
+        Ok((dice_key, value))
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the

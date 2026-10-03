@@ -24,9 +24,6 @@ impl From<dice_error::DiceError> for crate::Error {
             DiceErrorImpl::InjectedKeyGotInvalidation(_) => {
                 ErrorTag::DiceInjectedKeyGotInvalidation
             }
-            // `DiceRejected` is a weird name for this, but is what it was historically, so keeping
-            // it
-            DiceErrorImpl::TransactionCancelled => ErrorTag::DiceRejected,
             DiceErrorImpl::UnexpectedCycleGuardType { .. } => {
                 ErrorTag::DiceUnexpectedCycleGuardType
             }

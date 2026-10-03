@@ -32,7 +32,6 @@ use crate::dice::Dice;
 use crate::epoch::cache::SharedCache;
 use crate::epoch::cache::SharedCacheInsert;
 use crate::epoch::cache::SharedCacheLookup;
-use crate::epoch::cache::TransactionResult;
 use crate::epoch::ctx::ComputeCtx;
 use crate::epoch::ctx::EvaluationData;
 use crate::epoch::ctx::TrackedComputations;
@@ -43,7 +42,6 @@ use crate::epoch::task::handle::DiceTaskHandle;
 use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::worker::DiceTaskWorker;
-use crate::epoch::worker::WorkerCancelled;
 use crate::epoch::worker::WorkerResult;
 use crate::epoch::worker::state::DiceWorkerStateEvaluating;
 use crate::epoch::worker::state::DiceWorkerStateFinishedEvaluating;
@@ -66,7 +64,7 @@ pub(crate) struct VersionState {
     cache: SharedCache,
 }
 enum LookupResult<'d> {
-    Finished(&'d TransactionResult<DiceComputedValue>),
+    Finished(&'d DiceComputedValue),
     Pending(DicePromise<'d>),
     NeedsRestart(PreparedDiceTask<'d>, Option<PreviouslyCancelledTask>),
 }
@@ -114,7 +112,7 @@ impl VersionState {
         parent_key: ParentKey,
         eval: &TransactionData,
         cycles: UserCycleDetectorData,
-    ) -> impl Future<Output = &'d TransactionResult<DiceComputedValue>> + use<'d> {
+    ) -> impl Future<Output = &'d DiceComputedValue> + use<'d> {
         match self.lookup_entry(key, parent_key) {
             LookupResult::Finished(dice_computed_value) => DicePromise::ready(dice_computed_value),
             LookupResult::Pending(dice_promise) => dice_promise,
@@ -140,7 +138,7 @@ impl VersionState {
         base_revision: Option<Revision>,
         base_invalidation_paths: &TrackedInvalidationPaths,
         transaction: &TransactionData,
-    ) -> TransactionResult<DiceComputedValue> {
+    ) -> DiceComputedValue {
         let task = match self.cache.get_projection(key) {
             SharedCacheLookup::Finished(result) => {
                 return result.dupe();
@@ -267,13 +265,7 @@ impl TransactionData {
                         self,
                         cycles.subrequest(proj.base(), &self.dice.key_index),
                     )
-                    .await
-                    .as_ref()
-                    .unpack()
-                    // We convert a transaction cancellation into a worker cancellation here. That's
-                    // not ideal form, but it's mostly fine in practice and there isn't really much
-                    // of an alternative.
-                    .map_err(|_| WorkerCancelled)?;
+                    .await;
 
                 let ctx = DiceProjectionComputations {
                     data: &self.dice.global_data,
@@ -395,7 +387,7 @@ fn handle_project_eval_result(
     k: DiceKey,
     v: VersionNumber,
     eval_result: KeyEvaluationResult,
-) -> TransactionResult<DiceComputedValue> {
+) -> DiceComputedValue {
     let KeyEvaluationResult {
         value,
         deps,
@@ -434,10 +426,7 @@ fn handle_project_eval_result(
         Err(_transient_result) => {
             // transients are never stored in the state, but the result should be shared
             // with async computations as if it were.
-            TransactionResult::ok(DiceComputedValue::new_for_transient(
-                value,
-                invalidation_paths,
-            ))
+            DiceComputedValue::new_for_transient(value, invalidation_paths)
         }
     };
 

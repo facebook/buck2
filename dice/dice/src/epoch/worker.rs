@@ -33,8 +33,6 @@ use crate::core::state::CoreStateHandle;
 use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
-use crate::epoch::cache::TransactionCancelled;
-use crate::epoch::cache::TransactionResult;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::dice::PreparedDiceTask;
@@ -185,28 +183,13 @@ impl DiceTaskWorker {
                     scopeguard::defer! {
                         self.eval.check_deps_finished(self.k);
                     }
-                    match check_dependencies(
+                    check_dependencies(
                         &self.eval,
                         ParentKey::Some(self.k),
                         &to_revalidate.cert.deps,
                         &cycles,
                     )
                     .await
-                    {
-                        Ok(x) => x,
-                        Err(transaction_cancelled) => {
-                            // Probably this worker is going to be cancelled very soon, but we don't
-                            // want to risk introducing any race conditions by just assuming that,
-                            // so we handle this properly.
-                            return match handle.cancellation_ctx().try_disable_cancellation() {
-                                Some(g) => Ok(DiceWorkerStateFinishedAndCached {
-                                    value: TransactionResult::err(transaction_cancelled),
-                                    _prevent_cancellation: g,
-                                }),
-                                None => Err(WorkerCancelled),
-                            };
-                        }
-                    }
                 };
 
                 match check_deps_result {
@@ -332,10 +315,9 @@ impl DiceTaskWorker {
                         )
                         .await
                 }
-                Err(value) => TransactionResult::ok(DiceComputedValue::new_for_transient(
-                    value,
-                    result.invalidation_paths,
-                )),
+                Err(value) => {
+                    DiceComputedValue::new_for_transient(value, result.invalidation_paths)
+                }
             }
         };
 
@@ -418,23 +400,15 @@ async fn check_dependencies<'a>(
     parent_key: ParentKey,
     deps: &'a SeriesParallelDeps,
     cycles: &'a KeyComputingUserCycleDetectorData,
-) -> Result<CheckDependenciesResult<'a>, TransactionCancelled> {
-    async fn drain_continuables<
-        'a,
-        Fut: Future<Output = Result<CheckDependenciesResult<'a>, TransactionCancelled>>,
-    >(
-        inner: BoxFuture<'a, Result<(), TransactionCancelled>>,
+) -> CheckDependenciesResult<'a> {
+    async fn drain_continuables<'a, Fut: Future<Output = CheckDependenciesResult<'a>>>(
+        inner: BoxFuture<'a, ()>,
         parallel: FuturesUnordered<Fut>,
-    ) -> Result<(), TransactionCancelled> {
-        let parallel = parallel.map(|v| v.map(|_| ()));
+    ) {
+        let parallel = parallel.map(|_| ());
         let combined = stream::select(inner.into_stream(), parallel);
         pin_mut!(combined);
-        while let Some(v) = combined.next().await {
-            if let Err(cancelled) = v {
-                return Err(cancelled);
-            }
-        }
-        Ok(())
+        while combined.next().await.is_some() {}
     }
 
     fn check_dependencies_series<'a>(
@@ -442,23 +416,20 @@ async fn check_dependencies<'a>(
         parent_key: ParentKey,
         deps: impl Iterator<Item = SeriesParallelDepsIteratorItem<'a>> + Send + 'a,
         cycles: &'a KeyComputingUserCycleDetectorData,
-    ) -> BoxFuture<'a, Result<CheckDependenciesResult<'a>, TransactionCancelled>> {
+    ) -> BoxFuture<'a, CheckDependenciesResult<'a>> {
         let mut invalidation_paths = TrackedInvalidationPaths::clean();
         async move {
             for v in deps {
                 match v {
                     SeriesParallelDepsIteratorItem::Key(edge) => {
                         match check_dependency(eval, parent_key, edge, cycles).await {
-                            Ok(CheckDependencyResult::NoChange(dep_paths)) => {
+                            CheckDependencyResult::NoChange(dep_paths) => {
                                 invalidation_paths.update(&dep_paths);
                             }
-                            Ok(CheckDependencyResult::Changed) => {
-                                return Ok(CheckDependenciesResult::Changed {
-                                    continuables: std::future::ready(Ok(())).boxed(),
-                                });
-                            }
-                            Err(cancelled) => {
-                                return Err(cancelled);
+                            CheckDependencyResult::Changed => {
+                                return CheckDependenciesResult::Changed {
+                                    continuables: std::future::ready(()).boxed(),
+                                };
                             }
                         }
                     }
@@ -470,7 +441,7 @@ async fn check_dependencies<'a>(
                             .collect();
 
                         while let Some(v) = futures.next().await {
-                            match v? {
+                            match v {
                                 CheckDependenciesResult::NoChange {
                                     invalidation_paths: deps_paths,
                                 } => {
@@ -478,23 +449,23 @@ async fn check_dependencies<'a>(
                                 }
                                 CheckDependenciesResult::NoDeps => {}
                                 CheckDependenciesResult::Changed { continuables } => {
-                                    return Ok(CheckDependenciesResult::Changed {
+                                    return CheckDependenciesResult::Changed {
                                         continuables: drain_continuables(continuables, futures)
                                             .boxed(),
-                                    });
+                                    };
                                 }
                             }
                         }
                     }
                 }
             }
-            Ok(CheckDependenciesResult::NoChange { invalidation_paths })
+            CheckDependenciesResult::NoChange { invalidation_paths }
         }
         .boxed()
     }
 
     if deps.is_empty() {
-        return Ok(CheckDependenciesResult::NoDeps);
+        return CheckDependenciesResult::NoDeps;
     }
 
     check_dependencies_series(eval, parent_key, deps.iter(), cycles).await
@@ -510,7 +481,7 @@ async fn check_dependency(
     parent_key: ParentKey,
     edge: DepEdge,
     cycles: &KeyComputingUserCycleDetectorData,
-) -> Result<CheckDependencyResult, TransactionCancelled> {
+) -> CheckDependencyResult {
     let dep_result = eval
         .version_state
         .compute_opaque(
@@ -519,16 +490,14 @@ async fn check_dependency(
             eval,
             cycles.subrequest(edge.key, &eval.dice.key_index),
         )
-        .await
-        .as_ref()
-        .unpack()?;
+        .await;
 
     // The dep has the recorded revision iff it has the value the compute observed.
     match dep_result.revision() {
-        Some(current) if current == edge.revision => Ok(CheckDependencyResult::NoChange(
-            dep_result.invalidation_paths().dupe(),
-        )),
-        _ => Ok(CheckDependencyResult::Changed),
+        Some(current) if current == edge.revision => {
+            CheckDependencyResult::NoChange(dep_result.invalidation_paths().dupe())
+        }
+        _ => CheckDependencyResult::Changed,
     }
 }
 
@@ -545,7 +514,7 @@ enum CheckDependenciesResult<'a> {
         ///
         /// Those other checks won't be dropped/cancelled until the continuables future is dropped,
         /// and polling it will continue that deps check process.
-        continuables: BoxFuture<'a, Result<(), TransactionCancelled>>,
+        continuables: BoxFuture<'a, ()>,
     },
 }
 impl CheckDependenciesResult<'_> {

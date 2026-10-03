@@ -202,7 +202,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             &KeyComputingUserCycleDetectorData::Untracked,
         )
         .await
-        .unwrap()
         .is_changed()
     );
 
@@ -231,7 +230,6 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             &KeyComputingUserCycleDetectorData::Untracked,
         )
         .await
-        .unwrap()
         .is_changed()
     );
 
@@ -311,12 +309,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         UserCycleDetectorData::testing_new(),
         None,
     );
-    let res = task
-        .depended_on_by(ParentKey::None)
-        .unwrap()
-        .await
-        .as_ref()
-        .into_dice_result()?;
+    let res = task.depended_on_by(ParentKey::None).unwrap().await;
 
     let v = dice
         .state_handle
@@ -340,12 +333,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         UserCycleDetectorData::testing_new(),
         None,
     );
-    let res2 = task
-        .depended_on_by(ParentKey::None)
-        .unwrap()
-        .await
-        .as_ref()
-        .into_dice_result()?;
+    let res2 = task.depended_on_by(ParentKey::None).unwrap().await;
 
     // verify that we incremented the total instance counter
     assert_eq!(instance.load(Ordering::SeqCst), 2);
@@ -389,14 +377,7 @@ async fn spawn_with_no_previously_cancelled_task() {
 
     let (task, _initial_promise) = spawn_task(k, eval, cycles, previously_cancelled_task);
 
-    assert!(
-        task.depended_on_by(ParentKey::None)
-            .unwrap()
-            .await
-            .as_ref()
-            .into_dice_result()
-            .is_ok()
-    );
+    task.depended_on_by(ParentKey::None).unwrap().await;
 
     assert!(is_ran.load(Ordering::SeqCst));
 }
@@ -454,14 +435,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let cycles = UserCycleDetectorData::testing_new();
     let (task, _initial_promise) = spawn_task(k, eval, cycles, previously_cancelled_task);
 
-    assert!(
-        task.depended_on_by(ParentKey::None)
-            .unwrap()
-            .await
-            .as_ref()
-            .into_dice_result()
-            .is_ok()
-    );
+    task.depended_on_by(ParentKey::None).unwrap().await;
 
     assert!(is_ran.load(Ordering::SeqCst));
 }
@@ -507,13 +481,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     let k = dice.key_index.index_key(Finish);
     let (previous_task, prev_task_promise) = spawn_task(k, eval.dupe(), cycles, None);
     // wait for it to finish then trigger cancel
-    previous_task
-        .depended_on_by(ParentKey::None)
-        .unwrap()
-        .await
-        .as_ref()
-        .into_dice_result()
-        .unwrap();
+    previous_task.depended_on_by(ParentKey::None).unwrap().await;
     drop(prev_task_promise);
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask::new(
@@ -525,14 +493,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     let cycles = UserCycleDetectorData::testing_new();
     let (task, _initial_promise) = spawn_task(k, eval, cycles, previously_cancelled_task);
 
-    assert!(
-        task.depended_on_by(ParentKey::None)
-            .unwrap()
-            .await
-            .as_ref()
-            .into_dice_result()
-            .is_ok()
-    );
+    task.depended_on_by(ParentKey::None).unwrap().await;
 
     // The previous generation finished (rather than actually cancelling), so `await_previous` reuses
     // its value instead of recomputing. The new key is therefore never evaluated — this is what
@@ -561,14 +522,7 @@ async fn writes_after_the_last_transaction_is_dropped_are_accepted() {
 
     let k = dice.key_index.index_key(Finish);
     let (task, _initial_promise) = spawn_task(k, eval.dupe(), cycles, None);
-    assert!(
-        task.depended_on_by(ParentKey::None)
-            .unwrap()
-            .await
-            .as_ref()
-            .into_dice_result()
-            .is_ok()
-    );
+    task.depended_on_by(ParentKey::None).unwrap().await;
 }
 
 #[tokio::test]
@@ -704,7 +658,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
     assert!(res.is_err());
 
     prevent_cancel.notify_one();
-    let _ignored = promise.await.as_ref().into_dice_result()?;
+    let _ignored = promise.await;
 
     Ok(())
 }
@@ -857,13 +811,11 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
             .collect(),
     );
     let cycles = KeyComputingUserCycleDetectorData::Untracked;
-    let check_deps_result = check_dependencies(&eval, ParentKey::None, &deps, &cycles)
-        .await
-        .unwrap();
+    let check_deps_result = check_dependencies(&eval, ParentKey::None, &deps, &cycles).await;
 
     match check_deps_result {
         CheckDependenciesResult::Changed { continuables } => {
-            continuables.await.unwrap();
+            continuables.await;
         }
         v => {
             panic!("unexpected checkdeps result {}", v.variant_name())
@@ -983,14 +935,12 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     let deps = deps.collect_deps().deps.certify();
     let cycles = KeyComputingUserCycleDetectorData::Untracked;
 
-    let check_deps_result = check_dependencies(&eval, ParentKey::None, &deps, &cycles)
-        .await
-        .unwrap();
+    let check_deps_result = check_dependencies(&eval, ParentKey::None, &deps, &cycles).await;
 
     match check_deps_result {
         CheckDependenciesResult::Changed { continuables } => {
             semaphore.add_permits(100);
-            continuables.await.unwrap();
+            continuables.await;
         }
         v => {
             panic!("unexpected checkdeps result {}", v.variant_name())

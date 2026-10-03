@@ -29,10 +29,6 @@ impl DiceError {
         DiceError(Arc::new(DiceErrorImpl::DuplicateChange(key)))
     }
 
-    pub fn transaction_cancelled() -> Self {
-        DiceError(Arc::new(DiceErrorImpl::TransactionCancelled))
-    }
-
     pub fn duplicate_activation_data() -> Self {
         DiceError(Arc::new(DiceErrorImpl::DuplicateActivationData))
     }
@@ -50,8 +46,6 @@ pub enum DiceErrorImpl {
     ChangedToInvalid(Arc<dyn RequestedKey>),
     #[error("Key `{0}` is an InjectedKey and received an invalidation")]
     InjectedKeyGotInvalidation(Arc<dyn RequestedKey>),
-    #[error("The transaction was cancelled")]
-    TransactionCancelled,
     #[error(
         "Requested cycle_guard of type {}, but current guard has type {}",
         expected_type_name,

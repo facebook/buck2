@@ -35,7 +35,6 @@ use crate::core::processor::StateProcessor;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::PagableNodeCounts;
-use crate::epoch::cache::TransactionResult;
 use crate::epoch::evaluator::VersionState;
 use crate::epoch::task::dice::DiceTask;
 use crate::key::DiceKey;
@@ -208,7 +207,7 @@ impl CoreStateHandle {
         deps: SeriesParallelDeps,
         epsilon: EpsilonToken,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> impl Future<Output = TransactionResult<DiceComputedValue>> + use<> {
+    ) -> impl Future<Output = DiceComputedValue> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
             StateRequest::UpdateComputed {
@@ -232,7 +231,7 @@ impl CoreStateHandle {
         storage: StorageType,
         candidate: Candidate,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> impl Future<Output = TransactionResult<DiceComputedValue>> + use<> {
+    ) -> impl Future<Output = DiceComputedValue> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
             StateRequest::Revalidate {
@@ -398,7 +397,7 @@ pub(super) enum StateRequest {
         invalidation_paths: TrackedInvalidationPaths,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
-        resp: Sender<TransactionResult<DiceComputedValue>>,
+        resp: Sender<DiceComputedValue>,
     },
     /// Report that a candidate certificate has been verified to hold at the version
     Revalidate {
@@ -410,7 +409,7 @@ pub(super) enum StateRequest {
         invalidation_paths: TrackedInvalidationPaths,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
-        resp: Sender<TransactionResult<DiceComputedValue>>,
+        resp: Sender<DiceComputedValue>,
     },
     /// Every task that may still be running, whether its transaction is alive or gone
     PendingTasks { resp: Sender<Vec<DiceTask>> },

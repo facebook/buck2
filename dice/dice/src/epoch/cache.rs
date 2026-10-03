@@ -15,8 +15,6 @@ use std::sync::Arc as StdArc;
 use std::sync::Weak;
 
 use allocative::Allocative;
-use dice_error::DiceError;
-use dice_error::DiceResult;
 use dupe::Dupe;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
@@ -30,39 +28,6 @@ use crate::epoch::task::projections::ProjectionTask;
 use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::key::DiceKey;
 use crate::value::DiceComputedValue;
-
-#[derive(Debug, Copy, Clone, Dupe)]
-pub(crate) struct TransactionCancelled;
-
-/// A `Result`-like wrapper that also represents transaction cancellation.
-///
-/// This is newtyped because unlike other results, this should almost never be short-circuited. For
-/// almost all purposes, a `TransactionCancelled` is treated as a real computation result exactly
-/// like a "successful" one.
-#[derive(Debug, Clone, Dupe)]
-pub(crate) struct TransactionResult<T>(Result<T, TransactionCancelled>);
-
-impl<T> TransactionResult<T> {
-    pub(crate) fn ok(t: T) -> Self {
-        Self(Ok(t))
-    }
-
-    pub(crate) fn err(token: TransactionCancelled) -> Self {
-        Self(Err(token))
-    }
-
-    pub(crate) fn unpack(self) -> Result<T, TransactionCancelled> {
-        self.0
-    }
-
-    pub(crate) fn as_ref(&self) -> TransactionResult<&T> {
-        TransactionResult(self.0.as_ref().map_err(|e| *e))
-    }
-
-    pub(crate) fn into_dice_result(self) -> DiceResult<T> {
-        self.0.map_err(|_| DiceError::transaction_cancelled())
-    }
-}
 
 #[derive(Allocative)]
 struct Data {
@@ -96,7 +61,7 @@ impl WeakSharedCache {
 }
 
 pub(crate) enum SharedCacheLookup<'d, T> {
-    Finished(&'d TransactionResult<DiceComputedValue>),
+    Finished(&'d DiceComputedValue),
     InProgress(T),
     Vacant,
 }

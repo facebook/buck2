@@ -21,7 +21,6 @@ use crate::core::versions::VersionTracker;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::dice::PagableNodeCounts;
 use crate::epoch::cache::SharedCache;
-use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::dice::DiceTask;
 use crate::key::DiceKey;
 use crate::metrics::AllocWindow;
@@ -98,13 +97,13 @@ impl ActorState {
         storage: StorageType,
         update: ValueUpdate,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> TransactionResult<DiceComputedValue> {
+    ) -> DiceComputedValue {
         if let StorageType::Injected = storage {
             unreachable!(
                 "Injected keys should not receive update calls, as those are only from a compute() finishing and InjectedKeys have no compute()"
             );
         }
-        TransactionResult::ok(self.graph.update(key, update, invalidation_paths))
+        self.graph.update(key, update, invalidation_paths)
     }
 
     pub(super) fn pending_tasks(&mut self) -> Vec<DiceTask> {
@@ -290,7 +289,7 @@ mod tests {
         let _ctx = core.ctx_at_version(v);
 
         let compute = |core: &mut ActorState, index: u32| {
-            let res = core.update_computed(
+            core.update_computed(
                 VersionedGraphKey::new(v, DiceKey { index }),
                 StorageType::Normal,
                 ValueUpdate::Computed {
@@ -300,7 +299,6 @@ mod tests {
                 },
                 TrackedInvalidationPaths::clean(),
             );
-            assert!(res.unpack().is_ok());
         };
         compute(&mut core, 0);
         compute(&mut core, 1);
@@ -339,7 +337,7 @@ mod tests {
         let _ctx = core.ctx_at_version(v);
         core.unstable_drop_everything();
         let key = DiceKey { index: 0 };
-        let res = core.update_computed(
+        core.update_computed(
             VersionedGraphKey::new(v, key),
             StorageType::Normal,
             ValueUpdate::Computed {
@@ -349,7 +347,6 @@ mod tests {
             },
             TrackedInvalidationPaths::clean(),
         );
-        assert!(res.unpack().is_ok());
         let head = core.current_version();
         assert_eq!(head, VersionNumber::testing_new(2));
         assert!(

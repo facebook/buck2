@@ -35,7 +35,6 @@ use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::arc::Arc;
 use crate::core::graph::revision::Revision;
-use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::dice::DiceTaskDependedOnByResult;
 use crate::epoch::task::spawn_dice_task;
 use crate::key::DiceKey;
@@ -84,13 +83,13 @@ async fn simple_task() -> anyhow::Result<()> {
                 // wait for the lock too
                 let _lock = lock.lock().await;
 
-                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new_resident(
+                handle.finished(Ok(DiceComputedValue::new_resident(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
                     TrackedInvalidationPaths::clean(),
                     Revision::FIRST,
-                ))));
+                )));
             }
             .boxed()
         });
@@ -123,9 +122,7 @@ async fn simple_task() -> anyhow::Result<()> {
 
     let v = promise.await;
     assert!(
-        v.as_ref()
-            .into_dice_result()?
-            .testing_resident_value()
+        v.testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 
@@ -145,13 +142,13 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
             let can_terminate = can_terminate.dupe();
             async move {
                 // wait for the lock too
-                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new_resident(
+                handle.finished(Ok(DiceComputedValue::new_resident(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(1),
                     )),
                     TrackedInvalidationPaths::clean(),
                     Revision::FIRST,
-                ))));
+                )));
 
                 sent_finish.notify_one();
 
@@ -184,9 +181,7 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
     assert!(!task.is_pending());
 
     assert!(
-        v.as_ref()
-            .into_dice_result()?
-            .testing_resident_value()
+        v.testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
 
@@ -235,13 +230,13 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
         spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |handle| {
             async move {
                 // wait for the lock too
-                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new_resident(
+                handle.finished(Ok(DiceComputedValue::new_resident(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
                     TrackedInvalidationPaths::clean(),
                     Revision::FIRST,
-                ))));
+                )));
             }
             .boxed()
         });
@@ -268,33 +263,23 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
     let (v1, v2, v3, v4, v5) =
         futures::future::join5(promise1, promise2, promise3, promise4, promise5).await;
     assert!(
-        v1.as_ref()
-            .into_dice_result()?
-            .testing_resident_value()
+        v1.testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
-        v2.as_ref()
-            .into_dice_result()?
-            .testing_resident_value()
+        v2.testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
-        v3.as_ref()
-            .into_dice_result()?
-            .testing_resident_value()
+        v3.testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
-        v4.as_ref()
-            .into_dice_result()?
-            .testing_resident_value()
+        v4.testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
-        v5.as_ref()
-            .into_dice_result()?
-            .testing_resident_value()
+        v5.testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 

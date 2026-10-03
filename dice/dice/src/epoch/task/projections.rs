@@ -14,8 +14,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::arc::Arc;
-use crate::epoch::cache::TransactionCancelled;
-use crate::epoch::cache::TransactionResult;
 use crate::introspection::DiceTaskState;
 use crate::key::DiceKey;
 use crate::value::DiceComputedValue;
@@ -31,20 +29,18 @@ pub(crate) struct ProjectionTask {
     /// waiting on `value` there would deadlock, because setting `value` requires a response from
     /// the core state thread.
     computed: OnceLock<()>,
-    /// Set once the computation has finished entirely.
+    /// Set once the computation has finished entirely, to `None` if it panicked instead.
     ///
     /// This includes the roundtrip to the core state - the thread performing the compute blocks
     /// on the core state's response before completing the task with it.
-    value: OnceLock<TransactionResult<DiceComputedValue>>,
+    value: OnceLock<Option<DiceComputedValue>>,
 }
 
 /// The handle given to the thread responsible for performing and completing the computation.
 ///
-/// This type should be treated as linear - the caller absolutely must take the handle and either
-/// `complete` or `cancel` it.
-// Note: Without real linear types, this is a bit difficult to enforce and so we prevent accidents
-// by providing a `Drop` impl. FIXME(JakobDegen): If we were more confident in cancellation testing
-// we wouldn't need this.
+/// This type should be treated as linear - the caller absolutely must take the handle and
+/// `complete` it. Only a panic in the computation drops one uncompleted, and that poisons the
+/// task: everyone waiting on it panics too, rather than waiting forever.
 pub(crate) struct ProjectionTaskCompletionHandle(Option<Arc<ProjectionTask>>);
 
 impl ProjectionTask {
@@ -80,29 +76,34 @@ impl ProjectionTask {
         Ok(ProjectionTaskCompletionHandle(Some(t)))
     }
 
-    /// Read the finished value if it's available
-    pub(crate) fn try_read(&self) -> Option<&'_ TransactionResult<DiceComputedValue>> {
-        self.value.get()
+    /// Read the finished value if it's available. Panics if the computation panicked.
+    pub(crate) fn try_read(&self) -> Option<&'_ DiceComputedValue> {
+        self.value.get().map(Self::unpoisoned)
     }
 
-    fn insert_computed(
-        this: Arc<Self>,
-        result: TransactionResult<DiceComputedValue>,
-    ) -> TransactionResult<DiceComputedValue> {
+    fn unpoisoned(value: &Option<DiceComputedValue>) -> &DiceComputedValue {
+        value
+            .as_ref()
+            .expect("the projection's computation panicked")
+    }
+
+    fn insert_computed(this: Arc<Self>, result: DiceComputedValue) -> DiceComputedValue {
         let _ignored = this.computed.set(());
-        // The `set` failing doesn't normally happen, except in the case of a cancellation. For
-        // consistency, make sure we return the value that's actually in the task.
-        let _ignored = this.value.set(result);
-        this.value.get().unwrap().dupe()
+        assert!(
+            this.value.set(Some(result.dupe())).is_ok(),
+            "a projection task is completed once"
+        );
+        result
     }
 
-    fn cancel(&self, token: TransactionCancelled) {
+    fn poison(&self) {
         let _ignored = self.computed.set(());
-        let _ignored = self.value.set(TransactionResult::err(token));
+        let _ignored = self.value.set(None);
     }
 
-    pub(crate) fn wait_sync(&self) -> TransactionResult<DiceComputedValue> {
-        self.value.wait().dupe()
+    /// Waits for the finished value. Panics if the computation panicked.
+    pub(crate) fn wait_sync(&self) -> DiceComputedValue {
+        Self::unpoisoned(self.value.wait()).dupe()
     }
 
     /// Waits until the projection's `compute` has finished running, but not necessarily its core
@@ -134,10 +135,7 @@ impl ProjectionTaskCompletionHandle {
         let _ignored = self.0.as_ref().unwrap().computed.set(());
     }
 
-    pub(crate) fn complete(
-        mut self,
-        result: TransactionResult<DiceComputedValue>,
-    ) -> TransactionResult<DiceComputedValue> {
+    pub(crate) fn complete(mut self, result: DiceComputedValue) -> DiceComputedValue {
         ProjectionTask::insert_computed(self.0.take().unwrap(), result)
     }
 }
@@ -145,11 +143,11 @@ impl ProjectionTaskCompletionHandle {
 impl Drop for ProjectionTaskCompletionHandle {
     fn drop(&mut self) {
         if let Some(t) = self.0.take() {
-            t.cancel(TransactionCancelled);
-            // Attempt to enforce that this handle was completed or cancelled. Cancellation paths
-            // tend to be a bit poorly tested though, so do that in unit tests only.
-            #[cfg(test)]
-            unreachable!();
+            t.poison();
+            debug_assert!(
+                std::thread::panicking(),
+                "a projection completion handle must be completed"
+            );
         }
     }
 }
@@ -171,7 +169,6 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::core::graph::revision::Revision;
-    use crate::epoch::cache::TransactionResult;
     use crate::key::DiceKey;
     use crate::value::DiceComputedValue;
     use crate::value::DiceKeyValue;
@@ -246,19 +243,19 @@ mod tests {
         // Give the waiters a chance to reach their blocking point before the value is inserted.
         tokio::task::yield_now().await;
 
-        let returned = handle.complete(TransactionResult::ok(computed(2)));
+        let returned = handle.complete(computed(2));
         assert!(
-            is_val(&returned.into_dice_result()?, 2),
+            is_val(&returned, 2),
             "insert_computed returns the computed value"
         );
         assert!(
-            is_val(task.try_read().unwrap().as_ref().into_dice_result()?, 2),
+            is_val(task.try_read().unwrap(), 2),
             "the value is available immediately after completion"
         );
 
         for waiter in waiters {
             assert!(
-                is_val(&waiter.await?.into_dice_result()?, 2),
+                is_val(&waiter.await?, 2),
                 "every waiter observes the computed value"
             );
         }

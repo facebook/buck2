@@ -20,7 +20,6 @@ use itertools::Either;
 use crate::ActivationData;
 use crate::ActivationTracker;
 use crate::DynKey;
-use crate::epoch::cache::TransactionResult;
 use crate::epoch::evaluator::KeyEvaluationResult;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::task::PreviouslyCancelledTask;
@@ -57,7 +56,7 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
 
     pub(crate) fn previously_finished(
         self,
-        value: TransactionResult<DiceComputedValue>,
+        value: DiceComputedValue,
     ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
         let guard = self.prevent_cancellation.try_disable_cancellation();
         finish_with_cached_value(value, guard)
@@ -108,7 +107,7 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
 }
 
 fn finish_with_cached_value(
-    value: TransactionResult<DiceComputedValue>,
+    value: DiceComputedValue,
     disable_cancellation: Option<DisableCancellationGuard>,
 ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
     match disable_cancellation {
@@ -165,7 +164,7 @@ impl DiceWorkerStateLookupNode {
         value: DiceComputedValue,
     ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
         let guard = internals.cancellation_ctx().try_disable_cancellation();
-        finish_with_cached_value(TransactionResult::ok(value), guard)
+        finish_with_cached_value(value, guard)
     }
 }
 
@@ -241,7 +240,7 @@ pub(crate) struct DiceWorkerStateFinished {
 impl DiceWorkerStateFinished {
     pub(crate) fn cached(
         self,
-        value: TransactionResult<DiceComputedValue>,
+        value: DiceComputedValue,
         activation_info: Option<ActivationInfo>,
     ) -> DiceWorkerStateFinishedAndCached {
         if let Some(activation_info) = activation_info {
@@ -293,6 +292,6 @@ impl ActivationInfo {
 /// When the spawned dice worker is done computing and saving the value to core state cache.
 /// The final value is known.
 pub(crate) struct DiceWorkerStateFinishedAndCached {
-    pub(crate) value: TransactionResult<DiceComputedValue>,
+    pub(crate) value: DiceComputedValue,
     pub(crate) _prevent_cancellation: DisableCancellationGuard,
 }

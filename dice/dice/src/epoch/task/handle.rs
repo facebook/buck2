@@ -12,7 +12,6 @@
 
 use dice_futures::cancellation::CancellationContext;
 
-use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::dice::DiceTaskCompletionHandle;
 use crate::epoch::worker::WorkerCancelled;
 use crate::epoch::worker::WorkerResult;
@@ -25,7 +24,7 @@ pub(crate) struct DiceTaskHandle<'a> {
     completion_handle: Option<DiceTaskCompletionHandle>,
     // holds the result while `DiceTaskHandle` is not dropped, then upon drop, stores it into
     // `DiceTaskInternal` so that the result is always reported consistently at the very end of the task.
-    result: Option<WorkerResult<TransactionResult<DiceComputedValue>>>,
+    result: Option<WorkerResult<DiceComputedValue>>,
 }
 
 impl<'a> DiceTaskHandle<'a> {
@@ -44,7 +43,7 @@ impl<'a> DiceTaskHandle<'a> {
         self.cancellations
     }
 
-    pub(crate) fn finished(&mut self, value: WorkerResult<TransactionResult<DiceComputedValue>>) {
+    pub(crate) fn finished(&mut self, value: WorkerResult<DiceComputedValue>) {
         self.result = Some(value);
     }
 }
