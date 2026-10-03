@@ -512,9 +512,10 @@ mod tests {
         // Under OSS `cargo test` (all tests share one process, unlike buck's
         // per-test process isolation) a sibling test's `fork` can inherit the
         // write fd `fs::copy` briefly holds on `fake_buck2`, making `exec` fail
-        // with ETXTBSY until that fd clears. Retry past the window.
+        // with ETXTBSY until that fd clears, which is when the sibling's child
+        // execs. On a loaded runner that can take a while. Retry past the window.
         let mut child = None;
-        for _ in 0..100 {
+        for _ in 0..1000 {
             match background_command(&fake_buck2)
                 .args(["-c", "read _", "--isolation-dir=process-scan-test"])
                 .stdin(Stdio::piped())
