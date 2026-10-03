@@ -246,7 +246,6 @@ pub use crate::api::key::TodoValueSerialize;
 pub use crate::api::key::ValueSerialize;
 pub use crate::api::projection::DiceProjectionComputations;
 pub use crate::api::projection::ProjectionKey;
-pub use crate::api::transaction::DiceEquality;
 pub use crate::api::transaction::DiceTransaction;
 pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;

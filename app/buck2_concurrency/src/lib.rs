@@ -46,10 +46,10 @@ use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::Display;
 use dice::Dice;
-use dice::DiceEquality;
 use dice::DiceTransaction;
 use dice::DiceTransactionUpdater;
 use dice::UserComputationData;
+use dice::Version;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::future;
@@ -158,7 +158,7 @@ enum PreUpdateDecision {
     },
     Update {
         attempt: UpdateAttemptId,
-        conflict_on_arrival: Option<DiceEquality>,
+        conflict_on_arrival: Option<Version>,
     },
 }
 
@@ -336,15 +336,15 @@ enum PendingAdmissionDecision {
 
 struct CompletedUpdate {
     attempt: UpdateAttemptId,
-    version: DiceEquality,
-    conflict_on_arrival: Option<DiceEquality>,
+    version: Version,
+    conflict_on_arrival: Option<Version>,
     dice_was_idle: bool,
 }
 
 struct PendingUpdate {
     command: CommandId,
     attempt: UpdateAttemptId,
-    conflict_on_arrival: Option<DiceEquality>,
+    conflict_on_arrival: Option<Version>,
     dice_was_idle: BoxFuture<'static, bool>,
 }
 
@@ -476,7 +476,7 @@ enum DiceStatus {
 
 #[derive(Allocative, Debug)]
 struct ActiveDice {
-    version: DiceEquality,
+    version: Version,
 }
 
 /// Hand-written only to elide the cleanup future. Deriving would print
@@ -504,7 +504,7 @@ impl DiceStatus {
         Self::Available { active: None }
     }
 
-    fn active(version: DiceEquality) -> Self {
+    fn active(version: Version) -> Self {
         Self::Available {
             active: Some(ActiveDice { version }),
         }
@@ -1607,7 +1607,7 @@ impl ConcurrencyHandler {
                 }),
             )
             .await?;
-        let version = transaction.equality_token();
+        let version = transaction.version();
 
         Ok(UpdatedTransaction {
             transaction,
@@ -2549,7 +2549,7 @@ mod tests {
             panic!("an idle coordinator should request an update");
         };
 
-        let version = dice.updater().commit().await.equality_token();
+        let version = dice.updater().commit().await.version();
         concurrency
             .coordinator
             .acquire_update(command_id, attempt)
@@ -2631,7 +2631,7 @@ mod tests {
                     command: command_id,
                     update: CompletedUpdate {
                         attempt,
-                        version: transaction.equality_token(),
+                        version: transaction.version(),
                         conflict_on_arrival,
                         dice_was_idle: false,
                     },
@@ -2668,11 +2668,11 @@ mod tests {
     #[tokio::test]
     async fn coordinator_shutdown_wakes_blocked_waiters_and_stops() -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let first_version = dice.updater().commit().await.equality_token();
+        let first_version = dice.updater().commit().await.version();
         let different_version = {
             let mut updater = dice.updater();
             updater.changed_to(vec![(K, ())])?;
-            updater.commit().await.equality_token()
+            updater.commit().await.version()
         };
         let (sender, receiver) = mpsc::unbounded_channel();
         let task = AdmissionCoordinatorTask::new(dice, sender.downgrade());
@@ -2782,11 +2782,11 @@ mod tests {
         same_state: bool,
     ) -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let first_version = dice.updater().commit().await.equality_token();
+        let first_version = dice.updater().commit().await.version();
         let different_version = {
             let mut updater = dice.updater();
             updater.changed_to(vec![(K, ())])?;
-            updater.commit().await.equality_token()
+            updater.commit().await.version()
         };
         let arriving_version = if same_state {
             first_version
@@ -3228,7 +3228,7 @@ mod tests {
         let dice = make_default_dice();
         let active = format!(
             "{:?}",
-            DiceStatus::active(dice.updater().commit().await.equality_token())
+            DiceStatus::active(dice.updater().commit().await.version())
         );
         assert!(active.contains("Available"), "{active}");
         assert!(active.contains("ActiveDice"), "{active}");
@@ -3702,7 +3702,7 @@ mod tests {
         }
 
         async fn active_status(dice: &Arc<Dice>) -> DiceStatus {
-            DiceStatus::active(dice.updater().commit().await.equality_token())
+            DiceStatus::active(dice.updater().commit().await.version())
         }
 
         fn data_with(dice_status: DiceStatus, cleanup_epoch: usize) -> CoordinatorState {
@@ -3737,8 +3737,8 @@ mod tests {
         }
 
         fn completed_update(
-            version: DiceEquality,
-            conflict_on_arrival: Option<DiceEquality>,
+            version: Version,
+            conflict_on_arrival: Option<Version>,
         ) -> CompletedUpdate {
             CompletedUpdate {
                 attempt: UpdateAttemptId(0),
@@ -3764,13 +3764,13 @@ mod tests {
             }
         }
 
-        async fn distinct_versions(dice: &Arc<Dice>) -> (DiceEquality, DiceEquality) {
-            let first = dice.updater().commit().await.equality_token();
+        async fn distinct_versions(dice: &Arc<Dice>) -> (Version, Version) {
+            let first = dice.updater().commit().await.version();
             let mut updater = dice.updater();
             updater
                 .changed_to(vec![(K, ())])
                 .expect("test update should be valid");
-            let second = updater.commit().await.equality_token();
+            let second = updater.commit().await.version();
             assert_ne!(first, second, "test requires distinct DICE states");
             (first, second)
         }
@@ -3906,7 +3906,7 @@ mod tests {
             assert_eq!(conflict_on_arrival, None);
 
             let dice = make_default_dice();
-            let active_version = dice.updater().commit().await.equality_token();
+            let active_version = dice.updater().commit().await.version();
             let mut active = data_with(DiceStatus::active(active_version), 0);
 
             let PreUpdateDecision::Update {
@@ -4092,7 +4092,7 @@ mod tests {
         #[tokio::test]
         async fn admission_registers_and_carries_nested_warning() {
             let dice = make_default_dice();
-            let version = dice.updater().commit().await.equality_token();
+            let version = dice.updater().commit().await.version();
             let mut data = data_with(DiceStatus::active(version), 0);
 
             let parent = a_command();
@@ -4129,7 +4129,7 @@ mod tests {
         #[tokio::test]
         async fn stale_update_attempt_does_not_mutate_pending_command() -> buck2_error::Result<()> {
             let dice = make_default_dice();
-            let version = dice.updater().commit().await.equality_token();
+            let version = dice.updater().commit().await.version();
             let mut data = data_with(DiceStatus::idle(), 0);
             let request = request(false, ExitWhen::ExitNever);
             let command = request.command_id;

@@ -337,7 +337,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                     .span_async(
                                         CommandCriticalStart {
                                             metadata: config_metadata.clone(),
-                                            dice_version: dice.equality_token().to_string(),
+                                            dice_version: dice.version().to_string(),
                                         },
                                         async move {
                                             let res = buck2_build_signals::env::scope(

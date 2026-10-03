@@ -10,8 +10,8 @@
 
 use std::future::Future;
 
-use allocative::Allocative;
 use dice_core::BranchId;
+use dice_core::Version;
 use dice_error::DiceResult;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -22,7 +22,6 @@ use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::epoch::ctx::TransactionCtx;
 use crate::updater::TransactionUpdater;
-use crate::versions::VersionNumber;
 
 /// The struct for which we build transactions. This is where changes are recorded, and committed
 /// to DICE, which returns the Transaction where we spawn computations.
@@ -95,19 +94,10 @@ impl DiceTransactionUpdater {
 pub struct DiceTransaction(pub(crate) TransactionCtx);
 
 impl DiceTransaction {
-    /// Returns whether the `DiceTransaction` is equivalent. Equivalent is defined as whether the
-    /// two Transactions are based off the same underlying set of key states. That is, all
-    /// injected keys are the same, and the same compute keys are dirtied, and that any computations
-    /// that occur between the two transactions can be shared.
-    pub fn equivalent<E>(&self, other: &E) -> bool
-    where
-        E: DiceEquivalent,
-    {
-        self.version_for_equivalence() == other.version_for_equivalence()
-    }
-
-    pub fn equality_token(&self) -> DiceEquality {
-        DiceEquality(self.0.get_version())
+    /// The version this transaction runs at. Two transactions at one version see the same state,
+    /// the same injected values and the same dirties, and share the computations they request.
+    pub fn version(&self) -> Version {
+        self.0.get_version()
     }
 
     /// Request the result of computing a particular key.
@@ -142,35 +132,5 @@ impl DiceTransaction {
     /// Data that is shared for all requests of this DICE instance.
     pub fn global_data(&self) -> &DiceData {
         self.0.global_data()
-    }
-}
-
-#[derive(Allocative, Eq, PartialEq, Copy, Clone, Debug, derive_more::Display)]
-#[repr(transparent)]
-pub struct DiceEquality(VersionNumber);
-
-mod private {
-    use super::*;
-
-    pub trait Sealed {}
-
-    impl Sealed for DiceTransaction {}
-
-    impl Sealed for DiceEquality {}
-}
-
-pub trait DiceEquivalent: private::Sealed {
-    fn version_for_equivalence(&self) -> DiceEquality;
-}
-
-impl DiceEquivalent for DiceTransaction {
-    fn version_for_equivalence(&self) -> DiceEquality {
-        self.equality_token()
-    }
-}
-
-impl DiceEquivalent for DiceEquality {
-    fn version_for_equivalence(&self) -> DiceEquality {
-        *self
     }
 }
