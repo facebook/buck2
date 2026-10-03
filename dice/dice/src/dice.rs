@@ -13,6 +13,7 @@ use std::future::Future;
 use std::sync::Arc as StdArc;
 
 use allocative::Allocative;
+use dice_core::BranchId;
 use dupe::Dupe;
 use pagable::StorageContext;
 use pagable::storage::handle::PagableStorageHandle;
@@ -103,15 +104,36 @@ impl Dice {
         DiceDataBuilder::new()
     }
 
+    /// The branch that [`Dice::updater`] commits to.
+    pub fn root(&self) -> BranchId {
+        BranchId::ROOT
+    }
+
+    /// An updater for the root branch.
     pub fn updater(self: &StdArc<Self>) -> DiceTransactionUpdater {
         self.updater_with_data(UserComputationData::new())
     }
 
+    /// An updater for the root branch whose transactions carry `extra`.
     pub fn updater_with_data(
         self: &StdArc<Self>,
         extra: UserComputationData,
     ) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(TransactionUpdater::new(self.dupe(), Arc::new(extra)))
+        DiceTransactionUpdater(TransactionUpdater::new(
+            self.dupe(),
+            self.root(),
+            Arc::new(extra),
+        ))
+    }
+
+    /// An updater for `branch`: its commits extend that branch, and its transactions run at that
+    /// branch's versions.
+    pub fn updater_on(self: &StdArc<Self>, branch: BranchId) -> DiceTransactionUpdater {
+        DiceTransactionUpdater(TransactionUpdater::new(
+            self.dupe(),
+            branch,
+            Arc::new(UserComputationData::new()),
+        ))
     }
 
     pub fn metrics(&self) -> Metrics {

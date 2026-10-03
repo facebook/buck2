@@ -13,6 +13,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
+use dice_core::BranchId;
 use dupe::Dupe;
 use futures::Future;
 use pagable::DataKey;
@@ -151,19 +152,30 @@ impl CoreStateHandle {
         futures::FutureExt::map(recv, |v| v.unwrap())
     }
 
-    /// Updates the core state with the given set of changes. The new VersionNumber is returned
+    /// Commits the changes at the branch's head. The new VersionNumber is returned
     pub(crate) fn update_state(
         &self,
+        branch: BranchId,
         changes: Vec<(DiceKey, ChangeType, InvalidationSourcePriority)>,
     ) -> impl Future<Output = VersionNumber> + use<> {
         let (resp, recv) = oneshot::channel();
-        self.call(StateRequest::UpdateState { changes, resp }, recv)
+        self.call(
+            StateRequest::UpdateState {
+                branch,
+                changes,
+                resp,
+            },
+            recv,
+        )
     }
 
-    /// Gets the current version number
-    pub(crate) fn current_version(&self) -> impl Future<Output = VersionNumber> + use<> {
+    /// Gets the branch's newest version
+    pub(crate) fn current_version(
+        &self,
+        branch: BranchId,
+    ) -> impl Future<Output = VersionNumber> + use<> {
         let (resp, recv) = oneshot::channel();
-        self.call(StateRequest::CurrentVersion { resp }, recv)
+        self.call(StateRequest::CurrentVersion { branch, resp }, recv)
     }
 
     /// Obtains the shared state ctx at the given version
@@ -362,14 +374,18 @@ pub(crate) fn init_state(
 
 /// Core state is accessed via message passing to a single threaded processor
 pub(super) enum StateRequest {
-    /// Updates the core state with the given set of changes. The new VersionNumber that should be
-    /// used is sent back via the channel provided
+    /// Commits the changes at the branch's head. The new VersionNumber that should be used is
+    /// sent back via the channel provided
     UpdateState {
+        branch: BranchId,
         changes: Vec<(DiceKey, ChangeType, InvalidationSourcePriority)>,
         resp: Sender<VersionNumber>,
     },
-    /// Gets the current version number
-    CurrentVersion { resp: Sender<VersionNumber> },
+    /// Gets the branch's newest version
+    CurrentVersion {
+        branch: BranchId,
+        resp: Sender<VersionNumber>,
+    },
     /// Obtains the shared state ctx at the given version
     CtxAtVersion {
         version: VersionNumber,

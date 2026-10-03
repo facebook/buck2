@@ -93,7 +93,8 @@ impl EpsilonToken {
 pub struct BranchId(u32);
 
 impl BranchId {
-    pub(crate) const ROOT: BranchId = BranchId(0);
+    /// The branch every state starts with; [`Version::FIRST`] is its initial version.
+    pub const ROOT: BranchId = BranchId(0);
 
     pub(crate) fn index(self) -> usize {
         self.0 as usize

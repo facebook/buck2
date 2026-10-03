@@ -11,6 +11,7 @@
 use std::future::Future;
 
 use allocative::Allocative;
+use dice_core::BranchId;
 use dice_error::DiceResult;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -29,6 +30,12 @@ use crate::versions::VersionNumber;
 pub struct DiceTransactionUpdater(pub(crate) TransactionUpdater);
 
 impl DiceTransactionUpdater {
+    /// The branch this updater commits to.
+    pub fn branch(&self) -> BranchId {
+        self.0.branch()
+    }
+
+    /// A transaction at the branch's newest version, without committing the recorded changes.
     pub fn existing_state(&self) -> impl Future<Output = DiceTransaction> {
         self.0.existing_state().map(DiceTransaction)
     }

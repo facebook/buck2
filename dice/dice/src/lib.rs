@@ -210,6 +210,8 @@ pub(crate) mod user_cycle;
 pub(crate) mod value;
 mod versions;
 
+pub use dice_core::BranchId;
+pub use dice_core::Version;
 pub use dice_futures::cancellation::CancellationContext; // expose cancellation context as api
 pub use dice_futures::cancellation::CancellationHandle; // expose cancellation handle as api
 pub use dice_futures::spawn::CancellableJoinHandle; // expose cancellation context as api

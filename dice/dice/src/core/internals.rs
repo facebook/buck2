@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use dice_core::BranchId;
 use pagable::DataKey;
 
 use crate::api::key::InvalidationSourcePriority;
@@ -70,17 +71,18 @@ impl ActorState {
 
     pub(super) fn update_state(
         &mut self,
+        branch: BranchId,
         updates: impl IntoIterator<Item = (DiceKey, ChangeType, InvalidationSourcePriority)>,
     ) -> VersionNumber {
-        self.graph.commit(updates)
+        self.graph.commit(branch, updates)
     }
 
     pub(super) fn ctx_at_version(&mut self, v: VersionNumber) -> SharedCache {
         self.version_tracker.at(v)
     }
 
-    pub(super) fn current_version(&self) -> VersionNumber {
-        self.graph.head()
+    pub(super) fn current_version(&self, branch: BranchId) -> VersionNumber {
+        self.graph.head(branch)
     }
 
     pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
@@ -203,6 +205,7 @@ mod tests {
     use allocative::Allocative;
     use async_trait::async_trait;
     use derive_more::Display;
+    use dice_core::BranchId;
     use dice_futures::cancellation::CancellationContext;
     use dice_futures::spawner::TokioSpawner;
     use dupe::Dupe;
@@ -241,20 +244,26 @@ mod tests {
         let mut core = ActorState::new(None);
 
         assert_eq!(
-            core.update_state([(
-                DiceKey { index: 0 },
-                ChangeType::Invalidate,
-                InvalidationSourcePriority::Normal
-            )]),
+            core.update_state(
+                BranchId::ROOT,
+                [(
+                    DiceKey { index: 0 },
+                    ChangeType::Invalidate,
+                    InvalidationSourcePriority::Normal
+                )]
+            ),
             VersionNumber::testing_new(2)
         );
 
         assert_eq!(
-            core.update_state([(
-                DiceKey { index: 1 },
-                ChangeType::Invalidate,
-                InvalidationSourcePriority::Normal
-            )]),
+            core.update_state(
+                BranchId::ROOT,
+                [(
+                    DiceKey { index: 1 },
+                    ChangeType::Invalidate,
+                    InvalidationSourcePriority::Normal
+                )]
+            ),
             VersionNumber::testing_new(3)
         );
     }
@@ -347,7 +356,7 @@ mod tests {
             },
             TrackedInvalidationPaths::clean(),
         );
-        let head = core.current_version();
+        let head = core.current_version(BranchId::ROOT);
         assert_eq!(head, VersionNumber::testing_new(2));
         assert!(
             core.lookup_key(VersionedGraphKey::new(head, key))

@@ -13,6 +13,7 @@
 
 use allocative::Allocative;
 use bit_set::BitSet;
+use dice_core::BranchId;
 use dice_core::Cert;
 use dice_core::Change;
 use dice_core::CoreState;
@@ -277,9 +278,14 @@ impl VersionedGraph {
         &self.core
     }
 
-    /// The newest version.
-    pub(crate) fn head(&self) -> VersionNumber {
-        self.core.head(self.core.root())
+    #[cfg(test)]
+    pub(crate) fn root(&self) -> BranchId {
+        self.core.root()
+    }
+
+    /// The branch's newest version.
+    pub(crate) fn head(&self, branch: BranchId) -> VersionNumber {
+        self.core.head(branch)
     }
 
     /// The one path through which a key's values change, so that the paging index follows.
@@ -310,10 +316,11 @@ impl VersionedGraph {
             .unwrap_or_else(|| panic!("no value retained for {key:?} at {revision:?}"))
     }
 
-    /// Commits the changes to the newest version and returns the version they made, which is the
+    /// Commits the changes at the branch's head and returns the version they made, which is the
     /// same one if none of them had an effect.
     pub(crate) fn commit(
         &mut self,
+        branch: BranchId,
         changes: impl IntoIterator<Item = (DiceKey, ChangeType, InvalidationSourcePriority)>,
     ) -> VersionNumber {
         let mut core_changes = Vec::new();
@@ -333,8 +340,7 @@ impl VersionedGraph {
                 }
             }
         }
-        let root = self.core.root();
-        self.core.commit(root, core_changes)
+        self.core.commit(branch, core_changes)
     }
 
     /// Forgets every claim and every computed value, keeping injected keys and per-key revision

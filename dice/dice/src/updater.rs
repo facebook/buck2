@@ -11,6 +11,7 @@
 use std::sync::Arc as StdArc;
 
 use allocative::Allocative;
+use dice_core::BranchId;
 use dice_error::DiceError;
 use dice_error::DiceResult;
 use dupe::Dupe;
@@ -32,20 +33,30 @@ use crate::value::DiceValidity;
 use crate::value::MaybeValidDiceValue;
 use crate::versions::VersionNumber;
 
-// TODO fill this more
+/// Records changes to commit at the head of one branch.
 pub(crate) struct TransactionUpdater {
     dice: StdArc<Dice>,
+    branch: BranchId,
     scheduled_changes: Changes,
     user_data: Arc<UserComputationData>,
 }
 
 impl TransactionUpdater {
-    pub(crate) fn new(dice: StdArc<Dice>, user_data: Arc<UserComputationData>) -> Self {
+    pub(crate) fn new(
+        dice: StdArc<Dice>,
+        branch: BranchId,
+        user_data: Arc<UserComputationData>,
+    ) -> Self {
         Self {
             dice: dice.dupe(),
+            branch,
             scheduled_changes: Changes::new(dice),
             user_data,
         }
+    }
+
+    pub(crate) fn branch(&self) -> BranchId {
+        self.branch
     }
 
     /// Records a set of `Key`s as changed so that they, and any dependents will
@@ -109,7 +120,7 @@ impl TransactionUpdater {
     }
 
     pub(crate) async fn existing_state(&self) -> TransactionCtx {
-        let v = self.dice.state_handle.current_version().await;
+        let v = self.dice.state_handle.current_version(self.branch).await;
         let guard = ActiveTransactionGuard::new(v, self.dice.state_handle.dupe());
         let (transaction, guard) = self.dice.state_handle.ctx_at_version(v, guard).await;
         TransactionCtx::new(transaction, self.user_data.dupe(), self.dice.dupe(), guard)
@@ -124,6 +135,7 @@ impl TransactionUpdater {
             .dice
             .state_handle
             .update_state(
+                self.branch,
                 self.scheduled_changes
                     .changes
                     .into_iter()

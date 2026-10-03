@@ -294,7 +294,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let key = dice.key_index.index_key(InstanceEqualKey(instance.dupe()));
 
-    let v = dice.state_handle.update_state(vec![]).await;
+    let v = dice.state_handle.update_state(dice.root(), vec![]).await;
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     let eval = TransactionData {
@@ -313,11 +313,14 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let v = dice
         .state_handle
-        .update_state(vec![(
-            key.dupe(),
-            ChangeType::Invalidate,
-            InvalidationSourcePriority::Normal,
-        )])
+        .update_state(
+            dice.root(),
+            vec![(
+                key.dupe(),
+                ChangeType::Invalidate,
+                InvalidationSourcePriority::Normal,
+            )],
+        )
         .await;
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;

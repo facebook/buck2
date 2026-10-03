@@ -66,9 +66,13 @@ impl StateProcessor {
 
     fn iteration(&mut self, message: StateRequest) {
         match message {
-            StateRequest::UpdateState { changes, resp } => {
+            StateRequest::UpdateState {
+                branch,
+                changes,
+                resp,
+            } => {
                 // ignore error if the requester dropped it.
-                let _ = resp.send(self.state.update_state(changes));
+                let _ = resp.send(self.state.update_state(branch, changes));
             }
             StateRequest::CtxAtVersion {
                 version,
@@ -81,9 +85,9 @@ impl StateProcessor {
                 let _ignored = resp.send((ctx, guard));
             }
             StateRequest::DropCtxAtVersion { version } => self.state.drop_ctx_at_version(version),
-            StateRequest::CurrentVersion { resp } => {
+            StateRequest::CurrentVersion { branch, resp } => {
                 // ignore error if the requester dropped it.
-                let _ = resp.send(self.state.current_version());
+                let _ = resp.send(self.state.current_version(branch));
             }
             StateRequest::LookupKey { key, resp } => drop(resp.send(self.state.lookup_key(key))),
             StateRequest::UpdateComputed {
