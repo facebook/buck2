@@ -113,6 +113,7 @@ semantics reads it as the set (Appendix B).
 ```
 commit(b: BranchId, assertions: Map<Key, Revision>, dirties: Set<Key>) → Seq
 fork(v: Version) → BranchId
+new_root() → BranchId
 lookup(k: Key, v: Version) → Valid(Revision)
                            | Unknown { candidate: Option<Cert>, epsilon: Revision }
 write(cert: Cert)
@@ -129,6 +130,10 @@ asserting a freshly minted revision on that key's untracked input. Assertions ar
 judgment — the structure's ground truth is *defined* by them.
 
 **`fork`** creates a branch whose world is v's and whose subsequent commits diverge from it.
+
+**`new_root`** creates a branch with no parent. Nothing resolves at its initial version except
+certificates whose premises hold there, which at first is only those without premises; its world
+is what its commits assert.
 
 **`lookup`** is the operation the soundness theorem is about. `Valid(r)` claims that r is justified
 for k at v in the sense of §3 — that is the entire contract. `Unknown` claims nothing and is

@@ -11,6 +11,7 @@
 //! Untracked inputs, `incrementality.md` §2.1: a certificate covers only versions whose ε is the
 //! one it was stamped with, in either direction, however its tracked premises fare.
 
+use crate::BranchId;
 use crate::EpsilonToken;
 use crate::tests::State;
 use crate::tests::StateExt;
@@ -21,7 +22,7 @@ use crate::tests::v;
 
 fn with_injected_leaf() -> State {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.assert_at(root, k(0), r(1));
     s
 }
@@ -31,7 +32,7 @@ fn with_injected_leaf() -> State {
 #[test]
 fn a_dirty_ends_the_cover_of_earlier_certificates() {
     let mut s = with_injected_leaf();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     s.write_checked(&c);
     let v3 = s.dirty_at(root, k(1));
@@ -52,7 +53,7 @@ fn a_dirty_ends_the_cover_of_earlier_certificates() {
 #[test]
 fn a_certificate_under_a_later_epsilon_does_not_cover_earlier_versions() {
     let mut s = with_injected_leaf();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let v3 = s.dirty_at(root, k(1));
     let v4 = s.dirty_at(root, k(9));
     let c = cert(k(1), r(1), &[(k(0), r(1))], s.epsilon(k(1), v4));
@@ -66,7 +67,7 @@ fn a_certificate_under_a_later_epsilon_does_not_cover_earlier_versions() {
 #[test]
 fn unchanged_premises_do_not_extend_a_window_across_a_dirty() {
     let mut s = with_injected_leaf();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let v3 = s.dirty_at(root, k(1));
     let v4 = s.dirty_at(root, k(9));
     let c = cert(k(1), r(1), &[(k(0), r(1))], s.epsilon(k(1), v3));
@@ -84,7 +85,7 @@ fn unchanged_premises_do_not_extend_a_window_across_a_dirty() {
 #[test]
 fn dirties_are_not_forgotten_by_later_writes() {
     let mut s = with_injected_leaf();
-    let root = s.root();
+    let root = BranchId::FIRST;
     for _ in 0..100 {
         s.dirty_at(root, k(1));
     }
@@ -110,7 +111,7 @@ fn dirties_are_not_forgotten_by_later_writes() {
 #[test]
 fn an_equal_recompute_after_a_dirty_lets_dependents_revalidate() {
     let mut s = with_injected_leaf();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let mid = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     let top = cert(k(2), r(1), &[(k(1), r(1))], EpsilonToken::INITIAL);
     s.write_checked(&mid);
@@ -128,7 +129,7 @@ fn an_equal_recompute_after_a_dirty_lets_dependents_revalidate() {
 #[test]
 fn lookups_report_the_dirty_in_force() {
     let mut s = with_injected_leaf();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let v3 = s.dirty_at(root, k(1));
     let v4 = s.dirty_at(root, k(9));
     let c = cert(k(1), r(1), &[(k(0), r(1))], s.epsilon(k(1), v3));
@@ -154,7 +155,7 @@ fn lookups_report_the_dirty_in_force() {
 #[test]
 fn dirties_on_two_branches_are_distinct_untracked_revisions() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.write_checked(&cert(k(1), r(1), &[], EpsilonToken::INITIAL));
     let child = s.fork_checked(v(root, 1));
     let root_v2 = s.dirty_at(root, k(1));
@@ -182,7 +183,7 @@ fn dirties_on_two_branches_are_distinct_untracked_revisions() {
 #[test]
 fn a_rehomed_claim_carries_no_dirty_history() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.write_checked(&cert(k(1), r(1), &[], EpsilonToken::INITIAL));
     let child = s.fork_checked(v(root, 1));
     for _ in 0..5 {

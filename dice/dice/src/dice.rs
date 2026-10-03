@@ -105,11 +105,6 @@ impl Dice {
         DiceDataBuilder::new()
     }
 
-    /// The branch that [`Dice::updater`] commits to.
-    pub fn root(&self) -> BranchId {
-        BranchId::ROOT
-    }
-
     /// Starts a branch whose state is `from`'s: its first version sees exactly what `from` sees,
     /// and the commits made to it diverge from there. `from` may be any version of a live
     /// branch, its head included.
@@ -117,24 +112,32 @@ impl Dice {
         self.state_handle.fork(from)
     }
 
+    /// Starts a branch with no parent: a root like [`BranchId::FIRST`], the one every `Dice`
+    /// begins with. It starts out with no injected values, and it shares with the other branches
+    /// exactly what a certificate written elsewhere lets it: a value whose premises hold at it,
+    /// once the same inputs have been injected.
+    pub fn new_root(&self) -> impl Future<Output = BranchId> + use<> {
+        self.state_handle.new_root()
+    }
+
     /// The branch's newest version.
     pub fn head(&self, branch: BranchId) -> impl Future<Output = Version> + use<> {
         self.state_handle.current_version(branch)
     }
 
-    /// An updater for the root branch.
+    /// An updater for [`BranchId::FIRST`].
     pub fn updater(self: &StdArc<Self>) -> DiceTransactionUpdater {
         self.updater_with_data(UserComputationData::new())
     }
 
-    /// An updater for the root branch whose transactions carry `extra`.
+    /// An updater for [`BranchId::FIRST`] whose transactions carry `extra`.
     pub fn updater_with_data(
         self: &StdArc<Self>,
         extra: UserComputationData,
     ) -> DiceTransactionUpdater {
         DiceTransactionUpdater(TransactionUpdater::new(
             self.dupe(),
-            self.root(),
+            BranchId::FIRST,
             Arc::new(extra),
         ))
     }

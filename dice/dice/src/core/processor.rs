@@ -93,6 +93,10 @@ impl StateProcessor {
                 // ignore error if the requester dropped it.
                 let _ = resp.send(self.state.fork(from));
             }
+            StateRequest::NewRoot { resp } => {
+                // ignore error if the requester dropped it.
+                let _ = resp.send(self.state.new_root());
+            }
             StateRequest::LookupKey { key, resp } => drop(resp.send(self.state.lookup_key(key))),
             StateRequest::UpdateComputed {
                 key,

@@ -32,6 +32,7 @@ mod epsilon;
 mod fork;
 mod resolution;
 mod retention;
+mod roots;
 mod write;
 
 pub(crate) struct TestEnv;
@@ -78,7 +79,7 @@ pub(crate) trait StateExt {
     fn commit_checked(&mut self, b: BranchId, changes: Vec<Change<()>>) -> Version;
     fn write_checked(&mut self, cert: &TestCert) -> WriteOutcome;
     fn fork_checked(&mut self, from: Version) -> BranchId;
-    fn take_checked(&mut self) -> Version;
+    fn take_checked(&mut self);
     fn valid_at(&self, key: Key, v: Version) -> Option<Revision>;
     fn candidate_at(&self, key: Key, v: Version) -> Option<Revision>;
     fn is_unknown_at(&self, key: Key, v: Version) -> bool;
@@ -86,7 +87,7 @@ pub(crate) trait StateExt {
 
 impl StateExt for State {
     fn root_v(&self, seq: u32) -> Version {
-        v(self.root(), seq)
+        v(BranchId::FIRST, seq)
     }
 
     fn assert_at(&mut self, b: BranchId, key: Key, revision: Revision) -> Version {
@@ -122,10 +123,9 @@ impl StateExt for State {
         b
     }
 
-    fn take_checked(&mut self) -> Version {
-        let v = self.take();
+    fn take_checked(&mut self) {
+        self.take();
         self.check_invariants();
-        v
     }
 
     fn valid_at(&self, key: Key, v: Version) -> Option<Revision> {
@@ -145,7 +145,7 @@ impl StateExt for State {
 /// at the head with a certificate over it.
 pub(crate) fn leaf_and_dependent() -> (State, TestCert) {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.assert_at(root, k(0), r(1));
     let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     s.write_checked(&c);

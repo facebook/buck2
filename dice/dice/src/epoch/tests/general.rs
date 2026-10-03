@@ -29,6 +29,7 @@ use pagable::PagablePanic;
 use pagable::pagable_typetag;
 use tokio::sync::oneshot;
 
+use crate::BranchId;
 use crate::Dice;
 use crate::DiceData;
 use crate::DiceKeyDyn;
@@ -855,7 +856,7 @@ async fn a_branch_diverges_from_its_fork_point() -> anyhow::Result<()> {
     assert_eq!(*root_ctx.compute(&Derived).await?, 11);
 
     let branch = dice.fork(root_ctx.0.get_version()).await;
-    assert_ne!(branch, dice.root());
+    assert_ne!(branch, BranchId::FIRST);
     let mut updater = dice.updater_on(branch);
     assert_eq!(updater.branch(), branch);
 
@@ -883,6 +884,68 @@ async fn a_branch_diverges_from_its_fork_point() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// A new root starts with nothing injected. It shares with the branches before it only what a
+/// certificate lets it: a value whose inputs it has injected identically is reused, one whose
+/// inputs differ is computed anew.
+#[tokio::test]
+async fn a_new_root_shares_only_what_certificates_allow() -> anyhow::Result<()> {
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Counted;
+
+    static COUNTED_COMPUTES: AtomicUsize = AtomicUsize::new(0);
+
+    #[async_trait]
+    impl Key for Counted {
+        type Value = i32;
+
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            COUNTED_COMPUTES.fetch_add(1, Ordering::SeqCst);
+            *ctx.compute(&Foo(0)).await.unwrap() + 10
+        }
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let mut updater = dice.updater();
+    updater.changed_to(vec![(Foo(0), 1)])?;
+    let first_ctx = updater.commit().await;
+    assert_eq!(*first_ctx.compute(&Counted).await?, 11);
+    assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 1);
+
+    let root = dice.new_root().await;
+    assert_ne!(root, BranchId::FIRST);
+
+    // The same input injected at the new root makes the first branch's certificate hold there.
+    let mut updater = dice.updater_on(root);
+    updater.changed_to(vec![(Foo(0), 1)])?;
+    let root_ctx = updater.commit().await;
+    assert_eq!(*root_ctx.compute(&Counted).await?, 11);
+    assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 1);
+
+    // A different input does not.
+    let mut updater = dice.updater_on(root);
+    updater.changed_to(vec![(Foo(0), 2)])?;
+    let root_ctx = updater.commit().await;
+    assert_eq!(*root_ctx.compute(&Counted).await?, 12);
+    assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 2);
+    assert_eq!(dice.pagable_node_counts().await.resident, 2);
+    assert_eq!(*first_ctx.compute(&Counted).await?, 11);
+    assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 2);
+    Ok(())
+}
 /// A compute that is in a critical section when its transaction is dropped keeps running, the
 /// keys it requests from there are computed for it, and what it computes is kept.
 #[tokio::test]

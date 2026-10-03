@@ -14,6 +14,7 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
+use dice_core::BranchId;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -110,7 +111,7 @@ fn with_leaf() -> VersionedGraph {
 
 fn inject(graph: &mut VersionedGraph, k: DiceKey, v: usize) -> VersionNumber {
     let version = graph.commit(
-        graph.root(),
+        BranchId::FIRST,
         [(
             k,
             ChangeType::UpdateValue(value(v), StorageType::Injected),
@@ -123,7 +124,7 @@ fn inject(graph: &mut VersionedGraph, k: DiceKey, v: usize) -> VersionNumber {
 
 fn dirty(graph: &mut VersionedGraph, k: DiceKey) -> VersionNumber {
     let version = graph.commit(
-        graph.root(),
+        BranchId::FIRST,
         [(
             k,
             ChangeType::Invalidate,
@@ -221,7 +222,7 @@ fn page_out(graph: &mut VersionedGraph, k: DiceKey, data_key: u128) {
 #[test]
 fn identical_certificate_reuses_stored_value_without_equality() {
     let mut graph = with_leaf();
-    let v2 = graph.head(graph.root());
+    let v2 = graph.head(BranchId::FIRST);
     let first_value = DiceValidValue::testing_new(DiceKeyValue::<NoEquality>::new(1));
     let first = compute(&mut graph, key(1), v2, first_value.dupe());
     let second_value = DiceValidValue::testing_new(DiceKeyValue::<NoEquality>::new(2));
@@ -234,7 +235,7 @@ fn identical_certificate_reuses_stored_value_without_equality() {
 #[test]
 fn identical_certificate_over_paged_out_value_makes_it_resident() {
     let mut graph = with_leaf();
-    let v2 = graph.head(graph.root());
+    let v2 = graph.head(BranchId::FIRST);
     let first = compute(&mut graph, key(1), v2, value(7));
     page_out(&mut graph, key(1), 0x1234);
     assert!(
@@ -266,7 +267,7 @@ fn identical_certificate_over_paged_out_value_makes_it_resident() {
 #[test]
 fn recompute_to_equal_value_reuses_revision() {
     let mut graph = with_leaf();
-    let v2 = graph.head(graph.root());
+    let v2 = graph.head(BranchId::FIRST);
     let first = compute(&mut graph, key(1), v2, value(42));
     let v3 = inject(&mut graph, key(0), 200);
     let again = value(42);
@@ -281,7 +282,7 @@ fn recompute_to_equal_value_reuses_revision() {
 #[test]
 fn recompute_to_distinct_value_mints_fresh_revision() {
     let mut graph = with_leaf();
-    let v2 = graph.head(graph.root());
+    let v2 = graph.head(BranchId::FIRST);
     let first = compute(&mut graph, key(1), v2, value(1));
     let v3 = inject(&mut graph, key(0), 200);
     let second = compute(&mut graph, key(1), v3, value(2));
@@ -295,7 +296,7 @@ fn recompute_to_distinct_value_mints_fresh_revision() {
 #[test]
 fn recompute_over_paged_out_value_mints_fresh_revision() {
     let mut graph = with_leaf();
-    let v2 = graph.head(graph.root());
+    let v2 = graph.head(BranchId::FIRST);
     let first = compute(&mut graph, key(1), v2, value(7));
     page_out(&mut graph, key(1), 0x1234);
     let v3 = inject(&mut graph, key(0), 200);
@@ -340,7 +341,7 @@ fn injected_values_refind_their_revisions() {
 #[test]
 fn a_dep_less_recompute_under_the_same_epsilon_adopts_the_stored_revision() {
     let mut graph = VersionedGraph::new();
-    let v1 = graph.head(graph.root());
+    let v1 = graph.head(BranchId::FIRST);
     let compute_without_deps = |graph: &mut VersionedGraph, v: VersionNumber, n: usize| {
         let epsilon = match graph.get(VersionedGraphKey::new(v, key(1))) {
             VersionedGraphResult::Match { epsilon, .. }
@@ -381,7 +382,7 @@ fn a_dep_less_recompute_under_the_same_epsilon_adopts_the_stored_revision() {
 #[test]
 fn dependency_validated_keeps_its_revision_when_superseded() {
     let mut graph = with_leaf();
-    let v2 = graph.head(graph.root());
+    let v2 = graph.head(BranchId::FIRST);
     let res1 = value(1);
     let first = compute(&mut graph, key(1), v2, res1.dupe());
     let v3 = inject(&mut graph, key(0), 200);
@@ -415,7 +416,7 @@ fn dependency_validated_keeps_its_revision_when_superseded() {
 #[test]
 fn dependency_validated_paged_out_value_stays_paged_out() {
     let mut graph = with_leaf();
-    let v2 = graph.head(graph.root());
+    let v2 = graph.head(BranchId::FIRST);
     compute(&mut graph, key(1), v2, value(1));
     page_out(&mut graph, key(1), 0x77);
     inject(&mut graph, key(0), 200);
@@ -439,7 +440,7 @@ fn dependency_validated_paged_out_value_stays_paged_out() {
 #[test]
 fn a_dirtied_key_offers_a_stale_candidate() {
     let mut graph = with_leaf();
-    let v2 = graph.head(graph.root());
+    let v2 = graph.head(BranchId::FIRST);
     compute(&mut graph, key(1), v2, value(1));
     let v3 = dirty(&mut graph, key(1));
     match graph.get(VersionedGraphKey::new(v3, key(1))) {
@@ -475,7 +476,7 @@ fn counts(resident: usize, paged_out: usize, candidates: usize) -> PagableNodeCo
 fn asserted_values_of_computed_keys_page_out() {
     let mut graph = VersionedGraph::new();
     let v2 = graph.commit(
-        graph.root(),
+        BranchId::FIRST,
         [(
             key(1),
             ChangeType::UpdateValue(value(1), StorageType::Normal),
@@ -498,7 +499,8 @@ fn asserted_values_of_computed_keys_page_out() {
     graph.rehydrate(key(1), pagable::DataKey::testing_new(7), value(1));
     graph.assert_consistent();
     assert_eq!(graph.pagable_node_counts(), counts(1, 0, 0));
-    let v3 = graph.take();
+    graph.take();
+    let v3 = graph.head(BranchId::FIRST);
     graph.assert_consistent();
     assert_eq!(graph.pagable_node_counts(), counts(1, 0, 0));
     assert!(
@@ -512,7 +514,7 @@ fn asserted_values_of_computed_keys_page_out() {
 #[test]
 fn page_out_index_tracks_the_values() {
     let mut graph = with_leaf();
-    let v2 = graph.head(graph.root());
+    let v2 = graph.head(BranchId::FIRST);
     // An `InjectedKey` takes no part in paging.
     assert_eq!(graph.pagable_node_counts(), counts(0, 0, 0));
     compute(&mut graph, key(1), v2, value(1));
@@ -534,7 +536,8 @@ fn page_out_index_tracks_the_values() {
     graph.assert_consistent();
     assert_eq!(graph.pagable_node_counts(), counts(2, 0, 0));
     assert!(graph.keys_to_page_out().is_empty());
-    let v3 = graph.take();
+    graph.take();
+    let v3 = graph.head(BranchId::FIRST);
     graph.assert_consistent();
     assert_eq!(graph.pagable_node_counts(), counts(0, 0, 0));
     assert!(
@@ -556,7 +559,7 @@ fn page_out_index_tracks_the_values() {
 #[test]
 fn a_fork_shares_and_then_keeps_the_values_it_resolves() {
     let mut graph = with_leaf();
-    let root = graph.root();
+    let root = BranchId::FIRST;
     let v2 = graph.head(root);
     let first = compute(&mut graph, key(1), v2, value(1));
     let child = graph.fork(v2);
@@ -585,9 +588,10 @@ fn a_fork_shares_and_then_keeps_the_values_it_resolves() {
 #[test]
 fn take_keeps_revision_counters() {
     let mut graph = with_leaf();
-    let v2 = graph.head(graph.root());
+    let v2 = graph.head(BranchId::FIRST);
     let before = compute(&mut graph, key(1), v2, value(1));
-    let v3 = graph.take();
+    graph.take();
+    let v3 = graph.head(BranchId::FIRST);
     graph.assert_consistent();
     let after = compute(&mut graph, key(1), v3, value(2));
     assert!(after.revision().unwrap().as_u32() > before.revision().unwrap().as_u32());

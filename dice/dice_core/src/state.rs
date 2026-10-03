@@ -110,7 +110,7 @@ impl<'a, E: Env> Lookup<'a, E> {
 }
 
 impl<E: Env> CoreState<E> {
-    /// A state with one root branch at its initial version, [`Version::FIRST`].
+    /// A state with one root, [`BranchId::FIRST`], at its initial version [`Version::FIRST`].
     pub fn new() -> Self {
         CoreState {
             branches: vec![Branch::root(Seq::FIRST)],
@@ -120,8 +120,12 @@ impl<E: Env> CoreState<E> {
         }
     }
 
-    pub fn root(&self) -> BranchId {
-        BranchId::ROOT
+    /// A new root: a branch with no parent, at its initial version. Nothing resolves there but
+    /// what is asserted at it and the certificates whose premises hold there.
+    pub fn new_root(&mut self) -> BranchId {
+        let b = BranchId::from_index(self.branches.len());
+        self.branches.push(Branch::root(Seq::FIRST));
+        b
     }
 
     /// The branch's newest version.
@@ -219,8 +223,8 @@ impl<E: Env> CoreState<E> {
     /// inputs and of injected keys, so that only asserted keys resolve afterwards (§2.3). Every
     /// branch gets a fresh head version, identical in content to the old one, so that an
     /// environment which shares work between transactions by version does not hand the forgotten
-    /// state's work to transactions that start after the take. Returns the root's new head.
-    pub fn take(&mut self) -> Version {
+    /// state's work to transactions that start after the take.
+    pub fn take(&mut self) {
         for branch in &mut self.branches {
             branch.rdeps.clear();
             branch.closed_index.clear();
@@ -232,7 +236,6 @@ impl<E: Env> CoreState<E> {
             }
             slots.retain(|slot| !slot.is_vacant());
         }
-        self.head(BranchId::ROOT)
     }
 
     pub(crate) fn branch(&self, b: BranchId) -> &Branch {

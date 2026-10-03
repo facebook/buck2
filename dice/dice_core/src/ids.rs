@@ -87,14 +87,15 @@ impl EpsilonToken {
 }
 
 /// A branch: a line of versions extended by commits at its head (§2.1, "Versions and branches").
+/// A branch with no parent is a root; a state may have any number of them.
 #[derive(
     Copy, Clone, Dupe, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative
 )]
 pub struct BranchId(u32);
 
 impl BranchId {
-    /// The branch every state starts with; [`Version::FIRST`] is its initial version.
-    pub const ROOT: BranchId = BranchId(0);
+    /// The root every state starts with; [`Version::FIRST`] is its initial version.
+    pub const FIRST: BranchId = BranchId(0);
 
     pub(crate) fn index(self) -> usize {
         self.0 as usize
@@ -150,9 +151,9 @@ pub struct Version {
 }
 
 impl Version {
-    /// The initial version of the root branch.
+    /// The initial version of the first branch.
     pub const FIRST: Version = Version {
-        branch: BranchId::ROOT,
+        branch: BranchId::FIRST,
         seq: Seq::FIRST,
     };
 
@@ -168,10 +169,10 @@ impl Version {
         self.seq
     }
 
-    /// The version at `seq` on the root branch. Panics on 0.
+    /// The version at `seq` on the first branch. Panics on 0.
     #[doc(hidden)]
     pub fn testing_new(seq: u32) -> Self {
-        Version::new(BranchId::ROOT, Seq::testing_new(seq))
+        Version::new(BranchId::FIRST, Seq::testing_new(seq))
     }
 
     /// The seq, for tests that compare versions numerically.
@@ -183,7 +184,7 @@ impl Version {
 
 impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.branch == BranchId::ROOT {
+        if self.branch == BranchId::FIRST {
             write!(f, "v{}", self.seq.get())
         } else {
             write!(f, "v{}.{}", self.branch.0, self.seq.get())

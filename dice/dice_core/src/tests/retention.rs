@@ -11,6 +11,7 @@
 //! What the state retains: certificates pinned by claims (`incrementality.md` §4.1), the
 //! revisions they name, and what `take` keeps.
 
+use crate::BranchId;
 use crate::EpsilonToken;
 use crate::arc::Arc;
 use crate::tests::StateExt;
@@ -23,7 +24,7 @@ use crate::tests::v;
 #[test]
 fn a_revision_is_referenced_while_some_claim_names_it() {
     let (mut s, c1) = leaf_and_dependent();
-    let root = s.root();
+    let root = BranchId::FIRST;
     assert!(s.is_referenced(k(1), r(1)));
     s.assert_at(root, k(0), r(2));
     let c2 = cert(k(1), r(2), &[(k(0), r(2))], EpsilonToken::INITIAL);
@@ -37,7 +38,7 @@ fn a_revision_is_referenced_while_some_claim_names_it() {
 #[test]
 fn a_child_that_still_resolves_a_replaced_claim_keeps_its_revision_referenced() {
     let (mut s, c1) = leaf_and_dependent();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let child = s.fork_checked(v(root, 2));
     s.assert_at(root, k(0), r(2));
     let c2 = cert(k(1), r(2), &[(k(0), r(2))], EpsilonToken::INITIAL);
@@ -50,7 +51,7 @@ fn a_child_that_still_resolves_a_replaced_claim_keeps_its_revision_referenced() 
 #[test]
 fn pinned_certificates_are_reported_per_claim() {
     let (mut s, c) = leaf_and_dependent();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let child = s.fork_checked(v(root, 2));
     // The child's commit gives it a closed copy of the same certificate.
     s.assert_at(child, k(0), r(2));
@@ -62,12 +63,12 @@ fn pinned_certificates_are_reported_per_claim() {
 #[test]
 fn take_forgets_claims_and_edges_but_keeps_histories() {
     let (mut s, c) = leaf_and_dependent();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let v3 = s.dirty_at(root, k(1));
     let eps = s.epsilon(k(1), v3);
-    let taken = s.take_checked();
+    s.take_checked();
+    let taken = s.head(root);
     assert_eq!(taken, v(root, 4));
-    assert_eq!(s.head(root), taken);
     assert!(s.is_unknown_at(k(1), taken));
     assert!(s.is_unknown_at(k(1), v(root, 2)));
     assert!(s.candidate_at(k(1), taken).is_none());

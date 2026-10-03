@@ -184,6 +184,11 @@ impl CoreStateHandle {
         self.call(StateRequest::Fork { from, resp }, recv)
     }
 
+    /// Starts a new branch with no parent
+    pub(crate) fn new_root(&self) -> impl Future<Output = BranchId> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::NewRoot { resp }, recv)
+    }
     /// Obtains the shared state ctx at the given version
     pub(crate) fn ctx_at_version(
         &self,
@@ -397,6 +402,8 @@ pub(super) enum StateRequest {
         from: VersionNumber,
         resp: Sender<BranchId>,
     },
+    /// Starts a new branch with no parent
+    NewRoot { resp: Sender<BranchId> },
     /// Obtains the shared state ctx at the given version
     CtxAtVersion {
         version: VersionNumber,

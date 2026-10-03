@@ -10,6 +10,7 @@
 
 //! Certificates that premise each other (`incrementality.md` Appendix C).
 
+use crate::BranchId;
 use crate::EpsilonToken;
 use crate::tests::State;
 use crate::tests::StateExt;
@@ -22,7 +23,7 @@ use crate::tests::v;
 #[test]
 fn a_self_premised_certificate_installs_nowhere() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let c = cert(k(1), r(1), &[(k(1), r(1))], EpsilonToken::INITIAL);
     assert!(!s.write_checked(&c).installed_anywhere());
     assert!(s.is_unknown_at(k(1), v(root, 1)));
@@ -33,7 +34,7 @@ fn a_self_premised_certificate_installs_nowhere() {
 #[test]
 fn mutually_premised_certificates_install_nowhere_until_one_is_grounded() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let j_over_k = cert(k(1), r(1), &[(k(2), r(1))], EpsilonToken::INITIAL);
     let k_over_j = cert(k(2), r(1), &[(k(1), r(1))], EpsilonToken::INITIAL);
     for _ in 0..2 {
@@ -56,7 +57,7 @@ fn mutually_premised_certificates_install_nowhere_until_one_is_grounded() {
 #[test]
 fn a_certificate_island_is_never_valid() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let (x, z, j, kk) = (k(0), k(9), k(1), k(2));
     s.assert_at(root, x, r(1)); // 2
     s.assert_at(root, z, r(2)); // 3

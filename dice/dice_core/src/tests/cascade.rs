@@ -10,6 +10,7 @@
 
 //! The cascade obligations of an install, `incrementality.md` §5.2 step 2, one test per rule.
 
+use crate::BranchId;
 use crate::EpsilonToken;
 use crate::tests::State;
 use crate::tests::StateExt;
@@ -23,7 +24,7 @@ use crate::tests::v;
 /// k1. The child forks from seq 2, where k1 is valid.
 fn parent_with_closed_claim_and_child_at_valid_seq() -> (State, crate::tests::TestCert) {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.assert_at(root, k(0), r(1));
     let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     s.write_checked(&c);
@@ -35,7 +36,7 @@ fn parent_with_closed_claim_and_child_at_valid_seq() -> (State, crate::tests::Te
 #[test]
 fn child_with_own_claim_is_skipped() {
     let (mut s, _) = parent_with_closed_claim_and_child_at_valid_seq();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let child = s.fork_checked(v(root, 2));
     let c2 = s.assert_at(child, k(0), r(5));
     let own = cert(k(1), r(7), &[(k(0), r(5))], EpsilonToken::INITIAL);
@@ -65,7 +66,7 @@ fn child_with_own_claim_is_skipped() {
 #[test]
 fn child_unknown_before_and_after_is_untouched() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.assert_at(root, k(0), r(1));
     s.assert_at(root, k(0), r(2));
     let child = s.fork_checked(v(root, 2));
@@ -86,7 +87,7 @@ fn child_unknown_before_and_after_is_untouched() {
 #[test]
 fn reissuing_a_certificate_with_a_later_window_rehomes_the_child() {
     let (mut s, c) = parent_with_closed_claim_and_child_at_valid_seq();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let child = s.fork_checked(v(root, 2));
     let v4 = s.assert_at(root, k(0), r(1));
     assert_eq!(s.write_checked(&c).installed, vec![root]);
@@ -111,7 +112,7 @@ fn reissuing_a_certificate_with_a_later_window_rehomes_the_child() {
 #[test]
 fn an_equal_certificate_from_another_allocation_is_the_same_certificate() {
     let (mut s, c) = parent_with_closed_claim_and_child_at_valid_seq();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let child = s.fork_checked(v(root, 2));
     s.assert_at(root, k(0), r(1));
     let same_trace = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
@@ -134,7 +135,7 @@ fn an_equal_certificate_from_another_allocation_is_the_same_certificate() {
 #[test]
 fn a_different_certificate_for_the_same_revision_rehomes_the_child() {
     let (mut s, _) = parent_with_closed_claim_and_child_at_valid_seq();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.assert_at(root, k(5), r(1));
     let child = s.fork_checked(v(root, 2));
     s.assert_at(root, k(0), r(1));
@@ -165,7 +166,7 @@ fn a_different_certificate_for_the_same_revision_rehomes_the_child() {
 #[test]
 fn fill_in_attaches_child_and_grandchild_by_inheritance() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.assert_at(root, k(0), r(1));
     let child = s.fork_checked(v(root, 2));
     let grandchild = s.fork_checked(v(child, 1));
@@ -188,7 +189,7 @@ fn fill_in_attaches_child_and_grandchild_by_inheritance() {
 #[test]
 fn partial_cover_at_the_child_shadows_then_installs_on_the_childs_turn() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.assert_at(root, k(0), r(1));
     let child = s.fork_checked(v(root, 2));
     let c2 = s.assert_at(child, k(0), r(2));
@@ -206,7 +207,7 @@ fn partial_cover_at_the_child_shadows_then_installs_on_the_childs_turn() {
 #[test]
 fn replacing_a_claim_the_child_inherits_rehomes_it() {
     let (mut s, _) = parent_with_closed_claim_and_child_at_valid_seq();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let child = s.fork_checked(v(root, 2));
     let c2 = cert(k(1), r(2), &[(k(0), r(2))], EpsilonToken::INITIAL);
     assert_eq!(s.write_checked(&c2).installed, vec![root]);
@@ -225,7 +226,7 @@ fn replacing_a_claim_the_child_inherits_rehomes_it() {
 #[test]
 fn a_dirty_at_the_parent_does_not_leak_into_a_child_forked_before_it() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let leaf = cert(k(0), r(1), &[], EpsilonToken::INITIAL);
     s.write_checked(&leaf);
     let child = s.fork_checked(v(root, 1));
@@ -251,7 +252,7 @@ fn a_dirty_at_the_parent_does_not_leak_into_a_child_forked_before_it() {
 #[test]
 fn a_closed_install_at_the_parent_fills_in_a_child_forked_inside_its_window() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.assert_at(root, k(0), r(1)); // 2
     let child = s.fork_checked(v(root, 2));
     s.assert_at(root, k(0), r(2)); // 3
@@ -277,7 +278,7 @@ fn a_closed_install_at_the_parent_fills_in_a_child_forked_inside_its_window() {
 #[test]
 fn a_parent_dirtying_then_changing_the_dep_leaves_the_childs_view_intact() {
     let (mut s, _) = leaf_and_dependent();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let child = s.fork_checked(v(root, 2));
     s.dirty_at(root, k(1)); // 3
     s.assert_at(root, k(0), r(2)); // 4

@@ -10,6 +10,7 @@
 
 //! Resolution, `incrementality.md` §4.4: own claim, own claim not covering, delegation.
 
+use crate::BranchId;
 use crate::EpsilonToken;
 use crate::Lookup;
 use crate::tests::State;
@@ -37,7 +38,7 @@ fn unknown_key_is_unknown_with_the_initial_epsilon() {
 #[test]
 fn own_claim_answers_over_its_window_only() {
     let (mut s, c) = leaf_and_dependent();
-    let root = s.root();
+    let root = BranchId::FIRST;
     assert_eq!(s.valid_at(k(1), v(root, 2)), Some(r(1)));
     // Changing the leaf closes the dependent at the new seq.
     let v3 = s.assert_at(root, k(0), r(2));
@@ -52,7 +53,7 @@ fn own_claim_answers_over_its_window_only() {
 #[test]
 fn branch_without_a_claim_resolves_as_its_parent_did_at_the_fork_point() {
     let (mut s, _) = leaf_and_dependent();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let child = s.fork_checked(v(root, 2));
     assert_eq!(s.valid_at(k(1), v(child, 1)), Some(r(1)));
     // The parent moves on and closes its own claim; the child is forked before that.
@@ -68,7 +69,7 @@ fn branch_without_a_claim_resolves_as_its_parent_did_at_the_fork_point() {
 #[test]
 fn own_claim_on_a_child_blocks_inheritance() {
     let (mut s, _) = leaf_and_dependent();
-    let root = s.root();
+    let root = BranchId::FIRST;
     let child = s.fork_checked(v(root, 2));
     let c2 = s.assert_at(child, k(0), r(3));
     assert!(s.is_unknown_at(k(1), c2));
@@ -83,7 +84,7 @@ fn own_claim_on_a_child_blocks_inheritance() {
 #[test]
 fn asserted_key_falls_through_to_the_parent_before_its_first_own_assertion() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.assert_at(root, k(0), r(1));
     let child = s.fork_checked(v(root, 2));
     let c2 = s.assert_at(child, k(0), r(2));
@@ -97,7 +98,7 @@ fn asserted_key_falls_through_to_the_parent_before_its_first_own_assertion() {
 #[test]
 fn candidate_falls_back_to_a_claim_on_another_branch() {
     let mut s = State::new();
-    let root = s.root();
+    let root = BranchId::FIRST;
     s.assert_at(root, k(0), r(1));
     let child = s.fork_checked(v(root, 2));
     s.assert_at(child, k(0), r(2));

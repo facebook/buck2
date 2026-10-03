@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use dice_core::BranchId;
 use itertools::Itertools;
 
 use crate::HashMap;
@@ -31,11 +32,11 @@ fn key_id(key: DiceKey) -> KeyID {
 }
 
 impl VersionedGraph {
-    /// The root branch's view of the graph, in the dump format: a key's claim as its one valid
+    /// The first branch's view of the graph, in the dump format: a key's claim as its one valid
     /// range, its dirties, its certificate's deps and its rdeps. Keys without a claim or an
     /// assertion are omitted.
     pub(crate) fn introspect(&self) -> VersionedGraphIntrospectable {
-        let root = self.core().root();
+        let root = BranchId::FIRST;
         let mut nodes = HashMap::default();
         let mut edges = HashMap::default();
         for key in self.core().keys() {

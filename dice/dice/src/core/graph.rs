@@ -278,11 +278,6 @@ impl VersionedGraph {
         &self.core
     }
 
-    #[cfg(test)]
-    pub(crate) fn root(&self) -> BranchId {
-        self.core.root()
-    }
-
     /// The branch's newest version.
     pub(crate) fn head(&self, branch: BranchId) -> VersionNumber {
         self.core.head(branch)
@@ -292,6 +287,11 @@ impl VersionedGraph {
     /// it was forked from.
     pub(crate) fn fork(&mut self, from: VersionNumber) -> BranchId {
         self.core.fork(from)
+    }
+
+    /// A new branch with no parent, in which nothing resolves until committed to or written for.
+    pub(crate) fn new_root(&mut self) -> BranchId {
+        self.core.new_root()
     }
 
     /// The one path through which a key's values change, so that the paging index follows.
@@ -350,9 +350,9 @@ impl VersionedGraph {
     }
 
     /// Forgets every claim and every computed value, keeping injected keys and per-key revision
-    /// counters, and returns the fresh version at which nothing resolves.
-    pub(crate) fn take(&mut self) -> VersionNumber {
-        let version = self.core.take();
+    /// counters. Every branch gets a fresh head, at which only injected keys resolve.
+    pub(crate) fn take(&mut self) {
+        self.core.take();
         let keys: Vec<DiceKey> = self.values.keys().copied().collect();
         let mut dropped = Vec::new();
         for key in keys {
@@ -370,7 +370,6 @@ impl VersionedGraph {
             .name("dice-drop-everything".to_owned())
             .spawn(move || drop(dropped))
             .expect("failed to spawn thread");
-        version
     }
 
     pub(crate) fn get(&self, at: VersionedGraphKey) -> VersionedGraphResult {

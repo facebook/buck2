@@ -182,6 +182,13 @@ impl Run {
         child
     }
 
+    fn new_root(&mut self) -> BranchId {
+        let root = self.state.new_root();
+        self.state.check_invariants();
+        self.model
+            .record_version(self.state.head(root), None, Vec::new());
+        root
+    }
     fn write(&mut self, cert: &TestCert) {
         self.state.write(cert.clone(), ());
         self.state.check_invariants();
@@ -266,6 +273,7 @@ enum Op {
         branch: usize,
         seq: usize,
     },
+    NewRoot,
     Take,
 }
 
@@ -289,10 +297,11 @@ fn gen_ops(rng: &mut Rng, count: usize) -> Vec<Op> {
                     })
                     .collect(),
             },
-            25..=31 => Op::Fork {
+            25..=30 => Op::Fork {
                 branch: rng.below(MAX_BRANCHES),
                 seq: rng.below(16),
             },
+            31 => Op::NewRoot,
             32..=71 => Op::Write {
                 key: rng.below(KEYS),
                 revision: 1 + rng.below(3) as u32,
@@ -368,6 +377,11 @@ fn run_ops(_seed: u64, ops: &[Op]) {
                 let v = version_of(&run.state, *branch, *seq);
                 run.check_lookup(any_key(*key), v);
             }
+            Op::NewRoot => {
+                if run.state.branches().count() < MAX_BRANCHES {
+                    run.new_root();
+                }
+            }
             Op::Take => run.take(),
         }
         if i % 8 == 7 {
@@ -401,6 +415,7 @@ enum HonestOp {
         branch: usize,
         seq: usize,
     },
+    NewRoot,
     Take,
 }
 
@@ -425,10 +440,11 @@ fn gen_honest_ops(rng: &mut Rng, count: usize) -> Vec<HonestOp> {
                     })
                     .collect(),
             },
-            30..=37 => HonestOp::Fork {
+            30..=36 => HonestOp::Fork {
                 branch: rng.below(MAX_BRANCHES),
                 seq: rng.below(16),
             },
+            37 => HonestOp::NewRoot,
             38..=97 => HonestOp::Query {
                 key: rng.below(KEYS),
                 branch: rng.below(MAX_BRANCHES),
@@ -472,18 +488,26 @@ impl Honest {
             values: HashMap::new(),
             content: HashMap::new(),
         };
-        // Every injected key is asserted at the root's first commit, so that no lookup ever
-        // asks for a value before there is one.
+        honest.seed(BranchId::FIRST);
+        honest
+    }
+
+    /// Asserts every injected key at a root's first commit, so that no lookup ever asks for a
+    /// value before there is one.
+    fn seed(&mut self, root: BranchId) {
         let changes = (0..INJECTED)
             .map(|i| Change::Assert {
                 key: injected(i),
-                revision: honest.intern(injected(i), 1),
+                revision: self.intern(injected(i), 1),
                 data: (),
             })
             .collect();
-        let root = honest.run.state.root();
-        honest.run.commit(root, changes);
-        honest
+        self.run.commit(root, changes);
+    }
+
+    /// Whether `v` is the initial version of a root, where no injected key has a value yet.
+    fn is_bare(&self, v: Version) -> bool {
+        self.run.state.parent(v.branch()).is_none() && v.seq() == Seq::FIRST
     }
 
     fn intern(&mut self, key: Key, value: u64) -> Revision {
@@ -680,16 +704,22 @@ fn run_honest_ops(seed: u64, ops: &[HonestOp]) {
             HonestOp::Fork { branch, seq } => {
                 if honest.run.state.branches().count() < MAX_BRANCHES {
                     let from = version_of(&honest.run.state, *branch, *seq);
-                    // The root's initial version has no injected values; never fork it.
-                    if from != Version::FIRST {
+                    // A root's initial version has no injected values; never fork it.
+                    if !honest.is_bare(from) {
                         honest.run.fork(from);
                     }
                 }
             }
             HonestOp::Query { key, branch, seq } => {
                 let v = version_of(&honest.run.state, *branch, *seq);
-                if v != Version::FIRST {
+                if !honest.is_bare(v) {
                     honest.ensure(any_key(*key), v);
+                }
+            }
+            HonestOp::NewRoot => {
+                if honest.run.state.branches().count() < MAX_BRANCHES {
+                    let root = honest.run.new_root();
+                    honest.seed(root);
                 }
             }
             HonestOp::Take => honest.run.take(),

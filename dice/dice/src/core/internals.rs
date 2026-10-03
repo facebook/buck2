@@ -89,6 +89,9 @@ impl ActorState {
         self.graph.fork(from)
     }
 
+    pub(super) fn new_root(&mut self) -> BranchId {
+        self.graph.new_root()
+    }
     pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
         self.version_tracker.drop_at_version(v);
     }
@@ -249,7 +252,7 @@ mod tests {
 
         assert_eq!(
             core.update_state(
-                BranchId::ROOT,
+                BranchId::FIRST,
                 [(
                     DiceKey { index: 0 },
                     ChangeType::Invalidate,
@@ -261,7 +264,7 @@ mod tests {
 
         assert_eq!(
             core.update_state(
-                BranchId::ROOT,
+                BranchId::FIRST,
                 [(
                     DiceKey { index: 1 },
                     ChangeType::Invalidate,
@@ -360,7 +363,7 @@ mod tests {
             },
             TrackedInvalidationPaths::clean(),
         );
-        let head = core.current_version(BranchId::ROOT);
+        let head = core.current_version(BranchId::FIRST);
         assert_eq!(head, VersionNumber::testing_new(2));
         assert!(
             core.lookup_key(VersionedGraphKey::new(head, key))
