@@ -155,7 +155,8 @@ def parse_subcommands(output: str) -> List[str]:
         if seen_subcommands and x.startswith("  ") and len(x) > 2 and x[2].isalpha():
             sub = x.strip().split()[0]
             if sub != "help":
-                res.append(sub)
+                if sub != "cleanall":  # FIXME(scottcao): Not fully implemented yet
+                    res.append(sub)
     return res
 
 
