@@ -301,20 +301,17 @@ impl<'fh> FrozenHeap<'fh> {
         self.0.arena.allocated_summary()
     }
 
-    pub(crate) fn reserve_with_extra<'v2, T>(
+    pub(crate) fn reserve_with_extra<T>(
         self,
         extra_len: usize,
-    ) -> (
-        FrozenReservation<'fh, 'v2, T>,
-        *mut [MaybeUninit<T::ExtraElem>],
-    )
+    ) -> (FrozenReservation<'fh, T>, *mut [MaybeUninit<T::ExtraElem>])
     where
-        T: AValue<'v2>,
-        T::StarlarkValue: HeapSendable<'v2>,
-        T::StarlarkValue: HeapSyncable<'v2>,
+        T: AValue<'fh>,
+        T::StarlarkValue: HeapSendable<'fh>,
+        T::StarlarkValue: HeapSyncable<'fh>,
     {
         let (r, extra) = self.0.arena.reserve_with_extra::<T>(extra_len);
-        (FrozenReservation(r, PhantomData), extra)
+        (FrozenReservation(r), extra)
     }
 }
 

@@ -29,7 +29,6 @@
 //! reservations as uninit.
 
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
@@ -318,14 +317,13 @@ impl<'v, T: AValue<'v>> Reservation<'v, T> {
     }
 }
 
-/// A [`Reservation`] on a frozen heap branded `'fh`; filling it publishes a
-/// frozen [`Value<'fh>`](Value).
-pub(crate) struct FrozenReservation<'fh, 'v, T: AValue<'v>>(
-    pub(in crate::values::layout) Reservation<'v, T>,
-    pub(in crate::values::layout) PhantomData<&'fh ()>,
+/// A [`Reservation`] on the frozen heap branded `'fh` for a value typed at that brand; filling
+/// it publishes a frozen [`Value<'fh>`](Value).
+pub(crate) struct FrozenReservation<'fh, T: AValue<'fh>>(
+    pub(in crate::values::layout) Reservation<'fh, T>,
 );
 
-impl<'fh, 'v, T: AValue<'v>> FrozenReservation<'fh, 'v, T> {
+impl<'fh, T: AValue<'fh>> FrozenReservation<'fh, T> {
     pub(crate) fn forward_ptr(&self) -> ForwardPtr {
         self.0.forward_ptr()
     }
