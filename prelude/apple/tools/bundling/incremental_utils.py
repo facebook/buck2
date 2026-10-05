@@ -206,10 +206,7 @@ def _source_with_destination_files(
             result.append((file_or_dir, Path(spec_item.dst)))
         elif file_or_dir.is_dir():
             result.extend(
-                [
-                    (file, spec_item.dst / file.relative_to(file_or_dir))
-                    for file in _list_directory_deterministically(file_or_dir)
-                ]
+                _list_directory_deterministically(spec_item.src, spec_item.dst)
             )
         else:
             raise RuntimeError(
@@ -219,10 +216,20 @@ def _source_with_destination_files(
     return [(src, dst) for src, dst in result if src.name not in FILES_TO_BE_IGNORED]
 
 
-def _list_directory_deterministically(directory: Path) -> List[Path]:
+def _list_directory_deterministically(
+    directory: str, destination_prefix: str
+) -> List[Tuple[Path, Path]]:
     result = []
     for current_dir_path, dir_names, file_names in os.walk(directory):
-        result += [Path(os.path.join(current_dir_path, f)) for f in sorted(file_names)]
+        relative_dir = os.path.relpath(current_dir_path, directory)
+        destination_dir = os.path.join(destination_prefix, relative_dir)
+        result += [
+            (
+                Path(os.path.join(current_dir_path, file_name)),
+                Path(os.path.join(destination_dir, file_name)),
+            )
+            for file_name in sorted(file_names)
+        ]
         # Sort in order for walk to be deterministic.
         dir_names.sort()
     return result

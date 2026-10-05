@@ -600,6 +600,91 @@ class TestIncrementalUtils(unittest.TestCase):
                 ],
             )
 
+    def test_calculate_incremental_state_with_nested_directories(self) -> None:
+        with tempfile.TemporaryDirectory() as project_root, chdir(project_root):
+            # project_root
+            #           └── res
+            #                ├── b.txt
+            #                ├── a.txt
+            #                └── sub
+            #                     ├── deep
+            #                     │    └── d.txt
+            #                     └── c.txt
+            res_path = Path("res")
+            (res_path / "sub" / "deep").mkdir(parents=True)
+            (res_path / "b.txt").write_text("b")
+            (res_path / "a.txt").write_text("a")
+            (res_path / "sub" / "c.txt").write_text("c")
+            (res_path / "sub" / "deep" / "d.txt").write_text("d")
+
+            action_metadata = {
+                Path("res/a.txt"): "hash(a)",
+                Path("res/b.txt"): "hash(b)",
+                Path("res/sub/c.txt"): "hash(c)",
+                Path("res/sub/deep/d.txt"): "hash(d)",
+            }
+            spec = [
+                BundleSpecItem(
+                    src="res",
+                    dst="Resources",
+                    codesign_on_copy=False,
+                )
+            ]
+            state = calculate_incremental_state(spec, action_metadata)
+            self.assertEqual(
+                state,
+                [
+                    IncrementalStateItem(
+                        source=Path("res/a.txt"),
+                        destination_relative_to_bundle=Path("Resources/a.txt"),
+                        digest="hash(a)",
+                        resolved_symlink=None,
+                    ),
+                    IncrementalStateItem(
+                        source=Path("res/b.txt"),
+                        destination_relative_to_bundle=Path("Resources/b.txt"),
+                        digest="hash(b)",
+                        resolved_symlink=None,
+                    ),
+                    IncrementalStateItem(
+                        source=Path("res/sub/c.txt"),
+                        destination_relative_to_bundle=Path("Resources/sub/c.txt"),
+                        digest="hash(c)",
+                        resolved_symlink=None,
+                    ),
+                    IncrementalStateItem(
+                        source=Path("res/sub/deep/d.txt"),
+                        destination_relative_to_bundle=Path("Resources/sub/deep/d.txt"),
+                        digest="hash(d)",
+                        resolved_symlink=None,
+                    ),
+                ],
+            )
+
+    def test_calculate_incremental_state_with_empty_destination(self) -> None:
+        with tempfile.TemporaryDirectory() as project_root, chdir(project_root):
+            res_path = Path("res")
+            (res_path / "sub").mkdir(parents=True)
+            (res_path / "a.txt").write_text("a")
+            (res_path / "sub" / "b.txt").write_text("b")
+
+            action_metadata = {
+                Path("res/a.txt"): "hash(a)",
+                Path("res/sub/b.txt"): "hash(b)",
+            }
+            spec = [
+                BundleSpecItem(
+                    src="res",
+                    dst="",
+                    codesign_on_copy=False,
+                )
+            ]
+            state = calculate_incremental_state(spec, action_metadata)
+            self.assertEqual(
+                [item.destination_relative_to_bundle for item in state],
+                [Path("a.txt"), Path("sub/b.txt")],
+            )
+
     def test_calculate_incremental_state_prefers_action_metadata_to_resolving(
         self,
     ) -> None:
