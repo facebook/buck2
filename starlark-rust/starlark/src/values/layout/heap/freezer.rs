@@ -23,13 +23,9 @@ use crate::eval::compiler::def::Def;
 use crate::values::AllocFrozenValue;
 use crate::values::FreezeResult;
 use crate::values::FrozenHeap;
-use crate::values::HeapSendable;
 use crate::values::SealEdge;
 use crate::values::ValueTyped;
-use crate::values::layout::avalue::AValue;
-use crate::values::layout::heap::arena::FrozenReservation;
 use crate::values::layout::heap::repr::AValueHeapEntryState;
-use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::Value;
 
 /// Copies values from the heap of `'v` onto the frozen heap of `'fv`; the argument of
@@ -74,18 +70,6 @@ impl<'v, 'fv> Freezer<'v, 'fv> {
     /// Allocate a new value while freezing. Usually not a great idea.
     pub fn alloc<T: AllocFrozenValue<'fv>>(&self, val: T) -> Value<'fv> {
         self.heap.alloc(val)
-    }
-
-    pub(crate) fn reserve<'v2, T>(&self) -> FrozenReservation<'fv, 'v2, T>
-    where
-        T: AValue<'v2, ExtraElem = ()>,
-        T::StarlarkValue: HeapSendable<'v2>,
-        T::StarlarkValue: HeapSyncable<'v2>,
-    {
-        let (r, extra) = self.heap.reserve_with_extra::<T>(0);
-        let extra = unsafe { &mut *extra };
-        debug_assert!(extra.is_empty());
-        r
     }
 
     /// Freeze a nested value while freezing yourself.

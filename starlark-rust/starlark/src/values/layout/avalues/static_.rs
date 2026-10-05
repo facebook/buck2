@@ -32,7 +32,7 @@ use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::vtable::AValueVTable;
 
 /// For types which are only allocated statically (never in heap).
-/// Technically we can use `AValueSimple` for these, but this is more explicit and safe.
+/// Technically we can use `AValueFrozen` for these, but this is more explicit and safe.
 pub(crate) struct AValueBasic<T>(PhantomData<T>);
 
 impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueBasic<T> {

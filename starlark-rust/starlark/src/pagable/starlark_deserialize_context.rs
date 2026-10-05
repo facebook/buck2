@@ -1688,7 +1688,7 @@ impl<'de> StarlarkDeserializerImpl<'_, 'de, '_> {
     /// or into a heap it references (that is what the brand it was allocated at guaranteed), so
     /// the brand is honest for cross-heap pointers too. Being closure-introduced, it names
     /// nothing outside `f`; the callers that carry a result out of `f` are the framework itself,
-    /// which either writes it into that heap (the `AValue` vtable, see `AValueSimple`) or pairs
+    /// which either writes it into that heap (the `AValue` vtable, see `AValueFrozen`) or pairs
     /// it with the heap's owner (`OwnedFrozen::unchecked_new`).
     pub(crate) fn recover_from_pagable<R>(
         deserializer: &mut dyn PagableDeserializer<'de>,

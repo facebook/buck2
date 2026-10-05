@@ -1000,7 +1000,7 @@ impl<A: ArenaAllocator> Allocative for Arena<A> {
 mod tests {
     use super::*;
     use crate::values::any::StarlarkAny;
-    use crate::values::layout::avalues::simple::simple;
+    use crate::values::layout::avalues::simple::AValueFrozen;
 
     fn to_repr(x: &AValueHeader) -> String {
         let mut s = String::new();
@@ -1009,7 +1009,7 @@ mod tests {
     }
 
     fn mk_str(x: &str) -> AValueImpl<'static, impl AValue<'static, ExtraElem = ()> + use<>> {
-        simple(StarlarkAny::new(x.to_owned()))
+        AValueImpl::<AValueFrozen<StarlarkAny<String>>>::new(StarlarkAny::new(x.to_owned()))
     }
 
     fn reserve_str<'v, T: AValue<'static>>(

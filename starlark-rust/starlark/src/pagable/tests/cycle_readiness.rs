@@ -33,7 +33,7 @@ use crate::pagable::StarlarkDeserialize;
 use crate::pagable::StarlarkDeserializeContext;
 use crate::pagable::StarlarkSerialize;
 use crate::pagable::StarlarkSerializeContext;
-use crate::values::layout::avalues::simple::AValueSimple;
+use crate::values::layout::avalues::simple::AValueFrozen;
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 const CHAIN_DEPTH: usize = 32;
@@ -251,7 +251,7 @@ impl Fixture {
         let id = NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed);
         let heap = ErasingHeap::new();
         let values = heap.with(|heap| {
-            let (a, _) = heap.reserve_with_extra::<AValueSimple<CycleNode>>(0);
+            let (a, _) = heap.reserve_with_extra::<AValueFrozen<CycleNode>>(0);
             // SAFETY: the reservation is filled below before any value is read,
             // and every edge remains in this same retained frozen heap.
             let a_ptr = unsafe { a.forward_ptr().unpack_frozen_value() };

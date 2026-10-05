@@ -457,7 +457,7 @@ extern "C" fn __vtable_do_register<T: TypeMatcher>() {
             TypeCompiledImplAsStarlarkValue<T>,
         >(),
         vtable: crate::values::layout::vtable::AValueVTable::new::<
-            crate::values::layout::avalues::simple::AValueSimple<
+            crate::values::layout::avalues::simple::AValueFrozen<
                 TypeCompiledImplAsStarlarkValue<T>,
             >,
         >(),

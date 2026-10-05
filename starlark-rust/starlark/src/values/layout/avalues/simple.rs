@@ -34,18 +34,15 @@ use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::AValueSimpleBound;
 use crate::values::layout::avalue::heap_copy_impl;
-use crate::values::layout::avalue::heap_freeze_simple_impl;
+use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 
-pub(crate) fn simple<'v, T: AValueSimpleBound<'v> + 'v>(x: T) -> AValueImpl<'v, AValueSimple<T>> {
-    assert!(!T::is_special(Private));
-    AValueImpl::<AValueSimple<T>>::new(x)
-}
+/// AValue implementation for a simple value on the unfrozen heap: a `T` that holds no values,
+/// and so is a simple value at every brand. Freezing moves it to the frozen heap as it is, as an
+/// [`AValueFrozen`].
+pub(crate) struct AValueSimple<T>(PhantomData<T>);
 
-/// AValue implementation for simple Starlark values.
-pub struct AValueSimple<T>(PhantomData<T>);
-
-impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
+impl<'v, T: for<'a> AValueSimpleBound<'a>> AValue<'v> for AValueSimple<T> {
     type StarlarkValue = T;
 
     type ExtraElem = ();
@@ -62,7 +59,13 @@ impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
-        unsafe { heap_freeze_simple_impl::<Self>(me, freezer) }
+        unsafe {
+            let (r, _extra) = freezer
+                .frozen_heap()
+                .reserve_with_extra::<AValueFrozen<T>>(0);
+            let x = AValueHeader::overwrite_with_forward::<T>(me, r.forward_ptr());
+            Ok(r.fill(x))
+        }
     }
 
     unsafe fn heap_copy(
@@ -70,6 +73,39 @@ impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
         tracer: &Tracer<'v>,
     ) -> Value<'v> {
         unsafe { heap_copy_impl::<Self>(me, tracer, |_v, _tracer| {}) }
+    }
+}
+
+/// AValue implementation for a fixed-size value on a frozen heap: a `T` at the heap's brand,
+/// whether it holds values or not, since nothing on a frozen heap is traced or frozen. This is
+/// the vtable that paging registers for every such type.
+pub struct AValueFrozen<T>(PhantomData<T>);
+
+impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueFrozen<T> {
+    type StarlarkValue = T;
+
+    type ExtraElem = ();
+
+    fn extra_len(_value: &T) -> usize {
+        0
+    }
+
+    fn offset_of_extra() -> usize {
+        mem::size_of::<Self>()
+    }
+
+    unsafe fn heap_freeze<'fv>(
+        _me: *mut AValueRepr<Self::StarlarkValue>,
+        _freezer: &Freezer<'v, 'fv>,
+    ) -> FreezeResult<Value<'fv>> {
+        unreachable!("a value in a frozen heap is never frozen")
+    }
+
+    unsafe fn heap_copy(
+        _me: *mut AValueRepr<Self::StarlarkValue>,
+        _tracer: &Tracer<'v>,
+    ) -> Value<'v> {
+        unreachable!("a value in a frozen heap is never garbage collected")
     }
 
     #[cfg(feature = "pagable")]
@@ -101,7 +137,8 @@ impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
 impl<'fh> FrozenHeap<'fh> {
     /// Allocate a value on the heap
     pub fn alloc_simple_typed<T: AValueSimpleBound<'fh>>(self, val: T) -> ValueTyped<'fh, T> {
-        self.alloc_raw(simple(val))
+        assert!(!T::is_special(Private));
+        self.alloc_raw(AValueImpl::<AValueFrozen<T>>::new(val))
     }
 
     /// Allocate a simple [`StarlarkValue`](crate::values::StarlarkValue) on this heap.
@@ -128,7 +165,9 @@ impl<'v> Heap<'v> {
     /// * is not special builtin (e.g. `None`)
     ///
     /// Being `'static`, it is [`Send`] and [`Sync`] like the contents of every frozen value.
-    pub fn alloc_simple<T: AValueSimpleBound<'v> + 'static>(self, x: T) -> Value<'v> {
-        self.alloc_raw(simple(x)).to_value()
+    pub fn alloc_simple<T: for<'a> AValueSimpleBound<'a>>(self, x: T) -> Value<'v> {
+        assert!(!T::is_special(Private));
+        self.alloc_raw(AValueImpl::<AValueSimple<T>>::new(x))
+            .to_value()
     }
 }

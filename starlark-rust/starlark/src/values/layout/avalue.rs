@@ -36,7 +36,7 @@ use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 
-/// Bound for the payload type `T` of `AValueSimple<T>`.
+/// Bound for the payload type `T` of `AValueSimple<T>` and `AValueFrozen<T>`.
 ///
 /// Bundles `StarlarkValue` + send/sync (always required), plus, under the `pagable` feature,
 /// `StarlarkSerialize`, `StarlarkDeserialize` at every brand (the type is deserialized at the
@@ -187,23 +187,6 @@ pub(crate) struct AValueImpl<'v, T: AValue<'v>>(PhantomData<T>, pub(crate) T::St
 impl<'v, T: AValue<'v>> AValueImpl<'v, T> {
     pub(crate) const fn new(value: T::StarlarkValue) -> Self {
         AValueImpl(PhantomData, value)
-    }
-}
-
-/// `heap_freeze` implementation for simple values: the payload is moved to the frozen heap as it
-/// is.
-pub(super) unsafe fn heap_freeze_simple_impl<'v, 'fv, A>(
-    me: *mut AValueRepr<A::StarlarkValue>,
-    freezer: &Freezer<'v, 'fv>,
-) -> FreezeResult<Value<'fv>>
-where
-    A: AValue<'v, ExtraElem = ()>,
-    A::StarlarkValue: HeapSendable<'v> + HeapSyncable<'v>,
-{
-    unsafe {
-        let r = freezer.reserve::<A>();
-        let x = AValueHeader::overwrite_with_forward::<A::StarlarkValue>(me, r.forward_ptr());
-        Ok(r.fill(x))
     }
 }
 

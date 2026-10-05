@@ -111,7 +111,7 @@ use crate::values::Value;
 use crate::values::ValueTyped;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueSimpleBound;
-use crate::values::layout::avalues::simple::AValueSimple;
+use crate::values::layout::avalues::simple::AValueFrozen;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueHeapEntry;
 use crate::values::layout::heap::repr::AValueHeapEntryState;
@@ -339,7 +339,7 @@ impl<'fv> FreezeTarget<'fv> {
     /// Allocates the final value as a normal fixed-size Starlark value, to be
     /// written by [`FreezeSlot::write`] with a `T`.
     pub fn simple<T: AValueSimpleBound<'fv>>() -> Self {
-        Self::avalue::<AValueSimple<T>>(0)
+        Self::avalue::<AValueFrozen<T>>(0)
     }
 
     /// Allocates the final value as an `A` with `extra_len` trailing elements, to be
@@ -432,7 +432,7 @@ impl<'fv> FreezeSlot<'fv> {
     /// Fails if this slot was not reserved for a `T`, that is when a [`FreezePlan`]
     /// initializes a destination other than the target it selected.
     pub fn write<T: AValueSimpleBound<'fv>>(self, value: T) -> FreezeResult<Value<'fv>> {
-        if !self.fits::<AValueSimple<T>>(0) {
+        if !self.fits::<AValueFrozen<T>>(0) {
             return Err(FreezeError::new(
                 "freeze plan initialized a destination different from its selected target"
                     .to_owned(),
@@ -442,8 +442,8 @@ impl<'fv> FreezeSlot<'fv> {
         // size and is in the region `T` needs, and `payload_ptr` that it is aligned for
         // `T`; the slot owns it exclusively, and the payload is complete once written.
         unsafe {
-            self.payload_ptr::<AValueSimple<T>>().as_ptr().write(value);
-            Ok(self.publish::<AValueSimple<T>>())
+            self.payload_ptr::<AValueFrozen<T>>().as_ptr().write(value);
+            Ok(self.publish::<AValueFrozen<T>>())
         }
     }
 
