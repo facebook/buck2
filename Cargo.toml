@@ -337,7 +337,7 @@ dice = { path = "dice/dice", features = ["pagable"] }
 dice_core = { path = "dice/dice_core" }
 dice_error = { path = "dice/dice_error" }
 dice_futures = { path = "dice/dice_futures" }
-digest = { version = "0.10", features = ["rand_core"] }
+digest = "0.11.3"
 dirs = "7.0"
 display_container = { version = "0.9.0", path = "gazebo/display_container" }
 dunce = "1.0.5"
@@ -467,8 +467,8 @@ serde = { version = "1.0.229", features = ["derive", "rc"] }
 serde_json = { version = "1.0.151", features = ["alloc", "float_roundtrip", "raw_value", "unbounded_depth"] }
 serde_path_to_error = "0.1.20"
 setsketch = { path = "shed/setsketch" }
-sha1 = "0.10.7"
-sha2 = "0.10.6"
+sha1 = "0.11.0"
+sha2 = "0.11.0"
 shlex = "2.0.1"
 similar = { version = "3.2.0", features = ["bytes", "inline", "unicode"] }
 siphasher = "1.0.4"

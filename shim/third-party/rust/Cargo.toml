@@ -71,6 +71,7 @@ dashmap = { version = "6.2.1", features = ["rayon", "serde"] }
 debugserver-types = "0.5.0"
 derivative = "2.2"
 derive_more = { version = "2.1.1", features = ["full"] }
+digest = "0.11.3"
 digest-010 = { package = "digest", version = "0.10", features = ["rand_core"] }
 dirs = "7.0"
 dunce = "1.0.5"
@@ -197,7 +198,9 @@ scopeguard = "1.2.0"
 sequence_trie = { version = "0.3.6", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive", "rc"] }
 serde_json = { version = "1.0.151", features = ["alloc", "float_roundtrip", "raw_value", "unbounded_depth"] }
+sha1 = "0.11.0"
 sha1-010 = { package = "sha1", version = "0.10.7" }
+sha2 = "0.11.0"
 sha2-010 = { package = "sha2", version = "0.10.6" }
 shlex = "2.0.1"
 similar = { version = "3.2.0", features = ["bytes", "inline", "unicode"] }
