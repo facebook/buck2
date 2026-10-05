@@ -212,7 +212,7 @@ class GenerationContext {
       this.fullQualifierTypes =
           multiSegQualifiers
               .distinct()
-              .map { FullTypeQualifier(it) }
+              .map { FullTypeQualifier(it).withMemberAsNestedName() }
               .filterNot { it.isSdkQualifier() }
               .toSet()
       // An all-caps simple name (`IABJSOTA`, `OTA`, `URI`) parses as a static-const member, so
@@ -371,6 +371,16 @@ class GenerationContext {
     val name =
         imp.member?.takeIf { imp.names.isEmpty() && it.first().isUpperCase() } ?: return false
     return usedUserTypes.any { it.referencedName == name }
+  }
+
+  /**
+   * A lowercase trailing segment parses as a static-method member, so the import carries no nested
+   * name until type-position usage proves it.
+   */
+  fun isProvenNestedClassImport(imp: FullTypeQualifier): Boolean {
+    val member = imp.member ?: return false
+    if (imp.names.isEmpty() || !member.first().isLowerCase()) return false
+    return usedUserTypes.any { it.referencedName == member }
   }
 
   private fun promoteProvenClassImports(

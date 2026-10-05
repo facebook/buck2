@@ -33,6 +33,13 @@ class InnerClassStubsGenerator : StubsGenerator {
     val candidatesWithComplexImport =
         (context.importedTypes - context.declaredTypes).filter { it.names.size >= 2 }
 
+    // Promote locally, not in importedTypes: equality is segments-only, so a promoted copy
+    // dedupes against the raw import and loses the Outer binding.
+    val provenNestedImports =
+        (context.importedTypes - context.declaredTypes)
+            .filter { context.isProvenNestedClassImport(it) }
+            .map { it.withMemberAsNestedName() }
+
     // import: com.A
     // usage: A.B
     val candidatesWithComplexUsage =
@@ -49,10 +56,12 @@ class InnerClassStubsGenerator : StubsGenerator {
               imp to segment
             }
             .filter { (imp, _) -> imp != null }
-            .map { (imp, segment) -> FullTypeQualifier(imp!!.segments + segment.drop(1)) }
+            .map { (imp, segment) ->
+              FullTypeQualifier(imp!!.segments + segment.drop(1)).withMemberAsNestedName()
+            }
 
     val candidatesToGenerateInnerClass =
-        (candidatesWithComplexImport + candidatesWithComplexUsage)
+        (candidatesWithComplexImport + provenNestedImports + candidatesWithComplexUsage)
             .filter { it.member == null }
             .toSet()
             // We don't want to stub types if they are declared in compilation context

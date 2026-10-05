@@ -79,6 +79,13 @@ class FullTypeQualifier : Comparable<FullTypeQualifier> {
   // - com.some.package.method
   fun isTopLevelDeclaration(): Boolean = names.isEmpty()
 
+  /**
+   * Call only with segments from a type slot: there the trailing segment names a type by position,
+   * whatever its case.
+   */
+  fun withMemberAsNestedName(): FullTypeQualifier =
+      if (member == null) this else unsafeBuildQualifier(segments, pkg, names + member)
+
   override fun compareTo(other: FullTypeQualifier): Int {
     val thisSize = this.segments.size
     val otherSize = other.segments.size
