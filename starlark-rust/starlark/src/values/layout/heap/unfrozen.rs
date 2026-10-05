@@ -352,7 +352,8 @@ impl<'v> Heap<'v> {
 /// Used to perform garbage collection by [`Trace::trace`](crate::values::Trace::trace).
 pub struct Tracer<'v> {
     arena: Arena<Bump>,
-    phantom: PhantomData<&'v ()>,
+    // Invariant in the brand, like every carrier of one.
+    phantom: PhantomData<fn(&'v ()) -> &'v ()>,
 }
 
 impl<'v> Tracer<'v> {

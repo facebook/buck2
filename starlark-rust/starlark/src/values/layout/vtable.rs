@@ -342,7 +342,8 @@ impl AValueVTable {
 pub(crate) struct AValueDyn<'v> {
     pub(crate) value: StarlarkValueRawPtr,
     vtable: &'static AValueVTable,
-    _marker: PhantomData<&'v ()>,
+    // Invariant in the brand, like every carrier of one.
+    _marker: PhantomData<fn(&'v ()) -> &'v ()>,
 }
 
 impl<'v> Debug for AValueDyn<'v> {

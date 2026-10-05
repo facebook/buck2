@@ -105,8 +105,9 @@ impl PointerI32 {
         unsafe { RawPointer::new_unchecked(self as *const Self as usize).unpack_int_unchecked() }
     }
 
+    /// A static is immortal, so it is usable at every brand; `&'static self` is the proof.
     #[inline]
-    pub(crate) fn as_avalue_dyn(&'static self) -> AValueDyn<'static> {
+    pub(crate) fn as_avalue_dyn<'v>(&'static self) -> AValueDyn<'v> {
         unsafe { AValueDyn::new(StarlarkValueRawPtr::new_pointer_i32(self), Self::vtable()) }
     }
 
