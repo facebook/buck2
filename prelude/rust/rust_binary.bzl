@@ -438,17 +438,16 @@ def _rust_binary_common(
         precomputed_inherited_link_args = native_link_args,
     )
 
-    dwp_output = link.link_output.dwp_output if link.link_output else None
-    pdb_output = link.link_output.pdb if link.link_output else None
     prebolt_output = None
     if links_via_cxx:
+        extraction = link.product
         rust_link_inputs = [
-            link.link_extraction.out_argsfile,
-            link.link_extraction.out_artifacts_dir,
-            link.link_extraction.out_manifest,
+            extraction.out_argsfile,
+            extraction.out_artifacts_dir,
+            extraction.out_manifest,
         ]
-        if link.link_extraction.out_archive != None:
-            rust_link_inputs.append(link.link_extraction.out_archive)
+        if extraction.out_archive != None:
+            rust_link_inputs.append(extraction.out_archive)
         if generated_build_info_enabled:
             generated_build_info = generate_build_info(
                 ctx,
@@ -465,7 +464,7 @@ def _rust_binary_common(
         link_result = rust_link_binary(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            extraction = link.link_extraction,
+            extraction = extraction,
             dep_link_strategy = params.dep_link_strategy,
             reloc_model = params.reloc_model,
             extra_link_args = executable_shlib_args.extra_link_args,
@@ -481,8 +480,11 @@ def _rust_binary_common(
         dwp_output = link_result.linked_object.dwp
         pdb_output = link_result.linked_object.pdb
         prebolt_output = link_result.linked_object.prebolt_output
-    elif enable_late_build_info_stamping:
-        stamp_build_info(ctx, link.output, final_output)
+    else:
+        dwp_output = link.product.dwp_output
+        pdb_output = link.product.pdb
+        if enable_late_build_info_stamping:
+            stamp_build_info(ctx, link.product.output, final_output)
 
     args = cmd_args(final_output, hidden = executable_shlib_args.runtime_files)
     external_debug_info = project_artifacts(
@@ -679,7 +681,7 @@ def _rust_binary_common(
             default_roots = default_roots,
             extra_flags = extra_flags,
             incremental_enabled = ctx.attrs.incremental_enabled,
-        ).output
+        ).product.output
 
     llvm_ir_noopt = rust_compile(
         ctx = ctx,
@@ -689,7 +691,7 @@ def _rust_binary_common(
         default_roots = default_roots,
         extra_flags = extra_flags,
         incremental_enabled = ctx.attrs.incremental_enabled,
-    ).output
+    ).product.output
     if compile_ctx.toolchain_info.nightly_features:
         llvm_time_trace = rust_compile(
             ctx = ctx,
@@ -735,7 +737,7 @@ def _rust_binary_common(
             default_roots = default_roots,
             extra_flags = extra_flags,
             incremental_enabled = ctx.attrs.incremental_enabled,
-        ).output
+        ).product.output
 
     doc_output = generate_rustdoc(
         ctx = ctx,

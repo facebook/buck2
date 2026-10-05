@@ -139,7 +139,14 @@ load(
     "resolve_rust_deps",
     "strategy_info",
 )
-load(":outputs.bzl", "RustcCompileOutput", "RustcLinkOutput", "RustcOutput")
+load(
+    ":outputs.bzl",
+    "LinkExtraction",
+    "RustcCompileOutput",
+    "RustcLinkedOutput",
+    "RustcOutput",
+    "RustcUnlinkedOutput",
+)
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 load(
@@ -465,21 +472,6 @@ def generate_rustdoc_test(
         argfile_name = "{}.args".format(common_args.subdir),
         has_content_based_path = getattr(ctx.attrs, "use_content_based_paths", False),
     )
-
-LinkExtraction = record(
-    # cmd_script set via `-Clinker=`.
-    linker_wrapper = field(typing.Any),
-    # The retained linker args. Contains no paths, only flags, and so is safe
-    # to pass along verbatim even under content-based paths.
-    out_argsfile = field(Artifact),
-    # Extracted link inputs directory.
-    out_artifacts_dir = field(Artifact),
-    # Basenames of the extracted objects, one per line, in link order.
-    out_manifest = field(Artifact),
-    # Archive of the rustc-produced objects. Only built when used by
-    # distributed thinlto.
-    out_archive = field(Artifact | None),
-)
 
 def _archiver_command(ctx: AnalysisContext, compile_ctx: CompileContext, subdir: str, archive_cbp: bool) -> cmd_args:
     linker_info = compile_ctx.cxx_toolchain_info.linker_info
@@ -836,85 +828,96 @@ def rust_compile(
         strip_dwo_members = strip_dwo_members,
     )
 
-    if extracts_objects:
-        # There is no linked artifact; stand in with the manifest of extracted
-        # objects, which is the closest thing this compile produced.
-        filtered_output = link_extraction.out_manifest
-    elif infallible_diagnostics and emit != Emit("clippy"):
-        # This is only needed when this action's output is being used as an
-        # input, so we only need standard diagnostics (clippy is always
-        # asked for explicitly).
-        filtered_output = failure_filter(
-            ctx = ctx,
-            compile_ctx = compile_ctx,
-            predeclared_output = predeclared_output,
-            build_status = invoke.build_status,
-            required = emit_op.output,
-            stderr = invoke.diag_txt,
-            identifier = invoke.identifier,
-        )
-    else:
-        filtered_output = emit_op.output
-
-    singleton_tset = ctx.actions.tset(
-        TransitiveDeps,
-        value = RustArtifact(
-            artifact = filtered_output,
-            crate = attr_crate(ctx),
-        ),
-    )
-
     if (emit == Emit("link") or emit == Emit("rlib")) and has_split_debug:
         dwo_output_directory = emit_op.extra_out
         dwp_inputs.append(dwo_output_directory)
     else:
         dwo_output_directory = None
 
-    if requires_linking and dwp_available(compile_ctx.cxx_toolchain_info):
-        dwp_output = dwp(
-            ctx,
-            compile_ctx.cxx_toolchain_info,
-            emit_op.output,
-            identifier = "{}/__{}_{}_dwp".format(common_args.subdir, common_args.tempfile, emit.value),
-            category_suffix = "rust",
-            # TODO(T110378142): Ideally, referenced objects are a list of
-            # artifacts, but currently we don't track them properly.  So, we
-            # just pass in the full link line and extract all inputs from that,
-            # which is a bit of an overspecification.
-            referenced_objects = dwp_inputs,
-        )
-    else:
-        dwp_output = None
-
-    # FIXME(JakobDegen): What's going on with stripped objects in binaries? What is this what cxx does?
-    if emit in [Emit("rlib"), Emit("link")] and not extracts_objects:
-        stripped_output = strip_debug_info(
-            ctx.actions,
-            paths.join(
-                common_args.subdir,
-                "stripped",
-                output_filename(
-                    compile_ctx,
-                    attr_simple_crate_for_filenames(ctx),
-                    Emit("link"),
-                    params,
-                ),
-            ),
-            filtered_output,
-            compile_ctx.cxx_toolchain_info,
-            has_content_based_path = getattr(ctx.attrs, "use_content_based_paths", False),
-        )
-    else:
-        stripped_output = None
-
     # When profile_mode is remarks, the remarks are included in the diagnostic stream
     # (same as diag_txt/diag_json), not a separate artifact
     remarks_txt = invoke.diag_txt if profile_mode == ProfileMode("remarks") else None
     remarks_json = invoke.diag_json if profile_mode == ProfileMode("remarks") else None
 
+    if extracts_objects:
+        product = link_extraction
+        stripped_output = None
+    else:
+        if infallible_diagnostics and emit != Emit("clippy"):
+            # This is only needed when this action's output is being used as an
+            # input, so we only need standard diagnostics (clippy is always
+            # asked for explicitly).
+            filtered_output = failure_filter(
+                ctx = ctx,
+                compile_ctx = compile_ctx,
+                predeclared_output = predeclared_output,
+                build_status = invoke.build_status,
+                required = emit_op.output,
+                stderr = invoke.diag_txt,
+                identifier = invoke.identifier,
+            )
+        else:
+            filtered_output = emit_op.output
+
+        singleton_tset = ctx.actions.tset(
+            TransitiveDeps,
+            value = RustArtifact(
+                artifact = filtered_output,
+                crate = attr_crate(ctx),
+            ),
+        )
+
+        if requires_linking:
+            if dwp_available(compile_ctx.cxx_toolchain_info):
+                dwp_output = dwp(
+                    ctx,
+                    compile_ctx.cxx_toolchain_info,
+                    emit_op.output,
+                    identifier = "{}/__{}_{}_dwp".format(common_args.subdir, common_args.tempfile, emit.value),
+                    category_suffix = "rust",
+                    # TODO(T110378142): Ideally, referenced objects are a list of
+                    # artifacts, but currently we don't track them properly.  So, we
+                    # just pass in the full link line and extract all inputs from that,
+                    # which is a bit of an overspecification.
+                    referenced_objects = dwp_inputs,
+                )
+            else:
+                dwp_output = None
+            product = RustcLinkedOutput(
+                output = filtered_output,
+                singleton_tset = singleton_tset,
+                import_library = import_library,
+                pdb = pdb_artifact,
+                dwp_output = dwp_output,
+            )
+        else:
+            product = RustcUnlinkedOutput(
+                output = filtered_output,
+                singleton_tset = singleton_tset,
+            )
+
+        # FIXME(JakobDegen): What's going on with stripped objects in binaries? What is this what cxx does?
+        if emit in [Emit("rlib"), Emit("link")]:
+            stripped_output = strip_debug_info(
+                ctx.actions,
+                paths.join(
+                    common_args.subdir,
+                    "stripped",
+                    output_filename(
+                        compile_ctx,
+                        attr_simple_crate_for_filenames(ctx),
+                        Emit("link"),
+                        params,
+                    ),
+                ),
+                filtered_output,
+                compile_ctx.cxx_toolchain_info,
+                has_content_based_path = getattr(ctx.attrs, "use_content_based_paths", False),
+            )
+        else:
+            stripped_output = None
+
     return RustcOutput(
-        output = filtered_output,
-        singleton_tset = singleton_tset,
         compile_output = RustcCompileOutput(
             stripped_output = stripped_output,
             diag_txt = invoke.diag_txt,
@@ -924,14 +927,7 @@ def rust_compile(
             remarks_txt = remarks_txt,
             remarks_json = remarks_json,
         ),
-        link_output = RustcLinkOutput(
-            import_library = import_library,
-            pdb = pdb_artifact,
-            dwp_output = dwp_output,
-        )
-        if emit == Emit("link")
-        else None,
-        link_extraction = link_extraction,
+        product = product,
     )
 
 # --extern <crate>=<path> for direct dependencies

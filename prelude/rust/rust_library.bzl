@@ -351,7 +351,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             # need to pass a special arg here, expand should just work.
             infallible_diagnostics = True,
             incremental_enabled = ctx.attrs.incremental_enabled,
-        ).output
+        ).product.output
     else:
         # `--show-coverage` and `-Zunpretty=expanded` are unstable
         rustdoc_coverage = None
@@ -364,7 +364,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         params = static_library_params,
         default_roots = _DEFAULT_ROOTS,
         incremental_enabled = ctx.attrs.incremental_enabled,
-    ).output
+    ).product.output
     if toolchain_info.nightly_features:
         llvm_time_trace = rust_compile(
             ctx = ctx,
@@ -423,7 +423,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rustdoc_test = generate_rustdoc_test(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            rlib = param_metadata_outputs[static_library_params][rustdoc_test_metadata_kind].output,
+            rlib = param_metadata_outputs[static_library_params][rustdoc_test_metadata_kind].product.output,
             link_infos = link_infos,
             params = rustdoc_test_params,
             default_roots = _DEFAULT_ROOTS,
@@ -657,12 +657,12 @@ def _link_infos(
         )
         if output_style == LibOutputStyle("shared_lib"):
             linked_object = LinkedObject(
-                output = lib.output,
-                unstripped_output = lib.output,
+                output = lib.product.output,
+                unstripped_output = lib.product.output,
                 external_debug_info = external_debug_info,
-                import_library = lib.link_output.import_library,
-                pdb = lib.link_output.pdb,
-                dwp = lib.link_output.dwp_output,
+                import_library = lib.product.import_library,
+                pdb = lib.product.pdb,
+                dwp = lib.product.dwp_output,
             )
 
             link_infos[output_style] = _make_shared_lib_link_infos(
@@ -675,7 +675,7 @@ def _link_infos(
                 default = LinkInfo(
                     linkables = [
                         ArchiveLinkable(
-                            archive = Archive(artifact = lib.output),
+                            archive = Archive(artifact = lib.product.output),
                             linker_type = linker_type,
                             link_whole = link_whole,
                         )
@@ -744,8 +744,8 @@ def _handle_rust_artifact(
                 children = rust_debug_info,
             )
         return RustLinkStrategyInfo(
-            outputs = {m: x.output for m, x in outputs.items()},
-            singleton_tset = {m: x.singleton_tset for m, x in outputs.items()},
+            outputs = {m: x.product.output for m, x in outputs.items()},
+            singleton_tset = {m: x.product.singleton_tset for m, x in outputs.items()},
             transitive_deps = tdeps,
             transitive_proc_macro_deps = tprocmacrodeps,
             rust_debug_info = rust_debug_info,
@@ -754,8 +754,8 @@ def _handle_rust_artifact(
         # Proc macro deps are always the real thing
         no_transitive_deps = ctx.actions.tset(TransitiveDeps)
         return RustLinkStrategyInfo(
-            outputs = {m: link_output.output for m in MetadataKind},
-            singleton_tset = {m: link_output.singleton_tset for m in MetadataKind},
+            outputs = {m: link_output.product.output for m in MetadataKind},
+            singleton_tset = {m: link_output.product.singleton_tset for m in MetadataKind},
             transitive_deps = {m: no_transitive_deps for m in MetadataKind},
             transitive_proc_macro_deps = set(),
             rust_debug_info = ArtifactTSet(),
@@ -810,13 +810,13 @@ def _default_providers(
         param = lang_style_param[lang_style]
         artifact = param_output[param]
 
-        nested_sub_targets = {k: [DefaultInfo(default_output = v.output)] for k, v in param_subtargets[param].items()}
+        nested_sub_targets = {k: [DefaultInfo(default_output = v.product.output)] for k, v in param_subtargets[param].items()}
         if artifact.compile_output.stripped_output:
             nested_sub_targets["stripped"] = [DefaultInfo(default_output = artifact.compile_output.stripped_output)]
 
         sub_targets[name] = [
             DefaultInfo(
-                default_output = artifact.output,
+                default_output = artifact.product.output,
                 sub_targets = nested_sub_targets,
             )
         ]
