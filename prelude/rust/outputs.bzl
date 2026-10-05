@@ -10,9 +10,6 @@ load(":link_info.bzl", "TransitiveDeps")
 
 # Outputs that are generally associated with object code compilation, as opposed to linking
 RustcCompileOutput = record(
-    # A stripped version of the output, only available if the main output is not linked and
-    # stripping makes sense for it
-    stripped_output = Artifact | None,
     diag_txt = field(Artifact),
     diag_json = field(Artifact),
     # Zero or more Split DWARF debug info files are emitted into this directory
@@ -32,6 +29,9 @@ RustcUnlinkedOutput = record(
     output = field(Artifact),
     # `output`, wrapped in a 1-element transitive set.
     singleton_tset = field(TransitiveDeps),
+    # `output` with its debug info stripped. Only the archive-shaped artifacts
+    # get one: `Emit("rlib")`, and `Emit("link")` of an rlib or staticlib crate.
+    stripped_output = field(Artifact | None),
 )
 
 # What rustc produced when it also drove the link: a binary, dylib, cdylib or
@@ -40,6 +40,8 @@ RustcLinkedOutput = record(
     output = field(Artifact),
     # `output`, wrapped in a 1-element transitive set.
     singleton_tset = field(TransitiveDeps),
+    # `output` with its debug info stripped.
+    stripped_output = field(Artifact),
     # Windows .lib artifact for linking against .dll
     import_library = field(Artifact | None),
     pdb = field(Artifact | None),

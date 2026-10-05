@@ -689,7 +689,7 @@ def _link_infos(
                 stripped = LinkInfo(
                     linkables = [
                         ArchiveLinkable(
-                            archive = Archive(artifact = lib.compile_output.stripped_output),
+                            archive = Archive(artifact = lib.product.stripped_output),
                             linker_type = linker_type,
                             link_whole = link_whole,
                         )
@@ -799,8 +799,8 @@ def _default_providers(
         artifact = param_output[param]
 
         nested_sub_targets = {k: [DefaultInfo(default_output = v.product.output)] for k, v in param_subtargets[param].items()}
-        if artifact.compile_output.stripped_output:
-            nested_sub_targets["stripped"] = [DefaultInfo(default_output = artifact.compile_output.stripped_output)]
+        if artifact.product.stripped_output:
+            nested_sub_targets["stripped"] = [DefaultInfo(default_output = artifact.product.stripped_output)]
 
         sub_targets[name] = [
             DefaultInfo(

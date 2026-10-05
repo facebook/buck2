@@ -841,7 +841,6 @@ def rust_compile(
 
     if extracts_objects:
         product = link_extraction
-        stripped_output = None
     else:
         if infallible_diagnostics and emit != Emit("clippy"):
             # This is only needed when this action's output is being used as an
@@ -867,35 +866,6 @@ def rust_compile(
             ),
         )
 
-        if requires_linking:
-            if dwp_available(compile_ctx.cxx_toolchain_info):
-                dwp_output = dwp(
-                    ctx,
-                    compile_ctx.cxx_toolchain_info,
-                    emit_op.output,
-                    identifier = "{}/__{}_{}_dwp".format(common_args.subdir, common_args.tempfile, emit.value),
-                    category_suffix = "rust",
-                    # TODO(T110378142): Ideally, referenced objects are a list of
-                    # artifacts, but currently we don't track them properly.  So, we
-                    # just pass in the full link line and extract all inputs from that,
-                    # which is a bit of an overspecification.
-                    referenced_objects = dwp_inputs,
-                )
-            else:
-                dwp_output = None
-            product = RustcLinkedOutput(
-                output = filtered_output,
-                singleton_tset = singleton_tset,
-                import_library = import_library,
-                pdb = pdb_artifact,
-                dwp_output = dwp_output,
-            )
-        else:
-            product = RustcUnlinkedOutput(
-                output = filtered_output,
-                singleton_tset = singleton_tset,
-            )
-
         # FIXME(JakobDegen): What's going on with stripped objects in binaries? What is this what cxx does?
         if emit in [Emit("rlib"), Emit("link")]:
             stripped_output = strip_debug_info(
@@ -917,9 +887,39 @@ def rust_compile(
         else:
             stripped_output = None
 
+        if requires_linking:
+            if dwp_available(compile_ctx.cxx_toolchain_info):
+                dwp_output = dwp(
+                    ctx,
+                    compile_ctx.cxx_toolchain_info,
+                    emit_op.output,
+                    identifier = "{}/__{}_{}_dwp".format(common_args.subdir, common_args.tempfile, emit.value),
+                    category_suffix = "rust",
+                    # TODO(T110378142): Ideally, referenced objects are a list of
+                    # artifacts, but currently we don't track them properly.  So, we
+                    # just pass in the full link line and extract all inputs from that,
+                    # which is a bit of an overspecification.
+                    referenced_objects = dwp_inputs,
+                )
+            else:
+                dwp_output = None
+            product = RustcLinkedOutput(
+                output = filtered_output,
+                singleton_tset = singleton_tset,
+                stripped_output = stripped_output,
+                import_library = import_library,
+                pdb = pdb_artifact,
+                dwp_output = dwp_output,
+            )
+        else:
+            product = RustcUnlinkedOutput(
+                output = filtered_output,
+                singleton_tset = singleton_tset,
+                stripped_output = stripped_output,
+            )
+
     return RustcOutput(
         compile_output = RustcCompileOutput(
-            stripped_output = stripped_output,
             diag_txt = invoke.diag_txt,
             diag_json = invoke.diag_json,
             dwo_output_directory = dwo_output_directory,
