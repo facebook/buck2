@@ -9,12 +9,12 @@
 [<TIMESTAMP>]   Caused by:
 [<TIMESTAMP>]       Traceback (most recent call last):
 [<TIMESTAMP>]         File <builtin>, in <module>
-[<TIMESTAMP>]         * prelude/configurations/rules.bzl:71, in constraint_impl
+[<TIMESTAMP>]         * prelude/configurations/rules.bzl:77, in constraint_impl
 [<TIMESTAMP>]             fail("constraint() rule must have at least one value.")
 [<TIMESTAMP>]       error: fail: constraint() rule must have at least one value.
-[<TIMESTAMP>]         --> prelude/configurations/rules.bzl:71:13
+[<TIMESTAMP>]         --> prelude/configurations/rules.bzl:77:13
 [<TIMESTAMP>]          |
-[<TIMESTAMP>]       71 |             fail("constraint() rule must have at least one value.")
+[<TIMESTAMP>]       77 |             fail("constraint() rule must have at least one value.")
 [<TIMESTAMP>]          |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 [<TIMESTAMP>]       
 Command failed: 
