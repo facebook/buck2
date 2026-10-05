@@ -125,7 +125,7 @@ load(
     "RustArtifact",
     "RustCxxLinkGroupInfo",  # @unused Used as a type
     "RustDependency",
-    "RustLinkInfo",
+    "RustProcMacroInfo",
     "TransitiveDeps",
     "attr_crate",
     "attr_simple_crate_for_filenames",
@@ -971,16 +971,19 @@ def dependency_args(
         else:
             crate = dep.info.crate
 
-        strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
+        if isinstance(dep.info, RustProcMacroInfo):
+            artifact = dep.info.dylib
+            singleton_tset = dep.info.singleton_tset
+            transitive_artifacts = None
+        else:
+            strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
 
-        artifact = strategy.outputs[dep_metadata_kind]
-        singleton_tset = strategy.singleton_tset[dep_metadata_kind]
-        transitive_artifacts = strategy.transitive_deps[dep_metadata_kind]
+            artifact = strategy.outputs[dep_metadata_kind]
+            singleton_tset = strategy.singleton_tset[dep_metadata_kind]
+            transitive_artifacts = strategy.transitive_deps[dep_metadata_kind]
 
-        for marker in strategy.transitive_proc_macro_deps:
-            info = available_proc_macros[marker.label][RustLinkInfo]
-            strategy = strategy_info(toolchain_info, info, dep_link_strategy)
-            transitive_deps.append(strategy.singleton_tset[MetadataKind("link")])
+            for label in strategy.transitive_proc_macro_deps:
+                transitive_deps.append(available_proc_macros[label][RustProcMacroInfo].singleton_tset)
 
         args.add(extern_arg(dep.flags, crate, artifact))
         crate_targets.append((crate, dep.label))
@@ -992,7 +995,8 @@ def dependency_args(
             transitive_deps.append(singleton_tset)
 
         # Unwanted transitive_deps have already been excluded
-        transitive_deps.append(transitive_artifacts)
+        if transitive_artifacts != None:
+            transitive_deps.append(transitive_artifacts)
 
     prefix = "{}-deps{}".format(subdir, dep_metadata_kind.value)
     transitive_deps = ctx.actions.tset(TransitiveDeps, children = transitive_deps)

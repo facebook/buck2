@@ -8,7 +8,7 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
-    "ArtifactTSet",
+    "ArtifactTSet",  # @unused Used as a type
     "make_artifact_tset",
 )
 load("@prelude//:resources.bzl", "gather_resources", "make_resource_info")
@@ -107,12 +107,12 @@ load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LIB_OUTPUT_STYLE",
     "DEFAULT_STATIC_LINK_STRATEGY",
-    "RustExportedLinkDeps",
+    "RustExportedLinkDeps",  # @unused Used as a type
     "RustLinkInfo",
     "RustLinkStrategyInfo",
     "RustLinkableGraphs",
     "RustNativeLinkDeps",
-    "RustProcMacroMarker",  # @unused Used as a type
+    "RustProcMacroInfo",
     "TransitiveDeps",
     "attr_crate",
     "dfs_dedupe_by_label",
@@ -282,13 +282,6 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx,
                 linked_object,
             )
-
-    rust_artifacts = _rust_artifacts(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        lang_style_param = lang_style_param,
-        param_metadata_outputs = param_metadata_outputs,
-    )
 
     # For doctests, we need to know two things to know how to link them. The
     # first is that we need a link strategy, which affects how deps of this
@@ -501,26 +494,35 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     if ctx.attrs.proc_macro:
+        # Proc macros are built the same way whatever the requested output
+        # style, so there is only one set of params (see `library_build_params`)
         providers += _proc_macro_link_providers(
             ctx = ctx,
-            rust_artifacts = rust_artifacts,
-        )
-    elif toolchain_info.advanced_unstable_linking:
-        providers += _advanced_unstable_link_providers(
-            ctx = ctx,
-            compile_ctx = compile_ctx,
-            rust_artifacts = rust_artifacts,
-            link_infos = link_infos,
-            linked_object = linked_object,
+            link = param_output[meta_params],
         )
     else:
-        providers += _stable_link_providers(
+        rust_artifacts = _rust_artifacts(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            rust_artifacts = rust_artifacts,
-            link_infos = link_infos,
-            linked_object = linked_object,
+            lang_style_param = lang_style_param,
+            param_metadata_outputs = param_metadata_outputs,
         )
+        if toolchain_info.advanced_unstable_linking:
+            providers += _advanced_unstable_link_providers(
+                ctx = ctx,
+                compile_ctx = compile_ctx,
+                rust_artifacts = rust_artifacts,
+                link_infos = link_infos,
+                linked_object = linked_object,
+            )
+        else:
+            providers += _stable_link_providers(
+                ctx = ctx,
+                compile_ctx = compile_ctx,
+                rust_artifacts = rust_artifacts,
+                link_infos = link_infos,
+                linked_object = linked_object,
+            )
 
     deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)]
     providers.append(
@@ -726,40 +728,26 @@ def _handle_rust_artifact(
     Return the RustLinkStrategyInfo for a given set of artifacts. The main consideration
     is computing the right set of dependencies.
     """
-
-    # If we're a crate where our consumers should care about transitive deps,
-    # then compute them (specifically, not proc-macro).
     link_output = outputs[MetadataKind("link")]
-    if not ctx.attrs.proc_macro:
-        tdeps, rust_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
+    tdeps, rust_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
 
-        toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
-        if toolchain_info.advanced_unstable_linking:
-            rust_debug_info = None
-        else:
-            rust_debug_info = make_artifact_tset(
-                actions = ctx.actions,
-                label = ctx.label,
-                artifacts = filter(None, [link_output.compile_output.dwo_output_directory]),
-                children = rust_debug_info,
-            )
-        return RustLinkStrategyInfo(
-            outputs = {m: x.product.output for m, x in outputs.items()},
-            singleton_tset = {m: x.product.singleton_tset for m, x in outputs.items()},
-            transitive_deps = tdeps,
-            transitive_proc_macro_deps = tprocmacrodeps,
-            rust_debug_info = rust_debug_info,
-        )
+    toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
+    if toolchain_info.advanced_unstable_linking:
+        rust_debug_info = None
     else:
-        # Proc macro deps are always the real thing
-        no_transitive_deps = ctx.actions.tset(TransitiveDeps)
-        return RustLinkStrategyInfo(
-            outputs = {m: link_output.product.output for m in MetadataKind},
-            singleton_tset = {m: link_output.product.singleton_tset for m in MetadataKind},
-            transitive_deps = {m: no_transitive_deps for m in MetadataKind},
-            transitive_proc_macro_deps = set(),
-            rust_debug_info = ArtifactTSet(),
+        rust_debug_info = make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            artifacts = filter(None, [link_output.compile_output.dwo_output_directory]),
+            children = rust_debug_info,
         )
+    return RustLinkStrategyInfo(
+        outputs = {m: x.product.output for m, x in outputs.items()},
+        singleton_tset = {m: x.product.singleton_tset for m, x in outputs.items()},
+        transitive_deps = tdeps,
+        transitive_proc_macro_deps = tprocmacrodeps,
+        rust_debug_info = rust_debug_info,
+    )
 
 def _default_providers(
     lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
@@ -870,19 +858,13 @@ def _rust_metadata_providers(diag_artifacts: dict[bool, RustcOutput], clippy_art
         ),
     ]
 
-def _proc_macro_link_providers(ctx: AnalysisContext, rust_artifacts: dict[LinkStrategy, RustLinkStrategyInfo]) -> list[Provider]:
-    # These are never accessed in the case of proc macros, so just return some dummy
-    # values
+def _proc_macro_link_providers(ctx: AnalysisContext, link: RustcOutput) -> list[Provider]:
     return [
-        RustLinkInfo(
+        RustProcMacroInfo(
             crate = attr_crate(ctx),
-            strategies = rust_artifacts,
-            native_link_deps = ctx.actions.tset(RustNativeLinkDeps),
-            exported_link_deps = ctx.actions.tset(RustExportedLinkDeps),
-            shared_libs = merge_shared_libraries(ctx.actions),
-            third_party_build_info = third_party_build_info(actions = ctx.actions),
-            linkable_graphs = ctx.actions.tset(RustLinkableGraphs),
-        )
+            dylib = link.product.output,
+            singleton_tset = link.product.singleton_tset,
+        ),
     ]
 
 def _linker_flags(ctx: AnalysisContext) -> LinkerFlags:
@@ -1217,7 +1199,7 @@ def _compute_transitive_deps(
 ) -> (
     dict[MetadataKind, TransitiveDeps],
     list[ArtifactTSet],
-    set[RustProcMacroMarker],
+    set[TargetLabel],
 ):
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
     transitive_deps = {m: [] for m in MetadataKind}
@@ -1225,8 +1207,8 @@ def _compute_transitive_deps(
     transitive_proc_macro_deps = set()
 
     for dep in resolve_rust_deps(ctx, dep_ctx):
-        if dep.proc_macro_marker != None:
-            transitive_proc_macro_deps.add(dep.proc_macro_marker)
+        if isinstance(dep.info, RustProcMacroInfo):
+            transitive_proc_macro_deps.add(dep.label.raw_target())
 
             # We don't want to propagate proc macros directly, and they have no transitive deps
             continue

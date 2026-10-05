@@ -6,9 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//linking:link_info.bzl", "LinkStrategy")
-load("@prelude//rust:build_params.bzl", "MetadataKind")
-load("@prelude//rust:link_info.bzl", "RustLinkInfo")
+load("@prelude//rust:link_info.bzl", "RustProcMacroInfo")
 load("@prelude//rust/rust-analyzer:provider.bzl", "RustAnalyzerInfo")
 load("@prelude//utils:type_defs.bzl", "is_list")
 
@@ -250,11 +248,10 @@ def expand_proc_macros(ctx: bxl.Context, target_analysis: dict[Label, bxl.Analys
     proc_macro_analysis = ctx.analysis(list(macros))
     out = {}
     for target, analysis in proc_macro_analysis.items():
-        rlib = analysis.providers()[RustLinkInfo].strategies[LinkStrategy("shared")].outputs[MetadataKind("link")]
         label = target.raw_target()
         out[label] = MacroOutput(
             actual = label,
-            dylib = rlib,
+            dylib = analysis.providers()[RustProcMacroInfo].dylib,
         )
     return out
 
