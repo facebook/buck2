@@ -20,8 +20,6 @@ use std::mem;
 
 use crate::private::Private;
 use crate::values::ComplexValue;
-use crate::values::FreezeError;
-use crate::values::FreezePlan;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
@@ -30,14 +28,11 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueTyped;
-use crate::values::freeze::FreezeDestination;
-use crate::values::freeze::is_published_at;
+use crate::values::freeze_dynamic::freeze_dynamic;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::heap_copy_impl;
-use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::layout::heap::repr::ForwardPtr;
 
 struct AValueComplex<T>(PhantomData<T>);
 
@@ -62,28 +57,7 @@ where
         freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         unsafe {
-            let plan = (*me).payload.prepare_freeze(freezer)?;
-            let destination = plan.target().reserve(freezer);
-            let slot = match destination {
-                FreezeDestination::Direct(frozen_value) => {
-                    // The destination already exists, so the source payload is
-                    // discarded here rather than consumed by `freeze_into`.
-                    drop(AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
-                        me,
-                        ForwardPtr::new_frozen(frozen_value),
-                    ));
-                    return Ok(frozen_value);
-                }
-                FreezeDestination::Slot(slot) => slot,
-            };
-            let forward = slot.forward_ptr();
-            let value = AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, forward);
-            let fv = plan.freeze_into(value, freezer, slot)?;
-            if !is_published_at(fv, forward) {
-                return Err(FreezeError::new(
-                    "freeze plan did not initialize and publish its destination".to_owned(),
-                ));
-            }
+            let fv = freeze_dynamic(me, freezer)?;
             if let Some(frozen_def) = ValueTyped::new(fv) {
                 freezer.frozen_defs.borrow_mut().push(frozen_def);
             }
