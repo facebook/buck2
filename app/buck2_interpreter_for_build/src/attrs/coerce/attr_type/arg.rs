@@ -13,7 +13,6 @@ use std::mem;
 use std::sync::LazyLock;
 
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::soft_error;
 use buck2_hash::BuckMutSet;
 use buck2_node::attrs::attr_type::arg::ArgAttrType;
 use buck2_node::attrs::attr_type::arg::MacroBase;
@@ -22,7 +21,6 @@ use buck2_node::attrs::attr_type::arg::QueryExpansion;
 use buck2_node::attrs::attr_type::arg::StringWithMacrosPart;
 use buck2_node::attrs::attr_type::arg::UnconfiguredMacro;
 use buck2_node::attrs::attr_type::arg::UnconfiguredStringWithMacros;
-use buck2_node::attrs::attr_type::arg::UnrecognizedMacro;
 use buck2_node::attrs::attr_type::arg::parser;
 use buck2_node::attrs::attr_type::arg::parser::ParsedMacro;
 use buck2_node::attrs::attr_type::arg::parser::parse_macros;
@@ -117,25 +115,9 @@ impl AttrTypeCoerce for ArgAttrType {
                             UnconfiguredMacro::new_user_keyed_placeholder(ctx, macro_type, args)?
                         }
                         _ => {
-                            // TODO(jtbraun): Remove the remaining generation sites and turn
-                            // this into a load-time error.
-                            // The macro name is arbitrary user input; the logview key must
-                            // stay low-cardinality, so only known names pass through.
-                            let logview_key = if UNIMPLEMENTED_MACROS.contains(macro_type.as_str())
-                            {
-                                macro_type.clone()
-                            } else {
-                                "other".to_owned()
-                            };
-                            soft_error!(
-                                "unrecognized_arg_macro",
-                                MacroError::UnrecognizedMacro(macro_type.clone(), args.len())
-                                    .into(),
-                                deprecation: true,
-                                low_cardinality_key_for_additional_logview_samples:
-                                    Some(Box::new(logview_key))
-                            )?;
-                            UnconfiguredMacro::new_unrecognized(macro_type, args)
+                            return Err(
+                                MacroError::UnrecognizedMacro(macro_type, args.len()).into()
+                            );
                         }
                     };
                     parts.push(StringWithMacrosPart::Macro(write_to_file, part));
@@ -252,13 +234,6 @@ pub trait UnconfiguredMacroExt {
     fn new_user_unkeyed_placeholder(var_name: String) -> UnconfiguredMacro {
         UnconfiguredMacro::UserUnkeyedPlaceholder(var_name.into_boxed_str())
     }
-
-    fn new_unrecognized(macro_type: String, args: Vec<String>) -> UnconfiguredMacro {
-        UnconfiguredMacro::UnrecognizedMacro(Box::new(UnrecognizedMacro {
-            macro_type: macro_type.into_boxed_str(),
-            args: args.into_boxed_slice(),
-        }))
-    }
 }
 
 impl UnconfiguredMacroExt for UnconfiguredMacro {}
@@ -343,32 +318,69 @@ mod tests {
     }
 
     #[test]
-    fn test_unrecognized_macro_coerces() -> buck2_error::Result<()> {
+    fn test_unrecognized_macro_fails_coercion() {
         // ast-grep-ignore: rust/buck2-no-starlark-module
         Module::with_temp_heap(|env| {
-            let globals = GlobalsBuilder::standard().with(register_select).build();
             let attr = AttrType::arg(true);
-            let value = to_value(&env, &globals, r#""$(output foo.yaml)""#);
-
-            let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-            match coerced {
-                CoercedAttr::Arg(UnconfiguredStringWithMacros::ManyParts(parts)) => {
-                    assert!(matches!(
-                        &*parts,
-                        [StringWithMacrosPart::Macro(
-                            false,
-                            MacroBase::UnrecognizedMacro(..)
-                        )]
-                    ));
-                }
-                _ => {
-                    return Err(buck2_error!(
-                        buck2_error::ErrorTag::Input,
-                        "Expected single-part arg"
-                    ));
-                }
+            for (input, name, arg_count) in [
+                ("$(output foo.yaml)", "output", 1),
+                ("$(@output foo.yaml)", "output", 1),
+                ("$(classpath_abi //:foo)", "classpath_abi", 1),
+                ("$(maven_coords //:foo)", "maven_coords", 1),
+                ("$(query_paths 'deps(//:foo)')", "query_paths", 1),
+                ("$(find . -name foo)", "find", 3),
+            ] {
+                let value = env.heap().alloc(input);
+                let error = attr
+                    .coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)
+                    .unwrap_err();
+                assert!(
+                    format!("{error:#}").contains(&format!(
+                        "Unrecognized macro `{name}` (with {arg_count} args). If this is shell command substitution rather than a buck macro, escape it as `\\$({name} ...)`"
+                    )),
+                    "{input}: {error:#}",
+                );
             }
+        })
+    }
 
+    #[test]
+    fn test_escaped_macro_coerces_as_string() -> buck2_error::Result<()> {
+        // ast-grep-ignore: rust/buck2-no-starlark-module
+        Module::with_temp_heap(|env| {
+            let attr = AttrType::arg(true);
+            let value = env.heap().alloc(r"\$(find . -name foo)");
+            let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+            assert_eq!(
+                coerced,
+                CoercedAttr::Arg(UnconfiguredStringWithMacros::StringPart(
+                    "$(find . -name foo)".into(),
+                )),
+            );
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn test_user_defined_macros_coerce() -> buck2_error::Result<()> {
+        // ast-grep-ignore: rust/buck2-no-starlark-module
+        Module::with_temp_heap(|env| {
+            let attr = AttrType::arg(true);
+            for (input, expected) in [
+                ("$(CXX)", "$(CXX)"),
+                ("$(cxxppflags //:foo)", "$(cxxppflags root//:foo)"),
+                (
+                    "$(cxxppflags //:foo shared)",
+                    "$(cxxppflags root//:foo shared)",
+                ),
+            ] {
+                let value = env.heap().alloc(input);
+                let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+                assert_eq!(
+                    coerced.as_display_no_ctx().to_string(),
+                    format!(r#""{expected}""#)
+                );
+            }
             Ok(())
         })
     }

@@ -10,8 +10,11 @@
 
 
 import platform
+import re
 
+import pytest
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.api.buck_result import ExitCodeV2
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
@@ -38,3 +41,26 @@ async def test_no_dep_in_source(buck: Buck) -> None:
         buck.build("//dep_as_source:uses_dep"),
         stderr_regex="Source file `:trivial` does not exist",
     )
+
+
+@buck_test(allow_soft_errors=True)
+@pytest.mark.parametrize(
+    "macro, name, arg_count",
+    [
+        ("output foo.yaml", "output", 1),
+        ("find . -name foo", "find", 3),
+    ],
+)
+async def test_unrecognized_macro_fails_loading(
+    buck: Buck, macro: str, name: str, arg_count: int
+) -> None:
+    (buck.cwd / "TARGETS.fixture").write_text(
+        'load("//source:defs.bzl", "echo_rule")\n'
+        f'echo_rule(name = "invalid", arg = "$({macro})")\n'
+    )
+    failure = await expect_failure(
+        buck.uquery("//:invalid"),
+        exit_code=ExitCodeV2.USER_ERROR,
+        stderr_regex=re.escape(f"Unrecognized macro `{name}` (with {arg_count} args)"),
+    )
+    assert f"escape it as `\\$({name} ...)`" in failure.stderr

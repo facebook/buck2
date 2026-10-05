@@ -236,13 +236,6 @@ fn attr_with_stripped_cfg(attr: &ConfiguredAttr) -> buck2_error::Result<CoercedA
                                             path.clone(),
                                         )
                                     }
-                                    buck2_node::attrs::attr_type::arg::MacroBase::UnrecognizedMacro(
-                                        macr,
-                                    ) => {
-                                        buck2_node::attrs::attr_type::arg::MacroBase::UnrecognizedMacro(
-                                            macr.clone(),
-                                        )
-                                    }
                                 },
                             ),
                         })

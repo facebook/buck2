@@ -209,12 +209,6 @@ size_assert::words_of_type!(MacroBase<ProvidersLabel>, 3);
 size_assert::words_of_type!(StringWithMacrosPart<ProvidersLabel>, 4);
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
-pub struct UnrecognizedMacro {
-    pub macro_type: Box<str>,
-    pub args: Box<[String]>,
-}
-
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub enum MacroBase<P: ProvidersLabelMaybeConfigured> {
     Location {
         label: P,
@@ -233,11 +227,6 @@ pub enum MacroBase<P: ProvidersLabelMaybeConfigured> {
 
     Query(Box<QueryMacroBase<P>>),
     Source(CoercedPath),
-
-    /// Right now, we defer error for unrecognized macros to the place where they are used. This just allows
-    /// us to progress further into a build and detect more issues. Once we have all (or most) of the buckv1 macros
-    /// recognized we'll remove this and make it an early error.
-    UnrecognizedMacro(Box<UnrecognizedMacro>),
 }
 
 impl StrongHashWithoutConfig for MacroBase<ConfiguredProvidersLabel> {
@@ -271,10 +260,6 @@ impl StrongHashWithoutConfig for MacroBase<ConfiguredProvidersLabel> {
             Self::Source(path) => {
                 "Source".strong_hash(state);
                 path.strong_hash(state);
-            }
-            Self::UnrecognizedMacro(macro_) => {
-                "UnrecognizedMacro".strong_hash(state);
-                macro_.strong_hash(state);
             }
         }
     }
@@ -316,7 +301,7 @@ impl MacroBase<ConfiguredProvidersLabel> {
                 Ok(())
             }
             MacroBase::Query(query_macro) => query_macro.traverse(traversal),
-            MacroBase::UserUnkeyedPlaceholder(_) | MacroBase::UnrecognizedMacro(..) => Ok(()),
+            MacroBase::UserUnkeyedPlaceholder(_) => Ok(()),
         }
     }
 }
@@ -357,9 +342,6 @@ impl MacroBase<ProvidersLabel> {
                 ConfiguredMacro::Query(Box::new(query.configure(ctx)?))
             }
             UnconfiguredMacro::Source(path) => ConfiguredMacro::Source(path.clone()),
-            UnconfiguredMacro::UnrecognizedMacro(macr) => {
-                ConfiguredMacro::UnrecognizedMacro(macr.clone())
-            }
         })
     }
 
@@ -400,7 +382,7 @@ impl MacroBase<ProvidersLabel> {
                 }
                 Ok(())
             }
-            MacroBase::UserUnkeyedPlaceholder(_) | MacroBase::UnrecognizedMacro(..) => Ok(()),
+            MacroBase::UserUnkeyedPlaceholder(_) => Ok(()),
         }
     }
 }
@@ -475,9 +457,6 @@ impl<P: ProvidersLabelMaybeConfigured> Display for MacroBase<P> {
                     "".to_owned()
                 }
             ),
-            MacroBase::UnrecognizedMacro(box UnrecognizedMacro { macro_type, args }) => {
-                write!(f, "<unknown>({}) {}", macro_type, args.join(" "))
-            }
         }
     }
 }

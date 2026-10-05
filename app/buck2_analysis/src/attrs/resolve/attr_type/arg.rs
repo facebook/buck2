@@ -24,7 +24,6 @@ use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
 use buck2_node::attrs::attr_type::arg::StringWithMacros;
-use buck2_node::attrs::attr_type::arg::UnrecognizedMacro;
 use dupe::Dupe;
 use either::Either;
 use starlark::values::FrozenValueTyped;
@@ -56,8 +55,6 @@ enum ResolveMacroError {
     UnkeyedPlaceholderUnresolved(String),
     #[error("Expected a RunInfo provider from target `{0}`.")]
     ExpectedRunInfo(String),
-    #[error("Can't expand unrecognized macros (`{0}`).")]
-    UnrecognizedMacroUnimplemented(String),
 }
 
 pub trait ConfiguredStringWithMacrosExt {
@@ -193,11 +190,5 @@ fn resolve_configured_macro<'v>(
             Ok(ResolvedMacro::ArgLike(value))
         }
         ConfiguredMacro::Query(query) => Ok(ResolvedMacro::Query(query.resolve(ctx)?)),
-        ConfiguredMacro::UnrecognizedMacro(box UnrecognizedMacro {
-            macro_type,
-            args: _,
-        }) => {
-            Err(ResolveMacroError::UnrecognizedMacroUnimplemented((**macro_type).to_owned()).into())
-        }
     }
 }
