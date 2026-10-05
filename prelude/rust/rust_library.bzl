@@ -94,8 +94,8 @@ load(
     "LinkageLang",
     "MetadataKind",
     "ProfileMode",  # @unused Used as a type
-    "RuleType",
-    "build_params",
+    "binary_build_params",
+    "library_build_params",
 )
 load(
     ":context.bzl",
@@ -414,12 +414,9 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     if toolchain_info.nightly_features:
         rustdoc_test_metadata_kind = MetadataKind("full") if toolchain_info.advanced_unstable_linking and not ctx.attrs.proc_macro else MetadataKind("link")
-        rustdoc_test_params = build_params(
-            rule = RuleType("binary"),
+        rustdoc_test_params = binary_build_params(
             proc_macro = ctx.attrs.proc_macro,
             link_strategy = doc_link_strategy,
-            lib_output_style = None,
-            lang = LinkageLang("rust"),
             linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
             target_os_type = ctx.attrs._target_os_type[OsLookup],
         )
@@ -587,10 +584,8 @@ def _build_params_for_styles(
             ):
                 # This gets linked directly instead of using rustc
                 continue
-            params = build_params(
-                rule = RuleType("library"),
+            params = library_build_params(
                 proc_macro = ctx.attrs.proc_macro,
-                link_strategy = None,
                 lib_output_style = lib_output_style,
                 lang = linkage_lang,
                 linker_type = linker_type,

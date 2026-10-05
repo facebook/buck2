@@ -89,10 +89,8 @@ load(
     ":build_params.bzl",
     "BuildParams",  # @unused Used as a type
     "Emit",
-    "LinkageLang",
     "ProfileMode",  # @unused Used as a type
-    "RuleType",
-    "build_params",
+    "binary_build_params",
 )
 load(
     ":context.bzl",
@@ -131,12 +129,9 @@ def _strategy_params(ctx: AnalysisContext, compile_ctx: CompileContext) -> dict[
 
     params = {}
     for link_strategy in LinkStrategy:
-        params[link_strategy] = build_params(
-            rule = RuleType("binary"),
+        params[link_strategy] = binary_build_params(
             proc_macro = False,
             link_strategy = link_strategy,
-            lib_output_style = None,
-            lang = LinkageLang("rust"),
             linker_type = linker_type,
             target_os_type = target_os_type,
         )
