@@ -201,6 +201,7 @@ impl ActorState {
         Metrics {
             key_count: self.graph.key_count(),
             active_transaction_count: active_transaction_count as u32, // probably won't support more than u32 transactions
+            branch_count: self.graph.branch_count(),
         }
     }
 

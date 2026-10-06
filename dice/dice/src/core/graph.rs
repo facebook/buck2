@@ -279,6 +279,10 @@ impl VersionedGraph {
         self.core.head(branch)
     }
 
+    pub(crate) fn branch_count(&self) -> usize {
+        self.core.branches().count()
+    }
+
     /// A new branch whose state is `from`'s. It shares every value it resolves with the branch
     /// it was forked from.
     pub(crate) fn fork(&mut self, from: VersionNumber) -> BranchId {

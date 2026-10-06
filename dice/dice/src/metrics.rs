@@ -20,6 +20,8 @@ use std::thread::ThreadId;
 pub struct Metrics {
     pub key_count: usize,
     pub active_transaction_count: u32,
+    /// Live branches, roots included.
+    pub branch_count: usize,
 }
 
 /// Page-in counters for one DICE key type.

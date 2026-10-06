@@ -1040,6 +1040,30 @@ async fn a_stranded_transaction_fails_on_an_unseen_injected_key() {
     branch_ctx.compute(&Foo(1)).await.unwrap();
 }
 
+/// A `fork` or `new_root` whose caller stops waiting for the answer does not leak the branch,
+/// whether the caller gave up before the actor made it or after.
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn an_unawaited_branch_is_deleted() {
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let version = dice.updater().commit().await.version();
+    assert_eq!(dice.metrics().branch_count, 1);
+
+    // Dropped before the actor got to it, so that its answer cannot be sent. The round trip
+    // after it returns once the actor has moved on.
+    drop(dice.fork(version));
+    dice.head(BranchId::FIRST).await;
+    assert_eq!(dice.metrics().branch_count, 1);
+
+    // Dropped after the actor answered, with the answer unread.
+    let root = dice.new_root();
+    dice.head(BranchId::FIRST).await;
+    drop(root);
+    assert_eq!(dice.metrics().branch_count, 1);
+
+    assert_ne!(dice.new_root().await, BranchId::FIRST);
+    assert_eq!(dice.metrics().branch_count, 2);
+}
+
 /// Idleness can be asked of one branch: work on another leaves it idle.
 #[tokio::test]
 async fn idleness_is_per_branch() {

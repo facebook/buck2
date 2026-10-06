@@ -15,6 +15,8 @@ use crate::core::internals::ActorState;
 use crate::core::state::CoreStateHandle;
 use crate::core::state::QueueCounters;
 use crate::core::state::StateRequest;
+use crate::core::state::UnclaimedBranch;
+use crate::core::state::WeakCoreStateHandle;
 use crate::epoch::evaluator::VersionState;
 use crate::metrics::PagingMemoryMetrics;
 
@@ -24,6 +26,7 @@ pub(super) struct StateProcessor {
     /// Shared with the matching `CoreStateHandle`; this thread bumps the
     /// `retired` counter after each successful receive.
     counters: Arc<QueueCounters>,
+    handle: WeakCoreStateHandle,
 }
 
 impl StateProcessor {
@@ -31,21 +34,20 @@ impl StateProcessor {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let state = ActorState::new(paging_memory);
         let counters = Arc::new(QueueCounters::new());
+        let handle = CoreStateHandle::new(tx, counters.clone());
 
-        let processor_counters = counters.clone();
+        let processor = StateProcessor {
+            state,
+            rx,
+            counters,
+            handle: handle.downgrade(),
+        };
         std::thread::Builder::new()
             .name("buck2-dice".to_owned())
-            .spawn(move || {
-                StateProcessor {
-                    state,
-                    rx,
-                    counters: processor_counters,
-                }
-                .event_loop()
-            })
+            .spawn(move || processor.event_loop())
             .unwrap();
 
-        CoreStateHandle::new(tx, counters)
+        handle
     }
 
     fn event_loop(mut self) {
@@ -90,12 +92,13 @@ impl StateProcessor {
                 let _ = resp.send(self.state.current_version(branch));
             }
             StateRequest::Fork { from, resp } => {
-                // ignore error if the requester dropped it.
-                let _ = resp.send(self.state.fork(from));
+                // An answer the requester dropped deletes its branch again.
+                let branch = UnclaimedBranch::new(self.state.fork(from), self.handle.clone());
+                drop(resp.send(branch));
             }
             StateRequest::NewRoot { resp } => {
-                // ignore error if the requester dropped it.
-                let _ = resp.send(self.state.new_root());
+                let branch = UnclaimedBranch::new(self.state.new_root(), self.handle.clone());
+                drop(resp.send(branch));
             }
             StateRequest::DeleteBranch { branch } => self.state.delete_branch(branch),
             StateRequest::LookupKey { key, resp } => drop(resp.send(self.state.lookup_key(key))),

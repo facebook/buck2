@@ -107,7 +107,8 @@ impl Dice {
 
     /// Starts a branch whose state is `from`'s: its first version sees exactly what `from` sees,
     /// and the commits made to it diverge from there. `from` may be any version of a live
-    /// branch, its head included.
+    /// branch, its head included. Dropping the future before it yields the branch does not leak
+    /// one.
     pub fn fork(&self, from: Version) -> impl Future<Output = BranchId> + use<> {
         self.state_handle.fork(from)
     }
@@ -115,7 +116,8 @@ impl Dice {
     /// Starts a branch with no parent: a root like [`BranchId::FIRST`], the one every `Dice`
     /// begins with. It starts out with no injected values, and it shares with the other branches
     /// exactly what a certificate written elsewhere lets it: a value whose premises hold at it,
-    /// once the same inputs have been injected.
+    /// once the same inputs have been injected. Dropping the future before it yields the branch
+    /// does not leak one.
     pub fn new_root(&self) -> impl Future<Output = BranchId> + use<> {
         self.state_handle.new_root()
     }

@@ -19,6 +19,7 @@ use futures::Future;
 use pagable::DataKey;
 use static_assertions::const_assert_eq;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::WeakUnboundedSender;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::Receiver;
 use tokio::sync::oneshot::Sender;
@@ -124,6 +125,13 @@ impl CoreStateHandle {
         Self { tx, counters }
     }
 
+    pub(super) fn downgrade(&self) -> WeakCoreStateHandle {
+        WeakCoreStateHandle {
+            tx: self.tx.downgrade(),
+            counters: self.counters.clone(),
+        }
+    }
+
     fn request(&self, message: StateRequest) {
         self.counters.record_enqueue();
         self.tx.send(message).expect("dice runner died");
@@ -178,16 +186,24 @@ impl CoreStateHandle {
         self.call(StateRequest::CurrentVersion { branch, resp }, recv)
     }
 
-    /// Starts a new branch at `from`
+    /// Starts a new branch at `from`. Dropping the future before it yields the branch deletes
+    /// it again.
     pub(crate) fn fork(&self, from: VersionNumber) -> impl Future<Output = BranchId> + use<> {
         let (resp, recv) = oneshot::channel();
-        self.call(StateRequest::Fork { from, resp }, recv)
+        futures::FutureExt::map(
+            self.call(StateRequest::Fork { from, resp }, recv),
+            UnclaimedBranch::claim,
+        )
     }
 
-    /// Starts a new branch with no parent
+    /// Starts a new branch with no parent. Dropping the future before it yields the branch
+    /// deletes it again.
     pub(crate) fn new_root(&self) -> impl Future<Output = BranchId> + use<> {
         let (resp, recv) = oneshot::channel();
-        self.call(StateRequest::NewRoot { resp }, recv)
+        futures::FutureExt::map(
+            self.call(StateRequest::NewRoot { resp }, recv),
+            UnclaimedBranch::claim,
+        )
     }
 
     /// Deletes a branch. Fire-and-forget; any subsequent state requests are guaranteed to see
@@ -394,6 +410,56 @@ pub(crate) fn init_state(
     StateProcessor::spawn(paging_memory)
 }
 
+/// A [`CoreStateHandle`] that does not keep the actor alive: what the actor holds to make
+/// requests of itself, since it exits once the last handle is gone.
+#[derive(Clone)]
+pub(super) struct WeakCoreStateHandle {
+    tx: WeakUnboundedSender<StateRequest>,
+    counters: std::sync::Arc<QueueCounters>,
+}
+
+impl WeakCoreStateHandle {
+    /// `None` once every handle is gone.
+    fn upgrade(&self) -> Option<CoreStateHandle> {
+        Some(CoreStateHandle {
+            tx: self.tx.upgrade()?,
+            counters: self.counters.clone(),
+        })
+    }
+}
+
+/// A branch the actor has made and no caller has heard of yet: the answer to a `fork` or
+/// `new_root`. Dropped unclaimed, which is what happens when the requester stops waiting for the
+/// answer, before or after it was sent, it deletes the branch rather than leak it.
+pub(super) struct UnclaimedBranch {
+    branch: Option<BranchId>,
+    actor: WeakCoreStateHandle,
+}
+
+impl UnclaimedBranch {
+    pub(super) fn new(branch: BranchId, actor: WeakCoreStateHandle) -> Self {
+        Self {
+            branch: Some(branch),
+            actor,
+        }
+    }
+
+    fn claim(mut self) -> BranchId {
+        self.branch.take().expect("claimed once")
+    }
+}
+
+impl Drop for UnclaimedBranch {
+    fn drop(&mut self) {
+        // No handle left means the actor is shutting down, branch and all.
+        if let Some(branch) = self.branch.take()
+            && let Some(actor) = self.actor.upgrade()
+        {
+            actor.delete_branch(branch);
+        }
+    }
+}
+
 /// Core state is accessed via message passing to a single threaded processor
 pub(super) enum StateRequest {
     /// Commits the changes at the branch's head. The new VersionNumber that should be used is
@@ -411,10 +477,10 @@ pub(super) enum StateRequest {
     /// Starts a new branch at `from`
     Fork {
         from: VersionNumber,
-        resp: Sender<BranchId>,
+        resp: Sender<UnclaimedBranch>,
     },
     /// Starts a new branch with no parent
-    NewRoot { resp: Sender<BranchId> },
+    NewRoot { resp: Sender<UnclaimedBranch> },
     /// Deletes a branch
     DeleteBranch { branch: BranchId },
     /// Obtains the shared state ctx at the given version
