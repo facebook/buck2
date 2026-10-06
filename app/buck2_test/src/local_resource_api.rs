@@ -123,6 +123,56 @@ mod tests {
         Ok(())
     }
 
+    /// `pid` is passed to `kill(2)` when the resources are released: 0 is buck2's own process
+    /// group and -1 is every process the user may signal. Both are accepted.
+    #[test]
+    fn test_non_positive_pid_is_accepted() {
+        for pid in [0, -1] {
+            let setup_result = LocalResourcesSetupResult {
+                pid: Some(pid),
+                resources: vec![btreemap! { "socket_address".to_owned() => "foo".to_owned() }],
+            };
+            let target = ConfiguredTargetLabel::testing_parse(
+                "foo//bar:baz",
+                ConfigurationData::testing_new(),
+            );
+            let provider_env_mapping = buck_indexmap! {
+                "ENV_SOCKET".to_owned() => "socket_address".to_owned(),
+            };
+            let state = setup_result
+                .into_state(target, &provider_env_mapping)
+                .unwrap();
+            assert_eq!(Some(pid), state.owning_pid());
+        }
+    }
+
+    /// A setup that reports no resources is accepted; every test that needs the resource then
+    /// waits for one forever.
+    #[tokio::test]
+    async fn test_empty_resource_list_is_accepted() {
+        let setup_result = LocalResourcesSetupResult {
+            pid: None,
+            resources: vec![],
+        };
+        let target =
+            ConfiguredTargetLabel::testing_parse("foo//bar:baz", ConfigurationData::testing_new());
+        let provider_env_mapping = buck_indexmap! {
+            "ENV_SOCKET".to_owned() => "socket_address".to_owned(),
+        };
+        let state = setup_result
+            .into_state(target, &provider_env_mapping)
+            .unwrap();
+        let acquired = tokio::time::timeout(
+            std::time::Duration::from_millis(200),
+            state.acquire_resource(),
+        )
+        .await;
+        assert!(
+            acquired.is_err(),
+            "acquire_resource returned from an empty pool"
+        );
+    }
+
     #[tokio::test]
     async fn test_missing_value() -> buck2_error::Result<()> {
         let setup_result = LocalResourcesSetupResult {
