@@ -102,6 +102,19 @@ fn test_repeated_parameters() {
     assert::fail("def f(): pass\ndef g(): f(x=1,x=1)", "repeated named");
 }
 
+/// A non-string key in a `**kwargs` dictionary is reported as a problem with `*args`.
+#[test]
+fn test_kwargs_non_string_key_message() {
+    assert::fail(
+        "def f(**kw): pass\nnoop(f)(**noop({1: 2}))",
+        "The argument provided for *args is not an identifier",
+    );
+    assert::fail(
+        "dict(**noop({1: 2}))",
+        "The argument provided for *args is not an identifier",
+    );
+}
+
 #[test]
 fn test_bad_application() {
     assert::fail("noop(['1'])(2)", "not supported");
