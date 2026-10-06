@@ -58,7 +58,11 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
     #[inline]
     fn table_for_hash(&self, hash: u64) -> &LockFreeRawTable<T> {
         // `LockFreeRawTable` uses low bits of hash, so we use high bits to select a shard.
-        let shard_index = (hash >> (64 - Self::SHARD_BITS)) as usize;
+        let shard_index = if Self::SHARD_BITS == 0 {
+            0
+        } else {
+            (hash >> (64 - Self::SHARD_BITS)) as usize
+        };
         &self.shards[shard_index].0
     }
 
@@ -196,14 +200,15 @@ mod tests {
         );
     }
 
-    /// With a single shard, `SHARD_BITS` is 0 and `table_for_hash` shifts the hash right by 64:
-    /// debug builds panic on the shift, release builds index `shards[hash]` out of bounds.
-    /// `test_shard_bits` lists one shard as a valid instantiation.
+    /// With a single shard every hash selects shard 0.
     #[test]
-    #[should_panic]
     fn test_one_shard() {
         let table = ShardedLockFreeRawTable::<Box<u32>, 1>::new();
-        table.insert(1, Box::new(2), |a, b| a == b, |_| 1);
+        for (hash, value) in [(0, 1), (1, 2), (u64::MAX, 3)] {
+            table.insert(hash, Box::new(value), |a, b| a == b, |_| hash);
+            assert_eq!(Some(&value), table.lookup(hash, |v| *v == value));
+        }
+        assert_eq!(3, table.iter().count());
     }
 
     #[test]
