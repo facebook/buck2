@@ -2597,10 +2597,16 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::cells::name::CellName;
     use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_execute::digest_config::SetDigestConfig;
+    use buck2_execute::execute::manager::CommandExecutionManagerExt;
+    use buck2_execute::execute::output::CommandStdStreams;
+    use buck2_execute::execute::prepared::PreparedCommandExecutor;
     use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
     use buck2_test_api::data::TestStage;
     use buck2_test_api::data::TestStatus;
+    use buck2_util::time_span::TimeSpan;
     use dice::UserComputationData;
     use dice::testing::DiceBuilder;
     use futures::channel::mpsc;
@@ -2649,6 +2655,126 @@ mod tests {
             ),
             receiver,
         ))
+    }
+
+    /// An executor that reports a failure with exit code 0, as a test worker that exits 0 before
+    /// connecting does (`WorkerInitError::EarlyExit { exit_code: Some(0) }`).
+    struct FailureWithExitCodeZero;
+
+    #[async_trait]
+    impl PreparedCommandExecutor for FailureWithExitCodeZero {
+        async fn exec_cmd(
+            &self,
+            command: &PreparedCommand<'_, '_>,
+            manager: CommandExecutionManager,
+            _cancellations: &CancellationContext,
+        ) -> CommandExecutionResult {
+            let kind = CommandExecutionKind::Local {
+                digest: command.prepared_action.digest(),
+                command: vec![],
+                env: SortedVectorMap::new(),
+            };
+            manager.claim().await.failure(
+                kind,
+                Default::default(),
+                CommandStdStreams::Local {
+                    stdout: Vec::new(),
+                    stderr: b"worker exited before connecting".to_vec(),
+                },
+                Some(0),
+                CommandExecutionMetadata::empty(TimeSpan::empty_now()),
+                None,
+            )
+        }
+
+        fn is_local_execution_possible(&self, _executor_preference: ExecutorPreference) -> bool {
+            true
+        }
+    }
+
+    /// A failed execution whose exit code is 0 is reported as `Finished { exitcode: 0 }`, which
+    /// the runners take as a pass and `TestExecutionKey::validity` caches as a successful listing.
+    #[tokio::test]
+    async fn failure_with_exit_code_zero_is_reported_as_finished_zero() -> buck2_error::Result<()> {
+        let temp = ProjectRootTemp::new().unwrap();
+        let digest_config = DigestConfig::testing_default();
+        let mut data = UserComputationData::new();
+        data.data.set(EventDispatcher::null());
+        let dice = DiceBuilder::new()
+            .set_data(|d| {
+                d.set_testing_io_provider(&temp);
+                d.set_digest_config(digest_config);
+            })
+            .build(data)
+            .unwrap()
+            .commit()
+            .await;
+
+        let fs = ArtifactFs::new(
+            CellResolver::testing_with_name_and_path(
+                CellName::testing_new("cell"),
+                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell".to_owned())),
+            ),
+            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out/v2".into())),
+            temp.path().dupe(),
+        );
+        let executor = CommandExecutor::new(
+            Arc::new(FailureWithExitCodeZero),
+            Arc::new(NoOpCommandOptionalExecutor {}),
+            Arc::new(NoOpCommandOptionalExecutor {}),
+            Arc::new(NoOpCacheUploader {}),
+            fs.dupe(),
+            CommandGenerationOptions {
+                path_separator: PathSeparatorKind::system_default(),
+                output_paths_behavior: Default::default(),
+                use_bazel_protocol_remote_persistent_workers: false,
+                network_access: None,
+            },
+            remote_execution::Platform { properties: vec![] },
+        );
+        let paths =
+            CommandExecutionPaths::new(vec![], BuckIndexSet::default(), &fs, digest_config, None)?;
+        let request = CommandExecutionRequest::new(
+            vec![],
+            vec!["false".to_owned()],
+            paths,
+            SortedVectorMap::new(),
+        );
+        let label = ConfiguredProvidersLabel::new(
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new()),
+            Default::default(),
+        );
+        let stage = TestStage::Testing {
+            suite: "foo".to_owned(),
+            testcases: vec![],
+            variant: None,
+            repeat_count: None,
+        };
+
+        let mut ctx = dice.ctx();
+        let data = buck2_events::dispatch::with_dispatcher_async(
+            EventDispatcher::null(),
+            BuckTestOrchestrator::execute_request(
+                &mut ctx,
+                CancellationContext::testing(),
+                &label,
+                &stage,
+                &executor,
+                request,
+                NoopLivelinessObserver::create(),
+                false,
+                false,
+            ),
+        )
+        .await
+        .map_err(|_| {
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "execute_request returned an error or a cancellation"
+            )
+        })?;
+        assert_eq!(ExecutionStatus::Finished { exitcode: 0 }, data.status);
+        Ok(())
     }
 
     #[tokio::test]
