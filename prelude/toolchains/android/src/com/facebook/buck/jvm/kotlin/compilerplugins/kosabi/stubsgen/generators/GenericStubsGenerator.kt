@@ -39,26 +39,37 @@ class GenericStubsGenerator : StubsGenerator {
     val candidatesByFile =
         context.importedTypesByFile.mapValues { (_, imports) -> imports - context.declaredTypes }
     val pooledCandidates = context.importedTypes - context.declaredTypes
-    val modulePkg = context.packageName()?.split(".").orEmpty()
-
     for (genType in usedGenericTypes) {
       val candidates = candidatesByFile[genType.containingKtFile] ?: pooledCandidates
       val genFullQualifier = genType.calculateQualifierList()
-      val imp =
-          context.resolveImportedType(candidates, genFullQualifier.first())
-              ?: when {
-                genFullQualifier.size > 1 -> FullTypeQualifier(genFullQualifier)
-                modulePkg.isNotEmpty() -> FullTypeQualifier(modulePkg + genFullQualifier)
-                else -> continue
-              }
+      val imported = context.resolveImportedType(candidates, genFullQualifier.first())
+      val imp: FullTypeQualifier
+      val innerClassNames: List<String>
+      if (imported != null) {
+        imp = imported
+        innerClassNames =
+            if (genFullQualifier == imp.segments) emptyList()
+            else (imp.names.drop(1) + genFullQualifier.drop(1))
+      } else {
+        // No import matches. A qualifier carrying its own package is written out in full; one
+        // that carries none names a type of the using file's own package. Either way the type
+        // arguments belong to the innermost name, and a trailing segment in this type slot names
+        // a nested type whatever its case.
+        val written = FullTypeQualifier(genFullQualifier).withMemberAsNestedName()
+        val resolved =
+            if (written.pkg.isEmpty()) {
+              val filePkg = context.packageSegmentsOf(genType.containingKtFile)
+              if (filePkg.isEmpty()) continue
+              FullTypeQualifier(filePkg + genFullQualifier).withMemberAsNestedName()
+            } else written
+        imp = resolved
+        innerClassNames = resolved.names.drop(1)
+      }
       val name = imp.names
       // An all-caps simple name reads as a static-const member, so the qualifier carries no class
       // name to look up.
       if (name.isEmpty()) continue
       val pkg = imp.pkgAsString()
-      val innerClassNames =
-          if (genFullQualifier == imp.segments) emptyList<String>()
-          else (name.drop(1) + genFullQualifier.drop(1))
 
       val stub =
           context.stubsContainer.find(
