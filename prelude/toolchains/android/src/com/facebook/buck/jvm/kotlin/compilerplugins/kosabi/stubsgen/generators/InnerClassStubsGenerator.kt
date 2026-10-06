@@ -62,6 +62,7 @@ class InnerClassStubsGenerator : StubsGenerator {
 
     val candidatesToGenerateInnerClass =
         (candidatesWithComplexImport + provenNestedImports + candidatesWithComplexUsage)
+            .filterNot { context.isCompanionCallableImport(it) }
             .filter { it.member == null }
             .toSet()
             // We don't want to stub types if they are declared in compilation context

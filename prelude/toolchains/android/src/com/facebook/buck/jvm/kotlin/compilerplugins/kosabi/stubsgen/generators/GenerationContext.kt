@@ -383,6 +383,22 @@ class GenerationContext {
     return usedUserTypes.any { it.referencedName == member }
   }
 
+  /**
+   * A companion-path import (`import a.Outer.Companion.X`) colliding with a non-companion import of
+   * the same simple name in the same file names the callable: a factory fun and a class share the
+   * name in separate namespaces, and the type usages resolve to the other import.
+   */
+  fun isCompanionCallableImport(imp: FullTypeQualifier): Boolean {
+    if (!imp.names.dropLast(1).contains("Companion")) return false
+    val simpleName = imp.names.last()
+    return importedTypesByFile.any { (_, imports) ->
+      imports.contains(imp) &&
+          imports.any { other ->
+            other.names.last() == simpleName && !other.names.dropLast(1).contains("Companion")
+          }
+    }
+  }
+
   private fun promoteProvenClassImports(
       quals: Collection<FullTypeQualifier>,
   ): Set<FullTypeQualifier> =
