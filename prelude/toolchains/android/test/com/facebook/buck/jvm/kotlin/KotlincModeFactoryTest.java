@@ -10,6 +10,7 @@
 
 package com.facebook.buck.jvm.kotlin;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -20,6 +21,7 @@ import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
+import com.facebook.buck.jvm.kotlin.kotlinc.incremental.RebuildReason;
 import com.facebook.buck.testutil.TemporaryPaths;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -192,11 +194,9 @@ public class KotlincModeFactoryTest {
             true, "old-dep-tracker-digest", "new-dep-tracker-digest");
 
     assertTrue(kotlincMode instanceof KotlincMode.Incremental);
-    // BUG: the factory builds the watched plugin list from getKotlinCompilerPlugins
-    // only and never consults getDepTrackerPlugin, so the digest change above is
-    // ignored, no rebuild reason is produced, and incremental state is wrongly
-    // reused; the fix flips this to KOTLIN_COMPILER_PLUGIN_CHANGED.
-    assertNull(((KotlincMode.Incremental) kotlincMode).getRebuildReason());
+    assertEquals(
+        RebuildReason.KOTLIN_COMPILER_PLUGIN_CHANGED,
+        ((KotlincMode.Incremental) kotlincMode).getRebuildReason());
   }
 
   @Test

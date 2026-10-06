@@ -68,6 +68,19 @@ public class KotlincModeFactory {
               () -> new IllegalStateException("actionMetadata is not created"));
       LOG.info("Incremental mode applied");
 
+      ImmutableList.Builder<RelPath> watchedPlugins = ImmutableList.builder();
+      extraParams.getKotlinCompilerPlugins().keySet().stream()
+          .map(rootProjectDir::relativize)
+          .forEach(watchedPlugins::add);
+      // The dep-tracker plugin rides outside the compiler-plugins map but still shapes
+      // outputs (dep files); watch it too, exactly when kotlinc will load it.
+      if (isTrackClassUsageEnabled) {
+        extraParams
+            .getDepTrackerPlugin()
+            .map(rootProjectDir::relativize)
+            .ifPresent(watchedPlugins::add);
+      }
+
       return new KotlincMode.Incremental(
           rootProjectDir,
           buildDir,
@@ -76,9 +89,7 @@ public class KotlincModeFactory {
           ClasspathChangesFactory.create(new SnapshotsActionMetadata(metadata), classpathSnapshots),
           depFile,
           incrementalCompilationValidator.validate(
-              extraParams.getKotlinCompilerPlugins().keySet().stream()
-                  .map(rootProjectDir::relativize)
-                  .collect(ImmutableList.toImmutableList()),
+              watchedPlugins.build(),
               metadata,
               depFile,
               usedJars,
