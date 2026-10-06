@@ -317,6 +317,16 @@ mod tests {
         assert_eq!(Some(1), range(4, 14, 10).length().ok());
     }
 
+    /// The slice endpoints are computed in `i32` from the index arithmetic, so a slice of a
+    /// range near the `i32` limits fails with an overflow although its elements all fit.
+    #[test]
+    fn test_slice_near_i32_limits_overflows() {
+        assert::fail("range(0, 2147483647, 2)[:]", "Integer overflow");
+        assert::fail("len(range(0, 2147483647, 2)[1:])", "Integer overflow");
+        assert::fail("range(-2147483648, -2147483647)[::-1]", "Integer overflow");
+        assert::fail("len(range(5, 5, 2)[::2147483647])", "Integer overflow");
+    }
+
     #[test]
     fn eq() {
         assert_eq!(range_stop(0), range(2, 1, 3));
