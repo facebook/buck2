@@ -1160,6 +1160,9 @@ impl TokenInt {
     pub fn from_str_radix(s: &str, base: u32) -> crate::Result<TokenInt> {
         if let Ok(i) = i32::from_str_radix(s, base) {
             Ok(TokenInt::I32(i))
+        } else if s.contains('_') {
+            // `BigInt::from_str_radix` skips `_`, which is not part of Starlark integer syntax.
+            Err(LexemeError::CannotParse(s.to_owned(), base).into())
         } else {
             match BigInt::from_str_radix(s, base) {
                 Ok(i) => Ok(TokenInt::BigInt(i)),
