@@ -54,8 +54,8 @@ pub(crate) enum FunctionError {
     },
     #[error("Argument `{name}` occurs more than once")]
     RepeatedArg { name: String },
-    #[error("The argument provided for *args is not an identifier")]
-    ArgsValueIsNotString,
+    #[error("The keys of the dictionary provided for **kwargs must be strings")]
+    KwargsKeyIsNotString,
     #[error("The argument provided for *args is not iterable")]
     ArgsArrayIsNotIterable,
     #[error("The argument provided for **kwargs is not a dictionary")]
@@ -288,7 +288,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
                 if self.0.names().names().is_empty() {
                     match kwargs.downcast_ref_key_string() {
                         Some(kwargs) => Ok(kwargs.clone()),
-                        None => Err(FunctionError::ArgsValueIsNotString.into()),
+                        None => Err(FunctionError::KwargsKeyIsNotString.into()),
                     }
                 } else {
                     // We have to insert the names before the kwargs since the iteration order is observable
@@ -370,7 +370,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     #[inline(always)]
     pub(crate) fn unpack_kwargs_key_as_value(k: Value<'v>) -> crate::Result<StringValue<'v>> {
         match StringValue::new(k) {
-            None => Err(FunctionError::ArgsValueIsNotString.into()),
+            None => Err(FunctionError::KwargsKeyIsNotString.into()),
             Some(k) => Ok(k),
         }
     }

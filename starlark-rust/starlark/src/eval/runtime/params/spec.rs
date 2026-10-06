@@ -863,7 +863,7 @@ impl<'v> ParametersSpec<Value<'v>> {
                 Some(y) => {
                     for (k, v) in y.iter_hashed() {
                         match StringValue::new(*k.key()) {
-                            None => return Err(FunctionError::ArgsValueIsNotString.into()),
+                            None => return Err(FunctionError::KwargsKeyIsNotString.into()),
                             Some(s) => {
                                 let repeat = match self
                                     .prototype
