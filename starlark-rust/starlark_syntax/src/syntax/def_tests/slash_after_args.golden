@@ -7,7 +7,7 @@
 Program:
 def test(x, *args, /): pass
 
-Error: error: Multiple `/` in parameters
+Error: error: `/` must come before `*`, `*args` and `**kwargs`
  --> test.star:1:20
   |
 1 | def test(x, *args, /): pass
