@@ -2032,6 +2032,25 @@ mod tests {
         assert!(filter.is_excluded(vec!["blah"]));
     }
 
+    /// An include list made only of `!` exclusions (`--include '!slow'`) excludes every target,
+    /// labelled `slow` or not: nothing is positively included, so nothing matches.
+    #[test]
+    fn only_negative_includes_exclude_everything() {
+        let filter = TestLabelFiltering::new(vec!["!slow".to_owned()], vec![], false, false);
+        assert!(filter.is_excluded(vec!["slow"]));
+        assert!(filter.is_excluded(vec!["fast"]));
+        assert!(filter.is_excluded(vec![]));
+
+        let filter = TestLabelFiltering::new(
+            vec!["!slow".to_owned(), "!flaky".to_owned()],
+            vec!["broken".to_owned()],
+            true,
+            false,
+        );
+        assert!(filter.is_excluded(vec!["fast"]));
+        assert!(filter.is_excluded(vec!["broken"]));
+    }
+
     #[test]
     fn order_of_precedence() {
         let conflicting_filter = TestLabelFiltering::new(
