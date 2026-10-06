@@ -27,7 +27,7 @@ class SamePackageClassStubsGenerator : StubsGenerator {
 
   override fun generateStubs(context: GenerationContext) {
 
-    val modulePkgName = context.packageName() ?: return
+    val modulePkgName = context.packageName()
     val allKnownSymbols = mutableSetOf<String>()
 
     // Kotlin/Java built-in, stdlib types
@@ -77,36 +77,51 @@ class SamePackageClassStubsGenerator : StubsGenerator {
             .mapNotNull { it.referencedName },
     )
 
-    val maybeUnknownClasses =
+    // A stub belongs to the package of the file that uses the type: the module's files can span
+    // packages (examples, generated sources), and the first file's package is the wrong owner for
+    // any other file's same-package usages.
+    val maybeUnknownByPkg: Map<String, Set<String>> =
         context.usedUserTypes
-            .mapNotNull { userType -> userType.referencedName }
-            .toSet()
-            .filterNot { it -> allKnownSymbols.contains(it) }
-            .filter { it -> it.first().isUpperCase() }
+            .groupBy { context.packageSegmentsOf(it.containingKtFile).joinToString(".") }
+            .mapValues { (_, usages) ->
+              usages
+                  .mapNotNull { userType -> userType.referencedName }
+                  .toSet()
+                  .filterNot { it -> allKnownSymbols.contains(it) }
+                  .filter { it -> it.first().isUpperCase() }
+                  .toSet()
+            }
+            .filter { (pkg, names) -> pkg.isNotEmpty() && names.isNotEmpty() }
 
-    maybeUnknownClasses.forEach { typeName ->
-      if (context.stubsContainer.find(modulePkgName, typeName) == null) {
-        context.stubsContainer.add(KStub(modulePkgName, typeName))
+    maybeUnknownByPkg.forEach { (pkg, typeNames) ->
+      typeNames.forEach { typeName ->
+        if (context.stubsContainer.find(pkg, typeName) == null) {
+          context.stubsContainer.add(KStub(pkg, typeName))
+        }
       }
     }
 
     // The usage is `Outer.Inner`, so the outer stub fabricated above still has to own an Inner for
     // the reference to resolve. Only outers fabricated here are nested into: an outer resolved any
     // other way already has its own owner, and its nesting belongs to that owner's generator.
-    val fabricatedNames = maybeUnknownClasses.toSet()
-    nestedSamePackageQualifiers
-        .filter { it.names.first() in fabricatedNames }
-        .forEach { qualifier ->
-          var stubToEdit =
-              context.stubsContainer.find(modulePkgName, qualifier.names.first()) ?: return@forEach
-          var innerPkg = "$modulePkgName.${stubToEdit.name}"
-          for (innerName in qualifier.names.drop(1)) {
-            val innerStub =
-                stubToEdit.innerStubs.find { it.name == innerName }
-                    ?: KStub(innerPkg, innerName).also { stubToEdit.innerStubs += it }
-            innerPkg = "$innerPkg.$innerName"
-            stubToEdit = innerStub
+    context.fullQualifierTypesByFile.forEach { (file, qualifiers) ->
+      val pkg = context.packageSegmentsOf(file).joinToString(".")
+      val fabricated = maybeUnknownByPkg[pkg].orEmpty()
+      qualifiers
+          .filter { it.pkg.isEmpty() && it.member == null && it.names.size > 1 }
+          .filter { it.names.first() in fabricated }
+          .forEach { qualifier ->
+            var stubToEdit =
+                context.stubsContainer.find(pkg, qualifier.names.first()) ?: return@forEach
+            var innerPkg = "$pkg.${stubToEdit.name}"
+            for (innerName in qualifier.names.drop(1)) {
+              val innerStub =
+                  stubToEdit.innerStubs.find { it.name == innerName }
+                      ?: KStub(innerPkg, innerName).also { stubToEdit.innerStubs += it }
+              innerPkg = "$innerPkg.$innerName"
+              stubToEdit = innerStub
+            }
           }
-        }
+    }
   }
 }

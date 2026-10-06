@@ -71,6 +71,12 @@ class GenerationContext {
   val annotationEntries: List<KtAnnotationEntry>
   val declaredTypes: Set<FullTypeQualifier>
   val fullQualifierTypes: Set<FullTypeQualifier>
+
+  /**
+   * [fullQualifierTypes] split by the file that wrote the qualifier. Same-package fabrication must
+   * land in the using file's own package: the module's files can span packages.
+   */
+  val fullQualifierTypesByFile: Map<KtFile, Set<FullTypeQualifier>>
   val importAlias: Set<String>
 
   /**
@@ -110,6 +116,7 @@ class GenerationContext {
       this.importAlias = emptySet()
       this.importAliasQualifiers = emptyMap()
       this.fullQualifierTypes = emptySet()
+      this.fullQualifierTypesByFile = emptyMap()
       this.usedUserTypes = emptySet()
       this.typeAliasSymbol = emptySet()
       this.parameterNames = emptySet()
@@ -145,7 +152,7 @@ class GenerationContext {
       val aliasNames = mutableSetOf<String>()
       val paramNames = mutableSetOf<String>()
       val usedTypes = mutableSetOf<KtUserType>()
-      val multiSegQualifiers = mutableListOf<List<String>>()
+      val multiSegByFile = mutableMapOf<KtFile, MutableList<List<String>>>()
       val interfaceUserTypes = mutableListOf<KtUserType>()
       val multiBoundUserTypes = mutableListOf<List<KtUserType>>()
       val typeValueArgPairs = mutableListOf<Pair<String, Int>>()
@@ -171,7 +178,7 @@ class GenerationContext {
                 if (element is KtTypeReference) {
                   element.userTypeForQualifier()?.calculateQualifierList()?.let { qualifier ->
                     if (qualifier.size >= 2) {
-                      multiSegQualifiers.add(qualifier)
+                      multiSegByFile.getOrPut(ktFile) { mutableListOf() }.add(qualifier)
                     }
                   }
                 }
@@ -209,12 +216,14 @@ class GenerationContext {
       this.usedUserTypes = usedTypes
       this.interfaceTypes = interfaceUserTypes
       this.multiBoundGroups = multiBoundUserTypes
-      this.fullQualifierTypes =
-          multiSegQualifiers
+      fun qualifiersOf(quals: List<List<String>>): Set<FullTypeQualifier> =
+          quals
               .distinct()
               .map { FullTypeQualifier(it).withMemberAsNestedName() }
               .filterNot { it.isSdkQualifier() }
               .toSet()
+      this.fullQualifierTypesByFile = multiSegByFile.mapValues { (_, quals) -> qualifiersOf(quals) }
+      this.fullQualifierTypes = fullQualifierTypesByFile.values.flatten().toSet()
       // An all-caps simple name (`IABJSOTA`, `OTA`, `URI`) parses as a static-const member, so
       // its import carries no class name and drops out of the raw type sets above. A member used
       // in type position is really a class: promote those imports, module-wide and per file, so
@@ -445,5 +454,15 @@ class GenerationContext {
         .map { it -> it.packageFqName.asString() }
         .filter { it -> it.isNotEmpty() }
         .firstOrNull()
+  }
+
+  /**
+   * Package segments a same-package stub for a usage in [file] belongs to: the file's own package,
+   * falling back to the module's first package for default-package files.
+   */
+  fun packageSegmentsOf(file: KtFile): List<String> {
+    val own = file.packageFqName.asString()
+    if (own.isNotEmpty()) return own.split(".")
+    return packageName()?.split(".").orEmpty()
   }
 }
