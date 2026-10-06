@@ -173,7 +173,6 @@ buck_kotlin_library(
         "reportlayer/TombstonesReportLayer.java",
         "reportlayer/VideoRecordingReportLayer.java",
     ],
-    required_for_source_only_abi = True,
     # @oss-disable[end= ]: source = "8",
     # @oss-disable[end= ]: target = "8",
     source = "11", # @oss-enable

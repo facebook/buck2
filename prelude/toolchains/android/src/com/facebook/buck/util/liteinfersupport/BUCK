@@ -10,7 +10,6 @@ source_listing()
 buck_java_library(
     name = "liteinfersupport",
     srcs = glob(["*.java"]),
-    required_for_source_only_abi = True,
     visibility = [
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source:source",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source/api:api",
