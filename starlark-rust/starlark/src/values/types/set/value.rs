@@ -165,7 +165,7 @@ trait SetLike<'v>: Debug + Allocative {
 
     // These functions are unsafe for the same reason
     // `StarlarkValue` iterator functions are unsafe.
-    unsafe fn iter_start(&self);
+    unsafe fn iter_start(&self) -> crate::Result<()>;
     unsafe fn content_unchecked(&self) -> &SmallSet<Value<'v>>;
     unsafe fn iter_stop(&self);
     // fn set_at(&self, index: Hashed<Value<'v>>, value: Value<'v>) -> crate::Result<()>;
@@ -183,8 +183,16 @@ impl<'v> SetLike<'v> for RefCell<SetData<'v>> {
     }
 
     #[inline]
-    unsafe fn iter_start(&self) {
-        mem::forget(self.borrow());
+    unsafe fn iter_start(&self) -> crate::Result<()> {
+        // A method may hold this value mutably borrowed while it iterates one of its
+        // arguments, e.g. `d.update([d])`; that is an error, not a panic.
+        match self.try_borrow() {
+            Ok(borrow) => {
+                mem::forget(borrow);
+                Ok(())
+            }
+            Err(_) => Err(crate::Error::new_other(ValueError::MutationDuringIteration)),
+        }
     }
 
     #[inline]
@@ -213,7 +221,9 @@ impl<'v> SetLike<'v> for SetData<'v> {
         &self.content
     }
 
-    unsafe fn iter_start(&self) {}
+    unsafe fn iter_start(&self) -> crate::Result<()> {
+        Ok(())
+    }
 
     unsafe fn iter_stop(&self) {}
 
@@ -256,7 +266,7 @@ where
 
     unsafe fn iterate(&self, me: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         unsafe {
-            self.0.iter_start();
+            self.0.iter_start()?;
             Ok(me)
         }
     }
