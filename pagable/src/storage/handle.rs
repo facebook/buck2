@@ -53,6 +53,27 @@ impl WeakPagableStorageHandle {
 }
 
 impl PagableStorageHandle {
+    /// Runs independent blocking loads against this storage at the same time
+    /// on the current multi-thread Tokio runtime's blocking pool and returns
+    /// the first failure. Returns only once every load has finished, so a
+    /// load may use data the caller keeps alive for the call. Blocks the
+    /// calling thread; a runtime worker hands off its queue first.
+    #[cfg(feature = "tokio")]
+    pub fn load_many(
+        &self,
+        loads: Vec<Box<dyn FnOnce() -> crate::Result<()> + Send>>,
+    ) -> crate::Result<()> {
+        let runtime = tokio::runtime::Handle::current();
+        let outcomes = tokio::task::block_in_place(|| {
+            runtime.block_on(crate::prepare::prepare_all(loads, |load| load()))
+        })
+        .map_err(anyhow::Error::new)?;
+        outcomes
+            .into_iter()
+            .find_map(Result::err)
+            .map_or(Ok(()), Err)
+    }
+
     /// Refer to storage from one of its cached values without an ownership cycle.
     pub fn downgrade(&self) -> WeakPagableStorageHandle {
         WeakPagableStorageHandle {

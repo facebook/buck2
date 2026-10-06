@@ -4156,6 +4156,92 @@ fn test_unreadable_dependency_heap_is_recorded_as_a_deferred_read_failure() -> c
     Ok(())
 }
 
+#[cfg(fbcode_build)]
+#[test]
+fn test_prefetch_many_resolves_fields_without_a_later_storage_read() -> crate::Result<()> {
+    use std::sync::Mutex;
+
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    use crate::pagable::DeferredFieldReadsEnabled;
+
+    // `prefetch_many` resolves on the current multi-thread runtime's blocking pool.
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .build()
+        .expect("test runtime");
+    let _runtime = runtime.enter();
+
+    let dep = ErasingHeap::new();
+    let target = dep.alloc_str("in the dependency");
+    let dep_ref = dep.into_ref_named(TestHeapName::heap_name("prefetched_dep"));
+
+    let owner = ErasingHeap::new();
+    owner.add_reference(dep_ref.owner());
+    let root_fv = owner.with(|heap| {
+        erase(heap.alloc_simple(StarlarkAnyComplex {
+            value: DeferredRef {
+                target: Deferred::new(ErasingHeap::restore_one(heap, target)),
+            },
+        }))
+    });
+    let owner_ref = owner.into_ref_named(TestHeapName::heap_name("prefetched_owner"));
+    // SAFETY: `owner_ref` owns the arena hosting `root_fv`.
+    let ofv: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner_ref, root_fv) };
+
+    let backing = InMemoryPagableStorage::new();
+    let failing = Arc::new(FailingRowStorage {
+        inner: backing.handle(),
+        unreadable: Mutex::new(Vec::new()),
+    });
+    let handle = PagableStorageHandle::new(failing.clone());
+    handle
+        .storage_context()
+        .get_or_init(|| DeferredFieldReadsEnabled);
+    let key = ser_owned_frozen_value_into_storage(&backing, &ofv)?;
+    drop(ofv);
+    drop(dep_ref);
+
+    let restored = deser_owned_frozen_from_storage(&backing, &handle, &key)?;
+    let fields = restored
+        .as_ref()
+        .value()
+        .downcast_ref::<StarlarkAnyComplex<DeferredRef>>()
+        .expect("the restored root is a DeferredRef");
+    let dep = restored
+        .owner()
+        .refs()
+        .next()
+        .expect("the owner retains its dependency");
+    assert!(
+        !dep.heap_arc().is_header_loaded(),
+        "the dependency starts as a skeleton"
+    );
+    let dep_row = dep
+        .heap_arc()
+        .deser_state()
+        .and_then(|state| state.source())
+        .expect("a skeleton knows its row");
+
+    Deferred::prefetch_many([&fields.value.target])?;
+    assert!(
+        dep.heap_arc().is_header_loaded(),
+        "the prefetch loaded the dependency heap"
+    );
+    assert!(
+        fields.value.target.peek().is_some(),
+        "the prefetch resolved the field"
+    );
+
+    // With its row now unreadable, the read can only succeed because the
+    // field is already resident.
+    failing.unreadable.lock().unwrap().push(dep_row);
+    let value = fields.value.target.read()?;
+    assert_eq!(value.unpack_str(), Some("in the dependency"));
+    Ok(())
+}
+
 /// Three heaps where A lists only B, B lists G, and A's root points straight
 /// into G; paged out into a fresh storage with the rows of all three indexed.
 fn page_out_indirect_graph(

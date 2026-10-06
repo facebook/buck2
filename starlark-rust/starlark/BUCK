@@ -51,11 +51,14 @@ rust_library(
                 },
             },
             "extra_buck_dependencies": {
-                # rustyline does not build for wasm, which the OSS CI covers.
+                # rustyline and tokio do not build for wasm, which the OSS CI
+                # covers; tokio only serves fbcode-only tests.
                 "dependencies": [(None, "fbsource//third-party/rust:rustyline")],
+                "dev-dependencies": [(None, "fbsource//third-party/rust:tokio")],
                 "target": {
                     "'cfg(not(target_arch = \"wasm32\"))'": {
                         "dependencies": ["fbsource//third-party/rust:rustyline"],
+                        "dev-dependencies": ["fbsource//third-party/rust:tokio"],
                     },
                 },
             },
@@ -101,6 +104,7 @@ rust_library(
         "DEFAULT": [],
     }),
     test_deps = [
+        "fbsource//third-party/rust:tokio",
         # This is a hack to build `:testcases` when invoking a test.
         # Otherwise `OUT_DIR` is set, but it points to non-existing directory.
         # This is likely a bug in `rust_test` rule.

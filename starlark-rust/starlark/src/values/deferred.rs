@@ -116,6 +116,12 @@ mod pending {
     ) -> Option<R> {
         None
     }
+    /// Nothing is ever unread here.
+    pub(super) fn prefetch_many<'a, T: DeferredWord + 'a>(
+        _fields: impl IntoIterator<Item = &'a Deferred<T>>,
+    ) -> crate::Result<()> {
+        Ok(())
+    }
 }
 
 pub use pending::DeferredReadContext;
@@ -334,6 +340,16 @@ enum State {
 }
 
 impl<T: DeferredWord> Deferred<T> {
+    /// Resolves the unread fields among `fields` concurrently, so that reading
+    /// each afterwards finds it resident. For code that is about to read many
+    /// fields in turn, which would otherwise resolve them one at a time.
+    pub fn prefetch_many<'a>(fields: impl IntoIterator<Item = &'a Deferred<T>>) -> crate::Result<()>
+    where
+        T: 'a,
+    {
+        pending::prefetch_many(fields)
+    }
+
     /// Constructs a field with an already available value.
     pub fn new(value: T) -> Self {
         let word = ptr::from_ref(&value).cast::<usize>();

@@ -389,6 +389,57 @@ pub(super) fn resolve<T: DeferredWord>(field: &Deferred<T>) -> crate::Result<()>
 
 /// Copy metadata while excluding publication/freeing. `f` must not re-enter
 /// deferred access or perform I/O; serialization works on a cloned snapshot.
+/// Resolves the unread fields among `fields` with the resolutions overlapping
+/// on the current runtime's blocking pool, so that reading them afterwards
+/// finds them resident. Fields already read cost nothing. Returns only once
+/// every resolution has finished, whether or not one failed.
+pub(super) fn prefetch_many<'a, T: DeferredWord + 'a>(
+    fields: impl IntoIterator<Item = &'a Deferred<T>>,
+) -> crate::Result<()> {
+    let mut storage: Option<PagableStorageHandle> = None;
+    let mut addresses: Vec<usize> = Vec::new();
+    for field in fields {
+        let unread = with_pending(field, |pending| {
+            pending
+                .storage
+                .upgrade()
+                .ok_or_else(|| deferred_error("deferred field storage has been closed"))
+        });
+        let Some(handle) = unread else { continue };
+        storage.get_or_insert(handle?);
+        addresses.push(ptr::from_ref(field) as usize);
+    }
+    let Some(storage) = storage else {
+        return Ok(());
+    };
+    addresses.sort_unstable();
+    addresses.dedup();
+    // A function pointer names no lifetime, so the loads can be `'static`
+    // although `T` is not.
+    let resolve_at: unsafe fn(usize) -> crate::Result<()> = resolve_at::<T>;
+    let loads = addresses
+        .into_iter()
+        .map(|address| {
+            Box::new(move || {
+                // SAFETY: `address` came from a borrow of the field that the
+                // caller of `prefetch_many` holds until `load_many` returns,
+                // and `load_many` returns only after this load has.
+                unsafe { resolve_at(address) }.map_err(crate::Error::into_anyhow)
+            }) as Box<dyn FnOnce() -> pagable::Result<()> + Send>
+        })
+        .collect();
+    storage.load_many(loads).map_err(crate::Error::new_other)
+}
+
+/// Resolves the field at `address`.
+///
+/// # Safety
+/// `address` must point to a live `Deferred<T>` for the duration of the call.
+unsafe fn resolve_at<T: DeferredWord>(address: usize) -> crate::Result<()> {
+    // SAFETY: the caller's contract.
+    resolve(unsafe { &*(address as *const Deferred<T>) })
+}
+
 pub(super) fn with_pending<T: DeferredWord, R>(
     field: &Deferred<T>,
     f: impl FnOnce(&Pending) -> R,
