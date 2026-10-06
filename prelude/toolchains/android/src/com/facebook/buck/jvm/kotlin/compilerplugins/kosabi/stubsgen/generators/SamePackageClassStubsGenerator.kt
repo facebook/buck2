@@ -10,6 +10,8 @@
 
 package com.facebook.kotlin.compilerplugins.kosabi.stubsgen.generators
 
+import com.facebook.kotlin.compilerplugins.kosabi.common.FullTypeQualifier
+import com.facebook.kotlin.compilerplugins.kosabi.common.outerClassOnlyQualifier
 import com.facebook.kotlin.compilerplugins.kosabi.common.stub.model.KStub
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.PlainJavaLangTypes
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.PlainKTBuiltInTypes
@@ -82,16 +84,28 @@ class SamePackageClassStubsGenerator : StubsGenerator {
     // any other file's same-package usages.
     val maybeUnknownByPkg: Map<String, Set<String>> =
         context.usedUserTypes
-            .groupBy { context.packageSegmentsOf(it.containingKtFile).joinToString(".") }
-            .mapValues { (_, usages) ->
-              usages
-                  .mapNotNull { userType -> userType.referencedName }
-                  .toSet()
-                  .filterNot { it -> allKnownSymbols.contains(it) }
-                  .filter { it -> it.first().isUpperCase() }
-                  .toSet()
+            .groupBy { context.packageSegmentsOf(it.containingKtFile) }
+            .map { (pkgSegments, usages) ->
+              val pkg = pkgSegments.joinToString(".")
+              pkg to
+                  usages
+                      .mapNotNull { userType -> userType.referencedName }
+                      .toSet()
+                      .filterNot { it -> allKnownSymbols.contains(it) }
+                      .filter { it -> it.first().isUpperCase() }
+                      .filterNot { name ->
+                        // A stub shadows the real type (same FQN, sources win), so the ABI
+                        // compiles against the stub: an open stub where the real type is final
+                        // flips generic wildcard elision and corrupts signatures. The match is
+                        // by exact FQN, so same-name types in other packages still stub.
+                        val candidate =
+                            FullTypeQualifier(pkgSegments + name).outerClassOnlyQualifier()
+                        candidate != null && context.externalTypeReferences.contains(candidate)
+                      }
+                      .toSet()
             }
             .filter { (pkg, names) -> pkg.isNotEmpty() && names.isNotEmpty() }
+            .toMap()
 
     maybeUnknownByPkg.forEach { (pkg, typeNames) ->
       typeNames.forEach { typeName ->

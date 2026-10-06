@@ -60,22 +60,29 @@ class InterfaceStubsGenerator : StubsGenerator {
       var inners: List<String>
 
       if (imp == null) {
-        // handle the case where full path is written in type ex. val x: a.b.A
-        if (qualifierList.size > 1) {
-          val fullTypeQualifier = FullTypeQualifier(qualifierList)
-          pkg = fullTypeQualifier.pkgAsString()
-          name = fullTypeQualifier.names.first()
-          inners = fullTypeQualifier.names.drop(1)
-        } else {
-          Logger.log(
-              """
+        // No import matches. A qualifier carrying its own package is written out in full; one
+        // carrying none names a type of the using file's own package, and a trailing segment
+        // here names a nested type whatever its case.
+        val written = FullTypeQualifier(qualifierList).withMemberAsNestedName()
+        val full =
+            if (written.pkg.isEmpty()) {
+              val filePkg = context.packageSegmentsOf(iType.containingKtFile)
+              if (filePkg.isEmpty()) {
+                Logger.log(
+                    """
         |  [Warning] ImportTypes not found
         |    - name: $qualifierList
       """
-                  .trimMargin(),
-          )
-          continue
-        }
+                        .trimMargin(),
+                )
+                continue
+              }
+              FullTypeQualifier(filePkg + qualifierList).withMemberAsNestedName()
+            } else written
+        if (full.names.isEmpty()) continue
+        pkg = full.pkgAsString()
+        name = full.names.first()
+        inners = full.names.drop(1)
       } else {
         pkg = imp.pkgAsString()
         name = imp.names.first()
