@@ -259,4 +259,92 @@ mod tests {
             }
         }
     }
+
+    #[cfg(unix)]
+    mod allocation_failure {
+        use std::alloc::GlobalAlloc;
+        use std::alloc::Layout;
+        use std::alloc::System;
+        use std::ffi::CStr;
+        use std::mem;
+        use std::os::unix::process::ExitStatusExt;
+        use std::process::Command;
+
+        use crate::arc_str::base::ArcStrBaseInner;
+        use crate::arc_str::thin::ThinArcStr;
+        use crate::arc_str::thin::ThinArcStrProperties;
+
+        const LEN: usize = 1_234_567;
+        const HELPER_ENV: &CStr = c"BUCK2_UTIL_ARC_STR_ALLOCATION_FAILURE_HELPER";
+
+        /// The size of the heap block behind a `LEN`-byte `ThinArcStr`.
+        fn failing_size() -> usize {
+            mem::size_of::<ArcStrBaseInner<ThinArcStrProperties>>() + LEN
+        }
+
+        /// `System`, except that in the helper subprocess an allocation of exactly
+        /// `failing_size()` bytes fails. The decision reads only the layout and the environment:
+        /// the optimizer assumes that allocator calls do not touch program memory, so a flag in
+        /// a static would not be reliable here.
+        struct FailStringAllocation;
+
+        unsafe impl GlobalAlloc for FailStringAllocation {
+            unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+                if layout.size() == failing_size()
+                    && !unsafe { libc::getenv(HELPER_ENV.as_ptr()) }.is_null()
+                {
+                    return std::ptr::null_mut();
+                }
+                unsafe { System.alloc(layout) }
+            }
+
+            unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+                unsafe { System.dealloc(ptr, layout) }
+            }
+        }
+
+        #[global_allocator]
+        static GLOBAL: FailStringAllocation = FailStringAllocation;
+
+        /// Does the work only in the subprocess spawned by `is_reported`.
+        #[test]
+        fn helper() {
+            if std::env::var_os(HELPER_ENV.to_str().unwrap()).is_none() {
+                return;
+            }
+            let s = "a".repeat(LEN);
+            std::hint::black_box(ThinArcStr::from(s.as_str()));
+        }
+
+        #[test]
+        fn is_reported() {
+            let output = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "arc_str::thin::tests::allocation_failure::helper",
+                    "--nocapture",
+                ])
+                .env(HELPER_ENV.to_str().unwrap(), "1")
+                .output()
+                .unwrap();
+            // The test harness may run the helper in a child of its own and report the child's
+            // fate in its own output, so look at everything.
+            let report = format!(
+                "{:?}\n{}\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            // The null pointer from the failed allocation is written through, so the process
+            // dies with SIGSEGV and no message, where `handle_alloc_error` would report the
+            // failure.
+            assert!(
+                output.status.signal() == Some(libc::SIGSEGV)
+                    || report.contains("signal 11")
+                    || report.contains("SIGSEGV"),
+                "{report}"
+            );
+            assert!(!report.contains("memory allocation of"), "{report}");
+        }
+    }
 }
