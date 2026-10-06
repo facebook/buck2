@@ -539,3 +539,50 @@ async fn gather_package_listing_impl(
     .unwrap()
     .flatten())
 }
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::cells::cell_path::CellPath;
+    use buck2_fs::paths::file_name::FileNameBuf;
+
+    use crate::buildfiles::parse_buildfile_name;
+    use crate::legacy_configs::configs::testing::parse;
+    use crate::package_listing::interpreter::GatherPackageListingError;
+
+    fn candidates_from_config(buildfile_section: &str) -> Vec<FileNameBuf> {
+        let text = format!("[buildfile]\n{buildfile_section}\n");
+        let config = parse(&[("config", text.as_str())], "config").unwrap();
+        parse_buildfile_name(&config).unwrap()
+    }
+
+    fn no_build_file_message(candidates: Vec<FileNameBuf>) -> String {
+        GatherPackageListingError::NoBuildFile {
+            package: CellPath::testing_new("root//foo"),
+            candidates,
+        }
+        .to_string()
+    }
+
+    #[test]
+    fn test_no_build_file_message_default_candidates() {
+        let msg = no_build_file_message(candidates_from_config("includes = x"));
+        assert!(
+            msg.contains("missing `BUCK` file (also missing alternatives `BUCK.v2`)"),
+            "{msg}"
+        );
+    }
+
+    /// Rendering the error looks for a candidate whose extension is not `v2` and treats its
+    /// absence as unreachable, so a configuration made only of `.v2` names panics instead of
+    /// telling the user which file is missing.
+    #[test]
+    #[should_panic(expected = "internal error: entered unreachable code")]
+    fn test_no_build_file_message_only_v2_candidates_panics() {
+        let candidates = candidates_from_config("name_v2 = BUCK.v2");
+        assert_eq!(
+            vec!["BUCK.v2"],
+            candidates.iter().map(|c| c.as_str()).collect::<Vec<_>>()
+        );
+        no_build_file_message(candidates);
+    }
+}
