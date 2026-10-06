@@ -29,9 +29,9 @@ use crate::values::StringValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::float::StarlarkFloat;
 use crate::values::float::float;
 use crate::values::string::dot_format::format_one;
+use crate::values::types::int::int_or_big::StarlarkInt;
 use crate::values::types::int::int_or_big::StarlarkIntRef;
 use crate::values::types::num::value::NumRef;
 use crate::values::types::tuple::value::Tuple;
@@ -233,12 +233,10 @@ pub(crate) fn percent(format: &str, value: Value) -> crate::Result<String> {
                     Some(NumRef::Int(StarlarkIntRef::Big(v))) => {
                         write!(res, "{}", v.get()).unwrap()
                     }
-                    Some(NumRef::Float(v)) => {
-                        match NumRef::Float(StarlarkFloat(v.0.trunc())).as_int() {
-                            Some(v) => write!(res, "{v}").unwrap(),
-                            None => ValueError::unsupported_type(value, "format(%d)")?,
-                        }
-                    }
+                    Some(NumRef::Float(v)) => match StarlarkInt::from_f64_exact(v.0.trunc()) {
+                        Ok(v) => write!(res, "{v}").unwrap(),
+                        Err(_) => ValueError::unsupported_type(value, "format(%d)")?,
+                    },
                     None => ValueError::unsupported_type(value, "format(%d)")?,
                 }
             }
@@ -544,22 +542,20 @@ mod tests {
         assert::eq("'%x' % (-2147483648,)", "'-80000000'");
     }
 
-    /// `%d` on a float truncates and converts through `NumRef::as_int`, which only yields an
-    /// `i32`, so floats outside that range fail although ints are arbitrary precision and
-    /// `int(x)` accepts the same float.
+    /// `%d` formats any finite float as the integer it truncates to.
     #[test]
     fn test_percent_d_float_beyond_i32() {
         assert::eq("'%d' % 2147483647.0", "'2147483647'");
         assert::eq("'%d' % -2147483648.0", "'-2147483648'");
-        assert::fail("'%d' % 2147483648.0", "format(%d)");
-        assert::fail("'%d' % -2147483649.0", "format(%d)");
-        assert::fail("'%d' % 3e9", "format(%d)");
-        assert::fail("'%d' % 1.23e45", "format(%d)");
-        // The same value through `int()` works.
-        assert::eq("'%d' % int(3e9)", "'3000000000'");
+        assert::eq("'%d' % 2147483648.0", "'2147483648'");
+        assert::eq("'%d' % -2147483649.0", "'-2147483649'");
+        assert::eq("'%d' % 3e9", "'3000000000'");
         assert::eq(
-            "str(int(1.23e45))",
+            "'%d' % 1.23e45",
             "'1229999999999999973814869011019624571608236032'",
         );
+        assert::eq("'%d' % -2.5", "'-2'");
+        assert::fail("'%d' % float('nan')", "format(%d)");
+        assert::fail("'%d' % float('inf')", "format(%d)");
     }
 }
