@@ -392,6 +392,18 @@ mod tests {
         Artifact::from(SourceArtifact::new(buck_path))
     }
 
+    fn validate(paths: &[&str]) -> buck2_error::Result<()> {
+        let a = ArtifactGroup::Artifact(mk_artifact());
+        let mut xs = paths.map(|x| {
+            (
+                a.dupe(),
+                ForwardRelativePath::new(x).unwrap().to_buf().into_box(),
+                CopyMode::Symlink,
+            )
+        });
+        UnregisteredAssembledDirAction::validate_args(&mut xs)
+    }
+
     // TODO: This needs proper tests, but right now it's kind of a pain to get the
     //       action framework up and running to test actions
     #[test]
@@ -399,22 +411,18 @@ mod tests {
 
     #[test]
     fn test_assembled_dir_validation() {
-        fn validate(paths: &[&str]) -> buck2_error::Result<()> {
-            let a = ArtifactGroup::Artifact(mk_artifact());
-            let mut xs = paths.map(|x| {
-                (
-                    a.dupe(),
-                    ForwardRelativePath::new(x).unwrap().to_buf().into_box(),
-                    CopyMode::Symlink,
-                )
-            });
-            UnregisteredAssembledDirAction::validate_args(&mut xs)
-        }
-
         // Check that error conditions are detected
         assert!(validate(&["test", "other"]).is_ok());
         assert!(validate(&["test", "test"]).is_err());
         assert!(validate(&["test", "other", "test"]).is_err());
         assert!(validate(&["test", "test/child"]).is_err());
+    }
+
+    #[test]
+    fn test_assembled_dir_validation_overlap_separated_by_sibling() {
+        assert!(validate(&["test", "test/child", "test_other"]).is_err());
+        assert!(validate(&["test", "test.txt", "test/child"]).is_ok());
+        assert!(validate(&["test", "test-other", "test/child"]).is_ok());
+        assert!(validate(&["test/child", "test", "test.txt"]).is_ok());
     }
 }
