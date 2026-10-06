@@ -1174,6 +1174,61 @@ mod tests {
         assert_eq!(counters.failures(), 0);
     }
 
+    fn cap_client(cap: usize, sizes: Arc<Mutex<Vec<usize>>>) -> ProducerServiceClient {
+        let client = Arc::new(scribe_producer_service_mocks::new::<dyn ProducerService>());
+        client.WriteMessages.mock(move |req| {
+            let n = req.messages.len();
+            sizes.lock().unwrap().push(n);
+            let code = if n <= cap {
+                WriteMessageResultCode::OK
+            } else {
+                WriteMessageResultCode::ENQUEUE_FAILED
+            };
+            WriteMessagesResponse {
+                results: (0..n)
+                    .map(|_| ThriftWriteMessageResult {
+                        code,
+                        ..Default::default()
+                    })
+                    .collect(),
+                ..Default::default()
+            }
+        });
+        client
+    }
+
+    /// When Scribe queues only one-message requests, the batch is cut 3 -> 2 and then stays at
+    /// 2 (`2 / 2 + 1 == 2`), although the phase is documented to cut by half "until the length that
+    /// is successfully queued is found"; no message is delivered.
+    #[fbinit::test]
+    async fn test_cutoff_with_one_message_capacity(fb: FacebookInit) {
+        let sizes = Arc::new(Mutex::new(Vec::new()));
+        let producer = make_ScribeProducer(fb, cap_client(1, Arc::clone(&sizes)), 3);
+        let res = producer
+            .send_messages_now(vec![message("a"), message("b"), message("c")])
+            .await;
+        assert!(res.is_err());
+        assert_eq!(*sizes.lock().unwrap(), vec![3, 2, 2, 2, 2]);
+        assert_eq!(producer.export_counters().successes, 0);
+        assert_eq!(producer.export_counters().failures_enqueue_failed, 3);
+    }
+
+    /// A `last_cutoff` of 501 left by an earlier batch is above a 3-message batch, so every
+    /// halving stays above 3 and every request carries the full batch.
+    #[fbinit::test]
+    async fn test_stale_last_cutoff(fb: FacebookInit) {
+        let sizes = Arc::new(Mutex::new(Vec::new()));
+        let producer = ScribeProducer {
+            last_cutoff: Mutex::new(Some(501)),
+            ..make_ScribeProducer(fb, cap_client(2, Arc::clone(&sizes)), 3)
+        };
+        let res = producer
+            .send_messages_now(vec![message("a"), message("b"), message("c")])
+            .await;
+        assert!(res.is_err());
+        assert_eq!(*sizes.lock().unwrap(), vec![3, 3, 3, 3, 3]);
+    }
+
     #[test]
     fn normal_cutoff_computations() {
         let mut cc_state = CongestionControlState::new(1000);
