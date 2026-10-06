@@ -45,6 +45,7 @@ pub mod manifold;
 pub mod memory;
 pub mod package_boundary;
 pub mod package_listing;
+pub mod pagable;
 pub mod pattern;
 pub mod rlimits;
 pub mod scope;

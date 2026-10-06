@@ -46,6 +46,8 @@ mod hashers;
 mod impls;
 mod pagable_arc;
 mod partial_pagable_arc;
+#[cfg(feature = "tokio")]
+pub mod prepare;
 mod read_failures;
 pub mod storage;
 #[cfg(test)]
