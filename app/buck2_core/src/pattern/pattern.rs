@@ -2723,6 +2723,50 @@ mod tests {
     }
 
     #[test]
+    fn configuration_on_package_and_recursive_patterns() -> buck2_error::Result<()> {
+        // A pattern type that cannot carry a configuration rejects one on a target pattern...
+        fails(
+            ParsedPattern::<TargetPatternExtra>::parse_precise(
+                "//package/path:target (<foo>)",
+                CellName::testing_new("root"),
+                &resolver(),
+                &alias_resolver(),
+            ),
+            &["Expecting target pattern, without configuration"],
+        );
+        // ...but every pattern type accepts one on a package or recursive pattern and drops it,
+        // because `Package` and `Recursive` have nowhere to keep it.
+        assert_eq!(
+            mk_recursive::<TargetPatternExtra>("root", "package/path"),
+            ParsedPattern::parse_precise(
+                "//package/path/... (<foo>)",
+                CellName::testing_new("root"),
+                &resolver(),
+                &alias_resolver(),
+            )?
+        );
+        assert_eq!(
+            mk_recursive::<ConfiguredProvidersPatternExtra>("root", "package/path"),
+            ParsedPattern::parse_precise(
+                "//package/path/... (<foo>)",
+                CellName::testing_new("root"),
+                &resolver(),
+                &alias_resolver(),
+            )?
+        );
+        assert_eq!(
+            mk_package::<ConfiguredProvidersPatternExtra>("root", "package/path"),
+            ParsedPattern::parse_precise(
+                "//package/path: (<foo>)",
+                CellName::testing_new("root"),
+                &resolver(),
+                &alias_resolver(),
+            )?
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_split_cfg_with_spaces_in_path() {
         use super::split_cfg;
 
