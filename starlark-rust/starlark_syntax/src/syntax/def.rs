@@ -432,6 +432,14 @@ mod tests {
         fails("slash_slash", "def test(x, /, y, /): pass");
     }
 
+    /// A single `/` after `*`, `*args` or `**kwargs` is reported as several `/`.
+    #[test]
+    fn test_slash_after_star() {
+        fails("slash_after_star", "def test(x, *, y, /): pass");
+        fails("slash_after_args", "def test(x, *args, /): pass");
+        fails("slash_after_kwargs", "def test(x, **kwargs, /): pass");
+    }
+
     #[test]
     fn test_named_only_in_standard_dialect_def() {
         fails_dialect(
