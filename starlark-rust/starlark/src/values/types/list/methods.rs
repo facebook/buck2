@@ -296,6 +296,20 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
 mod tests {
     use crate::assert;
 
+    /// `L.remove(x)` compares with `PartialEq for Value`, which turns an equality error into
+    /// "not equal", so an element whose comparison fails is skipped and a later element is
+    /// removed, while `index` and `in` report the error.
+    #[test]
+    fn test_remove_equality_error() {
+        let prog = "a = []\na.append(a)\nb = []\nb.append(b)\nl = [a, b]\n";
+        assert::is_true(&format!("{prog}l.remove(b)\nlen(l) == 1 and l[0] == a"));
+        assert::fail(&format!("{prog}l.index(b)"), "Too many recursion levels");
+        assert::fail(
+            "a = []\na.append(a)\nb = []\nb.append(b)\n[a].remove(b)",
+            "not found",
+        );
+    }
+
     #[test]
     fn test_error_codes() {
         assert::fail(
