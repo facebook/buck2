@@ -24,7 +24,9 @@ import com.facebook.buck.testutil.TemporaryPaths;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.Before;
 import org.junit.Rule;
@@ -181,5 +183,77 @@ public class KotlincModeFactoryTest {
 
     assertTrue(kotlincMode instanceof KotlincMode.Incremental);
     assertNull(((KotlincMode.Incremental) kotlincMode).getRebuildReason());
+  }
+
+  @Test
+  public void when_depTrackerPlugin_changed_then_rebuild() throws IOException {
+    KotlincMode kotlincMode =
+        createIncrementalModeWithRealValidator(
+            true, "old-dep-tracker-digest", "new-dep-tracker-digest");
+
+    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
+    // BUG: the factory builds the watched plugin list from getKotlinCompilerPlugins
+    // only and never consults getDepTrackerPlugin, so the digest change above is
+    // ignored, no rebuild reason is produced, and incremental state is wrongly
+    // reused; the fix flips this to KOTLIN_COMPILER_PLUGIN_CHANGED.
+    assertNull(((KotlincMode.Incremental) kotlincMode).getRebuildReason());
+  }
+
+  @Test
+  public void when_depTrackerPlugin_unchanged_then_no_rebuild() throws IOException {
+    KotlincMode kotlincMode =
+        createIncrementalModeWithRealValidator(
+            true, "same-dep-tracker-digest", "same-dep-tracker-digest");
+
+    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
+    assertNull(((KotlincMode.Incremental) kotlincMode).getRebuildReason());
+  }
+
+  @Test
+  public void when_depTrackerPlugin_changed_but_classUsageTracking_disabled_then_no_rebuild()
+      throws IOException {
+    KotlincMode kotlincMode =
+        createIncrementalModeWithRealValidator(
+            false, "old-dep-tracker-digest", "new-dep-tracker-digest");
+
+    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
+    assertNull(((KotlincMode.Incremental) kotlincMode).getRebuildReason());
+  }
+
+  private KotlincMode createIncrementalModeWithRealValidator(
+      boolean trackClassUsage, String previousPluginDigest, String currentPluginDigest)
+      throws IOException {
+    AbsPath root = temporaryPaths.getRoot();
+    AbsPath depTracker = root.resolve("dep-tracker.jar");
+    if (trackClassUsage) {
+      temporaryPaths.newFile("dep-file.txt");
+      temporaryPaths.newFile("used-jars.json");
+    }
+
+    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getShouldUseJvmAbiGen()).thenReturn(false);
+    when(mockKotlinExtraParams.getDepTrackerPlugin()).thenReturn(Optional.of(depTracker));
+    when(mockActionMetadata.getPreviousIncrementalConfigDigest()).thenReturn("config");
+    when(mockActionMetadata.getCurrentIncrementalConfigDigest()).thenReturn("config");
+    Path jarKey = root.relativize(depTracker).getPath();
+    Map<Path, String> previousDigest = new HashMap<>();
+    previousDigest.put(jarKey, previousPluginDigest);
+    Map<Path, String> currentDigest = new HashMap<>();
+    currentDigest.put(jarKey, currentPluginDigest);
+    when(mockActionMetadata.getPreviousDigest()).thenReturn(previousDigest);
+    when(mockActionMetadata.getCurrentDigest()).thenReturn(currentDigest);
+
+    return new KotlincModeFactory(new IncrementalCompilationValidator())
+        .create(
+            false,
+            root,
+            AbsPath.get("/"),
+            trackClassUsage,
+            RelPath.get("dep-file.txt"),
+            RelPath.get("used-jars.json"),
+            mockKotlinExtraParams,
+            Optional.of(mockActionMetadata),
+            ImmutableList.of());
   }
 }
