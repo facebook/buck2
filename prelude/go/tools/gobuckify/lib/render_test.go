@@ -161,7 +161,8 @@ go_library(
 								CommonDeps: NewFromList([]string{"github.com/example/linux_x86_dep"}),
 							},
 							"arm64": {
-								Arch: "arm64",
+								Arch:       "arm64",
+								CommonDeps: NewFromList([]string{"github.com/example/linux_arm_common_dep"}),
 								CgoDeps: map[string]*StringSet{
 									"prelude//go/constraints:cgo_enabled[true]": NewFromList([]string{
 										"github.com/example/linux_arm_dep",
@@ -186,8 +187,11 @@ go_library(
 				},
 				TargetCompatibleWith: map[string]map[string]*StringSet{
 					"linux": {
-						"x86_64": NewFromList([]string{"prelude//go/constraints:cgo_enabled[true]"}),
-						"arm64":  NewFromList([]string{"prelude//go/constraints:cgo_enabled[true]"}),
+						"x86_64": NewFromList([]string{
+							"prelude//go/constraints:cgo_enabled[false]",
+							"prelude//go/constraints:cgo_enabled[true]",
+						}),
+						"arm64": NewFromList([]string{"prelude//go/constraints:cgo_enabled[true]"}),
 					},
 					"darwin": {
 						"x86_64": NewFromList([]string{"prelude//go/constraints:cgo_enabled[true]"}),
@@ -216,7 +220,9 @@ go_library(
         }),
         "linux": select({
             "DEFAULT": [],
-            "arm64": select({
+            "arm64": [
+                "//third-party/go/github.com/example/linux_arm_common_dep:linux_arm_common_dep",
+            ] + select({
                 "DEFAULT": [],
                 "prelude//go/constraints:cgo_enabled[true]": [
                     "//third-party/go/github.com/example/linux_arm_dep:linux_arm_dep",
@@ -242,10 +248,7 @@ go_library(
                 "DEFAULT": ["config//:none"],
                 "prelude//go/constraints:cgo_enabled[true]": [],
             }),
-            "x86_64": select({
-                "DEFAULT": ["config//:none"],
-                "prelude//go/constraints:cgo_enabled[true]": [],
-            }),
+            "x86_64": [],
         }),
     }),
     visibility = ["PUBLIC"],

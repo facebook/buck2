@@ -54,7 +54,7 @@ var TargetTemplate = `
                 "{{.}}",
                 {{- end }}
                 {{- end }}
-            ]{{ else }}select({
+            ]{{ if $archDeps.CgoDeps }} + {{ end }}{{ end }}{{ if $archDeps.CgoDeps }}select({
                 "DEFAULT": [],
                 {{- range $cgo, $deps := $archDeps.CgoDeps }}
                 "{{ $cgo }}": [
@@ -87,12 +87,16 @@ var TargetTemplate = `
         "{{ $os }}": select({
             "DEFAULT": ["config//:none"],
             {{- range $arch, $cgoConstraints := $archMap }}
+            {{- if eq $cgoConstraints.Len 2 }}
+            "{{ $arch }}": [],
+            {{- else }}
             "{{ $arch }}": select({
                 "DEFAULT": ["config//:none"],
                 {{- range $cgoConstraints.SortedList }}
                 "{{.}}": [],
                 {{- end }}
             }),
+            {{- end }}
             {{- end }}
         }),
         {{- end }}

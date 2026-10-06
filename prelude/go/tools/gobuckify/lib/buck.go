@@ -12,7 +12,6 @@ package gobuckifylib
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 )
@@ -71,14 +70,24 @@ func (b *BuckTarget) Normalise(totalConfigurationNumber int) {
 		}
 	}
 
-	// Identical dependencies with and without cgo do not need a cgo select.
+	// Dependencies used with and without cgo do not need to be repeated in the select.
 	for _, osDeps := range b.PlatformDeps {
 		for _, archDeps := range osDeps.ArchDeps {
 			disabled, hasDisabled := archDeps.CgoDeps["prelude//go/constraints:cgo_enabled[false]"]
 			enabled, hasEnabled := archDeps.CgoDeps["prelude//go/constraints:cgo_enabled[true]"]
-			if hasDisabled && hasEnabled && disabled.Len() > 0 && maps.Equal(*disabled, *enabled) {
-				archDeps.CommonDeps = disabled
-				archDeps.CgoDeps = nil
+			if !hasDisabled || !hasEnabled {
+				continue
+			}
+			commonDeps := NewSet()
+			for dep := range *disabled {
+				if _, ok := (*enabled)[dep]; ok {
+					commonDeps.Add(dep)
+					disabled.Remove(dep)
+					enabled.Remove(dep)
+				}
+			}
+			if commonDeps.Len() > 0 {
+				archDeps.CommonDeps = commonDeps
 			}
 		}
 	}

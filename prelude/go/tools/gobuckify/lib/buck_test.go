@@ -12,6 +12,7 @@ package gobuckifylib
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -62,9 +63,13 @@ func TestBuckTargetNormalise(t *testing.T) {
 		{"darwin", []string{"example.com/common/dep1", "example.com/common/dep2", "example.com/darwin/dep"}},
 	} {
 		for _, cgoEnabled := range []bool{false, true} {
+			imports := slices.Clone(platform.imports)
+			if cgoEnabled {
+				imports = append(imports, "example.com/"+platform.os+"/cgo")
+			}
 			targets.AddPackage(&Package{
 				ImportPath: "github.com/example/test",
-				Imports:    platform.imports,
+				Imports:    imports,
 			}, platform.os, "x86_64", cgoEnabled)
 		}
 	}
@@ -90,8 +95,17 @@ func TestBuckTargetNormalise(t *testing.T) {
 		if got := archDeps.CommonDeps.SortedList(); !reflect.DeepEqual(got, []string{want}) {
 			t.Errorf("%s common architecture deps = %v, want %v", os, got, []string{want})
 		}
-		if len(archDeps.CgoDeps) != 0 {
-			t.Errorf("%s CGO deps = %v, want none", os, archDeps.CgoDeps)
+		wantCgo := "example.com/" + os + "/cgo"
+		enabled := archDeps.CgoDeps["prelude//go/constraints:cgo_enabled[true]"]
+		if enabled == nil {
+			t.Errorf("%s CGO-enabled deps = nil", os)
+			continue
+		}
+		if got := enabled.SortedList(); !reflect.DeepEqual(got, []string{wantCgo}) {
+			t.Errorf("%s CGO deps = %v, want %v", os, got, []string{wantCgo})
+		}
+		if len(archDeps.CgoDeps) != 1 {
+			t.Errorf("%s CGO dependency branches = %d, want 1", os, len(archDeps.CgoDeps))
 		}
 	}
 	if target.TargetCompatibleWith != nil {
