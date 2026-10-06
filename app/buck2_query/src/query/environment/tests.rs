@@ -465,3 +465,173 @@ async fn test_rdeps() -> buck2_error::Result<()> {
 
     Ok(())
 }
+
+/// `TestEnv` with `allow_partial_graph` on, as `buck2 uquery --allow-partial-graph` sets it.
+struct PartialTestEnv(TestEnv);
+
+#[async_trait]
+impl QueryEnvironment for PartialTestEnv {
+    type Target = TestTarget;
+
+    fn allow_partial_graph(&self) -> bool {
+        true
+    }
+
+    async fn get_node(
+        &self,
+        node_ref: &<Self::Target as LabeledNode>::Key,
+    ) -> buck2_error::Result<Self::Target> {
+        <TestEnv as NodeLookup<TestTarget>>::get(&self.0, node_ref)
+    }
+
+    async fn get_node_for_default_configured_target(
+        &self,
+        _node_ref: &<Self::Target as LabeledNode>::Key,
+    ) -> buck2_error::Result<MaybeCompatible<Self::Target>> {
+        unimplemented!()
+    }
+
+    async fn eval_literals(
+        &self,
+        _literal: &[&str],
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
+        unimplemented!()
+    }
+
+    async fn eval_file_literal(&self, _literal: &str) -> buck2_error::Result<FileSet> {
+        unimplemented!()
+    }
+
+    async fn dfs_postorder(
+        &self,
+        root: &TargetSet<Self::Target>,
+        delegate: impl AsyncChildVisitor<Self::Target>,
+        visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
+    ) -> buck2_error::Result<()> {
+        async_depth_first_postorder_traversal(&self.0, root.iter_names(), delegate, visit, true)
+            .await
+    }
+
+    async fn depth_limited_traversal(
+        &self,
+        root: &TargetSet<Self::Target>,
+        delegate: impl AsyncChildVisitor<Self::Target>,
+        visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
+        depth: u32,
+    ) -> buck2_error::Result<()> {
+        async_depth_limited_traversal(&self.0, root.iter_names(), delegate, visit, depth, true)
+            .await
+    }
+
+    async fn owner(&self, _paths: &FileSet) -> buck2_error::Result<TargetSet<Self::Target>> {
+        unimplemented!()
+    }
+
+    async fn targets_in_buildfile(
+        &self,
+        _paths: &FileSet,
+    ) -> buck2_error::Result<TargetSet<Self::Target>> {
+        unimplemented!()
+    }
+}
+
+/// A graph where a dep may name a node that is absent, so looking it up fails (like a target in
+/// a package that fails to parse).
+fn env_with_dangling_deps(nodes: &[(u64, &[u64])]) -> TestEnv {
+    TestEnv {
+        graph: nodes
+            .iter()
+            .map(|(id, deps)| {
+                let id = TestTargetId(*id);
+                let deps = Arc::new(deps.iter().map(|d| TestTargetId(*d)).collect());
+                (id, TestTarget { id, deps })
+            })
+            .collect(),
+    }
+}
+
+/// Behaves like the `first_order_deps()` filter: it loads every dep, so one dep that does not
+/// load makes the whole filter fail for that node.
+struct FirstOrderDepsFilter<'a>(&'a PartialTestEnv);
+
+#[async_trait]
+impl TraversalFilter<TestTarget> for FirstOrderDepsFilter<'_> {
+    async fn get_children(
+        &self,
+        target: &TestTarget,
+    ) -> buck2_error::Result<TargetSet<TestTarget>> {
+        let mut deps = TargetSet::new();
+        for dep in target.deps() {
+            deps.insert(self.0.get_node(dep).await?);
+        }
+        Ok(deps)
+    }
+}
+
+fn sorted_ids(set: &TargetSet<TestTarget>) -> Vec<u64> {
+    let mut ids: Vec<u64> = set.iter().map(|t| t.id.0).collect();
+    ids.sort();
+    ids
+}
+
+/// Graph 0 -> 1 -> 2 where node 2 does not load, so the filter fails for node 1. Node 1 itself
+/// loaded, and unbounded `deps` and `deps(_, 1)` return it, but the bounded traversal drops a
+/// node whose children cannot be enumerated below the depth limit, so `deps(0, 2)` is a strict
+/// subset of `deps(0, 1)`.
+#[tokio::test]
+async fn test_partial_graph_bounded_deps_drops_node_whose_filter_fails() -> buck2_error::Result<()>
+{
+    let env = PartialTestEnv(env_with_dangling_deps(&[(0, &[1]), (1, &[2])]));
+    let filter = FirstOrderDepsFilter(&env);
+    let filter = Some(&filter as &dyn TraversalFilter<TestTarget>);
+    let roots = env.0.set("0")?;
+
+    let unbounded = deps(&env, &roots, QueryValueDepth::Unbounded, filter).await?;
+    let depth1 = deps(&env, &roots, QueryValueDepth::Bounded(1), filter).await?;
+    let depth2 = deps(&env, &roots, QueryValueDepth::Bounded(2), filter).await?;
+
+    assert_eq!(vec![0, 1], sorted_ids(&unbounded));
+    assert_eq!(vec![0, 1], sorted_ids(&depth1));
+    assert_eq!(vec![0], sorted_ids(&depth2));
+    Ok(())
+}
+
+/// Graph 0 -> {1, 2}, 1 -> 9 (absent), 2 -> 3. The filter fails for node 1, which the path
+/// 0 -> 2 -> 3 does not need. `allpaths` skips the failure; `somepath` aborts on it.
+#[tokio::test]
+async fn test_partial_graph_somepath_aborts_when_a_filter_fails() -> buck2_error::Result<()> {
+    let env = PartialTestEnv(env_with_dangling_deps(&[
+        (0, &[1, 2]),
+        (1, &[9]),
+        (2, &[3]),
+        (3, &[]),
+    ]));
+    let filter = FirstOrderDepsFilter(&env);
+    let filter = Some(&filter as &dyn TraversalFilter<TestTarget>);
+    let from = env.0.set("0")?;
+    let to = env.0.set("3")?;
+
+    let all = env.allpaths(&from, &to, filter).await?;
+    assert_eq!(vec![0, 2, 3], sorted_ids(&all));
+
+    let err = env.somepath(&from, &to, filter).await.unwrap_err();
+    assert!(
+        format!("{err:#}").contains("Error traversing children of `1`"),
+        "{err:#}"
+    );
+    Ok(())
+}
+
+/// Without a filter, a node that itself fails to load is skipped.
+#[tokio::test]
+async fn test_partial_graph_somepath_skips_node_that_fails_to_load() -> buck2_error::Result<()> {
+    let env = PartialTestEnv(env_with_dangling_deps(&[(0, &[1, 2]), (2, &[3]), (3, &[])]));
+    let path = env
+        .somepath(&env.0.set("0")?, &env.0.set("3")?, None)
+        .await?;
+    assert_eq!(
+        vec![0, 2, 3],
+        path.iter().map(|t| t.id.0).collect::<Vec<_>>()
+    );
+    Ok(())
+}
