@@ -2563,6 +2563,39 @@ mod tests {
         Ok(())
     }
 
+    /// A relative pattern with a cell-qualified modifier (`:target?root//cfg:x`) does not parse:
+    /// the lexer splits off the cell alias at the first `//`, which here is inside the modifier.
+    #[test]
+    fn test_relative_pattern_with_qualified_modifier_fails() {
+        let resolver = resolver();
+        let alias_resolver = alias_resolver();
+        let package = CellPath::new(
+            CellName::testing_new("root"),
+            CellRelativePath::unchecked_new("package").to_owned(),
+        );
+
+        fails(
+            ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+                &NoAliases,
+                package.as_ref(),
+                "path:target?root//modifier:x",
+                &resolver,
+                &alias_resolver,
+            ),
+            &["path:target?root"],
+        );
+        fails(
+            ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+                &NoAliases,
+                package.as_ref(),
+                ":target?cell1//modifier:x+cell1//modifier:y",
+                &resolver,
+                &alias_resolver,
+            ),
+            &[":target?cell1"],
+        );
+    }
+
     #[test]
     fn test_parsed_pattern_fails_with_modifiers() {
         fails(
