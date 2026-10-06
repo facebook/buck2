@@ -58,7 +58,8 @@ impl CellPackageBoundaryExceptions {
             if path_str == "." {
                 allow_everything = true;
             } else {
-                let path = ForwardRelativePath::new(path_str)?;
+                // Trailing slashes are accepted as in `project.ignore`.
+                let path = ForwardRelativePath::new_trim_trailing_slashes(path_str)?;
                 // path.split_first() only returns None if the path is empty.
                 // In the case of the buckconfig `project.package_boundary_exceptions`,
                 // we only get an empty path if there is an extra newline, in which case
@@ -278,13 +279,22 @@ mod tests {
         );
     }
 
-    /// `project.ignore` accepts entries with a trailing slash; `project.package_boundary_exceptions`
-    /// rejects them, and the error surfaces on every build file of the cell.
+    /// A trailing slash is accepted, as in `project.ignore`.
     #[test]
-    fn test_package_boundary_trailing_slash_is_rejected() {
-        assert!(CellPackageBoundaryExceptions::new("foo/").is_err());
-        assert!(CellPackageBoundaryExceptions::new("bar, foo/").is_err());
-        assert!(CellPackageBoundaryExceptions::new("foo").is_ok());
+    fn test_package_boundary_trailing_slash() {
+        let exceptions = CellPackageBoundaryExceptions::new("bar, foo/").unwrap();
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foo/x"),
+            package_boundary_allowlist_path("foo"),
+        );
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "bar"),
+            package_boundary_allowlist_path("bar"),
+        );
+        assert_eq!(
+            get_package_boundary_exception_path(&exceptions, "foobar"),
+            None
+        );
     }
 
     #[test]
