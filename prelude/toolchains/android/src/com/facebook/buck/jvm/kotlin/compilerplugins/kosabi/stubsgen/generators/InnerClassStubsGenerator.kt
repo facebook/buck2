@@ -57,7 +57,10 @@ class InnerClassStubsGenerator : StubsGenerator {
             }
             .filter { (imp, _) -> imp != null }
             .map { (imp, segment) ->
-              FullTypeQualifier(imp!!.segments + segment.drop(1)).withMemberAsNestedName()
+              // Extend the type path, not the raw import: a member-carrying import (a const or
+              // fun) would otherwise nest the usage under the member instead of its owner.
+              val base = if (imp!!.member != null) imp.segments.dropLast(1) else imp.segments
+              FullTypeQualifier(base + segment.drop(1)).withMemberAsNestedName()
             }
 
     val candidatesToGenerateInnerClass =
