@@ -31,7 +31,7 @@ where
 }
 
 fn children<'a, 'v>(set: &'a TransitiveSet<'v>) -> buck2_error::Result<&'a [Value<'v>]> {
-    Ok(&set.children[..])
+    Ok(set.children.read()?)
 }
 
 fn assert_transitive_set<'v>(child: Value<'v>) -> &'v TransitiveSet<'v> {

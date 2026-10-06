@@ -467,7 +467,7 @@ pub(crate) async fn get_from_template_placeholder_info(
                             }
 
                             // Enqueue any children we haven't yet seen (and mark them seen).
-                            for child in as_tset.children.iter() {
+                            for child in as_tset.children.read()?.iter() {
                                 let child_as_tset = TransitiveSet::from_value(*child)
                                     .internal_error("Invalid deferred")?;
                                 let projection_key =

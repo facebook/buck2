@@ -197,7 +197,7 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
     // have to access Values from their parents.
     set.by_ref_with_reconstructor(|s, reconstructor| {
         for set in s.iter(TransitiveSetOrdering::Preorder).unwrap() {
-            for child in set.unwrap().children.iter() {
+            for child in set.unwrap().children.read().unwrap().iter() {
                 all_tsets.push(reconstructor.reconstruct(ValueTyped::new(*child).unwrap()));
             }
         }

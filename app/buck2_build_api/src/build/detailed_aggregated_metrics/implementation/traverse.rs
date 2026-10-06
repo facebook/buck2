@@ -152,7 +152,7 @@ impl<'a> Graph<'a> {
                         ResolvedTransitiveSetProjection {
                             projection: proj_node.projection,
                             tset: proj_node.tset.dupe().try_map(|v| {
-                                ValueTyped::new(v.children[idx])
+                                ValueTyped::new(v.children.read()?[idx])
                                     .internal_error("tset children should be tsets")
                             })?,
                         },

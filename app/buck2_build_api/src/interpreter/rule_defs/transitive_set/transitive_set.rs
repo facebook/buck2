@@ -36,10 +36,12 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::type_matcher;
+use starlark::values::Deferred;
 use starlark::values::Freeze;
 use starlark::values::FrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
+use starlark::values::ThinBoxSliceValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -173,8 +175,8 @@ pub struct TransitiveSet<'v> {
 
     pub(crate) projection_is_eligible_for_dedupe: ProjectionBitSet,
 
-    /// Further transitive sets.
-    pub children: Box<[Value<'v>]>,
+    /// Read together on first access; `len()` does not read them.
+    pub children: Deferred<ThinBoxSliceValue<'v>>,
 }
 
 #[derive(Debug, Clone, Trace, Freeze, Allocative, StarlarkPagable)]
@@ -298,7 +300,7 @@ impl<'v> TransitiveSet<'v> {
         }
 
         // Reuse the same projection for children sets.
-        for v in self.children.iter() {
+        for v in self.children.read()?.iter() {
             let v = TransitiveSet::from_value(v.to_value()).internal_error("Invalid deferred")?;
             sub_inputs.push(ArtifactGroup::TransitiveSetProjection(Arc::new(
                 TransitiveSetProjectionWrapper::new(
@@ -394,7 +396,7 @@ impl<'v> TransitiveSet<'v> {
             return Err(TransitiveSetError::TransitiveSetUsedBeforeAssignment.into());
         }
 
-        let children = children.into_iter().collect::<Box<[_]>>();
+        let children = ThinBoxSliceValue::from_iter(children);
         let children_sets = children.try_map(|v| match TransitiveSet::from_value(*v) {
             Some(set) if set.matches_definition(definition) => Ok(set),
             Some(set) => {
@@ -597,7 +599,7 @@ impl<'v> TransitiveSet<'v> {
             reductions,
             projection_path_resolution_may_require_artifact_value,
             projection_is_eligible_for_dedupe,
-            children,
+            children: Deferred::new(children),
         })
     }
 
@@ -714,6 +716,6 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
     }
     #[starlark(attribute)]
     fn children<'v>(this: ValueOf<'v, &'v TransitiveSet<'v>>) -> starlark::Result<Vec<Value<'v>>> {
-        Ok(this.typed.children.to_vec())
+        Ok(this.typed.children.read()?.to_vec())
     }
 }
