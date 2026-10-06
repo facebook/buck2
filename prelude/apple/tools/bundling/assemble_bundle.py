@@ -134,7 +134,7 @@ def _create_symlinks(symlinks: set[str], bundle_path: Path) -> None:
 def _assemble_incrementally(
     bundle_path: Path,
     spec: List[BundleSpecItem],
-    action_metadata: Dict[Path, str],
+    action_metadata: Dict[str, str],
     incremental_state: IncrementalState,
     check_conflicts: bool,
     versioned_if_macos: bool,

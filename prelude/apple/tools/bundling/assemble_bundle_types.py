@@ -113,7 +113,7 @@ class IncrementalContext:
     """
 
     # Maps buck-project relative path to hash digest of the input file.
-    metadata: Dict[Path, str]
+    metadata: Dict[str, str]
     # Present when there is a valid incremental state on disk (i.e. previous build produced it).
     state: Optional[IncrementalState]
     codesigned: bool

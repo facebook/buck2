@@ -20,7 +20,7 @@ _METADATA_VERSION = 1
 
 @dataclass
 class _Item:
-    path: Path
+    path: str
     digest: str
 
 
@@ -34,11 +34,10 @@ def _object_hook(dict: Dict[str, Any]) -> Union[_Item, _Metadata]:
     if "version" in dict:
         return _Metadata(**dict)
     else:
-        dict["path"] = Path(dict.pop("path"))
         return _Item(**dict)
 
 
-def parse_action_metadata(data: TextIOBase) -> Optional[Dict[Path, str]]:
+def parse_action_metadata(data: TextIOBase) -> Optional[Dict[str, str]]:
     """
     Returns:
         Mapping from project relative path to hash digest for every file present action metadata.
@@ -60,7 +59,7 @@ def parse_action_metadata(data: TextIOBase) -> Optional[Dict[Path, str]]:
 
 def action_metadata_if_present(
     environment_variable_key: str,
-) -> Optional[Dict[Path, str]]:
+) -> Optional[Dict[str, str]]:
     """
     Returns:
         Mapping from project relative path to hash digest for every file present action metadata.
