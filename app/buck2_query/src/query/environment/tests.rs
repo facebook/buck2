@@ -575,11 +575,9 @@ fn sorted_ids(set: &TargetSet<TestTarget>) -> Vec<u64> {
 }
 
 /// Graph 0 -> 1 -> 2 where node 2 does not load, so the filter fails for node 1. Node 1 itself
-/// loaded, and unbounded `deps` and `deps(_, 1)` return it, but the bounded traversal drops a
-/// node whose children cannot be enumerated below the depth limit, so `deps(0, 2)` is a strict
-/// subset of `deps(0, 1)`.
+/// loaded, so every depth keeps it and drops only its children.
 #[tokio::test]
-async fn test_partial_graph_bounded_deps_drops_node_whose_filter_fails() -> buck2_error::Result<()>
+async fn test_partial_graph_bounded_deps_keeps_node_whose_filter_fails() -> buck2_error::Result<()>
 {
     let env = PartialTestEnv(env_with_dangling_deps(&[(0, &[1]), (1, &[2])]));
     let filter = FirstOrderDepsFilter(&env);
@@ -592,14 +590,14 @@ async fn test_partial_graph_bounded_deps_drops_node_whose_filter_fails() -> buck
 
     assert_eq!(vec![0, 1], sorted_ids(&unbounded));
     assert_eq!(vec![0, 1], sorted_ids(&depth1));
-    assert_eq!(vec![0], sorted_ids(&depth2));
+    assert_eq!(vec![0, 1], sorted_ids(&depth2));
     Ok(())
 }
 
 /// Graph 0 -> {1, 2}, 1 -> 9 (absent), 2 -> 3. The filter fails for node 1, which the path
-/// 0 -> 2 -> 3 does not need. `allpaths` skips the failure; `somepath` aborts on it.
+/// 0 -> 2 -> 3 does not need.
 #[tokio::test]
-async fn test_partial_graph_somepath_aborts_when_a_filter_fails() -> buck2_error::Result<()> {
+async fn test_partial_graph_somepath_skips_node_whose_filter_fails() -> buck2_error::Result<()> {
     let env = PartialTestEnv(env_with_dangling_deps(&[
         (0, &[1, 2]),
         (1, &[9]),
@@ -614,10 +612,10 @@ async fn test_partial_graph_somepath_aborts_when_a_filter_fails() -> buck2_error
     let all = env.allpaths(&from, &to, filter).await?;
     assert_eq!(vec![0, 2, 3], sorted_ids(&all));
 
-    let err = env.somepath(&from, &to, filter).await.unwrap_err();
-    assert!(
-        format!("{err:#}").contains("Error traversing children of `1`"),
-        "{err:#}"
+    let path = env.somepath(&from, &to, filter).await?;
+    assert_eq!(
+        vec![0, 2, 3],
+        path.iter().map(|t| t.id.0).collect::<Vec<_>>()
     );
     Ok(())
 }

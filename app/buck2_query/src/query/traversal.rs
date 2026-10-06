@@ -173,25 +173,11 @@ pub async fn async_depth_limited_traversal<
     // (see https://github.com/rust-lang/futures-rs/issues/2053). Clean this up once a good
     // solution there exists.
     while let Some((target, depth, node)) = tokio::task::unconstrained(queue.next()).await {
-        // `allow_partial_graph` only skips graph load / enumeration errors. A `visit` error
-        // is the caller's own error and must always propagate, so `visit` runs outside this
-        // block.
-        let result: buck2_error::Result<_> = try {
-            let node = node?;
-            if depth != max_depth {
-                let depth = depth + 1;
-                successors
-                    .for_each_child(&node, &mut |child: &T::Key| {
-                        push(&mut queue, child, Some(target.clone()), depth);
-                        Ok(())
-                    })
-                    .await?;
-            }
-
-            node
-        };
-
-        let node = match result {
+        // `allow_partial_graph` only skips graph load / enumeration errors: a node that does not
+        // load is dropped, and a node whose children cannot be enumerated is kept without them,
+        // as `Graph::build` does. A `visit` error is the caller's own error and always
+        // propagates.
+        let node = match node {
             Ok(node) => node,
             Err(mut e) => {
                 if allow_partial_graph {
@@ -208,6 +194,30 @@ pub async fn async_depth_limited_traversal<
                 return Err(e);
             }
         };
+
+        if depth != max_depth {
+            let depth = depth + 1;
+            let children = successors
+                .for_each_child(&node, &mut |child: &T::Key| {
+                    push(&mut queue, child, Some(target.clone()), depth);
+                    Ok(())
+                })
+                .await;
+            if let Err(mut e) = children {
+                if allow_partial_graph {
+                    tracing::trace!(
+                        "query allow-partial-graph: skipping children of `{target}` due to error: {e:#}"
+                    );
+                } else {
+                    let mut target = target;
+                    while let Some(Some(parent)) = visited.get(&target) {
+                        e = e.context(format!("Error traversing children of {parent}"));
+                        target = parent.clone();
+                    }
+                    return Err(e);
+                }
+            }
+        }
 
         visit(node)?;
     }

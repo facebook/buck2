@@ -102,7 +102,7 @@ pub async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
         match node {
             Ok(node) => {
                 let mut found: Option<N> = None;
-                successors
+                let children = successors
                     .for_each_child(&node, &mut |succ: &N::Key| {
                         if found.is_some() {
                             return Ok(());
@@ -134,7 +134,18 @@ pub async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
 
                         Ok(())
                     })
-                    .await?;
+                    .await;
+                if let Err(e) = children {
+                    if allow_partial_graph {
+                        // The node itself loaded: keep the children enumerated so far and
+                        // carry on, as `Graph::build` does.
+                        tracing::trace!(
+                            "query allow-partial-graph: skipping children of `{key}` due to error: {e:#}"
+                        );
+                    } else {
+                        return Err(e);
+                    }
+                }
 
                 if let Some(found) = found {
                     let key = node.node_key().clone();
