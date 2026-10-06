@@ -726,6 +726,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_absolute_cell_alias_path() -> buck2_error::Result<()> {
+        let mut file_ops = TestConfigParserFileOps::new(&[(
+            ".buckconfig",
+            indoc!(
+                r#"
+                    [cells]
+                        root = .
+                        other = /abs/other
+                "#
+            ),
+        )])?;
+
+        // The absolute path is accepted and read as the project-relative path `abs/other`,
+        // although the error context in the parser says a relative path is expected.
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
+        assert_eq!(
+            "abs/other",
+            cells
+                .cell_resolver
+                .get(CellName::testing_new("other"))?
+                .path()
+                .as_str()
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_multi_cell_with_config_file() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
