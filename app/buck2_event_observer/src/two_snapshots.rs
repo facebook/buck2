@@ -41,13 +41,25 @@ impl TwoSnapshots {
     }
 
     fn per_micro_second(&self, field: impl Fn(&buck2_data::Snapshot) -> u64) -> Option<u64> {
+        self.scaled_delta_per_micro_second(field, 1)
+    }
+
+    /// `delta * scale` per microsecond between the two snapshots.
+    fn scaled_delta_per_micro_second(
+        &self,
+        field: impl Fn(&buck2_data::Snapshot) -> u64,
+        scale: u64,
+    ) -> Option<u64> {
         let (_, penultimate_snapshot) = self.penultimate.as_ref()?;
         let (_, last_snapshot) = self.last.as_ref()?;
+        // Non-zero by construction, so the division is safe even below a microsecond.
         let duration = self.non_zero_duration()?;
         let last_value = field(last_snapshot);
         let penultimate_value = field(penultimate_snapshot);
         let delta_value = last_value.checked_sub(penultimate_value)?;
-        Some(delta_value / duration.as_micros() as u64)
+        let per_micro_second =
+            u128::from(delta_value) * u128::from(scale) * 1_000 / duration.as_nanos();
+        Some(u64::try_from(per_micro_second).unwrap_or(u64::MAX))
     }
 
     /// User + system CPU time between two snapshots in percents.
@@ -67,7 +79,7 @@ impl TwoSnapshots {
 
     /// Measure bytes-per-second rate between two snapshots for some field.
     fn bytes_per_second(&self, field: impl Fn(&buck2_data::Snapshot) -> u64) -> Option<u64> {
-        self.per_micro_second(|s| field(s) * 1_000_000)
+        self.scaled_delta_per_micro_second(field, 1_000_000)
     }
 
     pub fn re_download_bytes_per_second(&self) -> Option<u64> {
@@ -124,10 +136,8 @@ mod tests {
         assert_eq!(Some(400), two_snapshots.system_cpu_percents());
     }
 
-    /// Two snapshots 500 ns apart: the duration is non-zero but 0 whole microseconds.
     #[test]
-    #[should_panic(expected = "attempt to divide by zero")]
-    fn test_sub_microsecond_snapshots_panic() {
+    fn test_sub_microsecond_snapshots() {
         let t0 = SystemTime::UNIX_EPOCH.add(Duration::from_secs(100000));
 
         let mut two_snapshots = TwoSnapshots::default();
@@ -145,7 +155,11 @@ mod tests {
                 ..Default::default()
             },
         );
-        two_snapshots.re_download_bytes_per_second();
+        // 100 bytes in 500 ns.
+        assert_eq!(
+            Some(200_000_000),
+            two_snapshots.re_download_bytes_per_second()
+        );
     }
 
     #[test]
