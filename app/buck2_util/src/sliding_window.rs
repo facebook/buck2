@@ -102,6 +102,17 @@ mod tests {
         assert_eq!(Some(150), windows.max_per_second());
     }
 
+    /// A window of 500 ns is non-zero, so it is used, but it is 0 whole microseconds.
+    #[test]
+    #[should_panic(expected = "attempt to divide by zero")]
+    fn test_sub_microsecond_window_panics() {
+        let t0 = SystemTime::UNIX_EPOCH.add(Duration::from_secs(100000));
+
+        let mut windows = SlidingWindow::new(Duration::from_secs(1));
+        windows.update(t0, 100);
+        windows.update(t0.add(Duration::from_nanos(500)), 200);
+    }
+
     #[test]
     fn test_over_window_size() {
         let t0 = SystemTime::UNIX_EPOCH.add(Duration::from_secs(100000));
