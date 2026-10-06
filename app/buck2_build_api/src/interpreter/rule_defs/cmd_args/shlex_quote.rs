@@ -82,4 +82,13 @@ mod tests {
         assert_eq!(shlex_quote("\""), "\"\\\"\"");
         assert_eq!(shlex_quote(""), "\"\"");
     }
+
+    #[test]
+    fn test_quote_braces() {
+        // Braces are left bare, so `bash` brace-expands these into several words
+        // (`a{b,c}` becomes `ab ac`, `{a..c}` becomes `a b c`).
+        assert_eq!(shlex_quote("a{b,c}"), "a{b,c}");
+        assert_eq!(shlex_quote("{a..c}"), "{a..c}");
+        assert_eq!(shlex_quote("x{2,5}"), "x{2,5}");
+    }
 }
