@@ -21,6 +21,7 @@ mod error;
 mod exit_code;
 mod format;
 pub mod macros;
+mod paging;
 mod root;
 pub mod source_location;
 pub mod starlark_error;
