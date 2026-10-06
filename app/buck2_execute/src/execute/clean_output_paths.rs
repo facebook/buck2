@@ -37,13 +37,15 @@ impl CleanOutputPaths {
     }
 }
 
+/// Tags a failure to remove or replace a file that another process holds open
+/// (Windows sharing semantics) as an environment error.
 #[cfg(unix)]
-fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
+pub fn tag_file_busy_error(error: buck2_error::Error) -> buck2_error::Error {
     error
 }
 
 #[cfg(windows)]
-fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
+pub fn tag_file_busy_error(error: buck2_error::Error) -> buck2_error::Error {
     use buck2_error::ErrorTag;
     if error.has_tag(ErrorTag::IoWindowsSharingViolation)
         | error.has_tag(ErrorTag::IoPermissionDenied)
@@ -63,7 +65,7 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> buck2_error
     // This will remove the path if it exists.
     fs_util::remove_all(&path)
         .categorize_internal()
-        .map_err(tag_environment_error)?;
+        .map_err(tag_file_busy_error)?;
 
     let mut path: &AbsNormPath = &path;
 
@@ -95,7 +97,7 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> buck2_error
 
                     fs_util::remove_file(path)
                         .categorize_internal()
-                        .map_err(tag_environment_error)?;
+                        .map_err(tag_file_busy_error)?;
                 }
                 return Ok(());
             }

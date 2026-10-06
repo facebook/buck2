@@ -30,6 +30,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
+use buck2_execute::execute::clean_output_paths::tag_file_busy_error;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
@@ -281,7 +282,11 @@ fn write_via_atomic_rename(
     #[cfg(not(unix))]
     let _ = is_executable;
 
-    fs_util::rename(temp_abs, fs.resolve(path)).categorize_internal()?;
+    // On Windows a destination another process holds open cannot be
+    // replaced; report that as file-busy.
+    fs_util::rename(temp_abs, fs.resolve(path))
+        .categorize_internal()
+        .map_err(tag_file_busy_error)?;
     // The rename freed the temp name for another writer to claim, so
     // `temp_path`'s delete-on-drop must be disarmed — it deletes by name and
     // could unlink someone else's fresh claim. (On failure above, that drop
@@ -591,6 +596,51 @@ mod tests {
             content,
             "a stale file in a parent position must be repaired and the write published"
         );
+        Ok(())
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use buck2_core::fs::buck_out_path::BuckOutPathKind;
+    use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_error::ErrorTag;
+
+    use crate::materializers::immediate::maybe_locked_write;
+
+    /// A destination another process holds open without delete sharing
+    /// cannot be replaced; the writer must report that as file-busy.
+    #[test]
+    fn test_destination_held_open_is_reported_busy() -> buck2_error::Result<()> {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        const FILE_SHARE_READ: u32 = 0x1;
+        const FILE_SHARE_WRITE: u32 = 0x2;
+
+        let project = ProjectRootTemp::new()?;
+        let path = ProjectRelativePath::new("gen/__t__/0a1b/out.txt")?;
+        maybe_locked_write(
+            project.path(),
+            path,
+            b"1",
+            false,
+            BuckOutPathKind::Configuration,
+        )?;
+
+        let _holder = std::fs::OpenOptions::new()
+            .write(true)
+            .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
+            .open(project.path().resolve(path).as_path())?;
+        let err = maybe_locked_write(
+            project.path(),
+            path,
+            b"2",
+            false,
+            BuckOutPathKind::Configuration,
+        )
+        .expect_err("replacing a file held open must fail");
+        assert!(err.has_tag(ErrorTag::IoMaterializerFileBusy), "{err:#}");
         Ok(())
     }
 }
