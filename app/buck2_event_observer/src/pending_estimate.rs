@@ -60,6 +60,7 @@ mod tests {
 
     use crate::dice_state::DiceState;
     use crate::pending_estimate::estimate_completion_percentage;
+    use crate::pending_estimate::pending_estimate;
     use crate::span_tracker::BuckEventSpanTracker;
 
     fn setup_roots(tracker: &mut BuckEventSpanTracker) {
@@ -166,6 +167,33 @@ mod tests {
         setup_dice_state(&mut dice, 10, 0);
         assert_eq!(estimate_completion_percentage(tracker.roots(), &dice), 0);
         Ok(())
+    }
+
+    /// `pending_estimate` subtracts `finished` from `started` in `u32` on the DICE state that
+    /// `test_completion_percentage_invalid_dice_state` feeds to the percentage estimate: with
+    /// overflow checks it panics, without them the header shows about four billion pending keys.
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "attempt to subtract with overflow")]
+    fn test_pending_estimate_invalid_dice_state() {
+        let mut dice = DiceState::new();
+        let tracker = BuckEventSpanTracker::new();
+
+        setup_dice_state(&mut dice, 10, 0);
+        pending_estimate(tracker.roots(), &dice);
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn test_pending_estimate_invalid_dice_state() {
+        let mut dice = DiceState::new();
+        let tracker = BuckEventSpanTracker::new();
+
+        setup_dice_state(&mut dice, 10, 0);
+        assert_eq!(
+            u64::from(u32::MAX - 9),
+            pending_estimate(tracker.roots(), &dice)
+        );
     }
 
     #[test]
