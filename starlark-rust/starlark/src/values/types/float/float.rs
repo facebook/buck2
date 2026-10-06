@@ -144,6 +144,24 @@ pub(crate) fn write_scientific<W: fmt::Write>(
     }
 }
 
+/// Scientific notation with the shortest mantissa that round trips, as `str` and `%g` in
+/// starlark-go print it.
+fn write_compact_scientific<W: fmt::Write>(
+    output: &mut W,
+    f: f64,
+    exponent_char: char,
+) -> fmt::Result {
+    debug_assert!(f.is_finite());
+    // Rust's `{:e}` is the shortest round-trip representation, e.g. `1.2345678e7`; only the
+    // exponent needs the `+07` form.
+    let rust = format!("{f:e}");
+    let (mantissa, exponent) = rust.split_once('e').expect("`{:e}` always has an exponent");
+    let exponent: i32 = exponent.parse().expect("`{:e}` writes a decimal exponent");
+    output.write_str(mantissa)?;
+    output.write_char(exponent_char)?;
+    output.write_fmt(format_args!("{exponent:+03}"))
+}
+
 pub(crate) fn write_compact<W: fmt::Write>(
     output: &mut W,
     f: f64,
@@ -161,8 +179,7 @@ pub(crate) fn write_compact<W: fmt::Write>(
         let scientific_upper = 10f64.powi(WRITE_PRECISION as i32);
 
         if exponent.abs() >= WRITE_PRECISION as i32 || abs >= scientific_upper {
-            // use scientific notation if exponent is outside of our precision (but strip 0s)
-            write_scientific(output, f, exponent_char, true)
+            write_compact_scientific(output, f, exponent_char)
         } else if f.fract() == 0.0 {
             // make sure there's a fractional part even if the number doesn't have it
             output.write_fmt(format_args!("{f:.1}"))
@@ -434,21 +451,22 @@ mod tests {
         assert_eq!(compact(1e300), "1e+300");
     }
 
-    /// In scientific notation `write_compact` keeps `WRITE_PRECISION` fractional digits, so a
-    /// value that needs more digits does not round trip through `str`, `repr` or `%g`.
+    /// In scientific notation `write_compact` prints the shortest mantissa that round trips
+    /// through `str`, `repr` and `%g`.
     #[test]
-    fn test_write_compact_scientific_keeps_six_digits() {
-        assert_eq!(compact(12345678.0), "1.234568e+07");
-        assert_eq!(compact(-12345678.0), "-1.234568e+07");
-        assert_eq!(compact(9007199254740992.0), "9.007199e+15");
-        assert_eq!(compact(1.2345678901234567e-30), "1.234568e-30");
-        assert_eq!(compact(f64::from_bits(1)), "4.940656e-324");
-        assert::eq("str(12345678.0)", "'1.234568e+07'");
-        assert::eq("repr(float(1 << 53))", "'9.007199e+15'");
-        assert::eq("'%g' % 12345678.0", "'1.234568e+07'");
-        assert::eq("'%G' % 12345678.0", "'1.234568E+07'");
-        assert::is_true("float(str(12345678.0)) != 12345678.0");
-        assert::is_true("float(repr(1.2345678901234567e-30)) != 1.2345678901234567e-30");
+    fn test_write_compact_scientific_round_trips() {
+        assert_eq!(compact(12345678.0), "1.2345678e+07");
+        assert_eq!(compact(-12345678.0), "-1.2345678e+07");
+        assert_eq!(compact(9007199254740992.0), "9.007199254740992e+15");
+        assert_eq!(compact(1.2345678901234567e-30), "1.2345678901234567e-30");
+        assert_eq!(compact(f64::from_bits(1)), "5e-324");
+        assert_eq!(compact(f64::MAX), "1.7976931348623157e+308");
+        assert::eq("str(12345678.0)", "'1.2345678e+07'");
+        assert::eq("repr(float(1 << 53))", "'9.007199254740992e+15'");
+        assert::eq("'%g' % 12345678.0", "'1.2345678e+07'");
+        assert::eq("'%G' % 12345678.0", "'1.2345678E+07'");
+        assert::is_true("float(str(12345678.0)) == 12345678.0");
+        assert::is_true("float(repr(1.2345678901234567e-30)) == 1.2345678901234567e-30");
     }
 
     #[test]
