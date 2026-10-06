@@ -650,6 +650,7 @@ mod tests {
     use pagable::PagableSerialize;
 
     use super::*;
+    use crate::cas_digest::DigestAlgorithmFamily;
     use crate::cas_digest::testing;
     use crate::file_ops::metadata::FileDigest;
 
@@ -686,6 +687,32 @@ mod tests {
             singleton.expires().unwrap().as_second(),
             requested.as_second(),
             "an earlier alive expiration must not lower the recorded one"
+        );
+    }
+
+    /// A digest declared with size 0 is replaced by the config's empty-file digest whatever its
+    /// hash says, so a hash that is not the empty hash is dropped.
+    #[test]
+    fn test_new_with_size_zero_drops_the_declared_hash() {
+        let config = testing::sha1();
+        let foo = digest_of(b"foo");
+        let declared = FileDigest::new(*foo.raw_digest(), 0);
+
+        let tracked = TrackedFileDigest::new(declared.dupe(), config);
+        assert!(tracked.ptr_eq(&TrackedFileDigest::empty(config)));
+        assert_ne!(tracked.data(), &declared);
+
+        let expiry = jiff::Timestamp::now() + jiff::SignedDuration::from_hours(1);
+        let tracked = TrackedFileDigest::new_expires(declared.dupe(), expiry, config);
+        assert!(tracked.ptr_eq(&TrackedFileDigest::empty(config)));
+
+        // The empty digest of an allowed non-preferred algorithm is the shared empty file.
+        let sha256_sha1 = testing::sha256_sha1();
+        let tracked = TrackedFileDigest::new(FileDigest::empty(testing::sha1()), sha256_sha1);
+        assert!(tracked.ptr_eq(&TrackedFileDigest::empty(sha256_sha1)));
+        assert_eq!(
+            tracked.raw_digest().algorithm(),
+            DigestAlgorithmFamily::Sha256
         );
     }
 

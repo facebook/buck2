@@ -265,6 +265,22 @@ async def test_checksums_the_content_does_not_match(buck: Buck) -> None:
 
 
 @buck_test(data_dir="download")
+async def test_a_declared_size_of_zero_is_the_empty_file(buck: Buck) -> None:
+    content = random_string().encode()
+    async with StaticHttpServer({"/file": content}) as server:
+        # A declared size of zero makes the declared digest the empty-file digest, whatever the
+        # checksum says, and every CAS holds the empty file: the output is declared empty and
+        # the content is never fetched or checked.
+        output = await build_and_read(
+            buck,
+            "//:download",
+            *configs(server.url("/file"), sha1=sha1_hex(content), size=0),
+        )
+        assert output == b""
+        assert server.count("GET", "/file") == 0
+
+
+@buck_test(data_dir="download")
 async def test_a_wrong_size_is_reported_by_the_download(buck: Buck) -> None:
     content = random_string().encode()
     async with StaticHttpServer({"/file": content}) as server:
