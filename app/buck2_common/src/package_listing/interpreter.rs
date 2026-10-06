@@ -232,29 +232,34 @@ impl std::fmt::Display for GatherPackageListingError {
                 candidates,
                 package,
             } => {
-                if let Some(primary_candidate) =
-                    candidates.iter().find(|v| v.extension() != Some("v2"))
-                {
-                    let alternatives: Vec<_> = candidates
-                        .iter()
-                        .filter(|v| *v != primary_candidate)
-                        .map(|v| format!("`{v}`"))
-                        .collect();
+                // Prefer a name without the `.v2` extension; a configuration may consist of
+                // `.v2` names only.
+                let primary_candidate = candidates
+                    .iter()
+                    .find(|v| v.extension() != Some("v2"))
+                    .or_else(|| candidates.first());
+                let message = match primary_candidate {
+                    Some(primary_candidate) => {
+                        let alternatives: Vec<_> = candidates
+                            .iter()
+                            .filter(|v| *v != primary_candidate)
+                            .map(|v| format!("`{v}`"))
+                            .collect();
 
-                    let message = if alternatives.is_empty() {
-                        format!("    missing `{}` file", primary_candidate)
-                    } else {
-                        format!(
-                            "    missing `{}` file (also missing alternatives {})",
-                            primary_candidate,
-                            alternatives.join(", ")
-                        )
-                    };
+                        if alternatives.is_empty() {
+                            format!("    missing `{}` file", primary_candidate)
+                        } else {
+                            format!(
+                                "    missing `{}` file (also missing alternatives {})",
+                                primary_candidate,
+                                alternatives.join(", ")
+                            )
+                        }
+                    }
+                    None => "    no build file names are configured".to_owned(),
+                };
 
-                    (package, message)
-                } else {
-                    unreachable!()
-                }
+                (package, message)
             }
             GatherPackageListingError::DirectoryDoesNotExist {
                 package,
@@ -572,17 +577,22 @@ mod tests {
         );
     }
 
-    /// Rendering the error looks for a candidate whose extension is not `v2` and treats its
-    /// absence as unreachable, so a configuration made only of `.v2` names panics instead of
-    /// telling the user which file is missing.
+    /// A configuration made only of `.v2` names still names the missing file.
     #[test]
-    #[should_panic(expected = "internal error: entered unreachable code")]
-    fn test_no_build_file_message_only_v2_candidates_panics() {
-        let candidates = candidates_from_config("name_v2 = BUCK.v2");
-        assert_eq!(
-            vec!["BUCK.v2"],
-            candidates.iter().map(|c| c.as_str()).collect::<Vec<_>>()
-        );
-        no_build_file_message(candidates);
+    fn test_no_build_file_message_only_v2_candidates() {
+        for (section, expected) in [
+            ("name_v2 = BUCK.v2", "missing `BUCK.v2` file"),
+            (
+                "name_v2 = TARGETS.v2,BUCK.v2",
+                "missing `TARGETS.v2` file (also missing alternatives `BUCK.v2`)",
+            ),
+            (
+                "name = BUCK.v2",
+                "missing `BUCK.v2.v2` file (also missing alternatives `BUCK.v2`)",
+            ),
+        ] {
+            let msg = no_build_file_message(candidates_from_config(section));
+            assert!(msg.contains(expected), "config `{section}`: {msg}");
+        }
     }
 }
