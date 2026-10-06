@@ -197,3 +197,19 @@ where
         SortedSet::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::sorted_set::SortedSet;
+
+    /// `Deserialize` keeps the input order instead of sorting.
+    #[test]
+    fn test_deserialize_keeps_input_order() {
+        assert_eq!(
+            serde_json::json!({"inner": [1, 2, 3]}),
+            serde_json::to_value(SortedSet::from_iter([3u32, 1, 2])).unwrap()
+        );
+        let set: SortedSet<u32> = serde_json::from_str(r#"{"inner": [3, 1, 2]}"#).unwrap();
+        assert_eq!(vec![3, 1, 2], set.iter().copied().collect::<Vec<_>>());
+    }
+}

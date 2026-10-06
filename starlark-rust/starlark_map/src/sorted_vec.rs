@@ -98,12 +98,24 @@ impl<T> IntoIterator for SortedVec<T> {
 
 #[cfg(test)]
 mod tests {
+    use crate::sorted_vec::SortedVec;
+
     /// Test `new_unchecked` panics in debug mode when the elements are not sorted.
     #[cfg(debug_assertions)]
     #[test]
     #[should_panic]
     fn test_new_unchecked() {
-        use crate::sorted_vec::SortedVec;
         SortedVec::new_unchecked(vec![1, 3, 2]);
+    }
+
+    /// `Deserialize` keeps the input order instead of sorting.
+    #[test]
+    fn test_deserialize_keeps_input_order() {
+        assert_eq!(
+            serde_json::json!({"vec": [1, 2, 3]}),
+            serde_json::to_value(SortedVec::from(vec![3u32, 1, 2])).unwrap()
+        );
+        let v: SortedVec<u32> = serde_json::from_str(r#"{"vec": [3, 1, 2]}"#).unwrap();
+        assert_eq!(vec![3, 1, 2], v.iter().copied().collect::<Vec<_>>());
     }
 }

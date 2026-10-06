@@ -248,4 +248,19 @@ mod tests {
         keys.sort();
         assert_eq!(map.keys().collect::<Vec<_>>(), keys,);
     }
+
+    /// `Deserialize` keeps the input order instead of sorting, although the type promises sorted
+    /// keys and compares in order.
+    #[test]
+    fn test_deserialize_keeps_input_order() {
+        let map: SortedMap<String, i32> = serde_json::from_str(r#"{"b": 1, "a": 2}"#).unwrap();
+        assert_eq!(
+            vec!["b", "a"],
+            map.keys().map(|k| k.as_str()).collect::<Vec<_>>()
+        );
+        assert_ne!(
+            SortedMap::from_iter([("a".to_owned(), 2), ("b".to_owned(), 1)]),
+            map
+        );
+    }
 }
