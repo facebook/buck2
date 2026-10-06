@@ -38,12 +38,20 @@ impl<T: AtomicValue, const SHARDS: usize> Default for ShardedLockFreeRawTable<T,
 }
 
 impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
-    const _ASSERTIONS: () = assert!(SHARDS.is_power_of_two());
+    /// Checked when a table is created: a shard count that is not a power of two (zero
+    /// included) does not compile.
+    ///
+    /// ```compile_fail
+    /// let _ = lock_free_hashtable::sharded::ShardedLockFreeRawTable::<Box<u32>, 3>::new();
+    /// ```
+    const ASSERTIONS: () = assert!(SHARDS.is_power_of_two());
 
     const SHARD_BITS: usize = SHARDS.trailing_zeros() as usize;
 
     /// Create a new empty hashtable.
     pub const fn new() -> ShardedLockFreeRawTable<T, SHARDS> {
+        let () = Self::ASSERTIONS;
+
         struct Empty<A>(marker::PhantomData<A>);
         impl<A: AtomicValue> Empty<A> {
             #[allow(clippy::declare_interior_mutable_const)]
@@ -209,15 +217,6 @@ mod tests {
             assert_eq!(Some(&value), table.lookup(hash, |v| *v == value));
         }
         assert_eq!(3, table.iter().count());
-    }
-
-    /// The power-of-two check `_ASSERTIONS` is never referenced, so it never runs: a table with zero
-    /// shards compiles, and its iterators index into an empty array.
-    #[test]
-    #[should_panic]
-    fn test_zero_shards() {
-        let table = ShardedLockFreeRawTable::<Box<u32>, 0>::new();
-        let _ = table.iter().count();
     }
 
     #[test]
