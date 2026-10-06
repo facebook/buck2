@@ -15,9 +15,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
@@ -45,6 +50,28 @@ public class ExopackageUtil {
           deviceDir.resolve(String.format(filenameFormat, entry.getKey())), entry.getValue());
     }
     return filesBuilder.build();
+  }
+
+  /** MD5 of {@code file} as lowercase hex, comparable with {@link AndroidDevice#getContentHash}. */
+  public static String getContentHash(File file) throws IOException {
+    MessageDigest digest;
+    try {
+      digest = MessageDigest.getInstance("MD5");
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
+    try (InputStream input = new FileInputStream(file)) {
+      byte[] buffer = new byte[8192];
+      int read;
+      while ((read = input.read(buffer)) >= 0) {
+        digest.update(buffer, 0, read);
+      }
+    }
+    StringBuilder hex = new StringBuilder();
+    for (byte b : digest.digest()) {
+      hex.append(String.format("%02x", b & 0xFF));
+    }
+    return hex.toString();
   }
 
   public static String getJarManifestDigest(String packagePath) throws IOException {

@@ -58,12 +58,12 @@ class AndroidDeviceImplTest {
   private fun stubInstallVerified() {
     whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
         .thenReturn("package:$onDeviceApkPath")
-    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
-        .thenReturn("${sha256Hex(apkFile)}  $onDeviceApkPath")
+    whenever(mockAdbUtils.executeAdbShellCommand("md5sum $onDeviceApkPath", serialNumber))
+        .thenReturn("${md5Hex(apkFile)}  $onDeviceApkPath")
   }
 
-  private fun sha256Hex(file: File): String =
-      MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString("") {
+  private fun md5Hex(file: File): String =
+      MessageDigest.getInstance("MD5").digest(file.readBytes()).joinToString("") {
         "%02x".format(it.toInt() and 0xFF)
       }
 
@@ -253,6 +253,47 @@ class AndroidDeviceImplTest {
   }
 
   @Test
+  fun testGetApkManifestDigestWithTwoDigests() {
+    val packagePath = "/data/app/com.test.app-1/base.apk"
+    whenever(
+        mockAdbUtils.executeAdbShellCommand(
+            "unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'",
+            serialNumber,
+        ),
+    )
+        .thenReturn("META-INF/CERT.SF")
+    whenever(
+        mockAdbUtils.executeAdbShellCommand(
+            "unzip -p $packagePath META-INF/CERT.SF | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'",
+            serialNumber,
+        ),
+    )
+        .thenReturn("SHA1-Digest-Manifest: abcd1234=\nSHA-256-Digest-Manifest: efgh5678+/==\n")
+
+    assertEquals("abcd1234=", androidDevice.getApkManifestDigest(packagePath))
+  }
+
+  /** API 27 and below ship no `unzip`; the shell's complaint must not pass for a digest. */
+  @Test
+  fun testGetApkManifestDigestWithoutUnzip() {
+    val packagePath = "/data/app/com.test.app-1/base.apk"
+    whenever(
+        mockAdbUtils.executeAdbShellCommand(
+            "unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'",
+            serialNumber,
+        ),
+    )
+        .thenReturn("/system/bin/sh: unzip: not found")
+
+    try {
+      androidDevice.getApkManifestDigest(packagePath)
+      fail("Expected AdbCommandFailedException")
+    } catch (e: AdbCommandFailedException) {
+      assertTrue(e.message!!.contains("unzip: not found"))
+    }
+  }
+
+  @Test
   fun testGetSerialNumber() {
     assertEquals(serialNumber, androidDevice.getSerialNumber())
   }
@@ -318,11 +359,13 @@ class AndroidDeviceImplTest {
   fun testGetDiskSpace() {
     whenever(
         mockAdbUtils.executeAdbShellCommand(
-            "df -h /data | awk '{print $2, $3, $4}'",
+            "df -h /data",
             serialNumber,
         ),
     )
-        .thenReturn("Size Used Available\n64G 32G 32G")
+        .thenReturn(
+            "Filesystem Size Used Avail Use% Mounted on\n/dev/block/dm-0 64G 32G 32G 50% /data",
+        )
 
     val result = androidDevice.getDiskSpace(humanReadable = true)
 
@@ -334,15 +377,34 @@ class AndroidDeviceImplTest {
   fun testGetDiskSpaceUnsuffixed() {
     whenever(
         mockAdbUtils.executeAdbShellCommand(
-            "df -k /data | awk '{print $2, $3, $4}'",
+            "df -k /data",
             serialNumber,
         ),
     )
-        .thenReturn("1K-blocks Used Available\n32911312 14799512 17964344")
+        .thenReturn(
+            "Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/block/dm-0 32911312 14799512 17964344 46% /data",
+        )
 
     val result = androidDevice.getDiskSpace(humanReadable = false)
 
     assertEquals(listOf("32911312", "14799512", "17964344"), result)
+  }
+
+  /**
+   * Toolbox `df` of API 23 and below treats `-k` as a path and prints an error ahead of the row.
+   */
+  @Test
+  fun testGetDiskSpaceToolboxDf() {
+    whenever(mockAdbUtils.executeAdbShellCommand("df -k /data", serialNumber))
+        .thenReturn(
+            "Filesystem Size Used Free Blksize\n" +
+                "-k: No such file or directory\n" +
+                "/data 3.9G 187.5M 3.7G 4096\n",
+        )
+
+    val result = androidDevice.getDiskSpace(humanReadable = false)
+
+    assertEquals(listOf("3.9G", "187.5M", "3.7G"), result)
   }
 
   @Test
@@ -629,9 +691,9 @@ class AndroidDeviceImplTest {
     whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
         .thenReturn("package:$onDeviceApkPath")
     // First read (after --fastdeploy) is stale; second read (after plain install) matches.
-    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
+    whenever(mockAdbUtils.executeAdbShellCommand("md5sum $onDeviceApkPath", serialNumber))
         .thenReturn("stalehash  $onDeviceApkPath")
-        .thenReturn("${sha256Hex(apkFile)}  $onDeviceApkPath")
+        .thenReturn("${md5Hex(apkFile)}  $onDeviceApkPath")
 
     val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
     assertTrue(result)
@@ -654,9 +716,9 @@ class AndroidDeviceImplTest {
     // adb reports success but the on-device apk never matches the local apk.
     whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
         .thenReturn("package:$onDeviceApkPath")
-    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
+    whenever(mockAdbUtils.executeAdbShellCommand("md5sum $onDeviceApkPath", serialNumber))
         .thenReturn(
-            "0000000000000000000000000000000000000000000000000000000000000000  $onDeviceApkPath",
+            "00000000000000000000000000000000  $onDeviceApkPath",
         )
 
     try {
@@ -699,8 +761,8 @@ class AndroidDeviceImplTest {
         .thenReturn(
             "package:$onDeviceApkPath\npackage:/data/app/com.test.app-1/split_config.arm64_v8a.apk",
         )
-    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
-        .thenReturn("${sha256Hex(apkFile)}  $onDeviceApkPath")
+    whenever(mockAdbUtils.executeAdbShellCommand("md5sum $onDeviceApkPath", serialNumber))
+        .thenReturn("${md5Hex(apkFile)}  $onDeviceApkPath")
 
     assertTrue(androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName))
   }
@@ -713,10 +775,10 @@ class AndroidDeviceImplTest {
         .thenReturn("Success")
     whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
         .thenReturn("package:$onDeviceApkPath")
-    // sha256sum reports an error on stdout while adb still exits 0, so the first token is not a
+    // md5sum reports an error on stdout while adb still exits 0, so the first token is not a
     // digest. This must be classified as a read failure, not an apk mismatch.
-    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
-        .thenReturn("sha256sum: $onDeviceApkPath: No such file or directory")
+    whenever(mockAdbUtils.executeAdbShellCommand("md5sum $onDeviceApkPath", serialNumber))
+        .thenReturn("md5sum: $onDeviceApkPath: No such file or directory")
 
     try {
       androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
@@ -787,7 +849,7 @@ class AndroidDeviceImplTest {
         .thenReturn("Performing Streamed Install")
     whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
         .thenReturn("package:$onDeviceApkPath")
-    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
+    whenever(mockAdbUtils.executeAdbShellCommand("md5sum $onDeviceApkPath", serialNumber))
         .thenReturn("stalehash  $onDeviceApkPath")
     doAnswer {
           throw AdbCommandFailedException(
@@ -846,9 +908,9 @@ class AndroidDeviceImplTest {
     whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
         .thenReturn("package:$onDeviceApkPath")
     // Stale after --fastdeploy (triggers fallback); matches after the plain reinstall.
-    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
+    whenever(mockAdbUtils.executeAdbShellCommand("md5sum $onDeviceApkPath", serialNumber))
         .thenReturn("stalehash  $onDeviceApkPath")
-        .thenReturn("${sha256Hex(apkFile)}  $onDeviceApkPath")
+        .thenReturn("${md5Hex(apkFile)}  $onDeviceApkPath")
 
     val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
     assertTrue(result)

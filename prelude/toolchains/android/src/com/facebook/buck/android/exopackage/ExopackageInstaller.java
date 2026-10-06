@@ -22,6 +22,7 @@ import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -34,6 +35,8 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -48,6 +51,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * ExopackageInstaller manages the installation of apps with the "exopackage" flag set to true.
@@ -84,6 +89,8 @@ public class ExopackageInstaller {
   private static final int RM_GROUPING_THRESHOLD = 10;
 
   private static final long BYTES_PER_BLOCK = 1024L;
+
+  private static final Pattern DF_SIZE_PATTERN = Pattern.compile("(\\d+)(\\.\\d+)?([KMGT])?");
 
   private static final int MAX_CONCURRENT_PUSHES = 8;
 
@@ -484,15 +491,43 @@ public class ExopackageInstaller {
     if (diskSpace.size() < 3) {
       return OptionalLong.empty();
     }
-    String availableBlocks = diskSpace.get(2).trim();
-    try {
-      return OptionalLong.of(Long.parseLong(availableBlocks) * BYTES_PER_BLOCK);
-    } catch (NumberFormatException e) {
+    String available = diskSpace.get(2).trim();
+    OptionalLong bytes = parseAvailableBytes(available);
+    if (bytes.isEmpty()) {
       // No number means nothing to check against, so the preflight is skipped rather than guessed
       // at, and the install goes on to fail at the push if the space really is not there.
-      LOG.info("Could not read available device space from '%s'", availableBlocks);
+      LOG.info("Could not read available device space from '%s'", available);
+    }
+    return bytes;
+  }
+
+  /**
+   * Bytes for a {@code df} size: a bare count of 1K blocks, or a suffixed size such as {@code 3.7G}
+   * from the toolbox {@code df} of API 23 and below, which ignores {@code -k}. A suffixed size is
+   * rounded to its last digit, so it is read as the largest value that rounds to it: the preflight
+   * then never rejects an install that fits.
+   */
+  @VisibleForTesting
+  public static OptionalLong parseAvailableBytes(String size) {
+    Matcher matcher = DF_SIZE_PATTERN.matcher(size);
+    if (!matcher.matches()) {
       return OptionalLong.empty();
     }
+    String unit = matcher.group(3);
+    if (unit == null) {
+      if (matcher.group(2) != null) {
+        return OptionalLong.empty();
+      }
+      return OptionalLong.of(Long.parseLong(matcher.group(1)) * BYTES_PER_BLOCK);
+    }
+    BigDecimal value = new BigDecimal(matcher.group(1) + Strings.nullToEmpty(matcher.group(2)));
+    BigDecimal upperBound = value.add(BigDecimal.ONE.movePointLeft(value.scale()));
+    long unitBytes = 1L << (10 * ("KMGT".indexOf(unit) + 1));
+    return OptionalLong.of(
+        upperBound
+            .multiply(BigDecimal.valueOf(unitBytes))
+            .setScale(0, RoundingMode.DOWN)
+            .longValueExact());
   }
 
   /** One exopackage payload class, with its contents resolved exactly once. */
@@ -533,8 +568,15 @@ public class ExopackageInstaller {
       return true;
     }
 
-    LOG.debug("App path: %s", appPackageInfo.get().apkPath);
-    String installedAppManifestDigest = getInstalledAppManifestDigest(appPackageInfo.get().apkPath);
+    String installedApkPath = appPackageInfo.get().apkPath;
+    LOG.debug("App path: %s", installedApkPath);
+    String installedAppManifestDigest;
+    try {
+      installedAppManifestDigest = getInstalledAppManifestDigest(installedApkPath);
+    } catch (AdbCommandFailedException e) {
+      LOG.info("Could not read the installed APK manifest digest: %s", e.getMessage());
+      return !installedApkContentMatches(installedApkPath, apkInfo);
+    }
     String localAppManifestDigest =
         ExopackageUtil.getJarManifestDigest(apkInfo.getApkPath().toString());
     LOG.info("Local APK manifest digest: %s", localAppManifestDigest);
@@ -547,6 +589,26 @@ public class ExopackageInstaller {
 
     LOG.info("APK manifest digests match.  No need to install.");
     return false;
+  }
+
+  /** Compares whole-apk content hashes, for devices that cannot read the manifest digest. */
+  private boolean installedApkContentMatches(String installedApkPath, IsolatedApkInfo apkInfo)
+      throws IOException {
+    String installedHash;
+    try {
+      installedHash = device.getContentHash(installedApkPath);
+    } catch (Exception e) {
+      LOG.info("Could not hash the installed APK.  Must re-install: %s", e.getMessage());
+      return false;
+    }
+    boolean matches =
+        installedHash.equalsIgnoreCase(
+            ExopackageUtil.getContentHash(apkInfo.getApkPath().toFile()));
+    LOG.info(
+        matches
+            ? "APK content hashes match.  No need to install."
+            : "APK content hashes do not match.  Must re-install.");
+    return matches;
   }
 
   private String getInstalledAppManifestDigest(String packagePath) throws Exception {

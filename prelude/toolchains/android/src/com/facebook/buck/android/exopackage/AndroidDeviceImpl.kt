@@ -22,7 +22,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
-import java.security.MessageDigest
 import java.util.Optional
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -139,7 +138,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
               e.message,
           )
         }
-    val localApkHash = sha256Hex(apk)
+    val localApkHash = ExopackageUtil.getContentHash(apk)
     if (!installedHash.equals(localApkHash, ignoreCase = true)) {
       throw AndroidInstallException.installedApkMismatch(
           "Install of ${apk.name} could not be verified: the on-device apk for $packageName does" +
@@ -150,28 +149,15 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
 
   @Throws(Exception::class)
   override fun getContentHash(path: String): String {
-    val output = executeAdbShellCommand("sha256sum $path").trim()
+    val output = executeAdbShellCommand("md5sum $path").trim()
     val hash = output.split(Regex("\\s+")).first()
-    // `sha256sum` can report an error on stdout (e.g. a missing file) while adb still exits 0, so
+    // `md5sum` can report an error on stdout (e.g. a missing file) while adb still exits 0, so
     // the first token is not always a digest. Treat any non-hex output as a read failure so the
     // caller surfaces ADB_COMMAND_FAILED rather than a misleading apk mismatch.
-    if (!hash.matches(Regex("[0-9a-fA-F]{64}"))) {
-      throw AdbCommandFailedException("sha256sum returned unexpected output for $path: \"$output\"")
+    if (!hash.matches(Regex("[0-9a-fA-F]{32}"))) {
+      throw AdbCommandFailedException("md5sum returned unexpected output for $path: \"$output\"")
     }
     return hash
-  }
-
-  private fun sha256Hex(file: File): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    file.inputStream().use { input ->
-      val buffer = ByteArray(8192)
-      var read = input.read(buffer)
-      while (read >= 0) {
-        digest.update(buffer, 0, read)
-        read = input.read(buffer)
-      }
-    }
-    return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
   }
 
   /**
@@ -454,11 +440,25 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   override fun getApkManifestDigest(packagePath: String): String {
     val entry: String =
         executeAdbShellCommand("unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'").trim()
+    // API 27 and below ship no `unzip`, and the shell reports that on stdout.
+    if (!entry.matches(Regex("META-INF/[A-Z]+\\.SF"))) {
+      throw AdbCommandFailedException("No signature file found in $packagePath: \"$entry\"")
+    }
     val result: String = executeAdbShellCommand(
         "unzip -p $packagePath $entry | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'",
     )
-    val (_, digest) = result.split(":", limit = 2)
-    return digest.trim()
+    // The first digest, as `ExopackageUtil.getJarManifestDigest` reads it locally.
+    val digest =
+        result
+            .lineSequence()
+            .firstOrNull { it.isNotBlank() }
+            .orEmpty()
+            .substringAfter(":", "")
+            .trim()
+    if (!digest.matches(Regex("[A-Za-z0-9+/]+={0,2}"))) {
+      throw AdbCommandFailedException("No manifest digest found in $packagePath: \"$result\"")
+    }
+    return digest
   }
 
   @Throws(Exception::class)
@@ -719,9 +719,10 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     // the unit has to be pinned for the numbers to mean anything.
     val units = if (humanReadable) "-h" else "-k"
     try {
-      val result: String = executeAdbShellCommand("df $units /data | awk '{print \$2, \$3, \$4}'")
-      val (size, used, available) = result.lines()[1].split(" ", limit = 3)
-      return listOf(size, used, available)
+      // API 27 and below ship no `awk`. The toolbox `df` of API 23 and below rejects `-k`/`-h` as
+      // paths, printing an error line ahead of the row. The `/data` row is always the last line.
+      val result: String = executeAdbShellCommand("df $units /data")
+      return result.lines().last { it.isNotBlank() }.trim().split(Regex("\\s+")).subList(1, 4)
     } catch (e: Exception) {
       LOG.warn("Failed to get disk space: $e")
       return listOf("_", "_", "_")
