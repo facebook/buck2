@@ -124,6 +124,30 @@ mod tests {
         assert_eq!(Some(400), two_snapshots.system_cpu_percents());
     }
 
+    /// Two snapshots 500 ns apart: the duration is non-zero but 0 whole microseconds.
+    #[test]
+    #[should_panic(expected = "attempt to divide by zero")]
+    fn test_sub_microsecond_snapshots_panic() {
+        let t0 = SystemTime::UNIX_EPOCH.add(Duration::from_secs(100000));
+
+        let mut two_snapshots = TwoSnapshots::default();
+        two_snapshots.update(
+            t0,
+            &buck2_data::Snapshot {
+                re_download_bytes: 100,
+                ..Default::default()
+            },
+        );
+        two_snapshots.update(
+            t0.add(Duration::from_nanos(500)),
+            &buck2_data::Snapshot {
+                re_download_bytes: 200,
+                ..Default::default()
+            },
+        );
+        two_snapshots.re_download_bytes_per_second();
+    }
+
     #[test]
     fn test_bytes_per_second() {
         let t0 = SystemTime::UNIX_EPOCH.add(Duration::from_secs(100000));
