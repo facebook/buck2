@@ -129,7 +129,8 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
         let heap = eval.heap();
         let collection = this.analysis.lookup_inner(&this.label)?.add_heap_ref(heap);
         let mut result = Vec::new();
-        for (id, value) in collection.as_ref().iter_providers() {
+        for entry in collection.as_ref().iter_providers() {
+            let (id, value) = entry?;
             let name = heap.alloc(id.name.as_str());
             let path = match &id.path {
                 Some(p) => heap.alloc(p.to_string()),

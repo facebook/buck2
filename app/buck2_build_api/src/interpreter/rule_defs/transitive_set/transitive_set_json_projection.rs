@@ -110,7 +110,7 @@ impl<'v> TransitiveSetJsonProjection<'v> {
 impl<'v> TransitiveSetJsonProjection<'v> {
     pub fn iter_values<'a>(
         &'a self,
-    ) -> buck2_error::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
+    ) -> buck2_error::Result<Box<dyn Iterator<Item = buck2_error::Result<Value<'v>>> + 'a>>
     where
         'v: 'a,
     {

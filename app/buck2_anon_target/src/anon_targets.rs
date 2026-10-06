@@ -604,7 +604,7 @@ impl AnonTargetKey {
             let validations = transitive_validations(
                 validations_from_deps,
                 recorded_values.provider_collection()?,
-            );
+            )?;
 
             Ok((
                 token,

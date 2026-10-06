@@ -202,7 +202,11 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
     // TODO(nga): should return provider collection.
     #[starlark(attribute)]
     fn providers<'v>(this: &Dependency<'v>) -> starlark::Result<Vec<Value<'v>>> {
-        Ok(this.collection().iter_providers().map(|(_, v)| v).collect())
+        Ok(this
+            .collection()
+            .iter_providers()
+            .map(|entry| entry.map(|(_, v)| v))
+            .collect::<buck2_error::Result<Vec<_>>>()?)
     }
 
     /// Returns a `Dependency` object of the subtarget of this target.

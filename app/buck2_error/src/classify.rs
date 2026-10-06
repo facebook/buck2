@@ -419,6 +419,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::HttpServiceUnavailable => rank!(tier0),
         ErrorTag::HttpServer => rank!(tier0),
         ErrorTag::StarlarkInternal => rank!(tier0),
+        ErrorTag::DeferredFieldRead => rank!(tier0),
         ErrorTag::ActionMismatchedOutputs => rank!(tier0),
         ErrorTag::DiceDuplicatedChange => rank!(tier0),
         ErrorTag::DiceChangedToInvalid => rank!(tier0),

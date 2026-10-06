@@ -1549,7 +1549,7 @@ async fn get_dep_only_incompatible_custom_soft_error(
             let providers = ctx.get_configuration_analysis_result(&target).await?;
             let dep_only_incompatible_info = providers
                 .provider_collection()
-                .builtin_provider::<DepOnlyIncompatibleInfo>()
+                .builtin_provider::<DepOnlyIncompatibleInfo>()?
                 .unwrap();
             let result = dep_only_incompatible_info.custom_soft_errors(
                 root_cell,

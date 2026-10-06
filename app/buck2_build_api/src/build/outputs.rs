@@ -86,7 +86,7 @@ pub async fn get_outputs_for_top_level_target(
             if providers_to_build.run {
                 if let Some(runinfo) = providers
                     .provider_collection()
-                    .builtin_provider::<RunInfo>()
+                    .builtin_provider::<RunInfo>()?
                 {
                     let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
                     runinfo.visit_artifacts(&mut artifact_visitor)?;
@@ -96,7 +96,7 @@ pub async fn get_outputs_for_top_level_target(
                 }
             }
             if providers_to_build.tests {
-                if let Some(test_provider) = test_provider_from_collection(collection) {
+                if let Some(test_provider) = test_provider_from_collection(collection)? {
                     let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
                     test_provider.visit_artifacts(&mut artifact_visitor)?;
                     for input in artifact_visitor.inputs {

@@ -1619,7 +1619,7 @@ impl BuckTestOrchestrator<'_> {
         // the orchestrator could resolve fields from the Internal
         // provider while TPX was set up with the External one.
         let internal: Option<OwnedInternalRunnerTestInfo> =
-            providers.builtin_provider_value::<InternalRunnerTestInfo>();
+            providers.builtin_provider_value::<InternalRunnerTestInfo>()?;
         if let Some(internal) = internal {
             if internal_runner_config.should_use(internal.as_ref().value().as_ref().test_type()) {
                 return Ok(OwnedTestInfo::Internal(internal));
@@ -1627,7 +1627,7 @@ impl BuckTestOrchestrator<'_> {
         }
 
         let external: Option<OwnedExternalRunnerTestInfo> =
-            providers.builtin_provider_value::<ExternalRunnerTestInfo>();
+            providers.builtin_provider_value::<ExternalRunnerTestInfo>()?;
         if let Some(external) = external {
             return Ok(OwnedTestInfo::External(external));
         }

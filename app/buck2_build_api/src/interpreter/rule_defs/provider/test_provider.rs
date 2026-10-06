@@ -189,15 +189,15 @@ impl<'v> TestProvider<'v> for InternalRunnerTestInfo<'v> {
 
 pub fn test_provider_from_collection<'v>(
     providers: &ProviderCollection<'v>,
-) -> Option<&'v dyn TestProvider<'v>> {
+) -> buck2_error::Result<Option<&'v dyn TestProvider<'v>>> {
     // Check for InternalRunnerTestInfo first
-    if let Some(provider) = providers.builtin_provider::<InternalRunnerTestInfo>() {
-        return Some(provider.as_ref());
+    if let Some(provider) = providers.builtin_provider::<InternalRunnerTestInfo>()? {
+        return Ok(Some(provider.as_ref()));
     }
 
-    if let Some(provider) = providers.builtin_provider::<ExternalRunnerTestInfo>() {
-        return Some(provider.as_ref());
+    if let Some(provider) = providers.builtin_provider::<ExternalRunnerTestInfo>()? {
+        return Ok(Some(provider.as_ref()));
     }
 
-    None
+    Ok(None)
 }

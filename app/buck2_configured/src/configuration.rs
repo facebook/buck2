@@ -169,7 +169,7 @@ async fn compute_platform_configuration_no_label_check(
         .get_configuration_analysis_result(&ProvidersLabel::default_for(target.dupe()))
         .await?
         .provider_collection()
-        .builtin_provider::<PlatformInfo>()
+        .builtin_provider::<PlatformInfo>()?
         .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?
         .to_configuration(false)
 }
@@ -294,7 +294,7 @@ impl Key for ConfigurationNodeKey {
         // capture the result so the temporaries get dropped before providers
         let result = match providers
             .provider_collection()
-            .builtin_provider::<ConfigurationInfo>()
+            .builtin_provider::<ConfigurationInfo>()?
         {
             Some(configuration_info) => configuration_info,
             None => {

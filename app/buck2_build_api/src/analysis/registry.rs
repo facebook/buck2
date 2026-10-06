@@ -774,14 +774,16 @@ impl RecordedAnalysisValues {
     }
 
     /// Iterates over the declared dynamic_output/actions.
-    pub fn iter_dynamic_lambda_outputs(&self) -> impl Iterator<Item = BuildArtifact> + '_ {
-        self.analysis_storage.iter().flat_map(|v| {
+    pub fn iter_dynamic_lambda_outputs(
+        &self,
+    ) -> buck2_error::Result<impl Iterator<Item = BuildArtifact> + '_> {
+        Ok(self.analysis_storage.iter().flat_map(|v| {
             v.as_ref()
                 .map::<&'static FrozenAnalysisValueStorage<'static>, _>(|v| &v.as_ref().value)
                 .value()
                 .lambda_params
                 .dynamic_lambda_outputs()
-        })
+        }))
     }
 
     pub fn provider_collection(&self) -> buck2_error::Result<FrozenProviderCollectionValueRef<'_>> {

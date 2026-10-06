@@ -155,6 +155,7 @@ fn from_starlark_impl(
         starlark_syntax::ErrorKind::Scope(_) => crate::ErrorTag::StarlarkScope,
         starlark_syntax::ErrorKind::Parser(_) => crate::ErrorTag::StarlarkParser,
         starlark_syntax::ErrorKind::Internal(_) => crate::ErrorTag::StarlarkInternal,
+        starlark_syntax::ErrorKind::DeferredRead(_) => crate::ErrorTag::DeferredFieldRead,
         starlark_syntax::ErrorKind::Native(_) | starlark_syntax::ErrorKind::Other(_)
             if error_handling == NativeErrorHandling::InputError =>
         {
@@ -167,6 +168,7 @@ fn from_starlark_impl(
         starlark_syntax::ErrorKind::Fail(_) => "StarlarkError::Fail",
         starlark_syntax::ErrorKind::StackOverflow(_) => "StarlarkError::StackOverflow",
         starlark_syntax::ErrorKind::Internal(_) => "StarlarkError::Internal",
+        starlark_syntax::ErrorKind::DeferredRead(_) => "StarlarkError::DeferredRead",
         starlark_syntax::ErrorKind::Value(_) => "StarlarkError::Value",
         starlark_syntax::ErrorKind::Function(_) => "StarlarkError::Function",
         starlark_syntax::ErrorKind::RuntimeType(_, _) => "StarlarkError::RuntimeType",

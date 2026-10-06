@@ -210,6 +210,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
             .unwrap()
             .value()
             .get_provider_raw(&ProviderId::testing_new(bzlfile.path().clone(), "FooInfo"))
+            .unwrap()
             .is_some(),
         true
     );
@@ -219,6 +220,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
             .unwrap()
             .value()
             .get_provider_raw(DefaultInfoCallable::provider_id())
+            .unwrap()
             .is_some(),
         true
     );
@@ -501,6 +503,7 @@ foo_binary(
                     .unwrap()
                     .value()
                     .get_provider_raw(&ProviderId::testing_new(bzlfile.path().clone(), "FooInfo"))
+                    .unwrap()
                     .is_some(),
                 "{case} must actually run analysis, not vacuously succeed"
             );

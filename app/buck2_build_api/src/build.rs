@@ -629,7 +629,7 @@ async fn build_configured_label_inner(
             .get_providers(&providers_label)
             .await?
             .require_compatible()?
-            .builtin_provider_value::<RunInfo>()
+            .builtin_provider_value::<RunInfo>()?
     } else {
         None
     };

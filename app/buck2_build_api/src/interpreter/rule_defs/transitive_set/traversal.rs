@@ -98,7 +98,9 @@ impl<'v> StarlarkValue<'v> for TransitiveSetTraversal<'v> {
     fn iterate_collect(&self, _heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         let tset =
             TransitiveSet::from_value(self.inner.to_value()).internal_error("Invalid inner")?;
-        Ok(tset.iter_values(self.ordering)?.collect())
+        Ok(tset
+            .iter_values(self.ordering)?
+            .collect::<buck2_error::Result<Vec<_>>>()?)
     }
 }
 
@@ -132,6 +134,6 @@ impl<'v> StarlarkValue<'v> for TransitiveSetProjectionTraversal<'v> {
             .internal_error("Invalid inner")?;
         Ok(set
             .iter_projection_values(self.ordering, self.projection)?
-            .collect())
+            .collect::<buck2_error::Result<Vec<_>>>()?)
     }
 }

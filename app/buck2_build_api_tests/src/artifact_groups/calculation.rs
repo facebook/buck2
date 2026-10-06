@@ -196,8 +196,8 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
     // This is kinda clowny, but we can't upcast the TransitiveSetGen back to a Value so we
     // have to access Values from their parents.
     set.by_ref_with_reconstructor(|s, reconstructor| {
-        for set in s.iter(TransitiveSetOrdering::Preorder) {
-            for child in set.children.iter() {
+        for set in s.iter(TransitiveSetOrdering::Preorder).unwrap() {
+            for child in set.unwrap().children.iter() {
                 all_tsets.push(reconstructor.reconstruct(ValueTyped::new(*child).unwrap()));
             }
         }

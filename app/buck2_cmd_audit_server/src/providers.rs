@@ -123,14 +123,14 @@ async fn server_execute_with_dice(
                     )?;
                 } else if !command.provider.is_empty() {
                     let collection = v.provider_collection();
+                    let providers = collection
+                        .iter_providers()
+                        .collect::<buck2_error::Result<Vec<_>>>()?;
                     let mut found_providers = Vec::new();
                     let mut missing_providers = Vec::new();
 
                     for provider_name in &command.provider {
-                        match collection
-                            .iter_providers()
-                            .find(|(id, _)| id.name == *provider_name)
-                        {
+                        match providers.iter().find(|(id, _)| id.name == *provider_name) {
                             Some((_, provider_value)) => {
                                 found_providers.push(format!("{provider_value:#}"));
                             }

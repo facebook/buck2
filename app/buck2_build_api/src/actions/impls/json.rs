@@ -92,6 +92,18 @@ impl<'a, 'v> SerializeValue<'a, 'v> {
     }
 }
 
+/// Serializes a value, or fails the serialization with the error that stood in for it.
+pub(crate) struct SerializeOrFail<T>(pub(crate) buck2_error::Result<T>);
+
+impl<T: Serialize> Serialize for SerializeOrFail<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match &self.0 {
+            Ok(value) => value.serialize(serializer),
+            Err(e) => Err(serde::ser::Error::custom(format!("{e:#}"))),
+        }
+    }
+}
+
 fn err<R, E: serde::ser::Error>(res: buck2_error::Result<R>) -> Result<R, E> {
     match res {
         Ok(v) => Ok(v),
@@ -168,9 +180,10 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                     // Skip validation when fs == None because it can be expensive.
                     // TransitiveSet::new already did validate_json for projected values.
                     None => serializer.collect_seq(std::iter::empty::<u8>()),
-                    Some(_) => {
-                        serializer.collect_seq(err(x.iter_values())?.map(|v| self.with_value(v)))
-                    }
+                    Some(_) => serializer.collect_seq(
+                        err(x.iter_values())?
+                            .map(|v| SerializeOrFail(v.map(|v| self.with_value(v)))),
+                    ),
                 }
             }
             JsonUnpack::TargetLabel(x) => {

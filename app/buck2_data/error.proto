@@ -321,6 +321,9 @@ enum ErrorTag {
   DICE_DUPLICATE_ACTIVATION_DATA = 1405;
   DICE_REJECTED = 1406;
 
+  // A field of a value paged back in from storage could not be read.
+  DEFERRED_FIELD_READ = 1500;
+
   // Error during attribute configuration during target configuration.
   CONFIGURE_ATTR = 3001;
 

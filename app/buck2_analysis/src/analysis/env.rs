@@ -97,11 +97,7 @@ impl<'a, 'v> AttrResolutionContext<'v> for &'_ RuleAnalysisAttrResolutionContext
         &mut self,
         name: &str,
     ) -> buck2_error::Result<Option<CommandLineArg<'v>>> {
-        Ok(resolve_unkeyed_placeholder(
-            &self.dep_analysis_results,
-            name,
-            self.module,
-        ))
+        resolve_unkeyed_placeholder(&self.dep_analysis_results, name, self.module)
     }
 
     fn resolve_query(&mut self, query: &str) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
@@ -132,23 +128,28 @@ pub fn resolve_unkeyed_placeholder<'v>(
     dep_analysis_results: &BuckMutMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     name: &str,
     module: &Module<'v>,
-) -> Option<CommandLineArg<'v>> {
+) -> buck2_error::Result<Option<CommandLineArg<'v>>> {
     // TODO(cjhopman): Make it an error if two deps provide a value for the placeholder.
     for providers in dep_analysis_results.values() {
         let resolved = providers.value.by_ref_with_reconstructor(|collection, r| {
-            let placeholder_info = collection
+            let Some(placeholder_info) = collection
                 .as_ref()
-                .builtin_provider::<TemplatePlaceholderInfo>()?;
-            let value = placeholder_info.unkeyed_variables().get(name).copied()?;
+                .builtin_provider::<TemplatePlaceholderInfo>()?
+            else {
+                return buck2_error::Ok(None);
+            };
+            let Some(value) = placeholder_info.unkeyed_variables().get(name).copied() else {
+                return Ok(None);
+            };
             // IMPORTANT: Anything given back to the user must be kept alive; the edge
             // makes the dep's heap a dependency of the module's heap.
-            Some(r.edge(module.heap()).rebrand(value))
-        });
+            Ok(Some(r.edge(module.heap()).rebrand(value)))
+        })?;
         if let Some(value) = resolved {
-            return Some(value);
+            return Ok(Some(value));
         }
     }
-    None
+    Ok(None)
 }
 
 pub fn resolve_query(
@@ -327,7 +328,7 @@ async fn run_analysis_with_env_underlying(
         let validations = transitive_validations(
             validations_from_deps,
             recorded_values.provider_collection()?,
-        );
+        )?;
 
         Ok((
             token,
@@ -351,10 +352,10 @@ async fn run_analysis_with_env_underlying(
 pub fn transitive_validations(
     deps: SmallMap<ConfiguredTargetLabel, TransitiveValidations>,
     provider_collection: FrozenProviderCollectionValueRef,
-) -> Option<TransitiveValidations> {
+) -> buck2_error::Result<Option<TransitiveValidations>> {
     let provider_collection = provider_collection.to_owned();
-    let info = provider_collection.builtin_provider_value::<ValidationInfo>();
-    if info.is_some() || deps.len() > 1 {
+    let info = provider_collection.builtin_provider_value::<ValidationInfo>()?;
+    Ok(if info.is_some() || deps.len() > 1 {
         Some(TransitiveValidations(Arc::new(TransitiveValidationsData {
             info,
             children: deps.into_keys().collect(),
@@ -365,7 +366,7 @@ pub fn transitive_validations(
             "Reuse the single element if any from one of the deps for current node."
         );
         deps.into_values().next()
-    }
+    })
 }
 
 pub fn get_rule_callable<'v>(

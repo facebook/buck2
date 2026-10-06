@@ -183,7 +183,7 @@ fn test_new_transitive_set() -> buck2_error::Result<()> {
     ))?;
 
     assert_eq!(
-        set.by_ref(|s| s.iter(TransitiveSetOrdering::Preorder).count()),
+        set.by_ref(|s| s.iter(TransitiveSetOrdering::Preorder).unwrap().count()),
         2
     );
 

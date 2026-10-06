@@ -497,7 +497,7 @@ async fn compute_execution_platforms(
         .await?;
 
     let registration_info = providers
-        .builtin_provider_value::<ExecutionPlatformRegistrationInfo>()
+        .builtin_provider_value::<ExecutionPlatformRegistrationInfo>()?
         .ok_or_else(|| {
             ExecutionPlatformComputationError::MissingExecutionPlatformRegistrationInfo(
                 execution_platforms_target.dupe(),
@@ -518,7 +518,7 @@ async fn compute_execution_platforms(
         let marker_providers = ctx.get_configuration_analysis_result(&marker_label).await?;
         let constraint_value_info = marker_providers
             .provider_collection()
-            .builtin_provider::<ConstraintValueInfo>()
+            .builtin_provider::<ConstraintValueInfo>()?
             .ok_or_else(|| {
                 buck2_error::Error::from(
                     ExecutionPlatformComputationError::MissingConstraintValueInfo(

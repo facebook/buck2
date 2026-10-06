@@ -342,7 +342,7 @@ async fn eval_bxl_for_anon_target_inner(
         let validations = transitive_validations(
             validations_from_deps,
             recorded_values.provider_collection()?,
-        );
+        )?;
 
         Ok((
             token,

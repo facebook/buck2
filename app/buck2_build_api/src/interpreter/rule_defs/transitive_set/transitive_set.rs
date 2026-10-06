@@ -320,32 +320,34 @@ impl<'v> TransitiveSet<'v> {
     pub fn iter<'a>(
         &'a self,
         ordering: TransitiveSetOrdering,
-    ) -> Box<dyn TransitiveSetIteratorLike<'a, 'v> + 'a>
+    ) -> buck2_error::Result<Box<dyn TransitiveSetIteratorLike<'a, 'v> + 'a>>
     where
         'v: 'a,
     {
-        match ordering {
+        Ok(match ordering {
             TransitiveSetOrdering::Preorder => Box::new(PreorderTransitiveSetIterator::new(self)),
-            TransitiveSetOrdering::Postorder => Box::new(PostorderTransitiveSetIterator::new(self)),
+            TransitiveSetOrdering::Postorder => {
+                Box::new(PostorderTransitiveSetIterator::new(self)?)
+            }
             TransitiveSetOrdering::Topological => {
-                Box::new(TopologicalTransitiveSetIterator::new(self))
+                Box::new(TopologicalTransitiveSetIterator::new(self)?)
             }
             TransitiveSetOrdering::Bfs => Box::new(BfsTransitiveSetIterator::new(self)),
             TransitiveSetOrdering::Dfs => Box::new(DfsTransitiveSetIterator::new(self)),
-        }
+        })
     }
 
     pub fn iter_values<'a>(
         &'a self,
         ordering: TransitiveSetOrdering,
-    ) -> buck2_error::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
+    ) -> buck2_error::Result<Box<dyn Iterator<Item = buck2_error::Result<Value<'v>>> + 'a>>
     where
         'v: 'a,
     {
         Ok(Box::new(
-            self.iter(ordering)
+            self.iter(ordering)?
                 .values()
-                .map(|node| node.value.to_value()),
+                .map(|node| node.map(|node| node.value.to_value())),
         ))
     }
 
@@ -353,22 +355,17 @@ impl<'v> TransitiveSet<'v> {
         &'a self,
         ordering: TransitiveSetOrdering,
         projection: usize,
-    ) -> buck2_error::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
+    ) -> buck2_error::Result<Box<dyn Iterator<Item = buck2_error::Result<Value<'v>>> + 'a>>
     where
         'v: 'a,
     {
-        let mut iter = self.iter(ordering).values().peekable();
-
-        // Defensively, check the projection is valid. We know the set has the same definition
-        // throughout so it'll be safe (enough) to unwrap if it is valid on the first one.
-        if let Some(v) = iter.peek() {
-            v.projections
-                .get(projection)
-                .internal_error("Invalid projection")?;
-        }
-
+        let iter = self.iter(ordering)?.values();
         Ok(Box::new(iter.map(move |node| {
-            node.projections.get(projection).unwrap().to_value()
+            Ok(node?
+                .projections
+                .get(projection)
+                .internal_error("Invalid projection")?
+                .to_value())
         })))
     }
 }

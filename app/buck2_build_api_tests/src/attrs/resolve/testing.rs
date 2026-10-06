@@ -233,12 +233,17 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         ) -> buck2_error::Result<Option<CommandLineArg<'v>>> {
             for providers in self.deps.values() {
                 let resolved = providers.value.by_ref_with_reconstructor(|collection, r| {
-                    let placeholders = collection
+                    let Some(placeholders) = collection
                         .as_ref()
-                        .builtin_provider::<TemplatePlaceholderInfo>()?;
-                    let value = placeholders.unkeyed_variables().get(name).copied()?;
-                    Some(r.edge(self.module.heap()).rebrand(value))
-                });
+                        .builtin_provider::<TemplatePlaceholderInfo>()?
+                    else {
+                        return buck2_error::Ok(None);
+                    };
+                    let Some(value) = placeholders.unkeyed_variables().get(name).copied() else {
+                        return Ok(None);
+                    };
+                    Ok(Some(r.edge(self.module.heap()).rebrand(value)))
+                })?;
                 if let Some(value) = resolved {
                     return Ok(Some(value));
                 }

@@ -317,7 +317,7 @@ async fn get_template_info_provider_artifacts(
             let providers_collection = providers.provider_collection();
 
             if let Some(template_placeholder_info) =
-                providers_collection.builtin_provider::<TemplatePlaceholderInfo>()
+                providers_collection.builtin_provider::<TemplatePlaceholderInfo>()?
             {
                 if let Some(template_info) = template_placeholder_info
                     .keyed_variables()

@@ -128,7 +128,7 @@ fn resolve_configured_macro<'v>(
         ConfiguredMacro::Exe { label, .. } => {
             // Don't need to consider exec_dep as it already was applied when configuring the label.
             let providers = ctx.get_dep(label)?;
-            let run_info = match providers.get_provider_raw(RunInfoCallable::provider_id()) {
+            let run_info = match providers.get_provider_raw(RunInfoCallable::provider_id())? {
                 Some(value) => value,
                 None => {
                     return Err(ResolveMacroError::ExpectedRunInfo(label.to_string()).into());
@@ -150,7 +150,7 @@ fn resolve_configured_macro<'v>(
         ConfiguredMacro::UserKeyedPlaceholder(box (name, label, arg)) => {
             let providers = ctx.get_dep(label)?;
             let placeholder_info = providers
-                .builtin_provider::<TemplatePlaceholderInfo>()
+                .builtin_provider::<TemplatePlaceholderInfo>()?
                 .ok_or_else(|| {
                     ResolveMacroError::KeyedPlaceholderInfoMissing(
                         (**name).to_owned(),

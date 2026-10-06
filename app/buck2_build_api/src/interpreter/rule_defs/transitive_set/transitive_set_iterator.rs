@@ -20,11 +20,18 @@ use starlark::values::ValueIdentity;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::transitive_set::Node;
 
-pub trait TransitiveSetIteratorLike<'a, 'v>: Iterator<Item = &'a TransitiveSet<'v>>
+/// A traversal over a transitive set. Reading a node's children can fail
+/// once values are paged, so items are results; an error ends the traversal.
+pub trait TransitiveSetIteratorLike<'a, 'v>:
+    Iterator<Item = buck2_error::Result<&'a TransitiveSet<'v>>>
 where
     'v: 'a,
 {
     fn values(self: Box<Self>) -> TransitiveSetValuesIterator<'a, 'v>;
+}
+
+fn children<'a, 'v>(set: &'a TransitiveSet<'v>) -> buck2_error::Result<&'a [Value<'v>]> {
+    Ok(&set.children[..])
 }
 
 fn assert_transitive_set<'v>(child: Value<'v>) -> &'v TransitiveSet<'v> {
@@ -82,12 +89,18 @@ impl<'a, 'v> Iterator for PreorderTransitiveSetIterator<'a, 'v>
 where
     'v: 'a,
 {
-    type Item = &'a TransitiveSet<'v>;
+    type Item = buck2_error::Result<&'a TransitiveSet<'v>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let next = self.stack.pop()?;
-        self.enqueue_children(&next.children);
-        Some(next)
+        match children(next) {
+            Ok(children) => self.enqueue_children(children),
+            Err(e) => {
+                self.stack.clear();
+                return Some(Err(e));
+            }
+        }
+        Some(Ok(next))
     }
 }
 
@@ -102,13 +115,13 @@ impl<'a, 'v> PostorderTransitiveSetIterator<'a, 'v>
 where
     'v: 'a,
 {
-    pub fn new(set: &'a TransitiveSet<'v>) -> Self {
+    pub fn new(set: &'a TransitiveSet<'v>) -> buck2_error::Result<Self> {
         let mut iterator = Self {
             stack: vec![(set, PostorderMark::Ready)],
             seen: Default::default(),
         };
-        iterator.enqueue_children(&set.children);
-        iterator
+        iterator.enqueue_children(children(set)?);
+        Ok(iterator)
     }
 
     fn enqueue_children(&mut self, children: &'a [Value<'v>]) {
@@ -142,16 +155,22 @@ impl<'a, 'v> Iterator for PostorderTransitiveSetIterator<'a, 'v>
 where
     'v: 'a,
 {
-    type Item = &'a TransitiveSet<'v>;
+    type Item = buck2_error::Result<&'a TransitiveSet<'v>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.stack.pop()? {
-                (tset, PostorderMark::Ready) => return Some(tset),
+                (tset, PostorderMark::Ready) => return Some(Ok(tset)),
                 (tset, PostorderMark::Pending(identity)) => {
                     if self.seen.insert(identity) {
                         self.stack.push((tset, PostorderMark::Ready));
-                        self.enqueue_children(&tset.children);
+                        match children(tset) {
+                            Ok(children) => self.enqueue_children(children),
+                            Err(e) => {
+                                self.stack.clear();
+                                return Some(Err(e));
+                            }
+                        }
                     }
                 }
             }
@@ -173,19 +192,21 @@ impl<'a, 'v> TopologicalTransitiveSetIterator<'a, 'v>
 where
     'v: 'a,
 {
-    pub fn new(set: &'a TransitiveSet<'v>) -> Self {
-        Self {
+    pub fn new(set: &'a TransitiveSet<'v>) -> buck2_error::Result<Self> {
+        Ok(Self {
             output_stack: vec![set],
-            instance_counts: TopologicalTransitiveSetIterator::count_instances(set),
-        }
+            instance_counts: TopologicalTransitiveSetIterator::count_instances(set)?,
+        })
     }
 
-    fn count_instances(set: &'a TransitiveSet<'v>) -> BuckMutMap<ValueIdentity<'v>, u32> {
+    fn count_instances(
+        set: &'a TransitiveSet<'v>,
+    ) -> buck2_error::Result<BuckMutMap<ValueIdentity<'v>, u32>> {
         let mut stack = vec![set];
         let mut instance_counts = BuckMutMap::<ValueIdentity<'v>, u32>::default();
 
         while let Some(next) = stack.pop() {
-            for child in next.children.iter().rev() {
+            for child in children(next)?.iter().rev() {
                 let child = child.to_value();
 
                 match instance_counts.entry(child.identity()) {
@@ -200,7 +221,7 @@ where
             }
         }
 
-        instance_counts
+        Ok(instance_counts)
     }
 
     fn enqueue_children(&mut self, children: &'a [Value<'v>]) {
@@ -235,12 +256,18 @@ impl<'a, 'v> Iterator for TopologicalTransitiveSetIterator<'a, 'v>
 where
     'v: 'a,
 {
-    type Item = &'a TransitiveSet<'v>;
+    type Item = buck2_error::Result<&'a TransitiveSet<'v>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let next = self.output_stack.pop()?;
-        self.enqueue_children(&next.children);
-        Some(next)
+        match children(next) {
+            Ok(children) => self.enqueue_children(children),
+            Err(e) => {
+                self.output_stack.clear();
+                return Some(Err(e));
+            }
+        }
+        Some(Ok(next))
     }
 }
 
@@ -284,12 +311,18 @@ impl<'a, 'v> Iterator for BfsTransitiveSetIterator<'a, 'v>
 where
     'v: 'a,
 {
-    type Item = &'a TransitiveSet<'v>;
+    type Item = buck2_error::Result<&'a TransitiveSet<'v>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let next = self.queue.pop_front()?;
-        self.enqueue_children(&next.children);
-        Some(next)
+        match children(next) {
+            Ok(children) => self.enqueue_children(children),
+            Err(e) => {
+                self.queue.clear();
+                return Some(Err(e));
+            }
+        }
+        Some(Ok(next))
     }
 }
 
@@ -327,13 +360,20 @@ impl<'a, 'v> Iterator for DfsTransitiveSetIterator<'a, 'v>
 where
     'v: 'a,
 {
-    type Item = &'a TransitiveSet<'v>;
+    type Item = buck2_error::Result<&'a TransitiveSet<'v>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let (tset, identity) = self.stack.pop()?;
             if identity.is_none_or(|id| self.seen.insert(id)) {
-                for child in tset.children.iter().rev() {
+                let children = match children(tset) {
+                    Ok(children) => children,
+                    Err(e) => {
+                        self.stack.clear();
+                        return Some(Err(e));
+                    }
+                };
+                for child in children.iter().rev() {
                     let child = child.to_value();
                     let child_identity = child.identity();
                     if !self.seen.contains(&child_identity) {
@@ -341,7 +381,7 @@ where
                             .push((assert_transitive_set(child), Some(child_identity)));
                     }
                 }
-                return Some(tset);
+                return Some(Ok(tset));
             }
         }
     }
@@ -358,13 +398,17 @@ impl<'a, 'v> Iterator for TransitiveSetValuesIterator<'a, 'v>
 where
     'v: 'a,
 {
-    type Item = &'a Node<'v>;
+    type Item = buck2_error::Result<&'a Node<'v>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let next = self.inner.next()?;
-            if let Some(node) = next.node.as_ref() {
-                return Some(node);
+            match self.inner.next()? {
+                Ok(next) => {
+                    if let Some(node) = next.node.as_ref() {
+                        return Some(Ok(node));
+                    }
+                }
+                Err(e) => return Some(Err(e)),
             }
         }
     }

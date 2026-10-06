@@ -127,7 +127,7 @@ impl<'v, 'a, 'e, 'c> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v,
             .cache
             .dep_analysis_results(self.ctx, self.configured_node, self.eval)
         {
-            Ok(deps) => Ok(resolve_unkeyed_placeholder(deps, name, module)),
+            Ok(deps) => resolve_unkeyed_placeholder(deps, name, module),
             Err(e) => Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Bxl,
                 "Error resolving unkeyed placeholder: `{}`",

@@ -456,7 +456,7 @@ impl<'v> Freeze<'v> for ProviderCollection<'v> {
 
 impl<'v> ProviderCollection<'v> {
     pub fn default_info(&self) -> buck2_error::Result<ValueTyped<'v, DefaultInfo<'v>>> {
-        self.builtin_provider::<DefaultInfo>().ok_or_else(|| {
+        self.builtin_provider::<DefaultInfo>()?.ok_or_else(|| {
             internal_error!(
                 "DefaultInfo should always be set for providers returned from rule function"
             )
@@ -469,16 +469,24 @@ impl<'v> ProviderCollection<'v> {
 
     pub fn builtin_provider<T: FrozenBuiltinProviderLike>(
         &self,
-    ) -> Option<ValueTyped<'v, T::Reinfect<'v>>>
+    ) -> buck2_error::Result<Option<ValueTyped<'v, T::Reinfect<'v>>>>
     where
         T::Reinfect<'v>: StarlarkValue<'v> + Sized,
     {
-        let provider = self.get_provider_raw(T::builtin_provider_id())?;
-        Some(ValueTyped::new(provider).expect("Incorrect provider type"))
+        let Some(provider) = self.get_provider_raw(T::builtin_provider_id())? else {
+            return Ok(None);
+        };
+        Ok(Some(
+            ValueTyped::new(provider).expect("Incorrect provider type"),
+        ))
     }
 
-    pub fn get_provider_raw(&self, provider_id: &ProviderId) -> Option<Value<'v>> {
-        self.providers.get(provider_id).copied()
+    /// The provider under `provider_id`.
+    pub fn get_provider_raw(
+        &self,
+        provider_id: &ProviderId,
+    ) -> buck2_error::Result<Option<Value<'v>>> {
+        Ok(self.providers.get(provider_id).copied())
     }
 
     pub fn provider_names(&self) -> Vec<String> {
@@ -490,8 +498,10 @@ impl<'v> ProviderCollection<'v> {
     }
 
     /// Iterate over `(ProviderId, Value)` pairs in this collection.
-    pub fn iter_providers(&self) -> impl Iterator<Item = (&ProviderId, Value<'v>)> {
-        self.providers.iter().map(|(k, v)| (&***k, *v))
+    pub fn iter_providers(
+        &self,
+    ) -> impl Iterator<Item = buck2_error::Result<(&ProviderId, Value<'v>)>> {
+        self.providers.iter().map(|(k, v)| Ok((&***k, *v)))
     }
 }
 
@@ -559,16 +569,25 @@ impl FrozenProviderCollectionValue {
     /// Get a provider from the collection, keeping it alive by its owner heap.
     pub fn builtin_provider_value<T: FrozenBuiltinProviderLike>(
         &self,
-    ) -> Option<OwnedFrozen<ValueTyped<'static, T>>>
+    ) -> buck2_error::Result<Option<OwnedFrozen<ValueTyped<'static, T>>>>
     where
         for<'x> T::Reinfect<'x>: StarlarkValue<'x> + Sized,
         for<'x> ValueTyped<'x, T::Reinfect<'x>>: HeapSendable<'x> + HeapSyncable<'x>,
     {
-        let v = self
+        // `Err(None)` stands for an absent provider, so a read error is kept apart from it.
+        match self
             .value
-            .as_ref()
-            .maybe_map::<ValueTyped<'static, T>, _>(|v| v.as_ref().builtin_provider::<T>())?;
-        Some(v.to_owned())
+            .dupe()
+            .try_map::<ValueTyped<'static, T>, Option<buck2_error::Error>, _>(|v| {
+                v.as_ref()
+                    .builtin_provider::<T>()
+                    .map_err(Some)?
+                    .ok_or(None)
+            }) {
+            Ok(v) => Ok(Some(v)),
+            Err(None) => Ok(None),
+            Err(Some(e)) => Err(e),
+        }
     }
 }
 

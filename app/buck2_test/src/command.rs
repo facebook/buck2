@@ -1539,7 +1539,7 @@ async fn build_target_result(
     // 1. It's a test (aka it produces a TestInfo provider) and it is not skipped by label filtering
     // 2. --build-default-info is requested
     // 3. --build-run-info is requested and the target produces a RunInfo
-    if let Some(test_info) = test_provider_from_collection(collections) {
+    if let Some(test_info) = test_provider_from_collection(collections)? {
         let skip_build_based_on_labels = !label_filtering.build_filtered_targets
             && label_filtering.is_excluded(test_info.labels());
         if skip_build_based_on_labels {
@@ -1549,7 +1549,7 @@ async fn build_target_result(
         || build_run_info
             && providers
                 .provider_collection()
-                .builtin_provider::<RunInfo>()
+                .builtin_provider::<RunInfo>()?
                 .is_some())
     {
         return Ok((BuildTargetResult::new(), providers));
@@ -1608,7 +1608,7 @@ async fn test_target<'a, 'e>(
     // Gated by [test].use_internal_runner (default true, comma-separated framework types,
     // or false to force TPX fallback).
     let internal_provider: Option<OwnedInternalRunnerTestInfo> =
-        providers.builtin_provider_value::<InternalRunnerTestInfo>();
+        providers.builtin_provider_value::<InternalRunnerTestInfo>()?;
     if let Some(internal_provider) = internal_provider {
         // `'v`-branded views of the provider must not be held across awaits (only the
         // `OwnedFrozen` may be), so views are derived in scopes that end before the next await.
@@ -1690,7 +1690,7 @@ async fn test_target<'a, 'e>(
         }
     }
 
-    let fut = match test_provider_from_collection(collection) {
+    let fut = match test_provider_from_collection(collection)? {
         Some(test_info) => {
             if label_filtering.is_excluded(test_info.labels()) {
                 return Ok(None);
