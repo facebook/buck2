@@ -1074,3 +1074,58 @@ fn test_select_incompatible_configure() -> buck2_error::Result<()> {
     );
     Ok(())
 }
+
+/// A `sorted = True` dict is sorted on the literal path but not when it is assembled from a
+/// concatenation with a `select`: the pieces are merged in operand order.
+#[test]
+fn test_sorted_dict_concat_is_not_sorted() -> buck2_error::Result<()> {
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
+        let attr = AttrType::dict(AttrType::string(), AttrType::string(), true);
+
+        let literal = to_value(&env, &globals, r#"{"b": "1", "a": "2"}"#);
+        let configured = attr
+            .coerce(AttrIsConfigurable::Yes, &coercion_ctx(), literal)?
+            .configure(&attr, &configuration_ctx(), None)
+            .require_compatible()?;
+        assert_eq!(
+            r#"{"a": "2", "b": "1"}"#,
+            configured.as_display_no_ctx().to_string()
+        );
+
+        let split = to_value(
+            &env,
+            &globals,
+            r#"{"b": "1"} + select({"DEFAULT": {"a": "2"}})"#,
+        );
+        let configured = attr
+            .coerce(AttrIsConfigurable::Yes, &coercion_ctx(), split)?
+            .configure(&attr, &configuration_ctx(), None)
+            .require_compatible()?;
+        assert_eq!(
+            r#"{"b": "1", "a": "2"}"#,
+            configured.as_display_no_ctx().to_string()
+        );
+
+        // `attrs.named_set(attrs.string(), sorted = True)` is
+        // `one_of(dict(string, v, sorted = True), list(v))` and behaves the same.
+        let named_set = AttrType::one_of(vec![
+            AttrType::dict(AttrType::string(), AttrType::string(), true),
+            AttrType::list(AttrType::string()),
+        ]);
+        let split = to_value(
+            &env,
+            &globals,
+            r#"{"b.h": "x/b.h"} + select({"DEFAULT": {"a.h": "y/a.h"}})"#,
+        );
+        let configured = named_set
+            .coerce(AttrIsConfigurable::Yes, &coercion_ctx(), split)?
+            .configure(&named_set, &configuration_ctx(), None)
+            .require_compatible()?;
+        assert_eq!(
+            r#"{"b.h": "x/b.h", "a.h": "y/a.h"}"#,
+            configured.as_display_no_ctx().to_string()
+        );
+        Ok(())
+    })
+}
