@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -26,24 +25,26 @@ use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::paths::abs_path::AbsPathBuf;
-use buck2_hash::BuckMutSet;
+use buck2_hash::BuckMutMap;
 use buck2_test_api::data::RemoteStorageConfig;
 use dupe::Dupe;
 use remote_execution::NamedDigest;
 use remote_execution::TDigest;
 
-type CacheKey = TDigest;
+type CacheKey = (TDigest, RemoteExecutorUseCase);
 
 pub struct ReClientWithCache {
     client: UnconfiguredRemoteExecutionClient,
-    cache: Mutex<BuckMutSet<Arc<CacheKey>>>,
+    /// The longest TTL granted so far for each digest and use case. A digest is recorded only
+    /// once its extension succeeded.
+    cache: Mutex<BuckMutMap<CacheKey, Duration>>,
 }
 
 impl ReClientWithCache {
     pub fn new(client: UnconfiguredRemoteExecutionClient) -> Self {
         Self {
             client,
-            cache: Mutex::new(BuckMutSet::default()),
+            cache: Mutex::new(BuckMutMap::default()),
         }
     }
 
@@ -60,32 +61,38 @@ impl ReClientWithCache {
                 // we are materializing them on disk.
                 let digests = collect_digests(artifact.entry());
 
-                // Filter out digests that are already in cache
-                let digests_to_extend = {
-                    let mut cache = self.cache.lock().unwrap();
-                    let mut uncached_digests = Vec::new();
-                    for digest in digests {
-                        let digest = Arc::new(digest);
-                        if !cache.contains(&digest) {
-                            cache.insert(digest.dupe());
-                            uncached_digests.push(Arc::unwrap_or_clone(digest));
-                        }
-                    }
-                    uncached_digests
+                // Skip digests already granted at least this TTL under this use case.
+                let digests_to_extend: Vec<TDigest> = {
+                    let cache = self.cache.lock().unwrap();
+                    digests
+                        .into_iter()
+                        .filter(|digest| {
+                            cache
+                                .get(&(digest.clone(), ttl_config.use_case))
+                                .is_none_or(|granted| *granted < ttl_config.ttl)
+                        })
+                        .collect()
                 };
 
-                // Only extend TTL for digests not in cache
                 if digests_to_extend.is_empty() {
                     return Ok(());
                 }
 
                 let info = CasDownloadInfo::new_test_artifact(ttl_config.use_case);
-                Ok(self
-                    .client
+                self.client
                     .clone()
                     .with_use_case(info.re_use_case)
-                    .extend_digest_ttl(digests_to_extend, ttl_config.ttl, &info)
-                    .await?)
+                    .extend_digest_ttl(digests_to_extend.clone(), ttl_config.ttl, &info)
+                    .await?;
+
+                let mut cache = self.cache.lock().unwrap();
+                for digest in digests_to_extend {
+                    cache
+                        .entry((digest, ttl_config.use_case))
+                        .and_modify(|granted| *granted = std::cmp::max(*granted, ttl_config.ttl))
+                        .or_insert(ttl_config.ttl);
+                }
+                Ok(())
             }
             _ => Ok(()),
         }
@@ -177,31 +184,25 @@ mod tests {
         }
     }
 
-    /// Digests are added to the cache before the extension request is sent, so a failed request
-    /// is never retried for the rest of the command, and a later request for the same digest with
-    /// a different TTL or use case never reaches RE. The dummy client cannot connect, so an `Ok`
-    /// means the call was answered from the cache.
+    /// A digest is remembered only once its extension succeeded. The dummy client cannot
+    /// connect, so every call reaches RE and fails.
     #[tokio::test]
-    async fn test_failed_ttl_extension_is_cached() {
+    async fn test_failed_ttl_extension_is_retried() {
         let client = ReClientWithCache::new(UnconfiguredRemoteExecutionClient::testing_new_dummy());
         let artifact = ArtifactValue::file(DigestConfig::testing_default().empty_file());
-        assert!(
-            client
-                .apply_config(&artifact, &ttl_config(3600, "tpx-default"))
-                .await
-                .is_err()
-        );
-        assert!(
-            client
-                .apply_config(&artifact, &ttl_config(3600, "tpx-default"))
-                .await
-                .is_ok()
-        );
+        for _ in 0..2 {
+            assert!(
+                client
+                    .apply_config(&artifact, &ttl_config(3600, "tpx-default"))
+                    .await
+                    .is_err()
+            );
+        }
         assert!(
             client
                 .apply_config(&artifact, &ttl_config(30 * 24 * 3600, "other-use-case"))
                 .await
-                .is_ok()
+                .is_err()
         );
     }
 
