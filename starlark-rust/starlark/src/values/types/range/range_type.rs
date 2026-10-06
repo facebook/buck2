@@ -172,28 +172,46 @@ impl<'v> StarlarkValue<'v> for Range {
         heap: Heap<'v>,
     ) -> crate::Result<Value<'v>> {
         let (start, stop, step) = convert_slice_indices(self.length()?, start, stop, stride)?;
-        return Ok(heap.alloc(Range {
-            start: self
-                .start
-                .checked_add(
-                    start
-                        .checked_mul(self.step.get())
-                        .ok_or(ValueError::IntegerOverflow)?,
-                )
-                .ok_or(ValueError::IntegerOverflow)?,
-            stop: self
-                .start
-                .checked_add(
-                    stop.checked_mul(self.step.get())
-                        .ok_or(ValueError::IntegerOverflow)?,
-                )
-                .ok_or(ValueError::IntegerOverflow)?,
-            step: NonZeroI32::new(
-                step.checked_mul(self.step.get())
-                    .ok_or(ValueError::IntegerOverflow)?,
-            )
-            .unwrap(),
-        }));
+        // The stop index is one past the last element, so the raw endpoint can leave `i32`
+        // although every element of the result is an element of `self`: compute in `i64` and
+        // build an equal range that fits.
+        let self_step = i64::from(self.step.get());
+        let first = i64::from(self.start) + i64::from(start) * self_step;
+        let end = i64::from(self.start) + i64::from(stop) * self_step;
+        let step = i64::from(step) * self_step;
+        let len = if step > 0 {
+            if end > first {
+                (end - first - 1) / step + 1
+            } else {
+                0
+            }
+        } else if first > end {
+            (first - end - 1) / (-step) + 1
+        } else {
+            0
+        };
+        let range = if len == 0 {
+            Range::new(0, 0, NonZeroI32::new(1).unwrap())
+        } else {
+            let last = first + (len - 1) * step;
+            let first = i32::try_from(first).map_err(|_| ValueError::IntegerOverflow)?;
+            let last = i32::try_from(last).map_err(|_| ValueError::IntegerOverflow)?;
+            if len == 1 {
+                if last < i32::MAX {
+                    Range::new(last, last + 1, NonZeroI32::new(1).unwrap())
+                } else {
+                    Range::new(last, last - 1, NonZeroI32::new(-1).unwrap())
+                }
+            } else {
+                let step = i32::try_from(step).map_err(|_| ValueError::IntegerOverflow)?;
+                // `last` is an element of `self` and `self.stop` lies beyond it, so this fits.
+                let stop = last
+                    .checked_add(step.signum())
+                    .ok_or(ValueError::IntegerOverflow)?;
+                Range::new(first, stop, NonZeroI32::new(step).unwrap())
+            }
+        };
+        Ok(heap.alloc(range))
     }
 
     unsafe fn iterate(&self, me: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
@@ -317,14 +335,17 @@ mod tests {
         assert_eq!(Some(1), range(4, 14, 10).length().ok());
     }
 
-    /// The slice endpoints are computed in `i32` from the index arithmetic, so a slice of a
-    /// range near the `i32` limits fails with an overflow although its elements all fit.
+    /// A slice of a range near the `i32` limits is an equal range that fits.
     #[test]
-    fn test_slice_near_i32_limits_overflows() {
-        assert::fail("range(0, 2147483647, 2)[:]", "Integer overflow");
-        assert::fail("len(range(0, 2147483647, 2)[1:])", "Integer overflow");
-        assert::fail("range(-2147483648, -2147483647)[::-1]", "Integer overflow");
-        assert::fail("len(range(5, 5, 2)[::2147483647])", "Integer overflow");
+    fn test_slice_near_i32_limits() {
+        assert::is_true("range(0, 2147483647, 2)[:] == range(0, 2147483647, 2)");
+        assert::eq("len(range(0, 2147483647, 2)[1:])", "1073741823");
+        assert::is_true("range(-2147483648, -2147483647)[::-1] == range(-2147483648, -2147483647)");
+        assert::eq("len(range(5, 5, 2)[::2147483647])", "0");
+        assert::eq("list(range(10)[2:8:3])", "[2, 5]");
+        assert::eq("list(range(10)[::-3])", "[9, 6, 3, 0]");
+        assert::eq("list(range(2147483646, 2147483647)[:])", "[2147483646]");
+        assert::eq("list(range(3, 10, 3)[1:2])", "[6]");
     }
 
     #[test]
