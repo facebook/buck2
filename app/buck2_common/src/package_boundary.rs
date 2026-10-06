@@ -278,6 +278,15 @@ mod tests {
         );
     }
 
+    /// `project.ignore` accepts entries with a trailing slash; `project.package_boundary_exceptions`
+    /// rejects them, and the error surfaces on every build file of the cell.
+    #[test]
+    fn test_package_boundary_trailing_slash_is_rejected() {
+        assert!(CellPackageBoundaryExceptions::new("foo/").is_err());
+        assert!(CellPackageBoundaryExceptions::new("bar, foo/").is_err());
+        assert!(CellPackageBoundaryExceptions::new("foo").is_ok());
+    }
+
     #[test]
     fn test_package_boundary_dot() {
         let exceptions = CellPackageBoundaryExceptions::new("").unwrap();
