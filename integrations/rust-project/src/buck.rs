@@ -592,7 +592,7 @@ impl Buck {
         Ok(stdout.into())
     }
 
-    pub(crate) fn resolve_sysroot_src(&self) -> Result<PathBuf, anyhow::Error> {
+    pub(crate) fn resolve_sysroot_src(&self) -> Result<Option<PathBuf>, anyhow::Error> {
         let mut command = self.command(["audit", "config"]);
         command.args(["--json", "--", "rust.sysroot_src_path"]);
         command
@@ -607,7 +607,7 @@ impl Buck {
         #[derive(Deserialize)]
         struct BuckConfig {
             #[serde(rename = "rust.sysroot_src_path")]
-            sysroot_src_path: PathBuf,
+            sysroot_src_path: Option<PathBuf>,
         }
         let cfg: BuckConfig = deserialize_output(child.wait_with_output(), &command)?;
         Ok(cfg.sysroot_src_path)
