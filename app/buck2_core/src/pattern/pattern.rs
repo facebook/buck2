@@ -84,6 +84,8 @@ enum TargetPatternParseError {
     PossibleMacroUsage,
     #[error("Configuration part of the pattern must be enclosed in `()`")]
     ConfigurationPartMustBeEnclosedInParentheses,
+    #[error("Configuration is not supported on package or recursive pattern `{0}`")]
+    ConfigurationOnPackageOrRecursivePattern(String),
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -927,6 +929,19 @@ pub fn lex_configured_providers_pattern(
     let (provider_pattern, cfg, exec_cfg) = match split_cfg(pattern) {
         Some((providers, cfg, exec_cfg)) => {
             let provider_pattern = lex_provider_pattern(providers, strip_package_trailing_slash)?;
+            // `Package` and `Recursive` patterns have nowhere to keep a configuration, and
+            // `try_map` below would drop it without a word.
+            if let PatternDataOrAmbiguous::PatternData(
+                PatternData::Recursive { .. } | PatternData::AllTargetsInPackage { .. },
+            ) = &provider_pattern.pattern
+            {
+                return Err(
+                    TargetPatternParseError::ConfigurationOnPackageOrRecursivePattern(
+                        pattern.to_owned(),
+                    )
+                    .into(),
+                );
+            }
             let cfg = lex_configuration_predicate(cfg)?;
             let exec_cfg = match exec_cfg {
                 Some(e) => lex_configuration_predicate(e)?,
@@ -2734,35 +2749,28 @@ mod tests {
             ),
             &["Expecting target pattern, without configuration"],
         );
-        // ...but every pattern type accepts one on a package or recursive pattern and drops it,
-        // because `Package` and `Recursive` have nowhere to keep it.
-        assert_eq!(
-            mk_recursive::<TargetPatternExtra>("root", "package/path"),
-            ParsedPattern::parse_precise(
-                "//package/path/... (<foo>)",
-                CellName::testing_new("root"),
-                &resolver(),
-                &alias_resolver(),
-            )?
-        );
-        assert_eq!(
-            mk_recursive::<ConfiguredProvidersPatternExtra>("root", "package/path"),
-            ParsedPattern::parse_precise(
-                "//package/path/... (<foo>)",
-                CellName::testing_new("root"),
-                &resolver(),
-                &alias_resolver(),
-            )?
-        );
-        assert_eq!(
-            mk_package::<ConfiguredProvidersPatternExtra>("root", "package/path"),
-            ParsedPattern::parse_precise(
-                "//package/path: (<foo>)",
-                CellName::testing_new("root"),
-                &resolver(),
-                &alias_resolver(),
-            )?
-        );
+        // ...and so does every pattern type on a package or recursive pattern, which have nowhere
+        // to keep one.
+        for pattern in ["//package/path/... (<foo>)", "//package/path: (<foo>)"] {
+            fails(
+                ParsedPattern::<TargetPatternExtra>::parse_precise(
+                    pattern,
+                    CellName::testing_new("root"),
+                    &resolver(),
+                    &alias_resolver(),
+                ),
+                &["Configuration is not supported on package or recursive pattern"],
+            );
+            fails(
+                ParsedPattern::<ConfiguredProvidersPatternExtra>::parse_precise(
+                    pattern,
+                    CellName::testing_new("root"),
+                    &resolver(),
+                    &alias_resolver(),
+                ),
+                &["Configuration is not supported on package or recursive pattern"],
+            );
+        }
         Ok(())
     }
 
