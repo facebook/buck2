@@ -211,19 +211,12 @@ impl Action for WriteJsonAction {
         &self,
         fs: &ExecutorFs,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> BuckIndexMap<String, String> {
-        let res: buck2_error::Result<String> = try {
-            let content = self.get_contents(fs, artifact_path_mapping)?;
-            String::from_utf8(content).map_err(buck2_error::Error::from)?
-        };
-        // TODO(cjhopman): We should change this api to support returning a Result.
-        buck_indexmap! {
-            "contents".to_owned() => match res {
-                Ok(v) => v,
-                Err(e) => format!("ERROR: constructing contents ({e})")
-            },
+    ) -> buck2_error::Result<BuckIndexMap<String, String>> {
+        let content = self.get_contents(fs, artifact_path_mapping)?;
+        Ok(buck_indexmap! {
+            "contents".to_owned() => String::from_utf8(content)?,
             "absolute".to_owned() => self.inner.absolute.to_string(),
-        }
+        })
     }
 
     async fn execute(

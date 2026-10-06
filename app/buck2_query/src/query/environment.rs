@@ -65,7 +65,11 @@ impl QueryTargets {
     /// Used to process all the attrs of a node (both the normal rule attrs and the "special" attrs). Applies
     /// a function to the attrs instead of returning an iterator as some of them are owned and some are refs
     /// into the node.
-    pub fn for_all_attrs<E, T: QueryTarget, F: FnMut(&str, &T::Attr<'_>) -> Result<(), E>>(
+    pub fn for_all_attrs<
+        E: From<buck2_error::Error>,
+        T: QueryTarget,
+        F: FnMut(&str, &T::Attr<'_>) -> Result<(), E>,
+    >(
         target: &T,
         mut func: F,
     ) -> Result<(), E> {
@@ -117,27 +121,45 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
         filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
     ) -> buck2_error::Result<bool>;
 
-    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn special_attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         func: F,
     ) -> Result<(), E>;
 
-    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         func: F,
     ) -> Result<(), E>;
 
-    fn defined_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn defined_attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         func: F,
     ) -> Result<(), E>;
 
     /// map the attr named `key` to a value using `func`
     /// attribute here is usered defined attribute, not including special attributes.
-    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R;
+    /// Fails only if the attributes could not be read.
+    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(
+        &self,
+        key: &str,
+        func: F,
+    ) -> buck2_error::Result<R>;
 
     /// map the any attr (user defined attribute or special attribute) named `key` to a value using `func`
-    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R;
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(
+        &self,
+        key: &str,
+        func: F,
+    ) -> buck2_error::Result<R>;
 }
 
 #[async_trait]

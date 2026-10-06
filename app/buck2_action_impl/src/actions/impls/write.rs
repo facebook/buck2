@@ -232,15 +232,11 @@ impl Action for WriteAction {
         &self,
         fs: &ExecutorFs,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> BuckIndexMap<String, String> {
-        // TODO(cjhopman): We should change this api to support returning a Result.
-        buck_indexmap! {
-            "contents".to_owned() => match self.get_contents(fs, artifact_path_mapping) {
-                Ok(v) => v,
-                Err(e) => format!("ERROR: constructing contents ({e})")
-            },
+    ) -> buck2_error::Result<BuckIndexMap<String, String>> {
+        Ok(buck_indexmap! {
+            "contents".to_owned() => self.get_contents(fs, artifact_path_mapping)?,
             "absolute".to_owned() => self.inner.absolute.to_string(),
-        }
+        })
     }
 
     async fn execute(

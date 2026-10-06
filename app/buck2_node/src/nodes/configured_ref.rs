@@ -152,7 +152,10 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         attr.any_matches(filter)
     }
 
-    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn special_attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -162,7 +165,10 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         Ok(())
     }
 
-    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -172,7 +178,10 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         Ok(())
     }
 
-    fn defined_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn defined_attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -182,13 +191,17 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         Ok(())
     }
 
-    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
-        func(
+    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(
+        &self,
+        key: &str,
+        mut func: F,
+    ) -> buck2_error::Result<R> {
+        Ok(func(
             self.0
                 .get(key, AttrInspectOptions::All)
                 .as_ref()
                 .map(|a| &a.value),
-        )
+        ))
     }
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(
@@ -201,15 +214,21 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         Ok(())
     }
 
-    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
-        match self
-            .0
-            .get(key, AttrInspectOptions::All)
-            .as_ref()
-            .map(|a| &a.value)
-        {
-            Some(attr) => func(Some(attr)),
-            None => func(self.special_attr_or_none(key).as_ref()),
-        }
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(
+        &self,
+        key: &str,
+        mut func: F,
+    ) -> buck2_error::Result<R> {
+        Ok(
+            match self
+                .0
+                .get(key, AttrInspectOptions::All)
+                .as_ref()
+                .map(|a| &a.value)
+            {
+                Some(attr) => func(Some(attr)),
+                None => func(self.special_attr_or_none(key).as_ref()),
+            },
+        )
     }
 }

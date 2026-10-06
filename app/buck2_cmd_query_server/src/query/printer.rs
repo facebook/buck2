@@ -135,6 +135,16 @@ impl<T: QueryCommandTarget> Display for PrintableQueryTarget<'_, T> {
     }
 }
 
+/// Serde's error for the attribute walk, which reports an unreadable attribute
+/// through the same channel.
+struct AttrWalkError<E>(E);
+
+impl<E: serde::ser::Error> From<buck2_error::Error> for AttrWalkError<E> {
+    fn from(error: buck2_error::Error) -> Self {
+        AttrWalkError(E::custom(error))
+    }
+}
+
 impl<T: QueryCommandTarget> Serialize for PrintableQueryTarget<'_, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -165,11 +175,13 @@ impl<T: QueryCommandTarget> Serialize for PrintableQueryTarget<'_, T> {
                             target: self.value,
                             attr: attr_value,
                         },
-                    )?;
+                    )
+                    .map_err(AttrWalkError)?;
                 }
             }
             Ok(())
-        })?;
+        })
+        .map_err(|AttrWalkError(error)| error)?;
 
         if self.target_call_stacks {
             map.serialize_entry("buck.target_call_stack", &self.value.call_stack())?;

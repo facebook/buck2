@@ -179,8 +179,8 @@ pub trait Action: PagableTagged + Allocative + Debug + Send + Sync + 'static {
         &self,
         _fs: &ExecutorFs,
         _artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> BuckIndexMap<String, String> {
-        buck_indexmap! {}
+    ) -> buck2_error::Result<BuckIndexMap<String, String>> {
+        Ok(buck_indexmap! {})
     }
 
     fn error_handler(&self) -> Option<&OwnedFrozen<Value<'static>>> {

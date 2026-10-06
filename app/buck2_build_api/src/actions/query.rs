@@ -248,7 +248,7 @@ impl ActionData {
         &self.deps
     }
 
-    fn attrs(&self) -> BuckIndexMap<String, String> {
+    fn attrs(&self) -> buck2_error::Result<BuckIndexMap<String, String>> {
         let mut attrs = self.action.action().aquery_attributes(
             &ExecutorFs::new(
                 &self.fs,
@@ -257,7 +257,7 @@ impl ActionData {
             &AqueryArtifactPathMapper {
                 aquery_placeholder: ContentBasedPathHash::AqueryPlaceholder,
             },
-        );
+        )?;
         attrs.insert(
             "buck.executor_configuration".to_owned(),
             self.action.execution_config().executor.to_string(),
@@ -285,7 +285,7 @@ impl ActionData {
             );
         }
 
-        attrs
+        Ok(attrs)
     }
 }
 
@@ -382,14 +382,20 @@ impl QueryTarget for ActionQueryNode {
         filter(&attr.0)
     }
 
-    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn special_attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         mut _func: F,
     ) -> Result<(), E> {
         Ok(())
     }
 
-    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -411,20 +417,27 @@ impl QueryTarget for ActionQueryNode {
 
         // inputs and outputs are not supported for aquery
 
-        for (k, v) in action.attrs() {
+        for (k, v) in action.attrs()? {
             func(&k, ActionAttr::new(&v))?;
         }
         Ok(())
     }
 
-    fn defined_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn defined_attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         func: F,
     ) -> Result<(), E> {
         self.attrs_for_each(func)
     }
 
-    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
+    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(
+        &self,
+        key: &str,
+        mut func: F,
+    ) -> buck2_error::Result<R> {
         let mut res = None;
 
         self.attrs_for_each(|k, attr| {
@@ -432,12 +445,11 @@ impl QueryTarget for ActionQueryNode {
                 res = Some(func(Some(attr)));
             }
             Ok::<(), buck2_error::Error>(())
-        })
-        .unwrap();
-        match res {
+        })?;
+        Ok(match res {
             Some(v) => v,
             None => func(None),
-        }
+        })
     }
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(
@@ -448,7 +460,11 @@ impl QueryTarget for ActionQueryNode {
         unimplemented!("inputs not yet implemented in aquery")
     }
 
-    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R {
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(
+        &self,
+        key: &str,
+        func: F,
+    ) -> buck2_error::Result<R> {
         // aquery doesn't have special attrs, so this is the same as map_attr
         self.map_attr(key, func)
     }

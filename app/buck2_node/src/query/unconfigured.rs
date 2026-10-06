@@ -75,7 +75,10 @@ impl QueryTarget for TargetNode {
         attr.any_matches(filter)
     }
 
-    fn special_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn special_attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -85,7 +88,10 @@ impl QueryTarget for TargetNode {
         Ok(())
     }
 
-    fn attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -95,7 +101,10 @@ impl QueryTarget for TargetNode {
         Ok(())
     }
 
-    fn defined_attrs_for_each<E, F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>>(
+    fn defined_attrs_for_each<
+        E: From<buck2_error::Error>,
+        F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
+    >(
         &self,
         mut func: F,
     ) -> Result<(), E> {
@@ -105,22 +114,30 @@ impl QueryTarget for TargetNode {
         Ok(())
     }
 
-    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
-        func(
+    fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(
+        &self,
+        key: &str,
+        mut func: F,
+    ) -> buck2_error::Result<R> {
+        Ok(func(
             self.attr_or_none(key, AttrInspectOptions::All)
                 .as_ref()
                 .map(|a| a.value),
-        )
+        ))
     }
 
-    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
-        match self.attr_or_none(key, AttrInspectOptions::All) {
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(
+        &self,
+        key: &str,
+        mut func: F,
+    ) -> buck2_error::Result<R> {
+        Ok(match self.attr_or_none(key, AttrInspectOptions::All) {
             Some(attr) => func(Some(attr.value)),
             None => match self.special_attr_or_none(key) {
                 Some(special) => func(Some(&special)),
                 None => func(None),
             },
-        }
+        })
     }
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(

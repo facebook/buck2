@@ -176,7 +176,7 @@ impl<T: QueryTarget> TargetSet<T> {
             node.map_any_attr(attribute, |val| match val {
                 None => Ok(false),
                 Some(v) => T::attr_any_matches(v, &filter),
-            })
+            })?
         })
     }
 
@@ -189,7 +189,7 @@ impl<T: QueryTarget> TargetSet<T> {
             node.map_attr(attribute, |val| match val {
                 None => Ok(false),
                 Some(v) => Ok(!T::attr_any_matches(v, &filter)?),
-            })
+            })?
         })
     }
 

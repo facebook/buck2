@@ -1509,14 +1509,14 @@ impl Action for RunAction {
         &self,
         fs: &ExecutorFs,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> BuckIndexMap<String, String> {
+    ) -> buck2_error::Result<BuckIndexMap<String, String>> {
+        let values = Self::unpack(self.values())?;
         let mut cli_rendered = Vec::<String>::new();
-        let values = Self::unpack(self.values()).unwrap();
         let mut fmt = CommandLineBuilder::new(&mut cli_rendered, artifact_path_mapping, fs);
-        values.exe.add_to_command_line(&mut fmt).unwrap();
-        values.args.add_to_command_line(&mut fmt).unwrap();
+        values.exe.add_to_command_line(&mut fmt)?;
+        values.args.add_to_command_line(&mut fmt)?;
         let cmd = format!("[{}]", cli_rendered.iter().join(", "));
-        buck_indexmap! {
+        Ok(buck_indexmap! {
             "cmd".to_owned() => cmd,
             "executor_preference".to_owned() => self.inner.executor_preference.to_string(),
             "always_print_stderr".to_owned() => self.inner.always_print_stderr.to_string(),
@@ -1532,7 +1532,7 @@ impl Action for RunAction {
                 Some(x) => x.to_string(),
             },
             "allow_dep_file_cache_upload".to_owned() => self.inner.allow_dep_file_cache_upload.to_string(),
-        }
+        })
     }
 
     fn error_handler(&self) -> Option<&OwnedFrozen<Value<'static>>> {
