@@ -104,7 +104,7 @@ impl UnregisteredAssembledDirAction {
     ) -> buck2_error::Result<()> {
         // We sort the inputs. They are morally a set, so it shouldn't matter too much,
         // and this lets us implement the overlap check more easily.
-        args.sort_by(|x, y| x.1.cmp(&y.1));
+        args.sort_by(|x, y| x.1.iter().cmp(y.1.iter()));
 
         for ((_, x, _), (_, y, _)) in args.iter().zip(args.iter().skip(1)) {
             if y.starts_with(x) {
@@ -421,8 +421,8 @@ mod tests {
     #[test]
     fn test_assembled_dir_validation_overlap_separated_by_sibling() {
         assert!(validate(&["test", "test/child", "test_other"]).is_err());
-        assert!(validate(&["test", "test.txt", "test/child"]).is_ok());
-        assert!(validate(&["test", "test-other", "test/child"]).is_ok());
-        assert!(validate(&["test/child", "test", "test.txt"]).is_ok());
+        assert!(validate(&["test", "test.txt", "test/child"]).is_err());
+        assert!(validate(&["test", "test-other", "test/child"]).is_err());
+        assert!(validate(&["test/child", "test", "test.txt"]).is_err());
     }
 }
