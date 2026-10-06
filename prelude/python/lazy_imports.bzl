@@ -21,6 +21,11 @@ def get_lazy_imports_analyzer(ctx: AnalysisContext) -> RunInfo | None:
 def _get_main_module(ctx: AnalysisContext) -> str | None:
     main_module = getattr(ctx.attrs, "main_module", None)
     if main_module != None:
+        # A leading dot marks a par-root entry (python_binary derives ".<name>"
+        # for main-file binaries); it never matches lifeguard's path-derived
+        # module names, so leave the entry unknown instead of failing the build.
+        if main_module.startswith("."):
+            return None
         return main_module
     main_function = getattr(ctx.attrs, "main_function", None)
     if main_function != None:
