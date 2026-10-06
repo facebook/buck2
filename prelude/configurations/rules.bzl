@@ -172,6 +172,7 @@ def constraint_impl(ctx):
     return [
         DefaultInfo(sub_targets = sub_targets),
         constraint_setting,
+        _ExecutionModifierInfo(execution_modifier = execution_modifier),
     ]
 
 def platform_impl(ctx):

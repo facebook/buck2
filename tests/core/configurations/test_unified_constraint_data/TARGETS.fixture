@@ -17,6 +17,7 @@ constraint(
         "apple": "macos",
         "penguin": "linux",
     },
+    visibility = ["PUBLIC"],
 )
 
 platform(
