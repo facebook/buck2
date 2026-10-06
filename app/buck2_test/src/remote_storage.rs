@@ -163,8 +163,47 @@ mod tests {
     use buck2_execute::directory::ActionDirectoryBuilder;
     use buck2_execute::directory::extract_artifact_value;
     use buck2_execute::directory::insert_file;
+    use buck2_test_api::data::TtlConfig;
 
     use super::*;
+
+    fn ttl_config(secs: u64, use_case: &str) -> RemoteStorageConfig {
+        RemoteStorageConfig {
+            supports_remote: true,
+            ttl_config: Some(TtlConfig {
+                ttl: Duration::from_secs(secs),
+                use_case: RemoteExecutorUseCase::new(use_case.to_owned()),
+            }),
+        }
+    }
+
+    /// Digests are added to the cache before the extension request is sent, so a failed request
+    /// is never retried for the rest of the command, and a later request for the same digest with
+    /// a different TTL or use case never reaches RE. The dummy client cannot connect, so an `Ok`
+    /// means the call was answered from the cache.
+    #[tokio::test]
+    async fn test_failed_ttl_extension_is_cached() {
+        let client = ReClientWithCache::new(UnconfiguredRemoteExecutionClient::testing_new_dummy());
+        let artifact = ArtifactValue::file(DigestConfig::testing_default().empty_file());
+        assert!(
+            client
+                .apply_config(&artifact, &ttl_config(3600, "tpx-default"))
+                .await
+                .is_err()
+        );
+        assert!(
+            client
+                .apply_config(&artifact, &ttl_config(3600, "tpx-default"))
+                .await
+                .is_ok()
+        );
+        assert!(
+            client
+                .apply_config(&artifact, &ttl_config(30 * 24 * 3600, "other-use-case"))
+                .await
+                .is_ok()
+        );
+    }
 
     #[test]
     fn test_collect_digests_dir() {
