@@ -211,6 +211,15 @@ mod tests {
         assert_eq!(3, table.iter().count());
     }
 
+    /// The power-of-two check `_ASSERTIONS` is never referenced, so it never runs: a table with zero
+    /// shards compiles, and its iterators index into an empty array.
+    #[test]
+    #[should_panic]
+    fn test_zero_shards() {
+        let table = ShardedLockFreeRawTable::<Box<u32>, 0>::new();
+        let _ = table.iter().count();
+    }
+
     #[test]
     fn test_shard_bits() {
         assert_eq!(0, ShardedLockFreeRawTable::<Box<u32>, 1>::SHARD_BITS);
