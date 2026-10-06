@@ -1313,17 +1313,19 @@ mod tests {
     }
 
     /// `start` and `end` are both negative with `start > end`, and both clamp to 0, so the
-    /// range is the empty slice at 0 where an empty needle is found in Python. The shortcut in
-    /// `convert_str_indices` compares the raw indices and reports no match.
+    /// range is the empty slice at 0, where an empty needle is found, as in Python.
     #[test]
     fn test_search_with_two_negative_indices_clamped_to_zero() {
-        assert::eq(r#""abc".find("", -4, -5)"#, "-1");
-        assert::eq(r#""abc".rfind("", -4, -5)"#, "-1");
-        assert::eq(r#""abc".count("", -4, -5)"#, "0");
-        assert::eq(r#""abc".startswith("", -4, -5)"#, "False");
-        assert::eq(r#""abc".endswith("", -4, -5)"#, "False");
-        assert::fail(r#""abc".index("", -3, -4)"#, "not found");
+        assert::eq(r#""abc".find("", -4, -5)"#, "0");
+        assert::eq(r#""abc".rfind("", -4, -5)"#, "0");
+        assert::eq(r#""abc".count("", -4, -5)"#, "1");
+        assert::eq(r#""abc".startswith("", -4, -5)"#, "True");
+        assert::eq(r#""abc".endswith("", -4, -5)"#, "True");
+        assert::eq(r#""abc".index("", -3, -4)"#, "0");
         assert::eq(r#""abc"[-4:-5]"#, r#""""#);
+        // Indices that do not both clamp still give an empty range.
+        assert::eq(r#""abc".find("", -1, -2)"#, "-1");
+        assert::eq(r#""abc".find("c", -1, -2)"#, "-1");
     }
 
     #[test]

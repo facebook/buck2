@@ -186,13 +186,6 @@ fn convert_str_indices_slow(
     // Slow version when we need to compute full string length
     // because at least one of the indices is negative.
     debug_assert!(matches!(start, Some(start) if start < 0) || matches!(end, Some(end) if end < 0));
-    // If both indices are negative, we should have ruled `start > end` case before.
-    debug_assert!(
-        matches!((start, end), (Some(start), Some(end))
-                if start >= 0 || end >= 0 || (start <= end))
-            || start.is_none()
-            || end.is_none()
-    );
     let len = len(s);
     let (start, end) = convert_indices(len.0 as i32, start, end);
     if start > end {
@@ -248,7 +241,9 @@ pub fn convert_str_indices(
                 haystack: s,
             })
         }
-        (Some(start), Some(end)) if ((start >= 0) == (end >= 0)) && start > end => None,
+        // Two negative indices can both clamp to 0, where an empty needle still matches, so
+        // only non-negative indices can be rejected without knowing the length.
+        (Some(start), Some(end)) if start >= 0 && end >= 0 && start > end => None,
         (start, end) => convert_str_indices_slow(s, start, end),
     }
 }
