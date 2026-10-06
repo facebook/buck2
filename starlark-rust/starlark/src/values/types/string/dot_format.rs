@@ -289,4 +289,42 @@ mod tests {
         assert_eq!(None, parse_format_one("a{}{}"));
         assert_eq!(None, parse_format_one("{x}"));
     }
+
+    /// `"<lit>{}<lit>".format(x)` with exactly one positional argument that is not a compile-time
+    /// constant is compiled to `FormatOne` (eval/compiler/call.rs `try_format`), whose
+    /// `format_one` renders non-strings with `collect_repr`; the general method renders `{}` with
+    /// `collect_str`. For bytes, `str(b"b") == "b"` but `repr(b"b") == 'b"b"'`, so the result
+    /// depends on whether the argument is a constant.
+    #[test]
+    fn test_replay_format_one_fast_path_bytes() {
+        assert::pass(
+            r#"
+def f(x):
+    return "<{}>".format(x)
+def g(x):
+    return "<{0}>".format(x)
+def h(x):
+    return "<{}{}>".format(x, "")
+assert_eq(f(b"b"), '<b"b">')
+assert_eq(g(b"b"), "<b>")
+assert_eq(h(b"b"), "<b>")
+assert_eq("<{}>".format(b"b"), "<b>")
+assert_eq(str(b"b"), "b")
+"#,
+        );
+    }
+
+    /// `"<lit>%s<lit>" % x` also has a fast path, but the general `%s` uses repr for non-strings
+    /// too, so `%` is consistent either way.
+    #[test]
+    fn test_replay_percent_s_one_fast_path_bytes_consistent() {
+        assert::pass(
+            r#"
+def f(x):
+    return "<%s>" % x
+assert_eq(f(b"b"), '<b"b">')
+assert_eq("<%s>" % b"b", '<b"b">')
+"#,
+        );
+    }
 }
