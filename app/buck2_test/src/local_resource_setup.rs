@@ -65,6 +65,8 @@ pub(crate) async fn required_providers<'v>(
             }
         })
         .collect::<Result<Vec<_>, buck2_error::Error>>()?;
+    // Several resource types may name the same provider; it is set up once.
+    let targets = targets.into_iter().unique().collect::<Vec<_>>();
 
     dice.compute_join(targets, async |dice, target| {
         get_local_resource_info(dice, target).await
