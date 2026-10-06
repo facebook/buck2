@@ -779,11 +779,6 @@ fn lex_provider_pattern(
     pattern: &str,
     strip_package_trailing_slash: bool,
 ) -> buck2_error::Result<PatternParts<'_, ProvidersPatternExtra>> {
-    let (cell_alias, pattern) = match split1_opt_ascii(pattern, AsciiStr2::new("//")) {
-        Some((a, p)) => (Some(trim_prefix_ascii(a, AsciiChar::new('@'))), p),
-        None => (None, pattern),
-    };
-
     if pattern.chars().filter(|&c| c == '?').count() > 1 {
         return Err(buck2_error!(
             buck2_error::ErrorTag::Input,
@@ -791,9 +786,15 @@ fn lex_provider_pattern(
         ));
     }
 
+    // Modifiers may be cell-qualified, so they come off before the cell alias is split at `//`.
     let (pattern, modifiers) = match split1_opt_ascii(pattern, AsciiChar::new('?')) {
         Some((pattern, modifiers)) => (pattern, Modifiers::parse(modifiers)),
         None => (pattern, Modifiers::new(None)),
+    };
+
+    let (cell_alias, pattern) = match split1_opt_ascii(pattern, AsciiStr2::new("//")) {
+        Some((a, p)) => (Some(trim_prefix_ascii(a, AsciiChar::new('@'))), p),
+        None => (None, pattern),
     };
 
     let pattern = match split1_opt_ascii(pattern, AsciiChar::new(':')) {
@@ -2563,10 +2564,10 @@ mod tests {
         Ok(())
     }
 
-    /// A relative pattern with a cell-qualified modifier (`:target?root//cfg:x`) does not parse:
-    /// the lexer splits off the cell alias at the first `//`, which here is inside the modifier.
+    /// A relative pattern with a cell-qualified modifier (`:target?root//cfg:x`): the `//` inside
+    /// the modifier is not a cell separator.
     #[test]
-    fn test_relative_pattern_with_qualified_modifier_fails() {
+    fn test_relative_pattern_with_qualified_modifier() -> buck2_error::Result<()> {
         let resolver = resolver();
         let alias_resolver = alias_resolver();
         let package = CellPath::new(
@@ -2574,26 +2575,58 @@ mod tests {
             CellRelativePath::unchecked_new("package").to_owned(),
         );
 
-        fails(
-            ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
-                &NoAliases,
-                package.as_ref(),
-                "path:target?root//modifier:x",
-                &resolver,
-                &alias_resolver,
-            ),
-            &["path:target?root"],
+        let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+            &NoAliases,
+            package.as_ref(),
+            "path:target?root//modifier:x",
+            &resolver,
+            &alias_resolver,
+        )?;
+        assert_eq!(
+            pattern_parts.parsed_pattern,
+            mk_target("root", "package/path", "target")
         );
-        fails(
-            ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
-                &NoAliases,
-                package.as_ref(),
-                ":target?cell1//modifier:x+cell1//modifier:y",
-                &resolver,
-                &alias_resolver,
-            ),
-            &[":target?cell1"],
+        assert_eq!(
+            pattern_parts.modifiers,
+            Modifiers::new(Some(vec!["root//modifier:x".to_owned()]))
         );
+
+        let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+            &NoAliases,
+            package.as_ref(),
+            ":target?cell1//modifier:x+cell1//modifier:y",
+            &resolver,
+            &alias_resolver,
+        )?;
+        assert_eq!(
+            pattern_parts.parsed_pattern,
+            mk_target("root", "package", "target")
+        );
+        assert_eq!(
+            pattern_parts.modifiers,
+            Modifiers::new(Some(vec![
+                "cell1//modifier:x".to_owned(),
+                "cell1//modifier:y".to_owned()
+            ]))
+        );
+
+        // An explicit cell on the pattern and on the modifier still splits at the right `//`.
+        let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+            &NoAliases,
+            package.as_ref(),
+            "cell1//path:target?root//modifier:x",
+            &resolver,
+            &alias_resolver,
+        )?;
+        assert_eq!(
+            pattern_parts.parsed_pattern,
+            mk_target("cell1", "path", "target")
+        );
+        assert_eq!(
+            pattern_parts.modifiers,
+            Modifiers::new(Some(vec!["root//modifier:x".to_owned()]))
+        );
+        Ok(())
     }
 
     #[test]
