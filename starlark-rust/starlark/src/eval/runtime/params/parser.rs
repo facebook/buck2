@@ -86,6 +86,8 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::assert::Assert;
+    use crate::docs::DocItem;
+    use crate::docs::DocMember;
     use crate::docs::DocParam;
     use crate::docs::DocParams;
     use crate::docs::DocString;
@@ -180,6 +182,51 @@ mod tests {
 
         test("**kwargs");
         test("a, **kwargs");
+    }
+
+    /// `ParametersSpecBuilder::args` and `kwargs` record the fixed names `*args` and `**kwargs`,
+    /// so a `def` whose star parameters are named differently loses the names in
+    /// `parameters_str` and in its documentation, where the docstring entries for the real
+    /// names are not attached.
+    #[test]
+    fn test_star_parameter_names_are_fixed() {
+        let a = Assert::new();
+        let m = a.pass_module(
+            r#"
+def f(a, *xs, b, **kws):
+    """
+    Summary.
+
+    Args:
+        a: The docs for a
+        *xs: The docs for xs
+        b: The docs for b
+        **kws: The docs for kws
+    """
+    pass
+"#,
+        );
+        let f = m.get("f").unwrap();
+        assert_eq!(
+            "a, *args, b, **kwargs",
+            f.as_ref()
+                .value()
+                .parameters_spec()
+                .unwrap()
+                .parameters_str()
+        );
+
+        let DocItem::Member(DocMember::Function(docs)) = f.as_ref().value().documentation() else {
+            panic!("expected a function");
+        };
+        assert!(docs.params.pos_or_named[0].docs.is_some());
+        assert!(docs.params.named_only[0].docs.is_some());
+        let args = docs.params.args.unwrap();
+        assert_eq!("args", args.name);
+        assert!(args.docs.is_none());
+        let kwargs = docs.params.kwargs.unwrap();
+        assert_eq!("kwargs", kwargs.name);
+        assert!(kwargs.docs.is_none());
     }
 
     #[test]
