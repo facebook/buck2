@@ -196,6 +196,16 @@ mod tests {
         );
     }
 
+    /// With a single shard, `SHARD_BITS` is 0 and `table_for_hash` shifts the hash right by 64:
+    /// debug builds panic on the shift, release builds index `shards[hash]` out of bounds.
+    /// `test_shard_bits` lists one shard as a valid instantiation.
+    #[test]
+    #[should_panic]
+    fn test_one_shard() {
+        let table = ShardedLockFreeRawTable::<Box<u32>, 1>::new();
+        table.insert(1, Box::new(2), |a, b| a == b, |_| 1);
+    }
+
     #[test]
     fn test_shard_bits() {
         assert_eq!(0, ShardedLockFreeRawTable::<Box<u32>, 1>::SHARD_BITS);
