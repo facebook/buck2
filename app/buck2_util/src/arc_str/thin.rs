@@ -335,16 +335,20 @@ mod tests {
                 String::from_utf8_lossy(&output.stdout),
                 String::from_utf8_lossy(&output.stderr)
             );
-            // The null pointer from the failed allocation is written through, so the process
-            // dies with SIGSEGV and no message, where `handle_alloc_error` would report the
-            // failure.
+            // The failed allocation is reported by `handle_alloc_error`, which aborts.
             assert!(
-                output.status.signal() == Some(libc::SIGSEGV)
-                    || report.contains("signal 11")
-                    || report.contains("SIGSEGV"),
+                report.contains(&format!(
+                    "memory allocation of {} bytes failed",
+                    failing_size()
+                )),
                 "{report}"
             );
-            assert!(!report.contains("memory allocation of"), "{report}");
+            assert!(
+                output.status.signal() != Some(libc::SIGSEGV)
+                    && !report.contains("signal 11")
+                    && !report.contains("SIGSEGV"),
+                "{report}"
+            );
         }
     }
 }

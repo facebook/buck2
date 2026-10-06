@@ -252,6 +252,9 @@ impl<'a, P: ArcStrLenStrategy> From<&'a str> for ArcStrBase<P> {
             let (allocated_payload, value_payload) = P::pack_len(len);
             unsafe {
                 let alloc = alloc::alloc(layout);
+                if alloc.is_null() {
+                    alloc::handle_alloc_error(layout);
+                }
                 ptr::write(
                     alloc.cast::<ArcStrBaseInner<P>>(),
                     ArcStrBaseInner {
