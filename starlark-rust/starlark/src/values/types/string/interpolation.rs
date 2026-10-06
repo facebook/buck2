@@ -543,4 +543,23 @@ mod tests {
         assert::eq("'%x' % (-2147483647,)", "'-7fffffff'");
         assert::eq("'%x' % (-2147483648,)", "'-80000000'");
     }
+
+    /// `%d` on a float truncates and converts through `NumRef::as_int`, which only yields an
+    /// `i32`, so floats outside that range fail although ints are arbitrary precision and
+    /// `int(x)` accepts the same float.
+    #[test]
+    fn test_percent_d_float_beyond_i32() {
+        assert::eq("'%d' % 2147483647.0", "'2147483647'");
+        assert::eq("'%d' % -2147483648.0", "'-2147483648'");
+        assert::fail("'%d' % 2147483648.0", "format(%d)");
+        assert::fail("'%d' % -2147483649.0", "format(%d)");
+        assert::fail("'%d' % 3e9", "format(%d)");
+        assert::fail("'%d' % 1.23e45", "format(%d)");
+        // The same value through `int()` works.
+        assert::eq("'%d' % int(3e9)", "'3000000000'");
+        assert::eq(
+            "str(int(1.23e45))",
+            "'1229999999999999973814869011019624571608236032'",
+        );
+    }
 }
