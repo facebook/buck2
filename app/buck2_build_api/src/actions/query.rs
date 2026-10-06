@@ -133,6 +133,38 @@ impl PartialEq for ActionQueryNode {
     }
 }
 
+/// An aquery node carries a `RegisteredAction` and an `AnalysisResult`, neither of which is
+/// pagable, so anything holding one refuses to page out. The refusal is an error rather than a
+/// panic because page-out runs inside the daemon: the failure is reported and the value stays
+/// resident.
+#[derive(Debug)]
+struct ActionQueryNodeNotPagable;
+
+impl std::fmt::Display for ActionQueryNodeNotPagable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("`ActionQueryNode` cannot be paged out")
+    }
+}
+
+impl std::error::Error for ActionQueryNodeNotPagable {}
+
+impl pagable::PagableSerialize for ActionQueryNode {
+    fn pagable_serialize(
+        &self,
+        _serializer: &mut dyn pagable::PagableSerializer,
+    ) -> pagable::Result<()> {
+        Err(ActionQueryNodeNotPagable.into())
+    }
+}
+
+impl<'de> pagable::PagableDeserialize<'de> for ActionQueryNode {
+    fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(
+        _deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        Err(ActionQueryNodeNotPagable.into())
+    }
+}
+
 impl Eq for ActionQueryNode {}
 
 #[derive(Debug, Clone, Dupe)]

@@ -12,22 +12,24 @@ use std::convert::Infallible;
 use std::ops::Deref;
 
 use allocative::Allocative;
-// Used only by `register_ty_starlark_value!` invocations below, which expand to nothing
-// when the starlark `pagable` feature is off (e.g. in OSS cargo builds).
-#[allow(unused_imports)]
 use buck2_build_api::actions::query::ActionQueryNode;
-#[allow(unused_imports)]
 use buck2_node::nodes::configured::ConfiguredTargetNode;
-#[allow(unused_imports)]
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use derive_more::Display;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::PagableDeserialize;
+use pagable::PagableSerialize;
 use starlark::any::IsStaticType;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
+use starlark::pagable::StarlarkDeserialize;
+use starlark::pagable::StarlarkDeserializeContext;
+use starlark::pagable::StarlarkSerialize;
+use starlark::pagable::StarlarkSerializeContext;
 use starlark::starlark_module;
 use starlark::typing::HasTyVTable;
 use starlark::typing::Ty;
@@ -45,7 +47,23 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
 
-pub(crate) trait NodeLike = QueryTarget + std::fmt::Debug + Eq + Dupe + AllocNode + Allocative;
+pub(crate) trait NodeLike =
+    QueryTarget + std::fmt::Debug + Eq + Dupe + AllocNode + Allocative + Pagable;
+
+impl<Node: NodeLike> StarlarkSerialize for StarlarkTargetSet<Node> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> starlark::Result<()> {
+        self.pagable_serialize(ctx.pagable())?;
+        Ok(())
+    }
+}
+
+impl<'fv, Node: NodeLike> StarlarkDeserialize<'fv> for StarlarkTargetSet<Node> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
+    ) -> starlark::Result<Self> {
+        Ok(Self::pagable_deserialize(ctx.pagable())?)
+    }
+}
 
 unsafe impl<N: QueryTarget + 'static> starlark::pagable::VtableRegistered for StarlarkTargetSet<N> {}
 
@@ -59,13 +77,7 @@ starlark::register_simple_vtable_entry!(
     StarlarkTargetSet<buck2_build_api::actions::query::ActionQueryNode>
 );
 
-#[derive(
-    Debug,
-    Display,
-    Clone,
-    starlark::StarlarkPagableViaPagable,
-    pagable::PagablePanic // okay("bxl")
-)]
+#[derive(Debug, Display, Clone, Pagable)]
 #[derive(NoSerialize, Allocative)] // TODO maybe this should be
 /// The StarlarkValue implementation for TargetSet to expose it to starlark.
 pub(crate) struct StarlarkTargetSet<Node: QueryTarget>(pub(crate) TargetSet<Node>);
@@ -276,3 +288,88 @@ where
 /// ```
 #[starlark_module]
 fn starlark_target_set_methods(builder: &mut MethodsBuilder) {}
+
+starlark::__starlark_pagable_only! {
+    #[cfg(test)]
+    mod tests {
+        use buck2_build_api::actions::registry::RecordedActions;
+        use buck2_build_api::analysis::AnalysisResult;
+        use buck2_build_api::analysis::registry::RecordedAnalysisValues;
+        use buck2_core::configuration::data::ConfigurationData;
+        use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+        use buck2_core::deferred::key::DeferredHolderKey;
+        use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+        use buck2_core::provider::label::ConfiguredProvidersLabel;
+        use buck2_core::target::label::label::TargetLabel;
+        use buck2_hash::StdBuckHashMap;
+        use pagable::PagableDeserialize;
+        use pagable::PagableSerialize;
+        use starlark::values::FrozenHeapName;
+        use starlark::values::OwnedFrozen;
+
+        use super::*;
+
+        #[test]
+        fn configured_target_set_round_trips() -> pagable::Result<()> {
+            let node = ConfiguredTargetNode::testing_new(
+                TargetLabel::testing_parse("root//pkg:owner")
+                    .configure(ConfigurationData::testing_new()),
+                "test_rule",
+                ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
+                vec![],
+                None,
+            );
+            let set = TargetSet::from_iter([node]);
+            let owned: OwnedFrozen<Value<'static>> = OwnedFrozen::build(
+                FrozenHeapName::user("configured_target_set_round_trips"),
+                |heap| heap.alloc_simple(StarlarkTargetSet(set.clone())),
+            );
+
+            let mut serializer = pagable::testing::TestingSerializer::new();
+            owned.pagable_serialize(&mut serializer)?;
+            let bytes = serializer.finish();
+            let mut deserializer = pagable::testing::TestingDeserializer::new(&bytes);
+            let restored = OwnedFrozen::<Value<'static>>::pagable_deserialize(&mut deserializer)?;
+
+            restored.by_ref(|v| {
+                let restored = v
+                    .downcast_ref::<StarlarkTargetSet<ConfiguredTargetNode>>()
+                    .expect("a target_set");
+                assert_eq!(restored.0, set);
+            });
+            Ok(())
+        }
+
+        #[test]
+        fn aquery_target_set_fails_page_out_without_panicking() {
+            let label = TargetLabel::testing_parse("root//pkg:owner")
+                .configure(ConfigurationData::testing_new());
+            let analysis = AnalysisResult::new(
+                RecordedAnalysisValues::testing_new_actions_only(
+                    DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(label.dupe())),
+                    RecordedActions::new(0),
+                ),
+                None,
+                StdBuckHashMap::default(),
+                0,
+                0,
+                None,
+                Vec::new(),
+            );
+            let node = ActionQueryNode::new_analysis(ConfiguredProvidersLabel::default_for(label), analysis);
+            let owned: OwnedFrozen<Value<'static>> = OwnedFrozen::build(
+                FrozenHeapName::user("aquery_target_set_fails_page_out_without_panicking"),
+                |heap| heap.alloc_simple(StarlarkTargetSet(TargetSet::from_iter([node]))),
+            );
+
+            let mut serializer = pagable::testing::TestingSerializer::new();
+            let err = owned
+                .pagable_serialize(&mut serializer)
+                .expect_err("aquery target sets are not pagable");
+            assert!(
+                format!("{err:#}").contains("`ActionQueryNode` cannot be paged out"),
+                "{err:#}"
+            );
+        }
+    }
+}
