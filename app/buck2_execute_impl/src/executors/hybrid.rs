@@ -191,6 +191,17 @@ where
         let remote_result = self.remote_exec_cmd(command, remote_manager, cancellations);
 
         let action_too_large = self.is_action_too_large_for_remote(command.request.paths());
+        if executor_preference.requires_remote() && action_too_large {
+            return manager.error(
+                "remote_only_action_too_large",
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "Action inputs are {} bytes, above the remote execution limit of {} bytes, and local execution is not allowed",
+                    command.request.paths().input_files_bytes(),
+                    self.re_max_input_files_bytes
+                ),
+            );
+        }
         if executor_preference.requires_local() || action_too_large {
             let mut res = local_result.await;
             if action_too_large {

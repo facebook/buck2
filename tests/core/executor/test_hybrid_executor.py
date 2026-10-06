@@ -332,15 +332,19 @@ async def test_remote_only(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_remote_only_runs_oversized_action_locally(buck: Buck) -> None:
+async def test_remote_only_rejects_oversized_action(buck: Buck) -> None:
     # `cp_big` copies an input above the remote input size limit of this fixture, so it cannot
-    # run on RE. `--remote-only` is documented to reject such actions, but the hybrid executor
-    # checks the size before the preference and runs the action locally.
+    # run on RE, and `--remote-only` does not allow it to run locally.
     opts = ["-c", f"test.cache_buster={random_string()}"]
     # `big` is local only, which `--remote-only` rejects, so build it on its own first.
     await buck.build("root//executor_threshold_tests:big", *opts)
 
-    await buck.build("root//executor_threshold_tests:cp_big", "--remote-only", *opts)
+    await expect_failure(
+        buck.build("root//executor_threshold_tests:cp_big", "--remote-only", *opts),
+        stderr_regex="above the remote execution limit",
+    )
+    # Without the restriction the action falls back to local execution.
+    await buck.build("root//executor_threshold_tests:cp_big", *opts)
     out = await read_what_ran(buck)
     executors = {line["identity"]: line["reproducer"]["executor"] for line in out}
     assert executors == {
