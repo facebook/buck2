@@ -108,15 +108,11 @@ impl<'v> TransitiveSetJsonProjection<'v> {
 }
 
 impl<'v> TransitiveSetJsonProjection<'v> {
-    pub fn iter_values<'a>(
-        &'a self,
-    ) -> buck2_error::Result<Box<dyn Iterator<Item = buck2_error::Result<Value<'v>>> + 'a>>
-    where
-        'v: 'a,
-    {
+    /// Every node's projected value. Consumes the whole set.
+    pub fn collect_values(&self) -> buck2_error::Result<Vec<Value<'v>>> {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
             .internal_error("Invalid transitive_set")?;
-        set.iter_projection_values(self.ordering, self.projection)
+        set.collect_projection_values(self.ordering, self.projection)
     }
 }
 

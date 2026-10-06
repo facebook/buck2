@@ -181,8 +181,9 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                     // TransitiveSet::new already did validate_json for projected values.
                     None => serializer.collect_seq(std::iter::empty::<u8>()),
                     Some(_) => serializer.collect_seq(
-                        err(x.iter_values())?
-                            .map(|v| SerializeOrFail(v.map(|v| self.with_value(v)))),
+                        err(x.collect_values())?
+                            .into_iter()
+                            .map(|v| self.with_value(v)),
                     ),
                 }
             }

@@ -10,6 +10,7 @@
 
 use std::fmt;
 use std::iter;
+use std::ptr;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -21,6 +22,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutSet;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
@@ -318,7 +320,44 @@ impl<'v> TransitiveSet<'v> {
     }
 }
 
+/// Resolves the children of every node reachable from `root`, one level of
+/// the graph at a time with each level's resolutions overlapping, so the
+/// traversal that follows finds them resident. A level's children, once
+/// resident, are what name the next level.
+fn prefetch_all_children<'a, 'v: 'a>(root: &'a TransitiveSet<'v>) -> buck2_error::Result<()> {
+    let mut seen: BuckMutSet<usize> = BuckMutSet::from_iter([ptr::from_ref(root) as usize]);
+    let mut level: Vec<&'a TransitiveSet<'v>> = vec![root];
+    while !level.is_empty() {
+        Deferred::prefetch_many(level.iter().map(|set| &set.children))?;
+        let mut next = Vec::new();
+        for set in level {
+            for child in set.children.read()?.iter() {
+                if let Some(child) = TransitiveSet::from_value(*child)
+                    && seen.insert(ptr::from_ref(child) as usize)
+                {
+                    next.push(child);
+                }
+            }
+        }
+        level = next;
+    }
+    Ok(())
+}
+
 impl<'v> TransitiveSet<'v> {
+    /// Makes every reachable node's children resident before a traversal that
+    /// will visit all of them. A set whose own children are unread was
+    /// restored from storage and its descendants' children will be too; one
+    /// read per node in turn would serialize the page-ins. Callers that may
+    /// stop early should use [`iter`](Self::iter) without this.
+    pub fn prefetch_children(&self) -> buck2_error::Result<()> {
+        if self.children.peek().is_none() {
+            prefetch_all_children(self)?;
+        }
+        Ok(())
+    }
+
+    /// A lazy traversal; reads each node's children when it is reached.
     pub fn iter<'a>(
         &'a self,
         ordering: TransitiveSetOrdering,
@@ -339,36 +378,37 @@ impl<'v> TransitiveSet<'v> {
         })
     }
 
-    pub fn iter_values<'a>(
-        &'a self,
+    /// Every node's value in `ordering`. Consumes the whole set, so the
+    /// children are prefetched first.
+    pub fn collect_values(
+        &self,
         ordering: TransitiveSetOrdering,
-    ) -> buck2_error::Result<Box<dyn Iterator<Item = buck2_error::Result<Value<'v>>> + 'a>>
-    where
-        'v: 'a,
-    {
-        Ok(Box::new(
-            self.iter(ordering)?
-                .values()
-                .map(|node| node.map(|node| node.value.to_value())),
-        ))
+    ) -> buck2_error::Result<Vec<Value<'v>>> {
+        self.prefetch_children()?;
+        self.iter(ordering)?
+            .values()
+            .map(|node| node.map(|node| node.value.to_value()))
+            .collect()
     }
 
-    pub(super) fn iter_projection_values<'a>(
-        &'a self,
+    /// Every node's `projection` value in `ordering`. Consumes the whole set,
+    /// so the children are prefetched first.
+    pub(super) fn collect_projection_values(
+        &self,
         ordering: TransitiveSetOrdering,
         projection: usize,
-    ) -> buck2_error::Result<Box<dyn Iterator<Item = buck2_error::Result<Value<'v>>> + 'a>>
-    where
-        'v: 'a,
-    {
-        let iter = self.iter(ordering)?.values();
-        Ok(Box::new(iter.map(move |node| {
-            Ok(node?
-                .projections
-                .get(projection)
-                .internal_error("Invalid projection")?
-                .to_value())
-        })))
+    ) -> buck2_error::Result<Vec<Value<'v>>> {
+        self.prefetch_children()?;
+        self.iter(ordering)?
+            .values()
+            .map(|node| {
+                Ok(node?
+                    .projections
+                    .get(projection)
+                    .internal_error("Invalid projection")?
+                    .to_value())
+            })
+            .collect()
     }
 }
 
