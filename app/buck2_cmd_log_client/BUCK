@@ -38,6 +38,7 @@ rust_library(
         "//buck2/app/buck2_hash:buck2_hash",
         "//buck2/app/buck2_log_common:buck2_log_common",
         "//buck2/app/buck2_subscription_proto:buck2_subscription_proto",
+        # @oss-disable[end= ]: "//buck2/app/buck2_trailcam:buck2_trailcam",
         "//buck2/app/buck2_util:buck2_util",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",

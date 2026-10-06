@@ -30,6 +30,8 @@ mod show_log;
 mod show_user_log;
 mod snoop;
 mod summary;
+#[cfg(fbcode_build)]
+mod trailcam;
 mod what_cmd;
 mod what_failed;
 mod what_materialized;
@@ -139,6 +141,8 @@ pub enum LogCommand {
     ChromeTrace(ChromeTraceCommand),
     #[clap(subcommand, hide = true)]
     Shed(shed::ShedCommand),
+    #[cfg(fbcode_build)]
+    Trailcam(trailcam::TrailcamCommand),
 }
 
 impl LogCommand {
@@ -167,6 +171,8 @@ impl LogCommand {
             Self::ExternalConfigs(cmd) => ctx.exec(cmd, matches, events_ctx),
             Self::ChromeTrace(cmd) => ctx.exec(cmd, matches, events_ctx),
             Self::Shed(cmd) => cmd.exec(matches, ctx, events_ctx),
+            #[cfg(fbcode_build)]
+            Self::Trailcam(cmd) => ctx.exec(cmd, matches, events_ctx),
         }
     }
 
@@ -194,6 +200,8 @@ impl LogCommand {
             Self::ExternalConfigs(cmd) => cmd.logging_name(),
             Self::ChromeTrace(cmd) => cmd.logging_name(),
             Self::Shed(_) => "log-shed",
+            #[cfg(fbcode_build)]
+            Self::Trailcam(cmd) => cmd.logging_name(),
         }
     }
 }
