@@ -379,6 +379,22 @@ mod tests {
     use crate::assert;
     use crate::assert::Assert;
 
+    /// `D.update(pairs)` with `D` itself among the pairs: `update` holds the receiver mutably
+    /// borrowed and then iterates it, which panics on the `RefCell` instead of raising a
+    /// Starlark error.
+    #[test]
+    #[should_panic(expected = "already mutably borrowed")]
+    fn test_update_with_self_among_pairs() {
+        assert::pass("d = {'a': 1, 'b': 2}\nd.update([d])");
+    }
+
+    /// The other self-references of `update` do not panic.
+    #[test]
+    fn test_update_self_references() {
+        assert::eq("{'a': 1, 'b': 2}", "d = {'a': 1, 'b': 2}; d.update(d); d");
+        assert::fail("d = {'a': 1}; d.update([(d, 1)])", "not hashable");
+    }
+
     #[test]
     fn test_error_codes() {
         assert::fail(r#"x = {"one": 1}; x.pop("four")"#, "not found");
