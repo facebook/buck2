@@ -31,6 +31,7 @@ use pagable::storage::traits::ArcSerCache;
 use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
 use starlark_derive::StarlarkPagable;
+use starlark_derive::StarlarkPagableUnsupported;
 use starlark_derive::starlark_value;
 use starlark_syntax::codemap::CodeMap;
 use starlark_syntax::codemap::FileSpan;
@@ -211,6 +212,41 @@ starlark_simple_value!(SimpleData);
 #[starlark_value(type = "SimpleData")]
 impl<'v> StarlarkValue<'v> for SimpleData {
     type Canonical = Self;
+}
+
+/// A value that cannot be paged, as a heap holding one must say so without panicking.
+#[derive(
+    Debug,
+    Display,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize,
+    StarlarkPagableUnsupported
+)]
+#[display("Unpagable")]
+struct Unpagable;
+
+starlark_simple_value!(Unpagable);
+
+#[starlark_value(type = "Unpagable")]
+impl<'v> StarlarkValue<'v> for Unpagable {
+    type Canonical = Self;
+}
+
+#[test]
+fn unsupported_value_fails_page_out_instead_of_panicking() {
+    let owned: OwnedFrozen<Value> =
+        OwnedFrozen::build(TestHeapName::heap_name("test_unpagable"), |heap| {
+            heap.alloc_simple(Unpagable)
+        });
+    let mut ser = pagable::testing::TestingSerializer::new();
+    let error = owned
+        .pagable_serialize(&mut ser)
+        .expect_err("a heap holding an unpagable value fails to page out");
+    assert!(
+        format!("{error:#}").contains("`Unpagable` cannot be paged out"),
+        "{error:#}"
+    );
 }
 
 /// Round-trip an `OwnedFrozen` through the testing serializer. Returns the restored value.

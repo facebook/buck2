@@ -269,7 +269,7 @@ impl LazyOperation {
     Allocative,
     Clone,
     Dupe,
-    starlark::StarlarkPagablePanic // okay("bxl")
+    starlark::StarlarkPagableUnsupported
 )]
 #[derivative(Debug)]
 #[display("{:?}", self)]

@@ -120,7 +120,10 @@ pub enum ActionInput {
 
 /// Both the fields are enums here. Ideally they wouldn't be, but since the query interface wants a
 /// &NodeRef (and that is rather hard to change), we pull this out.
-#[derive(Debug, Clone, Dupe, Allocative)]
+///
+/// Not pagable: it carries a `RegisteredAction` and an `AnalysisResult`. Anything holding one
+/// fails page-out with an error and stays resident.
+#[derive(Debug, Clone, Dupe, Allocative, pagable::PagableUnsupported)]
 pub struct ActionQueryNode {
     key: ActionQueryNodeRef,
     #[allocative(skip)] // TODO(@wendyy) we should derive allocative for action-related structs
@@ -130,38 +133,6 @@ pub struct ActionQueryNode {
 impl PartialEq for ActionQueryNode {
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key
-    }
-}
-
-/// An aquery node carries a `RegisteredAction` and an `AnalysisResult`, neither of which is
-/// pagable, so anything holding one refuses to page out. The refusal is an error rather than a
-/// panic because page-out runs inside the daemon: the failure is reported and the value stays
-/// resident.
-#[derive(Debug)]
-struct ActionQueryNodeNotPagable;
-
-impl std::fmt::Display for ActionQueryNodeNotPagable {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("`ActionQueryNode` cannot be paged out")
-    }
-}
-
-impl std::error::Error for ActionQueryNodeNotPagable {}
-
-impl pagable::PagableSerialize for ActionQueryNode {
-    fn pagable_serialize(
-        &self,
-        _serializer: &mut dyn pagable::PagableSerializer,
-    ) -> pagable::Result<()> {
-        Err(ActionQueryNodeNotPagable.into())
-    }
-}
-
-impl<'de> pagable::PagableDeserialize<'de> for ActionQueryNode {
-    fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(
-        _deserializer: &mut D,
-    ) -> pagable::Result<Self> {
-        Err(ActionQueryNodeNotPagable.into())
     }
 }
 

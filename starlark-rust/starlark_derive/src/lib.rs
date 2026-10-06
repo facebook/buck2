@@ -31,6 +31,7 @@ mod pagable_brand;
 mod serde;
 mod starlark_pagable;
 mod starlark_pagable_panic;
+mod starlark_pagable_unsupported;
 mod starlark_pagable_via_pagable;
 mod starlark_type_repr;
 mod starlark_value;
@@ -252,6 +253,21 @@ pub fn derive_starlark_pagable(input: proc_macro::TokenStream) -> proc_macro::To
 #[proc_macro_derive(StarlarkPagablePanic, attributes(starlark_pagable))]
 pub fn derive_starlark_pagable_panic(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     starlark_pagable_panic::derive_starlark_pagable_panic(input)
+}
+
+/// Derive `StarlarkSerialize` and `StarlarkDeserialize` impls that fail with an error naming
+/// the type.
+///
+/// Use on types that must satisfy a `StarlarkSerialize + StarlarkDeserialize` bound but cannot
+/// be paged. Unlike `StarlarkPagablePanic`, reaching one during page-out fails that page-out
+/// and leaves the heap resident, rather than aborting the process.
+///
+/// The brand of the `StarlarkDeserialize` impl is chosen as for `StarlarkPagable`.
+#[proc_macro_derive(StarlarkPagableUnsupported, attributes(starlark_pagable))]
+pub fn derive_starlark_pagable_unsupported(
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    starlark_pagable_unsupported::derive_starlark_pagable_unsupported(input)
 }
 
 /// Derive `StarlarkSerialize` / `StarlarkDeserialize` impls that bridge to the

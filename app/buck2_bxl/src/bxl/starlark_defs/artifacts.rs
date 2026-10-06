@@ -62,7 +62,7 @@ pub(crate) struct EnsuredArtifact {
     Trace,
     ProvidesStaticType,
     Allocative,
-    starlark::StarlarkPagablePanic
+    starlark::StarlarkPagableUnsupported
 )]
 #[repr(C)]
 pub(crate) struct EnsuredArtifactGroupInner {
@@ -110,7 +110,7 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
     Trace,
     ProvidesStaticType,
     Allocative,
-    starlark::StarlarkPagablePanic
+    starlark::StarlarkPagableUnsupported
 )]
 #[repr(C)]
 pub(crate) struct EnsuredArtifactGroup<'v> {

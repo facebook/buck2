@@ -29,7 +29,7 @@ use starlark::values::starlark_value;
     ProvidesStaticType,
     NoSerialize,
     Allocative,
-    starlark::StarlarkPagablePanic // okay("bxl")
+    starlark::StarlarkPagableUnsupported
 )]
 #[display("{:?}", _0)]
 pub(crate) struct StarlarkInstant(pub(crate) Instant);

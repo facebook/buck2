@@ -13,6 +13,7 @@ use proc_macro::TokenStream;
 mod derive_pagable;
 mod derive_pagable_panic;
 mod derive_pagable_tagged;
+mod derive_pagable_unsupported;
 mod typetag;
 
 #[proc_macro_derive(Pagable, attributes(pagable))]
@@ -26,6 +27,16 @@ pub fn derive_pagable(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(PagablePanic, attributes(pagable))]
 pub fn derive_pagable_panic(input: TokenStream) -> TokenStream {
     derive_pagable_panic::derive_pagable_panic(input)
+}
+
+/// Derives `PagableSerialize` and `PagableDeserialize` implementations that
+/// fail with an error naming the type. For types that must satisfy the bounds
+/// but cannot be paged: unlike `PagablePanic`, reaching one during page-out
+/// fails that page-out and leaves the value resident, rather than aborting the
+/// process.
+#[proc_macro_derive(PagableUnsupported, attributes(pagable))]
+pub fn derive_pagable_unsupported(input: TokenStream) -> TokenStream {
+    derive_pagable_unsupported::derive_pagable_unsupported(input)
 }
 
 #[proc_macro_derive(PagableSerialize, attributes(pagable))]

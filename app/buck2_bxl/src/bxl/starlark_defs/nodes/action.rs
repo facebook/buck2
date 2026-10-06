@@ -116,7 +116,7 @@ fn action_methods(builder: &mut MethodsBuilder) {
     Display,
     ProvidesStaticType,
     Allocative,
-    starlark::StarlarkPagablePanic // okay("bxl")
+    starlark::StarlarkPagableUnsupported
 )]
 #[derive(NoSerialize)]
 #[display("{}", self.0.key())]

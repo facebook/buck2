@@ -30,7 +30,7 @@ use starlark::values::starlark_value;
     ProvidesStaticType,
     NoSerialize,
     Allocative,
-    starlark::StarlarkPagablePanic // okay("bxl")
+    starlark::StarlarkPagableUnsupported
 )]
 #[display("bxl.VisibilityIntersectionLayer({})", _0.to_json())]
 pub(crate) struct StarlarkVisibilityIntersectionLayer(pub(crate) VisibilityIntersectionLayer);

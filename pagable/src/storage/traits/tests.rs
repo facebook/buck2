@@ -948,3 +948,20 @@ fn page_out_propagates_nested_arc_serialization_failure() -> anyhow::Result<()> 
     );
     Ok(())
 }
+
+#[derive(pagable::PagableUnsupported)]
+struct Unpagable;
+
+#[test]
+fn unsupported_derive_fails_instead_of_panicking() {
+    let mut serializer = crate::testing::TestingSerializer::new();
+    let error = Unpagable
+        .pagable_serialize(&mut serializer)
+        .expect_err("an unsupported type refuses to page out");
+    assert!(
+        format!("{error:#}").contains("`Unpagable` cannot be paged out"),
+        "{error:#}"
+    );
+    let mut deserializer = crate::testing::TestingDeserializer::new(&[]);
+    assert!(Unpagable::pagable_deserialize(&mut deserializer).is_err());
+}

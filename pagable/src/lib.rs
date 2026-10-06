@@ -26,6 +26,7 @@ pub use pagable_derive::Pagable;
 pub use pagable_derive::PagableDeserialize;
 pub use pagable_derive::PagablePanic;
 pub use pagable_derive::PagableSerialize;
+pub use pagable_derive::PagableUnsupported;
 pub use pagable_derive::pagable_tagged;
 pub use pagable_derive::pagable_typetag;
 pub use partial_pagable_arc::PartialPagableArc;

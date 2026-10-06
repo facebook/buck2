@@ -112,7 +112,7 @@ impl<'v> StarlarkValue<'v> for StarlarkProvidersArtifactIterable<'v> {
     ProvidesStaticType,
     NoSerialize,
     Allocative,
-    starlark::StarlarkPagablePanic // okay("bxl")
+    starlark::StarlarkPagableUnsupported
 )]
 pub(crate) struct StarlarkFailedArtifactIterable<'v>(pub(crate) Value<'v>);
 

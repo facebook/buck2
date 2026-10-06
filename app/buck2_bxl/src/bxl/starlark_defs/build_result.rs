@@ -32,7 +32,7 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
     ProvidesStaticType,
     NoSerialize,
     Allocative,
-    starlark::StarlarkPagablePanic // okay("bxl")
+    starlark::StarlarkPagableUnsupported
 )]
 pub(crate) struct StarlarkBxlBuildResult(pub(crate) BxlBuildResult);
 
