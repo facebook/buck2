@@ -289,8 +289,8 @@ impl<'f, T> ParametersCompiled<'f, T> {
             match &x.node {
                 ParameterCompiled::Normal(n, _, None) => builder.required(&n.name),
                 ParameterCompiled::Normal(n, _, Some(_)) => builder.defaulted(&n.name, ()),
-                ParameterCompiled::Args(_, _) => builder.args(),
-                ParameterCompiled::KwArgs(_, _) => builder.kwargs(),
+                ParameterCompiled::Args(n, _) => builder.args(&n.name),
+                ParameterCompiled::KwArgs(n, _) => builder.kwargs(&n.name),
             }
         }
         ParametersCompiled {

@@ -282,7 +282,7 @@ impl<V> ParametersSpecBuilder<V> {
     /// [`optional`](ParametersSpecBuilder::optional) or
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by name.
-    pub(crate) fn args(&mut self) {
+    pub(crate) fn args(&mut self, name: &str) {
         assert!(
             self.args.is_none(),
             "adding *args to `{}`",
@@ -298,7 +298,7 @@ impl<V> ParametersSpecBuilder<V> {
             "adding *args to `{}`",
             self.function_name
         );
-        self.params.push(("*args".to_owned(), ParameterKind::ARGS));
+        self.params.push((format!("*{name}"), ParameterKind::ARGS));
         self.args = Some(self.params.len() - 1);
         self.current_style = CurrentParameterStyle::NamedOnly;
     }
@@ -342,14 +342,14 @@ impl<V> ParametersSpecBuilder<V> {
     /// [`optional`](ParametersSpecBuilder::optional) or
     /// [`defaulted`](ParametersSpecBuilder::defaulted)
     /// parameters can _only_ be supplied by position.
-    pub(crate) fn kwargs(&mut self) {
+    pub(crate) fn kwargs(&mut self, name: &str) {
         assert!(
             self.kwargs.is_none(),
             "adding **kwargs to `{}`",
             self.function_name
         );
         self.params
-            .push(("**kwargs".to_owned(), ParameterKind::KWARGS));
+            .push((format!("**{name}"), ParameterKind::KWARGS));
         self.current_style = CurrentParameterStyle::NoMore;
         self.kwargs = Some(self.params.len() - 1);
     }
@@ -468,7 +468,7 @@ impl<V> ParametersSpec<V> {
             builder.param(name, val);
         }
         if args {
-            builder.args();
+            builder.args("args");
         } else {
             builder.no_more_positional_args();
         }
@@ -476,7 +476,7 @@ impl<V> ParametersSpec<V> {
             builder.param(name, val);
         }
         if kwargs {
-            builder.kwargs();
+            builder.kwargs("kwargs");
         }
         builder.finish()
     }

@@ -184,12 +184,11 @@ mod tests {
         test("a, **kwargs");
     }
 
-    /// `ParametersSpecBuilder::args` and `kwargs` record the fixed names `*args` and `**kwargs`,
-    /// so a `def` whose star parameters are named differently loses the names in
-    /// `parameters_str` and in its documentation, where the docstring entries for the real
-    /// names are not attached.
+    /// A `def` whose star parameters are not named `args` and `kwargs` keeps their names in
+    /// `parameters_str` and in its documentation, where the docstring entries are attached by
+    /// name.
     #[test]
-    fn test_star_parameter_names_are_fixed() {
+    fn test_star_parameter_names_are_kept() {
         let a = Assert::new();
         let m = a.pass_module(
             r#"
@@ -208,7 +207,7 @@ def f(a, *xs, b, **kws):
         );
         let f = m.get("f").unwrap();
         assert_eq!(
-            "a, *args, b, **kwargs",
+            "a, *xs, b, **kws",
             f.as_ref()
                 .value()
                 .parameters_spec()
@@ -222,11 +221,11 @@ def f(a, *xs, b, **kws):
         assert!(docs.params.pos_or_named[0].docs.is_some());
         assert!(docs.params.named_only[0].docs.is_some());
         let args = docs.params.args.unwrap();
-        assert_eq!("args", args.name);
-        assert!(args.docs.is_none());
+        assert_eq!("xs", args.name);
+        assert!(args.docs.is_some());
         let kwargs = docs.params.kwargs.unwrap();
-        assert_eq!("kwargs", kwargs.name);
-        assert!(kwargs.docs.is_none());
+        assert_eq!("kws", kwargs.name);
+        assert!(kwargs.docs.is_some());
     }
 
     #[test]
