@@ -35,7 +35,6 @@ use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
-use pagable::PageInState;
 use pagable::StorageState;
 use pagable::pagable_typetag;
 
@@ -105,11 +104,6 @@ struct BenchStorageState;
 
 impl StorageState for BenchStorageState {}
 
-#[derive(Default)]
-struct BenchPageInState;
-
-impl PageInState for BenchPageInState {}
-
 impl PagableSerialize for BenchValue {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
         for _ in 0..self.state_lookups {
@@ -133,8 +127,8 @@ impl<'de> PagableDeserialize<'de> for BenchValue {
         for _ in 0..state_lookups {
             black_box(
                 deserializer
-                    .page_in_scope()
-                    .get_or_init(BenchPageInState::default),
+                    .storage_context()
+                    .get_or_init(BenchStorageState::default),
             );
         }
         Ok(Self {

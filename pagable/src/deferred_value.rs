@@ -36,9 +36,9 @@ use crate::PagableSerializer;
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::deserialize_arc;
-use crate::page_in_scope::ArcKey;
 use crate::read_failures::DeferredReadFailures;
 use crate::read_failures::ReadRefused;
+use crate::storage::data::DataKey;
 use crate::storage::handle::PagableStorageHandle;
 use crate::storage::handle::WeakPagableStorageHandle;
 
@@ -81,10 +81,9 @@ enum Loader<T> {
 struct ArcLoader<T> {
     #[allocative(skip)]
     storage: WeakPagableStorageHandle,
+    key: DataKey,
     #[allocative(skip)]
-    key: ArcKey,
-    #[allocative(skip)]
-    restore: fn(&PagableStorageHandle, &ArcKey) -> crate::Result<T>,
+    restore: fn(&PagableStorageHandle, DataKey) -> crate::Result<T>,
 }
 
 impl<T> Loader<T> {
@@ -103,11 +102,11 @@ impl<T> ArcLoader<T> {
             .storage
             .upgrade()
             .ok_or_else(|| anyhow::anyhow!("storage closed before deferred field read"))?;
-        (self.restore)(&storage, &self.key).inspect_err(|error| {
+        (self.restore)(&storage, self.key).inspect_err(|error| {
             storage
                 .storage_context()
                 .get_or_init(DeferredReadFailures::default)
-                .record_error(format_args!("arc {:?}", self.key.key), error);
+                .record_error(format_args!("arc {:?}", self.key), error);
         })
     }
 }
@@ -238,7 +237,7 @@ impl<A: ArcErase> DeferredValue<A> {
         if enabled && let Some(key) = deserializer.take_arc_key()? {
             fn restore<A: ArcErase>(
                 storage: &PagableStorageHandle,
-                key: &ArcKey,
+                key: DataKey,
             ) -> crate::Result<A> {
                 fn decode<A: ArcErase>(
                     deserializer: &mut dyn PagableDeserializer<'_>,

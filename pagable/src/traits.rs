@@ -25,10 +25,8 @@ use std::sync::OnceLock;
 use allocative::Allocative;
 
 use crate::PagableDeserializerRecipe;
-use crate::PageInScope;
 use crate::arc_erase::ArcEraseDyn;
 use crate::hashers::TypeIdDashMap;
-use crate::page_in_scope::ArcKey;
 use crate::storage::data::DataKey;
 use crate::storage::handle::PagableStorageHandle;
 
@@ -349,10 +347,10 @@ pub trait PagableDeserializer<'de> {
     ///
     /// On a backend with stable arc keys this splits in two: [`take_arc_key`]
     /// reads the slot's key and [`PagableStorageHandle::deserialize_arc_by_key`]
-    /// restores the arc later, in the page-in scope the key carries. A
-    /// successful key read has consumed the slot, so restore that arc by key
-    /// rather than through this method, which would consume the next slot. A
-    /// `None` key read consumed nothing; fall back to this method.
+    /// restores the arc later. A successful key read has consumed the slot,
+    /// so restore that arc by key rather than through this method, which would
+    /// consume the next slot. A `None` key read consumed nothing; fall back to
+    /// this method.
     ///
     /// [`take_arc_key`]: Self::take_arc_key
     /// [`PagableStorageHandle::deserialize_arc_by_key`]: crate::storage::handle::PagableStorageHandle::deserialize_arc_by_key
@@ -374,11 +372,9 @@ pub trait PagableDeserializer<'de> {
         ) -> crate::Result<Box<dyn ArcEraseDyn>>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>>;
 
-    /// Consume the next nested arc slot and return its storage key, paired
-    /// with this deserializer's page-in scope, without fetching or
-    /// deserializing the blob. Pay for it later, if at all, via
-    /// [`PagableStorageHandle::deserialize_arc_by_key`], which restores the
-    /// arc where the slot was read.
+    /// Consume the next nested arc slot and return its storage key without
+    /// fetching or deserializing the blob. Pay for it later, if at all, via
+    /// [`PagableStorageHandle::deserialize_arc_by_key`].
     ///
     /// `None` means this backend has no stable key for the slot - nothing is
     /// consumed, and the caller must fall back to
@@ -390,16 +386,13 @@ pub trait PagableDeserializer<'de> {
     /// if no slot remains, without advancing the cursor.
     ///
     /// [`PagableStorageHandle::deserialize_arc_by_key`]: crate::storage::handle::PagableStorageHandle::deserialize_arc_by_key
-    fn take_arc_key(&mut self) -> crate::Result<Option<ArcKey>>;
+    fn take_arc_key(&mut self) -> crate::Result<Option<DataKey>>;
 
     /// Returns a reference to the storage handle used for paging operations.
     ///
     /// This allows deserializers to create [`PagableArc`](crate::PagableArc) instances
     /// that are connected to the appropriate storage backend for future paging.
     fn storage(&self) -> PagableStorageHandle;
-
-    /// Scope shared by the root value and all nested page-in work.
-    fn page_in_scope(&self) -> &PageInScope;
 
     /// Returns this deserializer as a trait object.
     ///
@@ -429,7 +422,7 @@ impl<'de, D: PagableDeserializer<'de> + ?Sized> PagableDeserializer<'de> for &mu
         <D as PagableDeserializer<'de>>::deserialize_arc(self, type_id, deserialize_fn)
     }
 
-    fn take_arc_key(&mut self) -> crate::Result<Option<ArcKey>> {
+    fn take_arc_key(&mut self) -> crate::Result<Option<DataKey>> {
         <D as PagableDeserializer<'de>>::take_arc_key(self)
     }
 
@@ -443,10 +436,6 @@ impl<'de, D: PagableDeserializer<'de> + ?Sized> PagableDeserializer<'de> for &mu
 
     fn storage(&self) -> PagableStorageHandle {
         <D as PagableDeserializer<'de>>::storage(self)
-    }
-
-    fn page_in_scope(&self) -> &PageInScope {
-        <D as PagableDeserializer<'de>>::page_in_scope(self)
     }
 
     fn as_dyn(&mut self) -> &mut dyn PagableDeserializer<'de> {

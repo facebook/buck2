@@ -4095,7 +4095,6 @@ fn test_unreadable_dependency_heap_is_recorded_as_a_deferred_read_failure() -> c
         .heap_arc()
         .deser_state()
         .and_then(|state| state.source())
-        .map(|source| source.key)
         .expect("a skeleton knows its row");
     assert!(
         failures.snapshot().is_empty(),
@@ -4485,7 +4484,7 @@ fn deser_owned_frozen_value_with_scope_from_storage(
     let value =
         <OwnedFrozen<Value>>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
     let scope = de
-        .page_in_scope()
+        .storage_context()
         .get::<StarlarkDeserScope>()
         .expect("OwnedFrozen page-in should initialize a Starlark scope");
     Ok((value, scope))
@@ -4625,11 +4624,11 @@ fn same_name_heaps_serialize_independently_in_shared_session_impl() -> crate::Re
     Ok(())
 }
 
-/// A cached owner heap must bring its transitive heap graph into each new
-/// page-in scope, because an `OwnedFrozen` may point into one of those
-/// dependency heaps rather than the owner heap itself.
+/// A cached owner heap must bring its transitive heap graph into each root
+/// page-in that reuses it, because an `OwnedFrozen` may point into one of
+/// those dependency heaps rather than the owner heap itself.
 #[test]
-fn test_cached_owner_registers_transitive_heap_in_new_page_in_scope() -> crate::Result<()> {
+fn test_cached_owner_registers_transitive_heap_in_later_page_in() -> crate::Result<()> {
     use pagable::storage::handle::PagableStorageHandle;
     use pagable::storage::in_memory::InMemoryPagableStorage;
 
@@ -4666,9 +4665,8 @@ fn test_cached_owner_registers_transitive_heap_in_new_page_in_scope() -> crate::
         42,
     );
 
-    // The second root page-in has a fresh StarlarkDeserScope but reuses cached
-    // P. It must register P -> L in that scope before resolving the value's
-    // `(HeapRefId(L), value_index)` wire pointer.
+    // The second root page-in reuses cached P. It must register P -> L before
+    // resolving the value's `(HeapRefId(L), value_index)` wire pointer.
     let (second, second_scope) =
         deser_owned_frozen_value_with_scope_from_storage(&backing, &handle, &root_key)?;
     assert_eq!(
@@ -4688,7 +4686,7 @@ fn test_cached_owner_registers_transitive_heap_in_new_page_in_scope() -> crate::
     assert_eq!(
         second_scope.get_heap(&leaf_id).as_ref(),
         Some(second_leaf_ref.heap_arc()),
-        "the cache hit must bind transitive heap L in the second root scope",
+        "the cache hit must bind transitive heap L for the second root",
     );
     assert_eq!(
         second

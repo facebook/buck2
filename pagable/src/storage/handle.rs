@@ -17,14 +17,12 @@ use dupe::Dupe;
 use crate::Pagable;
 use crate::PagableDeserializer;
 use crate::PagableDeserializerRecipe;
-use crate::PageInScope;
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::context::PagableDeserializerImpl;
 use crate::deferred_value::HeldCell;
 use crate::deser_recipe::PagableDeserializerRecipeImpl;
 use crate::pagable_arc::PagableArc;
-use crate::page_in_scope::ArcKey;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::traits::PagableStorage;
@@ -89,13 +87,18 @@ impl PagableStorageHandle {
         Self { backing_storage }
     }
 
-    /// Starts a new root page-in scope for `data` stored at `root_key`.
+    /// Starts deserializing the root value stored as `data`.
+    ///
+    /// `root_key` is not needed: the deserializer works from the bytes alone.
+    /// It stays in the signature because starlark's tests also build against
+    /// the published crate, which takes it, and must compile either way.
     pub fn root_deserializer<'de, 's>(
         &'s self,
         root_key: DataKey,
         data: &'de PagableData,
     ) -> PagableDeserializerImpl<'de, 's> {
-        PageInScope::new(root_key).deserializer(data, self)
+        let _ = root_key;
+        PagableDeserializerImpl::new(data, self)
     }
 
     /// Snapshot initialized deserialized arcs of one concrete type.
@@ -107,43 +110,36 @@ impl PagableStorageHandle {
         self.backing_storage.arc_cache().snapshot::<T>()
     }
 
-    /// Fetch and deserialize the arc stored under `key`, binding it into
-    /// `page_in_scope`.
+    /// Fetch and deserialize the arc stored under `key`.
     ///
     /// Takes no cursor, because none is needed: the arc is found by key, not by
     /// position. That is what lets a caller holding only a key it read earlier
-    /// (see [`PagableDeserializer::take_arc_key`]) bind the arc long after the
-    /// deserializer that read it is gone.
-    ///
-    /// The key carries the originating deserializer's page-in scope, which
-    /// nested deserializers and recipes retain; a new scope with the same root
-    /// key would not share its state.
+    /// (see [`PagableDeserializer::take_arc_key`]) restore the arc long after
+    /// the deserializer that read it is gone.
     pub fn deserialize_arc_by_key(
         &self,
-        arc_key: &ArcKey,
+        key: DataKey,
         type_id: TypeId,
         deserialize_fn: for<'a> fn(
             &mut dyn PagableDeserializer<'a>,
             Arc<dyn PagableDeserializerRecipe>,
         ) -> crate::Result<Box<dyn ArcEraseDyn>>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>> {
-        let ArcKey { key, page_in_scope } = arc_key;
         let storage = self.backing_storage();
-        if let Some(arc) = storage.arc_cache().get(&type_id, key) {
+        if let Some(arc) = storage.arc_cache().get(&type_id, &key) {
             return Ok(arc);
         }
-        let cell = storage.arc_cache().get_or_create_cell(type_id, *key);
+        let cell = storage.arc_cache().get_or_create_cell(type_id, key);
 
         // First thread to reach here deserializes; others block.
         let arc = cell.get_or_try_init(|| -> crate::Result<Box<dyn ArcEraseDyn>> {
             let _held = HeldCell::enter();
-            let data = storage.fetch_data_blocking(key)?;
-            let mut deserializer = page_in_scope.deserializer(&data, self);
-            let recipe: Arc<dyn PagableDeserializerRecipe> = Arc::new(
-                PagableDeserializerRecipeImpl::new(data.dupe(), page_in_scope.dupe()),
-            );
+            let data = storage.fetch_data_blocking(&key)?;
+            let mut deserializer = PagableDeserializerImpl::new(&data, self);
+            let recipe: Arc<dyn PagableDeserializerRecipe> =
+                Arc::new(PagableDeserializerRecipeImpl::new(data.dupe()));
             let arc = deserialize_fn(&mut deserializer, recipe)?;
-            storage.associate_arc_with_data_key(&*arc, *key);
+            storage.associate_arc_with_data_key(&*arc, key);
             Ok(arc)
         })?;
         Ok(arc.clone_dyn())
@@ -180,18 +176,15 @@ impl PagableStorageHandle {
         arc.clone_dyn()
     }
 
-    /// Fetch the data under `arc_key` as a recipe that reopens it in the key's
-    /// page-in scope, for a caller that will parse it itself rather than
-    /// through [`deserialize_arc_by_key`](Self::deserialize_arc_by_key).
+    /// Fetch the data under `key` as a reopenable recipe, for a caller that
+    /// will parse it itself rather than through
+    /// [`deserialize_arc_by_key`](Self::deserialize_arc_by_key).
     pub fn fetch_recipe_by_key(
         &self,
-        arc_key: &ArcKey,
+        key: DataKey,
     ) -> crate::Result<Arc<dyn PagableDeserializerRecipe>> {
-        let data = self.backing_storage().fetch_data_blocking(&arc_key.key)?;
-        Ok(Arc::new(PagableDeserializerRecipeImpl::new(
-            data,
-            arc_key.page_in_scope.dupe(),
-        )))
+        let data = self.backing_storage().fetch_data_blocking(&key)?;
+        Ok(Arc::new(PagableDeserializerRecipeImpl::new(data)))
     }
 
     /// Storage-lifetime state, for a caller holding a handle rather than a

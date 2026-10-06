@@ -56,9 +56,9 @@ pub enum PagableError {
         index: usize,
     },
 
-    /// A serialized heap reference has no binding in the current page-in scope.
-    #[error("Heap {heap_id:?} is not bound in this page-in scope")]
-    HeapNotBoundInPageInScope {
+    /// A serialized heap reference has no binding in the storage's Starlark scope.
+    #[error("Heap {heap_id:?} is not bound in this storage")]
+    HeapNotBound {
         /// The logical heap identity whose binding was not found.
         heap_id: HeapRefId,
     },
@@ -72,10 +72,10 @@ pub enum PagableError {
         value_index: u32,
     },
 
-    /// One root page-in encountered two live heap allocations with the same
-    /// logical heap identity.
+    /// Two live heap allocations in one storage have the same logical heap
+    /// identity.
     #[error(
-        "Heap {heap_id:?} is already bound to a different heap in this page-in scope; heap name `{heap_name}`, bound allocation {bound_heap_ptr:#x} ({}), conflicting allocation {conflicting_heap_ptr:#x} ({})",
+        "Heap {heap_id:?} is already bound to a different heap in this storage; heap name `{heap_name}`, bound allocation {bound_heap_ptr:#x} ({}), conflicting allocation {conflicting_heap_ptr:#x} ({})",
         .bound_origin.as_str(),
         .conflicting_origin.map_or("expired", HeapAllocationOrigin::as_str),
     )]

@@ -145,8 +145,8 @@ impl<'de> PagableDeserialize<'de> for Globals {
     ) -> pagable::Result<Self> {
         let heap = OwnedFrozen::<()>::pagable_deserialize(deserializer)?;
 
-        // The preceding heap deserialization registers its heap state in this
-        // page-in scope, so Starlark fields can resolve value pointers.
+        // The preceding heap deserialization registers its heap state in the
+        // Starlark scope, so Starlark fields can resolve value pointers.
         let origin = heap.heap_arc().dupe();
         let data: OwnedFrozen<GlobalsData<'static>> =
             StarlarkDeserializerImpl::recover_root_from_pagable_in(

@@ -35,8 +35,7 @@ use std::sync::Weak;
 use allocative::Allocative;
 use allocative::FlameGraphBuilder;
 use dupe::Dupe;
-#[cfg(fbcode_build)]
-pub(crate) use pagable::ArcKey;
+use pagable::DataKey;
 use pagable::PagableCursor;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
@@ -80,10 +79,7 @@ pub(crate) mod heap_key_index {
     use std::any::TypeId;
 
     use dashmap::DashMap;
-    use dupe::Dupe;
-    use pagable::ArcKey;
     use pagable::DataKey;
-    use pagable::PageInScope;
     use pagable::PartialPagableArc;
     use pagable::StorageState;
     use pagable::arc_erase::ArcEraseDyn;
@@ -166,7 +162,6 @@ pub(crate) mod heap_key_index {
     pub(crate) fn load_and_bind_heap_by_id(
         scope: &StarlarkDeserScope,
         storage: &PagableStorageHandle,
-        page_in_scope: &PageInScope,
         heap_id: HeapRefId,
     ) -> crate::Result<Option<FrozenHeapArc>> {
         let Some(key) = storage
@@ -178,10 +173,7 @@ pub(crate) mod heap_key_index {
         };
         let arc_box = storage
             .deserialize_arc_by_key(
-                &ArcKey {
-                    key,
-                    page_in_scope: page_in_scope.dupe(),
-                },
+                key,
                 TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
                 deserialize_heap_arc_with_recipe,
             )
@@ -195,7 +187,6 @@ pub(crate) mod heap_key_index {
 // The published pagable crate does not support heap-key observers or lookups yet.
 #[cfg(not(fbcode_build))]
 pub(crate) mod heap_key_index {
-    use pagable::PageInScope;
     use pagable::storage::handle::PagableStorageHandle;
     use pagable::traits::StorageContext;
 
@@ -208,7 +199,6 @@ pub(crate) mod heap_key_index {
     pub(crate) fn load_and_bind_heap_by_id(
         _scope: &StarlarkDeserScope,
         _storage: &PagableStorageHandle,
-        _page_in_scope: &PageInScope,
         _heap_id: HeapRefId,
     ) -> crate::Result<Option<FrozenHeapArc>> {
         Ok(None)
@@ -369,7 +359,7 @@ impl FrozenFrozenHeap {
         heap: &PartialPagableArc<Self>,
         scope: &Arc<StarlarkDeserScope>,
         heap_id: HeapRefId,
-        source: Option<ArcKey>,
+        source: Option<DataKey>,
     ) {
         let arena_ptr: *const Arena<ChunkAllocator> = &heap.arena;
         // SAFETY: `arena_ptr` points into `*heap`, whose arc keeps the state
@@ -906,17 +896,17 @@ fn bind_skeleton(
     scope: &Arc<StarlarkDeserScope>,
     name: FrozenHeapName,
     nonce: HeapSerializationNonce,
-    arc_key: ArcKey,
+    key: DataKey,
 ) -> crate::Result<FrozenHeapArc> {
     #[cfg(fbcode_build)]
     {
         let arc_box = storage.bind_arc_by_key_lazily(
-            arc_key.key,
+            key,
             TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
             || {
                 let heap_id = HeapRefId::new(&name, nonce);
                 let heap = PartialPagableArc::new(FrozenFrozenHeap::new_from_identity(name, nonce));
-                FrozenFrozenHeap::install_deser_state(&heap, scope, heap_id, Some(arc_key));
+                FrozenFrozenHeap::install_deser_state(&heap, scope, heap_id, Some(key));
                 Box::new(heap)
             },
         );
@@ -935,28 +925,22 @@ fn bind_skeleton(
 )]
 fn fetch_data_recipe(
     storage: &PagableStorageHandle,
-    arc_key: &ArcKey,
+    key: DataKey,
 ) -> crate::Result<Arc<dyn pagable::PagableDeserializerRecipe>> {
     #[cfg(fbcode_build)]
     return storage
-        .fetch_recipe_by_key(arc_key)
+        .fetch_recipe_by_key(key)
         .map_err(crate::Error::new_other);
     #[cfg(not(fbcode_build))]
     unreachable!("no header is left unloaded without `take_arc_key`")
 }
-
-/// `pagable::ArcKey`, for the OSS build whose published `pagable` predates it;
-/// nothing there produces one.
-#[cfg(not(fbcode_build))]
-#[derive(Clone, Dupe)]
-pub(crate) struct ArcKey {}
 
 /// `deserializer.take_arc_key()`, compiled out where the OSS build's published
 /// `pagable` predates the method. `None` there reads every heap eagerly, the
 /// behavior before skeletons.
 fn take_arc_key<'de, D: PagableDeserializer<'de> + ?Sized>(
     deserializer: &mut D,
-) -> pagable::Result<Option<ArcKey>> {
+) -> pagable::Result<Option<DataKey>> {
     #[cfg(fbcode_build)]
     return deserializer.take_arc_key();
     #[cfg(not(fbcode_build))]

@@ -43,14 +43,13 @@ use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
 use derive_more::From;
 use dupe::Dupe;
+use pagable::DataKey;
 #[cfg(fbcode_build)]
 use pagable::DeferredReadFailures;
 use pagable::PagableCursor;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableDeserializerRecipe;
-use pagable::PageInScope;
-use pagable::PageInState;
 use pagable::StorageContext;
 use pagable::StorageState;
 use pagable::storage::handle::PagableStorageHandle;
@@ -74,7 +73,6 @@ use crate::values::layout::heap::arena::BumpKind;
 use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::edge::HeapEdge;
 use crate::values::layout::heap::repr::AValueHeader;
-use crate::values::layout::heap::sealed::ArcKey;
 use crate::values::layout::heap::sealed::FrozenHeapArc;
 use crate::values::layout::heap::sealed::FrozenHeapPtr;
 use crate::values::layout::heap::sealed::HeapAllocationOrigin;
@@ -496,8 +494,7 @@ pub(crate) struct HeapDeserializationState {
     scope: Arc<StarlarkDeserScope>,
     /// Where the heap's data is, for a skeleton bound from a ref list without
     /// loading its header. `None` for a heap read in place.
-    #[allocative(skip)]
-    source: Option<ArcKey>,
+    source: Option<DataKey>,
     /// The header, once loaded.
     header: OnceLock<HeapHeaderState>,
     /// Immutable pointer into the owning `FrozenFrozenHeap`'s arena.
@@ -526,7 +523,7 @@ impl HeapDeserializationState {
     pub(crate) unsafe fn new(
         scope: Arc<StarlarkDeserScope>,
         heap_id: HeapRefId,
-        source: Option<ArcKey>,
+        source: Option<DataKey>,
         arena: *const Arena<ChunkAllocator>,
     ) -> Self {
         Self {
@@ -547,8 +544,8 @@ impl HeapDeserializationState {
     }
 
     /// Where the heap's data is, if it is still in storage.
-    pub(crate) fn source(&self) -> Option<&ArcKey> {
-        self.source.as_ref()
+    pub(crate) fn source(&self) -> Option<DataKey> {
+        self.source
     }
 
     /// Whether the header is loaded: the heap's dependencies are bound and the
@@ -1083,14 +1080,11 @@ impl StarlarkHeapBindings {
 
 impl StorageState for StarlarkHeapBindings {}
 
-/// What Starlark deserialization within one root page-in shares: the storage's
-/// heap bindings.
+/// What all Starlark deserialization over one storage shares.
 #[derive(Allocative)]
 pub(crate) struct StarlarkDeserScope {
     heap_bindings: Arc<StarlarkHeapBindings>,
     defer_field_reads: bool,
-    /// Storage-scoped: scopes over the same storage share it, so claims
-    /// coordinate across roots.
     #[allocative(skip)]
     wait_graph: Arc<StarlarkDeserWaitGraph>,
 }
@@ -1128,7 +1122,7 @@ fn record_deferred_read_failure(
 ) {
 }
 
-impl PageInState for StarlarkDeserScope {}
+impl StorageState for StarlarkDeserScope {}
 
 /// Estimate memory retained by cached Starlark heap deserialization state.
 ///
@@ -1621,11 +1615,10 @@ impl StarlarkDeserScope {
 fn resolve_missing_heap(
     scope: &Arc<StarlarkDeserScope>,
     storage: &PagableStorageHandle,
-    page_in_scope: &PageInScope,
     origin: Option<&FrozenHeapArc>,
     heap_id: HeapRefId,
 ) -> crate::Result<FrozenHeapArc> {
-    if let Some(found) = load_and_bind_heap_by_id(scope, storage, page_in_scope, heap_id)? {
+    if let Some(found) = load_and_bind_heap_by_id(scope, storage, heap_id)? {
         if let Some(origin) = origin {
             origin.retain_dependency(&found);
         }
@@ -1655,7 +1648,7 @@ fn resolve_missing_heap(
         // Restart drops retained edges too, so serialized refs suffice here.
         queue.extend(heap.refs_slice().iter().map(|dep| dep.heap_arc().dupe()));
     }
-    Err(PagableError::HeapNotBoundInPageInScope { heap_id }.into())
+    Err(PagableError::HeapNotBound { heap_id }.into())
 }
 
 /// Concrete implementation of StarlarkDeserializeContext.
@@ -1678,7 +1671,7 @@ pub(crate) struct StarlarkDeserializerImpl<'a, 'de, 'fv> {
 impl<'de> StarlarkDeserializerImpl<'_, 'de, '_> {
     /// Recover a `StarlarkDeserializerImpl` after a hop through a pagable-only
     /// boundary (typically `serialize_arc` / `deserialize_arc`) and run `f` with it. All heap
-    /// state is reachable via the root's `StarlarkDeserScope` registry.
+    /// state is reachable via the storage's `StarlarkDeserScope`.
     ///
     /// The context deserializes at a brand of its own, introduced here for `f` alone. The brand
     /// stands for the heap whose data `deserializer` is positioned in: the heap of the value
@@ -1735,21 +1728,26 @@ impl<'de> StarlarkDeserializerImpl<'_, 'de, '_> {
         })
     }
 
-    /// Get or create the Starlark scope belonging to this root page-in. Also
-    /// the point at which the storage starts indexing heaps by identity, ahead
-    /// of any heap this page-in binds.
+    /// Get or create the storage's Starlark scope. Also the point at which the
+    /// storage starts indexing heaps by identity, ahead of any heap it binds.
     pub(crate) fn get_or_create_scope(
         deserializer: &mut dyn PagableDeserializer<'_>,
     ) -> Arc<StarlarkDeserScope> {
-        // Looked up inside the closure so only creating a scope pays the probe.
         let storage_context = deserializer.storage_context();
-        deserializer.page_in_scope().get_or_init(|| {
-            register_heap_key_index(storage_context);
-            let mut scope = StarlarkDeserScope::new(
-                storage_context.get_or_init(StarlarkHeapBindings::default),
-                storage_context.get_or_init(StarlarkDeserWaitGraph::default),
-            );
-            scope.defer_field_reads = storage_context.get::<DeferredFieldReadsEnabled>().is_some();
+        if let Some(scope) = storage_context.get::<StarlarkDeserScope>() {
+            return scope;
+        }
+        register_heap_key_index(storage_context);
+        // Resolved before the scope's initializer, which runs under the
+        // context registry's shard lock: these lookups go through the same
+        // registry, and a `TypeId` sharing the scope's shard would wait on
+        // the lock this thread holds.
+        let heap_bindings = storage_context.get_or_init(StarlarkHeapBindings::default);
+        let wait_graph = storage_context.get_or_init(StarlarkDeserWaitGraph::default);
+        let defer_field_reads = storage_context.get::<DeferredFieldReadsEnabled>().is_some();
+        storage_context.get_or_init(|| {
+            let mut scope = StarlarkDeserScope::new(heap_bindings, wait_graph);
+            scope.defer_field_reads = defer_field_reads;
             scope
         })
     }
@@ -1768,7 +1766,6 @@ impl<'de, 'fv> StarlarkDeserializeContext<'de, 'fv> for StarlarkDeserializerImpl
             storage: &storage,
             #[cfg(not(fbcode_build))]
             storage_context: self.pagable.storage_context(),
-            page_in_scope: self.pagable.page_in_scope(),
             origin: self.origin.as_ref(),
             brand: PhantomData,
         }
@@ -1780,13 +1777,12 @@ impl<'de, 'fv> StarlarkDeserializeContext<'de, 'fv> for StarlarkDeserializerImpl
         if !self.scope.defer_field_reads {
             return None;
         }
-        // SAFETY: this context's brand names `origin`; its scope, storage,
-        // and page-in scope all belong to this same deserialization.
+        // SAFETY: this context's brand names `origin`; its scope and storage
+        // belong to this same deserialization.
         Some(unsafe {
             DeferredReadContext::new(
                 self.scope.dupe(),
                 self.pagable.storage(),
-                self.pagable.page_in_scope().dupe(),
                 self.origin.as_ref()?.downgrade()?,
             )
         })
@@ -1798,7 +1794,6 @@ struct StarlarkValueResolver<'a, 'fv> {
     storage: &'a PagableStorageHandle,
     #[cfg(not(fbcode_build))]
     storage_context: &'a StorageContext,
-    page_in_scope: &'a PageInScope,
     origin: Option<&'a FrozenHeapArc>,
     brand: PhantomData<Value<'fv>>,
 }
@@ -1810,7 +1805,6 @@ pub(crate) struct DeferredResolveContext<'a> {
     pub(crate) storage: &'a PagableStorageHandle,
     #[cfg(not(fbcode_build))]
     pub(crate) storage_context: &'a StorageContext,
-    pub(crate) page_in_scope: &'a PageInScope,
     pub(crate) origin: &'a FrozenHeapArc,
 }
 
@@ -1834,7 +1828,6 @@ pub(crate) fn with_deferred_values<R>(
         storage: context.storage,
         #[cfg(not(fbcode_build))]
         storage_context: context.storage_context,
-        page_in_scope: context.page_in_scope,
         origin: Some(context.origin),
         brand: PhantomData,
     };
@@ -1887,13 +1880,7 @@ impl<'fv> StarlarkValueResolver<'_, 'fv> {
     ) -> crate::Result<Value<'fv>> {
         let target_heap = match self.scope.get_heap(&heap_id) {
             Some(heap) => heap,
-            None => resolve_missing_heap(
-                self.scope,
-                self.storage,
-                self.page_in_scope,
-                self.origin,
-                heap_id,
-            )?,
+            None => resolve_missing_heap(self.scope, self.storage, self.origin, heap_id)?,
         };
         if let Some(origin) = self.origin {
             origin.retain_dependency(&target_heap);
@@ -2488,7 +2475,6 @@ mod tests {
                 storage: &storage,
                 #[cfg(not(fbcode_build))]
                 storage_context: de.storage_context(),
-                page_in_scope: de.page_in_scope(),
                 origin: heap,
             },
             |values| values.next().unwrap().map(|_| ()),

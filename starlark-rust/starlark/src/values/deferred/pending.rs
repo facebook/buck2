@@ -46,7 +46,6 @@ use std::sync::atomic::Ordering;
 
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
-use pagable::PageInScope;
 use pagable::storage::handle::PagableStorageHandle;
 use pagable::storage::handle::WeakPagableStorageHandle;
 
@@ -85,7 +84,6 @@ enum WirePrefix {
 pub struct DeferredReadContext<'fv> {
     scope: Arc<StarlarkDeserScope>,
     storage: PagableStorageHandle,
-    page_in_scope: PageInScope,
     origin: WeakFrozenHeapRef,
     brand: PhantomData<Value<'fv>>,
 }
@@ -97,13 +95,11 @@ impl<'fv> DeferredReadContext<'fv> {
     pub(crate) unsafe fn new(
         scope: Arc<StarlarkDeserScope>,
         storage: PagableStorageHandle,
-        page_in_scope: PageInScope,
         origin: WeakFrozenHeapRef,
     ) -> Self {
         Self {
             scope,
             storage,
-            page_in_scope,
             origin,
             brand: PhantomData,
         }
@@ -148,7 +144,6 @@ impl<'fv> DeferredReadContext<'fv> {
             prefix,
             scope: self.scope,
             storage: self.storage.downgrade(),
-            page_in_scope: self.page_in_scope,
             origin: self.origin,
         };
         if has_heap_ref {
@@ -164,10 +159,10 @@ impl<'fv> DeferredReadContext<'fv> {
 
 /// The saved pointers of an unread field and what resolving them needs.
 ///
-/// `scope` and `page_in_scope` are held strongly: resolution needs them and
-/// neither owns the field. `storage` is weak because the storage's cache owns
-/// the heap that owns this field, and a strong handle would keep that cache
-/// alive from inside itself. `origin` is weak because the owning heap owns
+/// `scope` is held strongly: resolution needs it and it does not own the
+/// field. `storage` is weak because the storage's cache owns the heap that
+/// owns this field, and a strong handle would keep that cache alive from
+/// inside itself. `origin` is weak because the owning heap owns
 /// this field. Both are upgraded on each read; a closed storage or a dropped
 /// owner is a read error.
 /// Aligned so the low tag bits of a `Box<Pending>` address are free on every target,
@@ -179,7 +174,6 @@ pub(super) struct Pending {
     prefix: WirePrefix,
     scope: Arc<StarlarkDeserScope>,
     storage: WeakPagableStorageHandle,
-    page_in_scope: PageInScope,
     origin: WeakFrozenHeapRef,
 }
 
@@ -201,7 +195,6 @@ impl Pending {
             DeferredResolveContext {
                 scope: &self.scope,
                 storage: &storage,
-                page_in_scope: &self.page_in_scope,
                 origin: &origin,
             },
             |values| {

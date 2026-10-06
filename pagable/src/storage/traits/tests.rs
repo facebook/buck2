@@ -23,8 +23,6 @@ use crate::PagableDeserialize;
 use crate::PagableDeserializerRecipe;
 use crate::PagableSerialize;
 use crate::PagableTagged;
-use crate::PageInScope;
-use crate::PageInState;
 use crate::PartialPagableArc;
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseType;
@@ -450,25 +448,10 @@ async fn deserialize_arc_does_not_duplicate() -> anyhow::Result<()> {
 /// restored as an eager read of the same arc.
 #[test]
 fn take_arc_key_then_deserialize_by_key_matches_deserialize_arc() -> anyhow::Result<()> {
-    struct ScopeState(AtomicUsize);
-    impl PageInState for ScopeState {}
-
     fn deserialize_fn(
         deserializer: &mut dyn PagableDeserializer<'_>,
-        recipe: Arc<dyn PagableDeserializerRecipe>,
+        _recipe: Arc<dyn PagableDeserializerRecipe>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>> {
-        deserializer
-            .page_in_scope()
-            .get::<ScopeState>()
-            .expect("the callback must inherit the originating scope")
-            .0
-            .fetch_add(1, Ordering::SeqCst);
-        let storage = deserializer.storage();
-        let reopened = recipe.open(&storage);
-        assert!(PageInScope::ptr_eq(
-            deserializer.page_in_scope(),
-            reopened.page_in_scope(),
-        ));
         Ok(Box::new(<Arc<Vec<u8>> as ArcErase>::deserialize_inner(
             deserializer,
         )?))
@@ -484,8 +467,6 @@ fn take_arc_key_then_deserialize_by_key_matches_deserialize_arc() -> anyhow::Res
     storage.fetch_count.store(0, Ordering::SeqCst);
     let mut de = handle.root_deserializer(keys[0], &data);
     let _: u8 = crate::PagableDeserialize::pagable_deserialize(&mut de)?;
-    let scope = de.page_in_scope().dupe();
-    let state = scope.get_or_init(|| ScopeState(AtomicUsize::new(0)));
     let before = de.position();
     let key = de.take_arc_key()?.expect("the item holds one arc slot");
     let after = de.position();
@@ -507,19 +488,13 @@ fn take_arc_key_then_deserialize_by_key_matches_deserialize_arc() -> anyhow::Res
     assert_eq!(storage.fetch_count.load(Ordering::SeqCst), 0);
     drop(de);
 
-    assert!(
-        PageInScope::ptr_eq(&key.page_in_scope, &scope),
-        "the key carries the scope the slot was read in"
-    );
-    let later =
-        handle.deserialize_arc_by_key(&key, TypeId::of::<Arc<Vec<u8>>>(), deserialize_fn)?;
+    let later = handle.deserialize_arc_by_key(key, TypeId::of::<Arc<Vec<u8>>>(), deserialize_fn)?;
     let later = later
         .as_arc_any()
         .downcast_ref::<Arc<Vec<u8>>>()
         .expect("the slot holds an Arc<Vec<u8>>")
         .dupe();
     assert_eq!(later.as_slice(), &[0xAB; 1000]);
-    assert_eq!(state.0.load(Ordering::SeqCst), 1);
     assert_eq!(
         storage.fetch_count.load(Ordering::SeqCst),
         1,

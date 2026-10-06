@@ -234,8 +234,8 @@ fn deserialize_owned_frozen<'de, D: PagableDeserializer<'de> + ?Sized>(
     // Deserialize the owner heap.
     let owner = OwnedFrozen::<()>::pagable_deserialize(deserializer)?;
 
-    // Recover the page-in scope registered by the preceding owner heap so cross-heap pointer
-    // resolution can find it.
+    // The preceding owner heap registered itself in the Starlark scope, so
+    // cross-heap pointer resolution can find it.
     let origin = owner.heap_arc().dupe();
     StarlarkDeserializerImpl::recover_root_from_pagable_in(deserializer.as_dyn(), &origin, |ctx| {
         let value = ctx.deserialize_value().map_err(|e| e.into_anyhow())?;

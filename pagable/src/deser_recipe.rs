@@ -20,7 +20,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 
 use crate::PagableDeserializer;
-use crate::PageInScope;
+use crate::context::PagableDeserializerImpl;
 use crate::storage::data::PagableData;
 use crate::storage::handle::PagableStorageHandle;
 
@@ -30,9 +30,9 @@ use crate::storage::handle::PagableStorageHandle;
 pub trait PagableDeserializerRecipe: Allocative + Send + Sync {
     /// Build a fresh deserializer positioned at the start of this recipe's data.
     ///
-    /// The recipe retains its original [`PageInScope`]. Storage is supplied by
-    /// the active owner because storage-lifetime state may itself retain a
-    /// recipe, and capturing storage here would create an ownership cycle.
+    /// Storage is supplied by the active owner because storage-lifetime state
+    /// may itself retain a recipe, and capturing storage here would create an
+    /// ownership cycle.
     fn open<'a>(
         &'a self,
         storage: &'a PagableStorageHandle,
@@ -47,21 +47,16 @@ pub trait PagableDeserializerRecipe: Allocative + Send + Sync {
 static_assertions::assert_obj_safe!(PagableDeserializerRecipe);
 
 /// [`PagableDeserializerRecipe`] for
-/// [`PagableDeserializerImpl`](crate::context::PagableDeserializerImpl): owns
+/// [`PagableDeserializerImpl`]: owns
 /// its bytes via `Arc<PagableData>`.
 #[derive(Allocative, Clone)]
 pub struct PagableDeserializerRecipeImpl {
     data: Arc<PagableData>,
-    #[allocative(skip)]
-    page_in_scope: PageInScope,
 }
 
 impl PagableDeserializerRecipeImpl {
-    pub(crate) fn new(data: Arc<PagableData>, page_in_scope: PageInScope) -> Self {
-        Self {
-            data,
-            page_in_scope,
-        }
+    pub(crate) fn new(data: Arc<PagableData>) -> Self {
+        Self { data }
     }
 
     pub fn data(&self) -> &Arc<PagableData> {
@@ -74,7 +69,7 @@ impl PagableDeserializerRecipe for PagableDeserializerRecipeImpl {
         &'a self,
         storage: &'a PagableStorageHandle,
     ) -> Box<dyn PagableDeserializer<'a> + 'a> {
-        Box::new(self.page_in_scope.deserializer(&self.data, storage))
+        Box::new(PagableDeserializerImpl::new(&self.data, storage))
     }
 
     fn retained_data_len(&self) -> usize {
@@ -128,11 +123,9 @@ mod tests {
         };
         let data = make_data(&trio);
         let storage = make_storage();
-        let scope = PageInScope::new(data.compute_key());
-        let recipe = PagableDeserializerRecipeImpl::new(data, scope.clone());
+        let recipe = PagableDeserializerRecipeImpl::new(data);
 
         let mut de = recipe.open(&storage);
-        assert!(PageInScope::ptr_eq(&scope, de.page_in_scope()));
         let a: u32 = u32::deserialize(de.serde()).unwrap();
         assert_eq!(a, 11);
     }
@@ -142,12 +135,10 @@ mod tests {
         let trio = Trio { a: 1, b: 2, c: 3 };
         let data = make_data(&trio);
         let storage = make_storage();
-        let scope = PageInScope::new(data.compute_key());
-        let recipe = PagableDeserializerRecipeImpl::new(data, scope);
+        let recipe = PagableDeserializerRecipeImpl::new(data);
 
         let mut d1 = recipe.open(&storage);
         let mut d2 = recipe.open(&storage);
-        assert!(PageInScope::ptr_eq(d1.page_in_scope(), d2.page_in_scope(),));
 
         let v1: u32 = u32::deserialize(d1.serde()).unwrap();
         let v2: u32 = u32::deserialize(d2.serde()).unwrap();
@@ -161,9 +152,8 @@ mod tests {
         let trio = Trio { a: 7, b: 8, c: 9 };
         let storage = make_storage();
         let data = make_data(&trio);
-        let scope = PageInScope::new(data.compute_key());
         let recipe: Box<dyn PagableDeserializerRecipe> =
-            Box::new(PagableDeserializerRecipeImpl::new(data, scope));
+            Box::new(PagableDeserializerRecipeImpl::new(data));
 
         let mut de = recipe.open(&storage);
         let v: u32 = u32::deserialize(de.serde()).unwrap();

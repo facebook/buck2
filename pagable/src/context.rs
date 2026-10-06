@@ -18,9 +18,7 @@ use postcard::ser_flavors::Flavor;
 use crate::PagableDeserializer;
 use crate::PagableDeserializerRecipe;
 use crate::PagableSerializer;
-use crate::PageInScope;
 use crate::arc_erase::ArcEraseDyn;
-use crate::page_in_scope::ArcKey;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::handle::PagableStorageHandle;
@@ -103,15 +101,10 @@ pub struct PagableDeserializerImpl<'de, 's> {
     inner: postcard::Deserializer<'de, crate::flavors::PagableSlice<'de>>,
     arcs: &'de [DataKey],
     storage: &'s PagableStorageHandle,
-    page_in_scope: PageInScope,
 }
 
 impl<'de, 's> PagableDeserializerImpl<'de, 's> {
-    pub(crate) fn new(
-        data: &'de PagableData,
-        storage: &'s PagableStorageHandle,
-        page_in_scope: PageInScope,
-    ) -> Self {
+    pub(crate) fn new(data: &'de PagableData, storage: &'s PagableStorageHandle) -> Self {
         let pos = crate::flavors::SharedPosition::new();
         Self {
             pos: pos.clone(),
@@ -121,7 +114,6 @@ impl<'de, 's> PagableDeserializerImpl<'de, 's> {
             arcs: &data.arcs,
             arc_index: 0,
             storage,
-            page_in_scope,
         }
     }
 
@@ -154,19 +146,12 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
         let key = self
             .take_stored_arc_key()
             .with_context(|| format!("Deserializing arc with type {type_id:?}"))?;
-        let arc_key = ArcKey {
-            key,
-            page_in_scope: self.page_in_scope.dupe(),
-        };
         self.storage
-            .deserialize_arc_by_key(&arc_key, type_id, deserialize_fn)
+            .deserialize_arc_by_key(key, type_id, deserialize_fn)
     }
 
-    fn take_arc_key(&mut self) -> crate::Result<Option<ArcKey>> {
-        Ok(Some(ArcKey {
-            key: self.take_stored_arc_key()?,
-            page_in_scope: self.page_in_scope.dupe(),
-        }))
+    fn take_arc_key(&mut self) -> crate::Result<Option<DataKey>> {
+        Ok(Some(self.take_stored_arc_key()?))
     }
 
     fn position(&self) -> PagableCursor {
@@ -183,10 +168,6 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
 
     fn storage(&self) -> PagableStorageHandle {
         self.storage.dupe()
-    }
-
-    fn page_in_scope(&self) -> &PageInScope {
-        &self.page_in_scope
     }
 
     fn as_dyn(&mut self) -> &mut dyn PagableDeserializer<'de> {
