@@ -142,11 +142,43 @@ mod tests {
 
     use crate::directory::directory::Directory;
     use crate::directory::entry::DirectoryEntry;
+    use crate::directory::find::DirectoryFindError;
     use crate::directory::find::find;
     use crate::directory::find::find_prefix;
     use crate::directory::test::NopEntry;
     use crate::directory::test::TestDirectoryBuilder;
     use crate::directory::test::path;
+
+    #[test]
+    fn test_find_error_names_blocking_leaf() -> buck2_error::Result<()> {
+        // The error is built from the component after the leaf, so it names the leaf's parent
+        // joined with that component instead of the leaf itself.
+        let mut a = TestDirectoryBuilder::empty_non_exhaustive();
+        a.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+        assert_matches!(
+            find(a.as_ref(), path("a/b/c")),
+            Err(DirectoryFindError::CannotTraverseLeaf { path }) => {
+                assert_eq!("a/c", path.to_string());
+            }
+        );
+        assert_matches!(
+            a.remove_prefix(path("a/b/c")),
+            Err(DirectoryFindError::CannotTraverseLeaf { path }) => {
+                assert_eq!("a/c", path.to_string());
+            }
+        );
+
+        let mut a = TestDirectoryBuilder::empty_non_exhaustive();
+        a.insert(path("a"), DirectoryEntry::Leaf(NopEntry))?;
+        assert_matches!(
+            find(a.as_ref(), path("a/b")),
+            Err(DirectoryFindError::CannotTraverseLeaf { path }) => {
+                assert_eq!("b", path.to_string());
+            }
+        );
+
+        Ok(())
+    }
 
     #[test]
     fn test_find() -> buck2_error::Result<()> {
