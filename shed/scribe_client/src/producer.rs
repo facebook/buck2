@@ -228,6 +228,18 @@ impl CongestionControlState {
         }
     }
 
+    /// A request of `sent` messages was pushed back as a whole: cut the next request below it.
+    /// The state's cutoff may be above `sent` (a stale `last_cutoff`, or a batch shorter than
+    /// the cutoff), and halving with `+ 1` does not move below 2 by itself.
+    fn congested(&mut self, sent: usize) {
+        self.current_cutoff = sent;
+        self.update_cutoff(true);
+        if self.current_cutoff >= sent {
+            self.current_cutoff = sent.saturating_sub(1).max(1);
+            self.cliff_bottom = self.current_cutoff;
+        }
+    }
+
     /// Compute and return the recovery amount of each step
     fn compute_recovery_amount(&self) -> usize {
         self.cliff_top.saturating_sub(self.current_cutoff) / FAST_RECOVERY_STEPS + 1
@@ -512,7 +524,7 @@ impl ScribeProducer {
             if cutoff_len == retryable_error_count {
                 // Congested; all messages were pushed back with retryable errors, which means
                 // Scribed/Scribble couldn't prepare enough buffer to hold the message vector.
-                cc_state.update_cutoff(true);
+                cc_state.congested(cutoff_len);
                 retry_count += 1;
             } else if cutoff_len == success_count {
                 // Success; all the messages up to the cutoff were successfully processed.
@@ -1095,10 +1107,7 @@ mod tests {
                 WriteMessageResultCode::ENQUEUE_FAILED,
                 WriteMessageResultCode::ENQUEUE_FAILED,
             ],
-            vec![
-                WriteMessageResultCode::ENQUEUE_FAILED,
-                WriteMessageResultCode::ENQUEUE_FAILED,
-            ],
+            vec![WriteMessageResultCode::ENQUEUE_FAILED],
         ];
         let client = mock_client(codes.clone());
         let producer = make_ScribeProducer(fb, client, codes[0].len());
@@ -1197,9 +1206,8 @@ mod tests {
         client
     }
 
-    /// When Scribe queues only one-message requests, the batch is cut 3 -> 2 and then stays at
-    /// 2 (`2 / 2 + 1 == 2`), although the phase is documented to cut by half "until the length that
-    /// is successfully queued is found"; no message is delivered.
+    /// When Scribe queues only one-message requests, the batch is cut down to one message and
+    /// every message is delivered.
     #[fbinit::test]
     async fn test_cutoff_with_one_message_capacity(fb: FacebookInit) {
         let sizes = Arc::new(Mutex::new(Vec::new()));
@@ -1207,14 +1215,13 @@ mod tests {
         let res = producer
             .send_messages_now(vec![message("a"), message("b"), message("c")])
             .await;
-        assert!(res.is_err());
-        assert_eq!(*sizes.lock().unwrap(), vec![3, 2, 2, 2, 2]);
-        assert_eq!(producer.export_counters().successes, 0);
-        assert_eq!(producer.export_counters().failures_enqueue_failed, 3);
+        assert!(res.is_ok(), "{res:?}");
+        assert_eq!(*sizes.lock().unwrap(), vec![3, 2, 1, 1, 1]);
+        assert_eq!(producer.export_counters().successes, 3);
     }
 
-    /// A `last_cutoff` of 501 left by an earlier batch is above a 3-message batch, so every
-    /// halving stays above 3 and every request carries the full batch.
+    /// A stale `last_cutoff` above the batch size does not keep the requests at the full size:
+    /// a congested request is cut from the size that was sent.
     #[fbinit::test]
     async fn test_stale_last_cutoff(fb: FacebookInit) {
         let sizes = Arc::new(Mutex::new(Vec::new()));
@@ -1225,8 +1232,8 @@ mod tests {
         let res = producer
             .send_messages_now(vec![message("a"), message("b"), message("c")])
             .await;
-        assert!(res.is_err());
-        assert_eq!(*sizes.lock().unwrap(), vec![3, 3, 3, 3, 3]);
+        assert!(res.is_ok(), "{res:?}");
+        assert_eq!(*sizes.lock().unwrap(), vec![3, 2, 1]);
     }
 
     #[test]
