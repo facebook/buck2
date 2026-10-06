@@ -851,4 +851,34 @@ pub(crate) mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_continuation_joins_comment_lines() -> buck2_error::Result<()> {
+        let text = [
+            "[s]",
+            "a = x \\",
+            "# comment",
+            "b = y",
+            "# disabled \\",
+            "c = z",
+            "d = w\\\\",
+            "e = v",
+            "g = t \\",
+            "[other]",
+            "h = q",
+            "f = u \\",
+        ]
+        .join("\n");
+        let config = parse(&[("config", text.as_str())], "config")?;
+        assert_config_value(&config, "s", "a", "x # comment");
+        assert_config_value(&config, "s", "b", "y");
+        assert_config_value_is_empty(&config, "s", "c");
+        assert_config_value(&config, "s", "d", "w\\e = v");
+        assert_config_value_is_empty(&config, "s", "e");
+        assert_config_value(&config, "s", "g", "t [other]");
+        assert_config_value(&config, "s", "h", "q");
+        assert!(config.get_section("other").is_none());
+        assert_config_value(&config, "s", "f", "u \\");
+        Ok(())
+    }
 }
