@@ -9,6 +9,7 @@
 # pyre-strict
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 
@@ -32,3 +33,16 @@ async def test_local_resource_broker_survives_cgroup_cleanup(buck: Buck) -> None
     )
     res = await buck.log("what-ran")
     assert "BROKER_PID=" in res.stdout
+
+
+@buck_test()
+@env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
+async def test_two_resource_types_from_one_broker(buck: Buck) -> None:
+    # Two resource types served by the same target: the setup command runs once per type and the
+    # test is rejected because its resource states come from the same target.
+    await expect_failure(
+        buck.test(":two_types_one_broker", test_executor=""),
+        stderr_regex="supposed to come from a different target",
+    )
+    res = await buck.log("what-ran")
+    assert res.stdout.count("test.local_resource_setup") == 2

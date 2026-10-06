@@ -1,4 +1,4 @@
-load(":rules.bzl", "broker", "daemon_broker", "daemon_test", "test")
+load(":rules.bzl", "broker", "daemon_broker", "daemon_test", "test", "two_types_one_broker_test")
 
 broker(
     name = "my_broker",
@@ -16,4 +16,9 @@ daemon_broker(
 daemon_test(
     name = "my_daemon_test",
     broker = ":my_daemon_broker",
+)
+
+two_types_one_broker_test(
+    name = "two_types_one_broker",
+    broker = ":my_broker",
 )

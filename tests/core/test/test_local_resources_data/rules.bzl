@@ -94,3 +94,26 @@ daemon_test = rule(
         "broker": attrs.dep(providers = [LocalResourceInfo]),
     },
 )
+
+def _two_types_one_broker_test_impl(ctx):
+    # Two resource types served by the same LocalResourceInfo target.
+    return [
+        DefaultInfo(),
+        ExternalRunnerTestInfo(
+            type = "custom",
+            command = ["sh", "-c", 'test "$MY_RESOURCE_ID" = 42'],
+            local_resources = {
+                "type_a": ctx.attrs.broker.label,
+                "type_b": ctx.attrs.broker.label,
+            },
+            required_local_resources = [
+                RequiredTestLocalResource("type_a"),
+                RequiredTestLocalResource("type_b"),
+            ],
+        ),
+    ]
+
+two_types_one_broker_test = rule(
+    impl = _two_types_one_broker_test_impl,
+    attrs = {"broker": attrs.dep(providers = [LocalResourceInfo])},
+)
