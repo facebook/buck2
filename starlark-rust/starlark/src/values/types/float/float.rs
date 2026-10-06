@@ -434,6 +434,23 @@ mod tests {
         assert_eq!(compact(1e300), "1e+300");
     }
 
+    /// In scientific notation `write_compact` keeps `WRITE_PRECISION` fractional digits, so a
+    /// value that needs more digits does not round trip through `str`, `repr` or `%g`.
+    #[test]
+    fn test_write_compact_scientific_keeps_six_digits() {
+        assert_eq!(compact(12345678.0), "1.234568e+07");
+        assert_eq!(compact(-12345678.0), "-1.234568e+07");
+        assert_eq!(compact(9007199254740992.0), "9.007199e+15");
+        assert_eq!(compact(1.2345678901234567e-30), "1.234568e-30");
+        assert_eq!(compact(f64::from_bits(1)), "4.940656e-324");
+        assert::eq("str(12345678.0)", "'1.234568e+07'");
+        assert::eq("repr(float(1 << 53))", "'9.007199e+15'");
+        assert::eq("'%g' % 12345678.0", "'1.234568e+07'");
+        assert::eq("'%G' % 12345678.0", "'1.234568E+07'");
+        assert::is_true("float(str(12345678.0)) != 12345678.0");
+        assert::is_true("float(repr(1.2345678901234567e-30)) != 1.2345678901234567e-30");
+    }
+
     #[test]
     fn test_arithmetic_operators() {
         assert::all_true(
