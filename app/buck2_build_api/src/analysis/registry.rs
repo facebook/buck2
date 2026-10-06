@@ -49,6 +49,7 @@ use starlark::pagable::StarlarkDeserialize;
 use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
+use starlark::values::DeferredOwnedFrozen;
 use starlark::values::DynStarlark;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
@@ -656,7 +657,7 @@ impl AnalysisValueFetcher {
 
         Ok(RecordedAnalysisValues {
             self_key: self.self_key.dupe(),
-            analysis_storage,
+            analysis_storage: analysis_storage.map(DeferredOwnedFrozen::new),
             actions,
         })
     }
@@ -666,7 +667,11 @@ impl AnalysisValueFetcher {
 #[derive(Debug, Allocative, pagable::Pagable)]
 pub struct RecordedAnalysisValues {
     self_key: DeferredHolderKey,
-    analysis_storage: Option<OwnedFrozenAnalysisValueStorage>,
+    analysis_storage: Option<
+        DeferredOwnedFrozen<
+            ValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisValueStorage<'static>>>,
+        >,
+    >,
     actions: RecordedActions,
 }
 
@@ -714,7 +719,7 @@ impl RecordedAnalysisValues {
             });
         Self {
             self_key,
-            analysis_storage: Some(analysis_storage),
+            analysis_storage: Some(DeferredOwnedFrozen::new(analysis_storage)),
             actions,
         }
     }
@@ -734,7 +739,7 @@ impl RecordedAnalysisValues {
             .analysis_storage
             .as_ref()
             .with_internal_error(|| format!("Missing analysis storage for `{key}`"))?
-            .as_ref()
+            .read()?
             .maybe_map::<ValueTyped<'static, TransitiveSet<'static>>, _>(|v| {
                 v.as_ref()
                     .value
@@ -769,7 +774,7 @@ impl RecordedAnalysisValues {
             .analysis_storage
             .as_ref()
             .internal_error("missing analysis storage")?
-            .as_ref()
+            .read()?
             .map::<&'static FrozenAnalysisValueStorage<'static>, _>(|v| &v.as_ref().value))
     }
 
@@ -777,9 +782,12 @@ impl RecordedAnalysisValues {
     pub fn iter_dynamic_lambda_outputs(
         &self,
     ) -> buck2_error::Result<impl Iterator<Item = BuildArtifact> + '_> {
-        Ok(self.analysis_storage.iter().flat_map(|v| {
-            v.as_ref()
-                .map::<&'static FrozenAnalysisValueStorage<'static>, _>(|v| &v.as_ref().value)
+        let storage = match &self.analysis_storage {
+            Some(storage) => Some(storage.read()?),
+            None => None,
+        };
+        Ok(storage.into_iter().flat_map(|v| {
+            v.map::<&'static FrozenAnalysisValueStorage<'static>, _>(|v| &v.as_ref().value)
                 .value()
                 .lambda_params
                 .dynamic_lambda_outputs()
@@ -791,7 +799,7 @@ impl RecordedAnalysisValues {
             .analysis_storage
             .as_ref()
             .internal_error("missing analysis storage")?
-            .as_ref()
+            .read()?
             .try_map::<FrozenValueTyped<'static, ProviderCollection<'static>>, buck2_error::Error, _>(
                 |v| {
                     let collection = v

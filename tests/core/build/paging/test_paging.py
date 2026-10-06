@@ -114,6 +114,12 @@ def _disable_idle_page_out(buck: Buck) -> None:
     )
 
 
+def _set_defer_field_reads(buck: Buck, enabled: bool) -> None:
+    (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
+        f"[hydration]\ndefer_field_reads = {str(enabled).lower()}\n"
+    )
+
+
 async def _wait_for_page_out_idle(buck: Buck) -> int:
     # `status --wait` blocks until any in-progress idle page-out finishes, so tests
     # observe the settled state without polling. Returns the paged-out node count.
@@ -129,7 +135,11 @@ async def _wait_for_page_out_idle(buck: Buck) -> int:
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)
-async def test_incremental_build_after_page_out(buck: Buck) -> None:
+@pytest.mark.parametrize("defer_field_reads", [False, True])
+async def test_incremental_build_after_page_out(
+    buck: Buck, defer_field_reads: bool
+) -> None:
+    _set_defer_field_reads(buck, defer_field_reads)
     # Incremental builds must stay correct after an explicit `buck2 debug
     # hydration page-out`, relying on on-demand page-in during the build. Page-in
     # is measured per command via `page_in_count` in the invocation record.
@@ -240,7 +250,11 @@ async def test_page_out_frozen_value_into_already_paged_out_heap(
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)
-async def test_page_out_bxl_dynamic_callback_after_page_in(buck: Buck) -> None:
+@pytest.mark.parametrize("defer_field_reads", [False, True])
+async def test_page_out_bxl_dynamic_callback_after_page_in(
+    buck: Buck, defer_field_reads: bool
+) -> None:
+    _set_defer_field_reads(buck, defer_field_reads)
     # `page_out.bxl` creates a nested dynamic-output callback. The callback is
     # allocated on the BXL evaluation heap, but its compiler metadata lives on
     # the loaded `.bxl` module heap. Page-out must retain and serialize that
@@ -255,7 +269,9 @@ async def test_page_out_bxl_dynamic_callback_after_page_in(buck: Buck) -> None:
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)
-async def test_page_in_shared_anon_target(buck: Buck) -> None:
+@pytest.mark.parametrize("defer_field_reads", [False, True])
+async def test_page_in_shared_anon_target(buck: Buck, defer_field_reads: bool) -> None:
+    _set_defer_field_reads(buck, defer_field_reads)
     # Bound post-page-out commands because the old typetag mismatch hung hydration.
     command_timeout_seconds = 60
     result = await buck.build("//:uses_anon_a")
