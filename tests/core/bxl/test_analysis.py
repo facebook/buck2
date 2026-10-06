@@ -55,3 +55,36 @@ async def test_bxl_analysis_unconfigured_target_error(buck: Buck) -> None:
         buck.bxl("//analysis.bxl:unconfigured_target_error_test"),
         stderr_regex="Type of parameter `labels` doesn't match",
     )
+
+
+@buck_test()
+async def test_bxl_analysis_subtarget_order(buck: Buck) -> None:
+    # More labels than one prepare batch, so results are reassembled across batches.
+    result = await buck.bxl("//analysis.bxl:ordered_subtargets_test")
+    assert result.stdout.splitlines() == [f"child_{i}" for i in range(129, -1, -1)]
+
+
+@buck_test()
+async def test_bxl_analysis_skip_incompatible(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//analysis.bxl:incompatible_skip_test",
+        "--",
+        "--target",
+        "root//:incompatible_target",
+    )
+    assert result.stdout.splitlines() == ["None", "0", "provides_foo_foo"]
+    assert "incompatible_target" in result.stderr
+
+
+@buck_test()
+async def test_bxl_analysis_reject_incompatible(buck: Buck) -> None:
+    for entry in ["incompatible_error_test", "incompatible_list_error_test"]:
+        await expect_failure(
+            buck.bxl(
+                f"//analysis.bxl:{entry}",
+                "--",
+                "--target",
+                "root//:incompatible_target",
+            ),
+            stderr_regex="incompatible_target.*is incompatible",
+        )

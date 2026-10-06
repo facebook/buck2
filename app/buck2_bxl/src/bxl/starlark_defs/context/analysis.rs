@@ -9,6 +9,7 @@
  */
 
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_common::pagable::prepare_all;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -37,35 +38,42 @@ pub(crate) async fn analysis<'v>(
                 .await
                 .ok()?
                 .map(|r| r.dupe());
-            buck2_error::Ok((label, maybe_result))
+            buck2_error::Ok((label.clone(), maybe_result))
         })
-        .await
-        .into_iter()
-        .map(|res| {
-            let (label, maybe_result) = res?;
-            match maybe_result {
-                MaybeCompatible::Incompatible(reason) => {
-                    if skip_incompatible {
-                        ctx.print_to_error_stream(IncompatiblePlatformReason::skipping_message(
-                            &reason,
-                            label.target(),
-                        ))?;
-                        Ok(None)
-                    } else {
-                        Err(reason.to_err())
-                    }
+        .await;
+    // Resolving each label's providers reads paged-out fields; overlap those
+    // reads on blocking threads instead of taking them in turn here.
+    let analysis = prepare_all(analysis, |res| {
+        let (label, maybe_result) = res?;
+        let validated = maybe_result.try_map(|analysis_result| {
+            buck2_error::Ok(StarlarkAnalysisResult::new(analysis_result.lookup(&label)?))
+        })?;
+        buck2_error::Ok((label, validated))
+    })
+    .await?
+    .into_iter()
+    .map(|res| {
+        let (label, maybe_result) = res?;
+        match maybe_result {
+            MaybeCompatible::Incompatible(reason) => {
+                if skip_incompatible {
+                    ctx.print_to_error_stream(IncompatiblePlatformReason::skipping_message(
+                        &reason,
+                        label.target(),
+                    ))?;
+                    Ok(None)
+                } else {
+                    Err(reason.to_err())
                 }
-                MaybeCompatible::Compatible(result) => Ok(Some((
-                    label.clone(),
-                    StarlarkAnalysisResult::new(result, label.clone())?,
-                ))),
             }
-        })
-        .filter_map(|r| match r {
-            Ok(r) => r.map(Ok),
-            Err(e) => Some(Err(e)),
-        })
-        .collect::<buck2_error::Result<Vec<_>>>()?;
+            MaybeCompatible::Compatible(result) => Ok(Some((label, result))),
+        }
+    })
+    .filter_map(|r| match r {
+        Ok(r) => r.map(Ok),
+        Err(e) => Some(Err(e)),
+    })
+    .collect::<buck2_error::Result<Vec<_>>>()?;
 
     match expr {
         ProvidersExpr::Literal(_) => {

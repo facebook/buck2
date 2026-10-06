@@ -14,7 +14,7 @@ FooInfo = provider(
 
 def _provides_foo(ctx):
     return [
-        DefaultInfo(),
+        DefaultInfo(sub_targets = {"child_{}".format(i): [DefaultInfo(), FooInfo(foo = "child_{}".format(i))] for i in range(130)}),
         FooInfo(foo = ctx.attrs.name + "_foo"),
     ]
 

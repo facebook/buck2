@@ -102,7 +102,37 @@ impl AnalysisResult {
         Ok(self.providers()?.lookup_inner(label)?.to_owned())
     }
 
+    /// Resolves the providers `label` names, reading the providers root and
+    /// one `DefaultInfo` per subtarget hop. Fails if a subtarget is missing.
+    pub fn lookup(&self, label: &ConfiguredProvidersLabel) -> buck2_error::Result<ProvidersLookup> {
+        Ok(ProvidersLookup {
+            providers: self.lookup_inner(label)?,
+            label: label.dupe(),
+        })
+    }
+
     pub fn analysis_values(&self) -> &RecordedAnalysisValues {
         &self.analysis_values
+    }
+}
+
+/// The providers a label names, resolved once by [`AnalysisResult::lookup`].
+/// Holding one proves the subtarget path exists and the collection is
+/// resident. It reaches nothing else in the analysis result, so a holder
+/// cannot read the result's other deferred fields.
+#[derive(Debug, Clone, Dupe, Allocative, starlark::StarlarkPagable)]
+pub struct ProvidersLookup {
+    #[starlark_pagable(pagable)]
+    label: ConfiguredProvidersLabel,
+    providers: FrozenProviderCollectionValue,
+}
+
+impl ProvidersLookup {
+    pub fn label(&self) -> &ConfiguredProvidersLabel {
+        &self.label
+    }
+
+    pub fn providers(&self) -> &FrozenProviderCollectionValue {
+        &self.providers
     }
 }

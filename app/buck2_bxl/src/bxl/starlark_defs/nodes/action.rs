@@ -177,7 +177,7 @@ fn action_query_node_value_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<NoneOr<ValueTyped<'v, StarlarkAnalysisResult>>> {
         match this.0.analysis_opt() {
             Some(a) => Ok(NoneOr::Other(heap.alloc_typed(
-                StarlarkAnalysisResult::new(a.analysis_result().clone(), a.target().dupe())?,
+                StarlarkAnalysisResult::new(a.analysis_result().lookup(a.target())?),
             ))),
             None => Ok(NoneOr::None),
         }

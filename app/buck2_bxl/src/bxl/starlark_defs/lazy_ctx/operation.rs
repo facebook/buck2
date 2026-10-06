@@ -363,7 +363,7 @@ async fn analysis(
     match maybe_result {
         MaybeCompatible::Incompatible(reason) => Err(reason.to_err()),
         MaybeCompatible::Compatible(result) => {
-            StarlarkAnalysisResult::new(result.dupe(), label.dupe())
+            Ok(StarlarkAnalysisResult::new(result.lookup(label)?))
         }
     }
 }

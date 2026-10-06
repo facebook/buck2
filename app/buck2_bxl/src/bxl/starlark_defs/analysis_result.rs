@@ -11,10 +11,9 @@
 use std::fmt;
 
 use allocative::Allocative;
-use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::analysis::ProvidersLookup;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -35,37 +34,23 @@ use starlark::values::starlark_value;
     Debug,
     NoSerialize,
     Allocative,
-    pagable::Pagable,
-    starlark::StarlarkPagableViaPagable
+    starlark::values::StarlarkPagable
 )]
 pub(crate) struct StarlarkAnalysisResult {
-    // Invariant: The subtarget specified on the label is present in the analysis result.
-    analysis: AnalysisResult,
-    label: ConfiguredProvidersLabel,
+    lookup: ProvidersLookup,
 }
 
 impl fmt::Display for StarlarkAnalysisResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "AnalysisResult(")?;
-        fmt::Display::fmt(
-            self.analysis
-                .lookup_inner(&self.label)
-                .unwrap()
-                .provider_collection(),
-            f,
-        )?;
+        fmt::Display::fmt(self.lookup.providers().provider_collection(), f)?;
         write!(f, ")")
     }
 }
 
 impl StarlarkAnalysisResult {
-    pub(crate) fn new(
-        analysis: AnalysisResult,
-        label: ConfiguredProvidersLabel,
-    ) -> buck2_error::Result<Self> {
-        // Check that the specified subtarget actually exists
-        drop(analysis.lookup_inner(&label)?);
-        Ok(Self { analysis, label })
+    pub(crate) fn new(lookup: ProvidersLookup) -> Self {
+        Self { lookup }
     }
 }
 
@@ -99,7 +84,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
         this: &'v StarlarkAnalysisResult,
         heap: Heap<'v>,
     ) -> starlark::Result<FrozenValueTyped<'v, ProviderCollection<'v>>> {
-        Ok(this.analysis.lookup_inner(&this.label)?.add_heap_ref(heap))
+        Ok(this.lookup.providers().add_heap_ref(heap))
     }
 
     /// Returns a list of structs describing each provider in the collection.
@@ -127,7 +112,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         let heap = eval.heap();
-        let collection = this.analysis.lookup_inner(&this.label)?.add_heap_ref(heap);
+        let collection = this.lookup.providers().add_heap_ref(heap);
         let mut result = Vec::new();
         for entry in collection.as_ref().iter_providers() {
             let (id, value) = entry?;
@@ -165,9 +150,9 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<ValueTyped<'v, Dependency<'v>>> {
         Ok(eval.heap().alloc_typed(Dependency::new(
             eval.heap(),
-            this.label.dupe(),
-            this.analysis
-                .lookup_inner(&this.label)?
+            this.lookup.label().dupe(),
+            this.lookup
+                .providers()
                 .add_heap_ref(eval.heap())
                 .to_value_typed(),
             None,
