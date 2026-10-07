@@ -307,7 +307,9 @@ impl WhatRanCommandState {
                         _ => (None, None, None, None),
                     };
 
-                if execution_kind == Some(buck2_data::ActionExecutionKind::LocalDepFile as i32) {
+                if execution_kind == Some(buck2_data::ActionExecutionKind::LocalDepFile as i32)
+                    && !options.options.skip_cache_hits
+                {
                     entry
                         .reproducers
                         .push(CommandReproducer::LocalDepFileCacheHit);
@@ -791,10 +793,33 @@ mod tests {
         Ok(out.0)
     }
 
-    /// A local dep-file cache hit is appended when the action ends, without consulting
-    /// `--skip-cache-hits`, so it is printed alongside the cache hits the flag removes.
+    /// A local dep-file cache hit is a cache hit, so `--skip-cache-hits` drops it.
     #[test]
-    fn test_skip_cache_hits_still_prints_local_dep_file_hits() -> buck2_error::Result<()> {
+    fn test_skip_cache_hits_skips_local_dep_file_hits() -> buck2_error::Result<()> {
+        let events = || {
+            vec![
+                span_event(1, 0, action_start_event()),
+                span_event(
+                    1,
+                    0,
+                    action_end_event(buck2_data::ActionExecutionKind::LocalDepFile),
+                ),
+            ]
+        };
+        let executors = |options: &WhatRanCommandOptions| -> buck2_error::Result<Vec<String>> {
+            Ok(run_what_ran(events(), options)?
+                .into_iter()
+                .map(|(_, e)| e)
+                .collect())
+        };
+
+        let options = WhatRanCommandOptions {
+            options: WhatRanOptions::default(),
+            failed: false,
+            incomplete: false,
+        };
+        assert_eq!(vec!["dep_file".to_owned()], executors(&options)?);
+
         let options = WhatRanCommandOptions {
             options: WhatRanOptions {
                 skip_cache_hits: true,
@@ -803,19 +828,7 @@ mod tests {
             failed: false,
             incomplete: false,
         };
-        let out = run_what_ran(
-            vec![
-                span_event(1, 0, action_start_event()),
-                span_event(
-                    1,
-                    0,
-                    action_end_event(buck2_data::ActionExecutionKind::LocalDepFile),
-                ),
-            ],
-            &options,
-        )?;
-        let executors: Vec<&str> = out.iter().map(|(_, e)| e.as_str()).collect();
-        assert_eq!(vec!["dep_file"], executors);
+        assert_eq!(Vec::<String>::new(), executors(&options)?);
         Ok(())
     }
 }
