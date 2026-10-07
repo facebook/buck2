@@ -33,7 +33,6 @@ use buck2_event_observer::what_ran::WhatRanRelevantAction;
 use buck2_event_observer::what_ran::WhatRanState;
 use buck2_events::span::SpanId;
 use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckMutMap;
 use futures::TryStreamExt;
 use futures::stream::Stream;
 
@@ -204,8 +203,9 @@ impl WhatRanEntry {
 /// we have seen that are WhatRanRelevantActions, and the CommandReproducer associated with them.
 #[derive(Default)]
 pub struct WhatRanCommandState {
-    /// Maps action spans to their details.
-    known_actions: BuckMutMap<SpanId, WhatRanEntry>,
+    /// Maps action spans to their details, in the order the spans started: unfinished spans are
+    /// printed from this map at the end.
+    known_actions: BuckIndexMap<SpanId, WhatRanEntry>,
 }
 
 impl WhatRanState for WhatRanCommandState {
@@ -282,8 +282,9 @@ impl WhatRanCommandState {
             }
             // Emit WhatRanRelevantAction when we see the corresponding SpanEnd
             if let buck2_data::buck_event::Data::SpanEnd(span) = &data
-                && let Some(mut entry) =
-                    self.known_actions.remove(&SpanId::from_u64(event.span_id)?)
+                && let Some(mut entry) = self
+                    .known_actions
+                    .shift_remove(&SpanId::from_u64(event.span_id)?)
                 && should_emit_finished_action(&span.data, options)
             {
                 // Get extra data out of SpanEnd event
@@ -861,10 +862,9 @@ mod tests {
         Ok(())
     }
 
-    /// Commands of spans that never ended are printed from the hash map that tracks them, so
-    /// `--incomplete` lists them in hash order rather than in the order they started.
+    /// Commands of spans that never ended are printed in the order the spans started.
     #[test]
-    fn test_incomplete_commands_are_not_in_start_order() -> buck2_error::Result<()> {
+    fn test_incomplete_commands_in_start_order() -> buck2_error::Result<()> {
         let options = WhatRanCommandOptions {
             options: WhatRanOptions::default(),
             failed: false,
@@ -882,10 +882,7 @@ mod tests {
             .collect();
         let start_order: Vec<String> = (0..64).map(|i| format!("s{i}")).collect();
 
-        let mut sorted = identities.clone();
-        sorted.sort_by_key(|id| id[1..].parse::<u64>().unwrap());
-        assert_eq!(start_order, sorted);
-        assert_ne!(start_order, identities);
+        assert_eq!(start_order, identities);
         Ok(())
     }
 }
