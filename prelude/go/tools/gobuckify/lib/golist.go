@@ -96,8 +96,8 @@ func QueryGoList(
 			if pkg.Module == nil {
 				continue // that's not a ligit third-party package
 			}
-			if strings.HasPrefix(pkg.ImportPath, rootModuleName) {
-				continue // skip the root module packages
+			if isRootModulePackage(pkg.ImportPath, rootModuleName) {
+				continue
 			}
 			pkgChan <- &pkg
 		}
@@ -115,6 +115,12 @@ func QueryGoList(
 	}()
 
 	return pkgChan, errChan
+}
+
+// isRootModulePackage reports whether importPath belongs to the root module, whose
+// packages get no generated BUCK files.
+func isRootModulePackage(importPath, rootModuleName string) bool {
+	return strings.HasPrefix(importPath, rootModuleName)
 }
 
 func ReadModuleName(path string) (string, error) {
