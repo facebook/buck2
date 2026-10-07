@@ -173,8 +173,8 @@ const HYDRATION_DEFER_FIELD_READS: SettingKey<bool> = SettingKey {
         },
         overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
     },
-    // Not in any rollout stanza yet: binaries built before this key would reject
-    // a stanza naming it. Rolling it out needs the section version bump above.
+    // Rolled out only through the `[hydration.2]` stanza: binaries at version 1
+    // never select that stanza, so the key never reaches one that would reject it.
     internal_default: Some(false),
     oss_default: Some(false),
 };
@@ -446,7 +446,7 @@ impl HydrationSection {
     /// copy of every key from the previous version's stanza.
     pub(crate) const METADATA: SectionMetadata = SectionMetadata {
         section_name: "hydration",
-        section_version: 1,
+        section_version: 2,
     };
 
     /// Returns `None` when legacy buckconfig should determine the behavior.
