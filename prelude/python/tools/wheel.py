@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-# pyre-strict
-
 import argparse
 import configparser
 import contextlib

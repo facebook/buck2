@@ -7,7 +7,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
 
 from __future__ import annotations
 
@@ -177,6 +176,7 @@ def _extract_sitecustomize() -> str | None:
             with zf.open(sitecustomize) as src, open(extract_path, "wb") as dst:
                 dst.write(src.read())
         return extract_dir
+    # pyrefly: ignore [unbound-name]
     except (OSError, KeyError, zipfile.BadZipFile):
         return None  # Best effort
 
@@ -236,7 +236,6 @@ def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
         _resolve_path_entries(sys.path, dirs_only=True)
     )
 
-    # pyre-fixme[53]: Captured variable is not annotated.
     def _setup_child_env() -> None:
         proxy_dir = _extract_sitecustomize()
         for var in var_names:
@@ -295,6 +294,7 @@ def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
                 finally:
                     __clear_env(apply_monkeypatching=False)
 
+        # pyrefly: ignore [bad-assignment]
         mp_util.spawnv_passfds = spawnv_passfds
 
 
@@ -408,6 +408,7 @@ def __patch_subprocess_run(saved_env: dict[str, str]) -> None:
 
         return std_run(args, env=env, **kwargs)
 
+    # pyrefly: ignore [bad-assignment]
     subprocess.run = _patched_run
 
 
@@ -470,6 +471,7 @@ def __add_win_dll_directories() -> None:
     for d in dll_dirs.split(os.pathsep):
         if d and os.path.isdir(d):
             try:
+                # pyrefly: ignore [missing-attribute]
                 os.add_dll_directory(d)
             except OSError:
                 pass
@@ -533,7 +535,6 @@ def __clear_env(
 
 def __startup__() -> None:
     try:
-        # pyre-fixme[21]: Could not find module `__par__.__startup_function_loader__`.
         from __par__.__startup_function_loader__ import load_startup_functions
     except ImportError:
         par = os.environ.get("FB_PAR_FILENAME", "")

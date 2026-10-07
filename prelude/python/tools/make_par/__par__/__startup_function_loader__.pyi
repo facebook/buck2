@@ -6,9 +6,4 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-
-from .inputs_test import *  # noqa
-
-from .legacy_output_test import *  # noqa
-
-from .outputs_test import *  # noqa
+def load_startup_functions() -> None: ...

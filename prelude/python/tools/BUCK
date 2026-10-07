@@ -184,3 +184,34 @@ prelude.python_bootstrap_binary(
     main = "gather_libpython_symbols.py",
     visibility = ["PUBLIC"],
 )
+
+# Type checking target for Python tool scripts.
+prelude.python_library(
+    name = "scripts-typing",
+    srcs = [
+        "__test_main__.py",
+        "compile.py",
+        "create_link_tree.py",
+        "create_manifest_for_source_dir.py",
+        "extract.py",
+        "fail_with_message.py",
+        "gather_libpython_symbols.py",
+        "gen_bytecode_bundle.py",
+        "generate_static_extension_info.py",
+        "make_py_package_inplace.py",
+        "make_py_package_manifest_module.py",
+        "make_py_package_modules.py",
+        "make_source_db.py",
+        "make_source_db_no_deps.py",
+        "patchelf.py",
+        "static_extension_finder.py",
+        "type_check_result_to_validation.py",
+        "wheel.py",
+    ]
+    + glob(["tests/**/*.py"]),
+    base_module = "",
+    typing = True,
+    deps = [
+        "fbsource//third-party/pypi/colorama:colorama",
+    ],
+)

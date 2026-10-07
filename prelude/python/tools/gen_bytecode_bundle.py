@@ -6,7 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
 
 """Pack the `.pyc` files produced by `compile.py` into one blob.
 

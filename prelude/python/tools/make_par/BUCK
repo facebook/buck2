@@ -61,3 +61,18 @@ prelude.command_alias(
     exe = ":gen_lpar_bootstrap_bin",
     visibility = ["PUBLIC"],
 )
+
+# Type checking target for Python tool scripts.
+prelude.python_library(
+    name = "scripts-typing",
+    srcs = [
+        "__par__/__startup_function_loader__.pyi",
+        "__run_lpar_main__.py",
+        "gen_lpar_bootstrap.py",
+        "live_builder.py",
+        "par_builder.py",
+        "sitecustomize.py",
+    ],
+    base_module = "",
+    typing = True,
+)

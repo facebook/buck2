@@ -7,7 +7,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
 
 """
 Creates a Python Source DB JSON file containing both a rule's immediate sources

@@ -6,7 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
 
 """
 Example usage (internal):
@@ -81,6 +80,7 @@ def pretty_exception(
     typ: type[BaseException], exc: BaseException, tb: TracebackType, src: str
 ) -> None:
     try:
+        # pyrefly: ignore [missing-module-attribute]
         from colorama import Fore, just_fix_windows_console, Style
 
         just_fix_windows_console()
