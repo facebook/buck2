@@ -272,6 +272,7 @@ impl DiceStorage {
         let pending = Arc::new(PendingEvictions::default());
         let mut evictor = AbortOnDrop(tokio::spawn(evict_as_rows_commit(
             self.dupe(),
+            finished.dupe(),
             pending.dupe(),
             state_handle.dupe(),
         )));
@@ -340,14 +341,22 @@ impl DiceStorage {
         evictor.0.abort();
         // Aborted, so the join reports cancellation; there is nothing to act on.
         drop((&mut evictor.0).await);
+        if cancelled() {
+            // Nothing refers to the rows still queued: no value was evicted
+            // against them and no arc was bound to them. Dropping them hands
+            // the shards back to the command that cancelled us, instead of
+            // draining a queue it would have to read past.
+            self.storage.discard_unwritten();
+            pending.clear();
+            finished.discard_unbound();
+        }
         let flushed = self.storage.flush();
-        // Only rows the flush committed may be evicted: after a failed flush the
-        // frontier still names the rows that never landed, and their values
-        // stay resident.
-        evict_in_batches(
-            state_handle,
-            pending.take_covered(&self.storage.commit_frontier()),
-        );
+        // Only rows the flush committed may be bound or evicted: after a failed
+        // flush the frontier still names the rows that never landed, and their
+        // values stay resident.
+        let frontier = self.storage.commit_frontier();
+        bind_in_parallel(&self.storage, finished.take_covered(&frontier)).await;
+        evict_in_batches(state_handle, pending.take_covered(&frontier));
         self.storage.release_memory();
         // The append-only store only changes here; refresh the cached size so the
         // command-end path reports it without a filesystem walk.
@@ -563,6 +572,12 @@ impl PendingEvictions {
         self.incoming.lock().push((key, result, ticket));
     }
 
+    /// Drops every pending value, leaving them resident.
+    fn clear(&self) {
+        self.incoming.lock().clear();
+        self.waiting.lock().clear();
+    }
+
     /// Removes and returns the values whose rows `frontier` says have committed.
     fn take_covered(&self, frontier: &CommitFrontier) -> Vec<(DiceKey, PageOutResult)> {
         let mut waiting = self.waiting.lock();
@@ -584,18 +599,48 @@ impl Drop for AbortOnDrop {
     }
 }
 
-/// Evicts pending values as their rows commit, so memory is released during
-/// the page-out rather than at its end. Runs until aborted; the sleep is the
+/// Binds written arcs and evicts pending values as their rows commit, so
+/// memory is released during the page-out rather than at its end. Runs until
+/// aborted; the sleep is the
 /// only await, so an abort never lands inside a tick.
 async fn evict_as_rows_commit(
     storage: DiceStorage,
+    finished: Arc<ArcSerCache>,
     pending: Arc<PendingEvictions>,
     state_handle: CoreStateHandle,
 ) {
     loop {
         tokio::time::sleep(Duration::from_millis(250)).await;
         let frontier = storage.storage.commit_frontier();
+        bind_in_parallel(&storage.storage, finished.take_covered(&frontier)).await;
         evict_in_batches(&state_handle, pending.take_covered(&frontier));
+    }
+}
+
+/// Binds arcs on the blocking pool, many at a time. A page-out writes tens of
+/// millions of arc rows; bound one task at a time they took longer to bind
+/// than to write.
+async fn bind_in_parallel(
+    storage: &Arc<dyn PagableStorage>,
+    mut covered: Vec<(Box<dyn ArcEraseDyn>, DataKey)>,
+) {
+    const BIND_CHUNK: usize = 1 << 16;
+    let mut tasks = Vec::with_capacity(covered.len().div_ceil(BIND_CHUNK));
+    while !covered.is_empty() {
+        let chunk = covered.split_off(covered.len().saturating_sub(BIND_CHUNK));
+        let storage = storage.dupe();
+        tasks.push(tokio::task::spawn_blocking(move || {
+            for (arc, key) in chunk {
+                storage.associate_arc_with_data_key(&*arc, key);
+            }
+        }));
+    }
+    for task in tasks {
+        // A panic in a chunk is reported by the join; the arcs it did not
+        // bind stay unbound, which only costs a later page-out a rewrite.
+        if let Err(e) = task.await {
+            tracing::error!("binding paged-out arcs failed: {e}");
+        }
     }
 }
 
@@ -725,6 +770,10 @@ impl PagableStorage for MeteredPagableStorage {
 
     fn commit_frontier(&self) -> CommitFrontier {
         self.inner.commit_frontier()
+    }
+
+    fn discard_unwritten(&self) {
+        self.inner.discard_unwritten()
     }
 
     fn flush(&self) -> anyhow::Result<()> {
@@ -878,6 +927,17 @@ mod tests {
         assert!(!storage.commit_frontier().covers(&ticket));
         storage.flush()?;
         assert!(storage.commit_frontier().covers(&ticket));
+
+        let (key, _ticket) = storage.store_data_ticketed(PagableData {
+            data: vec![1u8; 10],
+            arcs: vec![],
+        })?;
+        storage.discard_unwritten();
+        storage.flush()?;
+        assert!(
+            storage.fetch_data_blocking(&key).is_err(),
+            "the discard must reach the backend"
+        );
         Ok(())
     }
 

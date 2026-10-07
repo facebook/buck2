@@ -243,6 +243,8 @@ impl PagableStorage for SledBackedPagableStorage {
         CommitFrontier::everything()
     }
 
+    fn discard_unwritten(&self) {}
+
     fn arc_cache(&self) -> &DeserializedArcCache {
         &self.arcs
     }

@@ -4066,6 +4066,10 @@ impl pagable::storage::traits::PagableStorage for FailingRowStorage {
     fn commit_frontier(&self) -> pagable::storage::traits::CommitFrontier {
         self.inner.commit_frontier()
     }
+
+    fn discard_unwritten(&self) {
+        self.inner.discard_unwritten()
+    }
 }
 
 #[cfg(fbcode_build)]

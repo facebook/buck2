@@ -19,6 +19,7 @@ use dashmap::DashMap;
 use dupe::Dupe;
 use either::Either;
 use once_cell::sync::OnceCell;
+use parking_lot::Mutex;
 
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
@@ -50,13 +51,49 @@ pub struct ArcSerCache {
     /// different wire formats, so each view needs a distinct slot. Partitioning
     /// by type also avoids storing a `TypeId` in every per-allocation key.
     by_type: TypeIdDashMap<Arc<IdentityDashMap>>,
+    /// Arcs written during this page-out, waiting to be bound to their key
+    /// until the rows the key depends on have committed. Bound earlier, a later
+    /// page-out would reference a row that a discarded queue never wrote.
+    /// Workers push here; `bind_covered` moves entries to `waiting` before it
+    /// scans them, so a scan of everything waiting never holds up a worker.
+    unbound: Mutex<Vec<UnboundArc>>,
+    waiting: Mutex<Vec<UnboundArc>>,
 }
+
+type UnboundArc = (Box<dyn ArcEraseDyn>, DataKey, WriteTicket);
 
 impl ArcSerCache {
     pub fn new() -> Self {
         Self {
             by_type: TypeIdDashMap::default(),
+            unbound: Mutex::new(Vec::new()),
+            waiting: Mutex::new(Vec::new()),
         }
+    }
+
+    /// Removes and returns the written arcs whose rows `frontier` covers, for
+    /// the caller to bind with [`PagableStorage::associate_arc_with_data_key`].
+    pub fn take_covered(&self, frontier: &CommitFrontier) -> Vec<(Box<dyn ArcEraseDyn>, DataKey)> {
+        let mut waiting = self.waiting.lock();
+        waiting.append(&mut self.unbound.lock());
+        waiting
+            .extract_if(.., |(_, _, ticket)| frontier.covers(ticket))
+            .map(|(arc, key, _)| (arc, key))
+            .collect()
+    }
+
+    /// Binds every written arc whose rows `frontier` covers to its key.
+    pub fn bind_covered<S: PagableStorage + ?Sized>(&self, storage: &S, frontier: &CommitFrontier) {
+        for (arc, key) in self.take_covered(frontier) {
+            storage.associate_arc_with_data_key(&*arc, key);
+        }
+    }
+
+    /// Forgets the arcs still waiting to be bound, for a page-out whose queued
+    /// rows are being discarded.
+    pub fn discard_unbound(&self) {
+        self.unbound.lock().clear();
+        self.waiting.lock().clear();
     }
 
     fn by_identity(&self, type_id: TypeId) -> Arc<IdentityDashMap> {
@@ -359,6 +396,12 @@ pub trait PagableStorage: Send + Sync + 'static {
     /// Backends that write through return [`CommitFrontier::everything`].
     fn commit_frontier(&self) -> CommitFrontier;
 
+    /// Drops every row stored but not yet committed, cutting a write in
+    /// progress short at its next statement. Only sound while nothing refers
+    /// to those rows: no value evicted against them and no arc bound to them.
+    /// Backends that write through have nothing to drop.
+    fn discard_unwritten(&self);
+
     /// Commit any buffered writes to persistent storage.
     ///
     /// Callers should invoke this after a batch of `store_data` calls to
@@ -393,13 +436,17 @@ pub trait PagableStorage: Send + Sync + 'static {
         finished: &ArcSerCache,
         storage_context: &StorageContext,
     ) -> Result<DataKey, PageOutError> {
-        self.page_out_item_ticketed(item_data, item_arcs, finished, storage_context)
-            .map(|(key, _ticket)| key)
+        let (key, _ticket) =
+            self.page_out_item_ticketed(item_data, item_arcs, finished, storage_context)?;
+        finished.bind_covered(self, &self.commit_frontier());
+        Ok(key)
     }
 
     /// [`page_out_item`](Self::page_out_item), also returning a ticket that
     /// covers the item's row and every arc row it references, including those
-    /// another worker wrote during this page-out.
+    /// another worker wrote during this page-out. The arcs it writes are left
+    /// in `finished` until the caller binds them with
+    /// [`ArcSerCache::bind_covered`] once their rows have committed.
     fn page_out_item_ticketed(
         &self,
         item_data: Vec<u8>,
@@ -429,6 +476,9 @@ pub trait PagableStorage: Send + Sync + 'static {
             .map(|arc| cache.get_or_insert(&**arc))
             .collect();
 
+        // Pushed once per item: a page-out writes about twenty arc rows per
+        // value, and a push per arc from every worker contends on one lock.
+        let mut written = Vec::new();
         let mut tasks: Vec<Task> = item_arcs
             .iter()
             .zip(&item_slots)
@@ -495,8 +545,8 @@ pub trait PagableStorage: Send + Sync + 'static {
                     child_slots,
                 } => match resolve_and_store(self, data, &child_slots) {
                     Ok((key, ticket)) => {
-                        self.associate_arc_with_data_key(&*arc, key);
                         slot.set_success(key, ticket);
+                        written.push((arc, key, ticket));
                     }
                     Err(e) => {
                         slot.set_failed();
@@ -506,6 +556,9 @@ pub trait PagableStorage: Send + Sync + 'static {
             }
         }
 
+        if !written.is_empty() {
+            finished.unbound.lock().append(&mut written);
+        }
         resolve_and_store(self, item_data, &item_slots)
     }
 }

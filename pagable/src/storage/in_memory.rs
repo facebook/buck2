@@ -243,6 +243,8 @@ impl PagableStorage for InMemoryPagableStorageHandle {
         CommitFrontier::everything()
     }
 
+    fn discard_unwritten(&self) {}
+
     fn arc_cache(&self) -> &DeserializedArcCache {
         &self.cache.arcs
     }

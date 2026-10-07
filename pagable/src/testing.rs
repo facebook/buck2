@@ -299,6 +299,8 @@ impl PagableStorage for EmptyPagableStorage {
         CommitFrontier::everything()
     }
 
+    fn discard_unwritten(&self) {}
+
     fn arc_cache(&self) -> &DeserializedArcCache {
         &self.arc_cache
     }

@@ -210,6 +210,8 @@ impl PagableStorage for CountingStorage {
         CommitFrontier::everything()
     }
 
+    fn discard_unwritten(&self) {}
+
     fn associate_arc_with_data_key(&self, arc: &dyn ArcEraseDyn, key: DataKey) {
         if self
             .arc_cache()

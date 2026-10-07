@@ -43,6 +43,8 @@ impl PagableStorage for NoopPagableStorage {
         CommitFrontier::everything()
     }
 
+    fn discard_unwritten(&self) {}
+
     fn arc_cache(&self) -> &DeserializedArcCache {
         &self.arc_cache
     }

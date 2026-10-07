@@ -16,6 +16,7 @@ use std::sync::Condvar;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::sync::OnceLock;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -200,6 +201,9 @@ struct Shard {
 struct ShardInner {
     /// Shared by every shard: sequence numbers order rows across the backend.
     next_seq: Arc<AtomicU64>,
+    /// Asks the write in progress to commit what it has and stop, because the
+    /// buffer it is writing was discarded.
+    stop_write: AtomicBool,
     /// The connection pool for this shard.
     conns: ConnectionPool,
     /// Immutable insertion settings derived from the writer connection.
@@ -396,6 +400,7 @@ impl Shard {
             conns,
             insert,
             next_seq,
+            stop_write: AtomicBool::new(false),
             write_state: Mutex::new(ShardWriteState {
                 max_rows: write_buffer_rows(),
                 max_bytes: write_buffer_bytes(),
@@ -522,6 +527,25 @@ impl ShardInner {
             .oldest_unwritten_seq()
     }
 
+    /// See [`PagableStorage::discard_unwritten`]. The rows a cut write already
+    /// inserted stay in the file as orphans of a content-addressed cache, which
+    /// a later page-out finds already present.
+    fn discard_unwritten(&self) {
+        let mut guard = self.write_state.lock().expect("lock poisoned");
+        let state = &mut *guard;
+        if state.writing {
+            self.stop_write.store(true, Ordering::Relaxed);
+        }
+        for mut buffer in state.pending_buffers.drain(..) {
+            buffer.clear();
+            state.spare_buffers.push(buffer);
+        }
+        state.active_buffer.clear();
+        state.active_bytes = 0;
+        state.unwritten_first_seqs.clear();
+        self.write_state_changed.notify_all();
+    }
+
     fn queue_full_active_for_later_flush<'a>(
         &self,
         mut state: MutexGuard<'a, ShardWriteState>,
@@ -586,9 +610,12 @@ impl ShardInner {
                 items.clear();
                 state = self.write_state.lock().expect("lock poisoned");
                 state.spare_buffers.push(items);
+                // A discard during the write already dropped this buffer's
+                // frontier entry, whether or not the write finished.
+                let discarded = self.stop_write.swap(false, Ordering::Relaxed);
                 if let Err(e) = result {
                     state.error = Some(e);
-                } else {
+                } else if !discarded {
                     state.unwritten_first_seqs.pop_front();
                 }
             }
@@ -608,7 +635,7 @@ impl ShardInner {
         let mut conn = self.conns.get_readwrite();
         let tx = conn.transaction()?;
         {
-            self.insert.insert_items(&tx, items)?;
+            self.insert.insert_items(&tx, items, &self.stop_write)?;
         }
         tx.commit()?;
         Ok(())
@@ -842,6 +869,12 @@ impl PagableStorage for SqliteBackedPagableStorage {
         )
     }
 
+    fn discard_unwritten(&self) {
+        for shard in &self.shards {
+            shard.inner.discard_unwritten();
+        }
+    }
+
     fn flush(&self) -> anyhow::Result<()> {
         std::thread::scope(|scope| {
             let handles: Vec<_> = self
@@ -901,14 +934,20 @@ impl SqliteInsertConfig {
         })
     }
 
+    /// Inserts `items`, stopping after the current statement once `stop` is
+    /// set. The transaction stays committable either way.
     fn insert_items(
         &self,
         tx: &rusqlite::Transaction<'_>,
         items: &[(DataKey, Vec<u8>)],
+        stop: &AtomicBool,
     ) -> anyhow::Result<()> {
         if self.batch_rows <= 1 {
             let mut single_stmt = tx.prepare_cached(INSERT_SINGLE_SQL)?;
             for item in items {
+                if stop.load(Ordering::Relaxed) {
+                    return Ok(());
+                }
                 self.execute_insert(&mut single_stmt, std::slice::from_ref(item))?;
             }
             return Ok(());
@@ -917,12 +956,18 @@ impl SqliteInsertConfig {
         let mut batch_stmt = tx.prepare_cached(&self.batch_sql)?;
         let mut chunks = items.chunks_exact(self.batch_rows);
         for chunk in &mut chunks {
+            if stop.load(Ordering::Relaxed) {
+                return Ok(());
+            }
             self.execute_insert(&mut batch_stmt, chunk)?;
         }
         let remainder = chunks.remainder();
         if !remainder.is_empty() {
             let mut single_stmt = tx.prepare_cached(INSERT_SINGLE_SQL)?;
             for item in remainder {
+                if stop.load(Ordering::Relaxed) {
+                    return Ok(());
+                }
                 self.execute_insert(&mut single_stmt, std::slice::from_ref(item))?;
             }
         }
@@ -1184,6 +1229,76 @@ mod tests {
         Ok(())
     }
 
+    /// Discarding drops queued rows; a later page-out writes them afresh.
+    #[test]
+    fn sqlite_discard_drops_queued_rows() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("discard")?;
+        let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
+        let (key, ticket) = storage.store_data_ticketed(pagable_data(b"dropped", Vec::new()))?;
+        storage.discard_unwritten();
+        storage.flush()?;
+        assert!(
+            storage.fetch_data_blocking(&key).is_err(),
+            "a discarded row is not in the file"
+        );
+        assert!(
+            storage.commit_frontier().covers(&ticket),
+            "nothing is left for the frontier to wait on"
+        );
+        let (again, _) = storage.store_data_ticketed(pagable_data(b"dropped", Vec::new()))?;
+        storage.flush()?;
+        assert_eq!(again, key);
+        assert_eq!(storage.fetch_data_blocking(&key)?.data, b"dropped");
+        Ok(())
+    }
+
+    /// An arc a page-out writes is bound to its key only once its row has
+    /// committed and the caller asks, never by the write itself.
+    #[test]
+    fn sqlite_arcs_are_bound_once_their_rows_commit() -> anyhow::Result<()> {
+        use pagable::PagableArc;
+        use pagable::PagableSerialize;
+        use pagable::storage::handle::PagableStorageHandle;
+        use pagable::storage::support::SerializerForPaging;
+        use pagable::storage::traits::ArcSerCache;
+        use pagable::storage::traits::PageOutError;
+
+        let dir = TempStorageDir::new("bind")?;
+        let storage = Arc::new(SqliteBackedPagableStorage::try_new(&dir.path)?);
+        let handle = PagableStorageHandle::new(storage.clone() as Arc<dyn PagableStorage>);
+        let arc = PagableArc::new(vec![7u8; 64], handle);
+        let context = storage.storage_context();
+        let mut serializer = SerializerForPaging::new(context);
+        1u8.pagable_serialize(&mut serializer)?;
+        arc.pagable_serialize(&mut serializer)?;
+        let (data, arcs) = serializer.finish();
+        let finished = ArcSerCache::new();
+        let (item_key, ticket) = storage
+            .page_out_item_ticketed(data, arcs, &finished, context)
+            .map_err(|error| match error {
+                PageOutError::Failed(error) => error,
+                PageOutError::AlreadyFailed => anyhow::anyhow!("a fresh cache cannot have failed"),
+            })?;
+
+        finished.bind_covered(&*storage, &storage.commit_frontier());
+        assert!(!storage.commit_frontier().covers(&ticket));
+        assert_eq!(
+            ArcEraseDyn::data_key(&arc),
+            None,
+            "nothing binds before the commit"
+        );
+        storage.flush()?;
+        assert_eq!(
+            ArcEraseDyn::data_key(&arc),
+            None,
+            "committing alone binds nothing"
+        );
+        finished.bind_covered(&*storage, &storage.commit_frontier());
+        let arc_key = storage.fetch_data_blocking(&item_key)?.arcs[0];
+        assert_eq!(ArcEraseDyn::data_key(&arc), Some(arc_key));
+        Ok(())
+    }
+
     #[test]
     fn sqlite_write_buffer_fills_on_bytes_or_rows() {
         let mut state = ShardWriteState {
@@ -1327,7 +1442,7 @@ mod tests {
             let items = (0..item_count)
                 .map(|i| (DataKey::testing_new((i + 1) as u128 + 1), vec![i as u8]))
                 .collect::<Vec<_>>();
-            insert.insert_items(&tx, &items)?;
+            insert.insert_items(&tx, &items, &AtomicBool::new(false))?;
             tx.commit()?;
 
             let row_count: usize =
@@ -1416,7 +1531,7 @@ mod tests {
         let data_key = DataKey::testing_new(1);
         let items = vec![(data_key, vec![0; VALUE_BYTES])];
         let error = insert
-            .insert_items(&tx, &items)
+            .insert_items(&tx, &items, &AtomicBool::new(false))
             .expect_err("SQLite should reject a BLOB larger than SQLITE_LIMIT_LENGTH");
         let message = format!("{error:#}");
 
