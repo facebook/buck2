@@ -20,7 +20,7 @@ pub fn pending_estimate<T: SpanTrackable>(roots: &Roots<T>, dice: &DiceState) ->
         let from_dice = dice
             .key_states()
             .get(*k)
-            .map_or(0, |v| v.started - v.finished);
+            .map_or(0, |v| v.started.saturating_sub(v.finished));
 
         let from_roots = roots.dice_counts().get(k).copied().unwrap_or(0);
 
@@ -169,31 +169,15 @@ mod tests {
         Ok(())
     }
 
-    /// `pending_estimate` subtracts `finished` from `started` in `u32` on the DICE state that
-    /// `test_completion_percentage_invalid_dice_state` feeds to the percentage estimate: with
-    /// overflow checks it panics, without them the header shows about four billion pending keys.
-    #[cfg(debug_assertions)]
-    #[test]
-    #[should_panic(expected = "attempt to subtract with overflow")]
-    fn test_pending_estimate_invalid_dice_state() {
-        let mut dice = DiceState::new();
-        let tracker = BuckEventSpanTracker::new();
-
-        setup_dice_state(&mut dice, 10, 0);
-        pending_estimate(tracker.roots(), &dice);
-    }
-
-    #[cfg(not(debug_assertions))]
+    /// A snapshot with more finished than started keys counts as nothing pending, as the
+    /// percentage estimate next to it already assumes.
     #[test]
     fn test_pending_estimate_invalid_dice_state() {
         let mut dice = DiceState::new();
         let tracker = BuckEventSpanTracker::new();
 
         setup_dice_state(&mut dice, 10, 0);
-        assert_eq!(
-            u64::from(u32::MAX - 9),
-            pending_estimate(tracker.roots(), &dice)
-        );
+        assert_eq!(0, pending_estimate(tracker.roots(), &dice));
     }
 
     #[test]
