@@ -153,6 +153,13 @@ const INSERT_BATCH_ROWS: usize = 8;
 const INSERT_COLUMNS: usize = 3;
 const INSERT_SINGLE_SQL: &str =
     "INSERT OR IGNORE INTO pagable_data (key_lo, key_hi, value) VALUES (?1, ?2, ?3)";
+const FETCH_SQL: &str = "SELECT value FROM pagable_data WHERE key_lo = ?1 AND key_hi = ?2";
+const CREATE_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS pagable_data (
+        key_lo INTEGER NOT NULL,
+        key_hi INTEGER NOT NULL,
+        value BLOB NOT NULL,
+        UNIQUE(key_hi, key_lo)
+    );";
 
 /// SQLite-backed storage backend for pagable data.
 ///
@@ -268,7 +275,14 @@ impl ConnectionPool {
         let writer = Connection::open(path)?;
         Self::init_pragmas(&writer)?;
         Self::init_writer_pragmas(&writer)?;
+        writer.execute_batch(CREATE_TABLE_SQL)?;
 
+        // Readers load the schema with their first statement and keep it. One
+        // that loaded it before the table existed, or that first loads it while
+        // the writer holds the file, fails its read with "no such table" rather
+        // than waiting: SQLite's check for a changed schema gives up silently
+        // when it cannot take the lock. So readers are opened after the table
+        // exists and read it once now, while nothing can hold the file.
         let mut readers = Vec::with_capacity(num_readers);
         for _ in 0..num_readers {
             let reader = Connection::open_with_flags(
@@ -277,6 +291,7 @@ impl ConnectionPool {
                     | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
             )?;
             Self::init_pragmas(&reader)?;
+            reader.prepare_cached(FETCH_SQL)?;
             readers.push(Mutex::new(reader));
         }
 
@@ -339,14 +354,6 @@ impl Shard {
         pending_capacity: usize,
     ) -> anyhow::Result<Self> {
         let conns = ConnectionPool::open(path, num_readers)?;
-        conns.get_readwrite().execute_batch(
-            "CREATE TABLE IF NOT EXISTS pagable_data (
-                key_lo INTEGER NOT NULL,
-                key_hi INTEGER NOT NULL,
-                value BLOB NOT NULL,
-                UNIQUE(key_hi, key_lo)
-            );",
-        )?;
         let insert = {
             let conn = conns.get_readwrite();
             SqliteInsertConfig::new(&conn, INSERT_BATCH_ROWS)?
@@ -626,9 +633,7 @@ impl SqliteBackedPagableStorage {
         let (key_lo, key_hi) = data_key_parts(*key);
         let read_once = || -> Result<Option<Vec<u8>>, (&'static str, rusqlite::Error)> {
             let conn = shard.inner.conns.get_reader();
-            let mut stmt = conn
-                .prepare_cached("SELECT value FROM pagable_data WHERE key_lo = ?1 AND key_hi = ?2")
-                .map_err(|e| ("prepare", e))?;
+            let mut stmt = conn.prepare_cached(FETCH_SQL).map_err(|e| ("prepare", e))?;
             stmt.query_row(rusqlite::params![key_lo, key_hi], |row| row.get(0))
                 .optional()
                 .map_err(|e| ("fetch", e))
@@ -999,12 +1004,6 @@ mod tests {
         let key = storage.store_data(pagable_data(b"busy", Vec::new()))?;
         storage.flush()?;
         let shard = storage.shard_for(&key);
-        // A reader that has never prepared a statement reads the schema on its
-        // first one, and a lock met there reports as a missing table rather
-        // than as busy. Production readers are warm; make these warm too.
-        for _ in 0..shard.inner.conns.readers.len() {
-            storage.fetch_data_blocking(&key)?;
-        }
         // The production timeout would make this test take that long.
         for reader in &shard.inner.conns.readers {
             reader
@@ -1043,9 +1042,6 @@ mod tests {
         let key = storage.store_data(pagable_data(b"retried", Vec::new()))?;
         storage.flush()?;
         let shard = storage.shard_for(&key);
-        for _ in 0..shard.inner.conns.readers.len() {
-            storage.fetch_data_blocking(&key)?;
-        }
         for reader in &shard.inner.conns.readers {
             reader
                 .lock()
