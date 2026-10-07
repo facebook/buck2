@@ -881,4 +881,47 @@ pub(crate) mod tests {
         assert_config_value(&config, "s", "f", "u \\");
         Ok(())
     }
+
+    #[test]
+    fn test_include_cycle_is_not_detected() -> buck2_error::Result<()> {
+        struct Counting(TestConfigParserFileOps, usize);
+        #[async_trait::async_trait]
+        impl ConfigParserFileOps for Counting {
+            async fn read_file_lines_if_exists(
+                &mut self,
+                path: &ConfigPath,
+            ) -> buck2_error::Result<Option<Vec<String>>> {
+                self.1 += 1;
+                if self.1 > 50 {
+                    return Err(std::io::Error::other("read limit hit").into());
+                }
+                self.0.read_file_lines_if_exists(path).await
+            }
+            async fn read_dir(
+                &mut self,
+                path: &ConfigPath,
+            ) -> buck2_error::Result<Vec<crate::legacy_configs::file_ops::ConfigDirEntry>>
+            {
+                self.0.read_dir(path).await
+            }
+        }
+        let mut ops = Counting(
+            TestConfigParserFileOps::new(&[("config", "<file:config>\n")])?,
+            0,
+        );
+        let res = futures::executor::block_on(LegacyBuckConfig::finish_parse(
+            Vec::new(),
+            &[ConfigPath::Project(
+                ProjectRelativePath::new("config")?.to_owned(),
+            )],
+            CellRootPath::new(ProjectRelativePath::empty()),
+            &mut ops,
+            &[],
+            true,
+        ));
+        let err = format!("{:#}", res.err().unwrap());
+        assert!(err.contains("read limit hit"), "{err}");
+        assert_eq!(ops.1, 51);
+        Ok(())
+    }
 }
