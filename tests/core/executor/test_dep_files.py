@@ -1023,6 +1023,8 @@ async def test_re_dep_file_uploads_same_key(buck: Buck) -> None:
         "-c",
         "test.allow_dep_file_cache_upload=true",
         "-c",
+        "test.allow_cache_upload=true",
+        "-c",
         f"test.cache_buster={random_string()}",
         "--local-only",
     ]
@@ -1062,6 +1064,8 @@ async def test_re_dep_file_uploads_different_key(buck: Buck) -> None:
         target,
         "-c",
         "test.allow_dep_file_cache_upload=true",
+        "-c",
+        "test.allow_cache_upload=true",
         "-c",
         f"test.cache_buster={random_string()}",
         "--local-only",
@@ -1105,6 +1109,53 @@ async def test_re_dep_file_uploads_different_key(buck: Buck) -> None:
     await _check_uploaded_dep_file_key(buck, key_untagged_input_change)
     assert key_untagged_input_change not in keys_seen
     keys_seen.append(key_untagged_input_change)
+
+
+UPLOAD_RESULT_ACTION_UPLOAD_NOT_ALLOWED = 6
+UPLOAD_RESULT_DEP_FILE_UPLOAD_NOT_ALLOWED = 18
+
+
+@buck_test(data_dir="upload_dep_files")
+@env("BUCK_LOG", "buck2_execute_impl::executors::caching=debug")
+@env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
+async def test_local_dep_file_upload_follows_cache_upload_permission(
+    buck: Buck,
+) -> None:
+    async def build(*configs: str) -> dict[str, Any]:
+        await buck.build(
+            "root//:dep_files",
+            "--local-only",
+            "-c",
+            f"test.cache_buster={random_string()}",
+            *[arg for config in configs for arg in ("-c", config)],
+        )
+        execs = await _action_executions(buck)
+        assert len(execs) == 1
+        return execs[0]
+
+    # A dep-file entry over locally produced results would publish them, so it
+    # needs the action's own upload permission.
+    execution = await build("test.allow_dep_file_cache_upload=true")
+    assert len(await _dep_file_uploads(buck)) == 0
+    assert execution["cache_upload_result"] == UPLOAD_RESULT_ACTION_UPLOAD_NOT_ALLOWED
+    assert (
+        execution["dep_file_cache_upload_result"]
+        == UPLOAD_RESULT_ACTION_UPLOAD_NOT_ALLOWED
+    )
+
+    # The two permissions are reported apart.
+    execution = await build("test.allow_cache_upload=true")
+    assert (
+        execution["dep_file_cache_upload_result"]
+        == UPLOAD_RESULT_DEP_FILE_UPLOAD_NOT_ALLOWED
+    )
+
+    execution = await build()
+    assert execution["cache_upload_result"] == UPLOAD_RESULT_ACTION_UPLOAD_NOT_ALLOWED
+    assert (
+        execution["dep_file_cache_upload_result"]
+        == UPLOAD_RESULT_DEP_FILE_UPLOAD_NOT_ALLOWED
+    )
 
 
 @buck_test(data_dir="upload_dep_files")

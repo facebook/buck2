@@ -1325,6 +1325,7 @@ impl BuckTestOrchestrator<'_> {
                         digest_config,
                         mergebase: &None,
                         re_platform: executor.re_platform(),
+                        allow_cache_upload: true,
                     };
                     let _result = match executor
                         .cache_upload(

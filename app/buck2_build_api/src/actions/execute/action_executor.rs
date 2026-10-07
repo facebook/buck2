@@ -690,6 +690,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
         execution_result: &CommandExecutionResult,
         re_result: Option<&mut TActionResult2>,
         dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
+        allow_cache_upload: bool,
     ) -> buck2_error::Result<CacheUploadResults> {
         let action = self.target();
         Ok(self
@@ -701,6 +702,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
                     digest_config: self.digest_config(),
                     mergebase: self.mergebase().0.as_ref(),
                     re_platform: self.re_platform(),
+                    allow_cache_upload,
                 },
                 execution_result,
                 re_result,

@@ -565,7 +565,11 @@ impl UploadCache for CacheUploader {
     ) -> buck2_error::Result<CacheUploadResults> {
         let error_on_cache_upload = error_on_cache_upload().buck_error_context("cache_upload")?;
 
-        let (cache_upload_outcome, mut local_result) = if res.was_locally_executed() {
+        // Local results need the action's permission; RE-produced results are already published.
+        let local_upload_allowed = !res.was_locally_executed() || info.allow_cache_upload;
+        let (cache_upload_outcome, mut local_result) = if !local_upload_allowed {
+            (CacheUploadOutcome::ActionUploadNotAllowed, None)
+        } else if res.was_locally_executed() {
             tracing::debug!(
                 "Uploading action result for `{}`",
                 action_digest_and_blobs.action
@@ -597,8 +601,10 @@ impl UploadCache for CacheUploader {
             re_result
         };
 
-        let should_upload_dep_file =
-            res.was_locally_executed() || res.was_remotely_executed() || res.was_action_cache_hit();
+        let should_upload_dep_file = local_upload_allowed
+            && (res.was_locally_executed()
+                || res.was_remotely_executed()
+                || res.was_action_cache_hit());
 
         let (dep_file_cache_upload_outcome, dep_file_cache_upload_key) = match dep_file_bundle {
             Some(dep_file_bundle) if should_upload_dep_file => {
@@ -621,6 +627,13 @@ impl UploadCache for CacheUploader {
                     ),
                     Some(remote_dep_file_action.action.coerce()),
                 )
+            }
+            Some(..) if res.was_locally_executed() => {
+                tracing::info!(
+                    "Dep file cache upload for `{}` not attempted: local cache upload not allowed",
+                    action_digest_and_blobs.action
+                );
+                (DepFileCacheUploadOutcome::LocalUploadNotAllowed, None)
             }
             Some(..) => {
                 tracing::info!(

@@ -1658,10 +1658,11 @@ impl Action for RunAction {
             (false, false) => buck2_data::IncrementalKind::NonIncremental,
         };
 
+        let allow_cache_upload = allow_cache_upload || force_cache_upload()?;
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
         if result.was_success()
             && !result.was_served_by_remote_dep_file_cache()
-            && (allow_cache_upload || supports_remote_dep_files || force_cache_upload()?)
+            && (allow_cache_upload || supports_remote_dep_files)
         {
             let mut re_result = result.action_result.take();
             // TODO(jtbraun): D121882458 moves this upload off the action's critical path. Worth
@@ -1678,12 +1679,18 @@ impl Action for RunAction {
                     } else {
                         None
                     },
+                    allow_cache_upload,
                 )
                 .await?;
 
             result.cache_upload_result = upload_result.cache_upload_outcome.to_proto();
-            result.dep_file_cache_upload_result =
-                upload_result.dep_file_cache_upload_outcome.to_proto();
+            result.dep_file_cache_upload_result = if supports_remote_dep_files {
+                upload_result.dep_file_cache_upload_outcome.to_proto()
+            } else if dep_file_bundle.has_dep_files() {
+                buck2_data::UploadResult::DepFileUploadNotAllowed
+            } else {
+                buck2_data::UploadResult::NotAttempted
+            };
             result.dep_file_key = upload_result.dep_file_cache_upload_key;
         } else if !result.was_success() {
             result.cache_upload_result = buck2_data::UploadResult::ActionNotSuccessful;
@@ -1691,6 +1698,10 @@ impl Action for RunAction {
             result.cache_upload_result = buck2_data::UploadResult::RemoteDepFileCacheHit;
         } else if !allow_cache_upload {
             result.cache_upload_result = buck2_data::UploadResult::ActionUploadNotAllowed;
+            if dep_file_bundle.has_dep_files() {
+                result.dep_file_cache_upload_result =
+                    buck2_data::UploadResult::DepFileUploadNotAllowed;
+            }
         }
 
         let was_locally_executed = result.was_locally_executed();

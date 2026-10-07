@@ -2314,6 +2314,8 @@ enum UploadResult {
   UPLOAD_RESULT_FAILED_OTHER = 15;
   UPLOAD_RESULT_HAD_DEP_FILE_BUNDLE = 16;
   UPLOAD_RESULT_DEP_FILE_ENTRY_EXISTS = 17;
+  // The action declares dep files but does not allow dep-file cache uploads.
+  UPLOAD_RESULT_DEP_FILE_UPLOAD_NOT_ALLOWED = 18;
 }
 
 message CommandInvalidationInfo {
