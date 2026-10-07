@@ -15,6 +15,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::Read;
 use std::marker::PhantomData;
+use std::str;
 
 use allocative::Allocative;
 use derivative::Derivative;
@@ -111,8 +112,27 @@ impl fmt::Debug for RawDigest {
 
 impl fmt::Display for RawDigest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", hex::encode(self.as_bytes()))
+        match self {
+            Self::Sha1(x) => fmt_hex::<SHA1_SIZE, { SHA1_SIZE * 2 }>(x, f),
+            Self::Sha256(x) => fmt_hex::<SHA256_SIZE, { SHA256_SIZE * 2 }>(x, f),
+            Self::Blake3(x) | Self::Blake3Keyed(x) => {
+                fmt_hex::<BLAKE3_SIZE, { BLAKE3_SIZE * 2 }>(x, f)
+            }
+        }
     }
+}
+
+/// Hex-encodes `bytes` into a stack buffer, honoring the formatter's fill, alignment, width and
+/// precision like `str` does. `HEX_LEN` must be `N * 2`; the compiler enforces it.
+fn fmt_hex<const N: usize, const HEX_LEN: usize>(
+    bytes: &[u8; N],
+    f: &mut fmt::Formatter<'_>,
+) -> fmt::Result {
+    const { assert!(HEX_LEN == N * 2) };
+    let mut encoded = [0u8; HEX_LEN];
+    hex::encode_to_slice(bytes, &mut encoded)
+        .expect("should fit: the buffer is exactly twice the digest length");
+    f.pad(str::from_utf8(&encoded).expect("should be valid UTF-8: hex output is ASCII"))
 }
 
 /// The family of digest algorithm associated with a digest. This tells you what kind of digest it
@@ -825,6 +845,46 @@ pub mod testing {
 mod tests {
     use super::*;
     use crate::file_ops::metadata::FileDigestKind;
+
+    #[test]
+    fn test_raw_digest_display_all_algorithms() {
+        // Cover every byte value, including leading zeroes and high-bit bytes.
+        for start in (0u8..=224).step_by(32) {
+            let bytes = std::array::from_fn(|i| start + i as u8);
+            let digests = [
+                RawDigest::Sha1(bytes[..SHA1_SIZE].try_into().unwrap()),
+                RawDigest::Sha256(bytes),
+                RawDigest::Blake3(bytes),
+                RawDigest::Blake3Keyed(bytes),
+            ];
+            for digest in digests {
+                assert_eq!(hex::encode(digest.as_bytes()), digest.to_string());
+            }
+        }
+    }
+
+    #[test]
+    fn test_raw_digest_display_format_options() {
+        let digests = [
+            RawDigest::Sha1([0x9a; SHA1_SIZE]),
+            RawDigest::Sha256([0x9a; SHA256_SIZE]),
+        ];
+        for digest in digests {
+            // Width, fill, alignment and precision apply exactly as they would to the hex `str`.
+            let hex = hex::encode(digest.as_bytes());
+            assert_eq!(format!("{hex:>80}"), format!("{digest:>80}"));
+            assert_eq!(format!("{hex:_<80}"), format!("{digest:_<80}"));
+            assert_eq!(format!("{hex:^80}"), format!("{digest:^80}"));
+            assert_eq!(format!("{hex:.7}"), format!("{digest:.7}"));
+        }
+
+        let digest = RawDigest::Sha256([0x9a; SHA256_SIZE]);
+        assert_eq!(
+            format!("{:>16}{}", "", "9a".repeat(SHA256_SIZE)),
+            format!("{digest:>80}")
+        );
+        assert_eq!("9a9a9a9", format!("{digest:.7}"));
+    }
 
     #[test]
     fn test_digest_from_str() {
