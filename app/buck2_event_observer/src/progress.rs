@@ -366,16 +366,21 @@ impl BuildProgressStateTracker {
                         stage: Some(re_stage::Stage::Execute(..)),
                     }) => {
                         if let Some(data) = self.actions.running(*parent_id) {
-                            data.running_remote = true;
-                            self.stats.running_remote += 1;
+                            // An action can enter a stage more than once; it runs once.
+                            if !data.running_remote {
+                                data.running_remote = true;
+                                self.stats.running_remote += 1;
+                            }
                         }
                     }
                     executor_stage_start::Stage::Local(LocalStage {
                         stage: Some(local_stage::Stage::Execute(..)),
                     }) => {
                         if let Some(data) = self.actions.running(*parent_id) {
-                            data.running_local = true;
-                            self.stats.running_local += 1;
+                            if !data.running_local {
+                                data.running_local = true;
+                                self.stats.running_local += 1;
+                            }
                         }
                     }
                     _ => {}
@@ -449,8 +454,8 @@ mod tests {
     }
 
     /// An action whose RE execution goes through the `EXECUTING` stage twice (the RE client opens
-    /// a new `Execute` stage span on every transition into it) is counted as two running remote
-    /// actions, and one of them is still counted after the action has finished.
+    /// a new `Execute` stage span on every transition into it) is one running remote action, and
+    /// none once it has finished.
     #[test]
     fn test_running_remote_with_two_execute_stages() -> buck2_error::Result<()> {
         let mut tracker = BuildProgressStateTracker::new();
@@ -469,10 +474,10 @@ mod tests {
         tracker.handle_event(&event(1, None, start)?)?;
         tracker.handle_event(&event(2, Some(1), re_execute_start())?)?;
         tracker.handle_event(&event(3, Some(1), re_execute_start())?)?;
-        assert_eq!(tracker.progress_stats().running_remote, 2);
+        assert_eq!(tracker.progress_stats().running_remote, 1);
         tracker.handle_event(&event(1, None, end)?)?;
 
-        assert_eq!(tracker.progress_stats().running_remote, 1);
+        assert_eq!(tracker.progress_stats().running_remote, 0);
         assert_eq!(tracker.phase_stats().actions.finished, 1);
         Ok(())
     }
