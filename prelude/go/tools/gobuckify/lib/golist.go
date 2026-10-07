@@ -120,7 +120,7 @@ func QueryGoList(
 // isRootModulePackage reports whether importPath belongs to the root module, whose
 // packages get no generated BUCK files.
 func isRootModulePackage(importPath, rootModuleName string) bool {
-	return strings.HasPrefix(importPath, rootModuleName)
+	return importPath == rootModuleName || strings.HasPrefix(importPath, rootModuleName+"/")
 }
 
 func ReadModuleName(path string) (string, error) {

@@ -14,13 +14,14 @@ import (
 	"testing"
 )
 
-// `example.com/rootkit` is another module, but its path starts with the root
-// module's path, so it is skipped and gets no BUCK file.
-func TestModuleSharingTheRootPathPrefixIsSkipped(t *testing.T) {
-	if !isRootModulePackage("example.com/rootkit", "example.com/root") {
-		t.Fatal("example.com/rootkit was not skipped")
+// Only the root module's own packages are skipped.
+func TestOnlyPackagesOfTheRootModuleAreSkipped(t *testing.T) {
+	if isRootModulePackage("example.com/rootkit", "example.com/root") {
+		t.Fatal("example.com/rootkit was skipped")
 	}
-	if !isRootModulePackage("example.com/root/sub", "example.com/root") {
-		t.Fatal("example.com/root/sub was not skipped")
+	for _, p := range []string{"example.com/root", "example.com/root/sub"} {
+		if !isRootModulePackage(p, "example.com/root") {
+			t.Fatalf("%s was not skipped", p)
+		}
 	}
 }
