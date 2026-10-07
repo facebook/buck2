@@ -58,6 +58,26 @@ impl LocalResourcesSetupResult {
                 .collect::<Result<_, buck2_error::Error>>()?;
             Ok(LocalResource(env_vars))
         }
+        // The pid is passed to `kill(2)` when the resources are released: 0 is our own process
+        // group and a negative value is a process group or every process.
+        if let Some(pid) = self.pid
+            && pid <= 0
+        {
+            return Err(buck2_error::buck2_error!(
+                ErrorTag::LocalResourceSetup,
+                "Local resource setup for `{}` reported pid `{}`, which is not a process",
+                resource_target,
+                pid,
+            ));
+        }
+        // A test that needs the resource waits for one to be free, so an empty pool is a hang.
+        if self.resources.is_empty() {
+            return Err(buck2_error::buck2_error!(
+                ErrorTag::LocalResourceSetup,
+                "Local resource setup for `{}` reported no resources",
+                resource_target,
+            ));
+        }
         let specs = self
             .resources
             .into_iter()
@@ -123,10 +143,10 @@ mod tests {
         Ok(())
     }
 
-    /// `pid` is passed to `kill(2)` when the resources are released: 0 is buck2's own process
-    /// group and -1 is every process the user may signal. Both are accepted.
+    /// `pid` is passed to `kill(2)` when the resources are released, so only a process id is
+    /// accepted.
     #[test]
-    fn test_non_positive_pid_is_accepted() {
+    fn test_non_positive_pid_is_rejected() {
         for pid in [0, -1] {
             let setup_result = LocalResourcesSetupResult {
                 pid: Some(pid),
@@ -139,17 +159,19 @@ mod tests {
             let provider_env_mapping = buck_indexmap! {
                 "ENV_SOCKET".to_owned() => "socket_address".to_owned(),
             };
-            let state = setup_result
+            let err = setup_result
                 .into_state(target, &provider_env_mapping)
-                .unwrap();
-            assert_eq!(Some(pid), state.owning_pid());
+                .unwrap_err();
+            assert!(
+                format!("{err:#}").contains("which is not a process"),
+                "{err:#}"
+            );
         }
     }
 
-    /// A setup that reports no resources is accepted; every test that needs the resource then
-    /// waits for one forever.
-    #[tokio::test]
-    async fn test_empty_resource_list_is_accepted() {
+    /// A setup that reports no resources is a setup failure, not a pool to wait on.
+    #[test]
+    fn test_empty_resource_list_is_rejected() {
         let setup_result = LocalResourcesSetupResult {
             pid: None,
             resources: vec![],
@@ -159,17 +181,12 @@ mod tests {
         let provider_env_mapping = buck_indexmap! {
             "ENV_SOCKET".to_owned() => "socket_address".to_owned(),
         };
-        let state = setup_result
+        let err = setup_result
             .into_state(target, &provider_env_mapping)
-            .unwrap();
-        let acquired = tokio::time::timeout(
-            std::time::Duration::from_millis(200),
-            state.acquire_resource(),
-        )
-        .await;
+            .unwrap_err();
         assert!(
-            acquired.is_err(),
-            "acquire_resource returned from an empty pool"
+            format!("{err:#}").contains("reported no resources"),
+            "{err:#}"
         );
     }
 
