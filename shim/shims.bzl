@@ -252,25 +252,77 @@ def java_binary(name, jar_style = None, runtime = None, *args, **kwargs):
     _unused = (jar_style, runtime)  # @unused
     return prelude.java_binary(name = name, *args, **kwargs)
 
+# Attributes the fbcode rust macros accept and no prelude rust rule does: knobs
+# of the Meta build (autocargo, build-info stamping, allocators, ...) and the
+# ones the fbcode macros expand into further targets (`test_*`, `cxx_bridge`).
+# To regenerate: call each prelude rust rule with every parameter of the fbcode
+# `rust_library`, `rust_binary` and `rust_unittest` macros and collect the
+# "extra named parameter" errors. `external_deps` is deliberately not here:
+# dropping it would hide a missing dependency behind a compile error.
+_FBCODE_ONLY_RUST_ATTRS = (
+    "allocator",
+    "allow_jni_merging",
+    "allow_oss_build",
+    "autocargo",
+    "bolt_args_map",
+    "cpp_deps",
+    "cxx_bridge",
+    "cxx_bridge_compiler_flags",
+    "cxx_bridge_header",
+    "cxx_bridge_header_namespace",
+    "default_strip_mode",
+    "fbcode_no_silent_dwp_overflow_override",
+    "fbcode_skip_header_map",
+    "fbconfig_rule_type",
+    "keep_gpu_sections",
+    "late_build_info_stamping",
+    "nodefaultlibs",
+    "part_of_sysroot",
+    "skip_autocargo_manifest",
+    "strip_mode",
+    "test_compatible_with",
+    "test_contacts",
+    "test_deps",
+    "test_env",
+    "test_external_deps",
+    "test_features",
+    "test_incoming_transition",
+    "test_keep_gpu_sections",
+    "test_labels",
+    "test_link_group_map",
+    "test_link_style",
+    "test_linker_flags",
+    "test_mapped_srcs",
+    "test_named_deps",
+    "test_network_access",
+    "test_remote_execution",
+    "test_resources",
+    "test_run_env",
+    "test_rustc_flags",
+    "test_srcs",
+    "unittests",
+    "unstable_plugin",
+    "versions",
+)
+
+def _drop_fbcode_only_rust_attrs(kwargs):
+    return {k: v for k, v in kwargs.items() if k not in _FBCODE_ONLY_RUST_ATTRS}
+
 def rust_library(
     name,
     edition = None,
     rustc_flags = [],
     deps = [],
     named_deps = None,
-    test_deps = None,
-    test_env = None,
-    autocargo = None,
-    unittests = None,
     mapped_srcs = {},
-    cpp_deps = None,
-    cxx_bridge = None,
+    resources = {},
     visibility = ["PUBLIC"],
     **kwargs,
 ):
-    _unused = (test_deps, test_env, named_deps, autocargo, unittests, visibility, cpp_deps, cxx_bridge)  # @unused
+    _unused = (named_deps, visibility)  # @unused
     deps = _fix_deps(deps)
     mapped_srcs = _maybe_select_map(mapped_srcs, _fix_mapped_srcs)
+    resources = _maybe_select_map(resources, _fix_resources)
 
     # Reset visibility because internal and external paths are different.
     visibility = ["PUBLIC"]
@@ -282,25 +334,37 @@ def rust_library(
         deps = deps,
         visibility = visibility,
         mapped_srcs = mapped_srcs,
-        **kwargs,
+        resources = resources,
+        **_drop_fbcode_only_rust_attrs(kwargs),
     )
 
-def rust_binary(
-    name, edition = None, rustc_flags = [], deps = [], autocargo = None, unittests = None, allocator = None, default_strip_mode = None, visibility = ["PUBLIC"], **kwargs
-):
-    _unused = (unittests, allocator, default_strip_mode, autocargo)  # @unused
+def rust_binary(name, edition = None, rustc_flags = [], deps = [], resources = {}, visibility = ["PUBLIC"], **kwargs):
     deps = _fix_deps(deps)
+    resources = _maybe_select_map(resources, _fix_resources)
 
     # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
     prelude.rust_binary(
-        name = name, edition = edition or _default_rust_edition(), rustc_flags = rustc_flags + [_CFG_BUCK_BUILD], deps = deps, visibility = visibility, **kwargs
+        name = name,
+        edition = edition or _default_rust_edition(),
+        rustc_flags = rustc_flags + [_CFG_BUCK_BUILD],
+        deps = deps,
+        resources = resources,
+        visibility = visibility,
+        **_drop_fbcode_only_rust_attrs(kwargs),
     )
 
-def rust_unittest(name, edition = None, rustc_flags = [], deps = [], visibility = ["PUBLIC"], **kwargs):
+def rust_unittest(name, edition = None, rustc_flags = [], deps = [], resources = {}, visibility = ["PUBLIC"], **kwargs):
     deps = _fix_deps(deps)
+    resources = _maybe_select_map(resources, _fix_resources)
 
     prelude.rust_test(
-        name = name, edition = edition or _default_rust_edition(), rustc_flags = rustc_flags + [_CFG_BUCK_BUILD], deps = deps, visibility = visibility, **kwargs
+        name = name,
+        edition = edition or _default_rust_edition(),
+        rustc_flags = rustc_flags + [_CFG_BUCK_BUILD],
+        deps = deps,
+        resources = resources,
+        visibility = visibility,
+        **_drop_fbcode_only_rust_attrs(kwargs),
     )
 
 def rust_protobuf_library(
