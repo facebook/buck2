@@ -920,8 +920,11 @@ pub(crate) mod tests {
             true,
         ));
         let err = format!("{:#}", res.err().unwrap());
-        assert!(err.contains("read limit hit"), "{err}");
-        assert_eq!(ops.1, 51);
+        assert!(
+            err.contains("Detected a cycle in buckconfig includes"),
+            "{err}"
+        );
+        assert_eq!(ops.1, 1);
         Ok(())
     }
 }

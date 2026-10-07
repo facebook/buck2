@@ -53,6 +53,8 @@ enum ConfigError {
     SectionMissingTrailingBracket(String),
     #[error("Improperly include directive path. Got {0}")]
     BadIncludePath(String),
+    #[error("Detected a cycle in buckconfig includes: `{0}` is already being parsed")]
+    IncludeCycle(String),
     #[error(
         "Couldn't parse line. Expected include directive (`<file:/file.bcfg>`), section(`[some_section]`), or key assignment (`some_key = some_value`). Got `{0}`"
     )]
@@ -235,10 +237,20 @@ impl<'p> LegacyConfigFileParser<'p> {
     }
 
     fn push_file(&mut self, line: usize, path: &ConfigPath) -> buck2_error::Result<()> {
+        let current_file = self.current_file.dupe().unwrap_or_else(|| panic!("push_file() called without any files on the include stack. top-level files should use start_file()"));
+        let path_string = path.to_string();
+        if current_file.path == path_string
+            || self
+                .include_stack
+                .iter()
+                .any(|included_from| included_from.source_file.path == path_string)
+        {
+            return Err(ConfigError::IncludeCycle(path_string).into());
+        }
         let include_source = ConfigFileLocationWithLine {
-                source_file: self.current_file.dupe().unwrap_or_else(|| panic!("push_file() called without any files on the include stack. top-level files should use start_file()")),
-                line,
-            };
+            source_file: current_file,
+            line,
+        };
 
         self.include_stack.push(include_source.clone());
 
