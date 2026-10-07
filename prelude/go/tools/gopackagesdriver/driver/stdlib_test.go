@@ -11,7 +11,6 @@
 package driver
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -27,18 +26,17 @@ func overlayImportFixture() (*packages.Package, map[string][]byte, map[string]*p
 	return pkg, overlay, std, map[string]bool{}
 }
 
-// The overlay path writes into the package's nil Imports map, so editing a
-// package that has no imports yet crashes the driver.
-func TestOverlayImportIntoPackageWithoutImportsPanics(t *testing.T) {
+// An import added in the editor to a package without imports is recorded.
+func TestOverlayImportIntoPackageWithoutImportsIsRecorded(t *testing.T) {
 	pkg, overlay, std, imported := overlayImportFixture()
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatal("expected a panic")
-		}
-		if !strings.Contains(fmt.Sprint(r), "assignment to entry in nil map") {
-			t.Fatalf("unexpected panic: %v", r)
-		}
-	}()
 	addOverlayImports(pkg, overlay, std, imported)
+	if pkg.Imports["fmt"] != std["fmt"] {
+		t.Fatalf("fmt missing from Imports: %v", pkg.Imports)
+	}
+	if !imported["fmt"] {
+		t.Fatalf("fmt not recorded as imported: %v", imported)
+	}
+	if !strings.HasPrefix(pkg.Imports["fmt"].ID, "fmt") {
+		t.Fatalf("unexpected import record %v", pkg.Imports["fmt"])
+	}
 }

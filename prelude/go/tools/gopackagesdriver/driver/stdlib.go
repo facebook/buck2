@@ -175,6 +175,10 @@ func addOverlayImports(pkg *packages.Package, overlay map[string][]byte, stdPack
 		if !ok {
 			continue
 		}
+		// The BXL response leaves Imports nil for a package without imports.
+		if pkg.Imports == nil {
+			pkg.Imports = map[string]*packages.Package{}
+		}
 		for _, impPath := range parseImports(file, content) {
 			if stdPkg, ok := stdPackageByImportName[impPath]; ok {
 				pkg.Imports[impPath] = stdPkg
