@@ -61,8 +61,11 @@ impl InjectedKey for FileSystemBaselineKey {
         EqualityBehavior::Compare(|x, y| x == y)
     }
 
+    /// The baseline is a premise of every file read, not a change to one. Were it a source, the
+    /// injection that every daemon startup performs would report each file read in the first build
+    /// as invalidated by a file change.
     fn invalidation_source_priority() -> InvalidationSourcePriority {
-        InvalidationSourcePriority::High
+        InvalidationSourcePriority::Ignored
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
