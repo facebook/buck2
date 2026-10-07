@@ -13,6 +13,8 @@
 use std::sync::Arc;
 use std::sync::Condvar;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -27,7 +29,18 @@ use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
+use pagable::PartialPagableArc;
+use pagable::arc_erase::ArcErase;
+use pagable::arc_erase::ArcEraseDyn;
 use pagable::pagable_typetag;
+use pagable::storage::data::DataKey;
+use pagable::storage::data::PagableData;
+use pagable::storage::in_memory::InMemoryPagableStorage;
+use pagable::storage::traits::CommitFrontier;
+use pagable::storage::traits::DeserializedArcCache;
+use pagable::storage::traits::PagableStorage;
+use pagable::storage::traits::WriteTicket;
+use pagable::traits::StorageContext;
 use tempfile::tempdir;
 use tokio::sync::Notify;
 use tokio::time::timeout;
@@ -1049,5 +1062,176 @@ async fn pagable_status_by_type_is_deterministically_ordered() -> anyhow::Result
         "by_type with equal totals must be ordered by key type name"
     );
 
+    Ok(())
+}
+
+/// Writes through like the in-memory store, but hands out tickets and reports
+/// the frontier the test configured, so a page-out can be cancelled with some
+/// of its rows "committed" and the rest not.
+struct StagedCommitStorage {
+    inner: Arc<dyn PagableStorage>,
+    committed_before: u64,
+    discarded: AtomicBool,
+}
+
+/// Rows stored by any `StagedCommitStorage`; a `PageOutCancel` is a plain
+/// function, so the cancel condition reads this instead of capturing.
+static STAGED_ROWS_STORED: AtomicU64 = AtomicU64::new(0);
+
+fn cancel_once_both_rows_are_stored() -> bool {
+    STAGED_ROWS_STORED.load(Ordering::SeqCst) >= 2
+}
+
+impl StagedCommitStorage {
+    fn new(inner: Arc<dyn PagableStorage>, committed_before: u64) -> Self {
+        STAGED_ROWS_STORED.store(0, Ordering::SeqCst);
+        Self {
+            inner,
+            committed_before,
+            discarded: AtomicBool::new(false),
+        }
+    }
+}
+
+#[async_trait]
+impl PagableStorage for StagedCommitStorage {
+    fn arc_cache(&self) -> &DeserializedArcCache {
+        self.inner.arc_cache()
+    }
+
+    fn fetch_data_blocking(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
+        self.inner.fetch_data_blocking(key)
+    }
+
+    async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
+        self.inner.fetch_data(key).await
+    }
+
+    fn schedule_for_paging(&self, arc: Box<dyn ArcEraseDyn>) {
+        self.inner.schedule_for_paging(arc)
+    }
+
+    fn storage_context(&self) -> &StorageContext {
+        self.inner.storage_context()
+    }
+
+    fn store_data_ticketed(&self, data: PagableData) -> anyhow::Result<(DataKey, WriteTicket)> {
+        let (key, _) = self.inner.store_data_ticketed(data)?;
+        let seq = STAGED_ROWS_STORED.fetch_add(1, Ordering::SeqCst) + 1;
+        Ok((key, WriteTicket::new(0, seq)))
+    }
+
+    fn commit_frontier(&self) -> CommitFrontier {
+        CommitFrontier::new(vec![self.committed_before])
+    }
+
+    fn discard_unwritten(&self) {
+        self.discarded.store(true, Ordering::SeqCst);
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.inner.flush()
+    }
+
+    fn release_memory(&self) {
+        self.inner.release_memory()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct ArcValueKey(u32);
+
+/// A value whose payload is an arc, so page-out writes an arc row the value's
+/// row references, and binding that arc is observable on it.
+#[derive(Allocative, Clone, Dupe)]
+struct ArcValue(PartialPagableArc<Vec<u8>>);
+
+/// The arcs `ArcValueKey` computed, for the test to inspect after page-out.
+#[derive(Clone, Dupe, Default)]
+struct ArcSink(Arc<Mutex<Vec<PartialPagableArc<Vec<u8>>>>>);
+
+#[async_trait]
+impl Key for ArcValueKey {
+    type Value = ArcValue;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let arc = PartialPagableArc::new(vec![self.0 as u8; 32]);
+        if let Ok(sink) = ctx.per_transaction_data().data.get::<ArcSink>() {
+            sink.0.lock().expect("sink lock").push(arc.dupe());
+        }
+        ArcValue(arc)
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| PartialPagableArc::ptr_eq(&x.0, &y.0))
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        ArcValueSerialize
+    }
+}
+
+struct ArcValueSerialize;
+
+impl ValueSerialize for ArcValueSerialize {
+    type Value = ArcValue;
+
+    fn pagable_serialize_value(
+        &self,
+        value: &Self::Value,
+        serializer: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        Some(value.0.pagable_serialize(serializer))
+    }
+
+    fn pagable_deserialize_value<'de, D: PagableDeserializer<'de> + ?Sized>(
+        &self,
+        _deserializer: &mut D,
+    ) -> pagable::Result<Self::Value> {
+        Err(pagable::Error::msg(
+            "this test never pages the value back in",
+        ))
+    }
+}
+
+/// A cancelled page-out binds the arcs whose rows had committed, since a value
+/// referencing them may already be evicted, and drops only the rest. The
+/// value's arc row is stored first (row 1), then the value's own row (row 2);
+/// the frontier says how many of them committed.
+#[tokio::test]
+async fn cancelled_page_out_binds_arcs_of_committed_rows() -> anyhow::Result<()> {
+    let _serial = PAGE_OUT_RACE_TEST_LOCK.lock().await;
+    for (committed_before, arc_bound) in [(1, false), (2, true)] {
+        let backing = InMemoryPagableStorage::new();
+        let storage = Arc::new(StagedCommitStorage::new(backing.handle(), committed_before));
+        let dice = make_dice(DiceStorage::new(storage.dupe() as Arc<dyn PagableStorage>));
+        let sink = ArcSink::default();
+        let mut data = UserComputationData::new();
+        data.data.set(sink.dupe());
+        let ctx = dice.updater_with_data(data).commit().await;
+        ctx.compute(&ArcValueKey(7)).await?;
+        drop(ctx);
+
+        dice.page_out_cancellable(cancel_once_both_rows_are_stored)
+            .await?;
+
+        let arc = sink
+            .0
+            .lock()
+            .expect("sink lock")
+            .pop()
+            .expect("computed once");
+        assert!(storage.discarded.load(Ordering::SeqCst));
+        assert_eq!(
+            ArcErase::data_key(&arc).is_some(),
+            arc_bound,
+            "with rows before {committed_before} committed"
+        );
+    }
     Ok(())
 }

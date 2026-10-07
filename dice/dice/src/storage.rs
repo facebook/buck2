@@ -342,11 +342,17 @@ impl DiceStorage {
         // Aborted, so the join reports cancellation; there is nothing to act on.
         drop((&mut evictor.0).await);
         if cancelled() {
-            // Nothing refers to the rows still queued: no value was evicted
-            // against them and no arc was bound to them. Dropping them hands
-            // the shards back to the command that cancelled us, instead of
-            // draining a queue it would have to read past.
+            // Rows committed by now may already back evicted values, so the
+            // arcs those rows hold are bound before anything is dropped; an
+            // arc can reach the unbound list after the tick that evicted a
+            // value referencing it. Nothing refers to the rows still queued,
+            // so dropping them hands the shards back to the command that
+            // cancelled us, instead of draining a queue it would have to
+            // read past. The frontier is taken before the discard, which
+            // makes the dropped rows look committed.
+            let committed = self.storage.commit_frontier();
             self.storage.discard_unwritten();
+            bind_in_parallel(&self.storage, finished.take_covered(&committed)).await;
             pending.clear();
             finished.discard_unbound();
         }
