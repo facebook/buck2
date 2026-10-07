@@ -534,6 +534,26 @@ mod tests {
         )
     }
 
+    /// A target directory of only `__` or `___` reaches the `[2..len - 2]` slice with the start
+    /// past the end. `buck2 audit parse` and `buck2 audit output` pass the user's path straight
+    /// here.
+    #[test]
+    #[should_panic(expected = "starts at 2 but ends at 0")]
+    fn test_underscore_only_target_dir_panics() {
+        let (buck_out_parser, config_hash, _, _) = get_test_data();
+        let _ignored =
+            buck_out_parser.parse(&format!("buck-out/v2/art/bar/{config_hash}/__/output"));
+    }
+
+    #[test]
+    #[should_panic(expected = "starts at 2 but ends at 1")]
+    fn test_three_underscore_target_dir_panics() {
+        let (buck_out_parser, config_hash, _, _) = get_test_data();
+        let _ignored = buck_out_parser.parse(&format!(
+            "buck-out/v2/art/bar/{config_hash}/path/to/target/___/output"
+        ));
+    }
+
     #[test]
     fn test_validation() -> buck2_error::Result<()> {
         let (buck_out_parser, config_hash, _, _) = get_test_data();
