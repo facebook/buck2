@@ -37,6 +37,7 @@ use watchman_client::prelude::FileType;
 
 use crate::dep_files::DepFileCache;
 use crate::file_watcher::FileWatcher;
+use crate::file_watcher::SyncOutcome;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
 use crate::watchman::core::SyncableQuery;
@@ -281,7 +282,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
 
     async fn on_fresh_instance(
         &mut self,
-        ctx: DiceTransactionUpdater,
+        mut ctx: DiceTransactionUpdater,
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
         watchman_version: Option<String>,
@@ -327,12 +328,6 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
             }
             _ => FileSystemBaseline::unique(),
         };
-
-        // TODO(cjhopman): could probably get away with just invalidating all fs things, but that's not supported.
-        // Dropping the entire DICE map can be somewhat computationally expensive as there
-        // are a lot of destructors to run. On the other hand, we don't have to wait for
-        // it. So, we just send it off to its own thread.
-        let mut ctx = ctx.unstable_take();
 
         let mut base_stats = buck2_data::FileWatcherStats {
             fresh_instance: true,
@@ -444,7 +439,7 @@ impl FileWatcher for WatchmanFileWatcher {
     async fn sync(
         &self,
         dice: DiceTransactionUpdater,
-    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase)> {
+    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase, SyncOutcome)> {
         span_async(
             buck2_data::FileWatcherStart {
                 provider: buck2_data::FileWatcherProvider::Watchman as i32,
@@ -453,7 +448,8 @@ impl FileWatcher for WatchmanFileWatcher {
                 let (stats, res) = match self.query.sync(dice).await {
                     Ok((stats, dice)) => {
                         let mergebase = Mergebase(Arc::new(stats.branched_from_revision.clone()));
-                        ((Some(stats)), Ok((dice, mergebase)))
+                        let outcome = SyncOutcome::reported_by(&stats);
+                        ((Some(stats)), Ok((dice, mergebase, outcome)))
                     }
                     Err(e) => (None, Err(e)),
                 };

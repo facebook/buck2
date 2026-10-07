@@ -39,6 +39,7 @@ use buck2_data::ExclusiveCommandWaitStart;
 use buck2_data::NoActiveDiceState;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_file_watcher::file_watcher::SyncOutcome;
 use buck2_util::early_command_timing::EXCLUSIVE_COMMAND_WAIT;
 use buck2_util::early_command_timing::EarlyCommandTimingBuilder;
 use buck2_util::rtabort;
@@ -235,6 +236,12 @@ enum CoordinatorMessage {
         command: CommandId,
         attempt: UpdateAttemptId,
         response: oneshot::Sender<buck2_error::Result<BranchId>>,
+    },
+    MoveToBranch {
+        command: CommandId,
+        attempt: UpdateAttemptId,
+        branch: BranchId,
+        response: oneshot::Sender<buck2_error::Result<()>>,
     },
     AfterUpdate {
         command: CommandId,
@@ -973,6 +980,23 @@ impl AdmissionCoordinator {
         .await
     }
 
+    /// Moves commands to `branch`, which later grants of the update lane return. Only the lane's
+    /// holder may do this.
+    async fn move_to_branch(
+        &self,
+        command: CommandId,
+        attempt: UpdateAttemptId,
+        branch: BranchId,
+    ) -> buck2_error::Result<()> {
+        self.request(|response| CoordinatorMessage::MoveToBranch {
+            command,
+            attempt,
+            branch,
+            response,
+        })
+        .await
+    }
+
     async fn after_update(
         &self,
         command: CommandId,
@@ -1029,8 +1053,9 @@ struct AdmissionCoordinatorTask {
     data: CoordinatorState,
     dice: Arc<Dice>,
     sender: mpsc::WeakUnboundedSender<CoordinatorMessage>,
-    /// The branch commands run on. A command learns it by being granted the update lane, so
-    /// every update runs on the branch the one before it left behind.
+    /// The branch commands run on. A command learns it by being granted the update lane, and only
+    /// the lane's holder may move it, so every update runs on the branch the one before it left
+    /// behind.
     branch: BranchId,
     update_in_flight: Option<(CommandId, UpdateAttemptId)>,
     update_waiters: VecDeque<UpdateWaiter>,
@@ -1090,6 +1115,16 @@ impl AdmissionCoordinatorTask {
                     attempt,
                     response,
                 } => self.acquire_update(command, attempt, response),
+                CoordinatorMessage::MoveToBranch {
+                    command,
+                    attempt,
+                    branch,
+                    response,
+                } => {
+                    let result = self.move_to_branch(command, attempt, branch);
+                    let owns_command = self.data.pending_commands.contains_key(&command);
+                    self.respond(command, owns_command, response, result);
+                }
                 CoordinatorMessage::AfterUpdate {
                     command,
                     update,
@@ -1245,6 +1280,21 @@ impl AdmissionCoordinatorTask {
         }
     }
 
+    fn move_to_branch(
+        &mut self,
+        command: CommandId,
+        attempt: UpdateAttemptId,
+        branch: BranchId,
+    ) -> buck2_error::Result<()> {
+        if self.update_in_flight != Some((command, attempt)) {
+            return Err(internal_error!(
+                "command `{command}` moved to branch `{branch:?}` without owning the update lane"
+            ));
+        }
+        self.branch = branch;
+        Ok(())
+    }
+
     fn finish_update(&mut self, command: CommandId, attempt: UpdateAttemptId) {
         if self.update_in_flight == Some((command, attempt)) {
             self.update_in_flight = None;
@@ -1362,11 +1412,13 @@ pub trait CommandEvents: Dupe + Send + Sync + 'static {
 
 #[async_trait]
 pub trait DiceUpdater: Send + Sync {
+    /// Records the command's changes on `ctx` and reports the file watcher's sync outcome. After
+    /// a fresh instance the handler moves to a fresh branch.
     async fn update(
         &self,
         mut ctx: DiceTransactionUpdater,
         early_timings: &mut EarlyCommandTimingBuilder,
-    ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)>;
+    ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData, SyncOutcome)>;
 }
 
 /// Per-command work that needs the committed `DiceTransaction` but is not part of deciding whether
@@ -1607,13 +1659,17 @@ impl ConcurrencyHandler {
         let dice_was_draining = pending.dice_was_draining.await;
 
         let updater = self.dice.updater_on(branch);
-        let (transaction, user_data) = updates.update(updater, early_timings).await?;
+        let (mut updater, user_data, outcome) = updates.update(updater, early_timings).await?;
+        if outcome == SyncOutcome::FreshInstance {
+            self.start_over(pending.command, pending.attempt, &mut updater, branch)
+                .await?;
+        }
         let transaction = events
             .span(
                 buck2_data::DiceStateUpdateStart {}.into(),
                 Box::pin(async {
                     (
-                        buck2_error::Ok(transaction.commit_with_data(user_data).await),
+                        buck2_error::Ok(updater.commit_with_data(user_data).await),
                         buck2_data::DiceStateUpdateEnd {}.into(),
                     )
                 }),
@@ -1962,6 +2018,38 @@ impl ConcurrencyHandler {
         Ok(transaction)
     }
 
+    /// Moves the handler to a fresh root, with `updater`'s changes going there. The branch left
+    /// behind is deleted once nothing runs on it any more.
+    ///
+    /// Deleting it at once would strand the commands still running on it: a lookup on a deleted
+    /// branch resolves nothing, injected keys included, so such a command would hit the
+    /// missing-injection panic on the first injected key it had not seen. Waiting lets them finish
+    /// with their cache, and releases everything the branch held then.
+    async fn start_over(
+        &self,
+        command: CommandId,
+        attempt: UpdateAttemptId,
+        updater: &mut DiceTransactionUpdater,
+        old: BranchId,
+    ) -> buck2_error::Result<()> {
+        let fresh = self.dice.new_root().await;
+        if let Err(error) = self
+            .coordinator
+            .move_to_branch(command, attempt, fresh)
+            .await
+        {
+            self.dice.delete_branch(fresh);
+            return Err(error);
+        }
+        updater.retarget(fresh);
+        let dice = self.dice.dupe();
+        tokio::spawn(async move {
+            dice.wait_for_idle_on(old).await;
+            dice.delete_branch(old);
+        });
+        Ok(())
+    }
+
     /// Access dice without locking for dumps.
     pub fn unsafe_dice(&self) -> &Arc<Dice> {
         &self.dice
@@ -2281,7 +2369,8 @@ mod tests {
             &self,
             _ctx: DiceTransactionUpdater,
             _early_timings: &mut EarlyCommandTimingBuilder,
-        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
+        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData, SyncOutcome)>
+        {
             Err(internal_error!("updater failed"))
         }
     }
@@ -2296,7 +2385,8 @@ mod tests {
             &self,
             _ctx: DiceTransactionUpdater,
             _early_timings: &mut EarlyCommandTimingBuilder,
-        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
+        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData, SyncOutcome)>
+        {
             self.entered.wait().await;
             future::pending().await
         }
@@ -2344,8 +2434,9 @@ mod tests {
             &self,
             ctx: DiceTransactionUpdater,
             _early_timings: &mut EarlyCommandTimingBuilder,
-        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
-            Ok((ctx, Default::default()))
+        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData, SyncOutcome)>
+        {
+            Ok((ctx, Default::default(), SyncOutcome::Incremental))
         }
     }
 
@@ -2357,9 +2448,10 @@ mod tests {
             &self,
             mut ctx: DiceTransactionUpdater,
             _early_timings: &mut EarlyCommandTimingBuilder,
-        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
+        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData, SyncOutcome)>
+        {
             ctx.changed_to(vec![(K, ())])?;
-            Ok((ctx, Default::default()))
+            Ok((ctx, Default::default(), SyncOutcome::Incremental))
         }
     }
 
@@ -6090,10 +6182,11 @@ mod tests {
                 &self,
                 ctx: DiceTransactionUpdater,
                 _early_timings: &mut EarlyCommandTimingBuilder,
-            ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
+            ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData, SyncOutcome)>
+            {
                 self.on_enter.store(true, Ordering::Relaxed);
                 wait_on(&self.allow_exit).await;
-                Ok((ctx, Default::default()))
+                Ok((ctx, Default::default(), SyncOutcome::Incremental))
             }
         }
 
@@ -6828,12 +6921,13 @@ mod tests {
                 &self,
                 ctx: DiceTransactionUpdater,
                 early_timings: &mut EarlyCommandTimingBuilder,
-            ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
+            ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData, SyncOutcome)>
+            {
                 // Simulate file watcher sync taking 50ms
                 early_timings.start_span(FILE_WATCHER_WAIT.to_owned());
                 tokio::time::sleep(Duration::from_millis(50)).await;
                 early_timings.end_known_span();
-                Ok((ctx, Default::default()))
+                Ok((ctx, Default::default(), SyncOutcome::Incremental))
             }
         }
 
@@ -6922,7 +7016,8 @@ mod tests {
                 &self,
                 mut ctx: DiceTransactionUpdater,
                 early_timings: &mut EarlyCommandTimingBuilder,
-            ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
+            ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData, SyncOutcome)>
+            {
                 // First call changes state, second call doesn't
                 let is_first = !self.call_count.swap(true, Ordering::Relaxed);
                 if is_first {
@@ -6932,7 +7027,7 @@ mod tests {
                 early_timings.start_span(FILE_WATCHER_WAIT.to_owned());
                 tokio::time::sleep(Duration::from_millis(30)).await;
                 early_timings.end_known_span();
-                Ok((ctx, Default::default()))
+                Ok((ctx, Default::default(), SyncOutcome::Incremental))
             }
         }
 
@@ -6975,6 +7070,287 @@ mod tests {
             duration
         );
 
+        Ok(())
+    }
+
+    /// An updater that injects `K`, and reports a fresh instance on the first call after `armed`
+    /// is set.
+    struct FreshInstanceWhenArmed {
+        armed: AtomicBool,
+    }
+
+    #[async_trait]
+    impl DiceUpdater for FreshInstanceWhenArmed {
+        async fn update(
+            &self,
+            mut ctx: DiceTransactionUpdater,
+            _early_timings: &mut EarlyCommandTimingBuilder,
+        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData, SyncOutcome)>
+        {
+            ctx.changed_to(vec![(K, ())])?;
+            let outcome = if self.armed.swap(false, Ordering::SeqCst) {
+                SyncOutcome::FreshInstance
+            } else {
+                SyncOutcome::Incremental
+            };
+            Ok((ctx, Default::default(), outcome))
+        }
+    }
+
+    /// A computed value with nothing behind it, whose value tells one computation from another.
+    #[derive(Clone, Dupe, Display, Debug, Hash, Eq, PartialEq, Allocative, Pagable)]
+    #[pagable_typetag(dice::DiceKeyDyn)]
+    struct Counted;
+
+    static COUNTED_COMPUTES: AtomicUsize = AtomicUsize::new(0);
+
+    #[async_trait]
+    impl Key for Counted {
+        type Value = usize;
+
+        async fn compute(
+            &self,
+            _ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            COUNTED_COMPUTES.fetch_add(1, Ordering::SeqCst) + 1
+        }
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            PagableValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    /// Runs a command that requests `K`, which its update injected, and `Counted`, returning the
+    /// latter with the transaction's version.
+    async fn run_counting(
+        concurrency: &Arc<ConcurrencyHandler>,
+        updater: &dyn DiceUpdater,
+    ) -> buck2_error::Result<(Version, usize)> {
+        concurrency
+            .enter(
+                TestEvents::new(),
+                updater,
+                |transaction, _timing| async move {
+                    transaction.compute(&K).await?;
+                    let counted = *transaction.compute(&Counted).await?;
+                    buck2_error::Ok((transaction.version(), counted))
+                },
+                false,
+                Vec::new(),
+                None,
+                CancellationContext::testing(),
+                PreemptibleWhen::Never,
+                &NoTelemetry,
+                ExitWhen::ExitNever,
+                EarlyCommandTimingBuilder::new(Instant::now()),
+            )
+            .await?
+    }
+
+    /// Only the holder of the update lane may move the handler to another branch.
+    #[tokio::test]
+    async fn a_move_without_the_update_lane_is_refused() -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let command = concurrency.allocate_command_id();
+        let PreUpdateDecision::Update { attempt, .. } = concurrency
+            .coordinator
+            .begin(AdmissionRequest {
+                command_id: command,
+                command: CommandData {
+                    trace_id: TraceId::new(),
+                    display_command: "buck2 build".to_owned(),
+                    preemption_setting: PreemptibleWhen::Never,
+                    preempt: None,
+                },
+                is_nested: false,
+                exit_when: ExitWhen::ExitNever,
+            })
+            .await?
+        else {
+            panic!("an idle coordinator should prepare the update");
+        };
+
+        let fresh = concurrency.dice.new_root().await;
+        assert!(
+            concurrency
+                .coordinator
+                .move_to_branch(command, attempt, fresh)
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            concurrency
+                .coordinator
+                .acquire_update(command, attempt)
+                .await?,
+            BranchId::FIRST
+        );
+        concurrency
+            .coordinator
+            .move_to_branch(command, attempt, fresh)
+            .await?;
+        concurrency.coordinator.release_and_wait(command).await?;
+
+        let next = concurrency.allocate_command_id();
+        let PreUpdateDecision::Update { attempt, .. } = concurrency
+            .coordinator
+            .begin(AdmissionRequest {
+                command_id: next,
+                command: CommandData {
+                    trace_id: TraceId::new(),
+                    display_command: "buck2 build".to_owned(),
+                    preemption_setting: PreemptibleWhen::Never,
+                    preempt: None,
+                },
+                is_nested: false,
+                exit_when: ExitWhen::ExitNever,
+            })
+            .await?
+        else {
+            panic!("an idle coordinator should prepare the update");
+        };
+        assert_eq!(
+            concurrency
+                .coordinator
+                .acquire_update(next, attempt)
+                .await?,
+            fresh
+        );
+        concurrency.coordinator.release_and_wait(next).await?;
+        Ok(())
+    }
+
+    /// A fresh instance moves the handler to a fresh root, where nothing computed before is
+    /// reused. The changes recorded before the watcher spoke go with it, and the commands after
+    /// it stay there.
+    #[tokio::test]
+    async fn a_fresh_instance_starts_over_on_a_fresh_root() -> buck2_error::Result<()> {
+        let dice = make_default_dice();
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let updater = FreshInstanceWhenArmed {
+            armed: AtomicBool::new(false),
+        };
+
+        let (before, first) = run_counting(&concurrency, &updater).await?;
+        assert_eq!(before.branch(), BranchId::FIRST);
+
+        updater.armed.store(true, Ordering::SeqCst);
+        let (fresh, second) = run_counting(&concurrency, &updater).await?;
+        assert_ne!(fresh.branch(), BranchId::FIRST);
+        assert_ne!(second, first);
+
+        let (after, third) = run_counting(&concurrency, &updater).await?;
+        assert_eq!(after.branch(), fresh.branch());
+        assert_eq!(third, second);
+        Ok(())
+    }
+
+    /// The branch a fresh instance leaves behind is deleted only once its commands are done. Until
+    /// then a command still running on it keeps its state, injected keys included; afterwards
+    /// nothing the branch held remains.
+    #[tokio::test]
+    async fn the_branch_a_fresh_instance_leaves_behind_outlives_its_commands()
+    -> buck2_error::Result<()> {
+        let dice = make_default_dice();
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+
+        let block = Arc::new(RwLock::new(()));
+        let blocked = block.write().await;
+        let entered = Arc::new(Barrier::new(2));
+
+        // Injects `K` and computes `Counted`, then holds its transaction until released and only
+        // then requests `K`, which it has not seen yet.
+        let running = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let entered = entered.dupe();
+            let block = block.dupe();
+            async move {
+                concurrency
+                    .enter(
+                        TestEvents::new(),
+                        &CtxDifferent,
+                        |transaction, _timing| async move {
+                            transaction.compute(&Counted).await?;
+                            entered.wait().await;
+                            let _g = block.read().await;
+                            transaction.compute(&K).await?;
+                            buck2_error::Ok(transaction.version())
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        &NoTelemetry,
+                        ExitWhen::ExitNever,
+                        EarlyCommandTimingBuilder::new(Instant::now()),
+                    )
+                    .await
+            }
+        });
+        entered.wait().await;
+        assert_eq!(dice.pagable_node_counts().await.resident, 1);
+
+        // A fresh instance while the first command runs: the handler moves to a fresh root, and
+        // this command blocks behind the first, whose state differs.
+        let fresh_events = TestEvents::new();
+        let queued = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let events = fresh_events.dupe();
+            async move {
+                concurrency
+                    .enter(
+                        events,
+                        &FreshInstanceWhenArmed {
+                            armed: AtomicBool::new(true),
+                        },
+                        |transaction, _timing| async move { transaction.version() },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        &NoTelemetry,
+                        ExitWhen::ExitNever,
+                        EarlyCommandTimingBuilder::new(Instant::now()),
+                    )
+                    .await
+            }
+        });
+        fresh_events
+            .wait_for(|event| {
+                matches!(
+                    event,
+                    RecordedEvent::Instant(buck2_data::instant_event::Data::DiceEqualityCheck(
+                        DiceEqualityCheck { is_equal: false }
+                    ))
+                )
+            })
+            .await?;
+        // The branch left behind is still whole.
+        assert_eq!(dice.pagable_node_counts().await.resident, 1);
+
+        drop(blocked);
+        let old = tokio::time::timeout(Duration::from_secs(10), running)
+            .await
+            .expect("the running command should finish")
+            .expect("the running command should not panic")??;
+        let fresh = queued.await??;
+        assert_ne!(fresh.branch(), old.branch());
+
+        // With its last command gone, the branch is deleted and what it held released.
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while dice.pagable_node_counts().await.resident != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the branch left behind should have been deleted");
         Ok(())
     }
 }

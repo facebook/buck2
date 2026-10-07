@@ -43,6 +43,7 @@ use tracing::debug;
 use tracing::info;
 
 use crate::file_watcher::FileWatcher;
+use crate::file_watcher::SyncOutcome;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
 
@@ -132,9 +133,8 @@ impl NotifyFileData {
     fn sync(self) -> (buck2_data::FileWatcherStats, Option<FileChangeTracker>) {
         // The changes that go into the DICE transaction
         let mut changed = FileChangeTracker::new();
-        // If we missed events, sync2() will drop the entire DICE graph. Surface that to
-        // telemetry/UI by reusing the fresh-instance fields the watchman path uses for
-        // the equivalent wipe.
+        // If we missed events, the sync reports a fresh instance and the daemon starts over.
+        // Surface that to telemetry/UI the same way the watchman path does.
         let base = if self.missed_events {
             buck2_data::FileWatcherStats {
                 fresh_instance: true,
@@ -322,8 +322,8 @@ impl NotifyFileWatcher {
         if let Some(changes) = changes {
             changes.write_to_dice(&mut dice)?;
         } else {
-            // We missed some file system notifications, so we drop everything
-            dice = dice.unstable_take();
+            // Events were missed; the fresh instance reported in `stats` has the daemon start
+            // over.
             *baseline = FileSystemBaseline::unique();
         }
         dice.set_file_system_baseline(baseline.dupe())?;
@@ -336,7 +336,7 @@ impl FileWatcher for NotifyFileWatcher {
     async fn sync(
         &self,
         dice: DiceTransactionUpdater,
-    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase)> {
+    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase, SyncOutcome)> {
         span_async(
             buck2_data::FileWatcherStart {
                 provider: buck2_data::FileWatcherProvider::RustNotify as i32,
@@ -345,7 +345,8 @@ impl FileWatcher for NotifyFileWatcher {
                 let (stats, res) = match self.sync2(dice) {
                     Ok((stats, dice)) => {
                         let mergebase = Mergebase(Arc::new(stats.branched_from_revision.clone()));
-                        ((Some(stats)), Ok((dice, mergebase)))
+                        let outcome = SyncOutcome::reported_by(&stats);
+                        ((Some(stats)), Ok((dice, mergebase, outcome)))
                     }
                     Err(e) => (None, Err(e)),
                 };
@@ -413,8 +414,8 @@ mod tests {
         assert!(state.missed_events);
     }
 
-    /// Missed events: the sync result carries no tracker (the caller drops the graph) and the
-    /// stats surface the wipe the same way watchman's fresh-instance path does.
+    /// Missed events: the sync result carries no tracker (the daemon starts over) and the stats
+    /// surface the fresh instance the same way watchman's path does.
     #[test]
     fn sync_with_missed_events_reports_fresh_instance_and_drops_changes() {
         let mut state = NotifyFileData::new();

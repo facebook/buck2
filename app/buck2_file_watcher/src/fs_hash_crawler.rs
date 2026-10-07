@@ -46,6 +46,7 @@ use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 
 use crate::file_watcher::FileWatcher;
+use crate::file_watcher::SyncOutcome;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
 
@@ -99,7 +100,7 @@ impl FileWatcher for FsHashCrawler {
     async fn sync(
         &self,
         dice: DiceTransactionUpdater,
-    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase)> {
+    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase, SyncOutcome)> {
         span_async(
             buck2_data::FileWatcherStart {
                 provider: buck2_data::FileWatcherProvider::FsHashCrawler as i32,
@@ -108,7 +109,8 @@ impl FileWatcher for FsHashCrawler {
                 let (stats, res) = match self.update(dice).await {
                     Ok((stats, dice)) => {
                         let mergebase = Mergebase(Arc::new(stats.branched_from_revision.clone()));
-                        ((Some(stats)), Ok((dice, mergebase)))
+                        let outcome = SyncOutcome::reported_by(&stats);
+                        ((Some(stats)), Ok((dice, mergebase, outcome)))
                     }
                     Err(e) => (None, Err(e)),
                 };

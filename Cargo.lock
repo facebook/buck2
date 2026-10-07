@@ -1769,6 +1769,7 @@ dependencies = [
  "buck2_core",
  "buck2_data",
  "buck2_error",
+ "buck2_file_watcher",
  "buck2_util",
  "buck2_wrapper_common",
  "derivative",

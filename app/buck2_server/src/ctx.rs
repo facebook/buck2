@@ -91,6 +91,7 @@ use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
 use buck2_file_watcher::dep_files::SetDepFileCache;
+use buck2_file_watcher::file_watcher::SyncOutcome;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::error::IoResultExt;
@@ -715,7 +716,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
         &self,
         mut ctx: DiceTransactionUpdater,
         early_timings: &mut EarlyCommandTimingBuilder,
-    ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
+    ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData, SyncOutcome)> {
         let existing_state = ctx.existing_state().await.clone();
         let cells_and_configs = self
             .cmd_ctx
@@ -793,7 +794,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
         )?;
 
         early_timings.start_span(FILE_WATCHER_WAIT.to_owned());
-        let (ctx, mergebase) = self
+        let (ctx, mergebase, outcome) = self
             .cmd_ctx
             .base_context
             .repo()
@@ -805,7 +806,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
         let mut user_data = self.make_user_computation_data(&cells_and_configs.root_config)?;
         user_data.set_mergebase(mergebase);
 
-        Ok((ctx, user_data))
+        Ok((ctx, user_data, outcome))
     }
 }
 

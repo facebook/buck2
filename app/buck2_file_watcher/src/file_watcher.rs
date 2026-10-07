@@ -26,6 +26,7 @@ use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_hash::StdBuckHashMap;
 use dice::DiceTransactionUpdater;
+use dupe::Dupe;
 
 use crate::dep_files::DepFileCache;
 #[cfg(fbcode_build)]
@@ -37,10 +38,32 @@ use crate::watchman::interface::WatchmanFileWatcher;
 
 #[async_trait]
 pub trait FileWatcher: Allocative + Send + Sync + 'static {
+    /// Records what changed since the previous sync on `dice`.
     async fn sync(
         &self,
         dice: DiceTransactionUpdater,
-    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase)>;
+    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase, SyncOutcome)>;
+}
+
+/// Whether a sync accounted for everything that changed since the previous one.
+#[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq)]
+pub enum SyncOutcome {
+    /// Every change since the previous sync was recorded on the updater.
+    Incremental,
+    /// The watcher lost track of what changed, so nothing computed before the sync may be
+    /// reused.
+    FreshInstance,
+}
+
+impl SyncOutcome {
+    /// The outcome `stats` report.
+    pub fn reported_by(stats: &buck2_data::FileWatcherStats) -> Self {
+        if stats.fresh_instance {
+            Self::FreshInstance
+        } else {
+            Self::Incremental
+        }
+    }
 }
 
 /// Parse the `dice_clear_on_mergebase_change` config, honoring both the buckconfig

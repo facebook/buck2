@@ -62,6 +62,7 @@ use crate::edenfs::utils::bytes_to_string_or_unknown;
 use crate::edenfs::utils::dtype_into_file_watcher_kind;
 use crate::edenfs::utils::find_first_valid_parent;
 use crate::file_watcher::FileWatcher;
+use crate::file_watcher::SyncOutcome;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
 
@@ -756,13 +757,9 @@ impl EdenFsFileWatcher {
         // of the related files, in which case we will need to use Sapling to obtain.
         //
 
-        // Invalidate everything - including the dep files - and recompute everything.
+        // The dep files are cleared here. DICE is not: the fresh instance reported below has the
+        // daemon start it over.
         self.dep_file_cache.clear_non_local();
-
-        // Dropping the entire DICE map can be somewhat computationally expensive as there
-        // are a lot of destructors to run. On the other hand, we don't have to wait for
-        // it. So, we just send it off to its own thread.
-        let dice = dice.unstable_take();
 
         // Get mergebase state
         let last_mergebase_info = self.last_mergebase.read().await.clone();
@@ -865,7 +862,7 @@ impl FileWatcher for EdenFsFileWatcher {
     async fn sync(
         &self,
         dice: DiceTransactionUpdater,
-    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase)> {
+    ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase, SyncOutcome)> {
         span_async(
             buck2_data::FileWatcherStart {
                 provider: buck2_data::FileWatcherProvider::EdenFs as i32,
@@ -874,7 +871,8 @@ impl FileWatcher for EdenFsFileWatcher {
                 let (stats, res) = match self.update(dice).await {
                     Ok((stats, dice)) => {
                         let mergebase = Mergebase(Arc::new(stats.branched_from_revision.clone()));
-                        ((Some(stats)), Ok((dice, mergebase)))
+                        let outcome = SyncOutcome::reported_by(&stats);
+                        ((Some(stats)), Ok((dice, mergebase, outcome)))
                     }
                     Err(e) => (None, Err(e)),
                 };
