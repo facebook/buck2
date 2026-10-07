@@ -367,42 +367,24 @@ class AndroidDeviceImplTest {
             "Filesystem Size Used Avail Use% Mounted on\n/dev/block/dm-0 64G 32G 32G 50% /data",
         )
 
-    val result = androidDevice.getDiskSpace(humanReadable = true)
+    val result = androidDevice.getDiskSpace()
 
     assertEquals(listOf("64G", "32G", "32G"), result)
   }
 
-  /** Unsuffixed, the values are 1K blocks and can be used as numbers. */
-  @Test
-  fun testGetDiskSpaceUnsuffixed() {
-    whenever(
-        mockAdbUtils.executeAdbShellCommand(
-            "df -k /data",
-            serialNumber,
-        ),
-    )
-        .thenReturn(
-            "Filesystem 1K-blocks Used Available Use% Mounted on\n/dev/block/dm-0 32911312 14799512 17964344 46% /data",
-        )
-
-    val result = androidDevice.getDiskSpace(humanReadable = false)
-
-    assertEquals(listOf("32911312", "14799512", "17964344"), result)
-  }
-
   /**
-   * Toolbox `df` of API 23 and below treats `-k` as a path and prints an error ahead of the row.
+   * Toolbox `df` of API 23 and below treats `-h` as a path and prints an error ahead of the row.
    */
   @Test
   fun testGetDiskSpaceToolboxDf() {
-    whenever(mockAdbUtils.executeAdbShellCommand("df -k /data", serialNumber))
+    whenever(mockAdbUtils.executeAdbShellCommand("df -h /data", serialNumber))
         .thenReturn(
             "Filesystem Size Used Free Blksize\n" +
-                "-k: No such file or directory\n" +
+                "-h: No such file or directory\n" +
                 "/data 3.9G 187.5M 3.7G 4096\n",
         )
 
-    val result = androidDevice.getDiskSpace(humanReadable = false)
+    val result = androidDevice.getDiskSpace()
 
     assertEquals(listOf("3.9G", "187.5M", "3.7G"), result)
   }
@@ -651,6 +633,18 @@ class AndroidDeviceImplTest {
         )
 
     assertEquals(setOf(AndroidInstallErrorTag.NO_SPACE_LEFT_ON_DEVICE), error.tags)
+  }
+
+  @Test
+  fun testClassifiesQuotaExceededAsInsufficientStorage() {
+    val error =
+        AndroidInstallErrorClassifier.fromErrorMessage(
+            "ADB_COMMAND_FAILED: Failed to create dir /data/local/tmp/exopackage/com.whatsapp..\n" +
+                "mkdir: '/data/local/tmp/exopackage/com.whatsapp': Quota exceeded",
+        )
+
+    assertEquals(setOf(AndroidInstallErrorTag.NO_SPACE_LEFT_ON_DEVICE), error.tags)
+    assertTrue(error.message.contains("/data/local/tmp/exopackage"))
   }
 
   @Test

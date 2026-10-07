@@ -17,7 +17,11 @@ object AndroidInstallErrorClassifier {
     if (isInsufficientStorageFailure(input)) {
       return createInstallError(
           AndroidInstallErrorTag.NO_SPACE_LEFT_ON_DEVICE,
-          "No space left on device. Free up space on the device and try again.",
+          "No space left on device. Free up space on the device and try again. Exopackage " +
+              "files are kept per package under /data/local/tmp/exopackage: see their sizes " +
+              "with `adb shell du -sh /data/local/tmp/exopackage/*` and delete those of " +
+              "packages you no longer need with " +
+              "`adb shell rm -rf /data/local/tmp/exopackage/<package>`.",
       )
     }
     for ((pattern, handler) in errorPatterns) {

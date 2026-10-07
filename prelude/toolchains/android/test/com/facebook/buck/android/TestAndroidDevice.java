@@ -156,7 +156,7 @@ public class TestAndroidDevice implements AndroidDevice {
   }
 
   @Override
-  public List<String> getDiskSpace(boolean humanReadable) {
+  public List<String> getDiskSpace() {
     return Arrays.asList("_", "_", "_");
   }
 

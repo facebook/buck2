@@ -22,7 +22,6 @@ import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -35,8 +34,6 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,14 +42,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * ExopackageInstaller manages the installation of apps with the "exopackage" flag set to true.
@@ -87,10 +81,6 @@ public class ExopackageInstaller {
   //    approx available commandline length = 800
   //    max length of a path from the dataRoot for a well known app = 77
   private static final int RM_GROUPING_THRESHOLD = 10;
-
-  private static final long BYTES_PER_BLOCK = 1024L;
-
-  private static final Pattern DF_SIZE_PATTERN = Pattern.compile("(\\d+)(\\.\\d+)?([KMGT])?");
 
   private static final int MAX_CONCURRENT_PUSHES = 8;
 
@@ -167,9 +157,8 @@ public class ExopackageInstaller {
       // Scratch is read by nothing, and filesToDelete is disjoint from filesToPush, so the new app
       // gets every file it needs either way -- a failure here leaves unreferenced files on the
       // device and costs disk, not correctness. That disjointness is also why the push below still
-      // reads the pre-delete listing: nothing deleted is a file any payload asks about. Whether
-      // there is still room to proceed is the preflight's answer to give, from the space the
-      // device actually has.
+      // reads the pre-delete listing: nothing deleted is a file any payload asks about. A push that
+      // still does not fit fails with ENOSPC, which is tagged NO_SPACE_LEFT_ON_DEVICE.
       try {
         device.rmStaleFiles(packageName);
         deleteFiles(filesToDelete(filesOnDevice, payloads));
@@ -269,8 +258,7 @@ public class ExopackageInstaller {
    * Pushes whatever of {@code payloads} the device does not already have.
    *
    * <p>Every payload byte reaches a device through here, whether it goes while the build is still
-   * running or as part of the install. Free space is checked first, so a device without room says
-   * so rather than filling up partway through.
+   * running or as part of the install.
    */
   private void pushMissingFiles(
       ImmutableSortedSet<Path> filesOnDevice, ImmutableList<ResolvedExoPayload> payloads)
@@ -282,8 +270,6 @@ public class ExopackageInstaller {
     }
     ImmutableMap<ResolvedExoPayload, ImmutableSortedMap<Path, Path>> filesToTransfer =
         transfers.build();
-
-    checkEnoughFreeSpace(filesToTransfer);
 
     ImmutableList.Builder<PushShard> shards = ImmutableList.builder();
     filesToTransfer.forEach(
@@ -448,86 +434,6 @@ public class ExopackageInstaller {
       this.filesType = filesType;
       this.installPaths = installPaths;
     }
-  }
-
-  /**
-   * Fails the install if the payload cannot fit, rather than letting the push die partway through
-   * with a bare ENOSPC.
-   */
-  private void checkEnoughFreeSpace(
-      ImmutableMap<ResolvedExoPayload, ImmutableSortedMap<Path, Path>> filesToTransfer) {
-    OptionalLong availableBytes = availableBytesOnDevice();
-    if (availableBytes.isEmpty()) {
-      return;
-    }
-    long requiredBytes = 0L;
-    for (ImmutableSortedMap<Path, Path> files : filesToTransfer.values()) {
-      for (Path source : files.values()) {
-        File file = rootPath.resolve(source).toFile();
-        if (!file.isFile()) {
-          // Zero is what length() would answer, which would quietly shrink the estimate and let
-          // the check pass. The install cannot succeed without the file either way, so say which
-          // one is missing while there is still somewhere useful to say it.
-          throw AndroidInstallException.Companion.artifactMissing(file.toString());
-        }
-        requiredBytes += file.length();
-      }
-    }
-    if (requiredBytes > availableBytes.getAsLong()) {
-      throw AndroidInstallException.Companion.insufficientStorage(
-          requiredBytes, availableBytes.getAsLong());
-    }
-  }
-
-  /**
-   * Free space under the data partition, or empty if the device did not give a number for it.
-   *
-   * <p>Unsuffixed, {@link AndroidDevice#getDiskSpace} answers with three entries -- size, used,
-   * available -- each a count of 1K blocks, e.g. {@code ["32911312", "14799512", "17964344"]}. A
-   * device it cannot read reports {@code "_"} in their place.
-   */
-  private OptionalLong availableBytesOnDevice() {
-    List<String> diskSpace = device.getDiskSpace(/* humanReadable= */ false);
-    if (diskSpace.size() < 3) {
-      return OptionalLong.empty();
-    }
-    String available = diskSpace.get(2).trim();
-    OptionalLong bytes = parseAvailableBytes(available);
-    if (bytes.isEmpty()) {
-      // No number means nothing to check against, so the preflight is skipped rather than guessed
-      // at, and the install goes on to fail at the push if the space really is not there.
-      LOG.info("Could not read available device space from '%s'", available);
-    }
-    return bytes;
-  }
-
-  /**
-   * Bytes for a {@code df} size: a bare count of 1K blocks, or a suffixed size such as {@code 3.7G}
-   * from the toolbox {@code df} of API 23 and below, which ignores {@code -k}. A suffixed size is
-   * rounded to its last digit, so it is read as the largest value that rounds to it: the preflight
-   * then never rejects an install that fits.
-   */
-  @VisibleForTesting
-  public static OptionalLong parseAvailableBytes(String size) {
-    Matcher matcher = DF_SIZE_PATTERN.matcher(size);
-    if (!matcher.matches()) {
-      return OptionalLong.empty();
-    }
-    String unit = matcher.group(3);
-    if (unit == null) {
-      if (matcher.group(2) != null) {
-        return OptionalLong.empty();
-      }
-      return OptionalLong.of(Long.parseLong(matcher.group(1)) * BYTES_PER_BLOCK);
-    }
-    BigDecimal value = new BigDecimal(matcher.group(1) + Strings.nullToEmpty(matcher.group(2)));
-    BigDecimal upperBound = value.add(BigDecimal.ONE.movePointLeft(value.scale()));
-    long unitBytes = 1L << (10 * ("KMGT".indexOf(unit) + 1));
-    return OptionalLong.of(
-        upperBound
-            .multiply(BigDecimal.valueOf(unitBytes))
-            .setScale(0, RoundingMode.DOWN)
-            .longValueExact());
   }
 
   /** One exopackage payload class, with its contents resolved exactly once. */

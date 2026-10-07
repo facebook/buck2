@@ -166,13 +166,10 @@ public interface AndroidDevice {
   boolean uninstallApkFromDevice(String packageName, boolean keepData) throws Exception;
 
   /**
-   * Size, used and available space on the data partition, or {@code "_"} for each if it cannot be
-   * read.
-   *
-   * @param humanReadable values suffixed for display, e.g. {@code 17G}. Otherwise they are plain
-   *     counts of 1K blocks, which is what arithmetic wants.
+   * Size, used and available space on the data partition, suffixed for display (e.g. {@code 17G}),
+   * or {@code "_"} for each if it cannot be read.
    */
-  default List<String> getDiskSpace(boolean humanReadable) {
+  default List<String> getDiskSpace() {
     return Arrays.asList("_", "_", "_");
   }
 

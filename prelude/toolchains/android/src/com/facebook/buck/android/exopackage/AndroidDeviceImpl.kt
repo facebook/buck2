@@ -714,14 +714,11 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     }
   }
 
-  override fun getDiskSpace(humanReadable: Boolean): List<String> {
-    // `-k` rather than a bare `df`: POSIX leaves the default block size to the implementation, so
-    // the unit has to be pinned for the numbers to mean anything.
-    val units = if (humanReadable) "-h" else "-k"
+  override fun getDiskSpace(): List<String> {
     try {
-      // API 27 and below ship no `awk`. The toolbox `df` of API 23 and below rejects `-k`/`-h` as
-      // paths, printing an error line ahead of the row. The `/data` row is always the last line.
-      val result: String = executeAdbShellCommand("df $units /data")
+      // API 27 and below ship no `awk`. The toolbox `df` of API 23 and below rejects `-h` as a
+      // path, printing an error line ahead of the row. The `/data` row is always the last line.
+      val result: String = executeAdbShellCommand("df -h /data")
       return result.lines().last { it.isNotBlank() }.trim().split(Regex("\\s+")).subList(1, 4)
     } catch (e: Exception) {
       LOG.warn("Failed to get disk space: $e")

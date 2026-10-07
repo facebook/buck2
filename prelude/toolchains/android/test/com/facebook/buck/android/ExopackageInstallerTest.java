@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.OptionalLong;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -58,23 +57,6 @@ public class ExopackageInstallerTest {
         NativeExoHelper.filterLibrariesForAbi(
                 libsDir, allLibs, "armeabi", ImmutableSet.of("libmy1.so", "libmy2.so"))
             .keySet());
-  }
-
-  @Test
-  public void testParseAvailableBytes() {
-    assertEquals(
-        OptionalLong.of(17964344L * 1024), ExopackageInstaller.parseAvailableBytes("17964344"));
-    // Toolbox `df` of API 23 and below: suffixed and rounded, read as the largest value that rounds
-    // to it.
-    assertEquals(
-        OptionalLong.of((long) (3.8 * 1024 * 1024 * 1024)),
-        ExopackageInstaller.parseAvailableBytes("3.7G"));
-    assertEquals(
-        OptionalLong.of((long) (187.6 * 1024 * 1024)),
-        ExopackageInstaller.parseAvailableBytes("187.5M"));
-    assertEquals(OptionalLong.of(5L * 1024), ExopackageInstaller.parseAvailableBytes("4K"));
-    assertEquals(OptionalLong.empty(), ExopackageInstaller.parseAvailableBytes("_"));
-    assertEquals(OptionalLong.empty(), ExopackageInstaller.parseAvailableBytes("3.7"));
   }
 
   @Test
