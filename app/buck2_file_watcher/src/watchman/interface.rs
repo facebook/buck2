@@ -285,6 +285,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
         watchman_version: Option<String>,
+        events_since_mergebase: bool,
     ) -> buck2_error::Result<(Self::Output, DiceTransactionUpdater)> {
         let has_new_mergebase = self.last_mergebase.as_ref() != mergebase.as_ref();
 
@@ -320,7 +321,12 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
             }
         }
 
-        self.baseline = FileSystemBaseline::unique();
+        self.baseline = match mergebase {
+            Some(mergebase) if events_since_mergebase => {
+                FileSystemBaseline::Revision(Arc::from(mergebase.as_str()))
+            }
+            _ => FileSystemBaseline::unique(),
+        };
 
         // TODO(cjhopman): could probably get away with just invalidating all fs things, but that's not supported.
         // Dropping the entire DICE map can be somewhat computationally expensive as there

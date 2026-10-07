@@ -784,15 +784,21 @@ impl EdenFsFileWatcher {
             let mut tracker = FileChangeTracker::new();
             let mut stats = FileWatcherStats::new(base_stats, 0);
             let mut processed_changes: BuckMutSet<EdenFsEvent> = BuckMutSet::default();
-            self.process_source_control_changes(
-                &mut tracker,
-                &mut stats,
-                &mergebase,
-                None,
-                &mut processed_changes,
-            )
-            .await?;
-            Ok((stats, tracker, FileSystemBaseline::unique(), dice))
+            let status = self
+                .process_source_control_changes(
+                    &mut tracker,
+                    &mut stats,
+                    &mergebase,
+                    None,
+                    &mut processed_changes,
+                )
+                .await?;
+            let baseline = if status == ProcessChangeStatus::Processed {
+                FileSystemBaseline::Revision(mergebase.into())
+            } else {
+                FileSystemBaseline::unique()
+            };
+            Ok((stats, tracker, baseline, dice))
         } else {
             base_stats.incomplete_events_reason = Some("Large or Unknown change".to_owned());
             Ok((

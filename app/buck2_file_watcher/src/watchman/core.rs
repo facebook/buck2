@@ -310,12 +310,16 @@ pub(crate) trait SyncableQueryProcessor: Send + Sync {
     ) -> buck2_error::Result<(Self::Output, Self::Payload)>;
 
     /// Indicates that all derived data should be invalidated. This could happen, for example, if the watchman server restarts.
+    ///
+    /// `events_since_mergebase` says whether `events` lists every file that differs from
+    /// `mergebase`, rather than what changed since the previous query.
     async fn on_fresh_instance(
         &mut self,
         dice: Self::Payload,
         events: Vec<WatchmanEvent>,
         mergebase: &Option<String>,
         watchman_version: Option<String>,
+        events_since_mergebase: bool,
     ) -> buck2_error::Result<(Self::Output, Self::Payload)>;
 }
 
@@ -437,7 +441,13 @@ where
                 } else {
                     (
                         self.processor
-                            .on_fresh_instance(payload, events, &merge_base, watchman_version)
+                            .on_fresh_instance(
+                                payload,
+                                events,
+                                &merge_base,
+                                watchman_version,
+                                false,
+                            )
                             .await?,
                         merge_base,
                         clock,
@@ -451,7 +461,13 @@ where
                 watchman_version,
             } => (
                 self.processor
-                    .on_fresh_instance(payload, events, &merge_base, watchman_version)
+                    .on_fresh_instance(
+                        payload,
+                        events,
+                        &merge_base,
+                        watchman_version,
+                        self.mergebase_with.is_some() && !self.query.empty_on_fresh_instance,
+                    )
                     .await?,
                 merge_base,
                 clock,

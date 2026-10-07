@@ -63,6 +63,7 @@ impl SyncableQueryProcessor for TestQueryProcessor {
         events: Vec<WatchmanEvent>,
         _mergebase: &Option<String>,
         _watchman_version: Option<String>,
+        _events_since_mergebase: bool,
     ) -> buck2_error::Result<(Self::Output, Self::Payload)> {
         Ok((
             Out::FreshInstance(events.into_map(|e| e.path.display().to_string())),
