@@ -1,0 +1,32 @@
+name: Build with buck2
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch: # allows manual triggering
+
+permissions:
+  contents: read
+
+# A full `//...` build takes a while on a hosted runner; a newer push to the
+# same ref supersedes the one in flight.
+concurrency:
+  group: build-with-buck2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Runner labels are repository (owner) specific, so the Meta larger runner
+  # (4-core-ubuntu) doesn't exist on forks; fall back to the standard
+  # GitHub-hosted runner there.
+  linux-build-with-buck2:
+    runs-on: ${{ github.repository_owner == 'facebook' && '4-core-ubuntu' || 'ubuntu-latest' }}
+    steps:
+    - uses: actions/checkout@v6
+    - uses: ./.github/actions/setup_linux_env
+    # The debug build shares its cargo cache with "Build and test".
+    - uses: ./.github/actions/build_debug
+    - uses: ./.github/actions/setup_reindeer
+    - uses: ./.github/actions/build_bootstrap
+      with:
+        targets: "//..."

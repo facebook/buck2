@@ -79,6 +79,8 @@ jobs:
         NATIVELINK_HEADER_RW_KEY_SECRET: ${{ secrets.NATIVELINK_HEADER_RW_KEY_SECRET }}
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
+      with:
+        targets: "//..."
   # The Meta-specific windows-8-core runner label does not exist on forks;
   # fall back to the standard GitHub-hosted runner there so the job doesn't
   # sit queued forever waiting for a runner that isn't available.
