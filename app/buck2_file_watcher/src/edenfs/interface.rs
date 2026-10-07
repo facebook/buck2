@@ -14,6 +14,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_common::file_ops::baseline::FileSystemBaseline;
+use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::dice::FileChangeTracker;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
@@ -37,6 +39,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckMutSet;
 use buck2_hash::StdBuckHashMap;
 use dice::DiceTransactionUpdater;
+use dupe::Dupe;
 use edenfs::ChangeNotification;
 use edenfs::ChangesSinceV2Params;
 use edenfs::Dtype;
@@ -87,13 +90,20 @@ struct EdenFsEvent {
     path: String,
 }
 
+/// What DICE has been told of: Eden's journal up to `position`, as changes relative to `baseline`.
+#[derive(Clone)]
+struct Checkpoint {
+    position: JournalPosition,
+    baseline: FileSystemBaseline,
+}
+
 #[derive(Allocative)]
 pub(crate) struct EdenFsFileWatcher {
     manager: EdenConnectionManager,
     mount_point: Vec<u8>,
     eden_root: AbsNormPathBuf,
     #[allocative(skip)]
-    position: RwLock<JournalPosition>,
+    checkpoint: RwLock<Checkpoint>,
     cells: CellResolver,
     // The project root, relative to the eden mount point
     project_root: ForwardRelativePathBuf,
@@ -148,7 +158,10 @@ impl EdenFsFileWatcher {
             manager,
             mount_point,
             eden_root,
-            position: RwLock::new(JournalPosition::default()),
+            checkpoint: RwLock::new(Checkpoint {
+                position: JournalPosition::default(),
+                baseline: FileSystemBaseline::unique(),
+            }),
             cells,
             project_root,
             ignore_specs,
@@ -165,7 +178,10 @@ impl EdenFsFileWatcher {
         &self,
         dice: DiceTransactionUpdater,
     ) -> buck2_error::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
-        let position = self.position.read().await.clone();
+        let Checkpoint {
+            position,
+            mut baseline,
+        } = self.checkpoint.read().await.clone();
         let changes_since_v2_params = ChangesSinceV2Params {
             mountPoint: self.mount_point.clone(),
             fromPosition: position,
@@ -210,18 +226,23 @@ impl EdenFsFileWatcher {
 
         let mut dice = dice;
         if large_or_unknown_change {
-            (stats, file_change_tracker, dice) = self
+            (stats, file_change_tracker, baseline, dice) = self
                 .on_large_or_unknown_change(dice)
                 .await
                 .buck_error_context("Failed to handle large or unknown change.")?;
         }
 
-        // The journal position isn't updated until we have successfully written the changes to DICE.
-        // Writing it before that's the case risks DICE's state not matching the filesystem's if we
-        // return early due to an error above. This way, at worst we re-invalidate DICE keys, but we
-        // still ensure that it remains in sync with the repository state.
+        // The checkpoint isn't advanced until the changes, and the baseline they are relative to,
+        // have been written to DICE. Advancing it before that risks DICE's state not matching the
+        // filesystem's if we return early due to an error above. This way, at worst we
+        // re-invalidate DICE keys, but we still ensure that it remains in sync with the repository
+        // state.
         file_change_tracker.write_to_dice(&mut dice)?;
-        *self.position.write().await = new_position;
+        dice.set_file_system_baseline(baseline.dupe())?;
+        *self.checkpoint.write().await = Checkpoint {
+            position: new_position,
+            baseline,
+        };
         Ok((stats.finish(), dice))
     }
 
@@ -713,7 +734,12 @@ impl EdenFsFileWatcher {
     async fn on_large_or_unknown_change(
         &self,
         dice: DiceTransactionUpdater,
-    ) -> buck2_error::Result<(FileWatcherStats, FileChangeTracker, DiceTransactionUpdater)> {
+    ) -> buck2_error::Result<(
+        FileWatcherStats,
+        FileChangeTracker,
+        FileSystemBaseline,
+        DiceTransactionUpdater,
+    )> {
         // A large change is one that affects numerous files or is otherwise unbounded in nature.
         // For example:
         // - A commit transition (e.g. a rebase, checkout, etc.).
@@ -766,12 +792,13 @@ impl EdenFsFileWatcher {
                 &mut processed_changes,
             )
             .await?;
-            Ok((stats, tracker, dice))
+            Ok((stats, tracker, FileSystemBaseline::unique(), dice))
         } else {
             base_stats.incomplete_events_reason = Some("Large or Unknown change".to_owned());
             Ok((
                 FileWatcherStats::new(base_stats, 0),
                 FileChangeTracker::new(),
+                FileSystemBaseline::unique(),
                 dice,
             ))
         }

@@ -14,6 +14,8 @@ use std::sync::Mutex;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_common::file_ops::baseline::FileSystemBaseline;
+use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::dice::FileChangeTracker;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -275,6 +277,8 @@ pub struct NotifyFileWatcher {
     // FIXME(JakobDegen): Clarify if this just needs to be kept alive or can be removed?
     watcher: RecommendedWatcher,
     data: Arc<Mutex<buck2_error::Result<NotifyFileData>>>,
+    /// What the changes recorded on the updater are relative to.
+    baseline: Mutex<FileSystemBaseline>,
 }
 
 impl NotifyFileWatcher {
@@ -298,7 +302,11 @@ impl NotifyFileWatcher {
         watcher
             .watch(root.root().as_path(), notify::RecursiveMode::Recursive)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
-        Ok(Self { watcher, data })
+        Ok(Self {
+            watcher,
+            data,
+            baseline: Mutex::new(FileSystemBaseline::unique()),
+        })
     }
 
     fn sync2(
@@ -310,12 +318,15 @@ impl NotifyFileWatcher {
             mem::replace(&mut *guard, Ok(NotifyFileData::new()))
         };
         let (stats, changes) = old?.sync();
+        let mut baseline = self.baseline.lock().unwrap();
         if let Some(changes) = changes {
             changes.write_to_dice(&mut dice)?;
         } else {
             // We missed some file system notifications, so we drop everything
             dice = dice.unstable_take();
+            *baseline = FileSystemBaseline::unique();
         }
+        dice.set_file_system_baseline(baseline.dupe())?;
         Ok((stats, dice))
     }
 }

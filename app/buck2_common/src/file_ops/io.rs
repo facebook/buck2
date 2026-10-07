@@ -29,6 +29,7 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 
 use crate::dice::data::HasIoProvider;
+use crate::file_ops::baseline::FileSystemBaseline;
 use crate::file_ops::delegate::FileOpsDelegate;
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
@@ -41,6 +42,9 @@ use crate::file_ops::metadata::RawPathMetadata;
 pub(super) struct IoFileOpsDelegate {
     pub(super) cells: CellResolver,
     pub(super) cell: CellName,
+    /// Not consulted by reads, which see the files as they are. It takes part in the delegate's
+    /// equality, so that nothing read under one baseline is reused under another.
+    pub(super) baseline: FileSystemBaseline,
 }
 
 impl IoFileOpsDelegate {

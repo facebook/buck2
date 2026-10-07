@@ -27,6 +27,8 @@ use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrderi
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
+use buck2_common::file_ops::baseline::FileSystemBaseline;
+use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::file_ops::testing::TestFileOps;
@@ -211,6 +213,7 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
 
     let mut dice = dice_builder.build(extra).unwrap();
     dice.set_cell_resolver(cell_resolver)?;
+    dice.set_file_system_baseline(FileSystemBaseline::unique())?;
     dice.set_buck_out_path(None)?;
     inject_legacy_config_for_test(&mut dice, cell_parent, LegacyBuckConfig::empty())?;
     let dice = dice.commit().await;

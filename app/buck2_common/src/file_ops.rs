@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+pub mod baseline;
 pub mod delegate;
 pub mod dice;
 pub mod error;

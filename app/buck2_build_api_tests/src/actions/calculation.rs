@@ -45,6 +45,8 @@ use buck2_build_api::spawner::BuckSpawner;
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::external_symlink::ExternalSymlink;
+use buck2_common::file_ops::baseline::FileSystemBaseline;
+use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::file_ops::testing::TestFileOps;
@@ -267,6 +269,7 @@ async fn make_default_dice_state(
     )?;
     computations.set_buck_out_path(Some(output_path))?;
     computations.set_cell_resolver(cell_resolver)?;
+    computations.set_file_system_baseline(FileSystemBaseline::unique())?;
 
     Ok(computations.commit().await)
 }

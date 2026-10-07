@@ -12,6 +12,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_common::file_ops::baseline::FileSystemBaseline;
+use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::dice::FileChangeTracker;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
@@ -26,6 +28,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_hash::StdBuckHashMap;
 use buck2_util::process::async_background_command;
 use dice::DiceTransactionUpdater;
+use dupe::Dupe;
 use tracing::debug;
 use tracing::info;
 use watchman_client::expr::Expr;
@@ -55,6 +58,8 @@ struct WatchmanQueryProcessor {
     last_mergebase_global_rev: Option<u64>,
     last_mergebase_timestamp: Option<u64>,
     dep_file_cache: Arc<dyn DepFileCache>,
+    /// What the changes recorded on the updater are relative to.
+    baseline: FileSystemBaseline,
 }
 
 /// Used in process_one_change
@@ -103,6 +108,7 @@ impl WatchmanQueryProcessor {
 
         let stats = stats.finish();
         handler.write_to_dice(&mut ctx)?;
+        ctx.set_file_system_baseline(self.baseline.dupe())?;
 
         Ok((stats, ctx))
     }
@@ -314,11 +320,13 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
             }
         }
 
+        self.baseline = FileSystemBaseline::unique();
+
         // TODO(cjhopman): could probably get away with just invalidating all fs things, but that's not supported.
         // Dropping the entire DICE map can be somewhat computationally expensive as there
         // are a lot of destructors to run. On the other hand, we don't have to wait for
         // it. So, we just send it off to its own thread.
-        let ctx = ctx.unstable_take();
+        let mut ctx = ctx.unstable_take();
 
         let mut base_stats = buck2_data::FileWatcherStats {
             fresh_instance: true,
@@ -336,6 +344,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
 
         if self.empty_on_fresh_instance {
             base_stats.incomplete_events_reason = Some("Fresh instance".to_owned());
+            ctx.set_file_system_baseline(self.baseline.dupe())?;
             Ok((base_stats, ctx))
         } else {
             self.process_events_impl(ctx, events, base_stats).await
@@ -413,6 +422,7 @@ impl WatchmanFileWatcher {
                 last_mergebase_global_rev: None,
                 last_mergebase_timestamp: None,
                 dep_file_cache,
+                baseline: FileSystemBaseline::unique(),
             }),
             watchman_merge_base,
             empty_on_fresh_instance,

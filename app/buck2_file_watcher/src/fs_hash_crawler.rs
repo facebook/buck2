@@ -18,6 +18,8 @@ use std::sync::Mutex;
 use allocative::Allocative;
 use async_trait::async_trait;
 use blake3::Hash;
+use buck2_common::file_ops::baseline::FileSystemBaseline;
+use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::dice::FileChangeTracker;
 use buck2_common::file_ops::metadata::FileType;
 use buck2_common::ignores::ignore_set::IgnoreSet;
@@ -56,6 +58,8 @@ pub struct FsHashCrawler {
     cells: CellResolver,
     ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
     snapshot: Arc<Mutex<FsSnapshot>>,
+    /// The crawler never loses track of a change, so one baseline serves for its whole life.
+    baseline: FileSystemBaseline,
 }
 
 impl FsHashCrawler {
@@ -70,6 +74,7 @@ impl FsHashCrawler {
             cells,
             ignore_specs,
             snapshot,
+            baseline: FileSystemBaseline::unique(),
         })
     }
 
@@ -84,6 +89,7 @@ impl FsHashCrawler {
         let old_snapshot = mem::replace(&mut *guard, new_snapshot);
         let (stats, changes) = old_snapshot.get_updates_for_dice(&guard, &self.ignore_specs)?;
         changes.write_to_dice(&mut dice)?;
+        dice.set_file_system_baseline(self.baseline.dupe())?;
         Ok((stats, dice))
     }
 }

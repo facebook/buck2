@@ -10,6 +10,8 @@
 
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
+use buck2_common::file_ops::baseline::FileSystemBaseline;
+use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::io::initialize_read_dir_cache;
 use buck2_common::legacy_configs::cells::ExternalBuckconfigData;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
@@ -68,6 +70,8 @@ pub(crate) async fn calculation_with_package_visibility_mode(
     );
 
     ctx.set_cell_resolver(resolver.dupe()).unwrap();
+    ctx.set_file_system_baseline(FileSystemBaseline::unique())
+        .unwrap();
     ctx.set_interpreter_context(
         BuildInterpreterConfiguror::new(
             None,

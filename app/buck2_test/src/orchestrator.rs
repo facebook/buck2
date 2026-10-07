@@ -2593,6 +2593,8 @@ mod tests {
     use buck2_build_api::context::SetBuildContextData;
     use buck2_common::dice::cells::SetCellResolver;
     use buck2_common::dice::data::testing::SetTestingIoProvider;
+    use buck2_common::file_ops::baseline::FileSystemBaseline;
+    use buck2_common::file_ops::baseline::SetFileSystemBaseline;
     use buck2_common::liveliness_observer::NoopLivelinessObserver;
     use buck2_core::cells::CellResolver;
     use buck2_core::cells::name::CellName;
@@ -2633,6 +2635,7 @@ mod tests {
             .unwrap();
         dice.set_buck_out_path(Some(buckout_path))?;
         dice.set_cell_resolver(cell_resolver)?;
+        dice.set_file_system_baseline(FileSystemBaseline::unique())?;
 
         let dice = dice.commit().await;
 
