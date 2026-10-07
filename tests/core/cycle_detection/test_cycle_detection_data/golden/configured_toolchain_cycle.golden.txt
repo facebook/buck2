@@ -1,0 +1,13 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[<TIMESTAMP>] Starting new buck2 daemon...
+[<TIMESTAMP>] Connected to new buck2 daemon.
+[<TIMESTAMP>] Buck UI: https://www.internalfb.com/buck2/<UUID>
+Command failed: 
+Configured target cycle detected (`->` means "depends on"):
+  root//:toolchain_cycle_bot (root//:execution_platforms#<HASH>) ->
+  root//:toolchain_cycle_top (root//:execution_platforms#<HASH>) ->
+  Resolving execution platform: cell:root, toolchain_deps=[root//:toolchain_cycle_mid (root//:execution_platforms#<HASH>)] ->
+  ToolchainExecutionPlatformCompatibilityKey(root//:toolchain_cycle_mid (root//:execution_platforms#<HASH>), root//:execution_platforms) ->
+  root//:toolchain_cycle_bot (root//:execution_platforms#<HASH>)
+

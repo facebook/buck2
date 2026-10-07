@@ -1,0 +1,10 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[<TIMESTAMP>] Buck UI: https://www.internalfb.com/buck2/<UUID>
+Command failed: 
+Configured target cycle detected (`->` means "depends on"):
+  root//:cycle_bot (<unspecified>) ->
+  root//:cycle_top (<unspecified>) ->
+  root//:cycle_mid (<unspecified>) ->
+  root//:cycle_bot (<unspecified>)
+
