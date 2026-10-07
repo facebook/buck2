@@ -970,6 +970,26 @@ async fn a_new_root_shares_only_what_certificates_allow() -> anyhow::Result<()> 
     Ok(())
 }
 
+/// Changes recorded before an updater is retargeted commit to the new branch, and its existing
+/// state is that branch's.
+#[tokio::test]
+async fn a_retargeted_updater_commits_to_the_new_branch() -> anyhow::Result<()> {
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let mut updater = dice.updater();
+    updater.changed_to(vec![(Foo(0), 1)])?;
+
+    let root = dice.new_root().await;
+    updater.retarget(root);
+    assert_eq!(updater.branch(), root);
+    assert_eq!(updater.existing_state().await.version().branch(), root);
+
+    let ctx = updater.commit().await;
+    assert_eq!(ctx.version().branch(), root);
+    assert_eq!(*ctx.compute(&Foo(0)).await?, 1);
+    assert_eq!(dice.head(BranchId::FIRST).await, VersionNumber::FIRST);
+    Ok(())
+}
+
 /// Deleting a branch releases what only it retained. A transaction still running on it is still
 /// served, from its own cache and by computing afresh, but nothing it computes is kept.
 #[tokio::test]

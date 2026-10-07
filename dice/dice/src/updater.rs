@@ -59,6 +59,10 @@ impl TransactionUpdater {
         self.branch
     }
 
+    pub(crate) fn retarget(&mut self, branch: BranchId) {
+        self.branch = branch;
+    }
+
     /// Records a set of `Key`s as changed so that they, and any dependents will
     /// be recomputed on the next set of requests at the next version.
     pub(crate) fn changed<K, I>(&mut self, changed: I) -> DiceResult<()>

@@ -34,6 +34,12 @@ impl DiceTransactionUpdater {
         self.0.branch()
     }
 
+    /// Makes `branch` the one this updater commits to. The changes recorded so far go there too,
+    /// and `existing_state` follows.
+    pub fn retarget(&mut self, branch: BranchId) {
+        self.0.retarget(branch)
+    }
+
     /// A transaction at the branch's newest version, without committing the recorded changes.
     pub fn existing_state(&self) -> impl Future<Output = DiceTransaction> {
         self.0.existing_state().map(DiceTransaction)
