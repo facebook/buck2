@@ -27,14 +27,17 @@ use pagable::ReadTimedOut;
 use pagable::arc_erase::ArcEraseDyn;
 use pagable::storage::data::DataKey;
 use pagable::storage::data::PagableData;
+use pagable::storage::traits::CommitFrontier;
 use pagable::storage::traits::DeserializedArcCache;
 use pagable::storage::traits::PagableStorage;
+use pagable::storage::traits::WriteTicket;
 use pagable::traits::StorageContext;
 use rusqlite::Connection;
 use rusqlite::OptionalExtension;
 use rusqlite::ToSql;
 
 const NUM_SHARDS: usize = 10;
+const _: () = assert!(NUM_SHARDS <= WriteTicket::MAX_SHARDS);
 
 /// How long a connection waits for a shard's file lock before its statement
 /// fails with `SQLITE_BUSY`.
@@ -144,11 +147,18 @@ fn write_buffer_bytes() -> usize {
     })
 }
 const IDLE_SPARE_WRITE_BUFFERS: usize = 1;
-// Bounds transient buffering with the byte cap: per shard, one active buffer
-// + `pending_capacity` pending + one draining in the writer, at
-// `DEFAULT_WRITE_BUFFER_BYTES` each - ~0.5GB per shard, ~5GB across ten. The
-// transient measured on a large target sits inside that bound.
-const BASELINE_PENDING_WRITE_BUFFERS: usize = 16;
+/// Buffers a shard may have published but not yet committed, the one being
+/// written included; producers block on a full active buffer until the writer
+/// is below it. Values whose rows sit in those buffers stay resident until they
+/// commit, so this bounds retained memory as much as buffering: one buffer
+/// filling and one draining per shard. `BUCK2_PAGABLE_QUEUE_DEPTH` overrides,
+/// as a measurement probe.
+const DEFAULT_QUEUE_DEPTH: usize = 1;
+
+fn queue_depth() -> usize {
+    static DEPTH: OnceLock<usize> = OnceLock::new();
+    *DEPTH.get_or_init(|| parse_positive_env("BUCK2_PAGABLE_QUEUE_DEPTH", DEFAULT_QUEUE_DEPTH))
+}
 const INSERT_BATCH_ROWS: usize = 8;
 const INSERT_COLUMNS: usize = 3;
 const INSERT_SINGLE_SQL: &str =
@@ -172,6 +182,8 @@ const CREATE_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS pagable_data (
 /// to allow page-out workers to write independent files in parallel.
 pub struct SqliteBackedPagableStorage {
     shards: Vec<Shard>,
+    /// Shared with every shard; see [`ShardInner::next_seq`].
+    next_seq: Arc<AtomicU64>,
     arcs: DeserializedArcCache,
     storage_context: StorageContext,
     /// Reads retried after waiting `BUSY_TIMEOUT` for a shard's lock.
@@ -186,6 +198,8 @@ struct Shard {
 }
 
 struct ShardInner {
+    /// Shared by every shard: sequence numbers order rows across the backend.
+    next_seq: Arc<AtomicU64>,
     /// The connection pool for this shard.
     conns: ConnectionPool,
     /// Immutable insertion settings derived from the writer connection.
@@ -210,6 +224,11 @@ struct ShardWriteState {
     max_bytes: usize,
     /// The buffer that producers enqueue writes into. Once full it's moved to pending_buffers
     active_buffer: Vec<(DataKey, Vec<u8>)>,
+    /// First sequence number of each buffer holding rows not yet committed,
+    /// oldest first. Pushed with a buffer's first row and popped when it
+    /// commits, which stays in step only because a buffer is never published
+    /// empty. A buffer that fails to write keeps its entry.
+    unwritten_first_seqs: VecDeque<u64>,
     /// Payload bytes held in `active_buffer`. Keys and per-row index overhead
     /// are not counted; the bound is on the dominant, variable part.
     active_bytes: usize,
@@ -218,8 +237,9 @@ struct ShardWriteState {
     spare_buffers: Vec<Vec<(DataKey, Vec<u8>)>>,
     /// Buffers that are full and ready to be written to the database by the writer thread
     pending_buffers: VecDeque<Vec<(DataKey, Vec<u8>)>>,
-    /// Maximum number of pending buffers before blocking producers. `.capacity()` may be larger, hence the separate limit.
-    pending_capacity: usize,
+    /// Published buffers not yet committed, the one being written included,
+    /// before producers block; see [`DEFAULT_QUEUE_DEPTH`].
+    queue_depth: usize,
     /// Whether the writer thread is currently writing one of the pending_buffers to the database
     writing: bool,
     /// Whether the writer thread should stop and exit
@@ -245,7 +265,10 @@ impl ShardWriteState {
     }
 
     fn queue_active_for_later_flush(&mut self) {
-        debug_assert!(self.pending_buffers.len() < self.pending_capacity);
+        debug_assert!(self.can_publish());
+        // An empty buffer has no `unwritten_first_seqs` entry; publishing one
+        // would make the writer pop the next buffer's entry when it commits.
+        debug_assert!(!self.active_buffer.is_empty());
         let replacement = self
             .spare_buffers
             .pop()
@@ -253,6 +276,16 @@ impl ShardWriteState {
         self.pending_buffers
             .push_back(std::mem::replace(&mut self.active_buffer, replacement));
         self.active_bytes = 0;
+    }
+
+    /// Whether another buffer may be published within the queue depth.
+    fn can_publish(&self) -> bool {
+        self.pending_buffers.len() + usize::from(self.writing) < self.queue_depth
+    }
+
+    /// Sequence number of the shard's oldest row not yet committed.
+    fn oldest_unwritten_seq(&self) -> Option<u64> {
+        self.unwritten_first_seqs.front().copied()
     }
 
     fn active_is_full(&self) -> bool {
@@ -351,7 +384,8 @@ impl Shard {
         path: &Path,
         num_readers: usize,
         shard_id: usize,
-        pending_capacity: usize,
+        queue_depth: usize,
+        next_seq: Arc<AtomicU64>,
     ) -> anyhow::Result<Self> {
         let conns = ConnectionPool::open(path, num_readers)?;
         let insert = {
@@ -361,16 +395,18 @@ impl Shard {
         let inner = Arc::new(ShardInner {
             conns,
             insert,
+            next_seq,
             write_state: Mutex::new(ShardWriteState {
                 max_rows: write_buffer_rows(),
                 max_bytes: write_buffer_bytes(),
                 active_buffer: Vec::with_capacity(WRITE_BUFFER_PREALLOC_ROWS),
+                unwritten_first_seqs: VecDeque::new(),
                 active_bytes: 0,
                 spare_buffers: (0..IDLE_SPARE_WRITE_BUFFERS)
                     .map(|_| Vec::with_capacity(WRITE_BUFFER_PREALLOC_ROWS))
                     .collect(),
-                pending_buffers: VecDeque::with_capacity(pending_capacity),
-                pending_capacity,
+                pending_buffers: VecDeque::with_capacity(queue_depth),
+                queue_depth,
                 writing: false,
                 shutdown: false,
                 error: None,
@@ -393,7 +429,7 @@ impl Shard {
     }
 
     #[inline]
-    fn enqueue(&self, item: (DataKey, Vec<u8>)) -> anyhow::Result<()> {
+    fn enqueue(&self, item: (DataKey, Vec<u8>)) -> anyhow::Result<u64> {
         self.inner.enqueue(item)
     }
 }
@@ -403,8 +439,7 @@ impl Drop for Shard {
         {
             let mut state = self.inner.write_state.lock().expect("lock poisoned");
             if !state.active_buffer.is_empty() {
-                while state.pending_buffers.len() >= state.pending_capacity && state.error.is_none()
-                {
+                while !state.can_publish() && state.error.is_none() {
                     state = self
                         .inner
                         .write_state_changed
@@ -434,13 +469,13 @@ impl ShardInner {
         let mut state = self.write_state.lock().expect("lock poisoned");
         Self::check_error(&state)?;
         if !state.active_buffer.is_empty() {
-            while state.pending_buffers.len() >= state.pending_capacity {
+            while !state.can_publish() {
                 state = self.write_state_changed.wait(state).expect("lock poisoned");
                 Self::check_error(&state)?;
             }
             if !state.active_buffer.is_empty() {
                 state.queue_active_for_later_flush();
-                self.write_state_changed.notify_one();
+                self.write_state_changed.notify_all();
             }
         }
         while !state.pending_buffers.is_empty() || state.writing {
@@ -457,21 +492,34 @@ impl ShardInner {
         state.trim_idle_write_buffers();
     }
 
+    /// Buffers `item` and returns its sequence number, assigned under the
+    /// state lock so the shard's rows are in sequence order.
     #[inline]
-    fn enqueue(&self, item: (DataKey, Vec<u8>)) -> anyhow::Result<()> {
+    fn enqueue(&self, item: (DataKey, Vec<u8>)) -> anyhow::Result<u64> {
         let mut state = self.write_state.lock().expect("lock poisoned");
         Self::check_error(&state)?;
         state = self.queue_full_active_for_later_flush(state)?;
         debug_assert!(!state.active_is_full());
 
+        let seq = self.next_seq.fetch_add(1, Ordering::Relaxed);
+        if state.active_buffer.is_empty() {
+            state.unwritten_first_seqs.push_back(seq);
+        }
         state.active_bytes += item.1.len();
         state.active_buffer.push(item);
         if !state.active_is_full() {
-            return Ok(());
+            return Ok(seq);
         }
 
         drop(self.queue_full_active_for_later_flush(state)?);
-        Ok(())
+        Ok(seq)
+    }
+
+    fn oldest_unwritten_seq(&self) -> Option<u64> {
+        self.write_state
+            .lock()
+            .expect("lock poisoned")
+            .oldest_unwritten_seq()
     }
 
     fn queue_full_active_for_later_flush<'a>(
@@ -482,7 +530,7 @@ impl ShardInner {
             return Ok(state);
         }
 
-        while state.pending_buffers.len() >= state.pending_capacity {
+        while !state.can_publish() {
             state = self.write_state_changed.wait(state).expect("lock poisoned");
             Self::check_error(&state)?;
             if !state.active_is_full() {
@@ -492,7 +540,9 @@ impl ShardInner {
 
         if state.active_is_full() {
             state.queue_active_for_later_flush();
-            self.write_state_changed.notify_one();
+            // Blocked producers share the condvar with the writer; a single
+            // wake-up could land on one of them and leave the writer asleep.
+            self.write_state_changed.notify_all();
         }
         Ok(state)
     }
@@ -538,6 +588,8 @@ impl ShardInner {
                 state.spare_buffers.push(items);
                 if let Err(e) = result {
                     state.error = Some(e);
+                } else {
+                    state.unwritten_first_seqs.pop_front();
                 }
             }
 
@@ -589,10 +641,8 @@ impl SqliteBackedPagableStorage {
         // Readers only serve page-in. Keep the total connection count bounded
         // now that writers are sharded across database files.
         let num_shards = NUM_SHARDS;
-        // Each shard can hold up to this many pending write buffers, plus one
-        // writer-owned buffer, one active producer buffer, and the idle spare
-        // buffers retained after flush.
-        let pending_buffer_capacity = BASELINE_PENDING_WRITE_BUFFERS.div_ceil(num_shards).max(1);
+        let queue_depth = queue_depth();
+        let next_seq = Arc::new(AtomicU64::new(1));
         let readers_per_shard = std::thread::available_parallelism()
             .map(|n| n.get())
             .unwrap_or(4)
@@ -604,13 +654,15 @@ impl SqliteBackedPagableStorage {
                     &path.join(format!("pagable.{i}.db")),
                     readers_per_shard,
                     i,
-                    pending_buffer_capacity,
+                    queue_depth,
+                    next_seq.clone(),
                 )
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         Ok(Self {
             shards,
+            next_seq,
             arcs: DeserializedArcCache::new(),
             storage_context: StorageContext::new(),
             busy_read_retries: AtomicU64::new(0),
@@ -624,8 +676,13 @@ impl SqliteBackedPagableStorage {
     }
 
     #[inline]
+    fn shard_index(&self, key: &DataKey) -> usize {
+        (key.get() % self.shards.len() as u128) as usize
+    }
+
+    #[inline]
     fn shard_for(&self, key: &DataKey) -> &Shard {
-        &self.shards[(key.get() % self.shards.len() as u128) as usize]
+        &self.shards[self.shard_index(key)]
     }
 
     fn fetch_data_read(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
@@ -763,12 +820,26 @@ impl PagableStorage for SqliteBackedPagableStorage {
         &self.storage_context
     }
 
-    fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
+    fn store_data_ticketed(&self, data: PagableData) -> anyhow::Result<(DataKey, WriteTicket)> {
         let key = data.compute_key();
         let bytes = Self::encode_pagable_data(&data);
-        let shard = self.shard_for(&key);
-        shard.enqueue((key, bytes))?;
-        Ok(key)
+        let shard = self.shard_index(&key);
+        let seq = self.shards[shard].enqueue((key, bytes))?;
+        Ok((key, WriteTicket::new(shard, seq)))
+    }
+
+    fn commit_frontier(&self) -> CommitFrontier {
+        // A shard with nothing unwritten has committed every row it was given
+        // so far. Sequence numbers are assigned under the shard's state lock,
+        // so a row enqueued after the shard is inspected gets at least the
+        // value read here.
+        let next_seq = self.next_seq.load(Ordering::Relaxed);
+        CommitFrontier::new(
+            self.shards
+                .iter()
+                .map(|shard| shard.inner.oldest_unwritten_seq().unwrap_or(next_seq))
+                .collect(),
+        )
     }
 
     fn flush(&self) -> anyhow::Result<()> {
@@ -1081,6 +1152,38 @@ mod tests {
         )
     }
 
+    /// A queued row is not covered by the frontier until its buffer commits.
+    #[test]
+    fn sqlite_frontier_covers_a_row_once_its_buffer_commits() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("frontier")?;
+        let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
+        let (_key, ticket) = storage.store_data_ticketed(pagable_data(b"queued", Vec::new()))?;
+        assert_ne!(ticket, WriteTicket::DURABLE);
+        assert!(!storage.commit_frontier().covers(&ticket));
+        assert!(storage.commit_frontier().covers(&WriteTicket::DURABLE));
+        storage.flush()?;
+        assert!(storage.commit_frontier().covers(&ticket));
+        Ok(())
+    }
+
+    /// The evictor compares tickets against a frontier it took earlier; a row
+    /// enqueued on an idle shard after that must not count as committed.
+    #[test]
+    fn sqlite_frontier_does_not_cover_rows_enqueued_after_it() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("stale_frontier")?;
+        let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
+        let idle = storage.commit_frontier();
+        let (_key, ticket) = storage.store_data_ticketed(pagable_data(b"later", Vec::new()))?;
+        assert!(!idle.covers(&ticket));
+        storage.flush()?;
+        assert!(
+            !idle.covers(&ticket),
+            "a frontier describes the commits as of when it was taken"
+        );
+        assert!(storage.commit_frontier().covers(&ticket));
+        Ok(())
+    }
+
     #[test]
     fn sqlite_write_buffer_fills_on_bytes_or_rows() {
         let mut state = ShardWriteState {
@@ -1088,9 +1191,10 @@ mod tests {
             max_bytes: 100,
             active_buffer: Vec::new(),
             active_bytes: 0,
+            unwritten_first_seqs: VecDeque::new(),
             spare_buffers: Vec::new(),
             pending_buffers: VecDeque::new(),
-            pending_capacity: 2,
+            queue_depth: 2,
             writing: false,
             shutdown: false,
             error: None,
@@ -1143,15 +1247,16 @@ mod tests {
 
     #[test]
     fn sqlite_write_buffer_rotation_allocates_replacement_when_no_spare_exists() {
-        let pending_capacity = 2;
+        let queue_depth = 2;
         let mut state = ShardWriteState {
             max_rows: DEFAULT_WRITE_BUFFER_ROWS,
             max_bytes: DEFAULT_WRITE_BUFFER_BYTES,
             active_buffer: Vec::with_capacity(WRITE_BUFFER_PREALLOC_ROWS),
             active_bytes: 0,
+            unwritten_first_seqs: VecDeque::new(),
             spare_buffers: Vec::new(),
-            pending_buffers: VecDeque::with_capacity(pending_capacity),
-            pending_capacity,
+            pending_buffers: VecDeque::with_capacity(queue_depth),
+            queue_depth,
             writing: false,
             shutdown: false,
             error: None,

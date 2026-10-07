@@ -206,6 +206,10 @@ impl PagableStorage for CountingStorage {
         self.inner.arc_cache()
     }
 
+    fn commit_frontier(&self) -> CommitFrontier {
+        CommitFrontier::everything()
+    }
+
     fn associate_arc_with_data_key(&self, arc: &dyn ArcEraseDyn, key: DataKey) {
         if self
             .arc_cache()
@@ -234,9 +238,9 @@ impl PagableStorage for CountingStorage {
         self.inner.storage_context()
     }
 
-    fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
+    fn store_data_ticketed(&self, data: PagableData) -> anyhow::Result<(DataKey, WriteTicket)> {
         self.store_count.fetch_add(1, Ordering::SeqCst);
-        self.inner.store_data(data)
+        self.inner.store_data_ticketed(data)
     }
 
     fn flush(&self) -> anyhow::Result<()> {
@@ -964,4 +968,18 @@ fn unsupported_derive_fails_instead_of_panicking() {
     );
     let mut deserializer = crate::testing::TestingDeserializer::new(&[]);
     assert!(Unpagable::pagable_deserialize(&mut deserializer).is_err());
+}
+
+#[test]
+fn frontier_covers_tickets_whose_shards_have_passed_them() {
+    let a = WriteTicket::new(0, 5);
+    let b = WriteTicket::new(1, 7);
+    let both = a.join(b);
+    let frontier = CommitFrontier::new(vec![6, 7]);
+    assert!(frontier.covers(&a));
+    assert!(!frontier.covers(&b), "b is the first row not committed");
+    assert!(!frontier.covers(&both));
+    assert!(CommitFrontier::new(vec![8, 8]).covers(&both));
+    assert!(CommitFrontier::everything().covers(&both));
+    assert!(CommitFrontier::new(vec![1]).covers(&WriteTicket::DURABLE));
 }

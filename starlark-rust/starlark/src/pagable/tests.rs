@@ -4056,11 +4056,15 @@ impl pagable::storage::traits::PagableStorage for FailingRowStorage {
         self.inner.storage_context()
     }
 
-    fn store_data(
+    fn store_data_ticketed(
         &self,
         data: pagable::storage::data::PagableData,
-    ) -> anyhow::Result<pagable::DataKey> {
-        self.inner.store_data(data)
+    ) -> anyhow::Result<(pagable::DataKey, pagable::storage::traits::WriteTicket)> {
+        self.inner.store_data_ticketed(data)
+    }
+
+    fn commit_frontier(&self) -> pagable::storage::traits::CommitFrontier {
+        self.inner.commit_frontier()
     }
 }
 

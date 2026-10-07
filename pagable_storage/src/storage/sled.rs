@@ -17,8 +17,10 @@ use pagable::arc_erase::ArcEraseDyn;
 use pagable::storage::data::DataKey;
 use pagable::storage::data::PagableData;
 use pagable::storage::support::SerializerForPaging;
+use pagable::storage::traits::CommitFrontier;
 use pagable::storage::traits::DeserializedArcCache;
 use pagable::storage::traits::PagableStorage;
+use pagable::storage::traits::WriteTicket;
 use pagable::traits::StorageContext;
 
 /// Sled-backed storage backend for pagable data.
@@ -237,6 +239,10 @@ impl SledBackedPagableStorage {
 
 #[async_trait::async_trait]
 impl PagableStorage for SledBackedPagableStorage {
+    fn commit_frontier(&self) -> CommitFrontier {
+        CommitFrontier::everything()
+    }
+
     fn arc_cache(&self) -> &DeserializedArcCache {
         &self.arcs
     }
@@ -276,11 +282,11 @@ impl PagableStorage for SledBackedPagableStorage {
 
     /// Serialize `PagableData` into the on-disk byte format and insert into sled.
     /// Returns the content-addressable `DataKey`.
-    fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
+    fn store_data_ticketed(&self, data: PagableData) -> anyhow::Result<(DataKey, WriteTicket)> {
         let key = data.compute_key();
         let db_key = bytemuck::bytes_of(&key);
         if self.db.contains_key(db_key)? {
-            return Ok(key);
+            return Ok((key, WriteTicket::DURABLE));
         }
 
         let bytes_size = 8 + 8 + data.data.len() + data.arcs.len() * 16;
@@ -292,6 +298,6 @@ impl PagableStorage for SledBackedPagableStorage {
         assert_eq!(bytes.len(), bytes_size);
 
         self.db.insert(db_key, sled::IVec::from(bytes))?;
-        Ok(key)
+        Ok((key, WriteTicket::DURABLE))
     }
 }

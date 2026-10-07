@@ -13,8 +13,10 @@ use std::sync::Arc;
 use crate::arc_erase::ArcEraseDyn;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
+use crate::storage::traits::CommitFrontier;
 use crate::storage::traits::DeserializedArcCache;
 use crate::storage::traits::PagableStorage;
+use crate::storage::traits::WriteTicket;
 use crate::traits::StorageContext;
 
 /// No-op storage backend that serializes data but discards it immediately.
@@ -37,6 +39,10 @@ impl NoopPagableStorage {
 
 #[async_trait::async_trait]
 impl PagableStorage for NoopPagableStorage {
+    fn commit_frontier(&self) -> CommitFrontier {
+        CommitFrontier::everything()
+    }
+
     fn arc_cache(&self) -> &DeserializedArcCache {
         &self.arc_cache
     }
@@ -61,7 +67,7 @@ impl PagableStorage for NoopPagableStorage {
         &self.storage_context
     }
 
-    fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
-        Ok(data.compute_key())
+    fn store_data_ticketed(&self, data: PagableData) -> anyhow::Result<(DataKey, WriteTicket)> {
+        Ok((data.compute_key(), WriteTicket::DURABLE))
     }
 }

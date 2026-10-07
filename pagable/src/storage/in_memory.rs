@@ -22,8 +22,10 @@ use crate::arc_erase::ArcSerializeOutcome;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::support::SerializerForPaging;
+use crate::storage::traits::CommitFrontier;
 use crate::storage::traits::DeserializedArcCache;
 use crate::storage::traits::PagableStorage;
+use crate::storage::traits::WriteTicket;
 use crate::traits::StorageContext;
 
 /// In-memory storage backend for testing and development.
@@ -237,6 +239,10 @@ impl Default for InMemoryPagableStorage {
 
 #[async_trait::async_trait]
 impl PagableStorage for InMemoryPagableStorageHandle {
+    fn commit_frontier(&self) -> CommitFrontier {
+        CommitFrontier::everything()
+    }
+
     fn arc_cache(&self) -> &DeserializedArcCache {
         &self.cache.arcs
     }
@@ -277,10 +283,10 @@ impl PagableStorage for InMemoryPagableStorageHandle {
         &self.storage_context
     }
 
-    fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
+    fn store_data_ticketed(&self, data: PagableData) -> anyhow::Result<(DataKey, WriteTicket)> {
         let key = data.compute_key();
         self.cache.insert_data(key, Arc::new(data));
-        Ok(key)
+        Ok((key, WriteTicket::DURABLE))
     }
 }
 

@@ -195,6 +195,80 @@ impl DeserializedArcCache {
     }
 }
 
+/// Where a stored row sits in its backend's commit order: a sequence number
+/// and the shards that must have committed past it. A row's ticket covers the
+/// rows it references too, so a value is durable once [`CommitFrontier::covers`]
+/// its ticket.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WriteTicket {
+    shards: u64,
+    seq: u64,
+}
+
+impl WriteTicket {
+    /// A row the backend wrote through before returning, or one that already existed.
+    pub const DURABLE: WriteTicket = WriteTicket { shards: 0, seq: 0 };
+
+    /// Shards are a bit each; a backend with more must check this where it
+    /// chooses its shard count.
+    pub const MAX_SHARDS: usize = u64::BITS as usize;
+
+    /// The `seq`th row enqueued across the backend, landing in `shard`.
+    pub fn new(shard: usize, seq: u64) -> Self {
+        assert!(
+            shard < Self::MAX_SHARDS,
+            "write tickets track at most {} shards",
+            Self::MAX_SHARDS
+        );
+        WriteTicket {
+            shards: 1 << shard,
+            seq,
+        }
+    }
+
+    /// A ticket covered only when both are.
+    pub fn join(self, other: WriteTicket) -> WriteTicket {
+        WriteTicket {
+            shards: self.shards | other.shards,
+            seq: self.seq.max(other.seq),
+        }
+    }
+}
+
+/// The backend's commit progress as of when it was taken: per shard, the
+/// sequence number below which every row has committed. Rows enqueued after
+/// the frontier was taken have larger sequence numbers and are never covered.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CommitFrontier {
+    committed_before: Vec<u64>,
+}
+
+impl CommitFrontier {
+    /// Everything ever enqueued has been committed, and always will have been.
+    pub fn everything() -> Self {
+        Self::new(Vec::new())
+    }
+
+    pub fn new(committed_before: Vec<u64>) -> Self {
+        CommitFrontier { committed_before }
+    }
+
+    /// Whether every row `ticket` depends on had committed when the frontier
+    /// was taken.
+    pub fn covers(&self, ticket: &WriteTicket) -> bool {
+        let mut shards = ticket.shards;
+        while shards != 0 {
+            let shard = shards.trailing_zeros() as usize;
+            shards &= shards - 1;
+            let committed_before = self.committed_before.get(shard).copied();
+            if committed_before.unwrap_or(u64::MAX) <= ticket.seq {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 /// Trait for storage backends that can persist and retrieve paged-out data.
 ///
 /// Implement this trait to provide a custom storage backend for the pagable framework.
@@ -272,7 +346,18 @@ pub trait PagableStorage: Send + Sync + 'static {
     ///
     /// Implementations may buffer writes internally and defer the actual I/O
     /// until [`flush`](Self::flush) is called.
-    fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey>;
+    fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
+        self.store_data_ticketed(data).map(|(key, _ticket)| key)
+    }
+
+    /// [`store_data`](Self::store_data), also returning where the row sits in
+    /// the backend's commit order. Backends that write through return
+    /// [`WriteTicket::DURABLE`].
+    fn store_data_ticketed(&self, data: PagableData) -> anyhow::Result<(DataKey, WriteTicket)>;
+
+    /// How far each shard's commits have progressed; see [`CommitFrontier`].
+    /// Backends that write through return [`CommitFrontier::everything`].
+    fn commit_frontier(&self) -> CommitFrontier;
 
     /// Commit any buffered writes to persistent storage.
     ///
@@ -308,6 +393,20 @@ pub trait PagableStorage: Send + Sync + 'static {
         finished: &ArcSerCache,
         storage_context: &StorageContext,
     ) -> Result<DataKey, PageOutError> {
+        self.page_out_item_ticketed(item_data, item_arcs, finished, storage_context)
+            .map(|(key, _ticket)| key)
+    }
+
+    /// [`page_out_item`](Self::page_out_item), also returning a ticket that
+    /// covers the item's row and every arc row it references, including those
+    /// another worker wrote during this page-out.
+    fn page_out_item_ticketed(
+        &self,
+        item_data: Vec<u8>,
+        item_arcs: Vec<Box<dyn ArcEraseDyn>>,
+        finished: &ArcSerCache,
+        storage_context: &StorageContext,
+    ) -> Result<(DataKey, WriteTicket), PageOutError> {
         enum Task {
             Start {
                 arc: Box<dyn ArcEraseDyn>,
@@ -351,7 +450,7 @@ pub trait PagableStorage: Send + Sync + 'static {
 
                     if let Some(key) = arc.data_key() {
                         self.associate_arc_with_data_key(&*arc, key);
-                        slot.set_success(key);
+                        slot.set_success(key, WriteTicket::DURABLE);
                         continue;
                     }
 
@@ -360,7 +459,7 @@ pub trait PagableStorage: Send + Sync + 'static {
                         Ok(ArcSerializeOutcome::Serialized) => serializer.finish(),
                         Ok(ArcSerializeOutcome::ReuseDataKey(key)) => {
                             self.associate_arc_with_data_key(&*arc, key);
-                            slot.set_success(key);
+                            slot.set_success(key, WriteTicket::DURABLE);
                             continue;
                         }
                         Err(e) => {
@@ -395,9 +494,9 @@ pub trait PagableStorage: Send + Sync + 'static {
                     data,
                     child_slots,
                 } => match resolve_and_store(self, data, &child_slots) {
-                    Ok(key) => {
+                    Ok((key, ticket)) => {
                         self.associate_arc_with_data_key(&*arc, key);
-                        slot.set_success(key);
+                        slot.set_success(key, ticket);
                     }
                     Err(e) => {
                         slot.set_failed();
@@ -415,14 +514,20 @@ fn resolve_and_store(
     storage: &(impl PagableStorage + ?Sized),
     data: Vec<u8>,
     child_slots: &[Arc<ArcSerSlot>],
-) -> Result<DataKey, PageOutError> {
-    let keys: Option<Vec<DataKey>> = child_slots.iter().map(|slot| slot.wait()).collect();
-    let Some(keys) = keys else {
-        return Err(PageOutError::AlreadyFailed);
-    };
-    storage
-        .store_data(PagableData { data, arcs: keys })
-        .map_err(PageOutError::Failed)
+) -> Result<(DataKey, WriteTicket), PageOutError> {
+    let mut keys = Vec::with_capacity(child_slots.len());
+    let mut ticket = WriteTicket::DURABLE;
+    for slot in child_slots {
+        let Some((key, child_ticket)) = slot.wait() else {
+            return Err(PageOutError::AlreadyFailed);
+        };
+        keys.push(key);
+        ticket = ticket.join(child_ticket);
+    }
+    let (key, own) = storage
+        .store_data_ticketed(PagableData { data, arcs: keys })
+        .map_err(PageOutError::Failed)?;
+    Ok((key, ticket.join(own)))
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -439,8 +544,9 @@ pub enum PageOutError {
 pub struct ArcSerSlot {
     /// Set to `true` by the first thread to claim this arc.
     claimed: AtomicBool,
-    /// `Some(key)` on success, `None` on failure.
-    result: OnceCell<Option<DataKey>>,
+    /// The key and the ticket covering the arc's row and its children on
+    /// success, `None` on failure.
+    result: OnceCell<Option<(DataKey, WriteTicket)>>,
 }
 
 impl ArcSerSlot {
@@ -457,13 +563,13 @@ impl ArcSerSlot {
     }
 
     /// Block until the result is available.
-    /// Returns `Some(key)` on success, `None` if serialization failed.
-    fn wait(&self) -> Option<DataKey> {
+    /// Returns the key and ticket on success, `None` if serialization failed.
+    fn wait(&self) -> Option<(DataKey, WriteTicket)> {
         *self.result.wait()
     }
 
-    fn set_success(&self, key: DataKey) {
-        let _ = self.result.set(Some(key));
+    fn set_success(&self, key: DataKey, ticket: WriteTicket) {
+        let _ = self.result.set(Some((key, ticket)));
     }
 
     fn set_failed(&self) {
