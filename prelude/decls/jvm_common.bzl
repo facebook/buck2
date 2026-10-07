@@ -328,11 +328,6 @@ def _content_based_path_attr():
         })
     )
 
-def _kotlincd_content_based_paths():
-    return {
-        "uses_content_based_paths_for_kotlincd": attrs.bool(default = True),
-    }
-
 def _classic_java_content_based_paths():
     return {
         "uses_content_based_paths_for_classic_java": _content_based_path_attr(),
@@ -385,6 +380,5 @@ jvm_common = struct(
     enable_used_classes = _enable_used_classes,
     multi_release_jar = _multi_release_jar,
     classic_java_content_based_paths = _classic_java_content_based_paths,
-    kotlincd_content_based_paths = _kotlincd_content_based_paths,
     content_based_path_attr = _content_based_path_attr,
 )

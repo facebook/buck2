@@ -563,7 +563,6 @@ def build_kotlin_library(
                 extra_arguments = extra_arguments,
                 actions_identifier = "",
                 incremental = ctx.attrs.incremental,
-                uses_content_based_paths = ctx.attrs.uses_content_based_paths_for_kotlincd,
                 bootclasspath_snapshot_entries = bootclasspath_jar_snapshots_for_kotlinc,
                 track_files_which_skipped_compilation = kotlin_toolchain.track_files_which_skipped_compilation,
                 **common_kotlincd_kwargs,
@@ -673,7 +672,6 @@ def _nullsafe_subtarget(ctx: AnalysisContext, extra_sub_targets: dict, common_ko
             optional_dirs = [nullsafe_info.output.as_output()],
             is_creating_subtarget = True,
             incremental = False,
-            uses_content_based_paths = ctx.attrs.uses_content_based_paths_for_kotlincd,
             bootclasspath_snapshot_entries = [],
             **common_kotlincd_kwargs,
         )
@@ -747,7 +745,6 @@ def _semanticdb_subtarget(
             optional_dirs = [],
             is_creating_subtarget = True,
             incremental = False,
-            uses_content_based_paths = ctx.attrs.uses_content_based_paths_for_kotlincd,
             bootclasspath_snapshot_entries = [],
             **kwargs,
         )
