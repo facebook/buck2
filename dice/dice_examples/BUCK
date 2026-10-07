@@ -1,4 +1,4 @@
-load("@fbcode_macros//build_defs:native_rules.bzl", "buck_command_alias")
+# @oss-disable[end= ]: load("@fbcode_macros//build_defs:native_rules.bzl", "buck_command_alias")
 load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 
@@ -99,8 +99,10 @@ rust_binary(
     name = "memory_by_key",
     srcs = ["bin/memory_by_key.rs"],
     target_compatible_with = [
-        "ovr_config//build_mode:sanitizer_type[no-san]",
+        # @oss-disable[end= ]: "ovr_config//build_mode:sanitizer_type[no-san]",
         "ovr_config//os:linux",
+        # Reads jemalloc statistics; the open source buck build has no jemalloc.
+        "fbcode//opensource/macros:broken-in-oss",
     ],
     deps = [
         "fbsource//third-party/rust:async-trait",
@@ -114,55 +116,55 @@ rust_binary(
     ],
 )
 
-rust_binary(
-    name = "hydration_bench",
-    srcs = [
-        "bin/benchmarks/benchmark_utils.rs",
-        "bin/benchmarks/hydration_bench.rs",
-    ],
+# @oss-disable[end= ]: rust_binary(
+    # @oss-disable[end= ]: name = "hydration_bench",
+    # @oss-disable[end= ]: srcs = [
+        # @oss-disable[end= ]: "bin/benchmarks/benchmark_utils.rs",
+        # @oss-disable[end= ]: "bin/benchmarks/hydration_bench.rs",
+    # @oss-disable[end= ]: ],
     # Depends on internal `json_value`; not part of the OSS workspace.
-    autocargo = {"ignore_rule": True},
-    compatible_with = ["ovr_config//os:linux"],
-    unittests = False,
-    deps = [
-        "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:async-trait",
-        "fbsource//third-party/rust:clap",
-        "fbsource//third-party/rust:derive_more",
-        "fbsource//third-party/rust:jemalloc-ctl",
-        "fbsource//third-party/rust:libc",
-        "fbsource//third-party/rust:serde_json",
-        "fbsource//third-party/rust:tokio",
-        "//buck2/allocative/allocative:allocative",
-        "//buck2/dice/dice:dice",
-        "//buck2/dice/dice_futures:dice_futures",
-        "//buck2/gazebo/dupe:dupe",
-        "//buck2/pagable:pagable",
-        "//common/rust/json_value:json_value",
-    ],
-)
+    # @oss-disable[end= ]: autocargo = {"ignore_rule": True},
+    # @oss-disable[end= ]: compatible_with = ["ovr_config//os:linux"],
+    # @oss-disable[end= ]: unittests = False,
+    # @oss-disable[end= ]: deps = [
+        # @oss-disable[end= ]: "fbsource//third-party/rust:anyhow",
+        # @oss-disable[end= ]: "fbsource//third-party/rust:async-trait",
+        # @oss-disable[end= ]: "fbsource//third-party/rust:clap",
+        # @oss-disable[end= ]: "fbsource//third-party/rust:derive_more",
+        # @oss-disable[end= ]: "fbsource//third-party/rust:jemalloc-ctl",
+        # @oss-disable[end= ]: "fbsource//third-party/rust:libc",
+        # @oss-disable[end= ]: "fbsource//third-party/rust:serde_json",
+        # @oss-disable[end= ]: "fbsource//third-party/rust:tokio",
+        # @oss-disable[end= ]: "//buck2/allocative/allocative:allocative",
+        # @oss-disable[end= ]: "//buck2/dice/dice:dice",
+        # @oss-disable[end= ]: "//buck2/dice/dice_futures:dice_futures",
+        # @oss-disable[end= ]: "//buck2/gazebo/dupe:dupe",
+        # @oss-disable[end= ]: "//buck2/pagable:pagable",
+        # @oss-disable[end= ]: "//common/rust/json_value:json_value",
+    # @oss-disable[end= ]: ],
+# @oss-disable[end= ]: )
 
-rust_binary(
-    name = "bench_runner",
-    srcs = [
-        "bin/benchmarks/bench_runner.rs",
-        "bin/benchmarks/table.rs",
-    ],
+# @oss-disable[end= ]: rust_binary(
+    # @oss-disable[end= ]: name = "bench_runner",
+    # @oss-disable[end= ]: srcs = [
+        # @oss-disable[end= ]: "bin/benchmarks/bench_runner.rs",
+        # @oss-disable[end= ]: "bin/benchmarks/table.rs",
+    # @oss-disable[end= ]: ],
     # Depends on internal `json_value`; not part of the OSS workspace.
-    autocargo = {"ignore_rule": True},
-    deps = [
-        "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:clap",
-        "fbsource//third-party/rust:serde_json",
-        "//common/rust/json_value:json_value",
-    ],
-)
+    # @oss-disable[end= ]: autocargo = {"ignore_rule": True},
+    # @oss-disable[end= ]: deps = [
+        # @oss-disable[end= ]: "fbsource//third-party/rust:anyhow",
+        # @oss-disable[end= ]: "fbsource//third-party/rust:clap",
+        # @oss-disable[end= ]: "fbsource//third-party/rust:serde_json",
+        # @oss-disable[end= ]: "//common/rust/json_value:json_value",
+    # @oss-disable[end= ]: ],
+# @oss-disable[end= ]: )
 
-buck_command_alias(
-    name = "run_hydration_bench",
-    compatible_with = ["ovr_config//os:linux"],
-    env = {
-        "PAGABLE_BIN": "$(exe :hydration_bench)",
-    },
-    exe = ":bench_runner",
-)
+# @oss-disable[end= ]: buck_command_alias(
+    # @oss-disable[end= ]: name = "run_hydration_bench",
+    # @oss-disable[end= ]: compatible_with = ["ovr_config//os:linux"],
+    # @oss-disable[end= ]: env = {
+        # @oss-disable[end= ]: "PAGABLE_BIN": "$(exe :hydration_bench)",
+    # @oss-disable[end= ]: },
+    # @oss-disable[end= ]: exe = ":bench_runner",
+# @oss-disable[end= ]: )

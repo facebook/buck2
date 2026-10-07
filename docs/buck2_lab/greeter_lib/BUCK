@@ -10,7 +10,8 @@ rust_library(
     srcs = ["src/lib.rs"],
     visibility = ["PUBLIC"],
     deps = [
-        "fbcode//buck2/docs/buck2_lab/logging_lib:logging_lib",
+        # @oss-disable[end= ]: "fbcode//buck2/docs/buck2_lab/logging_lib:logging_lib",
+        "//docs/buck2_lab/logging_lib:logging_lib",  # @oss-enable
     ],
 )
 
