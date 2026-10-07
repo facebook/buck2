@@ -90,6 +90,19 @@ async def test_unified_constraint_single_value_without_flag_fail(
 
 
 @buck_test()
+async def test_unified_constraint_extend_with_constraint_value(buck: Buck) -> None:
+    for platform, expected in [("ps5", "ps5"), ("macos", "macos")]:
+        result = await buck.cquery(
+            "//extend_with_constraint_value:foo",
+            "--target-platforms",
+            f"//extend_with_constraint_value:{platform}_platform",
+            "--output-attribute",
+            "os",
+        )
+        assert f'"os": "{expected}"' in result.stdout, result.stdout
+
+
+@buck_test()
 async def test_unified_constraint_single_value_with_flag(buck: Buck) -> None:
     await buck.audit("subtargets", "//single_value_with_flag:")
 
