@@ -1810,7 +1810,10 @@ struct TestLabelFiltering {
 
 impl TestLabelFiltering {
     fn is_excluded(&self, labels: Vec<&str>) -> bool {
-        let mut matched = self.included_labels.is_empty();
+        let mut matched = !self
+            .included_labels
+            .iter()
+            .any(|label| !label.starts_with('!'));
         for include_label in &self.included_labels {
             if let Some(include) = include_label.strip_prefix('!') {
                 // exclusion filters
@@ -2032,14 +2035,14 @@ mod tests {
         assert!(filter.is_excluded(vec!["blah"]));
     }
 
-    /// An include list made only of `!` exclusions (`--include '!slow'`) excludes every target,
-    /// labelled `slow` or not: nothing is positively included, so nothing matches.
+    /// An include list made only of `!` exclusions (`--include '!slow'`) keeps every target that
+    /// is not excluded: without a positive entry there is no allow list.
     #[test]
-    fn only_negative_includes_exclude_everything() {
+    fn only_negative_includes_keep_unexcluded_targets() {
         let filter = TestLabelFiltering::new(vec!["!slow".to_owned()], vec![], false, false);
         assert!(filter.is_excluded(vec!["slow"]));
-        assert!(filter.is_excluded(vec!["fast"]));
-        assert!(filter.is_excluded(vec![]));
+        assert!(!filter.is_excluded(vec!["fast"]));
+        assert!(!filter.is_excluded(vec![]));
 
         let filter = TestLabelFiltering::new(
             vec!["!slow".to_owned(), "!flaky".to_owned()],
@@ -2047,7 +2050,8 @@ mod tests {
             true,
             false,
         );
-        assert!(filter.is_excluded(vec!["fast"]));
+        assert!(!filter.is_excluded(vec!["fast"]));
+        assert!(filter.is_excluded(vec!["flaky"]));
         assert!(filter.is_excluded(vec!["broken"]));
     }
 

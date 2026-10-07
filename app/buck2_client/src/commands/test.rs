@@ -115,7 +115,7 @@ pub struct TestCommand {
         long = "include",
         alias = "labels",
         help = "Labels on targets to include from tests. Prefixing with `!` means to exclude. First match wins unless overridden by `always-exclude` flag.\n\
-If include patterns are present, regardless of whether exclude patterns are present, then all targets are by default excluded unless explicitly included.",
+If any include pattern without a `!` prefix is present, regardless of whether exclude patterns are present, then all targets are by default excluded unless explicitly included. Include patterns that all carry a `!` prefix only exclude.",
         num_args=1..,
     )]
     include: Vec<String>,
