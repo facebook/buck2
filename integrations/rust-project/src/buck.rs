@@ -226,12 +226,37 @@ pub(crate) fn to_project_json(
             None
         };
 
+        // Should this target be considered part of rust-analyzer's workspace?
+        //
+        // When rust-analyzer monitors files for changes, it only considers files
+        // in the workspace. This only applies when rust-analyzer.files.watcher is
+        // set to "server", the default is "client" (i.e. VS Code watches the
+        // files).
+        //
+        // <https://github.com/rust-lang/rust-analyzer/blob/a8e2add5c74cf4c3b14335eb02afe91061da0e92/crates/rust-analyzer/src/reload.rs#L722>
+        //
+        // The only other (minor) effect of rust-analyzer's workspaces is that it can
+        // affect the values of cfg(rust_analyzer) and cfg(test).
+        //
+        // <https://github.com/rust-lang/rust-analyzer/blob/a8e2add5c74cf4c3b14335eb02afe91061da0e92/crates/project-model/src/workspace.rs#L1129>
+        //
+        // ---
+        //
+        // For comparison, rust-analyzer uses is_local in cargo projects similarly
+        // to workspaces, to decide which directories to watch. This effectively
+        // means that it watches files in the current repository, but not files
+        // from dependencies.
+        //
+        // <https://github.com/rust-lang/cargo/blob/01e42b9bf1776d78d1714c63b927154539c741b4/src/cargo/core/features.rs#L440>
+        // <https://github.com/rust-lang/rust-analyzer/blob/a8e2add5c74cf4c3b14335eb02afe91061da0e92/crates/load-cargo/src/lib.rs#L308-L309>
+        let is_workspace_member = info.in_workspace;
+
         let crate_info = Crate {
             display_name: Some(info.display_name()),
             root_module,
             edition,
             deps,
-            is_workspace_member: info.is_workspace_member(),
+            is_workspace_member,
             source: Some(Source {
                 include_dirs,
                 exclude_dirs: vec![],

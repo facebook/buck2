@@ -200,7 +200,9 @@ def gather_unconfigured_deps(ctx: bxl.Context, targets: list[TargetLabel]) -> di
 
     return out
 
-def gather_deps(ctx: bxl.Context, target_analysis: dict[Label, bxl.AnalysisResult], workspaces: list[TargetLabel]) -> dict[TargetLabel, TargetInfo]:
+def gather_deps(
+    ctx: bxl.Context, target_analysis: dict[Label, bxl.AnalysisResult], workspaces: list[TargetLabel], exclude_workspaces: bool
+) -> dict[TargetLabel, TargetInfo]:
     targets = set()
     for _target, analysis in target_analysis.items():
         info = analysis.providers().get(RustAnalyzerInfo)
@@ -219,13 +221,25 @@ def gather_deps(ctx: bxl.Context, target_analysis: dict[Label, bxl.AnalysisResul
         attrs = target.attrs_lazy()
         label = target.label.with_sub_target()
 
+        # The explicitly requested target is in the workspace.
         in_workspace = label in target_analysis
+
+        # Targets from with_rust_workspace().
         candidate_workspaces = attrs.get("_workspaces")
         if candidate_workspaces:
             for candidate_workspace in candidate_workspaces.value():
                 if candidate_workspace.raw_target() in workspaces:
                     in_workspace = True
                     break
+
+        target_labels = attrs.get("labels")
+        is_generated = target_labels != None and "generated" in target_labels.value()
+
+        # We want generated code to be included in the workspace too. This ensures that
+        # rust-analyzer watches the files for changes even if they aren't open in the IDE,
+        # which is common for generated files.
+        if is_generated and not exclude_workspaces:
+            in_workspace = True
 
         target_info = _process_target_config(
             ctx = ctx,
@@ -272,6 +286,11 @@ def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspa
 
     # Map of potential workspaces to a list of the targets that name these as potential workspaces
     possible_workspaces = {}
+
+    # We want to also include targets in the same buck workspace, i.e. targets listed with
+    # with_rust_workspace(). This ensures that if e.g. foo-lib is only used by foo-bin, but
+    # the user has opened foo-lib, we automatically include foo-bin so find-all-references
+    # is useful.
     if not exclude_workspaces:
         for label, t in expanded_targets.items():
             workspaces = t.attrs_lazy().get("_workspaces")
@@ -317,7 +336,7 @@ def resolve_targets_impl(ctx: bxl.Context) -> None:
 
     target_analysis, workspaces = expand_targets(ctx, targets, ctx.cli_args.exclude_workspaces)
     queried_proc_macros = expand_proc_macros(ctx, target_analysis)
-    resolved_deps = gather_deps(ctx, target_analysis, workspaces)
+    resolved_deps = gather_deps(ctx, target_analysis, workspaces, ctx.cli_args.exclude_workspaces)
 
     expanded_targets = sorted([t.raw_target() for t in target_analysis.keys()])
     if not expanded_targets:
