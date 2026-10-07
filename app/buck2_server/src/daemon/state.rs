@@ -91,6 +91,7 @@ use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::ctx::LockedPreviousCommandData;
 use buck2_wrapper_common::invocation_id::TraceId;
+use dice::BranchId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
@@ -680,7 +681,7 @@ impl TenantState {
             format!("has-cgroup:{}", shared.memory_tracker.is_some()),
         ];
 
-        let dice_manager = ConcurrencyHandler::new(dice);
+        let dice_manager = ConcurrencyHandler::new(dice, BranchId::FIRST);
         let repo = Arc::new(RepoState {
             paths,
             file_watcher,

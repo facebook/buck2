@@ -45,6 +45,7 @@ use buck2_util::rtabort;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::Display;
+use dice::BranchId;
 use dice::Dice;
 use dice::DiceTransaction;
 use dice::DiceTransactionUpdater;
@@ -233,7 +234,7 @@ enum CoordinatorMessage {
     AcquireUpdate {
         command: CommandId,
         attempt: UpdateAttemptId,
-        response: oneshot::Sender<buck2_error::Result<()>>,
+        response: oneshot::Sender<buck2_error::Result<BranchId>>,
     },
     AfterUpdate {
         command: CommandId,
@@ -913,9 +914,9 @@ impl CoordinatorState {
 }
 
 impl AdmissionCoordinator {
-    fn new(dice: Arc<Dice>) -> Self {
+    fn new(dice: Arc<Dice>, branch: BranchId) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
-        let task = AdmissionCoordinatorTask::new(dice, sender.downgrade());
+        let task = AdmissionCoordinatorTask::new(dice, branch, sender.downgrade());
         #[cfg(test)]
         let active_commands = task.active_commands.dupe();
         let task = tokio::task::spawn(task.run(receiver));
@@ -958,11 +959,12 @@ impl AdmissionCoordinator {
             .await
     }
 
+    /// Waits for the update lane, and returns the branch the command's update is to run on.
     async fn acquire_update(
         &self,
         command: CommandId,
         attempt: UpdateAttemptId,
-    ) -> buck2_error::Result<()> {
+    ) -> buck2_error::Result<BranchId> {
         self.request(|response| CoordinatorMessage::AcquireUpdate {
             command,
             attempt,
@@ -1027,6 +1029,9 @@ struct AdmissionCoordinatorTask {
     data: CoordinatorState,
     dice: Arc<Dice>,
     sender: mpsc::WeakUnboundedSender<CoordinatorMessage>,
+    /// The branch commands run on. A command learns it by being granted the update lane, so
+    /// every update runs on the branch the one before it left behind.
+    branch: BranchId,
     update_in_flight: Option<(CommandId, UpdateAttemptId)>,
     update_waiters: VecDeque<UpdateWaiter>,
     blocked_waiters: SmallMap<CommandId, oneshot::Sender<()>>,
@@ -1037,11 +1042,15 @@ struct AdmissionCoordinatorTask {
 struct UpdateWaiter {
     command: CommandId,
     attempt: UpdateAttemptId,
-    response: oneshot::Sender<buck2_error::Result<()>>,
+    response: oneshot::Sender<buck2_error::Result<BranchId>>,
 }
 
 impl AdmissionCoordinatorTask {
-    fn new(dice: Arc<Dice>, sender: mpsc::WeakUnboundedSender<CoordinatorMessage>) -> Self {
+    fn new(
+        dice: Arc<Dice>,
+        branch: BranchId,
+        sender: mpsc::WeakUnboundedSender<CoordinatorMessage>,
+    ) -> Self {
         Self {
             data: CoordinatorState {
                 dice_status: DiceStatus::idle(),
@@ -1053,6 +1062,7 @@ impl AdmissionCoordinatorTask {
             },
             dice,
             sender,
+            branch,
             update_in_flight: None,
             update_waiters: VecDeque::new(),
             blocked_waiters: SmallMap::new(),
@@ -1185,7 +1195,7 @@ impl AdmissionCoordinatorTask {
         &mut self,
         command: CommandId,
         attempt: UpdateAttemptId,
-        response: oneshot::Sender<buck2_error::Result<()>>,
+        response: oneshot::Sender<buck2_error::Result<BranchId>>,
     ) {
         if let Err(error) = self.data.ensure_update_attempt_current(command, attempt) {
             let _ignored = response.send(Err(error));
@@ -1228,7 +1238,7 @@ impl AdmissionCoordinatorTask {
             }
 
             self.update_in_flight = Some((waiter.command, waiter.attempt));
-            if waiter.response.send(Ok(())).is_ok() {
+            if waiter.response.send(Ok(self.branch)).is_ok() {
                 return;
             }
             self.update_in_flight = None;
@@ -1447,9 +1457,10 @@ impl ExclusiveCommandLock {
 }
 
 impl ConcurrencyHandler {
-    pub fn new(dice: Arc<Dice>) -> Arc<Self> {
+    /// A handler whose commands run on `branch`.
+    pub fn new(dice: Arc<Dice>, branch: BranchId) -> Arc<Self> {
         Arc::new(ConcurrencyHandler {
-            coordinator: AdmissionCoordinator::new(dice.dupe()),
+            coordinator: AdmissionCoordinator::new(dice.dupe(), branch),
             dice,
             exclusive_command_lock: ExclusiveCommandLock::new(),
             next_command_id: AtomicUsize::new(0),
@@ -1589,12 +1600,13 @@ impl ConcurrencyHandler {
     ) -> buck2_error::Result<UpdatedTransaction> {
         // `enter` holds the command lease across this call. Any error or cancellation releases
         // the command, and `release_command` also releases an update lane owned by that command.
-        self.coordinator
+        let branch = self
+            .coordinator
             .acquire_update(pending.command, pending.attempt)
             .await?;
         let dice_was_draining = pending.dice_was_draining.await;
 
-        let updater = self.dice.updater();
+        let updater = self.dice.updater_on(branch);
         let (transaction, user_data) = updates.update(updater, early_timings).await?;
         let transaction = events
             .span(
@@ -2394,7 +2406,7 @@ mod tests {
         const TASKS: usize = 8;
         const PER_TASK: usize = 1024;
 
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
         let start = Arc::new(tokio::sync::Barrier::new(TASKS));
 
         let handles: Vec<_> = (0..TASKS)
@@ -2422,7 +2434,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_queued_command_is_named_only_while_it_waits() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
         let asking = concurrency.allocate_command_id();
         assert_eq!(
             concurrency
@@ -2492,7 +2504,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_dropped_begin_reply_releases_pending_ownership() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
         let command_id = concurrency.allocate_command_id();
         let (response, receiver) = oneshot::channel();
         drop(receiver);
@@ -2528,7 +2540,7 @@ mod tests {
     #[tokio::test]
     async fn a_dropped_admission_reply_releases_active_ownership() -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
         let command_id = concurrency.allocate_command_id();
         let decision = concurrency
             .coordinator
@@ -2590,7 +2602,7 @@ mod tests {
     #[tokio::test]
     async fn a_dropped_cleanup_reply_still_finishes_cleanup() -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
         TestCommand::new()
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
             .await?;
@@ -2678,7 +2690,7 @@ mod tests {
             updater.commit().await.version()
         };
         let (sender, receiver) = mpsc::unbounded_channel();
-        let task = AdmissionCoordinatorTask::new(dice, sender.downgrade());
+        let task = AdmissionCoordinatorTask::new(dice, BranchId::FIRST, sender.downgrade());
         let active_commands = task.active_commands.dupe();
         let task = tokio::spawn(task.run(receiver));
         let coordinator = AdmissionCoordinator {
@@ -2796,7 +2808,7 @@ mod tests {
         } else {
             different_version
         };
-        let concurrency = ConcurrencyHandler::new(dice);
+        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
 
         let first_id = concurrency.allocate_command_id();
         let (preempt, mut preempted) = oneshot::channel();
@@ -2970,7 +2982,7 @@ mod tests {
     /// so the pending registry is what makes them visible in a "daemon is busy" message.
     #[tokio::test]
     async fn a_blocked_command_is_named_as_queued() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
 
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
@@ -3375,7 +3387,7 @@ mod tests {
 
     #[tokio::test]
     async fn command_release_precedes_the_next_admission() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
 
         TestCommand::new()
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
@@ -3392,7 +3404,7 @@ mod tests {
     #[tokio::test]
     async fn cancellation_during_and_behind_update_releases_pending_commands()
     -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
         let entered = Arc::new(Barrier::new(2));
         let updater = Arc::new(BlockingUpdater {
             entered: entered.dupe(),
@@ -3456,7 +3468,7 @@ mod tests {
     async fn update_lane_survives_a_thousand_cancelled_waiters() -> buck2_error::Result<()> {
         const COMMANDS: usize = 1_000;
 
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
         let mut command_ids = Vec::with_capacity(COMMANDS);
         let mut receivers = Vec::with_capacity(COMMANDS);
 
@@ -3516,7 +3528,7 @@ mod tests {
 
     #[tokio::test]
     async fn cancelling_a_blocked_command_releases_pending_ownership() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
         let entered = Arc::new(Barrier::new(2));
@@ -3577,7 +3589,7 @@ mod tests {
 
     #[tokio::test]
     async fn cancelling_during_observation_releases_active_ownership() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
         let entered = Arc::new(Barrier::new(2));
         let observer = Arc::new(BlockingObserver {
             entered: entered.dupe(),
@@ -3621,7 +3633,7 @@ mod tests {
     async fn cancelling_while_awaiting_cleanup_leaves_the_handler_usable() -> buck2_error::Result<()>
     {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         TestCommand::new()
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
@@ -4404,7 +4416,7 @@ mod tests {
             return;
         }
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice);
+        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -4477,7 +4489,7 @@ mod tests {
     async fn nested_invocation_should_error() {
         let dice = make_default_dice();
 
-        let concurrency = ConcurrencyHandler::new(dice);
+        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -4534,7 +4546,7 @@ mod tests {
     async fn parallel_invocation_same_transaction() {
         let dice = make_default_dice();
 
-        let concurrency = ConcurrencyHandler::new(dice);
+        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -4607,7 +4619,7 @@ mod tests {
     async fn parallel_invocation_different_traceid_blocks() -> buck2_error::Result<()> {
         let dice = make_default_dice();
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -4730,7 +4742,7 @@ mod tests {
     async fn parallel_invocation_exit_when_different_state() -> buck2_error::Result<()> {
         let dice = make_default_dice();
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -4858,7 +4870,7 @@ mod tests {
     async fn parallel_invocation_exit_when_preemptible() -> buck2_error::Result<()> {
         let dice = make_default_dice();
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -4986,7 +4998,7 @@ mod tests {
     #[tokio::test]
     async fn on_different_state_survives_a_same_state_command() -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice);
+        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
 
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
@@ -5034,7 +5046,7 @@ mod tests {
 
     #[tokio::test]
     async fn same_state_effects_follow_registration_and_lock_release() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
         let entered = Arc::new(Barrier::new(2));
@@ -5069,7 +5081,7 @@ mod tests {
     #[tokio::test]
     async fn same_state_preemption_preserves_the_arriving_registration() -> buck2_error::Result<()>
     {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
         let entered = Arc::new(Barrier::new(2));
@@ -5153,7 +5165,7 @@ mod tests {
     async fn on_different_state_is_preempted_by_a_different_state_command()
     -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice);
+        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
 
         let block = Arc::new(RwLock::new(()));
         let _blocked = block.write().await;
@@ -5208,7 +5220,7 @@ mod tests {
     #[tokio::test]
     async fn cancelling_an_active_command_wakes_a_different_state_waiter() -> buck2_error::Result<()>
     {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
         let entered = Arc::new(Barrier::new(2));
@@ -5272,7 +5284,7 @@ mod tests {
     /// A failing `DiceUpdater` fails its command without wedging the handler for the next one.
     #[tokio::test]
     async fn a_failing_updater_leaves_the_handler_usable() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
 
         let failed = TestCommand::new()
             .run(&concurrency, &FailingUpdater, |_, _timing| async move {})
@@ -5298,7 +5310,7 @@ mod tests {
             return Ok(());
         }
 
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
 
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
@@ -5366,7 +5378,7 @@ mod tests {
     #[tokio::test]
     async fn a_slow_observer_runs_after_registration_outside_the_coordinator()
     -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
 
         let entered = Arc::new(Barrier::new(2));
         let release = Arc::new(Barrier::new(2));
@@ -5421,7 +5433,7 @@ mod tests {
     /// Observer failure must wake a command waiting for a different state.
     #[tokio::test]
     async fn a_failing_observer_wakes_a_different_state_waiter() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
 
         let entered = Arc::new(Barrier::new(2));
         let release = Arc::new(Barrier::new(2));
@@ -5518,7 +5530,7 @@ mod tests {
     /// A failing observer must deregister its already-registered command.
     #[tokio::test]
     async fn a_failing_observer_leaves_the_handler_usable() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
 
         let failed = TestCommand::new()
             .run_with_observer(
@@ -5590,7 +5602,7 @@ mod tests {
     #[tokio::test]
     async fn dice_state_transitions_are_reported_as_events() -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice);
+        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
 
         let first = TestEvents::new();
         TestCommand::new()
@@ -5672,7 +5684,7 @@ mod tests {
             "DICE should have a task pending cancellation"
         );
 
-        let concurrency = ConcurrencyHandler::new(dice);
+        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
         let events = TestEvents::new();
 
         TestCommand::new()
@@ -5806,7 +5818,7 @@ mod tests {
 
         let dice = make_default_dice();
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         // Kick off our computation and wait until it's running.
 
@@ -5936,7 +5948,7 @@ mod tests {
     #[allow(clippy::await_holding_lock)] // Intentional: testing exclusive access
     async fn exclusive_command_lock() -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
         let events = TestEvents::new();
         let mut cursor = 0usize;
 
@@ -6021,7 +6033,7 @@ mod tests {
     async fn test_thundering_herd() -> buck2_error::Result<()> {
         let dice = make_default_dice();
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         let concurrency = &concurrency;
 
@@ -6064,7 +6076,7 @@ mod tests {
 
         let dice = make_default_dice();
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         struct Updater {
             // Set when the updater enters the update function
@@ -6164,7 +6176,7 @@ mod tests {
 
     async fn check_exit_when_not_idle_while_busy(same_state: bool) -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6259,7 +6271,7 @@ mod tests {
         same_state: bool,
     ) -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6380,7 +6392,7 @@ mod tests {
     #[tokio::test]
     async fn test_exit_when_not_idle_with_preemptible_command() -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6476,7 +6488,7 @@ mod tests {
     #[tokio::test]
     async fn test_exit_when_not_idle_gets_preempted() -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6575,7 +6587,7 @@ mod tests {
         same_state: bool,
     ) -> buck2_error::Result<()> {
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6667,7 +6679,7 @@ mod tests {
         // Test that the duration parameter passed to the enter() callback is properly populated
         // when waiting for an exclusive command lock.
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6763,7 +6775,7 @@ mod tests {
     async fn test_enter_duration_parameter_zero_for_non_exclusive() -> buck2_error::Result<()> {
         // Test that the duration parameter is zero when no exclusive command lock is needed.
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         let traces = TraceId::new();
         let duration_captured: Arc<Mutex<Duration>> = Arc::new(Mutex::new(Duration::ZERO));
@@ -6807,7 +6819,7 @@ mod tests {
         // Test that file_watcher_sync_duration is properly captured when the updater
         // returns a non-zero duration.
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         struct UpdaterWithDelay;
         #[async_trait]
@@ -6876,7 +6888,7 @@ mod tests {
         // Test that file_watcher_sync_duration is accumulated across multiple loop iterations
         // when the dice state transitions through cleanup.
         let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe());
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
 
         // First, establish an active DICE state by running a command
         let traces_init = TraceId::new();
