@@ -208,20 +208,6 @@ impl Run {
         self.model.record_write(cert);
     }
 
-    fn take(&mut self) {
-        let heads: Vec<(BranchId, Version)> = self
-            .state
-            .branches()
-            .map(|b| (b, self.state.head(b)))
-            .collect();
-        self.state.take();
-        self.state.check_invariants();
-        for (b, old) in heads {
-            self.model
-                .record_version(self.state.head(b), Some(old), Vec::new());
-        }
-    }
-
     /// Soundness of one lookup against the judgment.
     fn check_lookup(&self, key: Key, v: Version) {
         if let Some(revision) = self.state.lookup(key, v).valid_revision() {
@@ -290,7 +276,6 @@ enum Op {
         branch: usize,
     },
     NewRoot,
-    Take,
 }
 
 fn gen_ops(rng: &mut Rng, count: usize) -> Vec<Op> {
@@ -331,10 +316,9 @@ fn gen_ops(rng: &mut Rng, count: usize) -> Vec<Op> {
                 branch: rng.below(MAX_BRANCHES),
                 seq: rng.below(16),
             },
-            96..=97 => Op::Delete {
+            _ => Op::Delete {
                 branch: rng.below(MAX_BRANCHES),
             },
-            _ => Op::Take,
         })
         .collect()
 }
@@ -402,7 +386,6 @@ fn run_ops(_seed: u64, ops: &[Op]) {
                     run.new_root();
                 }
             }
-            Op::Take => run.take(),
         }
         if i % 8 == 7 {
             run.check_everything();
@@ -439,7 +422,6 @@ enum HonestOp {
         branch: usize,
     },
     NewRoot,
-    Take,
 }
 
 fn gen_honest_ops(rng: &mut Rng, count: usize) -> Vec<HonestOp> {
@@ -473,10 +455,9 @@ fn gen_honest_ops(rng: &mut Rng, count: usize) -> Vec<HonestOp> {
                 branch: rng.below(MAX_BRANCHES),
                 seq: rng.below(16),
             },
-            96..=97 => HonestOp::Delete {
+            _ => HonestOp::Delete {
                 branch: rng.below(MAX_BRANCHES),
             },
-            _ => HonestOp::Take,
         })
         .collect()
 }
@@ -749,7 +730,6 @@ fn run_honest_ops(seed: u64, ops: &[HonestOp]) {
                     honest.seed(root);
                 }
             }
-            HonestOp::Take => honest.run.take(),
         }
         if i % 8 == 7 {
             honest.run.check_everything();

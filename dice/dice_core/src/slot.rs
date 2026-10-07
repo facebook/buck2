@@ -125,8 +125,4 @@ impl<E: Env> Slot<E> {
             untracked: History::new(),
         }
     }
-
-    pub(crate) fn is_vacant(&self) -> bool {
-        self.claim.is_none() && self.untracked.is_empty()
-    }
 }

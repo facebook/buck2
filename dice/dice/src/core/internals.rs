@@ -129,10 +129,6 @@ impl ActorState {
         self.version_tracker.running_tasks(branch)
     }
 
-    pub(super) fn unstable_drop_everything(&mut self) {
-        self.graph.take();
-    }
-
     /// Evict values that still share the exact allocation serialized by page-out.
     /// A recomputation may replace the graph value while serialization runs; its
     /// stale `DataKey` must not evict that newer value.
@@ -353,34 +349,6 @@ mod tests {
             .expect("key 0 should be a page-out candidate");
         core.mark_non_pageable(vec![(DiceKey { index: 0 }, value)]);
         assert_eq!(candidates(&core), vec![1]);
-    }
-
-    /// A write from a transaction that predates an `unstable_take` is a certificate like any
-    /// other: it installs wherever it holds, the new head included.
-    #[test]
-    fn writes_from_before_a_take_are_accepted() {
-        let mut core = ActorState::new(None);
-        let v = VersionNumber::FIRST;
-        let _ctx = core.ctx_at_version(v);
-        core.unstable_drop_everything();
-        let key = DiceKey { index: 0 };
-        core.update_computed(
-            VersionedGraphKey::new(v, key),
-            StorageType::Normal,
-            ValueUpdate::Computed {
-                value: DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
-                deps: SeriesParallelDeps::None,
-                epsilon: EpsilonToken::INITIAL,
-            },
-            TrackedInvalidationPaths::clean(),
-        );
-        let head = core.current_version(BranchId::FIRST);
-        assert_eq!(head, VersionNumber::testing_new(2));
-        assert!(
-            core.lookup_key(VersionedGraphKey::new(head, key))
-                .unpack_match()
-                .is_some()
-        );
     }
 
     /// A task whose only dependent went away and whose cancellation has landed.

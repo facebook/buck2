@@ -45,9 +45,8 @@ pub struct CoreState<E: Env> {
     /// version of a deleted branch stays distinct from every version of a live one.
     pub(crate) branches: Vec<Option<Branch>>,
     /// A key's slots, one per branch it has a claim or an untracked-input history on. A key stays
-    /// in the map once certified, even with no slots left after [`Self::take`] or
-    /// [`Self::delete_branch`]: that memory is what lets [`Self::commit`] refuse to assert a key
-    /// that has been certified.
+    /// in the map once certified, even with no slots left after [`Self::delete_branch`]: that
+    /// memory is what lets [`Self::commit`] refuse to assert a key that has been certified.
     pub(crate) slots: KeyMap<KeySlots<E>>,
     pub(crate) assertions: KeyMap<KeyAssertions<E>>,
     /// The number of distinct keys across `slots` and `assertions`. Neither map ever drops a key.
@@ -235,25 +234,6 @@ impl<E: Env> CoreState<E> {
                     .iter()
                     .any(|(_, history)| history.entries().iter().any(|e| e.revision == revision))
             })
-    }
-
-    /// Forgets every claim and every reverse-dependency edge, keeping the histories of untracked
-    /// inputs and of injected keys, so that only asserted keys resolve afterwards (§2.3). Every
-    /// branch gets a fresh head version, identical in content to the old one, so that an
-    /// environment which shares work between transactions by version does not hand the forgotten
-    /// state's work to transactions that start after the take.
-    pub fn take(&mut self) {
-        for branch in self.branches.iter_mut().flatten() {
-            branch.rdeps.clear();
-            branch.closed_index.clear();
-            branch.head = branch.head.next();
-        }
-        for slots in self.slots.values_mut() {
-            for slot in slots.iter_mut() {
-                slot.claim = None;
-            }
-            slots.retain(|slot| !slot.is_vacant());
-        }
     }
 
     /// Deletes `b`, forgetting its claims, its edges and its histories (§5.5). The branches

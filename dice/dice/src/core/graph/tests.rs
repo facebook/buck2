@@ -472,7 +472,7 @@ fn counts(resident: usize, paged_out: usize, candidates: usize) -> PagableNodeCo
 }
 
 /// A computed key whose values are asserted (`changed_to` on a `Key`, which buck2 does for its
-/// pageable starlark roots) pages like one that was computed, and keeps its values across `take`.
+/// pageable starlark roots) pages like one that was computed.
 #[test]
 fn asserted_values_of_computed_keys_page_out() {
     let mut graph = VersionedGraph::new();
@@ -500,16 +500,6 @@ fn asserted_values_of_computed_keys_page_out() {
     graph.rehydrate(key(1), pagable::DataKey::testing_new(7), value(1));
     graph.assert_consistent();
     assert_eq!(graph.pagable_node_counts(), counts(1, 0, 0));
-    graph.take();
-    let v3 = graph.head(BranchId::FIRST);
-    graph.assert_consistent();
-    assert_eq!(graph.pagable_node_counts(), counts(1, 0, 0));
-    assert!(
-        graph
-            .get(VersionedGraphKey::new(v3, key(1)))
-            .unpack_match()
-            .is_some()
-    );
 }
 
 #[test]
@@ -537,22 +527,11 @@ fn page_out_index_tracks_the_values() {
     graph.assert_consistent();
     assert_eq!(graph.pagable_node_counts(), counts(2, 0, 0));
     assert!(graph.keys_to_page_out().is_empty());
-    graph.take();
-    let v3 = graph.head(BranchId::FIRST);
+    // Deleting the branch releases the values, and the index with them.
+    graph.delete_branch(BranchId::FIRST);
     graph.assert_consistent();
     assert_eq!(graph.pagable_node_counts(), counts(0, 0, 0));
-    assert!(
-        graph
-            .get(VersionedGraphKey::new(v3, key(0)))
-            .unpack_match()
-            .is_some()
-    );
-    assert!(
-        graph
-            .get(VersionedGraphKey::new(v3, key(1)))
-            .unpack_unknown()
-            .is_some()
-    );
+    assert!(graph.paged_out_keys().is_empty());
 }
 
 /// A fork resolves the values of the branch it was forked from without writes of its own, and
@@ -644,16 +623,26 @@ fn deleting_a_branch_releases_its_values_and_retains_nothing_written_from_it() {
     assert_eq!(graph.pagable_node_counts().resident, 1);
 }
 
-/// `take` keeps the per-key revision counters, so a value computed after it can never collide
-/// with a revision handed out before it.
+/// Deleting a branch keeps the per-key revision counters, so a value computed afterwards can
+/// never collide with a revision handed out before.
 #[test]
-fn take_keeps_revision_counters() {
+fn deleting_a_branch_keeps_revision_counters() {
     let mut graph = with_leaf();
     let v2 = graph.head(BranchId::FIRST);
     let before = compute(&mut graph, key(1), v2, value(1));
-    graph.take();
-    let v3 = graph.head(BranchId::FIRST);
+    graph.delete_branch(BranchId::FIRST);
     graph.assert_consistent();
-    let after = compute(&mut graph, key(1), v3, value(2));
+    assert_eq!(graph.pagable_node_counts().resident, 0);
+
+    let root = graph.new_root();
+    let head = graph.commit(
+        root,
+        [(
+            key(0),
+            ChangeType::UpdateValue(value(100), StorageType::Injected),
+            InvalidationSourcePriority::Normal,
+        )],
+    );
+    let after = compute(&mut graph, key(1), head, value(2));
     assert!(after.revision().unwrap().as_u32() > before.revision().unwrap().as_u32());
 }

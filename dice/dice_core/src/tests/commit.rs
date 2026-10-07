@@ -348,13 +348,13 @@ fn a_key_appearing_twice_in_one_commit_panics() {
     );
 }
 
-/// `take` forgets claims, not that a key has been certified: asserting it afterwards is still the
-/// mistake it was before.
+/// Deleting the only branch with a claim on a key forgets the claim, not that the key has been
+/// certified: asserting it afterwards is still the mistake it was before.
 #[test]
 #[should_panic(expected = "asserted after being certified")]
-fn a_key_certified_before_take_still_cannot_be_asserted() {
+fn a_key_certified_on_a_deleted_branch_still_cannot_be_asserted() {
     let (mut s, _) = leaf_and_dependent();
-    let root = BranchId::FIRST;
-    s.take_checked();
-    s.assert_at(root, k(1), r(1));
+    let other = s.new_root();
+    s.delete_checked(BranchId::FIRST);
+    s.assert_at(other, k(1), r(1));
 }

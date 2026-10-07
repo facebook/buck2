@@ -239,20 +239,3 @@ fn a_write_at_the_head_displaces_a_closed_claim_over_an_older_version() {
     assert!(s.is_unknown_at(k(1), v(root, 2)));
     assert_eq!(s.valid_at(k(1), v(root, 3)), Some(r(2)));
 }
-
-/// A certificate written after `take` covers the earlier versions its premises cover: `take`
-/// keeps assertions, and keeping pre-`take` transactions away from post-`take` values is the
-/// environment's job.
-#[test]
-fn a_certificate_written_after_take_covers_earlier_versions() {
-    let mut s = State::new();
-    let root = BranchId::FIRST;
-    s.assert_at(root, k(0), r(1)); // 2
-    s.take_checked();
-    let v3 = s.head(root);
-    assert_eq!(v3, v(root, 3));
-    let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
-    assert_eq!(s.write_checked(&c).installed, vec![root]);
-    assert_eq!(s.valid_at(k(1), v3), Some(r(1)));
-    assert_eq!(s.valid_at(k(1), v(root, 2)), Some(r(1)));
-}

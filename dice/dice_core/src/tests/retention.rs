@@ -9,7 +9,7 @@
  */
 
 //! What the state retains: certificates pinned by claims (`incrementality.md` §4.1), the
-//! revisions they name, and what `take` keeps.
+//! revisions they name.
 
 use crate::BranchId;
 use crate::EpsilonToken;
@@ -58,28 +58,4 @@ fn pinned_certificates_are_reported_per_claim() {
     assert_eq!(s.introspect_key(k(1)).slots.len(), 2);
     assert_eq!(s.pinned_certs(k(1)).count(), 2);
     assert!(s.pinned_certs(k(1)).all(|p| Arc::ptr_eq(p, &c)));
-}
-
-#[test]
-fn take_forgets_claims_and_edges_but_keeps_histories() {
-    let (mut s, c) = leaf_and_dependent();
-    let root = BranchId::FIRST;
-    let v3 = s.dirty_at(root, k(1));
-    let eps = s.epsilon(k(1), v3);
-    s.take_checked();
-    let taken = s.head(root);
-    assert_eq!(taken, v(root, 4));
-    assert!(s.is_unknown_at(k(1), taken));
-    assert!(s.is_unknown_at(k(1), v(root, 2)));
-    assert!(s.candidate_at(k(1), taken).is_none());
-    assert!(!s.is_referenced(k(1), c.revision));
-    assert!(s.rdeps(root, k(0)).is_empty());
-    assert_eq!(s.epsilon(k(1), taken), eps);
-    assert_eq!(s.epsilon(k(1), v(root, 2)), EpsilonToken::INITIAL);
-    assert_eq!(s.valid_at(k(0), taken), Some(r(1)));
-    // The state works normally afterwards.
-    let again = cert(k(1), r(1), &[(k(0), r(1))], eps);
-    assert_eq!(s.write_checked(&again).installed, vec![root]);
-    assert_eq!(s.valid_at(k(1), taken), Some(r(1)));
-    assert!(s.is_unknown_at(k(1), v(root, 2)));
 }

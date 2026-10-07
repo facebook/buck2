@@ -349,14 +349,6 @@ impl VersionedGraph {
         self.core.commit(branch, core_changes)
     }
 
-    /// Forgets every claim and every computed value, keeping injected keys and per-key revision
-    /// counters. Every branch gets a fresh head, at which only injected keys resolve.
-    pub(crate) fn take(&mut self) {
-        self.core.take();
-        let keys: Vec<DiceKey> = self.values.keys().copied().collect();
-        self.release_unreferenced(keys);
-    }
-
     /// Deletes `branch` (see [`CoreState::delete_branch`]) and releases every value that only it
     /// referenced. The transactions still running on it are served without reuse from then on:
     /// their lookups resolve nothing and their writes are not retained.

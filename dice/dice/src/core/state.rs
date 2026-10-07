@@ -311,11 +311,6 @@ impl CoreStateHandle {
         self.call(StateRequest::RunningTasks { branch, resp }, recv)
     }
 
-    /// For unstable take
-    pub(crate) fn unstable_drop_everything(&self) {
-        self.request(StateRequest::UnstableDropEverything)
-    }
-
     /// Returns the list of `(DiceKey, DataKey)` pairs for paged-out graph nodes.
     /// The caller performs async hydration outside core state and sends
     /// rehydrate messages back.
@@ -545,8 +540,6 @@ pub(super) enum StateRequest {
         branch: Option<BranchId>,
         resp: Sender<Vec<DiceTask>>,
     },
-    /// For unstable take
-    UnstableDropEverything,
     /// Collect the keys of all paged-out graph nodes.
     PagedOutKeys {
         resp: Sender<anyhow::Result<Vec<(DiceKey, DataKey)>>>,

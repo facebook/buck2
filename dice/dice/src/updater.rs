@@ -130,10 +130,6 @@ impl TransactionUpdater {
         TransactionCtx::new(transaction, self.user_data.dupe(), self.dice.dupe(), guard)
     }
 
-    pub(crate) fn unstable_take(&self) {
-        self.dice.state_handle.unstable_drop_everything()
-    }
-
     async fn commit_to_state(self) -> (VersionState, ActiveTransactionGuard) {
         let v = self
             .dice

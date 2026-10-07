@@ -83,11 +83,6 @@ impl DiceTransactionUpdater {
     ) -> impl Future<Output = DiceTransaction> {
         self.0.commit_with_data(extra).map(DiceTransaction)
     }
-
-    pub fn unstable_take(self) -> Self {
-        self.0.unstable_take();
-        self
-    }
 }
 
 /// The base struct for which all computations start. This is clonable, and dupe, and can be

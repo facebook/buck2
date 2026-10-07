@@ -11,6 +11,7 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
+use dice::BranchId;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
@@ -94,7 +95,7 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_dice_clear_doesnt_break_ongoing_computation() -> anyhow::Result<()> {
+async fn deleting_the_branch_does_not_break_an_ongoing_computation() -> anyhow::Result<()> {
     #[derive(
         Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative, Pagable
     )]
@@ -135,85 +136,11 @@ async fn test_dice_clear_doesnt_break_ongoing_computation() -> anyhow::Result<()
 
     ctx1.compute(&Fib(3)).await?;
 
-    let updater = dice.updater();
-    updater.unstable_take();
+    dice.delete_branch(BranchId::FIRST);
 
     assert_eq!(*ctx1.compute(&Fib(10)).await?, Some(89));
 
     Ok(())
-}
-
-#[test]
-fn test_dice_clear_doesnt_cause_inject_compute() {
-    // Detecting that a dice compute panicked is actually kinda tricky, in normal flow
-    // that is a hard error but in tests it instead just looks to dice like the node is cancelled.
-    // We detect it by configuring the runtime to shutdown and panic itself if any task panics, but
-    // that only works right now with the current_thread runtime.
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .unhandled_panic(tokio::runtime::UnhandledPanic::ShutdownRuntime)
-        .build()
-        .unwrap();
-
-    // Spawn the root task
-    rt.block_on(async {
-        #[derive(
-            Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative, Pagable
-        )]
-        #[display("{:?}", self)]
-        #[pagable_typetag(DiceKeyDyn)]
-        struct Node;
-
-        #[async_trait]
-        impl Key for Node {
-            type Value = u32;
-            fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
-                dice::NoValueSerialize::<Self::Value>::new()
-            }
-
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellations: &CancellationContext,
-            ) -> u32 {
-                drop(ctx.compute(&Leaf).await);
-                1
-            }
-
-            fn equality_behavior() -> EqualityBehavior<Self::Value> {
-                EqualityBehavior::Compare(|_x, _y| false)
-            }
-        }
-
-        #[derive(
-            Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative, Pagable
-        )]
-        #[display("{:?}", self)]
-        #[pagable_typetag(DiceKeyDyn)]
-        struct Leaf;
-
-        impl InjectedKey for Leaf {
-            type Value = u32;
-            fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
-                dice::NoValueSerialize::<Self::Value>::new()
-            }
-
-            fn equality_behavior() -> EqualityBehavior<Self::Value> {
-                EqualityBehavior::Compare(|_x, _y| false)
-            }
-        }
-
-        let dice = Dice::builder().build(DetectCycles::Enabled);
-        let mut updater = dice.updater();
-        drop(updater.changed_to([(Leaf, 1)]));
-        let ctx1 = updater.commit().await;
-        let fut = ctx1.compute(&Node);
-
-        let updater = dice.updater();
-        updater.unstable_take();
-
-        drop(fut.await);
-    });
 }
 
 /// Regression: a dep dropped from a key's compute on a later run must not

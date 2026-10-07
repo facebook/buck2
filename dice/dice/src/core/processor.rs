@@ -144,7 +144,6 @@ impl StateProcessor {
             StateRequest::RunningTasks { branch, resp } => {
                 let _ignored = resp.send(self.state.running_tasks(branch));
             }
-            StateRequest::UnstableDropEverything => self.state.unstable_drop_everything(),
             StateRequest::PagedOutKeys { resp } => {
                 drop(resp.send(Ok(self.state.paged_out_keys())));
             }

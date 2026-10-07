@@ -81,7 +81,6 @@ pub(crate) trait StateExt {
     fn write_checked(&mut self, cert: &TestCert) -> WriteOutcome;
     fn fork_checked(&mut self, from: Version) -> BranchId;
     fn delete_checked(&mut self, b: BranchId) -> Vec<Key>;
-    fn take_checked(&mut self);
     fn valid_at(&self, key: Key, v: Version) -> Option<Revision>;
     fn candidate_at(&self, key: Key, v: Version) -> Option<Revision>;
     fn is_unknown_at(&self, key: Key, v: Version) -> bool;
@@ -130,11 +129,6 @@ impl StateExt for State {
         self.check_invariants();
         affected.sort();
         affected
-    }
-
-    fn take_checked(&mut self) {
-        self.take();
-        self.check_invariants();
     }
 
     fn valid_at(&self, key: Key, v: Version) -> Option<Revision> {
