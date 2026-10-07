@@ -47,6 +47,17 @@ class TestActionMetadata(unittest.TestCase):
                 RuntimeError("Expected metadata version to be `1` got `2`."),
             )
 
+    def test_newer_version_is_rejected_even_when_shape_is_unchanged(self):
+        content = io.StringIO(
+            '{"version": 2, "digests": [{"path": "repo/foo.txt", "digest": "d"}]}'
+        )
+        with self.assertRaises(RuntimeError) as context:
+            _ = parse_action_metadata(content)
+        self.assertEqual(
+            str(context.exception),
+            "Expected metadata version to be `1` got `2`.",
+        )
+
     def test_paths_are_keyed_by_the_string_buck_wrote(self):
         content = io.StringIO(
             '{"version": 1, "digests": ['
