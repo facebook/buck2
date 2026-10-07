@@ -34,6 +34,7 @@ load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module
     # @oss-disable[end= ]: "gatorade_deferred_libs",
     # @oss-disable[end= ]: "gatorade_libraries",
     # @oss-disable[end= ]: "is_late_gatorade_enabled",
+    # @oss-disable[end= ]: "is_middle_gatorade_enabled",
     # @oss-disable[end= ]: "middle_gatorade_merge_args",
     # @oss-disable[end= ]: "relink_for_native_libs",
 # @oss-disable[end= ]: )
@@ -409,6 +410,13 @@ def get_android_binary_native_library_info(
         jni_onload_check_report = ctx.actions.declare_output("jni_onload_check.json", has_content_based_path = False)
         dynamic_outputs.append(jni_onload_check_report)
 
+    middle_relink_check_report = None
+
+    if False: # @oss-enable
+    # @oss-disable[end= ]: if enable_relinker and is_middle_gatorade_enabled(ctx):
+        middle_relink_check_report = ctx.actions.declare_output("middle_relink_check.json", has_content_based_path = False)
+        dynamic_outputs.append(middle_relink_check_report)
+
     relinked_libs_output = None
     relinked_libs_manifest = None
     if defer_relink:
@@ -693,7 +701,12 @@ def get_android_binary_native_library_info(
 
         if enable_relinker and not defer_relink:
             unrelinked_shared_libs_by_platform = final_shared_libs_by_platform
-            final_shared_libs_by_platform, middle_gatorade_outputs_by_platform = _relink_for_native_libs(ctx, final_shared_libs_by_platform, native_cmd_entries)
+            final_shared_libs_by_platform, middle_gatorade_outputs_by_platform = _relink_for_native_libs(
+                ctx,
+                final_shared_libs_by_platform,
+                native_cmd_entries,
+                outputs[middle_relink_check_report] if middle_relink_check_report else None,
+            )
             middle_gatorade_relinked_libraries_by_platform = final_shared_libs_by_platform
             relinked_libs_for_extra_outputs = final_shared_libs_by_platform
             _link_library_subtargets(
@@ -720,7 +733,12 @@ def get_android_binary_native_library_info(
             # The relinked libs are exposed as [relinked_libs] sub-target for the combine genrule.
             # A JSON manifest listing the <abi>/<soname> entries is produced alongside so that
             # the combine script knows exactly which libraries to replace without guessing.
-            relinked_libs_by_platform, middle_gatorade_outputs_by_platform = _relink_for_native_libs(ctx, final_shared_libs_by_platform, native_cmd_entries)
+            relinked_libs_by_platform, middle_gatorade_outputs_by_platform = _relink_for_native_libs(
+                ctx,
+                final_shared_libs_by_platform,
+                native_cmd_entries,
+                outputs[middle_relink_check_report] if middle_relink_check_report else None,
+            )
             middle_gatorade_relinked_libraries_by_platform = relinked_libs_by_platform
             relinked_libs_for_extra_outputs = relinked_libs_by_platform
 
@@ -943,6 +961,11 @@ def get_android_binary_native_library_info(
         # without building the whole apk.
         enhance_ctx.debug_output("jni_onload_check", jni_onload_check_report)
 
+    if middle_relink_check_report:
+        # Readable on its own: which relinked libraries' imports were checked,
+        # and any import whose provider's relink does not export it.
+        enhance_ctx.debug_output("middle_relink_check", middle_relink_check_report)
+
     enhance_ctx.debug_output("linker_argsfiles", linker_argsfiles)
     enhance_ctx.debug_output("linker_commands", linker_commands)
     # Materialize the argsfiles a consumer needs to expand an entry's `@argsfile` on disk:
@@ -1016,7 +1039,7 @@ def get_android_binary_native_library_info(
         non_root_module_native_lib_assets = [non_root_module_metadata_assets, non_root_module_lib_assets],
         generated_java_code = generated_java_code,
         unstripped_shared_libraries = unstripped_native_libraries_files,
-        validation_outputs = [jni_onload_check_report] if jni_onload_check_report else [],
+        validation_outputs = [report for report in [jni_onload_check_report, middle_relink_check_report] if report],
     )
 
 _NativeLibSubtargetArtifacts = record(
@@ -2733,9 +2756,14 @@ def relink_libraries(
 
     return relinked_libraries_by_platform
 
-def _relink_for_native_libs(ctx: AnalysisContext, libraries_by_platform: dict[str, dict[str, SharedLibrary]], native_cmd_entries = None) -> tuple:
+def _relink_for_native_libs(
+    ctx: AnalysisContext,
+    libraries_by_platform: dict[str, dict[str, SharedLibrary]],
+    native_cmd_entries = None,
+    check_report: Artifact | None = None,
+) -> tuple:
     return (relink_libraries(ctx, libraries_by_platform, native_cmd_entries), {}) # @oss-enable
-    # @oss-disable[end= ]: return relink_for_native_libs(ctx, libraries_by_platform, relink_libraries, create_shared_lib, native_cmd_entries)
+    # @oss-disable[end= ]: return relink_for_native_libs(ctx, libraries_by_platform, relink_libraries, create_shared_lib, native_cmd_entries, check_report)
 
 def extract_provided_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo, lib: Artifact) -> Artifact:
     return extract_defined_syms(ctx, toolchain, lib, "relinker_extract_provided_symbols")

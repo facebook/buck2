@@ -44,7 +44,7 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         native_library_info = native_library_info,
         resources_info = android_binary_info.resources_info,
         bundle_config = ctx.attrs.bundle_config_file,
-        validation_deps_outputs = get_validation_deps_outputs(ctx),
+        validation_deps_outputs = get_validation_deps_outputs(ctx) + native_library_info.validation_outputs,
         packaging_options = ctx.attrs.packaging_options,
     )
 
