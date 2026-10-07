@@ -98,6 +98,8 @@ pub use starlark_serialize_context::starlark_serialization_state_retained_bytes;
 
 #[doc(hidden)]
 pub use crate::values::deferred::DeferredReadContext;
+#[doc(hidden)]
+pub use crate::values::layout::heap::sealed::heap_key_index::take_heap_rekeys;
 
 #[cfg(all(test, feature = "pagable"))]
 mod state_benchmark;

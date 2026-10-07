@@ -4074,6 +4074,28 @@ impl pagable::storage::traits::PagableStorage for FailingRowStorage {
 
 #[cfg(fbcode_build)]
 #[test]
+fn heap_indexed_under_two_keys_is_reported_once() {
+    use pagable::DataKey;
+    use pagable::traits::StorageContext;
+
+    use crate::pagable::heap_ref_id::HeapRefId;
+    use crate::values::FrozenHeapName;
+    use crate::values::layout::heap::sealed::heap_key_index::StarlarkHeapKeyIndex;
+    use crate::values::layout::heap::sealed::heap_key_index::take_heap_rekeys;
+
+    let context = StorageContext::new();
+    let index = context.get_or_init(StarlarkHeapKeyIndex::default);
+    let heap_id = HeapRefId::from_heap_name(&FrozenHeapName::user("rekeyed"));
+    index.insert(heap_id, DataKey::testing_new(1));
+    index.insert(heap_id, DataKey::testing_new(1));
+    assert_eq!(take_heap_rekeys(&context), 0, "the same key is not a rekey");
+    index.insert(heap_id, DataKey::testing_new(2));
+    assert_eq!(take_heap_rekeys(&context), 1);
+    assert_eq!(take_heap_rekeys(&context), 0, "each rekey is counted once");
+}
+
+#[cfg(fbcode_build)]
+#[test]
 fn test_unreadable_dependency_heap_is_recorded_as_a_deferred_read_failure() -> crate::Result<()> {
     use std::sync::Mutex;
 

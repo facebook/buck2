@@ -77,6 +77,8 @@ use crate::values::layout::value::Value;
 #[cfg(fbcode_build)]
 pub(crate) mod heap_key_index {
     use std::any::TypeId;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
 
     use dashmap::DashMap;
     use pagable::DataKey;
@@ -105,6 +107,8 @@ pub(crate) mod heap_key_index {
     #[derive(Default)]
     pub(crate) struct StarlarkHeapKeyIndex {
         keys: DashMap<HeapRefId, DataKey>,
+        /// Heaps indexed under a second key since the last [`take_heap_rekeys`].
+        rekeyed: AtomicUsize,
     }
 
     impl StorageState for StarlarkHeapKeyIndex {}
@@ -114,20 +118,35 @@ pub(crate) mod heap_key_index {
             self.keys.get(heap_id).map(|key| *key)
         }
 
-        /// An id names one heap and one heap serializes under one key,
-        /// so a repeated insert carries the same key.
+        /// An id names one heap and one heap serializes under one key, so a
+        /// repeated insert carries the same key; one that does not is kept for
+        /// [`take_heap_rekeys`].
         pub(crate) fn insert(&self, heap_id: HeapRefId, key: DataKey) {
-            let previous = self.keys.insert(heap_id, key);
-            debug_assert!(
-                previous.is_none_or(|previous| previous == key),
-                "heap {heap_id:?} indexed under two keys: {previous:?} and {key:?}"
-            );
+            if self
+                .keys
+                .insert(heap_id, key)
+                .is_some_and(|previous| previous != key)
+            {
+                self.rekeyed.fetch_add(1, Ordering::Relaxed);
+            }
         }
 
         #[cfg(test)]
         pub(crate) fn clear(&self) {
             self.keys.clear();
         }
+    }
+
+    /// How many heaps this storage indexed under a second data key since the
+    /// last call. The resident arc for a heap is registered under the key the
+    /// heap was first bound to, so a page-in through a second key cannot find
+    /// the live allocation and deserializes a copy of it, which then conflicts
+    /// with the original. It should never happen; the caller surfaces it so
+    /// that it is seen when it does.
+    pub fn take_heap_rekeys(storage: &StorageContext) -> usize {
+        storage
+            .get::<StarlarkHeapKeyIndex>()
+            .map_or(0, |index| index.rekeyed.swap(0, Ordering::Relaxed))
     }
 
     /// Records a heap's `DataKey` against its [`HeapRefId`] as pagable assigns it.
@@ -195,6 +214,11 @@ pub(crate) mod heap_key_index {
     use crate::pagable::starlark_deserialize_context::StarlarkDeserScope;
 
     pub(crate) fn register_heap_key_index(_context: &StorageContext) {}
+
+    /// No heap-key index, so never any heap indexed under a second key.
+    pub fn take_heap_rekeys(_storage: &StorageContext) -> usize {
+        0
+    }
 
     pub(crate) fn load_and_bind_heap_by_id(
         _scope: &StarlarkDeserScope,

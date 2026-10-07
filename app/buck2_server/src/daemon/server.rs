@@ -767,6 +767,20 @@ impl BuckdServer {
                                 ..Default::default()
                             });
                         }
+                        if let Some(payload) =
+                            heap_rekeys(context.base_context.tenant.dice_manager.unsafe_dice())
+                        {
+                            dispatch.instant_event(buck2_data::StructuredError {
+                                payload,
+                                quiet: false,
+                                task: Some(false),
+                                soft_error_category: Some(buck2_data::SoftError {
+                                    category: "paging_heap_indexed_under_two_keys".to_owned(),
+                                    is_quiet: false,
+                                }),
+                                ..Default::default()
+                            });
+                        }
 
                         // Finalize the command, emitting its paging telemetry and (if
                         // eligible) scheduling an idle page-out.
@@ -882,6 +896,19 @@ fn deferred_read_failures(dice: &Dice) -> Option<String> {
         "Deferred reads of paged-out data failed: [{}]. The daemon's in-memory state cannot be repaired; restarting the daemon",
         failures.join("; ")
     ))
+}
+
+/// The report for Starlark heaps the storage indexed under a second data key
+/// during this command, which should not occur and leaves page-in able to
+/// deserialize a copy of a resident heap.
+fn heap_rekeys(dice: &Dice) -> Option<String> {
+    let rekeyed = starlark::pagable::take_heap_rekeys(dice.pagable_storage_context()?);
+    (rekeyed > 0).then(|| {
+        format!(
+            "{rekeyed} Starlark heap(s) were indexed under a second data key, so a page-in \
+             through that key deserializes a copy of a heap that is still resident"
+        )
+    })
 }
 
 fn convert_positive_duration(proto_duration: &prost_types::Duration) -> Result<Duration, Status> {
