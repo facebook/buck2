@@ -588,7 +588,13 @@ impl<'a> From<WhatRanOutputCommandExtra<'a>> for JsonExtra<'a> {
 
 #[cfg(test)]
 mod tests {
+    use buck2_event_observer::what_ran::WhatRanOptions;
+    use buck2_event_observer::what_ran::WhatRanOutputCommand;
+    use buck2_event_observer::what_ran::WhatRanOutputWriter;
+
     use super::*;
+    use crate::what_ran::WhatRanCommandOptions;
+    use crate::what_ran::WhatRanCommandState;
 
     fn make_base_command() -> JsonCommand<'static> {
         let command = Cow::Owned(vec!["some".to_owned(), "command".to_owned()]);
@@ -700,6 +706,116 @@ mod tests {
   "duration": "1"
 }"#;
         assert_eq!(expected, serde_json::to_string_pretty(&command)?);
+        Ok(())
+    }
+
+    /// Collects `(identity, executor)` of every emitted command.
+    #[derive(Default)]
+    struct CollectCommands(Vec<(String, String)>);
+
+    impl WhatRanOutputWriter for CollectCommands {
+        fn emit_command(&mut self, command: WhatRanOutputCommand<'_>) -> buck2_error::Result<()> {
+            self.0
+                .push((command.identity.to_owned(), command.repro.executor()));
+            Ok(())
+        }
+    }
+
+    fn span_event(
+        span: u64,
+        parent: u64,
+        data: buck2_data::buck_event::Data,
+    ) -> buck2_data::BuckEvent {
+        buck2_data::BuckEvent {
+            span_id: span,
+            parent_id: parent,
+            data: Some(data),
+            ..Default::default()
+        }
+    }
+
+    fn action_start_event() -> buck2_data::buck_event::Data {
+        buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
+            data: Some(buck2_data::span_start_event::Data::ActionExecution(
+                buck2_data::ActionExecutionStart {
+                    key: Some(buck2_data::ActionKey {
+                        owner: Some(buck2_data::action_key::Owner::TargetLabel(
+                            buck2_data::ConfiguredTargetLabel {
+                                label: Some(buck2_data::TargetLabel {
+                                    package: "root//pkg".to_owned(),
+                                    name: "t".to_owned(),
+                                }),
+                                configuration: Some(buck2_data::Configuration {
+                                    full_name: "cfg".to_owned(),
+                                }),
+                                execution_configuration: None,
+                            },
+                        )),
+                        ..Default::default()
+                    }),
+                    name: Some(buck2_data::ActionName {
+                        category: "cat".to_owned(),
+                        identifier: "id".to_owned(),
+                    }),
+                    kind: buck2_data::ActionKind::Run as i32,
+                },
+            )),
+        })
+    }
+
+    fn action_end_event(
+        execution_kind: buck2_data::ActionExecutionKind,
+    ) -> buck2_data::buck_event::Data {
+        buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
+            data: Some(buck2_data::span_end_event::Data::ActionExecution(Box::new(
+                buck2_data::ActionExecutionEnd {
+                    kind: buck2_data::ActionKind::Run as i32,
+                    execution_kind: execution_kind as i32,
+                    ..Default::default()
+                },
+            ))),
+            ..Default::default()
+        })
+    }
+
+    fn run_what_ran(
+        events: Vec<buck2_data::BuckEvent>,
+        options: &WhatRanCommandOptions,
+    ) -> buck2_error::Result<Vec<(String, String)>> {
+        let mut state = WhatRanCommandState::default();
+        let mut out = CollectCommands::default();
+        for e in events {
+            state.event(Box::new(e), &mut out, options)?;
+        }
+        state.emit_remaining(&mut out, options)?;
+        Ok(out.0)
+    }
+
+    /// A local dep-file cache hit is appended when the action ends, without consulting
+    /// `--skip-cache-hits`, so it is printed alongside the cache hits the flag removes.
+    #[test]
+    fn test_skip_cache_hits_still_prints_local_dep_file_hits() -> buck2_error::Result<()> {
+        let options = WhatRanCommandOptions {
+            options: WhatRanOptions {
+                skip_cache_hits: true,
+                ..Default::default()
+            },
+            failed: false,
+            incomplete: false,
+        };
+        let out = run_what_ran(
+            vec![
+                span_event(1, 0, action_start_event()),
+                span_event(
+                    1,
+                    0,
+                    action_end_event(buck2_data::ActionExecutionKind::LocalDepFile),
+                ),
+            ],
+            &options,
+        )?;
+        let executors: Vec<&str> = out.iter().map(|(_, e)| e.as_str()).collect();
+        assert_eq!(vec!["dep_file"], executors);
         Ok(())
     }
 }
