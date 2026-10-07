@@ -1444,7 +1444,7 @@ impl BuckTestOrchestrator<'_> {
                 stdout,
                 stderr,
                 status: ExecutionStatus::Finished {
-                    exitcode: exit_code.unwrap_or(1),
+                    exitcode: failure_exit_code(exit_code),
                 },
                 timing,
                 execution_kind: Some(execution_kind),
@@ -1471,7 +1471,7 @@ impl BuckTestOrchestrator<'_> {
                 stdout: ExecutionStream::Inline(Default::default()),
                 stderr: ExecutionStream::Inline(format!("{error:?}").into_bytes()),
                 status: ExecutionStatus::Finished {
-                    exitcode: exit_code.unwrap_or(1),
+                    exitcode: failure_exit_code(exit_code),
                 },
                 timing,
                 execution_kind,
@@ -2589,6 +2589,16 @@ impl TestExecutor {
     }
 }
 
+/// The exit code reported for a failed execution. Runners read exit code 0 as a pass, and an
+/// executor can fail with exit code 0 (a worker that exits 0 before connecting), so a failure
+/// always reports a non-zero code.
+fn failure_exit_code(exit_code: Option<i32>) -> i32 {
+    match exit_code {
+        Some(0) | None => 1,
+        Some(code) => code,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use buck2_build_api::context::SetBuildContextData;
@@ -2696,10 +2706,10 @@ mod tests {
         }
     }
 
-    /// A failed execution whose exit code is 0 is reported as `Finished { exitcode: 0 }`, which
-    /// the runners take as a pass and `TestExecutionKey::validity` caches as a successful listing.
+    /// A failed execution is never reported with exit code 0, which the runners take as a pass
+    /// and `TestExecutionKey::validity` caches as a successful listing.
     #[tokio::test]
-    async fn failure_with_exit_code_zero_is_reported_as_finished_zero() -> buck2_error::Result<()> {
+    async fn failure_with_exit_code_zero_is_reported_as_a_failure() -> buck2_error::Result<()> {
         let temp = ProjectRootTemp::new().unwrap();
         let digest_config = DigestConfig::testing_default();
         let mut data = UserComputationData::new();
@@ -2777,7 +2787,7 @@ mod tests {
                 "execute_request returned an error or a cancellation"
             )
         })?;
-        assert_eq!(ExecutionStatus::Finished { exitcode: 0 }, data.status);
+        assert_eq!(ExecutionStatus::Finished { exitcode: 1 }, data.status);
         Ok(())
     }
 
