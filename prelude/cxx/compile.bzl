@@ -812,7 +812,7 @@ def _compile_single_cxx(
             cxx_compile_cmd,
             cuda_compile_info,
             action_dep_files,
-            allow_dep_file_cache_upload = False,
+            allow_dep_file_cache_upload = toolchain.allow_dep_file_cache_upload,
             error_handler = shared_info.error_handler,
             cuda_compile_style = cuda_compile_style,
             cuda_dist_output = dist_cuda,
@@ -828,7 +828,7 @@ def _compile_single_cxx(
             identifier = identifier,
             dep_files = action_dep_files,
             allow_cache_upload = cxx_compile_cmd.allow_cache_upload,
-            allow_dep_file_cache_upload = False,
+            allow_dep_file_cache_upload = toolchain.allow_dep_file_cache_upload,
             error_handler = shared_info.error_handler,
             outputs_for_error_handler = outputs_for_error_handler,
             local_only = is_producing_compiled_pch or is_consuming_compiled_pch,
@@ -881,7 +881,7 @@ def _compile_single_cxx(
             identifier = short_path,
             dep_files = diagnostics_dep_files,
             allow_cache_upload = cxx_compile_cmd.allow_cache_upload,
-            allow_dep_file_cache_upload = False,
+            allow_dep_file_cache_upload = toolchain.allow_dep_file_cache_upload,
             error_handler = shared_info.error_handler,
         )
 

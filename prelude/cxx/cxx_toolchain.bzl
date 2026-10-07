@@ -309,6 +309,7 @@ def cxx_toolchain_impl(ctx):
         minimum_os_version = ctx.attrs.minimum_os_version,
         # TODO(T138705365): Turn on dep files by default
         use_dep_files = value_or(ctx.attrs.use_dep_files, _get_default_use_dep_files(platform_name)),
+        allow_dep_file_cache_upload = ctx.attrs.allow_dep_file_cache_upload,
         default_deps = ctx.attrs.default_deps,
         target_stats_tools = ctx.attrs.target_stats_tools[TargetStatsToolsInfo] if ctx.attrs.target_stats_tools else None,
     )
@@ -316,6 +317,7 @@ def cxx_toolchain_impl(ctx):
 def cxx_toolchain_extra_attributes(is_toolchain_rule):
     dep_type = attrs.exec_dep if is_toolchain_rule else attrs.dep
     return {
+        "allow_dep_file_cache_upload": attrs.bool(default = False),
         "archive_symbol_table": attrs.bool(default = True),
         "archiver": dep_type(providers = [RunInfo]),
         "archiver_reads_inputs": attrs.bool(default = True),

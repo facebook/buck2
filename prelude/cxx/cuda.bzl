@@ -577,7 +577,7 @@ def _nvcc_dynamic_compile(
                 identifier = cuda_compile_info.identifier,
                 dep_files = action_dep_files,
                 allow_cache_upload = allow_cache_upload,
-                allow_dep_file_cache_upload = False,
+                allow_dep_file_cache_upload = toolchain.allow_dep_file_cache_upload and bool(action_dep_files),
                 prefer_remote = True if "preproc" in cmd_node["category"] else False,
             )
 
