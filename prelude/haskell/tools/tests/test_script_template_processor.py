@@ -54,11 +54,8 @@ class ScriptTemplateProcessorTest(unittest.TestCase):
             render_flags('-optc-DFOO=\\"bar\\"'), 'flags: -optc-DFOO=\\"bar\\"\n'
         )
 
-    def test_backslash_escapes_in_a_value_are_interpreted(self):
-        self.assertEqual(render_flags("-optP-DSEP=\\n"), "flags: -optP-DSEP=\n\n")
-        self.assertEqual(render_flags("-DWIN=C:\\tmp"), "flags: -DWIN=C:\tmp\n")
-        self.assertEqual(render_flags("-optP-DSEP=\\\\n"), "flags: -optP-DSEP=\\n\n")
-
-    def test_an_unknown_escape_in_a_value_crashes(self):
-        with self.assertRaises(re.error):
-            render_flags("-optP-DX=\\d")
+    def test_backslashes_in_a_value_are_kept(self):
+        self.assertEqual(render_flags("-optP-DSEP=\\n"), "flags: -optP-DSEP=\\n\n")
+        self.assertEqual(render_flags("-DWIN=C:\\tmp"), "flags: -DWIN=C:\\tmp\n")
+        self.assertEqual(render_flags("-optP-DSEP=\\\\n"), "flags: -optP-DSEP=\\\\n\n")
+        self.assertEqual(render_flags("-optP-DX=\\d"), "flags: -optP-DX=\\d\n")
