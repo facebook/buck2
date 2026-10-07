@@ -353,7 +353,6 @@ mod tests {
             }),
             data: Some(EventData::SpanStart(buck2_data::SpanStartEvent {
                 data: Some(buck2_data::span_start_event::Data::Command(start)),
-                ..Default::default()
             })),
             ..Default::default()
         };
