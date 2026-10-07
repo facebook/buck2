@@ -67,6 +67,20 @@ async def test_keep_going_streaming(buck: Buck, no_cache: bool) -> None:
 
 
 @buck_test()
+async def test_keep_going_streaming_chunked_stdout(buck: Buck) -> None:
+    # Each package's output is written to the client in one go; the daemon has
+    # to split it into transport-sized messages. Force tiny chunks and check
+    # that the output is byte-identical to the unchunked output.
+    args = ["//...", "--json-lines", "--streaming", "--keep-going", "--no-cache"]
+    result1 = await buck.targets(*args)
+    await buck.kill()
+    result2 = await buck.targets(*args, env={"BUCK2_DEBUG_RAWOUTPUT_CHUNK_SIZE": "7"})
+    # Streaming output order is not deterministic across runs.
+    assert sorted(result1.stdout.splitlines()) == sorted(result2.stdout.splitlines())
+    assert len(result1.stdout.splitlines()) == 7  # 6 targets + 1 error
+
+
+@buck_test()
 async def test_streaming_keep_going_missing_targets(buck: Buck) -> None:
     targets = [
         "//a:target1",

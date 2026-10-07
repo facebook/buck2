@@ -41,6 +41,13 @@ pub struct StderrOutputWriter {
     chunk_size: usize,
 }
 
+/// Override for the maximum number of bytes carried by a single raw output
+/// message (stdout and stderr). Each writer has its own default; this is
+/// mostly useful for tests that want to exercise the chunking paths.
+pub(crate) fn raw_output_chunk_size_override() -> buck2_error::Result<Option<usize>> {
+    buck2_env!("BUCK2_DEBUG_RAWOUTPUT_CHUNK_SIZE", type = usize)
+}
+
 impl Write for StderrOutputGuard<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.inner.write(buf)
@@ -72,7 +79,7 @@ impl StderrOutputWriter {
     fn get_chunk_size() -> buck2_error::Result<usize> {
         // protobuf recommends each message should be under 1MB
         const DEFAULT_CHUNK_SIZE: usize = 1024 * 1024;
-        buck2_env!("BUCK2_DEBUG_RAWOUTPUT_CHUNK_SIZE", type=usize, default=DEFAULT_CHUNK_SIZE)
+        Ok(raw_output_chunk_size_override()?.unwrap_or(DEFAULT_CHUNK_SIZE))
     }
 
     /// Given complete valid UTF-8 string, truncate it to be no longer than given limit.
