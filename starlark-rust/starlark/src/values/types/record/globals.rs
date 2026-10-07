@@ -251,4 +251,23 @@ assert_ne(r1(host="test"), diff(host="test"))
         );
         assert::fails("field(True)", &["`True`", "not a valid type"]);
     }
+
+    /// A list or dict field default makes the record type and every record of it unhashable,
+    /// because the type's hash includes each field's default.
+    #[test]
+    fn test_record_with_list_default_is_unhashable() {
+        assert::fail(
+            "R = record(a = int, b = field(typing.Any, []))\nlen({R(a = 1, b = 2): 1})",
+            "Value of type `list` is not hashable",
+        );
+        assert::fail(
+            "R = record(a = int, b = field(typing.Any, []))\nlen({R: 1})",
+            "Value of type `list` is not hashable",
+        );
+        // A hashable default is fine.
+        assert::eq(
+            "1",
+            "R = record(a = int, b = field(typing.Any, None))\nlen({R(a = 1, b = 2): 1})",
+        );
+    }
 }
