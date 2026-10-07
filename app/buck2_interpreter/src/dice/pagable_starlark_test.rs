@@ -555,6 +555,7 @@ impl CollisionEventRecorder {
                 DiceEvent::HydrationFailed {
                     key_type: actual,
                     error,
+                    ..
                 } if *actual == key_type => Some(error.clone()),
                 _ => None,
             })

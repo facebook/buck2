@@ -377,6 +377,7 @@ impl TransactionData {
         self.user_data.tracker.event(DiceEvent::HydrationFailed {
             key_type: desc,
             error: format!("{error:#}"),
+            transient: pagable::is_transient_read_error(error),
         })
     }
 }

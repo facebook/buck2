@@ -116,15 +116,19 @@ impl BuckDiceTracker {
                         Some(DiceEvent::ComputeFinished{key_type}) => {
                             states.entry(key_type).or_insert_with(DiceKeyState::default).compute_finished += 1;
                         }
-                        Some(DiceEvent::HydrationFailed{key_type, error}) => {
-                            soft_error!(
-                                "dice_hydration_failed",
-                                buck2_error::buck2_error!(
-                                    buck2_error::ErrorTag::Tier0,
-                                    "Failed to page a DICE value back in for `{key_type}`: {error}"
-                                )
-                            )
-                            .ok();
+                        Some(DiceEvent::HydrationFailed{key_type, error, transient}) => {
+                            let error = buck2_error::buck2_error!(
+                                buck2_error::ErrorTag::Tier0,
+                                "Failed to page a DICE value back in for `{key_type}`: {error}"
+                            );
+                            // Reported apart so the rate of reads that storage
+                            // could not serve in time can be read off against
+                            // failures of the stored data.
+                            if transient {
+                                soft_error!("dice_page_in_failed_transient", error).ok();
+                            } else {
+                                soft_error!("dice_page_in_failed", error).ok();
+                            }
                         }
                         None => {
                             // This indicates that the sender side has been dropped and we can exit.

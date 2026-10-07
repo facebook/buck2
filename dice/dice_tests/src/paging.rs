@@ -35,16 +35,18 @@ use pagable::Pagable;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
+use pagable::ReadRefused;
 use pagable::pagable_typetag;
 use tempfile::tempdir;
 
 /// A `ValueSerialize` that serializes successfully — so the node pages out — but
 /// always fails to deserialize. This mimics a serialize/deserialize asymmetry
 /// (e.g. a typetag mismatch) or on-disk corruption, exercising the worker's
-/// page-in failure path.
-struct FailToHydrateSerialize;
+/// page-in failure path. With `TRANSIENT` the failure is typed as one that never
+/// reached the data, as a storage lock wait that ran out is.
+struct FailToHydrateSerialize<const TRANSIENT: bool>;
 
-impl ValueSerialize for FailToHydrateSerialize {
+impl<const TRANSIENT: bool> ValueSerialize for FailToHydrateSerialize<TRANSIENT> {
     type Value = u64;
 
     fn pagable_serialize_value(
@@ -59,7 +61,14 @@ impl ValueSerialize for FailToHydrateSerialize {
         &self,
         _deser: &mut D,
     ) -> pagable::Result<Self::Value> {
-        Err(anyhow::anyhow!("simulated hydrate failure"))
+        if TRANSIENT {
+            Err(
+                anyhow::Error::new(ReadRefused("simulated transient read failure"))
+                    .context("while hydrating"),
+            )
+        } else {
+            Err(anyhow::anyhow!("simulated hydrate failure"))
+        }
     }
 }
 
@@ -85,7 +94,33 @@ impl Key for FailToHydrateKey {
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        FailToHydrateSerialize
+        FailToHydrateSerialize::<false>
+    }
+}
+
+#[derive(Allocative, Clone, Copy, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[display("FailTransientlyToHydrateKey({})", _0)]
+#[pagable_typetag(DiceKeyDyn)]
+struct FailTransientlyToHydrateKey(u32);
+
+#[async_trait]
+impl Key for FailTransientlyToHydrateKey {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        _ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        u64::from(self.0) * 100
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        FailToHydrateSerialize::<true>
     }
 }
 
@@ -125,29 +160,34 @@ async fn failed_hydrate_of_paged_out_value_recomputes() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Captures `DiceEvent::HydrationFailed` key types so a test can assert a hydration
-/// failure is reported out-of-band (rather than silently swallowed).
+/// Captures `DiceEvent::HydrationFailed` as `(key type, transient)` so a test can
+/// assert a hydration failure is reported out-of-band (rather than silently
+/// swallowed) and classified.
 #[derive(Allocative)]
 struct CapturingListener {
     #[allocative(skip)]
-    hydration_failures: Arc<Mutex<Vec<String>>>,
+    hydration_failures: Arc<Mutex<Vec<(String, bool)>>>,
 }
 
 impl DiceEventListener for CapturingListener {
     fn event(&self, ev: DiceEvent) {
-        if let DiceEvent::HydrationFailed { key_type, .. } = ev {
+        if let DiceEvent::HydrationFailed {
+            key_type,
+            transient,
+            ..
+        } = ev
+        {
             self.hydration_failures
                 .lock()
                 .unwrap()
-                .push(key_type.to_owned());
+                .push((key_type.to_owned(), transient));
         }
     }
 }
 
-/// A failed page-in reports a `HydrationFailed` event (which buck2 maps to a
-/// `soft_error`), so the failure is visible in telemetry rather than lost.
-#[tokio::test]
-async fn failed_hydrate_reports_a_hydration_failed_event() -> anyhow::Result<()> {
+/// Pages `key` out, computes it again so its page-in fails, and returns the
+/// hydration failures reported.
+async fn hydration_failures_of<K: Key<Value = u64>>(key: K) -> anyhow::Result<Vec<(String, bool)>> {
     let tmp = tempdir()?;
     let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
     let dice = {
@@ -157,7 +197,7 @@ async fn failed_hydrate_reports_a_hydration_failed_event() -> anyhow::Result<()>
     };
 
     let tx = dice.updater().commit().await;
-    let _: u64 = *tx.compute(&FailToHydrateKey(7)).await?;
+    let _: u64 = *tx.compute(&key).await?;
     drop(tx);
 
     dice.wait_for_idle().await;
@@ -169,21 +209,39 @@ async fn failed_hydrate_reports_a_hydration_failed_event() -> anyhow::Result<()>
         hydration_failures: captured.clone(),
     });
     let tx = dice.updater_with_data(data).commit().await;
-    let _ignored = tokio::time::timeout(Duration::from_secs(10), tx.compute(&FailToHydrateKey(7)))
+    let _ignored = tokio::time::timeout(Duration::from_secs(10), tx.compute(&key))
         .await
         .expect("compute must not hang when a paged-out value fails to hydrate");
 
-    let failures = captured.lock().unwrap();
+    let failures = captured.lock().unwrap().clone();
+    Ok(failures)
+}
+
+/// A failed page-in reports a `HydrationFailed` event (which buck2 maps to a
+/// `soft_error`), so the failure is visible in telemetry rather than lost.
+#[tokio::test]
+async fn failed_hydrate_reports_a_hydration_failed_event() -> anyhow::Result<()> {
+    let failures = hydration_failures_of(FailToHydrateKey(7)).await?;
     assert_eq!(
         failures.len(),
         1,
         "exactly one hydration failure should be reported, got {failures:?}"
     );
     assert!(
-        failures[0].contains("FailToHydrateKey"),
+        failures[0].0.contains("FailToHydrateKey"),
         "reported key type should identify the failing key, got {:?}",
         failures[0]
     );
+    assert!(!failures[0].1, "a failure of the data is not transient");
+    Ok(())
+}
 
+/// A page-in that failed before reaching the data, as a storage lock wait that
+/// ran out does, is reported as transient, however the error was wrapped.
+#[tokio::test]
+async fn transient_hydrate_failure_is_reported_as_such() -> anyhow::Result<()> {
+    let failures = hydration_failures_of(FailTransientlyToHydrateKey(7)).await?;
+    assert_eq!(failures.len(), 1, "got {failures:?}");
+    assert!(failures[0].1, "got {failures:?}");
     Ok(())
 }
