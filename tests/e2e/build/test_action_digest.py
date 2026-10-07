@@ -8,6 +8,7 @@
 
 # pyre-strict
 
+import typing
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -37,11 +38,7 @@ async def test_action_digest(buck: Buck) -> None:
         "fbcode//buck2/tests/targets/rules/rust/hello_world:welcome",
         "--remote-only",
     )
-    compiled_out = await read_what_ran(buck)
-    compiled_digests = [
-        entry["reproducer"]["details"]["digest"] for entry in compiled_out
-    ]
-    compiled_digests.sort()
+    compiled_digests = _identities_by_digest(await read_what_ran(buck))
 
     # TODO(nga): this should also test reverted buck2.
     buck.path_to_executable = Path("buck2")
@@ -50,12 +47,40 @@ async def test_action_digest(buck: Buck) -> None:
         "fbcode//buck2/tests/targets/rules/rust/hello_world:welcome",
         "--remote-only",
     )
-    deployed_out = await read_what_ran(buck)
-    deployed_digests = [
-        entry["reproducer"]["details"]["digest"] for entry in deployed_out
-    ]
-    deployed_digests.sort()
+    deployed_digests = _identities_by_digest(await read_what_ran(buck))
 
-    assert compiled_digests == deployed_digests, (
-        "Action Digest was modified, refer to comment on this test for next steps"
+    only_compiled = compiled_digests.keys() - deployed_digests.keys()
+    only_deployed = deployed_digests.keys() - compiled_digests.keys()
+    assert not only_compiled and not only_deployed, (
+        "Action Digest was modified, refer to comment on this test for next steps.\n"
+        f"Only in compiled buck2 ({len(only_compiled)}):\n"
+        + _format_digests(compiled_digests, only_compiled)
+        + f"Only in deployed buck2 ({len(only_deployed)}):\n"
+        + _format_digests(deployed_digests, only_deployed)
+    )
+
+
+def _identities_by_digest(
+    what_ran: list[dict[str, typing.Any]],
+) -> dict[str, list[str]]:
+    """Map each action digest to the identities of the actions that produced it.
+
+    The graph contains identical actions in several configurations, which
+    share a digest. Whichever finishes first seeds the local dep-file cache,
+    and the others are then served from it without a reproducer digest, so
+    only the set of digests is stable between two builds.
+    """
+    digests: dict[str, list[str]] = {}
+    for entry in what_ran:
+        digest = entry["reproducer"]["details"].get("digest")
+        if digest is not None:
+            digests.setdefault(digest, []).append(entry["identity"])
+    return digests
+
+
+def _format_digests(
+    digests: dict[str, list[str]], selected: typing.AbstractSet[str]
+) -> str:
+    return "".join(
+        f"  {digest}  {'; '.join(digests[digest])}\n" for digest in sorted(selected)
     )
