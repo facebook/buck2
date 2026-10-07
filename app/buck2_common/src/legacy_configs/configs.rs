@@ -870,9 +870,9 @@ pub(crate) mod tests {
         ]
         .join("\n");
         let config = parse(&[("config", text.as_str())], "config")?;
-        assert_config_value(&config, "s", "a", "x # comment");
+        assert_config_value(&config, "s", "a", "x");
         assert_config_value(&config, "s", "b", "y");
-        assert_config_value_is_empty(&config, "s", "c");
+        assert_config_value(&config, "s", "c", "z");
         assert_config_value(&config, "s", "d", "w\\e = v");
         assert_config_value_is_empty(&config, "s", "e");
         assert_config_value(&config, "s", "g", "t [other]");

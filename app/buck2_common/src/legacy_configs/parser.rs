@@ -303,6 +303,10 @@ impl<'p> LegacyConfigFileParser<'p> {
         .boxed()
     }
 
+    fn is_comment_line(line: &str) -> bool {
+        line.starts_with('#') || line.starts_with(';')
+    }
+
     fn strip_line_comment(line: &str) -> &str {
         match line.split_once(" #") {
             Some((before, _)) => before,
@@ -337,9 +341,11 @@ impl<'p> LegacyConfigFileParser<'p> {
             .enumerate()
             // Coalesce escaped newlines.
             .coalesce(|(i, mut prev), (j, next)| {
-                if prev.ends_with('\\') {
+                if prev.ends_with('\\') && !Self::is_comment_line(&prev) {
                     prev.truncate(prev.len() - 1);
-                    prev.push_str(&next);
+                    if !Self::is_comment_line(&next) {
+                        prev.push_str(&next);
+                    }
                     Ok((i, prev))
                 } else {
                     Err(((i, prev), (j, next)))
@@ -348,7 +354,7 @@ impl<'p> LegacyConfigFileParser<'p> {
             // Remove commented lines.
             // This needs to come after the coalesce in case someone has an empty line after an escaped newline
             // Remove empty lines and comment lines (support both '#' and ';' for comment lines)
-            .filter(|(_, l)| !l.is_empty() && !l.starts_with('#') && !l.starts_with(';'));
+            .filter(|(_, l)| !l.is_empty() && !Self::is_comment_line(l));
 
         for (i, line) in lines {
             if let Some(section) = Self::parse_section_marker(&line)? {
