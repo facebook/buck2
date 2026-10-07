@@ -99,7 +99,7 @@ cython_library = prelude_rule(
             """,
             ),
             "cython_compiler": attrs.option(
-                attrs.dep(providers = [RunInfo]),
+                attrs.exec_dep(providers = [RunInfo]),
                 default = None,
                 doc = """
                 Override the default Cython compiler.
@@ -267,7 +267,7 @@ cython_static_extension = prelude_rule(
             """,
             ),
             "cython_compiler": attrs.option(
-                attrs.dep(providers = [RunInfo]),
+                attrs.exec_dep(providers = [RunInfo]),
                 default = None,
                 doc = """
                 Override the default Cython compiler.
@@ -423,7 +423,7 @@ cython_toolchain_rule = prelude_rule(
     """,
     is_toolchain_rule = True,
     attrs = {
-        "compiler": attrs.dep(
+        "compiler": attrs.exec_dep(
             providers = [RunInfo],
             doc = """
             The Cython compiler binary target. Use select() + py_version_select()
