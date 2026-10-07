@@ -11,6 +11,7 @@
 use allocative::Allocative;
 use dice_core::BranchId;
 use dupe::Dupe;
+use tokio::sync::oneshot;
 
 use crate::HashMap;
 use crate::epoch::cache::SharedCache;
@@ -28,6 +29,9 @@ pub(crate) struct VersionTracker {
     /// running in a cache keep it alive, and it goes away with the last of them.
     #[allocative(skip)]
     draining: Vec<(VersionNumber, WeakSharedCache)>,
+    /// Who is waiting for a version in their scope to lose its last transaction.
+    #[allocative(skip)]
+    released: Vec<(Option<BranchId>, oneshot::Sender<()>)>,
 }
 
 #[derive(Debug, Allocative)]
@@ -36,11 +40,29 @@ struct ActiveVersionData {
     ref_count: usize,
 }
 
+/// What stands between a scope and idleness (see `Dice::is_idle`).
+pub(crate) struct IdleStatus {
+    /// How many transactions are alive in the scope.
+    pub(crate) active_transactions: usize,
+    /// The tasks of dropped transactions in the scope that may still be running.
+    pub(crate) draining: Vec<DiceTask>,
+    /// Resolves once a version in the scope loses its last transaction. Present iff a
+    /// transaction is alive there.
+    pub(crate) released: Option<oneshot::Receiver<()>>,
+}
+
+impl IdleStatus {
+    pub(crate) fn is_idle(&self) -> bool {
+        self.active_transactions == 0 && self.draining.is_empty()
+    }
+}
+
 impl VersionTracker {
     pub(crate) fn new() -> Self {
         VersionTracker {
             active_versions: HashMap::default(),
             draining: Vec::new(),
+            released: Vec::new(),
         }
     }
 
@@ -78,27 +100,68 @@ impl VersionTracker {
             self.draining.retain(|(_, cache)| cache.is_alive());
             self.draining
                 .push((v, data.per_transaction_data.downgrade()));
+            for (scope, waiter) in std::mem::take(&mut self.released) {
+                if scope.is_none_or(|b| b == v.branch()) {
+                    let _ = waiter.send(());
+                } else if !waiter.is_closed() {
+                    self.released.push((scope, waiter));
+                }
+            }
         }
     }
 
-    /// Every task that may still be running, whether its transaction is alive or gone, at the
-    /// versions of `branch`, or at every version with `None`.
+    /// The transactions alive at the versions of `branch` (every version with `None`) and the
+    /// tasks of dropped ones there that may still be running. With transactions alive, also a
+    /// signal for when one of their versions loses its last one, so that a waiter knows to look
+    /// again.
+    pub(crate) fn idle_status(&mut self, branch: Option<BranchId>) -> IdleStatus {
+        let active_transactions = self
+            .active_versions
+            .iter()
+            .filter(|(v, _)| Self::in_scope(branch, v))
+            .map(|(_, data)| data.ref_count)
+            .sum();
+        let draining = self.draining_tasks(branch);
+        let released = (active_transactions > 0).then(|| {
+            let (tx, rx) = oneshot::channel();
+            self.released.push((branch, tx));
+            rx
+        });
+        IdleStatus {
+            active_transactions,
+            draining,
+            released,
+        }
+    }
+
+    /// Every task that may still be running at the versions of `branch` (every version with
+    /// `None`), whether its transaction is alive or gone.
     ///
     /// This scans every task of every cache in scope, so it costs time proportional to the work
-    /// in flight; callers ask at command boundaries, not on hot paths.
-    pub(crate) fn pending_tasks(&mut self, branch: Option<BranchId>) -> Vec<DiceTask> {
-        let in_scope = |v: &VersionNumber| branch.is_none_or(|b| v.branch() == b);
-        let mut pending = Vec::new();
+    /// in flight; it is what paging out asks right before it starts, not something to poll.
+    pub(crate) fn running_tasks(&mut self, branch: Option<BranchId>) -> Vec<DiceTask> {
+        let mut running = self.draining_tasks(branch);
         for (v, active) in &self.active_versions {
-            if in_scope(v) {
-                pending.extend(active.per_transaction_data.pending_tasks());
+            if Self::in_scope(branch, v) {
+                running.extend(active.per_transaction_data.pending_tasks());
             }
         }
+        running
+    }
+
+    fn in_scope(branch: Option<BranchId>, v: &VersionNumber) -> bool {
+        branch.is_none_or(|b| v.branch() == b)
+    }
+
+    /// The tasks of dropped transactions in scope that may still be running, forgetting the
+    /// draining caches that have nothing left.
+    fn draining_tasks(&mut self, branch: Option<BranchId>) -> Vec<DiceTask> {
+        let mut pending = Vec::new();
         self.draining.retain(|(v, weak)| {
             let Some(cache) = weak.upgrade() else {
                 return false;
             };
-            if !in_scope(v) {
+            if !Self::in_scope(branch, v) {
                 return true;
             }
             let tasks = cache.pending_tasks();

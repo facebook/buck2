@@ -138,8 +138,11 @@ impl StateProcessor {
                     invalidation_paths,
                 )));
             }
-            StateRequest::PendingTasks { branch, resp } => {
-                let _ignored = resp.send(self.state.pending_tasks(branch));
+            StateRequest::IdleStatus { branch, resp } => {
+                let _ignored = resp.send(self.state.idle_status(branch));
+            }
+            StateRequest::RunningTasks { branch, resp } => {
+                let _ignored = resp.send(self.state.running_tasks(branch));
             }
             StateRequest::UnstableDropEverything => self.state.unstable_drop_everything(),
             StateRequest::PagedOutKeys { resp } => {

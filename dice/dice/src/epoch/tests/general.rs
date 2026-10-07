@@ -734,6 +734,9 @@ async fn test_is_idle_respects_active_transactions() {
     barrier2.add_permits(1);
     req1.await.unwrap();
 
+    // Alive and computing nothing is still not idle.
+    assert!(!dice.is_idle().await);
+    drop(ctx);
     assert!(dice.is_idle().await);
     dice.wait_for_idle().await;
 }
@@ -882,6 +885,21 @@ async fn a_branch_diverges_from_its_fork_point() -> anyhow::Result<()> {
     assert_eq!(DERIVED_COMPUTES.load(Ordering::SeqCst), 2);
 
     Ok(())
+}
+
+/// `wait_for_idle` returns once the last transaction is dropped, not just once computations end.
+#[tokio::test]
+async fn waiting_for_idle_waits_for_transactions_to_be_dropped() {
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let ctx = dice.updater().commit().await;
+
+    let waited = tokio::spawn(dice.wait_for_idle());
+    tokio::task::yield_now().await;
+    assert!(!waited.is_finished());
+
+    drop(ctx);
+    waited.await.unwrap();
+    assert!(dice.is_idle().await);
 }
 
 /// A new root starts with nothing injected. It shares with the branches before it only what a

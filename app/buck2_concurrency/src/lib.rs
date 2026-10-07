@@ -338,14 +338,14 @@ struct CompletedUpdate {
     attempt: UpdateAttemptId,
     version: Version,
     conflict_on_arrival: Option<Version>,
-    dice_was_idle: bool,
+    dice_was_draining: bool,
 }
 
 struct PendingUpdate {
     command: CommandId,
     attempt: UpdateAttemptId,
     conflict_on_arrival: Option<Version>,
-    dice_was_idle: BoxFuture<'static, bool>,
+    dice_was_draining: BoxFuture<'static, bool>,
 }
 
 struct UpdatedTransaction {
@@ -758,7 +758,7 @@ impl CoordinatorState {
                     "an idle DICE state cannot have registered commands"
                 );
                 self.ensure_command_can_register(request.command_id)?;
-                let tainted = !update.dice_was_idle;
+                let tainted = update.dice_was_draining;
                 let previously_tainted = self.previously_tainted;
                 self.dice_status = DiceStatus::active(update.version);
                 self.previously_tainted |= tainted;
@@ -1592,7 +1592,7 @@ impl ConcurrencyHandler {
         self.coordinator
             .acquire_update(pending.command, pending.attempt)
             .await?;
-        let dice_was_idle = pending.dice_was_idle.await;
+        let dice_was_draining = pending.dice_was_draining.await;
 
         let updater = self.dice.updater();
         let (transaction, user_data) = updates.update(updater, early_timings).await?;
@@ -1615,7 +1615,7 @@ impl ConcurrencyHandler {
                 attempt: pending.attempt,
                 version,
                 conflict_on_arrival: pending.conflict_on_arrival,
-                dice_was_idle,
+                dice_was_draining,
             },
         })
     }
@@ -1816,9 +1816,12 @@ impl ConcurrencyHandler {
                 command: command_id,
                 attempt,
                 conflict_on_arrival,
-                // Enqueue the sample before the update because committing a transaction makes
-                // DICE non-idle. The returned future can be awaited after the coordinator reply.
-                dice_was_idle: self.dice.is_idle().boxed(),
+                // Only work left over from dropped transactions is interference. Concurrent
+                // commands that are still syncing hold transactions that compute nothing yet, so
+                // live transactions are deliberately not counted. Enqueued before the update so
+                // that the sample describes the state the command arrived at; the returned future
+                // can be awaited after the coordinator reply.
+                dice_was_draining: self.dice.is_draining().boxed(),
             };
 
             // we rerun the updates in case that files on disk have changed between commands.
@@ -2566,7 +2569,7 @@ mod tests {
                         attempt,
                         version,
                         conflict_on_arrival: None,
-                        dice_was_idle: true,
+                        dice_was_draining: false,
                     },
                     response,
                 })
@@ -2633,7 +2636,7 @@ mod tests {
                         attempt,
                         version: transaction.version(),
                         conflict_on_arrival,
-                        dice_was_idle: false,
+                        dice_was_draining: true,
                     },
                     response,
                 })
@@ -2711,7 +2714,7 @@ mod tests {
                     attempt: first_attempt,
                     version: first_version,
                     conflict_on_arrival: None,
-                    dice_was_idle: true,
+                    dice_was_draining: false,
                 },
             )
             .await?;
@@ -2754,7 +2757,7 @@ mod tests {
                     attempt: blocked_attempt,
                     version: different_version,
                     conflict_on_arrival: Some(first_version),
-                    dice_was_idle: false,
+                    dice_was_draining: true,
                 },
             )
             .await?
@@ -2831,7 +2834,7 @@ mod tests {
                             attempt: first_attempt,
                             version: first_version,
                             conflict_on_arrival: None,
-                            dice_was_idle: true,
+                            dice_was_draining: false,
                         },
                     )
                     .await?,
@@ -2880,7 +2883,7 @@ mod tests {
                         attempt: cancelled_attempt,
                         version: arriving_version,
                         conflict_on_arrival: Some(first_version),
-                        dice_was_idle: false,
+                        dice_was_draining: true,
                     },
                     response,
                 })
@@ -2930,7 +2933,7 @@ mod tests {
                     attempt: retry_attempt,
                     version: arriving_version,
                     conflict_on_arrival: Some(first_version),
-                    dice_was_idle: false,
+                    dice_was_draining: true,
                 },
             )
             .await?
@@ -3744,7 +3747,7 @@ mod tests {
                 attempt: UpdateAttemptId(0),
                 version,
                 conflict_on_arrival,
-                dice_was_idle: true,
+                dice_was_draining: false,
             }
         }
 
@@ -4156,7 +4159,7 @@ mod tests {
                     attempt: stale_attempt,
                     version,
                     conflict_on_arrival: None,
-                    dice_was_idle: true,
+                    dice_was_draining: false,
                 },
             );
             assert!(stale.is_err(), "a stale update must be rejected");
@@ -4169,7 +4172,7 @@ mod tests {
                     attempt: current_attempt,
                     version,
                     conflict_on_arrival: None,
-                    dice_was_idle: true,
+                    dice_was_draining: false,
                 },
             )?;
             assert_matches!(outcome.decision, AdmissionDecision::Admit(_));

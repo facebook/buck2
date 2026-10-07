@@ -18,6 +18,7 @@ use crate::core::graph::VersionedGraph;
 use crate::core::graph::introspection::VersionedGraphIntrospectable;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
+use crate::core::versions::IdleStatus;
 use crate::core::versions::VersionTracker;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::dice::PagableNodeCounts;
@@ -120,8 +121,12 @@ impl ActorState {
         self.graph.update(key, update, invalidation_paths)
     }
 
-    pub(super) fn pending_tasks(&mut self, branch: Option<BranchId>) -> Vec<DiceTask> {
-        self.version_tracker.pending_tasks(branch)
+    pub(super) fn idle_status(&mut self, branch: Option<BranchId>) -> IdleStatus {
+        self.version_tracker.idle_status(branch)
+    }
+
+    pub(super) fn running_tasks(&mut self, branch: Option<BranchId>) -> Vec<DiceTask> {
+        self.version_tracker.running_tasks(branch)
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
@@ -451,7 +456,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn pending_tasks_are_those_still_running() {
+    async fn idle_status_tracks_transactions_and_draining_work() {
         let mut core = ActorState::new(None);
         let v = VersionNumber::testing_new(1);
 
@@ -483,12 +488,22 @@ mod tests {
         cache.testing_insert_task(blocked_key2, blocked_task2.dupe());
         cache.testing_insert_task(never_cancel_key1, never_cancel_task1);
 
-        // Running work counts whether or not a transaction is holding the cache.
-        assert_eq!(core.pending_tasks(None).len(), 3);
+        // Running work counts whether or not a transaction is holding the cache; idleness does
+        // not come before the transaction is gone.
+        assert_eq!(core.running_tasks(None).len(), 3);
+        let status = core.idle_status(None);
+        assert_eq!(status.active_transactions, 1);
+        assert!(status.draining.is_empty());
+        let mut released = status.released.expect("a transaction is alive");
 
         core.drop_ctx_at_version(v);
 
-        assert_eq!(core.pending_tasks(None).len(), 3);
+        assert!(released.try_recv().is_ok());
+        let status = core.idle_status(None);
+        assert_eq!(status.active_transactions, 0);
+        assert_eq!(status.draining.len(), 3);
+        assert!(status.released.is_none());
+        assert_eq!(core.running_tasks(None).len(), 3);
 
         // The cache goes on accepting work from the tasks still running in it.
         let SharedCacheInsert::Inserted(prepared) = cache.insert(DiceKey { index: 999 }) else {
@@ -519,12 +534,12 @@ mod tests {
 
         core.drop_ctx_at_version(v);
 
-        assert_eq!(core.pending_tasks(None).len(), 2);
+        assert_eq!(core.idle_status(None).draining.len(), 2);
 
         // Like the workers of a real transaction would, these handles are what keeps the draining
         // caches visible.
         drop((cache, cache2));
-        assert!(core.pending_tasks(None).is_empty());
+        assert!(core.idle_status(None).is_idle());
     }
 
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash, Pagable)]

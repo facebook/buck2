@@ -34,6 +34,7 @@ use crate::core::graph::types::VersionedGraphResult;
 use crate::core::internals::ActorState;
 use crate::core::internals::PagableStatusRaw;
 use crate::core::processor::StateProcessor;
+use crate::core::versions::IdleStatus;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::PagableNodeCounts;
@@ -291,14 +292,23 @@ impl CoreStateHandle {
         )
     }
 
+    /// What stands between `branch`, or with `None` everything, and idleness
+    pub(crate) fn idle_status(
+        &self,
+        branch: Option<BranchId>,
+    ) -> impl Future<Output = IdleStatus> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::IdleStatus { branch, resp }, recv)
+    }
+
     /// Every task that may still be running, whether its transaction is alive or gone, on
     /// `branch` or, with `None`, anywhere
-    pub(crate) fn pending_tasks(
+    pub(crate) fn running_tasks(
         &self,
         branch: Option<BranchId>,
     ) -> impl Future<Output = Vec<DiceTask>> + use<> {
         let (resp, recv) = oneshot::channel();
-        self.call(StateRequest::PendingTasks { branch, resp }, recv)
+        self.call(StateRequest::RunningTasks { branch, resp }, recv)
     }
 
     /// For unstable take
@@ -524,9 +534,14 @@ pub(super) enum StateRequest {
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<DiceComputedValue>,
     },
+    /// What stands between `branch`, or with `None` everything, and idleness
+    IdleStatus {
+        branch: Option<BranchId>,
+        resp: Sender<IdleStatus>,
+    },
     /// Every task that may still be running, whether its transaction is alive or gone, on
     /// `branch` or, with `None`, anywhere
-    PendingTasks {
+    RunningTasks {
         branch: Option<BranchId>,
         resp: Sender<Vec<DiceTask>>,
     },

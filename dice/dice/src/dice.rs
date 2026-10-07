@@ -271,12 +271,12 @@ impl Dice {
         &CYCLES
     }
 
-    /// Waits until no computation is running. See [`Dice::is_idle`] for what that means.
+    /// Waits until dice is idle. See [`Dice::is_idle`] for what that means.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
         self.wait_for_idle_in(None)
     }
 
-    /// Waits until no computation is running on `branch`. See [`Dice::is_idle_on`].
+    /// Waits until `branch` is idle. See [`Dice::is_idle_on`].
     pub fn wait_for_idle_on(&self, branch: BranchId) -> impl Future<Output = ()> + 'static + use<> {
         self.wait_for_idle_in(Some(branch))
     }
@@ -288,41 +288,77 @@ impl Dice {
         let state_handle = self.state_handle.dupe();
         async move {
             loop {
-                let tasks = state_handle.pending_tasks(branch).await;
-                if tasks.is_empty() {
+                let status = state_handle.idle_status(branch).await;
+                if status.is_idle() {
                     return;
                 }
-                // A running task may still start others, so this looks again once the ones seen
-                // here are done.
-                dice_futures::join::join_all(tasks.iter().map(|t| t.as_ref().await_termination()))
-                    .await;
+                // Whatever stood in the way is awaited and the question asked again: a draining
+                // task may start others before it terminates, and the release of one version
+                // says nothing about the others.
+                let drained = dice_futures::join::join_all(
+                    status
+                        .draining
+                        .iter()
+                        .map(|t| t.as_ref().await_termination()),
+                );
+                match status.released {
+                    Some(released) => {
+                        drop(futures::future::join(drained, released).await);
+                    }
+                    None => {
+                        drained.await;
+                    }
+                }
             }
         }
     }
 
-    /// Whether no computation is running: every key any transaction, alive or dropped, ever
-    /// requested has been computed or cancelled. A transaction that is alive but computing
-    /// nothing leaves dice idle.
+    /// Whether nothing is happening: no transaction is alive, and no computation started by one
+    /// that has since been dropped is still running.
     ///
-    /// This is a snapshot: any transaction can start a computation right after it is taken.
+    /// This is a snapshot: a transaction can be started right after it is taken.
     ///
     /// The state query is enqueued before this method returns, so callers may preserve its ordering
     /// while awaiting the result later.
     pub fn is_idle(&self) -> impl Future<Output = bool> + use<> {
-        let tasks = self.state_handle.pending_tasks(None);
-        async move { tasks.await.is_empty() }
+        let status = self.state_handle.idle_status(None);
+        async move { status.await.is_idle() }
     }
 
     /// [`Dice::is_idle`], for the transactions on `branch` alone.
     pub fn is_idle_on(&self, branch: BranchId) -> impl Future<Output = bool> + use<> {
-        let tasks = self.state_handle.pending_tasks(Some(branch));
-        async move { tasks.await.is_empty() }
+        let status = self.state_handle.idle_status(Some(branch));
+        async move { status.await.is_idle() }
+    }
+
+    /// Whether a computation started by a transaction that has since been dropped is still
+    /// running: the part of not being idle that no live transaction accounts for.
+    ///
+    /// Like [`Dice::is_idle`], the state query is enqueued before this method returns.
+    pub fn is_draining(&self) -> impl Future<Output = bool> + use<> {
+        let status = self.state_handle.idle_status(None);
+        async move { !status.await.draining.is_empty() }
+    }
+
+    /// [`Dice::is_draining`], for the transactions on `branch` alone.
+    pub fn is_draining_on(&self, branch: BranchId) -> impl Future<Output = bool> + use<> {
+        let status = self.state_handle.idle_status(Some(branch));
+        async move { !status.await.draining.is_empty() }
+    }
+
+    /// Whether no computation is running anywhere, whatever transactions are alive: what paging
+    /// out and in require. Weaker than idle, since a transaction that is alive but computing
+    /// nothing does not count, and it will page anything it goes on to read back in.
+    async fn no_computation_running(&self) -> bool {
+        self.state_handle.running_tasks(None).await.is_empty()
     }
 
     /// Page out every resident computed value to the configured `DiceStorage`.
     ///
     /// **Caller must ensure DICE is idle** before calling this — typically by awaiting
-    /// `wait_for_idle()` first.
+    /// `wait_for_idle()` first. What is refused is only the stronger case of a computation
+    /// running: a transaction that is alive but computing nothing is tolerated, and pages
+    /// anything it goes on to read back in.
     ///
     /// No-op if `DiceStorage` was not configured on the builder.
     pub async fn page_out(self: &StdArc<Self>) -> anyhow::Result<()> {
@@ -342,18 +378,18 @@ impl Dice {
         self: &StdArc<Self>,
         cancelled: PageOutCancel,
     ) -> anyhow::Result<()> {
-        if !self.is_idle().await {
-            // A command can race in and make DICE non-idle even after the caller
+        if !self.no_computation_running().await {
+            // A command can race in and start computing even after the caller
             // waited for idle — `wait_for_idle` is not a lasting guarantee. On the
             // idle page-out path that same command also cancels us, so a set
             // `cancelled` flag means this is that benign race: bail quietly. If we
-            // aren't cancelled, something called this on a non-idle graph, which
+            // aren't cancelled, something called this while a computation runs, which
             // risks paging out a value that's being recomputed — surface it.
             if cancelled() {
                 return Ok(());
             }
             return Err(anyhow::anyhow!(
-                "Dice::page_out called while DICE is not idle"
+                "Dice::page_out called while a computation is running"
             ));
         }
         let Some(storage) = self.pagable_storage.as_ref() else {
@@ -370,9 +406,9 @@ impl Dice {
     ///
     /// **Caller must ensure DICE is idle** before calling this.
     pub async fn page_in(self: &StdArc<Self>) -> anyhow::Result<()> {
-        if !self.is_idle().await {
+        if !self.no_computation_running().await {
             return Err(anyhow::anyhow!(
-                "Dice::page_in called while DICE is not idle; call `wait_for_idle()` first"
+                "Dice::page_in called while a computation is running; call `wait_for_idle()` first"
             ));
         }
         let Some(storage) = self.pagable_storage.as_ref() else {
