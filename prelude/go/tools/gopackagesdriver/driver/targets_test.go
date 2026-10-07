@@ -56,17 +56,17 @@ func classifyFile(t *testing.T, file, goRoot string) *targetsByType {
 	return got
 }
 
-// GOROOT is matched as a substring, so a Buck file under `.../go-work/` goes to
-// the stdlib query, and so does every file when GOROOT is unknown.
-func TestBuckFilesAreSentToTheStdlibQueryWhenGoRootMatchesLoosely(t *testing.T) {
+// Only a file inside GOROOT goes to the stdlib query; a sibling directory whose
+// name starts with the GOROOT path, or an unknown GOROOT, keeps the file with Buck.
+func TestOnlyFilesInsideGoRootGoToTheStdlibQuery(t *testing.T) {
 	goRoot, stdFile, buckFile := goRootFixture(t)
 	for _, root := range []string{goRoot, ""} {
 		got := classifyFile(t, buckFile, root)
-		if len(got.stdFiles) != 1 || len(got.buckFiles) != 0 {
+		if len(got.buckFiles) != 1 || len(got.stdFiles) != 0 {
 			t.Fatalf("goRoot %q: stdFiles=%v buckFiles=%v", root, got.stdFiles, got.buckFiles)
 		}
 	}
-	if got := classifyFile(t, stdFile, goRoot); len(got.stdFiles) != 1 {
+	if got := classifyFile(t, stdFile, goRoot); len(got.stdFiles) != 1 || len(got.buckFiles) != 0 {
 		t.Fatalf("stdlib file: stdFiles=%v buckFiles=%v", got.stdFiles, got.buckFiles)
 	}
 }
