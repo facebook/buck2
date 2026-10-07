@@ -171,11 +171,13 @@ psutil = "5.4.0"
 ptyprocess = "0.5.0"
 quick-xml = { version = "0.42.0", features = ["overlapped-lists", "serialize"] }
 quickcheck = "1.1"
+quickcheck_macros = "1.2.0"
 quote = "1.0.47"
 rand = "0.10.3"
 rand_chacha = "0.10"
 rand_distr = "0.6"
 rand_xoshiro = "0.8.1"
+rayon = "1.11.0"
 ref-cast = "1.0.27"
 regex = "1.13.1"
 relative-path = { version = "2.0.1", features = ["serde"] }
@@ -198,6 +200,7 @@ scopeguard = "1.2.0"
 sequence_trie = { version = "0.3.6", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive", "rc"] }
 serde_json = { version = "1.0.151", features = ["alloc", "float_roundtrip", "raw_value", "unbounded_depth"] }
+serde_path_to_error = "0.1.20"
 sha1 = "0.11.0"
 sha1-010 = { package = "sha1", version = "0.10.7" }
 sha2 = "0.11.0"
@@ -222,6 +225,7 @@ sysinfo = "0.39.6"
 take_mut = "0.2"
 tar = "0.4.46"
 tempfile = "3.27.0"
+termcolor = "1.0"
 termimad = "0.35.5"
 termios = "0.3"
 termwiz = { git = "https://github.com/wezterm/wezterm.git", rev = "05343b387085842b434d267f91b6b0ec157e4331", features = ["use_serde", "widgets"], default-features = false }
@@ -252,6 +256,7 @@ typed-arena = "2"
 unicode-segmentation = "1.13.3"
 unicode-width = "0.2.2"
 uuid = { version = "1.26.1", features = ["rng-getrandom", "serde", "v4", "v5", "v6", "v7", "v8"] }
+vec1 = { version = "1.12.1", features = ["serde"] }
 vt100 = "0.16.2"
 walkdir = "2.3"
 watchman_client = "0.9"

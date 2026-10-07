@@ -7,3 +7,4 @@
 # above-listed licenses.
 
 buildscript.run = true
+cargo_env = ["CARGO_PKG_NAME"]
