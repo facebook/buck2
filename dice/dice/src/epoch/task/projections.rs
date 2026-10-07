@@ -120,9 +120,9 @@ impl ProjectionTask {
 
     pub(crate) fn introspect_state(&self) -> DiceTaskState {
         if self.is_pending() {
-            DiceTaskState::Ready
-        } else {
             DiceTaskState::InProgress
+        } else {
+            DiceTaskState::Ready
         }
     }
 }
