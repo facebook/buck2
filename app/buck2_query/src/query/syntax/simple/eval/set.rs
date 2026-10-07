@@ -172,12 +172,7 @@ impl<T: QueryTarget> TargetSet<T> {
         attribute: &str,
         filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
     ) -> buck2_error::Result<TargetSet<T>> {
-        self.filter(move |node| {
-            node.map_any_attr(attribute, |val| match val {
-                None => Ok(false),
-                Some(v) => T::attr_any_matches(v, &filter),
-            })?
-        })
+        self.filter(move |node| node.attr_matches(attribute, filter))
     }
 
     pub fn nattrfilter(

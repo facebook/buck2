@@ -121,6 +121,18 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
         filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
     ) -> buck2_error::Result<bool>;
 
+    /// Match a named user-defined or special attribute without requiring an owned attribute.
+    fn attr_matches(
+        &self,
+        key: &str,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
+        self.map_any_attr(key, |value| match value {
+            Some(value) => Self::attr_any_matches(value, filter),
+            None => Ok(false),
+        })?
+    }
+
     fn special_attrs_for_each<
         E: From<buck2_error::Error>,
         F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,

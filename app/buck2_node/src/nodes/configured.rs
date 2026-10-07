@@ -46,6 +46,7 @@ use strong_hash::StrongHash;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
@@ -814,6 +815,39 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             v.configure(&self.attr_configuration_context())
                 .expect_compatible("checked attr configuration in constructor")
         })
+    }
+
+    pub(crate) fn attr_matches(
+        self,
+        key: &str,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
+        match self
+            .0
+            .get()
+            .target_node
+            .attr_or_none(key, AttrInspectOptions::All)
+        {
+            Some(attr) => match attr.value {
+                CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => filter(v),
+                CoercedAttr::List(values)
+                    if values.iter().all(|v| {
+                        matches!(v, CoercedAttr::String(_) | CoercedAttr::EnumVariant(_))
+                    }) =>
+                {
+                    attr.value.any_matches(filter)
+                }
+                _ => attr
+                    .configure(&self.attr_configuration_context())
+                    .expect_compatible("checked attr configuration in constructor")
+                    .value
+                    .any_matches(filter),
+            },
+            None => match self.special_attr_or_none(key) {
+                Some(attr) => attr.any_matches(filter),
+                None => Ok(false),
+            },
+        }
     }
 
     pub fn inputs(self) -> impl Iterator<Item = CellPath> + 'a {

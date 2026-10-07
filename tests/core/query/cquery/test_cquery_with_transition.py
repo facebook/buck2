@@ -20,6 +20,25 @@ def _replace_hash(s: str) -> str:
 
 
 @buck_test()
+async def test_attrfilter_preserves_forward_node_attributes(buck: Buck) -> None:
+    result = await buck.cquery(
+        "attrfilter(labels, transitioned-label, root//:buck)",
+        "--target-platforms=root//:p",
+    )
+    assert _replace_hash(result.stdout).splitlines() == [
+        "root//:buck (transitioned-to-reindeer#<HASH>)"
+    ]
+
+    result = await buck.cquery(
+        "attrregexfilter(actual, 'root//:buck', root//:buck)",
+        "--target-platforms=root//:p",
+    )
+    assert _replace_hash(result.stdout).splitlines() == [
+        "root//:buck (root//:p#<HASH>)"
+    ]
+
+
+@buck_test()
 async def test_cquery_transition_without_target_universe(buck: Buck) -> None:
     result = await buck.cquery(
         "root//:buck",

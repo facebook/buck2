@@ -152,6 +152,14 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         attr.any_matches(filter)
     }
 
+    fn attr_matches(
+        &self,
+        key: &str,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
+        self.0.as_ref().attr_matches(key, filter)
+    }
+
     fn special_attrs_for_each<
         E: From<buck2_error::Error>,
         F: FnMut(&str, &Self::Attr<'_>) -> Result<(), E>,
