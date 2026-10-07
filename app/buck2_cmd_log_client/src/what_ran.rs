@@ -780,6 +780,35 @@ mod tests {
         })
     }
 
+    fn test_run_start_event(name: &str) -> buck2_data::buck_event::Data {
+        buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
+            data: Some(buck2_data::span_start_event::Data::TestRun(
+                buck2_data::TestRunStart {
+                    suite: Some(buck2_data::TestSuite {
+                        suite_name: name.to_owned(),
+                        ..Default::default()
+                    }),
+                },
+            )),
+        })
+    }
+
+    fn local_execute_start_event() -> buck2_data::buck_event::Data {
+        buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
+            data: Some(buck2_data::span_start_event::Data::ExecutorStage(
+                buck2_data::ExecutorStageStart {
+                    stage: Some(buck2_data::executor_stage_start::Stage::Local(
+                        buck2_data::LocalStage {
+                            stage: Some(buck2_data::local_stage::Stage::Execute(
+                                buck2_data::LocalExecute::default(),
+                            )),
+                        },
+                    )),
+                },
+            )),
+        })
+    }
+
     fn run_what_ran(
         events: Vec<buck2_data::BuckEvent>,
         options: &WhatRanCommandOptions,
@@ -829,6 +858,34 @@ mod tests {
             incomplete: false,
         };
         assert_eq!(Vec::<String>::new(), executors(&options)?);
+        Ok(())
+    }
+
+    /// Commands of spans that never ended are printed from the hash map that tracks them, so
+    /// `--incomplete` lists them in hash order rather than in the order they started.
+    #[test]
+    fn test_incomplete_commands_are_not_in_start_order() -> buck2_error::Result<()> {
+        let options = WhatRanCommandOptions {
+            options: WhatRanOptions::default(),
+            failed: false,
+            incomplete: true,
+        };
+        let mut events = Vec::new();
+        for i in 0..64u64 {
+            let span = 2 * i + 1;
+            events.push(span_event(span, 0, test_run_start_event(&format!("s{i}"))));
+            events.push(span_event(span + 1, span, local_execute_start_event()));
+        }
+        let identities: Vec<String> = run_what_ran(events, &options)?
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        let start_order: Vec<String> = (0..64).map(|i| format!("s{i}")).collect();
+
+        let mut sorted = identities.clone();
+        sorted.sort_by_key(|id| id[1..].parse::<u64>().unwrap());
+        assert_eq!(start_order, sorted);
+        assert_ne!(start_order, identities);
         Ok(())
     }
 }
