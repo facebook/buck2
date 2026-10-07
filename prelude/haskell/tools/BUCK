@@ -20,3 +20,12 @@ prelude.python_library(
     ],
     typing = True,
 )
+
+prelude.python_test(
+    name = "test_script_template_processor",
+    srcs = [
+        "script_template_processor.py",
+        "tests/test_script_template_processor.py",
+    ],
+    base_module = "",
+)
