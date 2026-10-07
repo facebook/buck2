@@ -133,7 +133,8 @@ impl<'v> ResolvedMacro<'v> {
         Ok(())
     }
 
-    fn visit_artifacts(
+    /// Visit the artifacts referenced by this macro.
+    pub fn visit_artifacts(
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {

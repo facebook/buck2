@@ -13,6 +13,7 @@ import sys
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -91,3 +92,28 @@ async def test_xxx(buck: Buck, fingerprint: str) -> None:
     with open(d_x) as f:
         d_contents = _normalize_path(f.read())
         assert "../../__write_file__/write_file.txt" == d_contents
+
+
+@buck_test()
+@pytest.mark.parametrize("tagged", [False, True])
+async def test_macro_writer_ignores_inline_inputs(buck: Buck, tagged: bool) -> None:
+    target = "macro_only_tagged" if tagged else "macro_only"
+    result = await buck.build(f"//:{target}[macros]", "//:payload")
+    report = result.get_build_report()
+    macro = report.output_for_target(f"root//:{target}", sub_target="macros")
+    payload = report.output_for_target("root//:payload")
+    assert (buck.cwd / macro.read_text()).resolve() == payload.resolve()
+    await expect_failure(
+        buck.build(f"//:{target}"), stderr_regex="Unrelated input requested"
+    )
+
+
+@buck_test()
+@pytest.mark.parametrize("tagged", [False, True])
+async def test_hidden_macro_inputs(buck: Buck, tagged: bool) -> None:
+    target = "hidden_macro_tagged" if tagged else "hidden_macro"
+    result = await buck.build(f"//:{target}[macros]", "//:payload")
+    report = result.get_build_report()
+    macro = report.output_for_target(f"root//:{target}", sub_target="macros")
+    payload = report.output_for_target("root//:payload")
+    assert (buck.cwd / macro.read_text()).resolve() == payload.resolve()

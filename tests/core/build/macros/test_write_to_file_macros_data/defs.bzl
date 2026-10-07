@@ -51,3 +51,41 @@ test_rule = rule(
         "arg": attrs.arg(),
     },
 )
+
+def _input(ctx):
+    if ctx.attrs.fail:
+        output = ctx.actions.declare_output("input.txt", has_content_based_path = True)
+        ctx.actions.run(
+            cmd_args("fbpython", "-c", "raise RuntimeError('Unrelated input requested')", hidden = output.as_output()),
+            category = "fail_input",
+            local_only = True,
+        )
+    else:
+        output = ctx.actions.write("input.txt", "payload", has_content_based_path = True)
+    return [DefaultInfo(default_output = output)]
+
+input = rule(
+    impl = _input,
+    attrs = {"fail": attrs.bool(default = False)},
+)
+
+def _macro_writer(ctx):
+    content = cmd_args(ctx.attrs.inline)
+    if ctx.attrs.hidden:
+        content.add(cmd_args(hidden = ctx.attrs.macro))
+    else:
+        content.add(ctx.attrs.macro)
+    if ctx.attrs.tagged:
+        content = ctx.actions.artifact_tag().tag_artifacts(content)
+    script, macros = ctx.actions.write("script", content, allow_args = True)
+    return [DefaultInfo(default_output = script, sub_targets = {"macros": [DefaultInfo(default_outputs = macros)]})]
+
+macro_writer = rule(
+    impl = _macro_writer,
+    attrs = {
+        "hidden": attrs.bool(default = False),
+        "inline": attrs.arg(default = ""),
+        "macro": attrs.arg(),
+        "tagged": attrs.bool(default = False),
+    },
+)

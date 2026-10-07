@@ -38,6 +38,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutMap;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -146,7 +147,7 @@ impl Action for WriteMacrosToFileAction {
             ValueAsCommandLineLike::unpack_value(*v)?
                 .unwrap()
                 .0
-                .visit_artifacts(&mut visitor)
+                .visit_write_to_file_macros(&mut visitor, &BuckMutMap::default())
         })?;
         Ok(Cow::Owned(
             visitor.content_based_inputs.into_iter().collect(),
@@ -252,6 +253,22 @@ impl Action for WriteMacrosToFileAction {
                 waiting_data,
             },
         ))
+    }
+}
+
+impl WriteToFileMacroVisitor for CommandLineContentBasedInputVisitor {
+    fn visit_write_to_file_macro(
+        &mut self,
+        resolved_macro: &ResolvedMacro,
+        _artifact_path_mapping: &dyn ArtifactPathMapper,
+    ) -> buck2_error::Result<()> {
+        resolved_macro.visit_artifacts(self)
+    }
+
+    fn set_current_relative_to_path(&mut self, _p: ProjectRelativePathBuf) {}
+
+    fn fs(&self) -> Option<&ExecutorFs<'_>> {
+        None
     }
 }
 
