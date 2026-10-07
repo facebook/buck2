@@ -419,7 +419,63 @@ impl BuildProgressStateTracker {
 
 #[cfg(test)]
 mod tests {
+    use buck2_wrapper_common::invocation_id::TraceId;
+
     use super::*;
+
+    fn event(
+        span: u64,
+        parent: Option<u64>,
+        data: buck2_data::buck_event::Data,
+    ) -> buck2_error::Result<BuckEvent> {
+        Ok(BuckEvent::new(
+            std::time::SystemTime::now(),
+            TraceId::new(),
+            Some(SpanId::from_u64(span)?),
+            parent.map(SpanId::from_u64).transpose()?,
+            data,
+        ))
+    }
+
+    fn re_execute_start() -> buck2_data::buck_event::Data {
+        buck2_data::SpanStartEvent {
+            data: Some(span_start_event::Data::ExecutorStage(ExecutorStageStart {
+                stage: Some(executor_stage_start::Stage::Re(ReStage {
+                    stage: Some(re_stage::Stage::Execute(buck2_data::ReExecute::default())),
+                })),
+            })),
+        }
+        .into()
+    }
+
+    /// An action whose RE execution goes through the `EXECUTING` stage twice (the RE client opens
+    /// a new `Execute` stage span on every transition into it) is counted as two running remote
+    /// actions, and one of them is still counted after the action has finished.
+    #[test]
+    fn test_running_remote_with_two_execute_stages() -> buck2_error::Result<()> {
+        let mut tracker = BuildProgressStateTracker::new();
+        let start: buck2_data::buck_event::Data = buck2_data::SpanStartEvent {
+            data: Some(span_start_event::Data::ActionExecution(
+                ActionExecutionStart::default(),
+            )),
+        }
+        .into();
+        let end: buck2_data::buck_event::Data = buck2_data::SpanEndEvent {
+            data: Some(span_end_event::Data::ActionExecution(Box::default())),
+            ..Default::default()
+        }
+        .into();
+
+        tracker.handle_event(&event(1, None, start)?)?;
+        tracker.handle_event(&event(2, Some(1), re_execute_start())?)?;
+        tracker.handle_event(&event(3, Some(1), re_execute_start())?)?;
+        assert_eq!(tracker.progress_stats().running_remote, 2);
+        tracker.handle_event(&event(1, None, end)?)?;
+
+        assert_eq!(tracker.progress_stats().running_remote, 1);
+        assert_eq!(tracker.phase_stats().actions.finished, 1);
+        Ok(())
+    }
 
     #[test]
     fn test_span_map() -> buck2_error::Result<()> {
