@@ -11,6 +11,8 @@
 package gobuckifylib
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -23,5 +25,35 @@ func TestOnlyPackagesOfTheRootModuleAreSkipped(t *testing.T) {
 		if !isRootModulePackage(p, "example.com/root") {
 			t.Fatalf("%s was not skipped", p)
 		}
+	}
+}
+
+func writeGoMod(t *testing.T, content string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "go.mod")
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// The module name is the second word of the first line, whatever that line is.
+func TestModuleNameIsTakenFromTheFirstLineOnly(t *testing.T) {
+	cases := []struct{ content, want string }{
+		{"// the root module\nmodule example.com/root\n", "the root module"},
+		{"module \"example.com/root\"\n", "\"example.com/root\""},
+		{"module example.com/root // the root module\n", "example.com/root // the root module"},
+	}
+	for _, c := range cases {
+		got, err := ReadModuleName(writeGoMod(t, c.content))
+		if err != nil {
+			t.Fatalf("%q: %v", c.content, err)
+		}
+		if got != c.want {
+			t.Fatalf("%q: got %q, want %q", c.content, got, c.want)
+		}
+	}
+	if _, err := ReadModuleName(writeGoMod(t, "\nmodule example.com/root\n")); err == nil {
+		t.Fatal("a leading blank line was accepted")
 	}
 }
