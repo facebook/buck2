@@ -1,0 +1,11 @@
+load("@prelude//:rule_extensions.bzl", "rule_extensions")
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+rule_extensions(
+    name = "none",
+    visibility = ["PUBLIC"],
+)
