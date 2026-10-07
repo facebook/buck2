@@ -103,6 +103,12 @@ impl RawDigest {
     }
 }
 
+impl fmt::Debug for RawDigest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
 impl fmt::Display for RawDigest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", hex::encode(self.as_bytes()))
@@ -219,6 +225,13 @@ impl CasDigestConfig {
         self.inner.empty_file_digest.dupe()
     }
 
+    /// Whether `digest` is the digest of empty content under one of the configured algorithms. A
+    /// size of 0 alone does not qualify: a declared digest can pair a size of 0 with the hash of
+    /// other content, and that pair names nothing in a CAS.
+    pub fn is_empty_digest<Kind: CasDigestKind>(self, digest: &CasDigest<Kind>) -> bool {
+        digest.size() == 0 && self.inner.empty_digests.contains(digest.raw_digest())
+    }
+
     pub fn preferred_algorithm(self) -> DigestAlgorithm {
         self.inner.preferred_algorithm
     }
@@ -284,6 +297,8 @@ struct CasDigestConfigInner {
     digest160: Option<DigestAlgorithm>,
     digest256: Option<DigestAlgorithm>,
     empty_file_digest: TrackedFileDigest,
+    /// The digest of empty content under each configured algorithm.
+    empty_digests: Vec<RawDigest>,
     /// A potentially different configuration to use when digesting source files.
     source: SourceFilesConfig,
 }
@@ -314,6 +329,15 @@ impl CasDigestConfigInner {
                 }
             })
             .transpose()?;
+
+        let empty_digests = algorithms
+            .iter()
+            .map(|algo| {
+                CasDigestData::digester_for_algorithm(*algo)
+                    .finalize()
+                    .digest
+            })
+            .collect();
 
         let mut digest160 = None;
         let mut digest256 = None;
@@ -350,6 +374,7 @@ impl CasDigestConfigInner {
             digest160,
             digest256,
             empty_file_digest,
+            empty_digests,
             source,
         })
     }

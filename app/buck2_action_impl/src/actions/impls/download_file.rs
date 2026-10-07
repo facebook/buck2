@@ -268,6 +268,17 @@ impl DownloadFileAction {
         let info = Arc::new(CasDownloadInfo::new_probed(use_case));
         let digest = metadata.digest.data();
 
+        // The CAS reports every digest of size 0 as present, so the probe cannot tell a checksum
+        // declared with a size of 0 apart from the empty file. Only the download can.
+        if digest.size() == 0
+            && !ctx
+                .digest_config()
+                .cas_digest_config()
+                .is_empty_digest(digest)
+        {
+            return Ok(None);
+        }
+
         let expiration = match ctx
             .re_client()
             .with_use_case(use_case)

@@ -264,7 +264,7 @@ impl TrackedFileDigest {
     }
 
     pub fn new(data: FileDigest, config: CasDigestConfig) -> Self {
-        if data.size() == 0 {
+        if config.is_empty_digest(&data) {
             return Self::empty(config);
         }
 
@@ -272,7 +272,7 @@ impl TrackedFileDigest {
     }
 
     pub fn new_expires(data: FileDigest, expiry: jiff::Timestamp, config: CasDigestConfig) -> Self {
-        if data.size() == 0 {
+        if config.is_empty_digest(&data) {
             // The empty blob is in every CAS, so an expiration reported for it is as true for
             // every other holder of the shared instance as it is for this caller.
             let empty = Self::empty(config);
@@ -664,7 +664,7 @@ mod tests {
 
     #[test]
     fn test_new_expires_empty_extends_the_shared_singleton() {
-        // For zero-size data every constructor returns the per-config singleton. The empty blob
+        // For the empty digest every constructor returns the per-config singleton. The empty blob
         // is in every CAS, so an expiration reported for it holds for every other holder too,
         // and recording it on the shared instance is right; lowering it would not be, which is
         // what the monotone update rules out.
@@ -690,21 +690,23 @@ mod tests {
         );
     }
 
-    /// A digest declared with size 0 is replaced by the config's empty-file digest whatever its
-    /// hash says, so a hash that is not the empty hash is dropped.
+    /// A digest declared with size 0 but a hash other than the empty hash names nothing in a CAS;
+    /// it is kept as declared rather than replaced by the config's empty-file digest.
     #[test]
-    fn test_new_with_size_zero_drops_the_declared_hash() {
+    fn test_new_with_size_zero_keeps_the_declared_hash() {
         let config = testing::sha1();
         let foo = digest_of(b"foo");
         let declared = FileDigest::new(*foo.raw_digest(), 0);
 
         let tracked = TrackedFileDigest::new(declared.dupe(), config);
-        assert!(tracked.ptr_eq(&TrackedFileDigest::empty(config)));
-        assert_ne!(tracked.data(), &declared);
+        assert!(!tracked.ptr_eq(&TrackedFileDigest::empty(config)));
+        assert_eq!(tracked.data(), &declared);
 
         let expiry = jiff::Timestamp::now() + jiff::SignedDuration::from_hours(1);
         let tracked = TrackedFileDigest::new_expires(declared.dupe(), expiry, config);
-        assert!(tracked.ptr_eq(&TrackedFileDigest::empty(config)));
+        assert!(!tracked.ptr_eq(&TrackedFileDigest::empty(config)));
+        assert_eq!(tracked.data(), &declared);
+        assert_eq!(tracked.expires().unwrap().as_second(), expiry.as_second());
 
         // The empty digest of an allowed non-preferred algorithm is the shared empty file.
         let sha256_sha1 = testing::sha256_sha1();
