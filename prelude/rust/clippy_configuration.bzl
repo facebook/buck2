@@ -24,6 +24,8 @@ def _clippy_configuration_impl(ctx: AnalysisContext) -> list[Provider]:
         clippy_toml = ctx.attrs.clippy_toml_src
     else:
         toml_merge_tool = ctx.attrs.toml_merge_tool
+        if not toml_merge_tool:
+            fail("The rust toolchain has a clippy.toml, so merging it with `{}` needs a `toml_merge_tool`".format(ctx.attrs.clippy_toml_src))
 
         clippy_toml = ctx.actions.declare_output("clippy.toml", has_content_based_path = False)
         ctx.actions.run(
@@ -58,8 +60,9 @@ clippy_configuration = rule(
         # Tool used to recursively merge multiple TOML files, e.g. for merging
         # clippy.toml files. Must support taking multiple `--file <FILENAME>` flags
         # as source files to merge and `--output <FILENAME>` flag to write the
-        # merged TOML table to.
-        "toml_merge_tool": attrs.exec_dep(providers = [RunInfo]),
+        # merged TOML table to. Only needed when the toolchain has a clippy.toml
+        # of its own.
+        "toml_merge_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "_rust_toolchain": toolchains_common.rust(),
     },
 )

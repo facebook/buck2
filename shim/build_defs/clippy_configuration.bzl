@@ -9,4 +9,4 @@
 load("@prelude//rust:clippy_configuration.bzl", native_clippy_configuration = "clippy_configuration")
 
 def clippy_configuration(name, clippy_toml_src, **kwargs):
-    native_clippy_configuration(name = name, clippy_toml_src = clippy_toml_src, toml_merge_tool = "prelude//:none", **kwargs)
+    native_clippy_configuration(name = name, clippy_toml_src = clippy_toml_src, **kwargs)
