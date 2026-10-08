@@ -134,7 +134,7 @@ impl Key for NonPagableKey {
 }
 
 #[derive(Clone, Dupe)]
-struct DeferredComputeCounts(Arc<[AtomicUsize; 5]>);
+struct DeferredComputeCounts(Arc<[AtomicUsize; 6]>);
 
 impl DeferredComputeCounts {
     fn new() -> Self {
@@ -221,6 +221,24 @@ impl Key for DeferredNonPagableKey {
                     .expect("pagable dependency should compute")
                     * 10
             }
+            3 => {
+                if let Ok(counts) = ctx
+                    .per_transaction_data()
+                    .data
+                    .get::<DeferredComputeCounts>()
+                {
+                    counts.increment(5);
+                }
+                let cutoff = *ctx
+                    .compute(&DeferredNonPagableKey(0))
+                    .await
+                    .expect("modulo input");
+                cutoff * 1000
+                    + ctx
+                        .compute(&PagableKey(7))
+                        .await
+                        .expect("constant dependency")
+            }
             _ => unreachable!("unknown deferred non-pagable test key"),
         }
     }
@@ -287,6 +305,57 @@ impl Key for DeferredPagableKey {
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         PagableValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceProjectionDyn)]
+struct TimesTenProjection;
+
+impl ProjectionKey for TimesTenProjection {
+    type DeriveFromKey = DeferredPagableKey;
+    type Value = u64;
+
+    fn compute(&self, base: &u64, _ctx: &DiceProjectionComputations) -> u64 {
+        base * 10
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct ProjectionRoot;
+
+#[async_trait]
+impl Key for ProjectionRoot {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> u64 {
+        let base = ctx
+            .compute_opaque(&DeferredPagableKey(1))
+            .await
+            .expect("projection base");
+        ctx.projection(&base, &TimesTenProjection)
+            .expect("projection")
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -1032,6 +1101,84 @@ async fn rehydrated_value_stays_in_memory() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn exact_match_stays_paged_out_until_value_demand() -> anyhow::Result<()> {
+    let counts = DeferredComputeCounts::new();
+    let counter = ComputeCounter::new();
+    let data = || {
+        let mut data = user_data_with_deferred_counts(&counts);
+        data.data.set(counter.dupe());
+        data
+    };
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+    let mut updater = dice.updater_with_data(data());
+    updater.changed_to([(DeferredInput(0), 1)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&DeferredNonPagableKey(3)).await?, 1700);
+    drop(tx);
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let mut updater = dice.updater_with_data(data());
+    updater.changed_to([(DeferredInput(0), 3)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&DeferredNonPagableKey(3)).await?, 1700);
+    assert_eq!(
+        page_in_count::<PagableKey>(&dice),
+        0,
+        "validation needs only the revision"
+    );
+    assert_eq!(counts.count(5), 1, "the root was reused");
+
+    let first = tx.compute(&PagableKey(7)).await?;
+    let second = tx.compute(&PagableKey(7)).await?;
+    assert_eq!(*first, 700);
+    assert!(
+        std::ptr::eq(first, second),
+        "the task retains its published payload"
+    );
+    assert_eq!(page_in_count::<PagableKey>(&dice), 1);
+    assert_eq!(
+        counter.count(),
+        1,
+        "a successful page-in must not recompute"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn projection_pages_in_a_paged_out_base() -> anyhow::Result<()> {
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+    let mut updater = dice.updater();
+    updater.changed_to([(DeferredInput(0), 4)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&ProjectionRoot).await?, 0);
+    drop(tx);
+
+    // Recompute only the base, leaving the projection dirty. Its dependency check
+    // must later obtain the base's payload even though that base is already valid.
+    let mut updater = dice.updater();
+    updater.changed_to([(DeferredInput(0), 7)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&DeferredPagableKey(1)).await?, 1);
+    drop(tx);
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let tx = dice.updater().commit().await;
+    assert_eq!(*tx.compute(&ProjectionRoot).await?, 10);
+    assert_eq!(page_in_count::<DeferredPagableKey>(&dice), 1);
+    Ok(())
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn concurrent_demands_share_nested_arcs_across_dice_keys() -> anyhow::Result<()> {
     let tmp = tempdir()?;
@@ -1120,7 +1267,7 @@ fn assert_read_failure(value: &PassthroughValue, cause: &str) {
 }
 
 #[tokio::test]
-async fn unreadable_dependency_is_validated_as_changed() -> anyhow::Result<()> {
+async fn unreadable_exact_match_dependency_is_validated_without_reading() -> anyhow::Result<()> {
     let tmp = tempdir()?;
     let dice = make_dice(DiceStorage::open(
         tmp.path(),
@@ -1149,15 +1296,23 @@ async fn unreadable_dependency_is_validated_as_changed() -> anyhow::Result<()> {
     })
     .await?;
     let (first, second) = (first?, second?);
-    assert_read_failure(&first, "simulated unreadable value");
-    assert!(
-        std::ptr::eq(first, second),
-        "every waiter receives the recomputed result"
-    );
+    assert_eq!(first.as_ref().ok(), Some(&1));
+    assert!(std::ptr::eq(first, second));
+    assert_eq!(page_in_count::<UnreadablePagableKey>(&dice), 0);
     assert_eq!(
         counts.snapshot(),
-        (1, 2, 0),
-        "validation treats the unreadable dependency as changed and recomputes only the parent"
+        (1, 1, 0),
+        "validation reads and recomputes nothing"
+    );
+
+    let error = tx
+        .compute(&UnreadablePagableKey)
+        .await
+        .expect_err("direct value demand must propagate the page-in error");
+    assert!(
+        anyhow::Error::new(error)
+            .chain()
+            .any(|cause| cause.to_string() == "simulated unreadable value")
     );
     Ok(())
 }

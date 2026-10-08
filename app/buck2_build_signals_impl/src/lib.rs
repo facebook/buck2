@@ -740,7 +740,7 @@ impl ActivationTracker for BuildSignalSender {
         }
         let key =
             NodeKey::from_dyn_key(key).unwrap_or_else(|| NodeKey::PageInConnector(key.dupe()));
-        if !matches!(phase, PageInPhase::Match | PageInPhase::ValueDemand) {
+        if phase != PageInPhase::ValueDemand {
             self.pending_page_in_phases.insert(key.dupe(), phase);
         }
 
@@ -987,7 +987,6 @@ where
         let page_in_key = NodeKey::PageIn(Arc::new(page_in.key));
 
         match page_in.phase {
-            PageInPhase::Match => unreachable!("exact matches do not emit an activation"),
             PageInPhase::ValueDemand => {
                 unreachable!("value-demand reads are independent of activation")
             }
@@ -1180,35 +1179,11 @@ where
         );
     }
 
-    /// Exact matches have no activation and can emit their topology immediately. Value-demand
-    /// reads may follow activation, so their timing is independent of metadata-only consumers.
-    /// Reads within evaluation are paired with their subsequent activation.
+    /// Value-demand reads can follow an earlier activation. Keep their timing independent:
+    /// the loaded key's metadata-only consumers did not wait for this read. Other page-ins
+    /// are paired with their subsequent activation.
     fn process_page_in(&mut self, page_in: PageInSignal) {
         match page_in.phase {
-            PageInPhase::Match => {
-                let key_end = page_in.duration.total.end();
-                let page_in_key = NodeKey::PageIn(Arc::new(page_in.key.dupe()));
-                self.backend.process_node(
-                    page_in_key.dupe(),
-                    NodeExtraData::None,
-                    page_in.duration,
-                    std::iter::empty::<NodeKey>(),
-                    Default::default(),
-                    WaitingData::new(),
-                );
-                self.backend.process_node(
-                    page_in.key,
-                    NodeExtraData::None,
-                    NodeDuration {
-                        user: Duration::ZERO,
-                        total: TimeSpan::new_saturating(key_end, key_end),
-                        queue: None,
-                    },
-                    [page_in_key],
-                    Default::default(),
-                    WaitingData::new(),
-                );
-            }
             PageInPhase::ValueDemand => {
                 self.backend.process_node(
                     NodeKey::PageIn(Arc::new(page_in.key)),
@@ -1642,18 +1617,6 @@ mod tests {
     fn receiver() -> BuildSignalReceiver<RecordingBackend> {
         let (_sender, receiver) = tokio::sync::mpsc::unbounded_channel();
         BuildSignalReceiver::new(receiver, RecordingBackend::default())
-    }
-
-    #[test]
-    fn exact_match_depends_on_page_in() {
-        let mut receiver = receiver();
-        let key = node_key("cell//match");
-        let page_in_key = NodeKey::PageIn(Arc::new(key.dupe()));
-
-        receiver.process_page_in(page_in(key.dupe(), PageInPhase::Match));
-
-        assert_eq!(receiver.backend.deps[&key], [page_in_key.dupe()]);
-        assert!(receiver.backend.deps[&page_in_key].is_empty());
     }
 
     #[test]

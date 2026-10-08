@@ -239,7 +239,7 @@ impl TransactionData {
                         DynKey::ref_cast(key_dyn),
                         start,
                         start.elapsed(),
-                        PageInPhase::Match,
+                        PageInPhase::ValueDemand,
                     );
                 }
                 Ok(value.paged_in(resident))

@@ -506,11 +506,7 @@ async fn check_dependency(
             cycles.subrequest(edge.key, &eval.dice.key_index),
         )
         .await;
-    match eval.page_in(edge.key, dep_result).await {
-        Ok(dep_result) => compare_revision(dep_result, &edge),
-        // The dependency may have changed. A recompute that demands it receives the read error.
-        Err(_) => CheckDependencyResult::Changed,
-    }
+    compare_revision(dep_result, &edge)
 }
 
 fn compare_revision(

@@ -47,9 +47,6 @@ pub trait ActivationTracker: Send + Sync + 'static {
 /// Where hydration occurs relative to dependency validation and key evaluation.
 #[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq)]
 pub enum PageInPhase {
-    /// An exact-version cache hit (`MatchPagedOut`). The key does no other work and emits no other
-    /// activation, so the page-in is the only signal for it.
-    Match,
     /// A caller needs the payload of a key whose revision is already known. This read is
     /// independent of the key's activation: there may be no activation, or it may precede the read.
     ValueDemand,
