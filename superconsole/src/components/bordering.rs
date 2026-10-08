@@ -92,7 +92,8 @@ fn construct_vertical_padding(padding: Span, width: usize) -> Vec<Line> {
         .map(|mut span| {
             // iterator is a single character here, so fill to width.
             // it's possible that a word could be more than a single column, so the number of repetitions must reflect that.
-            span.content = Cow::Owned(span.content.repeat(width / span.len()));
+            let copies = width.checked_div(span.len()).unwrap_or(0);
+            span.content = Cow::Owned(span.content.repeat(copies));
             Line::from_iter([span])
         })
         .collect()
@@ -171,15 +172,18 @@ mod tests {
         }
     }
 
-    /// Borders "may consist of any valid sequence of utf-8 characters", but a grapheme of width
-    /// zero makes `construct_vertical_padding` divide by zero.
+    /// A border grapheme of width zero is repeated zero times instead of dividing by zero.
     #[test]
-    #[should_panic(expected = "attempt to divide by zero")]
     fn test_zero_width_border() {
         let span = Span::new_unstyled("\u{200b}").unwrap();
         assert_eq!(span.len(), 0);
         let bordered = Bordered::new(echo_rows(&["abc"]), top_only("\u{200b}"));
-        let _ = bordered.draw(Dimensions::new(6, 4), DrawMode::Normal);
+        let out = bordered
+            .draw(Dimensions::new(6, 4), DrawMode::Normal)
+            .unwrap();
+        let r = rows(&out);
+        assert_eq!(r.len(), 2, "{r:?}");
+        assert_eq!(r[1].trim_end(), "abc");
     }
 
     #[test]
