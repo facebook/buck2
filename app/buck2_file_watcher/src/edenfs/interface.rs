@@ -129,7 +129,7 @@ impl EdenFsFileWatcher {
         let manager = EdenConnectionManager::new(
             fb,
             project_root,
-            Some(semaphore::buck2_default()),
+            Some(semaphore::buck2_default()?),
         )
         .map_err(EdenFsWatcherError::EdenConnectionError)?
         .ok_or(EdenFsWatcherError::EdenConnectionError(

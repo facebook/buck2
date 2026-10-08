@@ -89,7 +89,7 @@ impl EdenIoProvider {
             return Ok(None);
         };
 
-        let eden_semaphore = buck2_default();
+        let eden_semaphore = buck2_default()?;
 
         let manager = match EdenConnectionManager::new(fb, fs, Some(eden_semaphore))? {
             Some(manager) => manager,
@@ -473,9 +473,7 @@ impl IoProvider for EdenIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> buck2_error::Result<Option<String>> {
-        if buck2_env!("BUCK2_ENABLE_EDEN_THRIFT_READ", bool).unwrap_or(false)
-            || self.use_eden_thrift_read
-        {
+        if buck2_env!("BUCK2_ENABLE_EDEN_THRIFT_READ", bool)? || self.use_eden_thrift_read {
             self.read_file_if_exists_impl(path)
                 .await
                 .tag(ErrorTag::IoEden)

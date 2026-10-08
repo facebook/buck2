@@ -2098,7 +2098,14 @@ pub(crate) mod eden_health {
             let mut last_identity: Option<EdenDaemonIdentity> = None;
             loop {
                 tokio::time::sleep(Duration::from_secs(HEALTH_CHECK_INTERVAL)).await;
-                match EdenConnectionManager::new(fb, &root, Some(semaphore::buck2_default())) {
+                let semaphore = match semaphore::buck2_default() {
+                    Ok(semaphore) => semaphore,
+                    Err(e) => {
+                        tracing::error!("check cannot be set up: {:#}", e);
+                        return;
+                    }
+                };
+                match EdenConnectionManager::new(fb, &root, Some(semaphore)) {
                     Ok(Some(conn)) => {
                         let info = conn
                             .with_eden(|eden| {
