@@ -74,4 +74,8 @@ impl<'a, 'b, 'v> CommandLineArtifactVisitor<'v> for TaggedVisitor<'a, 'b, 'v> {
     fn skip_hidden(&self) -> bool {
         self.inner.skip_hidden()
     }
+
+    fn inputs_for_path_resolution(&self) -> bool {
+        self.inner.inputs_for_path_resolution()
+    }
 }

@@ -60,6 +60,12 @@ pub trait CommandLineArtifactVisitor<'v> {
     }
 
     fn skip_hidden(&self) -> bool {
+        self.inputs_for_path_resolution()
+    }
+
+    /// Whether to collect inputs for rendering paths rather than executing the command.
+    /// These visitors skip hidden arguments by default.
+    fn inputs_for_path_resolution(&self) -> bool {
         false
     }
 }

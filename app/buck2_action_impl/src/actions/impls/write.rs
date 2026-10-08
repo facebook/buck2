@@ -99,7 +99,7 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor 
         Ok(())
     }
 
-    fn skip_hidden(&self) -> bool {
+    fn inputs_for_path_resolution(&self) -> bool {
         true
     }
 }

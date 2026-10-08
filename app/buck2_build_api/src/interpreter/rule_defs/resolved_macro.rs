@@ -268,8 +268,10 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros<'v> {
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         for part in &*self.parts {
-            if let ResolvedStringWithMacrosPart::Macro(_, val) = part {
-                val.visit_artifacts(visitor)?;
+            if let ResolvedStringWithMacrosPart::Macro(write_to_file, val) = part {
+                if !*write_to_file || !visitor.inputs_for_path_resolution() {
+                    val.visit_artifacts(visitor)?;
+                }
             }
         }
 
