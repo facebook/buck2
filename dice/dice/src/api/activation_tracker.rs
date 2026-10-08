@@ -30,8 +30,8 @@ pub trait ActivationTracker: Send + Sync + 'static {
     );
 
     /// Receives when a paged-out key was paged back in. `start`/`duration` are the wall-clock
-    /// span of the hydration (backend fetch + deserialize). `phase` says where the page-in occurs
-    /// in the key's evaluation (see `PageInPhase`).
+    /// span of the hydration (backend fetch + deserialize). `phase` distinguishes value demand
+    /// from reads within the key's evaluation (see `PageInPhase`).
     ///
     /// Defaults to a no-op.
     fn key_paged_in(
@@ -50,6 +50,9 @@ pub enum PageInPhase {
     /// An exact-version cache hit (`MatchPagedOut`). The key does no other work and emits no other
     /// activation, so the page-in is the only signal for it.
     Match,
+    /// A caller needs the payload of a key whose revision is already known. This read is
+    /// independent of the key's activation: there may be no activation, or it may precede the read.
+    ValueDemand,
     /// Dependency validation succeeded, so the old value is loaded for reuse.
     AfterDependencyValidation,
     /// Recalculation preserved the dependency structure, so the old value is loaded for equality

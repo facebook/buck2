@@ -733,12 +733,14 @@ impl ActivationTracker for BuildSignalSender {
     }
 
     fn key_paged_in(&self, key: &DynKey, start: Instant, duration: Duration, phase: PageInPhase) {
-        self.page_in_reachability
-            .get_or_init(PageInReachability::default)
-            .record_page_in(key);
+        if phase != PageInPhase::ValueDemand {
+            self.page_in_reachability
+                .get_or_init(PageInReachability::default)
+                .record_page_in(key);
+        }
         let key =
             NodeKey::from_dyn_key(key).unwrap_or_else(|| NodeKey::PageInConnector(key.dupe()));
-        if phase != PageInPhase::Match {
+        if !matches!(phase, PageInPhase::Match | PageInPhase::ValueDemand) {
             self.pending_page_in_phases.insert(key.dupe(), phase);
         }
 
@@ -826,9 +828,9 @@ struct BuildSignalReceiver<T> {
     // When a node depends on a split analysis, the dep should point to the finish key
     // (representing full completion) rather than the Part 1 key.
     split_analysis_finish_keys: BuckMutMap<NodeKey, NodeKey>,
-    // Non-match page-ins are reported before `key_activated` supplies their dependencies and
-    // evaluation data. Hold each timed signal until that associated evaluation arrives so the
-    // page-in can be placed on the correct side of the evaluation work.
+    // Hydration within evaluation precedes `key_activated`, which supplies its dependencies
+    // and evaluation data. Hold those signals until the associated evaluation arrives;
+    // independent value-demand reads are emitted immediately.
     pending_page_ins: BuckMutMap<NodeKey, PageInSignal>,
     backend: T,
 
@@ -986,6 +988,9 @@ where
 
         match page_in.phase {
             PageInPhase::Match => unreachable!("exact matches do not emit an activation"),
+            PageInPhase::ValueDemand => {
+                unreachable!("value-demand reads are independent of activation")
+            }
             PageInPhase::AfterDependencyValidation => {
                 // Dependency validation completed before hydration:
                 // `key -> PageIn(key) -> dependencies`.
@@ -1175,9 +1180,9 @@ where
         );
     }
 
-    /// Exact matches have no activation, so emit their complete topology immediately. Other
-    /// page-ins are paired with their subsequent activation, which provides the dependency and
-    /// evaluation phases on either side of hydration.
+    /// Exact matches have no activation and can emit their topology immediately. Value-demand
+    /// reads may follow activation, so their timing is independent of metadata-only consumers.
+    /// Reads within evaluation are paired with their subsequent activation.
     fn process_page_in(&mut self, page_in: PageInSignal) {
         match page_in.phase {
             PageInPhase::Match => {
@@ -1200,6 +1205,16 @@ where
                         queue: None,
                     },
                     [page_in_key],
+                    Default::default(),
+                    WaitingData::new(),
+                );
+            }
+            PageInPhase::ValueDemand => {
+                self.backend.process_node(
+                    NodeKey::PageIn(Arc::new(page_in.key)),
+                    NodeExtraData::None,
+                    page_in.duration,
+                    std::iter::empty::<NodeKey>(),
                     Default::default(),
                     WaitingData::new(),
                 );
@@ -1560,7 +1575,12 @@ mod tests {
             _span_ids: SmallVec<[SpanId; 1]>,
             _waiting_data: WaitingData,
         ) {
-            self.deps.insert(key, dep_keys.into_iter().collect());
+            assert!(
+                self.deps
+                    .insert(key, dep_keys.into_iter().collect())
+                    .is_none(),
+                "a key must be emitted only once"
+            );
         }
 
         fn process_top_level_target(
@@ -1634,6 +1654,37 @@ mod tests {
 
         assert_eq!(receiver.backend.deps[&key], [page_in_key.dupe()]);
         assert!(receiver.backend.deps[&page_in_key].is_empty());
+    }
+
+    #[test]
+    fn value_demand_records_a_standalone_page_in() {
+        let mut receiver = receiver();
+        let key = node_key("cell//match");
+        let page_in_key = NodeKey::PageIn(Arc::new(key.dupe()));
+
+        receiver.process_page_in(page_in(key.dupe(), PageInPhase::ValueDemand));
+
+        assert!(!receiver.backend.deps.contains_key(&key));
+        assert!(receiver.backend.deps[&page_in_key].is_empty());
+    }
+
+    #[test]
+    fn value_demand_preserves_an_earlier_activation() {
+        let mut receiver = receiver();
+        let key = node_key("cell//demand");
+        let dep = node_key("cell//dep");
+        let page_in_key = NodeKey::PageIn(Arc::new(key.dupe()));
+        let mut activated =
+            evaluation(key.dupe(), dep.dupe(), key.dupe(), PageInPhase::ValueDemand);
+        activated.page_in = None;
+        activated.extra_data = NodeExtraData::Reused;
+
+        receiver.process_evaluation(activated);
+        receiver.process_page_in(page_in(key.dupe(), PageInPhase::ValueDemand));
+
+        assert_eq!(receiver.backend.deps[&key], [dep]);
+        assert!(receiver.backend.deps[&page_in_key].is_empty());
+        assert!(receiver.pending_page_ins.is_empty());
     }
 
     #[test]
