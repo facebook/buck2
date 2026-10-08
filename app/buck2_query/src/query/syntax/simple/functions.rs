@@ -681,7 +681,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Example:
     /// `buck2 cquery "deps('//foo:bar', 1, toolchain_deps())"`
     async fn toolchain_deps(&self) -> QueryFuncResult<Env> {
-        Err(QueryError::NotAvailableInContext("configuration_deps"))
+        Err(QueryError::NotAvailableInContext("toolchain_deps"))
     }
     /// Computes the set intersection over the given arguments.
     /// Can be used with the `^` symbol. This operator is commutative.

@@ -239,10 +239,9 @@ pub async fn test_missing_arg() -> buck2_error::Result<()> {
     Ok(())
 }
 
-/// `toolchain_deps()` outside a `deps()` filter reports the error under another function's name.
+/// `toolchain_deps()` outside a `deps()` filter reports the error under its own name.
 #[tokio::test]
-pub async fn test_toolchain_deps_outside_deps_names_configuration_deps() -> buck2_error::Result<()>
-{
+pub async fn test_toolchain_deps_outside_deps_names_itself() -> buck2_error::Result<()> {
     let input = "toolchain_deps()";
     let parsed = parse_expr(input)?;
     let err = QueryEvaluator::new(&Env, &DefaultQueryFunctionsModule::new())
@@ -251,7 +250,7 @@ pub async fn test_toolchain_deps_outside_deps_names_configuration_deps() -> buck
         .expect_err("toolchain_deps() is not available at the top level");
     let msg = format!("{:#}", QueryError::convert_error(err, input));
     assert!(
-        msg.contains("query function configuration_deps not available"),
+        msg.contains("query function toolchain_deps not available"),
         "{msg}"
     );
     Ok(())
