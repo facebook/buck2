@@ -763,7 +763,7 @@ impl Buck {
         Ok(alias_map)
     }
 
-    /// Work out which items in `sysroot_package` (e.g. `fbsource//xplat/rust/toolchain/sysroot/1.93.0:`) are
+    /// Work out which items in `sysroot_package` (e.g. `fbsource//third-party/rust-toolchain/1.98.1/rust:`) are
     /// visible to `universe_targets` (e.g. `fbcode//your/wonderful:project`).
     pub(crate) fn query_sysroot_targets(
         &self,

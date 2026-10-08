@@ -230,7 +230,8 @@ impl TargetInfo {
         package == "third-party/rust"
             || package == "third-party/rust/top"
             || package.starts_with("third-party/rust/vendor/")
-            || package.starts_with("xplat/rust/toolchain/sysroot")
+            || package == "third-party/rust-toolchain"
+            || package.starts_with("third-party/rust-toolchain/")
     }
 }
 
@@ -377,8 +378,10 @@ mod tests {
         assert!(with_label("fbsource//third-party/rust/vendor/tokio:1").is_reindeer_third_party());
         assert!(with_label("fbsource//third-party/rust:tokio").is_reindeer_third_party());
         assert!(with_label("fbsource//third-party/rust/top:rustc").is_reindeer_third_party());
+        assert!(with_label("fbsource//third-party/rust-toolchain:std").is_reindeer_third_party());
         assert!(
-            with_label("fbsource//xplat/rust/toolchain/sysroot:core").is_reindeer_third_party()
+            with_label("fbsource//third-party/rust-toolchain/1.98.1/rust:core")
+                .is_reindeer_third_party()
         );
 
         assert!(
@@ -388,6 +391,9 @@ mod tests {
         // A first-party crate that merely lives under a similarly-named path is
         // not a reindeer root.
         assert!(!with_label("fbcode//third-party/rust-tools/foo:foo").is_reindeer_third_party());
+        assert!(
+            !with_label("fbsource//third-party/rust-toolchain-tools:foo").is_reindeer_third_party()
+        );
     }
 
     #[test]
