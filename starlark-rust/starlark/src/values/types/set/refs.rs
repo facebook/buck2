@@ -66,6 +66,13 @@ impl<'v> SetRef<'v> {
     }
 }
 
+impl<'v> SetRef<'v> {
+    /// Iterate through the values in the set.
+    pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = Value<'v>> + 'a {
+        self.aref.iter()
+    }
+}
+
 impl<'v> Dupe for SetRef<'v> {}
 
 /// Mutably borrowed `Set`.

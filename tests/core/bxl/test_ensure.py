@@ -242,12 +242,9 @@ async def test_bxl_ensure_failures(buck: Buck, tmp_path: Path) -> None:
 
 
 @buck_test()
-async def test_bxl_print_json_ensured_in_set_is_not_a_path(buck: Buck) -> None:
-    # The JSON serializer recurses into lists, tuples, dicts, structs and records only; any
-    # other container falls back to the generic serializer, which writes an ensured artifact
-    # as `<ensured ...>`.
+async def test_bxl_print_json_ensured_in_set(buck: Buck) -> None:
     result = await buck.bxl("//artifacts.bxl:print_json_set_test")
     lines = result.stdout.strip().splitlines()
     assert len(lines) == 2
     assert json.loads(lines[0])[0].endswith("artifacts/DATA"), lines[0]
-    assert json.loads(lines[1])[0].startswith("<ensured"), lines[1]
+    assert json.loads(lines[1]) == json.loads(lines[0]), lines[1]

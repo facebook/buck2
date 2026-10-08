@@ -64,6 +64,7 @@ use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneType;
 use starlark::values::record::Record;
+use starlark::values::set::SetRef;
 use starlark::values::starlark_value;
 use starlark::values::structs::StructRef;
 use starlark::values::tuple::TupleRef;
@@ -516,6 +517,8 @@ impl StarlarkOutputStream {
                 } else if let Some(x) = ListRef::from_value(self.value) {
                     serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
                 } else if let Some(x) = TupleRef::from_value(self.value) {
+                    serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
+                } else if let Some(x) = SetRef::from_value(self.value) {
                     serializer.collect_seq(x.iter().map(|v| self.with_value(v)))
                 } else if let Some(x) = DictRef::from_value(self.value) {
                     serializer.collect_map(
