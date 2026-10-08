@@ -104,6 +104,15 @@ enum StringOrTuple<'v> {
     Tuple(UnpackTuple<&'v str>),
 }
 
+/// A letter with a case: upper, lower, or titlecase such as `ǅ`, which is neither but maps to
+/// a different letter in each case.
+fn is_cased(c: char) -> bool {
+    c.is_uppercase()
+        || c.is_lowercase()
+        || c.to_uppercase().ne(std::iter::once(c))
+        || c.to_lowercase().ne(std::iter::once(c))
+}
+
 #[starlark_module]
 pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// [string.elems](
@@ -490,10 +499,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn islower(this: &str) -> anyhow::Result<bool> {
         let mut result = false;
         for c in this.chars() {
-            if c.is_uppercase() {
-                return Ok(false);
-            } else if c.is_lowercase() {
+            if c.is_lowercase() {
                 result = true;
+            } else if is_cased(c) {
+                return Ok(false);
             }
         }
         Ok(result)
@@ -544,24 +553,25 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe)]
     fn istitle(this: &str) -> anyhow::Result<bool> {
-        let mut last_space = true;
+        // Upper and titlecase letters may only follow uncased characters, lowercase letters only
+        // cased ones, and there must be at least one cased letter.
+        let mut previous_is_cased = false;
         let mut result = false;
-
         for c in this.chars() {
-            if !c.is_alphabetic() {
-                last_space = true;
-            } else {
-                if last_space {
-                    if c.is_lowercase() {
-                        return Ok(false);
-                    }
-                } else if c.is_uppercase() {
+            if c.is_lowercase() {
+                if !previous_is_cased {
                     return Ok(false);
                 }
-                if c.is_alphabetic() {
-                    result = true;
+                result = true;
+                previous_is_cased = true;
+            } else if is_cased(c) {
+                if previous_is_cased {
+                    return Ok(false);
                 }
-                last_space = false;
+                result = true;
+                previous_is_cased = true;
+            } else {
+                previous_is_cased = false;
             }
         }
         Ok(result)
@@ -585,10 +595,10 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn isupper(this: &str) -> anyhow::Result<bool> {
         let mut result = false;
         for c in this.chars() {
-            if c.is_lowercase() {
-                return Ok(false);
-            } else if c.is_uppercase() {
+            if c.is_uppercase() {
                 result = true;
+            } else if is_cased(c) {
+                return Ok(false);
             }
         }
         Ok(result)
@@ -1351,14 +1361,19 @@ mod tests {
 
     /// `istitle`, `isupper` and `islower` are defined over cased characters: a letter with no
     /// case (CJK) is not a title-cased word and does not start one, and a titlecase letter such
-    /// as `ǅ` is cased but neither upper nor lower. The predicates treat any alphabetic
-    /// character as the start of a word and ignore titlecase letters.
+    /// as `ǅ` is cased but neither upper nor lower.
     #[test]
     fn test_case_predicates_with_uncased_and_titlecase_letters() {
-        assert::eq(r#""中".istitle()"#, "True");
-        assert::eq(r#""中A".istitle()"#, "False");
-        assert::eq(r#""Aǅ".isupper()"#, "True");
-        assert::eq(r#""aǅ".islower()"#, "True");
+        assert::eq(r#""中".istitle()"#, "False");
+        assert::eq(r#""中A".istitle()"#, "True");
+        assert::eq(r#""ǅa".istitle()"#, "True");
+        assert::eq(r#""Hello World".istitle()"#, "True");
+        assert::eq(r#""HELLO".istitle()"#, "False");
+        assert::eq(r#""Aǅ".isupper()"#, "False");
+        assert::eq(r#""A中".isupper()"#, "True");
+        assert::eq(r#""中".isupper()"#, "False");
+        assert::eq(r#""aǅ".islower()"#, "False");
+        assert::eq(r#""a中".islower()"#, "True");
     }
 
     #[test]
