@@ -48,3 +48,13 @@ cmd_args_artifact_path_test = bxl_main(
     impl = _cmd_args_artifact_path_test,
     cli_args = {},
 )
+
+def _print_json_set_impl(ctx):
+    a = ctx.fs.source("artifacts/DATA")
+    ctx.output.print_json([ctx.output.ensure(a)], pretty = False)
+    ctx.output.print_json(set([ctx.output.ensure(a)]), pretty = False)
+
+print_json_set_test = bxl_main(
+    impl = _print_json_set_impl,
+    cli_args = {},
+)
