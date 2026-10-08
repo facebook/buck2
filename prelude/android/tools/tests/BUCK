@@ -29,3 +29,11 @@ prelude.python_test(
         "prelude//android/tools:combine_apk_with_relinked_libs_lib",
     ],
 )
+
+prelude.python_test(
+    name = "test_duplicate_class_checker",
+    srcs = ["test_duplicate_class_checker.py"],
+    deps = [
+        "prelude//android/tools:duplicate_class_checker_lib",
+    ],
+)
