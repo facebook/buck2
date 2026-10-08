@@ -7,5 +7,14 @@
 # above-listed licenses.
 
 def strip_package_root(path: str, package_root: str) -> str:
-    """Return `path` relative to `package_root`, the way `go list` prints it."""
-    return path.removeprefix(package_root).lstrip("/")
+    """Return `path` relative to `package_root`, the way `go list` prints it.
+
+    Only a whole path component counts as the root: `server_testdata/x` is not
+    below the root `server`, and is returned unchanged.
+    """
+    root = package_root.rstrip("/")
+    if path == root:
+        return ""
+    if root != "" and path.startswith(root + "/"):
+        return path[len(root) + 1 :].lstrip("/")
+    return path.lstrip("/")
