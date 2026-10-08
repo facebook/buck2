@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//android/tools:jdk_system_image.bzl", "jdk_system_image")
+load("@prelude//nodejs:nodejs_toolchain.bzl", "system_nodejs_toolchain")
 load("@prelude//tests:test_toolchain.bzl", "noop_test_toolchain")
 load("@prelude//toolchains:android.bzl", "android_sdk_tools", "system_android_aidl_toolchain", "system_android_toolchain")
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
@@ -277,6 +278,11 @@ def system_demo_toolchains():
 
     zip_file_toolchain(
         name = "zip_file",
+        visibility = ["PUBLIC"],
+    )
+
+    system_nodejs_toolchain(
+        name = "nodejs",
         visibility = ["PUBLIC"],
     )
 

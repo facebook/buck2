@@ -23,13 +23,14 @@ NodejsLibraryInfo = provider(
     },
 )
 
-def get_nodejs_dep_infos(deps: list, consumer_label) -> list[NodejsLibraryInfo]:
+def get_nodejs_dep_infos(deps: list, consumer_label, non_code_attr: str | None = None) -> list[NodejsLibraryInfo]:
     infos = []
     for dep in deps:
         if NodejsLibraryInfo not in dep:
+            hint = " (use `{}` for non-code artifacts)".format(non_code_attr) if non_code_attr else ""
             fail(
-                "target {} has `deps` entry `{}` which does not provide `NodejsLibraryInfo`; `deps` must be `nodejs_library` targets (use `resources` for non-code artifacts)".format(
-                    consumer_label, dep.label
+                "target {} has `deps` entry `{}` which does not provide `NodejsLibraryInfo`; `deps` must be `nodejs_library` targets{}".format(
+                    consumer_label, dep.label, hint
                 )
             )
         infos.append(dep[NodejsLibraryInfo])
@@ -48,6 +49,7 @@ def build_node_modules(
     name: str,
     transitive_outputs: NodejsLibraryTSet,
     own_package: NodejsLibraryPackage | None = None,
+    root_files: dict[str, Artifact] | None = None,
 ) -> Artifact:
     packages_by_name = {}
     if own_package != None:
@@ -70,4 +72,12 @@ def build_node_modules(
                     pkg.package_name, existing.label, pkg.label
                 )
             )
-    return actions.copied_dir(name, {"node_modules/" + n: packages_by_name[n].package_dir for n in sorted(packages_by_name)})
+    tree = {"node_modules/" + n: packages_by_name[n].package_dir for n in sorted(packages_by_name)}
+    for root_name, root_file in (root_files or {}).items():
+        segments = root_name.split("/")
+        if root_name.startswith("/") or "\\" in root_name or "" in segments or "." in segments or ".." in segments:
+            fail("invalid `root_files` path '{}': must be a relative path using '/' separators with no '.' or '..' segments".format(root_name))
+        if segments[0].lower() == "node_modules":
+            fail("root file '{}' collides with the merged `node_modules` tree".format(root_name))
+        tree[root_name] = root_file
+    return actions.copied_dir(name, tree)

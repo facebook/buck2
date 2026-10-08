@@ -89,7 +89,7 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
             prefix += "/" + segments[i]
     package_dir = ctx.actions.copied_dir("package_dir", srcs_map)
 
-    dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label)
+    dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label, non_code_attr = "resources")
 
     own_package = NodejsLibraryPackage(
         label = ctx.label,

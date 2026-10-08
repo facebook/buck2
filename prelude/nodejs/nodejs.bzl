@@ -6,8 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//nodejs:nodejs_binary.bzl", "nodejs_binary_impl")
 load("@prelude//nodejs:nodejs_library.bzl", "nodejs_library_impl")
 
 implemented_rules = {
+    "nodejs_binary": nodejs_binary_impl,
     "nodejs_library": nodejs_library_impl,
 }

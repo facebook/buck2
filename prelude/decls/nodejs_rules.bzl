@@ -7,11 +7,15 @@
 # above-listed licenses.
 
 load(":common.bzl", "buck", "prelude_rule")
+load(":toolchains_common.bzl", "toolchains_common")
 
 nodejs_library = prelude_rule(
     name = "nodejs_library",
-    docs = """A Node.js library that packages TypeScript/JavaScript source
-    files as-is (no compilation). Each entry of `srcs` is staged under
+    docs = """A Node.js library that packages the artifacts it is given
+    as-is (no compilation): whatever produced them (a TypeScript build
+    step emitting JavaScript, plain JavaScript sources, generated files)
+    feeds this rule, and the result must be loadable by Node as a regular
+    `node_modules` package without custom loaders. Each entry of `srcs` is staged under
     `dist/<short_path>` inside the package (repeating the same source is
     allowed; distinct sources mapping to the same staged path fail,
     and staged paths must not nest, e.g. `dist/a` and `dist/a/b` fail).
@@ -53,6 +57,43 @@ nodejs_library = prelude_rule(
     ),
 )
 
+nodejs_binary = prelude_rule(
+    name = "nodejs_binary",
+    docs = """A runnable Node.js script, executed with the toolchain's
+    Node runtime and no custom loaders. When `deps` is non-empty, builds
+    a merged `node_modules` from transitive deps, stages `main` and
+    `srcs` beside it (each at its short path; distinct files staging to
+    the same path fail), and runs the staged `main` so Node's own
+    resolution finds the deps. The default output is that directory.
+    With no `deps`, `main` runs at its original path, files it imports
+    via relative paths must be listed in `srcs` to be declared as build
+    inputs, and there is no default output. Deps must be loadable as
+    regular `node_modules` packages: each package's `package.json`
+    governs whether it is CommonJS or an ES module, and TypeScript must
+    be compiled to JavaScript before it is packaged. The merged tree is
+    also exposed via `NODE_PATH` at runtime, appended to any `NODE_PATH`
+    set in `env`, for CommonJS resolution. Transitive deps'
+    `package_name` values must be unique, as for `nodejs_library`.""",
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "main": attrs.source(),
+            "srcs": attrs.list(attrs.source(), default = []),
+            "args": attrs.list(attrs.arg(), default = []),
+            "node_args": attrs.list(attrs.string(), default = []),
+            "env": attrs.dict(attrs.string(), attrs.arg(), default = {}),
+            "deps": attrs.list(attrs.dep(), default = []),
+            "_nodejs_toolchain": toolchains_common.nodejs(),
+            "_target_os_type": buck.target_os_type_arg(),
+        }
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)
+
 nodejs_rules = struct(
+    nodejs_binary = nodejs_binary,
     nodejs_library = nodejs_library,
 )
