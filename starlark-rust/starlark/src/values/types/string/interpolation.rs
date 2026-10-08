@@ -30,7 +30,6 @@ use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::float::float;
-use crate::values::string::dot_format::format_one;
 use crate::values::types::int::int_or_big::StarlarkInt;
 use crate::values::types::int::int_or_big::StarlarkIntRef;
 use crate::values::types::num::value::NumRef;
@@ -406,7 +405,17 @@ pub(crate) fn percent_s_one<'v>(
                 },
                 None => arg,
             };
-            format_one(before, one, after, heap)
+            match StringValue::new(one) {
+                Some(one) => heap.alloc_str_concat3(before, &one, after),
+                None => {
+                    // General `%s` renders a non-string operand with `repr`.
+                    let mut result = String::with_capacity(before.len() + after.len() + 10);
+                    result.push_str(before);
+                    one.collect_repr(&mut result);
+                    result.push_str(after);
+                    heap.alloc_str(&result)
+                }
+            }
         }
     })
 }
