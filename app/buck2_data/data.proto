@@ -2563,6 +2563,9 @@ message ReQueueCancelled {
 
 message ReQueueOverQuota {
   ReQueue queue_info = 1;
+  // Names of the exceeded quotas, e.g.
+  // `worker_units:<quota_pool>:<platform>[:<subplatform>]`.
+  repeated string exceeded_quotas = 2;
 }
 
 message ReQueueAcquiringDependencies {
@@ -3473,6 +3476,8 @@ message InvocationRecord {
   // and can outlive the command, so what they cost is a daemon-level figure and
   // lives on `Snapshot`; only the queuing belongs to a command.
   optional uint64 dep_file_db_writes_queued = 758;
+  // Names of the RE quotas that throttled this command's actions.
+  repeated string re_exceeded_quotas = 761;
 }
 
 enum InvocationOutcome {

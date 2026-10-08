@@ -408,8 +408,8 @@ pub fn display_event(
                     .stage
                     .as_ref()
                     .internal_error("executor stage is missing")?;
-                let stage =
-                    display_executor_stage(stage).internal_error("unknown executor stage")?;
+                let stage = display_executor_stage_detail(stage)
+                    .internal_error("unknown executor stage")?;
                 Ok(EventDisplay::bare(stage))
             }
             Data::TestDiscovery(discovery) => Ok(EventDisplay::labeled(
@@ -638,6 +638,26 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
     }
 
     res
+}
+
+/// Like `display_executor_stage`, but names the exceeded quotas when RE reports
+/// the action as over quota.
+fn display_executor_stage_detail(
+    stage: &buck2_data::executor_stage_start::Stage,
+) -> Option<String> {
+    use buck2_data::executor_stage_start::Stage;
+
+    if let Stage::Re(re) = stage
+        && let Some(buck2_data::re_stage::Stage::QueueOverQuota(over_quota)) = &re.stage
+        && !over_quota.exceeded_quotas.is_empty()
+    {
+        return Some(format!(
+            "re_queued(over_quota: {})",
+            over_quota.exceeded_quotas.join(", ")
+        ));
+    }
+
+    display_executor_stage(stage).map(str::to_owned)
 }
 
 pub fn display_executor_stage(
@@ -1398,6 +1418,34 @@ mod tests {
             }
             .into(),
         )
+    }
+
+    fn over_quota_stage(exceeded_quotas: &[&str]) -> buck2_data::executor_stage_start::Stage {
+        buck2_data::executor_stage_start::Stage::Re(buck2_data::ReStage {
+            stage: Some(buck2_data::re_stage::Stage::QueueOverQuota(
+                buck2_data::ReQueueOverQuota {
+                    queue_info: None,
+                    exceeded_quotas: exceeded_quotas.iter().map(|q| (*q).to_owned()).collect(),
+                },
+            )),
+        })
+    }
+
+    #[test]
+    fn over_quota_stage_names_exceeded_quotas() {
+        assert_eq!(
+            display_executor_stage_detail(&over_quota_stage(&["worker_units:pool:linux"])),
+            Some("re_queued(over_quota: worker_units:pool:linux)".to_owned()),
+        );
+        assert_eq!(
+            display_executor_stage_detail(&over_quota_stage(&["a", "b"])),
+            Some("re_queued(over_quota: a, b)".to_owned()),
+        );
+        assert_eq!(
+            display_executor_stage_detail(&over_quota_stage(&[])),
+            Some("re_queued(over_quota)".to_owned()),
+            "Without exceeded quotas the label should fall back to the plain stage",
+        );
     }
 
     #[test]

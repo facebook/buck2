@@ -227,6 +227,7 @@ pub struct InvocationRecorder {
     initial_hedwig_upload_queries: Option<u64>,
     initial_hedwig_upload_bytes: Option<u64>,
     concurrent_command_ids: BuckMutSet<String>,
+    re_exceeded_quotas: BuckMutSet<String>,
     daemon_connection_failure: bool,
     /// Daemon started by this command.
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
@@ -456,6 +457,7 @@ impl InvocationRecorder {
             initial_hedwig_upload_queries: None,
             initial_hedwig_upload_bytes: None,
             concurrent_command_ids: BuckMutSet::default(),
+            re_exceeded_quotas: BuckMutSet::default(),
             daemon_connection_failure: false,
             daemon_was_started: None,
             should_restart: false,
@@ -1171,6 +1173,9 @@ impl InvocationRecorder {
             concurrent_command_ids: std::mem::take(&mut self.concurrent_command_ids)
                 .into_iter()
                 .collect(),
+            re_exceeded_quotas: std::mem::take(&mut self.re_exceeded_quotas)
+                .into_iter()
+                .collect(),
             page_out_started: self
                 .paging_summary
                 .as_ref()
@@ -1694,6 +1699,10 @@ impl InvocationRecorder {
                         self.max_in_progress_remote_uploads,
                         self.current_in_progress_remote_uploads,
                     );
+                }
+                Some(buck2_data::re_stage::Stage::QueueOverQuota(over_quota)) => {
+                    self.re_exceeded_quotas
+                        .extend(over_quota.exceeded_quotas.iter().cloned());
                 }
                 _ => {}
             },

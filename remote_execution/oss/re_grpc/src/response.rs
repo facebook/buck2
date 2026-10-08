@@ -254,7 +254,16 @@ pub struct NoAgentAvailableTaskState {}
 pub struct CancelledTaskState {}
 
 #[derive(Clone, Default)]
-pub struct OverQuotaTaskState {}
+pub struct OverQuotaTaskState {
+    pub exceeded_quotas: Vec<ExceededQuota>,
+}
+
+#[derive(Clone, Default)]
+pub struct ExceededQuota {
+    pub name: String,
+    pub limit: i64,
+    pub used: i64,
+}
 
 #[derive(Clone, Default)]
 pub struct WaitingOnReservationTaskState {}

@@ -159,3 +159,33 @@ async def test_re_use_case_override_with_external_config_source(buck: Buck) -> N
             env=env,
         )
         await assert_re_use_case(buck, "buck2-user")
+
+
+@buck_test(write_invocation_record=True)
+async def test_re_over_quota_reports_exceeded_quotas(buck: Buck) -> None:
+    exceeded_quota = "worker_units:global:buck2-testing:linux-remote-execution"
+    buck.set_env("BUCK2_TEST_INJECTED_RE_EXCEEDED_QUOTAS", exceeded_quota)
+    # Make sure action is not cached
+    with open(buck.cwd / "input.txt", "w") as f:
+        f.write(random_string())
+    res = await buck.build(
+        "root//:simple",
+        "--remote-only",
+        "--no-remote-cache",
+    )
+
+    over_quota = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanStart",
+        "data",
+        "ExecutorStage",
+        "stage",
+        "Re",
+        "stage",
+        "QueueOverQuota",
+        "exceeded_quotas",
+    )
+    assert over_quota == [[exceeded_quota]]
+    assert res.invocation_record()["re_exceeded_quotas"] == [exceeded_quota]

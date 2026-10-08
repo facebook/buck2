@@ -1319,9 +1319,14 @@ impl RemoteExecutionClientImpl {
                         queue_info: Some(queue_info),
                     })
                 }
-                Some(TaskState::over_quota(..)) => {
+                Some(TaskState::over_quota(over_quota)) => {
                     re_stage::Stage::QueueOverQuota(ReQueueOverQuota {
                         queue_info: Some(queue_info),
+                        exceeded_quotas: over_quota
+                            .exceeded_quotas
+                            .iter()
+                            .map(|q| q.name.clone())
+                            .collect(),
                     })
                 }
                 Some(TaskState::acquiring_dependencies(..)) => {
@@ -1408,12 +1413,28 @@ impl RemoteExecutionClientImpl {
             .re_fallback_on_estimated_queue_time_exceeds
             .or(re_max_queue_time);
 
+        // Lets tests exercise the over-quota path without needing a throttled RE quota pool.
+        let injected_exceeded_quotas = buck2_env!(
+            "BUCK2_TEST_INJECTED_RE_EXCEEDED_QUOTAS",
+            type = Vec<String>,
+            converter = |v| Ok(v.split(' ').map(str::to_owned).collect()),
+            applicability = testing
+        )
+        // Stringify the error because we can't deal with buck2_errors here
+        .map_err(|e| anyhow::anyhow!(e))?;
+
         loop {
-            let progress_response = wait_for_response_or_stage_change(
-                &mut receiver,
-                exe_stage,
-                &operation_metadata,
-                re_stage_from_exe_stage(
+            let report_stage = match injected_exceeded_quotas {
+                Some(exceeded_quotas) if exe_stage == Stage::QUEUED => {
+                    re_stage::Stage::QueueOverQuota(ReQueueOverQuota {
+                        queue_info: Some(ReQueue {
+                            action_digest: action_digest_str.clone(),
+                            use_case: re_use_case.clone(),
+                        }),
+                        exceeded_quotas: exceeded_quotas.clone(),
+                    })
+                }
+                _ => re_stage_from_exe_stage(
                     exe_stage,
                     &operation_metadata,
                     action_digest_str.clone(),
@@ -1422,6 +1443,12 @@ impl RemoteExecutionClientImpl {
                     re_use_case.clone(),
                     persistent_worker,
                 ),
+            };
+            let progress_response = wait_for_response_or_stage_change(
+                &mut receiver,
+                exe_stage,
+                &operation_metadata,
+                report_stage,
                 manager,
                 &mut queue_stats,
                 re_fallback_on_estimated_queue_time_exceeds,
