@@ -37,3 +37,11 @@ prelude.python_test(
         "prelude//android/tools:duplicate_class_checker_lib",
     ],
 )
+
+prelude.python_test(
+    name = "test_merge_sequence",
+    srcs = ["test_merge_sequence.py"],
+    deps = [
+        "prelude//android/tools:merge_sequence_lib",
+    ],
+)
