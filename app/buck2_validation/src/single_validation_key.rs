@@ -110,16 +110,28 @@ impl Key for SingleValidationKey {
         let content = async_fs_util::read_to_string(&validation_result_path)
             .await
             .categorize_tagged(ErrorTag::ValidationResultRead)
-            .buck_error_context("Reading validation result")?;
+            .with_buck_error_context(|| {
+                format!(
+                    "Reading validation result for `{}` located at: `{}`",
+                    self.0.owner(),
+                    validation_result_path
+                )
+            })?;
 
-        match parse_validation_result(&content) {
-            Ok(r) => Ok(CachedValidationResult::new(
-                r,
-                self.0.owner().dupe(),
-                validation_result_path,
-            )),
-            Err(e) => Err(e),
-        }
+        // The error is reported under the target that was requested, which may be far from
+        // the validation's owner: name the owner and the file.
+        let r = parse_validation_result(&content).with_buck_error_context(|| {
+            format!(
+                "Parsing validation result for `{}` located at: `{}`",
+                self.0.owner(),
+                validation_result_path
+            )
+        })?;
+        Ok(CachedValidationResult::new(
+            r,
+            self.0.owner().dupe(),
+            validation_result_path,
+        ))
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {

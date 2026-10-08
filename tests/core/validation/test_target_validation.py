@@ -110,14 +110,12 @@ async def test_optional_validation(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_malformed_validation_result_names_neither_target_nor_file(
-    buck: Buck,
-) -> None:
-    # The parse error of a malformed result file is reported as is, under the requested
-    # target: it names neither the target that owns the validation nor the result file.
+async def test_malformed_validation_result_names_target_and_file(buck: Buck) -> None:
+    # The parse error of a malformed result file names the target that owns the validation
+    # and the result file, like a failing validation does.
     res = await expect_failure(
         buck.build(":consumer"),
         stderr_regex="JSON content doesn't match schema",
     )
-    assert "prelude//:broken" not in res.stderr
-    assert "flute.json" not in res.stderr
+    assert "prelude//:broken" in res.stderr
+    assert "flute.json" in res.stderr
