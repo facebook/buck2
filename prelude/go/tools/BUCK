@@ -107,3 +107,11 @@ prelude.go_test(
         "testmaingen_test.go",
     ],
 )
+
+prelude.go_test(
+    name = "pkg_analyzer_test",
+    srcs = [
+        "pkg_analyzer.go",
+        "pkg_analyzer_test.go",
+    ],
+)
