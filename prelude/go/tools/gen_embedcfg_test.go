@@ -34,26 +34,18 @@ func embedFixture(t *testing.T) string {
 	return pkgdir
 }
 
-// Files under a nested module are embedded, and naming a VCS directory embeds
-// its contents, both unlike `go build`.
-func TestNestedModuleAndNamedVcsDirectoryAreEmbedded(t *testing.T) {
+// A nested module is skipped, and naming a VCS directory is an error, as in `go build`.
+func TestNestedModuleIsSkippedAndNamedVcsDirectoryIsRejected(t *testing.T) {
 	pkgdir := embedFixture(t)
 	files, _, err := resolveEmbed(pkgdir, []string{"static"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"static/a.txt", "static/mod/go.mod", "static/mod/m.txt"}
-	if !reflect.DeepEqual(files, want) {
+	if want := []string{"static/a.txt"}; !reflect.DeepEqual(files, want) {
 		t.Fatalf("static: got %v, want %v", files, want)
 	}
-	files, _, err = resolveEmbed(pkgdir, []string{"static/.git"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(files, []string{"static/.git/config"}) {
-		t.Fatalf("static/.git: got %v", files)
-	}
-	if !strings.HasSuffix(files[0], "config") {
-		t.Fatalf("unexpected file %q", files[0])
+	_, _, err = resolveEmbed(pkgdir, []string{"static/.git"})
+	if err == nil || !strings.Contains(err.Error(), "invalid name .git") {
+		t.Fatalf("static/.git: got %v", err)
 	}
 }

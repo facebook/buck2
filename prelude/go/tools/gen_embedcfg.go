@@ -173,13 +173,25 @@ func matchPattern(pkgdir, pattern string, all bool) ([]string, error) {
 		if err != nil {
 			continue
 		}
-		// Convert to forward slashes for consistency
-		rel = filepath.ToSlash(rel)
 
 		info, err := os.Lstat(match)
 		if err != nil {
 			continue
 		}
+
+		// A directly named VCS directory or file is an error, as in `go build`.
+		for dir := rel; dir != "."; dir = filepath.Dir(dir) {
+			if elem := filepath.Base(dir); isBadEmbedName(elem) {
+				what := "file"
+				if info.IsDir() {
+					what = "directory"
+				}
+				return nil, fmt.Errorf("cannot embed %s %s: invalid name %s", what, filepath.ToSlash(rel), elem)
+			}
+		}
+
+		// Convert to forward slashes for consistency
+		rel = filepath.ToSlash(rel)
 
 		if info.IsDir() {
 			// For directories, walk and collect all files
@@ -189,11 +201,6 @@ func matchPattern(pkgdir, pattern string, all bool) ([]string, error) {
 			}
 			result = append(result, dirFiles...)
 		} else {
-			// For files, check if they should be included
-			base := path.Base(rel)
-			if isBadEmbedName(base) {
-				continue
-			}
 			result = append(result, rel)
 		}
 	}
@@ -205,6 +212,11 @@ func matchPattern(pkgdir, pattern string, all bool) ([]string, error) {
 func walkDir(pkgdir, dir string, all bool) ([]string, error) {
 	var result []string
 	fullDir := filepath.Join(pkgdir, filepath.FromSlash(dir))
+
+	// A directory with its own go.mod is another module, which `go build` never embeds.
+	if _, err := os.Stat(filepath.Join(fullDir, "go.mod")); err == nil {
+		return nil, nil
+	}
 
 	entries, err := os.ReadDir(fullDir)
 	if err != nil {
