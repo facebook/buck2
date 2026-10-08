@@ -378,3 +378,31 @@ class GenClassToSourceMapTest(unittest.TestCase):
                 "ownerTarget": "cell//package:library",
             },
         )
+
+    def test_real_class_with_kt_suffix_is_lost_to_a_sibling_file_facade(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            directory = pathlib.Path(temp_dir)
+            package_dir = directory / "com" / "example"
+            package_dir.mkdir(parents=True)
+            facade_source = package_dir / "Foo.kt"
+            facade_source.write_text("fun foo() = 1\n")
+            class_source = package_dir / "FooKt.kt"
+            class_source.write_text("class FooKt\n")
+            sources_jar = directory / "library-sources.jar"
+            classes = self._generate(
+                directory,
+                jar_classes=["com.example.Foo", "com.example.FooKt"],
+                sources=[facade_source, class_source],
+                debuginfo=None,
+                sources_jar=str(sources_jar),
+            )
+            with zipfile.ZipFile(sources_jar) as jar:
+                entries = jar.namelist()
+
+        # `FooKt` is matched to `Foo.kt` as if it were that file's facade, renamed to `Foo` and
+        # folded into the existing entry, so `FooKt.kt` is missing from the map and the jar.
+        self.assertEqual(
+            classes,
+            [{"className": "com.example.Foo", "srcPath": str(facade_source)}],
+        )
+        self.assertEqual(entries, ["com/example/Foo.kt"])
