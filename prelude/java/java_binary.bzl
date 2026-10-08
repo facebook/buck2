@@ -66,6 +66,10 @@ def _create_fat_jar(
             java_toolchain.is_bootstrap_toolchain == False,
             "Bootstrap java toolchain could not be used for java_binary() with native code.",
         )
+        expect(
+            not (generate_wrapper and do_not_create_inner_jar),
+            "`generate_wrapper` cannot be combined with `do_not_create_inner_jar` for a java_binary() with native code: a wrapper script has nowhere to put the native libraries.",
+        )
         args += [
             "--native_libs_file",
             ctx.actions.write(
