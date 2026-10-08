@@ -66,13 +66,15 @@ def _load_debug_class_to_source_map(path: str | None) -> dict[str, str]:
 def _legacy_source_for_class(class_name: str, sources: dict[str, str]) -> str | None:
     base_class_name = class_name.replace(".", "/")
     for source_base, source_path in sources.items():
-        if _base_class_name_matches_base_source_path(base_class_name, source_base) or (
-            base_class_name.endswith("Kt")
-            and _base_class_name_matches_base_source_path(
-                base_class_name[:-2], source_base
-            )
-        ):
+        if _base_class_name_matches_base_source_path(base_class_name, source_base):
             return source_path
+    # Only a class with no source of its own is a Kotlin file facade (`Foo.kt` -> `FooKt`).
+    if base_class_name.endswith("Kt"):
+        for source_base, source_path in sources.items():
+            if _base_class_name_matches_base_source_path(
+                base_class_name[:-2], source_base
+            ):
+                return source_path
     return None
 
 
