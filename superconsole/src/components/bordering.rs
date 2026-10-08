@@ -186,6 +186,28 @@ mod tests {
         assert_eq!(r[1].trim_end(), "abc");
     }
 
+    /// A border grapheme wider than one column reserves `Span::len` rows (its display width)
+    /// although it draws one row per grapheme, and over a width that is not a multiple of its
+    /// own it leaves the border short.
+    #[test]
+    fn test_wide_border_grapheme() {
+        let bordered = Bordered::new(echo_rows(&["abc", "def", "ghi"]), top_only("\u{1f9b6}"));
+        let out = bordered
+            .draw(Dimensions::new(7, 4), DrawMode::Normal)
+            .unwrap();
+        assert_eq!(
+            rows(&out),
+            vec!["\u{1f9b6}".to_owned(), "abc".to_owned(), "def".to_owned()]
+        );
+
+        let bordered = Bordered::new(echo_rows(&["abcdefg"]), top_only("\u{1f9b6}"));
+        let out = bordered
+            .draw(Dimensions::new(7, 4), DrawMode::Normal)
+            .unwrap();
+        let widths: Vec<usize> = out.iter().map(|l| l.len()).collect();
+        assert_eq!(widths, vec![6, 7]);
+    }
+
     #[test]
     fn test_basic() -> anyhow::Result<()> {
         let msg = Lines(vec![
