@@ -49,6 +49,7 @@ load("@prelude//decls:java_rules.bzl", "java_rules")
 load("@prelude//decls:js_rules.bzl", "js_rules")
 load("@prelude//decls:kotlin_rules.bzl", "kotlin_rules")
 load("@prelude//decls:lua_rules.bzl", "lua_rules")
+load("@prelude//decls:nodejs_rules.bzl", "nodejs_rules")
 load("@prelude//decls:ocaml_rules.bzl", "ocaml_rules")
 load("@prelude//decls:python_rules.bzl", "python_rules")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
@@ -85,6 +86,7 @@ load("@prelude//lua:cxx_lua_extension.bzl", "cxx_lua_extension_impl")
 load("@prelude//lua:lua_binary.bzl", "lua_binary_impl")
 load("@prelude//lua:lua_library.bzl", "lua_library_impl")
 load("@prelude//matlab:matlab.bzl", _matlab_extra_attributes = "extra_attributes", _matlab_implemented_rules = "implemented_rules")
+load("@prelude//nodejs:nodejs.bzl", _nodejs_implemented_rules = "implemented_rules")
 load("@prelude//ocaml:attrs.bzl", _ocaml_extra_attributes = "ocaml_extra_attributes")
 load("@prelude//ocaml:ocaml.bzl", "ocaml_binary_impl", "ocaml_library_impl", "ocaml_object_impl", "ocaml_shared_impl", "prebuilt_ocaml_library_impl")
 load("@prelude//python:cxx_python_extension.bzl", "cxx_python_extension_impl")
@@ -116,6 +118,7 @@ _JAVA_RULES_KEY = "java"
 _JS_RULES_KEY = "js"
 _KOTLIN_RULES_KEY = "kotlin"
 _LUA_RULES_KEY = "lua"
+_NODEJS_RULES_KEY = "nodejs"
 _OCAML_RULES_KEY = "ocaml"
 _PYTHON_RULES_KEY = "python"
 _RUST_RULES_KEY = "rust"
@@ -140,6 +143,7 @@ categorized_rule_decl_records = {
     _JS_RULES_KEY: js_rules,
     _KOTLIN_RULES_KEY: kotlin_rules,
     _LUA_RULES_KEY: lua_rules,
+    _NODEJS_RULES_KEY: nodejs_rules,
     _OCAML_RULES_KEY: ocaml_rules,
     _PYTHON_RULES_KEY: python_rules,
     _RUST_RULES_KEY: rust_rules,
@@ -243,6 +247,7 @@ extra_implemented_rules = struct(
         _julia_implemented_rules,
         _kotlin_implemented_rules,
         _matlab_implemented_rules,
+        _nodejs_implemented_rules,
         _zip_file_implemented_rules,
     ]),
 )
@@ -567,6 +572,7 @@ categorized_extra_attributes = {
     _JULIA_RULES_KEY: _julia_extra_attributes,
     _KOTLIN_RULES_KEY: {},
     _MATLAB_RULES_KEY: _matlab_extra_attributes,
+    _NODEJS_RULES_KEY: {},
     _OCAML_RULES_KEY: _ocaml_extra_attributes,
     _PYTHON_RULES_KEY: _python_extra_attributes,
     _RUST_RULES_KEY: _rust_extra_attributes,
