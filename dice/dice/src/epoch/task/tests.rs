@@ -9,7 +9,9 @@
  */
 
 use std::hash::Hash;
+use std::sync::Barrier as ThreadBarrier;
 use std::task::Poll;
+use std::thread;
 
 use allocative::Allocative;
 use assert_matches::assert_matches;
@@ -23,6 +25,7 @@ use futures::pin_mut;
 use futures::poll;
 use pagable::Pagable;
 use pagable::pagable_typetag;
+use tokio::runtime::Builder;
 use tokio::sync::Barrier;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
@@ -426,8 +429,16 @@ async fn dropping_termination_observer_does_not_cancel_task() {
 
 #[tokio::test]
 async fn resident_task_shares_result_after_restart() -> anyhow::Result<()> {
-    let prepared = DiceTask::<ResidentComputedValue>::prepare_testing(DiceKey { index: 900 });
-    let task = prepared.task().clone_arc();
+    let task = DiceTask::<ResidentComputedValue>::new_idle(DiceKey { index: 900 });
+    let DiceTaskDependedOnByResult::NeedsRestart(prepared, previous) =
+        task.depended_on_by(ParentKey::None)
+    else {
+        panic!("the first dependent must start the idle task");
+    };
+    assert!(
+        previous.await_termination().await.is_none(),
+        "generation zero has no worker or result"
+    );
     let initial = spawn_prepared_task(prepared, &TokioSpawner, &(), |_handle| {
         async { futures::future::pending().await }.boxed()
     });
@@ -470,4 +481,70 @@ async fn resident_task_shares_result_after_restart() -> anyhow::Result<()> {
     };
     assert!(std::ptr::eq(first, finished));
     Ok(())
+}
+
+#[test]
+fn concurrent_dependents_start_one_idle_task() {
+    let task = DiceTask::<usize>::new_idle(DiceKey { index: 901 });
+    assert!(!task.is_pending(), "an idle task has no outstanding worker");
+    assert_eq!(task.waiters_count(), 0, "no dependent has registered yet");
+    assert_eq!(
+        task.as_ref().await_termination().now_or_never(),
+        Some(None),
+        "generation zero is already terminated without a result"
+    );
+
+    let barrier = ThreadBarrier::new(8);
+    let dependents = thread::scope(|scope| {
+        let threads = (0..8)
+            .map(|_| {
+                scope.spawn(|| {
+                    barrier.wait();
+                    task.depended_on_by(ParentKey::None)
+                })
+            })
+            .collect::<Vec<_>>();
+        threads
+            .into_iter()
+            .map(|thread| thread.join().expect("dependent thread should not panic"))
+            .collect::<Vec<_>>()
+    });
+    assert_eq!(
+        task.waiters_count(),
+        8,
+        "every thread registered a dependent"
+    );
+
+    Builder::new_current_thread()
+        .build()
+        .expect("test runtime should build")
+        .block_on(async {
+            let mut starts = 0;
+            let promises = dependents
+                .into_iter()
+                .map(|dependent| match dependent {
+                    DiceTaskDependedOnByResult::NeedsRestart(prepared, previous) => {
+                        starts += 1;
+                        spawn_prepared_task(prepared, &TokioSpawner, &(), |handle| {
+                            async move {
+                                assert!(
+                                    previous.await_termination().await.is_none(),
+                                    "the first worker has no previous result to reuse"
+                                );
+                                handle.finished(Ok(42));
+                            }
+                            .boxed()
+                        })
+                    }
+                    DiceTaskDependedOnByResult::Pending(promise) => promise,
+                    DiceTaskDependedOnByResult::Finished(_) => panic!("no worker has started yet"),
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(starts, 1, "exactly one dependent starts the idle task");
+            for promise in promises {
+                assert_eq!(*promise.await, 42, "all dependents share the worker result");
+            }
+        });
+    assert!(task.is_ready(), "the worker result remains available");
+    assert!(!task.is_pending(), "the only worker has terminated");
 }

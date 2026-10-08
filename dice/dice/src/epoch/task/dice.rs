@@ -142,8 +142,8 @@ pub(crate) struct DiceTaskInternal<T = MaybeResidentComputedValue> {
     maybe_value: OnceLock<T>,
     /// The number of things waiting on the the task.
     ///
-    /// When this is zero, the most recently started generation has been cancelled; incrementing
-    /// this `0 -> 1` requires starting a new generation.
+    /// When this is zero, the task is idle or its most recent generation has been cancelled;
+    /// incrementing this `0 -> 1` requires starting a new generation.
     ///
     /// Changing this `0 -> 1` also requires a release store (and subsequent acquire loads) so that
     /// the changes to `Critical` and other fields in this type are visible to other waiters later
@@ -258,9 +258,8 @@ impl<'d, T> PinnedDrop for TaskWaiter<'d, T> {
 pub(crate) enum DiceTaskDependedOnByResult<'d, T = MaybeResidentComputedValue> {
     Finished(&'d T),
     Pending(DicePromise<'d, T>),
-    /// The task had been cancelled and this caller won the race to restart it. The caller must
-    /// spawn the worker on the freshly prepared (next-generation) task, after awaiting termination
-    /// of the previous generation.
+    /// This caller won the race to start an idle or cancelled task. The caller must spawn the
+    /// worker after awaiting the previous generation, which is already terminated for an idle task.
     NeedsRestart(PreparedDiceTask<'d, T>, PreviouslyCancelledTask<T>),
 }
 
@@ -302,6 +301,22 @@ impl<'d, T> PreparedDiceTask<'d, T> {
 }
 
 impl<T> DiceTask<T> {
+    /// Create an idle task. Its first dependent starts it through `depended_on_by`, just as
+    /// for a cancelled task. Generation zero has no worker and is already terminated.
+    pub(crate) fn new_idle(key: DiceKey) -> Self {
+        Self {
+            internal: crate::arc::Arc::new(DiceTaskInternal {
+                key,
+                strong_count: AtomicU32::new(0),
+                started_generation: AtomicU32::new(0),
+                terminated_generation: AtomicU32::new(0),
+                maybe_value: OnceLock::new(),
+                wakers: AtomicWakerSet::new(),
+                starter_lock: Mutex::new(None),
+            }),
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn prepare_testing(key: DiceKey) -> PreparedDiceTask<'static, T>
     where
@@ -390,7 +405,7 @@ impl<'d, T> DiceTaskRef<'d, T> {
             ));
         }
 
-        // strong_count == 0: task was cancelled, need to restart it.
+        // strong_count == 0: the task is idle or cancelled and needs a new generation.
         let mut guard = self.internal.starter_lock.lock();
 
         // Now need to recheck in case we raced with something.

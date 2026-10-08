@@ -17,6 +17,7 @@ use dice_error::DiceError;
 use dice_error::DiceResult;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::is_transient_read_error;
 use parking_lot::Mutex;
 
 use crate::ActivationData;
@@ -43,6 +44,7 @@ use crate::epoch::ctx::ComputeCtx;
 use crate::epoch::ctx::EvaluationData;
 use crate::epoch::ctx::TrackedComputations;
 use crate::epoch::task::PreviouslyCancelledTask;
+use crate::epoch::task::dice::DiceTask;
 use crate::epoch::task::dice::DiceTaskDependedOnByResult;
 use crate::epoch::task::dice::PreparedDiceTask;
 use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
@@ -59,7 +61,9 @@ use crate::user_cycle::UserCycleDetectorData;
 use crate::value::DiceValidity;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::MaybeValidDiceValue;
-use crate::value::ResidentComputedValue;
+use crate::value::PageInOutcome;
+use crate::value::PageInRecovery;
+use crate::value::PagedOutValue;
 use crate::value::ResidentComputedValueRef;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -106,30 +110,6 @@ impl VersionState {
                 prepared_dice_task,
                 previously_cancelled_task,
             ) => LookupResult::NeedsRestart(prepared_dice_task, Some(previously_cancelled_task)),
-        }
-    }
-
-    /// Establish the key's revision without demanding its payload. A matched value can
-    /// remain paged out; callers that read it must subsequently call `page_in`.
-    pub(crate) fn bring_up_to_date<'d>(
-        &'d self,
-        key: DiceKey,
-        parent_key: ParentKey,
-        eval: &TransactionData,
-        cycles: UserCycleDetectorData,
-    ) -> DicePromise<'d> {
-        match self.lookup_entry(key, parent_key) {
-            LookupResult::Finished(dice_computed_value) => DicePromise::ready(dice_computed_value),
-            LookupResult::Pending(dice_promise) => dice_promise,
-            LookupResult::NeedsRestart(prepared_dice_task, previously_cancelled_task) => {
-                let eval = eval.dupe();
-
-                DiceTaskWorker::new(key, eval).spawn(
-                    prepared_dice_task,
-                    cycles,
-                    previously_cancelled_task,
-                )
-            }
         }
     }
 
@@ -197,7 +177,40 @@ pub(crate) struct TransactionData {
     pub(super) dice: StdArc<Dice>,
 }
 
+#[derive(Clone, Dupe)]
+pub(crate) struct ValueDemand {
+    pub(crate) key: DiceKey,
+    pub(crate) parent_key: ParentKey,
+    pub(crate) cycles: UserCycleDetectorData,
+}
+
 impl TransactionData {
+    /// Establish the key's revision without demanding its payload.
+    pub(crate) fn bring_up_to_date(
+        &self,
+        key: DiceKey,
+        parent_key: ParentKey,
+        cycles: UserCycleDetectorData,
+    ) -> DicePromise<'_> {
+        match self.version_state.lookup_entry(key, parent_key) {
+            LookupResult::Finished(value) => match value.recovery() {
+                Some(recovery) => self.follow_recovery(
+                    recovery,
+                    ValueDemand {
+                        key,
+                        parent_key,
+                        cycles,
+                    },
+                ),
+                None => DicePromise::ready(value),
+            },
+            LookupResult::Pending(promise) => promise,
+            LookupResult::NeedsRestart(prepared, previous) => {
+                DiceTaskWorker::new(key, self.dupe()).spawn(prepared, cycles, previous)
+            }
+        }
+    }
+
     pub(crate) fn storage_type(&self, key: DiceKey) -> StorageType {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
@@ -206,25 +219,35 @@ impl TransactionData {
         }
     }
 
-    /// Return a resident value, reading it from storage if needed. A failed read is
-    /// returned to the caller without recomputing the key.
-    pub(crate) async fn page_in<'d>(
+    /// Read the payload on demand. If its stored data cannot be read, share a normal
+    /// recomputation in this active-version cache. Transient read failures and asserted
+    /// values that cannot be recomputed keep the error path.
+    pub(crate) async fn page_in(
         &self,
-        key: DiceKey,
-        value: &'d MaybeResidentComputedValue,
-    ) -> DiceResult<ResidentComputedValueRef<'d>> {
+        demand: ValueDemand,
+    ) -> DiceResult<ResidentComputedValueRef<'_>> {
+        // Look up the descriptor here so recovery can only use this transaction's cache.
+        let value = self
+            .bring_up_to_date(demand.key, demand.parent_key, demand.cycles.dupe())
+            .await;
         let paged_out = match value.try_as_resident() {
             Ok(value) => return Ok(value),
             Err(paged_out) => paged_out,
         };
-        if let Some(outcome) = paged_out.outcome.get() {
-            return borrow_outcome(outcome);
-        }
-        let _reading = paged_out.reading.lock().await;
-        if let Some(outcome) = paged_out.outcome.get() {
-            return borrow_outcome(outcome);
-        }
+        let outcome = paged_out
+            .outcome
+            .get_or_init(|| self.read_or_create_recovery(demand.key, value, paged_out))
+            .await;
+        // Await recovery outside initialization so every demander registers its own interest.
+        self.resolve_page_in(outcome, demand).await
+    }
 
+    async fn read_or_create_recovery(
+        &self,
+        key: DiceKey,
+        value: &MaybeResidentComputedValue,
+        paged_out: &PagedOutValue,
+    ) -> PageInOutcome {
         let storage = self
             .dice
             .pagable_storage
@@ -247,14 +270,63 @@ impl TransactionData {
                 }
                 Ok(value.paged_in(resident))
             }
-            Err(error) => Err(self.page_in_failed(key, error)),
+            Err(error) => {
+                self.hydration_failed(key, &error);
+                if !is_transient_read_error(&error)
+                    && let Some(epsilon) = self
+                        .dice
+                        .state_handle
+                        .recovery_epsilon(VersionedGraphKey::new(
+                            self.version_state.get_version(),
+                            key,
+                        ))
+                        .await
+                {
+                    return PageInOutcome::Recompute(PageInRecovery {
+                        task: DiceTask::new_idle(key),
+                        epsilon,
+                    });
+                }
+                Err(self.page_in_failed(key, error))
+            }
         };
-        borrow_outcome(paged_out.outcome.get_or_init(|| outcome))
+        PageInOutcome::Read(outcome)
+    }
+
+    fn follow_recovery<'d>(
+        &self,
+        recovery: &'d PageInRecovery,
+        demand: ValueDemand,
+    ) -> DicePromise<'d> {
+        match recovery.task.as_ref().depended_on_by(demand.parent_key) {
+            DiceTaskDependedOnByResult::Finished(value) => DicePromise::ready(value),
+            DiceTaskDependedOnByResult::Pending(promise) => promise,
+            DiceTaskDependedOnByResult::NeedsRestart(prepared, previous) => {
+                DiceTaskWorker::new_recompute(demand.key, self.dupe(), recovery.epsilon).spawn(
+                    prepared,
+                    demand.cycles,
+                    Some(previous),
+                )
+            }
+        }
+    }
+
+    async fn resolve_page_in<'d>(
+        &self,
+        outcome: &'d PageInOutcome,
+        demand: ValueDemand,
+    ) -> DiceResult<ResidentComputedValueRef<'d>> {
+        match outcome {
+            PageInOutcome::Read(Ok(resident)) => Ok(resident.as_ref()),
+            PageInOutcome::Read(Err(error)) => Err(error.dupe()),
+            PageInOutcome::Recompute(recovery) => Ok(recovered_value(
+                self.follow_recovery(recovery, demand).await,
+            )),
+        }
     }
 
     #[cold]
     fn page_in_failed(&self, key: DiceKey, error: anyhow::Error) -> DiceError {
-        self.hydration_failed(key, &error);
         DiceError::page_in_failed(
             self.dice.key_index.get(key).to_string(),
             error.into_boxed_dyn_error(),
@@ -327,19 +399,14 @@ impl TransactionData {
                 //  2. It's completely unclear why we're ok with this kind of discrepency between
                 //     the recompute and normal cases.
                 //  3. This is insanity.
-                let base = self
-                    .version_state
-                    .bring_up_to_date(
-                        proj.base(),
-                        ParentKey::Some(key), // the projection requests its base
-                        self,
-                        cycles.subrequest(proj.base(), &self.dice.key_index),
-                    )
-                    .await;
                 // `check_dependency`, the only caller that brings a projection key up to date,
                 // does so only once the base's value is resident.
                 let base = self
-                    .page_in(proj.base(), base)
+                    .page_in(ValueDemand {
+                        key: proj.base(),
+                        parent_key: ParentKey::Some(key), // the projection requests its base
+                        cycles: cycles.subrequest(proj.base(), &self.dice.key_index),
+                    })
                     .await
                     .expect("dependency checks make a projection's base resident first");
                 let result = self.evaluate_projection(
@@ -505,11 +572,9 @@ pub(crate) struct KeyEvaluationResult {
     pub(crate) invalidation_paths: TrackedInvalidationPaths,
 }
 
-fn borrow_outcome(
-    outcome: &DiceResult<ResidentComputedValue>,
-) -> DiceResult<ResidentComputedValueRef<'_>> {
-    match outcome {
-        Ok(resident) => Ok(resident.as_ref()),
-        Err(error) => Err(error.dupe()),
+fn recovered_value(value: &MaybeResidentComputedValue) -> ResidentComputedValueRef<'_> {
+    match value.try_as_resident() {
+        Ok(resident) => resident,
+        Err(_) => unreachable!("recovery computes a resident value rather than reusing storage"),
     }
 }

@@ -245,6 +245,16 @@ impl CoreStateHandle {
         self.call(StateRequest::LookupKey { key, resp }, recv)
     }
 
+    /// Get the untracked-input revision for demand recovery, or `None` for an asserted key
+    /// whose value cannot be replaced by a computation. Only failed demand reads need this.
+    pub(crate) fn recovery_epsilon(
+        &self,
+        key: VersionedGraphKey,
+    ) -> impl Future<Output = Option<EpsilonToken>> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::RecoveryEpsilon { key, resp }, recv)
+    }
+
     /// Report that a value has been computed. `epsilon` is the revision of the key's
     /// untracked input that the lookup preceding the computation handed out.
     pub(crate) fn update_computed(
@@ -501,6 +511,10 @@ pub(super) enum StateRequest {
     LookupKey {
         key: VersionedGraphKey,
         resp: Sender<VersionedGraphResult>,
+    },
+    RecoveryEpsilon {
+        key: VersionedGraphKey,
+        resp: Sender<Option<EpsilonToken>>,
     },
     /// Report that a value has been computed
     UpdateComputed {

@@ -11,6 +11,7 @@
 //! End-to-end tests for `Dice::page_out` and the worker's page-in step.
 
 use std::collections::BTreeSet;
+use std::ptr;
 use std::sync::Arc;
 use std::sync::Condvar;
 use std::sync::Mutex;
@@ -34,6 +35,7 @@ use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use pagable::PartialPagableArc;
+use pagable::ReadRefused;
 use pagable::arc_erase::ArcErase;
 use pagable::arc_erase::ArcEraseDyn;
 use pagable::pagable_typetag;
@@ -70,10 +72,22 @@ use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::arc::Arc as DiceArc;
+use crate::core::graph::revision::EpsilonToken;
+use crate::core::graph::revision::Revision;
 use crate::dice::Dice;
+use crate::epoch::cache::SharedCache;
 use crate::epoch::evaluator::TransactionData;
+use crate::epoch::evaluator::ValueDemand;
+use crate::epoch::evaluator::VersionState;
+use crate::epoch::task::dice::testing_helpers::make_completed_task;
+use crate::epoch::task::dice::testing_helpers::make_completed_task_with_computed_value;
 use crate::key::ParentKey;
 use crate::user_cycle::UserCycleDetectorData;
+use crate::value::MaybeResident;
+use crate::value::MaybeResidentComputedValue;
+use crate::value::PageInOutcome;
+use crate::value::PageInRecovery;
+use crate::value::TrackedInvalidationPaths;
 
 /// Per-test compute counter, injected via `UserComputationData` so tests don't share state.
 #[derive(Clone, Dupe)]
@@ -418,7 +432,9 @@ impl ValueSerialize for UnreadableValueSerialize {
         &self,
         _deserializer: &mut D,
     ) -> pagable::Result<u64> {
-        Err(anyhow::anyhow!("simulated unreadable value"))
+        // A refusal is not corrupt data: it must still reach the caller rather than starting
+        // recovery. These fixtures exercise failure propagation and transient dependencies.
+        Err(ReadRefused("simulated unreadable value").into())
     }
 }
 
@@ -1624,6 +1640,154 @@ async fn spawned_read_failure_is_not_cached() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn equal_revisions_get_distinct_paged_out_descriptors_across_versions() -> anyhow::Result<()>
+{
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+    let counter = ComputeCounter::new();
+    let initial = dice
+        .updater_with_data(user_data_with_counter(&counter))
+        .commit()
+        .await;
+    assert_eq!(*initial.compute(&PagableKey(1)).await?, 100);
+    drop(initial);
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let old = dice.updater().commit().await;
+    let (old_state, _old_guard) = dice.testing_shared_ctx(old.0.get_version()).await;
+    let old_eval = TransactionData {
+        version_state: old_state.dupe(),
+        user_data: DiceArc::new(user_data_with_counter(&counter)),
+        dice: dice.dupe(),
+    };
+    let key = dice.key_index.index_key(PagableKey(1));
+    let old_value = old_eval
+        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
+        .await;
+    let old_descriptor = old_value
+        .try_as_resident()
+        .err()
+        .expect("value was paged out");
+    let copy = old_value.dupe();
+    assert!(ptr::eq(
+        old_descriptor,
+        copy.try_as_resident().err().unwrap()
+    ));
+
+    // Only an unrelated input changes. The graph reuses the revision and serialized data.
+    let mut updater = dice.updater();
+    updater.changed_to([(DeferredInput(0), 1)])?;
+    let new = updater.commit().await;
+    assert_ne!(old.version(), new.version());
+    let (new_state, _new_guard) = dice.testing_shared_ctx(new.0.get_version()).await;
+    let new_eval = TransactionData {
+        version_state: new_state.dupe(),
+        user_data: DiceArc::new(user_data_with_counter(&counter)),
+        dice: dice.dupe(),
+    };
+    let new_value = new_eval
+        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
+        .await;
+    let new_descriptor = new_value
+        .try_as_resident()
+        .err()
+        .expect("no demand has read the data");
+    assert!(old_value.revision().is_some());
+    assert_eq!(old_value.revision(), new_value.revision());
+    assert_eq!(old_descriptor.data_key, new_descriptor.data_key);
+    assert!(
+        !ptr::eq(old_descriptor, new_descriptor),
+        "paging state must not cross caches"
+    );
+    assert!(old_descriptor.outcome.get().is_none());
+    assert!(new_descriptor.outcome.get().is_none());
+    assert_eq!(counter.count(), 1, "both versions reused the graph value");
+
+    let read = old_eval
+        .page_in(ValueDemand {
+            key,
+            parent_key: ParentKey::None,
+            cycles: UserCycleDetectorData::testing_new(),
+        })
+        .await?;
+    let resident = old_value
+        .try_as_resident()
+        .ok()
+        .expect("hydrated values must be available to the resident fast path");
+    assert!(ptr::eq(read.value(), resident.value()));
+    assert!(ptr::eq(
+        read.invalidation_paths(),
+        resident.invalidation_paths()
+    ));
+    assert_eq!(read.revision(), resident.revision());
+    assert!(copy.try_as_resident().is_ok());
+    assert!(new_value.try_as_resident().is_err());
+    Ok(())
+}
+
+#[tokio::test]
+async fn recovery_demands_use_the_transaction_cache() {
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let tx = dice.updater().commit().await;
+    let key = dice.key_index.index_key(PagableKey(1));
+    let new_eval = || {
+        let cache = SharedCache::new();
+        let value = MaybeResidentComputedValue::new(
+            MaybeResident::PagedOut(DataKey::compute(0, b"owner-check", &[])),
+            TrackedInvalidationPaths::clean(),
+            Revision::FIRST,
+        );
+        cache.testing_insert_task(key, make_completed_task_with_computed_value(key, value));
+        TransactionData {
+            version_state: VersionState::new(tx.0.get_version(), cache),
+            user_data: DiceArc::new(UserComputationData::new()),
+            dice: dice.dupe(),
+        }
+    };
+    let first_eval = new_eval();
+    let second_eval = new_eval();
+
+    // Same key, version and serialized data, but distinct cache-local recoveries.
+    for (eval, recovered) in [(&first_eval, 100), (&second_eval, 200)] {
+        let value = eval
+            .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
+            .await;
+        let descriptor = value.try_as_resident().err().expect("paged out");
+        assert!(
+            descriptor
+                .outcome
+                .set(PageInOutcome::Recompute(PageInRecovery {
+                    task: make_completed_task::<PagableKey>(key, recovered),
+                    epsilon: EpsilonToken::INITIAL,
+                }))
+                .is_ok()
+        );
+        assert!(
+            value.try_as_resident().is_err(),
+            "recomputed metadata must still be resolved through recovery"
+        );
+    }
+    for (eval, expected) in [(&first_eval, 100), (&second_eval, 200)] {
+        assert_eq!(
+            eval.page_in(ValueDemand {
+                key,
+                parent_key: ParentKey::None,
+                cycles: UserCycleDetectorData::testing_new(),
+            })
+            .await
+            .unwrap()
+            .value()
+            .downcast_maybe_transient::<u64>(),
+            Some(&expected)
+        );
+    }
+}
+
+#[tokio::test]
 async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()> {
     let tmp = tempdir()?;
     let dice = make_dice(DiceStorage::open(
@@ -1653,13 +1817,8 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
         dice: dice.dupe(),
     };
     let key = dice.key_index.index_key(UnreadableValidatedKey);
-    let validated = version_state
-        .bring_up_to_date(
-            key,
-            ParentKey::None,
-            &eval,
-            UserCycleDetectorData::testing_new(),
-        )
+    let validated = eval
+        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
         .await;
     assert!(validated.try_as_resident().is_err());
     assert_eq!(
@@ -1677,7 +1836,14 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
         [true]
     );
 
-    let error = match eval.page_in(key, validated).await {
+    let error = match eval
+        .page_in(ValueDemand {
+            key,
+            parent_key: ParentKey::None,
+            cycles: UserCycleDetectorData::testing_new(),
+        })
+        .await
+    {
         Ok(_) => panic!("unreadable value"),
         Err(error) => error,
     };
@@ -1693,13 +1859,8 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
         [true],
         "a failed read must not activate the key again"
     );
-    let checked = version_state
-        .bring_up_to_date(
-            key,
-            ParentKey::None,
-            &eval,
-            UserCycleDetectorData::testing_new(),
-        )
+    let checked = eval
+        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
         .await;
     assert!(std::ptr::eq(validated, checked));
     Ok(())

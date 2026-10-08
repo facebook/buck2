@@ -227,9 +227,20 @@ impl SharedCache {
             .data
             .storage
             .iter()
-            .filter_map(|entry| {
+            .flat_map(|entry| {
                 let task = DiceTaskRef { internal: entry };
-                task.is_pending().then(|| task.clone_arc())
+                // Check the original task first: it may finish and publish a descriptor
+                // whose recovery starts while this scan is in progress.
+                let pending = task.is_pending().then(|| task.clone_arc());
+                let recovery = task
+                    .get_finished_value()
+                    .and_then(MaybeResidentComputedValue::recovery)
+                    .map(|recovery| recovery.task.as_ref())
+                    .filter(|task| task.is_pending())
+                    .map(|task| task.clone_arc());
+                // The ordinary lookup can be finished while its demanded payload is still
+                // being recomputed, including while cancellation waits on a critical section.
+                [pending, recovery].into_iter().flatten()
             })
             .collect();
         for t in self.data.projection_storage.iter() {
@@ -257,6 +268,10 @@ pub(crate) mod introspection {
         pub(crate) fn iter_tasks(&self) -> impl Iterator<Item = (DiceKey, DiceTaskState)> {
             let regular = self.data.storage.iter().map(|entry| {
                 let task = DiceTaskRef { internal: entry };
+                let task = task
+                    .get_finished_value()
+                    .and_then(|value| value.recovery())
+                    .map_or(task, |recovery| recovery.task.as_ref());
                 (entry.key, task.introspect_state())
             });
             let projection = self

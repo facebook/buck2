@@ -53,6 +53,7 @@ use crate::epoch::branches::LinearRecomputeArena;
 use crate::epoch::branches::ParallelArena;
 use crate::epoch::branches::ParallelBranchFuture;
 use crate::epoch::evaluator::TransactionData;
+use crate::epoch::evaluator::ValueDemand;
 use crate::epoch::evaluator::VersionState;
 use crate::epoch::task::promise::DicePromise;
 use crate::key::CowDiceKeyHashed;
@@ -61,6 +62,7 @@ use crate::key::ParentKey;
 use crate::opaque::OpaqueValue;
 use crate::updater::ActiveTransactionGuard;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
+use crate::user_cycle::UserCycleDetectorData;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -695,18 +697,18 @@ impl ComputeCtx {
             .key_index
             .index(CowDiceKeyHashed::key_ref(key));
 
-        let promise = self.transaction_data.version_state.bring_up_to_date(
-            dice_key,
-            self.parent_key,
-            &self.transaction_data,
-            self.cycles
-                .subrequest(dice_key, &self.transaction_data.dice.key_index),
-        );
+        let cycles = self
+            .cycles
+            .subrequest(dice_key, &self.transaction_data.dice.key_index);
+        let promise =
+            self.transaction_data
+                .bring_up_to_date(dice_key, self.parent_key, cycles.dupe());
         ComputeOpaqueFuture {
             state: ComputeOpaqueState::UpToDate {
                 promise,
                 compute: self,
                 key: dice_key,
+                cycles,
             },
         }
     }
@@ -714,12 +716,16 @@ impl ComputeCtx {
     fn page_in_opaque<'d, K: Key>(
         &'d self,
         key: DiceKey,
-        value: &'d MaybeResidentComputedValue,
+        cycles: UserCycleDetectorData,
     ) -> BoxFuture<'d, DiceResult<OpaqueValue<'d, K>>> {
         async move {
             let value = self
                 .transaction_data
-                .page_in(key, value)
+                .page_in(ValueDemand {
+                    key,
+                    parent_key: self.parent_key,
+                    cycles,
+                })
                 .await
                 .inspect_err(|_| self.record_dependency_failure())?;
             Ok(OpaqueValue::new(
@@ -796,6 +802,7 @@ enum ComputeOpaqueState<'d, K: Key> {
         promise: DicePromise<'d>,
         compute: &'d ComputeCtx,
         key: DiceKey,
+        cycles: UserCycleDetectorData,
     },
     PagingIn {
         #[pin]
@@ -820,19 +827,20 @@ impl<'d, K: Key> Future for ComputeOpaqueFuture<'d, K> {
                     promise,
                     compute,
                     key,
+                    cycles,
                 } => {
                     let value = std::task::ready!(promise.poll(cx));
-                    if let Some(resident) = value.resident_value() {
+                    if let Ok(resident) = value.try_as_resident() {
                         // Return from the poll that produced the resident value; the hot path
                         // needs neither a boxed future nor another future state transition.
                         return Poll::Ready(Ok(OpaqueValue::new(
                             *key,
-                            resident,
-                            value.revision(),
-                            value.invalidation_paths(),
+                            resident.value(),
+                            resident.revision(),
+                            resident.invalidation_paths(),
                         )));
                     }
-                    let future = compute.page_in_opaque(*key, value);
+                    let future = compute.page_in_opaque(*key, cycles.dupe());
                     this.state.set(ComputeOpaqueState::PagingIn { future });
                 }
                 ComputeOpaqueStateProj::PagingIn { future } => return future.poll(cx),

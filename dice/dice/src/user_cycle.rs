@@ -22,6 +22,9 @@ use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key_index::DiceKeyIndex;
 
+/// The dependency edge is recorded before this token is created. Copies let lookup and
+/// demand recovery start workers for that edge without recording it again.
+#[derive(Clone, Dupe)]
 pub(crate) struct UserCycleDetectorData(());
 
 impl UserCycleDetectorData {

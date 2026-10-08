@@ -12,20 +12,22 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::sync::Arc as StdArc;
-use std::sync::OnceLock;
 
 use allocative::Allocative;
 use dice_error::DiceResult;
 use dupe::Dupe;
 use mini_vec::packed_ptr::PackedPtr;
 use pagable::DataKey;
+use tokio::sync::OnceCell;
 
 use crate::Key;
 use crate::ProjectionKey;
 use crate::api::key::EqualityBehavior;
 use crate::api::key::InvalidationSourcePriority;
 use crate::arc::Arc;
+use crate::core::graph::revision::EpsilonToken;
 use crate::core::graph::revision::Revision;
+use crate::epoch::task::dice::DiceTask;
 use crate::key::DiceKey;
 use crate::versions::VersionNumber;
 
@@ -286,8 +288,7 @@ impl MaybeResidentDiceValue {
             MaybeResident::Resident(value) => Self::Resident(value),
             MaybeResident::PagedOut(data_key) => Self::PagedOut(Arc::new(PagedOutValue {
                 data_key,
-                outcome: OnceLock::new(),
-                reading: tokio::sync::Mutex::new(()),
+                outcome: OnceCell::new(),
             })),
         }
     }
@@ -300,17 +301,27 @@ impl MaybeResidentDiceValue {
     }
 }
 
-/// Shared by every copy of a paged-out task result, so the value is read at most once per
-/// transaction, and a successfully read value stays alive for references borrowed from the task.
+/// Shared by every copy of a paged-out task result in an active-version cache. Reads and
+/// recovery are coalesced, and their results stay alive for references borrowed from the task.
 #[derive(Allocative)]
 pub(crate) struct PagedOutValue {
     pub(crate) data_key: DataKey,
-    /// The outcome of the read, including a failure, which later demands in this transaction
-    /// receive instead of reading again.
-    pub(crate) outcome: OnceLock<DiceResult<ResidentComputedValue>>,
-    /// Held while reading, so concurrent demands wait for one read.
     #[allocative(skip)]
-    pub(crate) reading: tokio::sync::Mutex<()>,
+    pub(crate) outcome: OnceCell<PageInOutcome>,
+}
+
+#[derive(Allocative)]
+pub(crate) enum PageInOutcome {
+    Read(DiceResult<ResidentComputedValue>),
+    Recompute(PageInRecovery),
+}
+
+/// Owned by the paged-out descriptor, not a second task registry. The ordinary task's result
+/// keeps this reachable for both subsequent lookups and cache draining.
+#[derive(Allocative)]
+pub(crate) struct PageInRecovery {
+    pub(crate) task: DiceTask,
+    pub(crate) epsilon: EpsilonToken,
 }
 
 #[derive(Allocative, Debug, Clone, Dupe, PartialEq, Eq)]
@@ -515,11 +526,14 @@ impl MaybeResidentComputedValue {
         ResidentComputedValue::new_for_transient(value, invalidation_paths).into_computed()
     }
 
-    /// The payload, or `None` if the value is still paged out.
+    /// Borrow the original resident representation, without following page-in outcomes.
+    /// Use `try_as_resident` to also borrow successfully hydrated values.
     pub(crate) fn resident_value(&self) -> Option<&MaybeValidDiceValue> {
         self.value.resident_value()
     }
 
+    /// Borrow an original or successfully hydrated result. Recovery is followed separately
+    /// because it can change the result's revision.
     pub(crate) fn try_as_resident(&self) -> Result<ResidentComputedValueRef<'_>, &PagedOutValue> {
         match &self.value {
             MaybeResidentDiceValue::Resident(value) => Ok(ResidentComputedValueRef {
@@ -527,7 +541,10 @@ impl MaybeResidentComputedValue {
                 invalidation_paths: &self.invalidation_paths,
                 revision: self.revision,
             }),
-            MaybeResidentDiceValue::PagedOut(value) => Err(value),
+            MaybeResidentDiceValue::PagedOut(paged_out) => match paged_out.outcome.get() {
+                Some(PageInOutcome::Read(Ok(value))) => Ok(value.as_ref()),
+                _ => Err(paged_out),
+            },
         }
     }
 
@@ -541,7 +558,22 @@ impl MaybeResidentComputedValue {
     pub(crate) fn has_resident_value(&self) -> bool {
         match self.try_as_resident() {
             Ok(_) => true,
-            Err(paged_out) => matches!(paged_out.outcome.get(), Some(Ok(_))),
+            Err(paged_out) => match paged_out.outcome.get() {
+                Some(PageInOutcome::Read(Ok(_))) => true,
+                Some(PageInOutcome::Recompute(recovery)) => {
+                    recovery.task.as_ref().get_finished_value().is_some()
+                }
+                _ => false,
+            },
+        }
+    }
+
+    /// Recovery can produce a different revision or a transient value. Later dependency
+    /// checks must follow it rather than continuing to use this descriptor's old metadata.
+    pub(crate) fn recovery(&self) -> Option<&PageInRecovery> {
+        match self.try_as_resident().err()?.outcome.get()? {
+            PageInOutcome::Recompute(recovery) => Some(recovery),
+            PageInOutcome::Read(_) => None,
         }
     }
 }

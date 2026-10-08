@@ -27,6 +27,7 @@ use itertools::Either;
 use crate::DynKey;
 use crate::api::activation_tracker::ActivationData;
 use crate::api::activation_tracker::PageInPhase;
+use crate::core::graph::revision::EpsilonToken;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
 use crate::core::state::CoreStateHandle;
@@ -35,6 +36,7 @@ use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::epoch::cache::ProjectionValidation;
 use crate::epoch::evaluator::TransactionData;
+use crate::epoch::evaluator::ValueDemand;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::dice::PreparedDiceTask;
 use crate::epoch::task::dice::spawn_prepared_task;
@@ -76,11 +78,30 @@ pub(crate) type WorkerResult<T> = Result<T, WorkerCancelled>;
 pub(crate) struct DiceTaskWorker {
     k: DiceKey,
     eval: TransactionData,
+    mode: DiceTaskMode,
+}
+
+enum DiceTaskMode {
+    Lookup,
+    /// A failed demand already ruled out reuse. Run the normal compute/write path directly.
+    Recompute(EpsilonToken),
 }
 
 impl DiceTaskWorker {
     pub(crate) fn new(k: DiceKey, eval: TransactionData) -> Self {
-        Self { k, eval }
+        Self {
+            k,
+            eval,
+            mode: DiceTaskMode::Lookup,
+        }
+    }
+
+    pub(crate) fn new_recompute(k: DiceKey, eval: TransactionData, epsilon: EpsilonToken) -> Self {
+        Self {
+            k,
+            eval,
+            mode: DiceTaskMode::Recompute(epsilon),
+        }
     }
 
     pub(crate) fn spawn<'d>(
@@ -130,16 +151,18 @@ impl DiceTaskWorker {
     ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
         let v = self.eval.version_state.get_version();
 
-        let state_result = state_handle
-            .lookup_key(VersionedGraphKey::new(v, self.k))
-            .await;
-
         // handle cancelled/cache hits before sending started events
-        let (candidate, epsilon) = match state_result {
-            VersionedGraphResult::Match { value } => {
-                return task_state.lookup_matches(cancellations, value);
-            }
-            VersionedGraphResult::Unknown { candidate, epsilon } => (candidate, epsilon),
+        let (candidate, epsilon) = match self.mode {
+            DiceTaskMode::Lookup => match state_handle
+                .lookup_key(VersionedGraphKey::new(v, self.k))
+                .await
+            {
+                VersionedGraphResult::Match { value } => {
+                    return task_state.lookup_matches(cancellations, value);
+                }
+                VersionedGraphResult::Unknown { candidate, epsilon } => (candidate, epsilon),
+            },
+            DiceTaskMode::Recompute(epsilon) => (None, epsilon),
         };
 
         self.eval.started(self.k);
@@ -425,15 +448,15 @@ async fn check_dependency(
     // A projection task recomputes the projection from its base's value and cannot fail, so a
     // base that would have to be read is read here, where a failed read has an answer.
     if let DiceKeyErased::Projection(proj) = eval.dice.key_index.get(edge.key) {
+        let base_cycles = cycles.subrequest(proj.base(), &eval.dice.key_index);
         let base = eval
-            .version_state
-            .bring_up_to_date(
-                proj.base(),
-                ParentKey::Some(edge.key),
-                eval,
-                cycles.subrequest(proj.base(), &eval.dice.key_index),
-            )
+            .bring_up_to_date(proj.base(), ParentKey::Some(edge.key), base_cycles.dupe())
             .await;
+        // A demand recovery may have produced a transient base without changing the core
+        // graph. Its old projection certificate is not evidence for this epoch's result.
+        if base.revision().is_none() {
+            return CheckDependencyResult::Changed;
+        }
         if !base.has_resident_value() {
             let validation = eval
                 .version_state
@@ -446,9 +469,17 @@ async fn check_dependency(
                     return compare_revision(&projection, &edge);
                 }
                 ProjectionValidation::NeedsRecompute => {
-                    if eval.page_in(proj.base(), base).await.is_err() {
-                        // The projection may have changed. The parent's recompute demands the
-                        // base and receives the read error.
+                    if !eval
+                        .page_in(ValueDemand {
+                            key: proj.base(),
+                            parent_key: ParentKey::Some(edge.key),
+                            cycles: base_cycles,
+                        })
+                        .await
+                        .is_ok_and(|base| base.revision().is_some())
+                    {
+                        // The parent's recompute must observe the base's read failure or
+                        // transient recovery, rather than validate against its old projection.
                         return CheckDependencyResult::Changed;
                     }
                 }
@@ -457,11 +488,9 @@ async fn check_dependency(
     }
 
     let dep_result = eval
-        .version_state
         .bring_up_to_date(
             edge.key,
             parent_key,
-            eval,
             cycles.subrequest(edge.key, &eval.dice.key_index),
         )
         .await;

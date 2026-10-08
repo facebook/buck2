@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -178,6 +180,42 @@ async def test_incremental_build_after_page_out(
     )
     (buck.cwd / "src.txt").write_text("content-2\n")
     assert _output(await _build(buck)) == "content-2\n"
+
+
+@buck_test(
+    data_dir="paging",
+    write_invocation_record=True,
+    allow_soft_errors=True,
+    extra_buck_config={
+        "buck2": {"restarter": "true"},
+        "buck2_hydration": {"pagable_storage_backend": "sqlite"},
+    },
+)
+async def test_failed_demand_page_in_recomputes_without_restart(buck: Buck) -> None:
+    _disable_idle_page_out(buck)
+    storage_dir = buck.cwd / "paging-storage"
+    storage_env = {"BUCK2_DICE_DB_PATH": str(storage_dir)}
+    (buck.cwd / "src.txt").write_text("content-0\n")
+    assert _output(await buck.build("//:mysrcrule", env=storage_env)) == "content-0\n"
+    await _page_out(buck)
+    assert await _paged_out_count(buck) > 0
+
+    # Remove only this test daemon's stored values, leaving its in-memory graph
+    # pointing at missing rows. Demanding these values must recompute them in
+    # this daemon, without restarting the command.
+    databases = list(storage_dir.glob("pagable.*.db"))
+    assert databases, "expected the test daemon's SQLite paging storage"
+    removed = 0
+    for path in databases:
+        with closing(sqlite3.connect(f"file:{path}?mode=rw", uri=True)) as connection:
+            removed += connection.execute("DELETE FROM pagable_data").rowcount
+            connection.commit()
+    assert removed > 0, "the test must remove stored values"
+
+    result = await buck.build("//:mysrcrule", env=storage_env)
+    assert "Your command will now restart" not in result.stderr
+    assert result.invocation_record().get("restarted_trace_id") is None
+    assert _output(result) == "content-0\n"
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)

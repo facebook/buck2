@@ -431,6 +431,20 @@ impl VersionedGraph {
         }
     }
 
+    /// Inputs for demand recovery, without returning the unreadable cached value again.
+    /// Asserted keys, including ordinary `Key`s set with `changed_to`, cannot be repaired by
+    /// a compute: their asserted value is authoritative and the core forbids writing a claim.
+    pub(crate) fn recovery_epsilon(&self, at: VersionedGraphKey) -> Option<EpsilonToken> {
+        if self.core.is_asserted(at.k) {
+            return None;
+        }
+        Some(if self.core.is_live(at.v.branch()) {
+            self.core.epsilon(at.k, at.v)
+        } else {
+            EpsilonToken::INITIAL
+        })
+    }
+
     /// Writes a value computed by a transaction at `at.v`.
     /// Returns the canonical resident instance for the revision.
     pub(crate) fn update_computed(

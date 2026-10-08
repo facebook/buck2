@@ -16,6 +16,7 @@ use crate::api::storage_type::StorageType;
 use crate::core::graph::ComputedValueUpdate;
 use crate::core::graph::VersionedGraph;
 use crate::core::graph::introspection::VersionedGraphIntrospectable;
+use crate::core::graph::revision::EpsilonToken;
 use crate::core::graph::types::Candidate;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
@@ -106,6 +107,10 @@ impl ActorState {
 
     pub(super) fn lookup_key(&mut self, key: VersionedGraphKey) -> VersionedGraphResult {
         self.graph.get(key)
+    }
+
+    pub(super) fn recovery_epsilon(&self, key: VersionedGraphKey) -> Option<EpsilonToken> {
+        self.graph.recovery_epsilon(key)
     }
 
     pub(super) fn update_computed(
