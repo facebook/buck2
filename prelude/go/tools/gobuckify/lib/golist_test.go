@@ -37,23 +37,25 @@ func writeGoMod(t *testing.T, content string) string {
 	return p
 }
 
-// The module name is the second word of the first line, whatever that line is.
-func TestModuleNameIsTakenFromTheFirstLineOnly(t *testing.T) {
-	cases := []struct{ content, want string }{
-		{"// the root module\nmodule example.com/root\n", "the root module"},
-		{"module \"example.com/root\"\n", "\"example.com/root\""},
-		{"module example.com/root // the root module\n", "example.com/root // the root module"},
-	}
-	for _, c := range cases {
-		got, err := ReadModuleName(writeGoMod(t, c.content))
+// The module name comes from the `module` directive, wherever it is and however
+// it is quoted or commented.
+func TestModuleNameIsTakenFromTheModuleDirective(t *testing.T) {
+	for _, content := range []string{
+		"// the root module\nmodule example.com/root\n",
+		"module \"example.com/root\"\n",
+		"module example.com/root // the root module\n",
+		"\nmodule example.com/root\n",
+		"module\texample.com/root\n",
+	} {
+		got, err := ReadModuleName(writeGoMod(t, content))
 		if err != nil {
-			t.Fatalf("%q: %v", c.content, err)
+			t.Fatalf("%q: %v", content, err)
 		}
-		if got != c.want {
-			t.Fatalf("%q: got %q, want %q", c.content, got, c.want)
+		if got != "example.com/root" {
+			t.Fatalf("%q: got %q", content, got)
 		}
 	}
-	if _, err := ReadModuleName(writeGoMod(t, "\nmodule example.com/root\n")); err == nil {
-		t.Fatal("a leading blank line was accepted")
+	if _, err := ReadModuleName(writeGoMod(t, "go 1.24\n")); err == nil {
+		t.Fatal("a go.mod without a module directive was accepted")
 	}
 }

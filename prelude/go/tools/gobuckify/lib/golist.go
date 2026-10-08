@@ -13,16 +13,20 @@ package gobuckifylib
 import (
 	"bufio"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"os/exec"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
 )
+
+// moduleDirective matches the `module` directive of a go.mod file, whose module
+// path may be double-quoted.
+var moduleDirective = regexp.MustCompile(`^\s*module\s+"?([^\s"]+)"?`)
 
 // Module represents a Go module from go list output
 type Module struct {
@@ -123,6 +127,8 @@ func isRootModulePackage(importPath, rootModuleName string) bool {
 	return importPath == rootModuleName || strings.HasPrefix(importPath, rootModuleName+"/")
 }
 
+// ReadModuleName returns the module path declared by the `module` directive of the
+// go.mod file at path.
 func ReadModuleName(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -130,16 +136,17 @@ func ReadModuleName(path string) (string, error) {
 	}
 	defer f.Close()
 
-	reader := bufio.NewReader(f)
-	line, err := reader.ReadString('\n')
-	if err != nil && !errors.Is(err, io.EOF) {
-		return "", fmt.Errorf("failed to read first line: %w", err)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line, _, _ := strings.Cut(scanner.Text(), "//")
+		if m := moduleDirective.FindStringSubmatch(line); m != nil {
+			return m[1], nil
+		}
 	}
-	parts := strings.SplitN(strings.TrimSpace(line), " ", 2)
-	if len(parts) != 2 {
-		return "", fmt.Errorf("failed to parse first line: %s", line)
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("failed to read %s: %w", path, err)
 	}
-	return parts[1], nil
+	return "", fmt.Errorf("no module directive in %s", path)
 }
 
 // CollectPackagesResult contains the results of collecting packages from go list
