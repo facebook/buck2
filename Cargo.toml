@@ -162,6 +162,7 @@ members = [
   "gazebo/dupe_derive",
   "gazebo/gazebo",
   "gazebo/gazebo_derive",
+  "gazebo/hmap",
   "gazebo/strong_hash",
   "gazebo/strong_hash_derive",
   "gazebo/strong_hash_tests",
