@@ -223,8 +223,23 @@ java_binary = prelude_rule(
             ),
             "concat_deps": attrs.bool(default = False, doc = "Use zip concatenation instead of repacking all dependency jars, which is faster"),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
-            "generate_wrapper": attrs.bool(default = False),
-            "do_not_create_inner_jar": attrs.bool(default = False),
+            "generate_wrapper": attrs.bool(
+                default = False,
+                doc = """
+                Produce a shell script that runs the classes from a classpath file instead of
+                packing them into a fat jar. With native libraries the output is still a fat
+                jar, since a script has nowhere to put them.
+            """,
+            ),
+            "do_not_create_inner_jar": attrs.bool(
+                default = False,
+                doc = """
+                With native libraries, place them in a `nativelibs/` directory of the fat jar
+                and load them from resources, instead of nesting the classes in an `inner.jar`
+                behind a launcher main class. Entries then pass through `blocklist`. Cannot be
+                combined with `generate_wrapper`.
+            """,
+            ),
             "incremental_target_prefix": attrs.option(attrs.string(), default = None),
             "java_version": attrs.option(attrs.string(), default = None, doc = "Expected java version used at compile time"),
             "java_runtime": attrs.option(attrs.string(), default = None, doc = "Expected java version used at runtime"),
