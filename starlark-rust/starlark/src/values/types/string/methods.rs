@@ -932,6 +932,11 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos, default = NoneOr::None)] maxsplit: NoneOr<i32>,
         heap: Heap<'v>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, UnpackList<String>>> {
+        if sep.into_option() == Some("") {
+            return Err(anyhow::anyhow!(
+                "Empty separator cannot be used for splitting"
+            ));
+        }
         let maxsplit = match maxsplit.into_option() {
             None => None,
             Some(v) => {
@@ -1031,6 +1036,11 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos, default = NoneOr::None)] maxsplit: NoneOr<i32>,
         heap: Heap<'v>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, UnpackList<String>>> {
+        if sep.into_option() == Some("") {
+            return Err(anyhow::anyhow!(
+                "Empty separator cannot be used for splitting"
+            ));
+        }
         let maxsplit = match maxsplit.into_option() {
             None => None,
             Some(v) => {
@@ -1328,15 +1338,15 @@ mod tests {
         assert::eq(r#""abc".find("c", -1, -2)"#, "-1");
     }
 
-    /// The spec says `split` fails on an empty separator. Rust's `str::split("")` splits at
-    /// every character boundary instead, and that is what the caller gets.
+    /// The spec says `split` fails on an empty separator.
     #[test]
     fn test_split_empty_separator() {
-        assert::eq(r#""abc".split("")"#, r#"["", "a", "b", "c", ""]"#);
-        assert::eq(r#""abc".rsplit("")"#, r#"["", "a", "b", "c", ""]"#);
-        assert::eq(r#""abc".split("", 1)"#, r#"["", "abc"]"#);
-        assert::eq(r#""abc".rsplit("", 1)"#, r#"["abc", ""]"#);
-        assert::eq(r#""".split("")"#, r#"["", ""]"#);
+        assert::fail(r#""abc".split("")"#, "Empty separator");
+        assert::fail(r#""abc".rsplit("")"#, "Empty separator");
+        assert::fail(r#""abc".split("", 1)"#, "Empty separator");
+        assert::fail(r#""abc".rsplit("", 1)"#, "Empty separator");
+        assert::fail(r#""".split("")"#, "Empty separator");
+        assert::eq(r#""a,b".split(",")"#, r#"["a", "b"]"#);
     }
 
     #[test]
