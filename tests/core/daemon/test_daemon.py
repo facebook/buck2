@@ -239,6 +239,14 @@ async def test_no_buckd_kills_existing_daemon(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_no_buckd_startup_is_quiet(buck: Buck) -> None:
+    # The in-process daemon starts up on the user's terminal, not in a buckd.stderr
+    # that a tailing client would need to catch up on.
+    result = await buck.targets(":", "--no-buckd")
+    assert "daemon_listener" not in result.stderr
+
+
+@buck_test()
 async def test_buck_out_is_cache_dir(buck: Buck) -> None:
     await buck.targets(":")  # Start a daemon
     root = await buck.root()
