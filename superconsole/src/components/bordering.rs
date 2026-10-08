@@ -92,9 +92,12 @@ fn construct_vertical_padding(padding: Span, width: usize) -> Vec<Line> {
         .map(|mut span| {
             // iterator is a single character here, so fill to width.
             // it's possible that a word could be more than a single column, so the number of repetitions must reflect that.
-            let copies = width.checked_div(span.len()).unwrap_or(0);
+            let grapheme_width = span.len();
+            let copies = width.checked_div(grapheme_width).unwrap_or(0);
             span.content = Cow::Owned(span.content.repeat(copies));
-            Line::from_iter([span])
+            let mut line = Line::from_iter([span]);
+            line.pad_right(width - grapheme_width * copies);
+            line
         })
         .collect()
 }
@@ -113,9 +116,15 @@ impl<C: Component> Component for Bordered<C> {
             Some(word) => word.len(),
             None => 0,
         };
+        // A top or bottom border takes one row per grapheme, whatever its width.
+        let opt_rows = |opt_word: &Option<Span>| match opt_word {
+            Some(word) => word.iter().count(),
+            None => 0,
+        };
         let new_dims = Dimensions {
             width: width.saturating_sub(opt_len(&self.border.left) + opt_len(&self.border.right)),
-            height: height.saturating_sub(opt_len(&self.border.top) + opt_len(&self.border.bottom)),
+            height: height
+                .saturating_sub(opt_rows(&self.border.top) + opt_rows(&self.border.bottom)),
         };
 
         // The [`Aligned`] box ensures that the child is justified and bounded.
@@ -186,9 +195,8 @@ mod tests {
         assert_eq!(r[1].trim_end(), "abc");
     }
 
-    /// A border grapheme wider than one column reserves `Span::len` rows (its display width)
-    /// although it draws one row per grapheme, and over a width that is not a multiple of its
-    /// own it leaves the border short.
+    /// A border grapheme wider than one column reserves one row per grapheme and is padded to
+    /// the full width when the width is not a multiple of its own.
     #[test]
     fn test_wide_border_grapheme() {
         let bordered = Bordered::new(echo_rows(&["abc", "def", "ghi"]), top_only("\u{1f9b6}"));
@@ -197,7 +205,12 @@ mod tests {
             .unwrap();
         assert_eq!(
             rows(&out),
-            vec!["\u{1f9b6}".to_owned(), "abc".to_owned(), "def".to_owned()]
+            vec![
+                "\u{1f9b6} ".to_owned(),
+                "abc".to_owned(),
+                "def".to_owned(),
+                "ghi".to_owned()
+            ]
         );
 
         let bordered = Bordered::new(echo_rows(&["abcdefg"]), top_only("\u{1f9b6}"));
@@ -205,7 +218,7 @@ mod tests {
             .draw(Dimensions::new(7, 4), DrawMode::Normal)
             .unwrap();
         let widths: Vec<usize> = out.iter().map(|l| l.len()).collect();
-        assert_eq!(widths, vec![6, 7]);
+        assert_eq!(widths, vec![7, 7]);
     }
 
     #[test]
