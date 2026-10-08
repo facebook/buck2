@@ -370,8 +370,10 @@ mod tests {
     use std::collections::BTreeSet;
     use std::collections::hash_map::DefaultHasher;
 
+    use crate::Equivalent;
     use crate::Intern;
     use crate::InternDisposition;
+    use crate::Interner;
 
     #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct StringValue(String);
@@ -425,6 +427,58 @@ mod tests {
         TestDispositionValue,
         String
     );
+    /// A lookup key whose conversion into the interned value waits until both racing threads
+    /// have missed the lookup, which forces the schedule "A misses, B misses, A inserts, B finds
+    /// A's entry".
+    struct RacingKey(&'static str);
+
+    static BOTH_MISSED: std::sync::LazyLock<std::sync::Barrier> =
+        std::sync::LazyLock::new(|| std::sync::Barrier::new(2));
+
+    #[derive(Debug, Hash, PartialEq, Eq)]
+    struct RacedValue(String);
+
+    static RACE_INTERNER: Interner<RacedValue> = Interner::new();
+
+    impl std::hash::Hash for RacingKey {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            // The same as the derived `Hash` of `RacedValue`.
+            self.0.to_owned().hash(state)
+        }
+    }
+
+    impl Equivalent<RacedValue> for RacingKey {
+        fn equivalent(&self, key: &RacedValue) -> bool {
+            self.0 == key.0
+        }
+    }
+
+    impl From<RacingKey> for RacedValue {
+        fn from(k: RacingKey) -> RacedValue {
+            BOTH_MISSED.wait();
+            RacedValue(k.0.to_owned())
+        }
+    }
+
+    /// Two threads that intern the same new value at once both report `Computed`, although
+    /// only one of them inserted the value: `intern_slow` ignores whether `insert` found an
+    /// existing entry.
+    #[test]
+    fn test_disposition_of_racing_interns() {
+        let (a, b) = std::thread::scope(|s| {
+            let ta = s.spawn(|| RACE_INTERNER.observed_intern(RacingKey("new value")));
+            let tb = s.spawn(|| RACE_INTERNER.observed_intern(RacingKey("new value")));
+            (ta.join().unwrap(), tb.join().unwrap())
+        });
+        assert_eq!(a.0, b.0);
+        assert_eq!(RACE_INTERNER.iter().count(), 1);
+        let computed = [&a.1, &b.1]
+            .iter()
+            .filter(|d| matches!(d, InternDisposition::Computed))
+            .count();
+        assert_eq!(computed, 2);
+    }
+
     #[test]
     fn test_disposition() {
         let (val, disposition) = TEST_DISPOSITION_INTERNER.observed_intern("hello".to_owned());
