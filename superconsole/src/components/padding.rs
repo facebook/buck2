@@ -57,7 +57,11 @@ impl<C: Component> Component for Padded<C> {
     type Error = C::Error;
 
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> Result<Lines, C::Error> {
-        let mut output = self.child.draw(dimensions, mode)?;
+        let inner = Dimensions {
+            width: dimensions.width.saturating_sub(self.left + self.right),
+            height: dimensions.height.saturating_sub(self.top + self.bottom),
+        };
+        let mut output = self.child.draw(inner, mode)?;
 
         // ordering is important:
         // the top and bottom lines need to be padded horizontally too.
@@ -109,8 +113,8 @@ mod tests {
         ))
     }
 
-    /// The child is drawn in the full window and the padding is added afterwards, so a child
-    /// that fills its window loses its rightmost and bottommost content to the padding.
+    /// The child is drawn in the window that remains inside the padding, so a child that fills
+    /// its window keeps all of its content.
     #[test]
     fn test_child_filling_its_window() {
         // Right-aligned "ab" with two columns of left padding in six columns.
@@ -128,7 +132,7 @@ mod tests {
         let out = padded
             .draw(Dimensions::new(6, 1), DrawMode::Normal)
             .unwrap();
-        assert_eq!(rows(&out), vec!["      ".to_owned()]);
+        assert_eq!(rows(&out), vec!["    ab".to_owned()]);
 
         // Bottom-aligned "ab" with one row of top padding in three rows.
         let padded = Padded::new(
@@ -145,8 +149,10 @@ mod tests {
         let out = padded
             .draw(Dimensions::new(6, 3), DrawMode::Normal)
             .unwrap();
-        assert_eq!(out.len(), 3);
-        assert!(rows(&out).iter().all(|r| !r.contains("ab")));
+        let r = rows(&out);
+        assert_eq!(r.len(), 3);
+        assert!(r[0].trim().is_empty() && r[1].trim().is_empty(), "{r:?}");
+        assert_eq!(r[2].trim_end(), "ab");
 
         // Padding of one around an equal horizontal split whose right pane right-aligns its
         // content, as a two-pane TUI does.
@@ -167,8 +173,7 @@ mod tests {
             .unwrap();
         let r = rows(&out);
         assert_eq!(r.len(), 5);
-        assert_eq!(r[1], " stats          14. ");
-        assert!(r.iter().all(|row| !row.contains("14.1s")));
+        assert_eq!(r[1], " stats        14.1s ");
     }
 
     #[test]
