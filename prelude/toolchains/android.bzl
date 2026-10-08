@@ -17,7 +17,7 @@ def _android_sdk_tools_impl(ctx):
     sub_targets["aidl"] = [RunInfo(args = ["{}/build-tools/{}/aidl".format(ctx.attrs.android_sdk_path, ctx.attrs.build_tools_version)])]
     sub_targets["zipalign"] = [RunInfo(args = ["{}/build-tools/{}/zipalign".format(ctx.attrs.android_sdk_path, ctx.attrs.build_tools_version)])]
 
-    sub_targets["adb"] = [RunInfo(args = ["{}/build-tools/platform-tools/adb".format(ctx.attrs.android_sdk_path)])]
+    sub_targets["adb"] = [RunInfo(args = ["{}/platform-tools/adb".format(ctx.attrs.android_sdk_path)])]
 
     android_jar = ctx.actions.declare_output("android.jar", has_content_based_path = False)
     ctx.actions.run(
@@ -49,23 +49,21 @@ def _android_sdk_tools_impl(ctx):
 
     optimized_proguard_config = ctx.actions.declare_output("proguard-android-optimize.txt", has_content_based_path = False)
     ctx.actions.run(
-        cmd_args(
-            ["ln", "-s", "{}/platforms/tools/proguard/proguard-android-optimize.txt".format(ctx.attrs.android_sdk_path), optimized_proguard_config.as_output()]
-        ),
+        cmd_args(["ln", "-s", "{}/tools/proguard/proguard-android-optimize.txt".format(ctx.attrs.android_sdk_path), optimized_proguard_config.as_output()]),
         category = "optimized_proguard_config_symlink",
     )
     sub_targets["optimized_proguard_config"] = [DefaultInfo(default_output = optimized_proguard_config)]
 
     proguard_config = ctx.actions.declare_output("proguard-android.txt", has_content_based_path = False)
     ctx.actions.run(
-        cmd_args(["ln", "-s", "{}/platforms/tools/proguard/proguard-android.txt".format(ctx.attrs.android_sdk_path), proguard_config.as_output()]),
+        cmd_args(["ln", "-s", "{}/tools/proguard/proguard-android.txt".format(ctx.attrs.android_sdk_path), proguard_config.as_output()]),
         category = "proguard_config_symlink",
     )
     sub_targets["proguard_config"] = [DefaultInfo(default_output = proguard_config)]
 
     proguard_jar = ctx.actions.declare_output("proguard.jar", has_content_based_path = False)
     ctx.actions.run(
-        cmd_args(["ln", "-s", "{}/platforms/tools/proguard/lib/proguard.jar".format(ctx.attrs.android_sdk_path), proguard_jar.as_output()]),
+        cmd_args(["ln", "-s", "{}/tools/proguard/lib/proguard.jar".format(ctx.attrs.android_sdk_path), proguard_jar.as_output()]),
         category = "proguard_jar_symlink",
     )
     sub_targets["proguard.jar"] = [DefaultInfo(default_output = proguard_jar)]
