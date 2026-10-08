@@ -186,3 +186,43 @@ impl From<&'_ LocalCacheStats> for LocalCacheRemoteExecutionClientStats {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use futures::future;
+
+    use super::*;
+
+    /// What `re_state.rs` shows as "in progress".
+    fn in_progress(stats: &RemoteExecutionClientOpStats) -> u32 {
+        stats
+            .started
+            .saturating_sub(stats.finished_successfully)
+            .saturating_sub(stats.finished_with_error)
+    }
+
+    /// An operation whose future is dropped before it completes (the losing side of a hybrid
+    /// execution, Ctrl-C, DICE cancellation) is counted as started but never as finished, so
+    /// the session stats show it as in progress for the rest of the daemon's life.
+    #[tokio::test]
+    async fn test_dropped_op_stays_in_progress() {
+        let stats = OpStats::default();
+        stats
+            .op(future::ready(Ok::<_, buck2_error::Error>(())))
+            .await
+            .unwrap();
+        stats
+            .op(future::ready(Err::<(), _>(buck2_error::internal_error!(
+                "boom"
+            ))))
+            .await
+            .unwrap_err();
+        drop(stats.op(future::pending::<buck2_error::Result<()>>()));
+
+        let exported = RemoteExecutionClientOpStats::from(&stats);
+        assert_eq!(exported.started, 3);
+        assert_eq!(exported.finished_successfully, 1);
+        assert_eq!(exported.finished_with_error, 1);
+        assert_eq!(in_progress(&exported), 1);
+    }
+}
