@@ -24,32 +24,34 @@ use crate::value::MaybeResidentComputedValue;
 /// This is only awoken when the result is ready, as none of the pollers are responsible for
 /// running the task to completion.
 #[pin_project]
-pub(crate) struct DicePromise<'d>(#[pin] pub(super) DicePromiseInternal<'d>);
+pub(crate) struct DicePromise<'d, T = MaybeResidentComputedValue>(
+    #[pin] pub(super) DicePromiseInternal<'d, T>,
+);
 
 #[pin_project(project = DicePromiseInternalProj)]
-pub(super) enum DicePromiseInternal<'d> {
+pub(super) enum DicePromiseInternal<'d, T = MaybeResidentComputedValue> {
     Ready {
-        result: &'d MaybeResidentComputedValue,
+        result: &'d T,
     },
     Pending {
         #[pin]
-        future: DiceTaskDependentFuture<'d>,
+        future: DiceTaskDependentFuture<'d, T>,
     },
     Done,
 }
 
-impl<'d> DicePromise<'d> {
-    pub(crate) fn ready(result: &'d MaybeResidentComputedValue) -> Self {
+impl<'d, T> DicePromise<'d, T> {
+    pub(crate) fn ready(result: &'d T) -> Self {
         Self(DicePromiseInternal::Ready { result })
     }
 
-    pub(crate) fn pending(future: DiceTaskDependentFuture<'d>) -> Self {
+    pub(crate) fn pending(future: DiceTaskDependentFuture<'d, T>) -> Self {
         Self(DicePromiseInternal::Pending { future })
     }
 }
 
-impl<'d> Future for DicePromise<'d> {
-    type Output = &'d MaybeResidentComputedValue;
+impl<'d, T> Future for DicePromise<'d, T> {
+    type Output = &'d T;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let res = match self.as_mut().project().0.project() {

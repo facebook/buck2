@@ -16,20 +16,21 @@ pub(crate) mod promise;
 pub(crate) use dice::spawn_dice_task;
 
 use crate::epoch::task::dice::TerminationObserver;
+use crate::value::MaybeResidentComputedValue;
 
 #[cfg(test)]
 mod tests;
 
-pub(crate) struct PreviouslyCancelledTask {
-    previous: TerminationObserver,
+pub(crate) struct PreviouslyCancelledTask<T = MaybeResidentComputedValue> {
+    previous: TerminationObserver<T>,
 }
 
-impl PreviouslyCancelledTask {
-    pub(crate) fn new(previous: TerminationObserver) -> Self {
+impl<T> PreviouslyCancelledTask<T> {
+    pub(crate) fn new(previous: TerminationObserver<T>) -> Self {
         Self { previous }
     }
 
-    pub(crate) fn await_termination(self) -> crate::epoch::task::dice::TerminationObserver {
+    pub(crate) fn await_termination(self) -> TerminationObserver<T> {
         self.previous
     }
 }

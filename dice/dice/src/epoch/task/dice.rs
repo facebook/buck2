@@ -25,7 +25,10 @@ use dice_futures::cancellation::DropcancelHandle;
 use dice_futures::spawn::CancellableFutureSpawner;
 use dice_futures::spawn::prepare_detached_cancellation;
 use dice_futures::spawner::Spawner;
+use dupe::Clone_;
+use dupe::Copy_;
 use dupe::Dupe;
+use dupe::Dupe_;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use parking_lot::Mutex;
@@ -54,21 +57,24 @@ use crate::value::MaybeResidentComputedValue;
 /// "generation", so the same `DiceTask` can outlive several cancelled computations. See
 /// `depended_on_by` and the `current_generation` / `terminated_generation` fields for how
 /// generations encode the task's state.
-#[derive(Allocative, Clone, Dupe)]
+#[derive(Allocative, Clone_, Dupe_)]
 #[repr(transparent)]
-pub(crate) struct DiceTask {
-    pub(crate) internal: crate::arc::Arc<DiceTaskInternal>,
+pub(crate) struct DiceTask<T = MaybeResidentComputedValue> {
+    pub(crate) internal: crate::arc::Arc<DiceTaskInternal<T>>,
 }
 
-impl DiceTask {
-    pub(crate) fn as_ref(&self) -> DiceTaskRef<'_> {
+impl<T> DiceTask<T> {
+    pub(crate) fn as_ref(&self) -> DiceTaskRef<'_, T> {
         DiceTaskRef {
             internal: self.internal.borrow_arc(),
         }
     }
 
     #[cfg(test)]
-    pub(crate) fn depended_on_by(&self, k: ParentKey) -> DiceTaskDependedOnByResult<'_> {
+    pub(crate) fn depended_on_by(&self, k: ParentKey) -> DiceTaskDependedOnByResult<'_, T>
+    where
+        T: Dupe + Send + Sync + 'static,
+    {
         self.as_ref().depended_on_by(k)
     }
 
@@ -93,13 +99,13 @@ impl DiceTask {
     }
 }
 
-#[derive(Copy, Clone, Dupe)]
-pub(crate) struct DiceTaskRef<'d> {
-    pub(crate) internal: crate::arc::ArcBorrow<'d, DiceTaskInternal>,
+#[derive(Clone_, Copy_, Dupe_)]
+pub(crate) struct DiceTaskRef<'d, T = MaybeResidentComputedValue> {
+    pub(crate) internal: crate::arc::ArcBorrow<'d, DiceTaskInternal<T>>,
 }
 
-impl DiceTaskRef<'_> {
-    pub(crate) fn clone_arc(self) -> DiceTask {
+impl<T> DiceTaskRef<'_, T> {
+    pub(crate) fn clone_arc(self) -> DiceTask<T> {
         DiceTask {
             internal: self.internal.clone_arc(),
         }
@@ -108,7 +114,7 @@ impl DiceTaskRef<'_> {
 
 #[derive(Allocative)]
 #[allocative(skip)]
-pub(crate) struct DiceTaskInternal {
+pub(crate) struct DiceTaskInternal<T = MaybeResidentComputedValue> {
     pub(crate) key: DiceKey,
     /// Because things may be cancelled, it may take multiple attempts ("generations") before an
     /// execution is actually driven to completion. These fields track that.
@@ -133,7 +139,7 @@ pub(crate) struct DiceTaskInternal {
     ///
     /// This is set effectively whenever the value is ready. After it is set, no new generations
     /// will be started, though previously started ones may still be running.
-    maybe_value: OnceLock<MaybeResidentComputedValue>,
+    maybe_value: OnceLock<T>,
     /// The number of things waiting on the the task.
     ///
     /// When this is zero, the most recently started generation has been cancelled; incrementing
@@ -165,11 +171,8 @@ pub(crate) struct DiceTaskInternal {
     wakers: AtomicWakerSet,
 }
 
-unsafe impl Send for DiceTaskInternal {}
-unsafe impl Sync for DiceTaskInternal {}
-
-enum ReadValueResult<'d> {
-    Finished(&'d MaybeResidentComputedValue),
+enum ReadValueResult<'d, T = MaybeResidentComputedValue> {
+    Finished(&'d T),
     Pending { terminated_generation: u32 },
 }
 
@@ -177,21 +180,18 @@ enum ReadValueResult<'d> {
 ///
 /// Can either be used to wait on a specific generation or on general completion.
 #[pin_project::pin_project(PinnedDrop)]
-pub(crate) struct TaskWaiter<'d> {
-    task: DiceTaskRef<'d>,
+pub(crate) struct TaskWaiter<'d, T = MaybeResidentComputedValue> {
+    task: DiceTaskRef<'d, T>,
     #[pin]
     waiter: AtomicWakerSetEntry,
 }
 
-impl<'d> TaskWaiter<'d> {
+impl<'d, T> TaskWaiter<'d, T> {
     /// When using this to wait until task completion, poll this.
     ///
     /// Note that it's very ill-advised to do this if you don't hold a strong count to the task, as
     /// without one completion might never happen.
-    fn poll_complete(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<&'d MaybeResidentComputedValue> {
+    fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<&'d T> {
         let this = self.as_mut().project();
         let internal = this.task.internal.get();
 
@@ -219,7 +219,7 @@ impl<'d> TaskWaiter<'d> {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         generation: u32,
-    ) -> Poll<WorkerResult<&'d MaybeResidentComputedValue>> {
+    ) -> Poll<WorkerResult<&'d T>> {
         let this = self.as_mut().project();
         let internal = this.task.internal.get();
 
@@ -244,7 +244,7 @@ impl<'d> TaskWaiter<'d> {
 }
 
 #[pin_project::pinned_drop]
-impl<'d> PinnedDrop for TaskWaiter<'d> {
+impl<'d, T> PinnedDrop for TaskWaiter<'d, T> {
     fn drop(self: Pin<&mut Self>) {
         // SAFETY: We're pinnned and this is the only waker set we use
         unsafe {
@@ -255,23 +255,23 @@ impl<'d> PinnedDrop for TaskWaiter<'d> {
 }
 
 /// Result of registering as a dependent of a task via `depended_on_by`.
-pub(crate) enum DiceTaskDependedOnByResult<'d> {
-    Finished(&'d MaybeResidentComputedValue),
-    Pending(DicePromise<'d>),
+pub(crate) enum DiceTaskDependedOnByResult<'d, T = MaybeResidentComputedValue> {
+    Finished(&'d T),
+    Pending(DicePromise<'d, T>),
     /// The task had been cancelled and this caller won the race to restart it. The caller must
     /// spawn the worker on the freshly prepared (next-generation) task, after awaiting termination
     /// of the previous generation.
-    NeedsRestart(PreparedDiceTask<'d>, PreviouslyCancelledTask),
+    NeedsRestart(PreparedDiceTask<'d, T>, PreviouslyCancelledTask<T>),
 }
 
-impl<'d> DiceTaskDependedOnByResult<'d> {
+impl<'d, T> DiceTaskDependedOnByResult<'d, T> {
     /// Unwrap to a `DicePromise`. `Finished(v)` returns a ready promise; `Pending`
     /// returns the inner promise. Panics on `NeedsRestart` because callers using
     /// `unwrap` haven't agreed to drive the restart. Used in tests where the
     /// caller knows the task is in-flight.
     #[cfg(test)]
     #[track_caller]
-    pub(crate) fn unwrap(self) -> DicePromise<'d> {
+    pub(crate) fn unwrap(self) -> DicePromise<'d, T> {
         match self {
             DiceTaskDependedOnByResult::Pending(p) => p,
             DiceTaskDependedOnByResult::Finished(v) => DicePromise::ready(v),
@@ -285,25 +285,28 @@ impl<'d> DiceTaskDependedOnByResult<'d> {
 /// Everything needed to start (or restart) one generation of a `DiceTask`: hand it to
 /// `spawn_prepared_task` to launch the worker and obtain a `DicePromise`. All three members are
 /// minted for the same generation.
-pub(crate) struct PreparedDiceTask<'d> {
+pub(crate) struct PreparedDiceTask<'d, T = MaybeResidentComputedValue> {
     /// Lets the worker report the value or cancellation for this generation.
-    pub(crate) completion_handle: DiceTaskCompletionHandle,
+    pub(crate) completion_handle: DiceTaskCompletionHandle<T>,
     /// The first dependent of this generation; becomes the promise returned to the spawner.
-    pub(crate) dependent_future: DiceTaskDependentFuture<'d>,
+    pub(crate) dependent_future: DiceTaskDependentFuture<'d, T>,
     /// Spawns the cancellable worker future for this generation.
     pub(crate) task_spawner: DiceTaskSpawner,
 }
 
-impl<'d> PreparedDiceTask<'d> {
+impl<'d, T> PreparedDiceTask<'d, T> {
     #[cfg(test)]
-    pub(crate) fn task(&self) -> DiceTaskRef<'d> {
+    pub(crate) fn task(&self) -> DiceTaskRef<'d, T> {
         self.dependent_future.0.task
     }
 }
 
-impl DiceTask {
+impl<T> DiceTask<T> {
     #[cfg(test)]
-    pub(crate) fn prepare_testing(key: DiceKey) -> PreparedDiceTask<'static> {
+    pub(crate) fn prepare_testing(key: DiceKey) -> PreparedDiceTask<'static, T>
+    where
+        T: 'static,
+    {
         // Spawning a dice task normally needs some kind of arena to allocate the task into; we don't
         // have one, but this is tests, so just leak the thing
         DiceTask::prepare::<()>(key, |t| Ok(Box::leak(Box::new(t)).as_ref())).unwrap()
@@ -318,8 +321,8 @@ impl DiceTask {
     /// a ref to an unrelated dice task. Should be fine.
     pub(crate) fn prepare<'d, E>(
         key: DiceKey,
-        alloc: impl FnOnce(DiceTask) -> Result<DiceTaskRef<'d>, E>,
-    ) -> Result<PreparedDiceTask<'d>, E> {
+        alloc: impl FnOnce(DiceTask<T>) -> Result<DiceTaskRef<'d, T>, E>,
+    ) -> Result<PreparedDiceTask<'d, T>, E> {
         let (future_spawner, cancellation_handle) = prepare_detached_cancellation();
 
         let cancellation_handle = cancellation_handle.into_dropcancel();
@@ -359,10 +362,13 @@ impl DiceTask {
     }
 }
 
-impl<'d> DiceTaskRef<'d> {
+impl<'d, T> DiceTaskRef<'d, T> {
     /// `k` depends on this task, returning a `DicePromise` that will complete when this task
     /// completes
-    pub(crate) fn depended_on_by(self, _k: ParentKey) -> DiceTaskDependedOnByResult<'d> {
+    pub(crate) fn depended_on_by(self, _k: ParentKey) -> DiceTaskDependedOnByResult<'d, T>
+    where
+        T: Dupe + Send + Sync + 'static,
+    {
         if let Some(v) = self.get_finished_value() {
             return DiceTaskDependedOnByResult::Finished(v);
         }
@@ -449,7 +455,7 @@ impl<'d> DiceTaskRef<'d> {
         DiceTaskDependedOnByResult::NeedsRestart(prepared, previously_cancelled)
     }
 
-    pub(crate) fn get_finished_value(self) -> Option<&'d MaybeResidentComputedValue> {
+    pub(crate) fn get_finished_value(self) -> Option<&'d T> {
         match self.internal.get().read_value() {
             ReadValueResult::Finished(v) => Some(v),
             ReadValueResult::Pending { .. } => None,
@@ -510,7 +516,10 @@ impl<'d> DiceTaskRef<'d> {
 
     /// Returns a future that resolves when this task finishes or is fully cancelled
     /// and terminated.
-    pub(crate) fn await_termination(self) -> TerminationObserver {
+    pub(crate) fn await_termination(self) -> TerminationObserver<T>
+    where
+        T: Dupe + Send + Sync + 'static,
+    {
         let generation = self.internal.started_generation.load(Ordering::Relaxed);
         TerminationObserver::new(self, generation)
     }
@@ -553,7 +562,7 @@ impl<'d> DiceTaskRef<'d> {
     }
 
     /// Mark that a generation has terminated successfully.
-    fn task_finished_result(&self, generation: u32, value: MaybeResidentComputedValue) {
+    fn task_finished_result(&self, generation: u32, value: T) {
         drop(self.internal.maybe_value.set(value));
         self.task_finished(generation);
     }
@@ -590,8 +599,8 @@ impl<'d> DiceTaskRef<'d> {
     }
 }
 
-impl DiceTaskInternal {
-    fn read_value(&self) -> ReadValueResult<'_> {
+impl<T> DiceTaskInternal<T> {
+    fn read_value(&self) -> ReadValueResult<'_, T> {
         let terminated = self.terminated_generation.load(Ordering::Acquire);
         match self.maybe_value.get() {
             Some(v) => ReadValueResult::Finished(v),
@@ -602,12 +611,12 @@ impl DiceTaskInternal {
     }
 }
 
-pub(crate) fn spawn_prepared_task<'d, S>(
-    task: PreparedDiceTask<'d>,
+pub(crate) fn spawn_prepared_task<'d, S, T: Send + Sync + 'static>(
+    task: PreparedDiceTask<'d, T>,
     spawner: &dyn dice_futures::spawner::Spawner<S>,
     ctx: &S,
-    f: impl for<'a> FnOnce(&'a mut DiceTaskHandle) -> BoxFuture<'a, ()> + Send,
-) -> DicePromise<'d> {
+    f: impl for<'a> FnOnce(&'a mut DiceTaskHandle<'_, T>) -> BoxFuture<'a, ()> + Send,
+) -> DicePromise<'d, T> {
     use dice_futures::owning_future::OwningFuture;
     let PreparedDiceTask {
         completion_handle,
@@ -661,25 +670,25 @@ impl DiceTaskSpawner {
 /// `DiceTaskHandle`) or by an in-flight sync projection. Finalization is generation-checked: if the
 /// task has since been restarted, `completed`/`terminated` for this stale generation are no-ops, so
 /// a slow or duplicate completion can't clobber a newer computation.
-pub(crate) struct DiceTaskCompletionHandle {
+pub(crate) struct DiceTaskCompletionHandle<T = MaybeResidentComputedValue> {
     /// The generation this handle is allowed to finalize.
     pub(super) generation: u32,
-    pub(super) task: DiceTask,
+    pub(super) task: DiceTask<T>,
 }
 
-impl DiceTaskCompletionHandle {
+impl<T> DiceTaskCompletionHandle<T> {
     pub(crate) fn cancelled(self, token: WorkerCancelled) {
         self.task
             .as_ref()
             .task_finished_no_result(self.generation, token);
     }
 
-    pub(crate) fn completed(self, v: MaybeResidentComputedValue) {
+    pub(crate) fn completed(self, v: T) {
         self.task.as_ref().task_finished_result(self.generation, v);
     }
 }
 
-impl Drop for DiceTaskCompletionHandle {
+impl<T> Drop for DiceTaskCompletionHandle<T> {
     fn drop(&mut self) {
         // Intentionally does nothing, and this is important because of the FIXME in the sync case
         // below
@@ -690,23 +699,25 @@ impl Drop for DiceTaskCompletionHandle {
 // This is exactly a `TaskWaiter` with the additional semantics that it holds a strong count (and
 // releases one on drop).
 #[pin_project::pin_project(PinnedDrop)]
-pub(crate) struct DiceTaskDependentFuture<'d>(#[pin] TaskWaiter<'d>);
+pub(crate) struct DiceTaskDependentFuture<'d, T = MaybeResidentComputedValue>(
+    #[pin] TaskWaiter<'d, T>,
+);
 
-impl<'d> DiceTaskDependentFuture<'d> {
-    pub(crate) fn task(&self) -> DiceTaskRef<'d> {
+impl<'d, T> DiceTaskDependentFuture<'d, T> {
+    pub(crate) fn task(&self) -> DiceTaskRef<'d, T> {
         self.0.task
     }
 }
 
 #[pin_project::pinned_drop]
-impl<'d> PinnedDrop for DiceTaskDependentFuture<'d> {
+impl<'d, T> PinnedDrop for DiceTaskDependentFuture<'d, T> {
     fn drop(self: Pin<&mut Self>) {
         self.task().drop_waiter();
     }
 }
 
-impl<'d> Future for DiceTaskDependentFuture<'d> {
-    type Output = &'d MaybeResidentComputedValue;
+impl<'d, T> Future for DiceTaskDependentFuture<'d, T> {
+    type Output = &'d T;
 
     fn poll(
         self: std::pin::Pin<&mut Self>,
@@ -719,10 +730,15 @@ impl<'d> Future for DiceTaskDependentFuture<'d> {
 /// A future that resolves when the underlying task is complete and idle.
 // Unlike `DiceTaskDependentFuture`, this does not hold a strong count. It's also less well
 // optimized.
-pub(crate) struct TerminationObserver(BoxFuture<'static, Option<MaybeResidentComputedValue>>);
+pub(crate) struct TerminationObserver<T = MaybeResidentComputedValue>(
+    BoxFuture<'static, Option<T>>,
+);
 
-impl TerminationObserver {
-    fn new(t: DiceTaskRef<'_>, generation: u32) -> Self {
+impl<T> TerminationObserver<T> {
+    fn new(t: DiceTaskRef<'_, T>, generation: u32) -> Self
+    where
+        T: Dupe + Send + Sync + 'static,
+    {
         let task = t.clone_arc();
         TerminationObserver(
             async move {
@@ -742,8 +758,8 @@ impl TerminationObserver {
     }
 }
 
-impl Future for TerminationObserver {
-    type Output = Option<MaybeResidentComputedValue>;
+impl<T> Future for TerminationObserver<T> {
+    type Output = Option<T>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut self.get_mut().0).poll(cx)

@@ -19,17 +19,17 @@ use crate::value::MaybeResidentComputedValue;
 
 /// The handle to the 'DiceTask' owned by the spawned thread that is responsible for completing
 /// the task.
-pub(crate) struct DiceTaskHandle<'a> {
+pub(crate) struct DiceTaskHandle<'a, T = MaybeResidentComputedValue> {
     pub(super) cancellations: &'a CancellationContext,
-    completion_handle: Option<DiceTaskCompletionHandle>,
+    completion_handle: Option<DiceTaskCompletionHandle<T>>,
     // holds the result while `DiceTaskHandle` is not dropped, then upon drop, stores it into
     // `DiceTaskInternal` so that the result is always reported consistently at the very end of the task.
-    result: Option<WorkerResult<MaybeResidentComputedValue>>,
+    result: Option<WorkerResult<T>>,
 }
 
-impl<'a> DiceTaskHandle<'a> {
+impl<'a, T> DiceTaskHandle<'a, T> {
     pub(super) fn new(
-        completion_handle: DiceTaskCompletionHandle,
+        completion_handle: DiceTaskCompletionHandle<T>,
         cancellations: &'a CancellationContext,
     ) -> Self {
         Self {
@@ -43,14 +43,12 @@ impl<'a> DiceTaskHandle<'a> {
         self.cancellations
     }
 
-    pub(crate) fn finished(&mut self, value: WorkerResult<MaybeResidentComputedValue>) {
+    pub(crate) fn finished(&mut self, value: WorkerResult<T>) {
         self.result = Some(value);
     }
 }
 
-unsafe impl Send for DiceTaskHandle<'_> {}
-
-impl Drop for DiceTaskHandle<'_> {
+impl<T> Drop for DiceTaskHandle<'_, T> {
     fn drop(&mut self) {
         let completion_handle = self.completion_handle.take().unwrap();
         match self.result.take() {
