@@ -486,7 +486,7 @@ fn handle_project_eval_result(
             // budget. With the budget exhausted, the poll would return `Pending` without even
             // looking at the channel, deferring our waker until the surrounding task yields to
             // the runtime - which it never does, because we're blocking its thread right here.
-            futures::executor::block_on(tokio::task::unconstrained(rx))
+            futures::executor::block_on(tokio::task::unconstrained(rx)).into_computed()
         }
         Err(_transient_result) => {
             // transients are never stored in the state, but the result should be shared

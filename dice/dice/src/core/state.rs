@@ -48,6 +48,7 @@ use crate::updater::ChangeType;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::PageOutResult;
+use crate::value::ResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -254,7 +255,7 @@ impl CoreStateHandle {
         deps: SeriesParallelDeps,
         epsilon: EpsilonToken,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> impl Future<Output = MaybeResidentComputedValue> + use<> {
+    ) -> impl Future<Output = ResidentComputedValue> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
             StateRequest::UpdateComputed {
@@ -515,7 +516,7 @@ pub(super) enum StateRequest {
         invalidation_paths: TrackedInvalidationPaths,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
-        resp: Sender<MaybeResidentComputedValue>,
+        resp: Sender<ResidentComputedValue>,
     },
     /// Report that a candidate certificate has been verified to hold at the version
     Revalidate {

@@ -33,6 +33,7 @@ use crate::updater::ChangeType;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::PageOutResult;
+use crate::value::ResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -113,7 +114,7 @@ impl ActorState {
         storage: StorageType,
         update: ComputedValueUpdate,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> MaybeResidentComputedValue {
+    ) -> ResidentComputedValue {
         self.update_value(storage, |graph| {
             graph.update_computed(key, update, invalidation_paths)
         })
@@ -131,11 +132,11 @@ impl ActorState {
         })
     }
 
-    fn update_value(
+    fn update_value<T>(
         &mut self,
         storage: StorageType,
-        update: impl FnOnce(&mut VersionedGraph) -> MaybeResidentComputedValue,
-    ) -> MaybeResidentComputedValue {
+        update: impl FnOnce(&mut VersionedGraph) -> T,
+    ) -> T {
         if let StorageType::Injected = storage {
             unreachable!(
                 "Injected keys should not receive update calls, as those are only from a compute() finishing and InjectedKeys have no compute()"

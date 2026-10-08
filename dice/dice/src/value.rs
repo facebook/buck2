@@ -218,6 +218,37 @@ pub(crate) struct ResidentComputedValueRef<'d> {
 }
 
 impl ResidentComputedValue {
+    pub(crate) fn new(
+        value: DiceValidValue,
+        invalidation_paths: TrackedInvalidationPaths,
+        revision: Revision,
+    ) -> Self {
+        Self {
+            value: MaybeValidDiceValue::valid(value),
+            invalidation_paths,
+            revision: Some(revision),
+        }
+    }
+
+    pub(crate) fn new_for_transient(
+        value: MaybeValidDiceValue,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) -> Self {
+        Self {
+            value,
+            invalidation_paths,
+            revision: None,
+        }
+    }
+
+    pub(crate) fn into_computed(self) -> MaybeResidentComputedValue {
+        MaybeResidentComputedValue {
+            value: MaybeResidentDiceValue::Resident(self.value),
+            invalidation_paths: self.invalidation_paths,
+            revision: self.revision,
+        }
+    }
+
     pub(crate) fn as_ref(&self) -> ResidentComputedValueRef<'_> {
         ResidentComputedValueRef {
             value: &self.value,
@@ -481,11 +512,7 @@ impl MaybeResidentComputedValue {
         value: MaybeValidDiceValue,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> Self {
-        Self {
-            value: MaybeResidentDiceValue::Resident(value),
-            invalidation_paths,
-            revision: None,
-        }
+        ResidentComputedValue::new_for_transient(value, invalidation_paths).into_computed()
     }
 
     /// The payload, or `None` if the value is still paged out.
@@ -530,9 +557,9 @@ impl<V> ComputedValue<V> {
     }
 }
 
-impl Debug for MaybeResidentComputedValue {
+impl<V> Debug for ComputedValue<V> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MaybeResidentComputedValue")
+        f.debug_struct("ComputedValue")
             .field("revision", &self.revision)
             .finish_non_exhaustive()
     }

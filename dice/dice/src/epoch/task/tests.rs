@@ -35,7 +35,9 @@ use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::arc::Arc;
 use crate::core::graph::revision::Revision;
+use crate::epoch::task::dice::DiceTask;
 use crate::epoch::task::dice::DiceTaskDependedOnByResult;
+use crate::epoch::task::dice::spawn_prepared_task;
 use crate::epoch::task::spawn_dice_task;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
@@ -43,6 +45,7 @@ use crate::value::DiceKeyValue;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::MaybeValidDiceValue;
+use crate::value::ResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
 
 #[derive(Allocative, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Pagable)]
@@ -419,4 +422,52 @@ async fn dropping_termination_observer_does_not_cancel_task() {
 
     drop(promise);
     drop(promise2);
+}
+
+#[tokio::test]
+async fn resident_task_shares_result_after_restart() -> anyhow::Result<()> {
+    let prepared = DiceTask::<ResidentComputedValue>::prepare_testing(DiceKey { index: 900 });
+    let task = prepared.task().clone_arc();
+    let initial = spawn_prepared_task(prepared, &TokioSpawner, &(), |_handle| {
+        async { futures::future::pending().await }.boxed()
+    });
+    drop(initial);
+    task.as_ref().await_termination().await;
+
+    let DiceTaskDependedOnByResult::NeedsRestart(prepared, previous) =
+        task.depended_on_by(ParentKey::None)
+    else {
+        panic!("dropping the only dependent must allow a restart");
+    };
+    assert!(previous.await_termination().await.is_none());
+
+    let expected = DiceValidValue::testing_new(DiceKeyValue::<K>::new(2));
+    let value = ResidentComputedValue::new(
+        expected.dupe(),
+        TrackedInvalidationPaths::clean(),
+        Revision::FIRST,
+    );
+    let first = spawn_prepared_task(prepared, &TokioSpawner, &(), |handle| {
+        async move { handle.finished(Ok(value)) }.boxed()
+    });
+    let DiceTaskDependedOnByResult::Pending(second) = task.depended_on_by(ParentKey::None) else {
+        panic!("the restarted worker has not run yet");
+    };
+
+    let first: &ResidentComputedValue = first.await;
+    let second: &ResidentComputedValue = second.await;
+    assert!(
+        std::ptr::eq(first, second),
+        "dependents share the stored result"
+    );
+    let value = first.as_ref();
+    assert!(value.value().instance_equal(&expected));
+    assert_eq!(value.revision(), Some(Revision::FIRST));
+
+    let DiceTaskDependedOnByResult::Finished(finished) = task.depended_on_by(ParentKey::None)
+    else {
+        panic!("a completed resident task must remain ready");
+    };
+    assert!(std::ptr::eq(first, finished));
+    Ok(())
 }

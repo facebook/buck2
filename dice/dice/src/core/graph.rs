@@ -44,6 +44,7 @@ use crate::value::MaybeResident;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::MaybeValidDiceValue;
 use crate::value::PageOutResult;
+use crate::value::ResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -431,13 +432,13 @@ impl VersionedGraph {
     }
 
     /// Writes a value computed by a transaction at `at.v`.
-    /// Returns the canonical instance for the revision.
+    /// Returns the canonical resident instance for the revision.
     pub(crate) fn update_computed(
         &mut self,
         at: VersionedGraphKey,
         update: ComputedValueUpdate,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> MaybeResidentComputedValue {
+    ) -> ResidentComputedValue {
         let ComputedValueUpdate {
             value,
             mut deps,
@@ -445,11 +446,11 @@ impl VersionedGraph {
         } = update;
         let key = at.k;
         if !self.core.is_live(at.v.branch()) {
+            // The revision is minted for the value but never stored; see `unretained`.
             let revision = self.with_values(key, |kv| kv.mint.mint());
-            return Self::unretained(
-                key,
-                MaybeResident::Resident(value).into_payload(),
-                invalidation_paths,
+            return ResidentComputedValue::new(
+                value,
+                invalidation_paths.for_dependent(key),
                 revision,
             );
         }
@@ -476,11 +477,7 @@ impl VersionedGraph {
         };
         let revision = cert.revision;
         let paths = self.finish_update(at, cert, invalidation_paths);
-        MaybeResidentComputedValue::new(
-            MaybeResident::Resident(value).into_payload(),
-            paths,
-            revision,
-        )
+        ResidentComputedValue::new(value, paths, revision)
     }
 
     /// Reissues a candidate whose dependencies still hold; its value may remain paged out.
@@ -530,8 +527,7 @@ impl VersionedGraph {
 
     /// A write from a transaction on a deleted branch. The core knows nothing about the branch
     /// any more, so the certificate cannot be placed: the value goes back to the transaction as
-    /// it is, and nothing is retained. A computed value's revision is minted for it but never
-    /// stored.
+    /// it is, and nothing is retained.
     fn unretained(
         key: DiceKey,
         value: MaybeResident<MaybeValidDiceValue>,

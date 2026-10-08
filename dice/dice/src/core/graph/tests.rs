@@ -166,7 +166,7 @@ fn compute(
         TrackedInvalidationPaths::clean(),
     );
     graph.assert_consistent();
-    out
+    out.into_computed()
 }
 
 fn revalidate(
@@ -348,7 +348,7 @@ fn a_dep_less_recompute_under_the_same_epsilon_adopts_the_stored_revision() {
             TrackedInvalidationPaths::clean(),
         );
         graph.assert_consistent();
-        out
+        out.into_computed()
     };
     let first = compute_without_deps(&mut graph, v1, 1);
     let second = compute_without_deps(&mut graph, v1, 2);
@@ -594,15 +594,17 @@ fn deleting_a_branch_releases_its_values_and_retains_nothing_written_from_it() {
         other => panic!("a deleted branch resolves nothing, got {other:?}"),
     }
     let late = value(3);
-    let returned = graph.update_computed(
-        VersionedGraphKey::new(child_v2, key(1)),
-        ComputedValueUpdate {
-            value: late.dupe(),
-            deps: SeriesParallelDeps::None,
-            epsilon: EpsilonToken::INITIAL,
-        },
-        TrackedInvalidationPaths::clean(),
-    );
+    let returned = graph
+        .update_computed(
+            VersionedGraphKey::new(child_v2, key(1)),
+            ComputedValueUpdate {
+                value: late.dupe(),
+                deps: SeriesParallelDeps::None,
+                epsilon: EpsilonToken::INITIAL,
+            },
+            TrackedInvalidationPaths::clean(),
+        )
+        .into_computed();
     graph.assert_consistent();
     assert!(returned.testing_resident_value().instance_equal(&late));
     assert!(returned.revision().unwrap().as_u32() > own.revision().unwrap().as_u32());
