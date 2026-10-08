@@ -6,48 +6,13 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@prelude//utils:buckconfig.bzl", "read_bool")
-load("@prelude//utils:selects.bzl", "selects")
 # @lint-ignore-every FBCODEBZLADDLOADS
 
-load("@prelude//utils:type_defs.bzl", "is_dict", "is_list", "is_select", "is_tuple")
-load("@shim//build_defs:auto_headers.bzl", "AutoHeaders", "get_auto_headers")
+load("@prelude//utils:type_defs.bzl", "is_dict", "is_list", "is_select")
 load("@shim//build_defs/lib:oss.bzl", "translate_target")
 
 prelude = native
-
-_C_SOURCE_EXTS = (".c",)
-
-_CPP_SOURCE_EXTS = (
-    ".cc",
-    ".cpp",
-)
-
-_SOURCE_EXTS = _C_SOURCE_EXTS + _CPP_SOURCE_EXTS
-
-# These header suffixes are used to logically group C/C++ source (e.g.
-# `foo/Bar.cpp`) with headers with the following suffixes (e.g. `foo/Bar.h` and
-# `foo/Bar-inl.tcc`), such that the source provides all implementation for
-# methods/classes declared in the headers.
-#
-# This is important for a couple reasons:
-# 1) Automatic dependencies: Tooling can use this property to automatically
-#    manage TARGETS dependencies by extracting `#include` references in sources
-#    and looking up the rules which "provide" them.
-# 2) Modules: This logical group can be combined into a standalone C/C++ module
-#    (when such support is available).
-_HEADER_SUFFIXES = (
-    ".h",
-    ".hpp",
-    ".tcc",
-    "-inl.h",
-    "-inl.hpp",
-    "-inl.tcc",
-    "-defs.h",
-    "-defs.hpp",
-    "-defs.tcc",
-)
 
 CPP_UNITTEST_DEPS = [
     "shim//third-party/googletest:cpp_unittest_main",
@@ -56,55 +21,6 @@ CPP_FOLLY_UNITTEST_DEPS = [
     "gh_facebook_folly//folly/test/common:test_main_lib",
     "gh_facebook_folly//folly/ext/buck2:test_ext",
 ]
-
-def _get_headers_from_sources(srcs):
-    """
-    Return the headers likely associated with the given sources
-
-    Args:
-        srcs: A list of strings representing files or build targets
-
-    Returns:
-        A list of header files corresponding to the list of sources. These files are
-        validated to exist based on glob()
-    """
-    split_srcs = [
-        paths.split_extension(src_filename)
-        for src_filename in [_get_src_filename(src) for src in srcs]
-        if "//" not in src_filename and not src_filename.startswith(":")
-    ]
-
-    # For e.g. foo.cpp grab a glob on foo.h, foo-inl.h, etc
-    headers = [base + header_ext for base, ext in split_srcs if ext in _SOURCE_EXTS for header_ext in _HEADER_SUFFIXES]
-
-    # Avoid a warning for an empty glob pattern if there are no headers.
-    return glob(headers) if headers else []
-
-def _get_src_filename(src):
-    """
-    Return filename from a potentilly tuple value entry in srcs attribute
-    """
-
-    if is_tuple(src):
-        s, _ = src
-        return s
-    return src
-
-def _update_headers_with_src_headers(src_headers, out_headers):
-    """
-    Helper function to update raw headers with headers from srcs
-    """
-    src_headers = list(src_headers.difference(out_headers))
-
-    # Looks simple, right? But if a header is explicitly added in, say, a
-    # dictionary mapping, we want to make sure to keep the original mapping
-    # and drop the F -> F mapping
-    if is_list(out_headers):
-        out_headers.extend(sorted(src_headers))
-    else:
-        # Let it throw AttributeError if update() can't be found neither
-        out_headers.update({k: k for k in src_headers})
-    return out_headers
 
 def _map_package_headers(headers):
     if headers == None or is_select(headers) or is_dict(headers):
@@ -137,7 +53,6 @@ def cpp_library(
     exported_external_deps = [],
     undefined_symbols = None,
     visibility = ["PUBLIC"],
-    auto_headers = None,
     modular_headers = None,
     labels = None,
     linker_flags = None,
@@ -171,21 +86,6 @@ def cpp_library(
     if labels != None and "oss_dependency" in labels:
         if oss_depends_on_folly:
             headers = [item.replace("//:", "//folly:") if item == "//:folly-config.h" else item for item in headers]
-    if is_select(srcs) and auto_headers == AutoHeaders.SOURCES:
-        # Validate `srcs` and `auto_headers` before the config check
-        fail(
-            "//{}:{}: `select` srcs cannot support AutoHeaders.SOURCES".format(base_path, name),
-        )
-    auto_headers = get_auto_headers(auto_headers)
-    if auto_headers == AutoHeaders.SOURCES and not is_select(srcs):
-        src_headers = set(_get_headers_from_sources(srcs))
-        if private_headers:
-            src_headers = src_headers.difference(set(private_headers))
-
-        headers = selects.apply(
-            headers,
-            partial(_update_headers_with_src_headers, src_headers),
-        )
     linker_flags = _combine_deps(linker_flags, exported_linker_flags)
     headers = _map_package_headers(headers)
     private_headers = _map_package_headers(private_headers)
