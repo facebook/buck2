@@ -2850,6 +2850,7 @@ fn duration_as_millis(duration: Duration) -> Option<u64> {
 mod tests {
 
     use std::ffi::OsString;
+    use std::sync::Arc;
     use std::time::Duration;
     use std::time::SystemTime;
 
@@ -2858,12 +2859,14 @@ mod tests {
     use buck2_error::ExitCode;
     use buck2_error::buck2_error;
     use buck2_error::internal_error;
+    use buck2_events::BuckEvent;
     use buck2_wrapper_common::invocation_id::TraceId;
 
     use crate::exit_result::ExecEnvironment;
     use crate::exit_result::ExitResult;
     use crate::subscribers::recorder::InvocationRecorder;
     use crate::subscribers::recorder::truncate_stderr;
+    use crate::subscribers::subscriber::EventSubscriber;
 
     #[test]
     fn test_truncate_stderr() {
@@ -2937,5 +2940,82 @@ mod tests {
         recorder.update_peak_system_load(Duration::from_secs(5 * 60), 2.0, 7.0);
         assert_eq!(recorder.peak_normalized_system_load1, Some(4.0));
         assert_eq!(recorder.peak_normalized_system_load5, Some(7.0));
+    }
+
+    fn snapshot_event(
+        trace_id: &TraceId,
+        at: SystemTime,
+        snapshot: buck2_data::Snapshot,
+    ) -> Arc<BuckEvent> {
+        Arc::new(BuckEvent::new(
+            at,
+            trace_id.clone(),
+            None,
+            None,
+            buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
+                data: Some(buck2_data::instant_event::Data::Snapshot(Box::new(
+                    snapshot,
+                ))),
+            }),
+        ))
+    }
+
+    fn record_of(event: &buck2_events::BuckEvent) -> buck2_data::InvocationRecord {
+        match event.data() {
+            buck2_data::buck_event::Data::Record(r) => match r.data.as_ref().unwrap() {
+                buck2_data::record_event::Data::InvocationRecord(r) => (**r).clone(),
+                _ => panic!("not an invocation record"),
+            },
+            _ => panic!("not a record"),
+        }
+    }
+
+    /// The record after two snapshots whose local cache counters moved by the given amounts.
+    async fn record_after_lookups(lookups: i64, latency_us: i64) -> buck2_data::InvocationRecord {
+        let trace_id = TraceId::new();
+        let start = SystemTime::now();
+        let mut recorder = InvocationRecorder::new(trace_id.clone(), None, start, vec![]);
+        // One second apart: the snapshot rates divide by the elapsed time.
+        recorder
+            .handle_events(&[
+                snapshot_event(&trace_id, start, buck2_data::Snapshot::default()),
+                snapshot_event(
+                    &trace_id,
+                    start + Duration::from_secs(1),
+                    buck2_data::Snapshot {
+                        local_cache_lookups: lookups,
+                        local_cache_lookup_latency_microseconds: latency_us,
+                        ..Default::default()
+                    },
+                ),
+            ])
+            .await
+            .unwrap();
+        record_of(&recorder.create_record_event())
+    }
+
+    /// With no local cache lookups between the snapshots (the common case), the average lookup
+    /// latency divides by zero: `NaN` when no latency was recorded, `inf` otherwise.
+    #[tokio::test]
+    async fn test_average_local_cache_lookup_without_lookups_is_not_a_number() {
+        let record = record_after_lookups(0, 0).await;
+        assert_eq!(record.local_cache_lookups, Some(0));
+        assert!(
+            record
+                .re_average_local_cache_lookup_microseconds
+                .unwrap()
+                .is_nan()
+        );
+
+        let record = record_after_lookups(0, 10).await;
+        assert!(
+            record
+                .re_average_local_cache_lookup_microseconds
+                .unwrap()
+                .is_infinite()
+        );
+
+        let record = record_after_lookups(4, 10).await;
+        assert_eq!(record.re_average_local_cache_lookup_microseconds, Some(2.5));
     }
 }
