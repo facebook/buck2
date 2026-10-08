@@ -569,8 +569,7 @@ mod tests {
         Ok(())
     }
 
-    /// A chain with more redirects than `max_redirects` is followed one hop past the limit:
-    /// the request past the limit is sent and its answer discarded before the error.
+    /// A chain with more redirects than `max_redirects` stops at the limit.
     #[tokio::test]
     async fn test_redirect_limit_requests() -> buck2_error::Result<()> {
         buck2_certs::certs::maybe_setup_cryptography();
@@ -591,7 +590,7 @@ mod tests {
         );
         test_server.expect(
             Expectation::matching(request::method_path("GET", "/c"))
-                .times(1)
+                .times(0)
                 .respond_with(responders::status_code(200)),
         );
 
@@ -610,8 +609,7 @@ mod tests {
         Ok(())
     }
 
-    /// With `max_redirects = 0` a redirect of a POST is still followed once, so the body is
-    /// delivered to the redirect target although the caller is told the call failed.
+    /// With `max_redirects = 0` a redirect of a POST is not followed.
     #[tokio::test]
     async fn test_redirect_limit_zero_post() -> buck2_error::Result<()> {
         buck2_certs::certs::maybe_setup_cryptography();
@@ -628,7 +626,7 @@ mod tests {
                 request::method_path("POST", "/b"),
                 request::body("payload"),
             ])
-            .times(1)
+            .times(0)
             .respond_with(responders::status_code(200)),
         );
 
@@ -674,7 +672,7 @@ mod tests {
         );
         test_server.expect(
             Expectation::matching(request::method_path("GET", "/baz"))
-                .times(1)
+                .times(0)
                 .respond_with(
                     responders::status_code(302).append_header(http::header::LOCATION, "/boo"),
                 ),

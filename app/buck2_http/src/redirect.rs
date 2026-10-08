@@ -123,14 +123,14 @@ impl<B> RedirectEngine<B> {
     {
         let initial_uri = self.pending_request.uri.clone();
         loop {
-            if self.processed_redirects > self.max_redirects {
+            if !self.should_redirect() {
+                break;
+            }
+            if self.processed_redirects >= self.max_redirects {
                 return Err(HttpError::TooManyRedirects {
                     uri: initial_uri.to_string(),
                     max_redirects: self.max_redirects,
                 });
-            }
-            if !self.should_redirect() {
-                break;
             }
             tracing::debug!(
                 "http: processing redirect request ({}) for {}",
