@@ -27,8 +27,12 @@ import org.jetbrains.kotlin.fir.declarations.FirAnonymousObject
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
+import org.jetbrains.kotlin.fir.declarations.FirReceiverParameter
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
+import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRef
+import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.utils.classId
 import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.declarations.utils.sourceElement
@@ -41,8 +45,10 @@ import org.jetbrains.kotlin.fir.references.symbol
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
+import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.ConeErrorType
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.ConeKotlinTypeProjection
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.coneType
@@ -70,7 +76,8 @@ private const val STUBSGEN_STUBS_JAR = "stubgen_stubs.jar"
  *
  * Instead, we walk the already-resolved FIR tree post-analysis and extract class usage from
  * declaration-level type references (supertypes, return types, parameter types, property types,
- * annotations, imports, and const val initializers).
+ * type-parameter bounds, receiver types, type arguments, annotations, imports, and const val
+ * initializers).
  */
 class KosabiClassUsageCollector {
 
@@ -143,7 +150,12 @@ class KosabiClassUsageCollector {
   private fun recordType(type: ConeKotlinType, session: FirSession) {
     if (type is ConeErrorType) return
 
-    val classId = type.upperBoundIfFlexible().classId ?: return
+    val upper = type.upperBoundIfFlexible()
+    (upper as? ConeClassLikeType)?.typeArguments?.forEach {
+      if (it is ConeKotlinTypeProjection) recordType(it.type, session)
+    }
+
+    val classId = upper.classId ?: return
 
     // Skip builtins and local classes
     if (classId.isLocal) return
@@ -164,6 +176,32 @@ class KosabiClassUsageCollector {
   private fun recordTypeRef(typeRef: FirTypeRef, session: FirSession) {
     typeRef.annotations.forEach { recordAnnotation(it, session) }
     recordType(typeRef.coneType, session)
+  }
+
+  private fun recordValueParameter(valueParameter: FirValueParameter, session: FirSession) {
+    recordTypeRef(valueParameter.returnTypeRef, session)
+    valueParameter.annotations.forEach { recordAnnotation(it, session) }
+  }
+
+  @OptIn(SymbolInternals::class)
+  private fun recordTypeParameters(
+      typeParameters: List<FirTypeParameterRef>,
+      session: FirSession,
+  ) {
+    typeParameters.forEach { ref ->
+      val typeParameter = (ref as? FirTypeParameter) ?: ref.symbol.fir
+      typeParameter.bounds.forEach { recordTypeRef(it, session) }
+      typeParameter.annotations.forEach { recordAnnotation(it, session) }
+    }
+  }
+
+  private fun recordReceiverAndContext(
+      receiverParameter: FirReceiverParameter?,
+      contextParameters: List<FirValueParameter>,
+      session: FirSession,
+  ) {
+    receiverParameter?.typeRef?.let { recordTypeRef(it, session) }
+    contextParameters.forEach { recordValueParameter(it, session) }
   }
 
   @OptIn(SymbolInternals::class)
@@ -321,6 +359,7 @@ class KosabiClassUsageCollector {
       for (superTypeRef in regularClass.superTypeRefs) {
         recordTypeRef(superTypeRef, session)
       }
+      recordTypeParameters(regularClass.typeParameters, session)
       for (annotation in regularClass.annotations) {
         recordAnnotation(annotation, session)
       }
@@ -331,11 +370,14 @@ class KosabiClassUsageCollector {
 
     override fun visitNamedFunctionCompat(simpleFunction: FirNamedFunctionCompat) {
       recordTypeRef(simpleFunction.returnTypeRef, session)
+      recordTypeParameters(simpleFunction.typeParameters, session)
+      recordReceiverAndContext(
+          simpleFunction.receiverParameter,
+          simpleFunction.contextParameters,
+          session,
+      )
       for (valueParameter in simpleFunction.valueParameters) {
-        recordTypeRef(valueParameter.returnTypeRef, session)
-        for (annotation in valueParameter.annotations) {
-          recordAnnotation(annotation, session)
-        }
+        recordValueParameter(valueParameter, session)
       }
       for (annotation in simpleFunction.annotations) {
         recordAnnotation(annotation, session)
@@ -344,6 +386,11 @@ class KosabiClassUsageCollector {
 
     override fun visitProperty(property: org.jetbrains.kotlin.fir.declarations.FirProperty) {
       recordTypeRef(property.returnTypeRef, session)
+      recordReceiverAndContext(
+          property.receiverParameter,
+          property.contextParameters,
+          session,
+      )
       for (annotation in property.annotations) {
         recordAnnotation(annotation, session)
       }
@@ -362,10 +409,7 @@ class KosabiClassUsageCollector {
         constructor: org.jetbrains.kotlin.fir.declarations.FirConstructor,
     ) {
       for (valueParameter in constructor.valueParameters) {
-        recordTypeRef(valueParameter.returnTypeRef, session)
-        for (annotation in valueParameter.annotations) {
-          recordAnnotation(annotation, session)
-        }
+        recordValueParameter(valueParameter, session)
       }
       for (annotation in constructor.annotations) {
         recordAnnotation(annotation, session)
@@ -381,6 +425,7 @@ class KosabiClassUsageCollector {
 
     override fun visitTypeAlias(typeAlias: FirTypeAlias) {
       recordTypeRef(typeAlias.expandedTypeRef, session)
+      recordTypeParameters(typeAlias.typeParameters, session)
       for (annotation in typeAlias.annotations) {
         recordAnnotation(annotation, session)
       }
