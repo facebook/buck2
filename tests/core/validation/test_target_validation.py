@@ -107,3 +107,17 @@ async def test_optional_validation(buck: Buck) -> None:
         buck.build(":optional_failing", "--enable-optional-validations", "whistle"),
         stderr_regex="Validation for `.+` failed",
     )
+
+
+@buck_test()
+async def test_malformed_validation_result_names_neither_target_nor_file(
+    buck: Buck,
+) -> None:
+    # The parse error of a malformed result file is reported as is, under the requested
+    # target: it names neither the target that owns the validation nor the result file.
+    res = await expect_failure(
+        buck.build(":consumer"),
+        stderr_regex="JSON content doesn't match schema",
+    )
+    assert "prelude//:broken" not in res.stderr
+    assert "flute.json" not in res.stderr

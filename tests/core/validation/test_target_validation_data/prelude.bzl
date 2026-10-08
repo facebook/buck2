@@ -12,7 +12,8 @@ def _impl(ctx) -> list[Provider]:
         {
             "data": {
                 "message": "Here I am describing the failure reason" if ctx.attrs.fail else None,
-                "status": "failure" if ctx.attrs.fail else "success",
+                # `passed` is not a valid status: a malformed result file.
+                "status": "passed" if ctx.attrs.malformed else "failure" if ctx.attrs.fail else "success",
             },
             "version": 1,
         },
@@ -41,6 +42,7 @@ china = rule(
         "dep": attrs.option(attrs.dep(), default = None),
         "fail": attrs.bool(default = False),
         "installer": attrs.default_only(attrs.label(default = "//:my_installer")),
+        "malformed": attrs.bool(default = False),
         "optional": attrs.bool(default = False),
     },
 )
