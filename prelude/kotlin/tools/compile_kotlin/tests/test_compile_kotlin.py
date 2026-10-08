@@ -38,8 +38,8 @@ class ZipRecursiveTest(unittest.TestCase):
                 if name.endswith(".java")
             ]
 
-    def test_archive_order_follows_the_directory_listing(self) -> None:
+    def test_archive_order_is_independent_of_the_directory_listing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             self.assertEqual(
-                self._zip_generated_sources(temp_dir), ["Second.java", "First.java"]
+                self._zip_generated_sources(temp_dir), ["First.java", "Second.java"]
             )
