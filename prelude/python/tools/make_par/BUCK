@@ -76,3 +76,17 @@ prelude.python_library(
     base_module = "",
     typing = True,
 )
+
+prelude.python_test(
+    name = "live_builder_test",
+    srcs = {
+        "errors.py": "fbcode//tools/make_par:errors.py",
+        "gen_lpar_bootstrap.py": "gen_lpar_bootstrap.py",
+        "live_builder.py": "live_builder.py",
+        "par_builder.py": "par_builder.py",
+        "tests/live_builder_test.py": "tests/live_builder_test.py",
+        "util.py": "fbcode//tools/make_par:util.py",
+    },
+    base_module = "",
+    resources = ["_lpar_bootstrap.sh.template"],
+)
