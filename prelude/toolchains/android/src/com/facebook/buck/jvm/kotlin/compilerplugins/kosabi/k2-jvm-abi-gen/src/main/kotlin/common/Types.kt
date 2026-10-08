@@ -39,3 +39,11 @@ internal fun IrSimpleFunction.methodSignature() = MethodSignature(
     name.asString(),
     valueParameters.map { it.type.classFqName?.asString() ?: it.type.toString() },
 )
+
+// Toolchain-provided packages dep tracking may skip. The trailing dots are load-bearing: `javax.*`
+// and `kotlinx.*` are dependency namespaces (`javax.inject`, `kotlinx.coroutines`), not stdlib/JDK.
+internal fun isStdlibOrJdkPackage(packageName: String): Boolean =
+    packageName == "kotlin" ||
+        packageName.startsWith("kotlin.") ||
+        packageName == "java" ||
+        packageName.startsWith("java.")

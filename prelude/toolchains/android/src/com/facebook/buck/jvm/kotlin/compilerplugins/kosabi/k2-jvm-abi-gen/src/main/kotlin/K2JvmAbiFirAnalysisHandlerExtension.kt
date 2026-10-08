@@ -303,11 +303,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           // since an error type always indicates something is unresolvable.
           try {
             val classId = type.lookupTag.classId
-            if (
-                !classId.isLocal &&
-                    !classId.packageFqName.asString().startsWith("kotlin") &&
-                    !classId.packageFqName.asString().startsWith("java")
-            ) {
+            if (!classId.isLocal && !isStdlibOrJdkPackage(classId.packageFqName.asString())) {
               missingTypes.add(classId)
             }
           } catch (_: Exception) {
@@ -323,10 +319,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           checkedClasses.add(classId)
 
           // Skip standard library classes - they're always available
-          if (
-              classId.packageFqName.asString().startsWith("kotlin") ||
-                  classId.packageFqName.asString().startsWith("java")
-          ) {
+          if (isStdlibOrJdkPackage(classId.packageFqName.asString())) {
             return
           }
 
@@ -466,10 +459,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         val coneType =
             (superTypeRef as? FirResolvedTypeRef)?.coneType as? ConeClassLikeType ?: continue
         val superClassId = coneType.lookupTag.classId
-        if (
-            superClassId.packageFqName.asString().startsWith("kotlin") ||
-                superClassId.packageFqName.asString().startsWith("java")
-        ) {
+        if (isStdlibOrJdkPackage(superClassId.packageFqName.asString())) {
           continue
         }
         val superSymbol =

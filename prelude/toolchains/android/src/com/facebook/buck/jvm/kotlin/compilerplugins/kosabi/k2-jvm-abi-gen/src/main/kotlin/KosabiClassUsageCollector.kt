@@ -160,7 +160,7 @@ class KosabiClassUsageCollector {
     // Skip builtins and local classes
     if (classId.isLocal) return
     val pkg = classId.packageFqName.asString()
-    if (pkg.startsWith("kotlin") || pkg.startsWith("java")) return
+    if (isStdlibOrJdkPackage(pkg)) return
 
     val symbol = session.symbolProvider.getClassLikeSymbolByClassId(classId) ?: return
     recordClassDeclaration(symbol.fir, session)
