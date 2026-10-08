@@ -39,9 +39,9 @@ use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::PagableNodeCounts;
 use crate::key::DiceKey;
 use crate::updater::ChangeType;
-use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResident;
+use crate::value::MaybeResidentComputedValue;
 use crate::value::PageOutResult;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -411,7 +411,7 @@ impl VersionedGraph {
                     }
                 };
                 VersionedGraphResult::Match {
-                    value: DiceComputedValue::new(
+                    value: MaybeResidentComputedValue::new(
                         self.stored(key, revision).into_payload(),
                         invalidation_paths,
                         revision,
@@ -443,7 +443,7 @@ impl VersionedGraph {
         at: VersionedGraphKey,
         update: ValueUpdate,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> DiceComputedValue {
+    ) -> MaybeResidentComputedValue {
         let key = at.k;
         let invalidation_paths = invalidation_paths.for_dependent(key);
         if !self.core.is_live(at.v.branch()) {
@@ -501,7 +501,7 @@ impl VersionedGraph {
                 dirtied.version,
             ));
         }
-        DiceComputedValue::new(value.into_payload(), paths, revision)
+        MaybeResidentComputedValue::new(value.into_payload(), paths, revision)
     }
 
     /// A write from a transaction on a deleted branch. The core knows nothing about the branch
@@ -512,17 +512,17 @@ impl VersionedGraph {
         key: DiceKey,
         update: ValueUpdate,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> DiceComputedValue {
+    ) -> MaybeResidentComputedValue {
         match update {
             ValueUpdate::Computed { value, .. } => {
                 let revision = self.with_values(key, |kv| kv.mint.mint());
-                DiceComputedValue::new(
+                MaybeResidentComputedValue::new(
                     MaybeResident::Resident(value).into_payload(),
                     invalidation_paths,
                     revision,
                 )
             }
-            ValueUpdate::DependencyValidated { candidate } => DiceComputedValue::new(
+            ValueUpdate::DependencyValidated { candidate } => MaybeResidentComputedValue::new(
                 candidate.entry.into_payload(),
                 invalidation_paths,
                 candidate.cert.revision,

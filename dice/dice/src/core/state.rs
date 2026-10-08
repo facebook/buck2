@@ -45,8 +45,8 @@ use crate::metrics::Metrics;
 use crate::metrics::PagingMemoryMetrics;
 use crate::updater::ActiveTransactionGuard;
 use crate::updater::ChangeType;
-use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
+use crate::value::MaybeResidentComputedValue;
 use crate::value::PageOutResult;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -254,7 +254,7 @@ impl CoreStateHandle {
         deps: SeriesParallelDeps,
         epsilon: EpsilonToken,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> impl Future<Output = DiceComputedValue> + use<> {
+    ) -> impl Future<Output = MaybeResidentComputedValue> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
             StateRequest::UpdateComputed {
@@ -278,7 +278,7 @@ impl CoreStateHandle {
         storage: StorageType,
         candidate: Candidate,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> impl Future<Output = DiceComputedValue> + use<> {
+    ) -> impl Future<Output = MaybeResidentComputedValue> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
             StateRequest::Revalidate {
@@ -515,7 +515,7 @@ pub(super) enum StateRequest {
         invalidation_paths: TrackedInvalidationPaths,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
-        resp: Sender<DiceComputedValue>,
+        resp: Sender<MaybeResidentComputedValue>,
     },
     /// Report that a candidate certificate has been verified to hold at the version
     Revalidate {
@@ -527,7 +527,7 @@ pub(super) enum StateRequest {
         invalidation_paths: TrackedInvalidationPaths,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
-        resp: Sender<DiceComputedValue>,
+        resp: Sender<MaybeResidentComputedValue>,
     },
     /// What stands between `branch`, or with `None` everything, and idleness
     IdleStatus {

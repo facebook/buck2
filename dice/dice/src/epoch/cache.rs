@@ -27,7 +27,7 @@ use crate::epoch::task::dice::PreparedDiceTask;
 use crate::epoch::task::projections::ProjectionTask;
 use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::key::DiceKey;
-use crate::value::DiceComputedValue;
+use crate::value::MaybeResidentComputedValue;
 
 #[derive(Allocative)]
 struct Data {
@@ -61,7 +61,7 @@ impl WeakSharedCache {
 }
 
 pub(crate) enum SharedCacheLookup<'d, T> {
-    Finished(&'d DiceComputedValue),
+    Finished(&'d MaybeResidentComputedValue),
     InProgress(T),
     Vacant,
 }

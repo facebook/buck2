@@ -49,8 +49,8 @@ use crate::key::DiceKey;
 use crate::key::ParentKey;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::user_cycle::UserCycleDetectorData;
-use crate::value::DiceComputedValue;
 use crate::value::MaybeResident;
+use crate::value::MaybeResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
 
 pub(crate) mod state;
@@ -317,7 +317,7 @@ impl DiceTaskWorker {
                         .await
                 }
                 Err(value) => {
-                    DiceComputedValue::new_for_transient(value, result.invalidation_paths)
+                    MaybeResidentComputedValue::new_for_transient(value, result.invalidation_paths)
                 }
             }
         };

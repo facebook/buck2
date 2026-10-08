@@ -18,7 +18,7 @@ use std::task::Poll;
 use pin_project::pin_project;
 
 use crate::epoch::task::dice::DiceTaskDependentFuture;
-use crate::value::DiceComputedValue;
+use crate::value::MaybeResidentComputedValue;
 
 /// A strong reference to a 'DiceTask' that is pollable as a future.
 /// This is only awoken when the result is ready, as none of the pollers are responsible for
@@ -29,7 +29,7 @@ pub(crate) struct DicePromise<'d>(#[pin] pub(super) DicePromiseInternal<'d>);
 #[pin_project(project = DicePromiseInternalProj)]
 pub(super) enum DicePromiseInternal<'d> {
     Ready {
-        result: &'d DiceComputedValue,
+        result: &'d MaybeResidentComputedValue,
     },
     Pending {
         #[pin]
@@ -39,7 +39,7 @@ pub(super) enum DicePromiseInternal<'d> {
 }
 
 impl<'d> DicePromise<'d> {
-    pub(crate) fn ready(result: &'d DiceComputedValue) -> Self {
+    pub(crate) fn ready(result: &'d MaybeResidentComputedValue) -> Self {
         Self(DicePromiseInternal::Ready { result })
     }
 
@@ -49,7 +49,7 @@ impl<'d> DicePromise<'d> {
 }
 
 impl<'d> Future for DicePromise<'d> {
-    type Output = &'d DiceComputedValue;
+    type Output = &'d MaybeResidentComputedValue;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let res = match self.as_mut().project().0.project() {

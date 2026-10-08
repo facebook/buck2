@@ -16,7 +16,7 @@ use dupe::Dupe;
 use crate::arc::Arc;
 use crate::introspection::DiceTaskState;
 use crate::key::DiceKey;
-use crate::value::DiceComputedValue;
+use crate::value::MaybeResidentComputedValue;
 
 #[derive(Allocative)]
 #[allocative(skip)]
@@ -33,7 +33,7 @@ pub(crate) struct ProjectionTask {
     ///
     /// This includes the roundtrip to the core state - the thread performing the compute blocks
     /// on the core state's response before completing the task with it.
-    value: OnceLock<Option<DiceComputedValue>>,
+    value: OnceLock<Option<MaybeResidentComputedValue>>,
 }
 
 /// The handle given to the thread responsible for performing and completing the computation.
@@ -77,17 +77,20 @@ impl ProjectionTask {
     }
 
     /// Read the finished value if it's available. Panics if the computation panicked.
-    pub(crate) fn try_read(&self) -> Option<&'_ DiceComputedValue> {
+    pub(crate) fn try_read(&self) -> Option<&'_ MaybeResidentComputedValue> {
         self.value.get().map(Self::unpoisoned)
     }
 
-    fn unpoisoned(value: &Option<DiceComputedValue>) -> &DiceComputedValue {
+    fn unpoisoned(value: &Option<MaybeResidentComputedValue>) -> &MaybeResidentComputedValue {
         value
             .as_ref()
             .expect("the projection's computation panicked")
     }
 
-    fn insert_computed(this: Arc<Self>, result: DiceComputedValue) -> DiceComputedValue {
+    fn insert_computed(
+        this: Arc<Self>,
+        result: MaybeResidentComputedValue,
+    ) -> MaybeResidentComputedValue {
         let _ignored = this.computed.set(());
         assert!(
             this.value.set(Some(result.dupe())).is_ok(),
@@ -102,7 +105,7 @@ impl ProjectionTask {
     }
 
     /// Waits for the finished value. Panics if the computation panicked.
-    pub(crate) fn wait_sync(&self) -> DiceComputedValue {
+    pub(crate) fn wait_sync(&self) -> MaybeResidentComputedValue {
         Self::unpoisoned(self.value.wait()).dupe()
     }
 
@@ -135,7 +138,10 @@ impl ProjectionTaskCompletionHandle {
         let _ignored = self.0.as_ref().unwrap().computed.set(());
     }
 
-    pub(crate) fn complete(mut self, result: DiceComputedValue) -> DiceComputedValue {
+    pub(crate) fn complete(
+        mut self,
+        result: MaybeResidentComputedValue,
+    ) -> MaybeResidentComputedValue {
         ProjectionTask::insert_computed(self.0.take().unwrap(), result)
     }
 }
@@ -170,9 +176,9 @@ mod tests {
     use crate::api::key::ValueSerialize;
     use crate::core::graph::revision::Revision;
     use crate::key::DiceKey;
-    use crate::value::DiceComputedValue;
     use crate::value::DiceKeyValue;
     use crate::value::DiceValidValue;
+    use crate::value::MaybeResidentComputedValue;
     use crate::value::MaybeValidDiceValue;
     use crate::value::TrackedInvalidationPaths;
 
@@ -201,15 +207,15 @@ mod tests {
         }
     }
 
-    fn computed(val: usize) -> DiceComputedValue {
-        DiceComputedValue::new_resident(
+    fn computed(val: usize) -> MaybeResidentComputedValue {
+        MaybeResidentComputedValue::new_resident(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(val))),
             TrackedInvalidationPaths::clean(),
             Revision::FIRST,
         )
     }
 
-    fn is_val(v: &DiceComputedValue, val: usize) -> bool {
+    fn is_val(v: &MaybeResidentComputedValue, val: usize) -> bool {
         v.testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(val)))
     }

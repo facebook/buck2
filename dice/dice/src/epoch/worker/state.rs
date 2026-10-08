@@ -31,7 +31,7 @@ use crate::key::DiceKeyErased;
 use crate::key_index::DiceKeyIndex;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::user_cycle::UserCycleDetectorData;
-use crate::value::DiceComputedValue;
+use crate::value::MaybeResidentComputedValue;
 
 /// Represents when we are in a spawned dice task worker and are currently waiting for the previous
 /// cancelled instance of this task to finish cancelling.
@@ -56,7 +56,7 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
 
     pub(crate) fn previously_finished(
         self,
-        value: DiceComputedValue,
+        value: MaybeResidentComputedValue,
     ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
         let guard = self.prevent_cancellation.try_disable_cancellation();
         finish_with_cached_value(value, guard)
@@ -107,7 +107,7 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
 }
 
 fn finish_with_cached_value(
-    value: DiceComputedValue,
+    value: MaybeResidentComputedValue,
     disable_cancellation: Option<DisableCancellationGuard>,
 ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
     match disable_cancellation {
@@ -161,7 +161,7 @@ impl DiceWorkerStateLookupNode {
     pub(crate) fn lookup_matches(
         self,
         internals: &mut DiceTaskHandle,
-        value: DiceComputedValue,
+        value: MaybeResidentComputedValue,
     ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
         let guard = internals.cancellation_ctx().try_disable_cancellation();
         finish_with_cached_value(value, guard)
@@ -240,7 +240,7 @@ pub(crate) struct DiceWorkerStateFinished {
 impl DiceWorkerStateFinished {
     pub(crate) fn cached(
         self,
-        value: DiceComputedValue,
+        value: MaybeResidentComputedValue,
         activation_info: Option<ActivationInfo>,
     ) -> DiceWorkerStateFinishedAndCached {
         if let Some(activation_info) = activation_info {
@@ -292,6 +292,6 @@ impl ActivationInfo {
 /// When the spawned dice worker is done computing and saving the value to core state cache.
 /// The final value is known.
 pub(crate) struct DiceWorkerStateFinishedAndCached {
-    pub(crate) value: DiceComputedValue,
+    pub(crate) value: MaybeResidentComputedValue,
     pub(crate) _prevent_cancellation: DisableCancellationGuard,
 }

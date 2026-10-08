@@ -38,7 +38,7 @@ use crate::epoch::worker::WorkerResult;
 use crate::introspection::DiceTaskState;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
-use crate::value::DiceComputedValue;
+use crate::value::MaybeResidentComputedValue;
 
 /// The shared, reference-counted state for computing a single key at a single version.
 ///
@@ -133,7 +133,7 @@ pub(crate) struct DiceTaskInternal {
     ///
     /// This is set effectively whenever the value is ready. After it is set, no new generations
     /// will be started, though previously started ones may still be running.
-    maybe_value: OnceLock<DiceComputedValue>,
+    maybe_value: OnceLock<MaybeResidentComputedValue>,
     /// The number of things waiting on the the task.
     ///
     /// When this is zero, the most recently started generation has been cancelled; incrementing
@@ -169,7 +169,7 @@ unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
 
 enum ReadValueResult<'d> {
-    Finished(&'d DiceComputedValue),
+    Finished(&'d MaybeResidentComputedValue),
     Pending { terminated_generation: u32 },
 }
 
@@ -191,7 +191,7 @@ impl<'d> TaskWaiter<'d> {
     fn poll_complete(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-    ) -> Poll<&'d DiceComputedValue> {
+    ) -> Poll<&'d MaybeResidentComputedValue> {
         let this = self.as_mut().project();
         let internal = this.task.internal.get();
 
@@ -219,7 +219,7 @@ impl<'d> TaskWaiter<'d> {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         generation: u32,
-    ) -> Poll<WorkerResult<&'d DiceComputedValue>> {
+    ) -> Poll<WorkerResult<&'d MaybeResidentComputedValue>> {
         let this = self.as_mut().project();
         let internal = this.task.internal.get();
 
@@ -256,7 +256,7 @@ impl<'d> PinnedDrop for TaskWaiter<'d> {
 
 /// Result of registering as a dependent of a task via `depended_on_by`.
 pub(crate) enum DiceTaskDependedOnByResult<'d> {
-    Finished(&'d DiceComputedValue),
+    Finished(&'d MaybeResidentComputedValue),
     Pending(DicePromise<'d>),
     /// The task had been cancelled and this caller won the race to restart it. The caller must
     /// spawn the worker on the freshly prepared (next-generation) task, after awaiting termination
@@ -449,7 +449,7 @@ impl<'d> DiceTaskRef<'d> {
         DiceTaskDependedOnByResult::NeedsRestart(prepared, previously_cancelled)
     }
 
-    pub(crate) fn get_finished_value(self) -> Option<&'d DiceComputedValue> {
+    pub(crate) fn get_finished_value(self) -> Option<&'d MaybeResidentComputedValue> {
         match self.internal.get().read_value() {
             ReadValueResult::Finished(v) => Some(v),
             ReadValueResult::Pending { .. } => None,
@@ -553,7 +553,7 @@ impl<'d> DiceTaskRef<'d> {
     }
 
     /// Mark that a generation has terminated successfully.
-    fn task_finished_result(&self, generation: u32, value: DiceComputedValue) {
+    fn task_finished_result(&self, generation: u32, value: MaybeResidentComputedValue) {
         drop(self.internal.maybe_value.set(value));
         self.task_finished(generation);
     }
@@ -674,7 +674,7 @@ impl DiceTaskCompletionHandle {
             .task_finished_no_result(self.generation, token);
     }
 
-    pub(crate) fn completed(self, v: DiceComputedValue) {
+    pub(crate) fn completed(self, v: MaybeResidentComputedValue) {
         self.task.as_ref().task_finished_result(self.generation, v);
     }
 }
@@ -706,7 +706,7 @@ impl<'d> PinnedDrop for DiceTaskDependentFuture<'d> {
 }
 
 impl<'d> Future for DiceTaskDependentFuture<'d> {
-    type Output = &'d DiceComputedValue;
+    type Output = &'d MaybeResidentComputedValue;
 
     fn poll(
         self: std::pin::Pin<&mut Self>,
@@ -719,7 +719,7 @@ impl<'d> Future for DiceTaskDependentFuture<'d> {
 /// A future that resolves when the underlying task is complete and idle.
 // Unlike `DiceTaskDependentFuture`, this does not hold a strong count. It's also less well
 // optimized.
-pub(crate) struct TerminationObserver(BoxFuture<'static, Option<DiceComputedValue>>);
+pub(crate) struct TerminationObserver(BoxFuture<'static, Option<MaybeResidentComputedValue>>);
 
 impl TerminationObserver {
     fn new(t: DiceTaskRef<'_>, generation: u32) -> Self {
@@ -743,7 +743,7 @@ impl TerminationObserver {
 }
 
 impl Future for TerminationObserver {
-    type Output = Option<DiceComputedValue>;
+    type Output = Option<MaybeResidentComputedValue>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut self.get_mut().0).poll(cx)
@@ -756,16 +756,16 @@ pub(crate) mod testing_helpers {
     use crate::core::graph::revision::Revision;
     use crate::epoch::task::dice::DiceTask;
     use crate::key::DiceKey;
-    use crate::value::DiceComputedValue;
     use crate::value::DiceKeyValue;
     use crate::value::DiceValidValue;
+    use crate::value::MaybeResidentComputedValue;
     use crate::value::MaybeValidDiceValue;
     use crate::value::TrackedInvalidationPaths;
 
     pub(crate) fn make_completed_task<K: Key>(key: DiceKey, val: K::Value) -> DiceTask {
         make_completed_task_with_computed_value(
             key,
-            DiceComputedValue::new_resident(
+            MaybeResidentComputedValue::new_resident(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(
                     val,
                 ))),
@@ -777,7 +777,7 @@ pub(crate) mod testing_helpers {
 
     pub(crate) fn make_completed_task_with_computed_value(
         key: DiceKey,
-        val: DiceComputedValue,
+        val: MaybeResidentComputedValue,
     ) -> DiceTask {
         let prepared = DiceTask::prepare_testing(key);
         let task = prepared.task().clone_arc();

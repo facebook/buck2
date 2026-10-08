@@ -38,10 +38,10 @@ use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::PagableNodeCounts;
 use crate::key::DiceKey;
 use crate::updater::ChangeType;
-use crate::value::DiceComputedValue;
 use crate::value::DiceKeyValue;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResident;
+use crate::value::MaybeResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -154,7 +154,7 @@ fn compute(
     k: DiceKey,
     v: VersionNumber,
     value: DiceValidValue,
-) -> DiceComputedValue {
+) -> MaybeResidentComputedValue {
     let deps = deps_on_leaf(graph, v);
     let epsilon = match graph.get(VersionedGraphKey::new(v, k)) {
         VersionedGraphResult::Match { epsilon, .. }
@@ -178,7 +178,7 @@ fn revalidate(
     k: DiceKey,
     v: VersionNumber,
     candidate: Candidate,
-) -> DiceComputedValue {
+) -> MaybeResidentComputedValue {
     let out = graph.update(
         VersionedGraphKey::new(v, k),
         ValueUpdate::DependencyValidated { candidate },

@@ -18,9 +18,9 @@ use crate::arc::Arc;
 use crate::core::graph::DiceCert;
 use crate::core::graph::revision::EpsilonToken;
 use crate::key::DiceKey;
-use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResident;
+use crate::value::MaybeResidentComputedValue;
 use crate::versions::VersionNumber;
 
 /// The Key for a Versioned, incremental computation
@@ -58,7 +58,7 @@ pub(crate) struct Candidate {
 pub(crate) enum VersionedGraphResult {
     /// The key resolves to `value` at the version.
     Match {
-        value: DiceComputedValue,
+        value: MaybeResidentComputedValue,
         epsilon: EpsilonToken,
     },
     /// The key does not resolve at the version. `candidate` is the nearest certificate the

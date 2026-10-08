@@ -54,7 +54,7 @@ use crate::key::ParentKey;
 use crate::opaque::OpaqueValue;
 use crate::updater::ActiveTransactionGuard;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
-use crate::value::DiceComputedValue;
+use crate::value::MaybeResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -700,7 +700,7 @@ impl ComputeCtx {
         &self,
         key: &K,
         base: &OpaqueValue<B>,
-    ) -> DiceResult<(DiceKey, DiceComputedValue)> {
+    ) -> DiceResult<(DiceKey, MaybeResidentComputedValue)> {
         let dice_key = self
             .transaction_data
             .dice

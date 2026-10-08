@@ -49,7 +49,7 @@ use crate::key::DiceKeyErased;
 use crate::key::ParentKey;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::user_cycle::UserCycleDetectorData;
-use crate::value::DiceComputedValue;
+use crate::value::MaybeResidentComputedValue;
 use crate::value::MaybeValidDiceValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -63,7 +63,7 @@ pub(crate) struct VersionState {
     cache: SharedCache,
 }
 enum LookupResult<'d> {
-    Finished(&'d DiceComputedValue),
+    Finished(&'d MaybeResidentComputedValue),
     Pending(DicePromise<'d>),
     NeedsRestart(PreparedDiceTask<'d>, Option<PreviouslyCancelledTask>),
 }
@@ -132,7 +132,7 @@ impl VersionState {
         base_revision: Option<Revision>,
         base_invalidation_paths: &TrackedInvalidationPaths,
         transaction: &TransactionData,
-    ) -> DiceComputedValue {
+    ) -> MaybeResidentComputedValue {
         let task = match self.cache.get_projection(key) {
             SharedCacheLookup::Finished(result) => {
                 return result.dupe();
@@ -382,7 +382,7 @@ fn handle_project_eval_result(
     k: DiceKey,
     v: VersionNumber,
     eval_result: KeyEvaluationResult,
-) -> DiceComputedValue {
+) -> MaybeResidentComputedValue {
     let KeyEvaluationResult {
         value,
         deps,
@@ -421,7 +421,7 @@ fn handle_project_eval_result(
         Err(_transient_result) => {
             // transients are never stored in the state, but the result should be shared
             // with async computations as if it were.
-            DiceComputedValue::new_for_transient(value, invalidation_paths)
+            MaybeResidentComputedValue::new_for_transient(value, invalidation_paths)
         }
     };
 

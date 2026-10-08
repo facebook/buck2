@@ -39,9 +39,9 @@ use crate::epoch::task::dice::DiceTaskDependedOnByResult;
 use crate::epoch::task::spawn_dice_task;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
-use crate::value::DiceComputedValue;
 use crate::value::DiceKeyValue;
 use crate::value::DiceValidValue;
+use crate::value::MaybeResidentComputedValue;
 use crate::value::MaybeValidDiceValue;
 use crate::value::TrackedInvalidationPaths;
 
@@ -83,7 +83,7 @@ async fn simple_task() -> anyhow::Result<()> {
                 // wait for the lock too
                 let _lock = lock.lock().await;
 
-                handle.finished(Ok(DiceComputedValue::new_resident(
+                handle.finished(Ok(MaybeResidentComputedValue::new_resident(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
@@ -142,7 +142,7 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
             let can_terminate = can_terminate.dupe();
             async move {
                 // wait for the lock too
-                handle.finished(Ok(DiceComputedValue::new_resident(
+                handle.finished(Ok(MaybeResidentComputedValue::new_resident(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(1),
                     )),
@@ -230,7 +230,7 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
         spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |handle| {
             async move {
                 // wait for the lock too
-                handle.finished(Ok(DiceComputedValue::new_resident(
+                handle.finished(Ok(MaybeResidentComputedValue::new_resident(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),

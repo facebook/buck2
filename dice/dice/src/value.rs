@@ -149,13 +149,6 @@ pub(crate) enum MaybeResident<V> {
 }
 
 impl<V> MaybeResident<V> {
-    pub(crate) fn resident(&self) -> Option<&V> {
-        match self {
-            MaybeResident::Resident(v) => Some(v),
-            MaybeResident::PagedOut(_) => None,
-        }
-    }
-
     /// The on-disk key to read the value back from, or `None` if it is already resident.
     pub(crate) fn data_key(&self) -> Option<DataKey> {
         match self {
@@ -166,7 +159,7 @@ impl<V> MaybeResident<V> {
 }
 
 impl MaybeResident<DiceValidValue> {
-    /// The same value as a [`DiceComputedValue`] payload.
+    /// The same value as a [`MaybeResidentComputedValue`] payload.
     pub(crate) fn into_payload(self) -> MaybeResident<MaybeValidDiceValue> {
         match self {
             MaybeResident::Resident(v) => MaybeResident::Resident(MaybeValidDiceValue::valid(v)),
@@ -203,12 +196,54 @@ impl DiceValidity {
 }
 
 #[derive(Allocative, Clone, Dupe)]
-pub(crate) struct DiceComputedValue {
-    value: MaybeResident<MaybeValidDiceValue>,
+pub(crate) struct MaybeResidentComputedValue {
+    value: MaybeResidentDiceValue,
     invalidation_paths: TrackedInvalidationPaths,
     /// The revision the value was interned under, `None` iff the value is transient:
     /// transients never enter the graph and so have no interned identity to name.
     revision: Option<Revision>,
+}
+
+/// Payload owned by an epoch result. Copies share the paged-out descriptor,
+/// keeping its identity and paging state tied to the result.
+#[derive(Allocative, Clone, Dupe)]
+enum MaybeResidentDiceValue {
+    Resident(MaybeValidDiceValue),
+    PagedOut(Arc<PagedOutValue>),
+}
+
+impl MaybeResidentDiceValue {
+    fn new(value: MaybeResident<MaybeValidDiceValue>) -> Self {
+        match value {
+            MaybeResident::Resident(value) => Self::Resident(value),
+            MaybeResident::PagedOut(data_key) => {
+                Self::PagedOut(Arc::new(PagedOutValue { data_key }))
+            }
+        }
+    }
+
+    fn from_valid(value: DiceValidValue) -> Self {
+        Self::Resident(MaybeValidDiceValue::valid(value))
+    }
+
+    fn resident_value(&self) -> Option<&MaybeValidDiceValue> {
+        match self {
+            Self::Resident(value) => Some(value),
+            Self::PagedOut(_) => None,
+        }
+    }
+
+    fn paged_out(&self) -> Option<&PagedOutValue> {
+        match self {
+            Self::Resident(_) => None,
+            Self::PagedOut(value) => Some(value),
+        }
+    }
+}
+
+#[derive(Allocative)]
+pub(crate) struct PagedOutValue {
+    pub(crate) data_key: DataKey,
 }
 
 #[derive(Allocative, Debug, Clone, Dupe, PartialEq, Eq)]
@@ -374,14 +409,14 @@ impl TrackedInvalidationPaths {
     }
 }
 
-impl DiceComputedValue {
+impl MaybeResidentComputedValue {
     pub(crate) fn new(
         value: MaybeResident<MaybeValidDiceValue>,
         invalidation_paths: TrackedInvalidationPaths,
         revision: Revision,
     ) -> Self {
         Self {
-            value,
+            value: MaybeResidentDiceValue::new(value),
             invalidation_paths,
             revision: Some(revision),
         }
@@ -399,7 +434,7 @@ impl DiceComputedValue {
     /// The same result with `value` — read back from storage — as its payload.
     pub(crate) fn paged_in(&self, value: DiceValidValue) -> Self {
         Self {
-            value: MaybeResident::Resident(MaybeValidDiceValue::valid(value)),
+            value: MaybeResidentDiceValue::from_valid(value),
             invalidation_paths: self.invalidation_paths.dupe(),
             revision: self.revision,
         }
@@ -411,7 +446,7 @@ impl DiceComputedValue {
         invalidation_paths: TrackedInvalidationPaths,
     ) -> Self {
         Self {
-            value: MaybeResident::Resident(value),
+            value: MaybeResidentDiceValue::Resident(value),
             invalidation_paths,
             revision: None,
         }
@@ -419,12 +454,16 @@ impl DiceComputedValue {
 
     /// The payload, or `None` if the value is still paged out.
     pub(crate) fn resident_value(&self) -> Option<&MaybeValidDiceValue> {
-        self.value.resident()
+        self.value.resident_value()
     }
 
     /// The on-disk key to read the value back from, or `None` if it is already resident.
     pub(crate) fn paged_out_data_key(&self) -> Option<DataKey> {
-        self.value.data_key()
+        self.paged_out().map(|value| value.data_key)
+    }
+
+    pub(crate) fn paged_out(&self) -> Option<&PagedOutValue> {
+        self.value.paged_out()
     }
 
     pub(crate) fn invalidation_paths(&self) -> &TrackedInvalidationPaths {
@@ -437,9 +476,9 @@ impl DiceComputedValue {
     }
 }
 
-impl Debug for DiceComputedValue {
+impl Debug for MaybeResidentComputedValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiceComputedValue")
+        f.debug_struct("MaybeResidentComputedValue")
             .field("revision", &self.revision)
             .finish_non_exhaustive()
     }
@@ -540,11 +579,11 @@ where
 pub mod testing {
     use crate::arc::Arc;
     use crate::key::DiceKey;
-    use crate::value::DiceComputedValue;
     use crate::value::DiceValidValue;
     use crate::value::DiceValueDyn;
     use crate::value::InvalidationPath;
     use crate::value::InvalidationPathNode;
+    use crate::value::MaybeResidentComputedValue;
     use crate::value::MaybeValidDiceValue;
     use crate::value::TrackedInvalidationPaths;
     use crate::versions::VersionNumber;
@@ -561,7 +600,7 @@ pub mod testing {
         }
     }
 
-    impl DiceComputedValue {
+    impl MaybeResidentComputedValue {
         /// The payload, panicking if the value is paged out.
         pub(crate) fn testing_resident_value(&self) -> &MaybeValidDiceValue {
             self.resident_value().expect("value should be resident")

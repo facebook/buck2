@@ -29,8 +29,8 @@ use crate::metrics::AllocWindow;
 use crate::metrics::Metrics;
 use crate::metrics::PagingMemoryMetrics;
 use crate::updater::ChangeType;
-use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
+use crate::value::MaybeResidentComputedValue;
 use crate::value::PageOutResult;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -112,7 +112,7 @@ impl ActorState {
         storage: StorageType,
         update: ValueUpdate,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> DiceComputedValue {
+    ) -> MaybeResidentComputedValue {
         if let StorageType::Injected = storage {
             unreachable!(
                 "Injected keys should not receive update calls, as those are only from a compute() finishing and InjectedKeys have no compute()"
