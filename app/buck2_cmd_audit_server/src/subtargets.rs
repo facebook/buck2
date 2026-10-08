@@ -138,6 +138,21 @@ async fn server_execute_with_dice(
                             &mut Subtarget::new(target),
                         )?
                     }
+                } else if json_format {
+                    let mut entries = serde_json::Map::new();
+                    for sub in v
+                        .require_compatible()?
+                        .provider_collection()
+                        .default_info()?
+                        .sub_targets()
+                        .keys()
+                    {
+                        entries.insert(
+                            sub.to_string(),
+                            serde_json::Value::Object(Default::default()),
+                        );
+                    }
+                    subtargets_map.insert(target.to_string(), serde_json::Value::Object(entries));
                 } else {
                     let mut label = Subtarget::new(target);
                     for sub in v

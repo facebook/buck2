@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 # pyre-strict
+import json
 import re
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -226,12 +227,14 @@ async def test_audit_subtarget_fails_with_pattern_modifier_and_target_universe_m
 
 
 @buck_test()
-async def test_audit_subtargets_shallow_json_is_not_json(buck: Buck) -> None:
-    # The shallow branch ignores `--json` and prints text lines; the json branch then prints
-    # an empty object after them.
+async def test_audit_subtargets_shallow_json(buck: Buck) -> None:
     result = await buck.audit("subtargets", "//:deeply_nested", "--shallow", "--json")
-    assert result.stdout.splitlines() == [
-        "root//:deeply_nested[sub1] (<unspecified>)",
-        "root//:deeply_nested[sub2] (<unspecified>)",
-        "{}",
-    ]
+    assert json.loads(result.stdout) == {
+        "root//:deeply_nested (<unspecified>)": {"sub1": {}, "sub2": {}},
+    }
+    result = await buck.audit(
+        "subtargets", "//:deeply_nested[sub2]", "--shallow", "--json"
+    )
+    assert json.loads(result.stdout) == {
+        "root//:deeply_nested[sub2] (<unspecified>)": {"sub3": {}, "sub5": {}},
+    }
