@@ -12,6 +12,7 @@
 
 use std::time::Instant;
 
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::Future;
 use futures::FutureExt;
@@ -37,7 +38,6 @@ use crate::epoch::evaluator::TransactionData;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::dice::PreparedDiceTask;
 use crate::epoch::task::dice::spawn_prepared_task;
-use crate::epoch::task::handle::DiceTaskHandle;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::worker::state::ActivationInfo;
 use crate::epoch::worker::state::DiceWorkerStateAwaitingPrevious;
@@ -96,13 +96,14 @@ impl DiceTaskWorker {
             // NOTE: important to run prevent cancellation eagerly in the sync scope to prevent
             // cancellations so that we don't cancel the current task before we finish waiting
             // for the previously cancelled task
-            let prevent_cancellation = handle.cancellation_ctx().enter_critical_section();
+            let cancellations = handle.cancellation_ctx();
+            let prevent_cancellation = cancellations.enter_critical_section();
             let state = DiceWorkerStateAwaitingPrevious::new(self.k, cycles, prevent_cancellation);
 
             async move {
                 let previous_result = match previously_cancelled_task {
-                    Some(v) => state.await_previous(handle, v).await,
-                    None => Either::Right(state.no_previous_task(handle).await),
+                    Some(v) => state.await_previous(v).await,
+                    None => Either::Right(state.no_previous_task().await),
                 };
 
                 let result = match previous_result {
@@ -110,7 +111,7 @@ impl DiceTaskWorker {
                         // previous result actually finished
                         previous_result
                     }
-                    Either::Right(state) => self.do_work(handle, state_handle, state).await,
+                    Either::Right(state) => self.do_work(cancellations, state_handle, state).await,
                 };
 
                 handle.finished(result.map(|state| state.value));
@@ -122,7 +123,7 @@ impl DiceTaskWorker {
     /// This is the primary flow of how a key is computed or re-computed.
     pub(crate) async fn do_work(
         &self,
-        handle: &mut DiceTaskHandle<'_>,
+        cancellations: &CancellationContext,
         state_handle: CoreStateHandle,
         task_state: DiceWorkerStateLookupNode,
     ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
@@ -135,7 +136,7 @@ impl DiceTaskWorker {
         // handle cancelled/cache hits before sending started events
         let (candidate, epsilon) = match state_result {
             VersionedGraphResult::Match { value } => {
-                return task_state.lookup_matches(handle, value);
+                return task_state.lookup_matches(cancellations, value);
             }
             VersionedGraphResult::Unknown { candidate, epsilon } => (candidate, epsilon),
         };
@@ -151,7 +152,7 @@ impl DiceTaskWorker {
         let cycles;
         let (task_state, deps_check_continuables) = match revalidatable {
             Some(to_revalidate) => {
-                let (task_state, cycles2) = task_state.checking_deps(handle, &self.eval);
+                let (task_state, cycles2) = task_state.checking_deps(&self.eval);
                 cycles = cycles2;
 
                 self.eval.check_deps_started(self.k);
@@ -174,7 +175,7 @@ impl DiceTaskWorker {
                         let invalidation_paths =
                             check_deps_result.unwrap_no_change_invalidation_paths();
 
-                        let task_state = task_state.deps_match(handle)?;
+                        let task_state = task_state.deps_match(cancellations)?;
                         let activation_info = self.activation_info(
                             to_revalidate.cert.deps.iter_keys(),
                             ActivationData::Reused,
@@ -193,15 +194,15 @@ impl DiceTaskWorker {
                     CheckDependenciesResult::NoDeps => {
                         // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
                         // implicit meaning to a node having no deps at this point, but it's unclear what that is.
-                        (task_state.deps_not_match(handle), None)
+                        (task_state.deps_not_match(), None)
                     }
                     CheckDependenciesResult::Changed { continuables } => {
-                        (task_state.deps_not_match(handle), Some(continuables))
+                        (task_state.deps_not_match(), Some(continuables))
                     }
                 }
             }
             None => {
-                let (task_state, cycles2) = task_state.lookup_dirtied(handle, &self.eval);
+                let (task_state, cycles2) = task_state.lookup_dirtied(&self.eval);
                 cycles = cycles2;
                 (task_state, None)
             }
@@ -211,7 +212,7 @@ impl DiceTaskWorker {
             state,
             activation_data,
             result,
-        } = self.compute(handle, task_state, &cycles).await?;
+        } = self.compute(cancellations, task_state, &cycles).await?;
 
         // explicitly drop this here to make it clear that its important that we hold onto it, it
         // otherwise appears unused, but we don't want to cancel anything that it has started requesting
@@ -271,7 +272,7 @@ impl DiceTaskWorker {
 
     async fn compute(
         &self,
-        handle: &mut DiceTaskHandle<'_>,
+        cancellations: &CancellationContext,
         task_state: DiceWorkerStateEvaluating,
         cycles: &KeyComputingUserCycleDetectorData,
     ) -> WorkerResult<DiceWorkerStateFinishedEvaluating> {
@@ -281,7 +282,7 @@ impl DiceTaskWorker {
         };
 
         self.eval
-            .evaluate(handle, self.k, task_state, cycles.clone())
+            .evaluate(cancellations, self.k, task_state, cycles.clone())
             .await
     }
 

@@ -15,6 +15,7 @@ use std::time::Instant;
 use derivative::Derivative;
 use dice_error::DiceError;
 use dice_error::DiceResult;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use parking_lot::Mutex;
 
@@ -44,7 +45,6 @@ use crate::epoch::ctx::TrackedComputations;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::dice::DiceTaskDependedOnByResult;
 use crate::epoch::task::dice::PreparedDiceTask;
-use crate::epoch::task::handle::DiceTaskHandle;
 use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::worker::DiceTaskWorker;
@@ -263,7 +263,7 @@ impl TransactionData {
 
     pub(crate) async fn evaluate(
         &self,
-        handle: &mut DiceTaskHandle<'_>,
+        cancellations: &CancellationContext,
         key: DiceKey,
         state: DiceWorkerStateEvaluating,
         cycles: KeyComputingUserCycleDetectorData,
@@ -285,7 +285,7 @@ impl TransactionData {
                 }
                 .into();
 
-                let value = key_dyn.compute(&mut ctx, handle.cancellation_ctx()).await;
+                let value = key_dyn.compute(&mut ctx, cancellations).await;
                 let recorded_deps = ctx.0.finalize();
                 // A dependency that failed to produce a value is not recorded as a dep, so
                 // `deps_validity` cannot reflect its failure.
@@ -296,7 +296,7 @@ impl TransactionData {
                 };
 
                 state.finished(
-                    handle,
+                    cancellations,
                     compute.cycles,
                     KeyEvaluationResult {
                         value: MaybeValidDiceValue::new(value, validity),
@@ -350,7 +350,7 @@ impl TransactionData {
                 );
 
                 state.finished(
-                    handle,
+                    cancellations,
                     cycles,
                     result,
                     ActivationData::Evaluated(None), // Projection keys can't set this.
