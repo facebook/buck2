@@ -1075,10 +1075,10 @@ fn test_select_incompatible_configure() -> buck2_error::Result<()> {
     Ok(())
 }
 
-/// A `sorted = True` dict is sorted on the literal path but not when it is assembled from a
-/// concatenation with a `select`: the pieces are merged in operand order.
+/// A `sorted = True` dict is sorted whether it is a literal or assembled from a concatenation
+/// with a `select`.
 #[test]
-fn test_sorted_dict_concat_is_not_sorted() -> buck2_error::Result<()> {
+fn test_sorted_dict_concat_is_sorted() -> buck2_error::Result<()> {
     Module::with_temp_heap(|env| {
         let globals = GlobalsBuilder::standard().with(register_select).build();
         let attr = AttrType::dict(AttrType::string(), AttrType::string(), true);
@@ -1103,6 +1103,22 @@ fn test_sorted_dict_concat_is_not_sorted() -> buck2_error::Result<()> {
             .configure(&attr, &configuration_ctx(), None)
             .require_compatible()?;
         assert_eq!(
+            r#"{"a": "2", "b": "1"}"#,
+            configured.as_display_no_ctx().to_string()
+        );
+
+        // An unsorted dict keeps the operand order.
+        let unsorted = AttrType::dict(AttrType::string(), AttrType::string(), false);
+        let split = to_value(
+            &env,
+            &globals,
+            r#"{"b": "1"} + select({"DEFAULT": {"a": "2"}})"#,
+        );
+        let configured = unsorted
+            .coerce(AttrIsConfigurable::Yes, &coercion_ctx(), split)?
+            .configure(&unsorted, &configuration_ctx(), None)
+            .require_compatible()?;
+        assert_eq!(
             r#"{"b": "1", "a": "2"}"#,
             configured.as_display_no_ctx().to_string()
         );
@@ -1123,7 +1139,7 @@ fn test_sorted_dict_concat_is_not_sorted() -> buck2_error::Result<()> {
             .configure(&named_set, &configuration_ctx(), None)
             .require_compatible()?;
         assert_eq!(
-            r#"{"b.h": "x/b.h", "a.h": "y/a.h"}"#,
+            r#"{"a.h": "y/a.h", "b.h": "x/b.h"}"#,
             configured.as_display_no_ctx().to_string()
         );
         Ok(())

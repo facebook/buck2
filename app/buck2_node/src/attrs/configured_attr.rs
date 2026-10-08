@@ -435,7 +435,15 @@ impl ConfiguredAttr {
                             attr => return Err(attr.concat_not_supported("dict")),
                         }
                     }
-                    Ok(ConfiguredAttr::Dict(res.into_iter().collect()))
+                    let mut entries: Vec<_> = res.into_iter().collect();
+                    // A literal sorted dict is sorted at coercion; a dict assembled from a
+                    // concatenation must come out the same way.
+                    if let AttrTypeInner::Dict(dict) = &attr_type.0.inner
+                        && dict.sorted
+                    {
+                        entries.sort_by_cached_key(|(k, _)| k.as_display_no_ctx().to_string());
+                    }
+                    Ok(ConfiguredAttr::Dict(entries.into_iter().collect()))
                 }
                 ConfiguredAttr::String(res) => {
                     let mut items = items.peekable();
