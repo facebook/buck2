@@ -168,3 +168,22 @@ rust_binary(
     # @oss-disable[end= ]: },
     # @oss-disable[end= ]: exe = ":bench_runner",
 # @oss-disable[end= ]: )
+
+rust_binary(
+    name = "warm_cache_bench",
+    srcs = ["bin/warm_cache_bench.rs"],
+    unittests = False,
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:tokio",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/dice/dice:dice",
+        "//buck2/dice/dice_futures:dice_futures",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/pagable:pagable",
+    ],
+)

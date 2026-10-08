@@ -4255,6 +4255,7 @@ dependencies = [
  "gazebo",
  "pagable",
  "ref-cast",
+ "serde_json",
  "tikv-jemallocator",
  "tokio",
 ]
