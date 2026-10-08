@@ -27,7 +27,7 @@ use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::api::storage_type::StorageType;
-use crate::core::graph::ValueUpdate;
+use crate::core::graph::ComputedValueUpdate;
 use crate::core::graph::VersionedGraph;
 use crate::core::graph::revision::EpsilonToken;
 use crate::core::graph::types::Candidate;
@@ -156,9 +156,9 @@ fn compute(
 ) -> MaybeResidentComputedValue {
     let deps = deps_on_leaf(graph, v);
     let epsilon = graph.core.epsilon(k, v);
-    let out = graph.update(
+    let out = graph.update_computed(
         VersionedGraphKey::new(v, k),
-        ValueUpdate::Computed {
+        ComputedValueUpdate {
             value,
             deps,
             epsilon,
@@ -175,9 +175,9 @@ fn revalidate(
     v: VersionNumber,
     candidate: Candidate,
 ) -> MaybeResidentComputedValue {
-    let out = graph.update(
+    let out = graph.revalidate(
         VersionedGraphKey::new(v, k),
-        ValueUpdate::DependencyValidated { candidate },
+        candidate,
         TrackedInvalidationPaths::clean(),
     );
     graph.assert_consistent();
@@ -338,9 +338,9 @@ fn a_dep_less_recompute_under_the_same_epsilon_adopts_the_stored_revision() {
     let v1 = graph.head(BranchId::FIRST);
     let compute_without_deps = |graph: &mut VersionedGraph, v: VersionNumber, n: usize| {
         let epsilon = graph.core.epsilon(key(1), v);
-        let out = graph.update(
+        let out = graph.update_computed(
             VersionedGraphKey::new(v, key(1)),
-            ValueUpdate::Computed {
+            ComputedValueUpdate {
                 value: DiceValidValue::testing_new(DiceKeyValue::<NoEquality>::new(n)),
                 deps: SeriesParallelDeps::None,
                 epsilon,
@@ -594,9 +594,9 @@ fn deleting_a_branch_releases_its_values_and_retains_nothing_written_from_it() {
         other => panic!("a deleted branch resolves nothing, got {other:?}"),
     }
     let late = value(3);
-    let returned = graph.update(
+    let returned = graph.update_computed(
         VersionedGraphKey::new(child_v2, key(1)),
-        ValueUpdate::Computed {
+        ComputedValueUpdate {
             value: late.dupe(),
             deps: SeriesParallelDeps::None,
             epsilon: EpsilonToken::INITIAL,

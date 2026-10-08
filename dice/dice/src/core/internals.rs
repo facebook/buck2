@@ -13,9 +13,10 @@ use pagable::DataKey;
 
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::storage_type::StorageType;
-use crate::core::graph::ValueUpdate;
+use crate::core::graph::ComputedValueUpdate;
 use crate::core::graph::VersionedGraph;
 use crate::core::graph::introspection::VersionedGraphIntrospectable;
+use crate::core::graph::types::Candidate;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
 use crate::core::versions::IdleStatus;
@@ -110,15 +111,37 @@ impl ActorState {
         &mut self,
         key: VersionedGraphKey,
         storage: StorageType,
-        update: ValueUpdate,
+        update: ComputedValueUpdate,
         invalidation_paths: TrackedInvalidationPaths,
+    ) -> MaybeResidentComputedValue {
+        self.update_value(storage, |graph| {
+            graph.update_computed(key, update, invalidation_paths)
+        })
+    }
+
+    pub(super) fn revalidate(
+        &mut self,
+        key: VersionedGraphKey,
+        storage: StorageType,
+        candidate: Candidate,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) -> MaybeResidentComputedValue {
+        self.update_value(storage, |graph| {
+            graph.revalidate(key, candidate, invalidation_paths)
+        })
+    }
+
+    fn update_value(
+        &mut self,
+        storage: StorageType,
+        update: impl FnOnce(&mut VersionedGraph) -> MaybeResidentComputedValue,
     ) -> MaybeResidentComputedValue {
         if let StorageType::Injected = storage {
             unreachable!(
                 "Injected keys should not receive update calls, as those are only from a compute() finishing and InjectedKeys have no compute()"
             );
         }
-        self.graph.update(key, update, invalidation_paths)
+        update(&mut self.graph)
     }
 
     pub(super) fn idle_status(&mut self, branch: Option<BranchId>) -> IdleStatus {
@@ -235,11 +258,11 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
+    use crate::core::graph::ComputedValueUpdate;
     use crate::core::graph::revision::EpsilonToken;
     use crate::core::graph::types::VersionedGraphKey;
     use crate::core::internals::ActorState;
     use crate::core::internals::StorageType;
-    use crate::core::internals::ValueUpdate;
     use crate::deps::graph::SeriesParallelDeps;
     use crate::epoch::cache::SharedCacheInsert;
     use crate::epoch::task::dice::DiceTask;
@@ -315,7 +338,7 @@ mod tests {
             core.update_computed(
                 VersionedGraphKey::new(v, DiceKey { index }),
                 StorageType::Normal,
-                ValueUpdate::Computed {
+                ComputedValueUpdate {
                     value: DiceValidValue::testing_new(DiceKeyValue::<K>::new(index as usize)),
                     deps: SeriesParallelDeps::None,
                     epsilon: EpsilonToken::INITIAL,

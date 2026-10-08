@@ -42,6 +42,7 @@ use crate::updater::ChangeType;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResident;
 use crate::value::MaybeResidentComputedValue;
+use crate::value::MaybeValidDiceValue;
 use crate::value::PageOutResult;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -73,17 +74,11 @@ mini_vec::size_assert::words_of_type!(dice_core::Slot<DiceEnv>, 5);
 mini_vec::size_assert::words_of_type!(KeyValues, 6);
 mini_vec::size_assert::words_of_type!(Candidate, 5);
 
-/// A write, as the worker reports it.
-pub(crate) enum ValueUpdate {
-    /// A value produced by running the key's computation: Appendix A's fused write.
-    Computed {
-        value: DiceValidValue,
-        deps: SeriesParallelDeps,
-        epsilon: EpsilonToken,
-    },
-    /// A certificate handed out at lookup whose premises the worker has re-established, re-issued
-    /// as is. The value it carries is the one handed out, which may still be paged out.
-    DependencyValidated { candidate: Candidate },
+/// A value produced by running the key's computation: Appendix A's fused write.
+pub(crate) struct ComputedValueUpdate {
+    pub(crate) value: DiceValidValue,
+    pub(crate) deps: SeriesParallelDeps,
+    pub(crate) epsilon: EpsilonToken,
 }
 
 /// The values retained for one key.
@@ -435,58 +430,88 @@ impl VersionedGraph {
         }
     }
 
-    /// Writes a value computed, or a certificate re-established, by a transaction at `at.v`.
-    /// Returns the value the transaction should use: the canonical instance for the revision.
-    pub(crate) fn update(
+    /// Writes a value computed by a transaction at `at.v`.
+    /// Returns the canonical instance for the revision.
+    pub(crate) fn update_computed(
         &mut self,
         at: VersionedGraphKey,
-        update: ValueUpdate,
+        update: ComputedValueUpdate,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> MaybeResidentComputedValue {
+        let ComputedValueUpdate {
+            value,
+            mut deps,
+            epsilon,
+        } = update;
         let key = at.k;
-        let invalidation_paths = invalidation_paths.for_dependent(key);
         if !self.core.is_live(at.v.branch()) {
-            return self.update_unretained(key, update, invalidation_paths);
+            let revision = self.with_values(key, |kv| kv.mint.mint());
+            return Self::unretained(
+                key,
+                MaybeResident::Resident(value).into_payload(),
+                invalidation_paths,
+                revision,
+            );
         }
-        let (cert, value): (Arc<DiceCert>, MaybeResident<DiceValidValue>) = match update {
-            ValueUpdate::Computed {
-                value,
-                mut deps,
-                epsilon,
-            } => {
-                debug_assert_eq!(
-                    epsilon,
-                    self.core.epsilon(key, at.v),
-                    "a write's ε must be the one its transaction looked up"
-                );
-                let identical = self
-                    .core
-                    .pinned_certs(key)
-                    .find(|c| c.epsilon == epsilon && c.deps == deps)
-                    .cloned();
-                match identical {
-                    Some(cert) => {
-                        let stored = self.with_values(key, |kv| kv.adopt(cert.revision, value));
-                        (cert, MaybeResident::Resident(stored))
-                    }
-                    None => {
-                        let (revision, stored) =
-                            self.with_values(key, |kv| kv.intern_computed(value));
-                        deps.shrink_to_fit();
-                        (
-                            Arc::new(Cert::new(key, revision, deps, epsilon)),
-                            MaybeResident::Resident(stored),
-                        )
-                    }
-                }
+        debug_assert_eq!(
+            epsilon,
+            self.core.epsilon(key, at.v),
+            "a write's ε must be the one its transaction looked up"
+        );
+        let identical = self
+            .core
+            .pinned_certs(key)
+            .find(|c| c.epsilon == epsilon && c.deps == deps)
+            .cloned();
+        let (cert, value) = match identical {
+            Some(cert) => {
+                let stored = self.with_values(key, |kv| kv.adopt(cert.revision, value));
+                (cert, stored)
             }
-            ValueUpdate::DependencyValidated { candidate } => {
-                let revision = candidate.cert.revision;
-                let value = self.with_values(key, |kv| kv.restore(revision, candidate.entry));
-                (candidate.cert, value)
+            None => {
+                let (revision, stored) = self.with_values(key, |kv| kv.intern_computed(value));
+                deps.shrink_to_fit();
+                (Arc::new(Cert::new(key, revision, deps, epsilon)), stored)
             }
         };
         let revision = cert.revision;
+        let paths = self.finish_update(at, cert, invalidation_paths);
+        MaybeResidentComputedValue::new(
+            MaybeResident::Resident(value).into_payload(),
+            paths,
+            revision,
+        )
+    }
+
+    /// Reissues a candidate whose dependencies still hold; its value may remain paged out.
+    pub(crate) fn revalidate(
+        &mut self,
+        at: VersionedGraphKey,
+        candidate: Candidate,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) -> MaybeResidentComputedValue {
+        let revision = candidate.cert.revision;
+        if !self.core.is_live(at.v.branch()) {
+            return Self::unretained(
+                at.k,
+                candidate.entry.into_payload(),
+                invalidation_paths,
+                revision,
+            );
+        }
+        let value = self.with_values(at.k, |kv| kv.restore(revision, candidate.entry));
+        let paths = self.finish_update(at, candidate.cert, invalidation_paths);
+        MaybeResidentComputedValue::new(value.into_payload(), paths, revision)
+    }
+
+    fn finish_update(
+        &mut self,
+        at: VersionedGraphKey,
+        cert: Arc<DiceCert>,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) -> TrackedInvalidationPaths {
+        let key = at.k;
+        let invalidation_paths = invalidation_paths.for_dependent(key);
         self.core.write(cert, invalidation_paths.dupe());
         let core = &self.core;
         Self::with_values_of(&mut self.values, &mut self.index, key, |kv| {
@@ -500,33 +525,20 @@ impl VersionedGraph {
                 dirtied.version,
             ));
         }
-        MaybeResidentComputedValue::new(value.into_payload(), paths, revision)
+        paths
     }
 
     /// A write from a transaction on a deleted branch. The core knows nothing about the branch
     /// any more, so the certificate cannot be placed: the value goes back to the transaction as
-    /// it is, under a revision that is minted for it but never stored, and nothing is retained.
-    fn update_unretained(
-        &mut self,
+    /// it is, and nothing is retained. A computed value's revision is minted for it but never
+    /// stored.
+    fn unretained(
         key: DiceKey,
-        update: ValueUpdate,
+        value: MaybeResident<MaybeValidDiceValue>,
         invalidation_paths: TrackedInvalidationPaths,
+        revision: Revision,
     ) -> MaybeResidentComputedValue {
-        match update {
-            ValueUpdate::Computed { value, .. } => {
-                let revision = self.with_values(key, |kv| kv.mint.mint());
-                MaybeResidentComputedValue::new(
-                    MaybeResident::Resident(value).into_payload(),
-                    invalidation_paths,
-                    revision,
-                )
-            }
-            ValueUpdate::DependencyValidated { candidate } => MaybeResidentComputedValue::new(
-                candidate.entry.into_payload(),
-                invalidation_paths,
-                candidate.cert.revision,
-            ),
-        }
+        MaybeResidentComputedValue::new(value, invalidation_paths.for_dependent(key), revision)
     }
 
     /// The number of keys the state holds anything for.

@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use crate::core::graph::ValueUpdate;
+use crate::core::graph::ComputedValueUpdate;
 use crate::core::internals::ActorState;
 use crate::core::state::CoreStateHandle;
 use crate::core::state::QueueCounters;
@@ -115,7 +115,7 @@ impl StateProcessor {
                 drop(resp.send(self.state.update_computed(
                     key,
                     storage,
-                    ValueUpdate::Computed {
+                    ComputedValueUpdate {
                         value,
                         deps,
                         epsilon,
@@ -131,12 +131,12 @@ impl StateProcessor {
                 resp,
             } => {
                 // ignore error if the requester dropped it.
-                drop(resp.send(self.state.update_computed(
-                    key,
-                    storage,
-                    ValueUpdate::DependencyValidated { candidate },
-                    invalidation_paths,
-                )));
+                drop(
+                    resp.send(
+                        self.state
+                            .revalidate(key, storage, candidate, invalidation_paths),
+                    ),
+                );
             }
             StateRequest::IdleStatus { branch, resp } => {
                 let _ignored = resp.send(self.state.idle_status(branch));
