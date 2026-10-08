@@ -1897,11 +1897,8 @@ async def test_invalid_dep_file_second_lookup_without_flush(buck: Buck) -> None:
         buck.build("//:lazy", "-c", "test.seed=123", "--no-remote-cache"),
         stderr_regex="Invalid line encountered in dep file",
     )
-    # A second change to the inputs without `flush-dep-files`: the entry left behind by the
-    # first failure has no input directories any more, and the lookup panics in the daemon
-    # instead of reporting the invalid dep file again.
-    try:
-        await buck.build("//:lazy", "-c", "test.seed=456", "--no-remote-cache")
-        raise AssertionError("expected the build to fail")
-    except BuckException as e:
-        assert "Invalid line encountered in dep file" not in e.stderr, e.stderr
+    # A second change to the inputs without `flush-dep-files` reports the same error again.
+    await expect_failure(
+        buck.build("//:lazy", "-c", "test.seed=456", "--no-remote-cache"),
+        stderr_regex="Invalid line encountered in dep file",
+    )

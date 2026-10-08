@@ -356,11 +356,11 @@ fn remove_dep_file_entry(
 /// directories (no computation done), or the actual signatures (computation was done).
 #[derive(Allocative)]
 enum DepFileStateInputSignatures {
-    /// Deferred(Some) means we have the input directories but haven't filtered them using the dep
-    /// file yet (which in fact we haven't downloaded yet). Deferred(None) is a case that should
-    /// never happen, since it would mean we panicked while producing the signatures, which is not
-    /// fallible. It's the moral equivalent of a poisoned mutex.
-    Deferred(Option<PartitionedInputs<ActionSharedDirectory>>),
+    /// Deferred means we have the input directories but haven't filtered them using the dep
+    /// file yet (which in fact we haven't downloaded yet). Producing the signatures can fail (the
+    /// dep file may be invalid), in which case the directories stay here so that the next lookup
+    /// reports the same error.
+    Deferred(PartitionedInputs<ActionSharedDirectory>),
 
     /// Computed represents the case where we have produced the input signatures. We only do this
     /// once at most.
@@ -709,12 +709,11 @@ impl DepFileState {
         // missing. We're either storing input directories or outputs here.
         let mut guard = input_signatures.lock();
 
-        if let DepFileStateInputSignatures::Deferred(ref mut directories) = *guard {
+        if let DepFileStateInputSignatures::Deferred(ref directories) = *guard {
+            // The directories are `Arc`-shared, so this clone only bumps refcounts; they are
+            // left in place in case the dep file turns out to be invalid.
             let fingerprints = compute_fingerprints(
-                directories
-                    .take()
-                    .expect("Poisoned DepFileStateInputSignatures")
-                    .unshare(),
+                directories.clone().unshare(),
                 dep_files.into_owned(),
                 digest_config,
                 keep_directories,
@@ -2109,7 +2108,7 @@ pub(crate) async fn populate_dep_files(
                     .await?;
                     DepFileStateInputSignatures::Computed(fingerprints)
                 } else {
-                    DepFileStateInputSignatures::Deferred(Some(shared_declared_inputs))
+                    DepFileStateInputSignatures::Deferred(shared_declared_inputs)
                 }
             }
         };
