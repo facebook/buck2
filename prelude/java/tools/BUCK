@@ -66,6 +66,13 @@ prelude.python_bootstrap_library(
     ],
 )
 
+prelude.python_library(
+    name = "utils",
+    srcs = ["utils.py"],
+    base_module = "",
+    visibility = ["prelude//kotlin/tools/..."],
+)
+
 # Type checking target for Python tool scripts
 prelude.python_library(
     name = "scripts-typing",
