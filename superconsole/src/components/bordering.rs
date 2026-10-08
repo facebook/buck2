@@ -152,6 +152,36 @@ mod tests {
     #[allow(dead_code)]
     struct Msg(Lines);
 
+    fn rows(lines: &Lines) -> Vec<String> {
+        lines.iter().map(|l| l.to_unstyled()).collect()
+    }
+
+    fn echo_rows(rows: &[&str]) -> Echo {
+        Echo(Lines(
+            rows.iter().map(|r| Line::unstyled(r).unwrap()).collect(),
+        ))
+    }
+
+    fn top_only(top: &str) -> BorderedSpec {
+        BorderedSpec {
+            left: None,
+            right: None,
+            top: Some(Span::new_unstyled(top).unwrap()),
+            bottom: None,
+        }
+    }
+
+    /// Borders "may consist of any valid sequence of utf-8 characters", but a grapheme of width
+    /// zero makes `construct_vertical_padding` divide by zero.
+    #[test]
+    #[should_panic(expected = "attempt to divide by zero")]
+    fn test_zero_width_border() {
+        let span = Span::new_unstyled("\u{200b}").unwrap();
+        assert_eq!(span.len(), 0);
+        let bordered = Bordered::new(echo_rows(&["abc"]), top_only("\u{200b}"));
+        let _ = bordered.draw(Dimensions::new(6, 4), DrawMode::Normal);
+    }
+
     #[test]
     fn test_basic() -> anyhow::Result<()> {
         let msg = Lines(vec![
