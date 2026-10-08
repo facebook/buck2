@@ -50,9 +50,11 @@ async def test_writer_inputs(buck: Buck) -> None:
         "direct.primary",
     }
     assert {
-        "inline.primary",
-        "macro.primary",
-        "direct.primary",
+        "inline.associated",
+        "inline.other",
+        "macro.associated",
+        "macro.other",
+        "direct.associated",
         "hidden.primary",
     } <= set(inputs["run"])
 

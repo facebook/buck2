@@ -140,7 +140,13 @@ impl<'v> ResolvedMacro<'v> {
     ) -> buck2_error::Result<()> {
         match self {
             Self::Location(info) => {
-                info.for_each_output(&mut |i| visitor.visit_input(i, vec![]))?;
+                if visitor.inputs_for_path_resolution() {
+                    info.for_each_default_output_artifact_only(&mut |artifact| {
+                        visitor.visit_input(ArtifactGroup::Artifact(artifact), vec![])
+                    })?;
+                } else {
+                    info.for_each_output(&mut |i| visitor.visit_input(i, vec![]))?;
+                }
             }
             Self::ArgLike(command_line_like) => {
                 command_line_like

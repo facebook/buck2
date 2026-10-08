@@ -3,7 +3,7 @@ load(":defs.bzl", "input", "writer")
 [input(name = name) for name in ["inline", "macro", "direct", "hidden_macro"]]
 input(name = "hidden", fail = True)
 input(name = "failing_inline", fail = True)
-input(name = "origin")
+input(name = "origin", resources = False)
 
 writer(
     name = "mixed",

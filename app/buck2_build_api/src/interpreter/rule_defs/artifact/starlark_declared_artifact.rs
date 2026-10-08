@@ -268,9 +268,11 @@ impl<'v> CommandLineArgLike<'v> for StarlarkDeclaredArtifact<'v> {
     ) -> buck2_error::Result<()> {
         visitor.visit_declared_artifact(self.artifact.dupe(), vec![])?;
 
-        self.associated_artifacts
-            .iter()
-            .for_each(|ag| visitor.visit_input(ag.dupe(), vec![]));
+        if !visitor.inputs_for_path_resolution() {
+            self.associated_artifacts
+                .iter()
+                .for_each(|ag| visitor.visit_input(ag.dupe(), vec![]));
+        }
         Ok(())
     }
 

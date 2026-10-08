@@ -19,9 +19,14 @@ def _failing_output(ctx, name):
 def _input_impl(ctx):
     name = ctx.label.name
     primary = _failing_output(ctx, name + ".primary") if ctx.attrs.fail else ctx.actions.write(name + ".primary", name, has_content_based_path = True)
+    if not ctx.attrs.resources:
+        return [DefaultInfo(default_output = primary)]
+    associated = _failing_output(ctx, name + ".associated")
+    other = _failing_output(ctx, name + ".other")
     return [
         DefaultInfo(
-            default_output = primary,
+            default_output = primary.with_associated_artifacts([associated]),
+            other_outputs = [other],
             sub_targets = {"primary": [DefaultInfo(default_output = primary)]},
         )
     ]
@@ -30,6 +35,7 @@ input = rule(
     impl = _input_impl,
     attrs = {
         "fail": attrs.bool(default = False),
+        "resources": attrs.bool(default = True),
     },
 )
 
