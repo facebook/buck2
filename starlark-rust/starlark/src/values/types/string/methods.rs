@@ -1349,6 +1349,18 @@ mod tests {
         assert::eq(r#""a,b".split(",")"#, r#"["a", "b"]"#);
     }
 
+    /// `istitle`, `isupper` and `islower` are defined over cased characters: a letter with no
+    /// case (CJK) is not a title-cased word and does not start one, and a titlecase letter such
+    /// as `ǅ` is cased but neither upper nor lower. The predicates treat any alphabetic
+    /// character as the start of a word and ignore titlecase letters.
+    #[test]
+    fn test_case_predicates_with_uncased_and_titlecase_letters() {
+        assert::eq(r#""中".istitle()"#, "True");
+        assert::eq(r#""中A".istitle()"#, "False");
+        assert::eq(r#""Aǅ".isupper()"#, "True");
+        assert::eq(r#""aǅ".islower()"#, "True");
+    }
+
     #[test]
     fn test_count() {
         assert::eq("'abc'.count('a', 10, -10)", "0");
