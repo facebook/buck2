@@ -563,11 +563,15 @@ impl From<TtlConfig> for buck2_test_proto::TtlConfig {
     }
 }
 
-impl From<buck2_test_proto::TtlConfig> for TtlConfig {
-    fn from(o: buck2_test_proto::TtlConfig) -> Self {
-        let ttl = Duration::from_secs(o.ttl_seconds as u64);
+impl TryFrom<buck2_test_proto::TtlConfig> for TtlConfig {
+    type Error = buck2_error::Error;
+
+    fn try_from(o: buck2_test_proto::TtlConfig) -> Result<Self, Self::Error> {
+        let ttl_seconds = u64::try_from(o.ttl_seconds)
+            .with_buck_error_context(|| format!("Invalid `ttl_seconds`: {}", o.ttl_seconds))?;
+        let ttl = Duration::from_secs(ttl_seconds);
         let use_case = RemoteExecutorUseCase::new(o.use_case);
-        Self { ttl, use_case }
+        Ok(Self { ttl, use_case })
     }
 }
 
@@ -588,7 +592,11 @@ impl TryFrom<buck2_test_proto::DeclaredOutput> for DeclaredOutput {
         let name = ForwardRelativePathBuf::try_from(o.name)?.into();
         let remote_storage_config = RemoteStorageConfig {
             supports_remote: o.supports_remote,
-            ttl_config: o.ttl_config.map(Into::into),
+            ttl_config: o
+                .ttl_config
+                .map(TtlConfig::try_from)
+                .transpose()
+                .buck_error_context("Invalid `ttl_config`")?,
         };
         Ok(Self {
             name,
@@ -1390,17 +1398,23 @@ mod tests {
         assert_roundtrips::<buck2_test_proto::TestExecutable, TestExecutable>(&test_executable);
     }
 
-    /// A negative `ttl_seconds` in the proto is accepted: it wraps to `u64::MAX` seconds, and
-    /// converting back gives the negative value again.
+    /// A negative `ttl_seconds` in the proto is a conversion error; a non-negative one is kept.
     #[test]
-    fn negative_ttl_seconds_is_accepted_and_wraps() {
-        let ttl: TtlConfig = buck2_test_proto::TtlConfig {
+    fn negative_ttl_seconds_is_rejected() {
+        let res: buck2_error::Result<TtlConfig> = buck2_test_proto::TtlConfig {
             ttl_seconds: -1,
             use_case: "u".to_owned(),
         }
-        .into();
-        assert_eq!(ttl.ttl, Duration::from_secs(u64::MAX));
-        let back: buck2_test_proto::TtlConfig = ttl.into();
-        assert_eq!(back.ttl_seconds, -1);
+        .try_into();
+        let err = format!("{:#}", res.err().unwrap());
+        assert!(err.contains("ttl_seconds"), "{err}");
+
+        let ttl: TtlConfig = buck2_test_proto::TtlConfig {
+            ttl_seconds: 7,
+            use_case: "u".to_owned(),
+        }
+        .try_into()
+        .unwrap();
+        assert_eq!(ttl.ttl, Duration::from_secs(7));
     }
 }
