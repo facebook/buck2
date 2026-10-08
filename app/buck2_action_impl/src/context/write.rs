@@ -48,6 +48,9 @@ use starlark_map::small_set::SmallSet;
 use crate::actions::impls::dep_file_fingerprint::DepFileFingerprintFormat;
 use crate::actions::impls::dep_file_fingerprint::StarlarkDepFileFingerprint;
 use crate::actions::impls::write::UnregisteredWriteAction;
+use crate::actions::impls::write_hmap::HmapMappings;
+use crate::actions::impls::write_hmap::UnregisteredWriteHmapAction;
+use crate::actions::impls::write_hmap::visit_hmap_artifacts;
 use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
 use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 
@@ -222,6 +225,42 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         } else {
             Ok(Either::Left(Either::Left(value)))
         }
+    }
+
+    /// Internal implementation of the prelude's Clang header-map writer.
+    /// Do not call `ctx.actions._write_hmap` directly. Load `write_hmap` from
+    /// `prelude//cxx:hmap.bzl` instead. We may move this implementation back
+    /// into the prelude in the future.
+    ///
+    /// Writes a Clang header map from a dictionary of include names to
+    /// `(artifact, path)` pairs. The path is relative to the artifact and may
+    /// be empty to map to the artifact itself.
+    /// Each destination also maps to itself, to stop Clang searching later maps.
+    /// Header contents are not inputs, except when needed to resolve content-based paths.
+    /// Callers must add the headers as inputs to actions that use the map.
+    fn _write_hmap<'v>(
+        this: &AnalysisActions<'v>,
+        #[starlark(require = pos)] output: OutputArtifactArg<'v>,
+        #[starlark(require = pos)] content: ValueOf<'v, HmapMappings<'v>>,
+        #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<impl AllocValue<'v> + use<'v>> {
+        let mut this = this.state()?;
+        let (declaration, output_artifact) = this.get_or_declare_output(
+            eval,
+            output,
+            OutputType::File,
+            has_content_based_path.into_option(),
+        )?;
+        let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
+        visit_hmap_artifacts(content.value, &mut CommandLineInputVisitor::new(false))?;
+        this.register_action(
+            buck_indexset![output_artifact],
+            UnregisteredWriteHmapAction {},
+            Some(content.value),
+            None,
+        )?;
+        Ok(value)
     }
 
     /// Returns an `artifact` whose contents are `content`
