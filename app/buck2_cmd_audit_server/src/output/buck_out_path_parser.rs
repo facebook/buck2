@@ -289,9 +289,11 @@ fn get_target_name<'v>(
                 }
             }
 
-            let target_name_with_underscores = target_name_with_underscores.as_str();
-            let target_name =
-                &target_name_with_underscores[2..(target_name_with_underscores.len() - 2)];
+            let target_name = target_name_with_underscores
+                .as_str()
+                .strip_prefix("__")
+                .and_then(|name| name.strip_suffix("__"))
+                .ok_or_else(|| buck2_error!(buck2_error::ErrorTag::Input, "Invalid target name"))?;
             Ok(target_name.replace(EQ_SIGN_SUBST, "="))
         }
         None => Err(buck2_error!(
@@ -534,24 +536,18 @@ mod tests {
         )
     }
 
-    /// A target directory of only `__` or `___` reaches the `[2..len - 2]` slice with the start
-    /// past the end. `buck2 audit parse` and `buck2 audit output` pass the user's path straight
-    /// here.
+    /// A target directory that is too short to carry both `__` markers is an invalid name, not
+    /// a panic. `buck2 audit parse` and `buck2 audit output` pass the user's path straight here.
     #[test]
-    #[should_panic(expected = "starts at 2 but ends at 0")]
-    fn test_underscore_only_target_dir_panics() {
+    fn test_underscore_only_target_dir_is_rejected() {
         let (buck_out_parser, config_hash, _, _) = get_test_data();
-        let _ignored =
-            buck_out_parser.parse(&format!("buck-out/v2/art/bar/{config_hash}/__/output"));
-    }
-
-    #[test]
-    #[should_panic(expected = "starts at 2 but ends at 1")]
-    fn test_three_underscore_target_dir_panics() {
-        let (buck_out_parser, config_hash, _, _) = get_test_data();
-        let _ignored = buck_out_parser.parse(&format!(
-            "buck-out/v2/art/bar/{config_hash}/path/to/target/___/output"
-        ));
+        for path in [
+            format!("buck-out/v2/art/bar/{config_hash}/__/output"),
+            format!("buck-out/v2/art/bar/{config_hash}/path/to/target/___/output"),
+            format!("buck-out/v2/art/bar/{config_hash}/path/to/target/x__/output"),
+        ] {
+            assert!(buck_out_parser.parse(&path).is_err(), "{path}");
+        }
     }
 
     #[test]
