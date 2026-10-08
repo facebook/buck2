@@ -246,16 +246,20 @@ impl<T: 'static, H: Hasher + Default> Interner<T, H> {
             data: hashed_value.value.into(),
             hash: hashed_value.hash,
         });
-        let pointer = self
-            .table
-            .insert(
-                hashed_value.hash,
-                pointer,
-                |a, b| a.hash == b.hash && a.data == b.data,
-                |t| t.hash,
-            )
-            .0;
-        (Intern { pointer }, InternDisposition::Computed)
+        let (pointer, existing) = self.table.insert(
+            hashed_value.hash,
+            pointer,
+            |a, b| a.hash == b.hash && a.data == b.data,
+            |t| t.hash,
+        );
+        // Another thread may have interned the same value between the lookup and the insert;
+        // `insert` then hands the value back and returns the entry that thread stored.
+        let disposition = if existing.is_some() {
+            InternDisposition::Interned
+        } else {
+            InternDisposition::Computed
+        };
+        (Intern { pointer }, disposition)
     }
 
     /// Get a value if it has been interned.
@@ -460,9 +464,8 @@ mod tests {
         }
     }
 
-    /// Two threads that intern the same new value at once both report `Computed`, although
-    /// only one of them inserted the value: `intern_slow` ignores whether `insert` found an
-    /// existing entry.
+    /// Two threads that intern the same new value at once: the one whose insert finds the
+    /// entry of the other reports `Interned`.
     #[test]
     fn test_disposition_of_racing_interns() {
         let (a, b) = std::thread::scope(|s| {
@@ -476,7 +479,7 @@ mod tests {
             .iter()
             .filter(|d| matches!(d, InternDisposition::Computed))
             .count();
-        assert_eq!(computed, 2);
+        assert_eq!(computed, 1);
     }
 
     #[test]
