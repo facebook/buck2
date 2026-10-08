@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 
+import json
 import os
 import re
 import sys
@@ -117,3 +118,38 @@ async def test_hidden_macro_inputs(buck: Buck, tagged: bool) -> None:
     macro = report.output_for_target(f"root//:{target}", sub_target="macros")
     payload = report.output_for_target("root//:payload")
     assert (buck.cwd / macro.read_text()).resolve() == payload.resolve()
+
+
+@buck_test()
+@pytest.mark.parametrize("target", ["tagged", "tagged_inputs"])
+async def test_tagged_hidden_writer_inputs(buck: Buck, target: str) -> None:
+    result = await buck.build(f"//:{target}[script]")
+    script = result.get_build_report().output_for_target(
+        f"root//:{target}", sub_target="script"
+    )
+    assert script.read_text() == "payload"
+    result = await buck.build(f"//:{target}[json]")
+    output = result.get_build_report().output_for_target(
+        f"root//:{target}", sub_target="json"
+    )
+    assert json.loads(output.read_text()) == ["payload"]
+    for retained in [
+        f"{target}[run]",
+        f"{target}_retained[script]",
+        f"{target}_retained[json]",
+    ]:
+        await expect_failure(
+            buck.build(f"//:{retained}"), stderr_regex="Unrelated input requested"
+        )
+
+
+@buck_test()
+@pytest.mark.parametrize(
+    "target", ["tagged_macro_payload", "tagged_inputs_macro_payload"]
+)
+async def test_tagged_hidden_macro_payload_inputs(buck: Buck, target: str) -> None:
+    result = await buck.build(f"//:{target}[macros]")
+    output = result.get_build_report().output_for_target(
+        f"root//:{target}", sub_target="macros"
+    )
+    assert output.read_text() == "payload"

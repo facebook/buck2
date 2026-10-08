@@ -70,4 +70,8 @@ impl<'a, 'b, 'v> CommandLineArtifactVisitor<'v> for TaggedVisitor<'a, 'b, 'v> {
         };
         self.inner.visit_frozen_output(artifact, tags)
     }
+
+    fn skip_hidden(&self) -> bool {
+        self.inner.skip_hidden()
+    }
 }

@@ -1739,3 +1739,94 @@ impl Action for RunAction {
         Ok((outputs, metadata))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use buck2_artifact::actions::key::ActionIndex;
+    use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
+    use buck2_build_api::interpreter::rule_defs::cmd_args::register_cmd_args;
+    use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+    use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+    use buck2_interpreter::factory::BuckStarlarkModule;
+    use buck2_interpreter::factory::StarlarkEvaluatorProvider;
+    use dice_futures::cancellation::CancellationContext;
+    use starlark::environment::GlobalsBuilder;
+    use starlark::syntax::AstModule;
+    use starlark::syntax::Dialect;
+
+    use super::*;
+
+    fn check_skip_hidden_visitor(tag_method: &str) -> buck2_error::Result<()> {
+        BuckStarlarkModule::with_profiling(|module| {
+            let target = ConfiguredTargetLabel::testing_parse(
+                "cell//pkg:target",
+                ConfigurationData::testing_new(),
+            );
+            let [visible, hidden] = ["visible", "hidden"].map(|path| {
+                Artifact::from(BuildArtifact::testing_new(
+                    target.dupe(),
+                    path,
+                    ActionIndex::new(0),
+                ))
+            });
+            module.set(
+                "visible",
+                module.heap().alloc(StarlarkArtifact::new(visible.dupe())),
+            );
+            module.set(
+                "hidden",
+                module.heap().alloc(StarlarkArtifact::new(hidden.dupe())),
+            );
+            module.set("tag", module.heap().alloc(ArtifactTag::testing_new()));
+            let globals = GlobalsBuilder::standard().with(register_cmd_args).build();
+            let ast = AstModule::parse(
+                "test.bzl",
+                format!("args = tag.{tag_method}(cmd_args(visible, hidden = hidden))"),
+                &Dialect::Standard,
+            )?;
+            let provider = StarlarkEvaluatorProvider::passthrough(StarlarkEvalKind::Unknown(
+                tag_method.into(),
+            ));
+            let (finished_eval, ()) = provider.with_evaluator(
+                &module,
+                CancellationContext::testing().into(),
+                |eval, _| {
+                    eval.eval_module(ast, &globals)?;
+                    Ok(())
+                },
+            )?;
+            let (profiling, module, _) = finished_eval.freeze_and_finish(module)?;
+            let args = module.get("args").expect("args should be defined");
+            let args = ValueAsCommandLineLike::unpack_value_err(args.as_ref().value())?;
+
+            let mut path_visitor = SkipHiddenCommandLineArtifactVisitor::new();
+            args.0.visit_artifacts(&mut path_visitor)?;
+            assert_eq!(
+                path_visitor.inputs.into_iter().collect::<Vec<_>>(),
+                vec![ArtifactGroup::Artifact(visible.dupe())],
+            );
+
+            let mut dependency_visitor = SimpleCommandLineArtifactVisitor::new();
+            args.0.visit_artifacts(&mut dependency_visitor)?;
+            assert_eq!(
+                dependency_visitor.inputs.into_iter().collect::<Vec<_>>(),
+                vec![
+                    ArtifactGroup::Artifact(visible),
+                    ArtifactGroup::Artifact(hidden)
+                ],
+            );
+            Ok((profiling, ()))
+        })
+    }
+
+    #[test]
+    fn test_skip_hidden_visitor_tag_artifacts() -> buck2_error::Result<()> {
+        check_skip_hidden_visitor("tag_artifacts")
+    }
+
+    #[test]
+    fn test_skip_hidden_visitor_tag_inputs() -> buck2_error::Result<()> {
+        check_skip_hidden_visitor("tag_inputs")
+    }
+}

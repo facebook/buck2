@@ -89,3 +89,37 @@ macro_writer = rule(
         "tagged": attrs.bool(default = False),
     },
 )
+
+def _tagged_writer(ctx):
+    content = cmd_args("payload", hidden = ctx.attrs.dep[DefaultInfo].default_outputs)
+    tag = ctx.actions.artifact_tag()
+    content = tag.tag_inputs(content) if ctx.attrs.inputs_only else tag.tag_artifacts(content)
+    script = ctx.actions.write("script", content, with_inputs = ctx.attrs.with_inputs)
+    json_output = ctx.actions.declare_output("output.json")
+    json = ctx.actions.write_json(json_output, content, with_inputs = ctx.attrs.with_inputs)
+    run = ctx.actions.declare_output("run")
+    ctx.actions.run(
+        cmd_args("fbpython", "-c", "import pathlib, sys; pathlib.Path(sys.argv[1]).touch()", run.as_output(), hidden = content),
+        category = "run",
+        local_only = True,
+    )
+    return [
+        RunInfo(args = content),
+        DefaultInfo(
+            default_output = script,
+            sub_targets = {
+                "json": [DefaultInfo(default_output = json_output, other_outputs = [json])],
+                "run": [DefaultInfo(default_output = run)],
+                "script": [DefaultInfo(default_output = script)],
+            },
+        ),
+    ]
+
+tagged_writer = rule(
+    impl = _tagged_writer,
+    attrs = {
+        "dep": attrs.dep(),
+        "inputs_only": attrs.bool(default = False),
+        "with_inputs": attrs.bool(default = False),
+    },
+)
