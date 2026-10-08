@@ -8,6 +8,7 @@
 
 """Tests for merge_sequence.py."""
 
+import re
 import unittest
 
 from android.tools.merge_sequence import (
@@ -34,26 +35,30 @@ class AssignNamesTest(unittest.TestCase):
     def _final_names(self) -> tuple:
         # `libfoo.so` splits into two libraries, because only `//:b` reaches module `m`,
         # and the second entry is named like the counter suffix the split produces.
+        # `//:x` is blocklisted and keeps its own name.
         graph = {
             Label("//:a"): _node("//:a", []),
             Label("//:b"): _node("//:b", ["//:c"]),
             Label("//:c"): _node("//:c", []),
             Label("//:d"): _node("//:d", []),
+            Label("//:x"): _node("//:x", []),
         }
         sequence = [
             MergeSequenceGroupSpec(("libfoo.so", ["^//:a$", "^//:b$"])),
-            MergeSequenceGroupSpec(("libfoo_1.so", ["^//:d$"])),
+            MergeSequenceGroupSpec(("libfoo_1.so", ["^//:d$", "^//:x$"])),
         ]
         modules = ApkModuleGraph(
-            {"//:a": "dex", "//:b": "dex", "//:c": "m", "//:d": "dex"}
+            {"//:a": "dex", "//:b": "dex", "//:c": "m", "//:d": "dex", "//:x": "dex"}
         )
         node_data, names, _ = get_native_linkables_by_merge_sequence(
-            graph, sequence, [], modules, False
+            graph, sequence, [re.compile("^//:x$")], modules, False
         )
         return {str(t): names[node_data[t].final_lib_key] for t in graph}, names
 
-    def test_counter_suffix_collides_with_an_entry_name(self) -> None:
+    def test_counter_suffix_never_collides_with_an_entry_name(self) -> None:
         final, names = self._final_names()
-        self.assertEqual(final["//:a"], "libfoo_1.so")
-        self.assertEqual(final["//:d"], "libfoo_1.so")
-        self.assertLess(len(set(names.values())), len(names))
+        self.assertEqual(len(set(names.values())), len(names))
+        self.assertNotEqual(final["//:a"], final["//:d"])
+        self.assertTrue(final["//:a"].startswith("libfoo"))
+        self.assertTrue(final["//:d"].startswith("libfoo_1"))
+        self.assertEqual(final["//:x"], "//:x")
