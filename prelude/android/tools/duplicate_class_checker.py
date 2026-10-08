@@ -137,7 +137,7 @@ def extract_class_names_from_jar(jar_path: str) -> Set[str]:
         for entry in jar.namelist():
             if entry.endswith(".class"):
                 # Convert path/to/ClassName.class to path.to.ClassName
-                class_name = entry.replace("/", ".").replace(".class", "")
+                class_name = entry[: -len(".class")].replace("/", ".")
                 class_names.add(class_name)
     return class_names
 

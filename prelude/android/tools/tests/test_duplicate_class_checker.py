@@ -42,17 +42,20 @@ class ExtractClassNamesTest(unittest.TestCase):
                 {"com.example.Foo", "com.example.Foo$1"},
             )
 
-    def test_dot_class_inside_a_package_name_is_removed(self) -> None:
-        # Every ".class" in the path is dropped, so a package called `classloader`
-        # loses its tail and two unrelated classes end up with one name.
+    def test_dot_class_inside_a_package_name_is_kept(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             a = self._jar_with(tmp, "a.jar", "com/example/classloader/Foo.class")
             b = self._jar_with(tmp, "b.jar", "com/exampleloader/Foo.class")
-            self.assertEqual(extract_class_names_from_jar(a), {"com.exampleloader.Foo"})
+            self.assertEqual(
+                extract_class_names_from_jar(a), {"com.example.classloader.Foo"}
+            )
             mapping = os.path.join(tmp, "map.json")
             with open(mapping, "w") as f:
                 json.dump({a: "//lib:a", b: "//lib:b"}, f)
             self.assertEqual(
                 get_class_to_target_mapping_from_jars(mapping),
-                {"com.exampleloader.Foo": ["//lib:a", "//lib:b"]},
+                {
+                    "com.example.classloader.Foo": ["//lib:a"],
+                    "com.exampleloader.Foo": ["//lib:b"],
+                },
             )
