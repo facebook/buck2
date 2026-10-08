@@ -50,10 +50,15 @@ use tempfile::tempdir;
 use tokio::sync::Notify;
 use tokio::time::timeout;
 
+use crate::DiceEvent;
+use crate::DiceEventListener;
 use crate::DiceKeyDyn;
 use crate::DiceProjectionDyn;
 use crate::DiceStorage;
+use crate::DynKey;
 use crate::PagableStorageBackend;
+use crate::api::activation_tracker::ActivationData;
+use crate::api::activation_tracker::ActivationTracker;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::EqualityBehavior;
@@ -64,7 +69,11 @@ use crate::api::key::ValueSerialize;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
+use crate::arc::Arc as DiceArc;
 use crate::dice::Dice;
+use crate::epoch::evaluator::TransactionData;
+use crate::key::ParentKey;
+use crate::user_cycle::UserCycleDetectorData;
 
 /// Per-test compute counter, injected via `UserComputationData` so tests don't share state.
 #[derive(Clone, Dupe)]
@@ -361,6 +370,37 @@ impl Key for ProjectionRoot {
 
 struct SharedArcSeed(Arc<Vec<u8>>);
 
+#[derive(Default, Allocative)]
+struct PageInTracker {
+    #[allocative(skip)]
+    activations: Mutex<Vec<bool>>,
+    failures: AtomicUsize,
+}
+
+impl ActivationTracker for PageInTracker {
+    fn key_activated(
+        &self,
+        key: &DynKey,
+        _deps: &mut dyn Iterator<Item = &DynKey>,
+        activation_data: ActivationData,
+    ) {
+        if key.downcast_ref::<UnreadableValidatedKey>().is_some() {
+            self.activations
+                .lock()
+                .expect("activation lock")
+                .push(matches!(activation_data, ActivationData::Reused));
+        }
+    }
+}
+
+impl DiceEventListener for PageInTracker {
+    fn event(&self, event: DiceEvent) {
+        if matches!(event, DiceEvent::HydrationFailed { .. }) {
+            self.failures.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+}
+
 struct UnreadableValueSerialize;
 
 impl ValueSerialize for UnreadableValueSerialize {
@@ -399,6 +439,36 @@ impl Key for UnreadablePagableKey {
             counter.0.fetch_add(1, Ordering::SeqCst);
         }
         1
+    }
+
+    fn equality_behavior() -> EqualityBehavior<u64> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = u64> {
+        UnreadableValueSerialize
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct UnreadableValidatedKey;
+
+#[async_trait]
+impl Key for UnreadableValidatedKey {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> u64 {
+        if let Ok(counter) = ctx.per_transaction_data().data.get::<ComputeCounter>() {
+            counter.0.fetch_add(1, Ordering::SeqCst);
+        }
+        *ctx.compute(&DeferredNonPagableKey(0))
+            .await
+            .expect("modulo dependency")
     }
 
     fn equality_behavior() -> EqualityBehavior<u64> {
@@ -1554,7 +1624,89 @@ async fn spawned_read_failure_is_not_cached() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn check_deps_paged_out_hydrates_when_deps_are_unchanged() -> anyhow::Result<()> {
+async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()> {
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+    let counter = ComputeCounter::new();
+    let mut updater = dice.updater_with_data(user_data_with_counter(&counter));
+    updater.changed_to([(DeferredInput(0), 1)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&UnreadableValidatedKey).await?, 1);
+    drop(tx);
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let mut updater = dice.updater();
+    updater.changed_to([(DeferredInput(0), 3)])?;
+    let tx = updater.commit().await;
+    let tracker = Arc::new(PageInTracker::default());
+    let mut data = user_data_with_counter(&counter);
+    data.activation_tracker = Some(tracker.dupe());
+    data.tracker = tracker.dupe();
+    let (version_state, _guard) = dice.testing_shared_ctx(tx.0.get_version()).await;
+    let eval = TransactionData {
+        version_state: version_state.dupe(),
+        user_data: DiceArc::new(data),
+        dice: dice.dupe(),
+    };
+    let key = dice.key_index.index_key(UnreadableValidatedKey);
+    let validated = version_state
+        .bring_up_to_date(
+            key,
+            ParentKey::None,
+            &eval,
+            UserCycleDetectorData::testing_new(),
+        )
+        .await;
+    assert!(validated.paged_out().is_some());
+    assert_eq!(
+        counter.count(),
+        1,
+        "validation must not recompute the value"
+    );
+    assert_eq!(
+        tracker.failures.load(Ordering::SeqCst),
+        0,
+        "validation must not attempt a read"
+    );
+    assert_eq!(
+        *tracker.activations.lock().expect("activation lock"),
+        [true]
+    );
+
+    let error = match eval.page_in(key, validated).await {
+        Ok(_) => panic!("unreadable value"),
+        Err(error) => error,
+    };
+    assert!(
+        anyhow::Error::new(error)
+            .chain()
+            .any(|cause| cause.to_string() == "simulated unreadable value")
+    );
+    assert_eq!(counter.count(), 1, "a failed read must not recompute");
+    assert_eq!(tracker.failures.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        *tracker.activations.lock().expect("activation lock"),
+        [true],
+        "a failed read must not activate the key again"
+    );
+    let checked = version_state
+        .bring_up_to_date(
+            key,
+            ParentKey::None,
+            &eval,
+            UserCycleDetectorData::testing_new(),
+        )
+        .await;
+    assert!(std::ptr::eq(validated, checked));
+    Ok(())
+}
+
+#[tokio::test]
+async fn validated_paged_out_value_is_paged_in_on_demand() -> anyhow::Result<()> {
     let counts = DeferredComputeCounts::new();
     let tmp = tempdir()?;
     let dice = make_dice(DiceStorage::open(
@@ -1583,7 +1735,7 @@ async fn check_deps_paged_out_hydrates_when_deps_are_unchanged() -> anyhow::Resu
 }
 
 #[tokio::test]
-async fn validation_only_dependency_currently_pages_in_before_value_demand() {
+async fn validation_only_dependency_stays_paged_out_until_value_demand() {
     let counts = DeferredComputeCounts::new();
     let tmp = tempdir().expect("temporary storage directory should be created");
     let dice = make_dice(
@@ -1636,8 +1788,8 @@ async fn validation_only_dependency_currently_pages_in_before_value_demand() {
     assert_eq!(counts.count(4), 1, "the validation root should be reused");
     assert_eq!(
         (validation_page_ins, value_demand_page_ins),
-        (1, 1),
-        "dependency validation currently materializes the paged-out dependency before direct value demand",
+        (0, 1),
+        "only direct value demand should page in the validated dependency",
     );
 }
 

@@ -6,8 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
-
+from __future__ import annotations
 
 import asyncio
 import json
@@ -181,13 +180,10 @@ async def test_incremental_build_after_page_out(
     assert _output(await _build(buck)) == "content-2\n"
 
 
-@buck_test(
-    data_dir="paging",
-    write_invocation_record=True,
-    extra_buck_config={"buck2_hydration": {"page_out_on_idle": "false"}},
-)
+@buck_test(data_dir="paging", write_invocation_record=True)
 @env("BUCK2_DICE_SNAPSHOT_INTERVAL_MS", "1")
 async def test_config_change_after_page_out_analysis_validation(buck: Buck) -> None:
+    _disable_idle_page_out(buck)
     await buck.build("//:analysis_root")
     await buck.debug("hydration", "page-out")
     assert await _paged_out_count(buck) > 0, "expected the analysis graph to page out"
@@ -205,15 +201,11 @@ async def test_config_change_after_page_out_analysis_validation(buck: Buck) -> N
         "expected the paged-out analysis graph to be revalidated after an "
         "unrelated command-line configuration change"
     )
-    with pytest.raises(
-        AssertionError,
-        match="dependency validation should not materialize",
-    ):
-        assert analysis_page_ins == 0, (
-            "dependency validation should not materialize paged-out AnalysisKey values; "
-            f"checks={analysis_checks}, computes={analysis_computes}, "
-            f"page_ins={analysis_page_ins}"
-        )
+    assert analysis_page_ins == 0, (
+        "dependency validation should not page in paged-out AnalysisKey values; "
+        f"checks={analysis_checks}, computes={analysis_computes}, "
+        f"page_ins={analysis_page_ins}"
+    )
     assert analysis_computes == 0, (
         "the unrelated configuration change should be cut off without rerunning analysis; "
         f"checks={analysis_checks}, computes={analysis_computes}"

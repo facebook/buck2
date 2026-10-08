@@ -26,7 +26,6 @@ use itertools::Either;
 use crate::DynKey;
 use crate::api::activation_tracker::ActivationData;
 use crate::api::activation_tracker::PageInPhase;
-use crate::core::graph::types::Candidate;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
 use crate::core::state::CoreStateHandle;
@@ -51,7 +50,6 @@ use crate::key::DiceKeyErased;
 use crate::key::ParentKey;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::user_cycle::UserCycleDetectorData;
-use crate::value::MaybeResident;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
 
@@ -147,8 +145,6 @@ impl DiceTaskWorker {
             self.eval.finished(self.k);
         };
 
-        let mut old_value_hydration_failed = false;
-
         let revalidatable = candidate.as_ref().filter(|c| c.revalidatable);
 
         // deps_check_continuables needs to capture these and so they need to outlive it.
@@ -178,52 +174,21 @@ impl DiceTaskWorker {
                         let invalidation_paths =
                             check_deps_result.unwrap_no_change_invalidation_paths();
 
-                        // Reusing the previous value means handing it back to the caller,
-                        // so it has to be paged in first.
-                        let to_revalidate = match to_revalidate.entry.data_key() {
-                            None => Some(to_revalidate.dupe()),
-                            Some(data_key) => {
-                                match self
-                                    .hydrate_and_rehydrate(
-                                        &state_handle,
-                                        data_key,
-                                        PageInPhase::AfterDependencyValidation,
-                                    )
-                                    .await
-                                {
-                                    Ok(entry) => Some(Candidate {
-                                        entry: MaybeResident::Resident(entry),
-                                        ..to_revalidate.dupe()
-                                    }),
-                                    Err(e) => {
-                                        self.eval.hydration_failed(self.k, &e);
-                                        old_value_hydration_failed = true;
-                                        None
-                                    }
-                                }
-                            }
-                        };
+                        let task_state = task_state.deps_match(handle)?;
+                        let activation_info = self.activation_info(
+                            to_revalidate.cert.deps.iter_keys(),
+                            ActivationData::Reused,
+                        );
+                        let response = state_handle
+                            .revalidate(
+                                VersionedGraphKey::new(v, self.k),
+                                self.eval.storage_type(self.k),
+                                to_revalidate.dupe(),
+                                invalidation_paths,
+                            )
+                            .await;
 
-                        match to_revalidate {
-                            Some(to_revalidate) => {
-                                let task_state = task_state.deps_match(handle)?;
-                                let activation_info = self.activation_info(
-                                    to_revalidate.cert.deps.iter_keys(),
-                                    ActivationData::Reused,
-                                );
-                                let response = state_handle
-                                    .revalidate(
-                                        VersionedGraphKey::new(v, self.k),
-                                        self.eval.storage_type(self.k),
-                                        to_revalidate,
-                                        invalidation_paths,
-                                    )
-                                    .await;
-
-                                return Ok(task_state.cached(response, activation_info));
-                            }
-                            None => (task_state.deps_not_match(handle), None),
-                        }
+                        return Ok(task_state.cached(response, activation_info));
                     }
                     CheckDependenciesResult::NoDeps => {
                         // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
@@ -263,8 +228,7 @@ impl DiceTaskWorker {
                     let v = self.eval.version_state.get_version();
                     // If the dependencies still match and equality can reuse the old value,
                     // restore it so `update_computed` can compare it with the recomputed value.
-                    if !old_value_hydration_failed
-                        && let Some(stale) = candidate.as_ref()
+                    if let Some(stale) = candidate.as_ref()
                         && let Some(data_key) = stale.entry.data_key()
                         && result.deps.equal_ignoring_revisions(&stale.cert.deps)
                         && !self
@@ -335,16 +299,9 @@ impl DiceTaskWorker {
         )
     }
 
-    /// Deserialize a paged-out value via `DiceStorage`, then send a `Rehydrate` request
-    /// so the graph node returns to the `Hydrated` state for subsequent lookups. The
-    /// returned value is the worker's local copy.
-    ///
-    /// Returns `Err` if the value cannot be read back (e.g. storage corruption, a
-    /// serialize/deserialize asymmetry). Callers treat that as a cache miss and
-    /// recompute the key, reporting the failure via
-    /// [`TransactionData::hydration_failed`]. A missing `DiceStorage` is an internal
-    /// invariant violation (we only receive a paged-out lookup result if storage is
-    /// configured) and panics.
+    /// Restore a paged-out candidate for equality comparison with the newly computed value.
+    /// A failed read is reported by the caller, which continues with the already computed
+    /// value. Paged-out candidates require configured storage.
     async fn hydrate_and_rehydrate(
         &self,
         state_handle: &CoreStateHandle,

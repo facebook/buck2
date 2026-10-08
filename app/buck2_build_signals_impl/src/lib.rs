@@ -990,26 +990,6 @@ where
             PageInPhase::ValueDemand => {
                 unreachable!("value-demand reads are independent of activation")
             }
-            PageInPhase::AfterDependencyValidation => {
-                // Dependency validation completed before hydration:
-                // `key -> PageIn(key) -> dependencies`.
-                self.backend.process_node(
-                    page_in_key.dupe(),
-                    NodeExtraData::None,
-                    page_in.duration,
-                    evaluation.dep_keys,
-                    Default::default(),
-                    WaitingData::new(),
-                );
-                self.backend.process_node(
-                    evaluation.key,
-                    evaluation.extra_data,
-                    evaluation.duration,
-                    [page_in_key],
-                    evaluation.spans,
-                    evaluation.waiting_data,
-                );
-            }
             PageInPhase::AfterRecompute => {
                 // Recalculation completed before hydration. Keep the original key as a
                 // zero-duration completion node so callers see:
@@ -1194,7 +1174,7 @@ where
                     WaitingData::new(),
                 );
             }
-            PageInPhase::AfterDependencyValidation | PageInPhase::AfterRecompute => {
+            PageInPhase::AfterRecompute => {
                 self.pending_page_ins.insert(page_in.key.dupe(), page_in);
             }
         }
@@ -1648,21 +1628,6 @@ mod tests {
         assert_eq!(receiver.backend.deps[&key], [dep]);
         assert!(receiver.backend.deps[&page_in_key].is_empty());
         assert!(receiver.pending_page_ins.is_empty());
-    }
-
-    #[test]
-    fn reuse_page_in_depends_on_validated_dependencies() {
-        let mut receiver = receiver();
-        let key = node_key("cell//reuse");
-        let dep = node_key("cell//dep");
-        let page_in_key = NodeKey::PageIn(Arc::new(key.dupe()));
-        let phase = PageInPhase::AfterDependencyValidation;
-
-        receiver.process_page_in(page_in(key.dupe(), phase));
-        receiver.process_evaluation(evaluation(key.dupe(), dep.dupe(), key.dupe(), phase));
-
-        assert_eq!(receiver.backend.deps[&key], [page_in_key.dupe()]);
-        assert_eq!(receiver.backend.deps[&page_in_key], [dep]);
     }
 
     #[test]

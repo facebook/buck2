@@ -50,8 +50,6 @@ pub enum PageInPhase {
     /// A caller needs the payload of a key whose revision is already known. This read is
     /// independent of the key's activation: there may be no activation, or it may precede the read.
     ValueDemand,
-    /// Dependency validation succeeded, so the old value is loaded for reuse.
-    AfterDependencyValidation,
     /// Recalculation preserved the dependency structure, so the old value is loaded for equality
     /// comparison with the newly computed value.
     AfterRecompute,
