@@ -531,6 +531,7 @@ def build_kotlin_library(
                     annotation_processors = annotation_processor_properties.annotation_processors + ksp_annotation_processor_properties.annotation_processors,
                     annotation_processor_params = annotation_processor_properties.annotation_processor_params
                     + ksp_annotation_processor_properties.annotation_processor_params,
+                    source_only_abi_annotation_processor_param_overrides = annotation_processor_properties.source_only_abi_annotation_processor_param_overrides,
                 ),
                 "bootclasspath_entries": bootclasspath_for_kotlinc,
                 "custom_jdk_info": custom_jdk_info,

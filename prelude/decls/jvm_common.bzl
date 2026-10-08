@@ -314,6 +314,13 @@ def _annotation_processors():
         "annotation_processor_deps": attrs.list(attrs.exec_dep(), default = []),
         "annotation_processor_params": attrs.list(attrs.string(), default = []),
         "annotation_processors": attrs.list(attrs.string(), default = []),
+        "source_only_abi_annotation_processor_param_overrides": attrs.dict(
+            key = attrs.string(),
+            value = attrs.option(attrs.string()),
+            sorted = False,
+            default = {},
+            doc = "Parameter overrides for source-only ABI; `None` removes a parameter.",
+        ),
     }
 
 def _content_based_path_attr():

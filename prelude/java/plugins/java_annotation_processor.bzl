@@ -47,6 +47,7 @@ AnnotationProcessor = record(
 AnnotationProcessorProperties = record(
     annotation_processors = field(list[AnnotationProcessor]),
     annotation_processor_params = field(list[str]),
+    source_only_abi_annotation_processor_param_overrides = field(dict[str, [str, None]], {}),
 )
 
 # Every transitive java annotation processors dependency has to be included into processor classpath for AP/Java Plugin run
@@ -123,6 +124,11 @@ def create_annotation_processor_properties(
     return AnnotationProcessorProperties(
         annotation_processors = annotation_processors,
         annotation_processor_params = annotation_processor_params,
+        source_only_abi_annotation_processor_param_overrides = getattr(
+            ctx.attrs,
+            "source_only_abi_annotation_processor_param_overrides",
+            {},
+        ),
     )
 
 def _update_first(iterable, old_value, new_value):

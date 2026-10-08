@@ -191,6 +191,13 @@ def get_source_only_abi_compiling_deps(
         source_only_abi_compiling_deps = [compiling_dep for compiling_dep in list(compiling_deps_tset.traverse()) if filter_compiling_deps(compiling_dep)]
     return actions.tset(SourceOnlyAbiCompilingDepsTSet, value = source_only_abi_compiling_deps)
 
+def _apply_ap_param_overrides(params: list[str], overrides: dict[str, [str, None]]) -> list[str]:
+    result = [param for param in params if param.split("=", 1)[0].removeprefix("-A") not in overrides]
+    for key, value in overrides.items():
+        if value != None:
+            result.append(key + "=" + value)
+    return result
+
 # buildifier: disable=unused-variable
 def encode_ap_params(annotation_processor_properties: AnnotationProcessorProperties, target_type: TargetType) -> [struct, None]:
     # buck1 oddly only inspects annotation processors, not plugins for
@@ -198,8 +205,14 @@ def encode_ap_params(annotation_processor_properties: AnnotationProcessorPropert
     # support the flags. we apply it to both.
     encoded_ap_params = None
     if annotation_processor_properties.annotation_processors:
+        parameters = annotation_processor_properties.annotation_processor_params
+        if target_type == TargetType("source_only_abi"):
+            parameters = _apply_ap_param_overrides(
+                parameters,
+                annotation_processor_properties.source_only_abi_annotation_processor_param_overrides,
+            )
         encoded_ap_params = struct(
-            parameters = annotation_processor_properties.annotation_processor_params,
+            parameters = parameters,
             pluginProperties = [],
         )
         for ap in annotation_processor_properties.annotation_processors:
