@@ -404,20 +404,27 @@ async fn collect_install_request_data(
     Ok(request_data_vec)
 }
 
-/// Parses `--install-timeout <seconds>` from the installer run args.
+/// Parses `--install-timeout <seconds>` or `--install-timeout=<seconds>` from the installer run
+/// args. The flag is defined by the Android installer; this mirrors its args4j parser, which
+/// accepts both forms and keeps the last occurrence, so buck2 and the installer agree on the timeout.
 /// Returns the parsed value or the default (600s) if not found.
 fn parse_install_timeout(installer_run_args: &[String]) -> u64 {
+    let mut timeout = 600;
     let mut iter = installer_run_args.iter();
     while let Some(arg) = iter.next() {
-        if arg == "--install-timeout" {
-            if let Some(value) = iter.next() {
-                if let Ok(seconds) = value.parse::<u64>() {
-                    return seconds;
-                }
+        let value = if arg == "--install-timeout" {
+            iter.next()
+        } else {
+            arg.strip_prefix("--install-timeout=").map(|_| arg)
+        };
+        if let Some(value) = value {
+            let value = value.strip_prefix("--install-timeout=").unwrap_or(value);
+            if let Ok(seconds) = value.parse::<u64>() {
+                timeout = seconds;
             }
         }
     }
-    600
+    timeout
 }
 
 fn get_random_tcp_port() -> buck2_error::Result<u16> {
@@ -1111,19 +1118,18 @@ mod tests {
 
     /// `--install-timeout` is defined by the Android installer, which parses it with args4j: both
     /// `--install-timeout N` and `--install-timeout=N` are accepted and the last occurrence wins.
-    /// buck2 only recognises the space-separated form and keeps the first value, so the two sides
-    /// can disagree about the per-file timeout.
+    /// buck2 parses it the same way, so both sides use the same per-file timeout.
     #[test]
     fn test_parse_install_timeout_equals_form_and_repeats() {
         let args: Vec<String> = vec!["--install-timeout=1800".to_owned()];
-        assert_eq!(parse_install_timeout(&args), 600);
+        assert_eq!(parse_install_timeout(&args), 1800);
         let args: Vec<String> = vec![
             "--install-timeout".to_owned(),
             "900".to_owned(),
             "--install-timeout".to_owned(),
             "1200".to_owned(),
         ];
-        assert_eq!(parse_install_timeout(&args), 900);
+        assert_eq!(parse_install_timeout(&args), 1200);
     }
 
     #[test]
