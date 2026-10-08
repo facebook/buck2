@@ -132,6 +132,11 @@ fn main() -> io::Result<()> {
         .type_attribute("buck.data.CommandExecutionStats", "#[derive(dupe::Dupe)]")
         .type_attribute(".", "#[derive(::serde::Serialize, ::serde::Deserialize)]")
         .type_attribute(".", "#[derive(::allocative::Allocative)]")
+        // Keep the JSON event log for ordinary failures as `{"Failure": {}}`.
+        .field_attribute(
+            "buck.data.CommandExecution.Failure.missing_materialized_inputs",
+            "#[serde(default, skip_serializing_if = \"std::ops::Not::not\")]",
+        )
         .field_attribute(
             "timestamp",
             "#[serde(with = \"::buck2_proto_serde::serialize_timestamp\")]",

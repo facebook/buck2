@@ -120,6 +120,7 @@ pub async fn download_action_results<'a>(
             Some(action_exit_code),
             CommandExecutionMetadata::from_re_timing(response.timing(), TimeSpan::empty_now()),
             additional_message,
+            false,
         ));
     }
     let downloader = CasDownloader {
@@ -218,6 +219,7 @@ pub async fn download_action_results<'a>(
                     execution_time.end_now(),
                 ),
                 additional_message,
+                false,
             )
         }
     };

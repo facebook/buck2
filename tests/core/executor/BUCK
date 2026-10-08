@@ -17,6 +17,10 @@ buck2_core_tests(
                 "windows",
             ],
         },
+        "test_missing_materialized_inputs": {
+            # `buck2 test` needs the compiled test executor.
+            "use_compiled_buck2_client_and_tpx": True,
+        },
         "test_output_cleanup": {
             # RE CASd runs as non-root on mac, so it will fail to read directories
             # produced by the test.

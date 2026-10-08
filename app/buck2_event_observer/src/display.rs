@@ -1085,7 +1085,7 @@ fn failure_reason_for_command_execution(
 
     Ok(match status {
         Status::Success(Success {}) => "Unexpected command status".to_owned(),
-        Status::Failure(Failure {}) | Status::WorkerFailure(WorkerFailure {}) => {
+        Status::Failure(Failure { .. }) | Status::WorkerFailure(WorkerFailure {}) => {
             struct OptionalExitCode {
                 code: Option<i32>,
             }

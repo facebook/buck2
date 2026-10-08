@@ -2080,7 +2080,11 @@ message CommandExecution {
 
   message Success {}
 
-  message Failure {}
+  message Failure {
+    // True when a declared input that Buck had materialized was missing before
+    // a local command failure. This is never set for remote execution.
+    bool missing_materialized_inputs = 1;
+  }
 
   message WorkerFailure {}
 

@@ -121,6 +121,7 @@ impl WorkerInitError {
                     *exit_code,
                     CommandExecutionMetadata::empty(TimeSpan::empty_now()),
                     None,
+                    false,
                 )
             }
             // TODO(ctolliday) as above, use a new failure type (worker_init_failure) that indicates this is a worker initialization error.
@@ -135,6 +136,7 @@ impl WorkerInitError {
                     None,
                     CommandExecutionMetadata::empty(TimeSpan::empty_now()),
                     None,
+                    false,
                 ),
             WorkerInitError::InternalError(error) => {
                 manager.error("get_worker_failed", error.clone())

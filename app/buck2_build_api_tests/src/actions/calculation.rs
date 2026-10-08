@@ -607,6 +607,7 @@ async fn test_command_details_omission() {
             command: vec![],
             env: sorted_vector_map![],
         },
+        missing_materialized_inputs: false,
     };
     let proto = command_details(&report, true).await;
     let command_kind = proto.command_kind.unwrap();

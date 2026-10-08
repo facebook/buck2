@@ -304,6 +304,7 @@ impl ReExecutor {
                     None,
                     CommandExecutionMetadata::empty(TimeSpan::empty_now()),
                     additional_message,
+                    false,
                 )
             } else if is_timeout_error(&response.execute_response.status)
                 && request.timeout().is_some()

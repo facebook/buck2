@@ -106,6 +106,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
                 Some(1),
                 CommandExecutionMetadata::empty(TimeSpan::empty_now()),
                 None,
+                false,
             ),
         }
     }

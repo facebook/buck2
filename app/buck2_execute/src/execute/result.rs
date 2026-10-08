@@ -58,6 +58,8 @@ pub enum CommandExecutionStatus {
     },
     Failure {
         execution_kind: CommandExecutionKind,
+        /// Whether a declared input was missing before this local failure.
+        missing_materialized_inputs: bool,
     },
     WorkerFailure {
         execution_kind: CommandExecutionKind,
@@ -83,7 +85,7 @@ impl CommandExecutionStatus {
     pub fn execution_kind(&self) -> Option<&CommandExecutionKind> {
         match self {
             CommandExecutionStatus::Success { execution_kind, .. } => Some(execution_kind),
-            CommandExecutionStatus::Failure { execution_kind } => Some(execution_kind),
+            CommandExecutionStatus::Failure { execution_kind, .. } => Some(execution_kind),
             CommandExecutionStatus::WorkerFailure { execution_kind } => Some(execution_kind),
             CommandExecutionStatus::Error { execution_kind, .. } => execution_kind.as_ref(),
             CommandExecutionStatus::TimedOut { execution_kind, .. } => Some(execution_kind),
@@ -101,7 +103,7 @@ impl Display for CommandExecutionStatus {
             CommandExecutionStatus::WorkerFailure { execution_kind } => {
                 write!(f, "worker failure {execution_kind}",)
             }
-            CommandExecutionStatus::Failure { execution_kind } => {
+            CommandExecutionStatus::Failure { execution_kind, .. } => {
                 write!(f, "failure {execution_kind}",)
             }
             CommandExecutionStatus::Error {
@@ -388,9 +390,13 @@ impl CommandExecutionReport {
             CommandExecutionStatus::Cancelled { .. } => {
                 buck2_data::command_execution::Cancelled {}.into()
             }
-            CommandExecutionStatus::Failure { .. } => {
-                buck2_data::command_execution::Failure {}.into()
+            CommandExecutionStatus::Failure {
+                missing_materialized_inputs,
+                ..
+            } => buck2_data::command_execution::Failure {
+                missing_materialized_inputs: *missing_materialized_inputs,
             }
+            .into(),
             CommandExecutionStatus::WorkerFailure { .. } => {
                 buck2_data::command_execution::WorkerFailure {}.into()
             }

@@ -1439,7 +1439,7 @@ impl BuckTestOrchestrator<'_> {
                 outputs,
                 command_execution,
             },
-            CommandExecutionStatus::Failure { execution_kind }
+            CommandExecutionStatus::Failure { execution_kind, .. }
             | CommandExecutionStatus::WorkerFailure { execution_kind } => ExecuteData {
                 stdout,
                 stderr,
@@ -2698,6 +2698,7 @@ mod tests {
                 Some(0),
                 CommandExecutionMetadata::empty(TimeSpan::empty_now()),
                 None,
+                false,
             )
         }
 

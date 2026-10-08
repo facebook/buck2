@@ -797,7 +797,7 @@ impl LocalExecutor {
                 if exit_code == 0 {
                     manager.success(execution_kind, outputs, std_streams, *timing)
                 } else {
-                    let manager = check_inputs(
+                    let (manager, missing_materialized_inputs) = check_inputs(
                         manager,
                         &self.artifact_fs,
                         self.blocking_executor.as_ref(),
@@ -813,11 +813,12 @@ impl LocalExecutor {
                         Some(exit_code),
                         *timing,
                         None,
+                        missing_materialized_inputs,
                     )
                 }
             }
             GatherOutputStatus::SpawnFailed(reason) => {
-                let manager = check_inputs(
+                let (manager, missing_materialized_inputs) = check_inputs(
                     manager,
                     &self.artifact_fs,
                     self.blocking_executor.as_ref(),
@@ -841,6 +842,7 @@ impl LocalExecutor {
                         None,
                         *timing,
                         None,
+                        missing_materialized_inputs,
                     )
                 } else {
                     // Workers executing tests often employ a health check to avoid producing
@@ -1090,7 +1092,7 @@ impl LocalExecutor {
                 Ok(worker) => ControlFlow::Continue((Some(worker), manager)),
                 Err(e) => {
                     let res = {
-                        let manager = check_inputs(
+                        let (manager, _missing_materialized_inputs) = check_inputs(
                             manager,
                             &self.artifact_fs,
                             self.blocking_executor.as_ref(),
@@ -1453,9 +1455,10 @@ async fn check_inputs(
     artifact_fs: &ArtifactFs,
     blocking_executor: &dyn BlockingExecutor,
     request: &CommandExecutionRequest,
-) -> ControlFlow<CommandExecutionResult, CommandExecutionManagerWithClaim> {
+) -> ControlFlow<CommandExecutionResult, (CommandExecutionManagerWithClaim, bool)> {
     let res = blocking_executor
         .execute_io_inline(|| {
+            let mut missing_materialized_inputs = false;
             for input in request.inputs() {
                 match input {
                     CommandExecutionInput::Artifact(group) => {
@@ -1469,12 +1472,19 @@ async fn check_inputs(
                                     }.as_ref())?;
                                 let abs_path = artifact_fs.fs().resolve(&path);
 
+                                let metadata = fs_util::symlink_metadata(&abs_path);
+                                missing_materialized_inputs |= metadata
+                                    .as_ref()
+                                    .is_err_and(|error| {
+                                        error.io_error_kind() == Some(std::io::ErrorKind::NotFound)
+                                    });
+
                                 // We ignore the result here because while we want to tag it, we'd
                                 // prefer to just show the normal error to the user, so we don't
                                 // want to propagate it.
                                 let _ignored = tag_result!(
                                     "missing_local_inputs",
-                                    fs_util::symlink_metadata(&abs_path).categorize_internal().buck_error_context("Missing input"),
+                                    metadata.categorize_internal().buck_error_context("Missing input"),
                                     quiet: true,
                                     task: false,
                                     daemon_materializer_state_is_corrupted: true
@@ -1494,12 +1504,14 @@ async fn check_inputs(
                 }
             }
 
-            Ok(())
+            Ok(missing_materialized_inputs)
         })
         .await;
 
     match res {
-        Ok(()) => ControlFlow::Continue(manager),
+        Ok(missing_materialized_inputs) => {
+            ControlFlow::Continue((manager, missing_materialized_inputs))
+        }
         Err(err) => ControlFlow::Break(manager.error("local_check_inputs", err)),
     }
 }

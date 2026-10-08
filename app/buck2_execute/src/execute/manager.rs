@@ -297,6 +297,7 @@ pub trait CommandExecutionManagerExt: Sized {
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
         additional_message: Option<String>,
+        missing_materialized_inputs: bool,
     ) -> CommandExecutionResult;
 
     fn worker_failure(
@@ -344,9 +345,13 @@ where
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
         additional_message: Option<String>,
+        missing_materialized_inputs: bool,
     ) -> CommandExecutionResult {
         self.result(
-            CommandExecutionStatus::Failure { execution_kind },
+            CommandExecutionStatus::Failure {
+                execution_kind,
+                missing_materialized_inputs,
+            },
             outputs,
             std_streams,
             exit_code,

@@ -726,7 +726,13 @@ async fn command_execution_report_to_proto(
         CommandExecutionStatus::Cancelled { .. } => {
             buck2_data::command_execution::Cancelled {}.into()
         }
-        CommandExecutionStatus::Failure { .. } => buck2_data::command_execution::Failure {}.into(),
+        CommandExecutionStatus::Failure {
+            missing_materialized_inputs,
+            ..
+        } => buck2_data::command_execution::Failure {
+            missing_materialized_inputs: *missing_materialized_inputs,
+        }
+        .into(),
         CommandExecutionStatus::WorkerFailure { .. } => {
             buck2_data::command_execution::WorkerFailure {}.into()
         }
