@@ -569,6 +569,90 @@ mod tests {
         Ok(())
     }
 
+    /// A chain with more redirects than `max_redirects` is followed one hop past the limit:
+    /// the request past the limit is sent and its answer discarded before the error.
+    #[tokio::test]
+    async fn test_redirect_limit_requests() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
+        let test_server = httptest::Server::run();
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/a"))
+                .times(1)
+                .respond_with(
+                    responders::status_code(302).append_header(http::header::LOCATION, "/b"),
+                ),
+        );
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/b"))
+                .times(1)
+                .respond_with(
+                    responders::status_code(302).append_header(http::header::LOCATION, "/c"),
+                ),
+        );
+        test_server.expect(
+            Expectation::matching(request::method_path("GET", "/c"))
+                .times(1)
+                .respond_with(responders::status_code(200)),
+        );
+
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
+            .with_max_redirects(1)
+            .build();
+        let result = client.get(&test_server.url_str("/a")).await;
+        assert!(matches!(
+            result,
+            Err(HttpError::TooManyRedirects {
+                max_redirects: 1,
+                ..
+            })
+        ));
+        Ok(())
+    }
+
+    /// With `max_redirects = 0` a redirect of a POST is still followed once, so the body is
+    /// delivered to the redirect target although the caller is told the call failed.
+    #[tokio::test]
+    async fn test_redirect_limit_zero_post() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
+        let test_server = httptest::Server::run();
+        test_server.expect(
+            Expectation::matching(request::method_path("POST", "/a"))
+                .times(1)
+                .respond_with(
+                    responders::status_code(307).append_header(http::header::LOCATION, "/b"),
+                ),
+        );
+        test_server.expect(
+            Expectation::matching(all_of![
+                request::method_path("POST", "/b"),
+                request::body("payload"),
+            ])
+            .times(1)
+            .respond_with(responders::status_code(200)),
+        );
+
+        let client = HttpClientBuilder::https_with_system_roots()
+            .await?
+            .with_max_redirects(0)
+            .build();
+        let result = client
+            .post(
+                &test_server.url_str("/a"),
+                Bytes::from_static(b"payload"),
+                vec![],
+            )
+            .await;
+        assert!(matches!(
+            result,
+            Err(HttpError::TooManyRedirects {
+                max_redirects: 0,
+                ..
+            })
+        ));
+        Ok(())
+    }
+
     #[tokio::test]
     async fn test_too_many_redirects_fails() -> buck2_error::Result<()> {
         buck2_certs::certs::maybe_setup_cryptography();
