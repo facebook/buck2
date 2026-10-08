@@ -656,7 +656,8 @@ impl WorkerHandle {
         let request = ExecuteCommand {
             argv,
             env,
-            timeout_s: timeout.map(|t| t.as_secs()),
+            // Whole seconds on the wire: round up rather than down to 0.
+            timeout_s: timeout.map(|t| t.as_secs() + u64::from(t.subsec_nanos() > 0)),
         };
 
         // The worker has the same deadline and is expected to reach it first,
@@ -1192,12 +1193,11 @@ mod worker_handle_tests {
         seen_timeout_s.load(Ordering::SeqCst)
     }
 
-    /// The timeout is sent as whole seconds, truncated: 1500 ms reaches the worker as 1 s and
-    /// 500 ms as 0 s, which `TimeoutRecordingWorker` cannot tell apart from no timeout.
+    /// A timeout with a fractional second is rounded up for the worker, never down to 0.
     #[tokio::test]
-    async fn test_subsecond_timeout_is_truncated_for_the_worker() {
-        assert_eq!(timeout_seen_by_worker(1500).await, 1);
-        assert_eq!(timeout_seen_by_worker(500).await, 0);
+    async fn test_subsecond_timeout_is_rounded_up_for_the_worker() {
+        assert_eq!(timeout_seen_by_worker(1500).await, 2);
+        assert_eq!(timeout_seen_by_worker(500).await, 1);
         assert_eq!(timeout_seen_by_worker(2000).await, 2);
     }
 }
