@@ -1888,3 +1888,20 @@ async def test_canonical_args_quoting(buck: Buck, delimiter: str) -> None:
     )
     assert output == "usedextra"
     assert shlex.split(args)[0] == ""
+
+
+@buck_test(data_dir="invalid_dep_files")
+async def test_invalid_dep_file_second_lookup_without_flush(buck: Buck) -> None:
+    await buck.build("//:lazy")
+    await expect_failure(
+        buck.build("//:lazy", "-c", "test.seed=123", "--no-remote-cache"),
+        stderr_regex="Invalid line encountered in dep file",
+    )
+    # A second change to the inputs without `flush-dep-files`: the entry left behind by the
+    # first failure has no input directories any more, and the lookup panics in the daemon
+    # instead of reporting the invalid dep file again.
+    try:
+        await buck.build("//:lazy", "-c", "test.seed=456", "--no-remote-cache")
+        raise AssertionError("expected the build to fail")
+    except BuckException as e:
+        assert "Invalid line encountered in dep file" not in e.stderr, e.stderr
