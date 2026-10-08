@@ -165,6 +165,7 @@ impl<C: Component> Component for Split<C> {
 
 #[cfg(test)]
 mod tests {
+    use std::convert::Infallible;
     use std::iter;
 
     use derive_more::AsRef;
@@ -172,10 +173,55 @@ mod tests {
     use super::Split;
     use super::SplitKind;
     use crate::Component;
+    use crate::Dimensions;
     use crate::Direction;
     use crate::DrawMode;
     use crate::Line;
     use crate::Lines;
+    use crate::components::Blank;
+    use crate::components::echo::Echo;
+
+    type Dyn = Box<dyn Component<Error = Infallible>>;
+
+    fn echo_rows(rows: &[&str]) -> Dyn {
+        Box::new(Echo(Lines(
+            rows.iter().map(|r| Line::unstyled(r).unwrap()).collect(),
+        )))
+    }
+
+    fn rows(lines: &Lines) -> Vec<String> {
+        lines.iter().map(|l| l.to_unstyled()).collect()
+    }
+
+    /// A child that draws nothing takes up no width in a horizontal split, so the children to
+    /// its right move left by its share.
+    #[test]
+    fn test_horizontal_split_with_empty_child() {
+        let split = Split::<Dyn>::new(
+            vec![Box::new(Blank), echo_rows(&["xx"])],
+            Direction::Horizontal,
+            SplitKind::Equal,
+        );
+        let out = split
+            .draw(Dimensions::new(10, 1), DrawMode::Normal)
+            .unwrap();
+        assert_eq!(rows(&out), vec!["xx   ".to_owned()]);
+        assert_eq!(out.max_line_length(), 5);
+
+        let split = Split::<Dyn>::new(
+            vec![
+                echo_rows(&["aaaaaa"]),
+                Box::new(Blank),
+                echo_rows(&["cccccc"]),
+            ],
+            Direction::Horizontal,
+            SplitKind::Sized(vec![1.0, 1.0, 1.0]),
+        );
+        let out = split
+            .draw(Dimensions::new(12, 1), DrawMode::Normal)
+            .unwrap();
+        assert_eq!(rows(&out), vec!["aaaacccc".to_owned()]);
+    }
 
     #[derive(AsRef, Debug)]
     #[allow(dead_code)]
