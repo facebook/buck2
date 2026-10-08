@@ -2569,7 +2569,7 @@ impl InvocationRecorder {
                         self.handle_system_info(system_info)
                     }
                     buck2_data::instant_event::Data::PagingSummary(paging_summary) => {
-                        self.paging_summary = Some(paging_summary.clone());
+                        self.paging_summary = Some((**paging_summary).clone());
                         Ok(())
                     }
                     buck2_data::instant_event::Data::TargetCfg(target_cfg) => {

@@ -68,9 +68,43 @@ mod serialize_action_kind {
 
 tonic::include_proto!("buck.data");
 
+// Millions of these can be queued. Keep rare large payloads boxed so they
+// do not increase the allocation size of every common event.
+mini_vec::size_assert::words_of_expr!(BuckEvent::default(), ~40);
+
 pub mod error {
     tonic::include_proto!("buck.data.error");
 }
+
+// Preserve the event producers' `Into<Data>` conversions when a large variant is
+// boxed. The generated derives also provide conversions from the boxed payloads.
+macro_rules! impl_from_boxed_event {
+    ($data:ident, $($variant:ident($event:ident)),+ $(,)?) => {
+        $(
+            impl From<$event> for $data::Data {
+                fn from(event: $event) -> Self {
+                    Self::$variant(Box::new(event))
+                }
+            }
+        )+
+    };
+}
+
+impl_from_boxed_event!(
+    span_end_event,
+    DepFileUpload(DepFileUploadEnd),
+    TestDiscovery(TestDiscoveryEnd),
+    TestRun(TestRunEnd),
+);
+impl_from_boxed_event!(
+    instant_event,
+    ActionError(ActionError),
+    CleanStaleResult(CleanStaleResult),
+    PageOutSummary(PageOutSummary),
+    PagingSummary(PagingSummary),
+    RageResult(RageResult),
+    ResourceControlEvent(ResourceControlEvent),
+);
 
 /// Extract action digest from a list of command executions.
 /// Returns the action digest from the last command execution if available.

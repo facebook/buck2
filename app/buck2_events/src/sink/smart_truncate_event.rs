@@ -267,14 +267,16 @@ mod tests {
 
     fn make_test_end(data: buck2_data::TestRunEnd) -> buck2_data::buck_event::Data {
         buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
-            data: Some(buck2_data::span_end_event::Data::TestRun(data)),
+            data: Some(buck2_data::span_end_event::Data::TestRun(Box::new(data))),
             ..Default::default()
         })
     }
 
     fn make_test_discovery_end(data: buck2_data::TestDiscoveryEnd) -> buck2_data::buck_event::Data {
         buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
-            data: Some(buck2_data::span_end_event::Data::TestDiscovery(data)),
+            data: Some(buck2_data::span_end_event::Data::TestDiscovery(Box::new(
+                data,
+            ))),
             ..Default::default()
         })
     }

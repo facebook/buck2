@@ -16,6 +16,7 @@ derive_more.workspace = true
 dupe.workspace = true
 gazebo.workspace = true
 hex.workspace = true
+mini_vec.workspace = true
 pagable.workspace = true
 prost.workspace = true
 prost-types.workspace = true

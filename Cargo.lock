@@ -1920,6 +1920,7 @@ dependencies = [
  "dupe",
  "gazebo",
  "hex",
+ "mini_vec",
  "pagable",
  "prost",
  "prost-types",

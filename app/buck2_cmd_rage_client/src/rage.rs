@@ -536,7 +536,7 @@ async fn dispatch_result_event(
     rage_id: &TraceId,
     result: RageResult,
 ) -> buck2_error::Result<()> {
-    let data = Some(Data::RageResult(result));
+    let data = Some(Data::RageResult(Box::new(result)));
     dispatch_event_to_scribe(sink, rage_id, InstantEvent { data }).await?;
     Ok(())
 }

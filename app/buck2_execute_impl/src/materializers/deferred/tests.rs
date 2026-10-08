@@ -708,7 +708,7 @@ mod state_machine {
                 && let Some(buck2_data::instant_event::Data::CleanStaleResult(result)) =
                     instant.data.as_ref()
             {
-                return result.clone();
+                return (**result).clone();
             }
         }
     }
