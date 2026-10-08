@@ -42,6 +42,7 @@ type AnalyzerOutput struct {
 	CXXFiles          []string `json:"CXXFiles,omitempty"`
 	CgoFiles          []string `json:"CgoFiles,omitempty"`
 	SFiles            []string `json:"SFiles,omitempty"`
+	SysoFiles         []string `json:"SysoFiles,omitempty"`
 	TestGoFiles       []string `json:"TestGoFiles,omitempty"`
 	XTestGoFiles      []string `json:"XTestGoFiles,omitempty"`
 	IgnoredGoFiles    []string `json:"IgnoredGoFiles,omitempty"`
@@ -143,6 +144,7 @@ Flags:
 		CFiles:            pkg.CFiles,
 		CXXFiles:          pkg.CXXFiles,
 		SFiles:            pkg.SFiles,
+		SysoFiles:         pkg.SysoFiles,
 		IgnoredGoFiles:    pkg.IgnoredGoFiles,
 		IgnoredOtherFiles: pkg.IgnoredOtherFiles,
 		CgoCFLAGS:         pkg.CgoCFLAGS,

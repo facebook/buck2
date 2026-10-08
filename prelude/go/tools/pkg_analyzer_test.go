@@ -44,14 +44,14 @@ func analyzePackage(t *testing.T) map[string]any {
 	return parsed
 }
 
-// The analyzer lists the Go file but has no field for .syso files, so the rules
-// never see them.
-func TestSysoFilesAreNotReported(t *testing.T) {
+// The analyzer lists .syso files like `go list` does.
+func TestSysoFilesAreReported(t *testing.T) {
 	parsed := analyzePackage(t)
 	if got := parsed["GoFiles"]; len(got.([]any)) != 1 || got.([]any)[0] != "a.go" {
 		t.Fatalf("GoFiles = %v", got)
 	}
-	if got, ok := parsed["SysoFiles"]; ok {
-		t.Fatalf("expected no SysoFiles, got %v", got)
+	got, ok := parsed["SysoFiles"]
+	if !ok || len(got.([]any)) != 1 || got.([]any)[0] != "impl.syso" {
+		t.Fatalf("SysoFiles = %v", got)
 	}
 }
