@@ -142,7 +142,6 @@ fn deps_on_leaf(graph: &VersionedGraph, v: VersionNumber) -> SeriesParallelDeps 
         .get(VersionedGraphKey::new(v, key(0)))
         .unpack_match()
         .expect("the leaf is injected")
-        .0
         .revision()
         .expect("an injected value is valid");
     SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(key(0), revision)])
@@ -156,10 +155,7 @@ fn compute(
     value: DiceValidValue,
 ) -> MaybeResidentComputedValue {
     let deps = deps_on_leaf(graph, v);
-    let epsilon = match graph.get(VersionedGraphKey::new(v, k)) {
-        VersionedGraphResult::Match { epsilon, .. }
-        | VersionedGraphResult::Unknown { epsilon, .. } => epsilon,
-    };
+    let epsilon = graph.core.epsilon(k, v);
     let out = graph.update(
         VersionedGraphKey::new(v, k),
         ValueUpdate::Computed {
@@ -244,7 +240,6 @@ fn identical_certificate_over_paged_out_value_makes_it_resident() {
             .get(VersionedGraphKey::new(v2, key(1)))
             .unpack_match()
             .unwrap()
-            .0
             .paged_out_data_key()
             .is_some()
     );
@@ -257,7 +252,6 @@ fn identical_certificate_over_paged_out_value_makes_it_resident() {
             .get(VersionedGraphKey::new(v2, key(1)))
             .unpack_match()
             .unwrap()
-            .0
             .testing_resident_value()
             .instance_equal(&recomputed)
     );
@@ -315,7 +309,6 @@ fn injected_values_refind_their_revisions() {
             .get(VersionedGraphKey::new(v, key(0)))
             .unpack_match()
             .unwrap()
-            .0
             .revision()
     };
     let v2 = inject(&mut graph, key(0), 42);
@@ -344,10 +337,7 @@ fn a_dep_less_recompute_under_the_same_epsilon_adopts_the_stored_revision() {
     let mut graph = VersionedGraph::new();
     let v1 = graph.head(BranchId::FIRST);
     let compute_without_deps = |graph: &mut VersionedGraph, v: VersionNumber, n: usize| {
-        let epsilon = match graph.get(VersionedGraphKey::new(v, key(1))) {
-            VersionedGraphResult::Match { epsilon, .. }
-            | VersionedGraphResult::Unknown { epsilon, .. } => epsilon,
-        };
+        let epsilon = graph.core.epsilon(key(1), v);
         let out = graph.update(
             VersionedGraphKey::new(v, key(1)),
             ValueUpdate::Computed {
@@ -399,7 +389,6 @@ fn dependency_validated_keeps_its_revision_when_superseded() {
             .get(VersionedGraphKey::new(v3, key(1)))
             .unpack_match()
             .unwrap()
-            .0
             .revision(),
         second.revision()
     );
@@ -493,7 +482,6 @@ fn asserted_values_of_computed_keys_page_out() {
             .get(VersionedGraphKey::new(v2, key(1)))
             .unpack_match()
             .unwrap()
-            .0
             .paged_out_data_key(),
         Some(pagable::DataKey::testing_new(7))
     );
@@ -521,7 +509,7 @@ fn page_out_index_tracks_the_values() {
     graph.rehydrate(key(1), pagable::DataKey::testing_new(99), value(1));
     graph.assert_consistent();
     let k2_result = graph.get(VersionedGraphKey::new(v2, key(2)));
-    let (k2_value, _) = k2_result.unpack_match().unwrap();
+    let k2_value = k2_result.unpack_match().unwrap();
     let k2_value = k2_value.testing_resident_value().testing_value().dupe();
     graph.mark_non_pageable(vec![(key(2), DiceValidValue::from_arc(k2_value))]);
     graph.assert_consistent();
@@ -550,7 +538,6 @@ fn a_fork_shares_and_then_keeps_the_values_it_resolves() {
             .get(VersionedGraphKey::new(child_v1, key(1)))
             .unpack_match()
             .expect("the child resolves what its fork point resolved")
-            .0
             .revision()
     };
     assert_eq!(at_child(&graph), first.revision());
@@ -596,7 +583,6 @@ fn deleting_a_branch_releases_its_values_and_retains_nothing_written_from_it() {
             .get(VersionedGraphKey::new(v2, key(1)))
             .unpack_match()
             .unwrap()
-            .0
             .revision(),
         shared.revision()
     );

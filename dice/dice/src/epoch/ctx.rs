@@ -11,7 +11,12 @@
 use std::any::Any;
 use std::future::Future;
 use std::ops::Deref;
+use std::pin::Pin;
 use std::sync::Arc as StdArc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::task::Context;
+use std::task::Poll;
 
 use dice_error::DiceError;
 use dice_error::DiceResult;
@@ -24,6 +29,7 @@ use futures::TryFutureExt;
 use futures::future::BoxFuture;
 use itertools::Either;
 use parking_lot::Mutex;
+use pin_project::pin_project;
 
 use crate::ActivationData;
 use crate::LinearRecomputeDiceComputations;
@@ -48,6 +54,7 @@ use crate::epoch::branches::ParallelArena;
 use crate::epoch::branches::ParallelBranchFuture;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::evaluator::VersionState;
+use crate::epoch::task::promise::DicePromise;
 use crate::key::CowDiceKeyHashed;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
@@ -72,6 +79,7 @@ impl Clone for TransactionCtx {
                 parent_key: ParentKey::None,
                 cycles: KeyComputingUserCycleDetectorData::Untracked,
                 evaluation_data: Mutex::new(EvaluationData::none()),
+                dependency_failed: AtomicBool::new(false),
             },
             live_version_guard: self.live_version_guard.dupe(),
         }
@@ -97,6 +105,7 @@ impl TransactionCtx {
                 parent_key: ParentKey::None,
                 cycles: KeyComputingUserCycleDetectorData::Untracked,
                 evaluation_data: Mutex::new(EvaluationData::none()),
+                dependency_failed: AtomicBool::new(false),
             },
             live_version_guard,
         }
@@ -305,11 +314,12 @@ impl<'d> TrackedComputations<'d> {
             // FIXME(JakobDegen): These are never looked at again below, seems bad?
             cycles: ctx_data.cycles.clone(),
             evaluation_data: Mutex::new(EvaluationData::none()),
+            dependency_failed: AtomicBool::new(false),
         };
 
         let user_data = ctx_data.per_transaction_data();
         let spawner = user_data.spawner.dupe();
-        let ctx_data = user_data.dupe();
+        let spawner_data = user_data.dupe();
 
         let task = spawn_dropcancel(
             |cancellation| {
@@ -321,15 +331,18 @@ impl<'d> TrackedComputations<'d> {
                     .into();
                     let res = closure(&mut ctx, cancellation).await;
                     let deps = ctx.0.finalize();
-                    (res, deps)
+                    (res, deps, inner_core_ctx.dependency_failed.into_inner())
                 }
                 .boxed()
             },
             &*spawner,
-            ctx_data,
+            spawner_data,
         );
 
-        task.map(move |(res, deps)| {
+        task.map(move |(res, deps, dependency_failed)| {
+            if dependency_failed {
+                ctx_data.record_dependency_failure();
+            }
             let validity = deps.deps_validity;
             let mut self_dep_trackers = self_dep_trackers;
             for edge in deps.deps.iter_edges() {
@@ -643,9 +656,17 @@ pub(crate) struct ComputeCtx {
     pub(crate) cycles: KeyComputingUserCycleDetectorData,
     // data for the entire compute of a Key, including parallel computes
     pub(crate) evaluation_data: Mutex<EvaluationData>,
+    /// Whether a dependency failed to produce a value, for example because its paged-out value
+    /// could not be read back. Such a failure reflects storage state rather than the recorded
+    /// deps, so a result computed after observing one must not be reused by later transactions.
+    pub(crate) dependency_failed: AtomicBool,
 }
 
 impl ComputeCtx {
+    fn record_dependency_failure(&self) {
+        self.dependency_failed.store(true, Ordering::Relaxed);
+    }
+
     /// The allocation the key index holds for an already indexed `key`.
     pub(crate) fn canonical_key<K: Key>(&self, key: DiceKey) -> StdArc<K> {
         self.transaction_data
@@ -674,25 +695,41 @@ impl ComputeCtx {
             .key_index
             .index(CowDiceKeyHashed::key_ref(key));
 
-        self.transaction_data
-            .version_state
-            .bring_up_to_date(
-                dice_key,
-                self.parent_key,
-                &self.transaction_data,
-                self.cycles
-                    .subrequest(dice_key, &self.transaction_data.dice.key_index),
-            )
-            .map(move |dice_value| {
-                Ok(OpaqueValue::new(
-                    dice_key,
-                    dice_value
-                        .resident_value()
-                        .expect("a task always pages in the value it hands back"),
-                    dice_value.revision(),
-                    dice_value.invalidation_paths(),
-                ))
-            })
+        let promise = self.transaction_data.version_state.bring_up_to_date(
+            dice_key,
+            self.parent_key,
+            &self.transaction_data,
+            self.cycles
+                .subrequest(dice_key, &self.transaction_data.dice.key_index),
+        );
+        ComputeOpaqueFuture {
+            state: ComputeOpaqueState::UpToDate {
+                promise,
+                compute: self,
+                key: dice_key,
+            },
+        }
+    }
+
+    fn page_in_opaque<'d, K: Key>(
+        &'d self,
+        key: DiceKey,
+        value: &'d MaybeResidentComputedValue,
+    ) -> BoxFuture<'d, DiceResult<OpaqueValue<'d, K>>> {
+        async move {
+            let value = self
+                .transaction_data
+                .page_in(key, value)
+                .await
+                .inspect_err(|_| self.record_dependency_failure())?;
+            Ok(OpaqueValue::new(
+                key,
+                value.resident_value().expect("page-in returned a payload"),
+                value.revision(),
+                value.invalidation_paths(),
+            ))
+        }
+        .boxed()
     }
 
     /// Compute "projection" based on deriving value
@@ -749,6 +786,58 @@ impl ComputeCtx {
 
     pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<StdArc<T>>> {
         self.cycles.cycle_guard()
+    }
+}
+
+#[pin_project(project = ComputeOpaqueStateProj)]
+enum ComputeOpaqueState<'d, K: Key> {
+    UpToDate {
+        #[pin]
+        promise: DicePromise<'d>,
+        compute: &'d ComputeCtx,
+        key: DiceKey,
+    },
+    PagingIn {
+        #[pin]
+        future: BoxFuture<'d, DiceResult<OpaqueValue<'d, K>>>,
+    },
+}
+
+#[pin_project]
+struct ComputeOpaqueFuture<'d, K: Key> {
+    #[pin]
+    state: ComputeOpaqueState<'d, K>,
+}
+
+impl<'d, K: Key> Future for ComputeOpaqueFuture<'d, K> {
+    type Output = DiceResult<OpaqueValue<'d, K>>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        loop {
+            let mut this = self.as_mut().project();
+            match this.state.as_mut().project() {
+                ComputeOpaqueStateProj::UpToDate {
+                    promise,
+                    compute,
+                    key,
+                } => {
+                    let value = std::task::ready!(promise.poll(cx));
+                    if let Some(resident) = value.resident_value() {
+                        // Return from the poll that produced the resident value; the hot path
+                        // needs neither a boxed future nor another future state transition.
+                        return Poll::Ready(Ok(OpaqueValue::new(
+                            *key,
+                            resident,
+                            value.revision(),
+                            value.invalidation_paths(),
+                        )));
+                    }
+                    let future = compute.page_in_opaque(*key, value);
+                    this.state.set(ComputeOpaqueState::PagingIn { future });
+                }
+                ComputeOpaqueStateProj::PagingIn { future } => return future.poll(cx),
+            }
+        }
     }
 }
 

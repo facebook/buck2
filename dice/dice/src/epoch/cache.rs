@@ -15,6 +15,7 @@ use std::sync::Arc as StdArc;
 use std::sync::Weak;
 
 use allocative::Allocative;
+use dashmap::DashMap;
 use dupe::Dupe;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
@@ -29,10 +30,24 @@ use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::key::DiceKey;
 use crate::value::MaybeResidentComputedValue;
 
+/// A projection's result as a dependency check establishes it from the core state alone.
+#[derive(Clone, Dupe)]
+pub(crate) enum ProjectionValidation {
+    /// The projection's current result, matched or revalidated without its base's value.
+    Resolved(MaybeResidentComputedValue),
+    /// The projection must be recomputed, which needs its base's value.
+    NeedsRecompute,
+}
+
+pub(crate) type ProjectionValidationCell = StdArc<tokio::sync::OnceCell<ProjectionValidation>>;
+
 #[derive(Allocative)]
 struct Data {
     storage: ShardedLockFreeRawTable<Arc<DiceTaskInternal>, 64>,
     projection_storage: ShardedLockFreeRawTable<Arc<ProjectionTask>, 64>,
+    /// Shares one validation of each projection among the dependency checks at this version.
+    #[allocative(skip)]
+    projection_validations: DashMap<DiceKey, ProjectionValidationCell>,
 }
 
 #[derive(Allocative, Clone, Dupe)]
@@ -172,11 +187,20 @@ impl SharedCache {
         assert!(not_inserted_value.is_none());
     }
 
+    pub(crate) fn projection_validation(&self, key: DiceKey) -> ProjectionValidationCell {
+        self.data
+            .projection_validations
+            .entry(key)
+            .or_default()
+            .dupe()
+    }
+
     pub(crate) fn new() -> Self {
         SharedCache {
             data: StdArc::new(Data {
                 storage: ShardedLockFreeRawTable::new(),
                 projection_storage: ShardedLockFreeRawTable::new(),
+                projection_validations: DashMap::new(),
             }),
         }
     }
@@ -232,10 +256,8 @@ pub(crate) mod introspection {
     impl SharedCache {
         pub(crate) fn iter_tasks(&self) -> impl Iterator<Item = (DiceKey, DiceTaskState)> {
             let regular = self.data.storage.iter().map(|entry| {
-                (
-                    entry.key,
-                    DiceTaskRef { internal: entry }.introspect_state(),
-                )
+                let task = DiceTaskRef { internal: entry };
+                (entry.key, task.introspect_state())
             });
             let projection = self
                 .data

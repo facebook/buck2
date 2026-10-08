@@ -50,21 +50,15 @@ pub(crate) struct Candidate {
 }
 
 /// The core state's answer to a lookup of a key at a version.
-///
-/// Both variants carry the revision of the key's untracked input at that version. An
-/// `Unknown` caller stamps it on the certificate it is about to write; a `Match` caller
-/// needs it only if the value turns out to be unreadable and it recomputes after all.
 #[derive(Debug, VariantName, UnpackVariants)]
 pub(crate) enum VersionedGraphResult {
     /// The key resolves to `value` at the version.
-    Match {
-        value: MaybeResidentComputedValue,
-        epsilon: EpsilonToken,
-    },
+    Match { value: MaybeResidentComputedValue },
     /// The key does not resolve at the version. `candidate` is the nearest certificate the
     /// state retains for the key, if any.
     Unknown {
         candidate: Option<Candidate>,
+        /// The key's untracked-input revision, stamped on a newly computed certificate.
         epsilon: EpsilonToken,
     },
 }

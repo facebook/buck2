@@ -10,6 +10,7 @@
 
 //! End-to-end tests for `Dice::page_out` and the worker's page-in step.
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::sync::Condvar;
 use std::sync::Mutex;
@@ -22,8 +23,11 @@ use std::time::Duration;
 use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
+use dice_error::DiceError;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use futures::FutureExt;
+use futures::StreamExt;
 use pagable::Pagable;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
@@ -41,11 +45,13 @@ use pagable::storage::traits::DeserializedArcCache;
 use pagable::storage::traits::PagableStorage;
 use pagable::storage::traits::WriteTicket;
 use pagable::traits::StorageContext;
+use tempfile::TempDir;
 use tempfile::tempdir;
 use tokio::sync::Notify;
 use tokio::time::timeout;
 
 use crate::DiceKeyDyn;
+use crate::DiceProjectionDyn;
 use crate::DiceStorage;
 use crate::PagableStorageBackend;
 use crate::api::computations::DiceComputations;
@@ -55,6 +61,8 @@ use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::PagableValueSerialize;
 use crate::api::key::ValueSerialize;
+use crate::api::projection::DiceProjectionComputations;
+use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::dice::Dice;
 
@@ -271,6 +279,407 @@ impl Key for DeferredPagableKey {
             }
             _ => unreachable!("unknown deferred pagable test key"),
         }
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        PagableValueSerialize::<Self::Value>::new()
+    }
+}
+
+struct SharedArcSeed(Arc<Vec<u8>>);
+
+struct UnreadableValueSerialize;
+
+impl ValueSerialize for UnreadableValueSerialize {
+    type Value = u64;
+
+    fn pagable_serialize_value(
+        &self,
+        value: &u64,
+        serializer: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        Some(value.pagable_serialize(serializer))
+    }
+
+    fn pagable_deserialize_value<'de, D: PagableDeserializer<'de> + ?Sized>(
+        &self,
+        _deserializer: &mut D,
+    ) -> pagable::Result<u64> {
+        Err(anyhow::anyhow!("simulated unreadable value"))
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct UnreadablePagableKey;
+
+#[async_trait]
+impl Key for UnreadablePagableKey {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> u64 {
+        if let Ok(counter) = ctx.per_transaction_data().data.get::<ComputeCounter>() {
+            counter.0.fetch_add(1, Ordering::SeqCst);
+        }
+        1
+    }
+
+    fn equality_behavior() -> EqualityBehavior<u64> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = u64> {
+        UnreadableValueSerialize
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct UnreadableDependencyParent;
+
+#[async_trait]
+impl Key for UnreadableDependencyParent {
+    type Value = PassthroughValue;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> PassthroughValue {
+        if let Ok(counter) = ctx.per_transaction_data().data.get::<ParentComputes>() {
+            counter.0.0.fetch_add(1, Ordering::SeqCst);
+        }
+        // This dep dirties the parent while preserving its revision, so validation
+        // continues to the unreadable dependency.
+        ctx.compute(&DeferredNonPagableKey(0))
+            .await
+            .map_err(passthrough_error)?;
+        Ok(*ctx
+            .compute(&UnreadablePagableKey)
+            .await
+            .map_err(passthrough_error)?)
+    }
+
+    fn equality_behavior() -> EqualityBehavior<PassthroughValue> {
+        EqualityBehavior::Compare(passthrough_equal)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = PassthroughValue> {
+        NoValueSerialize::new()
+    }
+}
+
+#[derive(Clone, Dupe)]
+struct ParentComputes(ComputeCounter);
+
+#[derive(Clone, Dupe)]
+struct GrandparentComputes(ComputeCounter);
+
+/// Compute counts for a dependency that may fail to page in and the keys that consume it.
+struct DependentCounts {
+    dependency: ComputeCounter,
+    parent: ComputeCounter,
+    grandparent: ComputeCounter,
+}
+
+impl DependentCounts {
+    fn new() -> Self {
+        Self {
+            dependency: ComputeCounter::new(),
+            parent: ComputeCounter::new(),
+            grandparent: ComputeCounter::new(),
+        }
+    }
+
+    fn user_data(&self) -> UserComputationData {
+        let mut data = user_data_with_counter(&self.dependency);
+        data.data.set(ParentComputes(self.parent.dupe()));
+        data.data.set(GrandparentComputes(self.grandparent.dupe()));
+        data
+    }
+
+    fn snapshot(&self) -> (usize, usize, usize) {
+        (
+            self.dependency.count(),
+            self.parent.count(),
+            self.grandparent.count(),
+        )
+    }
+}
+
+/// How `ErrorPassthroughParent` obtains the value it adds to `DeferredInput(5)`.
+#[derive(
+    Allocative, Clone, Copy, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable
+)]
+enum PassthroughDep {
+    /// Propagates the error from computing `UnreadablePagableKey`.
+    Unreadable,
+    /// Like `Unreadable`, but computes the dependency in a `spawned` task.
+    SpawnedUnreadable,
+}
+
+type PassthroughValue = Result<u64, Arc<anyhow::Error>>;
+
+fn passthrough_error(error: DiceError) -> Arc<anyhow::Error> {
+    Arc::new(anyhow::Error::new(error))
+}
+
+fn passthrough_equal(x: &PassthroughValue, y: &PassthroughValue) -> bool {
+    matches!((x, y), (Ok(x), Ok(y)) if x == y)
+}
+
+/// Returns the error of an unavailable dependency as its own value, as Buck2 keys do with `?`.
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct ErrorPassthroughParent(PassthroughDep);
+
+#[async_trait]
+impl Key for ErrorPassthroughParent {
+    type Value = PassthroughValue;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> PassthroughValue {
+        if let Ok(counter) = ctx.per_transaction_data().data.get::<ParentComputes>() {
+            counter.0.0.fetch_add(1, Ordering::SeqCst);
+        }
+        let input = *ctx
+            .compute(&DeferredInput(5))
+            .await
+            .map_err(passthrough_error)?;
+        let dependency = match self.0 {
+            PassthroughDep::Unreadable => *ctx
+                .compute(&UnreadablePagableKey)
+                .await
+                .map_err(passthrough_error)?,
+            PassthroughDep::SpawnedUnreadable => ctx
+                .spawned(|ctx, _| {
+                    async move { ctx.compute(&UnreadablePagableKey).await.copied() }.boxed()
+                })
+                .await
+                .map_err(passthrough_error)?,
+        };
+        Ok(input + dependency)
+    }
+
+    fn equality_behavior() -> EqualityBehavior<PassthroughValue> {
+        EqualityBehavior::Compare(passthrough_equal)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = PassthroughValue> {
+        NoValueSerialize::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct ErrorPassthroughGrandparent(PassthroughDep);
+
+#[async_trait]
+impl Key for ErrorPassthroughGrandparent {
+    type Value = PassthroughValue;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> PassthroughValue {
+        if let Ok(counter) = ctx.per_transaction_data().data.get::<GrandparentComputes>() {
+            counter.0.0.fetch_add(1, Ordering::SeqCst);
+        }
+        ctx.compute(&ErrorPassthroughParent(self.0))
+            .await
+            .map_err(passthrough_error)?
+            .clone()
+    }
+
+    fn equality_behavior() -> EqualityBehavior<PassthroughValue> {
+        EqualityBehavior::Compare(passthrough_equal)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = PassthroughValue> {
+        NoValueSerialize::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct ReadableBase(u8);
+
+#[async_trait]
+impl Key for ReadableBase {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> u64 {
+        *ctx.compute(&DeferredInput(self.0))
+            .await
+            .expect("injected base input")
+    }
+
+    fn equality_behavior() -> EqualityBehavior<u64> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = u64> {
+        PagableValueSerialize::<u64>::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct UnreadableBase(u8);
+
+#[async_trait]
+impl Key for UnreadableBase {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> u64 {
+        *ctx.compute(&DeferredInput(self.0))
+            .await
+            .expect("injected base input")
+    }
+
+    fn equality_behavior() -> EqualityBehavior<u64> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = u64> {
+        UnreadableValueSerialize
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceProjectionDyn)]
+struct ReadableParity;
+
+impl ProjectionKey for ReadableParity {
+    type DeriveFromKey = ReadableBase;
+    type Value = u64;
+
+    fn compute(&self, base: &u64, _ctx: &DiceProjectionComputations) -> u64 {
+        base % 2
+    }
+
+    fn equality_behavior() -> EqualityBehavior<u64> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = u64> {
+        NoValueSerialize::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceProjectionDyn)]
+struct UnreadableParity;
+
+impl ProjectionKey for UnreadableParity {
+    type DeriveFromKey = UnreadableBase;
+    type Value = u64;
+
+    fn compute(&self, base: &u64, _ctx: &DiceProjectionComputations) -> u64 {
+        base % 2
+    }
+
+    fn equality_behavior() -> EqualityBehavior<u64> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = u64> {
+        NoValueSerialize::new()
+    }
+}
+
+/// Depends on `DeferredNonPagableKey(0)`, which keeps its revision while `DeferredInput(0)` stays
+/// odd, and on the parity of `DeferredInput(base)`. `id` only distinguishes otherwise identical
+/// parents.
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[display("{:?}", self)]
+#[pagable_typetag(DiceKeyDyn)]
+struct ParityParent {
+    readable: bool,
+    base: u8,
+    id: u8,
+}
+
+#[async_trait]
+impl Key for ParityParent {
+    type Value = PassthroughValue;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> PassthroughValue {
+        if let Ok(counter) = ctx.per_transaction_data().data.get::<ParentComputes>() {
+            counter.0.0.fetch_add(1, Ordering::SeqCst);
+        }
+        ctx.compute(&DeferredNonPagableKey(0))
+            .await
+            .map_err(passthrough_error)?;
+        if self.readable {
+            let base = ctx
+                .compute_opaque(&ReadableBase(self.base))
+                .await
+                .map_err(passthrough_error)?;
+            ctx.projection(&base, &ReadableParity)
+                .map_err(passthrough_error)
+        } else {
+            let base = ctx
+                .compute_opaque(&UnreadableBase(self.base))
+                .await
+                .map_err(passthrough_error)?;
+            ctx.projection(&base, &UnreadableParity)
+                .map_err(passthrough_error)
+        }
+    }
+
+    fn equality_behavior() -> EqualityBehavior<PassthroughValue> {
+        EqualityBehavior::Compare(passthrough_equal)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = PassthroughValue> {
+        NoValueSerialize::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct SharedArcKey(u32);
+
+#[async_trait]
+impl Key for SharedArcKey {
+    type Value = (u32, Arc<Vec<u8>>);
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let seed = ctx
+            .per_transaction_data()
+            .data
+            .get::<SharedArcSeed>()
+            .expect("only initial computes have a seed");
+        (self.0, seed.0.dupe())
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
@@ -620,6 +1029,372 @@ async fn rehydrated_value_stays_in_memory() -> anyhow::Result<()> {
         "all lookups after the initial compute should be cache hits"
     );
 
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn concurrent_demands_share_nested_arcs_across_dice_keys() -> anyhow::Result<()> {
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+    let mut data = UserComputationData::new();
+    data.data.set(SharedArcSeed(Arc::new(vec![42; 16])));
+    let tx = dice.updater_with_data(data).commit().await;
+    let first = tx.compute(&SharedArcKey(1)).await?;
+    let second = tx.compute(&SharedArcKey(2)).await?;
+    assert!(Arc::ptr_eq(&first.1, &second.1));
+    drop(tx);
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    // The seed and original owners are gone. Independent roots must recover the
+    // shared allocation through Pagable, without a DICE page-in task coordinating them.
+    let tx = dice.updater().commit().await;
+    let (first, second) = tokio::join!(tx.compute(&SharedArcKey(1)), tx.compute(&SharedArcKey(2)));
+    let (first, second) = (first?, second?);
+    assert!(Arc::ptr_eq(&first.1, &second.1));
+    assert_eq!(first.1.as_slice(), &[42; 16]);
+    assert_eq!((first.0, second.0), (1, 2));
+    Ok(())
+}
+
+/// Computes `ErrorPassthroughGrandparent(dep)` in a transaction with `changes` applied, then waits
+/// for that transaction to finish.
+async fn compute_passthrough(
+    dice: &Arc<Dice>,
+    counts: &DependentCounts,
+    dep: PassthroughDep,
+    changes: impl IntoIterator<Item = (DeferredInput, u64)> + Send + Sync + 'static,
+) -> anyhow::Result<PassthroughValue> {
+    let mut updater = dice.updater_with_data(counts.user_data());
+    updater.changed_to(changes)?;
+    let tx = updater.commit().await;
+    let value = timeout(
+        Duration::from_secs(10),
+        tx.compute(&ErrorPassthroughGrandparent(dep)),
+    )
+    .await??
+    .clone();
+    drop(tx);
+    dice.wait_for_idle().await;
+    Ok(value)
+}
+
+/// Computes the passthrough chain for `dep` with readable values, then pages them out.
+async fn paged_out_passthrough(
+    dep: PassthroughDep,
+) -> anyhow::Result<(TempDir, Arc<Dice>, DependentCounts)> {
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+    let counts = DependentCounts::new();
+    let value = compute_passthrough(
+        &dice,
+        &counts,
+        dep,
+        [(DeferredInput(5), 1), (DeferredInput(0), 1)],
+    )
+    .await?;
+    assert_eq!(
+        value.ok(),
+        Some(2),
+        "the input 1 plus the dependency's value 1"
+    );
+    assert_eq!(counts.snapshot(), (1, 1, 1));
+    dice.page_out().await?;
+    Ok((tmp, dice, counts))
+}
+
+fn assert_read_failure(value: &PassthroughValue, cause: &str) {
+    let error = value
+        .as_ref()
+        .expect_err("the dependency's read failure must reach its dependents");
+    assert!(
+        error.chain().any(|c| c.to_string() == cause),
+        "expected `{cause}` in {error:?}"
+    );
+}
+
+#[tokio::test]
+async fn unreadable_dependency_is_validated_as_changed() -> anyhow::Result<()> {
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+    let counts = DependentCounts::new();
+    let mut updater = dice.updater_with_data(counts.user_data());
+    updater.changed_to([(DeferredInput(0), 1)])?;
+    let tx = updater.commit().await;
+    assert_eq!(
+        tx.compute(&UnreadableDependencyParent).await?.as_ref().ok(),
+        Some(&1)
+    );
+    drop(tx);
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let mut updater = dice.updater_with_data(counts.user_data());
+    updater.changed_to([(DeferredInput(0), 3)])?;
+    let tx = updater.commit().await;
+    let (first, second) = timeout(Duration::from_secs(10), async {
+        tokio::join!(
+            tx.compute(&UnreadableDependencyParent),
+            tx.compute(&UnreadableDependencyParent)
+        )
+    })
+    .await?;
+    let (first, second) = (first?, second?);
+    assert_read_failure(&first, "simulated unreadable value");
+    assert!(
+        std::ptr::eq(first, second),
+        "every waiter receives the recomputed result"
+    );
+    assert_eq!(
+        counts.snapshot(),
+        (1, 2, 0),
+        "validation treats the unreadable dependency as changed and recomputes only the parent"
+    );
+    Ok(())
+}
+
+const PARITY_BASE: u8 = 20;
+
+fn readable_parent(id: u8) -> ParityParent {
+    ParityParent {
+        readable: true,
+        base: PARITY_BASE,
+        id,
+    }
+}
+
+/// Commits `changes`, computes `parents` concurrently in one transaction, and waits for it to
+/// finish.
+async fn compute_parity_parents(
+    dice: &Arc<Dice>,
+    counts: &DependentCounts,
+    changes: impl IntoIterator<Item = (DeferredInput, u64)> + Send + Sync + 'static,
+    parents: &[ParityParent],
+) -> anyhow::Result<Vec<PassthroughValue>> {
+    let mut updater = dice.updater_with_data(counts.user_data());
+    updater.changed_to(changes)?;
+    let tx = updater.commit().await;
+    let values: Vec<_> = timeout(
+        Duration::from_secs(10),
+        futures::stream::iter(parents)
+            .map(|parent| tx.compute(parent))
+            .buffer_unordered(parents.len())
+            .collect(),
+    )
+    .await?;
+    let values = values
+        .into_iter()
+        .map(|value| value.cloned())
+        .collect::<Result<_, _>>()?;
+    drop(tx);
+    dice.wait_for_idle().await;
+    Ok(values)
+}
+
+/// Computes `parents` with every base input at 1.
+async fn parity_parents(
+    parents: &[ParityParent],
+) -> anyhow::Result<(TempDir, Arc<Dice>, DependentCounts)> {
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+    let counts = DependentCounts::new();
+    let inputs: Vec<_> = std::iter::once(0)
+        .chain(parents.iter().map(|parent| parent.base))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .map(|input| (DeferredInput(input), 1))
+        .collect();
+    let values = compute_parity_parents(&dice, &counts, inputs, parents).await?;
+    assert!(
+        values.iter().all(|value| value.as_ref().ok() == Some(&1)),
+        "the parity of 1"
+    );
+    Ok((tmp, dice, counts))
+}
+
+/// Changes a base's input and recomputes the base without its dependents.
+async fn change_base<K: Key<Value = u64>>(
+    dice: &Arc<Dice>,
+    counts: &DependentCounts,
+    base: K,
+    input: u8,
+    value: u64,
+) -> anyhow::Result<()> {
+    let mut updater = dice.updater_with_data(counts.user_data());
+    updater.changed_to([(DeferredInput(input), value)])?;
+    let tx = updater.commit().await;
+    tx.compute(&base).await?;
+    drop(tx);
+    dice.wait_for_idle().await;
+    Ok(())
+}
+
+#[tokio::test]
+async fn unchanged_projection_base_is_not_read_during_validation() -> anyhow::Result<()> {
+    let parents = [readable_parent(0)];
+    let (_tmp, dice, counts) = parity_parents(&parents).await?;
+    dice.page_out().await?;
+
+    // An odd `DeferredInput(0)` makes the parent check its deps without any of them changing.
+    let values = compute_parity_parents(&dice, &counts, [(DeferredInput(0), 3)], &parents).await?;
+    assert_eq!(values[0].as_ref().ok(), Some(&1));
+    assert_eq!(page_in_count::<ReadableBase>(&dice), 0);
+    assert_eq!(
+        counts.parent.count(),
+        1,
+        "the parent is revalidated, not recomputed"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn changed_projection_base_is_read_once_and_keeps_cutoff() -> anyhow::Result<()> {
+    let parents = [readable_parent(0)];
+    let (_tmp, dice, counts) = parity_parents(&parents).await?;
+    // The base changes from 1 to 3 while nothing checks its projection, which stays odd.
+    change_base(&dice, &counts, ReadableBase(PARITY_BASE), PARITY_BASE, 3).await?;
+    dice.page_out().await?;
+
+    let values = compute_parity_parents(&dice, &counts, [(DeferredInput(0), 3)], &parents).await?;
+    assert_eq!(values[0].as_ref().ok(), Some(&1));
+    assert_eq!(
+        page_in_count::<ReadableBase>(&dice),
+        1,
+        "recomputing the projection reads the changed base"
+    );
+    assert_eq!(
+        counts.parent.count(),
+        1,
+        "the projection keeps its revision, so the parent is revalidated"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn changed_projection_recomputes_its_parent_after_one_read() -> anyhow::Result<()> {
+    let parents = [readable_parent(0)];
+    let (_tmp, dice, counts) = parity_parents(&parents).await?;
+    change_base(&dice, &counts, ReadableBase(PARITY_BASE), PARITY_BASE, 2).await?;
+    dice.page_out().await?;
+
+    let values = compute_parity_parents(&dice, &counts, [(DeferredInput(0), 3)], &parents).await?;
+    assert_eq!(values[0].as_ref().ok(), Some(&0), "the parity of 2");
+    assert_eq!(
+        page_in_count::<ReadableBase>(&dice),
+        1,
+        "the parent's compute reuses the value read for validation"
+    );
+    assert_eq!(counts.parent.count(), 2);
+    Ok(())
+}
+
+#[tokio::test]
+async fn unreadable_changed_projection_base_fails_the_parent_compute() -> anyhow::Result<()> {
+    let parents = [ParityParent {
+        readable: false,
+        base: PARITY_BASE,
+        id: 0,
+    }];
+    let (_tmp, dice, counts) = parity_parents(&parents).await?;
+    change_base(&dice, &counts, UnreadableBase(PARITY_BASE), PARITY_BASE, 2).await?;
+    dice.page_out().await?;
+
+    // Validation treats the unreadable projection as changed, and the recompute demands the base.
+    let values = compute_parity_parents(&dice, &counts, [(DeferredInput(0), 3)], &parents).await?;
+    assert_read_failure(&values[0], "simulated unreadable value");
+    assert_eq!(counts.parent.count(), 2);
+
+    let values = compute_parity_parents(&dice, &counts, [(DeferredInput(0), 1)], &parents).await?;
+    assert_read_failure(&values[0], "simulated unreadable value");
+    assert_eq!(counts.parent.count(), 3, "the failure is not cached");
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn concurrent_projection_validations_read_base_once() -> anyhow::Result<()> {
+    let parents: Vec<_> = (0..16).map(readable_parent).collect();
+    let (_tmp, dice, counts) = parity_parents(&parents).await?;
+    change_base(&dice, &counts, ReadableBase(PARITY_BASE), PARITY_BASE, 2).await?;
+    dice.page_out().await?;
+
+    let values = compute_parity_parents(&dice, &counts, [(DeferredInput(0), 3)], &parents).await?;
+    assert!(values.iter().all(|value| value.as_ref().ok() == Some(&0)));
+    assert_eq!(page_in_count::<ReadableBase>(&dice), 1);
+    assert_eq!(
+        counts.parent.count(),
+        32,
+        "16 initial computes and 16 recomputes"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn dependents_do_not_cache_an_unreadable_dependency_error() -> anyhow::Result<()> {
+    let (_tmp, dice, counts) = paged_out_passthrough(PassthroughDep::Unreadable).await?;
+
+    // Changing the parent's input makes it recompute and demand the unreadable value.
+    let value = compute_passthrough(
+        &dice,
+        &counts,
+        PassthroughDep::Unreadable,
+        [(DeferredInput(5), 2)],
+    )
+    .await?;
+    assert_read_failure(&value, "simulated unreadable value");
+    assert_eq!(counts.snapshot(), (1, 2, 2));
+
+    // Nothing the chain depends on changes, so a cached failure would be reused here.
+    let value = compute_passthrough(
+        &dice,
+        &counts,
+        PassthroughDep::Unreadable,
+        [(DeferredInput(6), 1)],
+    )
+    .await?;
+    assert_read_failure(&value, "simulated unreadable value");
+    assert_eq!(
+        counts.snapshot(),
+        (1, 3, 3),
+        "the parent and grandparent recompute; the unreadable key itself never does"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn spawned_read_failure_is_not_cached() -> anyhow::Result<()> {
+    let (_tmp, dice, counts) = paged_out_passthrough(PassthroughDep::SpawnedUnreadable).await?;
+
+    let value = compute_passthrough(
+        &dice,
+        &counts,
+        PassthroughDep::SpawnedUnreadable,
+        [(DeferredInput(5), 2)],
+    )
+    .await?;
+    assert_read_failure(&value, "simulated unreadable value");
+    assert_eq!(counts.snapshot(), (1, 2, 2));
+
+    let value = compute_passthrough(
+        &dice,
+        &counts,
+        PassthroughDep::SpawnedUnreadable,
+        [(DeferredInput(6), 1)],
+    )
+    .await?;
+    assert_read_failure(&value, "simulated unreadable value");
+    assert_eq!(counts.snapshot(), (1, 3, 3));
     Ok(())
 }
 

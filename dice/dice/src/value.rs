@@ -12,8 +12,10 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::sync::Arc as StdArc;
+use std::sync::OnceLock;
 
 use allocative::Allocative;
+use dice_error::DiceResult;
 use dupe::Dupe;
 use mini_vec::packed_ptr::PackedPtr;
 use pagable::DataKey;
@@ -216,9 +218,11 @@ impl MaybeResidentDiceValue {
     fn new(value: MaybeResident<MaybeValidDiceValue>) -> Self {
         match value {
             MaybeResident::Resident(value) => Self::Resident(value),
-            MaybeResident::PagedOut(data_key) => {
-                Self::PagedOut(Arc::new(PagedOutValue { data_key }))
-            }
+            MaybeResident::PagedOut(data_key) => Self::PagedOut(Arc::new(PagedOutValue {
+                data_key,
+                outcome: OnceLock::new(),
+                reading: tokio::sync::Mutex::new(()),
+            })),
         }
     }
 
@@ -241,9 +245,17 @@ impl MaybeResidentDiceValue {
     }
 }
 
+/// Shared by every copy of a paged-out task result, so the value is read at most once per
+/// transaction, and a successfully read value stays alive for references borrowed from the task.
 #[derive(Allocative)]
 pub(crate) struct PagedOutValue {
     pub(crate) data_key: DataKey,
+    /// The outcome of the read, including a failure, which later demands in this transaction
+    /// receive instead of reading again.
+    pub(crate) outcome: OnceLock<DiceResult<MaybeResidentComputedValue>>,
+    /// Held while reading, so concurrent demands wait for one read.
+    #[allocative(skip)]
+    pub(crate) reading: tokio::sync::Mutex<()>,
 }
 
 #[derive(Allocative, Debug, Clone, Dupe, PartialEq, Eq)]
@@ -458,8 +470,17 @@ impl MaybeResidentComputedValue {
     }
 
     /// The on-disk key to read the value back from, or `None` if it is already resident.
+    #[cfg(test)]
     pub(crate) fn paged_out_data_key(&self) -> Option<DataKey> {
         self.paged_out().map(|value| value.data_key)
+    }
+
+    /// Whether the payload can be borrowed without reading storage.
+    pub(crate) fn has_resident_value(&self) -> bool {
+        match self.paged_out() {
+            None => true,
+            Some(paged_out) => matches!(paged_out.outcome.get(), Some(Ok(_))),
+        }
     }
 
     pub(crate) fn paged_out(&self) -> Option<&PagedOutValue> {

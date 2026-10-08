@@ -416,7 +416,6 @@ impl VersionedGraph {
                         invalidation_paths,
                         revision,
                     ),
-                    epsilon: self.core.epsilon(key, v),
                 }
             }
             Lookup::Unknown { candidate, epsilon } => {

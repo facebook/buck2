@@ -9,13 +9,19 @@
  */
 
 use std::sync::Arc as StdArc;
+use std::sync::atomic::AtomicBool;
+use std::time::Instant;
 
 use derivative::Derivative;
+use dice_error::DiceError;
+use dice_error::DiceResult;
 use dupe::Dupe;
 use parking_lot::Mutex;
 
 use crate::ActivationData;
 use crate::DiceEvent;
+use crate::DynKey;
+use crate::api::activation_tracker::PageInPhase;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
@@ -28,6 +34,7 @@ use crate::deps::RecordingDepsTracker;
 use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::Dice;
+use crate::epoch::cache::ProjectionValidationCell;
 use crate::epoch::cache::SharedCache;
 use crate::epoch::cache::SharedCacheInsert;
 use crate::epoch::cache::SharedCacheLookup;
@@ -49,6 +56,7 @@ use crate::key::DiceKeyErased;
 use crate::key::ParentKey;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::user_cycle::UserCycleDetectorData;
+use crate::value::DiceValidity;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::MaybeValidDiceValue;
 use crate::value::TrackedInvalidationPaths;
@@ -75,9 +83,7 @@ impl VersionState {
 
     fn lookup_entry(&self, key: DiceKey, parent_key: ParentKey) -> LookupResult<'_> {
         let task = match self.cache.get(key) {
-            SharedCacheLookup::Finished(result) => {
-                return LookupResult::Finished(result);
-            }
+            SharedCacheLookup::Finished(result) => return LookupResult::Finished(result),
             SharedCacheLookup::InProgress(task) => task,
             SharedCacheLookup::Vacant => match self.cache.insert(key) {
                 SharedCacheInsert::Occupied(dice_task) => dice_task,
@@ -101,7 +107,8 @@ impl VersionState {
         }
     }
 
-    /// Evaluate or reuse a key for the current version, including during dependency validation.
+    /// Establish the key's revision without demanding its payload. A matched value can
+    /// remain paged out; callers that read it must subsequently call `page_in`.
     pub(crate) fn bring_up_to_date<'d>(
         &'d self,
         key: DiceKey,
@@ -174,6 +181,10 @@ impl VersionState {
     pub(crate) fn get_version(&self) -> VersionNumber {
         self.version
     }
+
+    pub(crate) fn projection_validation(&self, key: DiceKey) -> ProjectionValidationCell {
+        self.cache.projection_validation(key)
+    }
 }
 
 /// Evaluates Keys
@@ -193,6 +204,60 @@ impl TransactionData {
         }
     }
 
+    /// Return a resident value, reading it from storage if needed. A failed read is
+    /// returned to the caller without recomputing the key.
+    pub(crate) async fn page_in<'d>(
+        &self,
+        key: DiceKey,
+        value: &'d MaybeResidentComputedValue,
+    ) -> DiceResult<&'d MaybeResidentComputedValue> {
+        let Some(paged_out) = value.paged_out() else {
+            return Ok(value);
+        };
+        if let Some(outcome) = paged_out.outcome.get() {
+            return borrow_outcome(outcome);
+        }
+        let _reading = paged_out.reading.lock().await;
+        if let Some(outcome) = paged_out.outcome.get() {
+            return borrow_outcome(outcome);
+        }
+
+        let storage = self
+            .dice
+            .pagable_storage
+            .as_ref()
+            .expect("paged-out values require storage");
+        let start = Instant::now();
+        let key_dyn = self.dice.key_index.get(key);
+        let outcome = match storage.hydrate(key_dyn, paged_out.data_key).await {
+            Ok(resident) => {
+                self.dice
+                    .state_handle
+                    .rehydrate(key, paged_out.data_key, resident.dupe());
+                if let Some(tracker) = self.user_data.activation_tracker.as_ref() {
+                    tracker.key_paged_in(
+                        DynKey::ref_cast(key_dyn),
+                        start,
+                        start.elapsed(),
+                        PageInPhase::Match,
+                    );
+                }
+                Ok(value.paged_in(resident))
+            }
+            Err(error) => Err(self.page_in_failed(key, error)),
+        };
+        borrow_outcome(paged_out.outcome.get_or_init(|| outcome))
+    }
+
+    #[cold]
+    fn page_in_failed(&self, key: DiceKey, error: anyhow::Error) -> DiceError {
+        self.hydration_failed(key, &error);
+        DiceError::page_in_failed(
+            self.dice.key_index.get(key).to_string(),
+            error.into_boxed_dyn_error(),
+        )
+    }
+
     pub(crate) async fn evaluate(
         &self,
         handle: &mut DiceTaskHandle<'_>,
@@ -209,6 +274,7 @@ impl TransactionData {
                     parent_key: ParentKey::Some(key), // within this key's compute, this key is the parent
                     cycles,
                     evaluation_data: Mutex::new(EvaluationData::none()),
+                    dependency_failed: AtomicBool::new(false),
                 };
                 let mut ctx = TrackedComputations::Normal {
                     compute: &compute,
@@ -218,12 +284,19 @@ impl TransactionData {
 
                 let value = key_dyn.compute(&mut ctx, handle.cancellation_ctx()).await;
                 let recorded_deps = ctx.0.finalize();
+                // A dependency that failed to produce a value is not recorded as a dep, so
+                // `deps_validity` cannot reflect its failure.
+                let validity = if compute.dependency_failed.into_inner() {
+                    DiceValidity::Transient
+                } else {
+                    recorded_deps.deps_validity
+                };
 
                 state.finished(
                     handle,
                     compute.cycles,
                     KeyEvaluationResult {
-                        value: MaybeValidDiceValue::new(value, recorded_deps.deps_validity),
+                        value: MaybeValidDiceValue::new(value, validity),
                         deps: recorded_deps.deps,
                         storage: key_dyn.storage_type(),
                         invalidation_paths: recorded_deps.invalidation_paths,
@@ -255,34 +328,29 @@ impl TransactionData {
                     .version_state
                     .bring_up_to_date(
                         proj.base(),
-                        ParentKey::Some(key), // the parent requesting the projection base is the projection itself
+                        ParentKey::Some(key), // the projection requests its base
                         self,
                         cycles.subrequest(proj.base(), &self.dice.key_index),
                     )
                     .await;
-
-                let ctx = DiceProjectionComputations {
-                    data: &self.dice.global_data,
-                    user_data: &self.user_data,
-                };
-
-                let base_value = base
-                    .resident_value()
-                    .expect("a task always pages in the value it hands back");
-                let value = proj.proj().compute(base_value, &ctx);
+                // `check_dependency`, the only caller that brings a projection key up to date,
+                // does so only once the base's value is resident.
+                let base = self
+                    .page_in(proj.base(), base)
+                    .await
+                    .expect("dependency checks make a projection's base resident first");
+                let base_value = base.resident_value().expect("page-in returned a payload");
+                let result = self.evaluate_projection(
+                    key,
+                    base_value,
+                    base.revision(),
+                    base.invalidation_paths(),
+                );
 
                 state.finished(
                     handle,
                     cycles,
-                    KeyEvaluationResult {
-                        value: MaybeValidDiceValue::new(value, base_value.validity()),
-                        deps: SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(
-                            proj.base(),
-                            base.revision(),
-                        )]),
-                        storage: proj.proj().storage_type(),
-                        invalidation_paths: base.invalidation_paths().for_dependent(key),
-                    },
+                    result,
                     ActivationData::Evaluated(None), // Projection keys can't set this.
                 )
             }
@@ -433,4 +501,10 @@ pub(crate) struct KeyEvaluationResult {
     pub(crate) deps: SeriesParallelDeps<Option<Revision>>,
     pub(crate) storage: StorageType,
     pub(crate) invalidation_paths: TrackedInvalidationPaths,
+}
+
+fn borrow_outcome(
+    outcome: &DiceResult<MaybeResidentComputedValue>,
+) -> DiceResult<&MaybeResidentComputedValue> {
+    outcome.as_ref().map_err(Dupe::dupe)
 }

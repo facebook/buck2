@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::error::Error as StdError;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -36,6 +37,10 @@ impl DiceError {
     pub fn injected_key_invalidated(key: Arc<dyn RequestedKey>) -> Self {
         DiceError(Arc::new(DiceErrorImpl::InjectedKeyGotInvalidation(key)))
     }
+
+    pub fn page_in_failed(key: String, source: Box<dyn StdError + Send + Sync>) -> Self {
+        DiceError(Arc::new(DiceErrorImpl::PageInFailed { key, source }))
+    }
 }
 
 #[derive(Debug, Error, Allocative)]
@@ -46,6 +51,13 @@ pub enum DiceErrorImpl {
     ChangedToInvalid(Arc<dyn RequestedKey>),
     #[error("Key `{0}` is an InjectedKey and received an invalidation")]
     InjectedKeyGotInvalidation(Arc<dyn RequestedKey>),
+    #[error("Failed to page in the value for key `{key}`")]
+    PageInFailed {
+        key: String,
+        #[source]
+        #[allocative(skip)]
+        source: Box<dyn StdError + Send + Sync>,
+    },
     #[error(
         "Requested cycle_guard of type {}, but current guard has type {}",
         expected_type_name,

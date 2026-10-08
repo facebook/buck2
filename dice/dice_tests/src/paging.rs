@@ -13,6 +13,8 @@
 
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use allocative::Allocative;
@@ -77,15 +79,24 @@ impl<const TRANSIENT: bool> ValueSerialize for FailToHydrateSerialize<TRANSIENT>
 #[pagable_typetag(DiceKeyDyn)]
 struct FailToHydrateKey(u32);
 
+fn data_with_counter(counter: &Arc<AtomicUsize>) -> UserComputationData {
+    let mut data = UserComputationData::new();
+    data.data.set(counter.clone());
+    data
+}
+
 #[async_trait]
 impl Key for FailToHydrateKey {
     type Value = u64;
 
     async fn compute(
         &self,
-        _ctx: &mut DiceComputations,
+        ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
+        if let Ok(counter) = ctx.per_transaction_data().data.get::<Arc<AtomicUsize>>() {
+            counter.fetch_add(1, Ordering::SeqCst);
+        }
         u64::from(self.0) * 100
     }
 
@@ -124,12 +135,8 @@ impl Key for FailTransientlyToHydrateKey {
     }
 }
 
-/// Regression: when a paged-out value cannot be read back in, the awaiting
-/// computation must not hang (previously the worker cancelled without ever
-/// producing a result, leaving every awaiter blocked forever) and must recover by
-/// recomputing.
 #[tokio::test]
-async fn failed_hydrate_of_paged_out_value_recomputes() -> anyhow::Result<()> {
+async fn failed_hydrate_of_paged_out_value_returns_error() -> anyhow::Result<()> {
     let tmp = tempdir()?;
     let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
     let dice = {
@@ -137,26 +144,35 @@ async fn failed_hydrate_of_paged_out_value_recomputes() -> anyhow::Result<()> {
         builder.set_pagable_storage(storage);
         builder.build(DetectCycles::Disabled)
     };
-
-    // Compute once so the value is resident, then page it out to disk.
-    let tx = dice.updater().commit().await;
-    let v1: u64 = *tx.compute(&FailToHydrateKey(7)).await?;
-    assert_eq!(v1, 700);
+    let counter = Arc::new(AtomicUsize::new(0));
+    let tx = dice
+        .updater_with_data(data_with_counter(&counter))
+        .commit()
+        .await;
+    assert_eq!(*tx.compute(&FailToHydrateKey(7)).await?, 700);
     drop(tx);
-
     dice.wait_for_idle().await;
     dice.page_out().await?;
 
-    // Looking the key up again pages it back in, but deserialization always fails.
-    // The computation must recover by recomputing rather than hanging or erroring.
-    // The paged-in value can never deserialize, so getting 700 back proves it was
-    // recomputed.
-    let tx = dice.updater().commit().await;
-    let v2: u64 = *tokio::time::timeout(Duration::from_secs(10), tx.compute(&FailToHydrateKey(7)))
+    let tx = dice
+        .updater_with_data(data_with_counter(&counter))
+        .commit()
+        .await;
+    let error = tokio::time::timeout(Duration::from_secs(10), tx.compute(&FailToHydrateKey(7)))
         .await
-        .expect("compute must not hang when a paged-out value fails to hydrate")?;
-    assert_eq!(v2, 700, "a failed hydrate should recompute the value");
-
+        .expect("failed page-in must finish without hanging")
+        .expect_err("an unreadable value must fail the demand");
+    assert!(error.to_string().contains("FailToHydrateKey(7)"));
+    assert!(
+        anyhow::Error::new(error)
+            .chain()
+            .any(|cause| cause.to_string() == "simulated hydrate failure")
+    );
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        1,
+        "page-in failure must not recompute"
+    );
     Ok(())
 }
 
@@ -243,5 +259,62 @@ async fn transient_hydrate_failure_is_reported_as_such() -> anyhow::Result<()> {
     let failures = hydration_failures_of(FailTransientlyToHydrateKey(7)).await?;
     assert_eq!(failures.len(), 1, "got {failures:?}");
     assert!(failures[0].1, "got {failures:?}");
+    Ok(())
+}
+
+#[tokio::test]
+async fn concurrent_failed_page_ins_return_errors_without_recomputing() -> anyhow::Result<()> {
+    let tmp = tempdir()?;
+    let mut builder = Dice::builder();
+    builder.set_pagable_storage(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+    let dice = builder.build(DetectCycles::Disabled);
+    let counter = Arc::new(AtomicUsize::new(0));
+    let tx = dice
+        .updater_with_data(data_with_counter(&counter))
+        .commit()
+        .await;
+    assert_eq!(*tx.compute(&FailToHydrateKey(7)).await?, 700);
+    drop(tx);
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let tx = dice
+        .updater_with_data(data_with_counter(&counter))
+        .commit()
+        .await;
+    let results: [_; 2] = tokio::time::timeout(Duration::from_secs(10), async {
+        tokio::join!(
+            tx.compute(&FailToHydrateKey(7)),
+            tx.compute(&FailToHydrateKey(7))
+        )
+    })
+    .await
+    .expect("both failed demands must finish")
+    .into();
+    for result in results {
+        let error = anyhow::Error::new(result.expect_err("the value cannot be read"));
+        assert!(
+            error
+                .chain()
+                .any(|cause| cause.to_string() == "simulated hydrate failure")
+        );
+    }
+    assert!(tx.compute(&FailToHydrateKey(7)).await.is_err());
+    drop(tx);
+    tokio::time::timeout(Duration::from_secs(10), dice.wait_for_idle()).await?;
+
+    let tx = dice
+        .updater_with_data(data_with_counter(&counter))
+        .commit()
+        .await;
+    assert!(tx.compute(&FailToHydrateKey(7)).await.is_err());
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        1,
+        "failed demands must leave the value paged out"
+    );
     Ok(())
 }

@@ -33,6 +33,7 @@ use crate::core::state::CoreStateHandle;
 use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
+use crate::epoch::cache::ProjectionValidation;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::dice::PreparedDiceTask;
@@ -46,6 +47,7 @@ use crate::epoch::worker::state::DiceWorkerStateFinishedAndCached;
 use crate::epoch::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::epoch::worker::state::DiceWorkerStateLookupNode;
 use crate::key::DiceKey;
+use crate::key::DiceKeyErased;
 use crate::key::ParentKey;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::user_cycle::UserCycleDetectorData;
@@ -134,31 +136,9 @@ impl DiceTaskWorker {
 
         // handle cancelled/cache hits before sending started events
         let (candidate, epsilon) = match state_result {
-            VersionedGraphResult::Match { value, epsilon } => match value.paged_out_data_key() {
-                None => return task_state.lookup_matches(handle, value),
-                Some(data_key) => {
-                    match self
-                        .hydrate_and_rehydrate(&state_handle, data_key, PageInPhase::Match)
-                        .await
-                    {
-                        Ok(v) => {
-                            return task_state.lookup_matches(handle, value.paged_in(v));
-                        }
-                        // The on-disk value couldn't be read back (I/O or a deserialize
-                        // failure). It's just a cache entry, so recover by recomputing
-                        // (fall through to the compute path) and report it for telemetry.
-                        // Note: the lost value can't be compared against the recompute, so
-                        // `update_computed` can't do equality-based early cutoff (see
-                        // `ValueUpdate::is_reusable`) and treats the node as changed —
-                        // this dirties its rdeps and recomputes through them even if the
-                        // recomputed value is identical.
-                        Err(e) => {
-                            self.eval.hydration_failed(self.k, &e);
-                            (None, epsilon)
-                        }
-                    }
-                }
-            },
+            VersionedGraphResult::Match { value } => {
+                return task_state.lookup_matches(handle, value);
+            }
             VersionedGraphResult::Unknown { candidate, epsilon } => (candidate, epsilon),
         };
 
@@ -483,6 +463,40 @@ async fn check_dependency(
     edge: DepEdge,
     cycles: &KeyComputingUserCycleDetectorData,
 ) -> CheckDependencyResult {
+    // A projection task recomputes the projection from its base's value and cannot fail, so a
+    // base that would have to be read is read here, where a failed read has an answer.
+    if let DiceKeyErased::Projection(proj) = eval.dice.key_index.get(edge.key) {
+        let base = eval
+            .version_state
+            .bring_up_to_date(
+                proj.base(),
+                ParentKey::Some(edge.key),
+                eval,
+                cycles.subrequest(proj.base(), &eval.dice.key_index),
+            )
+            .await;
+        if !base.has_resident_value() {
+            let validation = eval
+                .version_state
+                .projection_validation(edge.key)
+                .get_or_init(|| validate_projection_without_base(eval, edge.key, cycles))
+                .await
+                .dupe();
+            match validation {
+                ProjectionValidation::Resolved(projection) => {
+                    return compare_revision(&projection, &edge);
+                }
+                ProjectionValidation::NeedsRecompute => {
+                    if eval.page_in(proj.base(), base).await.is_err() {
+                        // The projection may have changed. The parent's recompute demands the
+                        // base and receives the read error.
+                        return CheckDependencyResult::Changed;
+                    }
+                }
+            }
+        }
+    }
+
     let dep_result = eval
         .version_state
         .bring_up_to_date(
@@ -492,7 +506,17 @@ async fn check_dependency(
             cycles.subrequest(edge.key, &eval.dice.key_index),
         )
         .await;
+    match eval.page_in(edge.key, dep_result).await {
+        Ok(dep_result) => compare_revision(dep_result, &edge),
+        // The dependency may have changed. A recompute that demands it receives the read error.
+        Err(_) => CheckDependencyResult::Changed,
+    }
+}
 
+fn compare_revision(
+    dep_result: &MaybeResidentComputedValue,
+    edge: &DepEdge,
+) -> CheckDependencyResult {
     // The dep has the recorded revision iff it has the value the compute observed.
     match dep_result.revision() {
         Some(current) if current == edge.revision => {
@@ -500,6 +524,46 @@ async fn check_dependency(
         }
         _ => CheckDependencyResult::Changed,
     }
+}
+
+/// Establishes a projection's result at this version from the core state alone, as the
+/// projection's task would without recomputing it.
+async fn validate_projection_without_base(
+    eval: &TransactionData,
+    key: DiceKey,
+    cycles: &KeyComputingUserCycleDetectorData,
+) -> ProjectionValidation {
+    let v = eval.version_state.get_version();
+    let state_handle = &eval.dice.state_handle;
+    let candidate = match state_handle
+        .lookup_key(VersionedGraphKey::new(v, key))
+        .await
+    {
+        VersionedGraphResult::Match { value } => return ProjectionValidation::Resolved(value),
+        VersionedGraphResult::Unknown { candidate, .. } => candidate,
+    };
+    let Some(candidate) = candidate.filter(|c| c.revalidatable) else {
+        return ProjectionValidation::NeedsRecompute;
+    };
+    let cert = candidate.cert.dupe();
+    let invalidation_paths =
+        match check_dependencies(eval, ParentKey::Some(key), &cert.deps, cycles).await {
+            result @ CheckDependenciesResult::NoChange { .. } => {
+                result.unwrap_no_change_invalidation_paths()
+            }
+            CheckDependenciesResult::NoDeps | CheckDependenciesResult::Changed { .. } => {
+                return ProjectionValidation::NeedsRecompute;
+            }
+        };
+    let projection = state_handle
+        .revalidate(
+            VersionedGraphKey::new(v, key),
+            eval.storage_type(key),
+            candidate,
+            invalidation_paths,
+        )
+        .await;
+    ProjectionValidation::Resolved(projection)
 }
 
 #[derive(VariantName)]
