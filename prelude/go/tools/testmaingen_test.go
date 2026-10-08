@@ -51,26 +51,19 @@ func coveredLine(mainGo string) string {
 	return ""
 }
 
-// The cover packages come out in Go map iteration order, so the same inputs
-// give different generated files from one run to the next.
-func TestCoverPackagesComeOutInMapOrder(t *testing.T) {
-	seen := map[string]bool{}
+// The cover packages come out sorted, so the same inputs always give the same file.
+func TestCoverPackagesComeOutSorted(t *testing.T) {
 	for i := 0; i < 40; i++ {
-		seen[coveredLine(generateMain(t, "--cover-mode=set", "--cover-pkgs=foo/a,foo/b,foo/c"))] = true
-	}
-	if len(seen) < 2 {
-		t.Fatalf("expected more than one order over 40 runs, got %v", seen)
-	}
-	for line := range seen {
-		if !strings.HasPrefix(line, `testdeps.Covered = " in foo/`) {
-			t.Fatalf("unexpected line %q", line)
+		got := coveredLine(generateMain(t, "--cover-mode=set", "--cover-pkgs=foo/c,foo/a,foo/b"))
+		if got != `testdeps.Covered = " in foo/a, foo/b, foo/c"` {
+			t.Fatalf("run %d: got %q", i, got)
 		}
 	}
 }
 
-// With a cover mode but no cover packages the message is a dangling " in ".
-func TestNoCoverPackagesGivesDanglingIn(t *testing.T) {
-	if got := coveredLine(generateMain(t, "--cover-mode=set")); got != `testdeps.Covered = " in "` {
+// With a cover mode but no cover packages the coverage message names no packages.
+func TestNoCoverPackagesNamesNone(t *testing.T) {
+	if got := coveredLine(generateMain(t, "--cover-mode=set")); got != `testdeps.Covered = ""` {
 		t.Fatalf("got %q", got)
 	}
 }

@@ -94,9 +94,11 @@ func main() {
 	os.Args = loadArgs(os.Args)
 	flag.Parse()
 
-	pkgs := make([]*Package, 0, len(coverPkgs))
-	testCoverPaths := make([]string, 0, len(coverPkgs))
-	for importPath := range coverPkgs {
+	// Sorted, so the same inputs give the same file; nil when there are none, which
+	// the template reads as "cover the package under test".
+	var pkgs []*Package
+	var testCoverPaths []string
+	for _, importPath := range slices.Sorted(maps.Keys(coverPkgs)) {
 		pkg := &Package{ImportPath: importPath}
 		pkgs = append(pkgs, pkg)
 		testCoverPaths = append(testCoverPaths, importPath)
