@@ -223,3 +223,15 @@ async def test_audit_subtarget_fails_with_pattern_modifier_and_target_universe_m
         ),
         stderr_regex=r"Cannot use \?modifier syntax in target pattern expression with --target-universe flag",
     )
+
+
+@buck_test()
+async def test_audit_subtargets_shallow_json_is_not_json(buck: Buck) -> None:
+    # The shallow branch ignores `--json` and prints text lines; the json branch then prints
+    # an empty object after them.
+    result = await buck.audit("subtargets", "//:deeply_nested", "--shallow", "--json")
+    assert result.stdout.splitlines() == [
+        "root//:deeply_nested[sub1] (<unspecified>)",
+        "root//:deeply_nested[sub2] (<unspecified>)",
+        "{}",
+    ]
