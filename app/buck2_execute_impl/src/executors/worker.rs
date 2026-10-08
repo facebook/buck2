@@ -889,6 +889,7 @@ mod tests {
 /// these use. Kept apart from `tests` so neither needs per-item `cfg` attributes.
 #[cfg(all(test, unix))]
 mod worker_handle_tests {
+    use std::pin::Pin;
     use std::sync::Arc;
     use std::sync::atomic::AtomicU32;
     use std::sync::atomic::AtomicU64;
@@ -901,14 +902,21 @@ mod worker_handle_tests {
     use buck2_execute_local::StdRedirectPaths;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_worker_proto::ExecuteCommand;
+    use buck2_worker_proto::ExecuteCommandStream;
     use buck2_worker_proto::ExecuteEvent;
     use buck2_worker_proto::ExecuteResponse;
+    use buck2_worker_proto::ExecuteResponseStream;
     use buck2_worker_proto::worker_client;
     use buck2_worker_proto::worker_server::Worker;
+    use buck2_worker_proto::worker_streaming_server::WorkerStreaming;
+    use buck2_worker_proto::worker_streaming_server::WorkerStreamingServer;
+    use futures::Stream;
+    use futures::StreamExt;
     use tonic::Request;
     use tonic::Response;
     use tonic::Status;
     use tonic::transport::Channel;
+    use tonic::transport::Server;
 
     use super::WorkerClient;
     use super::WorkerHandle;
@@ -1089,5 +1097,68 @@ mod worker_handle_tests {
             timeout.as_secs(),
             "the worker must be given the timeout unchanged"
         );
+    }
+
+    type ResponseStream =
+        Pin<Box<dyn Stream<Item = Result<ExecuteResponseStream, Status>> + Send + 'static>>;
+
+    /// Answers every request with its id but no `response` body.
+    struct NoBodyStreamingWorker;
+
+    #[tonic::async_trait]
+    impl WorkerStreaming for NoBodyStreamingWorker {
+        type ExecuteStreamStream = ResponseStream;
+
+        async fn execute_stream(
+            &self,
+            req: Request<tonic::Streaming<ExecuteCommandStream>>,
+        ) -> Result<Response<Self::ExecuteStreamStream>, Status> {
+            let out = req.into_inner().map(|r| {
+                r.map(|c| ExecuteResponseStream {
+                    response: None,
+                    id: c.id,
+                })
+            });
+            Ok(Response::new(Box::pin(out)))
+        }
+    }
+
+    fn no_body_request() -> ExecuteCommand {
+        ExecuteCommand {
+            argv: vec![],
+            env: vec![],
+            timeout_s: None,
+        }
+    }
+
+    async fn start_streaming_server<W: WorkerStreaming>(
+        worker: W,
+    ) -> (Channel, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = tokio::spawn(async move {
+            Server::builder()
+                .add_service(WorkerStreamingServer::new(worker))
+                .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
+                .await
+                .unwrap();
+        });
+        let channel = Channel::from_shared(format!("http://{addr}"))
+            .unwrap()
+            .connect()
+            .await
+            .unwrap();
+        (channel, handle)
+    }
+
+    /// A streaming worker may send an `ExecuteResponseStream` without a `response` (proto3
+    /// message presence). The client unwraps it, so a worker bug panics the daemon instead of
+    /// failing the command.
+    #[tokio::test]
+    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
+    async fn test_streaming_response_without_body_panics() {
+        let (channel, _server) = start_streaming_server(NoBodyStreamingWorker).await;
+        let mut client = WorkerClient::stream(channel).await.unwrap();
+        let _unused = client.execute(no_body_request()).await;
     }
 }
