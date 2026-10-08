@@ -49,16 +49,27 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
         key = "dist/" + src.short_path
         existing = srcs_map.get(key)
         if existing != None and existing != src:
-            fail("nodejs_library {} has `srcs` with duplicate paths `{}`: {} and {}".format(ctx.label, key, existing, src))
+            fail("nodejs_library {}: duplicate `srcs` '{}' and '{}' both map to '{}'".format(ctx.label, existing, src, key))
         srcs_map[key] = src
     for res in ctx.attrs.resources:
         key = "dist/" + res.short_path
         existing = srcs_map.get(key)
         if existing != None and existing != res:
-            fail("nodejs_library {} has `srcs`/`resources` with duplicate paths `{}`: {} and {}".format(ctx.label, key, existing, res))
+            fail("nodejs_library {}: duplicate `srcs`/`resources` '{}' and '{}' both map to '{}'".format(ctx.label, existing, res, key))
         srcs_map[key] = res
     if ctx.attrs.package_json != None:
         srcs_map["package.json"] = ctx.attrs.package_json
+    for key in sorted(srcs_map):
+        segments = key.split("/")
+        prefix = segments[0]
+        for i in range(1, len(segments)):
+            if prefix in srcs_map:
+                fail(
+                    "nodejs_library {}: overlapping staged paths '{}' and '{}' ('{}' and '{}'): staged entries must not nest".format(
+                        ctx.label, prefix, key, srcs_map[prefix], srcs_map[key]
+                    )
+                )
+            prefix += "/" + segments[i]
     package_dir = ctx.actions.copied_dir("package_dir", srcs_map)
 
     dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label)

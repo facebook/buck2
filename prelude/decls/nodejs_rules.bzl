@@ -13,7 +13,8 @@ nodejs_library = prelude_rule(
     docs = """A Node.js library that packages TypeScript/JavaScript source
     files as-is (no compilation). Each entry of `srcs` is staged under
     `dist/<short_path>` inside the package (repeating the same source is
-    allowed; distinct sources mapping to the same staged path fail).
+    allowed; distinct sources mapping to the same staged path fail,
+    and staged paths must not nest, e.g. `dist/a` and `dist/a/b` fail).
     Each entry of `resources` is staged the same way, for non-code files
     (including generated artifacts and directory artifacts from other
     rules) that ship with the package. `deps` must be `nodejs_library`
