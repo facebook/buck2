@@ -35,7 +35,6 @@ load(
     "create_linkable_graph_node",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
-load("@prelude//linking:stamp_build_info.bzl", "PRE_STAMPED_SUFFIX")
 load(
     "@prelude//python/linking:native_python_util.bzl",
     "merge_cxx_extension_info",
@@ -290,6 +289,13 @@ def py_resources_deduped(ctx: AnalysisContext, keyed_resources: list[(str, dict[
         results.append(result)
     return results
 
+def _is_shared_libs_symlink_tree_of(o: Artifact, binary: Artifact) -> bool:
+    # The tree is named after the linker output, which carries a suffix for
+    # each post-link stage (BOLT, build info stamping, etc.) that later renames
+    # the binary. See `get_cxx_post_link_suffix`.
+    prefix, _, suffix = shared_libs_symlink_tree_name(binary.short_path).partition(binary.short_path)
+    return o.basename.startswith(prefix + binary.short_path) and o.basename.endswith(suffix)
+
 def py_resources(ctx: AnalysisContext, resources: dict[str, ArtifactOutputs], suffix: str = "") -> (ManifestInfo, list[ArgLike]):
     """
     Generate a manifest to wrap this rules resources.
@@ -299,24 +305,7 @@ def py_resources(ctx: AnalysisContext, resources: dict[str, ArtifactOutputs], su
     for name, resource in resources.items():
         for o in resource.nondebug_runtime_files:
             # HACK: this is a heuristic to detect shared libs emitted from cpp_binary rules.
-            if isinstance(o, Artifact) and (
-                (
-                    o.basename
-                    == (
-                        shared_libs_symlink_tree_name(
-                            resource.default_output.short_path,
-                        )
-                    )
-                )
-                or (
-                    o.basename
-                    == (
-                        shared_libs_symlink_tree_name(
-                            resource.default_output.short_path + PRE_STAMPED_SUFFIX,
-                        )
-                    )
-                )
-            ):
+            if isinstance(o, Artifact) and _is_shared_libs_symlink_tree_of(o, resource.default_output):
                 # Package the binary's shared libs next to the binary
                 # (the path is stored in RPATH relative to the binary).
                 d[paths.join(paths.dirname(name), o.basename)] = o
