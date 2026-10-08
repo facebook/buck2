@@ -1328,6 +1328,17 @@ mod tests {
         assert::eq(r#""abc".find("c", -1, -2)"#, "-1");
     }
 
+    /// The spec says `split` fails on an empty separator. Rust's `str::split("")` splits at
+    /// every character boundary instead, and that is what the caller gets.
+    #[test]
+    fn test_split_empty_separator() {
+        assert::eq(r#""abc".split("")"#, r#"["", "a", "b", "c", ""]"#);
+        assert::eq(r#""abc".rsplit("")"#, r#"["", "a", "b", "c", ""]"#);
+        assert::eq(r#""abc".split("", 1)"#, r#"["", "abc"]"#);
+        assert::eq(r#""abc".rsplit("", 1)"#, r#"["abc", ""]"#);
+        assert::eq(r#""".split("")"#, r#"["", ""]"#);
+    }
+
     #[test]
     fn test_count() {
         assert::eq("'abc'.count('a', 10, -10)", "0");
