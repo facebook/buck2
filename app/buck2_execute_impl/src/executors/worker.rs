@@ -532,7 +532,16 @@ impl WorkerClient {
                 waiters.insert(id, tx);
                 stream.send(req)?;
                 tokio::select! {
-                    response = rx => Ok(response.map(|response| response.response.unwrap())?),
+                    response = rx => {
+                        // `response` is a proto3 message field, so a worker can leave it out.
+                        response?.response.ok_or_else(|| {
+                            buck2_error::buck2_error!(
+                                ErrorTag::Tier0,
+                                "Worker sent a response without a body for request {}",
+                                id
+                            )
+                        })
+                    }
                     _ = stream_closed_observer.while_alive() => {
                         Err(buck2_error::buck2_error!(ErrorTag::Tier0, "Stream closed while waiting for response"))
                     },
@@ -1151,14 +1160,16 @@ mod worker_handle_tests {
         (channel, handle)
     }
 
-    /// A streaming worker may send an `ExecuteResponseStream` without a `response` (proto3
-    /// message presence). The client unwraps it, so a worker bug panics the daemon instead of
-    /// failing the command.
+    /// A streaming worker response without a `response` body fails the command with an error
+    /// naming the request.
     #[tokio::test]
-    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
-    async fn test_streaming_response_without_body_panics() {
+    async fn test_streaming_response_without_body_is_an_error() {
         let (channel, _server) = start_streaming_server(NoBodyStreamingWorker).await;
         let mut client = WorkerClient::stream(channel).await.unwrap();
-        let _unused = client.execute(no_body_request()).await;
+        let err = client.execute(no_body_request()).await.err().unwrap();
+        assert!(
+            format!("{err:#}").contains("Worker sent a response without a body for request"),
+            "{err:#}"
+        );
     }
 }
