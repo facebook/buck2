@@ -88,6 +88,14 @@ prelude.go_bootstrap_binary(
 )
 
 prelude.go_test(
+    name = "gen_embedcfg_test",
+    srcs = [
+        "gen_embedcfg.go",
+        "gen_embedcfg_test.go",
+    ],
+)
+
+prelude.go_test(
     name = "buildid_test",
     srcs = ["buildid.go", "buildid_test.go"],
 )
