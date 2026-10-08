@@ -55,6 +55,9 @@ LinkOptions = record(
     # `None` expresses no preference, leaving the choice to buck2
     allow_cache_upload = [bool, None],
     cxx_toolchain = [CxxToolchainInfo, None],
+    # If set, capture the local link action's stderr in this output while
+    # continuing to stream it to the action's stderr.
+    stderr_output = field(OutputArtifact | None, None),
     # Force callers to use link_options() or merge_link_options() to create.
     __private_use_link_options_function_to_construct = None,
     error_handler = [typing.Callable, None],
@@ -83,6 +86,7 @@ def link_options(
     import_library: Artifact | None = None,
     allow_cache_upload: [bool, None] = False,
     cxx_toolchain: [CxxToolchainInfo, None] = None,
+    stderr_output: OutputArtifact | None = None,
     error_handler: [typing.Callable, None] = None,
     extra_linker_outputs_factory: typing.Callable | None = None,
     extra_linker_outputs_flags_factory: typing.Callable | None = None,
@@ -110,6 +114,7 @@ def link_options(
         import_library = import_library,
         allow_cache_upload = allow_cache_upload,
         cxx_toolchain = cxx_toolchain,
+        stderr_output = stderr_output,
         __private_use_link_options_function_to_construct = None,
         error_handler = error_handler,
         extra_linker_outputs_factory = extra_linker_outputs_factory,
@@ -141,6 +146,7 @@ def merge_link_options(
     import_library: [Artifact, None, _NotProvided] = _NOT_PROVIDED,
     allow_cache_upload: [bool, None, _NotProvided] = _NOT_PROVIDED,
     cxx_toolchain: [CxxToolchainInfo, _NotProvided] = _NOT_PROVIDED,
+    stderr_output: [OutputArtifact, None, _NotProvided] = _NOT_PROVIDED,
     incremental_link: [bool, _NotProvided] = _NOT_PROVIDED,
 ) -> LinkOptions:
     """
@@ -163,6 +169,7 @@ def merge_link_options(
         import_library = base.import_library if import_library == _NOT_PROVIDED else import_library,
         allow_cache_upload = base.allow_cache_upload if allow_cache_upload == _NOT_PROVIDED else allow_cache_upload,
         cxx_toolchain = base.cxx_toolchain if cxx_toolchain == _NOT_PROVIDED else cxx_toolchain,
+        stderr_output = base.stderr_output if stderr_output == _NOT_PROVIDED else stderr_output,
         __private_use_link_options_function_to_construct = None,
         error_handler = base.error_handler,
         extra_linker_outputs_factory = base.extra_linker_outputs_factory,

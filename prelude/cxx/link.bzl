@@ -220,6 +220,8 @@ def cxx_link_into(
         ilk_artifact = None
 
     if linker_info.supports_distributed_thinlto and opts.enable_distributed_thinlto:
+        if opts.stderr_output != None:
+            fail("stderr_output is only supported for local link actions")
         if not linker_info.lto_mode == LtoMode("thin"):
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't use thin-lto lto_mode")
         if linker_info.runtime_library_files:
@@ -453,6 +455,13 @@ def cxx_link_into(
             command,
         )
 
+    if opts.stderr_output != None:
+        command = cmd_args(
+            cxx_toolchain_info.internal_tools.stderr_to_file,
+            cmd_args(opts.stderr_output, format = "--out={}"),
+            command,
+        )
+
     link_execution_preference_info = LinkExecutionPreferenceInfo(
         preference = opts.link_execution_preference,
     )
@@ -627,6 +636,8 @@ def _get_link_artifact(p: ProviderCollection, name: str) -> Artifact:
         return getattr(p[_AnonLinkInfoPlaceholder], name)
 
 def _anon_cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResultType, opts: LinkOptions) -> CxxLinkResult:
+    if opts.stderr_output != None:
+        fail("stderr_output is not supported for anonymous link actions")
     if opts.cxx_toolchain:
         fail("anon link requires getting toolchain from ctx.attrs._cxx_toolchain")
     cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
