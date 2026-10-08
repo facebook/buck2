@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::future::Future;
 use std::sync::Arc as StdArc;
 
 use derivative::Derivative;
@@ -102,27 +101,22 @@ impl VersionState {
         }
     }
 
-    /// Compute "opaque" value where the value is only accessible via projections.
-    /// Projections allow accessing derived results from the "opaque" value,
-    /// where the dependency of reading a projection is the projection value rather
-    /// than the entire opaque value.
-    pub(crate) fn compute_opaque<'d>(
+    /// Evaluate or reuse a key for the current version, including during dependency validation.
+    pub(crate) fn bring_up_to_date<'d>(
         &'d self,
         key: DiceKey,
         parent_key: ParentKey,
         eval: &TransactionData,
         cycles: UserCycleDetectorData,
-    ) -> impl Future<Output = &'d DiceComputedValue> + use<'d> {
+    ) -> DicePromise<'d> {
         match self.lookup_entry(key, parent_key) {
             LookupResult::Finished(dice_computed_value) => DicePromise::ready(dice_computed_value),
             LookupResult::Pending(dice_promise) => dice_promise,
             LookupResult::NeedsRestart(prepared_dice_task, previously_cancelled_task) => {
                 let eval = eval.dupe();
 
-                DiceTaskWorker::spawn(
-                    key,
+                DiceTaskWorker::new(key, eval).spawn(
                     prepared_dice_task,
-                    eval,
                     cycles,
                     previously_cancelled_task,
                 )
@@ -238,18 +232,18 @@ impl TransactionData {
                 )
             }
             DiceKeyErased::Projection(proj) => {
-                // Ending up here is unusual - it means that we have somehow `compute_opaque`d a
+                // Ending up here is unusual - it means that we have somehow `bring_up_to_date`d a
                 // projection key.
                 //
                 // You'd hope that that's never possible, but unfortunately it is - it happens in
-                // dep checks, where we unconditionally `compute_opaque` the deps without checking
+                // dep checks, where we unconditionally `bring_up_to_date` the deps without checking
                 // what kind of key they are.
                 //
                 // Double unfortunately, this is not just a "someone called the wrong function"
                 // issue. It's load bearing because the normal projection compute path never
-                // actually does any check-deps like behavior; it unconditionally recomputes the
+                // does any check-deps like behavior; when a new task is needed, it recomputes the
                 // projection instead of consulting the core state for an existing valid value. By
-                // going through the `compute_opaque` path we get normal dep checking.
+                // going through the `bring_up_to_date` path we get normal dep checking.
                 //
                 // FIXME(JakobDegen):
                 //  1. There's supposed to be an invariant that we only evaluate keys once and this
@@ -259,7 +253,7 @@ impl TransactionData {
                 //  3. This is insanity.
                 let base = self
                     .version_state
-                    .compute_opaque(
+                    .bring_up_to_date(
                         proj.base(),
                         ParentKey::Some(key), // the parent requesting the projection base is the projection itself
                         self,

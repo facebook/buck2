@@ -676,7 +676,7 @@ impl ComputeCtx {
 
         self.transaction_data
             .version_state
-            .compute_opaque(
+            .bring_up_to_date(
                 dice_key,
                 self.parent_key,
                 &self.transaction_data,

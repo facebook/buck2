@@ -163,7 +163,8 @@ fn spawn_task(
 ) -> (DiceTask, DicePromise<'static>) {
     let prepared_task = DiceTask::prepare_testing(k);
     let task = prepared_task.task().clone_arc();
-    let promise = DiceTaskWorker::spawn(k, prepared_task, eval, cycles, previously_cancelled_task);
+    let promise =
+        DiceTaskWorker::new(k, eval).spawn(prepared_task, cycles, previously_cancelled_task);
     (task, promise)
 }
 

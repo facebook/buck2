@@ -78,25 +78,26 @@ pub(crate) struct DiceTaskWorker {
 }
 
 impl DiceTaskWorker {
-    pub(crate) fn spawn(
-        k: DiceKey,
-        prepared_task: PreparedDiceTask,
-        eval: TransactionData,
+    pub(crate) fn new(k: DiceKey, eval: TransactionData) -> Self {
+        Self { k, eval }
+    }
+
+    pub(crate) fn spawn<'d>(
+        self,
+        prepared_task: PreparedDiceTask<'d>,
         cycles: UserCycleDetectorData,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
-    ) -> DicePromise {
-        let spawner = eval.user_data.spawner.dupe();
-        let spawner_ctx = eval.user_data.dupe();
-        let state_handle = eval.dice.state_handle.dupe();
-
-        let worker = DiceTaskWorker { k, eval };
+    ) -> DicePromise<'d> {
+        let spawner = self.eval.user_data.spawner.dupe();
+        let spawner_ctx = self.eval.user_data.dupe();
+        let state_handle = self.eval.dice.state_handle.dupe();
 
         spawn_prepared_task(prepared_task, &*spawner, &spawner_ctx, move |handle| {
             // NOTE: important to run prevent cancellation eagerly in the sync scope to prevent
             // cancellations so that we don't cancel the current task before we finish waiting
             // for the previously cancelled task
             let prevent_cancellation = handle.cancellation_ctx().enter_critical_section();
-            let state = DiceWorkerStateAwaitingPrevious::new(k, cycles, prevent_cancellation);
+            let state = DiceWorkerStateAwaitingPrevious::new(self.k, cycles, prevent_cancellation);
 
             async move {
                 let previous_result = match previously_cancelled_task {
@@ -109,7 +110,7 @@ impl DiceTaskWorker {
                         // previous result actually finished
                         previous_result
                     }
-                    Either::Right(state) => worker.do_work(handle, state_handle, state).await,
+                    Either::Right(state) => self.do_work(handle, state_handle, state).await,
                 };
 
                 handle.finished(result.map(|state| state.value));
@@ -484,7 +485,7 @@ async fn check_dependency(
 ) -> CheckDependencyResult {
     let dep_result = eval
         .version_state
-        .compute_opaque(
+        .bring_up_to_date(
             edge.key,
             parent_key,
             eval,
