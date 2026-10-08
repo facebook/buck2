@@ -1109,6 +1109,23 @@ async fn build_files(
 mod tests {
     use super::*;
 
+    /// `--install-timeout` is defined by the Android installer, which parses it with args4j: both
+    /// `--install-timeout N` and `--install-timeout=N` are accepted and the last occurrence wins.
+    /// buck2 only recognises the space-separated form and keeps the first value, so the two sides
+    /// can disagree about the per-file timeout.
+    #[test]
+    fn test_parse_install_timeout_equals_form_and_repeats() {
+        let args: Vec<String> = vec!["--install-timeout=1800".to_owned()];
+        assert_eq!(parse_install_timeout(&args), 600);
+        let args: Vec<String> = vec![
+            "--install-timeout".to_owned(),
+            "900".to_owned(),
+            "--install-timeout".to_owned(),
+            "1200".to_owned(),
+        ];
+        assert_eq!(parse_install_timeout(&args), 900);
+    }
+
     #[test]
     fn test_parse_install_timeout_with_value() {
         let args: Vec<String> = vec!["--install-timeout".to_owned(), "900".to_owned()];
