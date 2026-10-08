@@ -211,6 +211,16 @@ message ArgValueContent {
   oneof value {
     ExternalRunnerSpecValue spec_value = 1;
     OutputName declared_output = 2;
+    // Argsfile contents the test runner has already encoded. Buck writes out
+    // the argsfile, materializes it as a test input, and expands this argument
+    // to `@<path>`. Used to avoid command lines becoming too long to spawn.
+    //
+    // The runner generates the argsfile contents because only it knows which
+    // arguments can go in the argsfile and what format the test reads. E.g. for
+    // an invocation like `python3 runner.py <cases>`, only the cases can go in
+    // the argsfile: `python3` itself doesn't understand argsfiles, `runner.py`
+    // does.
+    bytes argsfile_contents = 3;
   }
 }
 

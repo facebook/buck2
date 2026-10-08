@@ -272,6 +272,9 @@ pub struct ArgValue {
 pub enum ArgValueContent {
     ExternalRunnerSpecValue(ExternalRunnerSpecValue),
     DeclaredOutput(OutputName),
+    /// An argsfile the test runner has already encoded, standing in for the arguments it holds.
+    /// Buck materializes it as an input to the test and expands this argument to `@<path>`.
+    ArgsfileContents(Vec<u8>),
 }
 
 impl fmt::Display for ArgValueContent {
@@ -279,6 +282,7 @@ impl fmt::Display for ArgValueContent {
         match self {
             Self::ExternalRunnerSpecValue(v) => write!(f, "ExternalRunnerSpecValue({v})"),
             Self::DeclaredOutput(o) => write!(f, "DeclaredOutput({o})"),
+            Self::ArgsfileContents(b) => write!(f, "ArgsfileContents({} bytes)", b.len()),
         }
     }
 }

@@ -57,11 +57,14 @@ use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
+use buck2_core::content_hash::ContentBasedPathHash;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::Executor;
@@ -70,7 +73,9 @@ use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -105,6 +110,7 @@ use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
 use buck2_execute::execute::prepared::PreparedCommand;
+use buck2_execute::execute::request::ActionMetadataBlob;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
@@ -122,6 +128,7 @@ use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
+use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute_impl::executors::local::EnvironmentBuilder;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
@@ -629,6 +636,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             ensured_inputs,
             supports_re,
             declared_outputs,
+            argsfile_inputs,
             worker,
         } = test_executable_expanded;
 
@@ -683,6 +691,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             expanded_env,
             ensured_inputs,
             declared_outputs,
+            argsfile_inputs,
             fs,
             Some(timeout),
             Some(host_sharing_requirements),
@@ -1097,6 +1106,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             ensured_inputs,
             supports_re: _,
             declared_outputs,
+            argsfile_inputs,
             worker,
         } = test_executable_expanded;
 
@@ -1107,6 +1117,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             expanded_env,
             ensured_inputs,
             declared_outputs,
+            argsfile_inputs,
             fs,
             None,
             None,
@@ -1700,6 +1711,74 @@ impl BuckTestOrchestrator<'_> {
         })
     }
 
+    /// Replaces each argument carrying argsfile contents with `@<path>`, and returns the files as
+    /// action inputs.
+    ///
+    /// Writing them here, before an executor is chosen, makes each file an input of the action,
+    /// so it is hashed into the action digest and reaches remote execution, local execution and
+    /// workers by the same path as any other input.
+    async fn materialize_argsfiles<'a>(
+        dice: &mut DiceComputations<'_>,
+        test_target: &ConfiguredProvidersLabel,
+        cmd: Cow<'a, [ArgValue]>,
+        fs: &ArtifactFs,
+    ) -> buck2_error::Result<(Vec<ExpandableArg>, Vec<CommandExecutionInput>)> {
+        let digest_config = dice.global_data().get_digest_config();
+        let materializer = dice.per_transaction_data().get_materializer();
+
+        let mut inputs = Vec::new();
+        let mut expanded = Vec::with_capacity(cmd.len());
+        for arg in cmd.into_owned() {
+            let ArgValueContent::ArgsfileContents(contents) = arg.content else {
+                expanded.push(ExpandableArg::Value(arg));
+                continue;
+            };
+            if arg.format.is_some() {
+                return Err(internal_error!(
+                    "Argsfile contents do not support a format string"
+                ));
+            }
+
+            let digest =
+                TrackedFileDigest::from_content(&contents, digest_config.cas_digest_config());
+            let content_hash = ContentBasedPathHash::new(digest.raw_digest().as_bytes())?;
+            let path = BuildArtifactPath::new(
+                BaseDeferredKey::TargetLabel(test_target.target().dupe()),
+                ForwardRelativePathBuf::unchecked_new(format!(
+                    "__test_argsfile_{}__",
+                    inputs.len()
+                )),
+                BuckOutPathKind::ContentHash,
+            );
+            let project_rel_path = fs
+                .buck_out_path_resolver()
+                .resolve_gen(&path, Some(&content_hash))?;
+
+            let write_path = project_rel_path.clone();
+            let path_kind = path.path_resolution_method();
+            materializer
+                .declare_write(Box::new(move || {
+                    Ok(vec![WriteRequest {
+                        path: write_path,
+                        content: contents,
+                        is_executable: false,
+                        path_kind,
+                    }])
+                }))
+                .await
+                .buck_error_context("Failed to write test argsfile")?;
+
+            expanded.push(ExpandableArg::Argsfile(project_rel_path));
+            inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
+                digest,
+                path,
+                content_hash,
+            }));
+        }
+
+        Ok((expanded, inputs))
+    }
+
     async fn expand_test_executable<'a>(
         dice: &mut DiceComputations<'_>,
         test_target: &ConfiguredProvidersLabel,
@@ -1711,6 +1790,9 @@ impl BuckTestOrchestrator<'_> {
         stage: &TestStage,
         opts: TestSessionOptions,
     ) -> buck2_error::Result<ExpandedTestExecutable> {
+        let (cmd, argsfile_inputs) =
+            Self::materialize_argsfiles(dice, test_target, cmd, executor_fs.fs()).await?;
+
         let output_root = resolve_output_root(dice, test_target, stage).await?;
 
         let mut declared_outputs = BuckIndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
@@ -1772,6 +1854,7 @@ impl BuckTestOrchestrator<'_> {
             env: expanded_env,
             ensured_inputs,
             declared_outputs,
+            argsfile_inputs,
             supports_re,
             worker: expanded_worker,
         })
@@ -1784,6 +1867,7 @@ impl BuckTestOrchestrator<'_> {
         env: SortedVectorMap<String, String>,
         ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
         declared_outputs: BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
+        argsfile_inputs: Vec<CommandExecutionInput>,
         fs: &ArtifactFs,
         timeout: Option<Duration>,
         host_sharing_requirements: Option<Arc<HostSharingRequirements>>,
@@ -1797,6 +1881,7 @@ impl BuckTestOrchestrator<'_> {
         let inputs = ensured_inputs
             .into_iter()
             .map(|(_, v)| CommandExecutionInput::Artifact(Box::new(v)))
+            .chain(argsfile_inputs)
             .collect_vec();
 
         // NOTE: This looks a bit awkward, that's because fbcode's rustfmt and ours slightly
@@ -2098,13 +2183,31 @@ impl Drop for BuckTestOrchestrator<'_> {
     }
 }
 
+/// A command argument on its way to an executor, once argsfiles have been written.
+enum ExpandableArg {
+    Value(ArgValue),
+    /// An argsfile the runner supplied, already written and part of the action's inputs.
+    Argsfile(ProjectRelativePathBuf),
+}
+
+/// Renders an argsfile argument as `@<path>`.
+fn push_argsfile_arg(
+    fmt: &mut CommandLineBuilder<'_, '_>,
+    path: ProjectRelativePathBuf,
+) -> buck2_error::Result<()> {
+    fmt.push_scope_format("@{}");
+    fmt.push_project_path(path)?;
+    fmt.pop_scope();
+    Ok(())
+}
+
 struct Execute2RequestExpander<'a> {
     test_info: &'a OwnedTestInfo,
     stage: &'a TestStage,
     output_root: &'a ForwardRelativePath,
     declared_outputs: &'a mut BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
     fs: &'a ExecutorFs<'a>,
-    cmd: Cow<'a, [ArgValue]>,
+    cmd: Vec<ExpandableArg>,
     env: Cow<'a, SortedVectorMap<String, ArgValue>>,
     digest_config: DigestConfig,
 }
@@ -2128,7 +2231,9 @@ fn make_visit_arg_artifacts<'v>(
                     .with_internal_error(|| format!("Invalid EnvHandle: {h:?}"))?;
                 arg.visit_artifacts(artifact_visitor)?;
             }
-            ArgValueContent::DeclaredOutput(_) | ArgValueContent::ExternalRunnerSpecValue(_) => {}
+            ArgValueContent::DeclaredOutput(_)
+            | ArgValueContent::ExternalRunnerSpecValue(_)
+            | ArgValueContent::ArgsfileContents(_) => {}
         };
 
         buck2_error::Ok(())
@@ -2152,7 +2257,9 @@ impl<'a> Execute2RequestExpander<'a> {
 
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         for var in cmd.iter() {
-            visit_arg_artifacts(&mut artifact_visitor, var)?;
+            if let ExpandableArg::Value(var) = var {
+                visit_arg_artifacts(&mut artifact_visitor, var)?;
+            }
         }
 
         for (_, var) in env.iter() {
@@ -2196,6 +2303,11 @@ impl<'a> Execute2RequestExpander<'a> {
                     .get(h.0.as_str())
                     .with_internal_error(|| format!("Invalid EnvHandle: {h:?}"))?;
                 arg.add_to_command_line(fmt)?;
+            }
+            ArgValueContent::ArgsfileContents(_) => {
+                return Err(internal_error!(
+                    "Argsfile contents are only valid as command arguments"
+                ));
             }
             ArgValueContent::DeclaredOutput(output) => {
                 let test_path = BuckOutTestPath::new(output_root.to_owned(), output.name.clone());
@@ -2245,16 +2357,19 @@ impl<'a> Execute2RequestExpander<'a> {
             absolute,
             None,
         );
-        for var in cmd.as_ref() {
-            Self::expand_arg_value(
-                &mut cmd_fmt,
-                declared_outputs,
-                var,
-                &cli_args_for_interpolation,
-                &env_for_interpolation,
-                output_root,
-                fs,
-            )?;
+        for var in cmd.iter() {
+            match var {
+                ExpandableArg::Argsfile(path) => push_argsfile_arg(&mut cmd_fmt, path.clone())?,
+                ExpandableArg::Value(var) => Self::expand_arg_value(
+                    &mut cmd_fmt,
+                    declared_outputs,
+                    var,
+                    &cli_args_for_interpolation,
+                    &env_for_interpolation,
+                    output_root,
+                    fs,
+                )?,
+            }
         }
 
         let expanded_env = env
@@ -2370,6 +2485,8 @@ struct ExpandedTestExecutable {
     ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
     supports_re: bool,
     declared_outputs: BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
+    /// Argsfiles the runner supplied, already written; these become inputs of the action.
+    argsfile_inputs: Vec<CommandExecutionInput>,
     worker: Option<WorkerSpec>,
 }
 

@@ -678,6 +678,7 @@ impl TryInto<buck2_test_proto::ArgValueContent> for ArgValueContent {
                     .buck_error_context("Invalid external runner spec value")?,
             ),
             Self::DeclaredOutput(value) => Value::DeclaredOutput(value.into()),
+            Self::ArgsfileContents(contents) => Value::ArgsfileContents(contents),
         };
 
         Ok(buck2_test_proto::ArgValueContent { value: Some(value) })
@@ -699,6 +700,7 @@ impl TryFrom<buck2_test_proto::ArgValueContent> for ArgValueContent {
             Value::DeclaredOutput(value) => {
                 Self::DeclaredOutput(value.try_into().buck_error_context("Invalid `value`")?)
             }
+            Value::ArgsfileContents(contents) => Self::ArgsfileContents(contents),
         })
     }
 }
