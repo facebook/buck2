@@ -16,5 +16,7 @@ pub(crate) mod download_file;
 pub(crate) mod offline;
 pub(crate) mod run;
 pub(crate) mod write;
+#[expect(dead_code, reason = "D69335928 adds the API that uses this module")]
+pub(crate) mod write_hmap;
 pub(crate) mod write_json;
 pub(crate) mod write_macros;

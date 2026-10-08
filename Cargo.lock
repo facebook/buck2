@@ -796,6 +796,7 @@ dependencies = [
  "futures 0.3.34",
  "gazebo",
  "hex",
+ "hmap",
  "host_sharing",
  "http",
  "itertools 0.15.0",

@@ -367,6 +367,7 @@ globset = { version = "0.4.20", features = ["serde1"] }
 h2 = "0.4.19"
 hashbrown = "0.17.1"
 hex = { version = "0.4.3", features = ["alloc"] }
+hmap = { version = "0.1.0", path = "gazebo/hmap" }
 host_sharing = { path = "host_sharing" }
 hostname = "0.4.2"
 http = "1.5.0"
