@@ -1389,4 +1389,18 @@ mod tests {
 
         assert_roundtrips::<buck2_test_proto::TestExecutable, TestExecutable>(&test_executable);
     }
+
+    /// A negative `ttl_seconds` in the proto is accepted: it wraps to `u64::MAX` seconds, and
+    /// converting back gives the negative value again.
+    #[test]
+    fn negative_ttl_seconds_is_accepted_and_wraps() {
+        let ttl: TtlConfig = buck2_test_proto::TtlConfig {
+            ttl_seconds: -1,
+            use_case: "u".to_owned(),
+        }
+        .into();
+        assert_eq!(ttl.ttl, Duration::from_secs(u64::MAX));
+        let back: buck2_test_proto::TtlConfig = ttl.into();
+        assert_eq!(back.ttl_seconds, -1);
+    }
 }
