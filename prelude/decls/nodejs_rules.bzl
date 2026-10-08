@@ -26,9 +26,12 @@ nodejs_library = prelude_rule(
     name does not resolve in Node; for packages that must be imported by name,
     supply `package_json` whose `exports` (or `main`) entry points at the
     staged file, e.g. `{"exports": {".": "./dist/<file>"}}`.
-    `package_name` (default: target name): a valid npm package name,
-    `name` or `@scope/name`, where each segment contains only lowercase
-    letters, digits, `-`, `.`, `_`, `~` and does not start with `.` or `_`.
+    `package_name` (default: target name): a valid npm package name of
+    at most 214 characters, `name` or `@scope/name`, where each segment
+    contains only lowercase letters, digits, `-`, `.`, `_`, `~` and does
+    not start with `.` or `_`. The unscoped names `node_modules` and
+    `favicon.ico` are reserved and rejected, as is `@scope/node_modules`;
+    either may be used as the scope.
     The default output is the package's own directory
     (`package_dir`). The `[node_modules]` sub-target is the merged
     `node_modules` tree for this package and its transitive `deps`,

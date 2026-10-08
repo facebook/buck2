@@ -8,41 +8,58 @@
 
 load(":nodejs_providers.bzl", "NodejsLibraryInfo", "NodejsLibraryPackage", "build_node_modules", "get_nodejs_dep_infos", "get_transitive_outputs")
 
-def _validate_package_name(label: Label, package_name: str) -> None:
+def _fail_invalid(label: Label, package_name: str, reason: str, hint: str) -> None:
+    fail("nodejs_library {}: invalid `package_name` '{}': {}{}".format(label, package_name, reason, hint))
+
+def _validate_package_name(label: Label, package_name: str, is_default: bool = False) -> None:
+    hint = " (defaulted from target name; set `package_name` explicitly to override)" if is_default else ""
     if not package_name:
-        fail("nodejs_library {} has invalid `package_name` `{}`: must not be empty, expected `name` or `@scope/name`".format(label, package_name))
-    if "\\" in package_name:
-        fail("nodejs_library {} has invalid `package_name` `{}`: must not contain backslashes".format(label, package_name))
+        _fail_invalid(
+            label,
+            package_name,
+            "package names must not be empty",
+            hint,
+        )
     if len(package_name) > 214:
-        fail("nodejs_library {} has invalid `package_name` `{}`: must not exceed 214 characters".format(label, package_name))
-    parts = package_name.split("/")
-    if "" in parts:
-        fail("nodejs_library {} has invalid `package_name` `{}`: must not contain empty segments".format(label, package_name))
-    if "." in parts or ".." in parts:
-        fail("nodejs_library {} has invalid `package_name` `{}`: must not contain `.` or `..` segments".format(label, package_name))
-    is_unscoped = len(parts) == 1 and not parts[0].startswith("@")
-    is_scoped = len(parts) == 2 and parts[0].startswith("@") and len(parts[0]) > 1
-    if not is_unscoped and not is_scoped:
-        fail("nodejs_library {} has invalid `package_name` `{}`: expected `name` or `@scope/name`".format(label, package_name))
-    allowed_chars = "abcdefghijklmnopqrstuvwxyz0123456789-._~"
-    for idx in range(len(parts)):
-        part = parts[idx]
-        segment = part[1:] if idx == 0 and part.startswith("@") else part
+        _fail_invalid(label, package_name, "package names must be at most 214 characters long", hint)
+    # `favicon.ico` may be reused as a scoped name; `node_modules` may not: it stages a `node_modules` directory under the scope, which Node treats as a lookup root for sibling packages.
+    # Either may be the scope, which stages with its `@` prefix (for example `@node_modules`).
+    if package_name in ["node_modules", "favicon.ico"]:
+        _fail_invalid(label, package_name, "unscoped package names must not be 'node_modules' or 'favicon.ico'", hint)
+    if package_name.startswith("@"):
+        parts = package_name[1:].split("/")
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            _fail_invalid(label, package_name, "scoped names must have the form '@scope/name'", hint)
+        if parts[1] == "node_modules":
+            _fail_invalid(label, package_name, "scoped package names must not use 'node_modules' as the name segment", hint)
+        segments = parts
+    else:
+        if "@" in package_name or "/" in package_name:
+            _fail_invalid(
+                label,
+                package_name,
+                "package names must not contain '@' or '/' unless they have the form '@scope/name'",
+                hint,
+            )
+        segments = [package_name]
+    for segment in segments:
         if segment.startswith(".") or segment.startswith("_"):
-            fail("nodejs_library {} has invalid `package_name` `{}`: segment `{}` must not start with `.` or `_`".format(label, package_name, segment))
-        for i in range(len(segment)):
-            if segment[i] not in allowed_chars:
-                fail(
-                    "nodejs_library {} has invalid `package_name` `{}`: segment `{}` must contain only lowercase letters, digits, and `-`, `.`, `_`, `~`".format(
-                        label, package_name, segment
-                    )
+            _fail_invalid(label, package_name, "name segments must not start with '.' or '_'", hint)
+        for ch in segment.elems():
+            if ch not in "abcdefghijklmnopqrstuvwxyz0123456789-._~":
+                _fail_invalid(
+                    label,
+                    package_name,
+                    "package names must contain only lowercase letters, digits and '-._~'",
+                    hint,
                 )
 
 def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
     package_name = ctx.attrs.package_name
-    if package_name == None:
+    is_default = package_name == None
+    if is_default:
         package_name = ctx.attrs.name
-    _validate_package_name(ctx.label, package_name)
+    _validate_package_name(ctx.label, package_name, is_default = is_default)
 
     srcs_map = {}
     for src in ctx.attrs.srcs:
