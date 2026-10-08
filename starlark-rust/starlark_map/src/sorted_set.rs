@@ -33,20 +33,32 @@ use crate::sorted_vec::SortedVec;
 
 /// An immutable `SmallSet` with values guaranteed to be sorted.
 #[derive(
-    Clone,
-    Debug,
-    Eq,
-    PartialEq,
-    Hash,
-    Ord,
-    PartialOrd,
-    Allocative,
-    Serialize,
-    Deserialize
+    Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative, Serialize
 )]
 #[cfg_attr(feature = "pagable_dep", derive(Pagable))]
 pub struct SortedSet<T: Eq + Hash> {
     inner: OrderedSet<T>,
+}
+
+impl<'de, T> Deserialize<'de> for SortedSet<T>
+where
+    T: Deserialize<'de> + Eq + Hash + Ord,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        /// The wire shape of the derived `Serialize`; the input need not be sorted. Only serde
+        /// input is sorted here; the derived `Pagable` impl reads `inner` directly and never
+        /// goes through this impl.
+        #[derive(Deserialize)]
+        #[serde(rename = "SortedSet")]
+        struct Repr<T: Eq + Hash> {
+            inner: OrderedSet<T>,
+        }
+        let Repr { inner } = Repr::<T>::deserialize(deserializer)?;
+        Ok(SortedSet::from(inner))
+    }
 }
 
 impl<T> SortedSet<T>
@@ -202,14 +214,13 @@ where
 mod tests {
     use crate::sorted_set::SortedSet;
 
-    /// `Deserialize` keeps the input order instead of sorting.
     #[test]
-    fn test_deserialize_keeps_input_order() {
+    fn test_deserialize_sorts_values() {
         assert_eq!(
             serde_json::json!({"inner": [1, 2, 3]}),
             serde_json::to_value(SortedSet::from_iter([3u32, 1, 2])).unwrap()
         );
         let set: SortedSet<u32> = serde_json::from_str(r#"{"inner": [3, 1, 2]}"#).unwrap();
-        assert_eq!(vec![3, 1, 2], set.iter().copied().collect::<Vec<_>>());
+        assert_eq!(vec![1, 2, 3], set.iter().copied().collect::<Vec<_>>());
     }
 }

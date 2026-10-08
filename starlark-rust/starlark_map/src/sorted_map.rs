@@ -199,16 +199,16 @@ impl<K: Serialize, V: Serialize> Serialize for SortedMap<K, V> {
 
 impl<'de, K, V> Deserialize<'de> for SortedMap<K, V>
 where
-    K: Deserialize<'de> + Hash + Eq,
+    K: Deserialize<'de> + Hash + Eq + Ord,
     V: Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self {
-            map: OrderedMap::deserialize(deserializer)?,
-        })
+        // The input need not be sorted. Only serde input is sorted here; the derived `Pagable`
+        // impl reads the field directly and never goes through this impl.
+        Ok(SortedMap::from(OrderedMap::deserialize(deserializer)?))
     }
 }
 
@@ -249,16 +249,14 @@ mod tests {
         assert_eq!(map.keys().collect::<Vec<_>>(), keys,);
     }
 
-    /// `Deserialize` keeps the input order instead of sorting, although the type promises sorted
-    /// keys and compares in order.
     #[test]
-    fn test_deserialize_keeps_input_order() {
+    fn test_deserialize_sorts_keys() {
         let map: SortedMap<String, i32> = serde_json::from_str(r#"{"b": 1, "a": 2}"#).unwrap();
         assert_eq!(
-            vec!["b", "a"],
+            vec!["a", "b"],
             map.keys().map(|k| k.as_str()).collect::<Vec<_>>()
         );
-        assert_ne!(
+        assert_eq!(
             SortedMap::from_iter([("a".to_owned(), 2), ("b".to_owned(), 1)]),
             map
         );
