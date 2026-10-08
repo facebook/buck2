@@ -601,6 +601,18 @@ def build_kotlin_library(
                 if lazy.is_any(lambda src: src.extension == ".java", srcs):
                     extra_sub_targets = _nullsafe_subtarget(ctx, extra_sub_targets, common_kotlincd_kwargs)
                 extra_sub_targets = _semanticdb_subtarget(ctx, extra_sub_targets, kotlin_toolchain, java_toolchain, common_kotlincd_kwargs)
+                extra_sub_targets = _typecheck_subtarget(
+                    ctx,
+                    extra_sub_targets,
+                    kotlin_toolchain,
+                    srcs,
+                    deps,
+                    additional_classpath_entries,
+                    bootclasspath_for_kotlinc,
+                    generated_sources,
+                    annotation_processor_properties,
+                    ksp_annotation_processor_properties,
+                )
 
             class_to_src_map, sources_jar, class_to_src_map_sub_targets = get_class_to_source_map_info(
                 ctx,
@@ -755,3 +767,92 @@ def _semanticdb_subtarget(
             ]
         }
     return extra_sub_targets
+
+def _typecheck_subtarget(
+    ctx: AnalysisContext,
+    extra_sub_targets: dict,
+    kotlin_toolchain: KotlinToolchainInfo,
+    srcs: list[Artifact],
+    deps: list[Dependency],
+    additional_classpath_entries: JavaCompilingDepsTSet | None,
+    bootclasspath_entries: list[Artifact],
+    generated_sources: list[Artifact],
+    annotation_processor_properties,
+    ksp_annotation_processor_properties,
+) -> dict:
+    if not kotlin_toolchain.typechecker_enabled:
+        return extra_sub_targets
+    typechecker_cli = kotlin_toolchain.typechecker_cli
+    typechecker_wrapper = kotlin_toolchain.typechecker_wrapper
+    if not typechecker_cli or not typechecker_wrapper:
+        return extra_sub_targets
+
+    # Sources: plain .kt plus kotlinc-style source archives (the wrapper unzips;
+    # suffixes mirror _ARCHIVE_SUFFIXES in typechecker.py).
+    # Mixed .java sources are skipped (the checker covers Kotlin only); the count
+    # rides into the report so measurement can exclude mixed targets.
+    kt_srcs = [s for s in srcs if s.extension == ".kt"]
+    zip_srcs = [s for s in srcs if s.basename.endswith(".src.zip") or s.basename.endswith("-sources.jar")]
+    java_srcs = [s for s in srcs if s.extension == ".java"]
+
+    # Compiling classpath: same recipe as the kotlinc action (ABI jars).
+    compiling_classpath = cmd_args()
+    if additional_classpath_entries:
+        compiling_classpath.add(additional_classpath_entries.project_as_args("args_for_compiling"))
+    compiling_classpath.add(bootclasspath_entries)
+    compiling_deps_tset = get_compiling_deps_tset(ctx.actions, deps + [kotlin_toolchain.kotlin_stdlib])
+    if compiling_deps_tset:
+        compiling_classpath.add(compiling_deps_tset.project_as_args("args_for_compiling"))
+    friend_jars = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, get_friend_paths(ctx)) if friend_path.library_output]
+    compiling_classpath.add(friend_jars)
+    classpath_args = cmd_args(compiling_classpath, delimiter = get_path_separator_for_exec_os(ctx))
+    classpath_file, _ = ctx.actions.write("typecheck_classpath", classpath_args, allow_args = True, has_content_based_path = False)
+
+    # D4 plugin detection: any compiler plugin, kapt/ksp processor, or
+    # processor dep marks the target (WARN, never error; recorded below).
+    has_plugins = bool(
+        ctx.attrs.kotlin_compiler_plugins
+        or annotation_processor_properties.annotation_processors
+        or ksp_annotation_processor_properties.annotation_processors
+        or ctx.attrs.annotation_processor_deps
+    )
+
+    # extra_kotlinc_arguments holds attrs.arg() objects, not strings (compare
+    # the str(arg) inspection in get_language_version above). Normalize each
+    # element (strip whitespace/quotes) and compare exactly: a substring
+    # test would false-match -Werror inside unrelated values.
+    def _has_flag(*names):
+        return lazy.is_any(
+            lambda a: str(a).strip().strip('"') in names,
+            ctx.attrs.extra_kotlinc_arguments or [],
+        )
+
+    werror = _has_flag("-Werror")
+    nowarn = _has_flag("-nowarn", "-W")
+
+    report = ctx.actions.declare_output("typecheck_report.json")
+    args = cmd_args([
+        typechecker_wrapper[RunInfo],
+        "--typechecker-binary",
+        typechecker_cli[RunInfo],
+        "--classpath-file",
+        classpath_file,
+        "--srcs",
+    ])
+    args.add(kt_srcs + zip_srcs)
+    args.add(["--output", report.as_output()])
+    args.add(["--java-sources-skipped", str(len(java_srcs))])
+    for generated in generated_sources:
+        args.add(["--generated", generated])
+    if werror:
+        args.add("--werror")
+    if nowarn:
+        args.add("--nowarn")
+    if has_plugins:
+        args.add("--plugins")
+    args.add(["--language-version", get_language_version(ctx)])
+    hidden = cmd_args([compiling_classpath, kt_srcs, zip_srcs, generated_sources, classpath_file])
+    ctx.actions.run(cmd_args(args, hidden = hidden), category = "typecheck")
+    return extra_sub_targets | {
+        "typecheck": [DefaultInfo(default_output = report)],
+    }

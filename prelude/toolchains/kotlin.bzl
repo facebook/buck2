@@ -9,10 +9,24 @@
 load("@prelude//java:java_toolchain.bzl", "DepFiles")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo", "KotlincProtocol")
 
+def _typechecker_enabled():
+    # Buckconfig gate for the typecheck sub-target. Tools attach
+    # only when enabled so the default graph carries zero new edges.
+    return read_config("kotlin", "typechecker_enabled", "False").lower() in ("true", "1", "yes")
+
+def _typechecker_cli():
+    # Tool target is buckconfig-driven (default unset) so this open-source
+    # prelude file never names a cell that may not exist: without [kotlin]
+    # typechecker_cli the attr stays None and no sub-target is created.
+    return read_config("kotlin", "typechecker_cli", None)
+
 def kotlincd_toolchain(name, java_binary_for_kotlincd = None, visibility = None):
     _kotlin_toolchain_rule(
         java_binary_for_kotlincd = java_binary_for_kotlincd,
         name = name,
+        typechecker_cli = _typechecker_cli() if _typechecker_enabled() else None,
+        typechecker_enabled = _typechecker_enabled(),
+        typechecker_wrapper = "prelude//kotlin/tools/typechecker:typechecker" if _typechecker_enabled() else None,
         annotation_processing_jar = "prelude//toolchains/android/third-party:kotlin-annotation-processing-embeddable",
         class_loader_bootstrapper = "prelude//toolchains/android/src/com/facebook/buck/cli/bootstrapper:bootstrapper",
         compile_kotlin = "prelude//kotlin/tools/compile_kotlin:compile_kotlin",
@@ -69,6 +83,9 @@ def _kotlin_toolchain_rule_impl(ctx):
             enable_incremental_compilation = ctx.attrs.enable_incremental_compilation or False,
             java_binary_for_kotlincd = ctx.attrs.java_binary_for_kotlincd,
             ksp2_enable_incremental_processing = ctx.attrs.ksp2_enable_incremental_processing or False,
+            typechecker_cli = ctx.attrs.typechecker_cli,
+            typechecker_enabled = ctx.attrs.typechecker_enabled or False,
+            typechecker_wrapper = ctx.attrs.typechecker_wrapper,
             kotlinc_protocol = ctx.attrs.kotlinc_protocol,
             kosabi_stubs_gen_k2_plugin = ctx.attrs.kosabi_stubs_gen_k2_plugin,
             kosabi_applicability_plugin = ctx.attrs.kosabi_applicability_plugin,
@@ -116,6 +133,9 @@ _kotlin_toolchain_rule = rule(
         "ksp2_enable_incremental_processing": attrs.option(attrs.bool(), default = None),
         "track_class_usage_plugin": attrs.option(attrs.source(), default = None),
         "track_files_which_skipped_compilation": attrs.option(attrs.bool(), default = None),
+        "typechecker_cli": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
+        "typechecker_enabled": attrs.option(attrs.bool(), default = None),
+        "typechecker_wrapper": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
     },
     impl = _kotlin_toolchain_rule_impl,
     is_toolchain_rule = True,
