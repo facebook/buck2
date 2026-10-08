@@ -212,6 +212,7 @@ def main(argv: list[str]) -> int:
         "-i",
         default=[],
         nargs="*",
+        action="extend",
         help="Prefixes of classes to include in the output, even if their source isn't present",
     )
     parser.add_argument(

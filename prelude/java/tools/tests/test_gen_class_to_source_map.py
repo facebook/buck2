@@ -410,7 +410,7 @@ class GenClassToSourceMapTest(unittest.TestCase):
         )
         self.assertEqual(entries, ["com/example/Foo.kt", "com/example/FooKt.kt"])
 
-    def test_repeated_include_prefix_flags_keep_only_the_last_one(self) -> None:
+    def test_repeated_include_prefix_flags_accumulate(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             jar_path = pathlib.Path(temp_dir) / "library.jar"
             with zipfile.ZipFile(jar_path, "w") as jar:
@@ -430,8 +430,10 @@ class GenClassToSourceMapTest(unittest.TestCase):
                     ]
                 )
 
-        # `class_to_srcs.bzl` passes one `-i` per configured prefix, but only the last one counts.
         self.assertEqual(
             json.loads(output.getvalue())["classes"],
-            [{"className": "com.generated.Generated"}],
+            [
+                {"className": "androidx.databinding.DataBinderMapperImpl"},
+                {"className": "com.generated.Generated"},
+            ],
         )
