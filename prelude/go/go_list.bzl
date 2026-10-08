@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load(":package_root.bzl", "strip_package_root")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
 GoListError = record(
@@ -52,7 +53,7 @@ def go_list(
 
     srcs_dir = actions.symlinked_dir(
         "__{}_srcs_dir__".format(paths.basename(pkg_import_path)),
-        {src.short_path.removeprefix(package_root).lstrip("/"): src for src in srcs},
+        {strip_package_root(src.short_path, package_root): src for src in srcs},
         has_content_based_path = True,
     )
     all_tags = [] + go_toolchain.build_tags + build_tags
@@ -93,7 +94,7 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
 
     for src in srcs:
         # remove package_root prefix from src artifact path to match `go list` output format
-        src_path = src.short_path.removeprefix(package_root).lstrip("/")
+        src_path = strip_package_root(src.short_path, package_root)
         if src_path in go_list.get("GoFiles", []):
             go_files.append(src)
         if src_path in go_list.get("CgoFiles", []):

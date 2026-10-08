@@ -21,6 +21,7 @@ load(
 )
 load(":go_error_handler.bzl", "go_build_error_handler")
 load(":go_list.bzl", "GoListOut", "go_list", "parse_go_list_out")
+load(":package_root.bzl", "strip_package_root")
 load(":packages.bzl", "GoPackageInfo", "GoPkg", "GoStdlib", "GoStdlibDynamicValue", "implicit_imports", "make_compile_importcfg", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
@@ -632,7 +633,7 @@ def _embedcfg(
 
     srcs_dir = actions.copied_dir(
         "__embed_srcs_dir__",
-        {name.removeprefix(package_root).lstrip("/"): src for name, src in embed_srcs.items()},
+        {strip_package_root(name, package_root): src for name, src in embed_srcs.items()},
         has_content_based_path = True,
     )
 
