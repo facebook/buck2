@@ -59,6 +59,8 @@ use crate::user_cycle::UserCycleDetectorData;
 use crate::value::DiceValidity;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::MaybeValidDiceValue;
+use crate::value::ResidentComputedValue;
+use crate::value::ResidentComputedValueRef;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -210,9 +212,10 @@ impl TransactionData {
         &self,
         key: DiceKey,
         value: &'d MaybeResidentComputedValue,
-    ) -> DiceResult<&'d MaybeResidentComputedValue> {
-        let Some(paged_out) = value.paged_out() else {
-            return Ok(value);
+    ) -> DiceResult<ResidentComputedValueRef<'d>> {
+        let paged_out = match value.try_as_resident() {
+            Ok(value) => return Ok(value),
+            Err(paged_out) => paged_out,
         };
         if let Some(outcome) = paged_out.outcome.get() {
             return borrow_outcome(outcome);
@@ -339,10 +342,9 @@ impl TransactionData {
                     .page_in(proj.base(), base)
                     .await
                     .expect("dependency checks make a projection's base resident first");
-                let base_value = base.resident_value().expect("page-in returned a payload");
                 let result = self.evaluate_projection(
                     key,
-                    base_value,
+                    base.value(),
                     base.revision(),
                     base.invalidation_paths(),
                 );
@@ -504,7 +506,10 @@ pub(crate) struct KeyEvaluationResult {
 }
 
 fn borrow_outcome(
-    outcome: &DiceResult<MaybeResidentComputedValue>,
-) -> DiceResult<&MaybeResidentComputedValue> {
-    outcome.as_ref().map_err(Dupe::dupe)
+    outcome: &DiceResult<ResidentComputedValue>,
+) -> DiceResult<ResidentComputedValueRef<'_>> {
+    match outcome {
+        Ok(resident) => Ok(resident.as_ref()),
+        Err(error) => Err(error.dupe()),
+    }
 }

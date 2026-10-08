@@ -1661,7 +1661,7 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
             UserCycleDetectorData::testing_new(),
         )
         .await;
-    assert!(validated.paged_out().is_some());
+    assert!(validated.try_as_resident().is_err());
     assert_eq!(
         counter.count(),
         1,

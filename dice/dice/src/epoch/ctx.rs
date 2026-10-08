@@ -724,7 +724,7 @@ impl ComputeCtx {
                 .inspect_err(|_| self.record_dependency_failure())?;
             Ok(OpaqueValue::new(
                 key,
-                value.resident_value().expect("page-in returned a payload"),
+                value.value(),
                 value.revision(),
                 value.invalidation_paths(),
             ))
