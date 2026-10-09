@@ -226,6 +226,17 @@ impl RunActionKey {
         }
     }
 
+    /// The key of this action in the incremental state database. The `Display` of a BXL owner
+    /// contains only the BXL function label. Without the owner's hash, BXL invocations with
+    /// different arguments share an entry. A content-based incremental action then starts from the
+    /// output of a different invocation. The owner's hash includes the arguments.
+    pub(crate) fn incremental_state_key(&self) -> String {
+        match &self.owner {
+            BaseDeferredKey::BxlLabel(bxl) => format!("{} {:016x}", self, bxl.0.strong_hash()),
+            _ => self.to_string(),
+        }
+    }
+
     pub(crate) fn to_logical(&self) -> LogicalActionKey {
         match &self.owner {
             BaseDeferredKey::TargetLabel(configured) => LogicalActionKey::Configured {
@@ -1334,7 +1345,8 @@ impl RunAction {
                 req = req.with_run_action_key(Some(
                     // Using string representation as it is going to be stored in db which requires it to be a string
                     // doing it early here prevents us from exposing RunActionKey type
-                    RunActionKey::from_action_execution_target(ctx.target()).to_string(),
+                    RunActionKey::from_action_execution_target(ctx.target())
+                        .incremental_state_key(),
                 ));
             }
         }
