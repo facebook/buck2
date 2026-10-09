@@ -165,7 +165,9 @@ pub struct RepoState {
     pub paths: TenantPaths,
 
     /// Synced every time we run a command.
-    pub(crate) file_watcher: Arc<dyn FileWatcher>,
+    /// None under `--no-buckd`: the daemon serves exactly one command, so there is nothing to
+    /// invalidate between commands.
+    pub(crate) file_watcher: Option<Arc<dyn FileWatcher>>,
 
     /// Settled every time we run a command.
     pub io: Arc<dyn IoProvider>,
@@ -597,21 +599,34 @@ impl TenantState {
 
         let dep_file_cache = create_dep_file_cache();
 
-        tracing::info!("Creating file watcher...");
-        let file_watcher = <dyn FileWatcher>::new(
-            fb,
-            paths.project_root(),
-            root_config,
-            cells.dupe(),
-            ignore_specs,
-            dep_file_cache.dupe(),
-        )
-        .with_buck_error_context(|| {
-            format!(
-                "Error creating a FileWatcher for project root `{}`",
-                paths.project_root()
+        let file_watcher = if init_ctx.in_process
+            && root_config
+                .get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "file_watcher",
+                })
+                .is_none()
+        {
+            None
+        } else {
+            tracing::info!("Creating file watcher...");
+            Some(
+                <dyn FileWatcher>::new(
+                    fb,
+                    paths.project_root(),
+                    root_config,
+                    cells.dupe(),
+                    ignore_specs,
+                    dep_file_cache.dupe(),
+                )
+                .with_buck_error_context(|| {
+                    format!(
+                        "Error creating a FileWatcher for project root `{}`",
+                        paths.project_root()
+                    )
+                })?,
             )
-        })?;
+        };
 
         // TODO(bobyf): Eagerly sync the file watcher here once the DICE commit panic is fixed.
 

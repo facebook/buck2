@@ -23,7 +23,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
-from buck2.tests.e2e_util.helper.utils import daemon_is_alive
+from buck2.tests.e2e_util.helper.utils import daemon_is_alive, filter_events
 
 
 @buck_test()
@@ -236,6 +236,33 @@ async def test_no_buckd_kills_existing_daemon(buck: Buck) -> None:
     await buck.audit("cell")  # Start the daemon
     result = await buck.audit("cell", "--no-buckd")  # Kill the existing daemon
     assert "Killing daemon with PID" in result.stderr
+
+
+@buck_test()
+async def test_no_buckd_runs_without_file_watcher(buck: Buck) -> None:
+    # The test harness pins a file_watcher for every test; drop that line to get the
+    # unconfigured default an ordinary --no-buckd invocation sees.
+    extra_config = Path(buck.get_env_var("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"))
+    extra_config.write_text(
+        "".join(
+            line
+            for line in extra_config.read_text().splitlines(keepends=True)
+            if "file_watcher" not in line
+        )
+    )
+    # The in-process daemon serves exactly one command, so there is nothing to invalidate
+    # between commands: it runs no file watcher and reads the tree as this command's own
+    # snapshot.
+    await buck.targets(":", "--no-buckd")
+    spans = await filter_events(buck, "Event", "data", "SpanEnd", "data", "FileWatcher")
+    assert spans == []
+
+
+@buck_test(extra_buck_config={"buck2": {"file_watcher": "notify"}})
+async def test_no_buckd_explicit_file_watcher_wins(buck: Buck) -> None:
+    await buck.targets(":", "--no-buckd")
+    spans = await filter_events(buck, "Event", "data", "SpanEnd", "data", "FileWatcher")
+    assert spans, "an explicitly configured watcher must still run"
 
 
 @buck_test()
