@@ -622,4 +622,31 @@ mod tests {
         );
         Ok(())
     }
+
+    /// With the cwd in a package below the cell root, `""` asks the cwd whether the cell root
+    /// is a package (`//:`) and the cell root whether the cwd is one (`:`): the two are swapped.
+    #[tokio::test]
+    async fn test_empty_string_in_package_subdir_swaps_root_and_cwd_colons() -> TestResult {
+        let (roots, cwd) = in_dir("baredir0/buckdir0b")?;
+        let uut = PackageCompleter::new(&cwd, &roots).await?;
+
+        let actual = uut.complete("").await?;
+
+        assert_eq!(
+            actual,
+            vec![
+                "//",
+                "//:",
+                "cell1//",
+                "cell1//:",
+                "cell2//",
+                "cell3a//",
+                "cell3a//:",
+                "cell3b//",
+                "prelude//",
+                "root//"
+            ]
+        );
+        Ok(())
+    }
 }
