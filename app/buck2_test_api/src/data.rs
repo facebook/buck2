@@ -21,6 +21,7 @@ use std::time::SystemTime;
 use allocative::Allocative;
 use buck2_core::cells::name::CellName;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -45,10 +46,7 @@ pub struct ConfiguredTargetHandle(u64);
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfiguredTarget {
     pub handle: ConfiguredTargetHandle,
-    /// Structured data
-    pub cell: String,
-    pub package: String,
-    pub target: String,
+    pub label: ProvidersLabel,
     pub configuration: String,
     pub package_project_relative_path: ForwardRelativePathBuf,
     pub test_config_unification_rollout: bool,

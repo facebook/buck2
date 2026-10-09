@@ -50,7 +50,7 @@ pub async fn run_internal_test(
     timeout: Duration,
 ) -> buck2_error::Result<()> {
     let target_handle = spec.target.handle;
-    let suite = spec.target.target.clone();
+    let suite = spec.target.label.to_string();
 
     // `'v`-branded views of the provider must not be held across awaits (only the `OwnedFrozen`
     // may be), so views are derived in scopes that end before the next await.
@@ -332,6 +332,8 @@ fn format_execution_output(stdout: &ExecutionStream, stderr: &ExecutionStream) -
 #[cfg(test)]
 mod tests {
     use buck2_core::cells::name::CellName;
+    use buck2_core::package::PackageLabel;
+    use buck2_core::provider::label::ProvidersLabel;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_test_api::data::ConfiguredTarget;
     use buck2_test_api::data::ExecutionStream;
@@ -345,9 +347,11 @@ mod tests {
         ExternalRunnerSpec {
             target: ConfiguredTarget {
                 handle: ConfiguredTargetHandleExt::testing_new(0),
-                cell: "root".to_owned(),
-                package: "test".to_owned(),
-                target: "my_test".to_owned(),
+                label: ProvidersLabel::parse_in_package(
+                    PackageLabel::testing_new("root", "test"),
+                    "my_test",
+                )
+                .unwrap(),
                 configuration: "cfg".to_owned(),
                 package_project_relative_path: ForwardRelativePathBuf::unchecked_new(
                     "test".to_owned(),
