@@ -15,14 +15,12 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::file_ops::metadata::FileType;
 use buck2_common::file_ops::metadata::RawPathMetadata;
-use buck2_common::io::IoProvider;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
-use buck2_fs::paths::file_name::FileName;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -33,23 +31,20 @@ use dupe::Dupe;
 #[buck2(tag = Input)]
 enum StarlarkFilesError {
     #[error("File not found, `{0}`")]
-    FileNotFound(ProjectRelativePathBuf),
+    FileNotFound(CellPath),
     #[error("Symlinks and other esoteric files are not supported, `{0}`")]
-    UnsupportedFileType(ProjectRelativePathBuf),
+    UnsupportedFileType(CellPath),
 }
 
 #[async_recursion]
 async fn starlark_file(
     ctx: &mut DiceComputations<'_>,
-    proj_path: ProjectRelativePathBuf,
+    cell_path: CellPath,
     // None = this file was given explicitly
     // Some = it was a directory traversal (and we know its type)
     recursive: Option<FileType>,
-    cell_resolver: &CellResolver,
-    io: &dyn IoProvider,
     files: &mut Vec<OwnedStarlarkPath>,
 ) -> buck2_error::Result<()> {
-    let cell_path = cell_resolver.get_cell_path(&proj_path);
     if recursive.is_some()
         && DiceFileComputations::is_ignored(ctx, cell_path.as_ref())
             .await?
@@ -61,36 +56,33 @@ async fn starlark_file(
 
     let typ = match &recursive {
         Some(typ) => typ.dupe(),
-        None => match io.read_path_metadata_if_exists(proj_path.clone()).await? {
-            None => {
-                return Err(StarlarkFilesError::FileNotFound(proj_path).into());
+        None => {
+            match DiceFileComputations::read_path_metadata_if_exists(ctx, cell_path.as_ref())
+                .await?
+            {
+                None => {
+                    return Err(StarlarkFilesError::FileNotFound(cell_path).into());
+                }
+                Some(RawPathMetadata::Directory) => FileType::Directory,
+                Some(RawPathMetadata::File(_)) => FileType::File,
+                Some(RawPathMetadata::Symlink { .. }) => FileType::Symlink,
             }
-            Some(RawPathMetadata::Directory) => FileType::Directory,
-            Some(RawPathMetadata::File(_)) => {
-                // It's a shame we throw away the digest we calculated, but not a huge deal (its cheap compared to parsing)
-                FileType::File
-            }
-            Some(RawPathMetadata::Symlink { .. }) => FileType::Symlink,
-        },
+        }
     };
 
     match typ {
         FileType::Directory => {
-            for x in io.read_dir(proj_path.clone()).await?.into_entries() {
-                let Ok(file_name) = FileName::new(&x.file_name) else {
-                    // Skip files which buck does not like:
-                    // this function works with `CellPath` values,
-                    // which cannot be constructed from paths not acceptable by buck.
-                    continue;
-                };
-                let mut child_path = proj_path.clone();
-                child_path.push(file_name);
-                starlark_file(ctx, child_path, Some(x.file_type), cell_resolver, io, files).await?;
+            for entry in DiceFileComputations::read_dir(ctx, cell_path.as_ref())
+                .await?
+                .included
+                .iter()
+            {
+                let child_path = cell_path.join(&entry.file_name);
+                starlark_file(ctx, child_path, Some(entry.file_type.dupe()), files).await?;
             }
         }
         FileType::File => {
-            // It's a shame we throw away the digest we calculated, but not a huge deal (its cheap compared to parsing)
-            let is_buildfile = match proj_path.file_name() {
+            let is_buildfile = match cell_path.path().file_name() {
                 None => false,
                 Some(file_name) => DiceFileComputations::buildfiles(ctx, cell_path.cell())
                     .await?
@@ -101,13 +93,13 @@ async fn starlark_file(
             if is_buildfile {
                 files.push(OwnedStarlarkPath::BuildFile(BuildFilePath::new(
                     PackageLabel::from_cell_path(cell_path.parent().unwrap())?,
-                    proj_path.file_name().unwrap().to_owned(),
+                    cell_path.path().file_name().unwrap().to_owned(),
                 )));
-            } else if proj_path.as_str().ends_with(".bxl") {
+            } else if cell_path.path().as_str().ends_with(".bxl") {
                 files.push(OwnedStarlarkPath::BxlFile(BxlFilePath::new(cell_path)?));
             } else if let Some(path) = PackageFilePath::from_file_path(cell_path.as_ref()) {
                 files.push(OwnedStarlarkPath::PackageFile(path));
-            } else if recursive.is_none() || proj_path.as_str().ends_with(".bzl") {
+            } else if recursive.is_none() || cell_path.path().as_str().ends_with(".bzl") {
                 // If a file was asked for explicitly, and is nothing else, treat it as .bzl file
                 // If it's not explicit, just ignore it (probably a source file)
                 files.push(OwnedStarlarkPath::LoadFile(ImportPath::new_same_cell(
@@ -117,7 +109,7 @@ async fn starlark_file(
         }
         FileType::Symlink | FileType::Unknown => {
             if recursive.is_none() {
-                return Err(StarlarkFilesError::UnsupportedFileType(proj_path).into());
+                return Err(StarlarkFilesError::UnsupportedFileType(cell_path).into());
             }
         }
     }
@@ -130,15 +122,13 @@ pub(crate) async fn starlark_files(
     paths: &[PathArg],
     context: &dyn ServerCommandContextTrait,
     cell_resolver: &CellResolver,
-    io: &dyn IoProvider,
 ) -> buck2_error::Result<Vec<OwnedStarlarkPath>> {
     let mut files = Vec::new();
 
     for path in paths {
         let path = path.resolve(context.working_dir_abs());
         let cell_path = cell_resolver.get_cell_path_from_abs_path(&path, context.project_root())?;
-        let proj_path = cell_resolver.resolve_path(cell_path.as_ref())?;
-        starlark_file(ctx, proj_path, None, cell_resolver, io, &mut files).await?;
+        starlark_file(ctx, cell_path, None, &mut files).await?;
     }
     Ok(files)
 }
