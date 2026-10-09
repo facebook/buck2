@@ -104,3 +104,30 @@ class RuntimeEnvTest(unittest.TestCase):
     def test_a_value_with_an_apostrophe_keeps_the_bootstrap_valid(self):
         proc = self._syntax_check("GREETING=it's", 'MSG=say "hi"', "WIN=C:\\dir\\")
         self.assertEqual(proc.returncode, 0, proc.stderr)
+
+
+class HeaderTest(unittest.TestCase):
+    """The header finds its link tree next to the par it was invoked as."""
+
+    def _run_from(self, dirname):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            _, header = _generate(tmp)
+            run_dir = tmp / dirname
+            linktree = run_dir / "bin#link-tree"
+            linktree.mkdir(parents=True)
+            stub = linktree / "_bootstrap.sh"
+            stub.write_text('#!/bin/bash\necho "BOOTSTRAP REACHED"\n', encoding="utf8")
+            stub.chmod(0o755)
+            par = run_dir / "bin.par"
+            par.write_text(header.read_text(encoding="utf8"), encoding="utf8")
+            par.chmod(0o755)
+            return subprocess.run(
+                ["./bin.par"], cwd=run_dir, capture_output=True, encoding="utf8"
+            )
+
+    def test_a_path_with_a_space_falls_back_to_the_build_path(self):
+        self.assertIn("BOOTSTRAP REACHED", self._run_from("nospace").stdout)
+        proc = self._run_from("with space")
+        self.assertNotIn("BOOTSTRAP REACHED", proc.stdout)
+        self.assertNotEqual(proc.returncode, 0)
