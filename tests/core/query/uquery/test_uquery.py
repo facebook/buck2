@@ -182,6 +182,25 @@ async def test_uquery_owner(buck: Buck) -> None:
 
 
 @buck_test(data_dir="bxl_simple")
+async def test_uquery_owner_missing_file(buck: Buck) -> None:
+    for path in (
+        "data/buck/build/missing.file",
+        "missing/file",
+        "root//data/buck/build/missing.file",
+        str(buck.cwd / "data/buck/build/missing.file"),
+    ):
+        result = await buck.uquery(f"owner('{path}')")
+        assert result.process.returncode == 0
+        assert result.stdout == ""
+
+    result = await buck.uquery(
+        "owner(data/buck/build/data.file)", rel_cwd=Path("special")
+    )
+    assert result.process.returncode == 0
+    assert result.stdout == ""
+
+
+@buck_test(data_dir="bxl_simple")
 async def test_query_owner_with_explicit_package_boundary_violation(buck: Buck) -> None:
     result = await buck.uquery("""owner(package_boundary_violation/bin)""")
     assert "root//package_boundary_violation:bin" in result.stdout
