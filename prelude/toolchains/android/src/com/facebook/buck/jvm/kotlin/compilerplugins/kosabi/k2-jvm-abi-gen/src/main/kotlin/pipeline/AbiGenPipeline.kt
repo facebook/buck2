@@ -1278,9 +1278,12 @@ private const val NON_EXISTENT_CLASS_INTERNAL_NAME = "error/NonExistentClass"
  * is well-formed. Same-package phantom classes are the motivating case.
  *
  * Rollout: [AbiRepairPolicy.OFF] is the default, so this stage emits nothing unless a target asks
- * for it via `abiValidationMode`. Warnings are not a softer setting here - fbsource builds Kotlin
- * with `-Werror`, so `warn` fails the compile just as `error` does. Enabling it repo-wide therefore
- * has to wait until the repairs it names have been driven out, not the other way round.
+ * for it via `abiValidationMode` - with one exception. The literal-`error/NonExistentClass` check
+ * runs unconditionally, because an ABI carrying that sentinel is unlinkable under every policy
+ * setting, so gating it on opt-in only decides whether the corruption ships loudly or silently.
+ * Warnings are not a softer setting for the rest - fbsource builds Kotlin with `-Werror`, so `warn`
+ * fails the compile just as `error` does. Enabling those repo-wide therefore has to wait until the
+ * repairs they name have been driven out, not the other way round.
  *
  * The cleared-initializer check carries that visibility filter (Assertion 2 below): a `private
  * const val` is not part of any consumer's constant folding, so repairing one silently is not the
@@ -1297,6 +1300,39 @@ internal class ValidationStage(private val repairLog: AbiGenRepairLog) : AbiGenS
       policy: AbiRepairPolicy,
       inputs: AbiValidationInputs,
   ) {
+    // The literal-NEC invariant is not a repair-policy diagnostic and is checked whatever
+    // `abiValidationMode` says. An ABI that ships `error/NonExistentClass` cannot be linked
+    // against in any configuration, so there is no setting under which emitting one is the
+    // intended outcome - and leaving it behind an opt-in mode means the corruption ships
+    // silently on every target that has not opted in, which is the default.
+    //
+    // A clean build pays one substring scan of the emitted class bytes: the sentinel's name
+    // reaches the constant pool as ASCII, so a jar that never mentions it cannot need the walk.
+    val emittedTypeReferences =
+        if (policy != AbiRepairPolicy.OFF || mentionsLiteralErrorType(inputs.outputFiles)) {
+          collectEmittedTypeReferences(inputs.outputFiles)
+        } else {
+          emptySet()
+        }
+
+    // The final class bytes are authoritative: source-stage repair bookkeeping and stub classpath
+    // candidates can both miss a literal error type that survives a transform or hides in metadata.
+    for (reference in emittedTypeReferences) {
+      if (reference.internalName != NON_EXISTENT_CLASS_INTERNAL_NAME) continue
+      messageCollector.report(
+          CompilerMessageSeverity.ERROR,
+          "Kosabi ABI validation: `${reference.owner}` emits `${reference.site}` referencing " +
+              "literal `$NON_EXISTENT_CLASS_INTERNAL_NAME`. The final ABI bytecode contains an " +
+              "unresolved type and no consumer can link against it. " +
+              "If the type comes from an explicit reference, add the target that provides it " +
+              "to this target's `source_only_abi_deps`, or declare that target " +
+              "`required_for_source_only_abi = True`. " +
+              "If it was inferred from an expression body, spell the type explicitly " +
+              "instead. If it is a nested generic arg of an inherited default method, " +
+              "add an explicit override spelling the full signature (see T290092261).",
+      )
+    }
+
     if (policy == AbiRepairPolicy.OFF) return
 
     // Always emitted, including at zero, so that "no repairs happened" is distinguishable from
@@ -1306,19 +1342,6 @@ internal class ValidationStage(private val repairLog: AbiGenRepairLog) : AbiGenS
     val severity =
         if (policy == AbiRepairPolicy.ERROR) CompilerMessageSeverity.ERROR
         else CompilerMessageSeverity.WARNING
-
-    // The final class bytes are authoritative: source-stage repair bookkeeping and stub classpath
-    // candidates can both miss a literal error type that survives a transform or hides in metadata.
-    val emittedTypeReferences = collectEmittedTypeReferences(inputs.outputFiles)
-    for (reference in emittedTypeReferences) {
-      if (reference.internalName != NON_EXISTENT_CLASS_INTERNAL_NAME) continue
-      messageCollector.report(
-          CompilerMessageSeverity.ERROR,
-          "Kosabi ABI validation: `${reference.owner}` emits `${reference.site}` referencing " +
-              "literal `$NON_EXISTENT_CLASS_INTERNAL_NAME`. The final ABI bytecode contains an " +
-              "unresolved type and no consumer can link against it.",
-      )
-    }
 
     // Assertion 1: every synthesised constant has a type consistent with a real declaration.
     // Constants that reached ASSUMED_STRING have a fabricated type, not merely a fabricated value.
@@ -1487,6 +1510,31 @@ internal class ValidationStage(private val repairLog: AbiGenRepairLog) : AbiGenS
       reference.eligibleForStubOnlyDetection &&
           reference.internalName.replace('/', '.') in phantomClasses
     }
+  }
+
+  /**
+   * True when any emitted class file mentions the error-type sentinel at all. The name reaches the
+   * constant pool as ASCII, in descriptors, signatures and metadata alike, so a jar whose bytes do
+   * not contain it cannot reference it - which lets the unconditional invariant skip the ASM walk
+   * on every clean build.
+   */
+  private fun mentionsLiteralErrorType(outputFiles: List<AbiValidationOutputFile>): Boolean {
+    val needle = NON_EXISTENT_CLASS_INTERNAL_NAME.toByteArray(Charsets.US_ASCII)
+    return outputFiles.any { outputFile ->
+      outputFile.relativePath.endsWith(".class") && containsBytes(outputFile.bytes, needle)
+    }
+  }
+
+  private fun containsBytes(haystack: ByteArray, needle: ByteArray): Boolean {
+    if (needle.isEmpty() || haystack.size < needle.size) return false
+    val last = haystack.size - needle.size
+    outer@ for (start in 0..last) {
+      for (offset in needle.indices) {
+        if (haystack[start + offset] != needle[offset]) continue@outer
+      }
+      return true
+    }
+    return false
   }
 
   private fun collectEmittedTypeReferences(
