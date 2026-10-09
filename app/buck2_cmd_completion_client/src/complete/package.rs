@@ -63,9 +63,9 @@ impl<'a> PackageCompleter<'a> {
         let cwd_cell_root = self.roots.project_root.resolve(cwd_cell_root);
         match given_path {
             "" => {
-                self.results.insert_dir(self.cwd.path(), "//").await;
+                self.results.insert_dir(&cwd_cell_root, "//").await;
                 self.results
-                    .insert_package_colon_if_buildfile_exists(&cwd_cell_root, given_path)
+                    .insert_package_colon_if_buildfile_exists(self.cwd.path(), given_path)
                     .await;
                 self.complete_partial_cells(given_path).await?;
                 self.complete_partial_path(given_path).await?;
@@ -623,10 +623,10 @@ mod tests {
         Ok(())
     }
 
-    /// With the cwd in a package below the cell root, `""` asks the cwd whether the cell root
-    /// is a package (`//:`) and the cell root whether the cwd is one (`:`): the two are swapped.
+    /// With the cwd in a package below a cell root that is not a package, `""` offers `:` for
+    /// the cwd and no `//:`.
     #[tokio::test]
-    async fn test_empty_string_in_package_subdir_swaps_root_and_cwd_colons() -> TestResult {
+    async fn test_empty_string_in_package_subdir_completes_cwd_colon() -> TestResult {
         let (roots, cwd) = in_dir("baredir0/buckdir0b")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -636,7 +636,7 @@ mod tests {
             actual,
             vec![
                 "//",
-                "//:",
+                ":",
                 "cell1//",
                 "cell1//:",
                 "cell2//",
