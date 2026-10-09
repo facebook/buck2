@@ -12,6 +12,8 @@ package com.facebook.buck.jvm.java.abi;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.facebook.buck.cd.model.java.AbiGenerationMode;
 import com.facebook.buck.core.filesystems.AbsPath;
@@ -64,6 +66,10 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.AnnotationNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 
 // The stub source is easier to read as long lines, so...
 // CHECKSTYLE.OFF: LineLengthCheck
@@ -1217,6 +1223,193 @@ public class StubJarTest {
             "  public final someOtherMethod()V",
             "}")
         .createAndCheckStubJar();
+  }
+
+  @Test
+  public void kotlinHiddenDeprecatedOverloadRetained() throws IOException {
+    if (!isValidForKotlin()) {
+      return;
+    }
+    if (!testingMode.equals(MODE_JAR_BASED)) {
+      // Class-ABI stubbing of HIDDEN members only applies to jar-based stubs.
+      return;
+    }
+
+    // `A` is an interface on purpose: concrete classes already keep SYNTHETIC|DEPRECATED
+    // members via `shouldInclude`, so only interfaces (and abstract classes) exercise the
+    // HIDDEN-retention path. `LazyListScope` (the motivating real-world case) is an interface.
+    File outputDir = temp.newFolder();
+    AbsPath fullJar;
+    try (KotlinTestCompiler compiler = new KotlinTestCompiler()) {
+      compiler.init();
+      compiler.addSourceFileContents(
+          "A.kt",
+          "package com.example.buck",
+          "interface A {",
+          "  @Deprecated(message=\"old\", level=DeprecationLevel.HIDDEN)",
+          "  fun f(content: (() -> Unit)?)",
+          "  fun f(content: ((Int) -> Unit)?)",
+          "}");
+      compiler.compile();
+      fullJar = AbsPath.of(outputDir.toPath()).resolve("output.jar");
+      compiler.getClasses().createJar(fullJar.getPath(), false);
+    }
+
+    AbsPath stubJar = AbsPath.of(temp.newFolder().toPath()).resolve("stub.jar");
+    new StubJar(fullJar, false).writeTo(stubJar);
+
+    try (JarFile jar = new JarFile(stubJar.toFile())) {
+      JarEntry entry = jar.getJarEntry("com/example/buck/A.class");
+      assertNotNull(entry);
+      ClassNode stub = new ClassNode(Opcodes.ASM9);
+      new ClassReader(jar.getInputStream(entry)).accept(stub, ClassReader.SKIP_CODE);
+
+      MethodNode hidden = null;
+      MethodNode visible = null;
+      for (MethodNode method : stub.methods) {
+        if (method.name.equals("f") && method.desc.equals("(Lkotlin/jvm/functions/Function0;)V")) {
+          hidden = method;
+        }
+        if (method.name.equals("f") && method.desc.equals("(Lkotlin/jvm/functions/Function1;)V")) {
+          visible = method;
+        }
+        assertTrue(
+            "compiler-generated synthetics should stay stripped: " + method.name,
+            !method.name.contains("access$")
+                && !method.name.contains("$lambda")
+                && !method.name.contains("$r8$"));
+      }
+      assertNotNull("visible overload kept", visible);
+      assertNotNull("HIDDEN overload kept in interface ABI stub", hidden);
+      assertTrue(
+          "HIDDEN overload must stay synthetic", (hidden.access & Opcodes.ACC_SYNTHETIC) != 0);
+      assertTrue(hasHiddenDeprecation(hidden));
+    }
+
+    // End to end: a call that is ambiguous when both overloads look visible
+    // resolves against the ABI now that the HIDDEN marker is present.
+    try (KotlinTestCompiler compiler = new KotlinTestCompiler()) {
+      compiler.init();
+      compiler.addSourceFileContents(
+          "B.kt",
+          "package com.example.buck",
+          "class B {",
+          "  fun use(a: A) {",
+          "    a.f(null)",
+          "    a.f { println(it) }",
+          "  }",
+          "}");
+      compiler.addClasspath(ImmutableSortedSet.of(stubJar.getPath()));
+      compiler.compile();
+    }
+  }
+
+  @Test
+  public void kotlinHiddenDeprecatedOverloadRetainedAbstractClass() throws IOException {
+    if (!isValidForKotlin()) {
+      return;
+    }
+    if (!testingMode.equals(MODE_JAR_BASED)) {
+      // Class-ABI stubbing of HIDDEN members only applies to jar-based stubs.
+      return;
+    }
+
+    // Abstract-class counterpart to the interface case above: `shouldInclude` also drops
+    // SYNTHETIC members on abstract classes, so this exercises the same retention path.
+    File outputDir = temp.newFolder();
+    AbsPath fullJar;
+    try (KotlinTestCompiler compiler = new KotlinTestCompiler()) {
+      compiler.init();
+      compiler.addSourceFileContents(
+          "A.kt",
+          "package com.example.buck",
+          "abstract class A {",
+          "  @Deprecated(message=\"old\", level=DeprecationLevel.HIDDEN)",
+          "  abstract fun f(content: (() -> Unit)?)",
+          "  abstract fun f(content: ((Int) -> Unit)?)",
+          "}");
+      compiler.compile();
+      fullJar = AbsPath.of(outputDir.toPath()).resolve("output.jar");
+      compiler.getClasses().createJar(fullJar.getPath(), false);
+    }
+
+    AbsPath stubJar = AbsPath.of(temp.newFolder().toPath()).resolve("stub.jar");
+    new StubJar(fullJar, false).writeTo(stubJar);
+
+    try (JarFile jar = new JarFile(stubJar.toFile())) {
+      JarEntry entry = jar.getJarEntry("com/example/buck/A.class");
+      assertNotNull(entry);
+      ClassNode stub = new ClassNode(Opcodes.ASM9);
+      new ClassReader(jar.getInputStream(entry)).accept(stub, ClassReader.SKIP_CODE);
+
+      MethodNode hidden = null;
+      MethodNode visible = null;
+      for (MethodNode method : stub.methods) {
+        if (method.name.equals("f") && method.desc.equals("(Lkotlin/jvm/functions/Function0;)V")) {
+          hidden = method;
+        }
+        if (method.name.equals("f") && method.desc.equals("(Lkotlin/jvm/functions/Function1;)V")) {
+          visible = method;
+        }
+      }
+      assertNotNull("visible overload kept", visible);
+      assertNotNull("HIDDEN overload kept in abstract-class ABI stub", hidden);
+      assertTrue(
+          "HIDDEN overload must stay synthetic", (hidden.access & Opcodes.ACC_SYNTHETIC) != 0);
+      assertTrue(hasHiddenDeprecation(hidden));
+    }
+
+    try (KotlinTestCompiler compiler = new KotlinTestCompiler()) {
+      compiler.init();
+      compiler.addSourceFileContents(
+          "B.kt",
+          "package com.example.buck",
+          "class C : A() {",
+          "  override fun f(content: (() -> Unit)?) {}",
+          "  override fun f(content: ((Int) -> Unit)?) {}",
+          "}",
+          "class B {",
+          "  fun use(a: A) {",
+          "    a.f(null)",
+          "    a.f { println(it) }",
+          "  }",
+          "}");
+      compiler.addClasspath(ImmutableSortedSet.of(stubJar.getPath()));
+      compiler.compile();
+    }
+  }
+
+  private static boolean hasHiddenDeprecation(MethodNode method) {
+    if (hasHiddenDeprecation(method.visibleAnnotations)) {
+      return true;
+    }
+    return hasHiddenDeprecation(method.invisibleAnnotations);
+  }
+
+  private static boolean hasHiddenDeprecation(java.util.List<AnnotationNode> annotations) {
+    if (annotations == null) {
+      return false;
+    }
+    for (AnnotationNode annotation : annotations) {
+      if (!"Lkotlin/Deprecated;".equals(annotation.desc) || annotation.values == null) {
+        continue;
+      }
+      for (int i = 0; i + 1 < annotation.values.size(); i += 2) {
+        if (!"level".equals(annotation.values.get(i))) {
+          continue;
+        }
+        Object level = annotation.values.get(i + 1);
+        if (level instanceof String[]) {
+          String[] enumValue = (String[]) level;
+          if (enumValue.length == 2
+              && "Lkotlin/DeprecationLevel;".equals(enumValue[0])
+              && "HIDDEN".equals(enumValue[1])) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
   @Test

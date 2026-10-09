@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -39,6 +40,7 @@ class StubJarClassEntry extends StubJarEntry {
   private final boolean isFilePrivateKotlinClass;
   private final boolean scopeCaptured;
   @Nullable private final String scopeOuterClass;
+  private final Set<String> hiddenDeprecatedMethods;
 
   @Nullable
   public static StubJarClassEntry of(
@@ -56,6 +58,7 @@ class StubJarClassEntry extends StubJarEntry {
     boolean isFilePrivateKotlinClass = false;
     boolean scopeCaptured = false;
     String scopeOuterClass = null;
+    Set<String> hiddenDeprecatedMethods = Collections.emptySet();
 
     if (isKotlinModule) {
       // Visit the class (skipping code) without filtering, to gather its annotations and class
@@ -78,6 +81,8 @@ class StubJarClassEntry extends StubJarEntry {
         scopeCaptured = inlineFunctionScope.isCapturedByOuterScope(classMetadata);
         scopeOuterClass = classMetadata.outerClass;
         inlineFunctions = KotlinMetadataReader.getInlineFunctions(parsedMetadata);
+        hiddenDeprecatedMethods =
+            new HashSet<>(AbiFilteringClassVisitor.findHiddenDeprecatedMethods(classMetadata));
       }
     }
 
@@ -91,7 +96,9 @@ class StubJarClassEntry extends StubJarEntry {
     ClassReferenceTracker referenceTracker = new ClassReferenceTracker(stub);
     ClassVisitor visitor = referenceTracker;
     if (!isWithinInlineFunctionScope) {
-      visitor = new AbiFilteringClassVisitor(visitor, inlineFunctions, keepSynthetic);
+      visitor =
+          new AbiFilteringClassVisitor(
+              visitor, inlineFunctions, null, keepSynthetic, hiddenDeprecatedMethods);
     }
 
     // If we want ABIs that are compatible with those generated from source, we add a visitor
@@ -123,7 +130,8 @@ class StubJarClassEntry extends StubJarEntry {
           keepSynthetic,
           isFilePrivateKotlinClass,
           scopeCaptured,
-          scopeOuterClass);
+          scopeOuterClass,
+          hiddenDeprecatedMethods);
     }
 
     return null;
@@ -138,7 +146,8 @@ class StubJarClassEntry extends StubJarEntry {
       boolean keepSynthetic,
       boolean isFilePrivateKotlinClass,
       boolean scopeCaptured,
-      @Nullable String scopeOuterClass) {
+      @Nullable String scopeOuterClass,
+      Set<String> hiddenDeprecatedMethods) {
     this.path = path;
     this.stub = stub;
     this.referencedClassNames = referencedClassNames;
@@ -148,6 +157,7 @@ class StubJarClassEntry extends StubJarEntry {
     this.isFilePrivateKotlinClass = isFilePrivateKotlinClass;
     this.scopeCaptured = scopeCaptured;
     this.scopeOuterClass = scopeOuterClass;
+    this.hiddenDeprecatedMethods = hiddenDeprecatedMethods;
   }
 
   @Override
@@ -198,7 +208,11 @@ class StubJarClassEntry extends StubJarEntry {
       visitor = new InnerClassSortingClassVisitor(stub.name, visitor);
       visitor =
           new AbiFilteringClassVisitor(
-              visitor, kotlinInlineFunctions, referencedClassNames, keepSynthetic);
+              visitor,
+              kotlinInlineFunctions,
+              referencedClassNames,
+              keepSynthetic,
+              hiddenDeprecatedMethods);
     }
 
     stub.accept(visitor);

@@ -12,6 +12,7 @@ package com.facebook.buck.jvm.java.abi;
 
 import com.google.common.base.Preconditions;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -26,6 +27,9 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AnnotationNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 
 /** A {@link ClassVisitor} that only passes to its delegate events for the class's ABI. */
 class AbiFilteringClassVisitor extends ClassVisitor {
@@ -41,10 +45,11 @@ class AbiFilteringClassVisitor extends ClassVisitor {
   private final Set<String> includedInnerClasses = new HashSet<>();
   private final List<String> nestMembers = new ArrayList<>();
   private boolean keepSynthetic;
+  private final Set<String> hiddenDeprecatedMethods;
 
   public AbiFilteringClassVisitor(
       ClassVisitor cv, List<String> methodsWithRetainedBody, boolean keepSynthetic) {
-    this(cv, methodsWithRetainedBody, null, keepSynthetic);
+    this(cv, methodsWithRetainedBody, null, keepSynthetic, Collections.emptySet());
   }
 
   public AbiFilteringClassVisitor(
@@ -52,10 +57,75 @@ class AbiFilteringClassVisitor extends ClassVisitor {
       List<String> methodsWithRetainedBody,
       @Nullable Set<String> referencedClassNames,
       boolean keepSynthetic) {
+    this(cv, methodsWithRetainedBody, referencedClassNames, keepSynthetic, Collections.emptySet());
+  }
+
+  public AbiFilteringClassVisitor(
+      ClassVisitor cv,
+      List<String> methodsWithRetainedBody,
+      @Nullable Set<String> referencedClassNames,
+      boolean keepSynthetic,
+      Set<String> hiddenDeprecatedMethods) {
     super(Opcodes.ASM9, cv);
     this.methodsWithRetainedBody = methodsWithRetainedBody;
     this.referencedClassNames = referencedClassNames;
     this.keepSynthetic = keepSynthetic;
+    this.hiddenDeprecatedMethods = hiddenDeprecatedMethods;
+  }
+
+  /**
+   * Finds synthetic methods annotated with {@code @kotlin.Deprecated(level = HIDDEN)}.
+   *
+   * <p>Kotlin compiles {@code DeprecationLevel.HIDDEN} members as {@code ACC_SYNTHETIC} but keeps
+   * them in {@code @kotlin.Metadata}. kotlinc needs the JVM method (with its {@code @Deprecated}
+   * marker) to hide the overload during resolution; dropping it makes calls ambiguous that Gradle
+   * (full jars) resolves. Returns keys of the form {@code name + descriptor}.
+   */
+  static Set<String> findHiddenDeprecatedMethods(ClassNode classNode) {
+    if (classNode.methods == null) {
+      return Collections.emptySet();
+    }
+    Set<String> result = new HashSet<>();
+    for (MethodNode method : classNode.methods) {
+      if ((method.access & Opcodes.ACC_SYNTHETIC) == 0) {
+        continue;
+      }
+      if (isHiddenDeprecated(method.visibleAnnotations)
+          || isHiddenDeprecated(method.invisibleAnnotations)) {
+        result.add(method.name + method.desc);
+      }
+    }
+    return result;
+  }
+
+  private static boolean isHiddenDeprecated(@Nullable List<AnnotationNode> annotations) {
+    if (annotations == null) {
+      return false;
+    }
+    for (AnnotationNode annotation : annotations) {
+      if (!"Lkotlin/Deprecated;".equals(annotation.desc)) {
+        continue;
+      }
+      if (annotation.values == null) {
+        return false;
+      }
+      for (int i = 0; i + 1 < annotation.values.size(); i += 2) {
+        if (!"level".equals(annotation.values.get(i))) {
+          continue;
+        }
+        Object level = annotation.values.get(i + 1);
+        if (level instanceof String[]) {
+          String[] enumValue = (String[]) level;
+          if (enumValue.length == 2
+              && "Lkotlin/DeprecationLevel;".equals(enumValue[0])
+              && "HIDDEN".equals(enumValue[1])) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+    return false;
   }
 
   @Override
@@ -124,7 +194,10 @@ class AbiFilteringClassVisitor extends ClassVisitor {
     // implicitly by the Java Virtual Machine; they are never invoked directly from any
     // Java Virtual Machine instruction, but are invoked only indirectly as part of the class
     // initialization process." Thus we don't need to emit a stub of <clinit>.
-    if (!shouldInclude(access) || (name.equals("<clinit>") && (access & Opcodes.ACC_STATIC) > 0)) {
+    boolean isHiddenDeprecatedMethod =
+        (access & Opcodes.ACC_SYNTHETIC) != 0 && hiddenDeprecatedMethods.contains(name + desc);
+    if ((!shouldInclude(access) && !isHiddenDeprecatedMethod)
+        || (name.equals("<clinit>") && (access & Opcodes.ACC_STATIC) > 0)) {
       return null;
     }
 
