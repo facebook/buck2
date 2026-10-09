@@ -558,7 +558,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
 
 fn get_default_re_properties(host_platform: HostPlatformOverride) -> RePlatformFields {
     let linux = &[("platform", "linux-remote-execution")];
-    let macos = &[("platform", "mac"), ("subplatform", "any")];
+    let macos = &[("platform", "mac"), ("subplatform", "no-xcode")];
     let windows = &[("platform", "windows")];
 
     let props = match host_platform {
