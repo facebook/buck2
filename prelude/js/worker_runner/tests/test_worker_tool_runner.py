@@ -136,3 +136,12 @@ class WorkerToolRunnerTest(unittest.TestCase):
     def test_an_all_successful_batch_exits_zero(self):
         exit_code, _ = run_batch([0, 0])
         self.assertEqual(exit_code, 0)
+
+    def test_a_shorter_variable_name_is_expanded_inside_a_longer_one(self):
+        envs = {"A": "x", "AB": "yy", "FROMFILE": "fileval"}
+        with mock.patch.dict(os.environ, {"A": "x", "AB": "yy"}, clear=True):
+            expanded = [
+                worker_tool_runner._maybe_expand_worker_arg(arg, envs)
+                for arg in ["$AB", "${AB}", "$FROMFILE"]
+            ]
+        self.assertEqual(expanded, ["xB", "yy", "$FROMFILE"])
