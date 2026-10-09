@@ -876,7 +876,13 @@ _CreateLinkGroupParams = record(
 )
 
 def _create_link_group(
-    ctx: AnalysisContext, spec: LinkGroupLibSpec, linkables: list[Label], linker_flags: list[typing.Any], params: _CreateLinkGroupParams
+    ctx: AnalysisContext,
+    spec: LinkGroupLibSpec,
+    linkables: list[Label],
+    linker_flags: list[typing.Any],
+    params: _CreateLinkGroupParams,
+    # (artifact, format) linker flags such as the group's `-Wl,--script={}`.
+    script_flags: list[(Artifact, str)] = [],
 ) -> _CreatedLinkGroup | None:
     """
     Link a link group library, described by a `LinkGroupLibSpec`.  This is
@@ -891,6 +897,10 @@ def _create_link_group(
     inputs.append(
         LinkInfo(
             pre_flags = linker_flags
+            +
+            # An anonymous link can't carry an artifact-bearing `cmd_args` in
+            # its flags, so it serializes these itself (`anon_script_flags`).
+            ([] if params.anonymous else [cmd_args(artifact, format = fmt) for artifact, fmt in script_flags])
             +
             # There's scenarios where we no required syms won't be on the root
             # link lines (e.g. syms from executable), so we need to ignore
@@ -955,6 +965,7 @@ def _create_link_group(
             error_handler = params.error_handler,
         ),
         anonymous = params.anonymous,
+        anon_script_flags = script_flags if params.anonymous else [],
     )
     linked_obj = link_result.linked_object
     hip_debug = collect_hip_debug_from_links(link_args)
@@ -1203,16 +1214,10 @@ def create_link_groups(
             ctx = ctx,
             spec = link_group_spec,
             linkables = linkables[link_group_spec.group.name],
-            linker_flags = (
-                linker_flags
-                + link_group_spec.group.attrs.linker_flags
-                + link_group_spec.group.attrs.exported_linker_flags
-                + ([cmd_args(link_group_spec.group.attrs.linker_script, format = "-Wl,--script={}")] if link_group_spec.group.attrs.linker_script else [])
-                + (
-                    [cmd_args(link_group_spec.group.attrs.version_script, format = "-Wl,--version-script={}")]
-                    if link_group_spec.group.attrs.version_script
-                    else []
-                )
+            linker_flags = (linker_flags + link_group_spec.group.attrs.linker_flags + link_group_spec.group.attrs.exported_linker_flags),
+            script_flags = (
+                ([(link_group_spec.group.attrs.linker_script, "-Wl,--script={}")] if link_group_spec.group.attrs.linker_script else [])
+                + ([(link_group_spec.group.attrs.version_script, "-Wl,--version-script={}")] if link_group_spec.group.attrs.version_script else [])
             ),
             params = create_link_group_params,
         )

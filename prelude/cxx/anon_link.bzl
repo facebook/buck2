@@ -50,6 +50,7 @@ load(
 
 _LINK_ARGS_FLAGS_TAG = 0
 _LINK_ARGS_INFOS_TAG = 1
+_LINK_ARGS_ARTIFACT_FLAG_TAG = 2
 
 _LINKABLE_ARCHIVE_TAG = 0
 _LINKABLE_OBJECTS_TAG = 1
@@ -119,7 +120,18 @@ def _anon_link_flags(values: list) -> list:
             result.append(value)
     return result
 
-def serialize_anon_attrs(output: str, result_type: CxxLinkResultType, opts: LinkOptions) -> dict[str, typing.Any]:
+def serialize_anon_attrs(
+    output: str,
+    result_type: CxxLinkResultType,
+    opts: LinkOptions,
+    # (artifact, format) pairs for linker flags that embed an artifact, e.g. a
+    # link group's `-Wl,--script={}`. They travel here rather than in `opts`
+    # because the `links_flags` attr only accepts resolved macros, and a
+    # `cmd_args` built in Starlark cannot be taken apart to rebuild later.
+    # Each one becomes a recipe entry holding the format, with its artifact in
+    # the artifact stream.
+    script_flags: list[(Artifact, str)] = [],
+) -> dict[str, typing.Any]:
     # Anonymous links cannot run distributed ThinLTO (its dynamic outputs are
     # unsupported in anon targets; every anonymous caller disables it), and the
     # encoding relies on that: `LinkInfo.name` is not serialized, and dist
@@ -130,6 +142,9 @@ def serialize_anon_attrs(output: str, result_type: CxxLinkResultType, opts: Link
     recipe = []
     flags = []
     artifacts = []
+    for artifact, fmt in script_flags:
+        recipe.append([_LINK_ARGS_ARTIFACT_FLAG_TAG, fmt])
+        artifacts.append(artifact)
     for link in opts.links:
         if link.flags != None:
             link_flags = _anon_link_flags(link.flags)
@@ -234,6 +249,9 @@ def deserialize_anon_attrs(actions: AnalysisActions, label: Label, attrs: struct
                     infos = [_decode_link_info(actions, label, spec, attrs.links_flags, flag_cursor, attrs.links_artifacts, artifact_cursor) for spec in entry[1]]
                 )
             )
+        elif entry[0] == _LINK_ARGS_ARTIFACT_FLAG_TAG:
+            links.append(LinkArgs(flags = [cmd_args(attrs.links_artifacts[artifact_cursor[0]], format = entry[1])]))
+            artifact_cursor[0] += 1
         else:
             fail("Invalid link args kind: {}".format(entry[0]))
 

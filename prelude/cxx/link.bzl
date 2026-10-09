@@ -635,7 +635,9 @@ def _get_link_artifact(p: ProviderCollection, name: str) -> Artifact:
     else:
         return getattr(p[_AnonLinkInfoPlaceholder], name)
 
-def _anon_cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResultType, opts: LinkOptions) -> CxxLinkResult:
+def _anon_cxx_link(
+    ctx: AnalysisContext, output: str, result_type: CxxLinkResultType, opts: LinkOptions, script_flags: list[(Artifact, str)] = []
+) -> CxxLinkResult:
     if opts.stderr_output != None:
         fail("stderr_output is not supported for anonymous link actions")
     if opts.cxx_toolchain:
@@ -649,6 +651,7 @@ def _anon_cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResult
                 output = output,
                 result_type = result_type,
                 opts = opts,
+                script_flags = script_flags,
             ),
         ),
     )
@@ -689,14 +692,19 @@ def _anon_cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResult
         shared_library_interface = None,
     )
 
-def _cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResultType, opts: LinkOptions, anonymous: bool = False):
+def _cxx_link(
+    ctx: AnalysisContext, output: str, result_type: CxxLinkResultType, opts: LinkOptions, anonymous: bool = False, anon_script_flags: list[(Artifact, str)] = []
+):
     if anonymous:
         return _anon_cxx_link(
             ctx = ctx,
             output = output,
             result_type = result_type,
             opts = opts,
+            script_flags = anon_script_flags,
         )
+    if anon_script_flags:
+        fail("anon_script_flags is only consumed by anonymous links; pass these flags in `opts` instead")
     return cxx_link_into(
         ctx = ctx,
         output = ctx.actions.declare_output(output, has_content_based_path = False),
@@ -714,6 +722,9 @@ def cxx_link_shared_library(
     # Overrides the default flags used to specify building shared libraries
     shared_library_flags: [SharedLibraryFlagOverrides, None] = None,
     anonymous: bool = False,
+    # (artifact, format) linker flags for an anonymous link. See
+    # `serialize_anon_attrs`; non-anonymous links take these in `opts`.
+    anon_script_flags: list[(Artifact, str)] = [],
 ) -> CxxLinkResult:
     # links: list[LinkArgs] = [],
     # link_execution_preference: LinkExecutionPreference = LinkExecutionPreference("any"),
@@ -735,6 +746,7 @@ def cxx_link_shared_library(
         result_type = CxxLinkResultType("shared_library"),
         opts = merged_opts,
         anonymous = anonymous,
+        anon_script_flags = anon_script_flags,
     )
 
 def _build_cxx_link_shared_library_options(
