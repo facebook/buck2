@@ -201,6 +201,7 @@ impl<'a> DaemonEventsCtx<'a> {
                         Err(e)
                             .buck_error_context("Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.")
                             .tag(ErrorTag::ClientGrpcStream)
+                            .tag(ErrorTag::DaemonDisconnect)
                     };
                 }
             };
