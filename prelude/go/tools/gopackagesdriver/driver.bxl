@@ -201,7 +201,7 @@ def _make_protocol_package(
         # todo: handle invalid Go files
         # We don't need to use "if" statements for _test.go files, because they are always empty for non-test targets
         package["GoFiles"] = [] + go_list_out.go_files + go_list_out.cgo_files + go_list_out.test_go_files + go_list_out.x_test_go_files
-        package["OtherFiles"] = [] + go_list_out.h_files + go_list_out.c_files + go_list_out.cxx_files + go_list_out.s_files
+        package["OtherFiles"] = [] + go_list_out.h_files + go_list_out.c_files + go_list_out.cxx_files + go_list_out.m_files + go_list_out.s_files
         package["IgnoredFiles"] = [] + go_list_out.ignored_go_files + go_list_out.ignored_other_files
 
     if load_mode.need_compiled_go_files:
