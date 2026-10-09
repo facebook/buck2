@@ -9,11 +9,12 @@ on:
 permissions:
   contents: read
 
-# A full `//...` build takes a while on a hosted runner; a newer push to the
-# same ref supersedes the one in flight.
+# On `main`, cancelling would leave most commits without a verdict: codesync
+# pushes faster than a ~50 minute run finishes. Let the run in flight finish;
+# only a pull request's superseded run is cancelled.
 concurrency:
   group: build-with-buck2-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Runner labels are repository (owner) specific, so the Meta larger runner
@@ -23,7 +24,7 @@ jobs:
     runs-on: ${{ github.repository_owner == 'facebook' && '4-core-ubuntu' || 'ubuntu-latest' }}
     steps:
     - uses: actions/checkout@v6
-    - uses: ./.github/actions/setup_linux_env
+    - uses: ./.github/actions/setup_rust_toolchain
     # The debug build shares its cargo cache with "Build and test".
     - uses: ./.github/actions/build_debug
     - uses: ./.github/actions/setup_reindeer
