@@ -34,8 +34,10 @@ class GoldenCiLabelTest(unittest.TestCase):
     def test_ci_labels_are_ignored(self) -> None:
         _check('[\n  "ci:overwrite",\n  "ci:diff:linux",\n  "foo"\n]', '[\n  "foo"\n]')
 
-    def test_a_changed_target_in_a_ci_package_passes(self) -> None:
-        _check('[\n  "root//tools/ci:lint"\n]', '[\n  "root//tools/ci:fmt"\n]')
+    def test_a_changed_target_in_a_ci_package_fails(self) -> None:
+        with self.assertRaises(AssertionError):
+            _check('[\n  "root//tools/ci:lint"\n]', '[\n  "root//tools/ci:fmt"\n]')
 
-    def test_a_lost_dependency_in_a_ci_package_passes(self) -> None:
-        _check("deps:\n  root//a:a\n  root//ci:lint\n", "deps:\n  root//a:a\n")
+    def test_a_lost_dependency_in_a_ci_package_fails(self) -> None:
+        with self.assertRaises(AssertionError):
+            _check("deps:\n  root//a:a\n  root//ci:lint\n", "deps:\n  root//a:a\n")

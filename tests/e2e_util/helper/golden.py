@@ -14,6 +14,9 @@ from pathlib import Path
 
 GOLDEN_DIRECTORY = "fixtures/"
 
+# A CI label as it appears in JSON output, e.g. `"ci:overwrite",`.
+_CI_LABEL_LINE = re.compile(r'^\s*"ci:[^"]*",?$')
+
 
 def _prepend_header(content: str) -> str:
     return (
@@ -30,7 +33,7 @@ def _remove_ci_labels(content: str) -> str:
     #  "ci:continuous:linux:@fbcode//mode/dev-lg",
     new_content = []
     for line in content.splitlines():
-        if "ci:" in line:
+        if _CI_LABEL_LINE.match(line):
             continue
         new_content.append(line)
     return "\n".join(new_content)
