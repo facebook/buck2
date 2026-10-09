@@ -11,7 +11,7 @@ load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load(":nodejs_providers.bzl", "build_node_modules", "get_nodejs_dep_infos", "get_transitive_outputs")
 load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
 
-def nodejs_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+def build_nodejs_command(ctx: AnalysisContext) -> struct:
     dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label)
     runtime = None
     entry = None
@@ -21,7 +21,7 @@ def nodejs_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         for src in [ctx.attrs.main] + ctx.attrs.srcs:
             existing = staged.get(src.short_path)
             if existing != None and existing != src:
-                fail("nodejs_binary {}: `main`/`srcs` entries '{}' and '{}' both stage to '{}'".format(ctx.label, existing, src, src.short_path))
+                fail("{}: `main`/`srcs` entries '{}' and '{}' both stage to '{}'".format(ctx.label, existing, src, src.short_path))
             staged[src.short_path] = src
         runtime = build_node_modules(
             ctx.actions,
@@ -61,7 +61,11 @@ def nodejs_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         env = env,
         labels = ctx.attrs.labels,
     )
+    return struct(merged = runtime, output = output, env = env)
+
+def nodejs_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+    command = build_nodejs_command(ctx)
     return [
-        DefaultInfo(default_output = runtime, other_outputs = output.output.other_outputs),
-        RunInfo(args = output.cmd),
+        DefaultInfo(default_output = command.merged, other_outputs = command.output.output.other_outputs),
+        RunInfo(args = command.output.cmd),
     ]
