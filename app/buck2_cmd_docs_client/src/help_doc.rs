@@ -523,4 +523,14 @@ mod tests {
             "{md}"
         );
     }
+
+    /// Inside a fenced block, one lone backtick before a `<` makes the inline alternative win,
+    /// so the bracket is escaped although it sits in code.
+    #[test]
+    fn angle_brackets_inside_fence_after_odd_backtick_are_escaped() {
+        assert_eq!(
+            escape_angle_brackets_for_mdx("```\necho `date\ncat <file>\n```"),
+            "```\necho `date\ncat &lt;file&gt;\n```"
+        );
+    }
 }
