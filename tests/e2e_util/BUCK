@@ -1,5 +1,7 @@
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
+load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
+load("@fbsource//tools/build_defs/testinfra:network_access_utils.bzl", "network_access_utils")
 
 oncall("build_infra")
 
@@ -70,4 +72,11 @@ python_library(
         "//buck2/tests/e2e_util:utilities",
         "//buck2/tests/e2e_util/api:api",
     ],
+)
+
+python_unittest(
+    name = "golden_test",
+    srcs = ["tests/test_golden.py"],
+    network_access = network_access_utils.none(),
+    deps = [":golden"],
 )
