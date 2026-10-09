@@ -182,6 +182,10 @@ enum DepFileWriteOperation {
         logical_key: Vec<u8>,
         config_key: Vec<u8>,
     },
+    Touch {
+        logical_key: Vec<u8>,
+        config_key: Vec<u8>,
+    },
     Clear,
     /// Acknowledged once every write queued before it has been applied.
     Flush(crossbeam_channel::Sender<()>),
@@ -207,6 +211,14 @@ fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWriteOperation) -> Optio
             table.delete(&logical_key, &config_key),
             "delete_from_dep_file_db",
             WriteKind::Delete,
+        ),
+        DepFileWriteOperation::Touch {
+            logical_key,
+            config_key,
+        } => (
+            table.touch(&logical_key, &config_key),
+            "touch_dep_file_db",
+            WriteKind::Touch,
         ),
         DepFileWriteOperation::Clear => (table.clear(), "clear_dep_file_db", WriteKind::Clear),
         DepFileWriteOperation::Flush(ack) => {
@@ -285,7 +297,7 @@ struct WriteCounters {
     duration_us: AtomicU64,
     max_us: AtomicU64,
     /// The writes that reached the database, split by what they did, so a slow insert and a slow
-    /// prune-driven delete are distinguishable. The three counts sum to the writes `duration_us`
+    /// prune-driven delete are distinguishable. The four counts sum to the writes `duration_us`
     /// covers; `applied` also counts `Flush`, which does no database work.
     inserts: AtomicU64,
     insert_duration_us: AtomicU64,
@@ -293,6 +305,8 @@ struct WriteCounters {
     delete_duration_us: AtomicU64,
     clears: AtomicU64,
     clear_duration_us: AtomicU64,
+    touches: AtomicU64,
+    touch_duration_us: AtomicU64,
 }
 
 /// What an applied write did. `Flush` has no variant: it touches no table.
@@ -301,6 +315,7 @@ enum WriteKind {
     Insert,
     Delete,
     Clear,
+    Touch,
 }
 
 impl WriteCounters {
@@ -314,6 +329,7 @@ impl WriteCounters {
                 WriteKind::Insert => (&self.inserts, &self.insert_duration_us),
                 WriteKind::Delete => (&self.deletes, &self.delete_duration_us),
                 WriteKind::Clear => (&self.clears, &self.clear_duration_us),
+                WriteKind::Touch => (&self.touches, &self.touch_duration_us),
             };
             count.fetch_add(1, Ordering::Relaxed);
             duration.fetch_add(elapsed, Ordering::Relaxed);
@@ -469,6 +485,13 @@ impl DepFileStore for PersistedDepFileStore {
         });
     }
 
+    fn touch(&self, logical_key: Vec<u8>, config_key: Vec<u8>) {
+        self.queue(DepFileWriteOperation::Touch {
+            logical_key,
+            config_key,
+        });
+    }
+
     fn get_digests(&self, logical_key: &[u8]) -> Vec<StoredDepFileDigests> {
         let started = Instant::now();
         let result = self.get_digests_inner(logical_key);
@@ -535,6 +558,8 @@ impl DepFileStore for PersistedDepFileStore {
             delete_duration_us: self.write.delete_duration_us.load(Ordering::Relaxed),
             clears: self.write.clears.load(Ordering::Relaxed),
             clear_duration_us: self.write.clear_duration_us.load(Ordering::Relaxed),
+            touches: self.write.touches.load(Ordering::Relaxed),
+            touch_duration_us: self.write.touch_duration_us.load(Ordering::Relaxed),
         }
     }
 

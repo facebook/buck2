@@ -258,6 +258,8 @@ impl SnapshotCollector {
             snapshot.dep_file_db_delete_duration_us = writes.delete_duration_us;
             snapshot.dep_file_db_clears = writes.clears;
             snapshot.dep_file_db_clear_duration_us = writes.clear_duration_us;
+            snapshot.dep_file_db_touches = writes.touches;
+            snapshot.dep_file_db_touch_duration_us = writes.touch_duration_us;
             snapshot.dep_file_db_write_duration_us = writes.duration_us;
             snapshot.dep_file_db_write_max_us = writes.max_us;
             let reads = store.read_stats();

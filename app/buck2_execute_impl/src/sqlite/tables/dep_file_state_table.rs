@@ -515,7 +515,7 @@ impl DepFileStateSqliteTable {
             .local_worker_directory_digest
             .as_ref()
             .map(tracked_digest_parts);
-        // Stamped on write (re-stamped every rebuild); `prune` uses it to bound the db by age.
+        // `insert` sets this time and `touch` refreshes it. `prune` removes entries by this time.
         let last_write_time = jiff::Timestamp::now().as_second();
 
         let mut conn = self.shared_connection.lock();
@@ -667,6 +667,21 @@ impl DepFileStateSqliteTable {
         let tx = conn.transaction()?;
         delete_key_in_tx(&tx, logical_key, config_key)?;
         tx.commit()?;
+        Ok(())
+    }
+
+    pub(crate) fn touch(&self, logical_key: &[u8], config_key: &[u8]) -> buck2_error::Result<()> {
+        static SQL: LazyLock<String> = LazyLock::new(|| {
+            format!(
+                "UPDATE {STATE_TABLE_NAME} SET last_write_time = ?1 WHERE logical_key = ?2 AND config_key = ?3"
+            )
+        });
+        let now = jiff::Timestamp::now().as_second();
+        self.shared_connection
+            .lock()
+            .prepare_cached(&SQL)?
+            .execute(rusqlite::params![now, logical_key, config_key])
+            .with_buck_error_context(|| format!("touching {STATE_TABLE_NAME}"))?;
         Ok(())
     }
 
@@ -1109,6 +1124,37 @@ mod tests {
         assert_eq!(table.prune(None, Some(1))?, 1);
         assert!(probe_then_read(&table, b"b", b"cfg", digest_config)?.is_none());
         assert!(probe_then_read(&table, b"c", b"cfg", digest_config)?.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn test_touch_protects_entry_from_prune() -> buck2_error::Result<()> {
+        let digest_config = DigestConfig::testing_default();
+        let table = table();
+        let directory_digest =
+            TrackedFileDigest::from_content(b"d", digest_config.cas_digest_config())
+                .data()
+                .dupe();
+        let make = || StoredDepFileState {
+            cli_digest: vec![1u8; 32],
+            directory_digest: directory_digest.dupe(),
+            local_worker_directory_digest: None,
+            was_produced_locally: true,
+            declared: vec![],
+            outputs: vec![leaf_output("o", file_value(digest_config, b"c", false))],
+        };
+        for k in [b"a", b"b"] {
+            table.insert(k.to_vec(), b"cfg".to_vec(), make())?;
+            set_write_time(&table, k, b"cfg", 100);
+        }
+
+        table.touch(b"a", b"cfg")?;
+        // Touching an absent entry does nothing.
+        table.touch(b"missing", b"cfg")?;
+
+        assert_eq!(table.prune(Some(150), None)?, 1);
+        assert!(probe_then_read(&table, b"a", b"cfg", digest_config)?.is_some());
+        assert!(probe_then_read(&table, b"b", b"cfg", digest_config)?.is_none());
         Ok(())
     }
 

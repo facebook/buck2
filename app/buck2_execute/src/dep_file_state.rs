@@ -114,6 +114,8 @@ pub struct DepFileWriteStats {
     pub delete_duration_us: u64,
     pub clears: u64,
     pub clear_duration_us: u64,
+    pub touches: u64,
+    pub touch_duration_us: u64,
 }
 
 /// Cumulative cost of the persisted store's reads, reported per snapshot. `MatchDepFilesEnd`
@@ -166,6 +168,10 @@ pub trait DepFileStore: Send + Sync + 'static {
     /// action's identity and no row handle: eviction mirrors a removal from the in-memory cache,
     /// which is keyed the same way, so the two stay one-for-one.
     fn delete(&self, logical_key: Vec<u8>, config_key: Vec<u8>);
+    /// Set the write time of the entry for `(logical_key, config_key)` to now, if the entry exists.
+    /// Pruning removes entries by write time. Callers refresh an entry whenever they serve it. An
+    /// action that is served from the cache without executing then keeps its entry.
+    fn touch(&self, _logical_key: Vec<u8>, _config_key: Vec<u8>) {}
     /// The digests of every persisted entry for `logical_key`, one per configuration it was built
     /// under (empty on a miss or on any database error). Reads only the scalar table, so a candidate
     /// that cannot match costs nothing more than this. The in-memory cache calls this on demand for a
