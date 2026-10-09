@@ -239,6 +239,17 @@ async def test_no_buckd_kills_existing_daemon(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_no_buckd_is_a_noop_for_a_client_only_command(buck: Buck) -> None:
+    await buck.targets(":")  # Start a resident daemon
+    status = json.loads((await buck.status()).stdout)
+    pid = status["process_info"]["pid"]
+    # `log` never connects, so it must neither kill the resident daemon nor start a
+    # daemon of its own.
+    await buck.log("last", "--no-buckd")
+    assert daemon_is_alive(pid)
+
+
+@buck_test()
 async def test_buck_out_is_cache_dir(buck: Buck) -> None:
     await buck.targets(":")  # Start a daemon
     root = await buck.root()
