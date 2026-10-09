@@ -32,8 +32,8 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     # so you can include a link to an internal resource (wiki, task, etc)                              @oss-disable
     # I would only add additional categories here if you think someone in open-source would benefit    @oss-disable
     # codesigning issues
-    ErrorEnricher(matcher = "codesignprovisioningerror", category = "code_sign_error"), # @oss-enable
-    ErrorEnricher(matcher = "the timestamp service is not available", category = "code_sign_error"),
+    ErrorEnricher(matcher = "CodeSignProvisioningError", category = "code_sign_error"), # @oss-enable
+    ErrorEnricher(matcher = "The timestamp service is not available", category = "code_sign_error"),
     # compilation issues
     ErrorEnricher(matcher = "failed to emit precompiled module", category = "pcm_compilation_failure"),
     ErrorEnricher(matcher = "please rebuild precompiled header", category = "pcm_compilation_failure"),
@@ -42,36 +42,37 @@ _APPLE_STDERR_ERROR_CATEGORIES = [
     ErrorEnricher(matcher = "missing required modules", category = "missing_required_modules_error"),
     ErrorEnricher(matcher = "has a minimum deployment target", category = "deployment_target_error"),
     # toolchain / genrule issues
-    ErrorEnricher(matcher = "stack dump:", category = "binary_execution_failure"),
+    ErrorEnricher(matcher = "Stack dump:", category = "binary_execution_failure"),
     ErrorEnricher(matcher = "thread 'main' panicked", category = "binary_execution_failure"),
     ErrorEnricher(matcher = "error while loading shared libraries", category = "binary_execution_failure"),
-    ErrorEnricher(matcher = "traceback (most recent call last)", category = "python_execution_failure"),
+    ErrorEnricher(matcher = "Traceback (most recent call last)", category = "python_execution_failure"),
     ErrorEnricher(matcher = "command not found", category = "command_not_found_failure"),
-    ErrorEnricher(matcher = "command timed out", category = "timeout_failure"),
-    ErrorEnricher(matcher = "no such file or directory", category = "no_such_file_failure"),
+    ErrorEnricher(matcher = regex("(?i)command timed out"), category = "timeout_failure"),
+    ErrorEnricher(matcher = regex("(?i)no such file or directory"), category = "no_such_file_failure"),
     # user errors
-    ErrorEnricher(matcher = "unknown target", category = "unknown_buck_target_failure"),
+    ErrorEnricher(matcher = "Unknown target", category = "unknown_buck_target_failure"),
     # buck configuration issues
     ErrorEnricher(matcher = "unknown cell alias", category = "unknown_cell_alias_failure"),
 ]
 
-def _match(matcher: str | BuckRegex, lowercase_stderr: str) -> bool:
+def _match(matcher: str | BuckRegex, stderr: str) -> bool:
     if isinstance(matcher, str):
-        return matcher in lowercase_stderr
+        return matcher in stderr
     elif isinstance(matcher, BuckRegex):
-        return matcher.match(lowercase_stderr)
+        return matcher.match(stderr)
     else:
         fail("Unknown matcher type: {}", type(matcher))
 
-def _add_category_strings(ctx: ActionErrorCtx, lowercase_stderr: str, errors: list[ActionSubError], source: list[ErrorEnricher]):
+def _add_category_strings(ctx: ActionErrorCtx, stderr: str, errors: list[ActionSubError], source: list[ErrorEnricher]):
     for enricher in source:
-        if not _match(enricher.matcher, lowercase_stderr):
+        # Stderr carries no file path, so a file-scoped enricher cannot be honoured here.
+        if enricher.file_matcher or not _match(enricher.matcher, stderr):
             continue
 
         subcategory = None
         remediation = None
         if enricher.subcategory_extractor:
-            subcategory = enricher.subcategory_extractor(lowercase_stderr)
+            subcategory = enricher.subcategory_extractor(stderr)
             if subcategory and enricher.subcategory_remediations and subcategory in enricher.subcategory_remediations:
                 remediation = enricher.subcategory_remediations[subcategory]
 
@@ -98,9 +99,8 @@ def _category_match(message: str, path: str, categories: list[ErrorEnricher]) ->
 def apple_build_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     errors = []
 
-    lowercase_stderr = ctx.stderr.lower()
-    _add_category_strings(ctx, lowercase_stderr, errors, _APPLE_STDERR_ERROR_CATEGORIES)
-    _add_category_strings(ctx, lowercase_stderr, errors, APPLE_META_STDERR_ERROR_CATEGORIES)
+    _add_category_strings(ctx, ctx.stderr, errors, _APPLE_STDERR_ERROR_CATEGORIES)
+    _add_category_strings(ctx, ctx.stderr, errors, APPLE_META_STDERR_ERROR_CATEGORIES)
 
     return errors
 
@@ -161,7 +161,7 @@ def cxx_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     # The cxx error handler is also used for linking, which will not have any
     # serialzed diagnostics, so go through the stderr matcher here.
     if not ctx.output_artifacts.values():
-        _add_category_strings(ctx, ctx.stderr.lower(), errors, APPLE_CXX_STDERR_CATEGORIES)
+        _add_category_strings(ctx, ctx.stderr, errors, APPLE_CXX_STDERR_CATEGORIES)
 
     return errors
 

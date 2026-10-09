@@ -17,11 +17,11 @@ def make_error_type(matcher = None, category_suffix = str) -> CxxGenericErrorTyp
         category_suffix = category_suffix,
     )
 
-def _match(matcher: str | BuckRegex, lowercase_stderr: str) -> bool:
+def _match(matcher: str | BuckRegex, stderr: str) -> bool:
     if isinstance(matcher, str):
-        return matcher in lowercase_stderr
+        return matcher in stderr
     elif isinstance(matcher, BuckRegex):
-        return matcher.match(lowercase_stderr)
+        return matcher.match(stderr)
     else:
         fail("Unknown matcher type: {}", type(matcher))
 
@@ -48,7 +48,7 @@ def cxx_generic_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
             e.category = "cxx_compiler_warning"
         else:
             for error_type in CXX_GENERIC_ERROR_TYPES:
-                if _match(error_type.matcher, e.message.lower()):
+                if _match(error_type.matcher, e.message):
                     e.category = "cxx_{}".format(error_type.category_suffix)
                     break
 
@@ -56,7 +56,7 @@ def cxx_generic_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     categories = []
     if len(structured_error) == 0:
         for error_type in CXX_GENERIC_ERROR_TYPES:
-            if _match(error_type.matcher, ctx.stderr.lower()):
+            if _match(error_type.matcher, ctx.stderr):
                 categories.append(
                     ctx.new_sub_error(
                         category = "cxx_{}".format(error_type.category_suffix),
@@ -70,6 +70,8 @@ def cxx_generic_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
 # Error types added here should be generic across all cxx toolchains, toolchain/platform specific errors
 # should be defined in a separate toolchain and provided accordingly, these generic errors will automatically
 # be added to all types. If you wish to add messages, it must be applicable to ALL scenarios, including OSS.
+#
+# Matching is case-sensitive: write matchers the way the tool prints them.
 CXX_GENERIC_ERROR_TYPES = [
     # linker errors
     make_error_type(
@@ -174,7 +176,7 @@ CXX_GENERIC_ERROR_TYPES = [
         category_suffix = "comma_operator_misuse",
     ),
     make_error_type(
-        matcher = "no such file or directory",
+        matcher = regex("(?i)no such file or directory"),
         category_suffix = "no_such_file_or_directory",
     ),
     make_error_type(
