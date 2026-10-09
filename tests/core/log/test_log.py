@@ -13,6 +13,7 @@ import json
 import os.path
 from pathlib import Path
 
+import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import is_running_on_windows
@@ -102,3 +103,53 @@ async def test_what_buck(buck: Buck, tmp_path: Path) -> None:
 
     out = await buck.log("what-cmd", "--expand")
     assert "uquery //: -c" in out.stdout
+
+
+@buck_test()
+@pytest.mark.parametrize(
+    "snapshots,expected_re,expected_http",
+    [
+        pytest.param(
+            [(100_000, 200_000), (100_100, 200_200), (100_300, 200_500)],
+            300,
+            500,
+            id="nonzero_baseline",
+        ),
+        pytest.param([(0, 0), (300, 500)], 300, 500, id="zero_baseline"),
+        pytest.param([(100_000, 200_000), (100_000, 200_000)], 0, 0, id="no_downloads"),
+        pytest.param([], 0, 0, id="no_snapshots"),
+        pytest.param([(100_000, 200_000)], 0, 0, id="one_snapshot"),
+    ],
+)
+async def test_log_summary_downloads(
+    buck: Buck,
+    tmp_path: Path,
+    snapshots: list[tuple[int, int]],
+    expected_re: int,
+    expected_http: int,
+) -> None:
+    await buck.uquery("//:EEE")
+    log = [json.loads(line) for line in (await buck.log("show")).stdout.splitlines()]
+    snapshot_event = next(
+        event
+        for event in log[1:]
+        if "Snapshot"
+        in event.get("Event", {}).get("data", {}).get("Instant", {}).get("data", {})
+    )
+    snapshot = snapshot_event["Event"]["data"]["Instant"]["data"]["Snapshot"]
+    log_path = tmp_path / "summary.json-lines"
+    with log_path.open("w") as output:
+        print(json.dumps(log[0]), file=output)
+        for index, (re_bytes, http_bytes) in enumerate(snapshots):
+            snapshot_event["Event"]["timestamp"] = [index + 1, 0]
+            snapshot["re_download_bytes"] = re_bytes
+            snapshot["http_download_bytes"] = http_bytes
+            print(json.dumps(snapshot_event), file=output)
+
+    result = await buck.log("summary", str(log_path))
+
+    assert [line for line in result.stdout.splitlines() if "downloaded:" in line] == [
+        f"- Total downloaded: {expected_re + expected_http}B",
+        f"  - RE downloaded: {expected_re}B",
+        f"  - HTTP downloaded: {expected_http}B",
+    ]
