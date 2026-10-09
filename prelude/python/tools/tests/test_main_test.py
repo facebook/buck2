@@ -46,16 +46,18 @@ def _results_of(case: type[unittest.TestCase]) -> dict[str, dict[str, object]]:
 
 
 class SubtestReportingTest(unittest.TestCase):
-    def test_a_skipped_subtest_fails_the_test(self) -> None:
+    def test_a_skipped_subtest_leaves_the_test_passing(self) -> None:
         case, after_skip = _subtests_case()
         result = _results_of(case)["test_subtest_skips"]
-        self.assertEqual(result["type"], "FAILURE")
-        self.assertEqual(result["message"], "AssertionError: ")
-        self.assertEqual(after_skip, [])
+        self.assertEqual(result["type"], "SUCCESS")
+        self.assertEqual(result["message"], "Skipped: platform not supported")
+        self.assertEqual(after_skip, [True])
 
-    def test_a_failed_subtest_loses_its_message(self) -> None:
+    def test_a_failed_subtest_keeps_its_message(self) -> None:
         case, _ = _subtests_case()
         result = _results_of(case)["test_subtest_fails"]
         self.assertEqual(result["type"], "FAILURE")
-        self.assertEqual(result["message"], "")
-        self.assertIsNone(result["stacktrace"])
+        self.assertEqual(
+            result["message"], "AssertionError: 1 != 0 : value 1 is not zero"
+        )
+        self.assertIn("test_subtest_fails", str(result["stacktrace"]))

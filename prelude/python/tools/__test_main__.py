@@ -176,6 +176,11 @@ class CallbackStream:
         return self._fileno
 
 
+def _is_subtest(test):
+    # `unittest.case._SubTest` wraps the running test case for `subTest` blocks.
+    return hasattr(test, "test_case") and hasattr(test, "params")
+
+
 class BuckTestResult(unittest.TextTestResult):
     """
     Our own TestResult class that outputs data in a format that can be easily
@@ -328,7 +333,22 @@ class BuckTestResult(unittest.TextTestResult):
 
     def addSkip(self, test, reason):
         super(BuckTestResult, self).addSkip(test, reason)
+        if _is_subtest(test):
+            # unittest reports the skip for the subtest only; the enclosing test
+            # keeps running and is not failed by it.
+            self.setStatus(test.test_case, TestStatus.PASSED, "Skipped: %s" % (reason,))
+            return
         self.setStatus(test, TestStatus.SKIPPED, "Skipped: %s" % (reason,))
+
+    def addSubTest(self, test, subtest, err):
+        super(BuckTestResult, self).addSubTest(test, subtest, err)
+        if err is None:
+            return
+        if issubclass(err[0], test.failureException):
+            status = TestStatus.FAILED
+        else:
+            status = TestStatus.ABORTED
+        self.setException(test, status, err)
 
     def addExpectedFailure(self, test, err):
         super(BuckTestResult, self).addExpectedFailure(test, err)
