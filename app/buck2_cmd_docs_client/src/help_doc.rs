@@ -416,9 +416,10 @@ fn write_arg_markdown(buffer: &mut String, arg: &clap::Arg) -> std::fmt::Result 
 /// except when they appear inside inline or block code spans.
 fn escape_angle_brackets_for_mdx(input: &str) -> String {
     // Build a regex that matches either:
-    // 1. A backtick-enclosed inline code: `...` or a fenced code block: ```...```
+    // 1. A fenced code block: ```...``` or a backtick-enclosed inline code: `...`
+    //    (the fence must come first: the inline alternative also matches the start of a fence)
     // 2. A single `<` or `>` character
-    let re = Regex::new(r"(?s)(`[^`]*`|```.*?```)|(<|>)").unwrap();
+    let re = Regex::new(r"(?s)(```.*?```|`[^`]*`)|(<|>)").unwrap();
 
     // Perform the replacement for all captured groups
     re.replace_all(input, |caps: &regex::Captures| {
@@ -524,13 +525,10 @@ mod tests {
         );
     }
 
-    /// Inside a fenced block, one lone backtick before a `<` makes the inline alternative win,
-    /// so the bracket is escaped although it sits in code.
+    /// A fenced block is left alone whatever backticks it contains.
     #[test]
-    fn angle_brackets_inside_fence_after_odd_backtick_are_escaped() {
-        assert_eq!(
-            escape_angle_brackets_for_mdx("```\necho `date\ncat <file>\n```"),
-            "```\necho `date\ncat &lt;file&gt;\n```"
-        );
+    fn angle_brackets_inside_fence_after_odd_backtick_are_kept() {
+        let input = "```\necho `date\ncat <file>\n```";
+        assert_eq!(escape_angle_brackets_for_mdx(input), input);
     }
 }
