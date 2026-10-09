@@ -434,6 +434,7 @@ def main():
             stderr=subprocess.PIPE,
         ) as worker:
             exit_code = None
+            failed_job_command = None
             try:
                 job_command = None
                 message_id = 0
@@ -445,15 +446,22 @@ def main():
                         command_args_file, message_id, tmp_dir
                     )
                     _send_command(job_command, worker)
-                    exit_code = _receive_command_reply(worker, message_id)
+                    command_exit_code = _receive_command_reply(worker, message_id)
+                    # The first failure decides the outcome of the whole batch.
+                    if not exit_code:
+                        exit_code = command_exit_code
+                        if command_exit_code:
+                            failed_job_command = job_command
 
                 _perform_termination(worker)
 
             except Exception:
                 traceback.print_exc()
-                exit_code = 1
+                if not exit_code:
+                    exit_code = 1
+                    failed_job_command = job_command
             finally:
-                _handle_error(exit_code, job_command)
+                _handle_error(exit_code, failed_job_command or job_command)
 
 
 if __name__ == "__main__":

@@ -20,8 +20,8 @@ import worker_tool_runner
 
 class ScriptedWorker:
     """Stands in for the worker process: it echoes the handshake, answers each command with
-    the next scripted exit code after writing that command's stderr file, and acknowledges
-    the termination."""
+    the next scripted exit code (or a worker error for `TYPE_ERROR`) after writing that
+    command's stderr file, and acknowledges the termination."""
 
     def __init__(self, exit_codes):
         self._exit_codes = list(exit_codes)
@@ -51,11 +51,19 @@ class ScriptedWorker:
             command = json.loads(text[1:])
             with open(command["stderr_path"], "w") as stderr_file:
                 stderr_file.write("command {} stderr\n".format(command["id"]))
-            result = {
-                "id": command["id"],
-                "type": worker_tool_runner.TYPE_RESULT,
-                "exit_code": self._exit_codes[command["id"] - 1],
-            }
+            outcome = self._exit_codes[command["id"] - 1]
+            if outcome == worker_tool_runner.TYPE_ERROR:
+                result = {
+                    "id": command["id"],
+                    "type": worker_tool_runner.TYPE_ERROR,
+                    "message": "scripted worker error",
+                }
+            else:
+                result = {
+                    "id": command["id"],
+                    "type": worker_tool_runner.TYPE_RESULT,
+                    "exit_code": outcome,
+                }
             self._reply(worker_tool_runner.START_MESSAGE_PREFIX + json.dumps(result))
 
     def _reply(self, text):
@@ -101,13 +109,30 @@ def run_batch(exit_codes):
 
 
 class WorkerToolRunnerTest(unittest.TestCase):
-    def test_a_failure_before_a_success_is_reported_as_success(self):
+    def test_a_failure_before_a_success_is_reported_with_its_output(self):
         exit_code, printed = run_batch([1, 0])
-        self.assertEqual(exit_code, 0)
-        self.assertIn("command 2 stderr", printed)
-        self.assertNotIn("command 1 stderr", printed)
+        self.assertEqual(exit_code, 1)
+        self.assertIn("finished with exit code: 1", printed)
+        self.assertIn("command 1 stderr", printed)
+        self.assertNotIn("command 2 stderr", printed)
 
     def test_a_failure_as_the_last_command_is_reported(self):
         exit_code, printed = run_batch([0, 1])
         self.assertEqual(exit_code, 1)
         self.assertIn("command 2 stderr", printed)
+
+    def test_a_worker_error_after_a_failure_keeps_the_failure(self):
+        exit_code, printed = run_batch([2, worker_tool_runner.TYPE_ERROR])
+        self.assertEqual(exit_code, 2)
+        self.assertIn("finished with exit code: 2", printed)
+        self.assertIn("command 1 stderr", printed)
+        self.assertNotIn("command 2 stderr", printed)
+
+    def test_a_worker_error_without_an_earlier_failure_is_reported(self):
+        exit_code, printed = run_batch([0, worker_tool_runner.TYPE_ERROR])
+        self.assertEqual(exit_code, 1)
+        self.assertIn("command 2 stderr", printed)
+
+    def test_an_all_successful_batch_exits_zero(self):
+        exit_code, _ = run_batch([0, 0])
+        self.assertEqual(exit_code, 0)
