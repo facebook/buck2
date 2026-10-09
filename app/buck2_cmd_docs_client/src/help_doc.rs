@@ -438,6 +438,10 @@ fn escape_angle_brackets_for_mdx(input: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use clap::Arg;
+    use clap::Command;
+
+    use super::cmd_markdown_help;
     use super::escape_angle_brackets_for_mdx;
 
     #[test]
@@ -492,5 +496,29 @@ mod tests {
         let input = "<tag>`code<code>`</tag>";
         let expected = "&lt;tag&gt;`code<code>`&lt;/tag&gt;";
         assert_eq!(escape_angle_brackets_for_mdx(input), expected);
+    }
+
+    /// The about text is handed to clap as a help template, which drops every `{` piece that
+    /// has no `}` before the next `{`, so the `select()` encoding example of `uquery` is cut.
+    #[test]
+    fn uquery_page_mangles_select_encoding_example() {
+        const ABOUT: &str = "`1 + select({\"//:a\": 1, \"DEFAULT\": 2})` will be encoded as:\n\n\
+            `{\"__type\": \"concat\", \"items\": [1, {\"__type\": \"selector\", \
+            \"entries\": {\"//:a\": 1, \"DEFAULT\": 2}}]}`\n";
+        let md = cmd_markdown_help(&Command::new("uquery").long_about(ABOUT));
+        assert!(!md.contains("__type"), "{md}");
+        assert!(md.contains("`{\"//:a\": 1, \"DEFAULT\": 2}}]}`"), "{md}");
+    }
+
+    /// A known template tag inside an option's help is expanded by clap.
+    #[test]
+    fn template_tags_in_option_help_are_expanded() {
+        let cmd = Command::new("tagdemo").arg(
+            Arg::new("fmt")
+                .long("fmt")
+                .help("Placeholders: {name} is replaced by the target name"),
+        );
+        let md = cmd_markdown_help(&cmd);
+        assert!(md.contains("Placeholders: tagdemo is replaced"), "{md}");
     }
 }
