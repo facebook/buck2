@@ -19,6 +19,7 @@ import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
 import java.net.URI
+import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
 import org.jetbrains.kotlin.descriptors.ClassKind
@@ -61,6 +62,7 @@ import org.jetbrains.kotlin.load.java.structure.JavaClassifier
 import org.jetbrains.kotlin.load.java.structure.JavaTypeParameter
 import org.jetbrains.kotlin.load.java.structure.impl.VirtualFileBoundJavaClass
 import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinarySourceElement
+import org.jetbrains.kotlin.name.ClassId
 
 private const val JAR_FILE_SEPARATOR = "!/"
 private const val STUBSGEN_STUBS_JAR = "stubgen_stubs.jar"
@@ -84,6 +86,7 @@ class KosabiClassUsageCollector {
 
   private val uriUsages: MutableSet<URI> = mutableSetOf()
   private val visitedClasses = mutableSetOf<String>()
+  private val missingClassIds = mutableSetOf<ClassId>()
 
   /**
    * Walk the resolved FIR tree and collect all referenced classpath classes. Writes results to the
@@ -99,14 +102,22 @@ class KosabiClassUsageCollector {
       }
     }
 
+    addMissingTypeGuards(configuration.jvmClasspathRoots)
     dump(outputPath)
   }
 
   @OptIn(SymbolInternals::class)
   private fun recordType(type: ConeKotlinType, session: FirSession) {
-    if (type is ConeErrorType) return
+    if (type is ConeErrorType) {
+      recordMissingClassIdFromError(type)
+      return
+    }
 
     val upper = type.upperBoundIfFlexible()
+    if (upper is ConeErrorType) {
+      recordMissingClassIdFromError(upper)
+      return
+    }
     (upper as? ConeClassLikeType)?.typeArguments?.forEach {
       if (it is ConeKotlinTypeProjection) recordType(it.type, session)
     }
@@ -118,8 +129,64 @@ class KosabiClassUsageCollector {
     val pkg = classId.packageFqName.asString()
     if (isStdlibOrJdkPackage(pkg)) return
 
-    val symbol = session.symbolProvider.getClassLikeSymbolByClassId(classId) ?: return
+    val symbol = session.symbolProvider.getClassLikeSymbolByClassId(classId)
+    if (symbol == null) {
+      missingClassIds.add(classId)
+      return
+    }
     recordClassDeclaration(symbol.fir, session)
+  }
+
+  @OptIn(SymbolInternals::class)
+  private fun recordMissingClassIdFromError(type: ConeErrorType) {
+    try {
+      val classId = type.lookupTag.classId
+      if (classId.isLocal) return
+      if (isStdlibOrJdkPackage(classId.packageFqName.asString())) return
+      missingClassIds.add(classId)
+    } catch (_: Exception) {
+      // ClassId not recoverable from the error type; nothing recordable.
+    }
+  }
+
+  /**
+   * Records a missing-type guard entry for every missing type under every jar on the classpath.
+   * Dep-file checking only compares listed entries, so a type that appears in a jar after the build
+   * would otherwise go unnoticed and reuse a stale ABI shaped by its absence.
+   */
+  private fun addMissingTypeGuards(classpathRoots: List<File>) {
+    if (missingClassIds.isEmpty()) return
+    // Error-sentinel ids like <error> name no class file.
+    val recordableIds = missingClassIds.filterNot {
+      it.relativeClassName.pathSegments().any { name -> name.isSpecial }
+    }
+    if (recordableIds.isEmpty()) return
+    val jarPrefixes =
+        (uriUsages.map { it.rawSchemeSpecificPart.substringBefore(JAR_FILE_SEPARATOR) } +
+                classpathRoots
+                    .filter { it.isFile && it.extension == "jar" && !isStubJarPath(it.path) }
+                    .map { "file://${it.absolutePath}" })
+            .toSet()
+    for (prefix in jarPrefixes) {
+      for (classId in recordableIds) {
+        try {
+          uriUsages.add(URI("jar:$prefix$JAR_FILE_SEPARATOR${classFilePath(classId)}"))
+        } catch (_: Exception) {
+          // Unusable as a dep entry; leave the type unrecorded.
+        }
+      }
+    }
+  }
+
+  private fun isStubJarPath(jarPath: String): Boolean {
+    val name = jarPath.substringAfterLast('/')
+    return name.endsWith(STUBSGEN_STUBS_JAR) || name == "stubs.jar"
+  }
+
+  private fun classFilePath(classId: ClassId): String {
+    val pkg = classId.packageFqName.asString()
+    val names = classId.relativeClassName.pathSegments().joinToString("$") { it.asString() }
+    return (if (pkg.isEmpty()) "" else pkg.replace('.', '/') + "/") + names + ".class"
   }
 
   private fun recordAnnotation(annotation: FirAnnotation, session: FirSession) {
@@ -238,7 +305,7 @@ class KosabiClassUsageCollector {
   private fun addFile(path: String) {
     if (
         path.contains(JAR_FILE_SEPARATOR) &&
-            !path.split(JAR_FILE_SEPARATOR)[0].endsWith(STUBSGEN_STUBS_JAR)
+            !isStubJarPath(path.substringBefore(JAR_FILE_SEPARATOR))
     ) {
       uriUsages.add(URI("jar:file://$path"))
     }
