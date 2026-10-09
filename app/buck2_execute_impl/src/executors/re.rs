@@ -202,6 +202,7 @@ impl ReExecutor {
             meta_internal_extra_params,
             worker_tool_action_digest,
             self.priority,
+            request.timeout(),
         );
 
         let execute_response =

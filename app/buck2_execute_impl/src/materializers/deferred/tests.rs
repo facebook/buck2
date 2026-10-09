@@ -687,6 +687,7 @@ mod state_machine {
                 command_sender,
                 materialize_final_artifacts: true,
                 defer_write_actions: true,
+                ensure_timeout: None,
                 io,
                 materializer_state_info: buck2_data::MaterializerStateInfo {
                     num_entries_from_sqlite: 0,
@@ -772,6 +773,35 @@ mod state_machine {
             Ok(())
         })
         .await
+    }
+
+    #[tokio::test]
+    async fn test_ensure_times_out_if_command_thread_never_runs() {
+        let io = Arc::new(StubIoHandler::new(temp_root()));
+        let (processor, command_sender, command_receiver, _events, background_cleanup_gate) =
+            make_processor_for_io(io.dupe());
+        let dm = DeferredMaterializerAccessor {
+            command_thread: None,
+            command_sender,
+            materialize_final_artifacts: true,
+            defer_write_actions: true,
+            ensure_timeout: Some(TokioDuration::from_millis(50)),
+            io,
+            materializer_state_info: buck2_data::MaterializerStateInfo {
+                num_entries_from_sqlite: 0,
+            },
+            stats: Arc::new(DeferredMaterializerStats::default()),
+            background_cleanup_gate,
+        };
+        // Keep the receiver so `send` succeeds, but never run the command loop.
+        let _keep_unprocessed = (processor, command_receiver);
+
+        let err = match dm.materialize_many(vec![make_path("foo")]).await {
+            Ok(_) => panic!("expected Ensure timeout"),
+            Err(e) => e,
+        };
+        let msg = format!("{err:#}");
+        assert!(msg.contains("Ensure") && msg.contains("buck2-dm"), "{msg}");
     }
 
     #[tokio::test]

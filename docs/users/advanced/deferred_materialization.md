@@ -50,6 +50,17 @@ To enable, add this to your Buckconfig:
 sqlite_materializer_state = true
 ```
 
+`ensure_materialized` waits on a oneshot until the materializer command
+thread (`buck2-dm`) dequeues `Ensure`. That wait is bounded (default 60
+seconds) so a stuck command thread fails instead of freezing the build.
+Set to `0` to disable. This does not bound the CAS download that follows
+an accepted `Ensure`.
+
+```ini
+[buck2]
+materializer_ensure_timeout_secs = 60
+```
+
 ## Deferring Write Actions
 
 To further speedup builds, Buck2 can also be instructed to not execute any
