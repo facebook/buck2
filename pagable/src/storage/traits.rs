@@ -478,6 +478,9 @@ pub trait PagableStorage: Send + Sync + 'static {
 
         // Pushed once per item: a page-out writes about twenty arc rows per
         // value, and a push per arc from every worker contends on one lock.
+        // Holds every arc this item's row references, written here or by
+        // another item still in progress, so that once this item is handed
+        // back and its value evicted, nothing its row references is unbound.
         let mut written = Vec::new();
         let mut tasks: Vec<Task> = item_arcs
             .iter()
@@ -492,9 +495,10 @@ pub trait PagableStorage: Send + Sync + 'static {
             match task {
                 Task::Start { arc, slot } => {
                     if !slot.try_claim() {
-                        if slot.wait().is_none() {
+                        let Some((key, ticket)) = slot.wait() else {
                             return Err(PageOutError::AlreadyFailed);
-                        }
+                        };
+                        written.push((arc, key, ticket));
                         continue;
                     }
 

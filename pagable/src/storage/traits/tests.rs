@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::any::TypeId;
 use std::sync::Arc;
 use std::sync::Barrier;
 use std::sync::atomic::AtomicBool;
@@ -276,6 +277,100 @@ fn serialize_shared_arc_items(
     }
     storage.flush()?;
     Ok(keys)
+}
+
+/// A value whose serialization blocks until released, so a page-out item can be
+/// held mid-write.
+struct GatedValue {
+    started: Barrier,
+    release: Barrier,
+}
+
+impl GatedValue {
+    fn new() -> Self {
+        Self {
+            started: Barrier::new(2),
+            release: Barrier::new(2),
+        }
+    }
+}
+
+impl PagableSerialize for GatedValue {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        self.started.wait();
+        self.release.wait();
+        0u8.pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for GatedValue {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        _deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        Err(crate::Error::msg("a gated value is never read back"))
+    }
+}
+
+fn page_out_item_ticketed(
+    storage: &CountingStorage,
+    finished: &ArcSerCache,
+    tag: u8,
+    arcs: &[&dyn PagableSerialize],
+) -> anyhow::Result<DataKey> {
+    let storage_context = storage.storage_context();
+    let mut serializer = SerializerForPaging::new(storage_context);
+    tag.pagable_serialize(&mut serializer)?;
+    for arc in arcs {
+        arc.pagable_serialize(&mut serializer)?;
+    }
+    let (data, arcs) = serializer.finish();
+    let (key, _ticket) = storage
+        .page_out_item_ticketed(data, arcs, finished, storage_context)
+        .map_err(|error| match error {
+            PageOutError::Failed(error) => error,
+            PageOutError::AlreadyFailed => panic!("unexpected AlreadyFailed"),
+        })?;
+    Ok(key)
+}
+
+/// An item's row can reference an arc that another item is still in the middle
+/// of writing. Once the item is handed back, a page-out may evict its value, so
+/// everything its row references must be bindable by then: a page-in of the
+/// value that found the arc unregistered would restore a second copy of it.
+#[test]
+fn arc_a_handed_back_item_references_is_bindable() -> anyhow::Result<()> {
+    let mem = InMemoryPagableStorage::new();
+    let storage = Arc::new(CountingStorage::new(mem.handle()));
+    let finished = Arc::new(ArcSerCache::new());
+    let shared = PartialPagableArc::new(ResidentArcValue(7));
+    let gated: Arc<GatedValue> = Arc::new(GatedValue::new());
+
+    // The writer's item: arcs are processed from the last serialized, so it
+    // writes `shared` and then blocks in `gated` with `shared` still unpushed.
+    let writer = std::thread::spawn({
+        let storage = storage.dupe();
+        let finished = finished.dupe();
+        let shared = shared.dupe();
+        let gated = gated.dupe();
+        move || page_out_item_ticketed(&storage, &finished, 0, &[&gated, &shared])
+    });
+    gated.started.wait();
+
+    let referrer = page_out_item_ticketed(&storage, &finished, 1, &[&shared])?;
+    let shared_key = storage.fetch_data_blocking(&referrer)?.arcs[0];
+    finished.bind_covered(&*storage, &storage.commit_frontier());
+    let bound = storage.arc_cache().get(
+        &TypeId::of::<PartialPagableArc<ResidentArcValue>>(),
+        &shared_key,
+    );
+    assert!(
+        bound.is_some_and(|arc| arc.identity() == ArcErase::identity(&shared)),
+        "the referrer was handed back, but the arc its row references is not bound"
+    );
+
+    gated.release.wait();
+    writer.join().expect("writer thread should not panic")?;
+    Ok(())
 }
 
 fn page_out_paused_lookup_arc(
