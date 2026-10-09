@@ -208,10 +208,23 @@ prelude.python_library(
         "type_check_result_to_validation.py",
         "wheel.py",
     ]
-    + glob(["tests/**/*.py"]),
+    + glob(
+        ["tests/**/*.py"],
+        # Imports `__test_main__.py` under the name its test target gives it.
+        exclude = ["tests/test_main_test.py"],
+    ),
     base_module = "",
     typing = True,
     deps = [
         "fbsource//third-party/pypi/colorama:colorama",
     ],
+)
+
+prelude.python_test(
+    name = "test_main_test",
+    srcs = {
+        "buck_test_main.py": "__test_main__.py",
+        "tests/test_main_test.py": "tests/test_main_test.py",
+    },
+    base_module = "",
 )
