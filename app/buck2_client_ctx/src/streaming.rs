@@ -35,6 +35,7 @@ use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::daemon::client::connect::DaemonStartupMode;
 use crate::daemon::client::connect::DesiredTraceIoState;
 use crate::daemon::client::connect::connect_buckd;
+use crate::daemon::client::connect::remove_in_process_daemon_info;
 use crate::events_ctx::EventsCtx;
 use crate::exit_result::ExitResult;
 use crate::path_arg::PathArg;
@@ -249,7 +250,12 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                         .allow_daemon_start_unsandboxed_via_wrapper()?,
                 })
             };
-            let buckd = match ctx.start_in_process_daemon.take() {
+            let start_in_process_daemon = ctx.start_in_process_daemon.take();
+            let in_process_daemon_dir = match &start_in_process_daemon {
+                None => None,
+                Some(_) => Some(ctx.paths()?.daemon_dir()?),
+            };
+            let buckd = match start_in_process_daemon {
                 None => connect_buckd(connect_options, events_ctx, ctx.paths()?).await,
                 Some(start_in_process_daemon) => {
                     // Start in-process daemon, wait until it is ready to accept connections.
@@ -279,6 +285,12 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 .await;
 
             ctx.restarter.observe(&buckd, events_ctx);
+
+            // The in-process daemon dies with this client: by exit, or by `run` replacing the
+            // client with the target. The command is done, so the record goes now, before either.
+            if let Some(daemon_dir) = in_process_daemon_dir {
+                remove_in_process_daemon_info(&daemon_dir);
+            }
 
             command_result
         };
