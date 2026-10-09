@@ -51,6 +51,7 @@ class ExitCodeV2(Enum):
     DAEMON_PREEMPTED = 5
     TIMEOUT = 6
     CONNECT_ERROR = 11
+    FATAL_OOM = 12
     BROKEN_PIPE = 130
     SIGNAL_INTERRUPT = 141
 
