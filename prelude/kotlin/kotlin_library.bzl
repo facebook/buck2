@@ -794,8 +794,9 @@ def _typecheck_subtarget(
 
     # Sources: plain .kt plus kotlinc-style source archives (the wrapper unzips;
     # suffixes mirror _ARCHIVE_SUFFIXES in typechecker.py).
-    # Mixed .java sources are skipped (the checker covers Kotlin only); the count
-    # rides into the report so measurement can exclude mixed targets.
+    # Mixed .java sources ride along as declaration stubs (the checker
+    # scans their top-level types for import resolution but never checks
+    # them); java_sources_skipped stays 0 (report-schema compat).
     kt_srcs = [s for s in srcs if s.extension == ".kt"]
     zip_srcs = [s for s in srcs if s.basename.endswith(".src.zip") or s.basename.endswith("-sources.jar")]
     java_srcs = [s for s in srcs if s.extension == ".java"]
@@ -844,9 +845,9 @@ def _typecheck_subtarget(
         classpath_file,
         "--srcs",
     ])
-    args.add(kt_srcs + zip_srcs)
+    args.add(kt_srcs + zip_srcs + java_srcs)
     args.add(["--output", report.as_output()])
-    args.add(["--java-sources-skipped", str(len(java_srcs))])
+    args.add(["--java-sources-skipped", "0"])
     for generated in generated_sources:
         args.add(["--generated", generated])
     if werror:
@@ -856,7 +857,7 @@ def _typecheck_subtarget(
     if has_plugins:
         args.add("--plugins")
     args.add(["--language-version", get_language_version(ctx)])
-    hidden = cmd_args([compiling_classpath, kt_srcs, zip_srcs, generated_sources, classpath_file])
+    hidden = cmd_args([compiling_classpath, kt_srcs, zip_srcs, java_srcs, generated_sources, classpath_file])
     ctx.actions.run(cmd_args(args, hidden = hidden), category = "typecheck")
     return extra_sub_targets | {
         "typecheck": [DefaultInfo(default_output = report)],

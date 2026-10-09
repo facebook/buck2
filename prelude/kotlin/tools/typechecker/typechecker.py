@@ -9,10 +9,11 @@
 """typechecker.py — run the typechecker as a kotlin_library sub-target action.
 
 Reads the compiling classpath from a file, unzips kotlinc-style source
-archives (.src.zip, -sources.jar), and checks every .kt source with the
-typechecker CLI. Shadow mode: always exits 0. The report records the real
-exit code plus some additional information so the dashboard distinguishes
-not-checked from clean.
+archives (.src.zip, -sources.jar), checks every .kt source with the
+typechecker CLI, and forwards .java sources as declaration stubs (their
+top-level types resolve imports; they are never checked). Shadow mode:
+always exits 0. The report records the real exit code plus some additional
+information so the dashboard distinguishes not-checked from clean.
 """
 
 import argparse
@@ -84,10 +85,13 @@ def _collect_sources(srcs, generated_dirs, tmp):
             with zipfile.ZipFile(s) as z:
                 z.extractall(dest)
             out.extend(str(p) for p in sorted(pathlib.Path(dest).rglob("*.kt")))
-        elif s.endswith(".kt"):
+        elif s.endswith(".kt") or s.endswith(".java"):
+            # .java rides along for declaration stubs (the CLI scans
+            # top-level types for import resolution; it never checks them).
             out.append(s)
     for generated in generated_dirs or []:
         out.extend(str(p) for p in sorted(pathlib.Path(generated).rglob("*.kt")))
+        out.extend(str(p) for p in sorted(pathlib.Path(generated).rglob("*.java")))
     return out
 
 
