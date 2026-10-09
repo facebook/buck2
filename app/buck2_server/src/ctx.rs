@@ -47,6 +47,8 @@ use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
+use buck2_common::file_ops::baseline::FileSystemBaseline;
+use buck2_common::file_ops::baseline::SetFileSystemBaseline;
 use buck2_common::file_ops::io::initialize_read_dir_cache;
 use buck2_common::http::SetHttpClient;
 use buck2_common::io::trace::TracingIoProvider;
@@ -92,6 +94,7 @@ use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
 use buck2_file_watcher::dep_files::SetDepFileCache;
 use buck2_file_watcher::file_watcher::SyncOutcome;
+use buck2_file_watcher::mergebase::Mergebase;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::error::IoResultExt;
@@ -794,13 +797,17 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
         )?;
 
         early_timings.start_span(FILE_WATCHER_WAIT.to_owned());
-        let (ctx, mergebase, outcome) = self
-            .cmd_ctx
-            .base_context
-            .repo()
-            .file_watcher
-            .sync(ctx)
-            .await?;
+        let (ctx, mergebase, outcome) = match &self.cmd_ctx.base_context.repo().file_watcher {
+            Some(file_watcher) => file_watcher.sync(ctx).await?,
+            // No watcher (`--no-buckd`): this command is the daemon's only one, reading the tree
+            // as its own fresh snapshot. The unique baseline keeps file ops from reusing state
+            // across daemons, exactly as a watcher's first sync after startup would.
+            None => {
+                let mut ctx = ctx;
+                ctx.set_file_system_baseline(FileSystemBaseline::unique())?;
+                (ctx, Mergebase::default(), SyncOutcome::Incremental)
+            }
+        };
         early_timings.end_known_span();
 
         let mut user_data = self.make_user_computation_data(&cells_and_configs.root_config)?;
