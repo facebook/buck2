@@ -20,3 +20,28 @@ long_running = rule(
     impl = _long_running_impl,
     attrs = {},
 )
+
+def _nested_run_impl(ctx: AnalysisContext) -> list[Provider]:
+    script = ctx.actions.write(
+        "nested_run.py",
+        [
+            "import subprocess",
+            "import sys",
+            "buck2, isolation = sys.argv[1], sys.argv[2]",
+            "subprocess.run([buck2, '--isolation-dir', isolation, 'build', '--no-buckd', 'root//:rule'], check=True)",
+        ],
+        has_content_based_path = False,
+    )
+    return [
+        DefaultInfo(),
+        RunInfo(args = cmd_args("fbpython", script, ctx.attrs.buck2_path, ctx.attrs.isolation_dir)),
+    ]
+
+# Runs a nested daemon-less build from inside a `buck2 run` target.
+nested_run = rule(
+    impl = _nested_run_impl,
+    attrs = {
+        "buck2_path": attrs.string(),
+        "isolation_dir": attrs.string(),
+    },
+)
