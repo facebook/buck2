@@ -127,9 +127,9 @@ def create_jar_artifact_kotlincd(
         jvm_abi_gen = None
         should_use_jvm_abi_gen = False
 
-    # Structured applicability must see every source in the target.
-    should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental and kosabi_applicability_cell_root == None
-    should_ksp2_run_incrementally = kotlin_toolchain.ksp2_enable_incremental_processing and incremental and kosabi_applicability_cell_root == None
+    expect(incremental == False or kosabi_applicability_cell_root == None, "Kosabi applicability requires a full compilation")
+    should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
+    should_ksp2_run_incrementally = kotlin_toolchain.ksp2_enable_incremental_processing and incremental
     incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", has_content_based_path = True, dir = True)
     incremental_metadata_ignored_inputs_tag = actions.artifact_tag()
 

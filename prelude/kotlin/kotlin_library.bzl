@@ -523,8 +523,13 @@ def build_kotlin_library(
                 hidden = validation_deps_outputs or [],
             )
 
+            abi_generation_mode = get_abi_generation_mode(ctx.attrs.abi_generation_mode)
+            kosabi_applicability_runs = abi_generation_mode == AbiGenerationMode("source_only") and kotlin_toolchain.kosabi_applicability_plugin != None
+            # Applicability verdicts need whole-target analysis; incremental frontends can omit findings from unchanged files.
+            incremental = ctx.attrs.incremental and not kosabi_applicability_runs
+
             common_kotlincd_kwargs = {
-                "abi_generation_mode": get_abi_generation_mode(ctx.attrs.abi_generation_mode),
+                "abi_generation_mode": abi_generation_mode,
                 "actions": ctx.actions,
                 "additional_classpath_entries": additional_classpath_entries,
                 "annotation_processor_properties": AnnotationProcessorProperties(
@@ -563,8 +568,8 @@ def build_kotlin_library(
                 plugin_params = create_plugin_params(ctx, ctx.attrs.plugins + ctx.attrs.non_exec_dep_plugins_deprecated),
                 extra_arguments = extra_arguments,
                 actions_identifier = "",
-                incremental = ctx.attrs.incremental,
-                bootclasspath_snapshot_entries = bootclasspath_jar_snapshots_for_kotlinc,
+                incremental = incremental,
+                bootclasspath_snapshot_entries = bootclasspath_jar_snapshots_for_kotlinc if incremental else [],
                 track_files_which_skipped_compilation = kotlin_toolchain.track_files_which_skipped_compilation,
                 **common_kotlincd_kwargs,
             )
