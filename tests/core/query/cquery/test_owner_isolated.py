@@ -9,6 +9,7 @@
 # pyre-strict
 
 import re
+from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -27,3 +28,37 @@ async def test_query_owner(buck: Buck) -> None:
         _replace_hash(result.stdout)
         == "root//bin:the_binary (root//platforms:platform1#<HASH>)\n"
     )
+
+
+@buck_test(data_dir="simple")
+async def test_cquery_owner_missing_file(buck: Buck) -> None:
+    for path in (
+        "bin/missing.file",
+        "missing/file",
+        "root//bin/missing.file",
+        (buck.cwd / "bin/missing.file").as_posix(),
+    ):
+        result = await buck.cquery(
+            "--target-universe=root//bin:the_binary", f"owner('{path}')"
+        )
+        assert result.process.returncode == 0
+        assert result.stdout == ""
+
+    result = await buck.cquery(
+        "--target-universe=root//bin:the_binary",
+        "owner(bin/TARGETS.fixture)",
+        rel_cwd=Path("bin"),
+    )
+    assert result.process.returncode == 0
+    assert result.stdout == ""
+
+
+@buck_test(data_dir="simple")
+async def test_cquery_owner_missing_file_without_explicit_universe(buck: Buck) -> None:
+    for query in (
+        "owner(bin/missing.file)",
+        "deps(root//bin:the_binary) intersect owner(bin/missing.file)",
+    ):
+        result = await buck.cquery(query)
+        assert result.process.returncode == 0
+        assert result.stdout == ""
