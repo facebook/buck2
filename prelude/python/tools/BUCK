@@ -228,3 +228,10 @@ prelude.python_test(
     },
     base_module = "",
 )
+
+prelude.python_test(
+    name = "compile_test",
+    srcs = ["tests/compile_test.py"],
+    base_module = "",
+    resources = ["compile.py"],
+)
