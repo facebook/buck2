@@ -826,14 +826,14 @@ def _typecheck_subtarget(
     # the str(arg) inspection in get_language_version above). Normalize each
     # element (strip whitespace/quotes) and compare exactly: a substring
     # test would false-match -Werror inside unrelated values.
-    def _has_flag(*names):
+    def has_flag(*names):
         return lazy.is_any(
             lambda a: str(a).strip().strip('"') in names,
             ctx.attrs.extra_kotlinc_arguments or [],
         )
 
-    werror = _has_flag("-Werror")
-    nowarn = _has_flag("-nowarn", "-W")
+    werror = has_flag("-Werror")
+    nowarn = has_flag("-nowarn", "-W")
 
     report = ctx.actions.declare_output("typecheck_report.json")
     args = cmd_args([
