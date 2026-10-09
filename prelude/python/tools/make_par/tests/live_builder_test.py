@@ -126,8 +126,6 @@ class HeaderTest(unittest.TestCase):
                 ["./bin.par"], cwd=run_dir, capture_output=True, encoding="utf8"
             )
 
-    def test_a_path_with_a_space_falls_back_to_the_build_path(self):
+    def test_a_path_with_a_space_reaches_the_bootstrap(self):
         self.assertIn("BOOTSTRAP REACHED", self._run_from("nospace").stdout)
-        proc = self._run_from("with space")
-        self.assertNotIn("BOOTSTRAP REACHED", proc.stdout)
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("BOOTSTRAP REACHED", self._run_from("with space").stdout)
