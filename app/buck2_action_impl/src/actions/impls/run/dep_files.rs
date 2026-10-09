@@ -1689,6 +1689,7 @@ pub(crate) async fn match_or_clear_dep_file(
         .await?
     {
         tracing::trace!("Dep files are a hit");
+        persist_filtered_hit(ctx, key, &previous_state, input_directory_digest);
         return Ok(Some(outputs));
     }
 
@@ -1701,6 +1702,37 @@ pub(crate) async fn match_or_clear_dep_file(
     }
 
     Ok(None)
+}
+
+/// A dep-file-filtered hit serves the outputs of `previous_state` for an input directory that
+/// differs from the one `previous_state` was executed with. The persisted row still holds the old
+/// directory digest. A restarted daemon serves only identical actions from disk. Rewrite the row
+/// with the current directory digest, or the same action executes again after a restart.
+fn persist_filtered_hit(
+    ctx: &dyn ActionExecutionCtx,
+    key: &RunActionKey,
+    previous_state: &DepFileState,
+    input_directory_digest: &FileDigest,
+) {
+    // Only locally produced entries are persisted, the same as in `populate_dep_files`.
+    if !previous_state.was_produced_locally {
+        return;
+    }
+    let Some(store) = ctx.dep_file_store() else {
+        return;
+    };
+    match previous_state.to_stored() {
+        Ok(Some(mut stored)) => {
+            stored.directory_digest = input_directory_digest.dupe();
+            store.insert(
+                encode_logical_key(&key.to_logical()),
+                encode_config_key(key.configuration()),
+                stored,
+            );
+        }
+        Ok(None) => {}
+        Err(e) => tracing::debug!("Not persisting dep-file entry: {}", e),
+    }
 }
 
 /// What a lookup did, reported on `MatchDepFilesEnd`. The persisted timings stay `None` when the

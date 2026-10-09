@@ -661,6 +661,38 @@ async def test_anon_target_dep_file_hit_persisted_across_restart(buck: Buck) -> 
     assert result.get_build_report().output_for_target(target).read_text() == "used1"
 
 
+# A dep-file hit serves an action whose unused input changed. The persisted entry must record the
+# new input directory, or the first build after a restart executes the action again.
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+async def test_dep_file_filtered_hit_persisted_across_restart(buck: Buck) -> None:
+    def args(unused_input1_contents: str) -> list[str]:
+        return [
+            "app:simple_dep_file",
+            "--local-only",
+            "--no-remote-cache",
+            "-c",
+            f"test.unused_input1_contents={unused_input1_contents}",
+        ]
+
+    await buck.build(*args("unused1"))
+    await buck.build(*args("unused2"))
+    await check_execution_kind(
+        buck,
+        [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
+        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+    )
+    await buck.kill()
+    await buck.build(*args("unused2"))
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL not in kinds, kinds
+
+
 @buck_test(
     setup_eden=False,
     data_dir="dep_files",
