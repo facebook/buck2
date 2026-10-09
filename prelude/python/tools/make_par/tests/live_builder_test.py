@@ -59,7 +59,7 @@ class RuntimeEnvTest(unittest.TestCase):
             show = tmp / "show_env.py"
             show.write_text(
                 "import os\n"
-                "for name in ('JAVA_OPTS', 'PRICE', 'GREETING'):\n"
+                "for name in ('JAVA_OPTS', 'PRICE', 'GREETING', 'MSG', 'PATHX', 'WIN'):\n"
                 "    print(repr(os.environ.get(name)))\n",
                 encoding="utf8",
             )
@@ -78,13 +78,29 @@ class RuntimeEnvTest(unittest.TestCase):
                 ["bash", "-n", str(bootstrap)], capture_output=True, encoding="utf8"
             )
 
-    def test_a_value_with_a_space_or_a_dollar_is_cut(self):
+    def test_values_are_double_quoted_like_the_fastzip_wrapper(self):
         values, stderr = self._values_seen_by_the_program(
-            "JAVA_OPTS=-Xmx1g -Xms1g", "PRICE=$5"
+            "JAVA_OPTS=-Xmx1g -Xms1g",
+            "PRICE=$5",
+            "GREETING=it's",
+            'MSG=say "hi"',
+            "PATHX=x:$PATH",
+            "WIN=C:\\dir\\",
         )
-        self.assertEqual(values, ["'-Xmx1g'", "''", "None"])
-        self.assertIn("not a valid identifier", stderr)
+        path = os.environ.get("PATH", "/usr/bin:/bin")
+        self.assertEqual(
+            values,
+            [
+                "'-Xmx1g -Xms1g'",
+                "''",
+                '"it\'s"',
+                "'say \"hi\"'",
+                repr(f"x:{path}"),
+                "'C:\\\\dir\\\\'",
+            ],
+        )
+        self.assertEqual(stderr, "")
 
-    def test_a_value_with_an_apostrophe_breaks_the_bootstrap(self):
-        proc = self._syntax_check("GREETING=it's")
-        self.assertEqual(proc.returncode, 2, proc.stderr)
+    def test_a_value_with_an_apostrophe_keeps_the_bootstrap_valid(self):
+        proc = self._syntax_check("GREETING=it's", 'MSG=say "hi"', "WIN=C:\\dir\\")
+        self.assertEqual(proc.returncode, 0, proc.stderr)

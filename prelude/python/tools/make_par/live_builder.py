@@ -22,6 +22,15 @@ from util import (
 )
 
 
+def _shell_assignment(entry):
+    name, _, value = entry.partition("=")
+    # Double-quoted as in the fastzip wrapper: `$VAR`, `${X:-}`, `$(...)` and backticks
+    # still expand, while spaces and apostrophes no longer break the `export` line.
+    # A `\` is escaped so that a value ending in one cannot escape the closing quote.
+    value = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'{name}="{value}"'
+
+
 class LiveBuilder(ParBuilder):
     def __init__(self, options, manifest, mode=0o755, linktree_suffix="#linktree"):
         # Default to "default" warnings, as per buck1/buck2.
@@ -148,9 +157,7 @@ class LiveBuilder(ParBuilder):
         cmd = interp or py_cmd
 
         if self.runtime_env:
-            env_list = ["export"]
-            env_list.extend(self.runtime_env)
-            env = " ".join(env_list)
+            env = "export " + " ".join(_shell_assignment(e) for e in self.runtime_env)
         else:
             env = ""
 
