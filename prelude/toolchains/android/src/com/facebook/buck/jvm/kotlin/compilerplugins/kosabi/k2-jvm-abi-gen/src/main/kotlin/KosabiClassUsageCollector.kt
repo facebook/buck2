@@ -21,6 +21,7 @@ import java.io.FileWriter
 import java.net.URI
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
+import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousObject
@@ -60,9 +61,6 @@ import org.jetbrains.kotlin.load.java.structure.JavaClassifier
 import org.jetbrains.kotlin.load.java.structure.JavaTypeParameter
 import org.jetbrains.kotlin.load.java.structure.impl.VirtualFileBoundJavaClass
 import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinarySourceElement
-import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
 
 private const val JAR_FILE_SEPARATOR = "!/"
 private const val STUBSGEN_STUBS_JAR = "stubgen_stubs.jar"
@@ -76,8 +74,11 @@ private const val STUBSGEN_STUBS_JAR = "stubgen_stubs.jar"
  *
  * Instead, we walk the already-resolved FIR tree post-analysis and extract class usage from
  * declaration-level type references (supertypes, return types, parameter types, property types,
- * type-parameter bounds, receiver types, type arguments, annotations, imports, and const val
- * initializers).
+ * type-parameter bounds, receiver types, type arguments, annotations, const val initializers, and
+ * annotation-class constructor defaults).
+ *
+ * Imports are intentionally untracked: Kosabi stubs missing types by design, so unused-import
+ * resolution never affects ABI bytes.
  */
 class KosabiClassUsageCollector {
 
@@ -94,56 +95,11 @@ class KosabiClassUsageCollector {
     for (output in analysisResults.outputs) {
       val session = output.session
       for (firFile in output.fir) {
-        recordImports(firFile, session)
         firFile.accept(ClassUsageVisitor(session))
       }
     }
 
     dump(outputPath)
-  }
-
-  private fun recordImports(
-      firFile: org.jetbrains.kotlin.fir.declarations.FirFile,
-      session: FirSession,
-  ) {
-    for (firImport in firFile.imports) {
-      val fqName = firImport.importedFqName ?: continue
-      if (fqName.isRoot) continue
-      @OptIn(SymbolInternals::class) val firClass = resolveImport(fqName, session) ?: continue
-      recordClassDeclaration(firClass, session)
-    }
-  }
-
-  @OptIn(SymbolInternals::class)
-  private fun resolveImport(
-      fqName: FqName,
-      session: FirSession,
-  ): FirClassLikeDeclaration? {
-    val segments = fqName.pathSegments().map { it.asString() }
-    for (i in segments.size - 1 downTo 1) {
-      var classId = ClassId.topLevel(FqName.fromSegments(segments.take(i)))
-      for (j in i until segments.size) {
-        classId = classId.createNestedClassId(Name.identifier(segments[j]))
-      }
-      session.symbolProvider
-          .getClassLikeSymbolByClassId(classId)
-          ?.takeIf {
-            it.classId == classId
-          }
-          ?.let {
-            return it.fir
-          }
-    }
-    val topLevelId = ClassId.topLevel(fqName)
-    session.symbolProvider
-        .getClassLikeSymbolByClassId(topLevelId)
-        ?.takeIf {
-          it.classId == topLevelId
-        }
-        ?.let {
-          return it.fir
-        }
-    return null
   }
 
   @OptIn(SymbolInternals::class)
@@ -178,9 +134,16 @@ class KosabiClassUsageCollector {
     recordType(typeRef.coneType, session)
   }
 
-  private fun recordValueParameter(valueParameter: FirValueParameter, session: FirSession) {
+  private fun recordValueParameter(
+      valueParameter: FirValueParameter,
+      session: FirSession,
+      recordDefault: Boolean = false,
+  ) {
     recordTypeRef(valueParameter.returnTypeRef, session)
     valueParameter.annotations.forEach { recordAnnotation(it, session) }
+    if (recordDefault) {
+      valueParameter.defaultValue?.accept(ExpressionUsageVisitor(session))
+    }
   }
 
   @OptIn(SymbolInternals::class)
@@ -408,12 +371,25 @@ class KosabiClassUsageCollector {
     override fun visitConstructor(
         constructor: org.jetbrains.kotlin.fir.declarations.FirConstructor,
     ) {
+      // Only annotation-class constructor defaults reach the ABI (as AnnotationDefault);
+      // every other default is regenerated during stripping and needs no recording.
+      val recordDefaults = isAnnotationClassConstructor(constructor, session)
       for (valueParameter in constructor.valueParameters) {
-        recordValueParameter(valueParameter, session)
+        recordValueParameter(valueParameter, session, recordDefault = recordDefaults)
       }
       for (annotation in constructor.annotations) {
         recordAnnotation(annotation, session)
       }
+    }
+
+    @OptIn(SymbolInternals::class)
+    private fun isAnnotationClassConstructor(
+        constructor: org.jetbrains.kotlin.fir.declarations.FirConstructor,
+        session: FirSession,
+    ): Boolean {
+      val classId = constructor.symbol.callableId?.classId ?: return false
+      val firClass = session.symbolProvider.getClassLikeSymbolByClassId(classId)?.fir
+      return (firClass as? FirRegularClass)?.classKind == ClassKind.ANNOTATION_CLASS
     }
 
     override fun visitEnumEntry(enumEntry: FirEnumEntry) {
