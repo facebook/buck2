@@ -20,3 +20,12 @@ prelude.python_library(
     ],
     typing = True,
 )
+
+prelude.python_test(
+    name = "test_parse_julia_cmd",
+    srcs = [
+        "parse_julia_cmd.py",
+        "tests/test_parse_julia_cmd.py",
+    ],
+    base_module = "",
+)
