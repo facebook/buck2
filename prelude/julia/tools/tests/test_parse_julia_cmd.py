@@ -36,10 +36,11 @@ class ParseJuliaCmdTest(unittest.TestCase):
         env = command_env(None, {"LD_LIBRARY_PATH": "/opt/lib"})
         self.assertEqual(env["LD_LIBRARY_PATH"], SHARED_LIBS + ":/opt/lib")
 
-    def test_the_toolchain_env_is_not_passed_to_julia(self):
+    def test_the_toolchain_env_is_passed_to_julia(self):
         env = command_env({"MY_TOOLCHAIN_VAR": "1"}, {"PATH": "/bin"})
-        self.assertNotIn("MY_TOOLCHAIN_VAR", env)
+        self.assertEqual(env["MY_TOOLCHAIN_VAR"], "1")
+        self.assertEqual(env["PATH"], "/bin")
 
-    def test_an_unset_library_path_leaves_an_empty_entry(self):
+    def test_an_unset_library_path_leaves_no_empty_entry(self):
         env = command_env(None, {"PATH": "/bin"})
-        self.assertEqual(env["LD_LIBRARY_PATH"], SHARED_LIBS + ":")
+        self.assertEqual(env["LD_LIBRARY_PATH"], SHARED_LIBS)
