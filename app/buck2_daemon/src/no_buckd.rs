@@ -25,23 +25,26 @@ pub fn start_in_process_daemon(
     paths: InvocationPaths,
     runtime: &tokio::runtime::Runtime,
 ) -> buck2_error::Result<Option<Box<dyn FnOnce() -> buck2_error::Result<()> + Send + Sync>>> {
-    let daemon_dir = paths.daemon_dir()?;
-    // Using --no-buckd must kill the existing daemon if there is one running.
-    // This adds a few extra prints to stderr for killing the daemon, but that should be
-    // OK given that --no-buckd should only be used for testing purposes.
-    runtime.block_on(async move {
-        let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
-            daemon_dir,
-            StartupDeadline::duration_from_now(buckd_startup_timeout()?)?,
-        )
-        .await?;
-
-        kill_command_impl(&lifecycle_lock, "A command with `--no-buckd` is invoked").await
-    })?;
-
+    let handle = runtime.handle().clone();
     let daemon_startup_config = daemon_startup_config.clone();
     // Create a function which spawns an in-process daemon.
     Ok(Some(Box::new(move || {
+        // The in-process daemon replaces any resident one, so the first command that actually
+        // connects kills it, right before starting its own. Deferred to here, a command that
+        // never connects neither kills nor starts anything: `--no-buckd` is a no-op for it.
+        let daemon_dir = paths.daemon_dir()?;
+        tokio::task::block_in_place(|| {
+            handle.block_on(async {
+                let lifecycle_lock = BuckdLifecycleLock::lock_with_timeout(
+                    daemon_dir,
+                    StartupDeadline::duration_from_now(buckd_startup_timeout()?)?,
+                )
+                .await?;
+
+                kill_command_impl(&lifecycle_lock, "A command with `--no-buckd` is invoked").await
+            })
+        })?;
+
         let (tx, rx) = std::sync::mpsc::channel();
         // Spawn a thread which runs the daemon.
         thread_spawn("buck2-no-buckd", move || {
