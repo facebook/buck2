@@ -634,6 +634,33 @@ async def test_dir_output_dep_file_hit_persisted_without_content_based_paths(
     assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE in kinds, kinds
 
 
+# An anon target action has no configured owner. Its persisted dep-file key is computed from the
+# anon target's hash instead of a target label.
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+async def test_anon_target_dep_file_hit_persisted_across_restart(buck: Buck) -> None:
+    target = "root//app:anon_dep_file"
+    args = [
+        target,
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.used_input_contents=used1",
+    ]
+    await buck.build(*args)
+    await buck.kill()
+    result = await buck.build(*args)
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL not in kinds, kinds
+    await check_no_cache_query(buck)
+    assert result.get_build_report().output_for_target(target).read_text() == "used1"
+
+
 @buck_test(
     setup_eden=False,
     data_dir="dep_files",

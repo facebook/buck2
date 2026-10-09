@@ -112,21 +112,23 @@ use crate::actions::impls::run::LogicalActionKey;
 use crate::actions::impls::run::RunActionKey;
 
 /// Stable, forward-only key: the raw 32-byte blake3 `StrongHash` of `value` (stored as a `BLOB`).
-/// `StrongHash` hashes full content, so the digest is stable across daemon restarts and collision-resistant.
-/// Never decoded.
+/// The digest is stable across daemon restarts. It is collision-resistant only for types whose
+/// `StrongHash` writes their full content. The key is never decoded.
 fn strong_hash_bytes<T: StrongHash>(value: &T) -> Vec<u8> {
     let mut hasher = Blake3StrongHasher::new();
     value.strong_hash(&mut hasher);
     hasher.finalize().as_bytes().to_vec()
 }
 
-/// Stable, forward-only key for a logical action, used as the persisted database key. Returns `None`
-/// for anon-target/BXL actions (`Other`), which Phase 1 does not persist.
-fn encode_logical_key(logical: &LogicalActionKey) -> Option<Vec<u8>> {
-    match logical {
-        LogicalActionKey::Configured { .. } => Some(strong_hash_bytes(logical)),
-        LogicalActionKey::Other(_) => None,
-    }
+/// Stable, forward-only key for a logical action, used as the persisted database key.
+///
+/// For anon-target and BXL actions (`Other`), the key hashes the category, the identifier and the
+/// owner. The owner's `StrongHash` writes only a 64-bit hash of its content. Two actions with the
+/// same category and identifier get the same key when their owners have the same 64-bit hash. A
+/// collision cannot serve another action's outputs, because a lookup checks every persisted
+/// candidate against the action's command and input digests before serving it.
+fn encode_logical_key(logical: &LogicalActionKey) -> Vec<u8> {
+    strong_hash_bytes(logical)
 }
 
 /// Stable, forward-only key for a configuration, used as the persisted database `config_key` (which
@@ -345,10 +347,11 @@ fn remove_dep_file_entry(
 ) {
     let logical = key.to_logical();
     dep_files(cache).remove(&logical, key.configuration());
-    if let Some(store) = store
-        && let Some(logical_key) = encode_logical_key(&logical)
-    {
-        store.delete(logical_key, encode_config_key(key.configuration()));
+    if let Some(store) = store {
+        store.delete(
+            encode_logical_key(&logical),
+            encode_config_key(key.configuration()),
+        );
     }
 }
 
@@ -1308,9 +1311,8 @@ pub(crate) async fn match_if_identical_action(
     // Promotion does not write to the store, so a row's `last_write_time` tracks when the action
     // last *executed*, not when it was last served. An action that keeps hitting this path without
     // re-executing is therefore pruned once it passes `sqlite_dep_file_state_ttl_days`.
-    if let Some(store) = ctx.dep_file_store()
-        && let Some(logical_key) = encode_logical_key(&logical)
-    {
+    if let Some(store) = ctx.dep_file_store() {
+        let logical_key = encode_logical_key(&logical);
         // Two phases: reject on the scalar row alone, and only fetch a candidate's outputs and
         // declared dep files once its digests match. `probe_cross_config_candidate` honors nothing
         // but `Hit`, whose digest half is exactly `matches_all`, so a candidate rejected here could
@@ -2127,21 +2129,21 @@ pub(crate) async fn populate_dep_files(
     // Persist the entry (best-effort) before installing it in memory. We only persist
     // locally-produced entries: those are the ones worth reloading (their outputs are already on
     // disk), and it keeps the on-disk cache consistent with `DepFileCache::clear_non_local`, which
-    // evicts non-local entries from memory. `encode_logical_key` returns `None` for anon-target/BXL
-    // actions, which are not persisted, and `to_stored` returns `None` for an entry that is not safe
+    // evicts non-local entries from memory. `to_stored` returns `None` for an entry that is not safe
     // to persist (an output's symlink destinations are *not* covered by "already on disk").
     let logical = dep_files_key.to_logical();
     let cfg = dep_files_key.configuration();
     let mut queued_write = false;
-    if was_produced_locally
-        && let Some(store) = ctx.dep_file_store()
-        && let Some(logical_key) = encode_logical_key(&logical)
-    {
+    if was_produced_locally && let Some(store) = ctx.dep_file_store() {
         // Persisting is best-effort, per the `DepFileStore` contract: a failure to serialize costs a
         // cache miss in a later session and must not fail this build.
         match state.to_stored() {
             Ok(Some(stored)) => {
-                store.insert(logical_key, encode_config_key(cfg.dupe()), stored);
+                store.insert(
+                    encode_logical_key(&logical),
+                    encode_config_key(cfg.dupe()),
+                    stored,
+                );
                 queued_write = true;
             }
             Ok(None) => {}
