@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import functools
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Dict, List, Optional
 
 from apple.tools.code_signing.codesign_bundle import CodesignConfiguration
