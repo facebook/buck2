@@ -14,6 +14,7 @@ use buck2_error::TypedContext;
 use remote_execution::REClientError;
 use remote_execution::TCode;
 use remote_execution::TCodeReasonGroup;
+use remote_execution::tcode_from_error_chain;
 
 pub fn get_re_error_tag(tcode: &TCode) -> ErrorTag {
     match *tcode {
@@ -104,9 +105,11 @@ pub(crate) fn with_error_handler<T>(
         Err(e) => {
             let (code, group) = e
                 .downcast_ref::<REClientError>()
-                .map_or((TCode::UNKNOWN, TCodeReasonGroup::UNKNOWN), |e| {
-                    (e.code, e.group)
-                });
+                .map(|e| (e.code, e.group))
+                .or_else(|| {
+                    tcode_from_error_chain(&e).map(|code| (code, TCodeReasonGroup::UNKNOWN))
+                })
+                .unwrap_or((TCode::UNKNOWN, TCodeReasonGroup::UNKNOWN));
 
             Err(re_error(
                 re_action,
@@ -147,5 +150,37 @@ mod tests {
 
         let err = error.find_typed_context::<RemoteExecutionError>().unwrap();
         assert_eq!(err.code, TCode::UNKNOWN);
+    }
+
+    #[test]
+    fn test_unauthenticated_tonic_status_tags_re_unauthenticated() {
+        let status = tonic::Status::unauthenticated(
+            "The request does not have valid authentication credentials",
+        );
+        let err = anyhow::Error::new(status)
+            .context("Failed to request what blobs are not present on remote");
+
+        let error = with_error_handler::<()>("get_digests_ttl", "session", Err(err)).unwrap_err();
+
+        assert!(error.has_tag(ErrorTag::ReUnauthenticated));
+        assert!(!error.has_tag(ErrorTag::ReUnknown));
+
+        let typed = error.find_typed_context::<RemoteExecutionError>().unwrap();
+        assert_eq!(typed.code, TCode::UNAUTHENTICATED);
+    }
+
+    #[test]
+    fn test_re_client_error_takes_precedence_over_chain() {
+        let err = anyhow::Error::new(REClientError {
+            message: "denied".to_owned(),
+            code: TCode::PERMISSION_DENIED,
+            group: TCodeReasonGroup::UNKNOWN,
+        });
+
+        let typed = with_error_handler::<()>("upload", "session", Err(err))
+            .unwrap_err()
+            .find_typed_context::<RemoteExecutionError>()
+            .unwrap();
+        assert_eq!(typed.code, TCode::PERMISSION_DENIED);
     }
 }
