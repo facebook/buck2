@@ -40,7 +40,7 @@ class UnzipTest(unittest.TestCase):
             with open(os.path.join(out, "t")) as linked:
                 self.assertEqual(linked.read(), "inside")
 
-    def test_a_symlink_chain_leaves_the_output_directory(self):
+    def test_a_symlink_chain_that_leaves_the_output_directory_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             archive = os.path.join(tmp_dir, "a.zip")
             out = os.path.join(tmp_dir, "out")
@@ -48,16 +48,26 @@ class UnzipTest(unittest.TestCase):
                 archive,
                 [("a/f", "inside"), ("s", ".", "symlink"), ("t", "s/..", "symlink")],
             )
-            unzip.do_unzip(archive, out)
-            self.assertEqual(
-                os.path.realpath(os.path.join(out, "t")), os.path.realpath(tmp_dir)
-            )
+            with self.assertRaisesRegex(RuntimeError, "`t`.*outside"):
+                unzip.do_unzip(archive, out)
 
-    def test_an_absolute_symlink_name_is_created_outside_the_output_directory(self):
+    def test_an_absolute_symlink_name_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             archive = os.path.join(tmp_dir, "a.zip")
             out = os.path.join(tmp_dir, "out")
             outside = os.path.join(tmp_dir, "escaped_link")
             write_archive(archive, [("a/f", "inside"), (outside, "a", "symlink")])
-            unzip.do_unzip(archive, out)
-            self.assertTrue(os.path.islink(outside))
+            with self.assertRaisesRegex(RuntimeError, "outside"):
+                unzip.do_unzip(archive, out)
+            self.assertFalse(os.path.lexists(outside))
+
+    def test_a_parent_directory_symlink_name_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            archive = os.path.join(tmp_dir, "a.zip")
+            out = os.path.join(tmp_dir, "out")
+            write_archive(
+                archive, [("a/f", "inside"), ("../escaped_link", "a", "symlink")]
+            )
+            with self.assertRaisesRegex(RuntimeError, "outside"):
+                unzip.do_unzip(archive, out)
+            self.assertFalse(os.path.lexists(os.path.join(tmp_dir, "escaped_link")))
