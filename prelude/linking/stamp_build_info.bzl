@@ -72,10 +72,15 @@ def stamp_build_info(
             if library_versions:
                 build_info["library_versions"] = library_versions
             build_info_json = ctx.actions.write_json(obj.short_path + "-build-info.json", build_info, has_content_based_path = has_content_based_path)
-        stem, ext = paths.split_extension(obj.short_path)
         if not stamped_output:
-            name = stem.removesuffix(PRE_STAMPED_SUFFIX) if stem.endswith(PRE_STAMPED_SUFFIX) else stem + "-stamped"
-            stamped_output = ctx.actions.declare_output(name + ext, has_content_based_path = has_content_based_path)
+            stem, ext = paths.split_extension(obj.short_path)
+            if obj.short_path.endswith(PRE_STAMPED_SUFFIX):
+                name = obj.short_path.removesuffix(PRE_STAMPED_SUFFIX)
+            elif stem.endswith(PRE_STAMPED_SUFFIX):
+                name = stem.removesuffix(PRE_STAMPED_SUFFIX) + ext
+            else:
+                name = stem + "-stamped" + ext
+            stamped_output = ctx.actions.declare_output(name, has_content_based_path = has_content_based_path)
 
         toolchain = get_cxx_toolchain_info(ctx)
 
