@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
+load("@prelude//:rule_extensions.bzl", "RULE_EXTENSIONS_ATTR", "RULE_EXTENSIONS_DEFAULT", "RuleExtensionsInfo", "run_with_extensions")
 # Combine the attributes we generate, we the custom implementations we have.
 load("@prelude//:rules_impl.bzl", "categorized_extra_attributes", "categorized_rule_decl_records", "extra_implemented_rules", "toolchain_rule_names")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
@@ -98,6 +99,11 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
 
     kwargs.setdefault("is_configuration_rule", name in _config_implemented_rules)
     kwargs.setdefault("is_toolchain_rule", is_toolchain_rule)
+
+    if not kwargs["is_configuration_rule"] and not kwargs["is_toolchain_rule"]:
+        attributes[RULE_EXTENSIONS_ATTR] = attrs.toolchain_dep(default = RULE_EXTENSIONS_DEFAULT, providers = [RuleExtensionsInfo])
+        impl = partial(run_with_extensions, impl, name)
+
     return rule(impl = impl, attrs = attributes, **kwargs)
 
 def _categorized_decls():
