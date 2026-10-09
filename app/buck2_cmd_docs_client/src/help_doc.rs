@@ -185,54 +185,60 @@ fn cmd_content_markdown(
     mut path: Vec<String>,
 ) -> Result<String, std::fmt::Error> {
     let prefix = path.join(" ");
-    let mut template = String::new();
+    let mut markdown = String::new();
 
     let about = cmd.get_long_about().or_else(|| cmd.get_about());
     let about = about.map_or("".to_owned(), |about| {
         escape_angle_brackets_for_mdx(&about.to_string())
     });
 
+    // The text is written out directly rather than through a clap help template, which would
+    // treat every `{...}` in the help text as a template tag.
+    let name = cmd.get_display_name().unwrap_or_else(|| cmd.get_name());
+    let usage = cmd.clone().render_usage().to_string();
+    let usage = usage.strip_prefix("Usage: ").unwrap_or(&usage).to_owned();
+
     // header
     writeln!(
-        template,
+        markdown,
         "\
-## `{prefix} {{name}}`
+## `{prefix} {name}`
 
 {about}
 
-**Usage**: `{prefix} {{usage}}`
+**Usage**: `{prefix} {usage}`
 "
     )?;
 
     // subcommands
     let subcommands = cmd.get_subcommands().collect::<Vec<_>>();
     if !subcommands.is_empty() {
-        writeln!(template, "### Subcommands:").unwrap();
+        writeln!(markdown, "### Subcommands:").unwrap();
         for subcommand in subcommands {
             let name = subcommand.get_name();
             let about = subcommand.get_about();
-            write!(template, "* `{name}`").unwrap();
+            write!(markdown, "* `{name}`").unwrap();
             if let Some(about) = about {
-                write!(template, ": {about}").unwrap();
+                write!(markdown, ": {about}").unwrap();
             }
-            writeln!(template).unwrap();
+            writeln!(markdown).unwrap();
         }
-        writeln!(template).unwrap();
+        writeln!(markdown).unwrap();
     }
 
     // arguments
     let pos = cmd.get_positionals().collect::<Vec<_>>();
     if !pos.is_empty() {
-        writeln!(template, "### Arguments:").unwrap();
+        writeln!(markdown, "### Arguments:").unwrap();
         for arg in pos {
-            write_arg_markdown(&mut template, arg).unwrap();
+            write_arg_markdown(&mut markdown, arg).unwrap();
         }
-        writeln!(template).unwrap();
+        writeln!(markdown).unwrap();
     }
 
     // common options link
     writeln!(
-        template,
+        markdown,
         "### Common Options:\n\n\
         Common options are documented on the [Common Options](../common-options) page.\n"
     )
@@ -255,18 +261,12 @@ fn cmd_content_markdown(
         .collect::<Vec<_>>();
 
     if !options.is_empty() {
-        writeln!(template, "### Options:").unwrap();
+        writeln!(markdown, "### Options:").unwrap();
         for arg in options {
-            write_arg_markdown(&mut template, arg).unwrap();
+            write_arg_markdown(&mut markdown, arg).unwrap();
         }
-        writeln!(template).unwrap();
+        writeln!(markdown).unwrap();
     }
-
-    let mut markdown = cmd
-        .clone()
-        .help_template(&template)
-        .render_long_help()
-        .to_string();
 
     let name = cmd.get_name();
     path.push(name.to_owned());
@@ -498,27 +498,29 @@ mod tests {
         assert_eq!(escape_angle_brackets_for_mdx(input), expected);
     }
 
-    /// The about text is handed to clap as a help template, which drops every `{` piece that
-    /// has no `}` before the next `{`, so the `select()` encoding example of `uquery` is cut.
+    /// Braces in the about text reach the page unchanged.
     #[test]
-    fn uquery_page_mangles_select_encoding_example() {
+    fn uquery_page_keeps_select_encoding_example() {
         const ABOUT: &str = "`1 + select({\"//:a\": 1, \"DEFAULT\": 2})` will be encoded as:\n\n\
             `{\"__type\": \"concat\", \"items\": [1, {\"__type\": \"selector\", \
             \"entries\": {\"//:a\": 1, \"DEFAULT\": 2}}]}`\n";
         let md = cmd_markdown_help(&Command::new("uquery").long_about(ABOUT));
-        assert!(!md.contains("__type"), "{md}");
-        assert!(md.contains("`{\"//:a\": 1, \"DEFAULT\": 2}}]}`"), "{md}");
+        assert!(md.contains(ABOUT), "{md}");
+        assert!(md.contains("**Usage**: `buck2 uquery`"), "{md}");
     }
 
-    /// A known template tag inside an option's help is expanded by clap.
+    /// Text that looks like a template tag inside an option's help is printed literally.
     #[test]
-    fn template_tags_in_option_help_are_expanded() {
+    fn template_tags_in_option_help_are_literal() {
         let cmd = Command::new("tagdemo").arg(
             Arg::new("fmt")
                 .long("fmt")
                 .help("Placeholders: {name} is replaced by the target name"),
         );
         let md = cmd_markdown_help(&cmd);
-        assert!(md.contains("Placeholders: tagdemo is replaced"), "{md}");
+        assert!(
+            md.contains("Placeholders: {name} is replaced by the target name"),
+            "{md}"
+        );
     }
 }
