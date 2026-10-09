@@ -118,11 +118,12 @@ action itself, before Buck2 can turn the result into validation output.
 ### What is a type checker, and where do typeshed stubs come from?
 
 The `type_checker` is any executable that follows the [Input](#input) and
-[Output](#output) contract described above; Buck2 does not ship one. Popular
-choices include
-[Pyre](https://pyre-check.org/), [mypy](https://mypy-lang.org/),
+[Output](#output) contract described above; Buck2 does not ship one.
+[Pyrefly](https://pyrefly.org/), Meta's type checker, implements the contract
+directly (see below). Other popular checkers, such as
+[mypy](https://mypy-lang.org/),
 [Pyright](https://microsoft.github.io/pyright/) and
-[ty](https://docs.astral.sh/ty/), Astral's type checker.
+[ty](https://docs.astral.sh/ty/), Astral's type checker, need a small adapter.
 
 Typeshed stubs are `.pyi` files that describe the types of the standard
 library and popular third-party packages, separately from their
@@ -133,13 +134,41 @@ example, `os` or `json`. Most checkers (including `ty`) bundle a copy of
 own (for example, pinned stubs for third-party packages, or a hermetic build
 that must not rely on whatever the checker happened to bundle).
 
+### Worked example: Pyrefly
+
+Pyrefly's `buck-check` command takes the `config.json` described above and
+writes the `{"errors": [...]}` result, and it exits successfully even when it
+finds type errors. So no adapter is needed: point `type_checker` at it
+directly.
+
+```python
+PythonToolchainInfo(
+    # ...
+    type_checker = RunInfo(args = ["pyrefly", "buck-check"]),
+)
+```
+
+Buck2 appends `<config.json> --output <result.json>`, which is what
+`pyrefly buck-check <INPUT_PATH> --output <FILE>` expects. This was tested by
+running `pyrefly buck-check` (version 1.3.2) by hand on a `config.json` in the
+shape Buck2 writes: a file with a type error produced one error with `line`,
+`column`, `path`, `code`, `name`, `description` and `severity`; a clean file and
+an empty `sources` list both produced `{"errors": []}`; and the exit code was
+`0` in all three cases. It was not run inside a full Buck2 build.
+
+Pyrefly also has a separate integration for editors and for running
+`pyrefly check` directly in a Buck2 repository, configured with
+`[build-system] type = "buck"` in `pyrefly.toml`. See the
+[Pyrefly configuration docs](https://pyrefly.org/en/docs/configuration/#buck2),
+which note that build system support is currently unstable.
+
 ### Worked example: wiring up `ty`
 
-No popular type checker speaks Buck2's exact contract out of the box: none of
-them take a `config.json` in this shape, and most exit with a nonzero code
-when they find type errors, which Buck2's contract forbids for a well-formed
-result. In practice, `type_checker` points at a small adapter that translates
-between the two. The following adapter has been tested against
+Some popular type checkers do not speak Buck2's contract: they don't take a
+`config.json` in this shape, and most exit with a nonzero code when they find
+type errors, which Buck2's contract forbids for a well-formed result. For
+those, `type_checker` points at a small adapter that translates between the
+two. The following adapter has been tested against
 [`ty`](https://docs.astral.sh/ty/) 0.0.84:
 
 ```python
