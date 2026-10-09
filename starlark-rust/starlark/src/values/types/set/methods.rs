@@ -161,33 +161,9 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<SetData<'v>> {
         let other_set = SetFromValue::from_value(other, heap)?;
 
-        if other_set.is_empty() {
-            return Ok(SetData {
-                content: this.aref.content.clone(),
-            });
-        }
-
-        //TODO(romanp) add symmetric_difference to small set and use it here and in xor
-        if this.aref.content.is_empty() {
-            return Ok(SetData {
-                content: other_set.into_set(),
-            });
-        }
-
-        let mut data = SetData::default();
-        for elem in this.aref.content.iter_hashed() {
-            if !other_set.contains_hashed(elem.copied()) {
-                data.add_hashed(elem.copied());
-            }
-        }
-
-        for elem in other_set.get() {
-            let hashed = elem.get_hashed()?;
-            if !this.aref.content.contains_hashed(hashed.as_ref()) {
-                data.add_hashed(hashed);
-            }
-        }
-        Ok(data)
+        let other_set = other_set.into_set();
+        let data = this.aref.content.symmetric_difference(&other_set);
+        Ok(SetData { content: data })
     }
 
     /// Add an item to the set.
@@ -346,26 +322,11 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         heap: Heap<'v>,
     ) -> starlark::Result<SetData<'v>> {
-        if this.aref.content.is_empty() {
-            other.get().iterate(heap)?;
-            return Ok(SetData::default());
-        }
-
         let other_set = SetFromValue::from_value(other, heap)?;
 
-        if other_set.is_empty() {
-            return Ok(SetData {
-                content: this.aref.content.clone(),
-            });
-        }
+        let content = this.aref.content.difference_with(other_set.get());
 
-        let mut data = SetData::default();
-        for elem in this.aref.content.iter_hashed() {
-            if !other_set.contains_hashed(elem.copied()) {
-                data.add_hashed(elem.copied());
-            }
-        }
-        Ok(data)
+        Ok(SetData { content })
     }
 
     /// Test whether every element other iterable is in the set.

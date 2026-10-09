@@ -384,6 +384,60 @@ impl<T> SmallSet<T> {
         self.0.last().map(|(k, ())| k)
     }
 
+    /// Compute the symmetric difference between Self and `other` returning a new set.
+    ///
+    /// Given `SmallSet::from_iter([1, 2, 3]).symmetric_difference(&SmallSet::from_iter([2, 4, 5])`
+    /// this yields `SmallSet::from_iter([1, 3, 4, 5])`.
+    pub fn symmetric_difference(&self, other: &Self) -> SmallSet<T>
+    where
+        T: Eq + Clone,
+    {
+        if other.is_empty() {
+            return self.clone();
+        }
+        if self.is_empty() {
+            return other.clone();
+        }
+        let mut result = Self::with_capacity(self.len());
+
+        for own_entry in self.iter_hashed() {
+            if !other.contains_hashed(own_entry) {
+                result.insert_hashed(own_entry.cloned());
+            }
+        }
+
+        for other_entry in other.iter_hashed() {
+            if !self.contains_hashed(other_entry) {
+                result.insert_hashed(other_entry.cloned());
+            }
+        }
+        result
+    }
+
+    /// Compute the difference between `self` and `other` returning a new set.
+    ///
+    /// Given `SmallSet::from_iter([1, 2, 3]).difference_with(&SmallSet::from_iter([2, 4, 5])`
+    /// this yields `SmallSet::from_iter([1, 3])`.
+    pub fn difference_with(&self, other: &Self) -> SmallSet<T>
+    where
+        T: Eq + Clone,
+    {
+        if self.is_empty() {
+            return SmallSet::new();
+        }
+        if other.is_empty() {
+            return self.clone();
+        }
+        let mut result = Self::with_capacity(self.len());
+        for own_entry in self.iter_hashed() {
+            if !other.contains_hashed(own_entry) {
+                result.insert_hashed(own_entry.cloned());
+            }
+        }
+
+        result
+    }
+
     /// Iterator over elements of this set which are not in the other set.
     pub fn difference<'a>(&'a self, other: &'a Self) -> Difference<'a, T>
     where
@@ -771,6 +825,22 @@ mod tests {
         let b = SmallSet::from_iter([2, 4, 1]);
         let d = Vec::from_iter(a.difference(&b).copied());
         assert_eq!(vec![3], d);
+    }
+
+    #[test]
+    fn test_difference_with() {
+        let a = SmallSet::from_iter([1, 2, 3]);
+        let b = SmallSet::from_iter([2, 4, 1]);
+        let d = Vec::from_iter(a.difference_with(&b).iter().copied());
+        assert_eq!(vec![3], d);
+    }
+
+    #[test]
+    fn test_symmetric_difference() {
+        let a = SmallSet::from_iter([1, 2, 3]);
+        let b = SmallSet::from_iter([2, 3, 4, 5]);
+        let d = Vec::from_iter(a.symmetric_difference(&b).iter().copied());
+        assert_eq!(vec![1, 4, 5], d);
     }
 
     #[test]
