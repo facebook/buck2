@@ -14,10 +14,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.facebook.buck.cd.model.java.AbiGenerationMode;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.jvm.java.JarDumper;
+import com.facebook.buck.jvm.java.abi.kotlin.KotlinMetadataReader;
 import com.facebook.buck.jvm.java.testutil.compiler.TestCompiler;
 import com.facebook.buck.jvm.kotlin.testutil.compiler.KotlinTestCompiler;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
@@ -30,12 +32,14 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
+import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
 import com.google.common.io.Files;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -50,6 +54,7 @@ import java.util.SortedSet;
 import java.util.concurrent.Callable;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.JarOutputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -66,6 +71,7 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
@@ -1377,6 +1383,184 @@ public class StubJarTest {
       compiler.addClasspath(ImmutableSortedSet.of(stubJar.getPath()));
       compiler.compile();
     }
+  }
+
+  /**
+   * Stubbing must still succeed, with inline info intact, when @kotlin.Metadata is newer than the
+   * bundled kotlin-metadata-jvm reads strictly (2.4.0, as shipped in real artifacts such as
+   * clerk-android-api 1.1.7). Jar-based only: the version bump is applied to the compiled jar.
+   */
+  @Test
+  public void kotlinNewerMetadataVersionStillStubs() throws IOException {
+    if (!isValidForKotlin()) {
+      return;
+    }
+    if (!testingMode.equals(MODE_JAR_BASED)) {
+      return;
+    }
+
+    File outputDir = temp.newFolder();
+    AbsPath fullJar;
+    try (KotlinTestCompiler compiler = new KotlinTestCompiler()) {
+      compiler.init();
+      compiler.addSourceFileContents(
+          "A.kt",
+          "package com.example.buck",
+          "class A {",
+          "  inline fun greet(name: String, greeting: String = \"hi\"): String = greeting + name",
+          "  fun plain(x: Int): Int = x",
+          "}");
+      compiler.compile();
+      fullJar = AbsPath.of(outputDir.toPath()).resolve("output.jar");
+      compiler.getClasses().createJar(fullJar.getPath(), false);
+    }
+
+    AbsPath bumpedJar = AbsPath.of(temp.newFolder().toPath()).resolve("bumped.jar");
+    rewriteKotlinMetadataVersion(fullJar, bumpedJar, new int[] {2, 4, 0});
+
+    AbsPath stubJar = AbsPath.of(temp.newFolder().toPath()).resolve("stub.jar");
+    new StubJar(bumpedJar, false).writeTo(stubJar);
+
+    Set<String> inputMethodNames;
+    try (JarFile jar = new JarFile(bumpedJar.toFile())) {
+      inputMethodNames = methodNames(readClass(jar, "com/example/buck/A.class"));
+    }
+
+    try (JarFile jar = new JarFile(stubJar.toFile())) {
+      ClassNode stub = readClass(jar, "com/example/buck/A.class");
+      Set<String> stubMethodNames = methodNames(stub);
+
+      assertTrue("inline function kept", stubMethodNames.contains("greet"));
+      assertTrue(
+          "inline $default kept, so the lenient read provided inline info",
+          stubMethodNames.contains("greet$default"));
+      assertTrue("plain function kept", stubMethodNames.contains("plain"));
+      if (inputMethodNames.contains("greet$$forInline")) {
+        assertTrue("inline $$forInline kept", stubMethodNames.contains("greet$$forInline"));
+      }
+
+      assertEquals(
+          "metadata version preserved in stub",
+          Arrays.asList(2, 4, 0),
+          kotlinMetadataVersion(stub));
+    }
+  }
+
+  /**
+   * Metadata the lenient reader cannot parse must fail loudly, naming the kind and version, rather
+   * than degrading to empty inline info. A corrupt `d1` fails both the strict and lenient reads.
+   */
+  @Test
+  public void kotlinUnparsableMetadataFailsLoudly() {
+    AnnotationNode annotation = new AnnotationNode("Lkotlin/Metadata;");
+    annotation.values =
+        Arrays.asList(
+            "k",
+            1,
+            "mv",
+            Arrays.asList(2, 2, 0),
+            "d1",
+            Arrays.asList("bogus"),
+            "d2",
+            Arrays.asList(""),
+            "xs",
+            "",
+            "pn",
+            "",
+            "xi",
+            0);
+    try {
+      KotlinMetadataReader.readMetadata(annotation);
+      fail("expected unreadable Kotlin metadata to fail loudly");
+    } catch (IllegalArgumentException expected) {
+      assertTrue(
+          "message names kind and version: " + expected.getMessage(),
+          expected.getMessage().contains("kind=1") && expected.getMessage().contains("[2, 2, 0]"));
+      assertNotNull("lenient cause is wrapped", expected.getCause());
+    }
+  }
+
+  private static ClassNode readClass(JarFile jar, String entryName) throws IOException {
+    JarEntry entry = jar.getJarEntry(entryName);
+    assertNotNull(entry);
+    ClassNode node = new ClassNode(Opcodes.ASM9);
+    try (InputStream in = jar.getInputStream(entry)) {
+      new ClassReader(in).accept(node, ClassReader.SKIP_CODE);
+    }
+    return node;
+  }
+
+  private static Set<String> methodNames(ClassNode node) {
+    return node.methods.stream().map(method -> method.name).collect(Collectors.toSet());
+  }
+
+  private static List<Integer> kotlinMetadataVersion(ClassNode node) {
+    if (node.visibleAnnotations != null) {
+      for (AnnotationNode annotation : node.visibleAnnotations) {
+        if (!"Lkotlin/Metadata;".equals(annotation.desc) || annotation.values == null) {
+          continue;
+        }
+        for (int i = 0; i + 1 < annotation.values.size(); i += 2) {
+          if ("mv".equals(annotation.values.get(i))) {
+            @SuppressWarnings("unchecked")
+            List<Integer> mv = (List<Integer>) annotation.values.get(i + 1);
+            return mv;
+          }
+        }
+      }
+    }
+    return Collections.emptyList();
+  }
+
+  private static void rewriteKotlinMetadataVersion(
+      AbsPath inputJar, AbsPath outputJar, int[] version) throws IOException {
+    try (JarFile jar = new JarFile(inputJar.toFile());
+        JarOutputStream out =
+            new JarOutputStream(java.nio.file.Files.newOutputStream(outputJar.getPath()))) {
+      for (JarEntry entry : Collections.list(jar.entries())) {
+        out.putNextEntry(new JarEntry(entry.getName()));
+        if (!entry.isDirectory()) {
+          byte[] bytes;
+          try (InputStream in = jar.getInputStream(entry)) {
+            bytes = ByteStreams.toByteArray(in);
+          }
+          if (entry.getName().endsWith(".class")) {
+            bytes = withKotlinMetadataVersion(bytes, version);
+          }
+          out.write(bytes);
+        }
+        out.closeEntry();
+      }
+    }
+  }
+
+  private static byte[] withKotlinMetadataVersion(byte[] classBytes, int[] version) {
+    ClassNode node = new ClassNode(Opcodes.ASM9);
+    new ClassReader(classBytes).accept(node, 0);
+    boolean rewritten = false;
+    if (node.visibleAnnotations != null) {
+      for (AnnotationNode annotation : node.visibleAnnotations) {
+        if (!"Lkotlin/Metadata;".equals(annotation.desc) || annotation.values == null) {
+          continue;
+        }
+        for (int i = 0; i + 1 < annotation.values.size(); i += 2) {
+          if ("mv".equals(annotation.values.get(i))) {
+            List<Integer> mv = new ArrayList<>();
+            for (int v : version) {
+              mv.add(v);
+            }
+            annotation.values.set(i + 1, mv);
+            rewritten = true;
+          }
+        }
+      }
+    }
+    if (!rewritten) {
+      return classBytes;
+    }
+    ClassWriter writer = new ClassWriter(0);
+    node.accept(writer);
+    return writer.toByteArray();
   }
 
   private static boolean hasHiddenDeprecation(MethodNode method) {

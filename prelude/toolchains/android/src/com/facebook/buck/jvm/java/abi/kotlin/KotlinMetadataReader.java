@@ -48,17 +48,40 @@ public class KotlinMetadataReader {
   /**
    * Parses the @kotlin.Metadata annotation into a reusable handle. Call once and pass the result to
    * both {@link #getInlineFunctions} and {@link #isFilePrivateClass}.
+   *
+   * <p>The strict read only understands versions up to the bundled kotlin-metadata-jvm (e.g. 2.2.0
+   * reads up to 2.3.0), so a newer version (e.g. 2.4.0) falls back to a lenient read. Metadata the
+   * lenient reader cannot parse fails the action.
    */
   public static ParsedMetadata readMetadata(AnnotationNode annotationNode) {
     Metadata classHeader = createHeader(annotationNode);
-    KotlinClassMetadata metadata = KotlinClassMetadata.readStrict(classHeader);
-    if (metadata == null) {
-      throw new AssertionError(
-          "Unsupported kind of Kotlin classes: ["
+    KotlinClassMetadata metadata;
+    try {
+      metadata = KotlinClassMetadata.readStrict(classHeader);
+      if (metadata != null) {
+        return new ParsedMetadata(metadata);
+      }
+    } catch (IllegalArgumentException strictFailure) {
+      // Fall through to the lenient read below.
+    }
+    try {
+      metadata = KotlinClassMetadata.readLenient(classHeader);
+    } catch (IllegalArgumentException lenientFailure) {
+      throw new IllegalArgumentException(
+          "Unparsable Kotlin metadata: kind="
               + classHeader.k()
-              + "] or has an unsupported metadata version: ["
+              + " version="
               + Arrays.toString(classHeader.mv())
-              + "]");
+              + "; strict and lenient reads failed",
+          lenientFailure);
+    }
+    if (metadata == null) {
+      throw new IllegalArgumentException(
+          "Unparsable Kotlin metadata: kind="
+              + classHeader.k()
+              + " version="
+              + Arrays.toString(classHeader.mv())
+              + "; strict and lenient reads failed");
     }
     return new ParsedMetadata(metadata);
   }
