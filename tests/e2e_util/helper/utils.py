@@ -77,7 +77,10 @@ def get_targets_from_what_ran(
     for entry in what_ran:
         m = re.match(r"^(.*?)( \((.*?)\))?( \((.*?)\))?$", entry["identity"])
         assert m is not None
-        rule, category = m.group(1), m.group(5)
+        # `target [(configuration)] (category [identifier])`: the category is the
+        # last parenthesised segment, whether or not a configuration precedes it.
+        rule = m.group(1)
+        category = m.group(5) if m.group(5) is not None else m.group(3)
         targets.add((rule, category))
 
     return targets

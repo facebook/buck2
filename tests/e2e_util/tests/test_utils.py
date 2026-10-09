@@ -19,8 +19,11 @@ WHAT_RAN = [
 
 
 class WhatRanIdentityTest(unittest.TestCase):
-    def test_an_identity_without_a_configuration_loses_its_category(self) -> None:
+    def test_an_identity_without_a_configuration_keeps_its_category(self) -> None:
         self.assertEqual(
             get_targets_from_what_ran(WHAT_RAN),
-            {("root//:t", "strip_debug libfoo.so"), ("anon//:anon_t", None)},
+            {
+                ("root//:t", "strip_debug libfoo.so"),
+                ("anon//:anon_t", "strip_debug libfoo.so"),
+            },
         )
