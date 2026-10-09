@@ -88,9 +88,6 @@ fn sqlite_db_setup_metadata_and_versions(
     })? {
         versions.insert("buckconfig_version".to_owned(), buckconfig_version);
     }
-    if let Some(hostname) = metadata.get("hostname") {
-        versions.insert("hostname".to_owned(), hostname.to_owned());
-    }
 
     Ok((metadata, versions))
 }
