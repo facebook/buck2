@@ -35,7 +35,6 @@ use std::path::PathBuf;
 
 use allocative::Allocative;
 use derive_more::Display;
-use gazebo::transmute;
 use pagable::Pagable;
 use pagable::PagableSerialize;
 use ref_cast::RefCastCustom;
@@ -70,7 +69,7 @@ const PARENT_STR: &str = "..";
 )]
 #[repr(transparent)]
 pub struct RelativePath(
-    // Note we transmute between `RelativePath` and `str`.
+    // Note we cast between `RelativePath` and `str`.
     str,
 );
 
@@ -756,10 +755,8 @@ impl From<RelativePathBuf> for String {
 impl From<RelativePathBuf> for Box<RelativePath> {
     fn from(p: RelativePathBuf) -> Box<RelativePath> {
         let s: Box<str> = p.0.into_boxed_str();
-        unsafe {
-            // SAFETY: `RelativePath` is a `#[repr(transparent)]` wrapper around `str`.
-            transmute!(Box<str>, Box<RelativePath>, s)
-        }
+        // SAFETY: `RelativePath` is a `#[repr(transparent)]` wrapper around `str`.
+        unsafe { Box::from_raw(Box::into_raw(s) as *mut RelativePath) }
     }
 }
 

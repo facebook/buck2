@@ -18,7 +18,6 @@ use std::path::PathBuf;
 use allocative::Allocative;
 use buck2_util::arc_str::StringInside;
 use derive_more::Display;
-use gazebo::transmute;
 use pagable::Pagable;
 use pagable::PagableBoxDeserialize;
 use pagable::PagableDeserialize;
@@ -59,7 +58,7 @@ use crate::paths::relative_path::verify_relative_path;
 )]
 #[repr(transparent)]
 pub struct ForwardRelativePath(
-    // Note we transmute between `ForwardRelativePath` and `str`.
+    // Note we cast between `ForwardRelativePath` and `str`.
     str,
 );
 
@@ -168,10 +167,8 @@ impl ForwardRelativePath {
 
     #[inline]
     pub fn unchecked_new_box(s: Box<str>) -> Box<ForwardRelativePath> {
-        unsafe {
-            // SAFETY: `ForwardRelativePath` is a transparent wrapper around `str`.
-            transmute!(Box<str>, Box<ForwardRelativePath>, s)
-        }
+        // SAFETY: `ForwardRelativePath` is a transparent wrapper around `str`.
+        unsafe { Box::from_raw(Box::into_raw(s) as *mut ForwardRelativePath) }
     }
 
     #[inline]

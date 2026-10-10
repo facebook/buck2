@@ -28,7 +28,6 @@ use buck2_fs::paths::relative_path::RelativePath;
 use buck2_fs::paths::relative_path::RelativePathBuf;
 use derivative::Derivative;
 use derive_more::Display;
-use gazebo::transmute;
 use pagable::Pagable;
 use pagable::PagableBoxDeserialize;
 use pagable::PagableDeserialize;
@@ -120,10 +119,8 @@ impl CellRelativePath {
     }
 
     pub fn unchecked_new_box(p: Box<ForwardRelativePath>) -> Box<CellRelativePath> {
-        unsafe {
-            // SAFETY: `CellRelativePath` is a transparent wrapper around `ForwardRelativePath`.
-            transmute!(Box<ForwardRelativePath>, Box<CellRelativePath>, p)
-        }
+        // SAFETY: `CellRelativePath` is a transparent wrapper around `ForwardRelativePath`.
+        unsafe { Box::from_raw(Box::into_raw(p) as *mut CellRelativePath) }
     }
 
     pub fn testing_new(path: &str) -> &CellRelativePath {

@@ -22,7 +22,6 @@ use buck2_fs::paths::relative_path::RelativePath;
 use buck2_fs::paths::relative_path::RelativePathBuf;
 use buck2_util::arc_str::ArcS;
 use buck2_util::arc_str::StringInside;
-use gazebo::transmute;
 use pagable::Pagable;
 use pagable::PagableBoxDeserialize;
 use pagable::PagableDeserialize;
@@ -52,7 +51,7 @@ use crate::package::quoted_display;
 #[derivative(Debug)]
 #[repr(transparent)]
 pub struct PackageRelativePath(
-    // Note we transmute between `PackageRelativePath` and `ForwardRelativePath`.
+    // Note we cast between `PackageRelativePath` and `ForwardRelativePath`.
     #[derivative(Debug(format_with = "quoted_display"))] ForwardRelativePath,
 );
 
@@ -162,10 +161,8 @@ impl PackageRelativePath {
 
     #[inline]
     pub fn new_box(p: Box<ForwardRelativePath>) -> Box<PackageRelativePath> {
-        unsafe {
-            // SAFETY: `PackageRelativePath` is a transparent wrapper around `ForwardRelativePath`.
-            transmute!(Box<ForwardRelativePath>, Box<PackageRelativePath>, p)
-        }
+        // SAFETY: `PackageRelativePath` is a transparent wrapper around `ForwardRelativePath`.
+        unsafe { Box::from_raw(Box::into_raw(p) as *mut PackageRelativePath) }
     }
 
     #[inline]
