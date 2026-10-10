@@ -103,20 +103,24 @@ impl ColoredStringParser {
 
     fn extended_color(params: &[&[u16]], index: &mut usize) -> Option<Color> {
         let mode = *params.get(*index + 1)?.first()?;
-        match mode {
-            5 => {
-                let color = u8::try_from(*params.get(*index + 2)?.first()?).ok()?;
-                *index += 2;
-                Some(Color::AnsiValue(color))
-            }
-            2 => {
-                let r = u8::try_from(*params.get(*index + 2)?.first()?).ok()?;
-                let g = u8::try_from(*params.get(*index + 3)?.first()?).ok()?;
-                let b = u8::try_from(*params.get(*index + 4)?.first()?).ok()?;
-                *index += 4;
-                Some(Color::Rgb { r, g, b })
-            }
-            _ => None,
+        let arity = match mode {
+            5 => 2,
+            2 => 4,
+            _ => return None,
+        };
+        // The arguments belong to the colour even when one is missing or out of range; left in
+        // place they would be applied as SGR codes of their own.
+        let first_arg = *index + 2;
+        *index = (*index + arity).min(params.len() - 1);
+        let arg = |i: usize| u8::try_from(*params.get(first_arg + i)?.first()?).ok();
+        if arity == 2 {
+            Some(Color::AnsiValue(arg(0)?))
+        } else {
+            Some(Color::Rgb {
+                r: arg(0)?,
+                g: arg(1)?,
+                b: arg(2)?,
+            })
         }
     }
 
@@ -866,13 +870,14 @@ strips out {bs}invalid control sequences",
         );
     }
 
-    /// The arguments of a malformed extended colour are left in place and applied as SGR codes of
-    /// their own: `38;2;1;2` turns on dim, `38;2;300;31;1` turns on red and bold.
+    /// The arguments of a malformed extended colour are consumed with it, so the text stays plain.
     #[test]
-    fn test_malformed_extended_colour_args_become_codes() {
+    fn test_malformed_extended_colour_args_are_ignored() {
         let lines = Lines::from_colored_multiline_string("\x1b[38;2;1;2mx");
-        assert_eq!(lines.0[0].fmt_for_test().to_string(), "<span dim>x</span>");
+        assert_eq!(lines.0[0].fmt_for_test().to_string(), "x");
         let lines = Lines::from_colored_multiline_string("\x1b[38;2;300;31;1mx");
+        assert_eq!(lines.0[0].fmt_for_test().to_string(), "x");
+        let lines = Lines::from_colored_multiline_string("\x1b[38;5;1;1mx");
         assert_eq!(
             lines.0[0].fmt_for_test().to_string(),
             "<span fg=ansi(1) bold>x</span>"
