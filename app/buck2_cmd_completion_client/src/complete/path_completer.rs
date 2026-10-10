@@ -72,10 +72,18 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
     }
 
     async fn complete_dir_fragment(&mut self, partial: &SanitizedPath) -> CommandOutcome<()> {
+        // The fragment is what was typed after the last `/`. The normalized path's file name
+        // differs from it for `.`, `..` and a `/` after a missing directory, and then there is
+        // nothing to complete.
+        let given = partial.given();
+        let (given_dir, partial_base) = match given.rfind('/') {
+            Some(slash) => given.split_at(slash + 1),
+            None => ("", given),
+        };
+        if matches!(partial_base, "" | "." | "..") {
+            return CommandOutcome::Success(());
+        }
         let partial_path = partial.abs_path();
-        let partial_base = partial_path.file_name().unwrap().to_str().unwrap();
-
-        let given_dir = &partial.given()[..partial.given().len() - partial_base.len()];
 
         let mut scan_dir = self.cwd.path().to_path_buf();
         if let Some(offset_dir) = partial_path.parent() {
