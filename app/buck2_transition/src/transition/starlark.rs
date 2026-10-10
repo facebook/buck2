@@ -342,10 +342,10 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
             })
             .collect::<buck2_error::Result<_>>()?;
 
-        let path: ImportPath = (*starlark_path_from_build_context(eval)?
+        let path: ImportPath = starlark_path_from_build_context(eval)?
             .unpack_load_file()
-            .ok_or(buck2_error::Error::from(TransitionError::OnlyBzl))?)
-        .clone();
+            .ok_or(buck2_error::Error::from(TransitionError::OnlyBzl))?
+            .clone();
 
         if let Some(attrs) = &attrs {
             let attrs_set: BuckMutSet<StringValue> = attrs.items.iter().copied().collect();

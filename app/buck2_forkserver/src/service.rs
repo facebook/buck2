@@ -165,7 +165,10 @@ impl UnixForkserverService {
             .message()
             .await?
             .and_then(|m| m.data)
-            .and_then(|m| m.into_command_request())
+            .and_then(|m| match m {
+                buck2_forkserver_proto::request_event::Data::CommandRequest(r) => Some(r),
+                _ => None,
+            })
             .internal_error("RequestEvent was not a CommandRequest!")?;
         Ok(cmd_request)
     }

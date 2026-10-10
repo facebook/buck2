@@ -143,7 +143,10 @@ mod tests {
         }
 
         fn bind_dynamic(&mut self, output_slot: ArtifactGroup, bind_to: &ActionKey) {
-            let key = output_slot.unpack_artifact().unwrap().action_key().unwrap();
+            let ArtifactGroup::Artifact(artifact) = output_slot else {
+                panic!("expected an artifact")
+            };
+            let key = artifact.action_key().unwrap();
             match &mut self.actions[key.action_index().0 as usize].1 {
                 ActionState::Action(..) | ActionState::BoundDynamic(..) => panic!(),
                 x => *x = ActionState::BoundDynamic(bind_to.dupe()),

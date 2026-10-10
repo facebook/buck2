@@ -615,7 +615,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
         let action_outputs = ActionOutputs::new(
             outputs
                 .into_iter()
-                .filter_map(|(output, value)| Some((output.into_build_artifact()?.0, value)))
+                .filter_map(|(output, value)| Some((output.build_artifact_path()?.dupe(), value)))
                 .collect(),
         );
 

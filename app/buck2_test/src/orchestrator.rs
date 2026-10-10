@@ -1424,7 +1424,7 @@ impl BuckTestOrchestrator<'_> {
 
         let outputs = outputs
             .into_iter()
-            .filter_map(|(output, artifact)| Some((output.into_test_path()?.0, artifact)))
+            .filter_map(|(output, artifact)| Some((output.into_test_path()?, artifact)))
             .collect();
 
         let std_streams = std_streams

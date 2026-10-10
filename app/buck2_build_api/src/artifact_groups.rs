@@ -25,7 +25,6 @@ use buck2_util::size_assert;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
-use gazebo::variants::UnpackVariants;
 use pagable::Pagable;
 use starlark::values::StarlarkPagableViaPagable;
 
@@ -83,7 +82,6 @@ impl TransitiveSetProjectionWrapper {
     PartialEq,
     Eq,
     Hash,
-    UnpackVariants,
     Allocative,
     Pagable,
     StarlarkPagableViaPagable

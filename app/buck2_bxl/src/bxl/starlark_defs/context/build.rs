@@ -69,9 +69,8 @@ impl<'v> StarlarkProvidersArtifactIterable<'v> {
             .downcast_ref::<StarlarkBxlBuildResult>()
             .unwrap()
             .0
-            .unpack_built()
+            .built()
             .unwrap()
-            .1
             .outputs
             .iter()
             .filter_map(|built| built.inner.as_ref().ok())
@@ -124,9 +123,8 @@ impl<'v> StarlarkFailedArtifactIterable<'v> {
             .downcast_ref::<StarlarkBxlBuildResult>()
             .unwrap()
             .0
-            .unpack_built()
+            .built()
             .unwrap()
-            .1
             .outputs
             .iter()
             .filter_map(|built| built.inner.as_ref().err())

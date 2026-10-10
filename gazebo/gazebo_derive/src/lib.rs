@@ -29,14 +29,3 @@ pub fn derive_variant_names(input: proc_macro::TokenStream) -> proc_macro::Token
         Err(err) => err.to_compile_error().into(),
     }
 }
-
-// Derive the `Variants` functions.
-#[proc_macro_derive(UnpackVariants)]
-pub fn derive_variants(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
-    match variant::derive_unpack_variants(input) {
-        Ok(tokens) => tokens,
-        Err(err) => err.to_compile_error().into(),
-    }
-}

@@ -30,7 +30,6 @@ use buck2_util::indent::indent;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
-use gazebo::variants::UnpackVariants;
 use indent_write::fmt::IndentWriter;
 use indent_write::io::IndentWriter as IoIndentWriter;
 use regex::RegexSet;
@@ -47,7 +46,7 @@ use crate::query::QueryCommandError;
 use crate::query::query_target_ext::QueryCommandTarget;
 use crate::query_output_format::QueryOutputFormatInfo;
 
-#[derive(Copy_, Dupe_, Clone_, UnpackVariants)]
+#[derive(Copy_, Dupe_, Clone_)]
 pub(crate) enum ShouldPrintProviders<'a, T> {
     No,
     Yes(&'a dyn ProviderLookUp<T>),
@@ -85,7 +84,7 @@ impl<'a, T: QueryTarget> TargetSetJsonPrinter<'a, T> {
                 .await?,
             is_complex: attributes.is_some()
                 || target_call_stacks
-                || print_providers.unpack_yes().is_some(),
+                || matches!(print_providers, ShouldPrintProviders::Yes(_)),
         })
     }
 }

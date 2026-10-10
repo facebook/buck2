@@ -394,12 +394,10 @@ fn dependency_validated_keeps_its_revision_when_superseded() {
     );
     // The key is attached to the newer value, so the racing revalidation installs nothing and
     // version 2 is left to re-establish the older certificate on demand.
-    assert!(
-        graph
-            .get(VersionedGraphKey::new(v2, key(1)))
-            .unpack_unknown()
-            .is_some()
-    );
+    assert!(matches!(
+        graph.get(VersionedGraphKey::new(v2, key(1))),
+        VersionedGraphResult::Unknown { .. }
+    ));
 }
 
 /// A revalidation whose value is still paged out keeps it paged out.

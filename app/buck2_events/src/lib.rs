@@ -42,7 +42,6 @@ use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::PartialResult;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::From;
-use gazebo::variants::UnpackVariants;
 use serde::Serialize;
 
 use crate::sink::channel::ChannelEventSink;
@@ -188,7 +187,7 @@ impl TryFrom<Box<buck2_data::BuckEvent>> for BuckEvent {
 }
 
 /// The set of events that can flow out of an EventSource.
-#[derive(Debug, Clone, From, UnpackVariants)]
+#[derive(Debug, Clone, From)]
 #[allow(clippy::large_enum_variant)]
 pub enum Event {
     /// A command result, produced upon completion of a command.
@@ -197,6 +196,15 @@ pub enum Event {
     PartialResult(PartialResult),
     /// A regular buck event. Is the only type to end up in the Event Log
     Buck(BuckEvent),
+}
+
+impl Event {
+    pub fn unpack_buck(&self) -> Option<&BuckEvent> {
+        match self {
+            Self::Buck(event) => Some(event),
+            Self::CommandResult(..) | Self::PartialResult(..) => None,
+        }
+    }
 }
 
 /// Statistics from this event sink on how messages were processed.

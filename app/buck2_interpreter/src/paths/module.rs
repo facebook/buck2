@@ -19,7 +19,6 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use dupe::Dupe;
-use gazebo::variants::UnpackVariants;
 use pagable::Pagable;
 use starlark::collections::Equivalent;
 use strong_hash::StrongHash;
@@ -34,7 +33,6 @@ use crate::paths::path::StarlarkPath;
     Copy,
     Dupe,
     Debug,
-    UnpackVariants,
     Hash,
     StrongHash,
     Eq,
@@ -58,6 +56,13 @@ impl Equivalent<OwnedStarlarkModulePath> for StarlarkModulePath<'_> {
 }
 
 impl<'a> StarlarkModulePath<'a> {
+    pub fn unpack_load_file(&self) -> Option<&'a ImportPath> {
+        match self {
+            Self::LoadFile(p) => Some(p),
+            _ => None,
+        }
+    }
+
     pub fn cell(&self) -> CellName {
         match self {
             StarlarkModulePath::LoadFile(l) => l.cell(),

@@ -25,11 +25,11 @@ fn main() -> io::Result<()> {
     unsafe { builder.setup_protoc() }
         .type_attribute(
             "buck.forkserver.RequestEvent.data",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName, ::gazebo::variants::UnpackVariants)]",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
         .type_attribute(
             "buck.forkserver.EnvDirective.data",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName, ::gazebo::variants::UnpackVariants)]",
+            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
         )
         .type_attribute(
             "buck.forkserver.RequestEvent.data",

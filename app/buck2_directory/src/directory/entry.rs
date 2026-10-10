@@ -11,7 +11,6 @@
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::variants::UnpackVariants;
 use pagable::Pagable;
 
 use crate::directory::directory::Directory;
@@ -26,7 +25,6 @@ use crate::directory::directory::Directory;
     PartialEq,
     Display,
     Hash,
-    UnpackVariants,
     Allocative,
     Pagable,
     strong_hash::StrongHash

@@ -4940,7 +4940,6 @@ dependencies = [
 name = "gazebo_derive"
 version = "0.8.0"
 dependencies = [
- "proc-macro2",
  "quote",
  "syn 3.0.6",
 ]

@@ -914,9 +914,7 @@ impl IntoRemoteDepFile for DepFileBundle {
                 result
                     .outputs
                     .iter()
-                    .filter_map(|(o, v)| {
-                        Some((o.as_ref().into_build_artifact()?.0.dupe(), v.dupe()))
-                    })
+                    .filter_map(|(o, v)| Some((o.build_artifact_path()?.dupe(), v.dupe())))
                     .collect(),
             );
 
@@ -1098,7 +1096,7 @@ impl DepFileBundle {
             result
                 .outputs
                 .iter()
-                .filter_map(|(o, v)| Some((o.as_ref().into_build_artifact()?.0.dupe(), v.dupe())))
+                .filter_map(|(o, v)| Some((o.build_artifact_path()?.dupe(), v.dupe())))
                 .collect(),
         );
 

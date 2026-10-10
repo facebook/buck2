@@ -11,7 +11,6 @@
 //! Type definitions for objects relating to the Versioned Graph
 
 use dupe::Dupe;
-use gazebo::variants::UnpackVariants;
 use gazebo::variants::VariantName;
 
 use crate::arc::Arc;
@@ -50,7 +49,7 @@ pub(crate) struct Candidate {
 }
 
 /// The core state's answer to a lookup of a key at a version.
-#[derive(Debug, VariantName, UnpackVariants)]
+#[derive(Debug, VariantName)]
 pub(crate) enum VersionedGraphResult {
     /// The key resolves to `value` at the version.
     Match { value: MaybeResidentComputedValue },
@@ -61,4 +60,14 @@ pub(crate) enum VersionedGraphResult {
         /// The key's untracked-input revision, stamped on a newly computed certificate.
         epsilon: EpsilonToken,
     },
+}
+
+#[cfg(test)]
+impl VersionedGraphResult {
+    pub(crate) fn unpack_match(&self) -> Option<&MaybeResidentComputedValue> {
+        match self {
+            Self::Match { value } => Some(value),
+            Self::Unknown { .. } => None,
+        }
+    }
 }

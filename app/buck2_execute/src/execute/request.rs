@@ -36,7 +36,6 @@ use buck2_error::buck2_error;
 use buck2_hash::BuckIndexSet;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::variants::UnpackVariants;
 use host_sharing::host_sharing::HostSharingRequirements;
 use itertools::Itertools;
 use pagable::Pagable;
@@ -828,7 +827,7 @@ impl OutputType {
     }
 }
 
-#[derive(UnpackVariants, PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 pub enum CommandExecutionOutputRef<'a> {
     BuildArtifact {
         path: &'a BuildArtifactPath,
@@ -903,7 +902,7 @@ impl CommandExecutionOutputRef<'_> {
     }
 }
 
-#[derive(UnpackVariants, PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 pub enum CommandExecutionOutput {
     BuildArtifact {
         path: BuildArtifactPath,
@@ -916,6 +915,20 @@ pub enum CommandExecutionOutput {
 }
 
 impl CommandExecutionOutput {
+    pub fn build_artifact_path(&self) -> Option<&BuildArtifactPath> {
+        match self {
+            Self::BuildArtifact { path, .. } => Some(path),
+            Self::TestPath { .. } => None,
+        }
+    }
+
+    pub fn into_test_path(self) -> Option<BuckOutTestPath> {
+        match self {
+            Self::BuildArtifact { .. } => None,
+            Self::TestPath { path, .. } => Some(path),
+        }
+    }
+
     pub fn as_ref(&self) -> CommandExecutionOutputRef<'_> {
         match self {
             Self::BuildArtifact { path, output_type } => CommandExecutionOutputRef::BuildArtifact {

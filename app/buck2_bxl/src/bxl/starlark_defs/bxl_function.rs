@@ -83,15 +83,15 @@ fn bxl_impl<'v>(
 ) -> starlark::Result<Value<'v>> {
     let implementation = r#impl.0;
 
-    let bxl_path = (*starlark_path_from_build_context(eval)?
+    let bxl_path = starlark_path_from_build_context(eval)?
         .unpack_bxl_file()
         .ok_or_else(|| {
             buck2_error!(
                 buck2_error::ErrorTag::Input,
                 "`bxl` can only be declared in bxl files"
             )
-        })?)
-    .clone();
+        })?
+        .clone();
 
     let mut unresolved_cli_args = SmallMap::new();
     let mut short_args = SmallSet::new();
