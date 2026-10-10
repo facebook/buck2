@@ -36,7 +36,6 @@ use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -46,11 +45,10 @@ use buck2_execute::materialize::http::http_head;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
+use buck2_execute::re::presence::NegativeCache;
 use buck2_hash::BuckIndexSet;
 use buck2_http::HttpClient;
 use dupe::Dupe;
-use jiff::SignedDuration;
-use jiff::Timestamp;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
@@ -68,15 +66,6 @@ enum DownloadFileActionError {
     )]
     ContentBasedPathWithoutMetadata(BuildArtifactPath),
 }
-
-/// Minimum remaining CAS TTL for a probe hit to be declared as a CAS download instead of
-/// fetching the content. Nothing but the CAS backs such a declaration, so the blob has to
-/// survive until the TTL refresher adopts it.
-// FIXME(materializer): This has to exceed the refresher's pass interval plus the remaining TTL
-// below which it extends, which should be a static assertion against the refresher's constants
-// rather than a number chosen here. Do that once the standalone refresher has replaced the
-// materializer's and there is one set of constants to assert against.
-const PROBE_MIN_REMAINING_TTL: SignedDuration = SignedDuration::from_hours(2);
 
 enum DeclaredMetadata {
     /// The file's digest is known without downloading it.
@@ -279,14 +268,15 @@ impl DownloadFileAction {
             return Ok(None);
         }
 
+        // A stale miss only costs the download that would otherwise have been skipped.
         let expiration = match ctx
             .re_client()
             .with_use_case(use_case)
-            .get_digest_expirations(vec![digest.to_re()], &info)
+            .check_presence(vec![metadata.digest.dupe()], NegativeCache::Allowed, &info)
             .await
         {
-            Ok(expirations) => match expirations.into_iter().next() {
-                Some((_, expiration)) => expiration,
+            Ok(presence) => match presence.into_iter().next().flatten() {
+                Some(expiration) => expiration,
                 None => return Ok(None),
             },
             Err(e) => {
@@ -301,10 +291,6 @@ impl DownloadFileAction {
                 return Ok(None);
             }
         };
-
-        if expiration < Timestamp::now() + PROBE_MIN_REMAINING_TTL {
-            return Ok(None);
-        }
 
         let value = ArtifactValue::file(FileMetadata {
             digest: TrackedFileDigest::new_expires(
