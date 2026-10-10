@@ -38,6 +38,11 @@ load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module
     # @oss-disable[end= ]: "middle_gatorade_merge_args",
     # @oss-disable[end= ]: "relink_for_native_libs",
 # @oss-disable[end= ]: )
+# @oss-disable[end= ]: load(
+    # @oss-disable[end= ]: "@prelude//android/meta_only:native_link_diagnostics.bzl",
+    # @oss-disable[end= ]: "declare_native_link_diagnostics",
+    # @oss-disable[end= ]: "materialize_native_link_diagnostics",
+# @oss-disable[end= ]: )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
 load(
     "@prelude//cxx:link.bzl",
@@ -444,6 +449,14 @@ def get_android_binary_native_library_info(
     lib_outputs_by_platform = _declare_library_subtargets(
         ctx, dynamic_outputs, original_shared_libs_by_platform, native_library_merge_map, native_library_merge_sequence, enable_relinker
     )
+    # @oss-disable[end= ]: link_diagnostics = None
+    # @oss-disable[end= ]: if not is_late_gatorade_enabled(ctx):
+        # @oss-disable[end= ]: link_diagnostics = declare_native_link_diagnostics(
+            # @oss-disable[end= ]: enhance_ctx,
+            # @oss-disable[end= ]: dynamic_outputs,
+            # @oss-disable[end= ]: {platform: sorted(outputs.keys()) for platform, outputs in lib_outputs_by_platform.items()},
+            # @oss-disable[end= ]: enable_relinker,
+        # @oss-disable[end= ]: )
 
     if native_library_merge_sequence:
         native_library_merge_input_file = ctx.actions.write_json(
@@ -658,6 +671,7 @@ def get_android_binary_native_library_info(
             final_shared_libs_by_platform = original_shared_libs_by_platform
 
         relinked_libs_for_extra_outputs = {}
+        final_link_diagnostic_libs_by_platform = None
 
         # [native_build_commands][merge]: record every per-soname merge link here, once, before any
         # relink reassigns final_shared_libs_by_platform. This is the single capture point for merge
@@ -727,6 +741,13 @@ def get_android_binary_native_library_info(
                 None,
                 stripped = False,
             )
+            # @oss-disable[end= ]: materialize_native_link_diagnostics(
+                # @oss-disable[end= ]: ctx,
+                # @oss-disable[end= ]: outputs,
+                # @oss-disable[end= ]: link_diagnostics,
+                # @oss-disable[end= ]: unrelinked_shared_libs_by_platform,
+                # @oss-disable[end= ]: unrelinked = True,
+            # @oss-disable[end= ]: )
 
         if defer_relink:
             # Run relinking as separate actions that can execute in parallel with other build steps.
@@ -739,6 +760,10 @@ def get_android_binary_native_library_info(
                 native_cmd_entries,
                 outputs[middle_relink_check_report] if middle_relink_check_report else None,
             )
+            # This branch deliberately leaves final_shared_libs_by_platform unrelinked for the
+            # [unrelinked] subtargets below. Final diagnostic reports must instead reuse the
+            # deferred relink actions' arguments, including their version scripts and extra flags.
+            final_link_diagnostic_libs_by_platform = relinked_libs_by_platform
             middle_gatorade_relinked_libraries_by_platform = relinked_libs_by_platform
             relinked_libs_for_extra_outputs = relinked_libs_by_platform
 
@@ -785,6 +810,13 @@ def get_android_binary_native_library_info(
                 None,
                 stripped = False,
             )
+            # @oss-disable[end= ]: materialize_native_link_diagnostics(
+                # @oss-disable[end= ]: ctx,
+                # @oss-disable[end= ]: outputs,
+                # @oss-disable[end= ]: link_diagnostics,
+                # @oss-disable[end= ]: final_shared_libs_by_platform,
+                # @oss-disable[end= ]: unrelinked = True,
+            # @oss-disable[end= ]: )
 
         if middle_gatorade_products != None:
             _materialize_middle_gatorade_products(
@@ -883,6 +915,14 @@ def get_android_binary_native_library_info(
             split_groups,
             native_merge_debug,
         )
+        # @oss-disable[end= ]: if final_link_diagnostic_libs_by_platform == None:
+            # @oss-disable[end= ]: final_link_diagnostic_libs_by_platform = subtarget_shared_libs_by_platform
+        # @oss-disable[end= ]: materialize_native_link_diagnostics(
+            # @oss-disable[end= ]: ctx,
+            # @oss-disable[end= ]: outputs,
+            # @oss-disable[end= ]: link_diagnostics,
+            # @oss-disable[end= ]: final_link_diagnostic_libs_by_platform,
+        # @oss-disable[end= ]: )
 
         # Write the "base" fragment: every native-build command known by the end of this lambda.
         # with_inputs = False embeds each argv/argsfile as text without materializing the produced
