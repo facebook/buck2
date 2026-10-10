@@ -69,7 +69,7 @@ def compile_apple_core_data(ctx: AnalysisContext, specs: list[AppleCoreDataSpec]
             cmd_args("set -euo pipefail"),
             cmd_args('export TMPDIR="$(mktemp -d)"'),
             cmd_args(tool_commands),
-            cmd_args(output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}'),
+            cmd_args(output, format = 'mkdir -p {} && cp -R "$TMPDIR"/. {}'),
         ],
         allow_args = True,
         has_content_based_path = False,

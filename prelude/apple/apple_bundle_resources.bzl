@@ -494,7 +494,7 @@ def _run_ibtool(
     ibtool_command.extend(action_flags)
     if output_is_dir:
         ibtool_command.append('"$TMPDIR"')
-        copy_back = cmd_args(output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}')
+        copy_back = cmd_args(output, format = 'mkdir -p {} && cp -R "$TMPDIR"/. {}')
     else:
         output_for_tool_invocation = '"$TMPDIR"/"' + output.basename + '"'
         ibtool_command.append(output_for_tool_invocation)

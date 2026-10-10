@@ -64,7 +64,7 @@ def compile_scene_kit_assets(ctx: AnalysisContext, specs: list[SceneKitAssetsSpe
             cmd_args("set -euo pipefail"),
             cmd_args('export TMPDIR="$(mktemp -d)"'),
             cmd_args(copy_scene_kit_assets_cmds),
-            cmd_args(output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}'),
+            cmd_args(output, format = 'mkdir -p {} && cp -R "$TMPDIR"/. {}'),
         ],
         allow_args = True,
         has_content_based_path = False,

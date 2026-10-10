@@ -155,7 +155,7 @@ def _get_actool_command(
             cmd_args('export TMPDIR="$(mktemp -d)"'),
             cmd_args('cd "$TMPDIR"'),
             cmd_args(actool_command, absolute_prefix = "$ACTOOL_INPUT_ROOT/", delimiter = " "),
-            cmd_args(catalog_output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}', absolute_prefix = "$ACTOOL_INPUT_ROOT/"),
+            cmd_args(catalog_output, format = 'mkdir -p {} && cp -R "$TMPDIR"/. {}', absolute_prefix = "$ACTOOL_INPUT_ROOT/"),
         ],
         allow_args = True,
         has_content_based_path = False,
