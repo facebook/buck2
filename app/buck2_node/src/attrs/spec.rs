@@ -9,7 +9,7 @@
  */
 
 use allocative::Allocative;
-use gazebo::prelude::IterExactSize;
+use buck2_util::exact_size_iter::IterExactSize;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;

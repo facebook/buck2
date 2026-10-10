@@ -16,12 +16,13 @@ use std::slice;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::prelude::IterExactSize;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 use strong_hash::StrongHash;
 use triomphe::ThinArc;
+
+use crate::exact_size_iter::IterExactSize;
 
 #[derive(Allocative, Debug, Pagable)]
 pub struct ThinArcSlice<T> {

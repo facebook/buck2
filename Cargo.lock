@@ -3298,7 +3298,6 @@ dependencies = [
  "dice_futures",
  "dupe",
  "futures 0.3.34",
- "gazebo",
  "libc",
  "mini_vec",
  "pagable",

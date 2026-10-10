@@ -14,9 +14,9 @@ use buck2_error::internal_error;
 use buck2_events::BuckEvent;
 use buck2_events::span::SpanId;
 use buck2_hash::BuckMutMap;
+use buck2_util::exact_size_iter::IterExactSize;
 use derivative::Derivative;
 use dupe::Dupe;
-use gazebo::prelude::IterExactSize;
 use linked_hash_map::LinkedHashMap;
 
 use crate::what_ran::WhatRanRelevantAction;

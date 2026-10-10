@@ -11,7 +11,6 @@
 //! Extension methods for iterators, [`Option`] and slice/[`Vec`]. Usually imported with
 //! `use gazebo::prelude::*`.
 
-pub use crate::ext::iter::IterExactSize;
 pub use crate::ext::iter::IterExt;
 pub use crate::ext::iter::IterOwned;
 pub use crate::ext::option::OptionExt;

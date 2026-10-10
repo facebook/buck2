@@ -19,6 +19,7 @@ pub mod commas;
 pub mod cycle_detector;
 pub mod early_command_timing;
 pub mod env_vars;
+pub mod exact_size_iter;
 pub mod future;
 pub mod golden_test_helper;
 pub mod indent;
