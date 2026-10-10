@@ -51,16 +51,18 @@ fn derive_variant_name_impl(input: DeriveInput) -> syn::Result<proc_macro::Token
         let name = &input.ident;
         let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
+        // Matching on `*self` rather than `self` keeps this compiling for enums with no variants.
         let r#gen = quote! {
+            #[automatically_derived]
             impl #impl_generics ::variant_name::VariantName for #name #ty_generics #where_clause {
                 fn variant_name(&self) -> &'static str {
-                    match self {
+                    match *self {
                         #(#variant_body,)*
                     }
                 }
 
                 fn variant_name_lowercase(&self) -> &'static str {
-                    match self {
+                    match *self {
                         #(#variant_lowercase_body,)*
                     }
                 }
@@ -71,7 +73,7 @@ fn derive_variant_name_impl(input: DeriveInput) -> syn::Result<proc_macro::Token
     } else {
         Err(syn::Error::new(
             input.span(),
-            "Can only derive variant name on enums",
+            "`VariantName` can only be derived for enums",
         ))
     }
 }

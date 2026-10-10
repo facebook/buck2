@@ -33,41 +33,11 @@ extern crate self as variant_name;
 pub use variant_name_derive::VariantName;
 
 pub trait VariantName {
+    /// The variant's name as written in the enum declaration.
     fn variant_name(&self) -> &'static str;
 
+    /// The variant's name in snake case: `FooBar` becomes `foo_bar`.
     fn variant_name_lowercase(&self) -> &'static str;
-}
-
-impl<T> VariantName for Option<T> {
-    fn variant_name(&self) -> &'static str {
-        match self {
-            Self::Some(_) => "Some",
-            None => "None",
-        }
-    }
-
-    fn variant_name_lowercase(&self) -> &'static str {
-        match self {
-            Self::Some(_) => "some",
-            None => "none",
-        }
-    }
-}
-
-impl<T, E> VariantName for Result<T, E> {
-    fn variant_name(&self) -> &'static str {
-        match self {
-            Self::Ok(_) => "Ok",
-            Self::Err(_) => "Err",
-        }
-    }
-
-    fn variant_name_lowercase(&self) -> &'static str {
-        match self {
-            Self::Ok(_) => "ok",
-            Self::Err(_) => "err",
-        }
-    }
 }
 
 #[cfg(test)]
@@ -95,5 +65,16 @@ mod tests {
         let x = MyEnum::FooBaz { field: 1 };
         assert_eq!(x.variant_name(), "FooBaz");
         assert_eq!(x.variant_name_lowercase(), "foo_baz");
+    }
+
+    #[test]
+    fn derive_on_empty_enum() {
+        #[derive(VariantName)]
+        enum Never {}
+
+        fn name(x: Option<&Never>) -> Option<&'static str> {
+            x.map(VariantName::variant_name)
+        }
+        assert_eq!(name(None), None);
     }
 }
