@@ -548,6 +548,16 @@ mod tests {
         }
     }
 
+    /// The docs allow an unquoted argument to start with a digit. `single_expr` tries an integer
+    /// before a word, so the leading digits are taken as an integer and the rest of the word
+    /// fails the function call; `set()` arguments go straight to `word` and parse.
+    #[test]
+    fn test_unquoted_word_starting_with_digit() {
+        assert!(parse_expr("set(2to3)").is_ok());
+        assert!(parse_expr("kind(2to3, //foo:bar)").is_err());
+        assert!(parse_expr("kind('2to3', //foo:bar)").is_ok());
+    }
+
     #[test]
     fn test_expr() -> buck2_error::Result<()> {
         run_tests(
