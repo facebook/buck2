@@ -259,6 +259,8 @@ impl SuperConsoleOutput for NonBlockingSuperConsoleOutput {
 #[cfg(test)]
 mod tests {
     use std::io;
+    use std::sync::Arc;
+    use std::sync::Mutex;
 
     use super::*;
 
@@ -344,5 +346,71 @@ mod tests {
                 test_send_target(target0, target1).unwrap();
             }
         }
+    }
+
+    #[derive(Clone, Default)]
+    struct Recorder {
+        log: Arc<Mutex<Vec<String>>>,
+        name: &'static str,
+    }
+
+    impl IsTty for Recorder {
+        fn is_tty(&self) -> bool {
+            true
+        }
+    }
+
+    impl Write for Recorder {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.log
+                .lock()
+                .unwrap()
+                .push(format!("{} write {}", self.name, buf.len()));
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            self.log
+                .lock()
+                .unwrap()
+                .push(format!("{} flush", self.name));
+            Ok(())
+        }
+    }
+
+    fn aux_write_log(blocking: bool) -> Vec<String> {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let main = Recorder {
+            log: log.clone(),
+            name: "main",
+        };
+        let aux = Recorder {
+            log: log.clone(),
+            name: "aux",
+        };
+        let mut output: Box<dyn SuperConsoleOutput> = if blocking {
+            Box::new(BlockingSuperConsoleOutput::new(
+                Box::new(main),
+                Box::new(aux),
+            ))
+        } else {
+            Box::new(
+                NonBlockingSuperConsoleOutput::new_for_writer(Box::new(main), Box::new(aux))
+                    .unwrap(),
+            )
+        };
+        output
+            .output_to(b"aux line\n".to_vec(), OutputTarget::Aux)
+            .unwrap();
+        output.finalize().unwrap();
+        log.lock().unwrap().clone()
+    }
+
+    /// The writer thread flushes the main stream after an aux write and never flushes the aux
+    /// stream, unlike the blocking output.
+    #[test]
+    fn test_non_blocking_aux_write_flushes_main_not_aux() {
+        assert_eq!(aux_write_log(true), vec!["aux write 9", "aux flush"]);
+        assert_eq!(aux_write_log(false), vec!["aux write 9", "main flush"]);
     }
 }
