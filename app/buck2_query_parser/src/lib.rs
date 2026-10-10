@@ -57,9 +57,9 @@ use gazebo::prelude::*;
 use nom::IResult;
 use nom::Parser as _;
 use nom::branch::alt;
-use nom::bytes::complete::is_a;
 use nom::bytes::complete::tag;
 use nom::bytes::complete::take_till;
+use nom::bytes::complete::take_while1;
 use nom::character::complete::alpha1;
 use nom::character::complete::alphanumeric1;
 use nom::character::complete::char;
@@ -347,6 +347,14 @@ fn expr_int<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, SpannedE
     spanned(|input| {
         let (remaining, word) = digit1(input)?;
 
+        // Digits followed by more word characters are a word such as `2to3`, not an integer.
+        if remaining.fragment().starts_with(is_word_char) {
+            return Err(nom::Err::Error(nom::error::ParseError::from_error_kind(
+                input,
+                ErrorKind::Digit,
+            )));
+        }
+
         let value = match word.fragment() {
             "0" => 0,
             val if val.starts_with('0') => {
@@ -368,6 +376,12 @@ fn expr_int<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, SpannedE
     .parse(input)
 }
 
+/// Whether an unquoted word may contain `c`; only ASCII letters and digits count, as in the
+/// grammar above.
+fn is_word_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || "*/@.-_:$#%".contains(c)
+}
+
 fn word<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, Span<'a>, E> {
     maybe_quoted_word(input).map(|(remaining, (_unquoted, x))| (remaining, x))
 }
@@ -387,7 +401,7 @@ fn maybe_quoted_word<'a, E: NomParseError<'a>>(
     }
 
     fn non_quoted_word<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, Span<'a>, E> {
-        recognize(many1(alt((alphanumeric1, is_a("*/@.-_:$#%"))))).parse(input)
+        take_while1(is_word_char).parse(input)
     }
 
     alt((
@@ -548,14 +562,20 @@ mod tests {
         }
     }
 
-    /// The docs allow an unquoted argument to start with a digit. `single_expr` tries an integer
-    /// before a word, so the leading digits are taken as an integer and the rest of the word
-    /// fails the function call; `set()` arguments go straight to `word` and parse.
+    /// The docs allow an unquoted argument to start with a digit.
     #[test]
-    fn test_unquoted_word_starting_with_digit() {
+    fn test_unquoted_word_starting_with_digit() -> buck2_error::Result<()> {
         assert!(parse_expr("set(2to3)").is_ok());
-        assert!(parse_expr("kind(2to3, //foo:bar)").is_err());
-        assert!(parse_expr("kind('2to3', //foo:bar)").is_ok());
+        let parsed = parse_expr("kind(2to3, //foo:bar)")?;
+        assert!(format!("{parsed:?}").contains("2to3"), "{parsed:?}");
+        // Plain integers are still integers.
+        let parsed = parse_expr("deps(//foo:bar, 2)")?;
+        assert!(format!("{parsed:?}").contains("Integer(2)"), "{parsed:?}");
+        // Unquoted words are ASCII, whether or not they start with a digit.
+        assert!(parse_expr("kind(2é, //foo:bar)").is_err());
+        assert!(parse_expr("kind(é, //foo:bar)").is_err());
+        assert!(parse_expr("kind('2é', //foo:bar)").is_ok());
+        Ok(())
     }
 
     #[test]
