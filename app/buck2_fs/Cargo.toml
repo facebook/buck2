@@ -16,7 +16,6 @@ compact_str.workspace = true
 derive_more.workspace = true
 dunce.workspace = true
 dupe.workspace = true
-gazebo.workspace = true
 memchr.workspace = true
 pagable.workspace = true
 ref-cast.workspace = true

@@ -30,7 +30,6 @@ dice.workspace = true
 dice_futures.workspace = true
 dupe.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 pin-project.workspace = true
 tonic.workspace = true
 tracing.workspace = true

@@ -14,7 +14,6 @@ buck2_re_configuration.workspace = true
 buck2_util.workspace = true
 dupe.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 h2.workspace = true
 http.workspace = true
 http-body.workspace = true

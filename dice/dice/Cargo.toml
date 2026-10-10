@@ -24,7 +24,6 @@ dice_error.workspace = true
 dice_futures.workspace = true
 dupe.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 itertools.workspace = true
 lock_free_hashtable.workspace = true
 lock_free_vec.workspace = true

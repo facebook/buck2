@@ -25,7 +25,6 @@ buck2_node.workspace = true
 buck2_util.workspace = true
 dice.workspace = true
 dupe.workspace = true
-gazebo.workspace = true
 itertools.workspace = true
 prost-types.workspace = true
 ref-cast.workspace = true

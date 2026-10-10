@@ -53,7 +53,6 @@ dupe.workspace = true
 fbinit.workspace = true
 flate2.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 globset.workspace = true
 host_sharing.workspace = true
 inferno.workspace = true

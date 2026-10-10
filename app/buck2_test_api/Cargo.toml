@@ -25,7 +25,6 @@ derivative.workspace = true
 derive_more.workspace = true
 dupe.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 host_sharing.workspace = true
 pagable.workspace = true
 prost-types.workspace = true

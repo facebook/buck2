@@ -27,7 +27,6 @@ bytesize.workspace = true
 clap.workspace = true
 dupe.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 humantime.workspace = true
 jiff.workspace = true
 libc.workspace = true

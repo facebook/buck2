@@ -160,7 +160,6 @@ members = [
   "gazebo/display_container",
   "gazebo/dupe",
   "gazebo/dupe_derive",
-  "gazebo/gazebo",
   "gazebo/hmap",
   "gazebo/strong_hash",
   "gazebo/strong_hash_derive",
@@ -361,7 +360,6 @@ futures = { version = "0.3.34", features = ["async-await", "compat"] }
 futures-intrusive = "0.5.0"
 fxhash = "0.2.1"
 games = { path = "games" }
-gazebo = { version = "0.8.1", path = "gazebo/gazebo", features = ["str_pattern_extensions"] }
 glob = "0.3.4"
 globset = { version = "0.4.20", features = ["serde1"] }
 h2 = "0.4.19"

@@ -39,7 +39,6 @@ dupe.workspace = true
 fbinit.workspace = true
 futures.workspace = true
 games.workspace = true
-gazebo.workspace = true
 hex.workspace = true
 httparse.workspace = true
 humantime.workspace = true

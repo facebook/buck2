@@ -32,7 +32,6 @@ dice_futures.workspace = true
 dupe.workspace = true
 flate2.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 itertools.workspace = true
 os_str_bytes.workspace = true
 regex.workspace = true

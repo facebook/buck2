@@ -41,12 +41,10 @@ tempfile.workspace = true
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 assert_matches.workspace = true
 buck2_util.workspace = true
-gazebo.workspace = true
 
 [target.'cfg(target_os = "macos")'.dev-dependencies]
 assert_matches.workspace = true
 buck2_util.workspace = true
-gazebo.workspace = true
 
 [lints]
 workspace = true

@@ -33,7 +33,6 @@ dupe.workspace = true
 either.workspace = true
 fancy-regex.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 glob.workspace = true
 hashbrown.workspace = true
 hex.workspace = true

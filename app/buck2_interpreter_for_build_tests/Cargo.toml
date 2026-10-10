@@ -27,7 +27,6 @@ ctor.workspace = true
 dice.workspace = true
 dupe.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 indoc.workspace = true
 serde_json.workspace = true
 starlark.workspace = true

@@ -28,7 +28,6 @@ dice.workspace = true
 dupe.workspace = true
 either.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 pagable.workspace = true
 smallvec.workspace = true
 starlark.workspace = true

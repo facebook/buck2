@@ -46,7 +46,6 @@ display_container.workspace = true
 dupe.workspace = true
 either.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 indexmap.workspace = true
 internment.workspace = true
 inventory.workspace = true

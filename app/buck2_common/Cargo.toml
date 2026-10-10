@@ -37,7 +37,6 @@ dirs.workspace = true
 dupe.workspace = true
 fbinit.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 globset.workspace = true
 hex.workspace = true
 hyper.workspace = true

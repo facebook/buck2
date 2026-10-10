@@ -13,7 +13,6 @@ buck2_util.workspace = true
 derive_more.workspace = true
 dupe.workspace = true
 enum-map.workspace = true
-gazebo.workspace = true
 nom.workspace = true
 nom-language.workspace = true
 variant_name.workspace = true

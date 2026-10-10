@@ -16,7 +16,6 @@ dice.workspace = true
 dice_futures.workspace = true
 dupe.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 pagable.workspace = true
 parking_lot.workspace = true
 tempfile.workspace = true

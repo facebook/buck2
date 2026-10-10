@@ -31,7 +31,6 @@ derive_more.workspace = true
 dice.workspace = true
 dupe.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 indent_write.workspace = true
 itertools.workspace = true
 ref-cast.workspace = true

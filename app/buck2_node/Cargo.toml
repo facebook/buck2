@@ -28,7 +28,6 @@ display_container.workspace = true
 dupe.workspace = true
 either.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 itertools.workspace = true
 memchr.workspace = true
 mini_vec.workspace = true

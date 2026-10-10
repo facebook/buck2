@@ -22,7 +22,6 @@ dupe.workspace = true
 enum-iterator.workspace = true
 fancy-regex.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 indexmap.workspace = true
 indoc.workspace = true
 itertools.workspace = true

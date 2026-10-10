@@ -24,7 +24,6 @@ derive_more.workspace = true
 dupe.workspace = true
 equivalent.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 hex.workspace = true
 hostname.workspace = true
 itertools.workspace = true

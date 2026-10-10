@@ -34,7 +34,6 @@ derive_more.workspace = true
 dice_futures.workspace = true
 dupe.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 host_sharing.workspace = true
 hostname.workspace = true
 itertools.workspace = true
