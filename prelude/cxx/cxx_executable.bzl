@@ -408,7 +408,12 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     sub_targets["full-compilation-database"] = [comp_db]
 
     # comp_db_compile_cmds can include header files being compiled as C++ which should not be exposed in the [compilation-database] subtarget
-    comp_db_info = make_compilation_db_info(compile_cmd_output.comp_db_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
+    comp_db_info = make_compilation_db_info(
+        src_compile_cmds = compile_cmd_output.comp_db_compile_cmds,
+        precompile_cmds = [],
+        toolchain_info = get_cxx_toolchain_info(ctx),
+        platform_info = get_cxx_platform_info(ctx),
+    )
 
     # Index Stores created by cxx compile
     index_stores = [out.index_store for out in cxx_outs if out.index_store]

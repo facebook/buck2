@@ -1624,7 +1624,8 @@ module "{}" {{
     check_args.extend(["-fsyntax-only", input_header])
 
     return CxxSrcPrecompileCommand(
-        src = src_dir,
+        src = input_header,
+        include_dir = src_dir,
         cxx_compile_cmd = cmd,
         args = args,
         check_args = check_args,
@@ -1639,7 +1640,7 @@ def _precompile_single_cxx(
     group_name: str,
     src_compile_cmd: CxxSrcPrecompileCommand,
 ) -> HeaderUnit:
-    identifier = src_compile_cmd.src.short_path
+    identifier = src_compile_cmd.include_dir.short_path
     cxx_cmd = src_compile_cmd.cxx_compile_cmd
 
     filename = "{}.pcm".format(identifier)
@@ -1738,7 +1739,7 @@ def _precompile_single_cxx(
         name = _get_module_name(target_label, group_name),
         module = module,
         stub = stub,
-        include_dir = src_compile_cmd.src,
+        include_dir = src_compile_cmd.include_dir,
         import_include = _get_import_filename(target_label, group_name) if impl_params.export_header_unit == "preload" else None,
         clang_trace = clang_trace,
         diagnostics = diagnostics,
@@ -1751,14 +1752,11 @@ def precompile_cxx(
     impl_params: CxxRuleConstructorParams,
     preprocessors: list[CPreprocessor],
     header_preprocessor_info: CPreprocessorInfo,
-) -> list[CPreprocessor]:
-    """
-    Produces header units for the target and returns a list of preprocessors enabling
-    them; depending on those preprocessors will allow the corresponding module to load.
-    """
+) -> (list[CPreprocessor], list[CxxSrcPrecompileCommand]):
+    """Produces header units and returns their preprocessors and commands."""
     compiler_info = toolchain.cxx_compiler_info
     if not _compiler_supports_header_units(compiler_info):
-        return []
+        return [], []
 
     def mk_base_cmd():
         base_compile_cmd = _get_compile_base(toolchain, compiler_info, use_wrapper = True)
@@ -1811,6 +1809,7 @@ def precompile_cxx(
     cmd = mk_base_cmd()
 
     header_unit_preprocessors = []
+    commands = []
     if len(impl_params.export_header_unit_filter) <= 1:
         group = None
         if impl_params.export_header_unit_filter:
@@ -1826,6 +1825,7 @@ def precompile_cxx(
             cmd = cmd,
         )
         header_unit = _precompile_single_cxx(actions, target_label, toolchain, impl_params, "", precompile_cmd)
+        commands.append(precompile_cmd)
         header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
     else:
         # Chain preprocessors in order.
@@ -1843,10 +1843,11 @@ def precompile_cxx(
                 cmd = cmd,
             )
             header_unit = _precompile_single_cxx(actions, target_label, toolchain, impl_params, name, precompile_cmd)
+            commands.append(precompile_cmd)
             header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
             i += 1
 
-    return header_unit_preprocessors
+    return header_unit_preprocessors, commands
 
 def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Provider]]:
     objects_sub_targets = {}

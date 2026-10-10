@@ -169,6 +169,7 @@ load(
     "CxxCompileOutput",  # @unused Used as a type
     "CxxExtension",
     "CxxSrcCompileCommand",
+    "CxxSrcPrecompileCommand",
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
@@ -373,6 +374,7 @@ _CxxCompiledSourcesOutput = record(
     non_pic = field([_CxxLibraryCompileOutput, None]),
     # Header unit outputs
     header_unit_preprocessors = field(list[CPreprocessor]),
+    precompile_cmds = field(list[CxxSrcPrecompileCommand]),
 )
 
 # The outputs of a cxx_library_parameterized rule.
@@ -719,7 +721,12 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     # comp_db_compile_cmds can include header files being compiled as C++ which should not be exposed in the [compilation-database] subtarget
     comp_db_info = None
     if impl_params.generate_providers.compilation_database:
-        comp_db_info = make_compilation_db_info(compiled_srcs.compile_cmds.comp_db_compile_cmds, get_cxx_toolchain_info(ctx), get_cxx_platform_info(ctx))
+        comp_db_info = make_compilation_db_info(
+            src_compile_cmds = compiled_srcs.compile_cmds.comp_db_compile_cmds,
+            precompile_cmds = compiled_srcs.precompile_cmds,
+            toolchain_info = get_cxx_toolchain_info(ctx),
+            platform_info = get_cxx_platform_info(ctx),
+        )
         providers.append(comp_db_info)
 
     # Link Groups
@@ -1602,21 +1609,20 @@ def cxx_compile_srcs(
 
     # Define header unit.
     header_unit_preprocessors = []
+    precompile_cmds = []
     if own_exported_preprocessors:
         header_preprocessor_info = cxx_merge_cpreprocessors(
             actions,
             own_exported_preprocessors,
             inherited_exported_preprocessor_infos,
         )
-        header_unit_preprocessors.extend(
-            precompile_cxx(
-                actions = actions,
-                target_label = target_label,
-                toolchain = cxx_toolchain_info,
-                impl_params = impl_params,
-                preprocessors = own_exported_preprocessors,
-                header_preprocessor_info = header_preprocessor_info,
-            )
+        header_unit_preprocessors, precompile_cmds = precompile_cxx(
+            actions = actions,
+            target_label = target_label,
+            toolchain = cxx_toolchain_info,
+            impl_params = impl_params,
+            preprocessors = own_exported_preprocessors,
+            header_preprocessor_info = header_preprocessor_info,
         )
 
     # Define object files.
@@ -1726,6 +1732,7 @@ def cxx_compile_srcs(
         pic_debuggable = pic_debuggable,
         non_pic = non_pic,
         header_unit_preprocessors = header_unit_preprocessors,
+        precompile_cmds = precompile_cmds,
     )
 
 def _form_library_outputs(

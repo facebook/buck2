@@ -12,6 +12,7 @@ load("@prelude//utils:argfile.bzl", "at_argfile")
 load(
     ":compile_types.bzl",
     "CxxSrcCompileCommand",  # @unused Used as a type
+    "CxxSrcPrecompileCommand",  # @unused Used as a type
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_library_utility.bzl", "EMPTY_DEFAULT_INFO")
@@ -21,18 +22,23 @@ CxxCompilationDbInfo = provider(
     fields = {
         "info": provider_field(typing.Any, default = None),  # A map of the file (an `Artifact`) to its corresponding `CxxSrcCompileCommand`
         "platform": provider_field(typing.Any, default = None),  # platform for this compilation database
+        "precompile_info": provider_field(typing.Any, default = {}),  # A map of the file (an `Artifact`) to its corresponding `CxxSrcPrecompileCommand`
         "toolchain": provider_field(typing.Any, default = None),  # toolchain for this compilation database
     }
 )
 
 def make_compilation_db_info(
-    src_compile_cmds: list[CxxSrcCompileCommand], toolchainInfo: CxxToolchainInfo, platformInfo: CxxPlatformInfo
+    src_compile_cmds: list[CxxSrcCompileCommand],
+    precompile_cmds: list[CxxSrcPrecompileCommand],
+    toolchain_info: CxxToolchainInfo,
+    platform_info: CxxPlatformInfo,
 ) -> CxxCompilationDbInfo:
-    info = {}
-    for src_compile_cmd in src_compile_cmds:
-        info.update({src_compile_cmd.src: src_compile_cmd})
-
-    return CxxCompilationDbInfo(info = info, toolchain = toolchainInfo, platform = platformInfo)
+    return CxxCompilationDbInfo(
+        info = {compile_cmd.src: compile_cmd for compile_cmd in src_compile_cmds},
+        precompile_info = {compile_cmd.src: compile_cmd for compile_cmd in precompile_cmds},
+        platform = platform_info,
+        toolchain = toolchain_info,
+    )
 
 def _comp_database_entry_path(identifier: str, src_path: str) -> str:
     return paths.join(identifier, "__comp_db__", src_path + ".comp_db.json")
