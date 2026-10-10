@@ -168,7 +168,9 @@ pub(crate) struct DiceTaskInternal<T = MaybeResidentComputedValue> {
     /// which don't hold a strong count), and wakers here may actually be waiting on different
     /// generations. We don't attempt to be smart; when we wake anything, we wake everything, and
     /// things that didn't need to be woken just re-register themselves.
-    wakers: AtomicWakerSet<()>,
+    ///
+    /// Each entry names the key that is waiting, see `for_each_waiting_key`.
+    wakers: AtomicWakerSet<ParentKey>,
 }
 
 enum ReadValueResult<'d, T = MaybeResidentComputedValue> {
@@ -183,7 +185,7 @@ enum ReadValueResult<'d, T = MaybeResidentComputedValue> {
 pub(crate) struct TaskWaiter<'d, T = MaybeResidentComputedValue> {
     task: DiceTaskRef<'d, T>,
     #[pin]
-    waiter: AtomicWakerSetEntry<()>,
+    waiter: AtomicWakerSetEntry<ParentKey>,
 }
 
 impl<'d, T> TaskWaiter<'d, T> {
@@ -324,10 +326,15 @@ impl<T> DiceTask<T> {
     {
         // Spawning a dice task normally needs some kind of arena to allocate the task into; we don't
         // have one, but this is tests, so just leak the thing
-        DiceTask::prepare::<()>(key, |t| Ok(Box::leak(Box::new(t)).as_ref())).unwrap()
+        DiceTask::prepare::<()>(
+            key,
+            ParentKey::None,
+            |t| Ok(Box::leak(Box::new(t)).as_ref()),
+        )
+        .unwrap()
     }
 
-    /// Prepare a task for execution.
+    /// Prepare a task for execution, with `parent` as its first dependent.
     ///
     /// Takes an alloc callback which should allocate the task into something long lived so that
     /// further code can use references to it.
@@ -336,6 +343,7 @@ impl<T> DiceTask<T> {
     /// a ref to an unrelated dice task. Should be fine.
     pub(crate) fn prepare<'d, E>(
         key: DiceKey,
+        parent: ParentKey,
         alloc: impl FnOnce(DiceTask<T>) -> Result<DiceTaskRef<'d, T>, E>,
     ) -> Result<PreparedDiceTask<'d, T>, E> {
         let (future_spawner, cancellation_handle) = prepare_detached_cancellation();
@@ -367,7 +375,7 @@ impl<T> DiceTask<T> {
             },
             dependent_future: DiceTaskDependentFuture(TaskWaiter {
                 task,
-                waiter: AtomicWakerSetEntry::new(()),
+                waiter: AtomicWakerSetEntry::new(parent),
             }),
             completion_handle: DiceTaskCompletionHandle {
                 generation: 1,
@@ -380,7 +388,7 @@ impl<T> DiceTask<T> {
 impl<'d, T> DiceTaskRef<'d, T> {
     /// `k` depends on this task, returning a `DicePromise` that will complete when this task
     /// completes
-    pub(crate) fn depended_on_by(self, _k: ParentKey) -> DiceTaskDependedOnByResult<'d, T>
+    pub(crate) fn depended_on_by(self, k: ParentKey) -> DiceTaskDependedOnByResult<'d, T>
     where
         T: Dupe + Send + Sync + 'static,
     {
@@ -400,7 +408,7 @@ impl<'d, T> DiceTaskRef<'d, T> {
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture(TaskWaiter {
                     task: self,
-                    waiter: AtomicWakerSetEntry::new(()),
+                    waiter: AtomicWakerSetEntry::new(k),
                 }),
             ));
         }
@@ -427,7 +435,7 @@ impl<'d, T> DiceTaskRef<'d, T> {
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture(TaskWaiter {
                     task: self,
-                    waiter: AtomicWakerSetEntry::new(()),
+                    waiter: AtomicWakerSetEntry::new(k),
                 }),
             ));
         }
@@ -459,7 +467,7 @@ impl<'d, T> DiceTaskRef<'d, T> {
             },
             dependent_future: DiceTaskDependentFuture(TaskWaiter {
                 task: self,
-                waiter: AtomicWakerSetEntry::new(()),
+                waiter: AtomicWakerSetEntry::new(k),
             }),
             completion_handle: DiceTaskCompletionHandle {
                 generation: new_generation,
@@ -491,6 +499,18 @@ impl<'d, T> DiceTaskRef<'d, T> {
         let started = self.internal.started_generation.load(Ordering::Relaxed);
         let terminated = self.internal.terminated_generation.load(Ordering::Relaxed);
         terminated < started
+    }
+
+    /// Calls `f` with the key of every computation that is blocked on this task: one that polled
+    /// its `DicePromise` for the task, found it pending, and has not been woken since. Requests
+    /// from outside of any computation (`ParentKey::None`) are not reported.
+    #[cfg(test)]
+    pub(crate) fn for_each_waiting_key(&self, mut f: impl FnMut(DiceKey)) {
+        self.internal.wakers.for_each_registered(|parent| {
+            if let ParentKey::Some(k) = *parent {
+                f(k)
+            }
+        })
     }
 
     pub(crate) fn introspect_state(&self) -> DiceTaskState {
@@ -759,7 +779,7 @@ impl<T> TerminationObserver<T> {
             async move {
                 let mut wait = std::pin::pin!(TaskWaiter {
                     task: task.as_ref(),
-                    waiter: AtomicWakerSetEntry::new(()),
+                    waiter: AtomicWakerSetEntry::new(ParentKey::None),
                 });
                 std::pin::pin!(std::future::poll_fn(|cx| {
                     TaskWaiter::poll_at_generation(wait.as_mut(), cx, generation)

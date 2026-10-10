@@ -138,6 +138,46 @@ async fn simple_task() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn waiting_keys_are_the_dependents_that_polled_while_pending() {
+    let (task, _initial_promise) =
+        spawn_dice_task(DiceKey { index: 10 }, &TokioSpawner, &(), |handle| {
+            async move {
+                let _handle = handle;
+                std::future::pending().await
+            }
+            .boxed()
+        });
+    let waiting = || {
+        let mut keys = Vec::new();
+        task.as_ref().for_each_waiting_key(|k| keys.push(k.index));
+        keys.sort();
+        keys
+    };
+
+    let mut p1 = Box::pin(
+        task.depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
+            .unwrap(),
+    );
+    let mut p2 = Box::pin(
+        task.depended_on_by(ParentKey::Some(DiceKey { index: 2 }))
+            .unwrap(),
+    );
+    let _never_polled = task
+        .depended_on_by(ParentKey::Some(DiceKey { index: 3 }))
+        .unwrap();
+    let mut external = Box::pin(task.depended_on_by(ParentKey::None).unwrap());
+    assert_eq!(waiting(), Vec::<u32>::new(), "nothing has polled yet");
+
+    assert!(poll!(&mut p1).is_pending());
+    assert!(poll!(&mut p2).is_pending());
+    assert!(poll!(&mut external).is_pending());
+    assert_eq!(waiting(), vec![1, 2]);
+
+    drop(p1);
+    assert_eq!(waiting(), vec![2]);
+}
+
+#[tokio::test]
 async fn not_ready_until_dropped() -> anyhow::Result<()> {
     let sent_finish = std::sync::Arc::new(Notify::new());
     let can_terminate = std::sync::Arc::new(Notify::new());

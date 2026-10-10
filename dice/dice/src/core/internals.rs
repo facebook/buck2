@@ -276,6 +276,7 @@ mod tests {
     use crate::epoch::task::dice::testing_helpers::make_completed_task;
     use crate::epoch::task::spawn_dice_task;
     use crate::key::DiceKey;
+    use crate::key::ParentKey;
     use crate::updater::ChangeType;
     use crate::value::DiceKeyValue;
     use crate::value::DiceValidValue;
@@ -503,7 +504,9 @@ mod tests {
         assert_eq!(core.running_tasks(None).len(), 3);
 
         // The cache goes on accepting work from the tasks still running in it.
-        let SharedCacheInsert::Inserted(prepared) = cache.insert(DiceKey { index: 999 }) else {
+        let SharedCacheInsert::Inserted(prepared) =
+            cache.insert(DiceKey { index: 999 }, ParentKey::None)
+        else {
             panic!("the cache should accept new tasks");
         };
         // Run it to termination so that it does not count as pending below.

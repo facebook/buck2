@@ -28,6 +28,7 @@ use crate::epoch::task::dice::PreparedDiceTask;
 use crate::epoch::task::projections::ProjectionTask;
 use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::key::DiceKey;
+use crate::key::ParentKey;
 use crate::value::MaybeResidentComputedValue;
 
 /// A projection's result as a dependency check establishes it from the core state alone.
@@ -128,11 +129,13 @@ impl SharedCache {
         }
     }
 
+    /// Inserts a task for `key` with `parent` as its first dependent, unless one exists.
     pub(crate) fn insert(
         &self,
         key: DiceKey,
+        parent: ParentKey,
     ) -> SharedCacheInsert<DiceTaskRef<'_>, PreparedDiceTask<'_>> {
-        let maybe_prepared_task = DiceTask::prepare(key, |task| {
+        let maybe_prepared_task = DiceTask::prepare(key, parent, |task| {
             let (entry, not_inserted_value) = self.data.storage.insert(
                 Self::key_hash(key),
                 task.internal,
@@ -308,6 +311,7 @@ mod tests {
     use crate::epoch::task::promise::DicePromise;
     use crate::epoch::task::spawn_dice_task;
     use crate::key::DiceKey;
+    use crate::key::ParentKey;
 
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash, Pagable)]
     #[pagable_typetag(DiceKeyDyn)]
@@ -398,7 +402,7 @@ mod tests {
         assert_eq!(pending_tasks.len(), 3);
         // Reporting pending tasks changes nothing about the cache: it keeps accepting work.
         assert!(matches!(
-            cache.insert(DiceKey { index: 999 }),
+            cache.insert(DiceKey { index: 999 }, ParentKey::None),
             SharedCacheInsert::Inserted(_)
         ));
     }

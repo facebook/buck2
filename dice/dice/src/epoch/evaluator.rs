@@ -91,7 +91,7 @@ impl VersionState {
         let task = match self.cache.get(key) {
             SharedCacheLookup::Finished(result) => return LookupResult::Finished(result),
             SharedCacheLookup::InProgress(task) => task,
-            SharedCacheLookup::Vacant => match self.cache.insert(key) {
+            SharedCacheLookup::Vacant => match self.cache.insert(key, parent_key) {
                 SharedCacheInsert::Occupied(dice_task) => dice_task,
                 SharedCacheInsert::Inserted(prepared_task) => {
                     return LookupResult::NeedsRestart(prepared_task, None);
