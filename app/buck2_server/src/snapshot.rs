@@ -368,6 +368,10 @@ impl SnapshotCollector {
                 stats.get_digest_expirations.finished_successfully;
             snapshot.re_get_digest_expirations_finished_with_error =
                 stats.get_digest_expirations.finished_with_error;
+            snapshot.re_presence_check_rpcs = stats.presence.rpcs;
+            snapshot.re_presence_check_digests_queried = stats.presence.digests_queried;
+            snapshot.re_presence_check_digest_answers = stats.presence.digest_answers;
+            snapshot.re_presence_check_largest_batch = stats.presence.largest_batch;
 
             snapshot.zdb_download_queries = stats.download_stats.zdb.queries;
             snapshot.zdb_download_bytes = stats.download_stats.zdb.bytes;

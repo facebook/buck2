@@ -17,6 +17,7 @@ pub mod invocation_re_settings;
 pub mod manager;
 pub mod metadata;
 pub mod output_trees_download_config;
+pub mod presence;
 pub mod queue_stats;
 pub mod re_get_session_id;
 pub mod remote_action_result;

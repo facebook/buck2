@@ -1150,6 +1150,13 @@ message Snapshot {
   uint32 re_get_digest_expirations_started = 1064;
   uint32 re_get_digest_expirations_finished_successfully = 1065;
   uint32 re_get_digest_expirations_finished_with_error = 1066;
+  // CAS presence checks: RPCs issued, digests they carried, digests answered
+  // from an expiration the daemon already knew, and the largest batch since the
+  // previous snapshot.
+  uint64 re_presence_check_rpcs = 1067;
+  uint64 re_presence_check_digests_queried = 1068;
+  uint64 re_presence_check_digest_answers = 1069;
+  uint64 re_presence_check_largest_batch = 1070;
 
   // I/O operations in progress.
   uint32 io_in_flight_copy = 1101;

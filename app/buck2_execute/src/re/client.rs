@@ -17,6 +17,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
@@ -103,6 +104,10 @@ use crate::re::error::test_re_error_with_group;
 use crate::re::error::with_error_handler;
 use crate::re::manager::RemoteExecutionConfig;
 use crate::re::metadata::RemoteExecutionMetadataExt;
+use crate::re::presence::CasPresence;
+use crate::re::presence::NegativeCache;
+use crate::re::presence::Presence;
+use crate::re::presence::TtlBackend;
 use crate::re::queue_stats::QueueStats;
 use crate::re::remote_action_result::ExecuteResponseWithQueueStats;
 use crate::re::remote_action_result::RemoteActionResult;
@@ -170,6 +175,30 @@ struct RemoteExecutionClientData {
     extend_digest_ttl: OpStats,
     local_cache: LocalCacheStats,
     persistent_cache_mode: Option<String>,
+    presence_check_concurrency: usize,
+}
+
+/// Issues presence-check RPCs through a client, under whatever use case each batch belongs to.
+struct ClientTtlBackend {
+    client: RemoteExecutionClient,
+}
+
+#[async_trait::async_trait]
+impl TtlBackend for ClientTtlBackend {
+    async fn get_digests_ttl(
+        &self,
+        digests: Vec<TDigest>,
+        use_case: RemoteExecutorUseCase,
+        negative_cache: NegativeCache,
+    ) -> buck2_error::Result<GetDigestsTtlResponse> {
+        self.client
+            .get_digests_ttl(
+                digests,
+                &use_case.metadata(None),
+                negative_cache.is_for_upload(),
+            )
+            .await
+    }
 }
 
 #[cfg(fbcode_build)]
@@ -222,6 +251,7 @@ impl RemoteExecutionClient {
                 extend_digest_ttl: OpStats::default(),
                 local_cache: Default::default(),
                 persistent_cache_mode,
+                presence_check_concurrency: re_config.static_metadata.presence_check_concurrency(),
             }),
         })
     }
@@ -429,6 +459,22 @@ impl RemoteExecutionClient {
                 .data
                 .client
                 .get_digests_ttl(digests, metadata, is_for_upload))
+            .await
+    }
+
+    /// Whether the CAS has each of `digests`, and until when; see [`CasPresence::check`]. The
+    /// RPCs are attributed to `use_case`.
+    pub async fn check_presence(
+        &self,
+        use_case: RemoteExecutorUseCase,
+        digests: Vec<TrackedFileDigest>,
+        negative_cache: NegativeCache,
+    ) -> buck2_error::Result<Vec<Presence>> {
+        let backend: Arc<dyn TtlBackend> = Arc::new(ClientTtlBackend {
+            client: self.dupe(),
+        });
+        CasPresence::global(self.data.presence_check_concurrency)
+            .check(backend, use_case, negative_cache, digests)
             .await
     }
 

@@ -16,6 +16,8 @@ use std::sync::atomic::Ordering;
 use allocative::Allocative;
 use futures::FutureExt;
 
+use crate::re::presence::PresenceStats;
+
 #[derive(Default)]
 pub struct RemoteExecutionClientOpStats {
     pub started: u32,
@@ -51,6 +53,8 @@ pub struct RemoteExecutionClientStats {
     pub materializes: RemoteExecutionClientOpStats,
     pub write_action_results: RemoteExecutionClientOpStats,
     pub get_digest_expirations: RemoteExecutionClientOpStats,
+
+    pub presence: PresenceStats,
 
     // Local cache hits and misses stats
     pub local_cache: LocalCacheRemoteExecutionClientStats,

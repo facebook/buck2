@@ -27,6 +27,8 @@ pub trait RemoteExecutionStaticMetadataImpl: Sized {
     fn cas_semaphore_size(&self) -> usize;
     fn exec_semaphore_size(&self) -> usize;
     fn action_cache_semaphore_size(&self) -> usize;
+    /// How many CAS presence-check RPCs may be in flight at once.
+    fn presence_check_concurrency(&self) -> usize;
 }
 
 #[derive(Clone, Debug, Allocative)]
@@ -102,6 +104,7 @@ mod fbcode {
         // gRPC settings
         pub cas_address: Option<String>,
         pub cas_connection_count: i32,
+        pub presence_check_concurrency: usize,
         pub shared_casd_cache_path: Option<String>,
         pub legacy_shared_casd_mode: Option<String>,
         pub shared_casd_mode_small_files: Option<CASdMode>,
@@ -172,6 +175,15 @@ mod fbcode {
                         property: "cas_connection_count",
                     })?
                     .unwrap_or(16),
+                // Well under the CAS client's own limit on these RPCs (an internal semaphore
+                // of 5000 at the time of writing), and above what a build's uploads had in
+                // flight before buck2 bounded them at all.
+                presence_check_concurrency: legacy_config
+                    .parse(BuckconfigKeyRef {
+                        section: BUCK2_RE_CLIENT_CFG_SECTION,
+                        property: "presence_check_concurrency",
+                    })?
+                    .unwrap_or(100),
                 shared_casd_cache_path: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "cas_shared_cache",
@@ -380,6 +392,10 @@ mod fbcode {
         fn exec_semaphore_size(&self) -> usize {
             self.execution_concurrency_limit as usize
         }
+
+        fn presence_check_concurrency(&self) -> usize {
+            self.presence_check_concurrency
+        }
     }
 }
 
@@ -414,6 +430,10 @@ mod not_fbcode {
 
         fn exec_semaphore_size(&self) -> usize {
             self.0.execution_concurrency_limit.unwrap_or(400)
+        }
+
+        fn presence_check_concurrency(&self) -> usize {
+            100
         }
     }
 }
