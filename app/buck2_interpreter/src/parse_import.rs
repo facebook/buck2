@@ -347,43 +347,41 @@ mod tests {
             CellPath::testing_new("cell1//package/path"),
             Some(CellPath::testing_new("cell1//package")),
         );
-        // Each of these is rejected without an allowed relative dir, but accepted and resolved to
-        // the path on the right once one is set: the component walk skips empty components.
+        // Each of these is rejected whether or not an allowed relative dir is set.
         let cases = [
-            ("/bar.bzl", path("cell1", "package/path", "bar.bzl")),
-            ("bar.bzl/", path("cell1", "package/path", "bar.bzl")),
-            ("foo//bar.bzl", path("cell1", "package/path/foo", "bar.bzl")),
-            (
-                "alias2//bar.bzl",
-                path("cell1", "package/path/alias2", "bar.bzl"),
-            ),
-            ("..//sibling.bzl", path("cell1", "package", "sibling.bzl")),
-            ("/../sibling.bzl", path("cell1", "package", "sibling.bzl")),
+            "/bar.bzl",
+            "bar.bzl/",
+            "foo//bar.bzl",
+            "alias2//bar.bzl",
+            "..//sibling.bzl",
+            "/../sibling.bzl",
         ];
-        for (import, resolved) in cases {
-            assert!(
-                parse_import(
-                    &resolver(),
-                    RelativeImports::Allow {
-                        current_dir_with_allowed_relative: &without_allowed_dir,
-                    },
-                    import,
-                )
-                .is_err(),
-                "{import}"
-            );
-            assert_eq!(
-                resolved,
-                parse_import(
-                    &resolver(),
-                    RelativeImports::Allow {
-                        current_dir_with_allowed_relative: &with_allowed_dir,
-                    },
-                    import,
-                )?,
-                "{import}"
-            );
+        for import in cases {
+            for current_dir in [&without_allowed_dir, &with_allowed_dir] {
+                assert!(
+                    parse_import(
+                        &resolver(),
+                        RelativeImports::Allow {
+                            current_dir_with_allowed_relative: current_dir,
+                        },
+                        import,
+                    )
+                    .is_err(),
+                    "{import}"
+                );
+            }
         }
+        // A well-formed relative import still resolves under the allowed dir.
+        assert_eq!(
+            path("cell1", "package", "sibling.bzl"),
+            parse_import(
+                &resolver(),
+                RelativeImports::Allow {
+                    current_dir_with_allowed_relative: &with_allowed_dir,
+                },
+                "../sibling.bzl",
+            )?
+        );
         Ok(())
     }
 

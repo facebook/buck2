@@ -29,6 +29,10 @@ enum RelativeImportParseError {
     CurrentDirRelativeImport(String),
     #[error("Invalid path `{0}` for file relative import path. Should be a forward relative path.")]
     InvalidCurrentPathWhenFileRelativeImport(String),
+    #[error(
+        "Relative import path `{0}` must not contain empty path components (a leading, trailing or doubled `/`)"
+    )]
+    EmptyComponentRelativeImport(String),
 }
 
 #[derive(
@@ -68,6 +72,15 @@ impl CellPathWithAllowedRelativeDir {
             })?;
             return Ok(self.current_dir.join(rel_path));
         };
+
+        // `components()` skips empty components, so check them here: the branch above rejects
+        // them, and a load path must not depend on the directory it appears in.
+        let raw = path.as_str();
+        if raw.starts_with('/') || raw.ends_with('/') || raw.contains("//") {
+            return Err(
+                RelativeImportParseError::EmptyComponentRelativeImport(raw.to_owned()).into(),
+            );
+        }
 
         let mut resolved_path = RelativePathBuf::from(self.current_dir.path().to_string());
         let mut num_allowed_parents =
