@@ -31,7 +31,6 @@ use crate::heap_dump::HeapDumpCommand;
 use crate::hydration::HydrationCommand;
 use crate::internal_version::InternalVersionCommand;
 use crate::log_perf::LogPerfCommand;
-use crate::materialize::MaterializeCommand;
 use crate::paranoid::ParanoidCommand;
 use crate::persist_event_logs::PersistEventLogsCommand;
 use crate::set_log_filter::SetLogFilterCommand;
@@ -54,7 +53,6 @@ mod heap_dump;
 mod hydration;
 mod internal_version;
 mod log_perf;
-mod materialize;
 mod paranoid;
 mod persist_event_logs;
 mod set_log_filter;
@@ -80,8 +78,6 @@ pub enum DebugCommand {
     FlushDepFiles(FlushDepFilesCommand),
     /// Flush PGO profile data from the daemon to disk.
     FlushPgoProfile(FlushPgoProfileCommand),
-    /// Forces materialization of a path, even on the deferred materializer
-    Materialize(MaterializeCommand),
     // Upload RE logs given an RE session ID
     UploadReLogs(UploadReLogsCommand),
     /// Validates that Buck2 and disk agree on the state of files.
@@ -127,7 +123,6 @@ impl DebugCommand {
             DebugCommand::ChromeTrace(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::FlushDepFiles(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::FlushPgoProfile(cmd) => ctx.exec(cmd, matches, events_ctx),
-            DebugCommand::Materialize(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::UploadReLogs(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::DaemonDir(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Exe(cmd) => cmd.exec(matches, ctx),

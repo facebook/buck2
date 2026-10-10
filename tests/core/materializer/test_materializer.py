@@ -308,18 +308,3 @@ def disable_sqlite_materializer_state(buck: Buck) -> None:
         "sqlite_materializer_state = false",
         file=config_file,
     )
-
-
-@buck_test(
-    data_dir="modify_deferred_materialization_deps",
-    skip_for_os=["windows"],  # TODO(marwhal): Fix and enable on Windows
-)
-async def test_debug_materialize(buck: Buck) -> None:
-    result = await buck.build("//:remote_text", "--materializations=None")
-    out = result.get_build_report().output_for_target(
-        "root//:remote_text", rel_path=True
-    )
-    assert not Path(buck.cwd, out).exists()
-
-    await buck.debug("materialize", str(out))
-    assert Path(buck.cwd, out).exists()

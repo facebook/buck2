@@ -25,7 +25,6 @@ mod host_info;
 mod hydration;
 mod jemalloc_stats;
 pub mod lsp;
-mod materialize;
 mod net_io;
 pub(crate) mod new_generic;
 mod paging;

@@ -19,7 +19,6 @@ use crate::TargetCfg;
 
 #[derive(Serialize, Deserialize)]
 pub enum NewGenericRequest {
-    Materialize(MaterializeRequest),
     DebugEval(DebugEvalRequest),
     DebugAnonTargets(AnonTargetsRequest),
     Explain(ExplainRequest),
@@ -30,7 +29,6 @@ pub enum NewGenericRequest {
 
 #[derive(Serialize, Deserialize)]
 pub enum NewGenericResponse {
-    Materialize(MaterializeResponse),
     DebugEval(DebugEvalResponse),
     DebugAnonTargets(AnonTargetsResponse),
     Explain(ExplainResponse),
@@ -38,15 +36,6 @@ pub enum NewGenericResponse {
     Complete(CompleteResponse),
     Docs(DocsResponse),
 }
-
-#[derive(Serialize, Deserialize)]
-pub struct MaterializeRequest {
-    /// The paths we want to materialize.
-    pub paths: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct MaterializeResponse {}
 
 #[derive(Serialize, Deserialize)]
 pub struct DebugEvalRequest {
