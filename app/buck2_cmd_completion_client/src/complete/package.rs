@@ -649,4 +649,40 @@ mod tests {
         );
         Ok(())
     }
+
+    /// `//.` normalizes to the project root, whose directory name is longer than the three
+    /// typed characters, and the fragment arithmetic underflows.
+    #[tokio::test]
+    #[should_panic]
+    async fn test_dot_partial_panics() {
+        let (roots, cwd) = match in_root() {
+            CommandOutcome::Success(x) => x,
+            CommandOutcome::Failure(_) => return,
+        };
+        let uut = match PackageCompleter::new(&cwd, &roots).await {
+            CommandOutcome::Success(x) => x,
+            CommandOutcome::Failure(_) => return,
+        };
+        drop(uut.complete("//.").await);
+    }
+
+    /// When the normalized path's file name differs from the typed tail (`.`, or a `/` after a
+    /// directory that does not exist), the typed prefix is cut at the wrong place and the
+    /// completions name directories that do not exist.
+    #[tokio::test]
+    async fn test_fragment_after_dot_or_missing_dir_names_missing_dirs() -> TestResult {
+        for (given, junk) in [
+            ("//baredir0/.", "//babaredir0/"),
+            ("cell1//bu/", "cell1//bbuck2/"),
+            ("//baredir0/bare/", "//baredir0/bbaredir0a/"),
+        ] {
+            let (roots, cwd) = in_root()?;
+            let uut = PackageCompleter::new(&cwd, &roots).await?;
+
+            let actual = uut.complete(given).await?;
+
+            assert_eq!(actual, vec![junk], "given {given}");
+        }
+        Ok(())
+    }
 }
