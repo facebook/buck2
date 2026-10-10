@@ -132,6 +132,7 @@ use starlark::values::starlark_value;
 use strong_hash::StrongHash;
 
 use self::dep_files::DepFileBundle;
+use crate::actions::impls::declare_writes::declare_writes;
 use crate::actions::impls::dep_file_fingerprint::StarlarkDepFileFingerprint;
 use crate::actions::impls::offline;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
@@ -1021,17 +1022,19 @@ impl RunAction {
                 .buck_out_path_resolver()
                 .resolve_gen(&path, Some(&content_hash))?;
 
-            ctx.materializer()
-                .declare_write(Box::new(|| {
+            declare_writes(
+                ctx,
+                Box::new(|| {
                     Ok(vec![WriteRequest {
                         path: project_rel_path.clone(),
                         content: data.0.0,
                         is_executable: false,
                         path_kind: path.path_resolution_method(),
                     }])
-                }))
-                .await
-                .buck_error_context("Failed to write action metadata!")?;
+                }),
+            )
+            .await
+            .buck_error_context("Failed to write action metadata!")?;
 
             inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
                 digest,

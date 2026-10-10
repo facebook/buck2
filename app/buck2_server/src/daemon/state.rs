@@ -251,6 +251,10 @@ pub struct RepoState {
     /// (`buck2.clean_scratch_on_idle`). The sweep runs through this repo's `materializer`.
     pub(crate) clean_scratch_on_idle: bool,
 
+    /// Whether this repo's `materializer` holds write actions' content in memory until
+    /// something needs the file (`buck2.defer_write_actions`).
+    pub(crate) materializer_defers_writes: bool,
+
     /// How often this repo's `materializer` refreshes TTLs (`buck2.ttl_refresh_frequency_seconds`).
     /// The daemon-wide refresher over the digest interner runs at the first repo's.
     pub(crate) ttl_refresh_frequency: Duration,
@@ -478,6 +482,7 @@ impl TenantState {
                 clean_stale_config,
             }
         };
+        let materializer_defers_writes = deferred_materializer_configs.defer_write_actions;
         let ttl_refresh_frequency = deferred_materializer_configs.ttl_refresh.frequency;
 
         let use_eden_thrift_read = root_config
@@ -719,6 +724,7 @@ impl TenantState {
             tags,
             system_warning_config: SystemWarningConfig::from_config(root_config)?,
             detect_eden_restart,
+            materializer_defers_writes,
             ttl_refresh_frequency,
             clean_scratch_on_idle: root_config
                 .parse::<RolloutPercentage>(BuckconfigKeyRef {

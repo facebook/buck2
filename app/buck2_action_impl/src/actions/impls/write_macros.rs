@@ -18,7 +18,6 @@ use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::actions::errors::execute_error::ExecuteError;
-use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -46,6 +45,7 @@ use starlark::values::OwnedFrozen;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 
+use crate::actions::impls::declare_writes::declare_writes;
 use crate::actions::impls::run::DepFilesPlaceholderArtifactPathMapper;
 use crate::actions::impls::write::CommandLineContentBasedInputVisitor;
 
@@ -178,9 +178,9 @@ impl Action for WriteMacrosToFileAction {
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let mut execution_start = None;
 
-        let values = ctx
-            .materializer()
-            .declare_write(Box::new(|| {
+        let (values, execution_kind) = declare_writes(
+            ctx,
+            Box::new(|| {
                 execution_start = Some(Instant::now());
 
                 let fs = ctx.executor_fs();
@@ -233,8 +233,9 @@ impl Action for WriteMacrosToFileAction {
                         })
                     })
                     .collect::<buck2_error::Result<_>>()
-            }))
-            .await?;
+            }),
+        )
+        .await?;
 
         let wall_time = Instant::now()
             - execution_start.internal_error("Action did not set execution_start")?;
@@ -247,7 +248,7 @@ impl Action for WriteMacrosToFileAction {
             ActionOutputs::new(output_values),
             ActionExecutionMetadata {
                 dep_file_db_writes_queued: 0,
-                execution_kind: ActionExecutionKind::Simple,
+                execution_kind,
                 timing: ActionExecutionTimingData { wall_time },
                 input_files_bytes: None,
                 waiting_data,

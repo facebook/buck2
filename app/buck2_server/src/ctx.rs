@@ -452,6 +452,7 @@ impl<'a> ServerCommandContext<'a> {
             eager_dep_files,
             default_allow_cache_upload: false,
             action_paths_interner: None,
+            write_cas_probe: false,
         };
 
         let concurrency = self
@@ -944,6 +945,19 @@ impl DiceCommandUpdater<'_, '_> {
         {
             run_action_knobs.action_paths_interner = Some(DashMapDirectoryInterner::new());
         }
+
+        // A write whose content the CAS already has is declared as a CAS download, so its bytes
+        // then exist nowhere but the CAS. That is only sound if the materializer would otherwise
+        // have kept them in memory rather than on disk; a hit would trade a write for a download
+        // otherwise.
+        run_action_knobs.write_cas_probe = root_config
+            .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "write_cas_probe",
+            })?
+            .unwrap_or_else(RolloutPercentage::never)
+            .roll()
+            && self.cmd_ctx.base_context.repo().materializer_defers_writes;
 
         let output_trees_download_semaphore_size = root_config.parse::<u32>(BuckconfigKeyRef {
             section: "buck2",

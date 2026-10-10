@@ -30,6 +30,10 @@ pub struct RunActionKnobs {
 
     pub action_paths_interner:
         Option<DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>>,
+
+    /// Whether write actions ask the CAS for their content first and declare a CAS download
+    /// instead of a write when it is there.
+    pub write_cas_probe: bool,
 }
 
 pub trait HasRunActionKnobs {

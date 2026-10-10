@@ -1,0 +1,9 @@
+load(":defs.bzl", "consume", "write")
+
+write(name = "write", content = read_config("test", "content"))
+
+# The same content written by a second action, so that a test can seed the CAS through one and
+# probe with the other.
+write(name = "write_again", content = read_config("test", "content"))
+
+consume(name = "consume", dep = ":write")
