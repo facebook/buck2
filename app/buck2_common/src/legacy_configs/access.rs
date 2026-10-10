@@ -14,7 +14,6 @@ use std::sync::Arc;
 use buck2_error::BuckErrorContext;
 use buck2_hash::StdBuckHashMap;
 use buck2_util::env_vars::substitute_env_vars;
-use gazebo::eq_chain;
 
 use crate::legacy_configs::configs::ConfigValue;
 use crate::legacy_configs::configs::LegacyBuckConfig;
@@ -52,13 +51,13 @@ impl LegacyBuckConfigView for &LegacyBuckConfig {
 impl LegacyBuckConfigSection {
     /// configs are equal if the data they resolve in is equal, regardless of the origin of the config
     pub(crate) fn compare(&self, other: &Self) -> bool {
-        eq_chain!(
-            self.values.len() == other.values.len(),
-            self.values.iter().all(|(name, value)| other
-                .values
-                .get(name)
-                .is_some_and(|other_val| other_val.as_str() == value.as_str()))
-        )
+        self.values.len() == other.values.len()
+            && self.values.iter().all(|(name, value)| {
+                other
+                    .values
+                    .get(name)
+                    .is_some_and(|other_val| other_val.as_str() == value.as_str())
+            })
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, LegacyBuckConfigValue<'_>)> {
@@ -196,15 +195,13 @@ impl LegacyBuckConfig {
 
     /// configs are equal if the data they resolve in is equal, regardless of the origin of the config
     pub(crate) fn compare(&self, other: &Self) -> bool {
-        eq_chain!(
-            self.0.values.len() == other.0.values.len(),
-            self.0.values.iter().all(|(section_name, section)| {
+        self.0.values.len() == other.0.values.len()
+            && self.0.values.iter().all(|(section_name, section)| {
                 other
                     .0
                     .values
                     .get(section_name)
                     .is_some_and(|other_sec| other_sec.compare(section))
             })
-        )
     }
 }
