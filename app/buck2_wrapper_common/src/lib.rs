@@ -130,17 +130,23 @@ impl KillallFilter {
 /// Returns `None` when the flag is absent (e.g. the isolation dir was supplied via
 /// the `BUCK_ISOLATION_DIR` env var, which does not appear in argv, or the process
 /// predates the flag being added to forkserver spawns).
+///
+/// Like clap, the last occurrence wins when the flag is given both before and after the
+/// subcommand, and arguments after `--` belong to the program being run, not to buck2.
 fn parse_isolation_dir(cmd: &[String]) -> Option<String> {
+    let mut isolation_dir = None;
     let mut args = cmd.iter();
     while let Some(arg) = args.next() {
-        if let Some(value) = arg.strip_prefix("--isolation-dir=") {
-            return Some(value.to_owned());
+        if arg == "--" {
+            break;
         }
-        if arg == "--isolation-dir" {
-            return args.next().cloned();
+        if let Some(value) = arg.strip_prefix("--isolation-dir=") {
+            isolation_dir = Some(value.to_owned());
+        } else if arg == "--isolation-dir" {
+            isolation_dir = args.next().cloned();
         }
     }
-    None
+    isolation_dir
 }
 
 /// Get the list of all PIDs on Linux
@@ -562,18 +568,18 @@ mod tests {
         parse_isolation_dir(&cmd.split(' ').map(str::to_owned).collect::<Vec<_>>())
     }
 
-    /// clap takes the last `--isolation-dir` and ignores everything after `--`, but the process
-    /// scan takes the first one it sees, wherever it is. `killall --in-isolation-dir a` then
-    /// kills a client that runs in `b`, and `--in-isolation-dir x` kills a client of `v2`.
+    /// The scan agrees with clap: the last `--isolation-dir` wins, and flags after `--` belong
+    /// to the program being run.
     #[test]
-    fn test_parse_isolation_dir_takes_the_first_flag_even_after_double_dash() {
+    fn test_parse_isolation_dir_takes_the_last_flag_before_double_dash() {
         assert_eq!(
-            Some("a".to_owned()),
+            Some("b".to_owned()),
             parse("buck2 --isolation-dir a build --isolation-dir b")
         );
+        assert_eq!(None, parse("buck2 run //t -- --isolation-dir x"));
         assert_eq!(
-            Some("x".to_owned()),
-            parse("buck2 run //t -- --isolation-dir x")
+            Some("a".to_owned()),
+            parse("buck2 --isolation-dir a run //t -- --isolation-dir x")
         );
     }
 }
