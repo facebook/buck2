@@ -633,3 +633,42 @@ async fn test_partial_graph_somepath_skips_node_that_fails_to_load() -> buck2_er
     );
     Ok(())
 }
+
+mod multi_query_merge {
+    use buck2_core::cells::cell_path::CellPath;
+    use buck2_hash::BuckIndexMap;
+
+    use super::*;
+    use crate::query::syntax::simple::eval::file_set::FileNode;
+    use crate::query::syntax::simple::eval::multi_query::MultiQueryResult;
+    use crate::query::syntax::simple::eval::values::QueryEvaluationValue;
+
+    /// The per-argument results of `uquery '%s' 'inputs(//bin:the_binary)' '//bin:the_binary'`:
+    /// a set of files for the first argument and a set of targets for the second.
+    fn files_then_targets() -> MultiQueryResult<TestTarget> {
+        let mut env = TestEnvBuilder::default();
+        env.edge(1, 2);
+        let env = env.build();
+        let files = FileSet::new(BuckIndexSet::from_iter([FileNode(CellPath::testing_new(
+            "root//bin/TARGETS",
+        ))]));
+        MultiQueryResult(BuckIndexMap::from_iter([
+            (
+                "inputs(root//bin:the_binary)".to_owned(),
+                Ok(QueryEvaluationValue::FileSet(files)),
+            ),
+            (
+                "root//bin:the_binary".to_owned(),
+                Ok(QueryEvaluationValue::TargetSet(env.set("1").unwrap())),
+            ),
+        ]))
+    }
+
+    /// Merging the results of a `%s` query (every output mode except `--json`) treats mixed
+    /// result kinds as unreachable and panics; the daemon is built with `panic = "abort"`.
+    #[test]
+    #[should_panic(expected = "no queries should return different types for different literals")]
+    fn merging_files_with_targets_panics() {
+        let _unused = files_then_targets().merged();
+    }
+}

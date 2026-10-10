@@ -774,3 +774,21 @@ async def test_uquery_string_except_string(buck: Buck) -> None:
     """Test String except String (different targets)."""
     result = await buck.uquery(""" "root//:app" except "root//:lib_a" """)
     assert result.stdout == "root//:app\n"
+
+
+@buck_test(data_dir="bxl_simple")
+async def test_multi_query_mixed_files_and_targets(buck: Buck) -> None:
+    # With `--json` every argument gets its own result.
+    result = await buck.uquery(
+        "--json", "%s", "inputs(root//bin:the_binary)", "root//bin:the_binary"
+    )
+    assert set(json.loads(result.stdout).keys()) == {
+        "inputs(root//bin:the_binary)",
+        "root//bin:the_binary",
+    }
+    # Without it the results are merged. One argument returns files and the other targets, which
+    # the merge treats as unreachable: the daemon panics and the command fails without a message
+    # about the query.
+    await expect_failure(
+        buck.uquery("%s", "inputs(root//bin:the_binary)", "root//bin:the_binary")
+    )
