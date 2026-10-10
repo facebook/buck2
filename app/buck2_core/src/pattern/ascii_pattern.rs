@@ -241,6 +241,7 @@ mod tests {
     use crate::pattern::ascii_pattern::AsciiPattern;
     use crate::pattern::ascii_pattern::AsciiStr;
     use crate::pattern::ascii_pattern::AsciiStr2;
+    use crate::pattern::ascii_pattern::strip_suffix_ascii;
 
     const STRINGS: &[&str] = &[
         "", "x", "y", "xx", "xy", "yx", "yy", "xxx", "xxy", "xyx", "xyy", "yxx", "yxy", "yyx",
@@ -303,6 +304,27 @@ mod tests {
         test_first_index_in_impl(AsciiStr2::new("xy"), "xy");
         test_first_index_in_impl(AsciiStr::new("xx"), "xx");
         test_first_index_in_impl(AsciiStr::new("xy"), "xy");
+    }
+
+    #[test]
+    fn test_non_ascii_patterns_are_accepted() {
+        // The guards compare bytes against `0xf7` rather than `0x7f`, so a two-byte character
+        // passes every "ASCII" check.
+        let _ = AsciiChar::new('\u{a9}');
+        let _ = AsciiStr::new("\u{e9}");
+        let _ = AsciiStr2::new("\u{e9}");
+    }
+
+    #[test]
+    fn test_is_suffix_of_non_ascii_haystack() {
+        // `AsciiStr::is_suffix_of` slices the haystack before comparing, and here the slice start
+        // falls inside `é`. The comparison still gives the right answer.
+        let needle = AsciiStr::new("/...");
+        let haystack = "\u{e9}...";
+        assert!(!haystack.is_char_boundary(haystack.len() - needle.len()));
+        assert!(!needle.is_suffix_of(haystack));
+        assert_eq!(None, strip_suffix_ascii(haystack, needle));
+        assert_eq!(Some("\u{e9}"), strip_suffix_ascii("\u{e9}/...", needle));
     }
 
     #[test]
