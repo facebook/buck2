@@ -28,7 +28,6 @@ use buck2_interpreter_for_build::interpreter::testing::run_simple_starlark_test;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::unconfigured::testing::targets_to_json;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use indoc::indoc;
 use serde_json::json;
 
@@ -267,7 +266,12 @@ fn test_find_imports() {
             "cell1//config/foo/other.bzl",
             "cell1//config/bar/three.bzl",
         ],
-        parse_result.imports().map(|e| e.1.to_string()).as_slice()
+        parse_result
+            .imports()
+            .iter()
+            .map(|e| e.1.to_string())
+            .collect::<Vec<_>>()
+            .as_slice()
     );
 }
 

@@ -41,7 +41,6 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_util::threads::directory_mutation_parallelism;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use superconsole::Line;
 use superconsole::SuperConsole;
 use superconsole::components::Spinner;
@@ -310,7 +309,9 @@ async fn clean(
         if trash_target_normalized.exists() {
             paths_to_clean.extend(
                 collect_paths_to_clean(&trash_target_normalized)?
-                    .map(|path| path.display().to_string()),
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>(),
             );
             tokio::task::spawn_blocking(move || {
                 clean_buck_out_with_retry(&trash_target_normalized, console_type)
@@ -323,8 +324,10 @@ async fn clean(
         let mut paths_to_clean = Vec::new();
 
         if buck_out_dir.exists() {
-            paths_to_clean =
-                collect_paths_to_clean(&buck_out_dir)?.map(|path| path.display().to_string());
+            paths_to_clean = collect_paths_to_clean(&buck_out_dir)?
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>();
             if lifecycle_lock.is_some() {
                 tokio::task::spawn_blocking(move || {
                     clean_buck_out_with_retry(&buck_out_dir, console_type)

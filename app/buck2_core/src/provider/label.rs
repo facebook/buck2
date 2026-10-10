@@ -340,7 +340,6 @@ impl ProvidersLabelMaybeConfigured for ProvidersLabel {}
 impl ProvidersLabelMaybeConfigured for ConfiguredProvidersLabel {}
 
 pub mod testing {
-    use gazebo::prelude::*;
 
     use super::*;
     use crate::package::PackageLabel;
@@ -382,7 +381,11 @@ pub mod testing {
                 target,
                 match name {
                     Some(n) => ProvidersName::NonDefault(Arc::new(NonDefaultProvidersName::Named(
-                        ArcSlice::from_iter(n.map(|s| ProviderName::new((*s).to_owned()).unwrap())),
+                        ArcSlice::from_iter(
+                            n.iter()
+                                .map(|s| ProviderName::new((*s).to_owned()).unwrap())
+                                .collect::<Vec<_>>(),
+                        ),
                     ))),
                     _ => ProvidersName::Default,
                 },

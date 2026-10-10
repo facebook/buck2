@@ -35,7 +35,6 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use futures::future::Shared;
-use gazebo::prelude::*;
 
 use crate::materializers::immediate::cas_download;
 
@@ -146,7 +145,10 @@ impl ParanoidDownloader {
         // Claim the request before copying the outputs.
         let manager = manager.claim().await;
 
-        let output_paths = artifacts.map(|DeclareArtifactPayload { path, .. }| path.clone());
+        let output_paths = artifacts
+            .iter()
+            .map(|DeclareArtifactPayload { path, .. }| path.clone())
+            .collect::<Vec<_>>();
 
         // The lease is what serializes the rename and the report against a local attempt that
         // lost the race and against any materialization of these paths. Clearing whatever is on
@@ -170,9 +172,12 @@ impl ParanoidDownloader {
                     )
                     .await?;
 
-                let mapping = artifacts.map(|DeclareArtifactPayload { path, .. }| {
-                    (self.inner.cache_path.join(path), path.clone())
-                });
+                let mapping = artifacts
+                    .iter()
+                    .map(|DeclareArtifactPayload { path, .. }| {
+                        (self.inner.cache_path.join(path), path.clone())
+                    })
+                    .collect::<Vec<_>>();
 
                 self.inner
                     .io

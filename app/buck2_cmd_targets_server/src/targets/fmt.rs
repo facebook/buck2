@@ -43,7 +43,6 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::super_package::SuperPackage;
 use buck2_util::indent::indent;
-use gazebo::prelude::SliceExt;
 use regex::RegexSet;
 
 use crate::configured_target_hash::ConfiguredTargetHash;
@@ -323,7 +322,12 @@ impl TargetFormatter for JsonFormat {
             buffer,
             &mut first,
             "buck.imports",
-            QuotedJson::list(imports.map(|d| QuotedJson::quote_display(d.path()))),
+            QuotedJson::list(
+                imports
+                    .iter()
+                    .map(|d| QuotedJson::quote_display(d.path()))
+                    .collect::<Vec<_>>(),
+            ),
         );
         self.writer.entry_end(buffer, first);
     }
@@ -391,7 +395,9 @@ impl ConfiguredTargetFormatter for JsonFormat {
             QuotedJson::list(
                 target_node
                     .deps()
-                    .map(|n| QuotedJson::quote_display(n.label())),
+                    .iter()
+                    .map(|n| QuotedJson::quote_display(n.label()))
+                    .collect::<Vec<_>>(),
             )
         });
 

@@ -137,7 +137,6 @@ use dice::UserComputationData;
 use dice::UserCycleDetector;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
 use tracing::warn;
@@ -1421,9 +1420,12 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         &self,
         providers_patterns: &[ParsedPattern<ConfiguredProvidersPatternExtra>],
     ) {
-        let patterns = providers_patterns.map(|pat| buck2_data::TargetPattern {
-            value: format!("{pat}"),
-        });
+        let patterns = providers_patterns
+            .iter()
+            .map(|pat| buck2_data::TargetPattern {
+                value: format!("{pat}"),
+            })
+            .collect::<Vec<_>>();
 
         self.events()
             .instant_event(buck2_data::ParsedTargetPatterns {
@@ -1438,7 +1440,10 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         >],
     ) {
         let seen_values = BTreeSet::from_iter(
-            providers_patterns_with_modifiers.map(|pat| format!("{}", pat.parsed_pattern)),
+            providers_patterns_with_modifiers
+                .iter()
+                .map(|pat| format!("{}", pat.parsed_pattern))
+                .collect::<Vec<_>>(),
         );
 
         let patterns = seen_values

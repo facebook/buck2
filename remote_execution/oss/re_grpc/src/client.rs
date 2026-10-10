@@ -1045,7 +1045,8 @@ impl REClient {
             // Send a request and notify others of the result
             if !digests_to_check.is_empty() {
                 tracing::debug!(num_digests = digests_to_check.len(), "FindMissingBlobs");
-                let blob_digests: Vec<_> = digests_to_check.map(tdigest_to);
+                let blob_digests: Vec<_> =
+                    digests_to_check.iter().map(tdigest_to).collect::<Vec<_>>();
                 let resp: FindMissingBlobsResponse = retry(|| async {
                     let resp = self
                         .cas_client()
@@ -1072,11 +1073,15 @@ impl REClient {
                     find_missing_cache.put(digest.clone(), DigestRemoteState::ExistsOnRemote);
                 }
 
-                for digest in &resp.missing_blob_digests.map(|d| tdigest_from(d.clone())) {
+                for digest in resp
+                    .missing_blob_digests
+                    .iter()
+                    .map(|d| tdigest_from(d.clone()))
+                {
                     // If it's present in the MissingBlobsResponse, it's expired on the remote and
                     // needs to be refetched.
                     remote_results.insert(digest.clone(), DigestRemoteState::Missing);
-                    find_missing_cache.put(digest.clone(), DigestRemoteState::Missing);
+                    find_missing_cache.put(digest, DigestRemoteState::Missing);
                 }
                 digests_to_check.clear();
             }
@@ -1303,34 +1308,48 @@ fn convert_t_action_result2(t_action_result: &TActionResult2) -> anyhow::Result<
         output_upload_completed_timestamp: Some(ttimestamp_to(
             &t_execution_metadata.output_upload_completed_timestamp,
         )),
-        auxiliary_metadata: t_execution_metadata.auxiliary_metadata.map(tany_to),
+        auxiliary_metadata: t_execution_metadata
+            .auxiliary_metadata
+            .iter()
+            .map(tany_to)
+            .collect::<Vec<_>>(),
     });
 
-    let output_files = t_action_result.output_files.map(|output_file| OutputFile {
-        path: output_file.name.clone(),
-        digest: Some(tdigest_to(&output_file.digest.digest)),
-        is_executable: output_file.executable,
-        contents: Vec::new(),
-        node_properties: None,
-    });
+    let output_files = t_action_result
+        .output_files
+        .iter()
+        .map(|output_file| OutputFile {
+            path: output_file.name.clone(),
+            digest: Some(tdigest_to(&output_file.digest.digest)),
+            is_executable: output_file.executable,
+            contents: Vec::new(),
+            node_properties: None,
+        })
+        .collect::<Vec<_>>();
 
     let output_symlinks = t_action_result
         .output_symlinks
+        .iter()
         .map(|output_symlink| OutputSymlink {
             path: output_symlink.name.clone(),
             target: output_symlink.target.clone(),
             node_properties: None,
-        });
+        })
+        .collect::<Vec<_>>();
 
-    let output_directories = t_action_result.output_directories.map(|output_directory| {
-        let digest = tdigest_to(&output_directory.tree_digest);
-        OutputDirectory {
-            path: output_directory.path.clone(),
-            tree_digest: Some(digest.clone()),
-            is_topologically_sorted: false,
-            root_directory_digest: None,
-        }
-    });
+    let output_directories = t_action_result
+        .output_directories
+        .iter()
+        .map(|output_directory| {
+            let digest = tdigest_to(&output_directory.tree_digest);
+            OutputDirectory {
+                path: output_directory.path.clone(),
+                tree_digest: Some(digest.clone()),
+                is_topologically_sorted: false,
+                root_directory_digest: None,
+            }
+        })
+        .collect::<Vec<_>>();
 
     let action_result = ActionResult {
         output_files,
@@ -2263,11 +2282,15 @@ mod tests {
             |req| {
                 counter.fetch_add(1, Ordering::Relaxed);
                 let res = BatchReadBlobsResponse {
-                    responses: req.digests.map(|d| batch_read_blobs_response::Response {
-                        digest: Some(d.clone()),
-                        data: vec![0, 1, 2],
-                        ..Default::default()
-                    }),
+                    responses: req
+                        .digests
+                        .iter()
+                        .map(|d| batch_read_blobs_response::Response {
+                            digest: Some(d.clone()),
+                            data: vec![0, 1, 2],
+                            ..Default::default()
+                        })
+                        .collect::<Vec<_>>(),
                 };
                 async { Ok(res) }
             },

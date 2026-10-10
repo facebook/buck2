@@ -35,7 +35,6 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckMutMap;
-use gazebo::prelude::*;
 use itertools::Itertools;
 use jiff::Timestamp;
 use parking_lot::Mutex;
@@ -625,8 +624,11 @@ impl MaterializerStateSqliteTable {
                 itertools::repeat_n("?", chunk.len()).join(","),
             );
             tracing::trace!(sql = %sql, chunk = ?chunk, "updating last_access_times");
-            tx.execute(&sql, rusqlite::params_from_iter(chunk.map(|p| p.as_str())))
-                .with_buck_error_context(|| format!("updating sqlite table {STATE_TABLE_NAME}"))?;
+            tx.execute(
+                &sql,
+                rusqlite::params_from_iter(chunk.iter().map(|p| p.as_str()).collect::<Vec<_>>()),
+            )
+            .with_buck_error_context(|| format!("updating sqlite table {STATE_TABLE_NAME}"))?;
         }
         tx.commit()?;
         Ok(())

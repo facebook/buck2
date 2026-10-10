@@ -14,7 +14,6 @@ use buck2_query_parser::Expr;
 use buck2_query_parser::parse_expr;
 use buck2_query_parser::spanned::Spanned;
 use futures::FutureExt;
-use gazebo::prelude::*;
 use variant_name::VariantName;
 
 use crate::__derive_refs::indexmap::IndexSet;
@@ -91,14 +90,14 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
                 Ok(value)
             }
             Expr::Set(args) => {
-                let patterns: Vec<_> = args.map(|v| v.fragment());
+                let patterns: Vec<_> = args.iter().map(|v| v.fragment()).collect::<Vec<_>>();
                 // TODO(cjhopman): evaluating the literals in this way does not preserver the ordering from
                 // the user, instead the result will be package-ordered. We may need to change this to
                 // preserve order.
                 Ok(self.env.eval_literals(&patterns).await?.into())
             }
             Expr::FileSet(args) => {
-                let patterns: Vec<_> = args.map(|v| v.fragment());
+                let patterns: Vec<_> = args.iter().map(|v| v.fragment()).collect::<Vec<_>>();
                 let mut files = FileSet::new(IndexSet::<FileNode>::new());
 
                 for pattern in patterns {

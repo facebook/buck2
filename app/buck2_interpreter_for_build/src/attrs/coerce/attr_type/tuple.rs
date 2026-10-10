@@ -16,7 +16,6 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::IterDupedExt;
-use gazebo::prelude::SliceExt;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::list::ListRef;
@@ -65,6 +64,11 @@ impl AttrTypeCoerce for TupleAttrType {
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {
-        TyMaybeSelect::Tuple(self.xs.map(|x| x.starlark_type()))
+        TyMaybeSelect::Tuple(
+            self.xs
+                .iter()
+                .map(|x| x.starlark_type())
+                .collect::<Vec<_>>(),
+        )
     }
 }

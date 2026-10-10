@@ -67,7 +67,6 @@ use dice::ActivationTracker;
 use dice::DynKey;
 use dice::PageInPhase;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
 use starlark_map::ordered_set::OrderedSet;
@@ -897,14 +896,16 @@ where
 
         let slowest_path = slowest_path.into_critical_path_proto(&ctx.early_command_timing, now);
 
-        let top_level_targets =
-            top_level_targets.map(|(key, duration)| buck2_data::TopLevelTargetCriticalPath {
+        let top_level_targets = top_level_targets
+            .iter()
+            .map(|(key, duration)| buck2_data::TopLevelTargetCriticalPath {
                 target: Some(key.as_proto()),
                 duration: Some((*duration).try_into().unwrap_or(prost_types::Duration {
                     seconds: i64::MAX,
                     nanos: 0,
                 })),
-            });
+            })
+            .collect::<Vec<_>>();
 
         instant_event(buck2_data::BuildGraphExecutionInfo {
             critical_path2,
@@ -1074,12 +1075,18 @@ where
     fn process_top_level_target(&mut self, top_level: TopLevelTargetSignal) {
         self.backend.process_top_level_target(
             top_level.label,
-            top_level.artifacts.map(|k| match k {
-                ResolvedArtifactGroupBuildSignalsKey::BuildKey(b) => NodeKey::BuildKey(b.clone()),
-                ResolvedArtifactGroupBuildSignalsKey::EnsureTransitiveSetProjectionKey(e) => {
-                    NodeKey::EnsureTransitiveSetProjectionKey(e.clone())
-                }
-            }),
+            top_level
+                .artifacts
+                .iter()
+                .map(|k| match k {
+                    ResolvedArtifactGroupBuildSignalsKey::BuildKey(b) => {
+                        NodeKey::BuildKey(b.clone())
+                    }
+                    ResolvedArtifactGroupBuildSignalsKey::EnsureTransitiveSetProjectionKey(e) => {
+                        NodeKey::EnsureTransitiveSetProjectionKey(e.clone())
+                    }
+                })
+                .collect::<Vec<_>>(),
         );
     }
 

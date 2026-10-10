@@ -53,7 +53,6 @@ use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
-use gazebo::prelude::*;
 use itertools::Itertools;
 use ref_cast::RefCast;
 use tracing::warn;
@@ -301,31 +300,34 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
             let mut found_owner = false;
             match self.delegate.get_enclosing_packages(path).await {
                 Ok(packages) => {
-                    let package_futs = packages.map(|package| async move {
-                        // TODO(cjhopman): We should make sure that the file exists.
-                        let targets = self
-                            .delegate
-                            .ctx()
-                            .get_interpreter_results(package.dupe())
-                            .await?;
+                    let package_futs = packages
+                        .iter()
+                        .map(|package| async move {
+                            // TODO(cjhopman): We should make sure that the file exists.
+                            let targets = self
+                                .delegate
+                                .ctx()
+                                .get_interpreter_results(package.dupe())
+                                .await?;
 
-                        let owner_targets: Vec<Self::Target> = targets
-                            .targets()
-                            .values()
-                            .filter_map(|node| {
-                                for input in node.inputs() {
-                                    if &input == path {
-                                        return Some(node.to_owned());
-                                        // this intentionally breaks out of the loop. We don't need to look at the
-                                        // other inputs of this target, but it's possible for a single file to be owned by
-                                        // multiple targets.
+                            let owner_targets: Vec<Self::Target> = targets
+                                .targets()
+                                .values()
+                                .filter_map(|node| {
+                                    for input in node.inputs() {
+                                        if &input == path {
+                                            return Some(node.to_owned());
+                                            // this intentionally breaks out of the loop. We don't need to look at the
+                                            // other inputs of this target, but it's possible for a single file to be owned by
+                                            // multiple targets.
+                                        }
                                     }
-                                }
-                                None
-                            })
-                            .collect();
-                        buck2_error::Ok(owner_targets)
-                    });
+                                    None
+                                })
+                                .collect();
+                            buck2_error::Ok(owner_targets)
+                        })
+                        .collect::<Vec<_>>();
 
                     for nodes in buck2_util::future::join_all(package_futs).await.into_iter() {
                         for node in nodes?.into_iter() {

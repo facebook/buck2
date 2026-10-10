@@ -383,7 +383,6 @@ mod tests {
     use buck2_artifact::artifact::artifact_type::Artifact;
     use buck2_artifact::artifact::source_artifact::SourceArtifact;
     use buck2_core::package::source_path::SourcePath;
-    use gazebo::prelude::*;
 
     use super::*;
 
@@ -394,13 +393,16 @@ mod tests {
 
     fn validate(paths: &[&str]) -> buck2_error::Result<()> {
         let a = ArtifactGroup::Artifact(mk_artifact());
-        let mut xs = paths.map(|x| {
-            (
-                a.dupe(),
-                ForwardRelativePath::new(x).unwrap().to_buf().into_box(),
-                CopyMode::Symlink,
-            )
-        });
+        let mut xs = paths
+            .iter()
+            .map(|x| {
+                (
+                    a.dupe(),
+                    ForwardRelativePath::new(x).unwrap().to_buf().into_box(),
+                    CopyMode::Symlink,
+                )
+            })
+            .collect::<Vec<_>>();
         UnregisteredAssembledDirAction::validate_args(&mut xs)
     }
 

@@ -104,7 +104,6 @@ use dupe::Dupe;
 use futures::future::Either;
 use futures::future::FutureExt;
 use futures::future::Shared;
-use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingRequirements;
 use host_sharing::host_sharing::HostSharingGuard;
@@ -1595,7 +1594,10 @@ pub async fn create_output_dirs(
         .collect::<buck2_error::Result<Vec<_>>>()?;
 
     if request.outputs_cleanup {
-        let output_paths = outputs.map(|output| output.path.to_owned());
+        let output_paths = outputs
+            .iter()
+            .map(|output| output.path.to_owned())
+            .collect::<Vec<_>>();
         blocking_executor
             .execute_io(
                 Box::new(CleanOutputPaths {

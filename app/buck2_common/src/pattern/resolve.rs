@@ -224,7 +224,6 @@ mod tests {
     use buck2_core::provider::label::ProvidersName;
     use buck2_core::target::name::TargetName;
     use dupe::Dupe;
-    use gazebo::prelude::*;
     use test_case::test_case;
 
     use crate::file_ops::testing::TestFileOps;
@@ -274,15 +273,18 @@ mod tests {
         where
             T: PatternType,
         {
-            let patterns: Vec<_> = patterns.map(|p| {
-                ParsedPattern::<T>::parse_precise(
-                    p,
-                    CellName::testing_new("root"),
-                    &self.resolver,
-                    self.resolver.root_cell_cell_alias_resolver(),
-                )
-                .unwrap()
-            });
+            let patterns: Vec<_> = patterns
+                .iter()
+                .map(|p| {
+                    ParsedPattern::<T>::parse_precise(
+                        p,
+                        CellName::testing_new("root"),
+                        &self.resolver,
+                        self.resolver.root_cell_cell_alias_resolver(),
+                    )
+                    .unwrap()
+                })
+                .collect::<Vec<_>>();
 
             resolve_target_patterns_impl(&patterns, &*self.file_ops).await
         }

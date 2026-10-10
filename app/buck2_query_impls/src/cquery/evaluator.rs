@@ -25,7 +25,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
-use gazebo::prelude::*;
 
 use crate::analysis::evaluator::eval_query;
 use crate::cquery::environment::CqueryEnvironment;
@@ -183,7 +182,7 @@ async fn build_cquery_universe_from_literals(
     query_literals: &DiceQueryData,
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<CqueryUniverse> {
-    let refs: Vec<_> = universe.map(|v| v.as_str());
+    let refs: Vec<_> = universe.iter().map(|v| v.as_str()).collect::<Vec<_>>();
     let universe_resolved = query_literals.eval_literals(&refs, ctx).await?;
 
     CqueryUniverse::build(&universe_resolved)

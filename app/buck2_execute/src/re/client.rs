@@ -46,7 +46,6 @@ use either::Either;
 use futures::FutureExt;
 use futures::StreamExt;
 use futures::stream::BoxStream;
-use gazebo::prelude::*;
 use itertools::Itertools;
 use prost::Message;
 use remote_execution as RE;
@@ -593,11 +592,15 @@ struct RemoteExecutionClientImpl {
 fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
     #[allow(clippy::needless_update)] // Defaults are needed internally but not in OSS
     remote_execution::TPlatform {
-        properties: x.properties.map(|x| remote_execution::TProperty {
-            name: x.name.clone(),
-            value: x.value.clone(),
-            ..Default::default()
-        }),
+        properties: x
+            .properties
+            .iter()
+            .map(|x| remote_execution::TProperty {
+                name: x.name.clone(),
+                value: x.value.clone(),
+                ..Default::default()
+            })
+            .collect::<Vec<_>>(),
         ..Default::default()
     }
 }

@@ -39,7 +39,6 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
 
@@ -344,7 +343,10 @@ pub async fn cas_download(
 ) -> buck2_error::Result<()> {
     io.execute_io(
         Box::new(CleanOutputPaths {
-            paths: artifacts.map(|(p, _)| p.to_owned()),
+            paths: artifacts
+                .iter()
+                .map(|(p, _)| p.to_owned())
+                .collect::<Vec<_>>(),
         }),
         cancellations,
     )

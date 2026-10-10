@@ -16,7 +16,6 @@ use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactLock;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use starlark::codemap::FileSpan;
 use starlark::values::Trace;
 
@@ -48,7 +47,10 @@ impl PromiseArtifactRegistry {
     /// key) to look up the owner's analysis results via DICE (which will be blocking) to ensure
     /// that any dependent anon target analyses are finished first.
     pub(crate) fn consumer_analysis_artifacts(&self) -> Vec<PromiseArtifact> {
-        self.artifacts.map(|e| e.artifact.clone())
+        self.artifacts
+            .iter()
+            .map(|e| e.artifact.clone())
+            .collect::<Vec<_>>()
     }
 
     pub(crate) fn register(

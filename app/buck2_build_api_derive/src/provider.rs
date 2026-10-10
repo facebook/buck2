@@ -712,9 +712,12 @@ impl ProviderCodegen {
             let provider_methods_func_name = self.provider_methods_func_name()?;
             let this: syn::Expr = syn::parse_quote_spanned! { self.span=> this };
             let fields = self.fields()?;
-            let field_names = fields.map(|f| f.name.clone());
-            let field_tys = fields.map(|f| f.attr_ty());
-            let field_values = fields.map(|f| f.attr_value(&this));
+            let field_names = fields.iter().map(|f| f.name.clone()).collect::<Vec<_>>();
+            let field_tys = fields.iter().map(|f| f.attr_ty()).collect::<Vec<_>>();
+            let field_values = fields
+                .iter()
+                .map(|f| f.attr_value(&this))
+                .collect::<Vec<_>>();
 
             items.push(syn::parse_quote_spanned! { self.span=>
                 #[starlark::starlark_module]

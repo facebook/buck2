@@ -99,7 +99,6 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_hash::IntentionallyStdHashMap;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use gazebo::prelude::*;
 use instance::CellInstance;
 use itertools::Itertools;
 use pagable::Pagable;
@@ -402,7 +401,10 @@ impl CellResolver {
 
     pub fn testing_with_names_and_paths(cells: &[(CellName, CellRootPathBuf)]) -> CellResolver {
         Self::testing_with_names_and_paths_with_alias(
-            &cells.map(|(name, path)| (*name, path.clone())),
+            &cells
+                .iter()
+                .map(|(name, path)| (*name, path.clone()))
+                .collect::<Vec<_>>(),
             IntentionallyStdHashMap::new(),
         )
     }

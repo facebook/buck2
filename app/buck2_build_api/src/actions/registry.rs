@@ -38,7 +38,6 @@ use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use gazebo::prelude::SliceExt;
 use pagable::Pagable;
 use starlark::codemap::FileSpan;
 use starlark::collections::SmallMap;
@@ -101,7 +100,7 @@ impl<'v> ActionsRegistry<'v> {
             return Err(internal_error!(
                 "output for dynamic_output/actions declared after actions: {}, {:?}",
                 artifact,
-                self.pending.map(|v| v.key())
+                self.pending.iter().map(|v| v.key()).collect::<Vec<_>>()
             ));
         }
 
@@ -306,7 +305,10 @@ impl<'v> ActionsRegistry<'v> {
     }
 
     pub fn testing_pending_action_keys(&self) -> Vec<ActionKey> {
-        self.pending.map(|a| a.key().dupe())
+        self.pending
+            .iter()
+            .map(|a| a.key().dupe())
+            .collect::<Vec<_>>()
     }
 
     pub(crate) fn execution_platform(&self) -> &ExecutionPlatformResolution {

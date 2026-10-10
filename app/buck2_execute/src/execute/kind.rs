@@ -15,7 +15,6 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::RePlatform;
 use derive_more::Display;
-use gazebo::prelude::SliceExt;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
 
@@ -147,11 +146,23 @@ impl CommandExecutionKind {
                 details: details.to_proto(omit_details),
                 materialized_inputs_for_failed: materialized_inputs_for_failed
                     .as_ref()
-                    .map(|paths| paths.clone().map(|p| format!("{p}")))
+                    .map(|paths| {
+                        paths
+                            .clone()
+                            .iter()
+                            .map(|p| format!("{p}"))
+                            .collect::<Vec<_>>()
+                    })
                     .unwrap_or_default(),
                 materialized_outputs_for_failed_actions: materialized_outputs_for_failed_actions
                     .as_ref()
-                    .map(|paths| paths.clone().map(|p| format!("{p}")))
+                    .map(|paths| {
+                        paths
+                            .clone()
+                            .iter()
+                            .map(|p| format!("{p}"))
+                            .collect::<Vec<_>>()
+                    })
                     .unwrap_or_default(),
             }),
             Self::ActionCache { details } => Command::RemoteCommand(buck2_data::RemoteCommand {

@@ -24,7 +24,6 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_core::target::name::TargetNameRef;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use itertools::Itertools;
 use pagable::Pagable;
 
@@ -426,7 +425,9 @@ impl Display for SuggestedSimilarTargets {
         if !self.targets.is_empty() {
             let targets: Vec<String> = self
                 .targets
-                .map(|target| format!("  {}:{}", self.package, target));
+                .iter()
+                .map(|target| format!("  {}:{}", self.package, target))
+                .collect::<Vec<_>>();
             // Add a leading newline because this is used as a suffix in TargetsError.
             // For the same reason, print nothing when self.targets is empty.
             write!(

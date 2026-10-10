@@ -1309,7 +1309,6 @@ mod tests {
     use assert_matches::assert_matches;
     use buck2_hash::IntentionallyStdHashMap;
     use dupe::Dupe;
-    use gazebo::prelude::*;
     use test_case::test_case;
 
     use crate::cells::CellAliasResolver;
@@ -1377,7 +1376,9 @@ mod tests {
                 providers: providers.map_or(ProvidersName::Default, |n| {
                     ProvidersName::NonDefault(triomphe::Arc::new(NonDefaultProvidersName::Named(
                         buck2_util::arc_str::ArcSlice::from_iter(
-                            n.map(|s| ProviderName::new((*s).to_owned()).unwrap()),
+                            n.iter()
+                                .map(|s| ProviderName::new((*s).to_owned()).unwrap())
+                                .collect::<Vec<_>>(),
                         ),
                     )))
                 }),

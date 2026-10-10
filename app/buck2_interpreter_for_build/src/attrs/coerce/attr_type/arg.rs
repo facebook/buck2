@@ -252,7 +252,6 @@ mod tests {
     use buck2_node::attrs::display::AttrDisplayWithContextExt;
     use buck2_node::attrs::testing::configuration_ctx;
     use dupe::Dupe;
-    use gazebo::prelude::SliceExt;
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
     use starlark_map::smallset;
@@ -393,7 +392,11 @@ mod tests {
             vec!["//some:target".to_owned()],
             MacroDepKind::Regular,
         )?;
-        let deps = location.get_deps()?.map(|t| t.to_string());
+        let deps = location
+            .get_deps()?
+            .iter()
+            .map(|t| t.to_string())
+            .collect::<Vec<_>>();
         assert_eq!(vec!["root//some:target".to_owned()], deps);
 
         let configured = location.configure(&configuration_ctx())?;
@@ -424,7 +427,11 @@ mod tests {
             vec!["//some:target".to_owned()],
             MacroDepKind::Exec,
         )?;
-        let deps = location.get_deps()?.map(|t| t.to_string());
+        let deps = location
+            .get_deps()?
+            .iter()
+            .map(|t| t.to_string())
+            .collect::<Vec<_>>();
         assert_eq!(vec!["root//some:target".to_owned()], deps);
         assert_eq!("location_exec root//some:target", &location.to_string());
 
@@ -455,7 +462,11 @@ mod tests {
             vec!["//some:target".to_owned()],
             MacroDepKind::Toolchain,
         )?;
-        let deps = location.get_deps()?.map(|t| t.to_string());
+        let deps = location
+            .get_deps()?
+            .iter()
+            .map(|t| t.to_string())
+            .collect::<Vec<_>>();
         assert_eq!(vec!["root//some:target".to_owned()], deps);
         assert_eq!(
             "location_toolchain root//some:target",
@@ -486,7 +497,11 @@ mod tests {
     fn test_exe() -> buck2_error::Result<()> {
         let ctx = coercion_ctx();
         let exe = UnconfiguredMacro::new_exe(&ctx, vec!["//some:target".to_owned()], true)?;
-        let deps = exe.get_deps()?.map(|t| t.to_string());
+        let deps = exe
+            .get_deps()?
+            .iter()
+            .map(|t| t.to_string())
+            .collect::<Vec<_>>();
         assert_eq!(vec!["root//some:target".to_owned()], deps);
         assert_eq!("exe root//some:target", &exe.to_string());
 
@@ -510,7 +525,11 @@ mod tests {
     fn test_exe_target() -> buck2_error::Result<()> {
         let ctx = coercion_ctx();
         let exe = UnconfiguredMacro::new_exe(&ctx, vec!["//some:target".to_owned()], false)?;
-        let deps = exe.get_deps()?.map(|t| t.to_string());
+        let deps = exe
+            .get_deps()?
+            .iter()
+            .map(|t| t.to_string())
+            .collect::<Vec<_>>();
         assert_eq!(vec!["root//some:target".to_owned()], deps);
         assert_eq!("exe_target root//some:target", &exe.to_string());
 

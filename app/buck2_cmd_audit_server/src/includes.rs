@@ -139,7 +139,11 @@ async fn get_transitive_includes(
 
             async_depth_first_postorder_traversal(
                 &lookup,
-                load_result.imports().map(NodeRef::ref_cast),
+                load_result
+                    .imports()
+                    .iter()
+                    .map(NodeRef::ref_cast)
+                    .collect::<Vec<_>>(),
                 Delegate,
                 visit,
                 false, // allow_partial_graph

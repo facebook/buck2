@@ -65,7 +65,6 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future;
-use gazebo::prelude::*;
 use jiff::Timestamp;
 use remote_execution as RE;
 
@@ -480,7 +479,9 @@ impl CasDownloader<'_> {
                     Some(identity),
                     output_spec
                         .output_directories()
-                        .map(|x| x.tree_digest.clone()),
+                        .iter()
+                        .map(|x| x.tree_digest.clone())
+                        .collect::<Vec<_>>(),
                     info,
                 )
                 .boxed()

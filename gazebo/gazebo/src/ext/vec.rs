@@ -136,7 +136,7 @@ where
     type Item = T;
 
     fn cloned(&self) -> Vec<Self::Item> {
-        self.map(|x| (*x).clone())
+        self.iter().map(|x| (*x).clone()).collect::<Vec<_>>()
     }
 }
 

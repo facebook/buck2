@@ -260,7 +260,6 @@ mod tests {
     use derive_more::Display;
     use dupe::Dupe;
     use dupe::IterDupedExt;
-    use gazebo::prelude::*;
 
     use super::*;
     use crate::query::environment::QueryTarget;
@@ -445,7 +444,10 @@ mod tests {
     fn make_graph(nodes: &[(i64, &[i64])]) -> buck2_error::Result<Graph> {
         let mut map = BuckMutMap::default();
         for (n, deps) in nodes {
-            map.insert(Ref(*n), Node(Ref(*n), deps.map(|v| Ref(*v))));
+            map.insert(
+                Ref(*n),
+                Node(Ref(*n), deps.iter().map(|v| Ref(*v)).collect::<Vec<_>>()),
+            );
         }
         Ok(Graph(map))
     }

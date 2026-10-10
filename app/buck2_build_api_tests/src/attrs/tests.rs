@@ -43,7 +43,6 @@ use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::testing::configuration_ctx;
 use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
@@ -482,8 +481,9 @@ fn test_configured_deps() -> buck2_error::Result<()> {
 
         assert_eq!(
             expected_deps
-                .to_vec()
-                .map(|s| format!("{} ({})", s, ConfigurationData::testing_new())),
+                .iter()
+                .map(|s| format!("{} ({})", s, ConfigurationData::testing_new()))
+                .collect::<Vec<_>>(),
             info.deps
                 .iter()
                 .map(ToString::to_string)
@@ -501,7 +501,10 @@ fn test_configured_deps() -> buck2_error::Result<()> {
         eprintln!("{info:?}");
         let exec_cfg = configuration_ctx().base_exec_cfg()?;
         assert_eq!(
-            expected_deps.to_vec().map(|s| format!("{s} ({exec_cfg})")),
+            expected_deps
+                .iter()
+                .map(|s| format!("{s} ({exec_cfg})"))
+                .collect::<Vec<_>>(),
             info.execution_deps
                 .iter()
                 .map(ToString::to_string)

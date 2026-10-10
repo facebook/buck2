@@ -98,7 +98,6 @@ use buck2_hash::BuckIndexSet;
 use buck2_hash::buck_indexmap;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;
 use itertools::Itertools;
@@ -671,7 +670,9 @@ impl RunAction {
                 .collect();
 
             let inputs: Vec<CommandExecutionInput> = local_worker_inputs[..]
-                .map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
+                .iter()
+                .map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())))
+                .collect::<Vec<_>>();
 
             let input_paths = CommandExecutionPaths::new(
                 inputs,
@@ -772,8 +773,10 @@ impl RunAction {
                 .map(|group| action_execution_ctx.artifact_values(group))
                 .collect();
 
-            let inputs: Vec<CommandExecutionInput> =
-                artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
+            let inputs: Vec<CommandExecutionInput> = artifact_inputs[..]
+                .iter()
+                .map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())))
+                .collect::<Vec<_>>();
 
             let input_paths = CommandExecutionPaths::new(
                 inputs,
@@ -921,8 +924,10 @@ impl RunAction {
             .map(|group| ctx.artifact_values(group))
             .collect();
 
-        let mut inputs: Vec<CommandExecutionInput> =
-            artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
+        let mut inputs: Vec<CommandExecutionInput> = artifact_inputs[..]
+            .iter()
+            .map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())))
+            .collect::<Vec<_>>();
 
         let mut extra_env = Vec::new();
         self.prepare_action_metadata(ctx, &executor_fs, visitor, &mut inputs, &mut extra_env)

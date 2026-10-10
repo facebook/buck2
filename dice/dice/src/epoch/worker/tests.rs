@@ -26,7 +26,6 @@ use dice_futures::cancellation::CancellationContext;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use futures::pin_mut;
-use gazebo::prelude::SliceExt;
 use itertools::Either;
 use pagable::Pagable;
 use pagable::PagablePanic;
@@ -796,7 +795,10 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
             idx: v,
         })
         .collect();
-    let keys = spkeys.map(|v| dice.key_index.index_key(v.dupe()));
+    let keys = spkeys
+        .iter()
+        .map(|v| dice.key_index.index_key(v.dupe()))
+        .collect::<Vec<_>>();
 
     let version = dice.updater().commit().await.0.get_version();
 
@@ -878,7 +880,10 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
             idx: v,
         })
         .collect();
-    let keys = spkeys.map(|v| dice.key_index.index_key(v.dupe()));
+    let keys = spkeys
+        .iter()
+        .map(|v| dice.key_index.index_key(v.dupe()))
+        .collect::<Vec<_>>();
 
     let version = dice.updater().commit().await.0.get_version();
 

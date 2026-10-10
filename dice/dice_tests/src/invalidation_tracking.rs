@@ -26,7 +26,6 @@ use dice::InvalidationSourcePriority;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use variant_name::VariantName;
@@ -174,10 +173,14 @@ fn assert_single_invalidation(
         ) => {
             assert_eq!(
                 expected,
-                actual.get_invalidation_path().map(|v| (
-                    format!("{}({})", v.key.key_type_name(), v.key),
-                    v.version.testing_value()
-                ))
+                actual
+                    .get_invalidation_path()
+                    .iter()
+                    .map(|v| (
+                        format!("{}({})", v.key.key_type_name(), v.key),
+                        v.version.testing_value()
+                    ))
+                    .collect::<Vec<_>>()
             )
         }
         (ExpectedInvalidation::Invalidated(..), _) => {
