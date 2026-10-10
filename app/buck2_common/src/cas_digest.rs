@@ -283,6 +283,20 @@ impl CasDigestConfig {
         )
     }
 
+    /// The configured algorithm of `family`, if this config accepts digests of that family.
+    ///
+    /// This is what to hash with when the result has to compare equal to a digest that is already
+    /// in hand: the preferred algorithm may be a different family from that digest's.
+    pub fn algorithm_for_family(self, family: DigestAlgorithmFamily) -> Option<DigestAlgorithm> {
+        let slot = match family {
+            DigestAlgorithmFamily::Sha1 => self.inner.digest160,
+            DigestAlgorithmFamily::Sha256
+            | DigestAlgorithmFamily::Blake3
+            | DigestAlgorithmFamily::Blake3Keyed => self.inner.digest256,
+        };
+        slot.filter(|algorithm| algorithm.family() == family)
+    }
+
     /// Access the config for source files. Note that there is no method to go back to the
     /// non-source config.
     pub fn source_files_config(self) -> Self {

@@ -42,3 +42,64 @@ cas_artifact = rule(
         "use_case": attrs.string(default = "buck2-testing"),
     },
 )
+
+def _write_impl(ctx):
+    out = ctx.actions.write("content.txt", ctx.attrs.content, has_content_based_path = False)
+    return [DefaultInfo(default_output = out)]
+
+write = rule(
+    impl = _write_impl,
+    attrs = {
+        "content": attrs.string(),
+    },
+)
+
+def _consume_impl(ctx):
+    out = ctx.actions.declare_output("copy.txt", has_content_based_path = False)
+    ctx.actions.run(
+        cmd_args(["cp", ctx.attrs.dep[DefaultInfo].default_outputs[0], out.as_output()]),
+        category = "consume",
+    )
+    return [DefaultInfo(default_output = out)]
+
+# Reads `dep`'s output in an action. Run remotely, that uploads the output to the CAS under the
+# command's use case, or fails if a CAS-backed input is not there.
+consume = rule(
+    impl = _consume_impl,
+    attrs = {
+        "dep": attrs.dep(),
+    },
+)
+
+_GENERATE = """
+import hashlib
+import sys
+
+out, seed, size = sys.argv[1], sys.argv[2].encode(), int(sys.argv[3])
+with open(out, "wb") as f:
+    written = 0
+    counter = 0
+    while written < size:
+        block = hashlib.sha256(seed + counter.to_bytes(8, "little")).digest()[: size - written]
+        f.write(block)
+        written += len(block)
+        counter += 1
+"""
+
+def _generate_impl(ctx):
+    out = ctx.actions.declare_output("blob", has_content_based_path = False)
+    ctx.actions.run(
+        cmd_args(["fbpython", "-c", _GENERATE, out.as_output(), ctx.attrs.seed, str(ctx.attrs.size)]),
+        category = "generate",
+    )
+    return [DefaultInfo(default_output = out)]
+
+# `size` bytes derived from `seed` by chained hashing, so the same bytes come out locally and
+# remotely without depending on a random number generator's implementation.
+generate = rule(
+    impl = _generate_impl,
+    attrs = {
+        "seed": attrs.string(),
+        "size": attrs.int(),
+    },
+)

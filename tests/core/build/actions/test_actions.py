@@ -279,7 +279,9 @@ async def test_cas_artifact(buck: Buck) -> None:
         buckconfig.write("[buck2]\n")
         buckconfig.write("digest_algorithms = BLAKE3-KEYED,SHA1\n")
 
-    # Setting a use case override to test that it is not used.
+    # The override is the daemon's canonical use case: a file artifact from another use case is
+    # copied into it when that works and served from its own use case otherwise, and directory
+    # and tree artifacts are never copied. Either way the build must succeed.
     result = await buck.build(
         "//cas_artifact:", "-c", "buck2_re_client.override_use_case=missing_usecase"
     )
