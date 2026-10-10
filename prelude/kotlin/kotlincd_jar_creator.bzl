@@ -129,7 +129,6 @@ def create_jar_artifact_kotlincd(
 
     expect(incremental == False or kosabi_applicability_cell_root == None, "Kosabi applicability requires a full compilation")
     should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
-    should_ksp2_run_incrementally = kotlin_toolchain.ksp2_enable_incremental_processing and incremental
     incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", has_content_based_path = True, dir = True)
     incremental_metadata_ignored_inputs_tag = actions.artifact_tag()
 
@@ -211,7 +210,6 @@ def create_jar_artifact_kotlincd(
         should_use_jvm_abi_gen = should_use_jvm_abi_gen,
         kosabi_applicability_cell_root = kosabi_applicability_cell_root,
         should_kotlinc_run_incrementally = should_kotlinc_run_incrementally,
-        should_ksp2_run_incrementally = should_ksp2_run_incrementally,
         incremental_state_dir = incremental_state_dir,
         language_version = language_version,
         source_only_abi_applicability_classpath = source_only_abi_applicability_classpath,
@@ -220,9 +218,7 @@ def create_jar_artifact_kotlincd(
     library_command_builder = command_builder(
         kotlin_extra_params = kotlin_extra_params,
         provide_classpath_snapshot = should_kotlinc_run_incrementally,
-        incremental_metadata_ignored_inputs_tag = incremental_metadata_ignored_inputs_tag
-        if should_kotlinc_run_incrementally or should_ksp2_run_incrementally
-        else None,
+        incremental_metadata_ignored_inputs_tag = incremental_metadata_ignored_inputs_tag if should_kotlinc_run_incrementally else None,
     )
     command = library_command_builder(
         build_mode = BuildMode("LIBRARY"),
@@ -243,7 +239,7 @@ def create_jar_artifact_kotlincd(
         target_type = TargetType("library"),
         is_creating_subtarget = is_creating_subtarget,
         incremental_state_dir = incremental_state_dir,
-        should_action_run_incrementally = should_kotlinc_run_incrementally or should_ksp2_run_incrementally,
+        should_action_run_incrementally = should_kotlinc_run_incrementally,
     )
 
     final_jar_output = prepare_final_jar(
@@ -273,7 +269,6 @@ def create_jar_artifact_kotlincd(
             should_use_jvm_abi_gen = should_use_jvm_abi_gen,
             kosabi_applicability_cell_root = None,
             should_kotlinc_run_incrementally = False,
-            should_ksp2_run_incrementally = False,
             incremental_state_dir = None,
             language_version = language_version,
             source_only_abi_applicability_classpath = cmd_args(),
@@ -378,7 +373,6 @@ def _encode_kotlin_extra_params(
     should_use_jvm_abi_gen: bool,
     kosabi_applicability_cell_root,
     should_kotlinc_run_incrementally: bool,
-    should_ksp2_run_incrementally: bool,
     incremental_state_dir: Artifact | None,
     language_version: str,
     source_only_abi_applicability_classpath: cmd_args = cmd_args(),
@@ -413,7 +407,6 @@ def _encode_kotlin_extra_params(
         extraKotlincArguments = extra_kotlinc_arguments,
         depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
         shouldKotlincRunIncrementally = should_kotlinc_run_incrementally,
-        shouldKsp2RunIncrementally = should_ksp2_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         languageVersion = language_version,
         javaBinary = cmd_args(kotlin_toolchain.java_binary_for_kotlincd[RunInfo], delimiter = " ") if kotlin_toolchain.java_binary_for_kotlincd else "",

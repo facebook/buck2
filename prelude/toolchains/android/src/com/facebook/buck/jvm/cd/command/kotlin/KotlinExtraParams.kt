@@ -37,22 +37,16 @@ data class KotlinExtraParams(
     val depTrackerPlugin: Optional<AbsPath>,
     val shouldKotlincRunIncrementally: Boolean,
     val incrementalStateDir: Optional<AbsPath>,
-    val shouldKsp2RunIncrementally: Boolean,
     private val languageVersionString: String,
     val kotlinClassesDir: AbsPath,
     val javaBinary: Optional<String>,
     val applicabilityClasspath: ImmutableList<AbsPath> = ImmutableList.of(),
 ) : CompileToJarStepFactory.ExtraParams {
 
-  val shouldActionRunIncrementally: Boolean =
-      shouldKotlincRunIncrementally || shouldKsp2RunIncrementally
+  val shouldActionRunIncrementally: Boolean = shouldKotlincRunIncrementally
 
   val kotlincWorkingDir: Optional<AbsPath> = incrementalStateDir.map { dir: AbsPath ->
     dir.resolve(KOTLINC_WORKING_DIR)
-  }
-
-  val ksp2CachesDir: Optional<AbsPath> = incrementalStateDir.map { dir: AbsPath ->
-    dir.resolve(KSP2_CACHES_DIR)
   }
 
   val jvmAbiGenWorkingDir: Optional<AbsPath> = incrementalStateDir.map { dir: AbsPath ->
@@ -63,7 +57,6 @@ data class KotlinExtraParams(
 
   companion object {
     private val KOTLINC_WORKING_DIR: String = "kotlinc_working_dir"
-    private val KSP2_CACHES_DIR: String = "ksp2_caches_dir"
     private val KOTLINC_JVM_ABI_GEN_WORKING_DIR: String = "jvm_abi_gen_working_dir"
   }
 }

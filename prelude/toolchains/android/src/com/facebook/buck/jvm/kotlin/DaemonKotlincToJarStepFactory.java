@@ -45,7 +45,6 @@ import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import java.nio.file.Path;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -221,7 +220,6 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           extraParams.getLanguageVersion());
 
       prepareKspProcessorsIfNeeded(
-          Optional.ofNullable(actionMetadata),
           extraParams,
           invokingRule,
           buildCellRootPath,

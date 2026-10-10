@@ -86,10 +86,8 @@ public class KotlinExtraParamsSerializer {
         Optional.of(kotlinExtraParams.getIncrementalStateDir())
             .filter(s -> !s.isEmpty())
             .map(AbsPathSerializer::deserialize),
-        kotlinExtraParams.getShouldKsp2RunIncrementally(),
         kotlinExtraParams.getLanguageVersion(),
         (kotlinExtraParams.getShouldKotlincRunIncrementally()
-                    || kotlinExtraParams.getShouldKsp2RunIncrementally()
                 ? AbsPathSerializer.deserialize(kotlinExtraParams.getIncrementalStateDir())
                 : scratchDir.get().toAbsolutePath())
             .resolve("__kotlin_classes__"),

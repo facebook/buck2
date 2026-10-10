@@ -20,7 +20,6 @@ import com.facebook.buck.io.filesystem.CopySourceMode;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.core.BuildTargetValueExtraParams;
-import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.java.CompilerOutputPaths;
 import com.facebook.buck.jvm.java.JavacPluginParams;
 import com.facebook.buck.jvm.java.ResolvedJavacPluginProperties;
@@ -40,7 +39,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 
 public class KspStepsBuilder {
   private static final String KSP_PLUGIN_ID = "plugin:com.google.devtools.ksp.symbol-processing:";
@@ -55,7 +53,6 @@ public class KspStepsBuilder {
 
   /** Initialize all the folders, steps and parameters needed to run KSP plugins for this rule. */
   public static KSPInvocationStatus prepareKspProcessorsIfNeeded(
-      Optional<ActionMetadata> actionMetadata,
       KotlinExtraParams extraParams,
       BuildTargetValue invokingRule,
       AbsPath rootPath,
@@ -167,12 +164,7 @@ public class KspStepsBuilder {
             getJvmDefaultMode(extraParams.getExtraKotlincArguments()),
             extraParams.getJavaBinary(),
             kotlinCDAnalytics,
-            Ksp2ModeFactory.create(
-                rootPath,
-                invokingRule.isSourceOnlyAbi(),
-                kspCachesOutput,
-                extraParams,
-                actionMetadata.orElse(null)));
+            kspCachesOutput);
     steps.add(ksp2Step);
     steps.addAll(
         createKspOutputStagingSteps(

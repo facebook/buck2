@@ -206,7 +206,7 @@ public class CompilerCommandDefaultsTest {
 
   @Test
   public void kotlinClassesUseScratchOrPersistentIncrementalState() {
-    for (int mode = 0; mode < 3; mode++) {
+    for (int mode = 0; mode < 2; mode++) {
       var model =
           com.facebook.buck.cd.model.kotlin.KotlinExtraParams.newBuilder()
               .setStandardLibraryClassPath("stdlib.jar")
@@ -214,7 +214,6 @@ public class CompilerCommandDefaultsTest {
               .setLanguageVersion("2.2")
               .setIncrementalStateDir("state")
               .setShouldKotlincRunIncrementally(mode == 1)
-              .setShouldKsp2RunIncrementally(mode == 2)
               .build();
       var parameters =
           KotlinExtraParamsSerializer.deserialize(

@@ -56,7 +56,9 @@ message KotlinExtraParams {
   string incrementalStateDir = 22;
   string languageVersion = 23;
   repeated string extraClassPathSnapshots = 24;
-  bool shouldKsp2RunIncrementally = 26;
+  reserved 26; // was shouldKsp2RunIncrementally, KSP2 always runs
+               // non-incrementally
+  reserved "shouldKsp2RunIncrementally";
   reserved 27; // was shouldKosabiJvmAbiGenUseK2, unused (kotlincd derives K2
                // from LanguageVersion.getSupportsK2())
   reserved 28;
