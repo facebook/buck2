@@ -453,32 +453,34 @@ impl<'v> TransitiveSet<'v> {
             }
         })?;
 
-        let node = value.try_map(|value| {
-            let projections = def
-                .operations()
-                .projections
-                .iter()
-                .map(|(name, spec)| {
-                    let projected_value = eval
-                        .eval_function(spec.projection.get(), &[value], &[])
-                        .map_err(|error| TransitiveSetError::ProjectionError {
-                            error: error.into(),
-                            name: name.clone(),
-                        })?;
-                    match spec.kind {
-                        TransitiveSetProjectionKind::Args => {
-                            TransitiveSetArgsProjection::as_command_line(projected_value)?;
+        let node = value
+            .map(|value| {
+                let projections = def
+                    .operations()
+                    .projections
+                    .iter()
+                    .map(|(name, spec)| {
+                        let projected_value = eval
+                            .eval_function(spec.projection.get(), &[value], &[])
+                            .map_err(|error| TransitiveSetError::ProjectionError {
+                                error: error.into(),
+                                name: name.clone(),
+                            })?;
+                        match spec.kind {
+                            TransitiveSetProjectionKind::Args => {
+                                TransitiveSetArgsProjection::as_command_line(projected_value)?;
+                            }
+                            TransitiveSetProjectionKind::Json => {
+                                validate_json(JsonUnpack::unpack_value_err(projected_value)?)?;
+                            }
                         }
-                        TransitiveSetProjectionKind::Json => {
-                            validate_json(JsonUnpack::unpack_value_err(projected_value)?)?;
-                        }
-                    }
-                    buck2_error::Ok(projected_value)
-                })
-                .collect::<Result<Box<[_]>, _>>()?;
+                        buck2_error::Ok(projected_value)
+                    })
+                    .collect::<Result<Box<[_]>, _>>()?;
 
-            buck2_error::Ok(Node { value, projections })
-        })?;
+                buck2_error::Ok(Node { value, projections })
+            })
+            .transpose()?;
 
         let reductions = def
             .operations()

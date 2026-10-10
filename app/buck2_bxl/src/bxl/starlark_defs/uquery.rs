@@ -22,7 +22,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
-use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -137,7 +136,8 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 async {
                     let filter = filter
                         .into_option()
-                        .try_map(buck2_query_parser::parse_expr)?;
+                        .map(buck2_query_parser::parse_expr)
+                        .transpose()?;
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
                     get_uquery_env(&this.ctx, this.allow_partial_graph)
@@ -169,7 +169,8 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 async {
                     let filter = filter
                         .into_option()
-                        .try_map(buck2_query_parser::parse_expr)?;
+                        .map(buck2_query_parser::parse_expr)
+                        .transpose()?;
 
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
@@ -285,7 +286,8 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     async {
                         let filter = filter
                             .into_option()
-                            .try_map(buck2_query_parser::parse_expr)?;
+                            .map(buck2_query_parser::parse_expr)
+                            .transpose()?;
 
                         let targets = unpack_targets(this, dice, universe).await?;
 
@@ -328,7 +330,8 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     async {
                         let filter = filter
                             .into_option()
-                            .try_map(buck2_query_parser::parse_expr)?;
+                            .map(buck2_query_parser::parse_expr)
+                            .transpose()?;
 
                         let universe = unpack_targets(this, dice, universe).await?;
                         let targets = unpack_targets(this, dice, from).await?;

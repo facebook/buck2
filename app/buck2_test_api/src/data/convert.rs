@@ -430,7 +430,7 @@ impl TryInto<buck2_test_proto::TestResult> for TestResult {
                 .buck_error_context("Invalid `status`")?,
             details: self.details,
             msg: self.msg.map(|msg| OptionalMsg { msg }),
-            duration: self.duration.try_map(|d| d.try_into())?,
+            duration: self.duration.map(|d| d.try_into()).transpose()?,
             max_memory_used_bytes: self.max_memory_used_bytes,
         })
     }

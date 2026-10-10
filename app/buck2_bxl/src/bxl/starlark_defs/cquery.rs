@@ -21,7 +21,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
-use gazebo::prelude::*;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -148,7 +147,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 async move {
                     let filter = filter
                         .into_option()
-                        .try_map(buck2_query_parser::parse_expr)?;
+                        .map(buck2_query_parser::parse_expr)
+                        .transpose()?;
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
                     get_cquery_env(&this.ctx, &this.global_cfg_options_override)
@@ -180,7 +180,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                 async {
                     let filter = filter
                         .into_option()
-                        .try_map(buck2_query_parser::parse_expr)?;
+                        .map(buck2_query_parser::parse_expr)
+                        .transpose()?;
 
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
@@ -363,7 +364,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     async {
                         let filter = filter
                             .into_option()
-                            .try_map(buck2_query_parser::parse_expr)?;
+                            .map(buck2_query_parser::parse_expr)
+                            .transpose()?;
 
                         let targets = unpack_targets(this, dice, universe).await?;
 
@@ -508,7 +510,8 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                     async {
                         let filter = filter
                             .into_option()
-                            .try_map(buck2_query_parser::parse_expr)?;
+                            .map(buck2_query_parser::parse_expr)
+                            .transpose()?;
                         let universe = unpack_targets(this, dice, universe).await?;
                         let targets = unpack_targets(this, dice, from).await?;
                         get_cquery_env(&this.ctx, &this.global_cfg_options_override)

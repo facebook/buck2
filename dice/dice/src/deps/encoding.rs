@@ -22,7 +22,6 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use dupe::Dupe;
-use gazebo::prelude::OptionExt;
 use itertools::Itertools;
 use mini_vec::MiniVec;
 use thiserror::Error;
@@ -152,54 +151,61 @@ pub(crate) struct SPDecoder<'a>(pub(crate) std::slice::Iter<'a, u32>);
 
 impl SPDecoder<'_> {
     pub(crate) fn read_series_header(&mut self) -> Result<Option<SPSeriesHeader>, SPDecoderError> {
-        self.read()?.try_map(|v| match v {
-            (SPTag::HeaderSimple, key_count) => Ok(SPSeriesHeader::Simple { key_count }),
-            (SPTag::HeaderComplexKeys, key_count) => match self.read()? {
-                Some((SPTag::HeaderComplexSpecs, spec_count)) => Ok(SPSeriesHeader::Complex {
-                    key_count,
-                    spec_count,
-                }),
+        self.read()?
+            .map(|v| match v {
+                (SPTag::HeaderSimple, key_count) => Ok(SPSeriesHeader::Simple { key_count }),
+                (SPTag::HeaderComplexKeys, key_count) => match self.read()? {
+                    Some((SPTag::HeaderComplexSpecs, spec_count)) => Ok(SPSeriesHeader::Complex {
+                        key_count,
+                        spec_count,
+                    }),
+                    v => Err(SPDecoderError::InvalidItem {
+                        expected: vec![SPTag::HeaderComplexSpecs],
+                        actual: v,
+                        remaining: debug_string(&mut self.0),
+                    }),
+                },
                 v => Err(SPDecoderError::InvalidItem {
-                    expected: vec![SPTag::HeaderComplexSpecs],
-                    actual: v,
+                    expected: vec![SPTag::HeaderSimple, SPTag::HeaderComplexKeys],
+                    actual: Some(v),
                     remaining: debug_string(&mut self.0),
                 }),
-            },
-            v => Err(SPDecoderError::InvalidItem {
-                expected: vec![SPTag::HeaderSimple, SPTag::HeaderComplexKeys],
-                actual: Some(v),
-                remaining: debug_string(&mut self.0),
-            }),
-        })
+            })
+            .transpose()
     }
 
     pub(crate) fn read_item(&mut self) -> Result<Option<SPItem>, SPDecoderError> {
-        self.read()?.try_map(|v| match v {
-            (SPTag::ItemKeys, key_count) => Ok(SPItem::Keys { key_count }),
-            (SPTag::ItemParallelKeys, key_count) => match self.read()? {
-                Some((SPTag::ItemParallelSpecs, spec_count)) => Ok(SPItem::Parallel {
-                    key_count,
-                    spec_count,
-                }),
+        self.read()?
+            .map(|v| match v {
+                (SPTag::ItemKeys, key_count) => Ok(SPItem::Keys { key_count }),
+                (SPTag::ItemParallelKeys, key_count) => match self.read()? {
+                    Some((SPTag::ItemParallelSpecs, spec_count)) => Ok(SPItem::Parallel {
+                        key_count,
+                        spec_count,
+                    }),
+                    v => Err(SPDecoderError::InvalidItem {
+                        expected: vec![SPTag::ItemParallelSpecs],
+                        actual: v,
+                        remaining: debug_string(&mut self.0),
+                    }),
+                },
                 v => Err(SPDecoderError::InvalidItem {
-                    expected: vec![SPTag::ItemParallelSpecs],
-                    actual: v,
+                    expected: vec![SPTag::ItemKeys, SPTag::ItemParallelKeys],
+                    actual: Some(v),
                     remaining: debug_string(&mut self.0),
                 }),
-            },
-            v => Err(SPDecoderError::InvalidItem {
-                expected: vec![SPTag::ItemKeys, SPTag::ItemParallelKeys],
-                actual: Some(v),
-                remaining: debug_string(&mut self.0),
-            }),
-        })
+            })
+            .transpose()
     }
 
     fn read(&mut self) -> Result<Option<(SPTag, u32)>, SPDecoderError> {
-        self.0.next().try_map(|v| {
-            let (tag, val) = Self::split(*v);
-            Ok((SPTag::decode(tag)?, val))
-        })
+        self.0
+            .next()
+            .map(|v| {
+                let (tag, val) = Self::split(*v);
+                Ok((SPTag::decode(tag)?, val))
+            })
+            .transpose()
     }
 
     fn split(v: u32) -> (u32, u32) {

@@ -29,7 +29,6 @@ use display_container::fmt_container;
 use display_container::iter_display_chain;
 use dupe::Dupe;
 use either::Either;
-use gazebo::prelude::*;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -680,7 +679,8 @@ impl<'v> Freeze<'v> for StarlarkCmdArgs<'v> {
         let items = freeze_elements(items, freezer)?;
         let hidden = freeze_elements(hidden, freezer)?;
         let options = options
-            .try_map(|options| Freeze::freeze(*options, freezer))?
+            .map(|options| Freeze::freeze(*options, freezer))
+            .transpose()?
             .unwrap_or_default();
 
         Ok(FrozenStarlarkCmdArgs {
@@ -1041,7 +1041,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
         >,
     ) -> starlark::Result<StarlarkCmdArgs<'v>> {
         let format = format.filter(|format| format.as_str() != "{}");
-        let quote = quote.try_map(QuoteStyle::parse)?;
+        let quote = quote.map(QuoteStyle::parse).transpose()?;
         let mut builder = StarlarkCommandLineData::default();
         if delimiter.is_some()
             || format.is_some()

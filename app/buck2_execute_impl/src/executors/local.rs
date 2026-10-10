@@ -1708,7 +1708,7 @@ mod unix {
                 path: working_directory.as_path().as_os_str().as_bytes().to_vec(),
             }),
             env: vec![],
-            timeout: command_timeout.try_map(|d| d.try_into())?,
+            timeout: command_timeout.map(|d| d.try_into()).transpose()?,
             enable_miniperf,
             std_redirects: None,
             graceful_shutdown_timeout_s: None,

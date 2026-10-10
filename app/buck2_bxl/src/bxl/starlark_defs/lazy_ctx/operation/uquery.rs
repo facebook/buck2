@@ -15,7 +15,6 @@ use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::eval::values::QueryValueDepth;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use dice::DiceComputations;
-use gazebo::prelude::OptionExt;
 use starlark::values::Heap;
 use starlark::values::Value;
 
@@ -153,7 +152,8 @@ impl LazyUqueryOperation {
                 let to = to.to_unconfigured_target_set(core_data, dice).await?;
                 let filter = filter
                     .as_ref()
-                    .try_map(|s| buck2_query_parser::parse_expr(s.as_str()))?;
+                    .map(|s| buck2_query_parser::parse_expr(s.as_str()))
+                    .transpose()?;
                 let expr = filter.as_ref().map(|expr| CapturedExpr { expr });
 
                 let res = get_uquery_env(core_data, allow_partial_graph)
@@ -168,7 +168,8 @@ impl LazyUqueryOperation {
                 let to = to.to_unconfigured_target_set(core_data, dice).await?;
                 let filter = filter
                     .as_ref()
-                    .try_map(|s| buck2_query_parser::parse_expr(s.as_str()))?;
+                    .map(|s| buck2_query_parser::parse_expr(s.as_str()))
+                    .transpose()?;
                 let expr = filter.as_ref().map(|expr| CapturedExpr { expr });
 
                 let res = get_uquery_env(core_data, allow_partial_graph)
@@ -224,7 +225,8 @@ impl LazyUqueryOperation {
                 let target_set = universe.to_unconfigured_target_set(core_data, dice).await?;
                 let filter = filter
                     .as_ref()
-                    .try_map(|s| buck2_query_parser::parse_expr(s.as_str()))?;
+                    .map(|s| buck2_query_parser::parse_expr(s.as_str()))
+                    .transpose()?;
                 let expr = filter.as_ref().map(|expr| CapturedExpr { expr });
 
                 let res = get_uquery_env(core_data, allow_partial_graph)
@@ -244,7 +246,8 @@ impl LazyUqueryOperation {
                 let from_set = from.to_unconfigured_target_set(core_data, dice).await?;
                 let filter = filter
                     .as_ref()
-                    .try_map(|s| buck2_query_parser::parse_expr(s.as_str()))?;
+                    .map(|s| buck2_query_parser::parse_expr(s.as_str()))
+                    .transpose()?;
                 let expr = filter.as_ref().map(|expr| CapturedExpr { expr });
 
                 let res = get_uquery_env(core_data, allow_partial_graph)

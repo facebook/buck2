@@ -355,7 +355,8 @@ impl StreamingCommand for TargetsCommand {
             target_cfg: Some(self.target_cfg.target_cfg()),
             output: self
                 .output
-                .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,
+                .map(|x| x.resolve(&ctx.working_dir).into_string())
+                .transpose()?,
             concurrency: self
                 .num_threads
                 .map(|num| buck2_cli_proto::Concurrency { concurrency: num }),
