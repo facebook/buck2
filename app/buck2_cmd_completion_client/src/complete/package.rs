@@ -697,4 +697,30 @@ mod tests {
         );
         Ok(())
     }
+
+    /// A throwaway project with a `buck-out` next to a real directory.
+    fn project_with_buck_out() -> (std::path::PathBuf, InvocationRoots, AbsWorkingDir) {
+        let dir = std::env::temp_dir().join(format!("completion_buck_out_{}", std::process::id()));
+        drop(std::fs::remove_dir_all(&dir));
+        std::fs::create_dir_all(dir.join("buck-out/v2")).unwrap();
+        std::fs::create_dir_all(dir.join("bar")).unwrap();
+        std::fs::write(dir.join(".buckroot"), "").unwrap();
+        std::fs::write(dir.join(".buckconfig"), "[cells]\n  root = .\n").unwrap();
+        let cwd = AbsWorkingDir::unchecked_new(AbsNormPathBuf::new(dir.clone()).unwrap());
+        let roots = find_invocation_roots(&cwd).unwrap();
+        (dir, roots, cwd)
+    }
+
+    /// `buck-out` is a directory like any other to the completer, so `b` offers it.
+    #[tokio::test]
+    async fn test_offers_buck_out() -> TestResult {
+        let (dir, roots, cwd) = project_with_buck_out();
+        let uut = PackageCompleter::new(&cwd, &roots).await?;
+
+        let actual = uut.complete("b").await?;
+
+        drop(std::fs::remove_dir_all(&dir));
+        assert_eq!(actual, vec!["bar/", "buck-out/"]);
+        Ok(())
+    }
 }
