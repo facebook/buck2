@@ -678,4 +678,17 @@ mod tests {
         }
         Ok(())
     }
+
+    /// `baredir0/` names an existing directory of the cwd cell, but the trailing `/` makes the
+    /// sanitizer treat it as malformed and it is rewritten instead of listing its children.
+    #[tokio::test]
+    async fn test_trailing_slash_on_existing_dir_is_rewritten() -> TestResult {
+        let (roots, cwd) = in_root()?;
+        let uut = PackageCompleter::new(&cwd, &roots).await?;
+
+        let actual = uut.complete("baredir0/").await?;
+
+        assert_eq!(actual, vec!["root//baredir0/"]);
+        Ok(())
+    }
 }
