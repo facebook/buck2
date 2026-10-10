@@ -452,7 +452,6 @@ impl<'a> ServerCommandContext<'a> {
             eager_dep_files,
             default_allow_cache_upload: false,
             action_paths_interner: None,
-            deduplicate_get_digests_ttl_calls: false,
         };
 
         let concurrency = self
@@ -946,13 +945,6 @@ impl DiceCommandUpdater<'_, '_> {
             run_action_knobs.action_paths_interner = Some(DashMapDirectoryInterner::new());
         }
 
-        run_action_knobs.deduplicate_get_digests_ttl_calls |= root_config
-            .parse::<bool>(BuckconfigKeyRef {
-                section: "buck2",
-                property: "deduplicate_get_digests_ttl_calls",
-            })?
-            .unwrap_or(true);
-
         let output_trees_download_semaphore_size = root_config.parse::<u32>(BuckconfigKeyRef {
             section: "buck2",
             property: "output_trees_download_semaphore_size",
@@ -1055,7 +1047,6 @@ impl DiceCommandUpdater<'_, '_> {
             invocation_re_settings.use_case,
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
             self.cmd_ctx.base_context.repo().incremental_db_state.dupe(),
-            run_action_knobs.deduplicate_get_digests_ttl_calls,
             output_trees_download_config.dupe(),
             self.cmd_ctx.base_context.daemon.daemon_id.dupe(),
         )));

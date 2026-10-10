@@ -47,7 +47,6 @@ use remote_execution::TActionResult2;
 use remote_execution::TDigest;
 use remote_execution::WriteActionResultResponse;
 
-use crate::digest_config::DigestConfig;
 use crate::directory::ActionImmutableDirectory;
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
@@ -412,8 +411,6 @@ impl ManagedRemoteExecutionClient {
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         identity: Option<&ReActionIdentity<'_>>,
-        digest_config: DigestConfig,
-        deduplicate_get_digests_ttl_calls: bool,
     ) -> buck2_error::Result<UploadStats> {
         self.lock()?
             .get()
@@ -426,8 +423,6 @@ impl ManagedRemoteExecutionClient {
                 input_dir,
                 self.use_case,
                 identity,
-                digest_config,
-                deduplicate_get_digests_ttl_calls,
             )
             .await
     }

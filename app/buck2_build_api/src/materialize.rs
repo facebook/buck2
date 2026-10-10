@@ -37,7 +37,6 @@ use futures::FutureExt;
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::artifact::materializer::ArtifactMaterializer;
 use crate::actions::execute::dice_data::GetReClient;
-use crate::actions::impls::run_action_knobs::HasRunActionKnobs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
@@ -75,7 +74,7 @@ buck2_util::size_assert::words_of_async_fn_future!(
 #[cfg(fbcode_build)]
 buck2_util::size_assert::words_of_async_fn_future!(materialize_artifact_group, (_, _, _, _), ~20);
 #[cfg(fbcode_build)]
-buck2_util::size_assert::words_of_async_fn_future!(ensure_uploaded, (_, _), ~401);
+buck2_util::size_assert::words_of_async_fn_future!(ensure_uploaded, (_, _), ~353);
 
 async fn materialize_artifact_group(
     ctx: &mut DiceComputations<'_>,
@@ -214,10 +213,6 @@ async fn ensure_uploaded(
             ProjectRelativePath::empty(),
             &dir,
             None,
-            digest_config,
-            ctx.per_transaction_data()
-                .get_run_action_knobs()
-                .deduplicate_get_digests_ttl_calls,
         )
         .await?;
 

@@ -97,7 +97,6 @@ pub struct ReExecutor {
     pub materialize_failed_outputs: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
     pub gang_workers: Vec<ReGangWorker>,
-    pub deduplicate_get_digests_ttl_calls: bool,
     pub output_trees_download_config: OutputTreesDownloadConfig,
     pub priority: Option<i32>,
 }
@@ -109,7 +108,6 @@ impl ReExecutor {
         identity: &ReActionIdentity<'_>,
         blobs: &ActionBlobs,
         paths: &CommandExecutionPaths,
-        digest_config: DigestConfig,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         let re_client = &self.re_client;
 
@@ -122,8 +120,6 @@ impl ReExecutor {
                     ProjectRelativePath::empty(),
                     paths.input_directory(),
                     Some(identity),
-                    digest_config,
-                    self.deduplicate_get_digests_ttl_calls,
                 )
                 .await;
             match res {
@@ -413,13 +409,7 @@ impl PreparedCommandExecutor for ReExecutor {
 
         // TODO(bobyf, torozco): remote execution probably needs to explicitly handle cancellations
         let manager = self
-            .upload(
-                manager,
-                &identity,
-                &action_and_blobs.blobs,
-                request.paths(),
-                *digest_config,
-            )
+            .upload(manager, &identity, &action_and_blobs.blobs, request.paths())
             .await?;
 
         let manager = if let (Some(worker), Some(worker_tool_init_action)) =
@@ -430,7 +420,6 @@ impl PreparedCommandExecutor for ReExecutor {
                 &identity,
                 &worker_tool_init_action.blobs,
                 &worker.input_paths,
-                *digest_config,
             )
             .await?
         } else {

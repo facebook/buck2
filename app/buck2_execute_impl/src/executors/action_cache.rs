@@ -58,7 +58,6 @@ pub struct ActionCacheChecker {
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
     pub paranoid: Option<ParanoidDownloader>,
-    pub deduplicate_get_digests_ttl_calls: bool,
     pub output_trees_download_config: OutputTreesDownloadConfig,
 }
 
@@ -93,7 +92,6 @@ async fn query_action_cache_and_download_result(
     upload_all_actions: bool,
     log_action_keys: bool,
     details: RemoteCommandExecutionDetails,
-    deduplicate_get_digests_ttl_calls: bool,
     output_trees_download_config: &OutputTreesDownloadConfig,
 ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
     let request = command.request;
@@ -142,8 +140,6 @@ async fn query_action_cache_and_download_result(
                 ProjectRelativePath::empty(),
                 request.paths().input_directory(),
                 identity,
-                digest_config,
-                deduplicate_get_digests_ttl_calls,
             )
             .await
         {
@@ -301,7 +297,6 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             self.upload_all_actions,
             self.knobs.log_action_keys,
             details,
-            self.deduplicate_get_digests_ttl_calls,
             &self.output_trees_download_config,
         )
         .await
@@ -320,7 +315,6 @@ pub struct RemoteDepFileCacheChecker {
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
     pub paranoid: Option<ParanoidDownloader>,
-    pub deduplicate_get_digests_ttl_calls: bool,
     pub output_trees_download_config: OutputTreesDownloadConfig,
 }
 
@@ -371,7 +365,6 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             self.upload_all_actions,
             self.knobs.log_action_keys,
             details,
-            self.deduplicate_get_digests_ttl_calls,
             &self.output_trees_download_config,
         )
         .await

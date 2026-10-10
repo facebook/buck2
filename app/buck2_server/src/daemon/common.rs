@@ -101,7 +101,6 @@ pub struct CommandExecutorFactory {
     invocation_re_use_case: RemoteExecutorUseCase,
     memory_tracker: Option<MemoryTrackerHandle>,
     incremental_db_state: Arc<IncrementalDbState>,
-    deduplicate_get_digests_ttl_calls: bool,
     output_trees_download_config: OutputTreesDownloadConfig,
     daemon_id: DaemonId,
 }
@@ -128,7 +127,6 @@ impl CommandExecutorFactory {
         invocation_re_use_case: RemoteExecutorUseCase,
         memory_tracker: Option<MemoryTrackerHandle>,
         incremental_db_state: Arc<IncrementalDbState>,
-        deduplicate_get_digests_ttl_calls: bool,
         output_trees_download_config: OutputTreesDownloadConfig,
         daemon_id: DaemonId,
     ) -> Self {
@@ -159,7 +157,6 @@ impl CommandExecutorFactory {
             invocation_re_use_case,
             memory_tracker,
             incremental_db_state,
-            deduplicate_get_digests_ttl_calls,
             output_trees_download_config,
             daemon_id,
         }
@@ -263,7 +260,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 materialize_failed_outputs: self.materialize_failed_outputs,
                 dependencies: dependencies.to_vec(),
                 gang_workers: gang_workers.to_vec(),
-                deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
                 output_trees_download_config: self.output_trees_download_config.dupe(),
                 priority,
             }
@@ -327,7 +323,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 upload_all_actions: self.upload_all_actions,
                                 knobs: self.executor_global_knobs.dupe(),
                                 paranoid: self.paranoid.dupe(),
-                                deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
                                 output_trees_download_config: self.output_trees_download_config.dupe(),
                             }) as _
                         } else {
@@ -348,7 +343,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 upload_all_actions: self.upload_all_actions,
                                 knobs: self.executor_global_knobs.dupe(),
                                 paranoid: self.paranoid.dupe(),
-                                deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
                                 output_trees_download_config: self.output_trees_download_config.dupe(),
                             }) as _
                         };
@@ -450,7 +444,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         remote_options.re_properties.clone(),
                         None,
                         self.cache_upload_permission_checker.dupe(),
-                        self.deduplicate_get_digests_ttl_calls,
                     )) as _
                 } else if disable_caching {
                     Arc::new(NoOpCacheUploader {}) as _
@@ -465,7 +458,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         remote_options.re_properties.clone(),
                         max_bytes,
                         self.cache_upload_permission_checker.dupe(),
-                        self.deduplicate_get_digests_ttl_calls,
                     )) as _
                 } else {
                     Arc::new(NoOpCacheUploader {}) as _

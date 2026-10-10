@@ -484,8 +484,7 @@ pub struct Buck2OssReConfiguration {
     /// `FindMissingBlobs` (a.k.a. `GetDigestsTtl`) RPC. Larger values
     /// reduce per-call wall-clock latency by issuing fewer round-trips,
     /// at the cost of bigger requests and more concurrent server load
-    /// when many actions issue independent calls. Recommended to raise
-    /// only in combination with `[buck2] deduplicate_get_digests_ttl_calls`.
+    /// when many actions issue independent calls.
     pub find_missing_blobs_batch_size: Option<usize>,
     /// Time that digests are assumed to live in CAS after being touched.
     pub cas_ttl_secs: Option<i64>,
