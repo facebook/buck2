@@ -735,7 +735,10 @@ impl TryFrom<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
         let executor_override = executor_override.map(|o| o.into());
 
         let required_local_resources = RequiredLocalResources {
-            resources: required_local_resources.into_map(|r| r.into()),
+            resources: required_local_resources
+                .into_iter()
+                .map(|r| r.into())
+                .collect::<Vec<_>>(),
         };
 
         Ok(ExecuteRequest2 {
@@ -770,7 +773,9 @@ impl TryInto<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
             required_local_resources: self
                 .required_local_resources
                 .resources
-                .into_map(|r| r.into()),
+                .into_iter()
+                .map(|r| r.into())
+                .collect::<Vec<_>>(),
             disable_test_execution_caching: self.disable_test_execution_caching,
         })
     }
@@ -1063,7 +1068,11 @@ impl TryInto<buck2_test_proto::TestExecutable> for TestExecutable {
             })
             .collect::<buck2_error::Result<_>>()?;
 
-        let pre_create_dirs = self.pre_create_dirs.into_map(|i| i.into());
+        let pre_create_dirs = self
+            .pre_create_dirs
+            .into_iter()
+            .map(|i| i.into())
+            .collect::<Vec<_>>();
 
         Ok(buck2_test_proto::TestExecutable {
             stage,

@@ -1261,7 +1261,11 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
             output_upload_completed_timestamp: ttimestamp_from(
                 execution_metadata.output_upload_completed_timestamp,
             ),
-            auxiliary_metadata: execution_metadata.auxiliary_metadata.into_map(tany_from),
+            auxiliary_metadata: execution_metadata
+                .auxiliary_metadata
+                .into_iter()
+                .map(tany_from)
+                .collect::<Vec<_>>(),
             input_analyzing_start_timestamp: Default::default(),
             input_analyzing_completed_timestamp: Default::default(),
             execution_dir: "".to_owned(),

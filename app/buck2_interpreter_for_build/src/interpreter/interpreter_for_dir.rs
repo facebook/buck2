@@ -58,7 +58,6 @@ use buck2_node::super_package::SuperPackage;
 use buck2_util::per_thread_instruction_counter::PerThreadInstructionCounter;
 use dice::CancellationContext;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use pagable::Pagable;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
@@ -109,7 +108,10 @@ impl ParseData {
         implicit_imports: Vec<OwnedStarlarkModulePath>,
         resolver: &dyn LoadResolver,
     ) -> buck2_error::Result<Self> {
-        let mut loads = implicit_imports.into_map(|x| (None, x));
+        let mut loads = implicit_imports
+            .into_iter()
+            .map(|x| (None, x))
+            .collect::<Vec<_>>();
         for x in ast.loads() {
             let path = resolver
                 .resolve_load(x.module_id, Some(&x.span))

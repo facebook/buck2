@@ -33,7 +33,6 @@ use buck2_event_observer::what_ran::worker_command_as_fallback_to_string;
 use buck2_events::BuckEvent;
 use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
-use gazebo::prelude::*;
 use strum::IntoEnumIterator;
 use superconsole::Component;
 use superconsole::Dimensions;
@@ -921,7 +920,10 @@ impl StatefulSuperConsoleImpl {
     ) -> buck2_error::Result<()> {
         if self.verbosity.print_status() && !self.state.config.hide_file_watcher_events {
             self.super_console.emit(Lines(
-                display_file_watcher_end(file_watcher).into_map(|x| Line::sanitized(&x)),
+                display_file_watcher_end(file_watcher)
+                    .into_iter()
+                    .map(|x| Line::sanitized(&x))
+                    .collect::<Vec<_>>(),
             ));
         }
 

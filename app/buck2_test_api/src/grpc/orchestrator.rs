@@ -43,7 +43,6 @@ use buck2_test_proto::test_orchestrator_server;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
-use gazebo::prelude::VecExt;
 use host_sharing::HostSharingRequirements;
 use sorted_vector_map::SortedVectorMap;
 use tokio::io::AsyncRead;
@@ -291,7 +290,11 @@ impl TestOrchestratorClient {
 
         let request = buck2_test_proto::PrepareForLocalExecutionRequest {
             test_executable: Some(executable),
-            required_local_resources: required_local_resources.resources.into_map(|r| r.into()),
+            required_local_resources: required_local_resources
+                .resources
+                .into_iter()
+                .map(|r| r.into())
+                .collect::<Vec<_>>(),
         };
         self.test_orchestrator_client
             .clone()
@@ -608,7 +611,10 @@ where
                 required_local_resources,
             } = request.into_inner();
             let resources = RequiredLocalResources {
-                resources: required_local_resources.into_map(|r| r.into()),
+                resources: required_local_resources
+                    .into_iter()
+                    .map(|r| r.into())
+                    .collect::<Vec<_>>(),
             };
 
             let TestExecutable {

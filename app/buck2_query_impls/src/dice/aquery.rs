@@ -44,7 +44,6 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use futures::future::Shared;
-use gazebo::prelude::*;
 use itertools::Either;
 use itertools::Itertools;
 use tokio::sync::oneshot;
@@ -277,7 +276,10 @@ async fn convert_inputs<
 ) -> buck2_error::Result<Vec<ActionInput>> {
     let (artifacts, projections) = convert_inputs_shallow(ctx, inputs).await?;
 
-    let mut deps = artifacts.into_map(ActionInput::ActionKey);
+    let mut deps = artifacts
+        .into_iter()
+        .map(ActionInput::ActionKey)
+        .collect::<Vec<_>>();
     let projection_deps = ctx
         .try_compute_join(projections, async |ctx, key| {
             get_tset_node(node_cache.dupe(), ctx, key).await

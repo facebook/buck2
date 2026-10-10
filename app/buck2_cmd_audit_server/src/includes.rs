@@ -251,7 +251,9 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
                         paths.into_try_map(&to_absolute_path)
                     };
                 let results: Vec<(String, buck2_error::Result<Vec<AbsNormPathBuf>>)> = results
-                    .into_map(|(path, includes)| (path, includes.and_then(absolutize_paths)));
+                    .into_iter()
+                    .map(|(path, includes)| (path, includes.and_then(absolutize_paths)))
+                    .collect::<Vec<_>>();
 
                 let mut stdout = stdout.as_writer();
 

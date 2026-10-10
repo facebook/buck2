@@ -37,7 +37,6 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
-use gazebo::prelude::*;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use ref_cast::RefCast;
@@ -139,19 +138,22 @@ impl Setup for DiceTransactionUpdater {
         let mut resource_to_company_local = HashMap::new();
 
         // convert company to insertion ready format
-        let insertion_ready_companies = companies.into_map(|company| {
-            let lookup = LookupCompany(company.name.dupe());
+        let insertion_ready_companies = companies
+            .into_iter()
+            .map(|company| {
+                let lookup = LookupCompany(company.name.dupe());
 
-            // construct a resource => company lookups mapping across all companies
-            for resource in company.makes.keys() {
-                resource_to_company_local
-                    .entry(resource.dupe())
-                    .or_insert_with(Vec::new)
-                    .push(lookup.clone());
-            }
+                // construct a resource => company lookups mapping across all companies
+                for resource in company.makes.keys() {
+                    resource_to_company_local
+                        .entry(resource.dupe())
+                        .or_insert_with(Vec::new)
+                        .push(lookup.clone());
+                }
 
-            (lookup, Arc::new(company))
-        });
+                (lookup, Arc::new(company))
+            })
+            .collect::<Vec<_>>();
 
         self.changed_to(insertion_ready_companies)?;
 

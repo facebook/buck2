@@ -16,7 +16,6 @@ use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_util::cycle_detector::CycleDescriptor;
 use derive_more::Display;
 use dice::DynKey;
-use gazebo::prelude::VecExt;
 
 use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 
@@ -54,9 +53,14 @@ impl CycleDescriptor for LoadCycleDescriptor {
 
     fn cycle_error(cycle: Vec<&Self::Key>) -> Self::Error {
         LoadCycleError {
-            cycle: Arc::new(cycle.into_map(|v| match v {
-                LoadCycleKey::Module(p) => p.clone(),
-            })),
+            cycle: Arc::new(
+                cycle
+                    .into_iter()
+                    .map(|v| match v {
+                        LoadCycleKey::Module(p) => p.clone(),
+                    })
+                    .collect::<Vec<_>>(),
+            ),
         }
     }
 }

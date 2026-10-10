@@ -21,7 +21,6 @@ use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
 use display_container::fmt_container;
-use gazebo::prelude::VecExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -270,6 +269,8 @@ impl<'v> StarlarkValue<'v> for StarlarkReadDirSet {
     fn iterate_collect(&self, heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self
             .children()?
-            .into_map(|cell_path| heap.alloc(StarlarkFileNode(cell_path))))
+            .into_iter()
+            .map(|cell_path| heap.alloc(StarlarkFileNode(cell_path)))
+            .collect::<Vec<_>>())
     }
 }

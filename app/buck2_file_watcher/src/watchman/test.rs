@@ -20,7 +20,6 @@ use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_util::process::async_background_command;
-use gazebo::prelude::*;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Child;
 use watchman_client::expr::Expr;
@@ -52,7 +51,12 @@ impl SyncableQueryProcessor for TestQueryProcessor {
         _watchman_version: Option<String>,
     ) -> buck2_error::Result<(Self::Output, Self::Payload)> {
         Ok((
-            Out::Files(events.into_map(|e| e.path.display().to_string())),
+            Out::Files(
+                events
+                    .into_iter()
+                    .map(|e| e.path.display().to_string())
+                    .collect::<Vec<_>>(),
+            ),
             payload,
         ))
     }
@@ -66,7 +70,12 @@ impl SyncableQueryProcessor for TestQueryProcessor {
         _events_since_mergebase: bool,
     ) -> buck2_error::Result<(Self::Output, Self::Payload)> {
         Ok((
-            Out::FreshInstance(events.into_map(|e| e.path.display().to_string())),
+            Out::FreshInstance(
+                events
+                    .into_iter()
+                    .map(|e| e.path.display().to_string())
+                    .collect::<Vec<_>>(),
+            ),
             payload,
         ))
     }

@@ -53,7 +53,6 @@ use futures::stream::BoxStream;
 use futures::stream::FuturesOrdered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
-use gazebo::prelude::*;
 use jiff::SignedDuration;
 use jiff::Timestamp;
 use pin_project::pin_project;
@@ -687,8 +686,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         with_dispatcher_opt(dispatcher, || match command {
             // Entry point for `get_materialized_file_paths` calls
             MaterializerCommand::GetMaterializedFilePaths(paths, result_sender) => {
-                let result =
-                    paths.into_map(|p| self.tree.file_contents_path(p, self.io.digest_config()));
+                let result = paths
+                    .into_iter()
+                    .map(|p| self.tree.file_contents_path(p, self.io.digest_config()))
+                    .collect::<Vec<_>>();
                 result_sender.send(result).ok();
             }
             MaterializerCommand::DeclareExisting(artifacts, parent_id, _) => {

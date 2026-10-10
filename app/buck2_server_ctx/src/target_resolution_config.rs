@@ -26,7 +26,6 @@ use buck2_node::configured_universe::UNIVERSE_FROM_LITERALS;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use dice::DiceComputations;
 use dupe::Dupe;
-use gazebo::prelude::VecExt;
 
 use crate::ctx::ServerCommandContextTrait;
 use crate::global_cfg_options::global_cfg_options_from_client_context;
@@ -118,9 +117,11 @@ impl TargetResolutionConfig {
         Ok(self
             .get_configured_target(ctx, label.target(), None)
             .await?
-            .into_map(|configured_target_label| {
+            .into_iter()
+            .map(|configured_target_label| {
                 ConfiguredProvidersLabel::new(configured_target_label, label.name().clone())
-            }))
+            })
+            .collect::<Vec<_>>())
     }
 
     pub async fn get_configured_provider_label_with_modifiers(
@@ -136,12 +137,14 @@ impl TargetResolutionConfig {
         Ok(self
             .get_configured_target(ctx, providers_label.target(), modifiers.as_slice())
             .await?
-            .into_map(|configured_target_label| {
+            .into_iter()
+            .map(|configured_target_label| {
                 ConfiguredProvidersLabel::new(
                     configured_target_label,
                     providers_label.name().clone(),
                 )
-            }))
+            })
+            .collect::<Vec<_>>())
     }
 
     pub async fn get_configured_targets_for_configured_target_literals(

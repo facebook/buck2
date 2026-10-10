@@ -40,7 +40,6 @@ use buck2_common::argv::ExpandedArgv;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::working_dir::AbsWorkingDir;
 use dupe::Dupe;
-use gazebo::prelude::*;
 
 use crate::common::profiling::BuckProfileMode;
 use crate::common::ui::CommonConsoleOptions;
@@ -332,7 +331,10 @@ impl CommonBuildConfigurationOptions {
         ordered_merged_configs.extend(config_values_args);
         ordered_merged_configs.sort_by_key(|(lhs_index, _)| *lhs_index);
 
-        Ok(ordered_merged_configs.into_map(|(_, config_arg)| config_arg))
+        Ok(ordered_merged_configs
+            .into_iter()
+            .map(|(_, config_arg)| config_arg)
+            .collect::<Vec<_>>())
     }
 
     pub fn host_platform_override(&self) -> HostPlatformOverride {

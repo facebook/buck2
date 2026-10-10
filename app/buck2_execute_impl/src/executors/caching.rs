@@ -43,7 +43,6 @@ use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use dupe::Dupe;
 use futures::future;
 use futures::future::FutureExt;
-use gazebo::prelude::VecExt;
 use prost::Message;
 use remote_execution::DigestWithStatus;
 use remote_execution::NamedDigest;
@@ -213,8 +212,14 @@ impl CacheUploader {
                     success: outcome.uploaded(),
                     error: outcome.error(),
                     re_error_code: outcome.re_error_code(),
-                    file_digests: file_digests.into_map(|d| d.to_string()),
-                    tree_digests: tree_digests.into_map(|d| d.to_string()),
+                    file_digests: file_digests
+                        .into_iter()
+                        .map(|d| d.to_string())
+                        .collect::<Vec<_>>(),
+                    tree_digests: tree_digests
+                        .into_iter()
+                        .map(|d| d.to_string())
+                        .collect::<Vec<_>>(),
                     output_bytes: Some(output_bytes),
                 };
                 (

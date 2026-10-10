@@ -17,7 +17,6 @@ use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dupe::Dupe;
 use either::Either;
 use futures::FutureExt;
-use gazebo::prelude::*;
 use starlark::eval::Evaluator;
 use starlark::values::Trace;
 use starlark::values::ValueTyped;
@@ -112,6 +111,9 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
         }
         // Record the key allocations DICE holds, not this requester's copies:
         // every analysis requesting the same anon target then shares one.
-        Ok(values.into_map(|(key, _)| BaseDeferredKey::AnonTarget(key.0.dupe())))
+        Ok(values
+            .into_iter()
+            .map(|(key, _)| BaseDeferredKey::AnonTarget(key.0.dupe()))
+            .collect::<Vec<_>>())
     }
 }

@@ -32,7 +32,6 @@ use futures::Stream;
 use futures::StreamExt;
 use futures::stream;
 use futures::stream::FuturesUnordered;
-use gazebo::prelude::VecExt;
 use tokio::runtime::Runtime;
 
 use crate::client_cpu_tracker::ClientCpuTracker;
@@ -553,32 +552,35 @@ impl EventsCtx {
         events: Vec<BuckEvent>,
         shutdown: &mut Option<buck2_data::DaemonShutdown>,
     ) -> buck2_error::Result<()> {
-        let events = events.into_map(|mut event| {
-            let timestamp = event.timestamp();
-            if let buck2_data::buck_event::Data::Instant(instant_event) = event.data_mut() {
-                match &mut instant_event.data {
-                    Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
-                        let now = SystemTime::now();
-                        // `None` on overflow.
-                        let this_event_client_delay_ms = match now.duration_since(timestamp) {
-                            Ok(duration) => i64::try_from(duration.as_millis()).ok(),
-                            Err(e) => i64::try_from(e.duration().as_millis())
-                                .ok()
-                                .and_then(|x| x.checked_neg()),
-                        };
-                        snapshot.this_event_client_delay_ms = this_event_client_delay_ms;
+        let events = events
+            .into_iter()
+            .map(|mut event| {
+                let timestamp = event.timestamp();
+                if let buck2_data::buck_event::Data::Instant(instant_event) = event.data_mut() {
+                    match &mut instant_event.data {
+                        Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
+                            let now = SystemTime::now();
+                            // `None` on overflow.
+                            let this_event_client_delay_ms = match now.duration_since(timestamp) {
+                                Ok(duration) => i64::try_from(duration.as_millis()).ok(),
+                                Err(e) => i64::try_from(e.duration().as_millis())
+                                    .ok()
+                                    .and_then(|x| x.checked_neg()),
+                            };
+                            snapshot.this_event_client_delay_ms = this_event_client_delay_ms;
 
-                        snapshot.client_cpu_percents =
-                            self.client_cpu_tracker.tick_cpu_time_percents();
-                    }
-                    Some(buck2_data::instant_event::Data::DaemonShutdown(msg)) => {
-                        *shutdown = Some(msg.clone());
-                    }
-                    _ => {}
-                };
-            }
-            Arc::new(event)
-        });
+                            snapshot.client_cpu_percents =
+                                self.client_cpu_tracker.tick_cpu_time_percents();
+                        }
+                        Some(buck2_data::instant_event::Data::DaemonShutdown(msg)) => {
+                            *shutdown = Some(msg.clone());
+                        }
+                        _ => {}
+                    };
+                }
+                Arc::new(event)
+            })
+            .collect::<Vec<_>>();
         self.try_for_each_subscriber(|subscriber| subscriber.handle_events(&events))
             .await
     }

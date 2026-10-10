@@ -17,7 +17,6 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
 use futures::StreamExt;
-use gazebo::prelude::VecExt;
 
 use crate::read::EventLogPathBuf;
 use crate::utils::Encoding;
@@ -87,7 +86,10 @@ fn sort_logs(dir: buck2_fs::fs_util::ReadDir) -> Vec<AbsNormPathBuf> {
         }
         (std::time::UNIX_EPOCH, file.file_name())
     });
-    logfiles.into_map(|entry| entry.path())
+    logfiles
+        .into_iter()
+        .map(|entry| entry.path())
+        .collect::<Vec<_>>()
 }
 
 /// Find log file by trace id. Return `None` if log not found, error on other errors.

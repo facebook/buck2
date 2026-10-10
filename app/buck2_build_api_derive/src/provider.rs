@@ -10,7 +10,6 @@
 
 use convert_case::Case;
 use convert_case::Casing;
-use gazebo::prelude::*;
 use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
@@ -219,12 +218,20 @@ impl ProviderCodegen {
     }
 
     fn field_names(&self) -> syn::Result<Vec<syn::Ident>> {
-        Ok(self.fields()?.into_map(|f| f.name))
+        Ok(self
+            .fields()?
+            .into_iter()
+            .map(|f| f.name)
+            .collect::<Vec<_>>())
     }
 
     /// Expressions producing each field's `Value`, given an expression for the provider.
     fn field_values(&self, this: syn::Expr) -> syn::Result<Vec<syn::Expr>> {
-        Ok(self.fields()?.into_map(|f| f.value(&this)))
+        Ok(self
+            .fields()?
+            .into_iter()
+            .map(|f| f.value(&this))
+            .collect::<Vec<_>>())
     }
 
     /// Parse the "doc" attribute and return a tokenstream that is either None if "doc" is not

@@ -190,7 +190,6 @@ mod tests {
     use buck2_hash::BuckMutSet;
     use buck2_query::query::traversal::ChildVisitor;
     use dupe::Dupe;
-    use gazebo::prelude::VecExt;
 
     use crate::query::graph::async_bfs::async_bfs_find_path;
     use crate::query::graph::node::LabeledNode;
@@ -254,7 +253,7 @@ mod tests {
                 false, // allow_partial_graph
             )
             .await?;
-            Ok(path.map(|path| path.into_map(|n| n.0.0)))
+            Ok(path.map(|path| path.into_iter().map(|n| n.0.0).collect::<Vec<_>>()))
         }
     }
 

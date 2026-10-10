@@ -53,7 +53,6 @@ use std::fmt::Display;
 
 use dupe::Dupe;
 use enum_map::Enum;
-use gazebo::prelude::*;
 use nom::IResult;
 use nom::Parser as _;
 use nom::branch::alt;
@@ -234,7 +233,11 @@ where
 /// nom's convert_error requires that the error's type be very str-like and Span isn't. So, we convert the Span error into a &str error.
 fn convert_to_str_error(err: VerboseError<Span<'_>>) -> VerboseError<&str> {
     VerboseError {
-        errors: err.errors.into_map(|(span, kind)| (span.fragment(), kind)),
+        errors: err
+            .errors
+            .into_iter()
+            .map(|(span, kind)| (span.fragment(), kind))
+            .collect::<Vec<_>>(),
     }
 }
 

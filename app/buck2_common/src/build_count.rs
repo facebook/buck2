@@ -223,15 +223,17 @@ impl Drop for FileLockGuard {
 
 #[cfg(test)]
 mod tests {
-    use gazebo::prelude::VecExt;
 
     use super::*;
 
     fn make_patterns(targets: Vec<&'static str>) -> ParsedTargetPatterns {
         ParsedTargetPatterns {
-            target_patterns: targets.into_map(|v| buck2_data::TargetPattern {
-                value: v.to_owned(),
-            }),
+            target_patterns: targets
+                .into_iter()
+                .map(|v| buck2_data::TargetPattern {
+                    value: v.to_owned(),
+                })
+                .collect::<Vec<_>>(),
         }
     }
 

@@ -70,7 +70,6 @@ use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
 use buck2_wrapper_common::invocation_id::TraceId;
 use console::strip_ansi_codes;
 use dupe::Dupe;
-use gazebo::prelude::VecExt;
 use itertools::Itertools;
 use termwiz::istty::IsTty;
 use tokio::sync::mpsc::Receiver;
@@ -733,7 +732,10 @@ impl InvocationRecorder {
             errors.push(error);
         }
         errors.sort_by_key(|e| e.error_rank());
-        errors.into_map(process_error_report)
+        errors
+            .into_iter()
+            .map(process_error_report)
+            .collect::<Vec<_>>()
     }
 
     fn create_record_event(&mut self) -> BuckEvent {
