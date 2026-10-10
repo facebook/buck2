@@ -150,3 +150,78 @@ impl QueryTarget for TargetNode {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use buck2_core::bzl::ImportPath;
+    use buck2_core::plugins::PluginKindSet;
+    use buck2_core::provider::label::ProvidersLabel;
+    use buck2_core::target::label::label::TargetLabel;
+    use buck2_query::query::syntax::simple::eval::set::TargetSet;
+    use buck2_util::arc_str::ArcSlice;
+
+    use crate::attrs::attr::Attribute;
+    use crate::attrs::attr_type::AttrType;
+    use crate::attrs::attr_type::list::ListLiteral;
+    use crate::attrs::coerced_attr::CoercedAttr;
+    use crate::bzl_or_bxl_path::BzlOrBxlPath;
+    use crate::nodes::unconfigured::TargetNode;
+    use crate::nodes::unconfigured::testing::TargetNodeExt;
+    use crate::provider_id_set::ProviderIdSet;
+    use crate::rule_type::RuleType;
+    use crate::rule_type::StarlarkRuleType;
+
+    fn node(label: &str, rule_name: &str, dep: &str) -> TargetNode {
+        TargetNode::testing_new(
+            TargetLabel::testing_parse(label),
+            RuleType::Starlark(Arc::new(StarlarkRuleType {
+                path: BzlOrBxlPath::Bzl(ImportPath::testing_new("root//rules:defs.bzl")),
+                name: rule_name.to_owned(),
+            })),
+            vec![(
+                "deps",
+                Attribute::new(
+                    None,
+                    "",
+                    AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
+                )
+                .unwrap(),
+                CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
+                    ProvidersLabel::default_for(TargetLabel::testing_parse(dep)),
+                )]))),
+            )],
+            None,
+        )
+    }
+
+    fn labels(set: &TargetSet<TargetNode>) -> Vec<String> {
+        set.iter().map(|t| t.label().to_string()).collect()
+    }
+
+    /// `attrfilter` looks attributes up with `map_any_attr`, which includes the `buck.*` special
+    /// attributes; `nattrfilter`, "the opposite of attrfilter", uses `map_attr` and treats a
+    /// special attribute as missing, so neither function returns the target.
+    #[test]
+    fn nattrfilter_ignores_special_attributes() {
+        let set = TargetSet::from_iter([node("root//bin:the_binary", "my_rule", "root//lib:lib1")]);
+        let is_other_rule = |s: &str| Ok(s == "other_rule");
+        assert!(
+            set.attrfilter("buck.type", &is_other_rule)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            labels(&set.nattrfilter("buck.type", &is_other_rule).unwrap()),
+            Vec::<String>::new()
+        );
+        // User attributes work as documented.
+        let is_lib1 = |s: &str| Ok(s == "root//lib:lib1");
+        assert_eq!(
+            labels(&set.attrfilter("deps", &is_lib1).unwrap()),
+            vec!["root//bin:the_binary".to_owned()]
+        );
+        assert!(set.nattrfilter("deps", &is_lib1).unwrap().is_empty());
+    }
+}

@@ -792,3 +792,13 @@ async def test_multi_query_mixed_files_and_targets(buck: Buck) -> None:
         buck.uquery("%s", "inputs(root//bin:the_binary)", "root//bin:the_binary"),
         stderr_regex="can only merge results of one kind",
     )
+
+
+@buck_test(data_dir="bxl_simple")
+async def test_nattrfilter_special_attribute(buck: Buck) -> None:
+    out = await buck.uquery("attrfilter(buck.type, other_rule, root//bin:the_binary)")
+    assert out.stdout == ""
+    # `nattrfilter` only looks at user attributes, so a `buck.*` attribute never matches and
+    # the target is in neither result.
+    out = await buck.uquery("nattrfilter(buck.type, other_rule, root//bin:the_binary)")
+    assert out.stdout == ""
