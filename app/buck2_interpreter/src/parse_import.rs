@@ -340,6 +340,54 @@ mod tests {
     }
 
     #[test]
+    fn malformed_relative_import_with_allowed_dir() -> buck2_error::Result<()> {
+        let without_allowed_dir =
+            CellPathWithAllowedRelativeDir::new(CellPath::testing_new("cell1//package/path"), None);
+        let with_allowed_dir = CellPathWithAllowedRelativeDir::new(
+            CellPath::testing_new("cell1//package/path"),
+            Some(CellPath::testing_new("cell1//package")),
+        );
+        // Each of these is rejected without an allowed relative dir, but accepted and resolved to
+        // the path on the right once one is set: the component walk skips empty components.
+        let cases = [
+            ("/bar.bzl", path("cell1", "package/path", "bar.bzl")),
+            ("bar.bzl/", path("cell1", "package/path", "bar.bzl")),
+            ("foo//bar.bzl", path("cell1", "package/path/foo", "bar.bzl")),
+            (
+                "alias2//bar.bzl",
+                path("cell1", "package/path/alias2", "bar.bzl"),
+            ),
+            ("..//sibling.bzl", path("cell1", "package", "sibling.bzl")),
+            ("/../sibling.bzl", path("cell1", "package", "sibling.bzl")),
+        ];
+        for (import, resolved) in cases {
+            assert!(
+                parse_import(
+                    &resolver(),
+                    RelativeImports::Allow {
+                        current_dir_with_allowed_relative: &without_allowed_dir,
+                    },
+                    import,
+                )
+                .is_err(),
+                "{import}"
+            );
+            assert_eq!(
+                resolved,
+                parse_import(
+                    &resolver(),
+                    RelativeImports::Allow {
+                        current_dir_with_allowed_relative: &with_allowed_dir,
+                    },
+                    import,
+                )?,
+                "{import}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
     fn cell_relative_import_given_relative_paths_allowed() -> buck2_error::Result<()> {
         let importer = CellPath::testing_new("cell1//package/path");
         let importee = "foo/bar.bzl";
