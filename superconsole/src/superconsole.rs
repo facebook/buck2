@@ -687,4 +687,17 @@ mod tests {
 
         Ok(())
     }
+
+    /// `render` draws one frame per call: the loop condition is inverted, so the frames after the
+    /// first are left for later ticks.
+    #[test]
+    fn test_render_leaves_emitted_lines_queued() -> anyhow::Result<()> {
+        let mut console = test_console();
+        console.emit(Lines(vec![vec!["log line"].try_into()?; 200]));
+        let root = Echo(Lines(vec![vec!["status"].try_into()?]));
+        console.render(&root)?;
+        assert_eq!(console.test_output().frames.len(), 1);
+        assert_eq!(console.to_emit.len(), 122);
+        Ok(())
+    }
 }
