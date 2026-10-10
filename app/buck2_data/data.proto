@@ -1368,6 +1368,27 @@ message Snapshot {
   // Detailed Tokio runtime metrics. Always populated by current daemons;
   // absent in event logs recorded by older daemons that pre-date this field.
   optional TokioRuntimeStats tokio_runtime_stats = 3001;
+
+  // The TTL refresher that walks the file digest interner rather than the
+  // materializer's declared artifacts. Always populated by current daemons;
+  // absent in event logs recorded by older daemons that pre-date this field.
+  optional StandaloneTtlRefreshStats standalone_ttl_refresh = 3002;
+}
+
+message StandaloneTtlRefreshStats {
+  // Cumulative since the daemon started.
+  uint64 passes = 1;
+  uint64 errors = 2;
+  // The most recent pass: interner entries visited by its sweep, entries the
+  // sweep removed, digests whose expiration fell inside the refresh window,
+  // how many of those the CAS still had, how many it reported gone, and how
+  // long the pass took.
+  uint64 last_pass_visited = 3;
+  uint64 last_pass_swept = 4;
+  uint64 last_pass_candidates = 5;
+  uint64 last_pass_refreshed = 6;
+  uint64 last_pass_gone = 7;
+  uint64 last_pass_duration_us = 8;
 }
 
 // https://docs.rs/tokio/latest/tokio/runtime/struct.RuntimeMetrics.html for

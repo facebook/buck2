@@ -213,6 +213,7 @@ impl SnapshotCollector {
         self.add_io_metrics(&mut snapshot);
         self.add_dice_metrics(&mut snapshot);
         self.add_digest_interner_metrics(&mut snapshot);
+        self.add_standalone_ttl_refresh_metrics(&mut snapshot);
         self.add_materializer_metrics(&mut snapshot);
         self.add_sink_metrics(&mut snapshot);
         self.add_net_io_metrics(&mut snapshot);
@@ -431,6 +432,20 @@ impl SnapshotCollector {
         snapshot.file_digest_interner_paged_entries = stats.paged;
         snapshot.file_digest_interner_hits = stats.hits;
         snapshot.file_digest_interner_misses = stats.misses;
+    }
+
+    fn add_standalone_ttl_refresh_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        let stats = self.daemon.standalone_ttl_refresh.stats();
+        snapshot.standalone_ttl_refresh = Some(buck2_data::StandaloneTtlRefreshStats {
+            passes: stats.passes,
+            errors: stats.errors,
+            last_pass_visited: stats.last_pass_visited,
+            last_pass_swept: stats.last_pass_swept,
+            last_pass_candidates: stats.last_pass_candidates,
+            last_pass_refreshed: stats.last_pass_refreshed,
+            last_pass_gone: stats.last_pass_gone,
+            last_pass_duration_us: stats.last_pass_duration_us,
+        });
     }
 
     fn add_materializer_metrics(&self, snapshot: &mut buck2_data::Snapshot) {

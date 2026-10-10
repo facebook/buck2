@@ -22,6 +22,7 @@ use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmFamily;
+use buck2_common::cas_digest::file_digest_interner;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::init::SystemWarningConfig;
@@ -62,7 +63,11 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::BlockingExecutorFactory;
 use buck2_execute::materialize::materializer::FinalArtifactMaterialization;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::re::invocation_re_settings::invocation_re_use_case;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_execute::re::ttl_refresh::ReChecker;
+use buck2_execute::re::ttl_refresh::StandaloneTtlRefreshCounters;
+use buck2_execute::re::ttl_refresh::StandaloneTtlRefresher;
 use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_execute_impl::materializers::deferred::AccessTimesUpdates;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
@@ -245,6 +250,10 @@ pub struct RepoState {
     /// scratch dirs (`buck-out/<iso>/tmp*`) once the daemon is idle
     /// (`buck2.clean_scratch_on_idle`). The sweep runs through this repo's `materializer`.
     pub(crate) clean_scratch_on_idle: bool,
+
+    /// How often this repo's `materializer` refreshes TTLs (`buck2.ttl_refresh_frequency_seconds`).
+    /// The daemon-wide refresher over the digest interner runs at the first repo's.
+    pub(crate) ttl_refresh_frequency: Duration,
 
     /// Resource-pressure thresholds for automatic idle page-out, selected for this tenant's
     /// isolation. `None` disables automatic idle page-out for this tenant.
@@ -469,6 +478,7 @@ impl TenantState {
                 clean_stale_config,
             }
         };
+        let ttl_refresh_frequency = deferred_materializer_configs.ttl_refresh.frequency;
 
         let use_eden_thrift_read = root_config
             .parse(BuckconfigKeyRef {
@@ -709,6 +719,7 @@ impl TenantState {
             tags,
             system_warning_config: SystemWarningConfig::from_config(root_config)?,
             detect_eden_restart,
+            ttl_refresh_frequency,
             clean_scratch_on_idle: root_config
                 .parse::<RolloutPercentage>(BuckconfigKeyRef {
                     section: "buck2",
@@ -965,6 +976,10 @@ pub struct DaemonStateData {
     /// Effective `package_visibility.default_intersection`, fixed for the daemon's
     /// lifetime (sourced from `DaemonStartupConfig.buck_settings`).
     pub(crate) package_visibility_default_intersection: PackageVisibilityDefaultIntersection,
+
+    /// Counters of the TTL refresher that walks the file digest interner. The refresher itself
+    /// is a task on the daemon's runtime and lives as long as it does.
+    pub(crate) standalone_ttl_refresh: Arc<StandaloneTtlRefreshCounters>,
 }
 
 impl DaemonStateData {
@@ -1199,6 +1214,18 @@ impl DaemonState {
                 )
                 .await?;
 
+            // One refresher for the process-wide digest interner, on the first tenant's RE
+            // connection and cadence.
+            let standalone_ttl_refresh = StandaloneTtlRefresher::new(
+                file_digest_interner(),
+                Arc::new(ReChecker::new(
+                    tenant.repo.re_client_manager.dupe(),
+                    invocation_re_use_case(root_config)?,
+                )),
+                tenant.repo.ttl_refresh_frequency,
+            )
+            .spawn();
+
             let package_visibility_default_intersection = tenant_state_factory
                 .init_ctx
                 .daemon_startup_config
@@ -1220,6 +1247,7 @@ impl DaemonState {
                 daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
                 package_visibility_default_intersection,
+                standalone_ttl_refresh,
             }))
         };
         let daemon_listener_span = tracing::Span::current();
