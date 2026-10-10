@@ -22,7 +22,6 @@ use buck2_util::size_assert;
 use derive_more::Display;
 use display_container::fmt_container;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use pagable::PagableDeserialize;
@@ -101,7 +100,7 @@ pub(crate) trait CommandLineOptionsTrait<'v> {
     fn to_command_line_options<'a>(&'a self) -> CommandLineOptionsRef<'v, 'a>;
 }
 
-#[derive(Debug, Default_, Clone, Trace, Allocative)]
+#[derive(Debug, Default, Clone, Trace, Allocative)]
 #[repr(C)]
 pub(crate) struct CommandLineOptions<'v> {
     // These impact how artifacts are rendered
