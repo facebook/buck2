@@ -207,18 +207,19 @@ def _assert_eq(expected, actual):
         fail("expected %s but got %s" % (expected, actual))
 
 def test():
-    # `select_map` and `select_test` document that the function is not applied to
-    # `select_fail()` or `select_incompatible()` values, but a top-level value or a `+`
-    # operand is passed to it.
-    _assert_eq("mapped", select_map(select_fail("x"), lambda v: "mapped"))
-    _assert_eq("mapped", select_map(select_incompatible("x"), lambda v: "mapped"))
+    # The function is not applied to `select_fail()` or `select_incompatible()` values, whether
+    # they appear inside a `select({...})`, as a `+` operand, or as the whole value.
+    fail_value = select_fail("x")
+    incompatible_value = select_incompatible("x")
+    _assert_eq(True, select_map(fail_value, lambda v: "mapped") == fail_value)
+    _assert_eq(True, select_map(incompatible_value, lambda v: "mapped") == incompatible_value)
     _assert_eq(
-        select({"config/a:a": "mapped"}) + "mapped",
+        select({"config/a:a": "mapped"}) + select_fail("x"),
         select_map(select({"config/a:a": 1}) + select_fail("x"), lambda v: "mapped"),
     )
-    _assert_eq(True, select_test(select_fail("x"), lambda v: True))
-    _assert_eq(True, select_test(select_incompatible("x"), lambda v: True))
-    _assert_eq(True, select_test(select({"config/a:a": 1}) + select_fail("x"), lambda v: v != 1))
+    _assert_eq(False, select_test(fail_value, lambda v: True))
+    _assert_eq(False, select_test(incompatible_value, lambda v: True))
+    _assert_eq(False, select_test(select({"config/a:a": 1}) + select_fail("x"), lambda v: v != 1))
 "#
         ))
         .unwrap();

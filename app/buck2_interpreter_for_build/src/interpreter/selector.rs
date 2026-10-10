@@ -183,6 +183,11 @@ impl<'v> StarlarkSelector<'v> {
                     Self::select_map::<RECURSE>(eval, right, func)?,
                 ))),
             }
+        } else if StarlarkSelectFail::from_value(val).is_some()
+            || StarlarkSelectIncompatible::from_value(val).is_some()
+        {
+            // mappings don't get applied to SelectFail/SelectIncompatible values.
+            Ok(val)
         } else {
             invoke(eval, val, func)
         }
@@ -231,6 +236,11 @@ impl<'v> StarlarkSelector<'v> {
                         || Self::select_test(right, eval, func)?)
                 }
             }
+        } else if StarlarkSelectFail::from_value(val).is_some()
+            || StarlarkSelectIncompatible::from_value(val).is_some()
+        {
+            // select_test only applies the test to non-SelectFail/SelectIncompatible values.
+            Ok(false)
         } else {
             invoke(eval, func, val)
         }
