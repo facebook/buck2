@@ -22,7 +22,6 @@ use futures::StreamExt;
 use futures::channel::mpsc;
 use futures::future::FutureExt;
 use futures::stream::FuturesUnordered;
-use gazebo::prelude::*;
 use tokio::sync::Semaphore;
 
 use crate::file_ops::trait_::DiceFileOps;
@@ -170,7 +169,7 @@ pub(crate) async fn find_package_roots(
         buck2_error::Ok(())
     })
     .await?;
-    let mut results: Vec<_> = results.into_try_map(|v| v)?;
+    let mut results = results.into_iter().collect::<Result<Vec<_>, _>>()?;
     results.sort();
     Ok(results)
 }

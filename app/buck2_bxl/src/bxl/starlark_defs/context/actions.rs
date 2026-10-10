@@ -36,7 +36,6 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use pagable::Pagable;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -112,11 +111,14 @@ pub(crate) async fn resolve_bxl_execution_platform(
         .map(|t| t.configure_pair(toolchain_cfg.dupe()))
         .collect();
 
-    let exec_deps_configured = exec_deps.try_map(|e| {
-        let label =
-            e.configure_pair_no_exec(resolved_execution.platform()?.cfg_pair_no_exec().dupe());
-        buck2_error::Ok(label)
-    })?;
+    let exec_deps_configured = exec_deps
+        .iter()
+        .map(|e| {
+            let label =
+                e.configure_pair_no_exec(resolved_execution.platform()?.cfg_pair_no_exec().dupe());
+            buck2_error::Ok(label)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     // Finalize the partial resolution with empty exec_dep_cfgs
     // (BXL doesn't use modifiers for exec_deps)

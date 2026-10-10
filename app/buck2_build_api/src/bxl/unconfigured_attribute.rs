@@ -33,7 +33,6 @@ use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
 use derive_more::From;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use pagable::Pagable;
 use serde::Serialize;
 use starlark::__derive_refs::serde::Serializer;
@@ -143,10 +142,16 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::Bool(v) => heap.alloc(v.0),
             CoercedAttr::Int(v) => heap.alloc(*v),
             CoercedAttr::String(s) | CoercedAttr::EnumVariant(s) => heap.alloc(s.as_str()),
-            CoercedAttr::List(list) => heap.alloc(list.try_map(|v| v.to_value(pkg.dupe(), heap))?),
-            CoercedAttr::Tuple(v) => {
-                heap.alloc(AllocTuple(v.try_map(|v| v.to_value(pkg.dupe(), heap))?))
-            }
+            CoercedAttr::List(list) => heap.alloc(
+                list.iter()
+                    .map(|v| v.to_value(pkg.dupe(), heap))
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
+            CoercedAttr::Tuple(v) => heap.alloc(AllocTuple(
+                v.iter()
+                    .map(|v| v.to_value(pkg.dupe(), heap))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
             CoercedAttr::Dict(map) => {
                 let mut res = SmallMap::with_capacity(map.len());
 

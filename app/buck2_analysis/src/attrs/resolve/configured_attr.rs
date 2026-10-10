@@ -33,7 +33,6 @@ use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use starlark::values::Heap;
 use starlark::values::Value;
 use starlark::values::list::AllocList;
@@ -191,11 +190,15 @@ fn configured_attr_to_value<'v>(
         ConfiguredAttr::Bool(v) => heap.alloc(v.0),
         ConfiguredAttr::Int(v) => heap.alloc(*v),
         ConfiguredAttr::String(s) | ConfiguredAttr::EnumVariant(s) => heap.alloc(s.as_str()),
-        ConfiguredAttr::List(list) => {
-            heap.alloc(list.try_map(|v| configured_attr_to_value(v, pkg, heap))?)
-        }
+        ConfiguredAttr::List(list) => heap.alloc(
+            list.iter()
+                .map(|v| configured_attr_to_value(v, pkg, heap))
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
         ConfiguredAttr::Tuple(v) => heap.alloc(AllocTuple(
-            v.try_map(|v| configured_attr_to_value(v, pkg, heap))?,
+            v.iter()
+                .map(|v| configured_attr_to_value(v, pkg, heap))
+                .collect::<Result<Vec<_>, _>>()?,
         )),
         ConfiguredAttr::Dict(map) => {
             let mut res = SmallMap::with_capacity(map.len());

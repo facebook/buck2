@@ -34,7 +34,6 @@ use buck2_client_ctx::query_args::CommonAttributeArgs;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use dupe::Dupe;
-use gazebo::prelude::*;
 
 use crate::print::PrintOutputs;
 
@@ -328,7 +327,9 @@ impl StreamingCommand for TargetsCommand {
 
         let target_hash_modified_paths = self
             .target_hash_modified_paths
-            .into_try_map(|path| path.resolve(&ctx.working_dir).into_string())?;
+            .into_iter()
+            .map(|path| path.resolve(&ctx.working_dir).into_string())
+            .collect::<Result<Vec<_>, _>>()?;
 
         let target_request = TargetsRequest {
             context,

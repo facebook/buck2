@@ -59,7 +59,6 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
-use gazebo::prelude::*;
 
 use crate::cquery::environment::CqueryDelegate;
 use crate::uquery::environment::QueryLiterals;
@@ -278,8 +277,10 @@ impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
         &self,
         patterns: &[&str],
     ) -> buck2_error::Result<ResolvedPattern<TargetPatternExtra>> {
-        let parsed_patterns =
-            patterns.try_map(|p| self.query_data.literal_parser.parse_target_pattern(p))?;
+        let parsed_patterns = patterns
+            .iter()
+            .map(|p| self.query_data.literal_parser.parse_target_pattern(p))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(ResolveTargetPatterns::resolve(&mut self.ctx.get(), &parsed_patterns).await?)
     }
 
@@ -354,8 +355,10 @@ impl QueryLiterals<ConfiguredTargetNode> for DiceQueryData {
         literals: &[&str],
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
-        let parsed_patterns =
-            literals.try_map(|p| self.literal_parser.parse_target_pattern_with_modifiers(p))?;
+        let parsed_patterns = literals
+            .iter()
+            .map(|p| self.literal_parser.parse_target_pattern_with_modifiers(p))
+            .collect::<Result<Vec<_>, _>>()?;
 
         let result = load_compatible_patterns_with_modifiers(
             ctx,
@@ -376,7 +379,10 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
         literals: &[&str],
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
-        let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
+        let parsed_patterns = literals
+            .iter()
+            .map(|p| self.literal_parser.parse_target_pattern(p))
+            .collect::<Result<Vec<_>, _>>()?;
 
         // `--allow-partial-graph` tolerates load failures only in the open-ended
         // parts of a query that have to be enumerated (recursive `//foo/...`

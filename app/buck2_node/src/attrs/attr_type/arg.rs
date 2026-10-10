@@ -23,7 +23,6 @@ use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use pagable::Pagable;
 use strong_hash::StrongHash;
 
@@ -153,7 +152,11 @@ impl StringWithMacros<ProvidersLabel> {
             }),
             Self::ManyParts(parts) => Ok(ConfiguredStringWithMacros {
                 string_with_macros: StringWithMacros::ManyParts(
-                    parts.try_map(|p| p.configure(ctx))?.into_boxed_slice(),
+                    parts
+                        .iter()
+                        .map(|p| p.configure(ctx))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_boxed_slice(),
                 ),
                 anon_target_compatible,
             }),

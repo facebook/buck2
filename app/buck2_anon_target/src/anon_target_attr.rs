@@ -33,7 +33,6 @@ use buck2_node::attrs::json::ToJsonWithContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
 use buck2_util::size_assert;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
@@ -260,21 +259,27 @@ impl AnonTargetAttr {
     ) -> buck2_error::Result<AnonTargetAttr> {
         Ok(match CoercedAttrWithType::pack(attr, ty)? {
             CoercedAttrWithType::AnyList(list) => AnonTargetAttr::List(ListLiteral(
-                list.try_map(|v| AnonTargetAttr::from_coerced_attr(attr_name, v, ty))?
+                list.iter()
+                    .map(|v| AnonTargetAttr::from_coerced_attr(attr_name, v, ty))
+                    .collect::<Result<Vec<_>, _>>()?
                     .into(),
             )),
             CoercedAttrWithType::AnyTuple(tuple) => AnonTargetAttr::Tuple(TupleLiteral(
                 tuple
-                    .try_map(|v| AnonTargetAttr::from_coerced_attr(attr_name, v, ty))?
+                    .iter()
+                    .map(|v| AnonTargetAttr::from_coerced_attr(attr_name, v, ty))
+                    .collect::<Result<Vec<_>, _>>()?
                     .into(),
             )),
             CoercedAttrWithType::AnyDict(dict) => AnonTargetAttr::Dict(DictLiteral(
-                dict.try_map(|(k, v)| {
-                    let k2 = AnonTargetAttr::from_coerced_attr(attr_name, k, ty)?;
-                    let v2 = AnonTargetAttr::from_coerced_attr(attr_name, v, ty)?;
-                    buck2_error::Ok((k2, v2))
-                })?
-                .into(),
+                dict.iter()
+                    .map(|(k, v)| {
+                        let k2 = AnonTargetAttr::from_coerced_attr(attr_name, k, ty)?;
+                        let v2 = AnonTargetAttr::from_coerced_attr(attr_name, v, ty)?;
+                        buck2_error::Ok((k2, v2))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into(),
             )),
 
             CoercedAttrWithType::Bool(v, _t) => AnonTargetAttr::Bool(v),
@@ -282,7 +287,9 @@ impl AnonTargetAttr {
             CoercedAttrWithType::String(v, _t) => AnonTargetAttr::String(v.dupe()),
             CoercedAttrWithType::EnumVariant(v, _t) => AnonTargetAttr::EnumVariant(v.dupe()),
             CoercedAttrWithType::List(list, t) => AnonTargetAttr::List(ListLiteral(
-                list.try_map(|v| AnonTargetAttr::from_coerced_attr(attr_name, v, &t.inner))?
+                list.iter()
+                    .map(|v| AnonTargetAttr::from_coerced_attr(attr_name, v, &t.inner))
+                    .collect::<Result<Vec<_>, _>>()?
                     .into(),
             )),
             CoercedAttrWithType::Tuple(list, t) => {
@@ -297,12 +304,14 @@ impl AnonTargetAttr {
                 ))
             }
             CoercedAttrWithType::Dict(dict, t) => AnonTargetAttr::Dict(DictLiteral(
-                dict.try_map(|(k, v)| {
-                    let k2 = AnonTargetAttr::from_coerced_attr(attr_name, k, &t.key)?;
-                    let v2 = AnonTargetAttr::from_coerced_attr(attr_name, v, &t.value)?;
-                    buck2_error::Ok((k2, v2))
-                })?
-                .into(),
+                dict.iter()
+                    .map(|(k, v)| {
+                        let k2 = AnonTargetAttr::from_coerced_attr(attr_name, k, &t.key)?;
+                        let v2 = AnonTargetAttr::from_coerced_attr(attr_name, v, &t.value)?;
+                        buck2_error::Ok((k2, v2))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into(),
             )),
             CoercedAttrWithType::None => AnonTargetAttr::None,
             CoercedAttrWithType::Some(attr, t) => {

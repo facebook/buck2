@@ -20,7 +20,6 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
-use gazebo::prelude::*;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
@@ -89,7 +88,11 @@ fn json_convert<'v>(v: serde_json::Value, heap: Heap<'v>) -> starlark::Result<Va
             }
         }
         serde_json::Value::String(x) => Ok(heap.alloc(x)),
-        serde_json::Value::Array(xs) => Ok(heap.alloc(xs.into_try_map(|v| json_convert(v, heap))?)),
+        serde_json::Value::Array(xs) => Ok(heap.alloc(
+            xs.into_iter()
+                .map(|v| json_convert(v, heap))
+                .collect::<Result<Vec<_>, _>>()?,
+        )),
         serde_json::Value::Object(mp) => {
             let mut res = SmallMap::with_capacity(mp.len());
             for (k, v) in mp.into_iter() {

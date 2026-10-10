@@ -46,7 +46,6 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::StreamExt;
 use futures::stream::FuturesOrdered;
-use gazebo::prelude::*;
 use itertools::Itertools;
 use ref_cast::RefCast;
 use serde::Serialize;
@@ -248,7 +247,10 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
                 };
                 let absolutize_paths =
                     |paths: Vec<ImportPath>| -> buck2_error::Result<Vec<AbsNormPathBuf>> {
-                        paths.into_try_map(&to_absolute_path)
+                        paths
+                            .into_iter()
+                            .map(&to_absolute_path)
+                            .collect::<Result<Vec<_>, _>>()
                     };
                 let results: Vec<(String, buck2_error::Result<Vec<AbsNormPathBuf>>)> = results
                     .into_iter()

@@ -20,7 +20,6 @@ use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dupe::ResultDupedErrExt;
-use gazebo::prelude::VecExt as _;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -47,7 +46,10 @@ pub fn parse_buildfile_name(
             section: "buildfile",
             property: "name_v2",
         })? {
-        buildfiles_value.into_try_map(FileNameBuf::try_from)?
+        buildfiles_value
+            .into_iter()
+            .map(FileNameBuf::try_from)
+            .collect::<Result<Vec<_>, _>>()?
     } else if let Some(buildfiles_value) = config.parse_list::<String>(BuckconfigKeyRef {
         section: "buildfile",
         property: "name",

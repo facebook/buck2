@@ -17,7 +17,6 @@ use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::unparsed::UnparsedPatterns;
 use dice::DiceComputations;
-use gazebo::prelude::*;
 
 use crate::dice::cells::HasCellResolver;
 use crate::pattern::resolve::ResolveTargetPatterns;
@@ -92,7 +91,10 @@ pub async fn parse_patterns_from_cli_args<T: PatternType>(
 ) -> buck2_error::Result<Vec<ParsedPattern<T>>> {
     let parser = PatternParser::new(ctx, cwd).await?;
 
-    target_patterns.try_map(|value| parser.parse_pattern(value))
+    target_patterns
+        .iter()
+        .map(|value| parser.parse_pattern(value))
+        .collect::<Result<Vec<_>, _>>()
 }
 
 pub async fn parse_patterns_with_modifiers_from_cli_args<T: PatternType>(
@@ -102,7 +104,10 @@ pub async fn parse_patterns_with_modifiers_from_cli_args<T: PatternType>(
 ) -> buck2_error::Result<Vec<ParsedPatternWithModifiers<T>>> {
     let parser = PatternParser::new(ctx, cwd).await?;
 
-    target_patterns.try_map(|value| parser.parse_pattern_with_modifiers(value))
+    target_patterns
+        .iter()
+        .map(|value| parser.parse_pattern_with_modifiers(value))
+        .collect::<Result<Vec<_>, _>>()
 }
 
 pub async fn parse_patterns_from_cli_args_typed<T: PatternType>(

@@ -99,7 +99,6 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use dice::BranchId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
-use gazebo::prelude::*;
 use host_sharing::NamedSemaphores;
 use remote::ScribeConfig;
 use tokio::runtime::Handle;
@@ -376,7 +375,9 @@ impl TenantState {
             .transpose()
             .buck_error_context("Invalid digest_algorithms")?
             .unwrap_or_else(|| vec![default_digest_algorithm])
-            .into_try_map(convert_algorithm_kind)?;
+            .into_iter()
+            .map(convert_algorithm_kind)
+            .collect::<Result<Vec<_>, _>>()?;
 
         let preferred_source_algorithm = init_ctx
             .daemon_startup_config

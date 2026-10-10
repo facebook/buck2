@@ -27,7 +27,6 @@ use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use serde::Serialize;
@@ -437,21 +436,24 @@ impl<'v> TransitiveSet<'v> {
         }
 
         let children = ThinBoxSliceValue::from_iter(children);
-        let children_sets = children.try_map(|v| match TransitiveSet::from_value(*v) {
-            Some(set) if set.matches_definition(definition) => Ok(set),
-            Some(set) => {
-                fn format_def(def: &FrozenTransitiveSetDefinition<'_>) -> String {
-                    format!("{:?}", def.as_debug())
+        let children_sets = children
+            .iter()
+            .map(|v| match TransitiveSet::from_value(*v) {
+                Some(set) if set.matches_definition(definition) => Ok(set),
+                Some(set) => {
+                    fn format_def(def: &FrozenTransitiveSetDefinition<'_>) -> String {
+                        format!("{:?}", def.as_debug())
+                    }
+                    Err(TransitiveSetError::TransitiveValueIsOfWrongType {
+                        expected: format_def(&definition),
+                        got: format_def(&set.definition),
+                    })
                 }
-                Err(TransitiveSetError::TransitiveValueIsOfWrongType {
-                    expected: format_def(&definition),
-                    got: format_def(&set.definition),
-                })
-            }
-            None => {
-                Err(TransitiveSetError::TransitiveValueIsNotTransitiveSet { got: v.to_string() })
-            }
-        })?;
+                None => Err(TransitiveSetError::TransitiveValueIsNotTransitiveSet {
+                    got: v.to_string(),
+                }),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         let node = value
             .map(|value| {
@@ -482,32 +484,34 @@ impl<'v> TransitiveSet<'v> {
             })
             .transpose()?;
 
-        let reductions = def
-            .operations()
-            .reductions
-            .iter()
-            .enumerate()
-            .map(|(idx, (name, reduce))| {
-                let children_values = children_sets.try_map(|c| {
-                    c.reductions
-                        .get(idx)
-                        .copied()
-                        .with_internal_error(|| format!("Child {c} is missing reduction {idx}"))
-                })?;
-                let children_values = eval.heap().alloc(AllocList(children_values));
+        let reductions =
+            def.operations()
+                .reductions
+                .iter()
+                .enumerate()
+                .map(|(idx, (name, reduce))| {
+                    let children_values = children_sets
+                        .iter()
+                        .map(|c| {
+                            c.reductions.get(idx).copied().with_internal_error(|| {
+                                format!("Child {c} is missing reduction {idx}")
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let children_values = eval.heap().alloc(AllocList(children_values));
 
-                let value = value.unwrap_or_else(Value::new_none);
+                    let value = value.unwrap_or_else(Value::new_none);
 
-                let reduced = eval
-                    .eval_function(reduce.get(), &[children_values, value], &[])
-                    .map_err(|error| TransitiveSetError::ReductionError {
-                        error: error.into(),
-                        name: name.clone(),
-                    })?;
+                    let reduced = eval
+                        .eval_function(reduce.get(), &[children_values, value], &[])
+                        .map_err(|error| TransitiveSetError::ReductionError {
+                            error: error.into(),
+                            name: name.clone(),
+                        })?;
 
-                buck2_error::Ok(reduced)
-            })
-            .collect::<Result<Box<[_]>, _>>()?;
+                    buck2_error::Ok(reduced)
+                })
+                .collect::<Result<Box<[_]>, _>>()?;
 
         let target_platform =
             if let BaseDeferredKey::TargetLabel(configured_label) = key.holder_key().owner() {

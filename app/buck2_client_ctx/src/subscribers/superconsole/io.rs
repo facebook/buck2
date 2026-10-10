@@ -11,7 +11,6 @@
 use buck2_core::io_counters::IoCounterKey;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_event_observer::two_snapshots::TwoSnapshots;
-use gazebo::prelude::*;
 use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
@@ -220,7 +219,12 @@ fn do_render(
     for (key, value) in io_in_flight_non_zero_counters(snapshot) {
         counters.push(format!("{key:?} = {value}"));
     }
-    lines.extend(words_to_lines(counters, width).into_try_map(|s| Line::unstyled(&s))?);
+    lines.extend(
+        words_to_lines(counters, width)
+            .into_iter()
+            .map(|s| Line::unstyled(&s))
+            .collect::<Result<Vec<_>, _>>()?,
+    );
 
     Ok(Lines(lines))
 }

@@ -26,7 +26,6 @@ use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use either::Either;
-use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -117,17 +116,20 @@ pub(crate) fn init_coerce_providers_label_for_bzl() {
 
 /// Common code to handle `providers` argument of dep-like attrs.
 fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> buck2_error::Result<ProviderIdSet> {
-    Ok(ProviderIdSet::from(providers.try_map(|v| {
-        match v.as_provider_callable() {
-            Some(callable) => buck2_error::Ok(callable.id()?.dupe()),
-            None => Err(
-                starlark::Error::from(ValueError::IncorrectParameterTypeNamed(
-                    "providers".to_owned(),
-                ))
-                .into(),
-            ),
-        }
-    })?))
+    Ok(ProviderIdSet::from(
+        providers
+            .iter()
+            .map(|v| match v.as_provider_callable() {
+                Some(callable) => buck2_error::Ok(callable.id()?.dupe()),
+                None => Err(
+                    starlark::Error::from(ValueError::IncorrectParameterTypeNamed(
+                        "providers".to_owned(),
+                    ))
+                    .into(),
+                ),
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+    ))
 }
 
 /// This type is available as a global `attrs` symbol, to allow the definition of attributes to the `rule` function.
@@ -529,7 +531,12 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        let coercer = AttrType::one_of(args.items.into_try_map(|arg| arg.coercer_for_inner())?);
+        let coercer = AttrType::one_of(
+            args.items
+                .into_iter()
+                .map(|arg| arg.coercer_for_inner())
+                .collect::<Result<Vec<_>, _>>()?,
+        );
         Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 
@@ -540,7 +547,12 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        let coercer = AttrType::tuple(args.items.into_try_map(|arg| arg.coercer_for_inner())?);
+        let coercer = AttrType::tuple(
+            args.items
+                .into_iter()
+                .map(|arg| arg.coercer_for_inner())
+                .collect::<Result<Vec<_>, _>>()?,
+        );
         Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 

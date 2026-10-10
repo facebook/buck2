@@ -36,7 +36,6 @@ use futures::future::Future;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
-use gazebo::prelude::*;
 use lru::LruCache;
 use prost::Message;
 use re_grpc_proto::build::bazel::remote::execution::v2::ActionResult;
@@ -1183,36 +1182,43 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
         .execution_metadata
         .with_context(|| "The execution metadata are not defined.")?;
 
-    let output_files = action_result.output_files.into_try_map(|output_file| {
-        let output_file_digest = output_file.digest.with_context(|| "Digest not found.")?;
+    let output_files = action_result
+        .output_files
+        .into_iter()
+        .map(|output_file| {
+            let output_file_digest = output_file.digest.with_context(|| "Digest not found.")?;
 
-        anyhow::Ok(TFile {
-            digest: DigestWithStatus {
-                status: tstatus_ok(),
-                digest: tdigest_from(output_file_digest),
+            anyhow::Ok(TFile {
+                digest: DigestWithStatus {
+                    status: tstatus_ok(),
+                    digest: tdigest_from(output_file_digest),
+                    _dot_dot_default: (),
+                },
+                name: output_file.path,
+                existed: false,
+                executable: output_file.is_executable,
+                ttl: 0,
                 _dot_dot_default: (),
-            },
-            name: output_file.path,
-            existed: false,
-            executable: output_file.is_executable,
-            ttl: 0,
-            _dot_dot_default: (),
+            })
         })
-    })?;
+        .collect::<Result<Vec<_>, _>>()?;
 
     let output_symlinks = action_result
         .output_symlinks
-        .into_try_map(|output_symlink| {
+        .into_iter()
+        .map(|output_symlink| {
             anyhow::Ok(TSymlink {
                 name: output_symlink.path,
                 target: output_symlink.target,
                 _dot_dot_default: (),
             })
-        })?;
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     let output_directories = action_result
         .output_directories
-        .into_try_map(|output_directory| {
+        .into_iter()
+        .map(|output_directory| {
             let digest = tdigest_from(
                 output_directory
                     .tree_digest
@@ -1224,7 +1230,8 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
                 root_directory_digest: digest,
                 _dot_dot_default: (),
             })
-        })?;
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     let action_result = TActionResult2 {
         output_files,

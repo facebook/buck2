@@ -385,14 +385,18 @@ fn to_anon_target_list(
         Ok(AnonTargetAttr::List(ListLiteral(
             // TODO(wendyy) intern attr
             list.content()
-                .try_map(|v| list_attr_type.inner.coerce_item(ctx, *v))?
+                .iter()
+                .map(|v| list_attr_type.inner.coerce_item(ctx, *v))
+                .collect::<Result<Vec<_>, _>>()?
                 .into(),
         )))
     } else if let Some(list) = TupleRef::from_value(value) {
         Ok(AnonTargetAttr::List(ListLiteral(
             // TODO(wendyy) intern attr
             list.content()
-                .try_map(|v| list_attr_type.inner.coerce_item(ctx, *v))?
+                .iter()
+                .map(|v| list_attr_type.inner.coerce_item(ctx, *v))
+                .collect::<Result<Vec<_>, _>>()?
                 .into(),
         )))
     } else {

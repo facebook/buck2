@@ -22,7 +22,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use starlark_map::small_map::SmallMap;
 
 use crate::ServerAuditSubcommand;
@@ -48,7 +47,9 @@ impl ServerAuditSubcommand for PackageValuesCommand {
 
                 let packages = self
                     .packages
-                    .try_map(|package| parse_package(package.dupe(), &cell_alias_resolver))?;
+                    .iter()
+                    .map(|package| parse_package(package.dupe(), &cell_alias_resolver))
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 let package_values_by_package = dice_ctx
                     .ctx()

@@ -30,7 +30,6 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::stdout_partial_output::StdoutPartialOutput;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use serde_json::json;
 
 use crate::ServerAuditSubcommand;
@@ -160,7 +159,10 @@ struct Matches<'a> {
 impl<'a> Matches<'a> {
     fn parse(resolver: &CellAliasResolver, specs: &'a [String]) -> buck2_error::Result<Self> {
         Ok(Self {
-            matches: specs.try_map(|x| Match::parse(resolver, x))?,
+            matches: specs
+                .iter()
+                .map(|x| Match::parse(resolver, x))
+                .collect::<Result<Vec<_>, _>>()?,
         })
     }
 

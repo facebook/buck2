@@ -43,7 +43,6 @@ use dupe::Dupe;
 use futures::Stream;
 use futures::StreamExt;
 use futures::future::FutureExt;
-use gazebo::prelude::VecExt;
 use itertools::Either;
 use itertools::Itertools;
 use starlark_map::small_set::SmallSet;
@@ -451,9 +450,12 @@ async fn load_targets(
                 };
                 Ok((result, targets, err))
             } else {
-                let targets = targets.into_try_map(|(target, TargetPatternExtra)| {
-                    buck2_error::Ok(result.resolve_target(target.as_ref())?.to_owned())
-                })?;
+                let targets = targets
+                    .into_iter()
+                    .map(|(target, TargetPatternExtra)| {
+                        buck2_error::Ok(result.resolve_target(target.as_ref())?.to_owned())
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
                 Ok((result, targets, None))
             }
         }

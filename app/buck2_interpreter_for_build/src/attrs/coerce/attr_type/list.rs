@@ -13,7 +13,6 @@ use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use gazebo::prelude::*;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::list::ListRef;
@@ -31,9 +30,13 @@ impl AttrTypeCoerce for ListAttrType {
         value: Value,
     ) -> buck2_error::Result<CoercedAttr> {
         let list = coerce_list(value)?;
-        Ok(CoercedAttr::List(ListLiteral(ctx.intern_list(
-            list.try_map(|v| (self.inner).coerce(configurable, ctx, *v))?,
-        ))))
+        Ok(CoercedAttr::List(ListLiteral(
+            ctx.intern_list(
+                list.iter()
+                    .map(|v| (self.inner).coerce(configurable, ctx, *v))
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
+        )))
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

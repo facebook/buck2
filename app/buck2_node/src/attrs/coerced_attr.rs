@@ -32,7 +32,6 @@ use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use itertools::Itertools;
 use pagable::Pagable;
 use serde::Serialize;
@@ -277,7 +276,12 @@ impl CoercedConcat {
             ),
             (
                 "items".to_owned(),
-                serde_json::Value::Array(self.0.try_map(|item| CoercedAttr::to_json(item, ctx))?),
+                serde_json::Value::Array(
+                    self.0
+                        .iter()
+                        .map(|item| CoercedAttr::to_json(item, ctx))
+                        .collect::<Result<Vec<_>, _>>()?,
+                ),
             ),
         ])))
     }

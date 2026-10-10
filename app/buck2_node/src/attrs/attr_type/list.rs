@@ -15,7 +15,6 @@ use std::ops::Deref;
 use allocative::Allocative;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_container;
-use gazebo::prelude::SliceExt;
 use pagable::Pagable;
 use serde_json::Value;
 use serde_json::to_value;
@@ -89,6 +88,10 @@ impl<C: Eq + AnyMatches> AnyMatches for ListLiteral<C> {
 
 impl<C: Eq + ToJsonWithContext> ToJsonWithContext for ListLiteral<C> {
     fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<Value> {
-        Ok(to_value(self.try_map(|c| c.to_json(ctx))?)?)
+        Ok(to_value(
+            self.iter()
+                .map(|c| c.to_json(ctx))
+                .collect::<Result<Vec<_>, _>>()?,
+        )?)
     }
 }

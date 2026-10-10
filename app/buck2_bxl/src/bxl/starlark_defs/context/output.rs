@@ -40,7 +40,6 @@ use derive_more::Display;
 use dupe::Dupe;
 use either::Either;
 use futures::FutureExt;
-use gazebo::prelude::VecExt;
 use itertools::Itertools;
 use serde::Serialize;
 use serde::Serializer;
@@ -817,14 +816,18 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         match artifacts {
             EnsureMultipleArtifactsArg::None(_) => Ok(heap.alloc(Vec::<EnsuredArtifact>::new())),
             EnsureMultipleArtifactsArg::EnsuredArtifactArgs(list) => {
-                let artifacts: Vec<EnsuredArtifact> = list.items.into_try_map(|artifact| {
-                    let artifact = artifact.into_ensured_artifact()?;
-                    this.populate_ensured_artifacts(EnsuredArtifactOrGroup::Artifact(
-                        artifact.clone(),
-                    ))?;
+                let artifacts: Vec<EnsuredArtifact> = list
+                    .items
+                    .into_iter()
+                    .map(|artifact| {
+                        let artifact = artifact.into_ensured_artifact()?;
+                        this.populate_ensured_artifacts(EnsuredArtifactOrGroup::Artifact(
+                            artifact.clone(),
+                        ))?;
 
-                    Ok::<EnsuredArtifact, buck2_error::Error>(artifact)
-                })?;
+                        Ok::<EnsuredArtifact, buck2_error::Error>(artifact)
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 Ok(heap.alloc(artifacts))
             }

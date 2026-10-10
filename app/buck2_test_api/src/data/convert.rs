@@ -16,7 +16,6 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;
 use host_sharing::WeightPercentage;
@@ -458,7 +457,9 @@ impl TryFrom<buck2_test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
                 .buck_error_context("Invalid `target`")?,
             test_type,
             command: command
-                .into_try_map(|x| x.try_into())
+                .into_iter()
+                .map(|x| x.try_into())
+                .collect::<Result<Vec<_>, _>>()
                 .buck_error_context("Invalid `command`")?,
             env: env
                 .into_iter()
@@ -490,7 +491,9 @@ impl TryInto<buck2_test_proto::ExternalRunnerSpec> for ExternalRunnerSpec {
             target: Some(target.try_into().buck_error_context("Invalid `target`")?),
             test_type,
             command: command
-                .into_try_map(|x| x.try_into())
+                .into_iter()
+                .map(|x| x.try_into())
+                .collect::<Result<Vec<_>, _>>()
                 .buck_error_context("Invalid `command`")?,
             env: env
                 .into_iter()
@@ -1007,7 +1010,9 @@ impl TryFrom<buck2_test_proto::TestExecutable> for TestExecutable {
             .buck_error_context("Invalid `target`")?;
 
         let cmd = cmd
-            .into_try_map(|c| c.try_into())
+            .into_iter()
+            .map(|c| c.try_into())
+            .collect::<Result<Vec<_>, _>>()
             .buck_error_context("Invalid `cmd`")?;
 
         let env = env
@@ -1023,7 +1028,9 @@ impl TryFrom<buck2_test_proto::TestExecutable> for TestExecutable {
             .collect::<buck2_error::Result<_>>()?;
 
         let pre_create_dirs = pre_create_dirs
-            .into_try_map(|c| c.try_into())
+            .into_iter()
+            .map(|c| c.try_into())
+            .collect::<Result<Vec<_>, _>>()
             .buck_error_context("Invalid `pre_create_dirs`")?;
 
         Ok(TestExecutable {
@@ -1052,7 +1059,9 @@ impl TryInto<buck2_test_proto::TestExecutable> for TestExecutable {
         );
         let cmd = self
             .cmd
-            .into_try_map(|i| i.try_into())
+            .into_iter()
+            .map(|i| i.try_into())
+            .collect::<Result<Vec<_>, _>>()
             .buck_error_context("Invalid `cmd`")?;
 
         let env = self

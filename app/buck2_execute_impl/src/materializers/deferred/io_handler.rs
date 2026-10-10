@@ -57,7 +57,6 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::Future;
 use futures::future::FutureExt;
-use gazebo::prelude::VecExt;
 use jiff::SignedDuration;
 use jiff::Timestamp;
 use remote_execution::NamedDigest;
@@ -664,9 +663,12 @@ pub(super) fn create_ttl_refresh(
                     )
                     .await?;
 
-                let mut digests_expires = digests_expires.into_try_map(|(digest, expires)| {
-                    buck2_error::Ok((FileDigest::from_re(&digest, digest_config)?, expires))
-                })?;
+                let mut digests_expires = digests_expires
+                    .into_iter()
+                    .map(|(digest, expires)| {
+                        buck2_error::Ok((FileDigest::from_re(&digest, digest_config)?, expires))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
                 digests_expires.sort();
 
                 if chunk.len() != digests_expires.len() {

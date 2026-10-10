@@ -23,7 +23,6 @@ use buck2_hash::BuckIndexMap;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
-use gazebo::prelude::VecExt;
 
 use crate::file_ops::trait_::DiceFileOps;
 use crate::file_ops::trait_::FileOps;
@@ -81,23 +80,26 @@ impl ResolvedPattern<ConfiguredProvidersPatternExtra> {
         let mut specs = BuckIndexMap::with_capacity(self.specs.len());
         for (package_with_modifiers, spec) in self.specs {
             let spec = match spec {
-                PackageSpec::Targets(targets) => {
-                    PackageSpec::Targets(targets.into_try_map(|(target_name, extra)| {
-                        let extra = U::from_configured_providers(extra.clone())
-                            .with_buck_error_context(|| {
-                                format!(
-                                    "Expecting {} pattern, got `{}`",
-                                    U::NAME,
-                                    display_precise_pattern(
-                                        &package_with_modifiers.package,
-                                        target_name.as_ref(),
-                                        &extra,
-                                    ),
-                                )
-                            })?;
-                        buck2_error::Ok((target_name, extra))
-                    })?)
-                }
+                PackageSpec::Targets(targets) => PackageSpec::Targets(
+                    targets
+                        .into_iter()
+                        .map(|(target_name, extra)| {
+                            let extra = U::from_configured_providers(extra.clone())
+                                .with_buck_error_context(|| {
+                                    format!(
+                                        "Expecting {} pattern, got `{}`",
+                                        U::NAME,
+                                        display_precise_pattern(
+                                            &package_with_modifiers.package,
+                                            target_name.as_ref(),
+                                            &extra,
+                                        ),
+                                    )
+                                })?;
+                            buck2_error::Ok((target_name, extra))
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                ),
                 PackageSpec::All() => PackageSpec::All(),
             };
             specs.insert(package_with_modifiers, spec);

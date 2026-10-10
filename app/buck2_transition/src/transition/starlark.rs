@@ -27,7 +27,6 @@ use buck2_interpreter::types::transition::TransitionValue;
 use derive_more::Display;
 use dupe::Dupe;
 use either::Either;
-use gazebo::prelude::*;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 use starlark::any::ProvidesStaticType;
@@ -207,7 +206,11 @@ impl<'v> Freeze<'v> for Transition<'v> {
         }
         let attrs = self
             .attrs
-            .map(|a| a.into_try_map(|a| a.freeze(freezer)))
+            .map(|a| {
+                a.into_iter()
+                    .map(|a| a.freeze(freezer))
+                    .collect::<Result<Vec<_>, _>>()
+            })
             .transpose()?;
         let split = self.split;
         Ok(FrozenTransition {
