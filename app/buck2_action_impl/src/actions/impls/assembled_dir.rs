@@ -37,7 +37,6 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
-use gazebo::prelude::*;
 use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -297,13 +296,13 @@ impl Action for AssembledDirAction {
         let mut srcs = Vec::new();
 
         for (group, relative_dest, copy) in &self.args {
-            let (src_artifact, value) = ctx
-                .artifact_values(group)
-                .iter()
-                .into_singleton()
-                .ok_or_else(|| {
-                    internal_error!("Input did not dereference to exactly one artifact")
-                })?;
+            let (src_artifact, value) =
+                ctx.artifact_values(group)
+                    .iter()
+                    .exactly_one()
+                    .map_err(|_| {
+                        internal_error!("Input did not dereference to exactly one artifact")
+                    })?;
 
             let src = src_artifact.resolve_path(
                 ctx.fs(),
@@ -384,6 +383,7 @@ mod tests {
     use buck2_artifact::artifact::artifact_type::Artifact;
     use buck2_artifact::artifact::source_artifact::SourceArtifact;
     use buck2_core::package::source_path::SourcePath;
+    use gazebo::prelude::*;
 
     use super::*;
 

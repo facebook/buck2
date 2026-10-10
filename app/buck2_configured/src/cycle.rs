@@ -15,7 +15,6 @@ use buck2_util::cycle_detector::CycleDescriptor;
 use derive_more::Display;
 use dice::DynKey;
 use dupe::Dupe;
-use gazebo::prelude::*;
 
 use crate::execution::ExecutionPlatformResolutionKey;
 use crate::execution::ToolchainExecutionPlatformCompatibilityKey;
@@ -69,7 +68,7 @@ impl CycleDescriptor for ConfiguredGraphCycleDescriptor {
 
     fn cycle_error(cycle: Vec<&Self::Key>) -> Self::Error {
         ConfiguredGraphCycleError {
-            cycle: Arc::new(cycle.cloned()),
+            cycle: Arc::new(cycle.into_iter().cloned().collect()),
         }
     }
 }

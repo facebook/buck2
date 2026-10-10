@@ -16,7 +16,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use dice::DiceComputations;
 use dupe::Dupe;
 use either::Either;
-use gazebo::prelude::*;
 
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -77,14 +76,14 @@ pub(crate) async fn analysis<'v>(
 
     match expr {
         ProvidersExpr::Literal(_) => {
-            if analysis.is_empty() {
-                // If empty, then it is because we skipped an incompatible target
-                Ok(Either::Left(None))
-            } else {
-                Ok(Either::Left(Some(
-                    analysis.into_iter().into_singleton().unwrap().1,
-                )))
-            }
+            // If empty, then it is because we skipped an incompatible target
+            let mut analysis = analysis.into_iter();
+            let result = analysis.next().map(|(_, result)| result);
+            assert!(
+                analysis.next().is_none(),
+                "a literal names at most one target"
+            );
+            Ok(Either::Left(result))
         }
         ProvidersExpr::Iterable(_) => Ok(Either::Right(analysis)),
     }

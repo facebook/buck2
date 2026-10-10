@@ -259,7 +259,7 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
                     // it also, sadly, prints just a single list of outputs for that case. we match
                     // buck1's behavior for 1 successful file and print a dictionary for multiple. This is
                     // unfortunate, but we hope that users can migrate to the equivalent query commands instead.
-                    if let Some((_path, Ok(includes))) = results.as_singleton() {
+                    if let [(_path, Ok(includes))] = results.as_slice() {
                         includes.serialize(&mut ser)?
                     } else {
                         let mut map = ser.serialize_map(Some(results.len()))?;

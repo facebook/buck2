@@ -33,7 +33,7 @@ use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_hash::BuckIndexSet;
 use buck2_hash::buck_indexset;
 use dupe::Dupe;
-use gazebo::prelude::*;
+use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
@@ -162,7 +162,8 @@ impl Action for CopyAction {
         let (input, src_value) = ctx
             .artifact_values(self.input())
             .iter()
-            .into_singleton()
+            .exactly_one()
+            .ok()
             .internal_error("Input did not dereference to exactly one artifact")?;
 
         let artifact_fs = ctx.fs();
