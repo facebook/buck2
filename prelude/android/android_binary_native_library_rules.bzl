@@ -42,6 +42,7 @@ load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module
     # @oss-disable[end= ]: "@prelude//android/meta_only:native_link_diagnostics.bzl",
     # @oss-disable[end= ]: "declare_native_link_diagnostics",
     # @oss-disable[end= ]: "materialize_native_link_diagnostics",
+    # @oss-disable[end= ]: "native_link_diagnostic_reports",
 # @oss-disable[end= ]: )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
 load(
@@ -449,14 +450,12 @@ def get_android_binary_native_library_info(
     lib_outputs_by_platform = _declare_library_subtargets(
         ctx, dynamic_outputs, original_shared_libs_by_platform, native_library_merge_map, native_library_merge_sequence, enable_relinker
     )
-    # @oss-disable[end= ]: link_diagnostics = None
-    # @oss-disable[end= ]: if not is_late_gatorade_enabled(ctx):
-        # @oss-disable[end= ]: link_diagnostics = declare_native_link_diagnostics(
-            # @oss-disable[end= ]: enhance_ctx,
-            # @oss-disable[end= ]: dynamic_outputs,
-            # @oss-disable[end= ]: {platform: sorted(outputs.keys()) for platform, outputs in lib_outputs_by_platform.items()},
-            # @oss-disable[end= ]: enable_relinker,
-        # @oss-disable[end= ]: )
+    # @oss-disable[end= ]: link_diagnostics = declare_native_link_diagnostics(
+        # @oss-disable[end= ]: enhance_ctx,
+        # @oss-disable[end= ]: dynamic_outputs,
+        # @oss-disable[end= ]: {platform: sorted(outputs.keys()) for platform, outputs in lib_outputs_by_platform.items()},
+        # @oss-disable[end= ]: enable_relinker,
+    # @oss-disable[end= ]: )
 
     if native_library_merge_sequence:
         native_library_merge_input_file = ctx.actions.write_json(
@@ -785,6 +784,8 @@ def get_android_binary_native_library_info(
                     # @oss-disable[end= ]: native_cmd_entries,
                     # @oss-disable[end= ]: outputs[native_build_commands_codegen],
                     # @oss-disable[end= ]: outputs[late_gatorade_products],
+                    # @oss-disable[end= ]: link_diagnostics,
+                    # @oss-disable[end= ]: native_link_diagnostic_reports(link_diagnostics, outputs = outputs),
                 # @oss-disable[end= ]: )
             else:
                 _write_native_libs_dir_and_manifest(
@@ -886,6 +887,8 @@ def get_android_binary_native_library_info(
                 # @oss-disable[end= ]: native_cmd_entries,
                 # @oss-disable[end= ]: outputs[native_build_commands_codegen],
                 # @oss-disable[end= ]: outputs[late_gatorade_products],
+                # @oss-disable[end= ]: link_diagnostics,
+                # @oss-disable[end= ]: native_link_diagnostic_reports(link_diagnostics, outputs = outputs),
             ]
             # @oss-disable[end= ]: subtarget_shared_libs_by_platform = gatorade_libraries(*args)
         else:
@@ -915,14 +918,15 @@ def get_android_binary_native_library_info(
             split_groups,
             native_merge_debug,
         )
-        # @oss-disable[end= ]: if final_link_diagnostic_libs_by_platform == None:
-            # @oss-disable[end= ]: final_link_diagnostic_libs_by_platform = subtarget_shared_libs_by_platform
-        # @oss-disable[end= ]: materialize_native_link_diagnostics(
-            # @oss-disable[end= ]: ctx,
-            # @oss-disable[end= ]: outputs,
-            # @oss-disable[end= ]: link_diagnostics,
-            # @oss-disable[end= ]: final_link_diagnostic_libs_by_platform,
-        # @oss-disable[end= ]: )
+        # @oss-disable[end= ]: if not is_late_gatorade_enabled(ctx):
+            # @oss-disable[end= ]: if final_link_diagnostic_libs_by_platform == None:
+                # @oss-disable[end= ]: final_link_diagnostic_libs_by_platform = subtarget_shared_libs_by_platform
+            # @oss-disable[end= ]: materialize_native_link_diagnostics(
+                # @oss-disable[end= ]: ctx,
+                # @oss-disable[end= ]: outputs,
+                # @oss-disable[end= ]: link_diagnostics,
+                # @oss-disable[end= ]: final_link_diagnostic_libs_by_platform,
+            # @oss-disable[end= ]: )
 
         # Write the "base" fragment: every native-build command known by the end of this lambda.
         # with_inputs = False embeds each argv/argsfile as text without materializing the produced
