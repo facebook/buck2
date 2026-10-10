@@ -25,7 +25,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
-use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutSet;
@@ -181,15 +180,11 @@ impl ExternalBuckconfigData {
     }
 }
 
-/// Used for creating a CellResolver in a buckv1-compatible way based on values
-/// in .buckconfig in each cell.
+/// The cells of the project and the root cell's config, as read from `.buckconfig`s.
 ///
-/// We'll traverse the structure of the `[cells]` sections starting from
-/// the root .buckconfig. All aliases found in the root config will also be
-/// available in all other cells (v1 provides that same behavior).
-///
-/// We don't (currently) enforce that all aliases appear in the root config, but
-/// unlike v1, our cells implementation works just fine if that isn't the case.
+/// Cells are defined by the `[cells]` section of the root cell's config alone; the same section
+/// in any other cell's config is ignored. Cell aliases come from `[cell_aliases]`, where the root
+/// cell's aliases apply in every cell and each cell may add its own.
 pub struct BuckConfigBasedCells {
     pub cell_resolver: CellResolver,
     pub root_config: LegacyBuckConfig,
@@ -351,30 +346,16 @@ impl BuckConfigBasedCells {
         // that we'll ever remove `repositories` since that's probably unnecessary breakage in OSS.
         //
         // Note that `cells` is buck2-only
-        let repositories = root_config
+        let cells = root_config
             .get_section("cells")
             .or_else(|| root_config.get_section("repositories"));
-        if let Some(repositories) = repositories {
-            for (alias, alias_path) in repositories.iter() {
-                // A trailing `/` is common in cell paths (`root = ../`); a bare `/` is not one.
-                let trimmed = alias_path
-                    .as_str()
-                    .strip_suffix('/')
-                    .filter(|path| !path.is_empty())
-                    .unwrap_or(alias_path.as_str());
-                let alias_path = CellRootPathBuf::new(
-                    RelativePath::new(trimmed)
-                        .and_then(|path| root_path.as_project_relative_path().join_normalized(path))
-                        .with_buck_error_context(|| {
-                            format!(
-                                "expected alias path to be a relative path, but found `{}` for `{}`",
-                                alias_path.as_str(),
-                                alias,
-                            )
-                        })?
-                );
-                let name = CellName::unchecked_new(alias)?;
-                cell_definitions.push((name, alias_path));
+        if let Some(cells) = cells {
+            for (name, path) in cells.iter() {
+                let path = path.as_str();
+                let cell_path = parse_cell_path(path).with_buck_error_context(|| {
+                    format!("Invalid path `{path}` for cell `{name}`")
+                })?;
+                cell_definitions.push((CellName::unchecked_new(name)?, cell_path));
             }
         }
 
@@ -545,6 +526,21 @@ impl BuckConfigBasedCells {
             Err(ExternalCellOriginParseError::Unknown(value.to_owned()).into())
         }
     }
+}
+
+/// Parses the value of a `[cells]` entry: a normalized path relative to the project root, where
+/// `.` denotes the project root itself. A trailing `/` is tolerated because it is a common
+/// spelling (`root = ./`).
+fn parse_cell_path(path: &str) -> buck2_error::Result<CellRootPathBuf> {
+    // A bare `/` is an absolute path, not a trailing slash
+    let path = path
+        .strip_suffix('/')
+        .filter(|p| !p.is_empty())
+        .unwrap_or(path);
+    let path = if path == "." { "" } else { path };
+    Ok(CellRootPathBuf::new(
+        ProjectRelativePath::new(path)?.to_owned(),
+    ))
 }
 
 async fn get_external_buckconfig_paths(
@@ -732,7 +728,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_absolute_cell_alias_path() -> buck2_error::Result<()> {
+    async fn test_absolute_cell_path() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[(
             ".buckconfig",
             indoc!(
@@ -744,15 +740,13 @@ mod tests {
             ),
         )])?;
 
-        // Alias paths are relative to the cell root, so an absolute one is rejected.
+        // Cell paths are relative to the project root, so an absolute one is rejected.
         let Err(err) = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await
         else {
             panic!("absolute alias path must be rejected");
         };
         assert!(
-            format!("{err:#}").contains(
-                "expected alias path to be a relative path, but found `/abs/other` for `other`"
-            ),
+            format!("{err:#}").contains("Invalid path `/abs/other` for cell `other`"),
             "{err:#}"
         );
 
@@ -760,7 +754,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cell_alias_path_with_trailing_slash() -> buck2_error::Result<()> {
+    async fn test_cell_path_with_trailing_slash() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[(
             ".buckconfig",
             indoc!(
@@ -798,8 +792,7 @@ mod tests {
             panic!("a bare `/` alias path must be rejected");
         };
         assert!(
-            format!("{err:#}")
-                .contains("expected alias path to be a relative path, but found `/` for `other`"),
+            format!("{err:#}").contains("Invalid path `/` for cell `other`"),
             "{err:#}"
         );
 
@@ -807,27 +800,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cell_alias_path_with_dot_components() -> buck2_error::Result<()> {
-        let mut file_ops = TestConfigParserFileOps::new(&[(
-            ".buckconfig",
-            indoc!(
-                r#"
-                    [cells]
-                        root = .
-                        other = ./sub/../sub/other
-                "#
-            ),
-        )])?;
-
-        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
-        assert_eq!(
-            "sub/other",
-            cells
-                .cell_resolver
-                .get(CellName::testing_new("other"))?
-                .path()
-                .as_str()
-        );
+    async fn test_unnormalized_cell_path() -> buck2_error::Result<()> {
+        for path in ["./sub/other", "sub/../other", "../other"] {
+            let config = format!("[cells]\n    root = .\n    other = {path}\n");
+            let mut file_ops = TestConfigParserFileOps::new(&[(".buckconfig", config.as_str())])?;
+            let Err(err) =
+                BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await
+            else {
+                panic!("unnormalized cell path `{path}` must be rejected");
+            };
+            assert!(
+                format!("{err:#}").contains(&format!("Invalid path `{path}` for cell `other`")),
+                "{err:#}"
+            );
+        }
 
         Ok(())
     }

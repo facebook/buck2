@@ -258,14 +258,14 @@ specified in this section.
 ```ini
 [cells]
     buck = .
-    bazel_skylib = ./third-party/skylark/bazel-skylib
+    bazel_skylib = third-party/skylark/bazel-skylib
 ```
 
 The string on the left-hand side of the equals sign is the _alias_ for the cell.
-The string on the right-hand side of the equals sign is the path to the cell
-from the directory that contains this `.buckconfig` file. It is not necessary to
-include the current cell in this section, but we consider it a best practice to
-do so:
+The string on the right-hand side of the equals sign is the normalized path to
+the cell relative to the project root, or `.` for the project root itself. It is
+not necessary to include the current cell in this section, but we consider it a
+best practice to do so:
 
 ```ini
 buck = .
