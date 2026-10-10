@@ -44,10 +44,16 @@ impl<T: QueryTarget> MultiQueryResult<T> {
                 (QueryEvaluationValue::FileSet(value), QueryEvaluationValue::FileSet(results)) => {
                     results.insert_all(&value)
                 }
-                _ => unreachable!(
-                    "no queries should return different types for different literals, but somehow that happened for `{}` and `{}`",
-                    first_literal, name
-                ),
+                (value, results) => {
+                    return Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "`{}` returns {} but `{}` returns {}: a `%s` query can only merge results of one kind. Use `--json` to print each result separately",
+                        first_literal,
+                        results.kind(),
+                        name,
+                        value.kind(),
+                    ));
+                }
             }
         }
         Ok(results)

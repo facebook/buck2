@@ -787,8 +787,8 @@ async def test_multi_query_mixed_files_and_targets(buck: Buck) -> None:
         "root//bin:the_binary",
     }
     # Without it the results are merged. One argument returns files and the other targets, which
-    # the merge treats as unreachable: the daemon panics and the command fails without a message
-    # about the query.
+    # is an input error.
     await expect_failure(
-        buck.uquery("%s", "inputs(root//bin:the_binary)", "root//bin:the_binary")
+        buck.uquery("%s", "inputs(root//bin:the_binary)", "root//bin:the_binary"),
+        stderr_regex="can only merge results of one kind",
     )

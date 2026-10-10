@@ -125,6 +125,14 @@ pub enum QueryEvaluationValue<T: QueryTarget> {
 }
 
 impl<T: QueryTarget> QueryEvaluationValue<T> {
+    /// What the value holds, for error messages.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            QueryEvaluationValue::TargetSet(_) => "a set of targets",
+            QueryEvaluationValue::FileSet(_) => "a set of files",
+        }
+    }
+
     pub fn try_into_targets(self) -> buck2_error::Result<TargetSet<T>> {
         match self {
             QueryEvaluationValue::TargetSet(targets) => Ok(targets),

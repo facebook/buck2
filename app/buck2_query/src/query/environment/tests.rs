@@ -664,11 +664,14 @@ mod multi_query_merge {
         ]))
     }
 
-    /// Merging the results of a `%s` query (every output mode except `--json`) treats mixed
-    /// result kinds as unreachable and panics; the daemon is built with `panic = "abort"`.
+    /// Merging the results of a `%s` query (every output mode except `--json`) reports mixed
+    /// result kinds as an input error.
     #[test]
-    #[should_panic(expected = "no queries should return different types for different literals")]
-    fn merging_files_with_targets_panics() {
-        let _unused = files_then_targets().merged();
+    fn merging_files_with_targets_is_an_error() {
+        let err = files_then_targets().merged().unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(msg.contains("can only merge results of one kind"), "{msg}");
+        assert!(msg.contains("`inputs(root//bin:the_binary)`"), "{msg}");
+        assert!(msg.contains("`root//bin:the_binary`"), "{msg}");
     }
 }
