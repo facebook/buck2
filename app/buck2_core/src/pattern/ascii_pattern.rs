@@ -18,7 +18,7 @@ use std::str;
 use dupe::Dupe;
 
 const fn assert_ascii_char(c: char) -> u8 {
-    assert!((c as u32) <= 0xf7);
+    assert!(c.is_ascii());
     c as u8
 }
 
@@ -27,7 +27,7 @@ const fn assert_ascii_str(s: &str) -> &[u8] {
     // We use `const fn` to make sure compiler is able to optimize this away.
     let mut i = 0;
     while i != s.len() {
-        assert!(s.as_bytes()[i] <= 0xf7);
+        assert!(s.as_bytes()[i].is_ascii());
         i += 1;
     }
     s.as_bytes()
@@ -192,11 +192,11 @@ unsafe impl AsciiPattern for AsciiStr<'_> {
     }
 
     fn is_prefix_of(&self, s: &str) -> bool {
-        unsafe { s.len() >= self.len() && s.get_unchecked(..self.len()) == self.0 }
+        s.as_bytes().starts_with(self.0.as_bytes())
     }
 
     fn is_suffix_of(&self, s: &str) -> bool {
-        unsafe { s.len() >= self.len() && s.get_unchecked(s.len() - self.len()..) == self.0 }
+        s.as_bytes().ends_with(self.0.as_bytes())
     }
 
     fn len(&self) -> usize {
@@ -307,18 +307,27 @@ mod tests {
     }
 
     #[test]
-    fn test_non_ascii_patterns_are_accepted() {
-        // The guards compare bytes against `0xf7` rather than `0x7f`, so a two-byte character
-        // passes every "ASCII" check.
-        let _ = AsciiChar::new('\u{a9}');
-        let _ = AsciiStr::new("\u{e9}");
-        let _ = AsciiStr2::new("\u{e9}");
+    #[should_panic]
+    fn test_non_ascii_char_is_rejected() {
+        let _ = AsciiChar::new(std::hint::black_box('\u{a9}'));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_non_ascii_str_is_rejected() {
+        let _ = AsciiStr::new(std::hint::black_box("\u{e9}"));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_non_ascii_str2_is_rejected() {
+        let _ = AsciiStr2::new(std::hint::black_box("\u{e9}"));
     }
 
     #[test]
     fn test_is_suffix_of_non_ascii_haystack() {
-        // `AsciiStr::is_suffix_of` slices the haystack before comparing, and here the slice start
-        // falls inside `é`. The comparison still gives the right answer.
+        // The needle's length measured back from the end lands inside `é`, so the check must not
+        // slice the haystack there.
         let needle = AsciiStr::new("/...");
         let haystack = "\u{e9}...";
         assert!(!haystack.is_char_boundary(haystack.len() - needle.len()));
