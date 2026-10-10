@@ -865,4 +865,17 @@ strips out {bs}invalid control sequences",
             format!("{}", lines.fmt_for_test())
         );
     }
+
+    /// The arguments of a malformed extended colour are left in place and applied as SGR codes of
+    /// their own: `38;2;1;2` turns on dim, `38;2;300;31;1` turns on red and bold.
+    #[test]
+    fn test_malformed_extended_colour_args_become_codes() {
+        let lines = Lines::from_colored_multiline_string("\x1b[38;2;1;2mx");
+        assert_eq!(lines.0[0].fmt_for_test().to_string(), "<span dim>x</span>");
+        let lines = Lines::from_colored_multiline_string("\x1b[38;2;300;31;1mx");
+        assert_eq!(
+            lines.0[0].fmt_for_test().to_string(),
+            "<span fg=ansi(1) bold>x</span>"
+        );
+    }
 }
