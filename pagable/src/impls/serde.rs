@@ -188,3 +188,32 @@ impl<'de> PagableDeserialize<'de> for serde_json::Value {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::PagableDeserialize;
+    use crate::PagableSerialize;
+    use crate::testing::TestingDeserializer;
+    use crate::testing::TestingSerializer;
+
+    fn roundtrip(v: &serde_json::Value) -> serde_json::Value {
+        let mut ser = TestingSerializer::new();
+        v.pagable_serialize(&mut ser).unwrap();
+        let bytes = ser.finish();
+        let mut de = TestingDeserializer::new(&bytes);
+        serde_json::Value::pagable_deserialize(&mut de).unwrap()
+    }
+
+    /// `as_f64()` is `Some` for every number, so an integer is written as a float: `42` comes
+    /// back as `42.0`, and integers above 2^53 lose precision.
+    #[test]
+    fn test_json_integer_comes_back_as_float() {
+        let v = serde_json::json!({"n": 42, "big": 9007199254740993u64, "neg": -3});
+        let r = roundtrip(&v);
+        assert_ne!(r, v);
+        assert_eq!(r["n"], serde_json::json!(42.0));
+        assert!(r["n"].as_i64().is_none());
+        assert_eq!(r["neg"], serde_json::json!(-3.0));
+        assert_eq!(r["big"].as_f64(), Some(9007199254740992.0));
+    }
+}
