@@ -740,6 +740,16 @@ fn parse_arg(
         return Ok(StarArgOrSpecial::Arguments(arguments));
     }
 
+    let star = param_attrs.args || param_attrs.kwargs;
+    let both = param_attrs.args && param_attrs.kwargs;
+    let qualified = param_attrs.pos_only || param_attrs.named_only;
+    if star && (both || qualified || param_attrs.default.is_some()) {
+        return Err(syn::Error::new(
+            span,
+            "`args` and `kwargs` cannot be combined with each other, `require` or `default`",
+        ));
+    }
+
     let pass_style = match (
         param_attrs.args,
         param_attrs.kwargs,
