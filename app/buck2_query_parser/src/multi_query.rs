@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use gazebo::prelude::SliceExt;
-
 use crate::placeholder::QUERY_PERCENT_S_PLACEHOLDER;
 
 #[derive(Debug, buck2_error::Error)]
@@ -20,7 +18,7 @@ enum EvalQueryError {
          Only the first argument is the query; each later argument is substituted for `%s` in it. \
          Use `\"owner('%s')\" a.rs b.rs` to run the query once per argument, \
          or `\"owner('a.rs') + owner('b.rs')\"` to combine expressions in a single query",
-        .0.map(|x| format!("`{x}`")).join(", ")
+        .0.iter().map(|x| format!("`{x}`")).collect::<Vec<_>>().join(", ")
     )]
     ArgsWithoutPlaceholder(Vec<String>),
     #[error("Placeholder `%s` in query argument `{0}`")]
