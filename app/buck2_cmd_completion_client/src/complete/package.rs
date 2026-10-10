@@ -123,7 +123,12 @@ impl<'a> PackageCompleter<'a> {
     }
 
     async fn complete_partial_path(&mut self, given_path: &str) -> CommandOutcome<()> {
-        let completer = PathCompleter::new(&self.cwd, &self.path_sanitizer, &mut self.results)?;
+        let completer = PathCompleter::new(
+            &self.cwd,
+            self.roots,
+            &self.path_sanitizer,
+            &mut self.results,
+        )?;
         completer.complete(given_path).await
     }
 }
@@ -711,16 +716,16 @@ mod tests {
         (dir, roots, cwd)
     }
 
-    /// `buck-out` is a directory like any other to the completer, so `b` offers it.
+    /// `buck-out` holds no packages and is never offered.
     #[tokio::test]
-    async fn test_offers_buck_out() -> TestResult {
+    async fn test_skips_buck_out() -> TestResult {
         let (dir, roots, cwd) = project_with_buck_out();
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
         let actual = uut.complete("b").await?;
 
         drop(std::fs::remove_dir_all(&dir));
-        assert_eq!(actual, vec!["bar/", "buck-out/"]);
+        assert_eq!(actual, vec!["bar/"]);
         Ok(())
     }
 }
