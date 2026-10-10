@@ -369,18 +369,22 @@ mod tests {
         handle.join().unwrap()
     }
 
-    /// `arguments` is optional in the protocol, but `dispatch` unwraps it.
+    /// `arguments` is optional in the protocol: a request without it is answered, and a
+    /// request whose arguments do not parse gets an error response instead of a crash.
     #[test]
-    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
-    fn disconnect_without_arguments_panics() {
+    fn requests_without_arguments_are_answered() {
         let harness = TestHarness::new();
-        let request = Request {
+        let request = |command: &str| Request {
             arguments: None,
-            command: "disconnect".to_owned(),
+            command: command.to_owned(),
             seq: 1,
             type_: "request".to_owned(),
         };
-        dispatch(&harness.backend, &request);
+        let response = dispatch(&harness.backend, &request("disconnect"));
+        assert!(response.success, "{response:?}");
+        let response = dispatch(&harness.backend, &request("stackTrace"));
+        assert!(!response.success, "{response:?}");
+        assert!(response.message.is_some(), "{response:?}");
     }
 
     fn dap_request(args: impl serde::Serialize, command: &str, seq: i64) -> Request {
