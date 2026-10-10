@@ -557,4 +557,23 @@ mod tests {
             "scan should exclude the invoking process",
         );
     }
+
+    fn parse(cmd: &str) -> Option<String> {
+        parse_isolation_dir(&cmd.split(' ').map(str::to_owned).collect::<Vec<_>>())
+    }
+
+    /// clap takes the last `--isolation-dir` and ignores everything after `--`, but the process
+    /// scan takes the first one it sees, wherever it is. `killall --in-isolation-dir a` then
+    /// kills a client that runs in `b`, and `--in-isolation-dir x` kills a client of `v2`.
+    #[test]
+    fn test_parse_isolation_dir_takes_the_first_flag_even_after_double_dash() {
+        assert_eq!(
+            Some("a".to_owned()),
+            parse("buck2 --isolation-dir a build --isolation-dir b")
+        );
+        assert_eq!(
+            Some("x".to_owned()),
+            parse("buck2 run //t -- --isolation-dir x")
+        );
+    }
 }
