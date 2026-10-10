@@ -188,7 +188,7 @@ impl PathSanitizer {
         proper_cell_path: &CellRelativePath,
     ) -> bool {
         let path = Path::new(given_fragment);
-        match ForwardRelativePath::new(path) {
+        match ForwardRelativePath::new_trim_trailing_slashes(path) {
             Ok(forward_rel_path) => proper_cell_path.ends_with(forward_rel_path),
             Err(_) => false,
         }

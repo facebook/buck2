@@ -170,24 +170,20 @@ completion_test(
 completion_test(
     name="test_completes_dir_from_trailing_slash",
     input="build other/",
-    # FIXME(JakobDegen): Bug
-    # expected=["other/far/", "other/far:", "other/foo/", "other/foo:"],
-    expected=[],
-    shells=["bash", "zsh"],
+    expected=["other/far/", "other/far:", "other/foo/", "other/foo:"],
+    shells=["zsh", "fish"],
 )
 
 completion_test(
     name="test_completes_dir_from_trailing_slash",
     input="build other/",
-    # FIXME(JakobDegen): Bug
-    # expected=["other/far/", "other/far:", "other/foo/", "other/foo:"],
-    expected=[
-        "root//other/far/",
-        "root//other/far:",
-        "root//other/foo/",
-        "root//other/foo:",
-    ],
-    shells=["fish"],
+    # On bash & mac, there's no way to disable sorting
+    expected=(
+        ["other/far/", "other/far:", "other/foo/", "other/foo:"]
+        if IS_LINUX
+        else ["other/far:", "other/far/", "other/foo:", "other/foo/"]
+    ),
+    shells=["bash"],
 )
 
 completion_test(
