@@ -356,9 +356,15 @@ impl BuckConfigBasedCells {
             .or_else(|| root_config.get_section("repositories"));
         if let Some(repositories) = repositories {
             for (alias, alias_path) in repositories.iter() {
+                // A trailing `/` is common in cell paths (`root = ../`); a bare `/` is not one.
+                let trimmed = alias_path
+                    .as_str()
+                    .strip_suffix('/')
+                    .filter(|path| !path.is_empty())
+                    .unwrap_or(alias_path.as_str());
                 let alias_path = CellRootPathBuf::new(
-                    root_path.as_project_relative_path()
-                        .join_normalized(RelativePath::unchecked_new(alias_path.as_str()))
+                    RelativePath::new(trimmed)
+                        .and_then(|path| root_path.as_project_relative_path().join_normalized(path))
                         .with_buck_error_context(|| {
                             format!(
                                 "expected alias path to be a relative path, but found `{}` for `{}`",
@@ -738,11 +744,84 @@ mod tests {
             ),
         )])?;
 
-        // The absolute path is accepted and read as the project-relative path `abs/other`,
-        // although the error context in the parser says a relative path is expected.
+        // Alias paths are relative to the cell root, so an absolute one is rejected.
+        let Err(err) = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await
+        else {
+            panic!("absolute alias path must be rejected");
+        };
+        assert!(
+            format!("{err:#}").contains(
+                "expected alias path to be a relative path, but found `/abs/other` for `other`"
+            ),
+            "{err:#}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cell_alias_path_with_trailing_slash() -> buck2_error::Result<()> {
+        let mut file_ops = TestConfigParserFileOps::new(&[(
+            ".buckconfig",
+            indoc!(
+                r#"
+                    [cells]
+                        root = ./
+                        other = sub/other/
+                "#
+            ),
+        )])?;
+
         let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
         assert_eq!(
-            "abs/other",
+            "sub/other",
+            cells
+                .cell_resolver
+                .get(CellName::testing_new("other"))?
+                .path()
+                .as_str()
+        );
+
+        // A bare `/` is an absolute path, not a path with a trailing slash.
+        let mut file_ops = TestConfigParserFileOps::new(&[(
+            ".buckconfig",
+            indoc!(
+                r#"
+                    [cells]
+                        root = .
+                        other = /
+                "#
+            ),
+        )])?;
+        let Err(err) = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await
+        else {
+            panic!("a bare `/` alias path must be rejected");
+        };
+        assert!(
+            format!("{err:#}")
+                .contains("expected alias path to be a relative path, but found `/` for `other`"),
+            "{err:#}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cell_alias_path_with_dot_components() -> buck2_error::Result<()> {
+        let mut file_ops = TestConfigParserFileOps::new(&[(
+            ".buckconfig",
+            indoc!(
+                r#"
+                    [cells]
+                        root = .
+                        other = ./sub/../sub/other
+                "#
+            ),
+        )])?;
+
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
+        assert_eq!(
+            "sub/other",
             cells
                 .cell_resolver
                 .get(CellName::testing_new("other"))?
