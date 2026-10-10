@@ -1867,6 +1867,79 @@ mod state_machine {
     }
 
     #[cfg(unix)]
+    fn explicit_clean_stale_args(tracked_only: bool) -> CleanStaleArtifactsArgs {
+        CleanStaleArtifactsArgs {
+            policy: CleanStaleArtifactsPolicy::Explicit {
+                keep_since_time: jiff::Timestamp::MAX,
+                adaptive_low_disk_threshold: None,
+                adaptive_min_ttl: None,
+                adaptive_unmaterialize_active: false,
+            },
+            dry_run: false,
+            tracked_only,
+        }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_clean_stale_tracked_only_with_file_at_tracked_dir() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let path = make_path(SAMPLE_BUCK_OUT_PATH);
+            let project_root = temp_root();
+            let io = Arc::new(StubIoHandler::new(project_root.clone()));
+            let (dm, _) = make_materializer(io.dupe(), None).await;
+            materialize_write(&path, b"contents", &dm).await?;
+            // Drop dm and flush sqlite connection.
+            dm.abort();
+
+            // The state still lists `foo/bar`, but on disk `foo` is now an untracked file.
+            let foo = project_root.resolve(make_path("buck-out/v2/art/foo"));
+            fs_util::remove_dir_all(&foo)?;
+            fs_util::write(&foo, b"untracked")?;
+
+            let (dm, _) = make_materializer(io, None).await;
+            dm.clean_stale_artifacts(explicit_clean_stale_args(true))
+                .await?;
+            // `cleanup_path` walks up from the stale path and deletes the file it finds there.
+            assert!(!fs_util::try_exists(&foo)?);
+            Ok(())
+        })
+        .await
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_clean_stale_tracked_only_with_symlink_at_tracked_dir() -> buck2_error::Result<()>
+    {
+        ignore_stack_overflow_checks_for_future(async {
+            let path = make_path(SAMPLE_BUCK_OUT_PATH);
+            let project_root = temp_root();
+            let io = Arc::new(StubIoHandler::new(project_root.clone()));
+            let (dm, _) = make_materializer(io.dupe(), None).await;
+            materialize_write(&path, b"contents", &dm).await?;
+            dm.abort();
+
+            // The state still lists `foo/bar`, but on disk `foo` now points outside `buck-out`.
+            let outside = project_root.resolve(make_path("outside"));
+            let precious = project_root.resolve(make_path("outside/bar"));
+            fs_util::create_dir_all(&outside)?;
+            fs_util::write(&precious, b"precious")?;
+            let foo = project_root.resolve(make_path("buck-out/v2/art/foo"));
+            fs_util::remove_dir_all(&foo)?;
+            fs_util::symlink(&outside, &foo)?;
+
+            let (dm, _) = make_materializer(io, None).await;
+            dm.clean_stale_artifacts(explicit_clean_stale_args(true))
+                .await?;
+            // The stale path is deleted through the symlink, and then the symlink itself.
+            assert!(!fs_util::try_exists(&precious)?);
+            assert!(fs_util::symlink_metadata_if_exists(&foo)?.is_none());
+            Ok(())
+        })
+        .await
+    }
+
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_clean_stale_skips_unreadable() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
