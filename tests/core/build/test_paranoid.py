@@ -6,6 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
+
 # pyre-strict
 
 
@@ -18,45 +24,44 @@ from typing import Any
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 # FIXME(JakobDegen): Give these tests their own data dir, instead of sharing one
 
-# TODO(T184317763): either those tests are flaky or paranoid mode is broken,
-# to repro uncomment and run `buck2 test '@fbcode//mode/opt-asan' fbcode//buck2/tests/e2e/build:test_paranoid -- --exact 'buck2/tests/e2e/build:test_paranoid - test_paranoid.py::test_paranoid_allows_fallback_after_re_failure' --run-disabled`
-# @buck_test(
-#     data_dir="execution_platforms",
-#     skip_for_os=["windows"],
-# )
-# @env("BUCK2_TEST_FAIL_RE_DOWNLOADS", "true")
-# async def test_paranoid_allows_fallback_after_re_failure(
-#     buck: Buck,
-# ) -> None:
-#     """
-#     Currently, this is only supported in paranoid mode. This is a smaller issue
-#     than it might seem, since it only enters the picture if RE claims, cancels
-#     local, and *then* we need a fallback, which is fairly unlikely since most
-#     of the work is done by then, and also if that fails, there's no reason to
-#     expect deferred materialization won't fail later, which is a much bigger
-#     (and much more irrecoverable) problem.
-#     """
 
-#     def args():
-#         return [
-#             "root//executor_race_tests:slower_locally_and_works_on_both",
-#             "-c",
-#             f"test.cache_buster={random_string()}",
-#         ]
+@buck_test(
+    data_dir="execution_platforms",
+    skip_for_os=["windows"],
+)
+@env("BUCK2_TEST_FAIL_RE_DOWNLOADS", "true")
+async def test_paranoid_allows_fallback_after_re_failure(
+    buck: Buck,
+) -> None:
+    """
+    Currently, this is only supported in paranoid mode. This is a smaller issue
+    than it might seem, since it only enters the picture if RE claims, cancels
+    local, and *then* we need a fallback, which is fairly unlikely since most
+    of the work is done by then, and also if that fails, there's no reason to
+    expect deferred materialization won't fail later, which is a much bigger
+    (and much more irrecoverable) problem.
+    """
 
-#     await expect_failure(
-#         buck.build(*args()),
-#         stderr_regex="Injected error",
-#     )
+    def args() -> list[str]:
+        return [
+            "root//executor_race_tests:slower_locally_and_works_on_both",
+            "-c",
+            f"test.cache_buster={random_string()}",
+        ]
 
-#     await buck.build(
-#         *args(),
-#         env={"BUCK_PARANOID": "true"},
-#     )
+    await expect_failure(
+        buck.build(*args()),
+        stderr_regex="Injected error",
+    )
+
+    await buck.build(
+        *args(),
+        env={"BUCK_PARANOID": "true"},
+    )
 
 
 @buck_test(
@@ -84,31 +89,29 @@ async def test_paranoid_ignores_preferences(
     )
 
 
-# TODO(T184317763): either those tests are flaky or paranoid mode is broken,
-# to repro uncomment and run `buck2 test '@fbcode//mode/opt-asan' fbcode//buck2/tests/e2e/build:test_paranoid -- --exact 'buck2/tests/e2e/build:test_paranoid - test_paranoid.py::test_paranoid_forces_fallback_on_failure' --run-disabled`
-# @buck_test(
-#     data_dir="execution_platforms",
-#     skip_for_os=["windows"],
-# )
-# async def test_paranoid_forces_fallback_on_failure(
-#     buck: Buck,
-# ) -> None:
-#     def args():
-#         return [
-#             "root//executor_race_tests:slower_and_works_only_locally_local_not_preferred",
-#             "-c",
-#             f"test.cache_buster={random_string()}",
-#         ]
+@buck_test(
+    data_dir="execution_platforms",
+    skip_for_os=["windows"],
+)
+async def test_paranoid_forces_fallback_on_failure(
+    buck: Buck,
+) -> None:
+    def args() -> list[str]:
+        return [
+            "root//executor_race_tests:slower_and_works_only_locally_local_not_preferred",
+            "-c",
+            f"test.cache_buster={random_string()}",
+        ]
 
-#     await expect_failure(
-#         buck.build(*args()),
-#         stderr_regex="Remote command returned non-zero exit code 1",
-#     )
+    await expect_failure(
+        buck.build(*args()),
+        stderr_regex="Remote command returned non-zero exit code 1",
+    )
 
-#     await buck.build(
-#         *args(),
-#         env={"BUCK_PARANOID": "true"},
-#     )
+    await buck.build(
+        *args(),
+        env={"BUCK_PARANOID": "true"},
+    )
 
 
 @buck_test(

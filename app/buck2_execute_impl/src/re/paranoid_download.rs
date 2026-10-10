@@ -27,7 +27,6 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::Materializer;
-use buck2_execute::materialize::materializer::WriteLease;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
@@ -147,14 +146,25 @@ impl ParanoidDownloader {
         // Claim the request before copying the outputs.
         let manager = manager.claim().await;
 
+        let output_paths = artifacts.map(|DeclareArtifactPayload { path, .. }| path.clone());
+
+        // The lease is what serializes the rename and the report against a local attempt that
+        // lost the race and against any materialization of these paths. Clearing whatever is on
+        // disk there is this producer's job, done under it.
+        let outputs_lease = match materializer.prepare_outputs(output_paths.clone()).await {
+            Ok(lease) => lease,
+            Err(e) => {
+                return ControlFlow::Break(manager.error("materialize_outputs", e));
+            }
+        };
+
         let res = cancellations
             .critical_section(|| async {
                 self.inner
                     .io
                     .execute_io(
                         Box::new(CleanOutputPaths {
-                            paths: artifacts
-                                .map(|DeclareArtifactPayload { path: p, .. }| p.to_owned()),
+                            paths: output_paths,
                         }),
                         cancellations,
                     )
@@ -170,14 +180,14 @@ impl ParanoidDownloader {
                     .await?;
 
                 materializer
-                    // FIXME(materializer): this producer takes no lease over the paths it
-                    // writes yet; problem-path-locking.md.
-                    .declare_existing(&WriteLease::noop(), artifacts)
+                    .declare_existing(&outputs_lease, artifacts)
                     .await?;
 
                 buck2_error::Ok(())
             })
             .await;
+
+        drop(outputs_lease);
 
         match res {
             Ok(()) => (),
