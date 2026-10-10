@@ -394,14 +394,13 @@ impl ParseMode for MultiLineState {
         error_format: &ErrorFormat,
     ) -> (Box<dyn ParseMode>, ParseLineResult) {
         if let Ok(Some((entry, efm))) = error_format.parse_line_with_state(line, self.as_ref()) {
-            if efm
+            // The open message's own flag decides whether it is emitted; a `-` rule excludes
+            // only the line it matched.
+            let ignore = self.ignore.get();
+            let line_ignored = efm
                 .format_specifier
                 .as_ref()
-                .is_some_and(|s| s.is_ignore_multi_line())
-            {
-                self.ignore.set(true);
-            }
-            let ignore = self.ignore.get();
+                .is_some_and(|s| s.is_ignore_multi_line());
             let (next_state, result) = match efm.format_specifier {
                 Some(ref specifier) if specifier.is_enter_multi_line() => {
                     // New a new state for multi-line
@@ -438,17 +437,23 @@ impl ParseMode for MultiLineState {
                 Some(ref specifier) if specifier.is_end_multi_line() => {
                     self.prev_entries.push(entry);
                     let final_entry = self.combine_entries();
+                    let result = if line_ignored {
+                        ParseLineResult::Ignore(final_entry)
+                    } else {
+                        ParseLineResult::Valid(final_entry)
+                    };
                     (
                         Box::new(SingleLineState(self.ctx)) as Box<dyn ParseMode>,
-                        ParseLineResult::Valid(final_entry),
+                        result,
                     )
                 }
                 Some(ref specifier) if specifier.is_generic_message() => {
-                    (
-                        self as Box<dyn ParseMode>,
-                        // Just return the valid entry for now
-                        ParseLineResult::Valid(entry),
-                    )
+                    let result = if line_ignored {
+                        ParseLineResult::Ignore(entry)
+                    } else {
+                        ParseLineResult::Valid(entry)
+                    };
+                    (self as Box<dyn ParseMode>, result)
                 }
                 _ => {
                     // Unsupported format specifier in multi-line state

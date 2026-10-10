@@ -608,18 +608,23 @@ fn go_error_format() -> Vec<String> {
 }
 
 /// `go build` prints a `# <package>` header before each package's errors. The catch-all `%-G`
-/// rule matches the header while the first error is still open, and that marks the open error
-/// itself as ignored, so only the last package's error survives. Any unrelated line between
-/// two errors does the same.
+/// rule drops the header on its own; the error that is still open survives, as does any error
+/// followed by an unrelated line.
 #[test]
-fn test_ignored_line_between_two_errors_drops_the_first_error() {
+fn test_ignored_line_between_two_errors_keeps_both_errors() {
     let lines = split_lines(
         "# example.com/a\na/a.go:3:2: undefined: x\n# example.com/b\nb/b.go:4:2: undefined: y\n",
     );
     let entries = parse_error_format(go_error_format(), lines).unwrap();
-    assert_eq!(first_lines(&entries), vec!["b/b.go:4:2: undefined: y"]);
+    assert_eq!(
+        first_lines(&entries),
+        vec!["a/a.go:3:2: undefined: x", "b/b.go:4:2: undefined: y"]
+    );
 
     let lines = split_lines("a.go:1:2: first\nsome unrelated line\na.go:5:6: second\n");
     let entries = parse_error_format(go_error_format(), lines).unwrap();
-    assert_eq!(first_lines(&entries), vec!["a.go:5:6: second"]);
+    assert_eq!(
+        first_lines(&entries),
+        vec!["a.go:1:2: first", "a.go:5:6: second"]
+    );
 }
