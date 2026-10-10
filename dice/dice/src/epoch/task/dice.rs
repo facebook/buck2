@@ -168,7 +168,7 @@ pub(crate) struct DiceTaskInternal<T = MaybeResidentComputedValue> {
     /// which don't hold a strong count), and wakers here may actually be waiting on different
     /// generations. We don't attempt to be smart; when we wake anything, we wake everything, and
     /// things that didn't need to be woken just re-register themselves.
-    wakers: AtomicWakerSet,
+    wakers: AtomicWakerSet<()>,
 }
 
 enum ReadValueResult<'d, T = MaybeResidentComputedValue> {
@@ -183,7 +183,7 @@ enum ReadValueResult<'d, T = MaybeResidentComputedValue> {
 pub(crate) struct TaskWaiter<'d, T = MaybeResidentComputedValue> {
     task: DiceTaskRef<'d, T>,
     #[pin]
-    waiter: AtomicWakerSetEntry,
+    waiter: AtomicWakerSetEntry<()>,
 }
 
 impl<'d, T> TaskWaiter<'d, T> {
@@ -367,7 +367,7 @@ impl<T> DiceTask<T> {
             },
             dependent_future: DiceTaskDependentFuture(TaskWaiter {
                 task,
-                waiter: AtomicWakerSetEntry::new(),
+                waiter: AtomicWakerSetEntry::new(()),
             }),
             completion_handle: DiceTaskCompletionHandle {
                 generation: 1,
@@ -400,7 +400,7 @@ impl<'d, T> DiceTaskRef<'d, T> {
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture(TaskWaiter {
                     task: self,
-                    waiter: AtomicWakerSetEntry::new(),
+                    waiter: AtomicWakerSetEntry::new(()),
                 }),
             ));
         }
@@ -427,7 +427,7 @@ impl<'d, T> DiceTaskRef<'d, T> {
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture(TaskWaiter {
                     task: self,
-                    waiter: AtomicWakerSetEntry::new(),
+                    waiter: AtomicWakerSetEntry::new(()),
                 }),
             ));
         }
@@ -459,7 +459,7 @@ impl<'d, T> DiceTaskRef<'d, T> {
             },
             dependent_future: DiceTaskDependentFuture(TaskWaiter {
                 task: self,
-                waiter: AtomicWakerSetEntry::new(),
+                waiter: AtomicWakerSetEntry::new(()),
             }),
             completion_handle: DiceTaskCompletionHandle {
                 generation: new_generation,
@@ -759,7 +759,7 @@ impl<T> TerminationObserver<T> {
             async move {
                 let mut wait = std::pin::pin!(TaskWaiter {
                     task: task.as_ref(),
-                    waiter: AtomicWakerSetEntry::new(),
+                    waiter: AtomicWakerSetEntry::new(()),
                 });
                 std::pin::pin!(std::future::poll_fn(|cx| {
                     TaskWaiter::poll_at_generation(wait.as_mut(), cx, generation)

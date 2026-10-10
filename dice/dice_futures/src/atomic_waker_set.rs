@@ -25,7 +25,10 @@ use parking_lot::Mutex;
 /// Tokio provides a higher level `Notify` type that can provide the same API, but with different
 /// tradeoffs. In particular, this type prioritizes simplicity and minimal memory footprint at the
 /// expense of most other properties. Throughput is only mediocre.
-pub struct AtomicWakerSet {
+///
+/// Each entry carries a `T`, which the set can enumerate for its registered entries (see
+/// [`AtomicWakerSet::for_each_registered`]).
+pub struct AtomicWakerSet<T> {
     /// Our synchronization approach is quite straightforward: We have one mutex here, and this one
     /// mutex protects everything in this data structure. All operations on any nodes in the
     /// structure must hold the mutex.
@@ -36,7 +39,7 @@ pub struct AtomicWakerSet {
     ///  - You could switch to a singly linked list. That has a bunch of benefits including saved
     ///    memory and non-blocking inserts. However, it means quadratic behavior on cancellation,
     ///    which is probably unacceptable.
-    mutex: Mutex<*mut AtomicWakerSetEntry>,
+    mutex: Mutex<*mut AtomicWakerSetEntry<T>>,
 }
 
 /// An entry in an `AtomicWakerSet`.
@@ -45,10 +48,13 @@ pub struct AtomicWakerSet {
 /// to the set of which the entry is a member. This is a small memory optimization as usually the
 /// user of this type will have such a reference available anyway. However, that means that
 /// management of the lifetime of this object is entirely on the user.
-pub struct AtomicWakerSetEntry {
-    /// All three data fields are protected by the lock in the `AtomicWakerSet`, unless the value is
-    /// in a state where it has not been inserted into a set, in which case this value owns all the
-    /// fields.
+pub struct AtomicWakerSetEntry<T> {
+    /// Never written after construction, which is what makes it safe to read both through the
+    /// owner's `&self` and, under the set's lock, from `for_each_registered`.
+    data: T,
+    /// The three fields below are protected by the lock in the `AtomicWakerSet`, unless the value
+    /// is in a state where it has not been inserted into a set, in which case this value owns all
+    /// the fields.
     waker: UnsafeCell<Option<Waker>>,
     /// Together, the `next` and `prev` fields form an intrusive linked list of registered entries,
     /// with the mutex in the set holding a pointer to the head.
@@ -66,20 +72,38 @@ pub struct AtomicWakerSetEntry {
     /// acquire load; an owner finalizing its own entry in `disconnect` is on the same thread and so
     /// can store plainly. Writing another entry's `next` (the splice in `disconnect`) still has to
     /// be atomic, since that entry's owner may be performing its lock-free load concurrently.
-    next: AtomicPtr<AtomicWakerSetEntry>,
-    prev: UnsafeCell<*mut AtomicWakerSetEntry>,
+    next: AtomicPtr<AtomicWakerSetEntry<T>>,
+    prev: UnsafeCell<*mut AtomicWakerSetEntry<T>>,
     _pinned: PhantomPinned,
     /// Prevent autotrait impls
-    _data: PhantomData<*mut ()>,
+    _marker: PhantomData<*mut ()>,
 }
 
-const NOT_INSERTED: *mut AtomicWakerSetEntry = std::ptr::without_provenance_mut(1);
-
-impl AtomicWakerSet {
+impl<T> AtomicWakerSet<T> {
     /// Prepare a new set
     pub fn new() -> Self {
         AtomicWakerSet {
             mutex: Mutex::new(std::ptr::null_mut()),
+        }
+    }
+
+    /// Calls `f` with the data of every entry that is currently registered.
+    ///
+    /// An entry counts as registered from its `register` until the next `wake_all` or its
+    /// `disconnect`, whichever comes first. So an entry whose waker was woken but which has not
+    /// been polled again yet is not seen, even though its owner may still be waiting.
+    ///
+    /// The set is locked for the duration; `f` must not use the set.
+    pub fn for_each_registered(&self, mut f: impl FnMut(&T)) {
+        let guard = self.mutex.lock();
+        let mut cur = *guard;
+        while !cur.is_null() {
+            // SAFETY: Registered entries are alive and their list structure is protected by the
+            // lock that we hold; `data` is never written after construction.
+            unsafe {
+                f(&(*cur).data);
+                cur = *(*cur).next.as_ptr();
+            }
         }
     }
 
@@ -99,7 +123,9 @@ impl AtomicWakerSet {
                 // `disconnect`, it gets the fast path. This must be the last thing we do, since as
                 // soon as we execute this our lock no longer protects the entry and the memory
                 // might be deallocated.
-                let next_cur = (*cur).next.swap(NOT_INSERTED, Ordering::Release);
+                let next_cur = (*cur)
+                    .next
+                    .swap(AtomicWakerSetEntry::NOT_INSERTED, Ordering::Release);
                 cur = next_cur;
             }
             // Need to hold the guard until here since we're changing list structure
@@ -111,30 +137,36 @@ impl AtomicWakerSet {
     }
 }
 
-impl Default for AtomicWakerSet {
+impl<T> Default for AtomicWakerSet<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-// SAFETY: The set owns nothing thread-affine - just the list head behind `mutex`,
-// pointing at entries owned elsewhere - so it is safe to move between threads.
-unsafe impl Send for AtomicWakerSet {}
-// SAFETY: All access to the list head and to entry fields is serialized by `mutex`
-// (for `waker`/`prev`) or performed atomically (for `next`), and the stored `Waker`s
-// are `Send + Sync`, so concurrent `&self` access from multiple threads is sound.
-unsafe impl Sync for AtomicWakerSet {}
+// SAFETY: For things other than the `T`, this is straightforward; for the `T: Sync` bound, an
+// `AtomicWakerSet<T>` is semantically something like a `Vec<&T>` and so gets matching bounds
+unsafe impl<T: Sync> Send for AtomicWakerSet<T> {}
+unsafe impl<T: Sync> Sync for AtomicWakerSet<T> {}
 
-impl AtomicWakerSetEntry {
-    /// Prepare a new entry
-    pub fn new() -> Self {
+impl<T> AtomicWakerSetEntry<T> {
+    /// The value of `next` for an entry that is not inserted into any set.
+    const NOT_INSERTED: *mut Self = std::ptr::without_provenance_mut(1);
+
+    /// Prepare a new entry carrying `data`
+    pub fn new(data: T) -> Self {
         AtomicWakerSetEntry {
+            data,
             waker: UnsafeCell::new(None),
-            next: AtomicPtr::new(NOT_INSERTED),
+            next: AtomicPtr::new(Self::NOT_INSERTED),
             prev: UnsafeCell::new(std::ptr::null_mut()),
             _pinned: PhantomPinned,
-            _data: PhantomData,
+            _marker: PhantomData,
         }
+    }
+
+    /// The data this entry was created with
+    pub fn data(&self) -> &T {
+        &self.data
     }
 
     /// Register the entry into the set with the given waker.
@@ -155,7 +187,7 @@ impl AtomicWakerSetEntry {
     ///  - There is no lifetime attached to this type. It is your responsibility to ensure that
     ///    `set` is kept alive until the `disconnect` call.
     ///  - Until you next disconnect, you may only invoke `register` again with the same `set`.
-    pub unsafe fn register(self: Pin<&mut Self>, set: &AtomicWakerSet, waker: Waker) {
+    pub unsafe fn register(self: Pin<&mut Self>, set: &AtomicWakerSet<T>, waker: Waker) {
         unsafe { self.register_impl(set, waker, || {}) }
     }
 
@@ -169,7 +201,7 @@ impl AtomicWakerSetEntry {
     /// `wake_all`) but must not `register` or `disconnect` this entry.
     unsafe fn register_impl(
         self: Pin<&mut Self>,
-        set: &AtomicWakerSet,
+        set: &AtomicWakerSet<T>,
         waker: Waker,
         pause: impl FnOnce(),
     ) {
@@ -186,7 +218,7 @@ impl AtomicWakerSetEntry {
             let old = std::mem::replace(&mut *this.waker.get(), Some(waker));
             // Checking this under the lock is important: A concurrent `wake_all` is free to evict
             // us at any point before we acquired it.
-            let is_inserted = *this.next.as_ptr() != NOT_INSERTED;
+            let is_inserted = *this.next.as_ptr() != Self::NOT_INSERTED;
             if !is_inserted {
                 // Insert at the head of the list
                 *this.prev.get() = std::ptr::null_mut();
@@ -212,16 +244,16 @@ impl AtomicWakerSetEntry {
     /// # Safety
     ///
     /// Must be called on the same set on which the entry is registered.
-    pub unsafe fn disconnect(self: Pin<&mut Self>, set: &AtomicWakerSet) {
+    pub unsafe fn disconnect(self: Pin<&mut Self>, set: &AtomicWakerSet<T>) {
         unsafe {
             let this = Pin::into_inner_unchecked(self.into_ref());
-            let is_inserted = this.next.load(Ordering::Acquire) != NOT_INSERTED;
+            let is_inserted = this.next.load(Ordering::Acquire) != Self::NOT_INSERTED;
             if is_inserted {
                 // Slow removal, indicative of a cancellation instead of a previous wakeup
                 let mut guard = set.mutex.lock();
                 // Need to check that we're still inserted
                 let next = *this.next.as_ptr();
-                let still_inserted = next != NOT_INSERTED;
+                let still_inserted = next != Self::NOT_INSERTED;
                 if still_inserted {
                     let prev = *this.prev.get();
                     if !next.is_null() {
@@ -238,26 +270,25 @@ impl AtomicWakerSetEntry {
                     }
                     // Finalize: mark ourselves not-inserted so a later `register` reuses us and a
                     // later `disconnect` fast-paths. Plain store is fine here - see `next`'s docs.
-                    *this.next.as_ptr() = NOT_INSERTED;
+                    *this.next.as_ptr() = Self::NOT_INSERTED;
                 }
             }
         }
     }
 }
 
-impl Default for AtomicWakerSetEntry {
+impl<T: Default> Default for AtomicWakerSetEntry<T> {
     fn default() -> Self {
-        Self::new()
+        Self::new(T::default())
     }
 }
 
-// SAFETY: The entry's contents are not thread-affine and the stored `Waker` is `Send`,
-// so an entry (e.g. embedded in a `Send` future) can be moved between threads.
-unsafe impl Send for AtomicWakerSetEntry {}
-// SAFETY: While registered, the entry is accessed both by its owner and by a `wake_all`
-// caller on another thread, but every such access is synchronized by the set's `mutex`
-// (`waker`/`prev`) or performed atomically (`next`), and the stored `Waker` is `Sync`.
-unsafe impl Sync for AtomicWakerSetEntry {}
+// SAFETY: Other than the `T` bounds, this is straightforward; for the `T` it's slightly tricky.
+// Although the `AtomicWakerSetEntry<T>` itself only provides access to the one `T` and so behaves
+// like it just owns a `T`, it leaves behind access to a `&T` on the original thread, via that set
+// that it's registered in. That behaves like sending a `&T`, so we must bound `T` appropriately.
+unsafe impl<T: Send + Sync> Send for AtomicWakerSetEntry<T> {}
+unsafe impl<T: Sync> Sync for AtomicWakerSetEntry<T> {}
 
 #[cfg(test)]
 mod tests {
@@ -298,7 +329,7 @@ mod tests {
         let set = AtomicWakerSet::new();
         let waker = CountingWaker::new();
 
-        let mut entry = pin!(AtomicWakerSetEntry::new());
+        let mut entry = pin!(AtomicWakerSetEntry::new(()));
         unsafe {
             entry.as_mut().register(&set, Waker::from(waker.clone()));
             set.wake_all();
@@ -313,7 +344,7 @@ mod tests {
         let set = AtomicWakerSet::new();
         let waker = CountingWaker::new();
 
-        let mut entry = pin!(AtomicWakerSetEntry::new());
+        let mut entry = pin!(AtomicWakerSetEntry::new(()));
         unsafe {
             entry.as_mut().register(&set, Waker::from(waker.clone()));
             entry.as_mut().disconnect(&set);
@@ -329,8 +360,8 @@ mod tests {
         let waker_a = CountingWaker::new();
         let waker_b = CountingWaker::new();
 
-        let mut a = pin!(AtomicWakerSetEntry::new());
-        let mut b = pin!(AtomicWakerSetEntry::new());
+        let mut a = pin!(AtomicWakerSetEntry::new(()));
+        let mut b = pin!(AtomicWakerSetEntry::new(()));
         unsafe {
             a.as_mut().register(&set, Waker::from(waker_a.clone()));
             b.as_mut().register(&set, Waker::from(waker_b.clone()));
@@ -351,7 +382,7 @@ mod tests {
         let set = AtomicWakerSet::new();
         let waker = CountingWaker::new();
 
-        let mut entry = pin!(AtomicWakerSetEntry::new());
+        let mut entry = pin!(AtomicWakerSetEntry::new(()));
         unsafe {
             entry.as_mut().register(&set, Waker::from(waker.clone()));
             entry.as_mut().disconnect(&set);
@@ -383,7 +414,7 @@ mod tests {
         let set = AtomicWakerSet::new();
         let racing_waker = CountingWaker::new();
 
-        let mut entry = pin!(AtomicWakerSetEntry::new());
+        let mut entry = pin!(AtomicWakerSetEntry::new(()));
         unsafe {
             entry
                 .as_mut()
@@ -406,7 +437,7 @@ mod tests {
         let wakers: Vec<_> = (0..5).map(|_| CountingWaker::new()).collect();
 
         let mut entries: Vec<_> = (0..5)
-            .map(|_| Box::pin(AtomicWakerSetEntry::new()))
+            .map(|_| Box::pin(AtomicWakerSetEntry::new(())))
             .collect();
         unsafe {
             for (entry, waker) in entries.iter_mut().zip(&wakers) {
@@ -420,6 +451,41 @@ mod tests {
 
         for (i, waker) in wakers.iter().enumerate() {
             assert_eq!(waker.count(), 1, "entry {i} must be woken exactly once");
+        }
+    }
+
+    #[test]
+    fn for_each_registered_sees_exactly_the_registered_entries() {
+        let set = AtomicWakerSet::new();
+        let registered = || {
+            let mut data = Vec::new();
+            set.for_each_registered(|d: &u32| data.push(*d));
+            data.sort();
+            data
+        };
+
+        let mut a = pin!(AtomicWakerSetEntry::new(1));
+        let mut b = pin!(AtomicWakerSetEntry::new(2));
+        assert_eq!(registered(), Vec::<u32>::new());
+        unsafe {
+            a.as_mut().register(&set, Waker::from(CountingWaker::new()));
+            b.as_mut().register(&set, Waker::from(CountingWaker::new()));
+            assert_eq!(registered(), vec![1, 2]);
+
+            // Re-registering an entry does not duplicate it.
+            a.as_mut().register(&set, Waker::from(CountingWaker::new()));
+            assert_eq!(registered(), vec![1, 2]);
+
+            a.as_mut().disconnect(&set);
+            assert_eq!(registered(), vec![2]);
+
+            // Waking evicts the entries, so they are gone until they register again.
+            set.wake_all();
+            assert_eq!(registered(), Vec::<u32>::new());
+
+            b.as_mut().register(&set, Waker::from(CountingWaker::new()));
+            assert_eq!(registered(), vec![2]);
+            b.as_mut().disconnect(&set);
         }
     }
 }

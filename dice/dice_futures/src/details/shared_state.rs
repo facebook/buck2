@@ -187,7 +187,7 @@ struct SharedStateData {
     /// Again, the ordering contract here is the same as with all other wakers; these are registered
     /// *before* checking the state for whether the future was already cancelled, and woken up after
     /// the state is updatd.
-    observer_wakers: AtomicWakerSet,
+    observer_wakers: AtomicWakerSet<()>,
 }
 
 impl SharedStateData {
@@ -287,7 +287,7 @@ impl SharedStateData {
 pub(crate) struct CancellationObserverFuture {
     inner: Arc<SharedStateData>,
     #[pin]
-    entry: AtomicWakerSetEntry,
+    entry: AtomicWakerSetEntry<()>,
 }
 
 impl CancellationObserverFuture {
@@ -298,7 +298,7 @@ impl CancellationObserverFuture {
     fn new_from_state(inner: Arc<SharedStateData>) -> Self {
         CancellationObserverFuture {
             inner,
-            entry: AtomicWakerSetEntry::new(),
+            entry: AtomicWakerSetEntry::new(()),
         }
     }
 
