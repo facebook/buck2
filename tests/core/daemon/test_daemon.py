@@ -250,6 +250,14 @@ async def test_no_buckd_is_a_noop_for_a_client_only_command(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_no_buckd_run_starts_in_the_invocation_dir(buck: Buck) -> None:
+    # The in-process daemon moves the client process into buck-out; the exec'd run target
+    # must still start where the user invoked `buck run`.
+    result = await buck.run(":pwd_run", "--no-buckd")
+    assert Path(result.stdout.strip()) == Path(buck.cwd)
+
+
+@buck_test()
 async def test_buck_out_is_cache_dir(buck: Buck) -> None:
     await buck.targets(":")  # Start a daemon
     root = await buck.root()
