@@ -1898,10 +1898,17 @@ mod state_machine {
             fs_util::write(&foo, b"untracked")?;
 
             let (dm, _) = make_materializer(io, None).await;
-            dm.clean_stale_artifacts(explicit_clean_stale_args(true))
-                .await?;
-            // `cleanup_path` walks up from the stale path and deletes the file it finds there.
-            assert!(!fs_util::try_exists(&foo)?);
+            let error = dm
+                .clean_stale_artifacts(explicit_clean_stale_args(true))
+                .await
+                .expect_err("the stale path is reported, not deleted");
+            assert!(format!("{error:#}").contains("is not a directory on disk"));
+            // `foo` is not a directory, so nothing below it is ours to delete.
+            assert!(
+                fs_util::symlink_metadata_if_exists(&foo)?
+                    .expect("`foo` still exists")
+                    .is_file()
+            );
             Ok(())
         })
         .await
@@ -1929,11 +1936,18 @@ mod state_machine {
             fs_util::symlink(&outside, &foo)?;
 
             let (dm, _) = make_materializer(io, None).await;
-            dm.clean_stale_artifacts(explicit_clean_stale_args(true))
-                .await?;
-            // The stale path is deleted through the symlink, and then the symlink itself.
-            assert!(!fs_util::try_exists(&precious)?);
-            assert!(fs_util::symlink_metadata_if_exists(&foo)?.is_none());
+            let error = dm
+                .clean_stale_artifacts(explicit_clean_stale_args(true))
+                .await
+                .expect_err("the stale path is reported, not deleted");
+            assert!(format!("{error:#}").contains("is not a directory on disk"));
+            // Nothing is deleted through the symlink, and the symlink itself stays.
+            assert!(fs_util::try_exists(&precious)?);
+            assert!(
+                fs_util::symlink_metadata_if_exists(&foo)?
+                    .expect("`foo` still exists")
+                    .is_symlink()
+            );
             Ok(())
         })
         .await

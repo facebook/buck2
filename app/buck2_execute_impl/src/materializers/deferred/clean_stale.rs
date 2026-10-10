@@ -1294,6 +1294,7 @@ async fn clean_artifact<T: IoHandler>(
         .clean_invalidated_path(
             CleanInvalidatedPathRequest {
                 path,
+                buck_out_path: io.buck_out_path().clone(),
                 liveliness_observer: liveliness_observer.dupe(),
             },
             cancellations,
@@ -1323,13 +1324,50 @@ async fn clean_artifact<T: IoHandler>(
 
 pub struct CleanInvalidatedPathRequest {
     path: ProjectRelativePathBuf,
+    /// Ancestors of `path` below this root must be real directories for the deletion to run.
+    buck_out_path: ProjectRelativePathBuf,
     pub(crate) liveliness_observer: Arc<dyn LivelinessObserverSync>,
+}
+
+impl CleanInvalidatedPathRequest {
+    /// The first ancestor of `path` below `buck_out_path` that exists on disk but is not a
+    /// directory (a file or a symlink). `cleanup_path` would delete such an entry, and would
+    /// delete `path` inside a symlink's target, which may lie outside `buck-out`. Materialization
+    /// has checked that nothing overlaps before it cleans a path, but a stale path comes from the
+    /// materializer state alone, which can disagree with the disk.
+    fn ancestor_that_is_not_a_directory(
+        &self,
+        project_fs: &ProjectRoot,
+    ) -> buck2_error::Result<Option<ProjectRelativePathBuf>> {
+        let Some(below_buck_out) = self.path.strip_prefix_opt(&self.buck_out_path) else {
+            return Ok(None);
+        };
+        let mut ancestor = self.buck_out_path.clone();
+        for component in below_buck_out.parent().into_iter().flat_map(|p| p.iter()) {
+            ancestor.push(component);
+            if let Some(metadata) =
+                fs_util::symlink_metadata_if_exists(project_fs.resolve(&ancestor))?
+                && !metadata.is_dir()
+            {
+                return Ok(Some(ancestor));
+            }
+        }
+        Ok(None)
+    }
 }
 
 impl IoRequest for CleanInvalidatedPathRequest {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         if !self.liveliness_observer.is_alive_sync() {
             return Err(buck2_error!(ErrorTag::CleanInterrupt, "Interrupt"));
+        }
+        if let Some(ancestor) = self.ancestor_that_is_not_a_directory(project_fs)? {
+            return Err(buck2_error!(
+                ErrorTag::IoNotADirectory,
+                "Not deleting `{}`: `{}` is not a directory on disk",
+                self.path,
+                ancestor
+            ));
         }
         cleanup_path(project_fs, &self.path)?;
         Ok(())
