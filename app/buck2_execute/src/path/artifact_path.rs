@@ -9,8 +9,11 @@
  */
 
 use std::borrow::Cow;
+use std::cell::Ref;
 use std::fmt;
 use std::hash::Hash;
+use std::hash::Hasher;
+use std::ops::Deref;
 
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -22,11 +25,47 @@ use buck2_error::buck2_error;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use either::Either;
-use gazebo::cell::ARef;
+
+/// A borrowed [`BuildArtifactPath`], which lives either in plain memory or behind a `RefCell`.
+pub enum BuildArtifactPathRef<'a> {
+    Direct(&'a BuildArtifactPath),
+    RefCell(Ref<'a, BuildArtifactPath>),
+}
+
+impl Deref for BuildArtifactPathRef<'_> {
+    type Target = BuildArtifactPath;
+
+    fn deref(&self) -> &BuildArtifactPath {
+        match self {
+            Self::Direct(p) => p,
+            Self::RefCell(r) => r,
+        }
+    }
+}
+
+impl fmt::Debug for BuildArtifactPathRef<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&**self, f)
+    }
+}
+
+impl PartialEq for BuildArtifactPathRef<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
+
+impl Eq for BuildArtifactPathRef<'_> {}
+
+impl Hash for BuildArtifactPathRef<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (**self).hash(state)
+    }
+}
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct ArtifactPath<'a> {
-    pub base_path: Either<ARef<'a, BuildArtifactPath>, SourcePathRef<'a>>,
+    pub base_path: Either<BuildArtifactPathRef<'a>, SourcePathRef<'a>>,
     pub projected_path: &'a ForwardRelativePath,
     /// The number of components at the prefix of that path that are internal details to the rule,
     /// not returned by `.short_path`.

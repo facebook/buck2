@@ -28,6 +28,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_execute::path::artifact_path::BuildArtifactPathRef;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::arc_str::ThinArcS;
 use buck2_util::size_assert;
@@ -36,7 +37,6 @@ use derive_more::Display;
 use derive_more::From;
 use dupe::Dupe;
 use either::Either;
-use gazebo::cell::ARef;
 use pagable::Pagable;
 use starlark::StarlarkPagablePanic;
 use starlark::values::Heap;
@@ -178,7 +178,7 @@ impl Artifact {
         let (base, projected_path) = self.as_parts();
 
         let base_path = match base {
-            BaseArtifactKind::Build(b) => Either::Left(ARef::new_ptr(b.get_path())),
+            BaseArtifactKind::Build(b) => Either::Left(BuildArtifactPathRef::Direct(b.get_path())),
             BaseArtifactKind::Source(s) => Either::Right(s.get_path()),
         };
 
@@ -353,7 +353,7 @@ impl BoundBuildArtifact {
 
     pub fn get_path(&self) -> ArtifactPath<'_> {
         ArtifactPath {
-            base_path: Either::Left(ARef::new_ptr(self.artifact.get_path())),
+            base_path: Either::Left(BuildArtifactPathRef::Direct(self.artifact.get_path())),
             projected_path: &self.projected_path,
             hidden_components_count: self.hidden_components_count,
         }
@@ -435,7 +435,7 @@ impl<'v> DeclaredArtifact<'v> {
         });
 
         ArtifactPath {
-            base_path: Either::Left(ARef::new_ref(base_path)),
+            base_path: Either::Left(BuildArtifactPathRef::RefCell(base_path)),
             projected_path,
             hidden_components_count: self.hidden_components_count,
         }
