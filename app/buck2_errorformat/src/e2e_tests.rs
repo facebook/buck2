@@ -629,21 +629,17 @@ fn test_ignored_line_between_two_errors_keeps_both_errors() {
     );
 }
 
-/// An ignored multi-line message (`%-E`) is returned anyway when the input ends, or a line
-/// matches nothing, before the message is closed. It is also returned when it follows an
-/// error, next to that error.
+/// An ignored multi-line message (`%-E`) stays ignored when the input ends, or a line matches
+/// nothing, before the message is closed, and an error it follows is kept.
 #[test]
-fn test_ignored_multi_line_message_is_returned_when_not_closed() {
+fn test_ignored_multi_line_message_stays_ignored_when_not_closed() {
     let efm = vec!["%-EError %n".to_owned(), "%CLine %l".to_owned()];
     let entries = parse_error_format(efm.clone(), split_lines("Error 100\nLine 10\n")).unwrap();
-    assert_eq!(first_lines(&entries), vec!["Error 100"]);
+    assert!(entries.is_empty(), "{entries:?}");
     let entries = parse_error_format(efm, split_lines("Error 100\nunrelated\n")).unwrap();
-    assert_eq!(first_lines(&entries), vec!["Error 100"]);
+    assert!(entries.is_empty(), "{entries:?}");
 
     let efm = vec!["%Eerror: %m".to_owned(), "%-Enote: %m".to_owned()];
     let entries = parse_error_format(efm, split_lines("error: boom\nnote: ignore me\n")).unwrap();
-    assert_eq!(
-        first_lines(&entries),
-        vec!["error: boom", "note: ignore me"]
-    );
+    assert_eq!(first_lines(&entries), vec!["error: boom"]);
 }

@@ -476,7 +476,7 @@ impl ParseMode for MultiLineState {
         } else {
             // Exit MultiLineState when line doesn't match any pattern, same behavior in vim/neovim implementation
             // This allows the multi-line parsing to continue waiting for continuation or end patterns
-            if !self.prev_entries.is_empty() {
+            if !self.prev_entries.is_empty() && !self.ignore.get() {
                 let entry = self.combine_entries();
                 (
                     Box::new(SingleLineState(self.ctx)) as Box<dyn ParseMode>,
@@ -529,11 +529,10 @@ impl ParseMode for MultiLineState {
     }
 
     fn pop_valid_entry(&mut self) -> Option<Entry> {
-        if !self.prev_entries.is_empty() {
-            let entry = self.combine_entries();
-            Some(entry)
-        } else {
+        if self.prev_entries.is_empty() || self.ignore.get() {
             None
+        } else {
+            Some(self.combine_entries())
         }
     }
 }
