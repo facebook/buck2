@@ -12,10 +12,10 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use gazebo::variants::VariantName;
 use itertools::Either;
 use itertools::Itertools;
 use mini_vec::MiniVec;
+use variant_name::VariantName;
 
 use crate::core::graph::revision::Revision;
 use crate::deps::encoding::SPEncoder;

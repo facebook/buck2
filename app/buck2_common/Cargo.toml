@@ -65,6 +65,7 @@ toml.workspace = true
 tonic.workspace = true
 tracing.workspace = true
 triomphe.workspace = true
+variant_name.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true

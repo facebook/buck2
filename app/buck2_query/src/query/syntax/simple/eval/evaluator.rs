@@ -15,7 +15,7 @@ use buck2_query_parser::parse_expr;
 use buck2_query_parser::spanned::Spanned;
 use futures::FutureExt;
 use gazebo::prelude::*;
-use gazebo::variants::VariantName;
+use variant_name::VariantName;
 
 use crate::__derive_refs::indexmap::IndexSet;
 use crate::query::environment::QueryEnvironment;

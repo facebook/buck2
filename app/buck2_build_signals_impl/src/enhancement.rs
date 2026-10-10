@@ -15,7 +15,7 @@ use std::time::Instant;
 use buck2_build_signals::env::WaitingCategory;
 use buck2_core::soft_error;
 use buck2_util::time_span::TimeSpan;
-use gazebo::variants::VariantName;
+use variant_name::VariantName;
 
 use crate::DetailedCriticalPathEntry;
 use crate::NodeExtraData;

@@ -45,7 +45,6 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
-use gazebo::variants::VariantName;
 use itertools::Itertools;
 use num_bigint::BigInt;
 use pagable::Pagable;
@@ -70,6 +69,7 @@ use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
+use variant_name::VariantName;
 
 use crate::bxl::eval::CliResolutionCtx;
 

@@ -11,7 +11,7 @@
 //! Type definitions for objects relating to the Versioned Graph
 
 use dupe::Dupe;
-use gazebo::variants::VariantName;
+use variant_name::VariantName;
 
 use crate::arc::Arc;
 use crate::core::graph::DiceCert;

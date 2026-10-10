@@ -14,8 +14,8 @@ use std::iter;
 
 use allocative::Allocative;
 use buck2_query_parser::spanned::Spanned;
-use gazebo::variants::VariantName;
 use itertools::Either;
+use variant_name::VariantName;
 
 use crate::query::environment::QueryTarget;
 use crate::query::syntax::simple::eval::error::QueryError;

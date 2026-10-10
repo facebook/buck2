@@ -23,10 +23,10 @@ use std::fmt::Display;
 
 use dupe::Dupe;
 use gazebo::prelude::OptionExt;
-use gazebo::variants::VariantName;
 use itertools::Itertools;
 use mini_vec::MiniVec;
 use thiserror::Error;
+use variant_name::VariantName;
 
 use crate::deps::graph::SPItem;
 use crate::deps::graph::SPSeriesHeader;

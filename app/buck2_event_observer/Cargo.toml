@@ -20,7 +20,6 @@ buck2_wrapper_common.workspace = true
 clap.workspace = true
 derivative.workspace = true
 dupe.workspace = true
-gazebo.workspace = true
 linked-hash-map.workspace = true
 prost-types.workspace = true
 regex.workspace = true
@@ -29,6 +28,7 @@ starlark_map.workspace = true
 superconsole.workspace = true
 termwiz.workspace = true
 tracing.workspace = true
+variant_name.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true

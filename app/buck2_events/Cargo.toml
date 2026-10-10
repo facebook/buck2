@@ -24,7 +24,6 @@ derive_more.workspace = true
 dupe.workspace = true
 fbinit.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 hostname.workspace = true
 is_proc_translated.workspace = true
 pin-project.workspace = true

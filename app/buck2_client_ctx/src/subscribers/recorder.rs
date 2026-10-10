@@ -71,10 +71,10 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use console::strip_ansi_codes;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
-use gazebo::variants::VariantName;
 use itertools::Itertools;
 use termwiz::istty::IsTty;
 use tokio::sync::mpsc::Receiver;
+use variant_name::VariantName;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;

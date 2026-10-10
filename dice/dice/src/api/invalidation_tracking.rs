@@ -32,7 +32,7 @@
 use std::sync::Arc;
 
 use dupe::Dupe;
-use gazebo::variants::VariantName;
+use variant_name::VariantName;
 
 pub use crate::api::dyn_key::DynKey;
 use crate::dice::Dice;

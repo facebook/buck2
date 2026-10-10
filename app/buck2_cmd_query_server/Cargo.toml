@@ -27,7 +27,6 @@ buck2_util.workspace = true
 dice.workspace = true
 dupe.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 indent_write.workspace = true
 regex.workspace = true
 serde.workspace = true

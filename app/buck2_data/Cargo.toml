@@ -14,7 +14,6 @@ buck2_miniperf_proto.workspace = true
 buck2_proto_serde.workspace = true
 derive_more.workspace = true
 dupe.workspace = true
-gazebo.workspace = true
 hex.workspace = true
 mini_vec.workspace = true
 pagable.workspace = true
@@ -23,6 +22,7 @@ prost-types.workspace = true
 serde.workspace = true
 tonic.workspace = true
 tonic-prost.workspace = true
+variant_name.workspace = true
 
 [build-dependencies]
 buck2_protoc_dev.workspace = true

@@ -36,7 +36,7 @@ use buck2_util::commas::commas;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use gazebo::variants::VariantName;
+use variant_name::VariantName;
 
 use crate::ctx::ServerCommandContext;
 

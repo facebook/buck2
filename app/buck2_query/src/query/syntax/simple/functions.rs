@@ -19,7 +19,7 @@ use buck2_query_derive::query_module;
 use buck2_query_parser::BinaryOp;
 use buck2_query_parser::Expr;
 use buck2_query_parser::spanned::Spanned;
-use gazebo::variants::VariantName;
+use variant_name::VariantName;
 
 use crate::query::environment::QueryEnvironment;
 use crate::query::syntax::simple::eval::error::QueryError;

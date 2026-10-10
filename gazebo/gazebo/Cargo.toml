@@ -11,9 +11,6 @@ repository.workspace = true
 license.workspace = true
 categories = ["rust-patterns"]
 
-[dependencies]
-gazebo_derive.workspace = true
-
 [features]
 str_pattern_extensions = []
 

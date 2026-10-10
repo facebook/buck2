@@ -66,6 +66,7 @@ tokio-util.workspace = true
 toml.workspace = true
 tonic.workspace = true
 tracing.workspace = true
+variant_name.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true

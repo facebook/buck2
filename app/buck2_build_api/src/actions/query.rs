@@ -41,13 +41,13 @@ use derivative::Derivative;
 use dice::DiceComputations;
 use dupe::Dupe;
 use either::Either;
-use gazebo::variants::VariantName;
 use internment::ArcIntern;
 use pagable::Pagable;
 use ref_cast::RefCast;
 use serde::Serialize;
 use starlark::values::Heap;
 use starlark::values::Value;
+use variant_name::VariantName;
 
 use crate::actions::RegisteredAction;
 use crate::analysis::AnalysisResult;

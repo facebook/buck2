@@ -68,7 +68,6 @@ use dice::DynKey;
 use dice::PageInPhase;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
-use gazebo::variants::VariantName;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
 use starlark_map::ordered_set::OrderedSet;
@@ -77,6 +76,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use variant_name::VariantName;
 
 use crate::backend::backend::BuildListenerBackend;
 use crate::backend::logging::LoggingBackend;

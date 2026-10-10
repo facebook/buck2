@@ -23,7 +23,7 @@ use buck2_util::early_command_timing::EarlyCommandTiming;
 use buck2_util::time_span::TimeSpan;
 use dice::UserComputationData;
 use dupe::Dupe;
-use gazebo::variants::VariantName;
+use variant_name::VariantName;
 
 use crate::error::CriticalPathError;
 

@@ -68,6 +68,7 @@ starlark_map.workspace = true
 strong_hash.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+variant_name.workspace = true
 
 [lints]
 workspace = true

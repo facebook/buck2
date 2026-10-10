@@ -16,8 +16,8 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_event_log::write::rewrite_event_log;
-use gazebo::variants::VariantName;
 use regex::RegexSet;
+use variant_name::VariantName;
 
 /// Re-encode an event log, dropping events whose name matches a filter.
 ///

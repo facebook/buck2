@@ -53,6 +53,7 @@ starlark.workspace = true
 starlark_map.workspace = true
 strong_hash.workspace = true
 tokio.workspace = true
+variant_name.workspace = true
 
 [dev-dependencies]
 buck2_anon_target.workspace = true

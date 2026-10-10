@@ -161,11 +161,12 @@ members = [
   "gazebo/dupe",
   "gazebo/dupe_derive",
   "gazebo/gazebo",
-  "gazebo/gazebo_derive",
   "gazebo/hmap",
   "gazebo/strong_hash",
   "gazebo/strong_hash_derive",
   "gazebo/strong_hash_tests",
+  "gazebo/variant_name",
+  "gazebo/variant_name_derive",
   "host_sharing",
   "integrations/resources/rust",
   "integrations/rust-project",
@@ -361,7 +362,6 @@ futures-intrusive = "0.5.0"
 fxhash = "0.2.1"
 games = { path = "games" }
 gazebo = { version = "0.8.1", path = "gazebo/gazebo", features = ["str_pattern_extensions"] }
-gazebo_derive = { version = "0.8.0", path = "gazebo/gazebo_derive" }
 glob = "0.3.4"
 globset = { version = "0.4.20", features = ["serde1"] }
 h2 = "0.4.19"
@@ -526,6 +526,8 @@ tracing-subscriber = { version = "0.3.23", features = ["chrono", "env-filter", "
 triomphe = { version = "0.1.16", features = ["arc-swap"] }
 twox-hash = "2.1.4"
 uuid = { version = "1.26.1", features = ["rng-getrandom", "serde", "v4", "v5", "v6", "v7", "v8"] }
+variant_name = { path = "gazebo/variant_name" }
+variant_name_derive = { path = "gazebo/variant_name_derive" }
 vec1 = { version = "1.12.1", features = ["serde"] }
 walkdir = "2.3"
 watchman_client = "0.9"

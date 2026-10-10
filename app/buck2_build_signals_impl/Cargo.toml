@@ -36,6 +36,7 @@ starlark_map.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 tracing.workspace = true
+variant_name.workspace = true
 
 [lints]
 workspace = true

@@ -21,8 +21,8 @@ use futures::future::BoxFuture;
 use futures::pin_mut;
 use futures::stream;
 use futures::stream::FuturesUnordered;
-use gazebo::variants::VariantName;
 use itertools::Either;
+use variant_name::VariantName;
 
 use crate::DynKey;
 use crate::api::activation_tracker::ActivationData;

@@ -20,7 +20,6 @@ derivative.workspace = true
 derive_more.workspace = true
 dupe.workspace = true
 either.workspace = true
-gazebo.workspace = true
 pagable.workspace = true
 serde.workspace = true
 starlark.workspace = true

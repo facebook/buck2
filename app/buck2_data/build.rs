@@ -37,39 +37,39 @@ fn main() -> io::Result<()> {
         )
         .type_attribute(
             "buck.data.BuckEvent.data",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.SpanStartEvent.data",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.SpanEndEvent.data",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.CommandStart.data",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.CommandEnd.data",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.CommandCriticalStart.data",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.CommandCriticalEnd.data",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.InstantEvent.data",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.RecordEvent.data",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.LocalStage.stage",
@@ -82,15 +82,15 @@ fn main() -> io::Result<()> {
         )
         .type_attribute(
             "buck.data.CommandExecution.status",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.ActionExecutionEnd.error",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.ActionError.error",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .field_attribute(
             "buck.data.CommandExecutionDetails.cmd_stderr",
@@ -102,31 +102,31 @@ fn main() -> io::Result<()> {
         )
         .type_attribute(
             "buck.data.CommandExecutionDetails.command",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.DynamicLambdaStart.owner",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.DeferredPreparationStageStart.stage",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.AnalysisStart.target",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.AnalysisEnd.target",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.ActionKind",
-            "#[derive(::gazebo::variants::VariantName, ::pagable::Pagable)]",
+            "#[derive(::variant_name::VariantName, ::pagable::Pagable)]",
         )
         .type_attribute(
             "buck.data.MaterializationMethod",
-            "#[derive(::gazebo::variants::VariantName)]",
+            "#[derive(::variant_name::VariantName)]",
         )
         .type_attribute("buck.data.CpuCounter", "#[derive(dupe::Dupe)]")
         .type_attribute("buck.data.CommandExecutionStats", "#[derive(dupe::Dupe)]")
@@ -237,19 +237,19 @@ fn main() -> io::Result<()> {
         )
         .type_attribute(
             "buck.data.CriticalPathEntry2.entry",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.CriticalPathEntry2.Analysis.target",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.CriticalPathEntry2.ActionExecution.owner",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.CriticalPathEntry2.Materialization.owner",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .type_attribute(
             "buck.data.StarlarkUserMetadataDictValue",
@@ -269,7 +269,7 @@ fn main() -> io::Result<()> {
         )
         .type_attribute(
             "buck.data.CommandExecutionKind.command",
-            "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
+            "#[derive(::derive_more::From, ::variant_name::VariantName)]",
         )
         .field_attribute(
             "buck.data.Invocation.expanded_command_line_args",

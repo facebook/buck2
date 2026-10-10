@@ -27,9 +27,9 @@ use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use gazebo::prelude::*;
-use gazebo::variants::VariantName;
 use pagable::Pagable;
 use pagable::pagable_typetag;
+use variant_name::VariantName;
 
 #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash, Pagable)]
 #[pagable_typetag(DiceKeyDyn)]

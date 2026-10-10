@@ -940,7 +940,6 @@ dependencies = [
  "derive_more 2.1.1",
  "dupe",
  "either",
- "gazebo",
  "pagable",
  "serde",
  "serde_json",
@@ -1014,6 +1013,7 @@ dependencies = [
  "strong_hash",
  "tokio",
  "tracing",
+ "variant_name",
 ]
 
 [[package]]
@@ -1099,8 +1099,8 @@ dependencies = [
  "derive_more 2.1.1",
  "dice",
  "dupe",
- "gazebo",
  "tokio",
+ "variant_name",
 ]
 
 [[package]]
@@ -1135,6 +1135,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "variant_name",
 ]
 
 [[package]]
@@ -1190,6 +1191,7 @@ dependencies = [
  "starlark_map",
  "strong_hash",
  "tokio",
+ "variant_name",
 ]
 
 [[package]]
@@ -1366,6 +1368,7 @@ dependencies = [
  "toml",
  "tonic",
  "tracing",
+ "variant_name",
  "windows-sys 0.61.2",
 ]
 
@@ -1526,7 +1529,6 @@ dependencies = [
  "csv",
  "dupe",
  "futures 0.3.34",
- "gazebo",
  "linked-hash-map",
  "prost",
  "prost-types",
@@ -1538,6 +1540,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-stream",
+ "variant_name",
  "zstd",
 ]
 
@@ -1564,7 +1567,6 @@ dependencies = [
  "dice",
  "dupe",
  "futures 0.3.34",
- "gazebo",
  "indent_write",
  "regex",
  "serde",
@@ -1756,6 +1758,7 @@ dependencies = [
  "tower",
  "tracing",
  "triomphe",
+ "variant_name",
  "xattr",
 ]
 
@@ -1918,7 +1921,6 @@ dependencies = [
  "buck2_protoc_dev",
  "derive_more 2.1.1",
  "dupe",
- "gazebo",
  "hex",
  "mini_vec",
  "pagable",
@@ -1927,6 +1929,7 @@ dependencies = [
  "serde",
  "tonic",
  "tonic-prost",
+ "variant_name",
 ]
 
 [[package]]
@@ -1945,7 +1948,6 @@ dependencies = [
  "derive_more 2.1.1",
  "dupe",
  "either",
- "gazebo",
  "mini_vec",
  "pagable",
  "sorted_vector_map",
@@ -2121,7 +2123,6 @@ dependencies = [
  "clap",
  "derivative",
  "dupe",
- "gazebo",
  "linked-hash-map",
  "prost-types",
  "regex",
@@ -2130,6 +2131,7 @@ dependencies = [
  "superconsole",
  "termwiz",
  "tracing",
+ "variant_name",
 ]
 
 [[package]]
@@ -2152,7 +2154,6 @@ dependencies = [
  "dupe",
  "fbinit",
  "futures 0.3.34",
- "gazebo",
  "hostname",
  "is_proc_translated",
  "pin-project",
@@ -2420,11 +2421,11 @@ dependencies = [
  "buck2_data",
  "buck2_protoc_dev",
  "derive_more 2.1.1",
- "gazebo",
  "prost",
  "prost-types",
  "tonic",
  "tonic-prost",
+ "variant_name",
 ]
 
 [[package]]
@@ -2588,7 +2589,6 @@ dependencies = [
  "either",
  "fancy-regex 0.19.2",
  "futures 0.3.34",
- "gazebo",
  "itertools 0.15.0",
  "pagable",
  "plist",
@@ -2849,6 +2849,7 @@ dependencies = [
  "starlark_map",
  "tokio",
  "tracing",
+ "variant_name",
 ]
 
 [[package]]
@@ -2910,6 +2911,7 @@ dependencies = [
  "gazebo",
  "nom 8.0.0",
  "nom-language",
+ "variant_name",
 ]
 
 [[package]]
@@ -3025,6 +3027,7 @@ dependencies = [
  "tonic",
  "tower-lsp-server",
  "tracing",
+ "variant_name",
 ]
 
 [[package]]
@@ -4236,6 +4239,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "variant_name",
 ]
 
 [[package]]
@@ -4314,6 +4318,7 @@ dependencies = [
  "parking_lot 0.12.5",
  "tempfile",
  "tokio",
+ "variant_name",
 ]
 
 [[package]]
@@ -4931,17 +4936,6 @@ dependencies = [
 [[package]]
 name = "gazebo"
 version = "0.8.1"
-dependencies = [
- "gazebo_derive",
-]
-
-[[package]]
-name = "gazebo_derive"
-version = "0.8.0"
-dependencies = [
- "quote",
- "syn 3.0.6",
-]
 
 [[package]]
 name = "generic-array"
@@ -9758,6 +9752,21 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
+
+[[package]]
+name = "variant_name"
+version = "0.1.0"
+dependencies = [
+ "variant_name_derive",
+]
+
+[[package]]
+name = "variant_name_derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 3.0.6",
+]
 
 [[package]]
 name = "vcpkg"

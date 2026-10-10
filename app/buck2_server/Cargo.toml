@@ -79,6 +79,7 @@ tokio-stream.workspace = true
 tonic.workspace = true
 tower-lsp-server.workspace = true
 tracing.workspace = true
+variant_name.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true

@@ -100,13 +100,13 @@ use dice::BranchId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
-use gazebo::variants::VariantName;
 use host_sharing::NamedSemaphores;
 use remote::ScribeConfig;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 use tokio::sync::OnceCell;
 use tracing::Instrument;
+use variant_name::VariantName;
 
 use crate::active_commands::ActiveCommandDropGuard;
 use crate::ctx::BaseServerCommandContext;

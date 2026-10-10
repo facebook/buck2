@@ -16,7 +16,7 @@ use std::str::FromStr;
 use allocative::Allocative;
 pub use dice_error::cycles::DetectCyclesParseError;
 use dupe::Dupe;
-use gazebo::variants::VariantName;
+use variant_name::VariantName;
 
 #[derive(Clone, Dupe, Copy, Debug, VariantName, Allocative)]
 pub enum DetectCycles {

@@ -24,8 +24,8 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use compact_str::CompactString;
 use derive_more::Display;
 use dupe::Dupe;
-use gazebo::variants::VariantName;
 use pagable::Pagable;
+use variant_name::VariantName;
 
 use crate::cas_digest::CasDigest;
 use crate::cas_digest::CasDigestConfig;

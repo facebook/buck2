@@ -54,7 +54,6 @@ use std::fmt::Display;
 use dupe::Dupe;
 use enum_map::Enum;
 use gazebo::prelude::*;
-use gazebo::variants::VariantName;
 use nom::IResult;
 use nom::Parser as _;
 use nom::branch::alt;
@@ -81,6 +80,7 @@ use nom::sequence::preceded;
 use nom::sequence::terminated;
 use nom_language::error::VerboseError;
 use nom_language::error::convert_error;
+use variant_name::VariantName;
 
 use crate::span::Span;
 use crate::spanned::Spanned;

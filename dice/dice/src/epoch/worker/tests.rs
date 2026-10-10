@@ -27,7 +27,6 @@ use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use futures::pin_mut;
 use gazebo::prelude::SliceExt;
-use gazebo::variants::VariantName;
 use itertools::Either;
 use pagable::Pagable;
 use pagable::PagablePanic;
@@ -35,6 +34,7 @@ use pagable::pagable_typetag;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio::sync::Semaphore;
+use variant_name::VariantName;
 
 use crate::BranchId;
 use crate::DetectCycles;

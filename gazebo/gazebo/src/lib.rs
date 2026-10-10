@@ -14,4 +14,3 @@
 
 pub(crate) mod ext;
 pub mod prelude;
-pub mod variants;

@@ -13,7 +13,7 @@ rust_protobuf_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:prost-types",
         "//buck2/app/buck2_data:buck2_data",
-        "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/gazebo/variant_name:variant_name",
     ],
 )
 

@@ -19,7 +19,7 @@ use buck2_query_parser::Expr;
 use buck2_query_parser::SpannedExpr;
 use buck2_query_parser::spanned::Spanned;
 use enum_iterator::Sequence;
-use gazebo::variants::VariantName;
+use variant_name::VariantName;
 
 use crate::query::environment::QueryEnvironment;
 use crate::query::syntax::simple::eval::error::QueryError;

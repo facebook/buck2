@@ -27,7 +27,6 @@ clap.workspace = true
 csv.workspace = true
 dupe.workspace = true
 futures.workspace = true
-gazebo.workspace = true
 linked-hash-map.workspace = true
 prost-types.workspace = true
 regex.workspace = true
@@ -37,6 +36,7 @@ similar.workspace = true
 superconsole.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
+variant_name.workspace = true
 
 [dev-dependencies]
 prost.workspace = true

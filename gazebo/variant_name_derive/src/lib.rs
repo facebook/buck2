@@ -8,13 +8,26 @@
  * above-listed licenses.
  */
 
+//! Derive macro for the `variant_name` crate, which re-exports it. Use it from there.
+
 use quote::quote;
 use syn::Data;
 use syn::DeriveInput;
 use syn::Fields;
+use syn::parse_macro_input;
 use syn::spanned::Spanned;
 
-pub(crate) fn derive_variant_names(input: DeriveInput) -> syn::Result<proc_macro::TokenStream> {
+#[proc_macro_derive(VariantName)]
+pub fn derive_variant_name(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    match derive_variant_name_impl(input) {
+        Ok(tokens) => tokens,
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+fn derive_variant_name_impl(input: DeriveInput) -> syn::Result<proc_macro::TokenStream> {
     if let Data::Enum(data_enum) = input.data {
         let mut variant_body = Vec::new();
         let mut variant_lowercase_body = Vec::new();
@@ -39,7 +52,7 @@ pub(crate) fn derive_variant_names(input: DeriveInput) -> syn::Result<proc_macro
         let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
         let r#gen = quote! {
-            impl #impl_generics gazebo::variants::VariantName for #name #ty_generics #where_clause {
+            impl #impl_generics ::variant_name::VariantName for #name #ty_generics #where_clause {
                 fn variant_name(&self) -> &'static str {
                     match self {
                         #(#variant_body,)*

@@ -8,26 +8,29 @@
  * above-listed licenses.
  */
 
-//! Working with the variants of an `enum`.
+//! The name of an enum's current variant, for debug output and metrics.
+//!
+//! ```
+//! use variant_name::VariantName;
+//!
+//! #[derive(VariantName)]
+//! enum Foo {
+//!     Bar,
+//!     Baz(usize),
+//!     Qux { i: usize },
+//! }
+//!
+//! assert_eq!(Foo::Bar.variant_name(), "Bar");
+//! assert_eq!(Foo::Baz(1).variant_name(), "Baz");
+//! assert_eq!(Foo::Qux { i: 1 }.variant_name(), "Qux");
+//! ```
 
-/// Trait for enums to return the name of the current variant as a `str`. Useful for
-/// debugging messages.
-///
-/// ```
-/// use gazebo::variants::VariantName;
-///
-/// #[derive(VariantName)]
-/// enum Foo {
-///     Bar,
-///     Baz(usize),
-///     Qux { i: usize },
-/// }
-///
-/// assert_eq!(Foo::Bar.variant_name(), "Bar");
-/// assert_eq!(Foo::Baz(1).variant_name(), "Baz");
-/// assert_eq!(Foo::Qux { i: 1 }.variant_name(), "Qux");
-/// ```
-pub use gazebo_derive::VariantName;
+// The derive refers to this crate by name, which is also what makes it work in this crate's own
+// tests.
+#[cfg(test)]
+extern crate self as variant_name;
+
+pub use variant_name_derive::VariantName;
 
 pub trait VariantName {
     fn variant_name(&self) -> &'static str;
@@ -70,8 +73,6 @@ impl<T, E> VariantName for Result<T, E> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[allow(unused_imports)] // Not actually unused, this makes testing the derive macro work
-    use crate as gazebo;
 
     #[test]
     fn derive_variant_names() {
