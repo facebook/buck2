@@ -1723,13 +1723,13 @@ impl Action for RunAction {
             if let Some(tracer) = TracingIoProvider::from_io(io_provider) {
                 for output in self.outputs.iter() {
                     if let Some(value) = outputs.get(output.get_path()) {
-                        let offline_cache_path = offline::declare_copy_to_offline_output_cache(
+                        offline::declare_copy_to_offline_output_cache(
                             ctx,
+                            tracer,
                             output,
                             value.dupe(),
                         )
                         .await?;
-                        tracer.add_buck_out_entry(offline_cache_path);
                     }
                 }
             }

@@ -8,10 +8,13 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
+
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_common::file_ops::metadata::FileDigestConfig;
+use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::INTERNER;
@@ -20,23 +23,26 @@ use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_hash::BuckIndexMap;
 use dupe::Dupe;
 
-/// Declares a copy materialization to copy the output BuildArtifact to the
-/// offline cache for use in an offline build. Returns the project-relative path
-/// to the offline cached file.
+/// Declares a copy of the output artifact into the offline cache for use in an offline build,
+/// and records the copy in the trace with its value, so that exporting the trace can
+/// materialize it.
 pub(crate) async fn declare_copy_to_offline_output_cache(
     ctx: &dyn ActionExecutionCtx,
+    tracer: &TracingIoProvider,
     output: &BuildArtifact,
     value: ArtifactValue,
-) -> buck2_error::Result<ProjectRelativePathBuf> {
+) -> buck2_error::Result<()> {
     let build_path = ctx
         .fs()
         .resolve_build(output.get_path(), Some(&value.content_based_path_hash()))?;
     let offline_cache_path = ctx
         .fs()
         .resolve_offline_output_cache_path(output.get_path())?;
+    let traced_value = Arc::new(value.dupe());
     declare_copy_materialization(ctx, build_path, offline_cache_path.clone(), value).await?;
+    tracer.add_buck_out_entry(offline_cache_path, traced_value);
 
-    Ok(offline_cache_path)
+    Ok(())
 }
 
 /// Declares copy materializations to copy offline-cached BuildArtifact outputs

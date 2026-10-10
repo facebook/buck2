@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::any::Any;
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -15,6 +16,7 @@ use allocative::Allocative;
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileMetadata;
+use buck2_common::io::trace::TracedBuckOutValue;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_util::strong_hasher::Blake3StrongHasher;
@@ -174,5 +176,11 @@ impl ArtifactValue {
             }
         }
         .expect("Constructed valid content-based path hash")
+    }
+}
+
+impl TracedBuckOutValue for ArtifactValue {
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

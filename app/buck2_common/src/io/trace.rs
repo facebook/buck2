@@ -8,11 +8,15 @@
  * above-listed licenses.
  */
 
+use std::any::Any;
+use std::sync::Arc;
+
 use allocative::Allocative;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::BuckDashMap;
 use buck2_hash::BuckDashSet;
 
 use crate::file_ops::metadata::RawPathMetadata;
@@ -26,10 +30,18 @@ pub struct Symlink {
     pub to: RawSymlink<ProjectRelativePathBuf>,
 }
 
+/// The value recorded with a buck-out entry of the trace, so that exporting the trace can ask the
+/// materializer for the entry together with the value it was produced with. The concrete type is
+/// `buck2_execute`'s `ArtifactValue`, which lives above this crate; readers downcast through
+/// `as_any`.
+pub trait TracedBuckOutValue: Any + Send + Sync + Allocative {
+    fn as_any(&self) -> &dyn Any;
+}
+
 #[derive(Allocative)]
 pub struct Trace {
     pub project_entries: BuckDashSet<ProjectRelativePathBuf>,
-    pub buck_out_entries: BuckDashSet<ProjectRelativePathBuf>,
+    pub buck_out_entries: BuckDashMap<ProjectRelativePathBuf, Arc<dyn TracedBuckOutValue>>,
     pub external_entries: BuckDashSet<AbsNormPathBuf>,
     pub symlinks: BuckDashSet<Symlink>,
 }
@@ -38,7 +50,7 @@ impl Trace {
     pub fn new() -> Self {
         Self {
             project_entries: BuckDashSet::default(),
-            buck_out_entries: BuckDashSet::default(),
+            buck_out_entries: BuckDashMap::default(),
             external_entries: BuckDashSet::default(),
             symlinks: BuckDashSet::default(),
         }
@@ -52,10 +64,10 @@ impl Trace {
             .collect()
     }
 
-    pub fn buck_out_entries(&self) -> Vec<ProjectRelativePathBuf> {
+    pub fn buck_out_entries(&self) -> Vec<(ProjectRelativePathBuf, Arc<dyn TracedBuckOutValue>)> {
         self.buck_out_entries
             .iter()
-            .map(|path| path.key().to_buf())
+            .map(|entry| (entry.key().to_buf(), entry.value().clone()))
             .collect()
     }
 
@@ -89,8 +101,12 @@ impl TracingIoProvider {
         self.trace.project_entries.insert(path);
     }
 
-    pub fn add_buck_out_entry(&self, entry: ProjectRelativePathBuf) {
-        self.trace.buck_out_entries.insert(entry);
+    pub fn add_buck_out_entry(
+        &self,
+        entry: ProjectRelativePathBuf,
+        value: Arc<dyn TracedBuckOutValue>,
+    ) {
+        self.trace.buck_out_entries.insert(entry, value);
     }
 
     pub fn add_external_path(&self, path: AbsNormPathBuf) {
