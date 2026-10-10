@@ -1330,6 +1330,8 @@ message Snapshot {
   uint64 dep_file_db_delete_duration_us = 462;
   uint64 dep_file_db_clears = 463;
   uint64 dep_file_db_clear_duration_us = 464;
+  uint64 dep_file_db_touches = 472;
+  uint64 dep_file_db_touch_duration_us = 473;
   // Entries actually served from disk: the row survived re-validation and its
   // outputs were still materialized. Strictly fewer than `fetches_found`, which
   // only says the row existed.

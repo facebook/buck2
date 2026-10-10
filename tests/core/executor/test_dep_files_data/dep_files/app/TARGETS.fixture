@@ -71,6 +71,11 @@ dir_output_dep_file(
     unused_input_contents = read_config("test", "unused_input_contents", "default"),
 )
 
+anon_dep_file(
+    name = "anon_dep_file",
+    used_input_contents = read_config("test", "used_input_contents", "default"),
+)
+
 path_args(
     name = "persisted_dep_file_output_args",
     src = ":simple_dep_file",
