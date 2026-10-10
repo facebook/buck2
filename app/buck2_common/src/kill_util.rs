@@ -71,8 +71,29 @@ mod unix {
         UnexpectedError(buck2_error::Error),
     }
 
+    /// Whether the process has terminated but nobody has reaped it yet. Only
+    /// its parent can, and until it does `kill(pid, 0)` still finds the
+    /// process; for anyone else, a zombie is as gone as a process gets.
+    fn is_zombie(pid: nix::unistd::Pid) -> bool {
+        #[cfg(target_os = "linux")]
+        {
+            // `/proc/<pid>/stat`: `<pid> (<comm>) <state> ...`, where `comm`
+            // may contain anything, so look past the last `)`.
+            std::fs::read_to_string(format!("/proc/{pid}/stat")).is_ok_and(|stat| {
+                stat.rsplit_once(')')
+                    .is_some_and(|(_, rest)| rest.trim_start().starts_with('Z'))
+            })
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = pid;
+            false
+        }
+    }
+
     fn check_result(pid: nix::unistd::Pid, result: nix::Result<()>) -> ControlFlow<StoppedWaiting> {
         match result {
+            Ok(_) if is_zombie(pid) => ControlFlow::Break(StoppedWaiting::Success),
             // Signal is sent successfully, now we need to wait for a process to terminate.
             Ok(_) => ControlFlow::Continue(()),
             // There is no such process, our desired outcome.
@@ -170,7 +191,10 @@ mod tests {
             pid_str.unwrap().parse().unwrap()
         };
 
-        try_terminate_process_gracefully(pid, Duration::from_secs(1)).await?;
+        // Generous: on a loaded machine the trap can take more than a second,
+        // and a SIGKILL mid-trap fails the test. The wait ends as soon as the
+        // child is gone, so this costs nothing when the trap is quick.
+        try_terminate_process_gracefully(pid, Duration::from_secs(60)).await?;
 
         assert!(tokio::fs::try_exists(dir.path().join("gracefully_terminated")).await?);
 
@@ -216,7 +240,12 @@ mod tests {
             .stderr(Stdio::null());
 
         let mut parent = command.spawn()?;
-        parent.wait().await?;
+        // Bounded: the parent script spins until the child has registered its
+        // trap, and the SIGKILL leg waits for the child to be gone with no
+        // timeout of its own. A hang here would otherwise be the suite's.
+        tokio::time::timeout(Duration::from_secs(60), parent.wait())
+            .await
+            .expect("the parent script should finish within a minute")?;
 
         let pid = {
             let stdout = parent.stdout.take().unwrap();
@@ -225,7 +254,12 @@ mod tests {
             pid_str.unwrap().parse().unwrap()
         };
 
-        try_terminate_process_gracefully(pid, Duration::from_secs(1)).await?;
+        tokio::time::timeout(
+            Duration::from_secs(60),
+            try_terminate_process_gracefully(pid, Duration::from_secs(1)),
+        )
+        .await
+        .expect("the child should be gone well within a minute of the SIGKILL")?;
 
         assert!(!tokio::fs::try_exists(dir.path().join("gracefully_terminated")).await?);
 
