@@ -12,16 +12,6 @@
 
 //! A collection of well-tested primitives that have been useful. Most modules stand alone.
 
-pub mod cast;
-pub mod cell;
-pub mod cmp;
 pub(crate) mod ext;
-pub mod file;
-pub mod hash;
-pub mod phantom;
 pub mod prelude;
-pub mod types;
 pub mod variants;
-
-#[cfg(test)]
-mod test;

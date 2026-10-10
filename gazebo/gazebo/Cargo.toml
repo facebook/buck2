@@ -12,7 +12,6 @@ license.workspace = true
 categories = ["rust-patterns"]
 
 [dependencies]
-dupe.workspace = true
 gazebo_derive.workspace = true
 
 [features]

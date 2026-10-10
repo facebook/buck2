@@ -4933,7 +4933,6 @@ dependencies = [
 name = "gazebo"
 version = "0.8.1"
 dependencies = [
- "dupe",
  "gazebo_derive",
 ]
 

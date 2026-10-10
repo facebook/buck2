@@ -8,55 +8,13 @@
  * above-listed licenses.
  */
 
-//! Standard functions. Usually imported with `use gazebo::prelude::*`.
-//!
-//! Contains:
-//!
-//! * Extension methods for [`str`] and slice/[`Vec`].
-//! * Defines [`Default_`] macro.
-//!
-//! The derivation macros appended with underscore are like the normal
-//! derivations, but don't require the trait on any argument types.
-//! For example, given the type:
-//!
-//! ```rust
-//! # use gazebo::prelude::*;
-//! #[derive(Default_)]
-//! struct Foo<T>(std::marker::PhantomData<T>);
-//! ```
-pub use gazebo_derive::Default_;
+//! Extension methods for iterators, [`Option`] and slice/[`Vec`]. Usually imported with
+//! `use gazebo::prelude::*`.
 
 pub use crate::ext::iter::IterExactSize;
 pub use crate::ext::iter::IterExt;
 pub use crate::ext::iter::IterOwned;
 pub use crate::ext::option::OptionExt;
 pub use crate::ext::vec::SliceClonedExt;
-pub use crate::ext::vec::SliceCopiedExt;
-pub use crate::ext::vec::SliceDupedExt;
 pub use crate::ext::vec::SliceExt;
 pub use crate::ext::vec::VecExt;
-
-#[cfg(test)]
-mod tests {
-    use std::sync::Arc;
-
-    use dupe::Clone_;
-
-    struct NoTraits();
-
-    #[derive(Clone_)]
-    struct Foo<A> {
-        foo: Arc<A>,
-    }
-
-    #[test]
-    fn test() {
-        let x = Foo {
-            foo: Arc::new(NoTraits()),
-        };
-        let x2 = x.clone();
-        // Now make it clear to clippy that all those clones were important
-        std::mem::drop(x2);
-        std::mem::drop(x);
-    }
-}

@@ -17,16 +17,7 @@ extern crate proc_macro;
 use syn::DeriveInput;
 use syn::parse_macro_input;
 
-mod default;
 mod variant;
-
-/// Derive the [`Default` trait](Default), but without requiring all type arguments to implement [`Default`].
-#[proc_macro_derive(Default_)]
-pub fn derive_default_(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
-    default::derive_default_(input)
-}
 
 /// Derive the `VariantName` trait.
 #[proc_macro_derive(VariantName)]
