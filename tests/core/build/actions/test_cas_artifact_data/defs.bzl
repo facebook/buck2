@@ -21,3 +21,24 @@ cas_artifact_out_of_range_expiration = rule(
     impl = _cas_artifact_out_of_range_expiration_impl,
     attrs = {},
 )
+
+def _cas_artifact_impl(ctx):
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
+    ctx.actions.cas_artifact(
+        out.as_output(),
+        ctx.attrs.digest,
+        ctx.attrs.use_case,
+        expires_after_timestamp = ctx.attrs.expires_after_timestamp,
+        has_content_based_path = False,
+    )
+    return [DefaultInfo(default_output = out)]
+
+# A file `cas_artifact` whose digest and use case come from the test.
+cas_artifact = rule(
+    impl = _cas_artifact_impl,
+    attrs = {
+        "digest": attrs.string(),
+        "expires_after_timestamp": attrs.int(default = 0),
+        "use_case": attrs.string(default = "buck2-testing"),
+    },
+)

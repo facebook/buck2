@@ -33,6 +33,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
+use buck2_error::ErrorTag;
 use buck2_error::internal_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
@@ -43,6 +44,8 @@ use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
+use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::presence::NegativeCache;
 use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
 use jiff::SignedDuration;
@@ -73,6 +76,12 @@ enum CasArtifactActionExecutionError {
         declared_expiration: Timestamp,
         effective_expiration: Timestamp,
         updated_expiration: Timestamp,
+    },
+    #[error("The digest `{digest}` was not found in the CAS under use case `{use_case}`")]
+    #[buck2(tag = DeclaredArtifactNotFound)]
+    NotFound {
+        digest: FileDigest,
+        use_case: RemoteExecutorUseCase,
     },
 }
 
@@ -123,6 +132,17 @@ struct CasArtifactAction {
     inner: UnregisteredCasArtifactAction,
 }
 
+/// How [`CasArtifactAction::expiration_of`] asks.
+#[derive(Clone, Copy)]
+enum Lookup {
+    /// Through the presence check: answered from an expiration the digest already carries when
+    /// that is fresh, and recorded on it otherwise.
+    Shared,
+    /// Straight from RE, recording nothing. For a read that must not trust what the digest
+    /// carries: right after the blob's TTL was extended, the digest still carries the old one.
+    Direct,
+}
+
 impl CasArtifactAction {
     fn new(
         outputs: BuckIndexSet<BuildArtifact>,
@@ -141,6 +161,53 @@ impl CasArtifactAction {
         };
 
         Ok(Self { output, inner })
+    }
+
+    /// When the CAS behind `re_client` will drop the digest, or `None` when it does not have it.
+    /// The read is authoritative: a stale miss would fail the build.
+    async fn expiration_of(
+        &self,
+        ctx: &dyn ActionExecutionCtx,
+        re_client: &ManagedRemoteExecutionClient,
+        info: &CasDownloadInfo,
+        lookup: Lookup,
+    ) -> buck2_error::Result<Option<Timestamp>> {
+        let context = || {
+            format!(
+                "Error accessing digest expiration for: `{}`",
+                self.inner.digest,
+            )
+        };
+        match lookup {
+            Lookup::Shared => {
+                let digest = TrackedFileDigest::new(
+                    self.inner.digest.dupe(),
+                    ctx.digest_config().cas_digest_config(),
+                );
+                re_client
+                    .check_presence(vec![digest], NegativeCache::Bypassed, info)
+                    .await
+                    .with_buck_error_context(context)?
+                    .into_iter()
+                    .next()
+                    .internal_error("check_presence did not return anything")
+                    .tag(ErrorTag::ReCasArtifactGetDigestExpirationError)
+            }
+            Lookup::Direct => {
+                let now = Timestamp::now();
+                let expiration = re_client
+                    .get_digest_expirations(vec![self.inner.digest.to_re()], info)
+                    .await
+                    .with_buck_error_context(context)?
+                    .into_iter()
+                    .next()
+                    .internal_error("get_digest_expirations did not return anything")
+                    .tag(ErrorTag::ReCasArtifactGetDigestExpirationError)?
+                    .1;
+                // RE reports a missing blob as one that expired in the past.
+                Ok((expiration > now).then_some(expiration))
+            }
+        }
     }
 
     async fn execute_for_offline(
@@ -202,31 +269,21 @@ impl Action for CasArtifactAction {
         let re_client = ctx.re_client().with_use_case(self.inner.re_use_case);
         let cas_download_info = Arc::new(CasDownloadInfo::new_declared(self.inner.re_use_case));
 
-        let get_expiration = || async {
-            buck2_error::Ok(
-                re_client
-                    .get_digest_expirations(
-                        vec![self.inner.digest.to_re()],
-                        cas_download_info.as_ref(),
-                    )
-                    .await
-                    .with_buck_error_context(|| {
-                        format!(
-                            "Error accessing digest expiration for: `{}`",
-                            self.inner.digest,
-                        )
-                    })?
-                    .into_iter()
-                    .next()
-                    .ok_or_else(|| {
-                        internal_error!("get_digest_expirations did not return anything")
+        // Shared reborrows, so that the closure can be called more than once.
+        let ctx_ref: &dyn ActionExecutionCtx = ctx;
+        let (re_client_ref, info_ref) = (&re_client, &cas_download_info);
+        let get_expiration = |lookup: Lookup| async move {
+            self.expiration_of(ctx_ref, re_client_ref, info_ref, lookup)
+                .await?
+                .ok_or_else(|| {
+                    buck2_error::Error::from(CasArtifactActionExecutionError::NotFound {
+                        digest: self.inner.digest.dupe(),
+                        use_case: self.inner.re_use_case,
                     })
-                    .tag(buck2_error::ErrorTag::ReCasArtifactGetDigestExpirationError)?
-                    .1,
-            )
+                })
         };
 
-        let expiration = get_expiration().await?;
+        let expiration = get_expiration(Lookup::Shared).await?;
 
         if expiration < self.inner.expires_after {
             // The expires_after mechanism is intended to support users storing prebuilt artifacts in cas and asserting that their builds will continue
@@ -251,7 +308,7 @@ impl Action for CasArtifactAction {
                 .await?;
 
             // We were able to extend the ttl, so this won't be failing builds, but we need to report it so we can track it.
-            let new_expiration = get_expiration().await?;
+            let new_expiration = get_expiration(Lookup::Direct).await?;
             let error: buck2_error::Error = CasArtifactActionExecutionError::InvalidExpiration {
                 digest: self.inner.digest.dupe(),
                 declared_expiration: self.inner.expires_after,

@@ -1,5 +1,11 @@
-load(":defs.bzl", "cas_artifact_out_of_range_expiration")
+load(":defs.bzl", "cas_artifact", "cas_artifact_out_of_range_expiration")
 
 cas_artifact_out_of_range_expiration(
     name = "out_of_range_expiration",
+)
+
+# A digest nothing has ever uploaded: the sha1 of a string the test invents.
+cas_artifact(
+    name = "missing",
+    digest = read_config("test", "missing_digest", "da39a3ee5e6b4b0d3255bfef95601890afd80709:0"),
 )
