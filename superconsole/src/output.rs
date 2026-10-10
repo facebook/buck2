@@ -173,7 +173,10 @@ impl NonBlockingSuperConsoleOutput {
                         OutputTarget::Main => &mut stream,
                         OutputTarget::Aux => &mut aux_stream as &mut dyn Write,
                     };
-                    match out_stream.write_all(&data).and_then(|()| stream.flush()) {
+                    match out_stream
+                        .write_all(&data)
+                        .and_then(|()| out_stream.flush())
+                    {
                         Ok(()) => {}
                         Err(e) => {
                             // This can only fail if the sender disconnected, in which case they'll
@@ -406,11 +409,10 @@ mod tests {
         log.lock().unwrap().clone()
     }
 
-    /// The writer thread flushes the main stream after an aux write and never flushes the aux
-    /// stream, unlike the blocking output.
+    /// Both outputs flush the stream they wrote to.
     #[test]
-    fn test_non_blocking_aux_write_flushes_main_not_aux() {
+    fn test_non_blocking_aux_write_flushes_aux() {
         assert_eq!(aux_write_log(true), vec!["aux write 9", "aux flush"]);
-        assert_eq!(aux_write_log(false), vec!["aux write 9", "main flush"]);
+        assert_eq!(aux_write_log(false), vec!["aux write 9", "aux flush"]);
     }
 }
