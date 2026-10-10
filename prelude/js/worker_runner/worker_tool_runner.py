@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -197,12 +198,22 @@ def _perform_termination(worker):
 
 
 def _maybe_expand_worker_arg(arg, envs) -> str:
-    expanded_arg = arg
-    if "$" in arg:
-        for k, v in os.environ.items():
-            expanded_arg = expanded_arg.replace("${}".format(k), v)
-            expanded_arg = expanded_arg.replace("${}{}{}".format("{", k, "}"), v)
-    return expanded_arg
+    """Expand `$NAME` and `${NAME}` references in a worker argument.
+
+    `NAME` is a whole identifier (`[A-Za-z_][A-Za-z0-9_]*`), so `$AB` looks up
+    `AB` and is never read as `$A` followed by `B`. Values come from `envs`, the
+    environment prepared for the worker from the env file, not from this
+    process's `os.environ`. A reference to a name that is not in `envs` is left
+    as written.
+    """
+
+    def expand(match):
+        name = match.group(1) or match.group(2)
+        return envs.get(name, match.group(0))
+
+    return re.sub(
+        r"\$([A-Za-z_][A-Za-z0-9_]*)|\$\{([A-Za-z_][A-Za-z0-9_]*)\}", expand, arg
+    )
 
 
 def _println(line):
