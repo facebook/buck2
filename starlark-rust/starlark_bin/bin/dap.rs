@@ -369,6 +369,20 @@ mod tests {
         handle.join().unwrap()
     }
 
+    /// `arguments` is optional in the protocol, but `dispatch` unwraps it.
+    #[test]
+    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
+    fn disconnect_without_arguments_panics() {
+        let harness = TestHarness::new();
+        let request = Request {
+            arguments: None,
+            command: "disconnect".to_owned(),
+            seq: 1,
+            type_: "request".to_owned(),
+        };
+        dispatch(&harness.backend, &request);
+    }
+
     fn dap_request(args: impl serde::Serialize, command: &str, seq: i64) -> Request {
         Request {
             arguments: Some(serde_json::to_value(args).unwrap()),
