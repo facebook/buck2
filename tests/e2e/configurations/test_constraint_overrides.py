@@ -18,7 +18,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 REGISTRIES = ["", "prelude//:constraint_override_registry", "root//:registry"]
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_constraint_override_registry_equivalence(buck: Buck) -> None:
     expected = {
         "unchanged": ["red", "keep"],
@@ -42,7 +42,7 @@ async def test_constraint_override_registry_equivalence(buck: Buck) -> None:
         assert "root//:original#" in query.stdout
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_constraint_override_registry_errors_and_invalidation(buck: Buck) -> None:
     for registry in REGISTRIES:
         config = ["-c", f"buck2.constraint_override_registry={registry}"]
@@ -77,7 +77,7 @@ async def test_constraint_override_registry_errors_and_invalidation(buck: Buck) 
             path.write_text(original)
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_legacy_constraint_override_private_visibility(buck: Buck) -> None:
     path = buck.cwd / "TARGETS.fixture"
     path.write_text(
@@ -135,7 +135,7 @@ value(name = "enabled", setting = ":opt_cxx")""",
         )
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_python_constraint_override_registry(buck: Buck) -> None:
     _write_python_constraints(buck.cwd)
     config = buck.cwd / ".buckconfig"
