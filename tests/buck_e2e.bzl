@@ -331,7 +331,7 @@ def buck2_e2e_test(
         previous_env["BUCK2_CHANNEL"] = "previous"
         buck_e2e_test(name = name + "_with_reverted_buck2", env = previous_env, executable = "buck2", skip_for_os = skip_for_os, deps = deps, **kwargs)
 
-def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}):
+def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}, allow_bundled_cells = False):
     """
     A little wrapper that generates `buck2_e2e_test`s for core tests.
 
@@ -339,6 +339,9 @@ def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}):
         Extra attributes that are applied to all generated targets.
     target_extra_attrs:
         A map of target name to extra attrs to apply to that target.
+    allow_bundled_cells:
+        Lets fixtures use bundled external cells other than the nano prelude, which the test
+        harness otherwise rejects. Only for tests of the external cells machinery itself.
     """
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX
@@ -367,6 +370,9 @@ def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}):
 
             attrs = dict(extra_attrs)
             attrs.update(target_extra_attrs.get(target) or {})
+            if allow_bundled_cells:
+                attrs["env"] = dict(attrs.get("env") or {})
+                attrs["env"]["BUCK2_E2E_TEST_ALLOW_BUNDLED_CELLS"] = "1"
 
             data_dir = target + "_data"
             if data_dir not in items:

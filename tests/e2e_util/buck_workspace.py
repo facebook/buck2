@@ -196,6 +196,8 @@ async def buck_fixture(  # noqa C901 : "too complex"
                 src = Path(os.environ["TEST_REPO_DATA"], marker.data_dir)
                 _copytree(src, project_dir)
                 _maybe_setup_prelude_and_ovr_config(project_dir)
+                if _is_core_test():
+                    _check_core_test_cells(project_dir)
                 with open(Path(project_dir, ".watchmanconfig"), "w") as f:
                     # Use the FS Events watcher, which is more reliable than the default.
                     json.dump(
@@ -473,6 +475,31 @@ def _copytree(
             shutil.copytree(s, d, symlinks, ignore, dirs_exist_ok=True)
         else:
             shutil.copy2(s, d)
+
+
+def _check_core_test_cells(project_dir: Path) -> None:
+    """Rejects `tests/core` fixtures that use the bundled prelude.
+
+    Those tests are of buck2 itself, so the only bundled cell they get is the nano prelude.
+    Anything that needs the real prelude belongs in `tests/e2e`.
+    """
+    if os.environ.get("BUCK2_E2E_TEST_ALLOW_BUNDLED_CELLS"):
+        return
+    for buckconfig in project_dir.rglob(".buckconfig"):
+        section = None
+        for line in buckconfig.read_text().splitlines():
+            line = line.split("#", 1)[0].strip()
+            if line.startswith("["):
+                section = line
+            elif section == "[external_cells]" and "=" in line:
+                cell, _, kind = (part.strip() for part in line.partition("="))
+                if kind == "bundled" and cell != "nano_prelude":
+                    raise Exception(
+                        f"`{buckconfig.relative_to(project_dir)}` sets `{cell} = bundled`, but "
+                        "`nano_prelude` is the only bundled cell `tests/core` tests may use: they "
+                        "test buck2 itself, not the prelude. Tests that need prelude code belong "
+                        "in `tests/e2e`; see `tests/README.md`."
+                    )
 
 
 def _maybe_setup_prelude_and_ovr_config(path: Path) -> None:
