@@ -49,6 +49,9 @@ pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
 pub const BUCK_WRAPPER_START_TIME_ENV_VAR: &str = "BUCK_WRAPPER_START_TIME";
 pub const BUCKD_LIFECYCLE: &str = "buckd.lifecycle";
+/// Flocked by a `--no-buckd` client for its whole life to serialize daemon-less invocations.
+/// Like `BUCKD_LIFECYCLE`, never unlinked: a lock on an unlinked inode stops working.
+pub const DAEMONLESS_LOCK: &str = "daemonless.lock";
 const BUCK2_TEST_HOME_DIR_ENV_VAR: &str = "BUCK2_TEST_HOME_DIR";
 /// Default buck2 isolation dir. Must match the `--isolation-dir` clap
 /// `default_value` in `app/buck2/src/lib.rs`; the default-isolation golden test

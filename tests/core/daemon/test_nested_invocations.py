@@ -71,6 +71,26 @@ async def test_different_user_version_and_state(buck: Buck, tmp_path: Path) -> N
 
 
 @buck_test(allow_soft_errors=True)
+async def test_no_buckd_in_action_fails_fast(buck: Buck, tmp_path: Path) -> None:
+    # A daemon-less invocation inside a build action would either wait forever on the
+    # daemon-less slot its own build holds, or kill the daemon running the action; the
+    # nested client refuses instead.
+    log = tmp_path / "logfile.json-lines"
+    await expect_failure(
+        buck.build(
+            "root//:nested_no_buckd",
+            "--event-log",
+            str(log),
+            *nested_buck2_args(buck),
+            env={"SANDCASTLE_ID": ""},
+        ),
+        stderr_regex="Failed to build 'root//:nested_no_buckd",
+    )
+    res = await buck.log("what-ran", "--failed", "--show-std-err", str(log))
+    assert "cannot be used inside a build action" in res.stdout
+
+
+@buck_test(allow_soft_errors=True)
 async def test_trace_io_mismatch(buck: Buck, tmp_path: Path) -> None:
     log = tmp_path / "logfile.json-lines"
     await expect_failure(
