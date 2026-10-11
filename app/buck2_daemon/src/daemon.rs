@@ -225,7 +225,7 @@ impl DaemonCommand {
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         in_process: bool,
-        listener_created: impl FnOnce() + Send,
+        listener_created: Box<dyn FnOnce() + Send>,
     ) -> buck2_error::Result<()> {
         let prepped_cgroups = if self.has_cgroup {
             // Note: It's important that we do this before daemonizing, as otherwise there may be
@@ -617,7 +617,7 @@ impl DaemonCommand {
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
         in_process: bool,
-        listener_created: impl FnOnce() + Send,
+        listener_created: Box<dyn FnOnce() + Send>,
     ) -> buck2_error::Result<()> {
         let daemon_dir = paths.daemon_dir()?;
         if !daemon_dir.path.is_dir() {

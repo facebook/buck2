@@ -490,7 +490,7 @@ impl CommandKind {
                     process.shared.log_reload_handle.dupe(),
                     paths_result.get_result()?,
                     false,
-                    || {},
+                    Box::new(|| {}),
                 )
                 .into();
         }

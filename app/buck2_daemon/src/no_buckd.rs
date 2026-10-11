@@ -56,7 +56,7 @@ pub fn start_in_process_daemon(
                 <dyn LogConfigurationReloadHandle>::noop(),
                 paths,
                 true,
-                move || drop(tx_clone.send(Ok(()))),
+                Box::new(move || drop(tx_clone.send(Ok(())))),
             );
             // Since `tx` is unbounded, there's race here: it is possible
             // that error message will be lost in the channel and not reported anywhere.
