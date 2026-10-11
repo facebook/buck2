@@ -1316,16 +1316,11 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     if (state.fabricatedConstants.isEmpty()) return
     pipeline.repairLog.fabricatedConstants.addAll(state.fabricatedConstants)
 
-    val policy =
-        AbiRepairPolicy.parse(configuration.get(K2JvmAbiConfigurationKeys.ABI_VALIDATION_MODE))
-    if (policy == AbiRepairPolicy.OFF) return
-
-    val severity =
-        if (policy == AbiRepairPolicy.ERROR) CompilerMessageSeverity.ERROR
-        else CompilerMessageSeverity.WARNING
+    // A fabricated constant is never correct under any policy: the placeholder cannot match the
+    // real declaration, so this runs unconditionally rather than behind `abiValidationMode`.
     for (constant in state.fabricatedConstants) {
       configuration.messageCollector.report(
-          severity,
+          CompilerMessageSeverity.ERROR,
           "Kosabi source-only ABI: the value of constant `${constant.classId}.${constant.name}` " +
               "is not available, because no target on the source-only ABI classpath declares it. " +
               "A placeholder of type `${constant.emittedType}` " +
