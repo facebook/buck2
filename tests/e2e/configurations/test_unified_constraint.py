@@ -15,12 +15,12 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
 
 
-@buck_test(allow_soft_errors=True)
+@buck_test(inplace=False, allow_soft_errors=True)
 async def test_unified_constraint_defination(buck: Buck) -> None:
     await buck.bxl("//test_unified_constraint.bxl:main")
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_unified_constraint_miss_default_fail(buck: Buck) -> None:
     await expect_failure(
         buck.targets("//miss_default:"),
@@ -28,7 +28,7 @@ async def test_unified_constraint_miss_default_fail(buck: Buck) -> None:
     )
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_unified_constraint_default_not_appear_in_value_fail(buck: Buck) -> None:
     await expect_failure(
         buck.audit("subtargets", "//default_value_not_appear:"),
@@ -40,7 +40,7 @@ async def test_unified_constraint_default_not_appear_in_value_fail(buck: Buck) -
 # constraint in the root fixture). Here it is a value but NOT the default, so it must fail as ambiguous.
 # Distinct test names are used because test discovery treats 'default' and 'DEFAULT' as the same name
 # (case-insensitive).
-@buck_test()
+@buck_test(inplace=False)
 async def test_unified_constraint_reserved_keyword_default_lowercase_fail(
     buck: Buck,
 ) -> None:
@@ -51,7 +51,7 @@ async def test_unified_constraint_reserved_keyword_default_lowercase_fail(
 
 
 # Test reserved keyword 'DEFAULT' (uppercase)
-@buck_test()
+@buck_test(inplace=False)
 async def test_unified_constraint_reserved_keyword_default_uppercase_fail(
     buck: Buck,
 ) -> None:
@@ -61,22 +61,22 @@ async def test_unified_constraint_reserved_keyword_default_uppercase_fail(
     )
 
 
-@buck_test(allow_soft_errors=True)
+@buck_test(inplace=False, allow_soft_errors=True)
 async def test_unified_constraint_cfg_transition(buck: Buck) -> None:
     await buck.bxl("//test_unified_constraint.bxl:test_cfg_transition")
 
 
-@buck_test(allow_soft_errors=True)
+@buck_test(inplace=False, allow_soft_errors=True)
 async def test_unified_constraint_cfg_transition_v2(buck: Buck) -> None:
     await buck.bxl("//test_unified_constraint.bxl:test_cfg_transition_v2")
 
 
-@buck_test(allow_soft_errors=True)
+@buck_test(inplace=False, allow_soft_errors=True)
 async def test_unified_constraint_for_constraint_v2(buck: Buck) -> None:
     await buck.bxl("//test_unified_constraint.bxl:constraint_v2")
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_unified_constraint_single_value_without_flag_fail(
     buck: Buck,
 ) -> None:
@@ -89,7 +89,7 @@ async def test_unified_constraint_single_value_without_flag_fail(
     )
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_unified_constraint_extend_with_constraint_value(buck: Buck) -> None:
     for platform, expected in [("ps5", "ps5"), ("macos", "macos")]:
         result = await buck.cquery(
@@ -102,12 +102,12 @@ async def test_unified_constraint_extend_with_constraint_value(buck: Buck) -> No
         assert f'"os": "{expected}"' in result.stdout, result.stdout
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_unified_constraint_single_value_with_flag(buck: Buck) -> None:
     await buck.audit("subtargets", "//single_value_with_flag:")
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_unified_constraint_zero_values_with_flag_fail(buck: Buck) -> None:
     res = await expect_failure(
         buck.audit("subtargets", "//zero_values_with_flag:", "-v0"),
@@ -118,7 +118,7 @@ async def test_unified_constraint_zero_values_with_flag_fail(buck: Buck) -> None
     )
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_unified_constraint_alias_conflict_with_value_fail(
     buck: Buck,
 ) -> None:
@@ -131,7 +131,7 @@ async def test_unified_constraint_alias_conflict_with_value_fail(
     )
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_unified_constraint_alias_value_not_declared_fail(
     buck: Buck,
 ) -> None:
@@ -144,7 +144,7 @@ async def test_unified_constraint_alias_value_not_declared_fail(
     )
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_unified_constraint_alias_reserved_keyword_fail(
     buck: Buck,
 ) -> None:
