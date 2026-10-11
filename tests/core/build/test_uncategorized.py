@@ -424,6 +424,25 @@ async def test_tmpdir(buck: Buck) -> None:
     await buck.build("root//:")
 
 
+@buck_test(data_dir="scratch_released")
+async def test_scratch_released_when_action_finishes(buck: Buck) -> None:
+    # A local action's scratch directory is gone as soon as its command exits, without waiting
+    # for the daemon to go idle or for the same action to run again.
+    result = await buck.build("root//:ok")
+    output = result.get_build_report().output_for_target("root//:ok")
+    scratch = buck.cwd / output.read_text()
+    assert not scratch.exists(), scratch
+
+    # Also when the command fails.
+    failure = await expect_failure(buck.build("root//:fails"))
+    [failed_scratch] = [
+        line.split("scratch=", 1)[1].strip()
+        for line in failure.stderr.splitlines()
+        if "scratch=" in line
+    ]
+    assert not (buck.cwd / failed_scratch).exists(), failed_scratch
+
+
 def random_string() -> str:
     return "".join(random.choice(string.ascii_lowercase) for i in range(256))
 
