@@ -46,7 +46,7 @@ def _init_repo(cwd: Path) -> str:
     return rev
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_fetches_the_work_tree(buck: Buck) -> None:
     _init_repo(cwd=buck.cwd)
 
@@ -56,7 +56,7 @@ async def test_fetches_the_work_tree(buck: Buck) -> None:
     assert (Path(res.stdout.strip()) / "hello.txt").read_text() == "hello\n"
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_requested_paths_are_sub_targets(buck: Buck) -> None:
     _init_repo(cwd=buck.cwd)
 
@@ -66,7 +66,7 @@ async def test_requested_paths_are_sub_targets(buck: Buck) -> None:
     assert (Path(res.stdout.strip()) / "nested.txt").read_text() == "nested\n"
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_git_dir_sub_target_is_a_repository(buck: Buck) -> None:
     rev = _init_repo(cwd=buck.cwd)
 
