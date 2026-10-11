@@ -24,7 +24,6 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:prost-types",
-        "fbsource//third-party/rust:tempfile",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
@@ -54,6 +53,7 @@ rust_library(
         "fbsource//third-party/rust:slog",
         "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:sorted_vector_map",
+        "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
