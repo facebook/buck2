@@ -89,6 +89,18 @@ use crate::rule_type::StarlarkRuleType;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct ConfiguredTargetNode(triomphe::Arc<Hashed<ConfiguredTargetNodeData>>);
 
+// SAFETY: `_assert_send_sync` requires the only field to be `Send + Sync`, so these
+// impls hold exactly when the derived ones would. Spelled out so that auto-trait
+// proofs for the many futures holding nodes stop here instead of walking the node
+// and attribute representation in every crate; see `dice::DiceComputations`.
+unsafe impl Send for ConfiguredTargetNode {}
+unsafe impl Sync for ConfiguredTargetNode {}
+
+fn _assert_send_sync(ConfiguredTargetNode(inner): &ConfiguredTargetNode) {
+    fn assert<T: Send + Sync>(_: &T) {}
+    assert(inner);
+}
+
 impl Dupe for ConfiguredTargetNode {}
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative, Pagable)]

@@ -77,6 +77,15 @@ use crate::visibility::VisibilitySpecification;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct TargetNode(triomphe::Arc<TargetNodeData>);
 
+// SAFETY: as for `ConfiguredTargetNode`.
+unsafe impl Send for TargetNode {}
+unsafe impl Sync for TargetNode {}
+
+fn _assert_send_sync(TargetNode(inner): &TargetNode) {
+    fn assert<T: Send + Sync>(_: &T) {}
+    assert(inner);
+}
+
 impl Dupe for TargetNode {}
 
 impl Deref for TargetNode {
