@@ -31,6 +31,7 @@ use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
 use futures::StreamExt;
+use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 use futures::stream::Stream;
 use futures::stream::TryStreamExt;
@@ -229,75 +230,101 @@ impl EventLogPathBuf {
         Ok(None)
     }
 
-    async fn unpack_stream_json<'a>(
-        &self,
+    /// Not an `async fn`, and not inlinable: the stream built here pulls in the JSON
+    /// deserialization of every event type. Rustc otherwise instantiates the body of an
+    /// `async fn` anew in every downstream crate that awaits it, which costs each crate that
+    /// reads logs tens of seconds of codegen. Boxing behind a non-inlined function compiles it
+    /// once, here.
+    #[inline(never)]
+    fn unpack_stream_json<'a, 's>(
+        &'s self,
         stats: Option<&'a ReaderStats>,
         tail: Option<TailOptions>,
-    ) -> buck2_error::Result<(Invocation, BoxStream<'a, buck2_error::Result<StreamValue>>)> {
-        assert_eq!(self.encoding.mode, LogMode::Json);
+    ) -> BoxFuture<
+        's,
+        buck2_error::Result<(Invocation, BoxStream<'a, buck2_error::Result<StreamValue>>)>,
+    >
+    where
+        'a: 's,
+    {
+        Box::pin(async move {
+            assert_eq!(self.encoding.mode, LogMode::Json);
 
-        let log_file = self.open(stats, tail).await?;
-        let log_file = BufReader::new(log_file);
-        let mut log_lines = log_file.lines();
+            let log_file = self.open(stats, tail).await?;
+            let log_file = BufReader::new(log_file);
+            let mut log_lines = log_file.lines();
 
-        // This one is not an event.
-        let header = log_lines
-            .next_line()
-            .await
-            .buck_error_context("Error reading header line")?
-            .internal_error("No header line")?;
-        let invocation = Invocation::parse_json_line(&header)?;
+            // This one is not an event.
+            let header = log_lines
+                .next_line()
+                .await
+                .buck_error_context("Error reading header line")?
+                .internal_error("No header line")?;
+            let invocation = Invocation::parse_json_line(&header)?;
 
-        let events = LinesStream::new(log_lines).map(|line| {
-            let line = line.buck_error_context("Error reading next line")?;
-            serde_json::from_str::<StreamValue>(&line)
-                .with_buck_error_context(|| format!("Invalid line: {}", line.trim_end()))
-        });
+            let events = LinesStream::new(log_lines).map(|line| {
+                let line = line.buck_error_context("Error reading next line")?;
+                serde_json::from_str::<StreamValue>(&line)
+                    .with_buck_error_context(|| format!("Invalid line: {}", line.trim_end()))
+            });
 
-        // Wrap in tolerant_of_truncation to handle in-progress logs
-        let events = tolerant_of_truncation(events);
+            // Wrap in tolerant_of_truncation to handle in-progress logs
+            let events = tolerant_of_truncation(events);
 
-        Ok((invocation, events.boxed()))
+            Ok((invocation, events.boxed()))
+        })
     }
 
-    async fn unpack_stream_protobuf<'a>(
-        &self,
+    /// See `unpack_stream_json` for why this is boxed and not inlinable.
+    #[inline(never)]
+    fn unpack_stream_protobuf<'a, 's>(
+        &'s self,
         stats: Option<&'a ReaderStats>,
         tail: Option<TailOptions>,
-    ) -> buck2_error::Result<(Invocation, BoxStream<'a, buck2_error::Result<StreamValue>>)> {
-        assert_eq!(self.encoding.mode, LogMode::Protobuf);
+    ) -> BoxFuture<
+        's,
+        buck2_error::Result<(Invocation, BoxStream<'a, buck2_error::Result<StreamValue>>)>,
+    >
+    where
+        'a: 's,
+    {
+        Box::pin(async move {
+            assert_eq!(self.encoding.mode, LogMode::Protobuf);
 
-        let log_file = self.open(stats, tail).await?;
-        let mut stream = FramedRead::new(log_file, ProtobufSplitter);
+            let log_file = self.open(stats, tail).await?;
+            let mut stream = FramedRead::new(log_file, ProtobufSplitter);
 
-        let invocation = stream
-            .try_next()
-            .await?
-            .internal_error("No invocation found")?;
-        let invocation = buck2_data::Invocation::decode_length_delimited(invocation)
-            .buck_error_context("Invalid Invocation")?;
-        let invocation = Invocation::from_proto(invocation);
+            let invocation = stream
+                .try_next()
+                .await?
+                .internal_error("No invocation found")?;
+            let invocation = buck2_data::Invocation::decode_length_delimited(invocation)
+                .buck_error_context("Invalid Invocation")?;
+            let invocation = Invocation::from_proto(invocation);
 
-        let events = stream.and_then(|data| async move {
-            let val = buck2_cli_proto::CommandProgress::decode_length_delimited(data)
-                .buck_error_context("Invalid CommandProgress")?;
-            match val.progress {
-                Some(command_progress::Progress::Event(event)) => Ok(StreamValue::Event(event)),
-                Some(command_progress::Progress::Result(result)) => Ok(StreamValue::Result(result)),
-                Some(command_progress::Progress::PartialResult(result)) => {
-                    Ok(StreamValue::PartialResult(result))
+            let events = stream.and_then(|data| async move {
+                let val = buck2_cli_proto::CommandProgress::decode_length_delimited(data)
+                    .buck_error_context("Invalid CommandProgress")?;
+                match val.progress {
+                    Some(command_progress::Progress::Event(event)) => Ok(StreamValue::Event(event)),
+                    Some(command_progress::Progress::Result(result)) => {
+                        Ok(StreamValue::Result(result))
+                    }
+                    Some(command_progress::Progress::PartialResult(result)) => {
+                        Ok(StreamValue::PartialResult(result))
+                    }
+                    None => Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::InvalidEvent,
+                        "Event type not recognized"
+                    )),
                 }
-                None => Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::InvalidEvent,
-                    "Event type not recognized"
-                )),
-            }
-        });
+            });
 
-        // Wrap in tolerant_of_truncation to handle in-progress logs
-        let events = tolerant_of_truncation(events);
+            // Wrap in tolerant_of_truncation to handle in-progress logs
+            let events = tolerant_of_truncation(events);
 
-        Ok((invocation, events.boxed()))
+            Ok((invocation, events.boxed()))
+        })
     }
 
     async fn unpack_stream_inner<'a>(
