@@ -71,7 +71,10 @@ public class KaptStep extends KotlincStep {
         false,
         // Flag turning on/off shallow class usage for jvm-abi-gen dep files
         // not part of KAPT, since jvm-abi-gen doesn't run on KAPT steps
-        false);
+        false,
+        // ABI validation mode for jvm-abi-gen repairs
+        // not part of KAPT, since jvm-abi-gen doesn't run on KAPT steps
+        "off");
   }
 
   @Override

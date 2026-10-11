@@ -93,7 +93,10 @@ public class KosabiStubgenStep extends KotlincStep {
         false,
         // Flag turning on/off shallow class usage for jvm-abi-gen dep files
         // not part of stubsgen, since jvm-abi-gen doesn't run on stubsgen steps
-        false);
+        false,
+        // ABI validation mode for jvm-abi-gen repairs
+        // not part of stubsgen, since jvm-abi-gen doesn't run on stubsgen steps
+        "off");
     this.stubgenDir = stubgenDir;
     this.stubClassOutputDir = stubClassOutputDir;
     this.pluginPath = "plugin:com.facebook.kotlin.compilerplugins.kosabi.stubsgen_k2";

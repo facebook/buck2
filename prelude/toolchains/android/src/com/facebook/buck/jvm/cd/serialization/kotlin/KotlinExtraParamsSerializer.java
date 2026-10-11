@@ -95,6 +95,7 @@ public class KotlinExtraParamsSerializer {
         kotlinExtraParams.getApplicabilityClasspathList().stream()
             .map(AbsPathSerializer::deserialize)
             .collect(ImmutableList.toImmutableList()),
-        kotlinExtraParams.getShouldKosabiUseShallowClassUsage());
+        kotlinExtraParams.getShouldKosabiUseShallowClassUsage(),
+        kotlinExtraParams.getKosabiAbiValidationMode());
   }
 }

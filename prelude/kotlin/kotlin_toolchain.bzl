@@ -19,6 +19,7 @@ KotlinToolchainInfo = provider(
         "java_binary_for_kotlincd": provider_field(typing.Any, default = None),
         "jvm_abi_gen_plugin": provider_field(typing.Any, default = None),
         "kapt_base64_encoder": provider_field(typing.Any, default = None),
+        "kosabi_abi_validation_mode": provider_field(str, default = "off"),
         "kosabi_applicability_plugin": provider_field(typing.Any, default = None),
         "kosabi_jvm_abi_gen_k2_plugin": provider_field(typing.Any, default = None),
         "kosabi_shallow_class_usage": provider_field(bool, default = False),
