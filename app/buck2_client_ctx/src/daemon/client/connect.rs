@@ -78,6 +78,8 @@ use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 #[cfg(all(fbcode_build, target_os = "linux"))]
 mod linux_unsandbox;
 
+use futures::future::LocalBoxFuture;
+
 #[cfg(all(fbcode_build, target_os = "linux"))]
 use self::linux_unsandbox::get_unix_daemon_and_args;
 
@@ -669,30 +671,38 @@ pub struct BootstrapBuckdClient {
 }
 
 impl BootstrapBuckdClient {
-    pub async fn connect(
-        paths: &InvocationPaths,
+    /// Boxed and not inlinable: this is the entry point to the daemon connection and start-up
+    /// logic, and an `async fn` here would be instantiated afresh in every command crate. See
+    /// `buck2_event_log::read` for the mechanism.
+    #[inline(never)]
+    pub fn connect<'a>(
+        paths: &'a InvocationPaths,
         options: BuckdConnectOptions,
-        events_ctx: &mut EventsCtx,
-    ) -> buck2_error::Result<Self> {
-        let daemon_dir = paths.daemon_dir()?;
+        events_ctx: &'a mut EventsCtx,
+    ) -> LocalBoxFuture<'a, buck2_error::Result<Self>> {
+        Box::pin(async move {
+            let daemon_dir = paths.daemon_dir()?;
 
-        fs_util::create_dir_all(&daemon_dir.path)
-            .with_buck_error_context(|| format!("Error creating daemon dir: {daemon_dir}"))?;
+            fs_util::create_dir_all(&daemon_dir.path)
+                .with_buck_error_context(|| format!("Error creating daemon dir: {daemon_dir}"))?;
 
-        let res = match &options {
-            BuckdConnectOptions::ExistingOnly => establish_connection_existing(&daemon_dir).await,
-            BuckdConnectOptions::Options(options) => {
-                establish_connection(paths, options, events_ctx).await
+            let res = match &options {
+                BuckdConnectOptions::ExistingOnly => {
+                    establish_connection_existing(&daemon_dir).await
+                }
+                BuckdConnectOptions::Options(options) => {
+                    establish_connection(paths, options, events_ctx).await
+                }
+            };
+
+            if let Err(e) = res {
+                Err(daemon_connect_error(e, paths)
+                    .await
+                    .tag([ErrorTag::DaemonConnect]))
+            } else {
+                res
             }
-        };
-
-        if let Err(e) = res {
-            Err(daemon_connect_error(e, paths)
-                .await
-                .tag([ErrorTag::DaemonConnect]))
-        } else {
-            res
-        }
+        })
     }
 
     pub fn to_connector(self) -> BuckdClientConnector {
