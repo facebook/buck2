@@ -49,6 +49,12 @@ buck2_e2e_test(
     deps = [":modifiers_util"],
 )
 
+buck2_e2e_test(
+    name = "test_exec_modifier",
+    srcs = ["test_exec_modifier.py"],
+    data_dir = "test_exec_modifier_data",
+)
+
 python_library(
     name = "modifiers_util",
     srcs = ["modifiers_util.py"],

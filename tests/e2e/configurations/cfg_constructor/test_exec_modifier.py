@@ -13,7 +13,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test()
+@buck_test(inplace=False)
 async def test_exec_modifier(buck: Buck) -> None:
     await buck.bxl(
         "//test_exec_modifier.bxl:main",
