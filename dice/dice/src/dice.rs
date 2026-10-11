@@ -51,6 +51,25 @@ pub struct Dice {
     pub(crate) pagable_storage: Option<DiceStorage>,
 }
 
+// SAFETY: as for `DiceComputations`.
+unsafe impl Send for Dice {}
+unsafe impl Sync for Dice {}
+
+fn _assert_send_sync(
+    Dice {
+        key_index,
+        state_handle,
+        global_data,
+        pagable_storage,
+    }: &Dice,
+) {
+    fn assert<T: Send + Sync>(_: &T) {}
+    assert(key_index);
+    assert(state_handle);
+    assert(global_data);
+    assert(pagable_storage);
+}
+
 impl Debug for Dice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Dice").finish_non_exhaustive()

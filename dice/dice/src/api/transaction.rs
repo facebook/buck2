@@ -28,6 +28,15 @@ use crate::updater::TransactionUpdater;
 #[repr(transparent)]
 pub struct DiceTransactionUpdater(pub(crate) TransactionUpdater);
 
+// SAFETY: as for `DiceComputations`.
+unsafe impl Send for DiceTransactionUpdater {}
+unsafe impl Sync for DiceTransactionUpdater {}
+
+fn _assert_updater_send_sync(DiceTransactionUpdater(inner): &DiceTransactionUpdater) {
+    fn assert<T: Send + Sync>(_: &T) {}
+    assert(inner);
+}
+
 impl DiceTransactionUpdater {
     /// The branch this updater commits to.
     pub fn branch(&self) -> BranchId {
@@ -93,6 +102,15 @@ impl DiceTransactionUpdater {
 /// This SHOULD NOT be ever stored by computations, or any results of computations.
 #[derive(Clone, Dupe)]
 pub struct DiceTransaction(pub(crate) TransactionCtx);
+
+// SAFETY: as for `DiceComputations`.
+unsafe impl Send for DiceTransaction {}
+unsafe impl Sync for DiceTransaction {}
+
+fn _assert_transaction_send_sync(DiceTransaction(inner): &DiceTransaction) {
+    fn assert<T: Send + Sync>(_: &T) {}
+    assert(inner);
+}
 
 impl DiceTransaction {
     /// The version this transaction runs at. Two transactions at one version see the same state,

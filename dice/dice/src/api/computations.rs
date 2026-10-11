@@ -48,9 +48,20 @@ use crate::key::DiceKeyDyn;
 /// owned.
 pub struct DiceComputations<'a>(pub(crate) TrackedComputations<'a>);
 
-fn _test_computations_sync_send() {
-    fn _assert_sync_send<T: Sync + Send>() {}
-    _assert_sync_send::<DiceComputations>();
+// SAFETY: `_assert_send_sync` destructures every field and requires it to be
+// `Send + Sync`, so these impls hold exactly when the derived ones would.
+//
+// They are spelled out because an auto-trait proof for a future recurses into
+// every type held across an await. Nearly every future in buck2 holds a
+// `DiceComputations`, and without these impls each of those proofs, in each
+// downstream crate, walks all of DICE's internals. Stopping the proof here
+// removes a large share of downstream type-checking time.
+unsafe impl Send for DiceComputations<'_> {}
+unsafe impl Sync for DiceComputations<'_> {}
+
+fn _assert_send_sync(DiceComputations(inner): &DiceComputations) {
+    fn assert<T: Send + Sync>(_: &T) {}
+    assert(inner);
 }
 
 impl<'d> DiceComputations<'d> {
@@ -495,6 +506,17 @@ impl<'d> DiceComputations<'d> {
 
 #[derive(Copy, Clone, Dupe)]
 pub struct LinearRecomputeDiceComputations<'l, 'a>(pub(crate) &'l LinearShared<'a>);
+
+// SAFETY: as for `DiceComputations`.
+unsafe impl Send for LinearRecomputeDiceComputations<'_, '_> {}
+unsafe impl Sync for LinearRecomputeDiceComputations<'_, '_> {}
+
+fn _assert_linear_send_sync(
+    LinearRecomputeDiceComputations(inner): &LinearRecomputeDiceComputations,
+) {
+    fn assert<T: Send + Sync>(_: &T) {}
+    assert(inner);
+}
 
 impl<'l, 'a> LinearRecomputeDiceComputations<'l, 'a> {
     pub fn get(&self) -> DiceComputations<'l> {
