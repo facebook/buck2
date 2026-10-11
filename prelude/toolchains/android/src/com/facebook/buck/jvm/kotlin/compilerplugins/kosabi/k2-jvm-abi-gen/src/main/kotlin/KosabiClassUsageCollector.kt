@@ -23,9 +23,11 @@ import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
 import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousObject
+import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
@@ -238,9 +240,22 @@ class KosabiClassUsageCollector {
       receiverParameter: FirReceiverParameter?,
       contextParameters: List<FirValueParameter>,
       session: FirSession,
+      skipReceiver: Boolean = false,
   ) {
-    receiverParameter?.typeRef?.let { recordTypeRef(it, session) }
+    if (!skipReceiver) {
+      receiverParameter?.typeRef?.let { recordTypeRef(it, session) }
+    }
     contextParameters.forEach { recordValueParameter(it, session) }
+  }
+
+  // Private members are stripped from the ABI, so types appearing solely in their
+  // return/receiver positions need no recording. Value-parameter types stay recorded: a
+  // defaulted private fun's synthetic `$default` stub is kept with its real descriptor.
+  private fun isStrippedFromAbi(member: FirCallableDeclaration): Boolean {
+    val visibility = member.status.visibility
+    return visibility == Visibilities.Private ||
+        visibility == Visibilities.PrivateToThis ||
+        visibility == Visibilities.Local
   }
 
   @OptIn(SymbolInternals::class)
@@ -437,12 +452,16 @@ class KosabiClassUsageCollector {
     }
 
     override fun visitNamedFunctionCompat(simpleFunction: FirNamedFunctionCompat) {
-      recordTypeRef(simpleFunction.returnTypeRef, session)
+      val stripped = isStrippedFromAbi(simpleFunction)
+      if (!stripped) {
+        recordTypeRef(simpleFunction.returnTypeRef, session)
+      }
       recordTypeParameters(simpleFunction.typeParameters, session)
       recordReceiverAndContext(
           simpleFunction.receiverParameter,
           simpleFunction.contextParameters,
           session,
+          skipReceiver = stripped,
       )
       for (valueParameter in simpleFunction.valueParameters) {
         recordValueParameter(valueParameter, session)
@@ -453,11 +472,15 @@ class KosabiClassUsageCollector {
     }
 
     override fun visitProperty(property: org.jetbrains.kotlin.fir.declarations.FirProperty) {
-      recordTypeRef(property.returnTypeRef, session)
+      val stripped = isStrippedFromAbi(property)
+      if (!stripped) {
+        recordTypeRef(property.returnTypeRef, session)
+      }
       recordReceiverAndContext(
           property.receiverParameter,
           property.contextParameters,
           session,
+          skipReceiver = stripped,
       )
       for (annotation in property.annotations) {
         recordAnnotation(annotation, session)
