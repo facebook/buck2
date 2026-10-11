@@ -69,6 +69,14 @@ class K2JvmAbiCommandLineProcessor : CommandLineProcessor {
             "compile and has to be opted into per target.",
         false,
     )
+
+    val SHALLOW_CLASS_USAGE_OPTION: CliOption = CliOption(
+        "shallowClassUsage",
+        "<boolean>",
+        "Record only directly-referenced classes in dep files, recursing into supertypes " +
+            "for the target's own supertype chain only. Default is false.",
+        false,
+    )
   }
 
   override val pluginId: String
@@ -82,6 +90,7 @@ class K2JvmAbiCommandLineProcessor : CommandLineProcessor {
         DEBUG_OUTPUT_OPTION,
         ENABLE_COMPOSE_ABI_EMULATION_OPTION,
         ABI_VALIDATION_MODE_OPTION,
+        SHALLOW_CLASS_USAGE_OPTION,
     )
 
   override fun processOption(
@@ -104,6 +113,8 @@ class K2JvmAbiCommandLineProcessor : CommandLineProcessor {
           )
       ABI_VALIDATION_MODE_OPTION ->
           configuration.put(K2JvmAbiConfigurationKeys.ABI_VALIDATION_MODE, value)
+      SHALLOW_CLASS_USAGE_OPTION ->
+          configuration.put(K2JvmAbiConfigurationKeys.SHALLOW_CLASS_USAGE, value == "true")
       else -> throw CliOptionProcessingException("Unknown option: ${option.optionName}")
     }
   }

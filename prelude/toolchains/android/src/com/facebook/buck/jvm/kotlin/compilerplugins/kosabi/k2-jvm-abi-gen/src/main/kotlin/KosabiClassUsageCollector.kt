@@ -87,6 +87,9 @@ class KosabiClassUsageCollector {
   private val uriUsages: MutableSet<URI> = mutableSetOf()
   private val visitedClasses = mutableSetOf<String>()
   private val missingClassIds = mutableSetOf<ClassId>()
+  private val visitedShallow = mutableSetOf<String>()
+  private val visitedHierarchy = mutableSetOf<String>()
+  private var shallowClassUsage = false
 
   /**
    * Walk the resolved FIR tree and collect all referenced classpath classes. Writes results to the
@@ -94,6 +97,7 @@ class KosabiClassUsageCollector {
    */
   fun collectAndDump(analysisResults: FirResultCompat, configuration: CompilerConfiguration) {
     val outputPath = getDepTrackerOutputPath(configuration) ?: return
+    shallowClassUsage = configuration.get(K2JvmAbiConfigurationKeys.SHALLOW_CLASS_USAGE) == true
 
     for (output in analysisResults.outputs) {
       val session = output.session
@@ -107,7 +111,7 @@ class KosabiClassUsageCollector {
   }
 
   @OptIn(SymbolInternals::class)
-  private fun recordType(type: ConeKotlinType, session: FirSession) {
+  private fun recordType(type: ConeKotlinType, session: FirSession, hierarchy: Boolean = false) {
     if (type is ConeErrorType) {
       recordMissingClassIdFromError(type)
       return
@@ -134,7 +138,7 @@ class KosabiClassUsageCollector {
       missingClassIds.add(classId)
       return
     }
-    recordClassDeclaration(symbol.fir, session)
+    recordClassDeclaration(symbol.fir, session, hierarchy)
   }
 
   @OptIn(SymbolInternals::class)
@@ -196,9 +200,14 @@ class KosabiClassUsageCollector {
     }
   }
 
-  private fun recordTypeRef(typeRef: FirTypeRef, session: FirSession) {
+  private fun recordTypeRef(typeRef: FirTypeRef, session: FirSession, hierarchy: Boolean = false) {
+    if (shallowClassUsage && hierarchy) {
+      typeRef.annotations.forEach { recordAnnotation(it, session) }
+      recordType(typeRef.coneType, session, hierarchy = true)
+      return
+    }
     typeRef.annotations.forEach { recordAnnotation(it, session) }
-    recordType(typeRef.coneType, session)
+    recordType(typeRef.coneType, session, hierarchy)
   }
 
   private fun recordValueParameter(
@@ -235,24 +244,38 @@ class KosabiClassUsageCollector {
   }
 
   @OptIn(SymbolInternals::class)
-  private fun recordClassDeclaration(firClass: FirClassLikeDeclaration, session: FirSession) {
+  private fun recordClassDeclaration(
+      firClass: FirClassLikeDeclaration,
+      session: FirSession,
+      hierarchy: Boolean = false,
+  ) {
     when (firClass) {
       is FirJavaClass -> {
         when (firClass.origin) {
           is FirDeclarationOrigin.Java.Library ->
-              recordJavaClass(firClass.toBinaryJavaClassCompat())
+              recordJavaClass(firClass.toBinaryJavaClassCompat(), hierarchy)
           else -> firClass.sourceElement?.let(::recordSource)
         }
       }
       is FirRegularClass -> {
         if (firClass.origin is FirDeclarationOrigin.BuiltIns) return
         val className = firClass.symbol.classId.asSingleFqName().asString()
-        if (!visitedClasses.add(className)) return
-        firClass.sourceElement?.let(::recordSource)
-        firClass.superTypeRefs.forEach { recordType(it.coneType, session) }
-        firClass.annotations
-            .map { it.annotationTypeRef }
-            .forEach { recordType(it.coneType, session) }
+        if (!shallowClassUsage) {
+          if (!visitedClasses.add(className)) return
+          firClass.sourceElement?.let(::recordSource)
+          firClass.superTypeRefs.forEach { recordType(it.coneType, session) }
+          firClass.annotations
+              .map { it.annotationTypeRef }
+              .forEach { recordType(it.coneType, session) }
+        } else if (hierarchy) {
+          if (!visitedHierarchy.add(className)) return
+          visitedShallow.add(className)
+          firClass.sourceElement?.let(::recordSource)
+          firClass.superTypeRefs.forEach { recordType(it.coneType, session, hierarchy = true) }
+        } else {
+          if (className in visitedHierarchy || !visitedShallow.add(className)) return
+          firClass.sourceElement?.let(::recordSource)
+        }
       }
       is FirAnonymousObject -> {
         firClass.superTypeRefs.forEach { recordType(it.coneType, session) }
@@ -264,24 +287,39 @@ class KosabiClassUsageCollector {
     }
   }
 
-  private fun recordJavaClass(clazz: JavaClass) {
+  private fun recordJavaClass(clazz: JavaClass, hierarchy: Boolean = false) {
     val className = clazz.fqName?.asString() ?: return
-    if (!visitedClasses.add(className)) return
+    if (!shallowClassUsage) {
+      if (!visitedClasses.add(className)) return
+    } else if (hierarchy) {
+      if (!visitedHierarchy.add(className)) return
+      visitedShallow.add(className)
+    } else {
+      if (className in visitedHierarchy || !visitedShallow.add(className)) return
+    }
 
     if (clazz !is VirtualFileBoundJavaClass) {
       error("Unsupported kind of a JavaClass: ${clazz::class}")
     }
     clazz.virtualFile?.path?.let(::addFile)
 
-    clazz.supertypes.mapNotNull { it.classifier }.forEach(::recordJavaClassifier)
+    if (!shallowClassUsage) {
+      clazz.supertypes.mapNotNull { it.classifier }.forEach(::recordJavaClassifier)
 
-    clazz.annotations.mapNotNull { it.resolve() }.forEach(::recordJavaClass)
+      clazz.annotations.mapNotNull { it.resolve() }.forEach(::recordJavaClass)
+    } else if (hierarchy) {
+      clazz.supertypes
+          .mapNotNull { it.classifier }
+          .forEach {
+            recordJavaClassifier(it, hierarchy = true)
+          }
+    }
   }
 
-  private fun recordJavaClassifier(classifier: JavaClassifier) {
+  private fun recordJavaClassifier(classifier: JavaClassifier, hierarchy: Boolean = false) {
     when (classifier) {
       is JavaTypeParameter -> return
-      is JavaClass -> recordJavaClass(classifier)
+      is JavaClass -> recordJavaClass(classifier, hierarchy)
       else -> error("Unsupported kind of a JavaClassifier: ${classifier::class}")
     }
   }
@@ -387,7 +425,7 @@ class KosabiClassUsageCollector {
 
     override fun visitRegularClass(regularClass: FirRegularClass) {
       for (superTypeRef in regularClass.superTypeRefs) {
-        recordTypeRef(superTypeRef, session)
+        recordTypeRef(superTypeRef, session, hierarchy = true)
       }
       recordTypeParameters(regularClass.typeParameters, session)
       for (annotation in regularClass.annotations) {

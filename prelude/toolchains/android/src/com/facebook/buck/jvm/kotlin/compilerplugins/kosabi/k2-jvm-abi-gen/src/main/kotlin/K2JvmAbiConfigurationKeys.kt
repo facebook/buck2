@@ -31,4 +31,7 @@ object K2JvmAbiConfigurationKeys {
 
   val ABI_VALIDATION_MODE: CompilerConfigurationKey<String> =
       CompilerConfigurationKey.create("ABI validation mode for K2 JVM ABI generation")
+
+  val SHALLOW_CLASS_USAGE: CompilerConfigurationKey<Boolean> =
+      CompilerConfigurationKey.create("shallow class usage for K2 JVM ABI dep files")
 }
