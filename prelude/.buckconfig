@@ -19,7 +19,6 @@ config = ovr_config
 [kotlin]
   enable_incremental_compilation = true
   frontend_compiler = defined_by_target
-  kotlin_home = $(config fbsource.repo_relative_path)/xplat/toolchains/android/sdk/third-party/java/kotlin/$(config kotlin.kotlin_version)
   kotlin_version = 2.2.0
   kotlin_version_for_upgrade_only_do_not_use = 2.2.0
   kotlincd_dep_files = per_class
