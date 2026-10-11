@@ -4,7 +4,7 @@
   {
     "buck.target":"root//:parent",
     "buck.type":"root//defs.bzl:dummy",
-    "buck.deps":["root//:dep (cfg:<empty>#<HASH>)"],
+    "buck.deps":["root//:dep (<modifiers>#<HASH>)"],
     "buck.inputs":[],
     "buck.target_hash":"<TARGET_HASH>",
     "buck.package":"root//",
@@ -12,6 +12,6 @@
     "default_target_platform":"root//:platform",
     "visibility":[],
     "within_view":["PUBLIC"],
-    "deps":["root//:dep (cfg:<empty>#<HASH>)"]
+    "deps":["root//:dep (<modifiers>#<HASH>)"]
   }
 ]

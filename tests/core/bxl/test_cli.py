@@ -521,7 +521,7 @@ async def test_cli_configured_target_fails_with_global_modifiers(buck: Buck) -> 
 
 
 def _extract_configuration(s: str) -> list[str]:
-    return re.findall(r"\((cfg:<empty>#[a-f0-9]+)\)", s)
+    return re.findall(r"\((<modifiers>#[a-f0-9]+)\)", s)
 
 
 @buck_test()

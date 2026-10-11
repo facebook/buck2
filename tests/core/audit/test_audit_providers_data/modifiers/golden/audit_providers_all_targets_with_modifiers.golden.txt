@@ -10,8 +10,7 @@ root//:os (<unbound>):
     ConstraintSettingInfo(
       label=root//:os,
       default=None
-    ),
-    _ExecutionModifierInfo( execution_modifier=False )
+    )
   ])
 root//:linux (<unbound>):
   Providers([
@@ -37,32 +36,6 @@ root//:linux (<unbound>):
       ) },
       values={},
       root_values={}
-    ),
-    ConditionalModifierInfo(
-      inner=record[ModifiersMatchInfo](
-        selector=[ (
-          ConfigurationInfo(
-            constraints={ prelude//cfg/exec_platform/marker:is_exec_platform: ConstraintValueInfo(
-              setting=ConstraintSettingInfo(
-                label=prelude//cfg/exec_platform/marker:is_exec_platform,
-                default=prelude//cfg/exec_platform/marker:is_exec_platform[false]
-              ),
-              label=prelude//cfg/exec_platform/marker:is_exec_platform[true]
-            ) },
-            values={},
-            root_values={}
-          ),
-          None
-        ) ],
-        default=ConstraintValueInfo(
-          setting=ConstraintSettingInfo(
-            label=root//:os,
-            default=None
-          ),
-          label=root//:linux
-        )
-      ),
-      key=root//:os
     )
   ])
 root//:macos (<unbound>):
@@ -89,32 +62,6 @@ root//:macos (<unbound>):
       ) },
       values={},
       root_values={}
-    ),
-    ConditionalModifierInfo(
-      inner=record[ModifiersMatchInfo](
-        selector=[ (
-          ConfigurationInfo(
-            constraints={ prelude//cfg/exec_platform/marker:is_exec_platform: ConstraintValueInfo(
-              setting=ConstraintSettingInfo(
-                label=prelude//cfg/exec_platform/marker:is_exec_platform,
-                default=prelude//cfg/exec_platform/marker:is_exec_platform[false]
-              ),
-              label=prelude//cfg/exec_platform/marker:is_exec_platform[true]
-            ) },
-            values={},
-            root_values={}
-          ),
-          None
-        ) ],
-        default=ConstraintValueInfo(
-          setting=ConstraintSettingInfo(
-            label=root//:os,
-            default=None
-          ),
-          label=root//:macos
-        )
-      ),
-      key=root//:os
     )
   ])
 root//:cpu (<unbound>):
@@ -127,8 +74,7 @@ root//:cpu (<unbound>):
     ConstraintSettingInfo(
       label=root//:cpu,
       default=None
-    ),
-    _ExecutionModifierInfo( execution_modifier=False )
+    )
   ])
 root//:arm (<unbound>):
   Providers([
@@ -154,35 +100,9 @@ root//:arm (<unbound>):
       ) },
       values={},
       root_values={}
-    ),
-    ConditionalModifierInfo(
-      inner=record[ModifiersMatchInfo](
-        selector=[ (
-          ConfigurationInfo(
-            constraints={ prelude//cfg/exec_platform/marker:is_exec_platform: ConstraintValueInfo(
-              setting=ConstraintSettingInfo(
-                label=prelude//cfg/exec_platform/marker:is_exec_platform,
-                default=prelude//cfg/exec_platform/marker:is_exec_platform[false]
-              ),
-              label=prelude//cfg/exec_platform/marker:is_exec_platform[true]
-            ) },
-            values={},
-            root_values={}
-          ),
-          None
-        ) ],
-        default=ConstraintValueInfo(
-          setting=ConstraintSettingInfo(
-            label=root//:cpu,
-            default=None
-          ),
-          label=root//:arm
-        )
-      ),
-      key=root//:cpu
     )
   ])
-root//:dummy (cfg:<empty>#<HASH>):
+root//:dummy (<modifiers>#<HASH>):
   Providers([
     DefaultInfo(
       sub_targets={},
@@ -192,7 +112,7 @@ root//:dummy (cfg:<empty>#<HASH>):
     Provider1( os="macos" ),
     Provider2( cpu="default" )
   ])
-root//:dummy2 (cfg:<empty>#<HASH>):
+root//:dummy2 (<modifiers>#<HASH>):
   Providers([
     DefaultInfo(
       sub_targets={},
@@ -202,7 +122,7 @@ root//:dummy2 (cfg:<empty>#<HASH>):
     Provider1( os="macos" ),
     Provider2( cpu="default" )
   ])
-root//:dummy_with_subtarget (cfg:<empty>#<HASH>):
+root//:dummy_with_subtarget (<modifiers>#<HASH>):
   Providers([ DefaultInfo(
     sub_targets={ "sub": Providers([
       DefaultInfo(
