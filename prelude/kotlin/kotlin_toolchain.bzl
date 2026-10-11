@@ -21,6 +21,7 @@ KotlinToolchainInfo = provider(
         "kapt_base64_encoder": provider_field(typing.Any, default = None),
         "kosabi_applicability_plugin": provider_field(typing.Any, default = None),
         "kosabi_jvm_abi_gen_k2_plugin": provider_field(typing.Any, default = None),
+        "kosabi_shallow_class_usage": provider_field(bool, default = False),
         "kosabi_stubs_gen_k2_plugin": provider_field(typing.Any, default = None),
         "kotlin_error_handler": provider_field(typing.Any, default = None),
         "kotlin_home_libraries": provider_field(typing.Any, default = None),

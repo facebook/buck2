@@ -94,6 +94,7 @@ public class KotlinExtraParamsSerializer {
         Optional.of(kotlinExtraParams.getJavaBinary()).filter(s -> !s.isEmpty()),
         kotlinExtraParams.getApplicabilityClasspathList().stream()
             .map(AbsPathSerializer::deserialize)
-            .collect(ImmutableList.toImmutableList()));
+            .collect(ImmutableList.toImmutableList()),
+        kotlinExtraParams.getShouldKosabiUseShallowClassUsage());
   }
 }

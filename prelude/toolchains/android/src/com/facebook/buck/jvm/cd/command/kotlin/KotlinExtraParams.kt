@@ -41,6 +41,7 @@ data class KotlinExtraParams(
     val kotlinClassesDir: AbsPath,
     val javaBinary: Optional<String>,
     val applicabilityClasspath: ImmutableList<AbsPath> = ImmutableList.of(),
+    val shouldKosabiUseShallowClassUsage: Boolean = false,
 ) : CompileToJarStepFactory.ExtraParams {
 
   val shouldActionRunIncrementally: Boolean = shouldKotlincRunIncrementally

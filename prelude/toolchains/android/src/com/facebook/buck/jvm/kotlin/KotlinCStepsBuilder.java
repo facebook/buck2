@@ -103,7 +103,8 @@ public class KotlinCStepsBuilder {
                     classpathSnapshots),
             kotlinCDAnalytics,
             kotlincLanguageVersion,
-            kotlincLanguageVersion.getSupportsK2());
+            kotlincLanguageVersion.getSupportsK2(),
+            extraParams.getShouldKosabiUseShallowClassUsage());
     steps.add(kotlincStep);
   }
 

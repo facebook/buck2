@@ -68,6 +68,9 @@ public class KaptStep extends KotlincStep {
         languageVersion,
         // Flag turning on/off K2 support for jvm-abi-gen actions
         // not part of KAPT, since jvm-abi-gen doesn't run on KAPT steps
+        false,
+        // Flag turning on/off shallow class usage for jvm-abi-gen dep files
+        // not part of KAPT, since jvm-abi-gen doesn't run on KAPT steps
         false);
   }
 

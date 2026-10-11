@@ -70,6 +70,9 @@ message KotlinExtraParams {
   // from compileTimeClasspathPaths which contains the full dep set during
   // library builds.
   repeated string applicabilityClasspath = 31;
+  // Records only directly-referenced classes in Kosabi source-only ABI dep
+  // files, recursing into supertypes for the target's own supertype chain.
+  bool shouldKosabiUseShallowClassUsage = 32;
 }
 
 message PluginParams {

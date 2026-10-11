@@ -84,6 +84,7 @@ public class KotlincStep implements IsolatedStep {
   private final KotlinCDAnalytics kotlinCDAnalytics;
   private final LanguageVersion languageVersion;
   private final boolean shouldKosabiJvmAbiGenUseK2;
+  private final boolean shouldKosabiUseShallowClassUsage;
 
   private static final String COMPOSE_PLUGIN_PATH_FRAGMENT = "compose-compiler-plugin";
 
@@ -111,7 +112,8 @@ public class KotlincStep implements IsolatedStep {
       KotlincMode kotlincMode,
       KotlinCDAnalytics kotlinCDAnalytics,
       LanguageVersion languageVersion,
-      boolean shouldKosabiJvmAbiGenUseK2) {
+      boolean shouldKosabiJvmAbiGenUseK2,
+      boolean shouldKosabiUseShallowClassUsage) {
     this.invokingRule = invokingRule;
     this.outputDirectory = outputDirectory;
     this.sourceFilePaths = sourceFilePaths;
@@ -136,6 +138,7 @@ public class KotlincStep implements IsolatedStep {
     this.kotlinCDAnalytics = kotlinCDAnalytics;
     this.languageVersion = languageVersion;
     this.shouldKosabiJvmAbiGenUseK2 = shouldKosabiJvmAbiGenUseK2;
+    this.shouldKosabiUseShallowClassUsage = shouldKosabiUseShallowClassUsage;
   }
 
   @Override
@@ -421,6 +424,10 @@ public class KotlincStep implements IsolatedStep {
       if (shouldEnableComposeAbiEmulation()) {
         builder.add(PLUGIN);
         builder.add("plugin:com.facebook.k2.jvm.abi.gen:enableComposeAbiEmulation=true");
+      }
+      if (shouldKosabiUseShallowClassUsage) {
+        builder.add(PLUGIN);
+        builder.add("plugin:com.facebook.k2.jvm.abi.gen:shallowClassUsage=true");
       }
     }
 
