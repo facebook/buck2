@@ -1070,14 +1070,12 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // - Package: androidx, Class: annotation (unlikely)
     // - Package: androidx.annotation, Class: VisibleForTesting (likely exists!)
     // - Package: androidx.annotation.VisibleForTesting, Class: Companion (won't exist as top-level)
-    for (splitPoint in 1 until segments.size) {
+    // Split 0 (root package + full nested path) finds root-packaged nested classes, and
+    // no split is skipped for source packages: the dependencies provider cannot see
+    // sources, so a hit always means the constant resolves from dependencies.
+    for (splitPoint in segments.size - 1 downTo 0) {
       val packageFqName = FqName.fromSegments(segments.take(splitPoint).map { it.asString() })
       val classNameParts = segments.drop(splitPoint)
-
-      // Skip if this is from a package being compiled
-      if (packageFqName in sourcePackages) {
-        continue
-      }
 
       // Build the ClassId - for nested classes like VisibleForTesting.Companion,
       // we need to use the proper nested class syntax
