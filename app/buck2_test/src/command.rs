@@ -64,6 +64,7 @@ use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::ModifiersError;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ProvidersLabelWithModifiers;
+use buck2_core::pattern::pattern::TargetLabelWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -1550,13 +1551,17 @@ async fn build_target_result(
     let materialization_and_upload = MaterializationAndUploadContext::skip();
     let (result_builder, consumer) =
         AsyncBuildTargetResultBuilder::new(streaming_build_result_tx, std::time::Instant::now());
+    let configured_target = label.target().dupe();
+    let target = TargetLabelWithModifiers {
+        target_label: configured_target.unconfigured().dupe(),
+        modifiers: modifiers.dupe(),
+    };
     consumer.consume(BuildEvent::new_configured(
         label.dupe(),
         ConfiguredBuildEventVariant::MapModifiers { modifiers },
     ));
     let build_target_result = result_builder
-        .wait_for(
-            false,
+        .wait_for(false, async {
             build_configured_label(
                 &consumer,
                 ctx,
@@ -1574,8 +1579,16 @@ async fn build_target_result(
                     return_run_args: false,
                 },
                 None, // TODO: is this right?
-            ),
-        )
+            )
+            .await;
+            // Each builder holds one provider label, so a target tested under several provider
+            // labels is reported finished once per label.
+            consumer.consume(BuildEvent::ConfiguredTargetBuildFinished {
+                target: configured_target,
+                modifiers: target.modifiers.dupe(),
+            });
+            consumer.consume(BuildEvent::TargetBuildFinished { target });
+        })
         .await?;
 
     Ok((build_target_result, providers))

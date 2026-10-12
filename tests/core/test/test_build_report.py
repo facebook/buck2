@@ -11,7 +11,7 @@
 
 import json
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -21,6 +21,7 @@ from buck2.tests.e2e_util.helper.golden import (
     sanitize_build_report,
     sanitize_build_report_error,
 )
+from buck2.tests.e2e_util.helper.utils import read_streaming_report
 
 
 def build_report_test(name: str, command: List[str], should_fail: bool) -> None:
@@ -98,3 +99,64 @@ build_report_test(
     ["//...", "--build-run-info"],
     True,
 )
+
+
+def _configured_statuses(reports: list[dict[str, Any]]) -> dict[tuple[str, str], str]:
+    """Each configured entry's status across report lines; FAIL wins.
+
+    A `buck test` streaming line carries one provider label's build, so a
+    later line for the same entry can omit an earlier failure.
+    """
+    statuses: dict[tuple[str, str], str] = {}
+    for report in reports:
+        for key, entry in report["results"].items():
+            for cfg, configured in entry["configured"].items():
+                if statuses.get((key, cfg)) != "FAIL":
+                    statuses[(key, cfg)] = configured["success"]
+    return statuses
+
+
+@buck_test()
+async def test_streaming_build_report_target_completion(
+    buck: Buck, tmp_path: Path
+) -> None:
+    """`//:ok` has no outputs, so only its build-finished lines report it."""
+    streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+    await buck.test("//:ok", "--streaming-build-report", str(streaming_report))
+
+    reports = read_streaming_report(streaming_report)
+    # The configured target finishing, then the target.
+    assert len(reports) == 2, f"Expected 2 lines, got {len(reports)}"
+    assert all(set(report["results"]) == {"root//:ok"} for report in reports)
+
+
+@buck_test()
+async def test_streaming_build_report_target_completion_with_failures(
+    buck: Buck, tmp_path: Path
+) -> None:
+    report = tmp_path / "build-report.json"
+    streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+    await expect_failure(
+        buck.test(
+            "--build-report",
+            str(report),
+            "--streaming-build-report",
+            str(streaming_report),
+            "//:ok",
+            "//:fail_test",
+            "//:fail_build1",
+        )
+    )
+
+    streamed = _configured_statuses(read_streaming_report(streaming_report))
+    # `//:fail_build1` fails in analysis, before `buck test` builds it, so no
+    # line reports it.
+    assert {key for key, _cfg in streamed} == {"root//:ok", "root//:fail_test"}
+    final = _configured_statuses([json.loads(report.read_text())])
+    assert streamed == {
+        (key, cfg): status
+        for (key, cfg), status in final.items()
+        if key != "root//:fail_build1"
+    }
