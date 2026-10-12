@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//java:compiler_depth.bzl", "compiler_depth_for_action", "max_compiler_depth")
 load(
     "@prelude//java:java_providers.bzl",
     "ClasspathSnapshotGranularity",
@@ -133,6 +134,14 @@ def create_jar_artifact_kotlincd(
     incremental_metadata_ignored_inputs_tag = actions.artifact_tag()
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, [additional_classpath_entries] if additional_classpath_entries else [])
+    friend_abi_compiler_depths = {}
+    for friend in friend_paths:
+        info = friend.get(JavaLibraryInfo)
+        if info and info.library_output:
+            friend_abi_compiler_depths[info.library_output.abi] = info.library_output.abi_compiler_depth
+    full_library_compiler_depth = compiler_depth_for_action(
+        label, "kotlincd_jar", compiling_deps_tset, identifier = actions_identifier, additional_depth = max_compiler_depth(friend_abi_compiler_depths.values())
+    )
 
     # Compute the reduced SO-ABI classpath for applicability checking during
     # library builds. The applicability plugin needs to know which deps will be
@@ -257,6 +266,7 @@ def create_jar_artifact_kotlincd(
     )
 
     if not is_creating_subtarget:
+        source_only_friend_abis = get_source_only_friend_path_abis(friend_paths, source_only_abi_deps)
         kotlin_extra_params_builder = partial(
             _encode_kotlin_extra_params,
             kotlin_toolchain = kotlin_toolchain,
@@ -264,7 +274,7 @@ def create_jar_artifact_kotlincd(
             extra_kotlinc_arguments = extra_kotlinc_arguments,
             bootclasspath_entries = bootclasspath_entries,
             bootclasspath_snapshot_entries = bootclasspath_snapshot_entries,
-            friend_paths = get_source_only_friend_path_abis(friend_paths, source_only_abi_deps),
+            friend_paths = source_only_friend_abis,
             target_level = target_level,
             should_use_jvm_abi_gen = should_use_jvm_abi_gen,
             kosabi_applicability_cell_root = None,
@@ -275,7 +285,7 @@ def create_jar_artifact_kotlincd(
         )
 
         # kotlincd does not support source abi
-        class_abi, _, source_only_abi, classpath_abi, classpath_abi_dir = generate_abi_jars(
+        class_abi, _, source_only_abi, classpath_abi, classpath_abi_dir, abi_compiler_depth = generate_abi_jars(
             actions = actions,
             actions_identifier = actions_identifier,
             label = label,
@@ -294,6 +304,9 @@ def create_jar_artifact_kotlincd(
             uses_content_based_paths = True,
             kotlin_extra_params_builder = kotlin_extra_params_builder,
             source_only_abi_compiling_deps = so_abi_deps,
+            compiler_category = "kotlincd_jar",
+            full_library_compiler_depth = full_library_compiler_depth,
+            additional_compiler_depth = max_compiler_depth([friend_abi_compiler_depths[abi] for abi in source_only_friend_abis]),
         )
         abi_jar_snapshot = generate_java_classpath_snapshot(
             actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier
@@ -311,6 +324,8 @@ def create_jar_artifact_kotlincd(
                 source_only_abi = source_only_abi,
                 classpath_abi = classpath_abi,
                 classpath_abi_dir = classpath_abi_dir,
+                full_library_compiler_depth = full_library_compiler_depth,
+                abi_compiler_depth = abi_compiler_depth,
                 required_for_source_only_abi = required_for_source_only_abi,
                 annotation_processor_output = output_paths.annotations,
                 incremental_state_dir = incremental_state_dir,
@@ -331,6 +346,8 @@ def create_jar_artifact_kotlincd(
                 required_for_source_only_abi = required_for_source_only_abi,
                 annotation_processor_output = output_paths.annotations,
                 abi_jar_snapshot = full_jar_snapshot,
+                full_library_compiler_depth = full_library_compiler_depth,
+                abi_compiler_depth = full_library_compiler_depth,
                 used_jars_json = used_jars_json,
             ),
             proto,

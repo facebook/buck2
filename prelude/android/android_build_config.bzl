@@ -59,7 +59,9 @@ def generate_android_build_config(
     compiled_build_config_dot_java = _compile_and_package_build_config_dot_java(ctx, java_package, build_config_dot_java)
     library_output = compiled_build_config_dot_java.classpath_entry
 
-    packaging_deps_kwargs = {"value": create_java_packaging_dep(ctx, library_output.full_library)}
+    packaging_deps_kwargs = {
+        "value": create_java_packaging_dep(ctx, library_output.full_library, compiler_depth = library_output.full_library_compiler_depth),
+    }
     packaging_deps = ctx.actions.tset(JavaPackagingDepTSet, **packaging_deps_kwargs)
     return (
         JavaLibraryInfo(

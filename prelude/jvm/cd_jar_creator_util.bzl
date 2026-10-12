@@ -7,6 +7,12 @@
 # above-listed licenses.
 
 load(
+    "@prelude//java:compiler_depth.bzl",
+    "JavaCompilerDepth",  # @unused Used as a type
+    "compiler_depth_for_action",
+    "max_compiler_depth",
+)
+load(
     "@prelude//java:java_providers.bzl",
     "JavaClasspathEntry",
     "JavaCompilingDepsTSet",  # @unused Used as type
@@ -161,11 +167,15 @@ def _source_only_abi_jars(entries: list[JavaClasspathEntry]):
 def _source_only_abi_and_dir(entries: list[JavaClasspathEntry]):
     return [path for entry in entries for path in (entry.abi, entry.abi_as_dir or "")]
 
+def _source_only_abi_compiler_depth(children, entries):
+    return max_compiler_depth(children + [entry.abi_compiler_depth for entry in (entries or [])])
+
 SourceOnlyAbiCompilingDepsTSet = transitive_set(
     args_projections = {
         "source_only_abi_and_dir": _source_only_abi_and_dir,
         "source_only_abi_jars": _source_only_abi_jars,
     },
+    reductions = {"source_only_abi_compiler_depth": _source_only_abi_compiler_depth},
 )
 
 def get_source_only_abi_compiling_deps(
@@ -588,6 +598,9 @@ def generate_abi_jars(
     encode_abi_command: typing.Callable,
     define_action: typing.Callable,
     uses_content_based_paths: bool,
+    compiler_category: str,
+    full_library_compiler_depth: JavaCompilerDepth | None,
+    additional_compiler_depth: JavaCompilerDepth | None = None,
     kotlin_extra_params_builder: typing.Callable | None = None,
     source_only_abi_compiling_deps: JavaCompilingDepsTSet | SourceOnlyAbiCompilingDepsTSet | None = None,
 ) -> tuple:
@@ -596,6 +609,7 @@ def generate_abi_jars(
     source_only_abi = None
     classpath_abi = None
     classpath_abi_dir = None
+    classpath_compiler_depth = full_library_compiler_depth
 
     # If we are merging additional compiled_srcs, we can't produce source/source-only abis. Otherwise we
     # always generation the source/source-only abis and setup the classpath entry to use the appropriate
@@ -638,6 +652,13 @@ def generate_abi_jars(
             if abi_generation_mode == AbiGenerationMode("source"):
                 classpath_abi = source_abi
                 classpath_abi_dir = source_abi_dir
+                classpath_compiler_depth = compiler_depth_for_action(
+                    label,
+                    "source_abi_" + compiler_category,
+                    compiling_deps_tset,
+                    identifier = source_abi_identifier,
+                    additional_depth = additional_compiler_depth,
+                )
 
         if abi_generation_mode == AbiGenerationMode("source_only") or not is_building_android_binary:
             source_only_abi_identifier = declare_prefixed_name("source_only_abi", actions_identifier)
@@ -680,6 +701,14 @@ def generate_abi_jars(
             if abi_generation_mode == AbiGenerationMode("source_only"):
                 classpath_abi = source_only_abi
                 classpath_abi_dir = source_only_abi_dir
+                classpath_compiler_depth = compiler_depth_for_action(
+                    label,
+                    "source_only_abi_" + compiler_category,
+                    source_only_abi_compiling_deps,
+                    identifier = source_only_abi_identifier,
+                    source_only = True,
+                    additional_depth = additional_compiler_depth,
+                )
 
         if abi_generation_mode == AbiGenerationMode("none"):
             classpath_abi = final_jar
@@ -691,7 +720,7 @@ def generate_abi_jars(
             if class_abi_output_dir:
                 classpath_abi_dir = class_abi_output_dir
 
-    return class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir
+    return class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir, classpath_compiler_depth
 
 def postprocess_jar(
     actions: AnalysisActions,

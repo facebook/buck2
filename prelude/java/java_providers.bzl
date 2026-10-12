@@ -13,6 +13,7 @@ load(
     "make_resource_info",
 )
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
+load("@prelude//java:compiler_depth.bzl", "JavaCompilerDepth", "max_compiler_depth")
 load("@prelude//java:dex.bzl", "DexLibraryInfo", "get_dex_produced_from_java_library")
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
@@ -95,6 +96,9 @@ JavaClasspathEntry = record(
     abi_as_dir = field(Artifact | None),
     required_for_source_only_abi = field(bool),
     abi_jar_snapshot = field(Artifact | None),
+    # Source and source-only ABIs can be produced independently of the full library.
+    full_library_compiler_depth = field(JavaCompilerDepth | None, None),
+    abi_compiler_depth = field(JavaCompilerDepth | None, None),
 )
 
 def _args_for_ast_dumper(entry: JavaClasspathEntry):
@@ -140,6 +144,12 @@ def _full_library_args(entry: JavaClasspathEntry):
 # a TSet projection at every node for every different global code info spec.
 JavaCompilingDepsTSetWrapper = transitive_set()
 
+def _compiler_depth(children, entry):
+    return max_compiler_depth(children + [entry.abi_compiler_depth if entry else None])
+
+def _source_only_abi_compiler_depth(children, entry):
+    return max_compiler_depth(children + [entry.abi_compiler_depth if entry and entry.required_for_source_only_abi else None])
+
 JavaCompilingDepsTSet = transitive_set(
     args_projections = {
         "abi_and_dir": _abi_and_dir,
@@ -154,6 +164,10 @@ JavaCompilingDepsTSet = transitive_set(
         "abi_snapshot_json": _abi_snapshot_json,
         "javacd_json": _javacd_json,
     },
+    reductions = {
+        "compiler_depth": _compiler_depth,
+        "source_only_abi_compiler_depth": _source_only_abi_compiler_depth,
+    },
 )
 
 JavaPackagingDep = record(
@@ -167,6 +181,7 @@ JavaPackagingDep = record(
     # the right target from the given artifact).
     output_for_classpath_macro = Artifact,
     sources_jar = Artifact | None,
+    compiler_depth = field(JavaCompilerDepth | None, None),
 )
 
 def _full_jar_args(dep: JavaPackagingDep):
@@ -313,6 +328,8 @@ def make_compile_outputs(
     incremental_state_dir: Artifact | None = None,
     abi_jar_snapshot: Artifact | None = None,
     used_jars_json: Artifact | None = None,
+    full_library_compiler_depth: JavaCompilerDepth | None = None,
+    abi_compiler_depth: JavaCompilerDepth | None = None,
 ) -> JavaCompileOutputs:
     expect(classpath_abi != None or classpath_abi_dir == None, "A classpath_abi_dir should only be provided if a classpath_abi is provided!")
     return JavaCompileOutputs(
@@ -326,6 +343,8 @@ def make_compile_outputs(
             abi_as_dir = classpath_abi_dir,
             required_for_source_only_abi = required_for_source_only_abi,
             abi_jar_snapshot = abi_jar_snapshot,
+            full_library_compiler_depth = full_library_compiler_depth,
+            abi_compiler_depth = abi_compiler_depth,
         ),
         annotation_processor_output = annotation_processor_output,
         preprocessed_library = preprocessed_library,
@@ -442,6 +461,7 @@ def create_java_packaging_dep(
     dex_weight_factor: int = 1,
     proguard_config: Artifact | None = None,
     gwt_module: Artifact | None = None,
+    compiler_depth: JavaCompilerDepth | None = None,
 ) -> JavaPackagingDep:
     dex_toolchain = getattr(ctx.attrs, "_dex_toolchain", None)
     if library_jar != None and has_srcs and dex_toolchain != None and ctx.attrs._dex_toolchain[DexToolchainInfo].d8_command != None:
@@ -467,6 +487,7 @@ def create_java_packaging_dep(
         proguard_config = proguard_config or getattr(ctx.attrs, "proguard_config", None),
         output_for_classpath_macro = output_for_classpath_macro or library_jar,
         sources_jar = sources_jar,
+        compiler_depth = compiler_depth,
     )
 
 def get_all_java_packaging_deps(ctx: AnalysisContext, deps: list[Dependency]) -> list[JavaPackagingDep]:
@@ -682,6 +703,7 @@ def _create_non_template_providers(
         proguard_config = proguard_config,
         gwt_module = gwt_module,
         dex_weight_factor = dex_weight_factor,
+        compiler_depth = library_output.full_library_compiler_depth if library_output else None,
     )
 
     java_packaging_info = get_java_packaging_info(

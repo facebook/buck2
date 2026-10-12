@@ -211,6 +211,11 @@ android_library(), android_resource(), cxx_library(), groovy_library(), java_lib
             default = None,
             doc = """Relative path to the skeleton Android manifest for the APK. An `android_manifest()` will be created automatically to merge all manifests from libraries and resources going into the app. The common case is that the manifest will be in the same directory as the rule, in which case this will simply be 'AndroidManifest.xml'. Exactly one of `manifest` and `manifest_skeleton` must be set.""",
         ),
+        "max_jvm_compiler_depth": attrs.option(
+            attrs.int(),
+            default = None,
+            doc = "Optional inclusive limit on JavaCD/KotlinCD compiler depth through compilation classpaths, including source and source-only ABI compilation. Checked during analysis over the primary platform's Java packaging closure. The [jvm_compiler_depth] subtarget reports the depth and one longest chain. Class ABI extraction, KSP, other compiler backends, and dependencies hidden in generated sources/tools are not counted. None disables the limit.",
+        ),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
         "minimize_primary_dex_size": attrs.bool(default = False, doc = ""),
         "multidex_min_api": attrs.option(attrs.string(), default = None, doc = ""),

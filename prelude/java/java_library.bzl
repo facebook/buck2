@@ -11,6 +11,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load("@prelude//graphql:graphql.bzl", "graphql_providers")
+load("@prelude//java:compiler_depth.bzl", "compiler_depth_for_action")
 load(
     "@prelude//java:java_providers.bzl",
     "ClasspathSnapshotGranularity",
@@ -564,6 +565,12 @@ def _create_jar_artifact(
     jar_snapshot = generate_java_classpath_snapshot(
         ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), abi or final_jar, actions_identifier
     )
+    # Classic javac is not counted, but preserve compiler depth through its inputs.
+    compiler_depth = compiler_depth_for_action(
+        label,
+        "javac_and_jar",
+        get_compiling_deps_tset(ctx.actions, deps, [additional_classpath_entries] if additional_classpath_entries else []) if not skip_javac else None,
+    )
     return make_compile_outputs(
         full_library = final_jar,
         preprocessed_library = jar_out,
@@ -571,6 +578,8 @@ def _create_jar_artifact(
         required_for_source_only_abi = required_for_source_only_abi,
         annotation_processor_output = generated_sources_dir,
         abi_jar_snapshot = jar_snapshot,
+        full_library_compiler_depth = compiler_depth,
+        abi_compiler_depth = compiler_depth,
     )
 
 def _check_dep_types(deps: list[Dependency]):

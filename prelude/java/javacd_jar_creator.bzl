@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//java:compiler_depth.bzl", "compiler_depth_for_action")
 load(
     "@prelude//java:java_providers.bzl",
     "ClasspathSnapshotGranularity",
@@ -106,6 +107,7 @@ def create_jar_artifact_javacd(
     output_paths = define_output_paths(actions, actions_identifier, label, uses_content_based_paths)
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, [additional_classpath_entries] if additional_classpath_entries else [])
+    full_library_compiler_depth = compiler_depth_for_action(label, "javacd_jar", compiling_deps_tset, identifier = actions_identifier)
 
     track_class_usage = java_toolchain.track_class_usage and enable_depfiles
     define_javacd_action = partial(
@@ -172,7 +174,7 @@ def create_jar_artifact_javacd(
     )
 
     if not is_creating_subtarget:
-        class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir = generate_abi_jars(
+        class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir, abi_compiler_depth = generate_abi_jars(
             actions = actions,
             actions_identifier = actions_identifier,
             label = label,
@@ -189,6 +191,8 @@ def create_jar_artifact_javacd(
             encode_abi_command = command_builder,
             define_action = define_javacd_action,
             uses_content_based_paths = uses_content_based_paths,
+            compiler_category = "javacd_jar",
+            full_library_compiler_depth = full_library_compiler_depth,
         )
 
         abi_jar_snapshot = generate_java_classpath_snapshot(
@@ -202,6 +206,8 @@ def create_jar_artifact_javacd(
             source_only_abi = source_only_abi,
             classpath_abi = classpath_abi,
             classpath_abi_dir = classpath_abi_dir,
+            full_library_compiler_depth = full_library_compiler_depth,
+            abi_compiler_depth = abi_compiler_depth,
             required_for_source_only_abi = required_for_source_only_abi,
             annotation_processor_output = output_paths.annotations,
             abi_jar_snapshot = abi_jar_snapshot,
@@ -221,6 +227,8 @@ def create_jar_artifact_javacd(
             required_for_source_only_abi = required_for_source_only_abi,
             annotation_processor_output = output_paths.annotations,
             abi_jar_snapshot = full_jar_snapshot,
+            full_library_compiler_depth = full_library_compiler_depth,
+            abi_compiler_depth = full_library_compiler_depth,
             used_jars_json = used_jars_json,
         )
     return result

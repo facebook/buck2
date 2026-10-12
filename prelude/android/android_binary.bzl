@@ -20,6 +20,7 @@ load(
     "merge_android_packageable_info",
 )
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//android:compiler_depth.bzl", "compiler_depth_subtarget")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
 load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
@@ -129,10 +130,12 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
             ctx,
             r_dot_java.library_info.library_output.full_library,
             dex_weight_factor = android_toolchain.r_dot_java_weight_factor,
+            compiler_depth = r_dot_java.library_info.library_output.full_library_compiler_depth,
         )
         for r_dot_java in resources_info.r_dot_java_infos
     ]
     java_packaging_deps += compiled_r_dot_java_deps
+    sub_targets["jvm_compiler_depth"] = compiler_depth_subtarget(ctx, java_packaging_deps)
     sub_targets["compiled_r_dot_java"] = [
         DefaultInfo(
             default_outputs = [compiled_r_dot_java_dep.jar for compiled_r_dot_java_dep in compiled_r_dot_java_deps],
