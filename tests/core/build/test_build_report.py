@@ -11,7 +11,7 @@
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -23,6 +23,8 @@ from buck2.tests.e2e_util.helper.utils import (
     replace_hash,
     replay_streaming_report,
 )
+
+K = TypeVar("K")
 
 
 def _sanitize_timing_fields(obj: Any) -> None:
@@ -49,6 +51,22 @@ def _collect_output_paths(report: dict[str, Any]) -> set[str]:
             for provider_outputs in configured_result.get("other_outputs", {}).values():
                 output_paths.update(provider_outputs)
     return output_paths
+
+
+def _sorted_outputs(entry: dict[str, Any]) -> dict[str, list[str]]:
+    return {provider: sorted(paths) for provider, paths in entry["outputs"].items()}
+
+
+def _first_success(statuses: list[tuple[int, K, str]]) -> dict[K, int]:
+    """Line at which each entry first reads `SUCCESS`, checking it never goes back."""
+    finished_at: dict[K, int] = {}
+    for i, key, status in statuses:
+        assert status in ("IN_PROGRESS", "SUCCESS"), (key, status)
+        if status == "SUCCESS":
+            finished_at.setdefault(key, i)
+        else:
+            assert key not in finished_at, f"{key} went back to IN_PROGRESS at line {i}"
+    return finished_at
 
 
 def build_report_test(name: str, command: list[str]) -> None:
@@ -250,7 +268,7 @@ async def test_build_report_contains_per_target_build_metrics(
         assert report["build_metrics"]
 
 
-def streaming_build_report_test(name: str, command: list[str]) -> None:
+def streaming_build_report_test(golden_name: str, command: list[str]) -> None:
     async def impl(buck: Buck, tmp_path: Path) -> None:
         base_report = tmp_path / "build-report.json"
         report = tmp_path / "streaming-build-report.json"
@@ -283,9 +301,12 @@ def streaming_build_report_test(name: str, command: list[str]) -> None:
             output=replace_digest(
                 replace_hash(json.dumps(report, indent=2, sort_keys=True))
             ),
-            rel_path="fixtures/" + name + ".golden.json",
+            rel_path="fixtures/" + golden_name + ".golden.json",
         )
 
+    # The golden belongs to the `build_report_test` of the same name. Registering this test
+    # under that name would replace it.
+    name = golden_name.replace("test_build_report", "test_streaming_build_report", 1)
     globals()[name] = impl
 
     return buck_test()(impl)
@@ -366,6 +387,101 @@ async def test_streaming_build_report_finishes_missing_target(
     reports = read_streaming_report(streaming_report)
     assert len(reports) == 1, f"Expected 1 line, got {len(reports)}"
     assert reports[0]["results"]["root//:does_not_exist"]["success"] == "FAIL"
+
+
+@buck_test()
+async def test_streaming_build_report_in_progress(buck: Buck, tmp_path: Path) -> None:
+    """An entry reads `IN_PROGRESS` until its build has finished, then `SUCCESS` for good."""
+    streaming_report = tmp_path / "streaming-report.jsonl"
+    final_report = tmp_path / "build-report.json"
+
+    await buck.build(
+        "//:rule1",
+        "//:rule2",
+        "//:rule2[out2]",
+        "--streaming-build-report",
+        str(streaming_report),
+        "--build-report",
+        str(final_report),
+    )
+
+    reports = read_streaming_report(streaming_report)
+    final_results = json.loads(final_report.read_text())["results"]
+
+    target_statuses = [
+        (i, target, entry["success"])
+        for i, report in enumerate(reports)
+        for target, entry in report["results"].items()
+    ]
+    configured_statuses = [
+        (i, (target, cfg), configured["success"])
+        for i, report in enumerate(reports)
+        for target, entry in report["results"].items()
+        for cfg, configured in entry["configured"].items()
+    ]
+    target_finished_at = _first_success(target_statuses)
+    configured_finished_at = _first_success(configured_statuses)
+
+    assert any(status == "IN_PROGRESS" for _, _, status in target_statuses), (
+        "No target was ever reported IN_PROGRESS"
+    )
+    assert set(target_finished_at) == set(final_results)
+    assert set(configured_finished_at) == {
+        (target, cfg)
+        for target, entry in final_results.items()
+        for cfg in entry["configured"]
+    }
+
+    # The first line to report an entry finished already carries everything it built. For
+    # `//:rule2` that includes the output of `//:rule2[out2]`, a separate provider label whose
+    # build can end before or after the bare label's.
+    for target, i in target_finished_at.items():
+        assert _sorted_outputs(reports[i]["results"][target]) == _sorted_outputs(
+            final_results[target]
+        )
+    for (target, cfg), i in configured_finished_at.items():
+        assert _sorted_outputs(
+            reports[i]["results"][target]["configured"][cfg]
+        ) == _sorted_outputs(final_results[target]["configured"][cfg])
+
+    assert "IN_PROGRESS" not in final_report.read_text()
+
+
+@buck_test()
+async def test_streaming_build_report_in_progress_without_unconfigured_section(
+    buck: Buck, tmp_path: Path
+) -> None:
+    """Without the unconfigured section, only configured entries have a `success`."""
+    streaming_report = tmp_path / "streaming-report.jsonl"
+
+    await expect_failure(
+        buck.build(
+            "//:rule1",
+            "//:does_not_exist",
+            "--streaming-build-report",
+            str(streaming_report),
+            "-c",
+            "build_report.print_unconfigured_section=false",
+        )
+    )
+
+    reports = read_streaming_report(streaming_report)
+    entries = [
+        (key, entry) for report in reports for key, entry in report["results"].items()
+    ]
+    assert all("success" not in entry for _, entry in entries), entries
+
+    rule1_history = [
+        [configured["success"] for configured in entry["configured"].values()]
+        for key, entry in entries
+        if key == "root//:rule1"
+    ]
+    # The output's line, then the configured target finishing, then the target.
+    assert rule1_history == [["IN_PROGRESS"], ["SUCCESS"], ["SUCCESS"]], rule1_history
+
+    missing = [entry for key, entry in entries if key == "root//:does_not_exist"]
+    assert missing, "Expected a line for the missing target"
+    assert all(entry["configured"] == {} and entry["errors"] for entry in missing)
 
 
 @buck_test()

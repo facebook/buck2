@@ -17,6 +17,7 @@ from buck2.tests.e2e_util.helper.golden import golden, GOLDEN_DIRECTORY
 from buck2.tests.e2e_util.helper.utils import (
     read_streaming_report,
     replay_streaming_report,
+    streaming_status_history,
 )
 
 
@@ -199,6 +200,18 @@ async def test_streaming_build_report_with_multiple_target_universes(
     results = replay_streaming_report(reports)
     assert list(results) == ["root//:dummy"]
     assert len(results["root//:dummy"]["configured"]) == 2
+
+    assert streaming_status_history(reports) == {
+        "root//:dummy": ["IN_PROGRESS", "SUCCESS"]
+    }
+    # The target finishes only after both of its configured targets have.
+    for report in reports:
+        entry = report["results"]["root//:dummy"]
+        if entry["success"] == "SUCCESS":
+            assert [c["success"] for c in entry["configured"].values()] == [
+                "SUCCESS",
+                "SUCCESS",
+            ], entry
 
 
 @buck_test()

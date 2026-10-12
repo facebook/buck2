@@ -78,6 +78,7 @@ use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::build::BuildProviderType;
 use crate::build::BuildTargetResult;
 use crate::build::ConfiguredBuildTargetResult;
+use crate::build::FinishedBuilds;
 use crate::build::action_error::ActionErrorBuildOptions;
 use crate::build::action_error::BuildReportActionError;
 use crate::build::action_error::MAX_ERROR_CONTENT_BYTES;
@@ -100,6 +101,18 @@ enum BuildOutcome {
     FAIL,
     #[allow(dead_code)] // Part of the spec, but not yet used
     CANCELED,
+    /// Not finished building yet. Only in streaming build report lines.
+    #[serde(rename = "IN_PROGRESS")]
+    InProgress,
+}
+
+impl BuildOutcome {
+    /// Until an entry has finished, `SUCCESS` only means that no error has arrived yet.
+    fn in_progress_unless(&mut self, finished: bool) {
+        if !finished && matches!(self, Self::SUCCESS) {
+            *self = Self::InProgress;
+        }
+    }
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -323,6 +336,9 @@ pub struct BuildReportCollector<'a> {
     graph_properties_opts: GraphPropertiesOptions,
     total_configured_graph_sketch:
         Option<VersionedSketcher<ConfiguredTargetLabel, DependencyGraphSketch>>,
+    /// Set on every streaming line, never on the final report. Entries not in it read
+    /// `IN_PROGRESS` rather than `SUCCESS`.
+    finished_builds: Option<&'a FinishedBuilds>,
 }
 
 // Build report generation should never produce an input error, always return an error with an infra tag
@@ -374,6 +390,7 @@ impl<'a> BuildReportCollector<'a> {
             } else {
                 None
             },
+            finished_builds: None,
         }
     }
 
@@ -393,6 +410,7 @@ impl<'a> BuildReportCollector<'a> {
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
         configured_to_pattern_modifiers: &BuckMutMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
+        finished_builds: Option<&'a FinishedBuilds>,
         detailed_metrics: Option<DetailedAggregatedMetrics>,
         action_graph_sketch_result: Option<ActionGraphSketchResult>,
         artifact_path_sketch_result: Option<ArtifactPathSketchResult>,
@@ -409,6 +427,7 @@ impl<'a> BuildReportCollector<'a> {
             truncate_error_content,
             graph_properties_opts,
         );
+        this.finished_builds = finished_builds;
         let mut entries = BTreeMap::new();
 
         if other_errors.values().flatten().next().is_some() {
@@ -769,7 +788,7 @@ impl<'a> BuildReportCollector<'a> {
             .filter_map(|(label, result)| Some((label, result.as_ref()?)))
             .chunk_by(|x| x.0.target().dupe())
         {
-            let configured_report = self.collect_results_for_configured(
+            let mut configured_report = self.collect_results_for_configured(
                 target_with_modifiers.dupe(),
                 results,
                 metrics,
@@ -780,6 +799,13 @@ impl<'a> BuildReportCollector<'a> {
                 artifact_size_cardinalities,
                 all_error_reports,
             )?;
+            if let Some(finished) = self.finished_builds {
+                let key = (label.dupe(), target_with_modifiers.modifiers.dupe());
+                configured_report
+                    .inner
+                    .success
+                    .in_progress_unless(finished.configured_targets.contains(&key));
+            }
 
             if let Some(report) = unconfigured_report.as_mut() {
                 if !configured_report.errors.is_empty() {
@@ -810,6 +836,13 @@ impl<'a> BuildReportCollector<'a> {
             configured_reports.insert(label.cfg().dupe(), configured_report);
         }
 
+        if let Some(finished) = self.finished_builds
+            && let Some(report) = unconfigured_report.as_mut()
+        {
+            report
+                .success
+                .in_progress_unless(finished.targets.contains(&target_with_modifiers));
+        }
         let errors = self.convert_error_list(errors, EntryLabel::Target(target_with_modifiers));
         if !errors.is_empty() {
             if let Some(report) = unconfigured_report.as_mut() {
@@ -1233,6 +1266,7 @@ pub fn write_build_report(
         configured,
         configured_to_pattern_modifiers,
         other_errors,
+        None,
         detailed_metrics,
         action_graph_sketch_result,
         artifact_path_sketch_result,
@@ -1297,6 +1331,7 @@ pub fn stream_build_report(
     configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
     configured_to_pattern_modifiers: &BuckMutMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
     other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
+    finished_builds: &FinishedBuilds,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
     action_graph_sketch_result: Option<ActionGraphSketchResult>,
     artifact_path_sketch_result: Option<ArtifactPathSketchResult>,
@@ -1315,6 +1350,7 @@ pub fn stream_build_report(
         configured,
         configured_to_pattern_modifiers,
         other_errors,
+        Some(finished_builds),
         detailed_metrics,
         action_graph_sketch_result,
         artifact_path_sketch_result,
@@ -1391,6 +1427,7 @@ async fn process_streaming_build_result(
         &build_result.configured,
         &build_result.configured_to_pattern_modifiers,
         &build_result.other_errors,
+        &build_result.finished_builds,
         None, // no detailed metrics for streaming build reports to avoid the computation/copy
         None, // no action graph sketch for streaming build reports to avoid the computation/copy
         None, // no artifact_path_sketch_result for streaming build reports

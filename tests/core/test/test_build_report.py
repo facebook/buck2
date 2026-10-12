@@ -129,6 +129,13 @@ async def test_streaming_build_report_target_completion(
     # The configured target finishing, then the target.
     assert len(reports) == 2, f"Expected 2 lines, got {len(reports)}"
     assert all(set(report["results"]) == {"root//:ok"} for report in reports)
+    assert [
+        (
+            entry["success"],
+            [configured["success"] for configured in entry["configured"].values()],
+        )
+        for entry in (report["results"]["root//:ok"] for report in reports)
+    ] == [("IN_PROGRESS", ["SUCCESS"]), ("SUCCESS", ["SUCCESS"])]
 
 
 @buck_test()

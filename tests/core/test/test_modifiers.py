@@ -22,6 +22,11 @@ from buck2.tests.e2e_util.helper.golden import (
     sanitize_build_report,
     sanitize_build_report_error,
 )
+from buck2.tests.e2e_util.helper.utils import (
+    read_streaming_report,
+    replay_streaming_report,
+    streaming_status_history,
+)
 
 
 def build_report_test(name: str, command: List[str], should_fail: bool) -> None:
@@ -247,6 +252,34 @@ async def test_modifiers_that_end_up_with_same_configuration(
 
     assert "root//:macos" in cfg.stdout
     assert "root//:arm" in cfg.stdout
+
+
+@buck_test()
+async def test_streaming_build_report_target_completion_with_modifiers(
+    buck: Buck, tmp_path: Path
+) -> None:
+    """Each `?modifier` entry, and its configuration, finishes with its own label."""
+    streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+    await buck.test(
+        "//:ok?root//:macos",
+        "//:ok?root//:linux",
+        "--streaming-build-report",
+        str(streaming_report),
+    )
+
+    reports = read_streaming_report(streaming_report)
+    assert streaming_status_history(reports) == {
+        "root//:ok?root//:macos": ["IN_PROGRESS", "SUCCESS"],
+        "root//:ok?root//:linux": ["IN_PROGRESS", "SUCCESS"],
+    }
+    assert {
+        key: [configured["success"] for configured in entry["configured"].values()]
+        for key, entry in replay_streaming_report(reports).items()
+    } == {
+        "root//:ok?root//:macos": ["SUCCESS"],
+        "root//:ok?root//:linux": ["SUCCESS"],
+    }
 
 
 @buck_test()

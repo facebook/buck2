@@ -108,8 +108,10 @@ pub struct CommonBuildOptions {
 
     /// Stream intermediary build reports to a file in json lines format.
     ///
-    /// Each output materialization will trigger a new build report which
-    /// will be written to the file as a single line json.
+    /// A line is written each time a requested output is materialized, and
+    /// each time a requested target or one of its configurations finishes
+    /// building. Each line carries one target. Entries that have not finished
+    /// building read `IN_PROGRESS` instead of `SUCCESS`.
     #[clap(long = "streaming-build-report", value_name = "PATH")]
     streaming_build_report: Option<String>,
 

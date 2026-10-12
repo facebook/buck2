@@ -46,7 +46,8 @@ BuildReport {
     # True if all requested targets built successfully.
     #
     # In a streaming build report each line carries one target, so this only
-    # covers that target and any errors not associated with a target.
+    # covers that target and any errors not associated with a target, and it
+    # only means that no error has been recorded for them yet.
     success: bool,
 
     # The error category for the build, in case it failed. One of "USER", "INFRA", "ENVIRONMENT".
@@ -99,7 +100,10 @@ BuildReportEntry {
     # The two fields below are included for buck1 backwards compatibility only.
     # They are both computed by aggregating across all the configured targets in
     # the way you might expect.
-    success: "FAIL" | "SUCCESS",
+    #
+    # `IN_PROGRESS` only appears in a streaming build report. See "Streaming
+    # build report" below.
+    success: "FAIL" | "SUCCESS" | "IN_PROGRESS",
     outputs: dict[str, list[Path]],
 
     # The path to the package containing this target, relative to the project
@@ -109,7 +113,10 @@ BuildReportEntry {
 
 ConfiguredBuildReportEntry {
     # Did this target build successfully or not?
-    success: "FAIL" | "SUCCESS",
+    #
+    # `IN_PROGRESS` only appears in a streaming build report. See "Streaming
+    # build report" below.
+    success: "FAIL" | "SUCCESS" | "IN_PROGRESS",
 
     # A map of subtargets that were built to a list of the successfully built
     # outputs for that subtarget.
@@ -415,3 +422,58 @@ dependency, do those errors have the same cause (the dependency doesn't exist)
 or different causes (each target is individually broken)? As a result, the exact
 details of when two errors are considered to have the same cause are not
 generally stable, and may not always be what you expect.
+
+## Streaming build report
+
+Pass `--streaming-build-report <path>` to have buck write build reports to
+`<path>` while the build runs, one JSON object per line, in the schema above.
+
+- A line is written each time a requested output is built or fails to build,
+  each time a configured target finishes building, and each time a requested
+  target does. This includes targets with no outputs and targets that fail
+  before they are configured.
+- Each line carries one target. A target that is requested with several sets of
+  `?modifier` modifiers can have an entry for each of them on the line.
+- `success` reads `IN_PROGRESS` on an entry, and on a configured entry, until it
+  has finished building. `IN_PROGRESS` only replaces `SUCCESS`: an entry reads
+  `FAIL` as soon as an error is recorded for it, which can be before it
+  finishes. The final `--build-report` never contains `IN_PROGRESS`.
+- With `--fail-fast`, the error that stops the build is on a line for its
+  target. If other targets were still building, that line is the last one, and
+  their entries can still read `IN_PROGRESS` on their last lines. The same goes
+  for the remaining entries when the build is cancelled.
+- With `-c build_report.print_unconfigured_section=false`, entries have no
+  top-level `success`. Entries that hold only errors, or whose configurations
+  were all skipped as incompatible, then have no `success` at all.
+- When one target is requested with two sets of modifiers that resolve to the
+  same configuration, as in `//:a?macos+arm //:a[sub]?arm+macos`, each entry's
+  configured entry finishes when that entry's own request has finished building
+  it, whatever the other request is doing. `buck test` differs when the two
+  requests also name the same provider label, as in
+  `//:a?macos+arm //:a?arm+macos`: it builds that label once, and only one of
+  the two entries appears on streaming lines. The other is only in the final
+  build report.
+- `buck test` writes a line for one provider label at a time, and the line
+  carries only that label's build. A target that is tested under several
+  provider labels is therefore reported finished once per label, the first time
+  possibly while another of its labels is still building.
+- Errors that stop `buck test` from building or testing a provider label, such
+  as analysis errors, are written on lines of their own. Each of these lines
+  carries one target's errors and no builds.
+- In `buck test`, an entry that has finished building can still read `FAIL` on
+  a later line, if setting up its test fails.
+- In `buck test`, treat `FAIL` as final across lines: a later line for another
+  provider label of the same target can read `SUCCESS`. An error that stops one
+  `?modifier` request before it is configured is written under the target
+  without modifiers, and the other request's entry can end the stream reading
+  `SUCCESS`. The final build report files both correctly.
+
+### Lines from older buck2 versions
+
+No field on a line says which buck2 wrote it. On a buck2 that predates the
+behavior above, `SUCCESS` only means that no error has been recorded yet, not
+that the target has finished building, and a line can carry every target seen
+so far rather than one. A target with no outputs, or one that fails before
+building any output, may not appear on any line. Readers that can get lines
+from such a buck2 and need a final verdict before buck exits should therefore
+treat only `FAIL` as final, or use the final `--build-report`.

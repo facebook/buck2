@@ -159,6 +159,30 @@
       "outputs": {},
       "success": "FAIL"
     },
+    "root//slow:target?root//:macos": {
+      "configured": {
+        "<modifiers>#<HASH>": {
+          "configured_graph_size": null,
+          "errors": [],
+          "other_outputs": {},
+          "outputs": {
+            "DEFAULT": [
+              "buck-out/v2/art/root/<HASH>/slow/__target__/fast.txt"
+            ]
+          },
+          "success": "SUCCESS"
+        }
+      },
+      "configured_graph_size": null,
+      "errors": [],
+      "other_outputs": {},
+      "outputs": {
+        "DEFAULT": [
+          "buck-out/v2/art/root/<HASH>/slow/__target__/fast.txt"
+        ]
+      },
+      "success": "SUCCESS"
+    },
     "root//subdir:subdir?root//:macos": {
       "configured": {
         "<modifiers>#<HASH>": {

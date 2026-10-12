@@ -185,6 +185,22 @@ def replay_streaming_report(
     }
 
 
+def streaming_status_history(
+    reports: typing.List[typing.Dict[str, typing.Any]],
+) -> typing.Dict[str, typing.List[str]]:
+    """Each key's successive top-level `success` values across streaming report lines.
+
+    Repeats are collapsed, so the result doesn't depend on how many lines carry an entry.
+    """
+    history: typing.Dict[str, typing.List[str]] = {}
+    for report in reports:
+        for key, entry in report["results"].items():
+            statuses = history.setdefault(key, [])
+            if statuses[-1:] != [entry["success"]]:
+                statuses.append(entry["success"])
+    return history
+
+
 async def get_last_execution_kind(
     buck: Buck,
     category: typing.Optional[str] = None,

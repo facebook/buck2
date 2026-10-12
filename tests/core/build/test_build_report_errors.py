@@ -269,6 +269,18 @@ def _outcomes(results: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _statuses(results: dict[str, Any]) -> dict[tuple[str, str | None], str]:
+    """Each entry's status, keyed `(key, None)`, and each configuration's, `(key, cfg)`."""
+    return {
+        **{(key, None): entry["success"] for key, entry in results.items()},
+        **{
+            (key, cfg): configured["success"]
+            for key, entry in results.items()
+            for cfg, configured in entry["configured"].items()
+        },
+    }
+
+
 @buck_test()
 async def test_streaming_one_of_each(buck: Buck, tmp_path: Path) -> None:
     report = tmp_path / "build-report.json"
@@ -306,6 +318,27 @@ async def test_streaming_one_of_each(buck: Buck, tmp_path: Path) -> None:
         if entry["success"] == "FAIL"
     }
     assert streamed_failures == failed
+
+    # `//success:success` has no outputs. Its configured target always finishes before the
+    # target does, so one line reads the configuration SUCCESS and the target IN_PROGRESS.
+    success_history = [
+        (entry["success"], [c["success"] for c in entry["configured"].values()])
+        for report in reports
+        if (entry := report["results"].get("root//success:success"))
+    ]
+    assert ("IN_PROGRESS", ["SUCCESS"]) in success_history, success_history
+    assert success_history[-1] == ("SUCCESS", ["SUCCESS"]), success_history
+
+    failed_statuses = {
+        key for key, status in _statuses(final).items() if status == "FAIL"
+    }
+    read_success_before_failing = {
+        key
+        for report in reports
+        for key, status in _statuses(report["results"]).items()
+        if key in failed_statuses and status == "SUCCESS"
+    }
+    assert read_success_before_failing == set()
 
 
 @buck_test()

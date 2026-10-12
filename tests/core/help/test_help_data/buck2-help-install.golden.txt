@@ -85,8 +85,9 @@ Options:
       --streaming-build-report <PATH>
           Stream intermediary build reports to a file in json lines format.
 
-          Each output materialization will trigger a new build report which will be written to the
-          file as a single line json.
+          A line is written each time a requested output is materialized, and each time a requested
+          target or one of its configurations finishes building. Each line carries one target.
+          Entries that have not finished building read `IN_PROGRESS` instead of `SUCCESS`.
 
   -j, --num-threads <THREADS>
           Number of threads to use during execution (default is # cores)
