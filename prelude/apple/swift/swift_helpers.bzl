@@ -33,6 +33,7 @@ CompileWithArgsFileCmdOutput = record(
     argsfile = field(Artifact),
     argsfile_cmd_form = field(cmd_args),
     shell_quoted_args = field(cmd_args),
+    dep_file_fingerprints = field(list[typing.Any]),
     error_outputs = field(list[OutputArtifact]),
     output_file_map_artifact = field(Artifact | None),
     error_deserializer = field(RunInfo | None),
@@ -124,25 +125,16 @@ def compile_with_argsfile_cmd(
     # input tracking.
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
 
+    dep_file_fingerprints = []
     if artifact_tag != None and uses_content_based_paths:
-        # This is a little bit convoluted due to the way that content-based paths affect argfiles.
-        # If an unused tagged input changes, we don't want to re-run the action, but if it is a
-        # content-based input that is written to the argfile, then the argfile will also change
-        # and that would cause a re-run.
-        #
-        # We therefore write the argfile twice: the "real" argfile, which is used in the action
-        # and tagged as unused so that it is not used for dep-file comparison, and an argfile
-        # that uses placeholders instead of content-based paths, which is not tagged for dep-files
-        # and therefore causes a dep-file miss if it changes.
-        argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True, has_content_based_path = uses_content_based_paths)
-        placeholder_argsfile, _ = ctx.actions.write(
-            ".{}_argsfile_placeholder".format(category),
+        (argsfile, fingerprint), _ = ctx.actions.write(
+            ".{}_argsfile".format(category),
             shell_quoted_args,
             allow_args = True,
-            use_dep_files_placeholder_for_content_based_paths = True,
+            dep_files_fingerprint_using_canonical_paths = True,
             has_content_based_path = uses_content_based_paths,
         )
-        cmd.add(cmd_args(hidden = placeholder_argsfile))
+        dep_file_fingerprints.append(fingerprint)
         argsfile_cmd_form = cmd_args(artifact_tag.tag_artifacts(argsfile), format = "@{}", delimiter = "", hidden = shared_flags)
     else:
         argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True, has_content_based_path = uses_content_based_paths)
@@ -213,6 +205,7 @@ def compile_with_argsfile_cmd(
         argsfile = argsfile,
         argsfile_cmd_form = argsfile_cmd_form,
         shell_quoted_args = shell_quoted_args,
+        dep_file_fingerprints = dep_file_fingerprints,
         error_outputs = error_outputs,
         output_file_map_artifact = output_file_map_artifact,
         error_deserializer = error_deserializer,
@@ -272,6 +265,7 @@ def compile_with_argsfile(
         allow_dep_file_cache_upload = (len(dep_files) > 0),
         category = category,
         dep_files = dep_files,
+        dep_file_fingerprints = cmd_output.dep_file_fingerprints,
         error_handler = swift_error_handler if cmd_output.error_deserializer else apple_build_error_handler,
         local_only = local_only,
         low_pass_filter = _low_pass_filter_for_category(category, toolchain.prioritize_swift_critical_path),
