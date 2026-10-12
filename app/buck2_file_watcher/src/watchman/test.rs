@@ -331,9 +331,7 @@ fn git_repo_with_mergebase_move(root: &Path) {
 }
 
 /// With `buck2.dice_clear_on_mergebase_change = false`, a checkout that moves the mergebase is
-/// handled as an incremental batch. Watchman answers the scm-aware query with the files that
-/// differ from the *new* mergebase, which is none here, so nothing is invalidated although two
-/// files changed on disk.
+/// handled as an incremental batch that lists every file changed since the last sync.
 #[tokio::test]
 async fn test_syncable_query_mergebase_move_without_dice_clear() -> buck2_error::Result<()> {
     if !cfg!(fbcode_build) {
@@ -372,7 +370,16 @@ async fn test_syncable_query_mergebase_move_without_dice_clear() -> buck2_error:
 
     // Moves the mergebase from A to B: up.txt 0 -> 1 and loc.txt L -> 0 on disk.
     git(&root, &["checkout", "-q", "main"]);
-    assert_eq!(watchman_query.sync(()).await?.0, MbOut::Files(vec![]));
+    assert_eq!(
+        watchman_query.sync(()).await?.0,
+        MbOut::Files(vec!["loc.txt".to_owned(), "up.txt".to_owned()])
+    );
+    // A later edit is still reported incrementally.
+    fs::write(root.join("up.txt"), "2\n")?;
+    assert_eq!(
+        watchman_query.sync(()).await?.0,
+        MbOut::Files(vec!["up.txt".to_owned()])
+    );
 
     watchman_instance.shutdown().await?;
     Ok(())

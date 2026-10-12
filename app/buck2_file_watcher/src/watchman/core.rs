@@ -564,6 +564,24 @@ where
         // While we use scm-based queries, the processor api doesn't really support them yet so we just treat it as a fresh instance.
         let (new_mergebase, clock) = unpack_clock(clock);
 
+        // When the mergebase moved and the caller handles that incrementally (no DICE clear),
+        // the scm-aware result lists only the files that differ from the *new* mergebase: it
+        // misses files changed between the two mergebases and local edits the checkout dropped.
+        // Ask for everything since the last clock instead.
+        let (is_fresh_instance, files, clock) = if !is_fresh_instance
+            && !self.dice_clear_on_mergebase_change
+            && self.last_mergebase.is_some()
+            && new_mergebase != self.last_mergebase
+        {
+            let mut query = self.query.clone();
+            query.since = Some(Clock::Spec(self.last_clock.clone()));
+            let since_result = client.query::<BuckQueryResult>(query).await?;
+            let (_, clock) = unpack_clock(since_result.clock);
+            (since_result.is_fresh_instance, since_result.files, clock)
+        } else {
+            (is_fresh_instance, files, clock)
+        };
+
         let events = match files {
             None if is_fresh_instance => vec![],
             None => {
