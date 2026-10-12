@@ -209,4 +209,13 @@ mod tests {
         let valid_path = format!("{base_path}/test_valid.pem");
         assert!(verify(&OsString::from(valid_path)).await.is_ok());
     }
+
+    /// A client certificate file holds the leaf first and its chain after it. With an expired
+    /// leaf and a valid certificate behind it, the file passes.
+    #[tokio::test]
+    async fn expired_leaf_followed_by_valid_cert_passes() {
+        let base_path = env::var("TEST_CERT_LOCATIONS").unwrap();
+        let path = format!("{base_path}/test_expired_then_valid.pem");
+        assert!(verify(&OsString::from(path)).await.is_ok());
+    }
 }
