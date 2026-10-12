@@ -2387,3 +2387,81 @@ impl ChromeTraceCommand {
         Ok(writer)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use buck2_events::span::SpanId;
+    use buck2_wrapper_common::invocation_id::TraceId;
+
+    use super::*;
+
+    /// Renders `spans` overlapping top-level command spans with `max_tracks` and returns the
+    /// distinct tracks the written JSON uses.
+    fn rendered_tracks(max_tracks: u64, spans: u64) -> Vec<u64> {
+        let trace_id = TraceId::new();
+        let invocation = Invocation {
+            command_line_args: vec!["buck2".to_owned(), "build".to_owned()],
+            expanded_command_line_args: vec![],
+            working_dir: "/".to_owned(),
+            trace_id: trace_id.clone(),
+            start_time: None,
+        };
+        let mut writer =
+            ChromeTraceWriter::new(invocation, ChromeTraceFirstPass::new(), max_tracks);
+        let t0 = SystemTime::UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        for i in 1..=spans {
+            let start = BuckEvent::new(
+                t0 + Duration::from_millis(i),
+                trace_id.clone(),
+                Some(SpanId::from_u64(i).unwrap()),
+                None,
+                buck2_data::SpanStartEvent {
+                    data: Some(buck2_data::span_start_event::Data::Command(
+                        buck2_data::CommandStart::default(),
+                    )),
+                }
+                .into(),
+            );
+            writer.handle_event(&Arc::new(start)).unwrap();
+        }
+        for i in 1..=spans {
+            let end = BuckEvent::new(
+                t0 + Duration::from_secs(10),
+                trace_id.clone(),
+                Some(SpanId::from_u64(i).unwrap()),
+                None,
+                buck2_data::SpanEndEvent {
+                    duration: Some(Duration::from_secs(9).try_into().unwrap()),
+                    data: Some(buck2_data::span_end_event::Data::Command(
+                        buck2_data::CommandEnd::default(),
+                    )),
+                    ..Default::default()
+                }
+                .into(),
+            );
+            writer.handle_event(&Arc::new(end)).unwrap();
+        }
+        let mut out = Vec::new();
+        writer.into_writer(&mut out).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&out).unwrap();
+        let mut tids: Vec<u64> = json["traceEvents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|e| e["ph"] == "X")
+            .map(|e| e["tid"].as_u64().unwrap())
+            .collect();
+        tids.sort();
+        tids.dedup();
+        tids
+    }
+
+    /// `--max-tracks 1` with two overlapping spans renders two tracks, and `--max-tracks 0`
+    /// still renders one: the allocator refuses a track only once its number is above the
+    /// limit, so it hands out one track too many.
+    #[test]
+    fn test_max_tracks_admits_one_track_too_many() {
+        assert_eq!(rendered_tracks(1, 2).len(), 2);
+        assert_eq!(rendered_tracks(0, 1).len(), 1);
+    }
+}

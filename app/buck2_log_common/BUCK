@@ -7,6 +7,9 @@ rust_library(
     srcs = glob([
         "src/**/*.rs",
     ]),
+    test_deps = [
+        "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
+    ],
     deps = [
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:const_format",
