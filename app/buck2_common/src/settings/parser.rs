@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -270,7 +271,8 @@ fn try_load_rollout(_home_dir: Option<&AbsPath>) -> buck2_error::Result<Option<L
     Ok(None)
 }
 
-/// Loads rollout settings without allowing cache failures to block Buck2 startup.
+/// Loads the rollout layer. A rollout file that cannot be read, parsed, or validated is
+/// reported and skipped rather than failing the command.
 fn rollout_layer(home_dir: Option<&AbsPath>) -> Option<SettingsLayer> {
     match try_load_rollout(home_dir) {
         Ok(Some(LoadedRollout { path, table })) => {
@@ -278,7 +280,11 @@ fn rollout_layer(home_dir: Option<&AbsPath>) -> Option<SettingsLayer> {
         }
         Ok(None) => None,
         Err(error) => {
-            tracing::warn!("Ignoring Buck settings rollout cache: {error:#}");
+            let _ignored = soft_error!(
+                "buck_settings_rollout_ignored",
+                error.context("Error parsing settings rollout file"),
+                quiet: false
+            );
             None
         }
     }
