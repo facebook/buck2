@@ -14,6 +14,7 @@ use std::sync::Arc;
 use buck2_error::buck2_error;
 use buck2_util::process::async_background_command;
 use dupe::Dupe;
+use rustls_pki_types::CertificateDer;
 use tokio::sync::Mutex;
 
 use crate::certs;
@@ -58,8 +59,17 @@ async fn is_vpnless_cert_valid() -> bool {
     }
 }
 
+/// Which certificates of a PEM file must be valid for the file to pass.
+#[derive(Clone, Copy)]
+enum ValidCerts {
+    /// A bundle, such as the root certificates: any valid certificate will do.
+    Any,
+    /// A client certificate file: the leaf comes first, followed by its chain.
+    Leaf,
+}
+
 /// Check if the provided certs exists and if it is still valid at the current time.
-async fn verify(path: &OsString) -> buck2_error::Result<()> {
+async fn verify(path: &OsString, required: ValidCerts) -> buck2_error::Result<()> {
     let certs = load_certs(path).await?;
     if certs.is_empty() {
         return Err(buck2_error!(
@@ -69,14 +79,18 @@ async fn verify(path: &OsString) -> buck2_error::Result<()> {
         ));
     }
 
-    let valid = certs.iter().any(|bytes| {
+    let is_valid = |bytes: &CertificateDer<'_>| {
         let x509_cert = match x509_parser::parse_x509_certificate(bytes) {
             Ok((_, x509_cert)) => x509_cert,
             Err(_) => return false,
         };
 
         x509_cert.validity().is_valid()
-    });
+    };
+    let valid = match required {
+        ValidCerts::Any => certs.iter().any(is_valid),
+        ValidCerts::Leaf => is_valid(&certs[0]),
+    };
 
     if !valid {
         return Err(buck2_error!(
@@ -105,7 +119,7 @@ pub async fn validate_certs() -> buck2_error::Result<()> {
         // System certs are unlikely to be invalid, but if it is, it's a bigger issue than invalid client certs so we check it first
         match certs::find_root_ca_certs() {
             Some(root_certs) => {
-                if let Err(e) = verify(&root_certs).await {
+                if let Err(e) = verify(&root_certs, ValidCerts::Any).await {
                     return Err(InvalidCertsError::SystemCerts(e.to_string()).into());
                 }
             }
@@ -114,7 +128,7 @@ pub async fn validate_certs() -> buck2_error::Result<()> {
 
         match certs::find_internal_cert() {
             Some(client_certs) => {
-                if let Err(e) = verify(&client_certs).await {
+                if let Err(e) = verify(&client_certs, ValidCerts::Leaf).await {
                     return Err(InvalidCertsError::ClientCerts(e.to_string()).into());
                 }
             }
@@ -159,6 +173,7 @@ mod tests {
     use std::env;
     use std::ffi::OsString;
 
+    use crate::validate::ValidCerts;
     use crate::validate::verify;
 
     #[tokio::test]
@@ -166,7 +181,7 @@ mod tests {
         let base_path = env::var("TEST_CERT_LOCATIONS").unwrap();
 
         let empty_path = format!("{base_path}/test_empty.pem");
-        let empty_res = verify(&OsString::from(empty_path)).await;
+        let empty_res = verify(&OsString::from(empty_path), ValidCerts::Leaf).await;
         assert!(empty_res.is_err());
         let err_msg = empty_res.unwrap_err().to_string();
         assert!(
@@ -176,7 +191,7 @@ mod tests {
         );
 
         let invalid_path = format!("{base_path}/test_invalid.pem");
-        let invalid_res = verify(&OsString::from(invalid_path)).await;
+        let invalid_res = verify(&OsString::from(invalid_path), ValidCerts::Leaf).await;
         assert!(invalid_res.is_err());
         let err_msg = invalid_res.unwrap_err().to_string();
         assert!(
@@ -187,7 +202,7 @@ mod tests {
 
         // Self-signed cert for testing. Expired 05/31/2024
         let expired_path = format!("{base_path}/test_expired.pem");
-        let expired_res = verify(&OsString::from(expired_path)).await;
+        let expired_res = verify(&OsString::from(expired_path), ValidCerts::Leaf).await;
         assert!(expired_res.is_err());
         let err_msg = expired_res.unwrap_err().to_string();
         assert!(
@@ -207,15 +222,23 @@ mod tests {
         // Copy content in x509.crt
         let base_path = env::var("TEST_CERT_LOCATIONS").unwrap();
         let valid_path = format!("{base_path}/test_valid.pem");
-        assert!(verify(&OsString::from(valid_path)).await.is_ok());
+        assert!(
+            verify(&OsString::from(valid_path), ValidCerts::Leaf)
+                .await
+                .is_ok()
+        );
     }
 
-    /// A client certificate file holds the leaf first and its chain after it. With an expired
-    /// leaf and a valid certificate behind it, the file passes.
+    /// A client certificate file holds the leaf first and its chain after it. An expired leaf
+    /// is rejected even when a valid certificate follows it; a bundle only needs one valid
+    /// certificate.
     #[tokio::test]
-    async fn expired_leaf_followed_by_valid_cert_passes() {
+    async fn expired_leaf_followed_by_valid_cert_is_rejected() {
         let base_path = env::var("TEST_CERT_LOCATIONS").unwrap();
         let path = format!("{base_path}/test_expired_then_valid.pem");
-        assert!(verify(&OsString::from(path)).await.is_ok());
+        let res = verify(&OsString::from(path.clone()), ValidCerts::Leaf).await;
+        let err_msg = res.unwrap_err().to_string();
+        assert!(err_msg.starts_with("Certificate Expired"), "{err_msg}");
+        assert!(verify(&OsString::from(path), ValidCerts::Any).await.is_ok());
     }
 }
