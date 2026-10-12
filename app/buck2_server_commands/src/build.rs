@@ -386,16 +386,7 @@ async fn build(
         .collect();
 
     let (streaming_build_result_tx, streaming_build_result_rx) =
-        tokio::sync::mpsc::unbounded_channel();
-    // Avoid computing and generating streaming build results if we don't have to
-    let build_command_streaming_build_result_tx = if !build_opts
-        .unstable_streaming_build_report_filename
-        .is_empty()
-    {
-        Some(streaming_build_result_tx)
-    } else {
-        None
-    };
+        build::build_report::streaming_build_result_channel(build_opts);
 
     let return_run_args = request
         .response_options
@@ -418,7 +409,7 @@ async fn build(
                 graph_properties.dupe(),
                 return_run_args,
                 timeout_observer.as_ref(),
-                build_command_streaming_build_result_tx,
+                streaming_build_result_tx,
                 build_start,
             )
             .await

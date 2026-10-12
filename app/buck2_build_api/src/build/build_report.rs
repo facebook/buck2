@@ -71,6 +71,8 @@ use itertools::EitherOrBoth;
 use itertools::Itertools;
 use serde::Serialize;
 use starlark_map::small_set::SmallSet;
+use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::build::BuildProviderType;
@@ -1419,6 +1421,21 @@ async fn init_streaming_build_report(
     Ok(())
 }
 
+/// Creates the channel whose receiver `maybe_stream_build_reports` consumes. The sender is `None`
+/// when no streaming build report was requested.
+pub fn streaming_build_result_channel(
+    build_opts: &CommonBuildOptions,
+) -> (
+    Option<UnboundedSender<BuildTargetResult>>,
+    UnboundedReceiver<BuildTargetResult>,
+) {
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let requested = !build_opts
+        .unstable_streaming_build_report_filename
+        .is_empty();
+    (requested.then_some(tx), rx)
+}
+
 /// Shared by `buck build` and `buck test`. `buck test` keeps its result senders alive past the
 /// build phase, so once the channel closes we stop polling it to avoid busy-looping while
 /// `command_future` is still running.
@@ -1430,7 +1447,7 @@ pub async fn maybe_stream_build_reports<T>(
     cwd: &ProjectRelativePath,
     trace_id: TraceId,
     graph_properties: GraphPropertiesOptions,
-    mut streaming_build_result_rx: tokio::sync::mpsc::UnboundedReceiver<BuildTargetResult>,
+    mut streaming_build_result_rx: UnboundedReceiver<BuildTargetResult>,
 ) -> buck2_error::Result<T> {
     if build_opts
         .unstable_streaming_build_report_filename

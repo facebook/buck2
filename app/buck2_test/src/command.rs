@@ -27,6 +27,7 @@ use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::build_report::build_report_opts;
 use buck2_build_api::build::build_report::maybe_stream_build_reports;
+use buck2_build_api::build::build_report::streaming_build_result_channel;
 use buck2_build_api::build::build_report::write_build_report;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::InternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
@@ -510,16 +511,7 @@ async fn test(
     test_executor_args.extend(extra_tpx_args);
 
     let (streaming_build_result_tx, streaming_build_result_rx) =
-        tokio::sync::mpsc::unbounded_channel();
-    // Avoid streaming intermediary build results unless a streaming build report was requested.
-    let streaming_build_result_tx = if !build_opts
-        .unstable_streaming_build_report_filename
-        .is_empty()
-    {
-        Some(streaming_build_result_tx)
-    } else {
-        None
-    };
+        streaming_build_result_channel(build_opts);
 
     let test_future = test_targets(
         ctx.dupe(),
