@@ -49,3 +49,18 @@ impl FromStr for TDigest {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::TDigest;
+
+    /// The digest regex is not anchored, so text around a valid-looking part is dropped silently.
+    #[test]
+    fn test_from_str_accepts_junk_around_the_digest() {
+        let digest: TDigest = "XYZabc:12:junk".parse().unwrap();
+        assert_eq!(digest.hash, "abc");
+        assert_eq!(digest.size_in_bytes, 12);
+        let digest: TDigest = "ABCDEF0123:5".parse().unwrap();
+        assert_eq!(digest.hash, "0123");
+    }
+}
