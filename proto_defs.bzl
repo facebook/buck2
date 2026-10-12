@@ -66,12 +66,16 @@ def _rust_protobuf_library(name, srcs, build_script, buck2_protoc_dev, prost_ver
     if proto_srcs:
         build_env["BUCK_PROTO_SRCS"] = "$(location {})".format(proto_srcs)
 
+    anchor = " ".join(['case "${0}" in /*) ;; *) [ -e "${0}" ] && export {0}="$PWD/${0}";; esac;'.format(k) for k in sorted(build_env)])
+    anchor_exe = "".join(["if exist %ROOT%%{0}% set {0}=%ROOT%%{0}%\n".format(k) for k in sorted(build_env)])
     buck_genrule(
         name = proto_name,
+        repo_relative_root = True,
         srcs = protos,
-        # The binary doesn't look at the command line, but with Buck1, if we don't have $OUT
-        # on the command line, it doesn't set the environment variable, so put it on.
-        cmd = "$(exe :{}) --required-for-buck1=$OUT".format(build_name),
+        cmd = 'BUILD="$PWD/$(exe :{})"; export OUT="$PWD/$OUT"; {} cd "$SRCDIR" && "$BUILD" --required-for-buck1="$OUT"'.format(build_name, anchor),
+        cmd_exe = 'set ROOT=%CD%\\\nset BUILD=%ROOT%$(exe :{})\nset OUT=%ROOT%$OUT\n{}cd /d "$SRCDIR" && %BUILD% --required-for-buck1=%OUT%'.format(
+            build_name, anchor_exe
+        ),
         env = build_env,
         out = ".",
     )
