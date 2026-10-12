@@ -59,6 +59,12 @@ class GenerationContext {
   val importedTypesByFile: Map<KtFile, Set<FullTypeQualifier>>
 
   /**
+   * [isCompanionCallableImport], precomputed: probing per candidate would rescan every file's
+   * imports.
+   */
+  val companionCallableImports: Set<FullTypeQualifier>
+
+  /**
    * This contains external types outside from the local source codes, etc: classpath, code
    * generation
    */
@@ -108,6 +114,7 @@ class GenerationContext {
       this.importedDeclarations = emptySet()
       this.importedTypes = emptySet()
       this.importedTypesByFile = emptyMap()
+      this.companionCallableImports = emptySet()
       this.interfaceTypes = emptyList()
       this.multiBoundGroups = emptyList()
       this.annotationEntries = emptyList()
@@ -234,6 +241,16 @@ class GenerationContext {
         val quals = imports.mapNotNull { it.toImportedClass() }
         quals.filterNot { it.isTopLevelDeclaration() }.toSet() + promoteProvenClassImports(quals)
       }
+      this.companionCallableImports =
+          importedTypesByFile.values.flatMapTo(mutableSetOf()) { imports ->
+            val classNames =
+                imports.mapNotNullTo(mutableSetOf()) { other ->
+                  other.names.lastOrNull()?.takeUnless { other.isThroughCompanion() }
+                }
+            imports.filter { imp ->
+              imp.isThroughCompanion() && imp.names.lastOrNull() in classNames
+            }
+          }
       // TODO: We might have multiple ctors for each type.
       // For now we're just skipping to have one (the default)
       this.typeValueArgs = typeValueArgPairs.toMap()
@@ -398,14 +415,9 @@ class GenerationContext {
    * name in separate namespaces, and the type usages resolve to the other import.
    */
   fun isCompanionCallableImport(imp: FullTypeQualifier): Boolean {
-    if (!imp.names.dropLast(1).contains("Companion")) return false
-    val simpleName = imp.names.last()
-    return importedTypesByFile.any { (_, imports) ->
-      imports.contains(imp) &&
-          imports.any { other ->
-            other.names.last() == simpleName && !other.names.dropLast(1).contains("Companion")
-          }
-    }
+    // The set matches by segments, but the probe always inspected the candidate's own names: a
+    // rebuilt qualifier can share an import's segments while parsing its names differently.
+    return imp.isThroughCompanion() && imp in companionCallableImports
   }
 
   private fun promoteProvenClassImports(
@@ -465,4 +477,11 @@ class GenerationContext {
     if (own.isNotEmpty()) return own.split(".")
     return packageName()?.split(".").orEmpty()
   }
+}
+
+private fun FullTypeQualifier.isThroughCompanion(): Boolean {
+  for (i in 0 until names.size - 1) {
+    if (names[i] == "Companion") return true
+  }
+  return false
 }
