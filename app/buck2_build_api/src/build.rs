@@ -23,6 +23,7 @@ use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::pattern::pattern::Modifiers;
+use buck2_core::pattern::pattern::TargetLabelWithModifiers;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -183,6 +184,9 @@ impl AsyncBuildTargetResultBuilder {
                         Some(event) => {
                             if let FailFastState::Breakpoint = self.builder.event(event)? {
                                 if fail_fast {
+                                    // Analysis errors and validation failures write no streaming
+                                    // line of their own.
+                                    self.builder.send_build_finished_snapshot();
                                     break;
                                 }
                             }
@@ -218,6 +222,7 @@ pub struct BuildTargetResultBuilder {
     other_errors: BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     build_failed: bool,
     incompatible_targets: SmallSet<ConfiguredTargetLabel>,
+    finished_builds: FinishedBuilds,
     streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
     build_start: Instant,
 }
@@ -232,9 +237,16 @@ impl BuildTargetResultBuilder {
             configured_to_pattern_modifiers: BuckMutMap::default(),
             other_errors: BTreeMap::new(),
             incompatible_targets: SmallSet::new(),
+            finished_builds: FinishedBuilds::default(),
             build_failed: false,
             streaming_build_result_tx: streaming_build_result_tx.take(),
             build_start,
+        }
+    }
+
+    fn send_build_finished_snapshot(&self) {
+        if let Some(tx) = &self.streaming_build_result_tx {
+            let _ignored = tx.send(self.snapshot());
         }
     }
 
@@ -245,6 +257,18 @@ impl BuildTargetResultBuilder {
                 self.other_errors.entry(target).or_default().push(err);
                 self.build_failed = true;
                 // TODO(cjhopman): Why don't we break here?
+                return Ok(FailFastState::Continue);
+            }
+            BuildEvent::ConfiguredTargetBuildFinished { target, modifiers } => {
+                self.finished_builds
+                    .configured_targets
+                    .insert((target, modifiers));
+                self.send_build_finished_snapshot();
+                return Ok(FailFastState::Continue);
+            }
+            BuildEvent::TargetBuildFinished { target } => {
+                self.finished_builds.targets.insert(target);
+                self.send_build_finished_snapshot();
                 return Ok(FailFastState::Continue);
             }
         };
@@ -296,9 +320,8 @@ impl BuildTargetResultBuilder {
                                 elapsed,
                             });
                             // update the streaming build result
-                            if let Some(tx) = &self.streaming_build_result_tx.clone() {
-                                let result = self.build();
-                                let _ignored = tx.send(result);
+                            if let Some(tx) = &self.streaming_build_result_tx {
+                                let _ignored = tx.send(self.build());
                             }
 
                             is_err
@@ -365,6 +388,11 @@ impl BuildTargetResultBuilder {
             ));
         }
 
+        self.snapshot()
+    }
+
+    /// `build` without its console message.
+    fn snapshot(&self) -> BuildTargetResult {
         // Sort our outputs within each individual BuildTargetResult, then return those.
         // Also, turn our BuckMutMap into a BTreeMap.
         let res = self
@@ -433,9 +461,24 @@ impl BuildTargetResultBuilder {
             configured: res,
             configured_to_pattern_modifiers,
             other_errors: self.other_errors.clone(),
+            finished_builds: self.finished_builds.clone(),
             build_failed: self.build_failed,
         }
     }
+}
+
+/// Targets whose builds have ended, as reported by the driver that owns their futures.
+///
+/// The builder cannot work this out itself: it sees each provider label separately, and a
+/// target's labels can register after some of them have already finished.
+#[derive(Clone, Default)]
+pub struct FinishedBuilds {
+    /// Every provider label of the configured target has finished building for one requested
+    /// pattern (target and modifiers). Patterns whose modifiers resolve to the same configuration
+    /// are built separately, so each one finishes on its own.
+    pub configured_targets: BTreeSet<(ConfiguredTargetLabel, Modifiers)>,
+    /// Every provider label of the target has finished building or failed to configure.
+    pub targets: BTreeSet<TargetLabelWithModifiers>,
 }
 
 pub struct BuildTargetResult {
@@ -444,6 +487,7 @@ pub struct BuildTargetResult {
     /// Errors that could not be associated with a specific configured target. These errors may be
     /// associated with a providers label, or might not be associated with any target at all.
     pub other_errors: BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
+    pub finished_builds: FinishedBuilds,
     pub build_failed: bool,
 }
 
@@ -453,6 +497,7 @@ impl BuildTargetResult {
             configured: BTreeMap::new(),
             configured_to_pattern_modifiers: BuckMutMap::default(),
             other_errors: BTreeMap::new(),
+            finished_builds: FinishedBuilds::default(),
             build_failed: false,
         }
     }
@@ -460,6 +505,12 @@ impl BuildTargetResult {
     pub fn extend(&mut self, other: BuildTargetResult) {
         self.configured.extend(other.configured);
         self.other_errors.extend(other.other_errors);
+        self.finished_builds
+            .configured_targets
+            .extend(other.finished_builds.configured_targets);
+        self.finished_builds
+            .targets
+            .extend(other.finished_builds.targets);
 
         for (label, modifiers_set) in other.configured_to_pattern_modifiers {
             self.configured_to_pattern_modifiers
@@ -469,6 +520,8 @@ impl BuildTargetResult {
         }
     }
 
+    /// Ignores `finished_builds`: `buck test` reads an empty result as "nothing was built", which
+    /// finish events alone don't change.
     pub fn is_empty(&self) -> bool {
         self.configured.is_empty() && self.other_errors.is_empty()
     }
@@ -518,6 +571,16 @@ pub enum BuildEvent {
     OtherError {
         label: Option<ProvidersLabel>,
         err: buck2_error::Error,
+    },
+    /// Every provider label of this configured target has finished building, successfully or not,
+    /// for one requested pattern (target and modifiers).
+    ConfiguredTargetBuildFinished {
+        target: ConfiguredTargetLabel,
+        modifiers: Modifiers,
+    },
+    /// Every provider label of this target has finished building or failed to configure.
+    TargetBuildFinished {
+        target: TargetLabelWithModifiers,
     },
 }
 
@@ -827,5 +890,253 @@ impl HasCreateUnhashedSymlinkLock for UserComputationData {
             .get::<Arc<Mutex<()>>>()
             .expect("Lock for creating unhashed symlinks should be set")
             .dupe()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+    use std::time::Instant;
+
+    use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::pattern::pattern::Modifiers;
+    use buck2_core::pattern::pattern::TargetLabelWithModifiers;
+    use buck2_core::provider::label::ConfiguredProvidersLabel;
+    use buck2_core::provider::label::ProvidersName;
+    use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+    use buck2_error::ErrorTag;
+    use buck2_error::buck2_error;
+    use dupe::Dupe;
+    use tokio::sync::mpsc::UnboundedReceiver;
+
+    use super::AsyncBuildTargetResultBuilder;
+    use super::BuildEvent;
+    use super::BuildEventConsumer;
+    use super::BuildTargetResult;
+    use super::BuildTargetResultBuilder;
+    use super::ConfiguredBuildEventVariant;
+    use super::FailFastState;
+
+    fn configured_target(name: &str) -> ConfiguredTargetLabel {
+        ConfiguredTargetLabel::testing_parse(name, ConfigurationData::testing_new())
+    }
+
+    fn macos_arm() -> Modifiers {
+        Modifiers::parse("root//:macos+root//:arm")
+    }
+
+    fn target(
+        configured: &ConfiguredTargetLabel,
+        modifiers: &Modifiers,
+    ) -> TargetLabelWithModifiers {
+        TargetLabelWithModifiers {
+            target_label: configured.unconfigured().dupe(),
+            modifiers: modifiers.dupe(),
+        }
+    }
+
+    fn builder_with_sender() -> (
+        BuildTargetResultBuilder,
+        UnboundedReceiver<BuildTargetResult>,
+    ) {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        (BuildTargetResultBuilder::new(Some(tx), Instant::now()), rx)
+    }
+
+    fn feed(builder: &mut BuildTargetResultBuilder, event: BuildEvent) {
+        let state = builder.event(event).unwrap();
+        assert!(
+            matches!(state, FailFastState::Continue),
+            "a finish event never stops a fail-fast build"
+        );
+    }
+
+    fn configured_finished(
+        configured: &ConfiguredTargetLabel,
+        modifiers: &Modifiers,
+    ) -> BuildEvent {
+        BuildEvent::ConfiguredTargetBuildFinished {
+            target: configured.dupe(),
+            modifiers: modifiers.dupe(),
+        }
+    }
+
+    fn feed_finish_events(
+        builder: &mut BuildTargetResultBuilder,
+        configured: &ConfiguredTargetLabel,
+        modifiers: &Modifiers,
+    ) {
+        feed(builder, configured_finished(configured, modifiers));
+        feed(
+            builder,
+            BuildEvent::TargetBuildFinished {
+                target: target(configured, modifiers),
+            },
+        );
+    }
+
+    fn sent(rx: &mut UnboundedReceiver<BuildTargetResult>) -> Vec<BuildTargetResult> {
+        std::iter::from_fn(|| rx.try_recv().ok()).collect()
+    }
+
+    fn assert_recorded(
+        result: &BuildTargetResult,
+        configured: &ConfiguredTargetLabel,
+        modifiers: &Modifiers,
+    ) {
+        assert_eq!(
+            result.finished_builds.configured_targets,
+            BTreeSet::from([(configured.dupe(), modifiers.dupe())])
+        );
+        assert_eq!(
+            result.finished_builds.targets,
+            BTreeSet::from([target(configured, modifiers)])
+        );
+        assert!(
+            result.is_empty(),
+            "finish events alone add no build results or errors"
+        );
+    }
+
+    #[test]
+    fn test_finish_events_send_snapshots() {
+        let configured = configured_target("root//pkg:a");
+        let (mut builder, mut rx) = builder_with_sender();
+
+        feed_finish_events(&mut builder, &configured, &macos_arm());
+
+        let snapshots = sent(&mut rx);
+        assert_eq!(snapshots.len(), 2, "one snapshot per finish event");
+        assert_eq!(
+            snapshots[0].finished_builds.configured_targets,
+            BTreeSet::from([(configured.dupe(), macos_arm())])
+        );
+        assert!(
+            snapshots[0].finished_builds.targets.is_empty(),
+            "the first snapshot predates TargetBuildFinished"
+        );
+        assert_recorded(&snapshots[1], &configured, &macos_arm());
+        assert_recorded(&builder.build(), &configured, &macos_arm());
+    }
+
+    async fn wait_for_analysis_error(
+        fail_fast: bool,
+        label: &ConfiguredProvidersLabel,
+    ) -> (BuildTargetResult, Vec<BuildTargetResult>) {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let (builder, consumer) = AsyncBuildTargetResultBuilder::new(Some(tx), Instant::now());
+        consumer.consume(BuildEvent::new_configured(
+            label.dupe(),
+            ConfiguredBuildEventVariant::Error {
+                err: buck2_error!(ErrorTag::Input, "analysis failed"),
+            },
+        ));
+
+        // `yield_now` is pending on its first poll, so `wait_for` handles the error before the
+        // build future completes.
+        let result = builder
+            .wait_for(fail_fast, tokio::task::yield_now())
+            .await
+            .unwrap();
+        (result, sent(&mut rx))
+    }
+
+    fn error_messages(result: &BuildTargetResult, label: &ConfiguredProvidersLabel) -> Vec<String> {
+        result.configured[label]
+            .as_ref()
+            .expect("an analysis error records a result for its label")
+            .errors
+            .iter()
+            .map(|e| e.inner.to_string())
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn test_fail_fast_breakpoint_sends_snapshot() {
+        let label =
+            ConfiguredProvidersLabel::new(configured_target("root//pkg:a"), ProvidersName::Default);
+
+        let (result, snapshots) = wait_for_analysis_error(true, &label).await;
+        assert_eq!(
+            snapshots.len(),
+            1,
+            "the fail-fast breakpoint sends exactly one snapshot"
+        );
+        assert_eq!(error_messages(&snapshots[0], &label), ["analysis failed"]);
+        assert_eq!(error_messages(&result, &label), ["analysis failed"]);
+
+        let (result, snapshots) = wait_for_analysis_error(false, &label).await;
+        assert!(
+            snapshots.is_empty(),
+            "without fail-fast, an analysis error writes no streaming line of its own"
+        );
+        assert_eq!(error_messages(&result, &label), ["analysis failed"]);
+    }
+
+    #[test]
+    fn test_finish_events_recorded_without_sender() {
+        let configured = configured_target("root//pkg:a");
+        let mut builder = BuildTargetResultBuilder::new(None, Instant::now());
+
+        feed_finish_events(&mut builder, &configured, &macos_arm());
+
+        assert_recorded(&builder.build(), &configured, &macos_arm());
+    }
+
+    #[test]
+    fn test_configured_finish_is_per_pattern() {
+        // Both orderings resolve to the same configuration but are requested as separate patterns.
+        let configured = configured_target("root//pkg:a");
+        let arm_macos = Modifiers::parse("root//:arm+root//:macos");
+        let mut builder = BuildTargetResultBuilder::new(None, Instant::now());
+
+        feed(&mut builder, configured_finished(&configured, &macos_arm()));
+
+        let finished = builder.build().finished_builds.configured_targets;
+        assert!(finished.contains(&(configured.dupe(), macos_arm())));
+        assert!(
+            !finished.contains(&(configured.dupe(), arm_macos.dupe())),
+            "?macos+arm finishing must not mark ?arm+macos finished"
+        );
+
+        feed(&mut builder, configured_finished(&configured, &arm_macos));
+
+        assert_eq!(
+            builder.build().finished_builds.configured_targets,
+            BTreeSet::from([(configured.dupe(), macos_arm()), (configured, arm_macos)])
+        );
+    }
+
+    #[test]
+    fn test_extend_merges_finished_builds() {
+        let a = configured_target("root//pkg:a");
+        let b = configured_target("root//pkg:b");
+        let modifiers = macos_arm();
+        let mut result = BuildTargetResult::new();
+        result
+            .finished_builds
+            .configured_targets
+            .insert((a.dupe(), modifiers.dupe()));
+        let mut other = BuildTargetResult::new();
+        other
+            .finished_builds
+            .configured_targets
+            .insert((b.dupe(), modifiers.dupe()));
+        other.finished_builds.targets.insert(target(&b, &modifiers));
+
+        result.extend(other);
+
+        assert_eq!(
+            result.finished_builds.configured_targets,
+            BTreeSet::from([(a, modifiers.dupe()), (b.dupe(), modifiers.dupe())])
+        );
+        assert_eq!(
+            result.finished_builds.targets,
+            BTreeSet::from([target(&b, &modifiers)])
+        );
+        assert!(
+            result.is_empty(),
+            "finish events alone add no build results or errors"
+        );
     }
 }

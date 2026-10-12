@@ -346,6 +346,37 @@ async def test_missing_report_on_wrong_package(buck: Buck, tmp_path: Path) -> No
         raise AssertionError("Expected no report to be written")
 
 
+@buck_test()
+async def test_streaming_fail_fast_streams_the_stopping_error(
+    buck: Buck, tmp_path: Path
+) -> None:
+    # The analysis error stops the build before any output exists, so no output line can carry it.
+    # `//slow:slow` keeps the build running: if the build ended on its own, `--fail-fast` would not
+    # stop it.
+    streaming_report = tmp_path / "streaming-build-report.jsonl"
+    await expect_failure(
+        buck.build(
+            "--fail-fast",
+            "--local-only",
+            "--no-remote-cache",
+            "--streaming-build-report",
+            str(streaming_report),
+            "//fail_analysis:fail_analysis",
+            "//slow:slow",
+        )
+    )
+
+    lines = streaming_report.read_text().splitlines()
+    assert lines, "the error that stopped the build must reach the streaming report"
+    report = json.loads(lines[-1])
+    configured = report["results"]["root//fail_analysis:fail_analysis"]["configured"][
+        "<unspecified>"
+    ]
+    assert configured["success"] == "FAIL"
+    (error,) = configured["errors"]
+    assert "Failure during analysis" in report["strings"][str(error["message_content"])]
+
+
 # TODO fix on windows and mac
 if not running_on_windows() and not running_on_mac():
 
