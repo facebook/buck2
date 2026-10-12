@@ -8,11 +8,16 @@
 
 # pyre-strict
 import json
+from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden, GOLDEN_DIRECTORY
+from buck2.tests.e2e_util.helper.utils import (
+    read_streaming_report,
+    replay_streaming_report,
+)
 
 
 @buck_test()
@@ -171,6 +176,29 @@ async def test_build_with_mutliple_target_universes(buck: Buck) -> None:
 
     assert linux_found
     assert macos_found
+
+
+@buck_test()
+async def test_streaming_build_report_with_multiple_target_universes(
+    buck: Buck, tmp_path: Path
+) -> None:
+    streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+    await buck.build(
+        "root//:dummy",
+        "--target-universe",
+        "root//:universe?root//:linux,root//:dummy?root//:macos+root//:arm",
+        "--streaming-build-report",
+        str(streaming_report),
+    )
+
+    reports = read_streaming_report(streaming_report)
+    # One line per configuration's output, one per configured target finishing, and one
+    # when the target finishes.
+    assert len(reports) == 5, f"Expected 5 lines, got {len(reports)}"
+    results = replay_streaming_report(reports)
+    assert list(results) == ["root//:dummy"]
+    assert len(results["root//:dummy"]["configured"]) == 2
 
 
 @buck_test()

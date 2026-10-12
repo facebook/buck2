@@ -731,24 +731,47 @@ async fn build_targets_in_universe(
                 .to_owned(),
         );
     }
-    provider_labels
+    // No `MapModifiers` is emitted on this path, so the report files every entry without
+    // modifiers.
+    group_by_key(provider_labels, |p| p.target().unconfigured().dupe())
         .into_iter()
-        .map(|p| {
+        .map(|(target, labels)| {
             buck2_util::async_move_clone!(providers_to_build, {
-                build::build_configured_label(
-                    event_consumer,
-                    ctx,
-                    materialization_and_upload,
-                    p,
-                    &providers_to_build,
-                    build::BuildConfiguredLabelOptions {
-                        skippable: false,
-                        graph_properties,
-                        return_run_args,
-                    },
-                    timeout_observer,
-                )
-                .await
+                let providers_to_build = &providers_to_build;
+                group_by_key(labels, |label| label.target().dupe())
+                    .into_iter()
+                    .map(|(configured_target, labels)| async move {
+                        labels
+                            .into_iter()
+                            .map(|label| {
+                                build::build_configured_label(
+                                    event_consumer,
+                                    ctx,
+                                    materialization_and_upload,
+                                    label,
+                                    providers_to_build,
+                                    build::BuildConfiguredLabelOptions {
+                                        skippable: false,
+                                        graph_properties,
+                                        return_run_args,
+                                    },
+                                    timeout_observer,
+                                )
+                            })
+                            .collect::<FuturesUnordered<_>>()
+                            .collect::<()>()
+                            .await;
+                        event_consumer.consume(BuildEvent::ConfiguredTargetBuildFinished {
+                            target: configured_target,
+                            modifiers: Modifiers::new(None),
+                        });
+                    })
+                    .collect::<FuturesUnordered<_>>()
+                    .collect::<()>()
+                    .await;
+                event_consumer.consume(BuildEvent::TargetBuildFinished {
+                    target: without_modifiers(target),
+                });
             })
         })
         .collect::<FuturesUnordered<_>>()
