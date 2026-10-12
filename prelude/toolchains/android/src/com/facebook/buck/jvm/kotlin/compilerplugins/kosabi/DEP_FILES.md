@@ -148,14 +148,14 @@ compile instead of emitting a knowingly-wrong ABI. Parsed in
 ## Tests
 
 - Behavior tests: `test_dynamic_source_only_kotlincd_*_dep_files` in
-  `fbcode/buck2/tests/meta_only/e2e/rules/jvm/test_jvm.py`. Each mutates a dep
-  (or adds a class) and asserts HIT vs MISS plus ABI-jar byte-equality via
-  `get_source_only_abi_jar_bytes`. Convention is assert-buggy test-first: the
-  test lands asserting the buggy behavior with a `# BUG` marker, the fix flips
-  the assertion.
+  `fbcode/buck2/tests/meta_only/e2e/rules/jvm/test_kosabi_dep_files.py`. Each
+  mutates a dep (or adds a class) and asserts HIT vs MISS plus ABI-jar
+  byte-equality via `get_source_only_abi_jar_bytes`. Convention is
+  assert-buggy test-first: the test lands asserting the buggy behavior with a
+  `# BUG` marker, the fix flips the assertion.
 - Fixtures: `fbandroid/buck2/tests/good/kotlincd_dep_files/` (`BUCK` +
   `SourceOnly*.kt`).
-- Run: `buck2 test fbcode//buck2/tests/meta_only/e2e/rules/jvm:test_jvm --
+- Run: `buck2 test fbcode//buck2/tests/meta_only/e2e/rules/jvm:test_kosabi_dep_files --
   <name filter>`; the `source_only` / `unused_import` filters run the family.
 
 ### Production validation recipe
