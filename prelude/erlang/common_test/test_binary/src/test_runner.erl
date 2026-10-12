@@ -98,11 +98,12 @@ execute_test_suite(TestEnv) ->
         ok -> ok
     catch
         Class:Reason:StackTrace ->
+            FailureTime = erlang:system_time(millisecond),
             ErrorMsg = io_lib:format("run_test failed due to ~ts\n", [
                 erl_error:format_exception(Class, Reason, StackTrace)
             ]),
             ?LOG_ERROR(ErrorMsg),
-            test_run_fail(NewTestEnv, ErrorMsg, #{})
+            test_run_fail(NewTestEnv, ErrorMsg, #{}, FailureTime)
     end.
 
 -spec run_test(TestEnv, Timeout) -> ok when
@@ -115,6 +116,7 @@ run_test(TestEnv, Timeout) ->
             Ref = erlang:monitor(process, test_exec_sup, []),
             receive
                 {'DOWN', Ref, _Type, Object, Info} ->
+                    FailureTime = erlang:system_time(millisecond),
                     test_run_fail(
                         TestEnv,
                         io_lib:format(
@@ -122,27 +124,31 @@ run_test(TestEnv, Timeout) ->
                             "                        application test_exec crashed (~tp ~tp) ~n",
                             [Object, Info]
                         ),
-                        #{}
+                        #{},
+                        FailureTime
                     );
                 {run_succeed, Result, ProgressMarkersOffsets} ->
                     ensure_test_exec_stopped(),
                     test_run_succeed(TestEnv, Result, ProgressMarkersOffsets);
                 {run_failed, Result, ProgressMarkersOffsets} ->
+                    FailureTime = erlang:system_time(millisecond),
                     ensure_test_exec_stopped(),
-                    test_run_fail(TestEnv, Result, ProgressMarkersOffsets)
+                    test_run_fail(TestEnv, Result, ProgressMarkersOffsets, FailureTime)
             after Timeout ->
+                FailureTime = erlang:system_time(millisecond),
                 ensure_test_exec_stopped(),
                 ErrorMsg =
                     "\n************************\n"
                     "* the suite timed out. *\n"
                     "************************\n",
-                test_run_timeout(TestEnv, ErrorMsg)
+                test_run_timeout(TestEnv, ErrorMsg, FailureTime)
             end;
         {error, Reason} ->
+            FailureTime = erlang:system_time(millisecond),
             ErrorMsg = io_lib:format("TextExec failed to start due to ~tp", [Reason]),
 
             ?LOG_ERROR(ErrorMsg),
-            test_run_fail(TestEnv, ErrorMsg, #{})
+            test_run_fail(TestEnv, ErrorMsg, #{}, FailureTime)
     end.
 
 -spec ensure_test_exec_stopped() -> ok.
@@ -156,21 +162,23 @@ ensure_test_exec_stopped() ->
 -doc """
 Provides result as specified by the tpx protocol when test failed to ran.
 """.
--spec test_run_fail(TestEnv, Reason, ProgressMarkersOffsets) -> ok when
+-spec test_run_fail(TestEnv, Reason, ProgressMarkersOffsets, FailureTime) -> ok when
     TestEnv :: #test_env{},
     Reason :: unicode:chardata(),
-    ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()}.
-test_run_fail(TestEnv, Reason, ProgressMarkersOffsets) ->
+    ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()},
+    FailureTime :: integer().
+test_run_fail(TestEnv, Reason, ProgressMarkersOffsets, FailureTime) ->
     provide_output_file(
         TestEnv,
         io_lib:format("Test failed to ran due to ~ts", [Reason]),
         failed,
-        ProgressMarkersOffsets
+        ProgressMarkersOffsets,
+        FailureTime
     ).
 
--spec test_run_timeout(#test_env{}, string()) -> ok.
-test_run_timeout(TestEnv, Reason) ->
-    provide_output_file(TestEnv, Reason, timeout, #{}).
+-spec test_run_timeout(#test_env{}, string(), integer()) -> ok.
+test_run_timeout(TestEnv, Reason, FailureTime) ->
+    provide_output_file(TestEnv, Reason, timeout, #{}, FailureTime).
 
 -doc """
 Provides result as specified by the tpx protocol when test succeed to ran.
@@ -180,16 +188,17 @@ Provides result as specified by the tpx protocol when test succeed to ran.
     Reason :: unicode:chardata(),
     ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()}.
 test_run_succeed(TestEnv, Reason, ProgressMarkersOffsets) ->
-    provide_output_file(TestEnv, Reason, passed, ProgressMarkersOffsets).
+    provide_output_file(TestEnv, Reason, passed, ProgressMarkersOffsets, 0).
 
 -doc """
 Provides result as specified by the tpx protocol.
 """.
--spec provide_output_file(TestEnv, ResultExec, Status, ProgressMarkersOffsets) -> ok when
+-spec provide_output_file(TestEnv, ResultExec, Status, ProgressMarkersOffsets, FailureTime) -> ok when
     TestEnv :: #test_env{},
     ResultExec :: unicode:chardata(),
     Status :: failed | passed | timeout,
-    ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()}.
+    ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()},
+    FailureTime :: integer().
 provide_output_file(
     #test_env{
         output_dir = OutputDir,
@@ -199,7 +208,8 @@ provide_output_file(
     },
     ResultExec,
     Status,
-    ProgressMarkersOffsets
+    ProgressMarkersOffsets,
+    FailureTime
 ) ->
     LogFile = test_logger:get_log_file(OutputDir, ct_executor),
     StdOutFile = ct_stdout:filename(OutputDir),
@@ -255,6 +265,7 @@ provide_output_file(
 
     {ok, _ResultOuptuFile} =
         json_interfacer:write_json_output(OutputDir, Status, ResultExec, Results),
+    ok = test_result_output:write(OutputDir, Status, FailureTime, ResultExec, Results),
     test_artifact_directory:link_to_artifact_dir(
         StdOutFile, OutputDir, ArtifactAnnotationFunction
     ),

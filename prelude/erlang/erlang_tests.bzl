@@ -195,7 +195,11 @@ def _build_erlang_test(ctx: AnalysisContext, dep_info: ErlangDependencyInfo, bin
         type = "erlang_test",
         command = [cmd],
         env = ctx.attrs.env,
-        labels = ctx.attrs.labels,
+        labels = ctx.attrs.labels
+        + [
+            "tpx:supports-test-result-output-spec",
+            "tpx:bundled-tests-have-per-test-details",
+        ],
         contacts = ctx.attrs.contacts,
         run_from_project_root = True,
         use_project_relative_paths = True,
