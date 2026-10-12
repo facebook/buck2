@@ -2,9 +2,7 @@ load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
 
 constraint_with_aliases(
     name = "folly_demangle_macos_use_iberty_constraint",
-    aliases = {
-        "folly_demangle_macos_disable_iberty": "disable",
-    },
+    aliases = {},
     default = "unspecified",
     values = [
         "disable",
