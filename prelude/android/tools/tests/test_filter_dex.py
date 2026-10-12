@@ -113,8 +113,7 @@ class BelongsInPrimaryDexTest(unittest.TestCase):
             )
         )
 
-    def test_regex_pattern_only_matches_at_the_start_of_the_name(self) -> None:
-        # The Java `ClassNameFilter` that non-pre-dexed builds use finds the regex
-        # anywhere in the class name.
+    def test_regex_pattern_matches_at_the_start_of_the_name(self) -> None:
+        # Same answer as the Java `ClassNameFilter` that non-pre-dexed builds use.
         self.assertFalse(self._belongs("com/app/MainActivity", ["^-Activity"]))
         self.assertTrue(self._belongs("com/app/MainActivity", ["^-com/app/.*Activity"]))
