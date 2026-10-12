@@ -10,7 +10,9 @@
 
 use buck2_cli_proto::ConfigOverride;
 use buck2_cli_proto::config_override::ConfigType;
+use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -24,6 +26,45 @@ use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
 use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::parser::LegacyConfigParser;
+
+/// The cell-aware constructors and accessor for `ConfigOverride`. They live here rather
+/// than on the type because `buck2_cli_proto` deliberately does not depend on `buck2_core`.
+pub trait ConfigOverrideExt: Sized {
+    fn flag(s: &str, cell: Option<CellRootPathBuf>) -> Self;
+
+    fn file(p: &str, cell: Option<CellRootPathBuf>) -> Self;
+
+    fn get_cell(&self) -> buck2_error::Result<Option<&CellRootPath>>;
+}
+
+impl ConfigOverrideExt for ConfigOverride {
+    fn flag(s: &str, cell: Option<CellRootPathBuf>) -> Self {
+        Self {
+            cell: cell.map(|c| c.as_str().to_owned()),
+            config_override: s.to_owned(),
+            config_type: ConfigType::Value.into(),
+        }
+    }
+
+    fn file(p: &str, cell: Option<CellRootPathBuf>) -> Self {
+        Self {
+            cell: cell.map(|c| c.as_str().to_owned()),
+            config_override: p.to_owned(),
+            config_type: ConfigType::File.into(),
+        }
+    }
+
+    fn get_cell(&self) -> buck2_error::Result<Option<&CellRootPath>> {
+        self.cell
+            .as_ref()
+            .map(|p| {
+                ProjectRelativePath::new(p)
+                    .map(CellRootPath::new)
+                    .internal_error("Client should have sent a valid path")
+            })
+            .transpose()
+    }
+}
 
 /// Representation of a processed config arg, namely after file path resolution has been performed.
 #[derive(Debug, Clone, PartialEq, Eq, allocative::Allocative, Pagable)]

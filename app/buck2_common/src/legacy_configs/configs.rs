@@ -432,6 +432,7 @@ pub(crate) mod tests {
 
     use super::testing::*;
     use super::*;
+    use crate::legacy_configs::args::ConfigOverrideExt;
     use crate::legacy_configs::key::BuckconfigKeyRef;
 
     pub(crate) fn assert_config_value(
