@@ -5,6 +5,11 @@
 prints one longest compiler chain, dependencies first. `None` (the default)
 disables the assertion; zero is valid, negative limits are rejected.
 
+`android_binary_for_automation` accepts
+`max_jvm_compiler_depth_by_package_type`, a dictionary that overrides
+`max_jvm_compiler_depth` for the listed package types, such as `debug`, `exo`,
+and `exo-native`. Unlisted package types retain the default limit.
+
 ```python
 android_binary(
     name = "app",
