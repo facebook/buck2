@@ -1056,7 +1056,13 @@ def get_android_binary_native_library_info(
     enhance_ctx.debug_output("unstripped_native_libraries_json", unstripped_native_libraries_json, other_outputs = [unstripped_native_libraries_files])
     enhance_ctx.debug_output("unstripped_native_libraries_files", unstripped_native_libraries_files)
     if relinked_libs_output:
-        enhance_ctx.debug_output("relinked_libs", relinked_libs_output)
+        # The combine genrule reads this through `$(location)`, which also
+        # builds other_outputs, so a failing middle_relink_check fails it.
+        enhance_ctx.debug_output(
+            "relinked_libs",
+            relinked_libs_output,
+            other_outputs = [middle_relink_check_report] if middle_relink_check_report else [],
+        )
     if relinked_libs_manifest:
         enhance_ctx.debug_output("relinked_libs_manifest", relinked_libs_manifest)
     if unrelinked_libs_output:
@@ -1083,7 +1089,10 @@ def get_android_binary_native_library_info(
         non_root_module_native_lib_assets = [non_root_module_metadata_assets, non_root_module_lib_assets],
         generated_java_code = generated_java_code,
         unstripped_shared_libraries = unstripped_native_libraries_files,
-        validation_outputs = [report for report in [jni_onload_check_report, middle_relink_check_report] if report],
+        # Packaging adds validation_outputs as hidden inputs. A deferred relink's
+        # check must not become one, or the package Redex starts from would wait
+        # for every relink; [relinked_libs] carries it to the combine step.
+        validation_outputs = [report for report in [jni_onload_check_report, None if defer_relink else middle_relink_check_report] if report],
     )
 
 _NativeLibSubtargetArtifacts = record(
