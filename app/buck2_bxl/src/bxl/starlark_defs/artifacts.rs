@@ -17,8 +17,6 @@ use std::hash::Hasher;
 use std::iter;
 
 use allocative::Allocative;
-use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
-use buck2_build_api::actions::calculation::ActionCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
@@ -505,25 +503,20 @@ impl LazyBuildArtifact {
         &self,
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<()> {
-        ctx.try_compute_join(&self.artifacts_to_build, async |ctx, artifact_group| {
-            let artifact_group_values = ctx.ensure_artifact_group(artifact_group).await?;
-            let build_artifacts = artifact_group_values
-                .iter()
-                .filter_map(|(artifact, _value)| {
-                    if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
-                        Some(artifact.dupe())
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-            ctx.try_compute_join(build_artifacts, async |ctx, build_artifact| {
-                ActionCalculation::build_artifact(ctx, &build_artifact).await?;
-                buck2_error::Ok(())
-            })
-            .await
-        })
-        .await?;
-        Ok(())
+        build_artifact_groups(ctx, &self.artifacts_to_build).await
     }
+}
+
+/// Builds the artifact groups without materializing them.
+async fn build_artifact_groups(
+    ctx: &mut DiceComputations<'_>,
+    artifact_groups: &BuckIndexSet<ArtifactGroup>,
+) -> buck2_error::Result<()> {
+    // `ensure_artifact_group` builds every artifact in the group, including each member of a
+    // transitive set projection.
+    ctx.try_compute_join(artifact_groups, async |ctx, artifact_group| {
+        ctx.ensure_artifact_group(artifact_group).await.map(|_| ())
+    })
+    .await?;
+    Ok(())
 }
