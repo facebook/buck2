@@ -182,6 +182,9 @@ enum ParseLineResult {
         matching_entry: Box<Entry>,
     },
     Ignore(Entry),
+    // A plain rule matched while a multi-line message was open: the message so far, if any,
+    // then the single-line entry.
+    ValidMany(Vec<Entry>),
     // Not match any pattern, but we can still return the entry if the line is on multi-line, if the entry is available.
     NoMatch(Option<Entry>),
 }
@@ -455,6 +458,18 @@ impl ParseMode for MultiLineState {
                     };
                     (self as Box<dyn ParseMode>, result)
                 }
+                None => {
+                    // A plain rule ends the open message and stands on its own.
+                    let mut entries = Vec::new();
+                    if !ignore && !self.prev_entries.is_empty() {
+                        entries.push(self.combine_entries());
+                    }
+                    entries.push(entry);
+                    (
+                        Box::new(SingleLineState(self.ctx)) as Box<dyn ParseMode>,
+                        ParseLineResult::ValidMany(entries),
+                    )
+                }
                 _ => {
                     // Unsupported format specifier in multi-line state
                     // Log the issue for debugging but don't panic
@@ -516,7 +531,7 @@ impl ParseMode for MultiLineState {
             {
                 efm.match_line(line).map_err(ErrorFormatError::from)
             }
-            None => Ok(None),
+            None => efm.match_line(line).map_err(ErrorFormatError::from),
             _ => Err(ErrorFormatError::UnsupportedSpecifier {
                 specifier: format!("{:?}", efm.format_specifier),
                 state: "MultiLineState".to_owned(),
@@ -614,6 +629,7 @@ pub fn parse_error_format(
         let result = parser.parse_line(&line);
         match result {
             ParseLineResult::Valid(entry) => entries.push(entry),
+            ParseLineResult::ValidMany(many) => entries.extend(many),
             ParseLineResult::MatchingMultiLine {
                 valid_entry,
                 matching_entry: _,

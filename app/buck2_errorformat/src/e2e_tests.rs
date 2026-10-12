@@ -644,15 +644,18 @@ fn test_ignored_multi_line_message_stays_ignored_when_not_closed() {
     assert_eq!(first_lines(&entries), vec!["error: boom"]);
 }
 
-/// A rule without a prefix is never tried while a multi-line message is open, so a single-line
-/// error right after a multi-line one is lost.
+/// A rule without a prefix is tried while a multi-line message is open; it closes that message
+/// and stands on its own.
 #[test]
-fn test_plain_rule_is_skipped_while_a_multi_line_message_is_open() {
+fn test_plain_rule_closes_an_open_multi_line_message() {
     let efm = vec![
         "%Eerror: %m".to_owned(),
         "%C  --> %f:%l".to_owned(),
         "%f:%l: warning: %m".to_owned(),
     ];
     let entries = parse_error_format(efm, split_lines("error: boom\na.c:3: warning: w\n")).unwrap();
-    assert_eq!(first_lines(&entries), vec!["error: boom"]);
+    assert_eq!(
+        first_lines(&entries),
+        vec!["error: boom", "a.c:3: warning: w"]
+    );
 }
