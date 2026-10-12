@@ -634,4 +634,25 @@ mod tests {
         a.add(b);
         assert_eq!(10, a.total_size());
     }
+
+    fn root_frames(output: &str) -> Vec<String> {
+        let root_line = output.lines().find(|line| !line.contains(";ptr")).unwrap();
+        let (stack, _size) = root_line.rsplit_once(' ').unwrap();
+        stack.split(';').map(str::to_owned).collect()
+    }
+
+    /// Array type names contain `;`, the frame separator of the collapsed format, so the
+    /// `Vec<[u8; 4]>` root is written as two frames.
+    #[test]
+    fn test_type_name_with_semicolon_is_split_into_two_frames() {
+        let v: Vec<[u8; 4]> = vec![[0; 4]; 3];
+        let mut fg = FlameGraphBuilder::default();
+        fg.visit_root(&v);
+        let output = fg.finish_and_write_flame_graph();
+        assert_eq!(
+            root_frames(&output),
+            vec!["alloc::vec::Vec<[u8", " 4]>"],
+            "{output}"
+        );
+    }
 }
