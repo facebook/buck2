@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::analysis::AnalysisSplitInstants;
 use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessorPair;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
@@ -55,7 +56,6 @@ use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark_map::small_map::SmallMap;
 
-use crate::analysis::calculation::AnalysisSplitInstants;
 use crate::analysis::plugins::plugins_to_starlark_value;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;

@@ -771,7 +771,6 @@ dependencies = [
  "async-trait",
  "blake3",
  "buck2_action_metadata_proto",
- "buck2_analysis",
  "buck2_artifact",
  "buck2_build_api",
  "buck2_build_signals",
@@ -877,7 +876,6 @@ dependencies = [
  "either",
  "futures 0.3.34",
  "pagable",
- "smallvec",
  "starlark",
  "starlark_map",
 ]

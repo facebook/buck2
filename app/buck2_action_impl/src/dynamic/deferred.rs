@@ -11,10 +11,10 @@
 use std::iter;
 use std::sync::Arc;
 
-use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
-use buck2_analysis::analysis::calculation::AnalysisWithExtraData;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
+use buck2_build_api::analysis::AnalysisKeyActivationData;
+use buck2_build_api::analysis::AnalysisWithExtraData;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::ArtifactGroup;

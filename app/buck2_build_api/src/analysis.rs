@@ -12,10 +12,14 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_build_signals::env::WaitingData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_events::span::SpanId;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
+use buck2_util::time_span::TimeSpan;
+use smallvec::SmallVec;
 
 use crate::analysis::registry::RecordedAnalysisValues;
 use crate::artifact_groups::promise::PromiseArtifactId;
@@ -39,6 +43,29 @@ use crate::validation::transitive_validations::TransitiveValidations;
 pub struct AnalysisSplitInstants {
     pub pre_promises: std::time::Instant,
     pub post_promises: std::time::Instant,
+}
+
+/// DICE activation data recorded by analysis-like computations (rule analysis, anon
+/// targets, dynamic outputs) and consumed by build signals.
+pub struct AnalysisKeyActivationData {
+    pub waiting_data: WaitingData,
+    pub time_span: TimeSpan,
+    pub spans: SmallVec<[SpanId; 1]>,
+    pub analysis_with_extra_data: AnalysisWithExtraData,
+    /// If this analysis resolved anon targets, contains timing data for the
+    /// post-anon-targets portion. When present, `time_span` represents only
+    /// the pre-anon-targets portion (part 1).
+    pub anon_target_split: Option<AnonTargetSplitData>,
+}
+
+/// Timing data for the portion of analysis after anon target resolution.
+pub struct AnonTargetSplitData {
+    pub part2_time_span: TimeSpan,
+}
+
+#[derive(Clone)]
+pub struct AnalysisWithExtraData {
+    pub target_rule_type_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Dupe, Allocative, pagable::Pagable)]

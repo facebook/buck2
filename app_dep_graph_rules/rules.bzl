@@ -29,6 +29,7 @@ TOP_LEVEL_ONLY_CRATES = [
 
 # Unordered pairs where neither crate may depend on the other
 BANNED_DEP_PATHS = [
+    (_app("buck2_action_impl"), _app("buck2_analysis")),
     (_app("buck2_common"), _app("buck2_directory")),
     (_app("buck2_common"), "//buck2/starlark-rust/starlark:starlark"),
     (_app("buck2_build_api"), _app("buck2_execute_impl")),

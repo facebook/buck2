@@ -29,7 +29,6 @@ dupe.workspace = true
 either.workspace = true
 futures.workspace = true
 pagable.workspace = true
-smallvec.workspace = true
 starlark.workspace = true
 starlark_map.workspace = true
 

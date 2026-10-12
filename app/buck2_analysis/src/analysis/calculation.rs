@@ -12,7 +12,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_build_api::analysis::AnalysisKeyActivationData;
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::analysis::AnalysisWithExtraData;
+use buck2_build_api::analysis::AnonTargetSplitData;
 use buck2_build_api::analysis::calculation::EVAL_ANALYSIS_QUERY;
 use buck2_build_api::analysis::calculation::RULE_ANALYSIS_CALCULATION;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
@@ -36,7 +39,6 @@ use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::record_root_spans;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
-use buck2_events::span::SpanId;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::file_loader::LoadedModule;
@@ -66,7 +68,6 @@ use futures::FutureExt;
 use futures::future::BoxFuture;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use smallvec::SmallVec;
 
 use crate::analysis::env::RuleSpec;
 use crate::analysis::env::get_user_defined_rule_spec;
@@ -472,27 +473,4 @@ pub async fn profile_analysis(
             .filter_map(|o| o.as_ref())
             .map(|x| &**x),
     )
-}
-
-pub struct AnalysisKeyActivationData {
-    pub waiting_data: WaitingData,
-    pub time_span: TimeSpan,
-    pub spans: SmallVec<[SpanId; 1]>,
-    pub analysis_with_extra_data: AnalysisWithExtraData,
-    /// If this analysis resolved anon targets, contains timing data for the
-    /// post-anon-targets portion. When present, `time_span` represents only
-    /// the pre-anon-targets portion (part 1).
-    pub anon_target_split: Option<AnonTargetSplitData>,
-}
-
-/// Timing data for the portion of analysis after anon target resolution.
-pub struct AnonTargetSplitData {
-    pub part2_time_span: TimeSpan,
-}
-
-pub use buck2_build_api::analysis::AnalysisSplitInstants;
-
-#[derive(Clone)]
-pub struct AnalysisWithExtraData {
-    pub target_rule_type_name: Option<String>,
 }

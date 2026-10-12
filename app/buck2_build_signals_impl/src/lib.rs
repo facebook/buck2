@@ -18,8 +18,6 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::AnalysisKey;
-use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
-use buck2_analysis::analysis::calculation::AnalysisWithExtraData;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::RegisteredAction;
@@ -27,6 +25,8 @@ use buck2_build_api::actions::calculation::ActionExtraData;
 use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_api::actions::calculation::BuildKey;
 use buck2_build_api::actions::calculation::BuildKeyActivationData;
+use buck2_build_api::analysis::AnalysisKeyActivationData;
+use buck2_build_api::analysis::AnalysisWithExtraData;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
 use buck2_build_api::artifact_groups::calculation::EnsureProjectedArtifactKey;
