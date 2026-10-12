@@ -141,7 +141,15 @@ LinkableGraph = provider(
 
 # Used to tag a rule as providing a shared native library that may be loaded
 # dynamically, at runtime (e.g. via `dlopen`).
-DlopenableLibraryInfo = provider(fields = {})
+DlopenableLibraryInfo = provider(
+    fields = {
+        # The library ships its own prebuilt shared library, which should be used
+        # as-is rather than re-linked from its archive. The prebuilt one may have
+        # properties that a re-link would lose, e.g. symbol versioning that
+        # external consumers depend on.
+        "prebuilt_shared_lib": provider_field(bool, default = False),
+    }
+)
 
 DLOPENABLE_LIBRARY_INFO_MARKER = DlopenableLibraryInfo()
 

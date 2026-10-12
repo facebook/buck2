@@ -68,6 +68,7 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "DLOPENABLE_LIBRARY_INFO_MARKER",
+    "DlopenableLibraryInfo",
     "LinkableGraph",
     "create_linkable_graph",
     "create_linkable_graph_node",
@@ -813,7 +814,10 @@ def _create_prebuilt_library_providers(
 
         # Mark libraries that support `dlopen`.
         if ctx.attrs.supports_python_dlopen:
-            providers.append(DLOPENABLE_LIBRARY_INFO_MARKER)
+            if ctx.attrs.shared_lib != None and LibOutputStyle("shared_lib") in libraries:
+                providers.append(DlopenableLibraryInfo(prebuilt_shared_lib = True))
+            else:
+                providers.append(DLOPENABLE_LIBRARY_INFO_MARKER)
 
     linkable_graph = create_linkable_graph(
         ctx,
