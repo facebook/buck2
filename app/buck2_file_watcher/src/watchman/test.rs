@@ -246,3 +246,134 @@ async fn test_syncable_query() -> buck2_error::Result<()> {
 
     Ok(())
 }
+
+/// A processor that records which callback ran and the file names it got.
+struct MergebaseRecorder;
+
+#[derive(PartialEq, Eq, Debug)]
+enum MbOut {
+    FreshInstance(Vec<String>),
+    Files(Vec<String>),
+}
+
+#[async_trait]
+impl SyncableQueryProcessor for MergebaseRecorder {
+    type Output = MbOut;
+    type Payload = ();
+
+    async fn process_events(
+        &mut self,
+        payload: Self::Payload,
+        events: Vec<WatchmanEvent>,
+        _mergebase: &Option<String>,
+        _watchman_version: Option<String>,
+    ) -> buck2_error::Result<(Self::Output, Self::Payload)> {
+        let mut names: Vec<String> = events
+            .into_iter()
+            .map(|e| e.path.display().to_string())
+            .filter(|p| !p.starts_with(".git"))
+            .collect();
+        names.sort();
+        Ok((MbOut::Files(names), payload))
+    }
+
+    async fn on_fresh_instance(
+        &mut self,
+        payload: Self::Payload,
+        events: Vec<WatchmanEvent>,
+        _mergebase: &Option<String>,
+        _watchman_version: Option<String>,
+        _events_since_mergebase: bool,
+    ) -> buck2_error::Result<(Self::Output, Self::Payload)> {
+        Ok((
+            MbOut::FreshInstance(
+                events
+                    .into_iter()
+                    .map(|e| e.path.display().to_string())
+                    .collect(),
+            ),
+            payload,
+        ))
+    }
+}
+
+fn git(dir: &Path, args: &[&str]) {
+    let out = std::process::Command::new("git")
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .expect("running git");
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+/// A repo where `main` moves from A to B (`up.txt` 0 -> 1) while `feature` sits on A with
+/// `loc.txt` changed; checking out `main` from `feature` moves the mergebase and changes both
+/// files on disk.
+fn git_repo_with_mergebase_move(root: &Path) {
+    git(root, &["init", "-q", "-b", "main", "."]);
+    git(root, &["config", "user.email", "t@t"]);
+    git(root, &["config", "user.name", "t"]);
+    fs::write(root.join("up.txt"), "0\n").unwrap();
+    fs::write(root.join("loc.txt"), "0\n").unwrap();
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "A"]);
+    git(root, &["checkout", "-q", "-b", "feature"]);
+    fs::write(root.join("loc.txt"), "L\n").unwrap();
+    git(root, &["commit", "-qam", "L"]);
+    git(root, &["checkout", "-q", "main"]);
+    fs::write(root.join("up.txt"), "1\n").unwrap();
+    git(root, &["commit", "-qam", "B"]);
+    git(root, &["checkout", "-q", "feature"]);
+}
+
+/// With `buck2.dice_clear_on_mergebase_change = false`, a checkout that moves the mergebase is
+/// handled as an incremental batch. Watchman answers the scm-aware query with the files that
+/// differ from the *new* mergebase, which is none here, so nothing is invalidated although two
+/// files changed on disk.
+#[tokio::test]
+async fn test_syncable_query_mergebase_move_without_dice_clear() -> buck2_error::Result<()> {
+    if !cfg!(fbcode_build) {
+        return Ok(());
+    }
+
+    let tempdir = tempfile::tempdir()?;
+    let root = tempdir.path().join("root");
+    let watchman_dir = tempdir.path().join("watchman");
+    fs::create_dir(&watchman_dir)?;
+    fs::create_dir(&root)?;
+    git_repo_with_mergebase_move(&root);
+
+    let mut watchman_instance = spawn_watchman(&watchman_dir).await?;
+    let connector = Connector::default().unix_domain_socket(&watchman_instance.sock);
+
+    let watchman_query = SyncableQuery::new(
+        connector,
+        &root,
+        Expr::Any(vec![
+            Expr::FileType(FileType::Regular),
+            Expr::FileType(FileType::Directory),
+            Expr::FileType(FileType::Symlink),
+        ]),
+        Box::new(MergebaseRecorder),
+        Some("main".to_owned()),
+        true,
+        false,
+    )?;
+
+    assert_eq!(
+        watchman_query.sync(()).await?.0,
+        MbOut::FreshInstance(vec![])
+    );
+    assert_eq!(watchman_query.sync(()).await?.0, MbOut::Files(vec![]));
+
+    // Moves the mergebase from A to B: up.txt 0 -> 1 and loc.txt L -> 0 on disk.
+    git(&root, &["checkout", "-q", "main"]);
+    assert_eq!(watchman_query.sync(()).await?.0, MbOut::Files(vec![]));
+
+    watchman_instance.shutdown().await?;
+    Ok(())
+}
