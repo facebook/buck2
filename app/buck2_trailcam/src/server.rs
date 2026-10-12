@@ -110,7 +110,7 @@ pub async fn serve(cfg: ServeConfig) -> buck2_error::Result<()> {
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
+            drop(tokio::signal::ctrl_c().await);
         })
         .await
         .buck_error_context("HTTP server error")?;
