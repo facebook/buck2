@@ -522,7 +522,7 @@ tower-service = "0.3.3"
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 tracing-subscriber = { version = "0.3.23", features = ["chrono", "env-filter", "json", "local-time", "parking_lot", "registry"] }
 triomphe = { version = "0.1.16", features = ["arc-swap"] }
-twox-hash = "2.1.4"
+twox-hash = "2.1.5"
 uuid = { version = "1.26.1", features = ["rng-getrandom", "serde", "v4", "v5", "v6", "v7", "v8"] }
 variant_name = { path = "gazebo/variant_name" }
 variant_name_derive = { path = "gazebo/variant_name_derive" }
