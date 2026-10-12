@@ -55,7 +55,7 @@ def _compute_rust_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> l
     #
     # In the case of buck2, if you do not supply rust.sysroot_src_path, then we will model the sysroot
     # as explicit dependencies in the crate graph.
-    if read_config("rust", "sysroot_src_path"):
+    if read_root_config("rust", "sysroot_src_path"):
         explicit_sysroot_deps = None
     else:
         explicit_sysroot_deps = dep_ctx.explicit_sysroot_deps

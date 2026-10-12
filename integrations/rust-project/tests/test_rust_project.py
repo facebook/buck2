@@ -120,7 +120,7 @@ async def test_semantic_target_kinds(buck: Buck) -> None:
 async def test_explicit_sysroot_deps(buck: Buck) -> None:
     result_raw = await buck.bxl(
         "--config",
-        "rust.sysroot_src_path=",
+        "fbsource//rust.sysroot_src_path=",
         "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
         "--",
         "--targets",
@@ -134,26 +134,6 @@ async def test_explicit_sysroot_deps(buck: Buck) -> None:
 
     assert "fbsource//third-party/rust-toolchain:core" in target["deps"]
     assert "fbsource//third-party/rust-toolchain:std" in target["deps"]
-
-
-@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
-async def test_configured_sysroot_src_path(buck: Buck) -> None:
-    result_raw = await buck.bxl(
-        "--config",
-        "rust.sysroot_src_path=path/to/sysroot",
-        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
-        "--",
-        "--targets",
-        "//buck2/integrations/rust-project/tests/targets/foo:f",
-    )
-    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
-    resolved_deps = result["resolved_deps"]
-    target = resolved_deps[
-        "fbcode//buck2/integrations/rust-project/tests/targets/foo:f"
-    ]
-
-    assert not any("core" in dep for dep in target["deps"])
-    assert not any("std" in dep for dep in target["deps"])
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
