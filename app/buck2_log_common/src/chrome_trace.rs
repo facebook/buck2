@@ -481,7 +481,7 @@ impl TrackIdAllocator {
         let maybe_smallest = self.unused_track_ids.iter().next().copied();
         if let Some(n) = maybe_smallest {
             if let Some(max) = max {
-                if max < n {
+                if max <= n {
                     return None;
                 }
             }
@@ -491,7 +491,7 @@ impl TrackIdAllocator {
         } else {
             let n = self.lowest_never_used;
             if let Some(max) = max {
-                if max < n {
+                if max <= n {
                     return None;
                 }
             }
@@ -2456,12 +2456,11 @@ mod tests {
         tids
     }
 
-    /// `--max-tracks 1` with two overlapping spans renders two tracks, and `--max-tracks 0`
-    /// still renders one: the allocator refuses a track only once its number is above the
-    /// limit, so it hands out one track too many.
+    /// `--max-tracks N` renders at most N tracks.
     #[test]
-    fn test_max_tracks_admits_one_track_too_many() {
-        assert_eq!(rendered_tracks(1, 2).len(), 2);
-        assert_eq!(rendered_tracks(0, 1).len(), 1);
+    fn test_max_tracks_bounds_the_rendered_tracks() {
+        assert_eq!(rendered_tracks(1, 2).len(), 1);
+        assert_eq!(rendered_tracks(0, 1).len(), 0);
+        assert_eq!(rendered_tracks(2, 2).len(), 2);
     }
 }
