@@ -61,26 +61,30 @@ def _process_line(
 
     result = line
     pos = 0
-    substituted_keys = set()
+    # Maps each variable being expanded to the length of the text after its expansion
+    substituted_keys: dict[str, int] = {}
     while True:
         match = pattern.search(result, pos)
         if match is None:
             break
         key = match.group(_ReGroupName.variable)
+        # Only the expansions that contain this match can make it recursive
+        substituted_keys = {
+            k: tail
+            for k, tail in substituted_keys.items()
+            if match.start() < len(result) - tail
+        }
         if key in substituted_keys:
             raise RuntimeError(f"Recursive plist variable: ... -> {key} -> ...")
         if key in substitutions:
+            substituted_keys[key] = len(result) - match.end()
             result = (
                 result[: match.start()] + substitutions[key] + result[match.end() :]
             )
-            substituted_keys.add(key)
             # Keep the same position to handle the situation when variable was expanded into another variable
-            new_pos = match.start()
+            pos = match.start()
         else:
-            new_pos = match.end()
-        if new_pos != pos:
-            substituted_keys = set()
-            pos = new_pos
+            pos = match.end()
     return result
 
 
