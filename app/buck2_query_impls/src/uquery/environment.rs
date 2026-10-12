@@ -11,6 +11,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_common::file_ops::dice::DiceFileComputations;
+use buck2_common::file_ops::error::FileReadErrorContext;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_common::pattern::resolve::ResolvedPattern;
@@ -20,6 +22,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
+use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::file_name::FileName;
@@ -293,6 +296,7 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
     }
 
     async fn owner(&self, paths: &FileSet) -> buck2_error::Result<TargetSet<Self::Target>> {
+        validate_owner_paths(&mut self.delegate.ctx(), paths).await?;
         let mut result: TargetSet<Self::Target> = TargetSet::new();
         for path in paths.iter() {
             // need to explicitly track this rather than checking for changes to result set since the owner might
@@ -303,7 +307,6 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
                     let package_futs = packages
                         .iter()
                         .map(|package| async move {
-                            // TODO(cjhopman): We should make sure that the file exists.
                             let targets = self
                                 .delegate
                                 .ctx()
@@ -394,6 +397,21 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
 
         Ok(result)
     }
+}
+
+pub(crate) async fn validate_owner_paths(
+    ctx: &mut DiceComputations<'_>,
+    paths: &FileSet,
+) -> buck2_error::Result<()> {
+    for path in paths.iter() {
+        if let Err(error) = DiceFileComputations::read_path_metadata(ctx, path.as_ref())
+            .await
+            .without_package_context_information()
+        {
+            soft_error!("owner_invalid_path", error, deprecation: true)?;
+        }
+    }
+    Ok(())
 }
 
 pub(crate) async fn allbuildfiles<T: QueryTarget>(

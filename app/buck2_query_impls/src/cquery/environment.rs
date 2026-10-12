@@ -42,6 +42,7 @@ use crate::uquery::environment::QueryLiterals;
 use crate::uquery::environment::UqueryDelegate;
 use crate::uquery::environment::allbuildfiles;
 use crate::uquery::environment::rbuildfiles;
+use crate::uquery::environment::validate_owner_paths;
 
 /// CqueryDelegate resolves information needed by the QueryEnvironment.
 #[async_trait]
@@ -202,6 +203,7 @@ impl QueryEnvironment for CqueryEnvironment<'_> {
     }
 
     async fn owner(&self, paths: &FileSet) -> buck2_error::Result<TargetSet<Self::Target>> {
+        validate_owner_paths(&mut self.delegate.ctx(), paths).await?;
         let mut result = TargetSet::new();
 
         for path in paths.iter() {

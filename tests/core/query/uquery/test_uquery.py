@@ -6,8 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
-
+from __future__ import annotations
 
 import json
 import re
@@ -157,31 +156,38 @@ async def test_uquery_union(buck: Buck) -> None:
 @buck_test(data_dir="bxl_simple")
 async def test_uquery_owner(buck: Buck) -> None:
     result = await buck.uquery("""owner(bin/TARGETS.fixture)""")
+    assert result.process.returncode == 0
     assert result.stdout == "root//bin:the_binary\n"
 
     result = await buck.uquery("""owner(data/buck/build/data.file)""")
+    assert result.process.returncode == 0
     assert result.stdout == "root//data:data\n"
 
     # there's no buildfile in the root of the special buck, make sure that works
+    (buck.cwd / "special/file").write_text("")
     result = await buck.uquery("""owner(special/file)""")
+    assert result.process.returncode == 0
     assert "No owner" in result.stderr
     assert result.stdout == ""
 
     # there's a buildfile here, but no target owns the file
     result = await buck.uquery("""owner(.buckconfig)""")
+    assert result.process.returncode == 0
     assert "No owner" in result.stderr
     assert result.stdout == ""
 
     result = await buck.uquery(
         """owner(../data/buck/build/data.file)""", rel_cwd=Path("special")
     )
+    assert result.process.returncode == 0
     assert result.stdout == "root//data:data\n"
 
     result = await buck.uquery("""owner(root//bin/TARGETS.fixture)""")
+    assert result.process.returncode == 0
     assert result.stdout == "root//bin:the_binary\n"
 
 
-@buck_test(data_dir="bxl_simple")
+@buck_test(data_dir="bxl_simple", allow_soft_errors=True)
 async def test_uquery_owner_missing_file(buck: Buck) -> None:
     for path in (
         "data/buck/build/missing.file",
@@ -192,12 +198,46 @@ async def test_uquery_owner_missing_file(buck: Buck) -> None:
         result = await buck.uquery(f"owner('{path}')")
         assert result.process.returncode == 0
         assert result.stdout == ""
+        assert "owner_invalid_path" in (await buck.log("show")).stdout
 
     result = await buck.uquery(
         "owner(data/buck/build/data.file)", rel_cwd=Path("special")
     )
     assert result.process.returncode == 0
     assert result.stdout == ""
+    log = (await buck.log("show")).stdout
+    assert "owner_invalid_path" in log
+    assert "File not found: special//data/buck/build/data.file" in log
+
+
+@buck_test(data_dir="bxl_simple", allow_soft_errors=True)
+async def test_uquery_owner_mixed_existing_and_missing_files(buck: Buck) -> None:
+    result = await buck.uquery("owner(fileset(bin/TARGETS.fixture missing/file))")
+    assert result.process.returncode == 0
+    assert result.stdout == "root//bin:the_binary\n"
+    assert "owner_invalid_path" in (await buck.log("show")).stdout
+
+
+@buck_test(data_dir="bxl_simple", allow_soft_errors=True)
+async def test_uquery_owner_file_created(buck: Buck) -> None:
+    path = buck.cwd / "data/buck/build/new.file"
+    query = "owner(data/buck/build/new.file)"
+    result = await buck.uquery(query)
+    assert result.process.returncode == 0
+    assert result.stdout == ""
+    assert "owner_invalid_path" in (await buck.log("show")).stdout
+
+    path.write_text("")
+    result = await buck.uquery(query)
+    assert result.process.returncode == 0
+    assert result.stdout == "root//data:data\n"
+    assert "owner_invalid_path" not in (await buck.log("show")).stdout
+
+    path.unlink()
+    result = await buck.uquery(query)
+    assert result.process.returncode == 0
+    assert result.stdout == ""
+    assert "owner_invalid_path" in (await buck.log("show")).stdout
 
 
 @buck_test(data_dir="bxl_simple")
