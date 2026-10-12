@@ -1,8 +1,5 @@
-load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
-
-constraint_with_aliases(
+constraint(
     name = "singleton",
-    aliases = {},
     default = "unspecified",
     values = [
         "schedule-at-exit-disabled",
@@ -11,9 +8,8 @@ constraint_with_aliases(
     visibility = ["PUBLIC"],
 )
 
-constraint_with_aliases(
+constraint(
     name = "f14-fallback",
-    aliases = {},
     default = "unspecified",
     values = [
         "disabled",
@@ -22,9 +18,8 @@ constraint_with_aliases(
     visibility = ["PUBLIC"],
 )
 
-constraint_with_aliases(
+constraint(
     name = "gflags",
-    aliases = {},
     default = "unspecified",
     values = [
         "enabled",
