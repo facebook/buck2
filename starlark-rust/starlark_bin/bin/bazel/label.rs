@@ -81,7 +81,7 @@ impl Label {
 
                 let (package, name) = rest.split_once(':').unwrap_or_else(|| {
                     // Here the name is implicit, and comes from the last component of the package name
-                    if let Some((index, _)) = rest.rmatch_indices('/').next_back() {
+                    if let Some(index) = rest.rfind('/') {
                         (rest, &rest[index + 1..])
                     } else {
                         (rest, rest)
@@ -278,16 +278,15 @@ mod tests {
         );
     }
 
-    /// The implicit name is taken from the leftmost `/` of the package, so a package with two or
-    /// more components gets a name with a `/` in it.
+    /// The implicit name is the last component of the package.
     #[test]
-    fn test_implicit_name_uses_leftmost_slash() {
+    fn test_implicit_name_is_the_last_package_component() {
         let label = Label::parse("//a/b/c").unwrap();
         assert_eq!(label.package.as_deref(), Some("a/b/c"));
-        assert_eq!(label.name, "b/c");
+        assert_eq!(label.name, "c");
         assert_eq!(
             Label::parse("@repo//foo/bar/baz").unwrap().to_string(),
-            "@repo//foo/bar/baz:bar/baz"
+            "@repo//foo/bar/baz:baz"
         );
     }
 }
