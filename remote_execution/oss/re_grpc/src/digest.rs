@@ -34,7 +34,7 @@ impl FromStr for TDigest {
 
     fn from_str(digest: &str) -> anyhow::Result<TDigest> {
         static DIGEST_RE: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new("([0-9a-f]+):([0-9]+)").expect("Failed to compile digest regex")
+            Regex::new("^([0-9a-f]+):([0-9]+)$").expect("Failed to compile digest regex")
         });
 
         let matches = DIGEST_RE
@@ -54,13 +54,13 @@ impl FromStr for TDigest {
 mod tests {
     use super::TDigest;
 
-    /// The digest regex is not anchored, so text around a valid-looking part is dropped silently.
+    /// Only `<lowercase hex>:<decimal>` parses.
     #[test]
-    fn test_from_str_accepts_junk_around_the_digest() {
-        let digest: TDigest = "XYZabc:12:junk".parse().unwrap();
+    fn test_from_str_rejects_junk_around_the_digest() {
+        assert!("XYZabc:12:junk".parse::<TDigest>().is_err());
+        assert!("ABCDEF0123:5".parse::<TDigest>().is_err());
+        let digest: TDigest = "abc:12".parse().unwrap();
         assert_eq!(digest.hash, "abc");
         assert_eq!(digest.size_in_bytes, 12);
-        let digest: TDigest = "ABCDEF0123:5".parse().unwrap();
-        assert_eq!(digest.hash, "0123");
     }
 }
