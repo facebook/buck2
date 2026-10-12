@@ -69,7 +69,10 @@ impl FlameGraph {
     fn write_flame_graph_impl(&self, stack: &[&str], w: &mut String) {
         if self.node_size != 0 {
             if !stack.is_empty() {
-                writeln!(w, "{} {}", stack.join(";"), self.node_size).unwrap();
+                // `;` separates frames in the collapsed format, so a frame cannot contain one.
+                let frames: Vec<String> =
+                    stack.iter().map(|frame| frame.replace(';', ",")).collect();
+                writeln!(w, "{} {}", frames.join(";"), self.node_size).unwrap();
             } else {
                 // Don't care.
             }
@@ -641,17 +644,16 @@ mod tests {
         stack.split(';').map(str::to_owned).collect()
     }
 
-    /// Array type names contain `;`, the frame separator of the collapsed format, so the
-    /// `Vec<[u8; 4]>` root is written as two frames.
+    /// A type name containing `;` stays one frame.
     #[test]
-    fn test_type_name_with_semicolon_is_split_into_two_frames() {
+    fn test_type_name_with_semicolon_stays_one_frame() {
         let v: Vec<[u8; 4]> = vec![[0; 4]; 3];
         let mut fg = FlameGraphBuilder::default();
         fg.visit_root(&v);
         let output = fg.finish_and_write_flame_graph();
         assert_eq!(
             root_frames(&output),
-            vec!["alloc::vec::Vec<[u8", " 4]>"],
+            vec!["alloc::vec::Vec<[u8, 4]>"],
             "{output}"
         );
     }
