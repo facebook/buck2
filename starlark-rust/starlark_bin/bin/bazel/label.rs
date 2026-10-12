@@ -277,4 +277,17 @@ mod tests {
             "//foo/bar:bar"
         );
     }
+
+    /// The implicit name is taken from the leftmost `/` of the package, so a package with two or
+    /// more components gets a name with a `/` in it.
+    #[test]
+    fn test_implicit_name_uses_leftmost_slash() {
+        let label = Label::parse("//a/b/c").unwrap();
+        assert_eq!(label.package.as_deref(), Some("a/b/c"));
+        assert_eq!(label.name, "b/c");
+        assert_eq!(
+            Label::parse("@repo//foo/bar/baz").unwrap().to_string(),
+            "@repo//foo/bar/baz:bar/baz"
+        );
+    }
 }

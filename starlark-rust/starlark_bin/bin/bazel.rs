@@ -886,3 +886,70 @@ impl<'v> LspContext for BazelContext<'v> {
         Ok(names)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::fs;
+    use std::path::Path;
+    use std::path::PathBuf;
+
+    use starlark::environment::Globals;
+    use starlark::syntax::AstModule;
+    use starlark::syntax::Dialect;
+    use starlark_lsp::server::LspContext;
+    use starlark_lsp::server::LspUri;
+
+    use super::BazelContext;
+    use crate::eval::ContextMode;
+
+    const BUILD: &str = "filegroup(name = \"other\")\nfilegroup(name = \"c\")\n";
+
+    fn workspace(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("{name}_{}", std::process::id()));
+        let pkg = root.join("a/b/c");
+        fs::create_dir_all(&pkg).unwrap();
+        fs::write(pkg.join("BUILD"), BUILD).unwrap();
+        fs::write(root.join("BUILD"), "").unwrap();
+        root
+    }
+
+    /// Resolves `literal` from the root BUILD file and returns the location its finder gives in
+    /// the target BUILD file, as `(begin line, begin column)`.
+    fn goto_location(root: &Path, literal: &str) -> Option<(usize, usize)> {
+        let ctx = BazelContext {
+            workspace_name: None,
+            external_output_base: None,
+            mode: ContextMode::Check,
+            print_non_none: false,
+            prelude: Vec::new(),
+            module: None,
+            dialect: Dialect::Extended,
+            globals: Globals::extended_internal(),
+            builtin_docs: HashMap::new(),
+            builtin_symbols: HashMap::new(),
+        };
+        let current = LspUri::File(root.join("BUILD"));
+        let res = ctx
+            .resolve_string_literal(literal, &current, Some(root))
+            .unwrap()
+            .unwrap();
+        assert_eq!(res.uri, LspUri::File(root.join("a/b/c/BUILD")));
+        let ast = AstModule::parse("BUILD", BUILD.to_owned(), &Dialect::Extended).unwrap();
+        let finder = res.location_finder.expect("a finder");
+        finder(&ast).unwrap().map(|span| {
+            let span = ast.file_span(span).resolve_span();
+            (span.begin.line, span.begin.column)
+        })
+    }
+
+    /// Goto-definition on `//a/b/c` searches the BUILD file for `name = "b/c"` and finds nothing,
+    /// while `//a/b/c:c` finds the target.
+    #[test]
+    fn test_goto_target_in_nested_package_finds_no_location() {
+        let root = workspace("starlark_bazel_nested_label");
+        assert_eq!(goto_location(&root, "//a/b/c"), None);
+        assert_eq!(goto_location(&root, "//a/b/c:c"), Some((1, 0)));
+        let _unused = fs::remove_dir_all(&root);
+    }
+}
