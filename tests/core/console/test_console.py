@@ -148,6 +148,14 @@ async def test_stale_snapshot(buck: Buck, tmp_path: Path) -> None:
     res = await buck.log("replay", str(logfile))
     assert stale_message in res.stderr
 
+    # AI agents get "Waiting on ..." at most once a minute; resource reports keep
+    # the 7s cadence.
+    res = await buck.log(
+        "replay", str(logfile), env={"CODING_AGENT_METADATA": "id=e2e_test_agent"}
+    )
+    assert stale_message in res.stderr
+    assert "Waiting on buck2 daemon" not in res.stderr
+
     # Check it's not in the original one.
     res = await buck.log("replay", original)
     assert stale_message not in res.stderr

@@ -41,6 +41,7 @@ use superconsole::SuperConsole;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::error::TryRecvError;
 
+use crate::agent_context::AgentContextEntry;
 use crate::subscribers::console_output_limit::ConsoleOutputLimit;
 use crate::subscribers::console_output_limit::EmitResult;
 use crate::subscribers::emit_event::emit_event_if_relevant;
@@ -55,6 +56,44 @@ use crate::ticker::Tick;
 /// buck2 daemon info is printed to stderr if there are no other updates available
 /// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
+
+/// The shortest gap between two "Waiting on ..." lines when an AI coding agent runs
+/// buck2. Agents read the output only after the command exits, so the line every 7s
+/// mostly adds tokens to their context. Health, resource and stale-snapshot reports
+/// keep the 7s cadence.
+const AGENT_WAITING_LINE_INTERVAL: Duration = Duration::from_secs(60);
+
+/// Rate-limits the "Waiting on ..." keepalive line: agents get it at most once per
+/// `AGENT_WAITING_LINE_INTERVAL`, everyone else on every keepalive tick.
+struct WaitingLineThrottle {
+    min_interval: Duration,
+    last_shown: Instant,
+}
+
+impl WaitingLineThrottle {
+    fn new(is_agent: bool, now: Instant) -> Self {
+        Self {
+            min_interval: if is_agent {
+                AGENT_WAITING_LINE_INTERVAL
+            } else {
+                Duration::ZERO
+            },
+            last_shown: now,
+        }
+    }
+
+    fn should_show(&mut self, now: Instant) -> bool {
+        if now.saturating_duration_since(self.last_shown) < self.min_interval {
+            return false;
+        }
+        self.last_shown = now;
+        true
+    }
+}
+
+fn is_agent_invocation() -> bool {
+    AgentContextEntry::from_env().is_ok_and(|entries| !entries.is_empty())
+}
 
 fn now_display() -> impl Display {
     // Millisecond precision with a numeric offset, like the rfc3339 formatting this had
@@ -156,6 +195,7 @@ pub struct SimpleConsole<E> {
     pub(crate) observer: EventObserver<E>,
     action_errors: Vec<buck2_data::ActionError>,
     last_print_time: Instant,
+    waiting_line: WaitingLineThrottle,
     last_shown_snapshot_ts: Option<SystemTime>,
     health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     health_warning_backoff: HealthWarningBackoff,
@@ -180,6 +220,7 @@ where
             observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
             last_print_time: now,
+            waiting_line: WaitingLineThrottle::new(is_agent_invocation(), now),
             last_shown_snapshot_ts: None,
             health_check_reports_receiver,
             health_warning_backoff: HealthWarningBackoff::new(now),
@@ -201,6 +242,7 @@ where
             observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
             last_print_time: now,
+            waiting_line: WaitingLineThrottle::new(is_agent_invocation(), now),
             last_shown_snapshot_ts: None,
             health_check_reports_receiver,
             health_warning_backoff: HealthWarningBackoff::new(now),
@@ -695,9 +737,9 @@ where
     }
 
     async fn tick(&mut self, _: &Tick) -> buck2_error::Result<()> {
-        if self.verbosity.print_status()
-            && Instant::now() - self.last_print_time > KEEPALIVE_TIME_LIMIT
-        {
+        let now = Instant::now();
+        if self.verbosity.print_status() && now - self.last_print_time > KEEPALIVE_TIME_LIMIT {
+            let show_waiting_line = self.waiting_line.should_show(now);
             let mut show_stats = self.expect_spans;
 
             for report in self
@@ -711,30 +753,32 @@ where
             let sample_event = roots.next();
             match sample_event {
                 Some(sample_event) => {
-                    let child = match sample_event.children().next() {
-                        Some(c) => Cow::Owned(format!(
-                            " [{}]",
-                            display::display_event(
-                                &c.info().event,
-                                TargetDisplayOptions::for_log(),
-                            )?
-                        )),
-                        None => Cow::Borrowed(""),
-                    };
+                    if show_waiting_line {
+                        let child = match sample_event.children().next() {
+                            Some(c) => Cow::Owned(format!(
+                                " [{}]",
+                                display::display_event(
+                                    &c.info().event,
+                                    TargetDisplayOptions::for_log(),
+                                )?
+                            )),
+                            None => Cow::Borrowed(""),
+                        };
 
-                    let remaining = match roots.len() {
-                        0 => String::new(),
-                        x => format!(", and {x} other actions"),
-                    };
-                    echo!(
-                        "Waiting on {}{}{}",
-                        display::display_event(
-                            &sample_event.info().event,
-                            TargetDisplayOptions::for_log()
-                        )?,
-                        child,
-                        remaining
-                    )?;
+                        let remaining = match roots.len() {
+                            0 => String::new(),
+                            x => format!(", and {x} other actions"),
+                        };
+                        echo!(
+                            "Waiting on {}{}{}",
+                            display::display_event(
+                                &sample_event.info().event,
+                                TargetDisplayOptions::for_log()
+                            )?,
+                            child,
+                            remaining
+                        )?;
+                    }
 
                     let last_snapshot = self.observer.two_snapshots().last.as_ref().map(|s| &s.1);
                     let sysinfo = self.observer.system_info();
@@ -759,7 +803,7 @@ where
                     show_stats = self.verbosity.always_print_stats_in_status();
                 }
                 None => {
-                    if self.expect_spans {
+                    if self.expect_spans && show_waiting_line {
                         echo!(
                             "Waiting on buck2 daemon {}...",
                             self.observer.session_info().trace_id
@@ -818,5 +862,29 @@ mod tests {
         assert!(first.should_display(&warning, start + Duration::from_secs(3)));
         assert!(!first.should_display(&warning, start + Duration::from_secs(7)));
         assert!(second.should_display(&warning, start + Duration::from_secs(3)));
+    }
+
+    #[test]
+    fn waiting_line_is_throttled_for_agents_only() {
+        let start = Instant::now();
+        let at = |secs| start + Duration::from_secs(secs);
+
+        let mut human = WaitingLineThrottle::new(false, start);
+        assert!(
+            human.should_show(at(8)) && human.should_show(at(16)),
+            "humans get the line on every keepalive tick"
+        );
+
+        let mut agent = WaitingLineThrottle::new(true, start);
+        assert!(
+            !agent.should_show(at(8)) && !agent.should_show(at(59)),
+            "agents skip the 7s keepalive ticks"
+        );
+        assert!(agent.should_show(at(60)), "agents get the line a minute in");
+        assert!(
+            !agent.should_show(at(100)),
+            "and not again before another minute"
+        );
+        assert!(agent.should_show(at(120)));
     }
 }
