@@ -801,6 +801,9 @@ def _default_providers(
         nested_sub_targets = {k: [DefaultInfo(default_output = v.product.output)] for k, v in param_subtargets[param].items()}
         if artifact.product.stripped_output:
             nested_sub_targets["stripped"] = [DefaultInfo(default_output = artifact.product.stripped_output)]
+        dwp_output = getattr(artifact.product, "dwp_output", None)
+        if dwp_output:
+            nested_sub_targets["dwp"] = [DefaultInfo(default_output = dwp_output)]
 
         sub_targets[name] = [
             DefaultInfo(
