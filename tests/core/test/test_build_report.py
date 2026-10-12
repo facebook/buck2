@@ -151,12 +151,67 @@ async def test_streaming_build_report_target_completion_with_failures(
     )
 
     streamed = _configured_statuses(read_streaming_report(streaming_report))
-    # `//:fail_build1` fails in analysis, before `buck test` builds it, so no
-    # line reports it.
-    assert {key for key, _cfg in streamed} == {"root//:ok", "root//:fail_test"}
-    final = _configured_statuses([json.loads(report.read_text())])
-    assert streamed == {
-        (key, cfg): status
-        for (key, cfg), status in final.items()
-        if key != "root//:fail_build1"
+    assert {key for key, _cfg in streamed} == {
+        "root//:ok",
+        "root//:fail_test",
+        "root//:fail_build1",
     }
+    assert streamed == _configured_statuses([json.loads(report.read_text())])
+
+
+async def _assert_error_before_build_streamed(
+    buck: Buck, tmp_path: Path, target: str
+) -> None:
+    streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+    await expect_failure(
+        buck.test(target, "--streaming-build-report", str(streaming_report))
+    )
+
+    reports = read_streaming_report(streaming_report)
+    assert len(reports) >= 1, "Expected at least 1 line, got 0"
+    key = "root" + target
+    assert {report["results"][key]["success"] for report in reports} == {"FAIL"}
+
+
+@buck_test()
+async def test_streaming_build_report_target_completion_analysis_error(
+    buck: Buck, tmp_path: Path
+) -> None:
+    """`//:fail_build1` fails in analysis, before `buck test` builds it."""
+    await _assert_error_before_build_streamed(buck, tmp_path, "//:fail_build1")
+
+
+@buck_test()
+async def test_streaming_build_report_target_completion_missing_target(
+    buck: Buck, tmp_path: Path
+) -> None:
+    await _assert_error_before_build_streamed(buck, tmp_path, "//:doesnt_exist")
+
+
+@buck_test()
+async def test_streaming_build_report_target_completion_errors_per_target(
+    buck: Buck, tmp_path: Path
+) -> None:
+    """Both targets fail in analysis. Each line carries one target's errors."""
+    streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+    await expect_failure(
+        buck.test(
+            "//:fail_build1",
+            "//:fail_build2",
+            "--streaming-build-report",
+            str(streaming_report),
+        )
+    )
+
+    reports = read_streaming_report(streaming_report)
+    assert sorted(list(report["results"]) for report in reports) == [
+        ["root//:fail_build1"],
+        ["root//:fail_build2"],
+    ]
+    assert all(
+        entry["success"] == "FAIL"
+        for report in reports
+        for entry in report["results"].values()
+    )

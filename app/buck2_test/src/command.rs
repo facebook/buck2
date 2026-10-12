@@ -847,7 +847,8 @@ async fn test_targets(
 
                 // Extract data from driver before dropping it so we can
                 // release the internal runner's sender clones.
-                let error_events = std::mem::take(&mut driver.error_events);
+                let error_target_result = driver.errors.build();
+                let first_internal_error = driver.first_internal_error.take();
                 let mut build_target_result =
                     std::mem::replace(&mut driver.build_target_result, BuildTargetResult::new());
                 drop(driver);
@@ -894,13 +895,9 @@ async fn test_targets(
                     .await
                     .buck_error_context("Failed to release local resources")?;
 
-                // Process the build errors we've collected.
-                let mut builder = BuildTargetResultBuilder::new(None, std::time::Instant::now());
-                for event in error_events {
-                    builder.event(event)?;
+                if let Some(e) = first_internal_error {
+                    return Err(e);
                 }
-                let error_target_result = builder.build();
-
                 build_target_result.extend(error_target_result);
 
                 // And finally return our results;
@@ -1026,7 +1023,10 @@ struct TestDriver<'a, 'e> {
     work: FuturesUnordered<BoxFuture<'a, ControlFlow<Vec<BuildEvent>, Vec<TestDriverTask>>>>,
     labels_configured: BuckMutSet<(ProvidersLabelWithModifiers, bool)>,
     labels_tested: BuckMutSet<ConfiguredProvidersLabel>,
-    error_events: Vec<BuildEvent>,
+    /// Fed the events of every `ControlFlow::Break`.
+    errors: BuildTargetResultBuilder,
+    /// The first error `errors` returned, which fails the run once it has been cleaned up.
+    first_internal_error: Option<buck2_error::Error>,
     build_target_result: BuildTargetResult,
     streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
 }
@@ -1041,7 +1041,11 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             work: FuturesUnordered::new(),
             labels_configured: BuckMutSet::default(),
             labels_tested: BuckMutSet::default(),
-            error_events: Vec::new(),
+            errors: BuildTargetResultBuilder::new(
+                streaming_build_result_tx.clone(),
+                std::time::Instant::now(),
+            ),
+            first_internal_error: None,
             build_target_result: BuildTargetResult::new(),
             streaming_build_result_tx,
         }
@@ -1135,7 +1139,13 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                         }
                     }
                 }
-                ControlFlow::Break(events) => self.error_events.extend(events),
+                ControlFlow::Break(events) => {
+                    for event in events {
+                        if let Err(e) = self.errors.event(event) {
+                            self.first_internal_error.get_or_insert(e);
+                        }
+                    }
+                }
             }
         }
     }
@@ -1183,7 +1193,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                             }),
                         };
 
-                        return ControlFlow::Break(events);
+                        return ControlFlow::Break(finish_error_only_targets(events));
                     }
                 };
 
@@ -1207,7 +1217,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                 err: err.into(),
                             }];
 
-                            return ControlFlow::Break(events);
+                            return ControlFlow::Break(finish_error_only_targets(events));
                         }
                         MissingTargetBehavior::Warn => {
                             console_message(missing.missing_targets_warning());
@@ -1312,10 +1322,12 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             {
                 Ok(label) => label,
                 Err(e) => {
-                    return ControlFlow::Break(vec![BuildEvent::OtherError {
-                        label: Some(providers_label),
-                        err: e,
-                    }]);
+                    return ControlFlow::Break(finish_error_only_targets(vec![
+                        BuildEvent::OtherError {
+                            label: Some(providers_label),
+                            err: e,
+                        },
+                    ]));
                 }
             };
 
@@ -1781,18 +1793,47 @@ fn run_tests<'a, 'b>(
 // TODO(azhang2542): Ideally we would only have to map the `Modifier`` to a `ConfiguredProvidersLabel`
 // just once when we first get the `ConfiguredProvidersLabel`. Refactor the code so that we have to do
 // a call to mapping minimally, potentially by adding the mappings to the `TestDriverState`.
+/// Also finishes the entry that `err` is filed under, since nothing more is built for the label.
 fn create_and_map_configured_build_error(
     label: ConfiguredProvidersLabel,
     err: buck2_error::Error,
     modifiers: Modifiers,
 ) -> Vec<BuildEvent> {
+    let target = TargetLabelWithModifiers {
+        target_label: label.target().unconfigured().dupe(),
+        modifiers: modifiers.dupe(),
+    };
     vec![
         BuildEvent::new_configured(label.dupe(), ConfiguredBuildEventVariant::Error { err }),
         BuildEvent::new_configured(
             label,
             ConfiguredBuildEventVariant::MapModifiers { modifiers },
         ),
+        BuildEvent::TargetBuildFinished { target },
     ]
+}
+
+/// Appends `TargetBuildFinished` for the targets of the `OtherError`s in `events`. These targets
+/// failed before configuring, and the report files their errors under no modifiers.
+fn finish_error_only_targets(mut events: Vec<BuildEvent>) -> Vec<BuildEvent> {
+    let finished: Vec<BuildEvent> = events
+        .iter()
+        .filter_map(|event| match event {
+            BuildEvent::OtherError {
+                label: Some(label), ..
+            } => Some(label.target().dupe()),
+            _ => None,
+        })
+        .unique()
+        .map(|target_label| BuildEvent::TargetBuildFinished {
+            target: TargetLabelWithModifiers {
+                target_label,
+                modifiers: Modifiers::new(None),
+            },
+        })
+        .collect();
+    events.extend(finished);
+    events
 }
 
 struct TestLabelFiltering {
