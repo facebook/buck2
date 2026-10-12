@@ -263,9 +263,13 @@ def streaming_build_report_test(name: str, command: list[str]) -> None:
             *command,
         )
 
-        with open(report) as file:
-            lines = file.read().strip().split("\n")
-            report = json.loads(lines[-1])  # take the last report
+        reports = read_streaming_report(report)
+        # Each line carries one target, so the whole stream is what adds up to the report.
+        report = reports[-1]
+        report["results"] = replay_streaming_report(reports)
+        report["strings"] = {
+            key: string for line in reports for key, string in line["strings"].items()
+        }
 
         del report["trace_id"]
         del report["project_root"]
@@ -334,6 +338,9 @@ async def test_streaming_build_report(buck: Buck, tmp_path: Path) -> None:
     reports = read_streaming_report(streaming_report)
     for report in reports:
         assert {"trace_id", "success", "results", "project_root"} <= report.keys()
+        assert len(report["results"]) == 1, (
+            f"Expected one target per line, got {sorted(report['results'])}"
+        )
     # One line per output, plus one each when a configured target and a target finish.
     # `//:rule2` and `//:rule2[out2]` are a single target.
     assert len(reports) == 7, f"Expected 7 lines, got {len(reports)}"

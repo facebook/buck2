@@ -43,7 +43,10 @@ BuildReport {
     # that may change in the future.
     trace_id: str,
 
-    # True if all requested targets built successfully
+    # True if all requested targets built successfully.
+    #
+    # In a streaming build report each line carries one target, so this only
+    # covers that target and any errors not associated with a target.
     success: bool,
 
     # The error category for the build, in case it failed. One of "USER", "INFRA", "ENVIRONMENT".

@@ -288,8 +288,24 @@ async def test_streaming_one_of_each(buck: Buck, tmp_path: Path) -> None:
     # One line for the output of `//fail_action:fail_one`, one each when the 3 targets that
     # configure finish their configured build, and one each when the 6 targets finish.
     assert len(reports) == 10, f"Expected 10 lines, got {len(reports)}"
+    for line in reports:
+        assert len(line["results"]) == 1, (
+            f"Expected one target per line, got {sorted(line['results'])}"
+        )
     final = json.loads(report.read_text())["results"]
     assert _outcomes(replay_streaming_report(reports)) == _outcomes(final)
+
+    failed = {key for key, entry in final.items() if entry["success"] == "FAIL"}
+    assert len(failed) == len(ONE_OF_EACH) - 1, (
+        f"Expected every target but `//success:success` to fail, got {sorted(failed)}"
+    )
+    streamed_failures = {
+        key
+        for line in reports
+        for key, entry in line["results"].items()
+        if entry["success"] == "FAIL"
+    }
+    assert streamed_failures == failed
 
 
 @buck_test()
@@ -428,6 +444,7 @@ async def test_streaming_fail_fast_streams_the_stopping_error(
     lines = streaming_report.read_text().splitlines()
     assert lines, "the error that stopped the build must reach the streaming report"
     report = json.loads(lines[-1])
+    assert list(report["results"]) == ["root//fail_analysis:fail_analysis"]
     configured = report["results"]["root//fail_analysis:fail_analysis"]["configured"][
         "<unspecified>"
     ]
