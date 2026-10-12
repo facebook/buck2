@@ -56,7 +56,8 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
     cfg = rule_spec.cfg
 
     if cfg != None:
-        kwargs["cfg"] = cfg
+        # Allow clone_rule callers to set their own cfg, if it exists
+        kwargs.setdefault("cfg", cfg)
 
     if rule_spec.docs:
         doc = rule_spec.docs
