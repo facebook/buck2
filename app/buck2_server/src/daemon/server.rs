@@ -370,6 +370,7 @@ impl BuckdServer {
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
         rt: Handle,
         daemon_id: DaemonId,
+        ready: Box<dyn FnOnce() + Send>,
     ) -> buck2_error::Result<()> {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;
@@ -481,6 +482,9 @@ impl BuckdServer {
             tokio::time::sleep(Duration::from_secs(sleep_secs)).await;
         }
 
+        // The listener accepted connections since before the daemon state existed, but answers
+        // them only from here on.
+        ready();
         let server_result = server.await;
 
         let shutdown_deadline = shutdown_deadline

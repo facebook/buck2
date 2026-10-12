@@ -9,6 +9,7 @@
  */
 
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
+use buck2_client_ctx::daemon::client::connect::buckd_startup_init_timeout;
 use buck2_client_ctx::daemon::client::connect::buckd_startup_timeout;
 use buck2_client_ctx::daemon::client::kill::kill_command_impl;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
@@ -48,7 +49,7 @@ pub fn start_in_process_daemon(
             })
         })?;
 
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         // Spawn a thread which runs the daemon.
         thread_spawn("buck2-no-buckd", move || {
             let tx_clone = tx.clone();
@@ -74,13 +75,23 @@ pub fn start_in_process_daemon(
                 }
             }
         })?;
-        // Wait for listener to start (or to fail).
-        match rx.recv() {
-            Ok(r) => r,
-            Err(_) => Err(buck2_error!(
-                buck2_error::ErrorTag::Tier0,
-                "In-process daemon failed to start and we don't know why"
-            )),
-        }
+        // Wait for the daemon to serve (or to fail). Like a spawned daemon, it gets the
+        // initialization timeout for that: the client connects with the much shorter timeout
+        // for an existing daemon.
+        tokio::task::block_in_place(|| {
+            handle.block_on(async {
+                StartupDeadline::duration_from_now(buckd_startup_init_timeout()?)?
+                    .run("starting in-process daemon", async {
+                        match rx.recv().await {
+                            Some(r) => r,
+                            None => Err(buck2_error!(
+                                buck2_error::ErrorTag::Tier0,
+                                "In-process daemon failed to start and we don't know why"
+                            )),
+                        }
+                    })
+                    .await
+            })
+        })
     })))
 }

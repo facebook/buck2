@@ -239,6 +239,14 @@ async def test_no_buckd_kills_existing_daemon(buck: Buck) -> None:
 
 
 @buck_test()
+@env("BUCK2_TEST_INIT_DATA_SLEEP_SECS", "2")
+@env("BUCKD_STARTUP_TIMEOUT", "1")
+async def test_no_buckd_waits_for_daemon_init(buck: Buck) -> None:
+    # Initialization takes longer than connecting to an existing daemon may.
+    await buck.targets(":", "--no-buckd")
+
+
+@buck_test()
 async def test_no_buckd_is_a_noop_for_a_client_only_command(buck: Buck) -> None:
     await buck.targets(":")  # Start a resident daemon
     status = json.loads((await buck.status()).stdout)
