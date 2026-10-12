@@ -168,6 +168,23 @@ def read_invocation_record(record: Path) -> InvocationRecord:
     return InvocationRecord(record)
 
 
+def read_streaming_report(path: Path) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Parses a `--streaming-build-report` file, one report per line. It may be empty."""
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def replay_streaming_report(
+    reports: typing.List[typing.Dict[str, typing.Any]],
+) -> typing.Dict[str, typing.Any]:
+    """Merges the `results` of streaming report lines; a key's newest entry wins.
+
+    Works whether each line repeats every entry so far or carries only some of them.
+    """
+    return {
+        key: entry for report in reports for key, entry in report["results"].items()
+    }
+
+
 async def get_last_execution_kind(
     buck: Buck,
     category: typing.Optional[str] = None,

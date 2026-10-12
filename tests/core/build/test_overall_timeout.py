@@ -16,6 +16,10 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import ExitCodeV2
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.utils import (
+    read_streaming_report,
+    replay_streaming_report,
+)
 
 
 @buck_test()
@@ -42,6 +46,33 @@ async def test_overall_timeout(buck: Buck, tmp_path: Path) -> None:
         (result,) = build_report_json["results"].values()
         (configured,) = result["configured"].values()
         assert configured["errors"][0]["error_tags"] == ["BUILD_DEADLINE_EXPIRED"]
+
+
+@buck_test()
+async def test_overall_timeout_streaming_build_report(
+    buck: Buck, tmp_path: Path
+) -> None:
+    """A timed-out output adds no line, so only the build-finished lines report it."""
+    streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+    await expect_failure(
+        buck.build(
+            ":slow",
+            "--overall-timeout",
+            "1s",
+            "--streaming-build-report",
+            str(streaming_report),
+        ),
+        stderr_regex="Build timed out",
+        exit_code=ExitCodeV2.USER_ERROR,
+    )
+
+    reports = read_streaming_report(streaming_report)
+    # The configured target finishing, then the target.
+    assert len(reports) == 2, f"Expected 2 lines, got {len(reports)}"
+    (result,) = replay_streaming_report(reports).values()
+    (configured,) = result["configured"].values()
+    assert configured["errors"][0]["error_tags"] == ["BUILD_DEADLINE_EXPIRED"]
 
 
 @buck_test()

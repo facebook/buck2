@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -49,6 +50,7 @@ use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::pattern::pattern::ModifiersError;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
+use buck2_core::pattern::pattern::TargetLabelWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -67,6 +69,7 @@ use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::re::invocation_re_settings::HasInvocationReSettings;
+use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -82,6 +85,7 @@ use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
+use futures::future;
 use futures::future::FutureExt;
 use futures::stream::StreamExt;
 use futures::stream::futures_unordered::FuturesUnordered;
@@ -848,7 +852,7 @@ async fn build_targets_for_spec(
         Err(e) => {
             let e: buck2_error::Error = e;
             // Try to associate the error to concrete targets, if possible
-            let targets = match spec {
+            let targets: Vec<_> = match spec {
                 PackageSpec::Targets(targets) => Either::Left(
                     targets
                         .into_iter()
@@ -861,13 +865,18 @@ async fn build_targets_for_spec(
                         .map(Some),
                 ),
                 PackageSpec::All() => Either::Right(std::iter::once(None)),
-            };
-            for t in targets {
+            }
+            .collect();
+            for t in &targets {
                 event_consumer.consume(BuildEvent::OtherError {
-                    label: t,
+                    label: t.dupe(),
                     err: e.dupe(),
                 });
             }
+            finish_error_only_targets(
+                event_consumer,
+                targets.into_iter().flatten().map(|t| t.target().dupe()),
+            );
             return;
         }
     };
@@ -875,15 +884,18 @@ async fn build_targets_for_spec(
     if let Some(missing) = missing {
         match missing_target_behavior {
             MissingTargetBehavior::Fail => {
-                for err in missing.into_all_errors() {
-                    event_consumer.consume(BuildEvent::OtherError {
-                        label: Some(ProvidersLabel::new(
-                            TargetLabel::new(err.package.dupe(), err.target.as_ref()),
-                            ProvidersName::Default,
-                        )),
-                        err: err.into(),
-                    });
-                }
+                let missing_targets: Vec<TargetLabel> = missing
+                    .into_all_errors()
+                    .map(|err| {
+                        let target = TargetLabel::new(err.package.dupe(), err.target.as_ref());
+                        event_consumer.consume(BuildEvent::OtherError {
+                            label: Some(ProvidersLabel::new(target.dupe(), ProvidersName::Default)),
+                            err: err.into(),
+                        });
+                        target
+                    })
+                    .collect();
+                finish_error_only_targets(event_consumer, missing_targets);
             }
             MissingTargetBehavior::Warn => {
                 // TODO: This should be reported in the build report eventually.
@@ -905,19 +917,52 @@ async fn build_targets_for_spec(
 
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
 
-    todo_targets
+    group_by_key(todo_targets, |build_spec| build_spec.target.target().dupe())
         .into_iter()
-        .map(|build_spec| {
-            buck2_util::async_move_clone!(providers_to_build, {
-                build_target(
-                    event_consumer,
-                    ctx,
-                    build_spec,
-                    &providers_to_build,
-                    materialization_and_upload,
-                    timeout_observer,
-                )
-                .await
+        .map(|(target, build_specs)| {
+            buck2_util::async_move_clone!(providers_to_build, modifiers, {
+                let configured: Vec<ConfiguredProvidersLabel> = build_specs
+                    .into_iter()
+                    .map(|build_spec| {
+                        build_target(
+                            event_consumer,
+                            ctx,
+                            build_spec,
+                            &providers_to_build,
+                            materialization_and_upload,
+                            timeout_observer,
+                        )
+                    })
+                    .collect::<FuturesUnordered<_>>()
+                    .filter_map(future::ready)
+                    .collect()
+                    .await;
+
+                // A request's labels for one target all configure it the same way, so its
+                // configured target finishes with the last of them, not the first.
+                configured
+                    .iter()
+                    .map(|label| label.target().dupe())
+                    .unique()
+                    .for_each(|target| {
+                        event_consumer.consume(BuildEvent::ConfiguredTargetBuildFinished {
+                            target,
+                            modifiers: modifiers.dupe(),
+                        })
+                    });
+                // If every label failed to configure, the key is that of a request without
+                // modifiers, which another spec of this target can also emit. The configure
+                // error is filed under every entry of the target, so that entry reads FAIL
+                // whichever spec finishes it.
+                let target = if configured.is_empty() {
+                    without_modifiers(target)
+                } else {
+                    TargetLabelWithModifiers {
+                        target_label: target,
+                        modifiers,
+                    }
+                };
+                event_consumer.consume(BuildEvent::TargetBuildFinished { target });
             })
         })
         .collect::<FuturesUnordered<_>>()
@@ -925,6 +970,41 @@ async fn build_targets_for_spec(
         .await
 }
 
+/// `Itertools::into_group_map_by`, but into a `BuckMutMap`.
+fn group_by_key<K: Eq + Hash, V>(
+    items: impl IntoIterator<Item = V>,
+    key: impl Fn(&V) -> K,
+) -> BuckMutMap<K, Vec<V>> {
+    items
+        .into_iter()
+        .fold(BuckMutMap::default(), |mut groups, item| {
+            groups.entry(key(&item)).or_default().push(item);
+            groups
+        })
+}
+
+/// The report key for an entry that has no `MapModifiers`, whatever it was requested with.
+fn without_modifiers(target_label: TargetLabel) -> TargetLabelWithModifiers {
+    TargetLabelWithModifiers {
+        target_label,
+        modifiers: Modifiers::new(None),
+    }
+}
+
+/// Emits `TargetBuildFinished` for targets that failed before configuring, whose entries hold
+/// only errors.
+fn finish_error_only_targets(
+    event_consumer: &dyn BuildEventConsumer,
+    targets: impl IntoIterator<Item = TargetLabel>,
+) {
+    targets.into_iter().unique().for_each(|target| {
+        event_consumer.consume(BuildEvent::TargetBuildFinished {
+            target: without_modifiers(target),
+        })
+    });
+}
+
+/// Returns the configured label, or `None` if the target failed to configure.
 async fn build_target(
     event_consumer: &dyn BuildEventConsumer,
     ctx: LinearRecomputeDiceComputations<'_, '_>,
@@ -932,7 +1012,7 @@ async fn build_target(
     providers_to_build: &ProvidersToBuild,
     materialization_and_upload: MaterializationAndUploadContext,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
-) {
+) -> Option<ConfiguredProvidersLabel> {
     let local_cfg_options = match spec.modifiers.as_slice() {
         None => spec.global_cfg_options.dupe(),
         Some(modifiers) => GlobalCfgOptions {
@@ -959,7 +1039,7 @@ async fn build_target(
                 label: Some(spec.target.dupe()),
                 err: e,
             });
-            return;
+            return None;
         }
     };
 
@@ -967,7 +1047,7 @@ async fn build_target(
         event_consumer,
         ctx,
         materialization_and_upload,
-        providers_label,
+        providers_label.dupe(),
         providers_to_build,
         build::BuildConfiguredLabelOptions {
             skippable: spec.skippable,
@@ -977,6 +1057,7 @@ async fn build_target(
         timeout_observer,
     )
     .await;
+    Some(providers_label)
 }
 
 /// Provider types that can be skipped in artifact path sketch computation.

@@ -12,6 +12,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -23,6 +24,10 @@ from buck2.tests.e2e_util.helper.golden import (
     sanitize_python,
     sanitize_stderr,
     strip_waiting_on,
+)
+from buck2.tests.e2e_util.helper.utils import (
+    read_streaming_report,
+    replay_streaming_report,
 )
 
 
@@ -237,17 +242,71 @@ build_report_test(
     ["//missing:missing", "//missing:available"],
 )
 
-build_report_test(
-    "test_one_of_each",
-    [
-        "//success:success",
-        "//missing:missing",
-        "//fail_load:first",
-        "//fail_config:cat_only",
-        "//fail_analysis:fail_analysis",
-        "//fail_action:fail_one",
-    ],
-)
+ONE_OF_EACH = [
+    "//success:success",
+    "//missing:missing",
+    "//fail_load:first",
+    "//fail_config:cat_only",
+    "//fail_analysis:fail_analysis",
+    "//fail_action:fail_one",
+]
+
+build_report_test("test_one_of_each", ONE_OF_EACH)
+
+
+def _outcomes(results: dict[str, Any]) -> dict[str, Any]:
+    """Each entry's status and error count, and those of each of its configurations."""
+    return {
+        key: (
+            entry["success"],
+            len(entry["errors"]),
+            {
+                cfg: (configured["success"], len(configured["errors"]))
+                for cfg, configured in entry["configured"].items()
+            },
+        )
+        for key, entry in results.items()
+    }
+
+
+@buck_test()
+async def test_streaming_one_of_each(buck: Buck, tmp_path: Path) -> None:
+    report = tmp_path / "build-report.json"
+    streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+    await expect_failure(
+        buck.build(
+            "--build-report",
+            str(report),
+            "--streaming-build-report",
+            str(streaming_report),
+            *ONE_OF_EACH,
+        )
+    )
+
+    reports = read_streaming_report(streaming_report)
+    # One line for the output of `//fail_action:fail_one`, one each when the 3 targets that
+    # configure finish their configured build, and one each when the 6 targets finish.
+    assert len(reports) == 10, f"Expected 10 lines, got {len(reports)}"
+    final = json.loads(report.read_text())["results"]
+    assert _outcomes(replay_streaming_report(reports)) == _outcomes(final)
+
+
+@buck_test()
+async def test_streaming_target_without_outputs(buck: Buck, tmp_path: Path) -> None:
+    """`//success:success` has no outputs, so only its build-finished lines report it."""
+    streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+    await buck.build(
+        "//success:success", "--streaming-build-report", str(streaming_report)
+    )
+
+    reports = read_streaming_report(streaming_report)
+    # The configured target finishing, then the target.
+    assert len(reports) == 2, f"Expected 2 lines, got {len(reports)}"
+    results = replay_streaming_report(reports)
+    assert results["root//success:success"]["success"] == "SUCCESS"
+
 
 build_report_test(
     "test_no_terminal_colors",

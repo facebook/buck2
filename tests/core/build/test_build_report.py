@@ -14,9 +14,15 @@ from pathlib import Path
 from typing import Any
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden
-from buck2.tests.e2e_util.helper.utils import replace_digest, replace_hash
+from buck2.tests.e2e_util.helper.utils import (
+    read_streaming_report,
+    replace_digest,
+    replace_hash,
+    replay_streaming_report,
+)
 
 
 def _sanitize_timing_fields(obj: Any) -> None:
@@ -325,38 +331,34 @@ async def test_streaming_build_report(buck: Buck, tmp_path: Path) -> None:
         str(streaming_report),
     )
 
-    # Check that the streaming report file was created
-    assert streaming_report.exists(), (
-        f"Streaming report file should be created at {streaming_report}"
+    reports = read_streaming_report(streaming_report)
+    for report in reports:
+        assert {"trace_id", "success", "results", "project_root"} <= report.keys()
+    # One line per output, plus one each when a configured target and a target finish.
+    # `//:rule2` and `//:rule2[out2]` are a single target.
+    assert len(reports) == 7, f"Expected 7 lines, got {len(reports)}"
+    results = replay_streaming_report(reports)
+    assert {
+        Path(path).name for path in _collect_output_paths({"results": results})
+    } == {"out.txt", "out1.txt", "out2.txt"}
+
+
+@buck_test()
+async def test_streaming_build_report_finishes_missing_target(
+    buck: Buck, tmp_path: Path
+) -> None:
+    """A missing target has no outputs, so only its build-finished line reports it."""
+    streaming_report = tmp_path / "streaming-report.jsonl"
+
+    await expect_failure(
+        buck.build(
+            "//:does_not_exist", "--streaming-build-report", str(streaming_report)
+        )
     )
 
-    # Read and validate the streaming report
-    with open(streaming_report) as file:
-        lines = file.read().strip().split("\n")
-        # Should have at least one JSON line (could have multiple for streaming)
-        assert len(lines) == 3, (
-            "Streaming report should contain 3 lines, one for each output"
-        )
-
-        # Each line should be valid JSON
-        for line in lines:
-            report_data = json.loads(line)
-            # Verify basic structure
-            assert "trace_id" in report_data
-            assert "success" in report_data
-            assert "results" in report_data
-            assert "project_root" in report_data
-
-        # Each snapshot is cumulative: it repeats every output reported so far.
-        output_snapshots = [_collect_output_paths(json.loads(line)) for line in lines]
-        assert [len(paths) for paths in output_snapshots] == [1, 2, 3]
-        assert output_snapshots[0].issubset(output_snapshots[1])
-        assert output_snapshots[1].issubset(output_snapshots[2])
-        assert {Path(path).name for path in output_snapshots[-1]} == {
-            "out.txt",
-            "out1.txt",
-            "out2.txt",
-        }
+    reports = read_streaming_report(streaming_report)
+    assert len(reports) == 1, f"Expected 1 line, got {len(reports)}"
+    assert reports[0]["results"]["root//:does_not_exist"]["success"] == "FAIL"
 
 
 @buck_test()
@@ -369,9 +371,9 @@ async def test_streaming_build_report_non_existent_directory(buck: Buck) -> None
         streaming_report,
     )
 
-    with open(buck.cwd / streaming_report) as file:
-        report = json.load(file)
-        assert report["success"]
+    reports = read_streaming_report(buck.cwd / streaming_report)
+    assert reports, "Expected the streaming report to be written"
+    assert all(report["success"] for report in reports)
 
 
 @buck_test()
