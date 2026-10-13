@@ -385,11 +385,27 @@ macro_rules! stream_method {
             console_interaction: Option<ConsoleInteractionStream<'j>>,
             handler: &mut impl PartialResultHandler<PartialResult = $message>,
         ) -> buck2_error::Result<CommandOutcome<$res>> {
+            // The enclosing function is generic and so is instantiated in every command
+            // crate. The gRPC call is not generic; a non-inlined function keeps its
+            // instantiation (the request encoder, the response decoder) in this crate.
+            #[inline(never)]
+            fn call<'b>(
+                client: &'b mut DaemonApiClient<
+                    InterceptedService<Channel, BuckAddAuthTokenInterceptor>,
+                >,
+                req: Request<$req>,
+            ) -> BoxFuture<
+                'b,
+                Result<tonic::Response<tonic::Streaming<MultiCommandProgress>>, Status>,
+            > {
+                Box::pin(DaemonApiClient::$grpc_method(client, req))
+            }
+
             let mut events_ctx = DaemonEventsCtx::new(self.inner, events_ctx)?;
             let res = self
                 .inner
                 .stream(
-                    |d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)),
+                    call,
                     req,
                     &mut events_ctx,
                     // For now we only support handlers that can be constructed like so, and we
@@ -449,9 +465,20 @@ macro_rules! oneshot_method {
             req: $req,
             events_ctx: &mut EventsCtx,
         ) -> buck2_error::Result<CommandOutcome<$res>> {
+            // See `stream_method!`.
+            #[inline(never)]
+            fn call(
+                client: &mut DaemonApiClient<
+                    InterceptedService<Channel, BuckAddAuthTokenInterceptor>,
+                >,
+                req: Request<$req>,
+            ) -> BoxFuture<'_, Result<tonic::Response<CommandResult>, Status>> {
+                Box::pin(client.$grpc_method(req))
+            }
+
             let mut events_ctx = DaemonEventsCtx::new(self.inner, events_ctx)?;
             let res = events_ctx
-                .unpack_oneshot({ self.inner.client.$method(Request::new(req)) })
+                .unpack_oneshot(call(&mut self.inner.client, Request::new(req)))
                 .await;
             events_ctx.flush().await?;
             res
@@ -471,8 +498,19 @@ macro_rules! debug_method {
             req: $req,
             events_ctx: &mut EventsCtx,
         ) -> buck2_error::Result<$res> {
+            // See `stream_method!`.
+            #[inline(never)]
+            fn call(
+                client: &mut DaemonApiClient<
+                    InterceptedService<Channel, BuckAddAuthTokenInterceptor>,
+                >,
+                req: Request<$req>,
+            ) -> BoxFuture<'_, Result<tonic::Response<$res>, Status>> {
+                Box::pin(client.$grpc_method(req))
+            }
+
             let mut events_ctx = DaemonEventsCtx::new(self.inner, events_ctx)?;
-            let out = self.inner.client.$method(Request::new(req)).await;
+            let out = call(&mut self.inner.client, Request::new(req)).await;
             events_ctx.flush().await?;
             Ok(out?.into_inner())
         }
