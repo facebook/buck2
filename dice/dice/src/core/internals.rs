@@ -248,7 +248,6 @@ mod tests {
     use allocative::Allocative;
     use async_trait::async_trait;
     use derive_more::Display;
-    use dice_core::BranchId;
     use dice_futures::cancellation::CancellationContext;
     use dice_futures::spawner::TokioSpawner;
     use dupe::Dupe;
@@ -286,10 +285,11 @@ mod tests {
     #[test]
     fn update_state_gets_next_version() {
         let mut core = ActorState::new(None);
+        let root = core.new_root();
 
         assert_eq!(
             core.update_state(
-                BranchId::FIRST,
+                root,
                 [(
                     DiceKey { index: 0 },
                     ChangeType::Invalidate,
@@ -301,7 +301,7 @@ mod tests {
 
         assert_eq!(
             core.update_state(
-                BranchId::FIRST,
+                root,
                 [(
                     DiceKey { index: 1 },
                     ChangeType::Invalidate,
@@ -338,7 +338,8 @@ mod tests {
     #[test]
     fn non_pageable_nodes_are_not_page_out_candidates() {
         let mut core = ActorState::new(None);
-        let v = VersionNumber::FIRST;
+        let root = core.new_root();
+        let v = core.current_version(root);
         let _ctx = core.ctx_at_version(v);
 
         let compute = |core: &mut ActorState, index: u32| {

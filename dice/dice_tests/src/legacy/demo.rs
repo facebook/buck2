@@ -20,6 +20,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
+use dice::BranchId;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
@@ -162,16 +163,17 @@ async fn demo() -> anyhow::Result<()> {
     let f = PathBuf::from(temp.path());
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
+    let root = dice.new_root().await;
 
-    let mut ctx = dice.updater();
+    let mut ctx = dice.updater(root);
     ctx.set_encodings(Encoding::Utf8)?;
     ctx.commit().await;
 
     let set = |x: &str| fs::write(&f, x).unwrap();
 
-    async fn get(x: &str, dice: &Arc<Dice>, f: &Path) {
+    async fn get(x: &str, dice: &Arc<Dice>, root: BranchId, f: &Path) {
         let contents = dice
-            .updater()
+            .updater(root)
             .commit()
             .await
             .ctx()
@@ -184,22 +186,22 @@ async fn demo() -> anyhow::Result<()> {
 
     set(":-)");
 
-    get(":-)", &dice, &f).await;
+    get(":-)", &dice, root, &f).await;
 
     // doesn't change because I didn't dirty it
     set("hello :-)");
 
-    get(":-)", &dice, &f).await;
+    get(":-)", &dice, root, &f).await;
 
-    let mut ctx = dice.updater();
+    let mut ctx = dice.updater(root);
     ctx.filesystem_changed(&f)?;
     ctx.commit().await;
-    get("hello :-)", &dice, &f).await;
+    get("hello :-)", &dice, root, &f).await;
 
-    let mut ctx = dice.updater();
+    let mut ctx = dice.updater(root);
     ctx.set_encodings(Encoding::Ascii)?;
     ctx.commit().await;
-    get("hello smile", &dice, &f).await;
+    get("hello smile", &dice, root, &f).await;
 
     Ok(())
 }

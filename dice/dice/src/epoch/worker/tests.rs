@@ -35,7 +35,6 @@ use tokio::sync::Notify;
 use tokio::sync::Semaphore;
 use variant_name::VariantName;
 
-use crate::BranchId;
 use crate::DetectCycles;
 use crate::DiceKeyDyn;
 use crate::EqualityBehavior;
@@ -170,16 +169,17 @@ fn spawn_task(
 #[tokio::test]
 async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let dice = Dice::new(DiceData::new(), None);
+    let root = dice.new_root().await;
 
     let user_data = Arc::new(UserComputationData::new());
 
     // Set initial value at v0
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(K, 1)]).unwrap();
     updater.commit().await;
 
     // Change value at v1
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(K, 2)]).unwrap();
     let v1 = updater.commit().await.0.get_version();
 
@@ -207,7 +207,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     );
 
     // Advance version without changing dep value
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(K, 2)]).unwrap();
     let v2 = updater.commit().await.0.get_version();
 
@@ -240,6 +240,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
 #[tokio::test]
 async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let dice = Dice::new(DiceData::new(), None);
+    let root = dice.new_root().await;
 
     let user_data = Arc::new(UserComputationData::new());
 
@@ -295,10 +296,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     let key = dice.key_index.index_key(InstanceEqualKey(instance.dupe()));
 
-    let v = dice
-        .state_handle
-        .update_state(BranchId::FIRST, vec![])
-        .await;
+    let v = dice.state_handle.update_state(root, vec![]).await;
 
     let (ctx, _guard) = dice.testing_shared_ctx(v).await;
     let eval = TransactionData {
@@ -318,7 +316,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let v = dice
         .state_handle
         .update_state(
-            BranchId::FIRST,
+            root,
             vec![(
                 key.dupe(),
                 ChangeType::Invalidate,
@@ -741,10 +739,11 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
     let compute_count = Arc::new(AtomicUsize::new(0));
 
     // Initial computation: runs `NeverEqual::compute` once and records the dep on `Leaf`.
-    let ctx = dice.updater().commit().await;
+    let ctx = dice.updater(root).commit().await;
     let initial = ctx.compute(&NeverEqual(compute_count.dupe())).await?;
     assert_eq!(compute_count.load(Ordering::SeqCst), 1);
 
@@ -752,7 +751,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
     // are unchanged and its value must be resurrected (reused) rather than recomputed -- even
     // though `NeverEqual::equality` always reports values as different.
     for _ in 0..2 {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed(vec![Leaf])?;
         let ctx = updater.commit().await;
 
@@ -779,6 +778,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 #[tokio::test]
 async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
     let dice = Dice::new(DiceData::new(), None);
+    let root = dice.new_root().await;
 
     let compute_behavior = (0..20)
         .map(|_v| std::sync::Mutex::new(ComputeBehavior::Immediate))
@@ -800,7 +800,7 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
         .map(|v| dice.key_index.index_key(v.dupe()))
         .collect::<Vec<_>>();
 
-    let version = dice.updater().commit().await.0.get_version();
+    let version = dice.updater(root).commit().await.0.get_version();
 
     let user_data = Arc::new(UserComputationData::new());
     let (ctx, _guard) = dice.testing_shared_ctx(version).await;
@@ -864,6 +864,7 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow::Result<()> {
     let dice = Dice::new(DiceData::new(), None);
+    let root = dice.new_root().await;
 
     let compute_behavior = (0..20)
         .map(|_v| std::sync::Mutex::new(ComputeBehavior::Immediate))
@@ -885,7 +886,7 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
         .map(|v| dice.key_index.index_key(v.dupe()))
         .collect::<Vec<_>>();
 
-    let version = dice.updater().commit().await.0.get_version();
+    let version = dice.updater(root).commit().await.0.get_version();
 
     let user_data = Arc::new(UserComputationData::new());
     let (ctx, _guard) = dice.testing_shared_ctx(version).await;
@@ -1061,11 +1062,12 @@ async fn reuse_write_refreshes_stored_dep_revisions() -> anyhow::Result<()> {
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
     let counter = Arc::new(AtomicUsize::new(0));
 
     // Round 1: initial compute. Middle=10 with revision R1; Dependent records
     // edge (Middle, R1); counter=1.
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Base, 10)])?;
     let ctx = updater.commit().await;
     let _ = ctx.compute(&Dependent(counter.dupe())).await?;
@@ -1076,7 +1078,7 @@ async fn reuse_write_refreshes_stored_dep_revisions() -> anyhow::Result<()> {
     // Dependent recomputes to 0 (equal). Reuse-write fires: WITH FIX the
     // stored edge becomes (Middle, R2); WITHOUT FIX it stays (Middle, R1).
     // counter=2 either way.
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Base, 20)])?;
     let ctx = updater.commit().await;
     let _ = ctx.compute(&Dependent(counter.dupe())).await?;
@@ -1087,7 +1089,7 @@ async fn reuse_write_refreshes_stored_dep_revisions() -> anyhow::Result<()> {
     // vs Middle's current R2. WITH FIX: recorded is R2 => match => NoChange
     // => counter stays 2. WITHOUT FIX: recorded is stale R1 => mismatch =>
     // Changed => Dependent recomputes => counter=3.
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed(vec![Middle])?;
     let ctx = updater.commit().await;
     let _ = ctx.compute(&Dependent(counter.dupe())).await?;
@@ -1273,6 +1275,7 @@ async fn _run_cancellation_caching_test(
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
     const FIRST_COMPUTE_MS: u64 = 2500;
     const CANCELLATION_WAIT_MS: u64 = 500;
@@ -1292,7 +1295,7 @@ async fn _run_cancellation_caching_test(
     };
     k.reset(&cancel_type, FIRST_COMPUTE_MS, cancel_poller_type)
         .await;
-    let txn: crate::DiceTransaction = dice.updater().commit().await;
+    let txn: crate::DiceTransaction = dice.updater(root).commit().await;
     let task = txn.compute(&k);
     let start_cancel = {
         // Before cancelling the task, we have to wait for the `compute()` method on

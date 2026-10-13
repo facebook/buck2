@@ -158,9 +158,10 @@ mod tests {
         let mut dice = Dice::builder();
         dice.set_testing_io_provider(&fs);
         let dice = dice.build(DetectCycles::Enabled);
+        let root = dice.new_root().await;
         let first = FileSystemBaseline::unique();
 
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.set_cell_resolver(CellResolver::testing_with_name_and_path(
             CellName::testing_new("root"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("".to_owned())),
@@ -171,12 +172,12 @@ mod tests {
 
         fs.write_file("f", "two");
 
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.set_file_system_baseline(first)?;
         let ctx = updater.commit().await;
         assert_eq!(ctx.compute(&Contents).await?, "one");
 
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.set_file_system_baseline(FileSystemBaseline::unique())?;
         let ctx = updater.commit().await;
         assert_eq!(ctx.compute(&Contents).await?, "two");

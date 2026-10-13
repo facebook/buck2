@@ -74,7 +74,6 @@ pub(crate) fn cert(
 }
 
 pub(crate) trait StateExt {
-    fn root_v(&self, seq: u32) -> Version;
     fn assert_at(&mut self, b: BranchId, key: Key, revision: Revision) -> Version;
     fn dirty_at(&mut self, b: BranchId, key: Key) -> Version;
     fn commit_checked(&mut self, b: BranchId, changes: Vec<Change<()>>) -> Version;
@@ -87,10 +86,6 @@ pub(crate) trait StateExt {
 }
 
 impl StateExt for State {
-    fn root_v(&self, seq: u32) -> Version {
-        v(BranchId::FIRST, seq)
-    }
-
     fn assert_at(&mut self, b: BranchId, key: Key, revision: Revision) -> Version {
         self.commit_checked(
             b,
@@ -146,11 +141,11 @@ impl StateExt for State {
 
 /// A root state with injected key `k(0)` at `r(1)` (version 2) and computed key `k(1)` attached
 /// at the head with a certificate over it.
-pub(crate) fn leaf_and_dependent() -> (State, TestCert) {
+pub(crate) fn leaf_and_dependent() -> (State, BranchId, TestCert) {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     s.write_checked(&c);
-    (s, c)
+    (s, root, c)
 }

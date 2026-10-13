@@ -303,11 +303,12 @@ async fn main() {
     } else {
         builder.build(DetectCycles::Disabled)
     };
+    let root = dice.new_root().await;
 
     let start = Instant::now();
 
     {
-        let mut ctx = dice.updater();
+        let mut ctx = dice.updater(root);
         ctx.changed_to(vec![(ConfigKey, config)]).unwrap();
         ctx.commit().await;
     }
@@ -319,10 +320,13 @@ async fn main() {
         let latches = Latches::new(config.chain_count);
         latches.release_all();
         dice_data.set(latches);
-        let mut ctx = dice.updater_with_data(UserComputationData {
-            data: dice_data,
-            ..Default::default()
-        });
+        let mut ctx = dice.updater_with_data(
+            root,
+            UserComputationData {
+                data: dice_data,
+                ..Default::default()
+            },
+        );
 
         ctx.changed_to(vec![(Leaf, 0)]).unwrap();
 
@@ -340,10 +344,13 @@ async fn main() {
     {
         let mut dice_data = DiceData::new();
         dice_data.set(latches);
-        let mut ctx = dice.updater_with_data(UserComputationData {
-            data: dice_data,
-            ..Default::default()
-        });
+        let mut ctx = dice.updater_with_data(
+            root,
+            UserComputationData {
+                data: dice_data,
+                ..Default::default()
+            },
+        );
         ctx.changed_to(vec![(Leaf, 1)]).unwrap();
         let ctx = ctx.commit().await;
         drop(ctx.compute(&TopKey(0)).await);

@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dice::ActivationData;
 use dice::ActivationTracker;
+use dice::BranchId;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
@@ -95,21 +96,22 @@ async fn test_a_multiversion_bug() {
         let builder = Dice::builder();
         builder.build(DetectCycles::Enabled)
     };
+    let root = dice.new_root().await;
 
     let ctx1 = {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(Leaf, 1)]).unwrap();
         updater.commit().await
     };
 
     let ctx2 = {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(Leaf, 2)]).unwrap();
         updater.commit().await
     };
 
     let ctx3 = {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(Leaf, 1)]).unwrap();
         updater.commit().await
     };
@@ -207,12 +209,15 @@ async fn injected_key_returning_to_earlier_value_revalidates_dependents() {
         }
     }
 
-    async fn compute_dep_with_leaf(dice: &Arc<Dice>, leaf: u32) -> Vec<bool> {
+    async fn compute_dep_with_leaf(dice: &Arc<Dice>, root: BranchId, leaf: u32) -> Vec<bool> {
         let recorder = Arc::new(ActivationRecorder::default());
-        let mut updater = dice.updater_with_data(UserComputationData {
-            activation_tracker: Some(recorder.dupe() as Arc<dyn ActivationTracker>),
-            ..Default::default()
-        });
+        let mut updater = dice.updater_with_data(
+            root,
+            UserComputationData {
+                activation_tracker: Some(recorder.dupe() as Arc<dyn ActivationTracker>),
+                ..Default::default()
+            },
+        );
         updater.changed_to(vec![(Leaf, leaf)]).unwrap();
         let ctx = updater.commit().await;
         assert_eq!(*ctx.compute(&Dep).await.unwrap(), leaf);
@@ -221,18 +226,20 @@ async fn injected_key_returning_to_earlier_value_revalidates_dependents() {
     }
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
-    assert_eq!(compute_dep_with_leaf(&dice, 1).await, vec![false]);
+    let root = dice.new_root().await;
+    assert_eq!(compute_dep_with_leaf(&dice, root, 1).await, vec![false]);
     // `Dep` is not computed at this version: a recompute here would record the edge to
     // the second value, and returning to the first would then be a genuine change for it.
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Leaf, 2)]).unwrap();
     drop(updater.commit().await);
-    assert_eq!(compute_dep_with_leaf(&dice, 1).await, vec![true]);
+    assert_eq!(compute_dep_with_leaf(&dice, root, 1).await, vec![true]);
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
-    assert_eq!(compute_dep_with_leaf(&dice, 1).await, vec![false]);
-    let mut updater = dice.updater();
+    let root = dice.new_root().await;
+    assert_eq!(compute_dep_with_leaf(&dice, root, 1).await, vec![false]);
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Leaf, 2)]).unwrap();
     drop(updater.commit().await);
-    assert_eq!(compute_dep_with_leaf(&dice, 3).await, vec![false]);
+    assert_eq!(compute_dep_with_leaf(&dice, root, 3).await, vec![false]);
 }

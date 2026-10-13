@@ -32,6 +32,7 @@ use std::time::Instant;
 use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
+use dice::BranchId;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
@@ -476,24 +477,26 @@ fn print_two_phase(name: &str, params: &str, commit: &Stats, compute: &Stats) {
     );
 }
 
-async fn seed_leaf_zero(dice: &Arc<Dice>) {
-    let mut updater = dice.updater();
+async fn seed_leaf_zero(dice: &Arc<Dice>, root: BranchId) {
+    let mut updater = dice.updater(root);
     updater
         .changed_to(vec![(Leaf(0), 0u64)])
         .expect("benchmark inputs are always injectable");
     updater.commit().await;
 }
 
-fn new_dice() -> Arc<Dice> {
-    Dice::builder().build(DetectCycles::Disabled)
+async fn new_dice() -> (Arc<Dice>, BranchId) {
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
+    (dice, root)
 }
 
 // -- Scenarios -----------------------------------------------------------
 
 async fn bench_cold_chain() {
-    let dice = new_dice();
-    seed_leaf_zero(&dice).await;
-    let ctx = dice.updater().commit().await;
+    let (dice, root) = new_dice().await;
+    seed_leaf_zero(&dice, root).await;
+    let ctx = dice.updater(root).commit().await;
     let start = Instant::now();
     ctx.compute(&ChainFull(0))
         .await
@@ -503,9 +506,9 @@ async fn bench_cold_chain() {
 }
 
 async fn bench_cold_wide() {
-    let dice = new_dice();
-    seed_leaf_zero(&dice).await;
-    let ctx = dice.updater().commit().await;
+    let (dice, root) = new_dice().await;
+    seed_leaf_zero(&dice, root).await;
+    let ctx = dice.updater(root).commit().await;
     let start = Instant::now();
     ctx.compute(&WideFullRoot)
         .await
@@ -515,9 +518,9 @@ async fn bench_cold_wide() {
 }
 
 async fn bench_cold_layered() {
-    let dice = new_dice();
-    seed_leaf_zero(&dice).await;
-    let ctx = dice.updater().commit().await;
+    let (dice, root) = new_dice().await;
+    seed_leaf_zero(&dice, root).await;
+    let ctx = dice.updater(root).commit().await;
     let start = Instant::now();
     ctx.compute(&LayerRoot)
         .await
@@ -531,10 +534,10 @@ async fn bench_cold_layered() {
 }
 
 async fn bench_recompute_chain_full() {
-    let dice = new_dice();
-    seed_leaf_zero(&dice).await;
+    let (dice, root) = new_dice().await;
+    seed_leaf_zero(&dice, root).await;
     // Warm.
-    let ctx = dice.updater().commit().await;
+    let ctx = dice.updater(root).commit().await;
     ctx.compute(&ChainFull(0))
         .await
         .expect("benchmark keys never fail");
@@ -543,7 +546,7 @@ async fn bench_recompute_chain_full() {
     let mut commits = Vec::with_capacity(RECOMPUTE_ITERS as usize);
     let mut computes = Vec::with_capacity(RECOMPUTE_ITERS as usize);
     for i in 1..=RECOMPUTE_ITERS {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater
             .changed_to(vec![(Leaf(0), i as u64)])
             .expect("benchmark inputs are always injectable");
@@ -567,9 +570,9 @@ async fn bench_recompute_chain_full() {
 }
 
 async fn bench_recompute_chain_cutoff() {
-    let dice = new_dice();
-    seed_leaf_zero(&dice).await;
-    let ctx = dice.updater().commit().await;
+    let (dice, root) = new_dice().await;
+    seed_leaf_zero(&dice, root).await;
+    let ctx = dice.updater(root).commit().await;
     ctx.compute(&ChainCutoff(0))
         .await
         .expect("benchmark keys never fail");
@@ -578,7 +581,7 @@ async fn bench_recompute_chain_cutoff() {
     let mut commits = Vec::with_capacity(RECOMPUTE_ITERS as usize);
     let mut computes = Vec::with_capacity(RECOMPUTE_ITERS as usize);
     for i in 1..=RECOMPUTE_ITERS {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         // The value under Leaf changes but Absorb collapses it back to 0,
         // so each iteration triggers a full revalidation walk without any
         // actual chain recompute.
@@ -603,9 +606,9 @@ async fn bench_recompute_chain_cutoff() {
 }
 
 async fn bench_recompute_wide_full() {
-    let dice = new_dice();
-    seed_leaf_zero(&dice).await;
-    let ctx = dice.updater().commit().await;
+    let (dice, root) = new_dice().await;
+    seed_leaf_zero(&dice, root).await;
+    let ctx = dice.updater(root).commit().await;
     ctx.compute(&WideFullRoot)
         .await
         .expect("benchmark keys never fail");
@@ -614,7 +617,7 @@ async fn bench_recompute_wide_full() {
     let mut commits = Vec::with_capacity(WIDE_RECOMPUTE_ITERS as usize);
     let mut computes = Vec::with_capacity(WIDE_RECOMPUTE_ITERS as usize);
     for i in 1..=WIDE_RECOMPUTE_ITERS {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater
             .changed_to(vec![(Leaf(0), i as u64)])
             .expect("benchmark inputs are always injectable");
@@ -638,9 +641,9 @@ async fn bench_recompute_wide_full() {
 }
 
 async fn bench_recompute_wide_cutoff() {
-    let dice = new_dice();
-    seed_leaf_zero(&dice).await;
-    let ctx = dice.updater().commit().await;
+    let (dice, root) = new_dice().await;
+    seed_leaf_zero(&dice, root).await;
+    let ctx = dice.updater(root).commit().await;
     ctx.compute(&WideCutoffRoot)
         .await
         .expect("benchmark keys never fail");
@@ -649,7 +652,7 @@ async fn bench_recompute_wide_cutoff() {
     let mut commits = Vec::with_capacity(WIDE_RECOMPUTE_ITERS as usize);
     let mut computes = Vec::with_capacity(WIDE_RECOMPUTE_ITERS as usize);
     for i in 1..=WIDE_RECOMPUTE_ITERS {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater
             .changed_to(vec![(Leaf(0), i as u64)])
             .expect("benchmark inputs are always injectable");
@@ -672,10 +675,10 @@ async fn bench_recompute_wide_cutoff() {
 }
 
 async fn bench_injected_sweep() {
-    let dice = new_dice();
+    let (dice, root) = new_dice().await;
     // Seed all SWEEP_N leaves.
     let initial: Vec<(Leaf, u64)> = (0..SWEEP_N).map(|i| (Leaf(i), 0u64)).collect();
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater
         .changed_to(initial)
         .expect("benchmark inputs are always injectable");
@@ -689,7 +692,7 @@ async fn bench_injected_sweep() {
     let mut computes = Vec::with_capacity(SWEEP_ITERS as usize);
     for iter in 1..=SWEEP_ITERS {
         let updates: Vec<(Leaf, u64)> = (0..SWEEP_N).map(|i| (Leaf(i), iter as u64)).collect();
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater
             .changed_to(updates)
             .expect("benchmark inputs are always injectable");

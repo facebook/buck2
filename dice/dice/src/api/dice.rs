@@ -162,9 +162,10 @@
 //! let mut builder = Dice::builder();
 //! builder.set_static("len4".into());
 //! let engine = builder.build(DetectCycles::Disabled);
+//! let root = rt.block_on(engine.new_root());
 //!
 //! // inject config
-//! let mut ctx = engine.updater();
+//! let mut ctx = engine.updater(root);
 //! ctx.inject_config(0);
 //!
 //! let mut ctx = rt.block_on(ctx.commit());
@@ -174,7 +175,7 @@
 //!     assert_eq!("aaaaaaaa", &*MyComputation(&mut ctx.ctx()).compute_a(4, "a".into()).await);
 //! });
 //!
-//! let mut ctx = engine.updater();
+//! let mut ctx = engine.updater(root);
 //! ctx.inject_config(2);
 //!
 //! let mut ctx = rt.block_on(ctx.commit());
@@ -229,9 +230,13 @@ pub mod testing {
             self
         }
 
-        pub fn build(self, extra: UserComputationData) -> anyhow::Result<DiceTransactionUpdater> {
+        pub async fn build(
+            self,
+            extra: UserComputationData,
+        ) -> anyhow::Result<DiceTransactionUpdater> {
             let dice = self.builder.build(DetectCycles::Enabled);
-            let mut ctx = dice.updater_with_data(extra);
+            let root = dice.new_root().await;
+            let mut ctx = dice.updater_with_data(root, extra);
 
             self.mocked.into_iter().try_for_each(|f| f(&mut ctx))?;
             Ok(ctx)

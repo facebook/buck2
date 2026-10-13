@@ -167,9 +167,10 @@
 //! let mut builder = Dice::builder();
 //! builder.set_static("len4".into());
 //! let engine = builder.build(DetectCycles::Disabled);
+//! let root = rt.block_on(engine.new_root());
 //!
 //! // inject config
-//! let mut ctx = engine.updater();
+//! let mut ctx = engine.updater(root);
 //! ctx.inject_config(0);
 //!
 //! let mut ctx = rt.block_on(ctx.commit());
@@ -179,7 +180,7 @@
 //!     assert_eq!("aaaaaaaa", &*MyComputation(&mut ctx.ctx()).compute_a(4, "a".into()).await);
 //! });
 //!
-//! let mut ctx = engine.updater();
+//! let mut ctx = engine.updater(root);
 //! ctx.inject_config(2);
 //!
 //! let mut ctx = rt.block_on(ctx.commit());

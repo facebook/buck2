@@ -22,21 +22,20 @@ use crate::tests::v;
 
 /// Root: leaf k0 = r1 at seq 2, k1 over it attached, then the leaf changes at seq 3 and closes
 /// k1. The child forks from seq 2, where k1 is valid.
-fn parent_with_closed_claim_and_child_at_valid_seq() -> (State, crate::tests::TestCert) {
+fn parent_with_closed_claim_and_child_at_valid_seq() -> (State, BranchId, crate::tests::TestCert) {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     s.write_checked(&c);
     s.assert_at(root, k(0), r(2));
-    (s, c)
+    (s, root, c)
 }
 
 /// 2.1: a child with its own claim is not a party to the parent's install.
 #[test]
 fn child_with_own_claim_is_skipped() {
-    let (mut s, _) = parent_with_closed_claim_and_child_at_valid_seq();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = parent_with_closed_claim_and_child_at_valid_seq();
     let child = s.fork_checked(v(root, 2));
     let c2 = s.assert_at(child, k(0), r(5));
     let own = cert(k(1), r(7), &[(k(0), r(5))], EpsilonToken::INITIAL);
@@ -66,7 +65,7 @@ fn child_with_own_claim_is_skipped() {
 #[test]
 fn child_unknown_before_and_after_is_untouched() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     s.assert_at(root, k(0), r(2));
     let child = s.fork_checked(v(root, 2));
@@ -86,8 +85,7 @@ fn child_unknown_before_and_after_is_untouched() {
 /// longer covers the fork seq. The child keeps its view through its own open copy.
 #[test]
 fn reissuing_a_certificate_with_a_later_window_rehomes_the_child() {
-    let (mut s, c) = parent_with_closed_claim_and_child_at_valid_seq();
-    let root = BranchId::FIRST;
+    let (mut s, root, c) = parent_with_closed_claim_and_child_at_valid_seq();
     let child = s.fork_checked(v(root, 2));
     let v4 = s.assert_at(root, k(0), r(1));
     assert_eq!(s.write_checked(&c).installed, vec![root]);
@@ -111,8 +109,7 @@ fn reissuing_a_certificate_with_a_later_window_rehomes_the_child() {
 /// so the observable effect is the re-home not distinguishing the two allocations either.
 #[test]
 fn an_equal_certificate_from_another_allocation_is_the_same_certificate() {
-    let (mut s, c) = parent_with_closed_claim_and_child_at_valid_seq();
-    let root = BranchId::FIRST;
+    let (mut s, root, c) = parent_with_closed_claim_and_child_at_valid_seq();
     let child = s.fork_checked(v(root, 2));
     s.assert_at(root, k(0), r(1));
     let same_trace = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
@@ -134,8 +131,7 @@ fn an_equal_certificate_from_another_allocation_is_the_same_certificate() {
 /// is a different certificate, and the child keeps the one it has edges for.
 #[test]
 fn a_different_certificate_for_the_same_revision_rehomes_the_child() {
-    let (mut s, _) = parent_with_closed_claim_and_child_at_valid_seq();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = parent_with_closed_claim_and_child_at_valid_seq();
     s.assert_at(root, k(5), r(1));
     let child = s.fork_checked(v(root, 2));
     s.assert_at(root, k(0), r(1));
@@ -166,7 +162,7 @@ fn a_different_certificate_for_the_same_revision_rehomes_the_child() {
 #[test]
 fn fill_in_attaches_child_and_grandchild_by_inheritance() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     let child = s.fork_checked(v(root, 2));
     let grandchild = s.fork_checked(v(child, 1));
@@ -189,7 +185,7 @@ fn fill_in_attaches_child_and_grandchild_by_inheritance() {
 #[test]
 fn partial_cover_at_the_child_shadows_then_installs_on_the_childs_turn() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     let child = s.fork_checked(v(root, 2));
     let c2 = s.assert_at(child, k(0), r(2));
@@ -206,8 +202,7 @@ fn partial_cover_at_the_child_shadows_then_installs_on_the_childs_turn() {
 /// it, through its own copy, open as it always saw it.
 #[test]
 fn replacing_a_claim_the_child_inherits_rehomes_it() {
-    let (mut s, _) = parent_with_closed_claim_and_child_at_valid_seq();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = parent_with_closed_claim_and_child_at_valid_seq();
     let child = s.fork_checked(v(root, 2));
     let c2 = cert(k(1), r(2), &[(k(0), r(2))], EpsilonToken::INITIAL);
     assert_eq!(s.write_checked(&c2).installed, vec![root]);
@@ -226,7 +221,7 @@ fn replacing_a_claim_the_child_inherits_rehomes_it() {
 #[test]
 fn a_dirty_at_the_parent_does_not_leak_into_a_child_forked_before_it() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     let leaf = cert(k(0), r(1), &[], EpsilonToken::INITIAL);
     s.write_checked(&leaf);
     let child = s.fork_checked(v(root, 1));
@@ -252,7 +247,7 @@ fn a_dirty_at_the_parent_does_not_leak_into_a_child_forked_before_it() {
 #[test]
 fn a_closed_install_at_the_parent_fills_in_a_child_forked_inside_its_window() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1)); // 2
     let child = s.fork_checked(v(root, 2));
     s.assert_at(root, k(0), r(2)); // 3
@@ -277,8 +272,7 @@ fn a_closed_install_at_the_parent_fills_in_a_child_forked_inside_its_window() {
 /// then changes its dep; the child's own edges close it when the child changes the dep.
 #[test]
 fn a_parent_dirtying_then_changing_the_dep_leaves_the_childs_view_intact() {
-    let (mut s, _) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = leaf_and_dependent();
     let child = s.fork_checked(v(root, 2));
     s.dirty_at(root, k(1)); // 3
     s.assert_at(root, k(0), r(2)); // 4

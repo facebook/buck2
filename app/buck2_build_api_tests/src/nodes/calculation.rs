@@ -140,6 +140,7 @@ async fn test_get_node() -> buck2_error::Result<()> {
         .mock_and_return(InterpreterResultsKey(pkg), Ok(Arc::new(eval_result)))
         .mock_and_return(ExecutionPlatformsKey, Ok(None))
         .build(data)
+        .await
         .unwrap();
     let computations = computations.commit().await;
 

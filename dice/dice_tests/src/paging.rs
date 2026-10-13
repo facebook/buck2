@@ -147,8 +147,9 @@ async fn failed_hydrate_of_asserted_value_returns_error() -> anyhow::Result<()> 
         builder.set_pagable_storage(storage);
         builder.build(DetectCycles::Disabled)
     };
+    let root = dice.new_root().await;
     let counter = Arc::new(AtomicUsize::new(0));
-    let mut updater = dice.updater_with_data(data_with_counter(&counter));
+    let mut updater = dice.updater_with_data(root, data_with_counter(&counter));
     updater.changed_to([(FailToHydrateKey(7), 700)])?;
     let tx = updater.commit().await;
     assert_eq!(*tx.compute(&FailToHydrateKey(7)).await?, 700);
@@ -157,7 +158,7 @@ async fn failed_hydrate_of_asserted_value_returns_error() -> anyhow::Result<()> 
     dice.page_out().await?;
 
     let tx = dice
-        .updater_with_data(data_with_counter(&counter))
+        .updater_with_data(root, data_with_counter(&counter))
         .commit()
         .await;
     let error = tokio::time::timeout(Duration::from_secs(10), tx.compute(&FailToHydrateKey(7)))
@@ -221,8 +222,9 @@ async fn hydration_failures_of<K: Key<Value = u64>>(key: K) -> anyhow::Result<Ve
         builder.set_pagable_storage(storage);
         builder.build(DetectCycles::Disabled)
     };
+    let root = dice.new_root().await;
 
-    let tx = dice.updater().commit().await;
+    let tx = dice.updater(root).commit().await;
     let _: u64 = *tx.compute(&key).await?;
     drop(tx);
 
@@ -234,7 +236,7 @@ async fn hydration_failures_of<K: Key<Value = u64>>(key: K) -> anyhow::Result<Ve
     data.tracker = Arc::new(CapturingListener {
         hydration_failures: captured.clone(),
     });
-    let tx = dice.updater_with_data(data).commit().await;
+    let tx = dice.updater_with_data(root, data).commit().await;
     let _ignored = tokio::time::timeout(Duration::from_secs(10), tx.compute(&key))
         .await
         .expect("compute must not hang when a paged-out value fails to hydrate");
@@ -281,8 +283,9 @@ async fn concurrent_failed_page_ins_of_asserted_values_share_the_error() -> anyh
         PagableStorageBackend::Sqlite,
     )?);
     let dice = builder.build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
     let counter = Arc::new(AtomicUsize::new(0));
-    let mut updater = dice.updater_with_data(data_with_counter(&counter));
+    let mut updater = dice.updater_with_data(root, data_with_counter(&counter));
     updater.changed_to([(FailToHydrateKey(7), 700)])?;
     let tx = updater.commit().await;
     assert_eq!(*tx.compute(&FailToHydrateKey(7)).await?, 700);
@@ -291,7 +294,7 @@ async fn concurrent_failed_page_ins_of_asserted_values_share_the_error() -> anyh
     dice.page_out().await?;
 
     let tx = dice
-        .updater_with_data(data_with_counter(&counter))
+        .updater_with_data(root, data_with_counter(&counter))
         .commit()
         .await;
     let results: [_; 2] = tokio::time::timeout(Duration::from_secs(10), async {
@@ -316,7 +319,7 @@ async fn concurrent_failed_page_ins_of_asserted_values_share_the_error() -> anyh
     tokio::time::timeout(Duration::from_secs(10), dice.wait_for_idle()).await?;
 
     let tx = dice
-        .updater_with_data(data_with_counter(&counter))
+        .updater_with_data(root, data_with_counter(&counter))
         .commit()
         .await;
     assert!(tx.compute(&FailToHydrateKey(7)).await.is_err());

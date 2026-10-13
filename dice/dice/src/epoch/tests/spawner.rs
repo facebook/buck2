@@ -75,11 +75,12 @@ impl Key for K {
 #[tokio::test]
 async fn uses_custom_spawner() {
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
     let spawner = Arc::new(MySpawner(AtomicUsize::new(0)));
 
     let mut data = UserComputationData::new();
     data.spawner = spawner.dupe();
-    let updater = dice.updater_with_data(data);
+    let updater = dice.updater_with_data(root, data);
 
     let ctx = updater.commit().await;
 

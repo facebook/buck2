@@ -107,7 +107,8 @@ impl Key for Top {
 #[tokio::test]
 async fn test_compute_results_outlive_ctx_borrows() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
-    let ctx = dice.updater().commit().await;
+    let root = dice.new_root().await;
+    let ctx = dice.updater(root).commit().await;
 
     let expected = (1 + 2 + 3) + (101 + 102 + 201 + 202) + 1000;
     assert_eq!(*ctx.compute(&Top).await?, expected);

@@ -20,19 +20,18 @@ use crate::tests::k;
 use crate::tests::r;
 use crate::tests::v;
 
-fn with_injected_leaf() -> State {
+fn with_injected_leaf() -> (State, BranchId) {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
-    s
+    (s, root)
 }
 
 /// A certificate stamped before a dirty does not cover versions after it, and is not offered
 /// for re-establishment there either, though it remains the nearest certificate.
 #[test]
 fn a_dirty_ends_the_cover_of_earlier_certificates() {
-    let mut s = with_injected_leaf();
-    let root = BranchId::FIRST;
+    let (mut s, root) = with_injected_leaf();
     let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     s.write_checked(&c);
     let v3 = s.dirty_at(root, k(1));
@@ -52,8 +51,7 @@ fn a_dirty_ends_the_cover_of_earlier_certificates() {
 /// A certificate stamped after a dirty does not cover versions before it.
 #[test]
 fn a_certificate_under_a_later_epsilon_does_not_cover_earlier_versions() {
-    let mut s = with_injected_leaf();
-    let root = BranchId::FIRST;
+    let (mut s, root) = with_injected_leaf();
     let v3 = s.dirty_at(root, k(1));
     let v4 = s.dirty_at(root, k(9));
     let c = cert(k(1), r(1), &[(k(0), r(1))], s.epsilon(k(1), v4));
@@ -66,8 +64,7 @@ fn a_certificate_under_a_later_epsilon_does_not_cover_earlier_versions() {
 /// Unchanged tracked premises do not carry a window across a dirty.
 #[test]
 fn unchanged_premises_do_not_extend_a_window_across_a_dirty() {
-    let mut s = with_injected_leaf();
-    let root = BranchId::FIRST;
+    let (mut s, root) = with_injected_leaf();
     let v3 = s.dirty_at(root, k(1));
     let v4 = s.dirty_at(root, k(9));
     let c = cert(k(1), r(1), &[(k(0), r(1))], s.epsilon(k(1), v3));
@@ -84,8 +81,7 @@ fn unchanged_premises_do_not_extend_a_window_across_a_dirty() {
 /// claim exists.
 #[test]
 fn dirties_are_not_forgotten_by_later_writes() {
-    let mut s = with_injected_leaf();
-    let root = BranchId::FIRST;
+    let (mut s, root) = with_injected_leaf();
     for _ in 0..100 {
         s.dirty_at(root, k(1));
     }
@@ -99,19 +95,18 @@ fn dirties_are_not_forgotten_by_later_writes() {
         assert!(s.is_unknown_at(k(1), v(root, seq)));
     }
     // Without the recent claim in the way, the initial certificate covers exactly [2, 3).
-    let mut fresh = with_injected_leaf();
-    fresh.dirty_at(root, k(1));
+    let (mut fresh, fresh_root) = with_injected_leaf();
+    fresh.dirty_at(fresh_root, k(1));
     assert!(fresh.write_checked(&initial).installed_anywhere());
-    assert_eq!(fresh.valid_at(k(1), v(root, 2)), Some(r(1)));
-    assert!(fresh.is_unknown_at(k(1), v(root, 3)));
+    assert_eq!(fresh.valid_at(k(1), v(fresh_root, 2)), Some(r(1)));
+    assert!(fresh.is_unknown_at(k(1), v(fresh_root, 3)));
 }
 
 /// Force-dirty and early cutoff compose (§5.3): a dirtied key that recomputes to an equal value
 /// re-attaches under the new ε, and its dependents revalidate by revision without a recompute.
 #[test]
 fn an_equal_recompute_after_a_dirty_lets_dependents_revalidate() {
-    let mut s = with_injected_leaf();
-    let root = BranchId::FIRST;
+    let (mut s, root) = with_injected_leaf();
     let mid = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     let top = cert(k(2), r(1), &[(k(1), r(1))], EpsilonToken::INITIAL);
     s.write_checked(&mid);
@@ -128,8 +123,7 @@ fn an_equal_recompute_after_a_dirty_lets_dependents_revalidate() {
 
 #[test]
 fn lookups_report_the_dirty_in_force() {
-    let mut s = with_injected_leaf();
-    let root = BranchId::FIRST;
+    let (mut s, root) = with_injected_leaf();
     let v3 = s.dirty_at(root, k(1));
     let v4 = s.dirty_at(root, k(9));
     let c = cert(k(1), r(1), &[(k(0), r(1))], s.epsilon(k(1), v3));
@@ -155,7 +149,7 @@ fn lookups_report_the_dirty_in_force() {
 #[test]
 fn dirties_on_two_branches_are_distinct_untracked_revisions() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.write_checked(&cert(k(1), r(1), &[], EpsilonToken::INITIAL));
     let child = s.fork_checked(v(root, 1));
     let root_v2 = s.dirty_at(root, k(1));
@@ -183,7 +177,7 @@ fn dirties_on_two_branches_are_distinct_untracked_revisions() {
 #[test]
 fn a_rehomed_claim_carries_no_dirty_history() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.write_checked(&cert(k(1), r(1), &[], EpsilonToken::INITIAL));
     let child = s.fork_checked(v(root, 1));
     for _ in 0..5 {

@@ -103,9 +103,10 @@ impl Key for KeyThatRuns {
 #[tokio::test]
 async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
     {
-        let mut ctx = dice.updater();
+        let mut ctx = dice.updater(root);
         ctx.changed_to(vec![(Foo(0), 0)])?;
         ctx.changed_to(vec![(Foo(1), 1)])?;
 
@@ -115,7 +116,7 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
     }
 
     {
-        let mut ctx = dice.updater();
+        let mut ctx = dice.updater(root);
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         assert_matches!(
@@ -130,9 +131,10 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
 #[tokio::test]
 async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
     {
-        let mut ctx = dice.updater();
+        let mut ctx = dice.updater(root);
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         let ctx = ctx.commit().await.0;
@@ -141,7 +143,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
     }
 
     {
-        let mut ctx = dice.updater();
+        let mut ctx = dice.updater(root);
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         let ctx = ctx.commit().await.0;
@@ -196,6 +198,7 @@ fn dice_computations_are_parallel() {
 
     rt.block_on(async move {
         let dice = Dice::builder().build(DetectCycles::Disabled);
+        let root = dice.new_root().await;
         let mut sum = 0;
 
         let dice = &dice;
@@ -204,7 +207,7 @@ fn dice_computations_are_parallel() {
         let futs = (0..n_thread)
             .map(|i| async move {
                 *dice
-                    .updater()
+                    .updater(root)
                     .commit()
                     .await
                     .compute(&Blocking {
@@ -256,6 +259,7 @@ async fn different_data_per_compute_ctx() {
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
     let per_cmd_data0 = {
         let mut d = UserComputationData::new();
         d.data.set(U(0));
@@ -267,9 +271,9 @@ async fn different_data_per_compute_ctx() {
         d
     };
 
-    let ctx0 = dice.updater_with_data(per_cmd_data0).commit().await;
+    let ctx0 = dice.updater_with_data(root, per_cmd_data0).commit().await;
 
-    let ctx1 = dice.updater_with_data(per_cmd_data1).commit().await;
+    let ctx1 = dice.updater_with_data(root, per_cmd_data1).commit().await;
 
     let request0 = ctx0.compute(&DataRequest(0));
     let request1 = ctx1.compute(&DataRequest(1));
@@ -278,8 +282,8 @@ async fn different_data_per_compute_ctx() {
     assert_eq!(*request1.await.unwrap(), 1);
 }
 
-#[test]
-fn invalid_update() {
+#[tokio::test]
+async fn invalid_update() {
     #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative, Pagable)]
     #[pagable_typetag(DiceKeyDyn)]
     struct Invalid;
@@ -310,7 +314,8 @@ fn invalid_update() {
     }
 
     let dice = Dice::new(DiceData::new(), None);
-    let mut updater = dice.updater();
+    let root = dice.new_root().await;
+    let mut updater = dice.updater(root);
 
     assert!(updater.changed_to([(Invalid, ())]).is_err());
 }
@@ -421,6 +426,7 @@ fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
+        let root = dice.new_root().await;
         let events = Arc::new(Mutex::new(Vec::new()));
         let user_data = UserComputationData {
             cycle_detector: Some(Arc::new(CycleDetector {
@@ -428,7 +434,7 @@ fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
             })),
             ..Default::default()
         };
-        let ctx = dice.updater_with_data(user_data).commit().await;
+        let ctx = dice.updater_with_data(root, user_data).commit().await;
         let res = ctx.compute(&Fib(20)).await?.dupe().expect("should succeed");
         assert_eq!(res, 6765);
 
@@ -539,8 +545,9 @@ async fn dropping_request_future_cancels_execution() {
     let drop_signal = DropSignal(Some(tx));
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
-    let ctx = dice.updater().commit().await;
+    let ctx = dice.updater(root).commit().await;
 
     let key = KeyThatShouldntRun {
         barrier1: barrier1.dupe(),
@@ -581,8 +588,9 @@ async fn dropping_request_future_doesnt_cancel_if_multiple_requests_active() {
     };
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
-    let ctx = dice.updater().commit().await.0;
+    let ctx = dice.updater(root).commit().await.0;
     let mut ctx = ctx.as_computations();
     let (req1, req2) = ctx.compute2(
         |ctx| ctx.compute(key).boxed(),
@@ -604,10 +612,12 @@ async fn dropping_request_future_doesnt_cancel_if_multiple_requests_active() {
 
 #[tokio::test]
 async fn user_cycle_detector_is_present_modern() -> anyhow::Result<()> {
-    user_cycle_detector_is_present(Dice::builder().build(DetectCycles::Disabled)).await
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
+    user_cycle_detector_is_present(dice, root).await
 }
 
-async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
+async fn user_cycle_detector_is_present(dice: Arc<Dice>, root: BranchId) -> anyhow::Result<()> {
     #[derive(
         Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative, Pagable
     )]
@@ -665,7 +675,7 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
         cycle_detector: Some(Arc::new(AccessCycleDetector)),
         ..Default::default()
     };
-    let ctx = dice.updater_with_data(user_data).commit().await;
+    let ctx = dice.updater_with_data(root, user_data).commit().await;
     ctx.compute(&AccessCycleGuardKey).await?;
     Ok(())
 }
@@ -673,8 +683,9 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_dice_usable_after_cancellations() {
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
-    let ctx = dice.updater().commit().await;
+    let ctx = dice.updater(root).commit().await;
 
     let barrier1 = Arc::new(tokio::sync::Semaphore::new(0));
     let barrier2 = Arc::new(tokio::sync::Semaphore::new(0));
@@ -699,7 +710,7 @@ async fn test_dice_usable_after_cancellations() {
 
     assert!(!is_ran.load(Ordering::Acquire));
 
-    let ctx = dice.updater().commit().await;
+    let ctx = dice.updater(root).commit().await;
 
     // req2 still succeed. Note that due to dice caching, even if we make a new key, the same
     // instance would be used, so just use the same one.
@@ -715,8 +726,9 @@ async fn test_dice_usable_after_cancellations() {
 #[tokio::test]
 async fn test_is_idle_respects_active_transactions() {
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
-    let ctx = dice.updater().commit().await;
+    let ctx = dice.updater(root).commit().await;
 
     let barrier1 = Arc::new(tokio::sync::Semaphore::new(0));
     let barrier2 = Arc::new(tokio::sync::Semaphore::new(0));
@@ -797,7 +809,8 @@ async fn compute_with_key_returns_the_shared_key_allocation() -> anyhow::Result<
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
-    let ctx = dice.updater().commit().await;
+    let root = dice.new_root().await;
+    let ctx = dice.updater(root).commit().await;
     let mut ctx = ctx.ctx();
 
     let (a, b) = ctx
@@ -852,15 +865,16 @@ async fn a_branch_diverges_from_its_fork_point() -> anyhow::Result<()> {
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Foo(0), 1)])?;
     let root_ctx = updater.commit().await;
     assert_eq!(*root_ctx.compute(&Derived).await?, 11);
 
     let branch = dice.fork(root_ctx.0.get_version()).await;
-    assert_ne!(branch, BranchId::FIRST);
-    let mut updater = dice.updater_on(branch);
+    assert_ne!(branch, root);
+    let mut updater = dice.updater(branch);
     assert_eq!(updater.branch(), branch);
 
     // The branch sees its fork point, and reuses what was computed there.
@@ -879,7 +893,7 @@ async fn a_branch_diverges_from_its_fork_point() -> anyhow::Result<()> {
     assert_eq!(DERIVED_COMPUTES.load(Ordering::SeqCst), 2);
 
     assert_eq!(*root_ctx.compute(&Derived).await?, 11);
-    let root_now = dice.updater().existing_state().await;
+    let root_now = dice.updater(root).existing_state().await;
     assert_eq!(root_now.0.get_version(), root_ctx.0.get_version());
     assert_eq!(*root_now.compute(&Derived).await?, 11);
     assert_eq!(DERIVED_COMPUTES.load(Ordering::SeqCst), 2);
@@ -891,7 +905,8 @@ async fn a_branch_diverges_from_its_fork_point() -> anyhow::Result<()> {
 #[tokio::test]
 async fn waiting_for_idle_waits_for_transactions_to_be_dropped() {
     let dice = Dice::builder().build(DetectCycles::Disabled);
-    let ctx = dice.updater().commit().await;
+    let root = dice.new_root().await;
+    let ctx = dice.updater(root).commit().await;
 
     let waited = tokio::spawn(dice.wait_for_idle());
     tokio::task::yield_now().await;
@@ -937,25 +952,26 @@ async fn a_new_root_shares_only_what_certificates_allow() -> anyhow::Result<()> 
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
-    let mut updater = dice.updater();
+    let root = dice.new_root().await;
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Foo(0), 1)])?;
     let first_ctx = updater.commit().await;
     assert_eq!(*first_ctx.compute(&Counted).await?, 11);
     assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 1);
 
-    let root = dice.new_root().await;
-    assert_ne!(root, BranchId::FIRST);
+    let other = dice.new_root().await;
+    assert_ne!(other, root);
 
     // The same input injected at the new root makes the first branch's certificate hold there.
-    let mut updater = dice.updater_on(root);
+    let mut updater = dice.updater(other);
     updater.changed_to(vec![(Foo(0), 1)])?;
     let root_ctx = updater.commit().await;
-    assert_eq!(root_ctx.version().branch(), root);
+    assert_eq!(root_ctx.version().branch(), other);
     assert_eq!(*root_ctx.compute(&Counted).await?, 11);
     assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 1);
 
     // A different input does not.
-    let mut updater = dice.updater_on(root);
+    let mut updater = dice.updater(other);
     updater.changed_to(vec![(Foo(0), 2)])?;
     let root_ctx = updater.commit().await;
     assert_eq!(*root_ctx.compute(&Counted).await?, 12);
@@ -963,7 +979,7 @@ async fn a_new_root_shares_only_what_certificates_allow() -> anyhow::Result<()> 
     assert_eq!(dice.pagable_node_counts().await.resident, 2);
 
     drop(root_ctx);
-    dice.delete_branch(root);
+    dice.delete_branch(other);
     assert_eq!(dice.pagable_node_counts().await.resident, 1);
     assert_eq!(*first_ctx.compute(&Counted).await?, 11);
     assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 2);
@@ -975,7 +991,8 @@ async fn a_new_root_shares_only_what_certificates_allow() -> anyhow::Result<()> 
 #[tokio::test]
 async fn a_retargeted_updater_commits_to_the_new_branch() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Disabled);
-    let mut updater = dice.updater();
+    let first = dice.new_root().await;
+    let mut updater = dice.updater(first);
     updater.changed_to(vec![(Foo(0), 1)])?;
 
     let root = dice.new_root().await;
@@ -986,7 +1003,7 @@ async fn a_retargeted_updater_commits_to_the_new_branch() -> anyhow::Result<()> 
     let ctx = updater.commit().await;
     assert_eq!(ctx.version().branch(), root);
     assert_eq!(*ctx.compute(&Foo(0)).await?, 1);
-    assert_eq!(dice.head(BranchId::FIRST).await, VersionNumber::FIRST);
+    assert_eq!(dice.head(first).await, VersionNumber::testing_new(1));
     Ok(())
 }
 
@@ -1025,12 +1042,13 @@ async fn deleting_a_branch_releases_its_values_and_strands_its_transactions() ->
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
-    let mut updater = dice.updater();
+    let root = dice.new_root().await;
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Foo(0), 1)])?;
     let root_ctx = updater.commit().await;
 
     let branch = dice.fork(root_ctx.version()).await;
-    let mut updater = dice.updater_on(branch);
+    let mut updater = dice.updater(branch);
     updater.changed_to(vec![(Foo(0), 2)])?;
     let branch_ctx = updater.commit().await;
     assert_eq!(*branch_ctx.compute(&Counted).await?, 12);
@@ -1045,7 +1063,7 @@ async fn deleting_a_branch_releases_its_values_and_strands_its_transactions() ->
     assert_eq!(*branch_ctx.compute(&Counted).await?, 12);
     assert_eq!(COUNTED_COMPUTES.load(Ordering::SeqCst), 1);
     assert_eq!(*branch_ctx.compute(&Foo(0)).await?, 2);
-    let stranded = dice.updater_on(branch);
+    let stranded = dice.updater(branch);
     drop(stranded);
     assert_eq!(dice.pagable_node_counts().await.resident, 0);
 
@@ -1066,9 +1084,10 @@ async fn deleting_a_branch_releases_its_values_and_strands_its_transactions() ->
 #[should_panic(expected = "Injected Keys must be injected onto the graph before being requested")]
 async fn a_stranded_transaction_fails_on_an_unseen_injected_key() {
     let dice = Dice::builder().build(DetectCycles::Disabled);
-    let root_ctx = dice.updater().commit().await;
+    let root = dice.new_root().await;
+    let root_ctx = dice.updater(root).commit().await;
     let branch = dice.fork(root_ctx.version()).await;
-    let mut updater = dice.updater_on(branch);
+    let mut updater = dice.updater(branch);
     updater.changed_to(vec![(Foo(0), 1), (Foo(1), 2)]).unwrap();
     let branch_ctx = updater.commit().await;
     assert_eq!(*branch_ctx.compute(&Foo(0)).await.unwrap(), 1);
@@ -1083,22 +1102,23 @@ async fn a_stranded_transaction_fails_on_an_unseen_injected_key() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn an_unawaited_branch_is_deleted() {
     let dice = Dice::builder().build(DetectCycles::Disabled);
-    let version = dice.updater().commit().await.version();
+    let root = dice.new_root().await;
+    let version = dice.updater(root).commit().await.version();
     assert_eq!(dice.metrics().branch_count, 1);
 
     // Dropped before the actor got to it, so that its answer cannot be sent. The round trip
     // after it returns once the actor has moved on.
     drop(dice.fork(version));
-    dice.head(BranchId::FIRST).await;
+    dice.head(root).await;
     assert_eq!(dice.metrics().branch_count, 1);
 
     // Dropped after the actor answered, with the answer unread.
-    let root = dice.new_root();
-    dice.head(BranchId::FIRST).await;
-    drop(root);
+    let unclaimed = dice.new_root();
+    dice.head(root).await;
+    drop(unclaimed);
     assert_eq!(dice.metrics().branch_count, 1);
 
-    assert_ne!(dice.new_root().await, BranchId::FIRST);
+    assert_ne!(dice.new_root().await, root);
     assert_eq!(dice.metrics().branch_count, 2);
 }
 
@@ -1106,9 +1126,10 @@ async fn an_unawaited_branch_is_deleted() {
 #[tokio::test]
 async fn idleness_is_per_branch() {
     let dice = Dice::builder().build(DetectCycles::Disabled);
-    let fork_point = dice.updater().commit().await.version();
+    let root = dice.new_root().await;
+    let fork_point = dice.updater(root).commit().await.version();
     let branch = dice.fork(fork_point).await;
-    let branch_ctx = dice.updater_on(branch).commit().await;
+    let branch_ctx = dice.updater(branch).commit().await;
 
     let barrier1 = Arc::new(tokio::sync::Semaphore::new(0));
     let barrier2 = Arc::new(tokio::sync::Semaphore::new(0));
@@ -1123,13 +1144,13 @@ async fn idleness_is_per_branch() {
 
     assert!(!dice.is_idle().await);
     assert!(!dice.is_idle_on(branch).await);
-    assert!(dice.is_idle_on(BranchId::FIRST).await);
-    dice.wait_for_idle_on(BranchId::FIRST).await;
+    assert!(dice.is_idle_on(root).await);
+    dice.wait_for_idle_on(root).await;
 
     // The same holds once the transaction is gone and the compute is only draining.
     drop(req);
     drop(branch_ctx);
-    assert!(dice.is_idle_on(BranchId::FIRST).await);
+    assert!(dice.is_idle_on(root).await);
 
     barrier2.add_permits(1);
     dice.wait_for_idle_on(branch).await;
@@ -1216,7 +1237,8 @@ async fn a_dropped_transaction_still_serves_its_computes() {
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
-    let ctx = dice.updater().commit().await;
+    let root = dice.new_root().await;
+    let ctx = dice.updater(root).commit().await;
 
     let key = Outer {
         started: Arc::new(tokio::sync::Semaphore::new(0)),
@@ -1241,7 +1263,7 @@ async fn a_dropped_transaction_still_serves_its_computes() {
     assert!(dice.is_idle().await);
 
     // The value the abandoned compute produced for `Inner` was kept.
-    let ctx = dice.updater().commit().await;
+    let ctx = dice.updater(root).commit().await;
     assert_eq!(*ctx.compute(&Inner).await.unwrap(), 42);
     assert_eq!(INNER_COMPUTES.load(Ordering::SeqCst), 1);
 }

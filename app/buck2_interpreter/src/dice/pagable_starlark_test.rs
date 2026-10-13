@@ -394,8 +394,9 @@ async fn page_in_scopes_starlark_heaps_by_dice_root_impl()
     let mut builder = Dice::builder();
     builder.set_pagable_storage(storage);
     let dice = builder.build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to([(ScopeGenerationInput(0), 0)])?;
     let tx = updater.commit().await;
     let c0 = tx.compute(&ScopeHeapKey(0)).await?.clone_owned();
@@ -411,7 +412,7 @@ async fn page_in_scopes_starlark_heaps_by_dice_root_impl()
     drop(c0);
     drop(tx);
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to([(ScopeRootKey(0), b0)])?;
     drop(updater.commit().await);
 
@@ -422,7 +423,7 @@ async fn page_in_scopes_starlark_heaps_by_dice_root_impl()
     assert_eq!(status.paged_out_count, 2, "B0 and C0 should be paged out");
     assert_eq!(status.candidate_count, 0);
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to([(ScopeGenerationInput(0), 1)])?;
     let tx = updater.commit().await;
     let c1 = tx.compute(&ScopeHeapKey(0)).await?.take_owned();
@@ -438,7 +439,7 @@ async fn page_in_scopes_starlark_heaps_by_dice_root_impl()
     drop(c1);
     drop(tx);
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to([(ScopeRootKey(1), a1)])?;
     drop(updater.commit().await);
 
@@ -461,7 +462,7 @@ async fn page_in_scopes_starlark_heaps_by_dice_root_impl()
     assert_eq!(status.candidate_count, 0);
 
     let gate = PageInGateGuard::install();
-    let tx = dice.updater().commit().await;
+    let tx = dice.updater(root).commit().await;
     let old_tx = tx.dupe();
     let old_hydration = tokio::spawn(async move {
         old_tx
@@ -709,9 +710,10 @@ async fn page_in_prefers_resident_heap_for_consistent_dice_root_impl()
     let mut builder = Dice::builder();
     builder.set_pagable_storage(storage);
     let dice = builder.build(DetectCycles::Disabled);
+    let branch = dice.new_root().await;
     let recorder = Arc::new(CollisionEventRecorder::default());
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(branch);
     updater.changed_to([(ScopeGenerationInput(1), 0)])?;
     let tx = updater.commit().await;
     let c0 = tx.compute(&CollisionHeapKey).await?.clone_owned();
@@ -734,7 +736,7 @@ async fn page_in_prefers_resident_heap_for_consistent_dice_root_impl()
         "C0 should be paged out before its dependency changes",
     );
 
-    let mut updater = dice.updater_with_data(user_data_with_recorder(&recorder));
+    let mut updater = dice.updater_with_data(branch, user_data_with_recorder(&recorder));
     updater.changed_to([(ScopeGenerationInput(1), 1)])?;
     let tx = updater.commit().await;
     let c1 = tx.compute(&CollisionHeapKey).await?.clone_owned();
@@ -769,7 +771,7 @@ async fn page_in_prefers_resident_heap_for_consistent_dice_root_impl()
     );
     drop(tx);
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(branch);
     updater.changed_to([(CollisionRootInput, root)])?;
     let tx = updater.commit().await;
     let resident_root = tx.compute(&CollisionRootKey).await?;
@@ -788,7 +790,7 @@ async fn page_in_prefers_resident_heap_for_consistent_dice_root_impl()
     recorder.clear();
 
     let tx = dice
-        .updater_with_data(user_data_with_recorder(&recorder))
+        .updater_with_data(branch, user_data_with_recorder(&recorder))
         .commit()
         .await;
     let restored = tx.compute(&CollisionRootKey).await?;

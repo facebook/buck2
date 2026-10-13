@@ -96,7 +96,6 @@ use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::ctx::LockedPreviousCommandData;
 use buck2_wrapper_common::invocation_id::TraceId;
-use dice::BranchId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use host_sharing::NamedSemaphores;
@@ -601,7 +600,7 @@ impl TenantState {
         let tenting_acl_provider = create_tenting_acl_provider(fb, paths.project_root());
 
         tracing::info!("Constructing DICE...");
-        let dice = init_ctx
+        let (dice, root) = init_ctx
             .construct_dice(
                 io.dupe(),
                 digest_config,
@@ -697,7 +696,7 @@ impl TenantState {
             format!("has-cgroup:{}", shared.memory_tracker.is_some()),
         ];
 
-        let dice_manager = ConcurrencyHandler::new(dice, BranchId::FIRST);
+        let dice_manager = ConcurrencyHandler::new(dice, root);
         let repo = Arc::new(RepoState {
             paths,
             file_watcher,

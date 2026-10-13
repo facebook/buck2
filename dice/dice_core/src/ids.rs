@@ -94,9 +94,6 @@ impl EpsilonToken {
 pub struct BranchId(u32);
 
 impl BranchId {
-    /// The root every state starts with; [`Version::FIRST`] is its initial version.
-    pub const FIRST: BranchId = BranchId(0);
-
     pub(crate) fn index(self) -> usize {
         self.0 as usize
     }
@@ -151,12 +148,6 @@ pub struct Version {
 }
 
 impl Version {
-    /// The initial version of the first branch.
-    pub const FIRST: Version = Version {
-        branch: BranchId::FIRST,
-        seq: Seq::FIRST,
-    };
-
     pub(crate) fn new(branch: BranchId, seq: Seq) -> Self {
         Version { branch, seq }
     }
@@ -169,10 +160,10 @@ impl Version {
         self.seq
     }
 
-    /// The version at `seq` on the first branch. Panics on 0.
+    /// The version at `seq` on the first root a state makes. Panics on 0.
     #[doc(hidden)]
     pub fn testing_new(seq: u32) -> Self {
-        Version::new(BranchId::FIRST, Seq::testing_new(seq))
+        Version::new(BranchId(0), Seq::testing_new(seq))
     }
 
     /// The seq, for tests that compare versions numerically.
@@ -184,7 +175,8 @@ impl Version {
 
 impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.branch == BranchId::FIRST {
+        // The first root a state makes prints bare.
+        if self.branch.0 == 0 {
             write!(f, "v{}", self.seq.get())
         } else {
             write!(f, "v{}.{}", self.branch.0, self.seq.get())

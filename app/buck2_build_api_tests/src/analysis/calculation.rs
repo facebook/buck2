@@ -164,6 +164,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
             data.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::new());
         })
         .build(testing_user_data(PackageVisibilityDefaultIntersection::Off))
+        .await
         .unwrap();
     setup_interpreter_basic(
         &mut dice,
@@ -446,11 +447,12 @@ foo_binary(
         data_builder.set_digest_config(DigestConfig::testing_default());
         data_builder.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::new());
         let dice = data_builder.build(DetectCycles::Enabled);
+        let root = dice.new_root().await;
 
         let target = TargetLabel::testing_parse("cell//pkg:rule1")
             .configure(ConfigurationData::testing_new());
 
-        let mut updater = dice.updater_with_data(testing_user_data(mode));
+        let mut updater = dice.updater_with_data(root, testing_user_data(mode));
         updater.changed_to(vec![(
             EvalImportKey(OwnedStarlarkModulePath::LoadFile(bzlfile.clone())),
             Ok(module.dupe()),

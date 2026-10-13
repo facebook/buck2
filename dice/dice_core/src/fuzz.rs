@@ -125,12 +125,15 @@ struct Run {
 }
 
 impl Run {
-    fn new() -> Self {
-        Run {
+    /// A run with one root.
+    fn new() -> (Self, BranchId) {
+        let mut run = Run {
             state: State::new(),
             model: Model::new(),
             eps_seen: HashMap::new(),
-        }
+        };
+        let root = run.new_root();
+        (run, root)
     }
 
     /// One of the tokens `key` has had, the initial one included.
@@ -324,7 +327,7 @@ fn gen_ops(rng: &mut Rng, count: usize) -> Vec<Op> {
 }
 
 fn run_ops(_seed: u64, ops: &[Op]) {
-    let mut run = Run::new();
+    let (mut run, _) = Run::new();
     for (i, op) in ops.iter().enumerate() {
         match op {
             Op::Commit { branch, changes } => {
@@ -487,15 +490,16 @@ impl Honest {
             key_deps.sort();
             key_deps.dedup();
         }
+        let (run, root) = Run::new();
         let mut honest = Honest {
-            run: Run::new(),
+            run,
             deps,
             next_revision: HashMap::new(),
             revisions: HashMap::new(),
             values: HashMap::new(),
             content: HashMap::new(),
         };
-        honest.seed(BranchId::FIRST);
+        honest.seed(root);
         honest
     }
 

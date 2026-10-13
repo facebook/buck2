@@ -171,6 +171,7 @@ impl Key for Stage1 {
 
 async fn test_events_impl(builder: DiceDataBuilder) -> anyhow::Result<()> {
     let dice = builder.build(DetectCycles::Enabled);
+    let root = dice.new_root().await;
 
     {
         let activation_tracker = Arc::new(Tracker::new());
@@ -180,7 +181,7 @@ async fn test_events_impl(builder: DiceDataBuilder) -> anyhow::Result<()> {
             ..Default::default()
         };
 
-        let mut updater = dice.updater_with_data(data);
+        let mut updater = dice.updater_with_data(root, data);
         updater.changed_to(vec![(Injected, 123)])?;
 
         let transaction = updater.commit().await;
@@ -204,7 +205,7 @@ async fn test_events_impl(builder: DiceDataBuilder) -> anyhow::Result<()> {
         };
 
         // Change the value.
-        let mut updater = dice.updater_with_data(data);
+        let mut updater = dice.updater_with_data(root, data);
         updater.changed_to(vec![(Injected, 456)])?;
 
         let transaction = updater.commit().await;

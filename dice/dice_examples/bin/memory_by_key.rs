@@ -466,11 +466,12 @@ async fn run_phase(shape: Shape, do_tx: bool) -> PhaseResult {
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
     // Warmup: compute a small chain of leaves through the same code
     // paths so tokio + dice internals grow before we start measuring.
     {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(Seed, 0u32)]).unwrap();
         let ctx = updater.commit().await;
         let n = WARMUP_KEYS.min(NODE_COUNT);
@@ -485,7 +486,7 @@ async fn run_phase(shape: Shape, do_tx: bool) -> PhaseResult {
     snaps.push(quiesce_and_snap(&dice).await);
     for s in 0..SHADOWS {
         // Build one shadow's root computation; dice walks the whole graph.
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(Seed, 0u32)]).unwrap();
         let ctx = updater.commit().await;
         drop(ctx.compute(&GraphNode(0, s)).await);
@@ -522,7 +523,7 @@ async fn run_phase(shape: Shape, do_tx: bool) -> PhaseResult {
         let total_keys = (NODE_COUNT as u64 + 1) * SHADOWS as u64;
         let total_keys_f = total_keys as f64;
 
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(Seed, 1u32)]).unwrap();
         let ctx = updater.commit().await;
         for s in 0..SHADOWS {
@@ -601,11 +602,12 @@ async fn run_suspended_phase(shape: Shape) -> SuspendedResult {
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
     // Warmup through the same code paths (not in suspend mode) so tokio +
     // dice internals grow before we start measuring.
     {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(Seed, 0u32)]).unwrap();
         let ctx = updater.commit().await;
         let n = WARMUP_KEYS.min(NODE_COUNT);
@@ -631,7 +633,7 @@ async fn run_suspended_phase(shape: Shape) -> SuspendedResult {
     snaps.push(baseline);
 
     for s in 0..SHADOWS {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(Seed, 0u32)]).unwrap();
         let ctx = updater.commit().await;
         handles.push(tokio::spawn(async move {
@@ -724,10 +726,11 @@ async fn async_main() {
 
     // ── Calibration & noise floor on a fresh dice (smallest setup) ──
     let dice_cal = Dice::builder().build(DetectCycles::Disabled);
+    let dice_cal_root = dice_cal.new_root().await;
     set_shape(Shape::Chain);
     {
         // Tiny warmup so the first read isn't on a cold runtime.
-        let mut updater = dice_cal.updater();
+        let mut updater = dice_cal.updater(dice_cal_root);
         updater.changed_to(vec![(Seed, 0u32)]).unwrap();
         let ctx = updater.commit().await;
         for i in 0..50 {

@@ -55,6 +55,7 @@ pub(crate) async fn calculation_with_package_visibility_mode(
     dice.set(EventDispatcher::null());
     dice.set_testing_io_provider(fs);
     let dice = dice.build(DetectCycles::Enabled);
+    let root = dice.new_root().await;
 
     let mut per_transaction_data = UserComputationData::new();
     initialize_read_dir_cache(&mut per_transaction_data);
@@ -62,7 +63,7 @@ pub(crate) async fn calculation_with_package_visibility_mode(
     per_transaction_data.set_starlark_debugger_handle(None);
     per_transaction_data
         .set_package_visibility_default_intersection(package_visibility_default_intersection);
-    let mut ctx = dice.updater_with_data(per_transaction_data);
+    let mut ctx = dice.updater_with_data(root, per_transaction_data);
 
     let resolver = CellResolver::testing_with_name_and_path(
         CellName::testing_new("root"),

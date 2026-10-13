@@ -2760,6 +2760,7 @@ mod tests {
         let mut dice = DiceBuilder::new()
             .set_data(|d| d.set_testing_io_provider(&fs))
             .build(UserComputationData::new())
+            .await
             .unwrap();
         dice.set_buck_out_path(Some(buckout_path))?;
         dice.set_cell_resolver(cell_resolver)?;
@@ -2838,6 +2839,7 @@ mod tests {
                 d.set_digest_config(digest_config);
             })
             .build(data)
+            .await
             .unwrap()
             .commit()
             .await;

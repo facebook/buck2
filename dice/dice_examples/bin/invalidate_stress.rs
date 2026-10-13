@@ -332,11 +332,12 @@ async fn async_main() {
     } else {
         DetectCycles::Disabled
     });
+    let root = dice.new_root().await;
 
     // Initial computation: populate the entire graph for all shadows in parallel.
     let start = Instant::now();
     {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(Seed, 0)]).unwrap();
         let ctx = updater.commit().await;
         ctx.ctx()
@@ -356,7 +357,7 @@ async fn async_main() {
     let mut compute_times = Vec::with_capacity(args.iterations as usize);
 
     for i in 1..=args.iterations {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(Seed, i)]).unwrap();
 
         let t0 = Instant::now();

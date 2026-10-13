@@ -114,10 +114,10 @@ impl<'a, E: Env> Lookup<'a, E> {
 }
 
 impl<E: Env> CoreState<E> {
-    /// A state with one root, [`BranchId::FIRST`], at its initial version [`Version::FIRST`].
+    /// A state with no branch; [`Self::new_root`] makes one.
     pub fn new() -> Self {
         CoreState {
-            branches: vec![Some(Branch::root(Seq::FIRST))],
+            branches: Vec::new(),
             slots: KeyMap::default(),
             assertions: KeyMap::default(),
             key_count: 0,

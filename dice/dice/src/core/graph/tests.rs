@@ -103,16 +103,17 @@ fn key(i: u32) -> DiceKey {
     DiceKey { index: i }
 }
 
-/// A graph with the injected key `key(0)` at value 100 (version 2).
-fn with_leaf() -> VersionedGraph {
+/// A graph with one root, holding the injected key `key(0)` at value 100 (version 2).
+fn with_leaf() -> (VersionedGraph, BranchId) {
     let mut graph = VersionedGraph::new();
-    inject(&mut graph, key(0), 100);
-    graph
+    let root = graph.new_root();
+    inject(&mut graph, root, key(0), 100);
+    (graph, root)
 }
 
-fn inject(graph: &mut VersionedGraph, k: DiceKey, v: usize) -> VersionNumber {
+fn inject(graph: &mut VersionedGraph, root: BranchId, k: DiceKey, v: usize) -> VersionNumber {
     let version = graph.commit(
-        BranchId::FIRST,
+        root,
         [(
             k,
             ChangeType::UpdateValue(value(v), StorageType::Injected),
@@ -123,9 +124,9 @@ fn inject(graph: &mut VersionedGraph, k: DiceKey, v: usize) -> VersionNumber {
     version
 }
 
-fn dirty(graph: &mut VersionedGraph, k: DiceKey) -> VersionNumber {
+fn dirty(graph: &mut VersionedGraph, root: BranchId, k: DiceKey) -> VersionNumber {
     let version = graph.commit(
-        BranchId::FIRST,
+        root,
         [(
             k,
             ChangeType::Invalidate,
@@ -218,8 +219,8 @@ fn page_out(graph: &mut VersionedGraph, k: DiceKey, data_key: u128) {
 /// value and revision without consulting `Key::equality`.
 #[test]
 fn identical_certificate_reuses_stored_value_without_equality() {
-    let mut graph = with_leaf();
-    let v2 = graph.head(BranchId::FIRST);
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
     let first_value = DiceValidValue::testing_new(DiceKeyValue::<NoEquality>::new(1));
     let first = compute(&mut graph, key(1), v2, first_value.dupe());
     let second_value = DiceValidValue::testing_new(DiceKeyValue::<NoEquality>::new(2));
@@ -231,8 +232,8 @@ fn identical_certificate_reuses_stored_value_without_equality() {
 /// The same over a stored value that is paged out: the incoming value takes its place.
 #[test]
 fn identical_certificate_over_paged_out_value_makes_it_resident() {
-    let mut graph = with_leaf();
-    let v2 = graph.head(BranchId::FIRST);
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
     let first = compute(&mut graph, key(1), v2, value(7));
     page_out(&mut graph, key(1), 0x1234);
     assert!(
@@ -261,10 +262,10 @@ fn identical_certificate_over_paged_out_value_makes_it_resident() {
 /// Recomputing to an equal value under different deps re-finds the revision (Appendix A step 2).
 #[test]
 fn recompute_to_equal_value_reuses_revision() {
-    let mut graph = with_leaf();
-    let v2 = graph.head(BranchId::FIRST);
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
     let first = compute(&mut graph, key(1), v2, value(42));
-    let v3 = inject(&mut graph, key(0), 200);
+    let v3 = inject(&mut graph, root, key(0), 200);
     let again = value(42);
     let second = compute(&mut graph, key(1), v3, again.dupe());
     assert_eq!(second.revision(), first.revision());
@@ -276,10 +277,10 @@ fn recompute_to_equal_value_reuses_revision() {
 
 #[test]
 fn recompute_to_distinct_value_mints_fresh_revision() {
-    let mut graph = with_leaf();
-    let v2 = graph.head(BranchId::FIRST);
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
     let first = compute(&mut graph, key(1), v2, value(1));
-    let v3 = inject(&mut graph, key(0), 200);
+    let v3 = inject(&mut graph, root, key(0), 200);
     let second = compute(&mut graph, key(1), v3, value(2));
     assert_ne!(first.revision(), second.revision());
     // The old value is no longer named by any claim and is dropped.
@@ -290,11 +291,11 @@ fn recompute_to_distinct_value_mints_fresh_revision() {
 /// sound and only costs reuse.
 #[test]
 fn recompute_over_paged_out_value_mints_fresh_revision() {
-    let mut graph = with_leaf();
-    let v2 = graph.head(BranchId::FIRST);
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
     let first = compute(&mut graph, key(1), v2, value(7));
     page_out(&mut graph, key(1), 0x1234);
-    let v3 = inject(&mut graph, key(0), 200);
+    let v3 = inject(&mut graph, root, key(0), 200);
     let second = compute(&mut graph, key(1), v3, value(7));
     assert_ne!(first.revision(), second.revision());
 }
@@ -304,6 +305,7 @@ fn recompute_over_paged_out_value_mints_fresh_revision() {
 #[test]
 fn injected_values_refind_their_revisions() {
     let mut graph = VersionedGraph::new();
+    let root = graph.new_root();
     let revision_at = |graph: &VersionedGraph, v| {
         graph
             .get(VersionedGraphKey::new(v, key(0)))
@@ -311,16 +313,16 @@ fn injected_values_refind_their_revisions() {
             .unwrap()
             .revision()
     };
-    let v2 = inject(&mut graph, key(0), 42);
-    let v3 = inject(&mut graph, key(0), 43);
-    let v4 = inject(&mut graph, key(0), 42);
+    let v2 = inject(&mut graph, root, key(0), 42);
+    let v3 = inject(&mut graph, root, key(0), 43);
+    let v4 = inject(&mut graph, root, key(0), 42);
     assert_eq!(v2, VersionNumber::testing_new(2));
     assert_eq!(v4, VersionNumber::testing_new(4));
     assert_ne!(revision_at(&graph, v2), revision_at(&graph, v3));
     assert_eq!(revision_at(&graph, v2), revision_at(&graph, v4));
     let (r2, r3) = (revision_at(&graph, v2), revision_at(&graph, v3));
     assert_eq!(
-        inject(&mut graph, key(0), 42),
+        inject(&mut graph, root, key(0), 42),
         v4,
         "an equal injection mints no version"
     );
@@ -335,7 +337,8 @@ fn injected_values_refind_their_revisions() {
 #[test]
 fn a_dep_less_recompute_under_the_same_epsilon_adopts_the_stored_revision() {
     let mut graph = VersionedGraph::new();
-    let v1 = graph.head(BranchId::FIRST);
+    let root = graph.new_root();
+    let v1 = graph.head(root);
     let compute_without_deps = |graph: &mut VersionedGraph, v: VersionNumber, n: usize| {
         let epsilon = graph.core.epsilon(key(1), v);
         let out = graph.update_computed(
@@ -359,7 +362,7 @@ fn a_dep_less_recompute_under_the_same_epsilon_adopts_the_stored_revision() {
         second.testing_resident_value().testing_value(),
     );
     assert!(same_allocation);
-    let v2 = dirty(&mut graph, key(1));
+    let v2 = dirty(&mut graph, root, key(1));
     match graph.get(VersionedGraphKey::new(v2, key(1))) {
         VersionedGraphResult::Unknown { candidate, .. } => {
             assert!(candidate.is_none_or(|c| !c.revalidatable));
@@ -372,11 +375,11 @@ fn a_dep_less_recompute_under_the_same_epsilon_adopts_the_stored_revision() {
 /// transaction's dependents can still match their recorded edges against it.
 #[test]
 fn dependency_validated_keeps_its_revision_when_superseded() {
-    let mut graph = with_leaf();
-    let v2 = graph.head(BranchId::FIRST);
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
     let res1 = value(1);
     let first = compute(&mut graph, key(1), v2, res1.dupe());
-    let v3 = inject(&mut graph, key(0), 200);
+    let v3 = inject(&mut graph, root, key(0), 200);
     let candidate = candidate_at(&graph, key(1), v3);
     let second = compute(&mut graph, key(1), v3, value(2));
     assert_ne!(first.revision(), second.revision());
@@ -403,12 +406,12 @@ fn dependency_validated_keeps_its_revision_when_superseded() {
 /// A revalidation whose value is still paged out keeps it paged out.
 #[test]
 fn dependency_validated_paged_out_value_stays_paged_out() {
-    let mut graph = with_leaf();
-    let v2 = graph.head(BranchId::FIRST);
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
     compute(&mut graph, key(1), v2, value(1));
     page_out(&mut graph, key(1), 0x77);
-    inject(&mut graph, key(0), 200);
-    let v4 = inject(&mut graph, key(0), 100);
+    inject(&mut graph, root, key(0), 200);
+    let v4 = inject(&mut graph, root, key(0), 100);
     let candidate = candidate_at(&graph, key(1), v4);
     assert!(matches!(candidate.entry, MaybeResident::PagedOut(_)));
     let returned = revalidate(&mut graph, key(1), v4, candidate);
@@ -427,10 +430,10 @@ fn dependency_validated_paged_out_value_stays_paged_out() {
 /// version's.
 #[test]
 fn a_dirtied_key_offers_a_stale_candidate() {
-    let mut graph = with_leaf();
-    let v2 = graph.head(BranchId::FIRST);
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
     compute(&mut graph, key(1), v2, value(1));
-    let v3 = dirty(&mut graph, key(1));
+    let v3 = dirty(&mut graph, root, key(1));
     match graph.get(VersionedGraphKey::new(v3, key(1))) {
         VersionedGraphResult::Unknown {
             candidate: Some(candidate),
@@ -463,8 +466,9 @@ fn counts(resident: usize, paged_out: usize, candidates: usize) -> PagableNodeCo
 #[test]
 fn asserted_values_of_computed_keys_page_out() {
     let mut graph = VersionedGraph::new();
+    let root = graph.new_root();
     let v2 = graph.commit(
-        BranchId::FIRST,
+        root,
         [(
             key(1),
             ChangeType::UpdateValue(value(1), StorageType::Normal),
@@ -490,8 +494,8 @@ fn asserted_values_of_computed_keys_page_out() {
 
 #[test]
 fn page_out_index_tracks_the_values() {
-    let mut graph = with_leaf();
-    let v2 = graph.head(BranchId::FIRST);
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
     // An `InjectedKey` takes no part in paging.
     assert_eq!(graph.pagable_node_counts(), counts(0, 0, 0));
     compute(&mut graph, key(1), v2, value(1));
@@ -514,7 +518,7 @@ fn page_out_index_tracks_the_values() {
     assert_eq!(graph.pagable_node_counts(), counts(2, 0, 0));
     assert!(graph.keys_to_page_out().is_empty());
     // Deleting the branch releases the values, and the index with them.
-    graph.delete_branch(BranchId::FIRST);
+    graph.delete_branch(root);
     graph.assert_consistent();
     assert_eq!(graph.pagable_node_counts(), counts(0, 0, 0));
     assert!(graph.paged_out_keys().is_empty());
@@ -524,8 +528,7 @@ fn page_out_index_tracks_the_values() {
 /// keeps them retained after that branch has moved on to others.
 #[test]
 fn a_fork_shares_and_then_keeps_the_values_it_resolves() {
-    let mut graph = with_leaf();
-    let root = BranchId::FIRST;
+    let (mut graph, root) = with_leaf();
     let v2 = graph.head(root);
     let first = compute(&mut graph, key(1), v2, value(1));
     let child = graph.fork(v2);
@@ -541,7 +544,7 @@ fn a_fork_shares_and_then_keeps_the_values_it_resolves() {
     assert_eq!(at_child(&graph), first.revision());
     assert_eq!(graph.pagable_node_counts().resident, 1);
 
-    let v3 = inject(&mut graph, key(0), 200);
+    let v3 = inject(&mut graph, root, key(0), 200);
     let second = compute(&mut graph, key(1), v3, value(2));
     assert_ne!(first.revision(), second.revision());
     assert_eq!(at_child(&graph), first.revision());
@@ -553,8 +556,7 @@ fn a_fork_shares_and_then_keeps_the_values_it_resolves() {
 /// them is handed back without being retained.
 #[test]
 fn deleting_a_branch_releases_its_values_and_retains_nothing_written_from_it() {
-    let mut graph = with_leaf();
-    let root = BranchId::FIRST;
+    let (mut graph, root) = with_leaf();
     let v2 = graph.head(root);
     let shared = compute(&mut graph, key(1), v2, value(1));
     let child = graph.fork(v2);
@@ -613,16 +615,16 @@ fn deleting_a_branch_releases_its_values_and_retains_nothing_written_from_it() {
 /// never collide with a revision handed out before.
 #[test]
 fn deleting_a_branch_keeps_revision_counters() {
-    let mut graph = with_leaf();
-    let v2 = graph.head(BranchId::FIRST);
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
     let before = compute(&mut graph, key(1), v2, value(1));
-    graph.delete_branch(BranchId::FIRST);
+    graph.delete_branch(root);
     graph.assert_consistent();
     assert_eq!(graph.pagable_node_counts().resident, 0);
 
-    let root = graph.new_root();
+    let other = graph.new_root();
     let head = graph.commit(
-        root,
+        other,
         [(
             key(0),
             ChangeType::UpdateValue(value(100), StorageType::Injected),
@@ -637,12 +639,12 @@ fn deleting_a_branch_keeps_revision_counters() {
 /// one is deleted like any other once nothing runs on it.
 #[test]
 fn introspection_covers_every_live_branch() {
-    let mut graph = with_leaf();
-    let v2 = graph.head(BranchId::FIRST);
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
     compute(&mut graph, key(1), v2, value(1));
-    let root = graph.new_root();
+    let other = graph.new_root();
     graph.commit(
-        root,
+        other,
         [(
             key(0),
             ChangeType::UpdateValue(value(100), StorageType::Injected),
@@ -652,16 +654,16 @@ fn introspection_covers_every_live_branch() {
 
     let both = graph.introspect();
     assert_eq!(both.nodes.len(), 3);
-    assert!(both.nodes.contains_key(&(BranchId::FIRST, key(0))));
-    assert!(both.nodes.contains_key(&(BranchId::FIRST, key(1))));
     assert!(both.nodes.contains_key(&(root, key(0))));
+    assert!(both.nodes.contains_key(&(root, key(1))));
+    assert!(both.nodes.contains_key(&(other, key(0))));
     assert_eq!(both.edges[&key(1)].as_slice(), &[key(0)]);
 
-    graph.delete_branch(BranchId::FIRST);
+    graph.delete_branch(root);
     let after = graph.introspect();
     assert_eq!(
         after.nodes.keys().collect::<Vec<_>>(),
-        vec![&(root, key(0))]
+        vec![&(other, key(0))]
     );
     assert!(after.edges.values().all(|deps| deps.is_empty()));
 }

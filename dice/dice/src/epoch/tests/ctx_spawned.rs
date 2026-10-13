@@ -83,8 +83,9 @@ impl Key for SpawnedKey {
 #[tokio::test]
 async fn spawned_basic() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Injected(0), 42)])?;
     let ctx = updater.commit().await;
 
@@ -130,9 +131,10 @@ async fn spawned_tracks_deps() -> anyhow::Result<()> {
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
     // Initial computation
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Injected(0), 100)])?;
     let ctx = updater.commit().await;
 
@@ -141,13 +143,13 @@ async fn spawned_tracks_deps() -> anyhow::Result<()> {
     assert_eq!(COMPUTE_COUNT.load(Ordering::SeqCst), 1);
 
     // Same value, should be cached
-    let ctx = dice.updater().commit().await;
+    let ctx = dice.updater(root).commit().await;
     let result = ctx.compute(&CountingKey).await?;
     assert_eq!(*result, 100);
     assert_eq!(COMPUTE_COUNT.load(Ordering::SeqCst), 1);
 
     // Change the dep, should recompute
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Injected(0), 200)])?;
     let ctx = updater.commit().await;
 
@@ -200,8 +202,9 @@ async fn spawned_multiple() -> anyhow::Result<()> {
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Injected(0), 10), (Injected(1), 20)])?;
     let ctx = updater.commit().await;
 
@@ -215,8 +218,9 @@ async fn spawned_multiple() -> anyhow::Result<()> {
 #[tokio::test]
 async fn spawned_runs_without_await() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to(vec![(Injected(0), 42)])?;
     let ctx = updater.commit().await;
     let mut ctx = ctx.ctx();

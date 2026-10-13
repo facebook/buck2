@@ -10,7 +10,6 @@
 
 //! `fork`, `incrementality.md` §5.4: the candidate set, the support filter and the child's map.
 
-use crate::BranchId;
 use crate::EpsilonToken;
 use crate::tests::State;
 use crate::tests::StateExt;
@@ -22,8 +21,7 @@ use crate::tests::v;
 
 #[test]
 fn a_fork_inherits_attached_keys_with_their_edges() {
-    let (mut s, _) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = leaf_and_dependent();
     let c2 = cert(k(2), r(1), &[(k(1), r(1))], EpsilonToken::INITIAL);
     s.write_checked(&c2);
     let child = s.fork_checked(v(root, 2));
@@ -36,7 +34,7 @@ fn a_fork_inherits_attached_keys_with_their_edges() {
 #[test]
 fn a_fork_from_an_older_seq_sees_that_seq() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     s.assert_at(root, k(0), r(2));
     let c = cert(k(1), r(2), &[(k(0), r(2))], EpsilonToken::INITIAL);
@@ -51,8 +49,7 @@ fn a_fork_from_an_older_seq_sees_that_seq() {
 /// can find and close it.
 #[test]
 fn a_closed_claim_covering_the_fork_seq_is_inherited_with_edges() {
-    let (mut s, _) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = leaf_and_dependent();
     s.assert_at(root, k(0), r(2));
     assert!(s.is_unknown_at(k(1), v(root, 3)));
     let child = s.fork_checked(v(root, 2));
@@ -67,7 +64,7 @@ fn a_closed_claim_covering_the_fork_seq_is_inherited_with_edges() {
 #[test]
 fn an_unsupported_closed_claim_is_shadowed_at_the_child() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     let d = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     let key = cert(k(2), r(1), &[(k(1), r(1))], EpsilonToken::INITIAL);
@@ -99,7 +96,7 @@ fn an_unsupported_closed_claim_is_shadowed_at_the_child() {
 #[test]
 fn supported_closed_chains_are_inherited_together() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     for c in [
         cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL),
@@ -129,7 +126,7 @@ fn supported_closed_chains_are_inherited_together() {
 #[test]
 fn a_closed_claim_not_covering_the_fork_seq_is_not_a_candidate() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     let leaf = cert(k(0), r(1), &[], EpsilonToken::INITIAL);
     s.write_checked(&leaf);
     let v2 = s.dirty_at(root, k(0));
@@ -149,7 +146,7 @@ fn a_closed_claim_not_covering_the_fork_seq_is_not_a_candidate() {
 #[should_panic(expected = "not a version")]
 fn forking_from_a_version_beyond_the_head_panics() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.fork_checked(v(root, 2));
 }
 
@@ -158,7 +155,7 @@ fn forking_from_a_version_beyond_the_head_panics() {
 #[test]
 fn a_closed_claim_whose_premise_holds_another_revision_is_not_inherited() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1)); // 2
     let d1 = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     let key = cert(k(2), r(1), &[(k(1), r(1))], EpsilonToken::INITIAL);
@@ -182,7 +179,7 @@ fn a_closed_claim_whose_premise_holds_another_revision_is_not_inherited() {
 #[test]
 fn a_grandchild_below_a_shadow_follows_the_child() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     let d = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     let key = cert(k(2), r(1), &[(k(1), r(1))], EpsilonToken::INITIAL);

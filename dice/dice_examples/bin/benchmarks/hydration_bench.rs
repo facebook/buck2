@@ -271,10 +271,11 @@ async fn main() -> anyhow::Result<()> {
         builder.set_pagable_storage(storage);
     }
     let dice = builder.build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
     let heap_dump = cli.heap_dump.as_deref();
 
     {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(ValueSizeKey, cli.value_size)])?;
         updater.changed_to(vec![(NumDepsKey, cli.num_deps)])?;
         if cli.state_lookups_per_value != 0 {
@@ -282,7 +283,7 @@ async fn main() -> anyhow::Result<()> {
         }
         updater.commit().await;
     }
-    let ctx = dice.updater().commit().await;
+    let ctx = dice.updater(root).commit().await;
 
     let compute_start = Instant::now();
     if cli.state_lookups_per_value == 0 {

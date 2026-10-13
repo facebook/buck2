@@ -112,7 +112,8 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn test_serialization() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Disabled);
-        let ctx = dice.updater().commit().await;
+        let root = dice.new_root().await;
+        let ctx = dice.updater(root).commit().await;
         ctx.compute(&KeyA(3)).await?;
 
         let mut nodes = Vec::new();
@@ -167,7 +168,8 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn test_serialization_dense() -> anyhow::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Disabled);
-        let ctx = dice.updater().commit().await;
+        let root = dice.new_root().await;
+        let ctx = dice.updater(root).commit().await;
         ctx.compute(&KeyA(3)).await?;
 
         let node =

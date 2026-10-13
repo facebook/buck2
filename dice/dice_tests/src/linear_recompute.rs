@@ -95,9 +95,10 @@ async fn test_linear_recompute_tracks_deps() {
         let builder = Dice::builder();
         builder.build(DetectCycles::Enabled)
     };
+    let root = dice.new_root().await;
 
     let ctx = {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater
             .changed_to((0..100).map(|i| (Leaf(i), i)).collect::<Vec<_>>())
             .unwrap();
@@ -107,7 +108,7 @@ async fn test_linear_recompute_tracks_deps() {
     assert_eq!(*ctx.compute(&K::Top).await.unwrap(), 4950);
 
     let ctx = {
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(Leaf(50), 0)]).unwrap();
         updater.commit().await
     };

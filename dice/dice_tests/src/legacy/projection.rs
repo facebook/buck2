@@ -230,6 +230,7 @@ async fn smoke() -> anyhow::Result<()> {
     let mut dice = Dice::builder();
     dice.set(tracker.dupe());
     let dice = dice.build(DetectCycles::Enabled);
+    let root = dice.new_root().await;
 
     // Part 1: full evaluation. We request a file,
     // and dice evaluates: config -> config property -> file.
@@ -238,10 +239,13 @@ async fn smoke() -> anyhow::Result<()> {
     data.set(GlobalConfig {
         config: HashMap::from_iter([("x".to_owned(), "X".to_owned())]),
     });
-    let ctx = dice.updater_with_data(UserComputationData {
-        data,
-        ..Default::default()
-    });
+    let ctx = dice.updater_with_data(
+        root,
+        UserComputationData {
+            data,
+            ..Default::default()
+        },
+    );
 
     let ctx = ctx.commit().await;
 
@@ -264,7 +268,7 @@ async fn smoke() -> anyhow::Result<()> {
         tracker.lock().computations.as_slice()
     );
 
-    let mut ctx = dice.updater();
+    let mut ctx = dice.updater(root);
     ctx.changed([ConfigKey])?;
     ctx.commit().await;
     tracker.lock().computations.clear();
@@ -277,7 +281,7 @@ async fn smoke() -> anyhow::Result<()> {
     data.data.set(GlobalConfig {
         config: HashMap::from_iter([("x".to_owned(), "X".to_owned())]),
     });
-    let ctx = dice.updater_with_data(data).commit().await;
+    let ctx = dice.updater_with_data(root, data).commit().await;
 
     let file = ctx
         .compute(&FileKey {
@@ -293,7 +297,7 @@ async fn smoke() -> anyhow::Result<()> {
         tracker.lock().computations.as_slice()
     );
 
-    let mut ctx = dice.updater();
+    let mut ctx = dice.updater(root);
     ctx.changed([ConfigKey])?;
     ctx.commit().await;
     tracker.lock().computations.clear();
@@ -310,7 +314,7 @@ async fn smoke() -> anyhow::Result<()> {
             ("y".to_owned(), "Y".to_owned()),
         ]),
     });
-    let ctx = dice.updater_with_data(data).commit().await;
+    let ctx = dice.updater_with_data(root, data).commit().await;
 
     let file = ctx
         .compute(&FileKey {

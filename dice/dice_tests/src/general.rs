@@ -11,7 +11,6 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
-use dice::BranchId;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
@@ -74,16 +73,17 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
     }
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
+    let root = dice.new_root().await;
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to([(Leaf(0), 1), (Leaf(1), 100), (Leaf(2), 200)])?;
     let ctx1 = updater.commit().await;
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to([(Leaf(0), 1), (Leaf(1), 300), (Leaf(2), 200)])?;
     let ctx2 = updater.commit().await;
 
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to([(Leaf(0), 2), (Leaf(1), 400), (Leaf(2), 100)])?;
     let ctx3 = updater.commit().await;
 
@@ -131,12 +131,13 @@ async fn deleting_the_branch_does_not_break_an_ongoing_computation() -> anyhow::
     }
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
-    let updater = dice.updater();
+    let root = dice.new_root().await;
+    let updater = dice.updater(root);
     let ctx1 = updater.commit().await;
 
     ctx1.compute(&Fib(3)).await?;
 
-    dice.delete_branch(BranchId::FIRST);
+    dice.delete_branch(root);
 
     assert_eq!(*ctx1.compute(&Fib(10)).await?, Some(89));
 
@@ -256,9 +257,10 @@ async fn dropped_dep_does_not_leave_stale_rdep_edge() -> anyhow::Result<()> {
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
 
     // v1: Selector=true, Left=1, Right=10. K depends on {Selector, Left, Right}.
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to([(Selector, true)])?;
     updater.changed_to([(Left, 1u32)])?;
     updater.changed_to([(Right, 10u32)])?;
@@ -268,7 +270,7 @@ async fn dropped_dep_does_not_leave_stale_rdep_edge() -> anyhow::Result<()> {
 
     // v2: flip Selector to false, forcing K's recompute. K now depends on
     // {Selector, Left} only — Right has been dropped from the dep set.
-    let mut updater = dice.updater();
+    let mut updater = dice.updater(root);
     updater.changed_to([(Selector, false)])?;
     let ctx = updater.commit().await;
     assert_eq!(*ctx.compute(&K).await.unwrap(), 1);
@@ -282,7 +284,7 @@ async fn dropped_dep_does_not_leave_stale_rdep_edge() -> anyhow::Result<()> {
     data.tracker = Arc::new(Recorder {
         events: events.clone(),
     });
-    let mut updater = dice.updater_with_data(data);
+    let mut updater = dice.updater_with_data(root, data);
     updater.changed_to([(Right, 999u32)])?;
     let ctx = updater.commit().await;
     assert_eq!(*ctx.compute(&K).await.unwrap(), 1);

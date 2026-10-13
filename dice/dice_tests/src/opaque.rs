@@ -138,15 +138,19 @@ async fn key_does_not_read_opaque() -> anyhow::Result<()> {
         builder.set(tracker.dupe());
         builder.build(DetectCycles::Enabled)
     };
+    let root = dice.new_root().await;
 
     // Part 1: compute key which requests on opaque key, but does not use it.
 
     let mut dice_data = DiceData::new();
     dice_data.set(17);
-    let mut ctx = dice.updater_with_data(UserComputationData {
-        data: dice_data,
-        ..Default::default()
-    });
+    let mut ctx = dice.updater_with_data(
+        root,
+        UserComputationData {
+            data: dice_data,
+            ..Default::default()
+        },
+    );
 
     // Both keys are computed.
     assert_eq!(

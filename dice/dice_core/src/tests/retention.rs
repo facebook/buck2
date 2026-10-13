@@ -11,7 +11,6 @@
 //! What the state retains: certificates pinned by claims (`incrementality.md` §4.1), the
 //! revisions they name.
 
-use crate::BranchId;
 use crate::EpsilonToken;
 use crate::arc::Arc;
 use crate::tests::StateExt;
@@ -23,8 +22,7 @@ use crate::tests::v;
 
 #[test]
 fn a_revision_is_referenced_while_some_claim_names_it() {
-    let (mut s, c1) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, c1) = leaf_and_dependent();
     assert!(s.is_referenced(k(1), r(1)));
     s.assert_at(root, k(0), r(2));
     let c2 = cert(k(1), r(2), &[(k(0), r(2))], EpsilonToken::INITIAL);
@@ -37,8 +35,7 @@ fn a_revision_is_referenced_while_some_claim_names_it() {
 
 #[test]
 fn a_child_that_still_resolves_a_replaced_claim_keeps_its_revision_referenced() {
-    let (mut s, c1) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, c1) = leaf_and_dependent();
     let child = s.fork_checked(v(root, 2));
     s.assert_at(root, k(0), r(2));
     let c2 = cert(k(1), r(2), &[(k(0), r(2))], EpsilonToken::INITIAL);
@@ -50,8 +47,7 @@ fn a_child_that_still_resolves_a_replaced_claim_keeps_its_revision_referenced() 
 
 #[test]
 fn pinned_certificates_are_reported_per_claim() {
-    let (mut s, c) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, c) = leaf_and_dependent();
     let child = s.fork_checked(v(root, 2));
     // The child's commit gives it a closed copy of the same certificate.
     s.assert_at(child, k(0), r(2));

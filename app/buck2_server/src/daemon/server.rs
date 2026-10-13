@@ -84,6 +84,7 @@ use buck2_test::executor_launcher::get_all_test_executors;
 use buck2_util::system_stats::num_cores;
 use buck2_util::system_stats::system_memory_stats;
 use buck2_util::threads::thread_spawn;
+use dice::BranchId;
 use dice::DetectCycles;
 use dice::Dice;
 use dice_futures::cancellation::CancellationContext;
@@ -281,7 +282,7 @@ impl TenantStateInitPreferences {
         root_config: &LegacyBuckConfig,
         tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
         dice_state_path: &Path,
-    ) -> buck2_error::Result<Arc<Dice>> {
+    ) -> buck2_error::Result<(Arc<Dice>, BranchId)> {
         // `hydration` is `Some` when paging is enabled (via `enable_paging` or
         // `page_out_on_idle`), which is what gates setting up on-disk storage.
         let hydration = self.daemon_startup_config.hydration.as_ref();

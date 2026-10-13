@@ -10,7 +10,6 @@
 
 //! `new_root` (`incrementality.md` §2.2): what a fresh root knows, and how it comes to share.
 
-use crate::BranchId;
 use crate::EpsilonToken;
 use crate::tests::State;
 use crate::tests::StateExt;
@@ -24,7 +23,7 @@ use crate::tests::v;
 /// for it. Certificates from other roots are offered, and hold once their premises do.
 #[test]
 fn a_new_root_starts_from_nothing() {
-    let (mut s, c) = leaf_and_dependent();
+    let (mut s, first_root, c) = leaf_and_dependent();
     let root = s.new_root();
     s.check_invariants();
     let first = s.first(root);
@@ -41,10 +40,7 @@ fn a_new_root_starts_from_nothing() {
 
     // A certificate without premises holds at every root at once.
     let leaf = cert(k(2), r(1), &[], EpsilonToken::INITIAL);
-    assert_eq!(
-        s.write_checked(&leaf).installed,
-        vec![BranchId::FIRST, root]
-    );
+    assert_eq!(s.write_checked(&leaf).installed, vec![first_root, root]);
 }
 
 /// Roots share one ε per key until one of them dirties it: every root's untracked inputs start
@@ -54,7 +50,7 @@ fn a_new_root_starts_from_nothing() {
 #[test]
 fn roots_share_the_initial_epsilon() {
     let mut s = State::new();
-    let first = BranchId::FIRST;
+    let first = s.new_root();
     // Stamped the way a compute at the first root's head would stamp it.
     let c = cert(k(0), r(1), &[], s.epsilon(k(0), s.head(first)));
     assert_eq!(c.epsilon, EpsilonToken::INITIAL);
@@ -84,7 +80,6 @@ fn roots_can_be_deleted() {
     s.assert_at(root, k(0), r(1));
     assert_eq!(s.delete_checked(root), vec![k(0)]);
     assert!(!s.is_live(root));
-    s.delete_checked(BranchId::FIRST);
     assert_eq!(s.branches().count(), 0);
     let again = s.new_root();
     assert_ne!(again, root);

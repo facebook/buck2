@@ -50,18 +50,10 @@ pub(crate) struct Model {
 }
 
 impl Model {
-    /// A history holding the root's initial version.
+    /// An empty history.
     pub(crate) fn new() -> Self {
-        let mut versions = HashMap::new();
-        versions.insert(
-            Version::FIRST,
-            VersionRecord {
-                parent: None,
-                assertions: Vec::new(),
-            },
-        );
         Model {
-            versions,
+            versions: HashMap::new(),
             written: Vec::new(),
         }
     }

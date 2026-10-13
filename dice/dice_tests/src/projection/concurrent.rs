@@ -100,10 +100,11 @@ async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
     }
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
+    let root = dice.new_root().await;
 
     let count = Arc::new(AtomicU8::new(0));
 
-    let ctx = dice.updater().commit().await;
+    let ctx = dice.updater(root).commit().await;
 
     let k = ComputeOnce(count.dupe());
 

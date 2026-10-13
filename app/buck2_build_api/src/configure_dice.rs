@@ -25,6 +25,7 @@ use buck2_common::tenting::TentingAclProvider;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
+use dice::BranchId;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceStorage;
@@ -49,7 +50,7 @@ pub async fn configure_dice_for_buck(
     // On-disk backend for pagable storage (`buck2_hydration.pagable_storage_backend`).
     pagable_storage_backend: PagableStorageBackend,
     defer_field_reads: bool,
-) -> buck2_error::Result<Arc<Dice>> {
+) -> buck2_error::Result<(Arc<Dice>, BranchId)> {
     let detect_cycles = detect_cycles.map_or_else(
         || {
             root_config
@@ -110,10 +111,11 @@ pub async fn configure_dice_for_buck(
     }
 
     let dice = dice.build(detect_cycles);
-    let mut dice_ctx = dice.updater();
+    let root = dice.new_root().await;
+    let mut dice_ctx = dice.updater(root);
     dice_ctx.set_none_cell_resolver()?;
     dice_ctx.set_none_legacy_config_external_data()?;
     dice_ctx.commit().await;
 
-    Ok(dice)
+    Ok((dice, root))
 }

@@ -57,6 +57,7 @@ async fn different_data_per_compute_ctx() {
     }
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
+    let root = dice.new_root().await;
     let per_cmd_data0 = {
         let mut d = UserComputationData::new();
         d.data.set(U(0));
@@ -68,9 +69,9 @@ async fn different_data_per_compute_ctx() {
         d
     };
 
-    let ctx0 = dice.updater_with_data(per_cmd_data0).commit().await;
+    let ctx0 = dice.updater_with_data(root, per_cmd_data0).commit().await;
 
-    let ctx1 = dice.updater_with_data(per_cmd_data1).commit().await;
+    let ctx1 = dice.updater_with_data(root, per_cmd_data1).commit().await;
 
     let request0 = ctx0.compute(&DataRequest(0));
     let request1 = ctx1.compute(&DataRequest(1));

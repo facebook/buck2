@@ -11,7 +11,6 @@
 //! `delete_branch` (`incrementality.md` §5.5): what a deletion forgets, what it leaves alone,
 //! and what it hands down to the deleted branch's children.
 
-use crate::BranchId;
 use crate::EpsilonToken;
 use crate::arc::Arc;
 use crate::tests::State;
@@ -24,8 +23,7 @@ use crate::tests::v;
 
 #[test]
 fn deleting_a_branch_forgets_its_claims_and_histories() {
-    let (mut s, c1) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, c1) = leaf_and_dependent();
     let child = s.fork_checked(v(root, 2));
     // The child diverges: a new revision of the leaf, and a value of the dependent over it.
     let child_v2 = s.assert_at(child, k(0), r(2));
@@ -52,8 +50,7 @@ fn deleting_a_branch_forgets_its_claims_and_histories() {
 /// A branch that only inherited never had anything of its own to forget.
 #[test]
 fn deleting_a_branch_that_only_inherited_affects_no_key() {
-    let (mut s, _) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = leaf_and_dependent();
     let child = s.fork_checked(v(root, 2));
     assert_eq!(s.valid_at(k(1), v(child, 1)), Some(r(1)));
     assert!(s.delete_checked(child).is_empty());
@@ -63,7 +60,7 @@ fn deleting_a_branch_that_only_inherited_affects_no_key() {
 #[test]
 fn ids_of_deleted_branches_are_not_reused() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     let first = s.fork_checked(v(root, 1));
     s.delete_checked(first);
     let second = s.fork_checked(v(root, 1));
@@ -75,8 +72,7 @@ fn ids_of_deleted_branches_are_not_reused() {
 /// A certificate that would only have held on the deleted branch installs nowhere.
 #[test]
 fn a_write_installs_nothing_on_a_deleted_branch() {
-    let (mut s, _) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = leaf_and_dependent();
     let child = s.fork_checked(v(root, 2));
     s.assert_at(child, k(0), r(2));
     s.delete_checked(child);
@@ -89,8 +85,7 @@ fn a_write_installs_nothing_on_a_deleted_branch() {
 /// claim it made: a later fork from the same point sees the fork point again.
 #[test]
 fn a_dirty_on_a_deleted_branch_is_forgotten() {
-    let (mut s, _) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = leaf_and_dependent();
     let child = s.fork_checked(v(root, 2));
     let dirtied = s.dirty_at(child, k(1));
     assert_ne!(s.epsilon(k(1), dirtied), EpsilonToken::INITIAL);
@@ -106,8 +101,7 @@ fn a_dirty_on_a_deleted_branch_is_forgotten() {
 /// empty one where it did not, and the history entries in force at the fork point.
 #[test]
 fn deleting_a_parent_preserves_what_its_children_resolve() {
-    let (mut s, _) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = leaf_and_dependent();
     let middle = s.fork_checked(v(root, 2));
     // `early` forks into the gap between the leaf's change and the dependent's recompute at the
     // middle branch, `late` after the recompute.
@@ -160,10 +154,7 @@ fn deleting_a_root_with_children_makes_them_roots() {
     assert_eq!(s.delete_checked(root), vec![k(0)]);
     assert_eq!(s.parent(child), None);
     assert_eq!(s.valid_at(k(0), v(child, 1)), Some(r(1)));
-    assert_eq!(
-        s.branches().collect::<Vec<_>>(),
-        vec![BranchId::FIRST, child]
-    );
+    assert_eq!(s.branches().collect::<Vec<_>>(), vec![child]);
     assert!(s.is_referenced(k(0), r(1)));
 }
 
@@ -171,8 +162,7 @@ fn deleting_a_root_with_children_makes_them_roots() {
 /// closed claim it made the deleted branch shadow.
 #[test]
 fn a_child_keeps_the_dirty_it_inherited() {
-    let (mut s, c1) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, c1) = leaf_and_dependent();
     let middle = s.fork_checked(v(root, 2));
     let dirtied = s.dirty_at(middle, k(1));
     let eps = s.epsilon(k(1), dirtied);
@@ -195,8 +185,7 @@ fn a_child_keeps_the_dirty_it_inherited() {
 /// per child. What resolves where does not change.
 #[test]
 fn deleting_a_parent_leaves_each_child_its_own_copy_of_a_shared_claim() {
-    let (mut s, _) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = leaf_and_dependent();
     let middle = s.fork_checked(v(root, 2));
     let middle_v2 = s.assert_at(middle, k(0), r(2));
     let c2 = cert(k(1), r(2), &[(k(0), r(2))], EpsilonToken::INITIAL);
@@ -224,7 +213,7 @@ fn deleting_a_parent_leaves_each_child_its_own_copy_of_a_shared_claim() {
 #[should_panic(expected = "has been deleted")]
 fn deleting_a_branch_twice_panics() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     let child = s.fork_checked(v(root, 1));
     s.delete_checked(child);
     s.delete_branch(child);
@@ -234,7 +223,7 @@ fn deleting_a_branch_twice_panics() {
 #[should_panic(expected = "has been deleted")]
 fn committing_to_a_deleted_branch_panics() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     let child = s.fork_checked(v(root, 1));
     s.delete_checked(child);
     s.dirty_at(child, k(1));
@@ -244,7 +233,7 @@ fn committing_to_a_deleted_branch_panics() {
 #[should_panic(expected = "has been deleted")]
 fn forking_from_a_deleted_branch_panics() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     let child = s.fork_checked(v(root, 1));
     s.delete_checked(child);
     s.fork_checked(v(child, 1));
@@ -254,7 +243,7 @@ fn forking_from_a_deleted_branch_panics() {
 #[should_panic(expected = "has been deleted")]
 fn looking_up_at_a_deleted_branch_panics() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     let child = s.fork_checked(v(root, 1));
     s.delete_checked(child);
     s.lookup(k(1), v(child, 1));

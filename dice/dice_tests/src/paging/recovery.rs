@@ -1,9 +1,18 @@
-// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is dual-licensed under either the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree or the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree. You may select, at your option, one of the
+ * above-listed licenses.
+ */
 
 //! Demand recovery through the public DICE API, including cancellation and version isolation.
 
 use std::sync::atomic::AtomicBool;
 
+use dice::BranchId;
 use dice::DiceProjectionComputations;
 use dice::DiceProjectionDyn;
 use dice::InjectedKey;
@@ -121,7 +130,8 @@ impl Key for RecoveryKey {
     }
 }
 
-async fn recovery_dice() -> anyhow::Result<(tempfile::TempDir, Arc<Dice>, Arc<RecoveryControl>)> {
+async fn recovery_dice()
+-> anyhow::Result<(tempfile::TempDir, Arc<Dice>, BranchId, Arc<RecoveryControl>)> {
     let tmp = tempdir()?;
     let mut builder = Dice::builder();
     builder.set_pagable_storage(DiceStorage::open(
@@ -129,39 +139,40 @@ async fn recovery_dice() -> anyhow::Result<(tempfile::TempDir, Arc<Dice>, Arc<Re
         PagableStorageBackend::Sqlite,
     )?);
     let dice = builder.build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
     let control = RecoveryControl::new();
-    let mut updater = dice.updater_with_data(control.data());
+    let mut updater = dice.updater_with_data(root, control.data());
     updater.changed_to([(RecoveryInput(0), 7), (RecoveryInput(1), 1)])?;
     drop(updater.commit().await);
-    Ok((tmp, dice, control))
+    Ok((tmp, dice, root, control))
 }
 
 async fn paged_out(
     key: usize,
-) -> anyhow::Result<(tempfile::TempDir, Arc<Dice>, Arc<RecoveryControl>)> {
-    let (tmp, dice, control) = recovery_dice().await?;
-    let tx = dice.updater_with_data(control.data()).commit().await;
+) -> anyhow::Result<(tempfile::TempDir, Arc<Dice>, BranchId, Arc<RecoveryControl>)> {
+    let (tmp, dice, root, control) = recovery_dice().await?;
+    let tx = dice.updater_with_data(root, control.data()).commit().await;
     assert_eq!(*tx.compute(&RecoveryKey(key)).await?, 7 + key as u64);
     drop(tx);
     dice.wait_for_idle().await;
     dice.page_out().await?;
     assert_eq!(dice.pagable_status().await.paged_out_count, key + 1);
-    Ok((tmp, dice, control))
+    Ok((tmp, dice, root, control))
 }
 
 #[tokio::test]
 async fn failed_demand_repairs_the_graph_without_requesting_restart() -> anyhow::Result<()> {
-    let (_tmp, dice, control) = paged_out(0).await?;
+    let (_tmp, dice, root, control) = paged_out(0).await?;
     let captured = Arc::new(Mutex::new(Vec::new()));
     let mut data = control.data();
     data.tracker = Arc::new(CapturingListener {
         hydration_failures: captured.clone(),
     });
-    let tx = dice.updater_with_data(data).commit().await;
+    let tx = dice.updater_with_data(root, data).commit().await;
     let value = tx.compute(&RecoveryKey(0)).await?;
     assert_eq!(*value, 7);
     assert_eq!(control.count(0), 2);
-    let overlapping = dice.updater_with_data(control.data()).commit().await;
+    let overlapping = dice.updater_with_data(root, control.data()).commit().await;
     let same = overlapping.compute(&RecoveryKey(0)).await?;
     assert!(
         std::ptr::eq(value, same),
@@ -171,7 +182,7 @@ async fn failed_demand_repairs_the_graph_without_requesting_restart() -> anyhow:
     drop((tx, overlapping));
     dice.wait_for_idle().await;
 
-    let tx = dice.updater_with_data(control.data()).commit().await;
+    let tx = dice.updater_with_data(root, control.data()).commit().await;
     assert_eq!(*tx.compute(&RecoveryKey(0)).await?, 7);
     assert_eq!(
         control.count(0),
@@ -192,9 +203,9 @@ async fn failed_demand_repairs_the_graph_without_requesting_restart() -> anyhow:
 
 #[tokio::test]
 async fn another_waiter_keeps_shared_recovery_running() -> anyhow::Result<()> {
-    let (_tmp, dice, control) = paged_out(0).await?;
-    let first_tx = dice.updater_with_data(control.data()).commit().await;
-    let second_tx = dice.updater_with_data(control.data()).commit().await;
+    let (_tmp, dice, root, control) = paged_out(0).await?;
+    let first_tx = dice.updater_with_data(root, control.data()).commit().await;
+    let second_tx = dice.updater_with_data(root, control.data()).commit().await;
     control.block.store(true, Ordering::SeqCst);
     let mut first = Box::pin(first_tx.compute(&RecoveryKey(0)));
     tokio::time::timeout(Duration::from_secs(10), async {
@@ -223,8 +234,8 @@ async fn another_waiter_keeps_shared_recovery_running() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn cancelled_recovery_can_restart_in_the_same_transaction() -> anyhow::Result<()> {
-    let (_tmp, dice, control) = paged_out(0).await?;
-    let tx = dice.updater_with_data(control.data()).commit().await;
+    let (_tmp, dice, root, control) = paged_out(0).await?;
+    let tx = dice.updater_with_data(root, control.data()).commit().await;
     control.block.store(true, Ordering::SeqCst);
     let mut abandoned = Box::pin(tx.compute(&RecoveryKey(0)));
     tokio::time::timeout(Duration::from_secs(10), async {
@@ -258,8 +269,8 @@ async fn cancelled_recovery_can_restart_in_the_same_transaction() -> anyhow::Res
 
 #[tokio::test]
 async fn recovery_is_drained_after_the_transaction_is_dropped() -> anyhow::Result<()> {
-    let (_tmp, dice, control) = paged_out(0).await?;
-    let tx = dice.updater_with_data(control.data()).commit().await;
+    let (_tmp, dice, root, control) = paged_out(0).await?;
+    let tx = dice.updater_with_data(root, control.data()).commit().await;
     control.block.store(true, Ordering::SeqCst);
     let request = tokio::spawn(async move { tx.compute(&RecoveryKey(0)).await.copied() });
     tokio::time::timeout(Duration::from_secs(10), control.started.notified()).await?;
@@ -285,8 +296,8 @@ async fn recovery_is_drained_after_the_transaction_is_dropped() -> anyhow::Resul
 
 #[tokio::test]
 async fn nested_read_failures_recompute_each_dependency_once() -> anyhow::Result<()> {
-    let (_tmp, dice, control) = paged_out(1).await?;
-    let tx = dice.updater_with_data(control.data()).commit().await;
+    let (_tmp, dice, root, control) = paged_out(1).await?;
+    let tx = dice.updater_with_data(root, control.data()).commit().await;
     assert_eq!(*tx.compute(&RecoveryKey(1)).await?, 8);
     assert_eq!(*tx.compute(&RecoveryKey(0)).await?, 7);
     assert_eq!((control.count(0), control.count(1)), (2, 2));
@@ -296,8 +307,8 @@ async fn nested_read_failures_recompute_each_dependency_once() -> anyhow::Result
 
 #[tokio::test]
 async fn recovery_uses_the_requesting_transactions_version() -> anyhow::Result<()> {
-    let (_tmp, dice, control) = paged_out(0).await?;
-    let old = dice.updater_with_data(control.data()).commit().await;
+    let (_tmp, dice, root, control) = paged_out(0).await?;
+    let old = dice.updater_with_data(root, control.data()).commit().await;
     control.block.store(true, Ordering::SeqCst);
     let mut recovering = Box::pin(old.compute(&RecoveryKey(0)));
     tokio::time::timeout(Duration::from_secs(10), async {
@@ -307,7 +318,7 @@ async fn recovery_uses_the_requesting_transactions_version() -> anyhow::Result<(
         }
     }).await?;
     control.block.store(false, Ordering::SeqCst);
-    let mut updater = dice.updater_with_data(control.data());
+    let mut updater = dice.updater_with_data(root, control.data());
     updater.changed_to([(RecoveryInput(0), 11)])?;
     let new = updater.commit().await;
     assert_ne!(old.version(), new.version());
@@ -324,8 +335,8 @@ async fn recovery_uses_the_requesting_transactions_version() -> anyhow::Result<(
 
 #[tokio::test]
 async fn unchanged_value_recovers_independently_in_a_new_version() -> anyhow::Result<()> {
-    let (_tmp, dice, control) = paged_out(0).await?;
-    let old = dice.updater_with_data(control.data()).commit().await;
+    let (_tmp, dice, root, control) = paged_out(0).await?;
+    let old = dice.updater_with_data(root, control.data()).commit().await;
     control.block.store(true, Ordering::SeqCst);
     let mut recovering = Box::pin(old.compute(&RecoveryKey(0)));
     tokio::time::timeout(Duration::from_secs(10), async {
@@ -339,7 +350,7 @@ async fn unchanged_value_recovers_independently_in_a_new_version() -> anyhow::Re
     // Advance the version without changing this key or its dependency. Both versions
     // reuse the same paged-out graph value, but must not share its recovery task.
     control.block.store(false, Ordering::SeqCst);
-    let mut updater = dice.updater_with_data(control.data());
+    let mut updater = dice.updater_with_data(root, control.data());
     updater.changed_to([(RecoveryInput(1), 2)])?;
     let new = updater.commit().await;
     assert_ne!(old.version(), new.version());
@@ -363,8 +374,8 @@ async fn unchanged_value_recovers_independently_in_a_new_version() -> anyhow::Re
 /// Drop the last transaction while its cancelled recovery is still in a critical section.
 /// A replacement cache must recover independently, even if its version number is unchanged.
 async fn recover_while_old_cache_drains(advance_version: bool) -> anyhow::Result<()> {
-    let (_tmp, dice, control) = paged_out(0).await?;
-    let old = dice.updater_with_data(control.data()).commit().await;
+    let (_tmp, dice, root, control) = paged_out(0).await?;
+    let old = dice.updater_with_data(root, control.data()).commit().await;
     let old_version = old.version();
     control.block.store(true, Ordering::SeqCst);
     let request = tokio::spawn(async move { old.compute(&RecoveryKey(0)).await.copied() });
@@ -379,7 +390,7 @@ async fn recover_while_old_cache_drains(advance_version: bool) -> anyhow::Result
     assert!(!dice.is_idle().await, "the old recovery is still draining");
 
     control.block.store(false, Ordering::SeqCst);
-    let mut updater = dice.updater_with_data(control.data());
+    let mut updater = dice.updater_with_data(root, control.data());
     if advance_version {
         updater.changed_to([(RecoveryInput(1), 2)])?;
     }
@@ -417,9 +428,9 @@ async fn new_cache_at_the_same_version_does_not_wait_for_cancelled_recovery() ->
 
 #[tokio::test]
 async fn a_transient_recovery_is_shared_but_not_written_as_valid() -> anyhow::Result<()> {
-    let (_tmp, dice, control) = paged_out(0).await?;
+    let (_tmp, dice, root, control) = paged_out(0).await?;
     control.transient.store(true, Ordering::SeqCst);
-    let tx = dice.updater_with_data(control.data()).commit().await;
+    let tx = dice.updater_with_data(root, control.data()).commit().await;
     assert_eq!(*tx.compute(&RecoveryKey(0)).await?, 0);
     assert_eq!(*tx.compute(&RecoveryKey(0)).await?, 0);
     assert_eq!(control.count(0), 2);
@@ -427,7 +438,7 @@ async fn a_transient_recovery_is_shared_but_not_written_as_valid() -> anyhow::Re
     dice.wait_for_idle().await;
 
     control.transient.store(false, Ordering::SeqCst);
-    let tx = dice.updater_with_data(control.data()).commit().await;
+    let tx = dice.updater_with_data(root, control.data()).commit().await;
     assert_eq!(*tx.compute(&RecoveryKey(0)).await?, 7);
     assert_eq!(
         control.count(0),
@@ -528,15 +539,15 @@ impl Key for RecoveryParent {
 }
 
 async fn check_recovery_metadata(parent: RecoveryParent, original: u64) -> anyhow::Result<()> {
-    let (_tmp, dice, control) = recovery_dice().await?;
-    let tx = dice.updater_with_data(control.data()).commit().await;
+    let (_tmp, dice, root, control) = recovery_dice().await?;
+    let tx = dice.updater_with_data(root, control.data()).commit().await;
     assert_eq!(*tx.compute(&parent).await?, original);
     drop(tx);
     dice.wait_for_idle().await;
     dice.page_out().await?;
     assert_eq!(dice.pagable_status().await.paged_out_count, 1);
 
-    let mut updater = dice.updater_with_data(control.data());
+    let mut updater = dice.updater_with_data(root, control.data());
     updater.changed_to([(RecoveryInput(1), 3)])?;
     let tx = updater.commit().await;
     control.transient.store(true, Ordering::SeqCst);
@@ -563,15 +574,15 @@ async fn recovery_metadata_reaches_later_projection_dependency_checks() -> anyho
 
 #[tokio::test]
 async fn recovery_preserves_a_force_dirtied_keys_untracked_input_revision() -> anyhow::Result<()> {
-    let (_tmp, dice, control) = recovery_dice().await?;
-    let mut updater = dice.updater_with_data(control.data());
+    let (_tmp, dice, root, control) = recovery_dice().await?;
+    let mut updater = dice.updater_with_data(root, control.data());
     updater.changed([RecoveryKey(0)])?;
     let tx = updater.commit().await;
     assert_eq!(*tx.compute(&RecoveryKey(0)).await?, 7);
     drop(tx);
     dice.wait_for_idle().await;
     dice.page_out().await?;
-    let tx = dice.updater_with_data(control.data()).commit().await;
+    let tx = dice.updater_with_data(root, control.data()).commit().await;
     assert_eq!(*tx.compute(&RecoveryKey(0)).await?, 7);
     assert_eq!(control.count(0), 2);
     Ok(())

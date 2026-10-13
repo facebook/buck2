@@ -1658,7 +1658,7 @@ impl ConcurrencyHandler {
             .await?;
         let dice_was_draining = pending.dice_was_draining.await;
 
-        let updater = self.dice.updater_on(branch);
+        let updater = self.dice.updater(branch);
         let (mut updater, user_data, outcome) = updates.update(updater, early_timings).await?;
         if outcome == SyncOutcome::FreshInstance {
             self.start_over(pending.command, pending.attempt, &mut updater, branch)
@@ -2482,8 +2482,15 @@ mod tests {
 
     /// The concurrency manager itself reads no injected keys; the buckconfig data the old inline
     /// telemetry needed is now the observer's concern, and tests use `NoTelemetry`.
-    fn make_default_dice() -> Arc<Dice> {
-        Dice::builder().build(DetectCycles::Enabled)
+    async fn make_default_dice() -> (Arc<Dice>, BranchId) {
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let root = dice.new_root().await;
+        (dice, root)
+    }
+
+    async fn make_handler() -> Arc<ConcurrencyHandler> {
+        let (dice, root) = make_default_dice().await;
+        ConcurrencyHandler::new(dice, root)
     }
 
     /// Distinctness of `CommandId` used to be a consequence of the read-modify-write happening
@@ -2498,7 +2505,7 @@ mod tests {
         const TASKS: usize = 8;
         const PER_TASK: usize = 1024;
 
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
         let start = Arc::new(tokio::sync::Barrier::new(TASKS));
 
         let handles: Vec<_> = (0..TASKS)
@@ -2526,7 +2533,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_queued_command_is_named_only_while_it_waits() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
         let asking = concurrency.allocate_command_id();
         assert_eq!(
             concurrency
@@ -2596,7 +2603,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_dropped_begin_reply_releases_pending_ownership() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
         let command_id = concurrency.allocate_command_id();
         let (response, receiver) = oneshot::channel();
         drop(receiver);
@@ -2631,8 +2638,8 @@ mod tests {
 
     #[tokio::test]
     async fn a_dropped_admission_reply_releases_active_ownership() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
         let command_id = concurrency.allocate_command_id();
         let decision = concurrency
             .coordinator
@@ -2656,7 +2663,7 @@ mod tests {
             panic!("an idle coordinator should request an update");
         };
 
-        let version = dice.updater().commit().await.version();
+        let version = dice.updater(root).commit().await.version();
         concurrency
             .coordinator
             .acquire_update(command_id, attempt)
@@ -2693,8 +2700,8 @@ mod tests {
 
     #[tokio::test]
     async fn a_dropped_cleanup_reply_still_finishes_cleanup() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
         TestCommand::new()
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
             .await?;
@@ -2721,7 +2728,7 @@ mod tests {
             panic!("an available coordinator should request an update");
         };
 
-        let mut updater = dice.updater();
+        let mut updater = dice.updater(root);
         updater.changed_to(vec![(K, ())])?;
         let transaction = updater.commit().await;
         concurrency
@@ -2774,15 +2781,15 @@ mod tests {
 
     #[tokio::test]
     async fn coordinator_shutdown_wakes_blocked_waiters_and_stops() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let first_version = dice.updater().commit().await.version();
+        let (dice, root) = make_default_dice().await;
+        let first_version = dice.updater(root).commit().await.version();
         let different_version = {
-            let mut updater = dice.updater();
+            let mut updater = dice.updater(root);
             updater.changed_to(vec![(K, ())])?;
             updater.commit().await.version()
         };
         let (sender, receiver) = mpsc::unbounded_channel();
-        let task = AdmissionCoordinatorTask::new(dice, BranchId::FIRST, sender.downgrade());
+        let task = AdmissionCoordinatorTask::new(dice, root, sender.downgrade());
         let active_commands = task.active_commands.dupe();
         let task = tokio::spawn(task.run(receiver));
         let coordinator = AdmissionCoordinator {
@@ -2888,10 +2895,10 @@ mod tests {
         preemption_setting: PreemptibleWhen,
         same_state: bool,
     ) -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let first_version = dice.updater().commit().await.version();
+        let (dice, root) = make_default_dice().await;
+        let first_version = dice.updater(root).commit().await.version();
         let different_version = {
-            let mut updater = dice.updater();
+            let mut updater = dice.updater(root);
             updater.changed_to(vec![(K, ())])?;
             updater.commit().await.version()
         };
@@ -2900,7 +2907,7 @@ mod tests {
         } else {
             different_version
         };
-        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
+        let concurrency = ConcurrencyHandler::new(dice, root);
 
         let first_id = concurrency.allocate_command_id();
         let (preempt, mut preempted) = oneshot::channel();
@@ -3074,7 +3081,7 @@ mod tests {
     /// so the pending registry is what makes them visible in a "daemon is busy" message.
     #[tokio::test]
     async fn a_blocked_command_is_named_as_queued() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
 
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
@@ -3332,10 +3339,10 @@ mod tests {
         assert!(idle.contains("Available"), "{idle}");
         assert!(idle.contains("None"), "{idle}");
 
-        let dice = make_default_dice();
+        let (dice, root) = make_default_dice().await;
         let active = format!(
             "{:?}",
-            DiceStatus::active(dice.updater().commit().await.version())
+            DiceStatus::active(dice.updater(root).commit().await.version())
         );
         assert!(active.contains("Available"), "{active}");
         assert!(active.contains("ActiveDice"), "{active}");
@@ -3479,7 +3486,7 @@ mod tests {
 
     #[tokio::test]
     async fn command_release_precedes_the_next_admission() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
 
         TestCommand::new()
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
@@ -3496,7 +3503,7 @@ mod tests {
     #[tokio::test]
     async fn cancellation_during_and_behind_update_releases_pending_commands()
     -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
         let entered = Arc::new(Barrier::new(2));
         let updater = Arc::new(BlockingUpdater {
             entered: entered.dupe(),
@@ -3560,7 +3567,7 @@ mod tests {
     async fn update_lane_survives_a_thousand_cancelled_waiters() -> buck2_error::Result<()> {
         const COMMANDS: usize = 1_000;
 
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
         let mut command_ids = Vec::with_capacity(COMMANDS);
         let mut receivers = Vec::with_capacity(COMMANDS);
 
@@ -3620,7 +3627,7 @@ mod tests {
 
     #[tokio::test]
     async fn cancelling_a_blocked_command_releases_pending_ownership() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
         let entered = Arc::new(Barrier::new(2));
@@ -3681,7 +3688,7 @@ mod tests {
 
     #[tokio::test]
     async fn cancelling_during_observation_releases_active_ownership() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
         let entered = Arc::new(Barrier::new(2));
         let observer = Arc::new(BlockingObserver {
             entered: entered.dupe(),
@@ -3724,8 +3731,8 @@ mod tests {
     #[tokio::test]
     async fn cancelling_while_awaiting_cleanup_leaves_the_handler_usable() -> buck2_error::Result<()>
     {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         TestCommand::new()
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
@@ -3736,7 +3743,7 @@ mod tests {
             release: Arc::new(Barrier::new(2)),
         };
         {
-            let transaction = dice.updater().commit().await;
+            let transaction = dice.updater(root).commit().await;
             let compute = transaction.compute(&key).fuse();
             let entered = key.entered.wait().fuse();
             futures::pin_mut!(compute);
@@ -3808,8 +3815,8 @@ mod tests {
             }
         }
 
-        async fn active_status(dice: &Arc<Dice>) -> DiceStatus {
-            DiceStatus::active(dice.updater().commit().await.version())
+        async fn active_status(dice: &Arc<Dice>, root: BranchId) -> DiceStatus {
+            DiceStatus::active(dice.updater(root).commit().await.version())
         }
 
         fn data_with(dice_status: DiceStatus, cleanup_epoch: usize) -> CoordinatorState {
@@ -3871,9 +3878,9 @@ mod tests {
             }
         }
 
-        async fn distinct_versions(dice: &Arc<Dice>) -> (Version, Version) {
-            let first = dice.updater().commit().await.version();
-            let mut updater = dice.updater();
+        async fn distinct_versions(dice: &Arc<Dice>, root: BranchId) -> (Version, Version) {
+            let first = dice.updater(root).commit().await.version();
+            let mut updater = dice.updater(root);
             updater
                 .changed_to(vec![(K, ())])
                 .expect("test update should be valid");
@@ -3897,8 +3904,8 @@ mod tests {
         /// clear it.
         #[tokio::test]
         async fn transition_to_idle_is_a_noop_once_already_available() {
-            let dice = make_default_dice();
-            let mut data = data_with(active_status(&dice).await, 3);
+            let (dice, root) = make_default_dice().await;
+            let mut data = data_with(active_status(&dice, root).await, 3);
             assert_eq!(
                 data.apply_event(AdmissionEvent::CleanupCompleted { epoch: 3 }),
                 StateEffect::None
@@ -3929,8 +3936,8 @@ mod tests {
 
         #[tokio::test]
         async fn cleanup_handshake_advances_the_epoch_when_idle() {
-            let dice = make_default_dice();
-            let mut data = data_with(active_status(&dice).await, 7);
+            let (dice, root) = make_default_dice().await;
+            let mut data = data_with(active_status(&dice, root).await, 7);
 
             let request = data
                 .begin_cleanup()
@@ -4012,8 +4019,8 @@ mod tests {
             };
             assert_eq!(conflict_on_arrival, None);
 
-            let dice = make_default_dice();
-            let active_version = dice.updater().commit().await.version();
+            let (dice, root) = make_default_dice().await;
+            let active_version = dice.updater(root).commit().await.version();
             let mut active = data_with(DiceStatus::active(active_version), 0);
 
             let PreUpdateDecision::Update {
@@ -4052,8 +4059,8 @@ mod tests {
 
         #[tokio::test]
         async fn post_update_decision_mapping() {
-            let dice = make_default_dice();
-            let (active_version, different_version) = distinct_versions(&dice).await;
+            let (dice, root) = make_default_dice().await;
+            let (active_version, different_version) = distinct_versions(&dice, root).await;
 
             let mut cleanup = data_with(cleanup_at(1), 1);
             assert_matches!(
@@ -4198,8 +4205,8 @@ mod tests {
 
         #[tokio::test]
         async fn admission_registers_and_carries_nested_warning() {
-            let dice = make_default_dice();
-            let version = dice.updater().commit().await.version();
+            let (dice, root) = make_default_dice().await;
+            let version = dice.updater(root).commit().await.version();
             let mut data = data_with(DiceStatus::active(version), 0);
 
             let parent = a_command();
@@ -4235,8 +4242,8 @@ mod tests {
 
         #[tokio::test]
         async fn stale_update_attempt_does_not_mutate_pending_command() -> buck2_error::Result<()> {
-            let dice = make_default_dice();
-            let version = dice.updater().commit().await.version();
+            let (dice, root) = make_default_dice().await;
+            let version = dice.updater(root).commit().await.version();
             let mut data = data_with(DiceStatus::idle(), 0);
             let request = request(false, ExitWhen::ExitNever);
             let command = request.command_id;
@@ -4287,8 +4294,8 @@ mod tests {
 
         #[tokio::test]
         async fn admission_reducer_sequence() {
-            let dice = make_default_dice();
-            let (first_version, second_version) = distinct_versions(&dice).await;
+            let (dice, root) = make_default_dice().await;
+            let (first_version, second_version) = distinct_versions(&dice, root).await;
             let first_request = request(false, ExitWhen::ExitNever);
             let first_command = first_request.command_id;
             let mut data = data_with(DiceStatus::idle(), 0);
@@ -4484,8 +4491,8 @@ mod tests {
 
         #[tokio::test]
         async fn begin_cleanup_refuses_while_commands_are_active() {
-            let dice = make_default_dice();
-            let mut data = data_with(active_status(&dice).await, 7);
+            let (dice, root) = make_default_dice().await;
+            let mut data = data_with(active_status(&dice, root).await, 7);
             data.active_commands.insert(CommandId(0), a_command());
 
             assert_eq!(data.begin_cleanup(), None);
@@ -4507,8 +4514,8 @@ mod tests {
         if is_open_source() {
             return;
         }
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice, root);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -4579,9 +4586,9 @@ mod tests {
 
     #[tokio::test]
     async fn nested_invocation_should_error() {
-        let dice = make_default_dice();
+        let (dice, root) = make_default_dice().await;
 
-        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
+        let concurrency = ConcurrencyHandler::new(dice, root);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -4636,9 +4643,9 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_same_transaction() {
-        let dice = make_default_dice();
+        let (dice, root) = make_default_dice().await;
 
-        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
+        let concurrency = ConcurrencyHandler::new(dice, root);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -4709,9 +4716,9 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_different_traceid_blocks() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
+        let (dice, root) = make_default_dice().await;
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -4832,9 +4839,9 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_exit_when_different_state() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
+        let (dice, root) = make_default_dice().await;
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -4960,9 +4967,9 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_exit_when_preemptible() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
+        let (dice, root) = make_default_dice().await;
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let traces1 = TraceId::new();
         let traces2 = traces1.dupe();
@@ -5089,8 +5096,8 @@ mod tests {
     /// reached only from the `BypassSemaphore::Run` call site.
     #[tokio::test]
     async fn on_different_state_survives_a_same_state_command() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice, root);
 
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
@@ -5138,7 +5145,7 @@ mod tests {
 
     #[tokio::test]
     async fn same_state_effects_follow_registration_and_lock_release() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
         let entered = Arc::new(Barrier::new(2));
@@ -5173,7 +5180,7 @@ mod tests {
     #[tokio::test]
     async fn same_state_preemption_preserves_the_arriving_registration() -> buck2_error::Result<()>
     {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
         let entered = Arc::new(Barrier::new(2));
@@ -5256,8 +5263,8 @@ mod tests {
     #[tokio::test]
     async fn on_different_state_is_preempted_by_a_different_state_command()
     -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice, root);
 
         let block = Arc::new(RwLock::new(()));
         let _blocked = block.write().await;
@@ -5312,7 +5319,7 @@ mod tests {
     #[tokio::test]
     async fn cancelling_an_active_command_wakes_a_different_state_waiter() -> buck2_error::Result<()>
     {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
         let entered = Arc::new(Barrier::new(2));
@@ -5376,7 +5383,7 @@ mod tests {
     /// A failing `DiceUpdater` fails its command without wedging the handler for the next one.
     #[tokio::test]
     async fn a_failing_updater_leaves_the_handler_usable() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
 
         let failed = TestCommand::new()
             .run(&concurrency, &FailingUpdater, |_, _timing| async move {})
@@ -5402,7 +5409,7 @@ mod tests {
             return Ok(());
         }
 
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
 
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
@@ -5470,7 +5477,7 @@ mod tests {
     #[tokio::test]
     async fn a_slow_observer_runs_after_registration_outside_the_coordinator()
     -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
 
         let entered = Arc::new(Barrier::new(2));
         let release = Arc::new(Barrier::new(2));
@@ -5525,7 +5532,7 @@ mod tests {
     /// Observer failure must wake a command waiting for a different state.
     #[tokio::test]
     async fn a_failing_observer_wakes_a_different_state_waiter() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
 
         let entered = Arc::new(Barrier::new(2));
         let release = Arc::new(Barrier::new(2));
@@ -5622,7 +5629,7 @@ mod tests {
     /// A failing observer must deregister its already-registered command.
     #[tokio::test]
     async fn a_failing_observer_leaves_the_handler_usable() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let concurrency = make_handler().await;
 
         let failed = TestCommand::new()
             .run_with_observer(
@@ -5693,8 +5700,8 @@ mod tests {
     /// `NoActiveDiceState`, and one that joins an equivalent state reports `DiceEqualityCheck`.
     #[tokio::test]
     async fn dice_state_transitions_are_reported_as_events() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice, root);
 
         let first = TestEvents::new();
         TestCommand::new()
@@ -5741,7 +5748,7 @@ mod tests {
     /// transaction is still winding down is tainted, and says so.
     #[tokio::test]
     async fn command_taking_over_non_idle_dice_is_tagged_tainted() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
+        let (dice, root) = make_default_dice().await;
 
         let key = CleanupTestKey {
             is_executing: Arc::new(Mutex::new(())),
@@ -5752,7 +5759,7 @@ mod tests {
         // cancellation. `CleanupTestKey` holds a cancellation critical section for a second, so it
         // stays pending for the rest of the test.
         {
-            let transaction = dice.updater().commit().await;
+            let transaction = dice.updater(root).commit().await;
 
             let compute = transaction.compute(key).fuse();
             let started = async {
@@ -5776,7 +5783,7 @@ mod tests {
             "DICE should have a task pending cancellation"
         );
 
-        let concurrency = ConcurrencyHandler::new(dice, BranchId::FIRST);
+        let concurrency = ConcurrencyHandler::new(dice, root);
         let events = TestEvents::new();
 
         TestCommand::new()
@@ -5908,9 +5915,9 @@ mod tests {
 
         let key = &key;
 
-        let dice = make_default_dice();
+        let (dice, root) = make_default_dice().await;
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         // Kick off our computation and wait until it's running.
 
@@ -6039,8 +6046,8 @@ mod tests {
     #[tokio::test]
     #[allow(clippy::await_holding_lock)] // Intentional: testing exclusive access
     async fn exclusive_command_lock() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
         let events = TestEvents::new();
         let mut cursor = 0usize;
 
@@ -6123,9 +6130,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_thundering_herd() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
+        let (dice, root) = make_default_dice().await;
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let concurrency = &concurrency;
 
@@ -6166,9 +6173,9 @@ mod tests {
             }
         }
 
-        let dice = make_default_dice();
+        let (dice, root) = make_default_dice().await;
 
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         struct Updater {
             // Set when the updater enters the update function
@@ -6268,8 +6275,8 @@ mod tests {
     }
 
     async fn check_exit_when_not_idle_while_busy(same_state: bool) -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6363,8 +6370,8 @@ mod tests {
     async fn check_multiple_exit_when_not_idle_commands(
         same_state: bool,
     ) -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6484,8 +6491,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_exit_when_not_idle_with_preemptible_command() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6580,8 +6587,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_exit_when_not_idle_gets_preempted() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6679,8 +6686,8 @@ mod tests {
     async fn check_exit_when_not_idle_allows_command_when_daemon_idle(
         same_state: bool,
     ) -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6771,8 +6778,8 @@ mod tests {
     async fn test_enter_duration_parameter_populated() -> buck2_error::Result<()> {
         // Test that the duration parameter passed to the enter() callback is properly populated
         // when waiting for an exclusive command lock.
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let traces1 = TraceId::new();
         let traces2 = TraceId::new();
@@ -6867,8 +6874,8 @@ mod tests {
     #[tokio::test]
     async fn test_enter_duration_parameter_zero_for_non_exclusive() -> buck2_error::Result<()> {
         // Test that the duration parameter is zero when no exclusive command lock is needed.
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let traces = TraceId::new();
         let duration_captured: Arc<Mutex<Duration>> = Arc::new(Mutex::new(Duration::ZERO));
@@ -6911,8 +6918,8 @@ mod tests {
     async fn test_file_watcher_sync_duration_captured() -> buck2_error::Result<()> {
         // Test that file_watcher_sync_duration is properly captured when the updater
         // returns a non-zero duration.
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         struct UpdaterWithDelay;
         #[async_trait]
@@ -6981,8 +6988,8 @@ mod tests {
     -> buck2_error::Result<()> {
         // Test that file_watcher_sync_duration is accumulated across multiple loop iterations
         // when the dice state transitions through cleanup.
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         // First, establish an active DICE state by running a command
         let traces_init = TraceId::new();
@@ -7155,7 +7162,8 @@ mod tests {
     /// Only the holder of the update lane may move the handler to another branch.
     #[tokio::test]
     async fn a_move_without_the_update_lane_is_refused() -> buck2_error::Result<()> {
-        let concurrency = ConcurrencyHandler::new(make_default_dice(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice, root);
         let command = concurrency.allocate_command_id();
         let PreUpdateDecision::Update { attempt, .. } = concurrency
             .coordinator
@@ -7188,7 +7196,7 @@ mod tests {
                 .coordinator
                 .acquire_update(command, attempt)
                 .await?,
-            BranchId::FIRST
+            root
         );
         concurrency
             .coordinator
@@ -7230,18 +7238,18 @@ mod tests {
     /// it stay there.
     #[tokio::test]
     async fn a_fresh_instance_starts_over_on_a_fresh_root() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
         let updater = FreshInstanceWhenArmed {
             armed: AtomicBool::new(false),
         };
 
         let (before, first) = run_counting(&concurrency, &updater).await?;
-        assert_eq!(before.branch(), BranchId::FIRST);
+        assert_eq!(before.branch(), root);
 
         updater.armed.store(true, Ordering::SeqCst);
         let (fresh, second) = run_counting(&concurrency, &updater).await?;
-        assert_ne!(fresh.branch(), BranchId::FIRST);
+        assert_ne!(fresh.branch(), root);
         assert_ne!(second, first);
 
         let (after, third) = run_counting(&concurrency, &updater).await?;
@@ -7256,8 +7264,8 @@ mod tests {
     #[tokio::test]
     async fn the_branch_a_fresh_instance_leaves_behind_outlives_its_commands()
     -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
 
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
@@ -7358,8 +7366,14 @@ mod tests {
     /// nothing of the branch left behind.
     #[tokio::test]
     async fn a_dump_after_a_fresh_instance_covers_the_fresh_root() -> buck2_error::Result<()> {
-        let dice = make_default_dice();
-        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (dice, root) = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), root);
+        let branch_count = |dice: Arc<Dice>| async move {
+            tokio::task::spawn_blocking(move || dice.metrics().branch_count)
+                .await
+                .unwrap()
+        };
+        let before = branch_count(dice.dupe()).await;
         let (fresh, _) = run_counting(
             &concurrency,
             &FreshInstanceWhenArmed {
@@ -7367,19 +7381,12 @@ mod tests {
             },
         )
         .await?;
-        assert_ne!(fresh.branch(), BranchId::FIRST);
+        assert_ne!(fresh.branch(), root);
 
         // The branch left behind goes once its work has drained, which the command on the
         // fresh root does not wait for.
         tokio::time::timeout(Duration::from_secs(10), async {
-            loop {
-                let dice = dice.dupe();
-                let branches = tokio::task::spawn_blocking(move || dice.metrics().branch_count)
-                    .await
-                    .unwrap();
-                if branches == 1 {
-                    break;
-                }
+            while branch_count(dice.dupe()).await != before {
                 tokio::task::yield_now().await;
             }
         })

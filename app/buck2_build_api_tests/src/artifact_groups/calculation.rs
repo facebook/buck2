@@ -211,7 +211,7 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
     let mut extra = UserComputationData::new();
     extra.set_keep_going(true);
 
-    let mut dice = dice_builder.build(extra).unwrap();
+    let mut dice = dice_builder.build(extra).await.unwrap();
     dice.set_cell_resolver(cell_resolver)?;
     dice.set_file_system_baseline(FileSystemBaseline::unique())?;
     dice.set_buck_out_path(None)?;

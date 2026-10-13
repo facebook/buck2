@@ -820,6 +820,7 @@ impl DiceExecutionOrder {
     ) -> ExecutionResult {
         let collector = Arc::new(RecomputeCollector::default());
         let dice = Dice::builder().build(DetectCycles::Disabled);
+        let root = dice.new_root().await;
         let mut dice_ctxs: HashMap<usize, DiceTransaction> = HashMap::new();
         let state = {
             let mut state = FuzzState::new();
@@ -844,7 +845,7 @@ impl DiceExecutionOrder {
                 activation_tracker: Some(collector.dupe() as Arc<dyn ActivationTracker>),
                 ..Default::default()
             };
-            dice.updater_with_data(data)
+            dice.updater_with_data(root, data)
         };
         for (step_count, op) in self
             .init_vars
@@ -1373,15 +1374,16 @@ mod tests {
         {
             let collector = Arc::new(RecomputeCollector::default());
             let dice = Dice::builder().build(DetectCycles::Disabled);
+            let root = dice.new_root().await;
             let state = Arc::new(FuzzState::new());
-            let mut u = dice.updater_with_data(tracker_user_data(&collector));
+            let mut u = dice.updater_with_data(root, tracker_user_data(&collector));
             u.set_equation(Var(1), Expr::Unit(Unit::Literal(true)))?;
             u.set_equation(Var(2), Expr::Xor(vec![Unit::Variable(Var(1))]))?;
             let ctx1 = u.commit().await;
             assert!(ctx1.ctx().eval(state.dupe(), Var(2)).await?);
             let baseline = collector.snapshot();
             // Exactly what `execute_once` does for `Operation::ForceDirty`.
-            let mut u = dice.updater_with_data(tracker_user_data(&collector));
+            let mut u = dice.updater_with_data(root, tracker_user_data(&collector));
             u.changed(vec![state.eval_var(Var(1))])?;
             let ctx2 = u.commit().await;
             assert!(ctx2.ctx().eval(state.dupe(), Var(2)).await?);
@@ -1397,15 +1399,16 @@ mod tests {
         {
             let collector = Arc::new(RecomputeCollector::default());
             let dice = Dice::builder().build(DetectCycles::Disabled);
+            let root = dice.new_root().await;
             let state = Arc::new(FuzzState::new());
-            let mut u = dice.updater_with_data(tracker_user_data(&collector));
+            let mut u = dice.updater_with_data(root, tracker_user_data(&collector));
             u.set_equation(Var(1), Expr::Unit(Unit::Literal(true)))?;
             u.set_equation(Var(2), Expr::Xor(vec![Unit::Variable(Var(1))]))?;
             u.set_equation(Var(3), Expr::Unit(Unit::Literal(false)))?;
             let ctx1 = u.commit().await;
             assert!(ctx1.ctx().eval(state.dupe(), Var(2)).await?);
             let baseline = collector.snapshot();
-            let mut u = dice.updater_with_data(tracker_user_data(&collector));
+            let mut u = dice.updater_with_data(root, tracker_user_data(&collector));
             u.set_equation(Var(3), Expr::Unit(Unit::Literal(true)))?;
             let ctx2 = u.commit().await;
             assert!(ctx2.ctx().eval(state.dupe(), Var(2)).await?);
@@ -1433,8 +1436,9 @@ mod tests {
         {
             let collector = Arc::new(RecomputeCollector::default());
             let dice = Dice::builder().build(DetectCycles::Disabled);
+            let root = dice.new_root().await;
             let state = Arc::new(FuzzState::new());
-            let mut u = dice.updater_with_data(tracker_user_data(&collector));
+            let mut u = dice.updater_with_data(root, tracker_user_data(&collector));
             u.set_equation(Var(1), Expr::Unit(Unit::Literal(true)))?;
             u.set_equation(Var(2), Expr::Xor(vec![Unit::Variable(Var(1))]))?;
             let ctx1 = u.commit().await;
@@ -1442,7 +1446,7 @@ mod tests {
             let baseline = collector.snapshot();
             // Matches the ReinjectEquivalent replacement shape from
             // `MathAnswerKey::new` when the current expr is Literal(true).
-            let mut u = dice.updater_with_data(tracker_user_data(&collector));
+            let mut u = dice.updater_with_data(root, tracker_user_data(&collector));
             u.set_equation(Var(1), Expr::Xor(vec![Unit::Literal(true)]))?;
             let ctx2 = u.commit().await;
             assert!(ctx2.ctx().eval(state.dupe(), Var(2)).await?);
@@ -1460,14 +1464,15 @@ mod tests {
         {
             let collector = Arc::new(RecomputeCollector::default());
             let dice = Dice::builder().build(DetectCycles::Disabled);
+            let root = dice.new_root().await;
             let state = Arc::new(FuzzState::new());
-            let mut u = dice.updater_with_data(tracker_user_data(&collector));
+            let mut u = dice.updater_with_data(root, tracker_user_data(&collector));
             u.set_equation(Var(1), Expr::Unit(Unit::Literal(true)))?;
             u.set_equation(Var(2), Expr::Xor(vec![Unit::Variable(Var(1))]))?;
             let ctx1 = u.commit().await;
             assert!(ctx1.ctx().eval(state.dupe(), Var(2)).await?);
             let baseline = collector.snapshot();
-            let mut u = dice.updater_with_data(tracker_user_data(&collector));
+            let mut u = dice.updater_with_data(root, tracker_user_data(&collector));
             u.set_equation(Var(1), Expr::Unit(Unit::Literal(true)))?;
             let ctx2 = u.commit().await;
             assert!(ctx2.ctx().eval(state.dupe(), Var(2)).await?);

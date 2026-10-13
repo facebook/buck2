@@ -10,7 +10,6 @@
 
 //! `write`, `incrementality.md` §5.2, and certificate coverage, §4.5.
 
-use crate::BranchId;
 use crate::EpsilonToken;
 use crate::tests::State;
 use crate::tests::StateExt;
@@ -22,8 +21,7 @@ use crate::tests::v;
 
 #[test]
 fn a_write_whose_cover_reaches_the_head_attaches() {
-    let (s, _) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (s, root, _) = leaf_and_dependent();
     assert_eq!(s.valid_at(k(1), v(root, 2)), Some(r(1)));
     assert_eq!(s.rdeps(root, k(0)), &[k(1)]);
     let slot = &s.introspect_key(k(1)).slots[0];
@@ -33,10 +31,11 @@ fn a_write_whose_cover_reaches_the_head_attaches() {
 #[test]
 fn a_write_over_an_unknown_premise_installs_nowhere() {
     let mut s = State::new();
+    let root = s.new_root();
     let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     let outcome = s.write_checked(&c);
     assert!(!outcome.installed_anywhere());
-    assert!(s.is_unknown_at(k(1), s.root_v(1)));
+    assert!(s.is_unknown_at(k(1), v(root, 1)));
     assert!(!s.is_referenced(k(1), r(1)));
 }
 
@@ -45,7 +44,7 @@ fn a_write_over_an_unknown_premise_installs_nowhere() {
 #[test]
 fn a_write_whose_cover_stops_short_of_the_head_installs_a_closed_window() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     s.assert_at(root, k(0), r(2));
     let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
@@ -64,7 +63,7 @@ fn a_write_whose_cover_stops_short_of_the_head_installs_a_closed_window() {
 #[test]
 fn cover_of_a_returning_injected_premise_picks_the_interval_at_the_head() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     s.assert_at(root, k(0), r(2));
     s.assert_at(root, k(0), r(1));
@@ -83,7 +82,7 @@ fn cover_of_a_returning_injected_premise_picks_the_interval_at_the_head() {
 #[test]
 fn cover_of_a_returning_injected_premise_never_spans_the_gap() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
     s.write_checked(&c);
@@ -98,7 +97,7 @@ fn cover_of_a_returning_injected_premise_never_spans_the_gap() {
 #[test]
 fn an_install_replaces_a_claim_only_if_it_reaches_further() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     s.assert_at(root, k(0), r(2));
     s.assert_at(root, k(0), r(3));
@@ -121,8 +120,7 @@ fn an_install_replaces_a_claim_only_if_it_reaches_further() {
 /// A write of a different certificate for a key that is attached leaves it alone.
 #[test]
 fn an_attached_key_is_not_replaced_by_a_write() {
-    let (mut s, _) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, _) = leaf_and_dependent();
     let other = cert(k(1), r(2), &[(k(0), r(1))], EpsilonToken::INITIAL);
     assert!(!s.write_checked(&other).installed_anywhere());
     assert_eq!(s.valid_at(k(1), v(root, 2)), Some(r(1)));
@@ -132,8 +130,7 @@ fn an_attached_key_is_not_replaced_by_a_write() {
 /// re-attaches without a recompute (§9.4 of the design notes, ABA).
 #[test]
 fn a_revalidated_certificate_reattaches() {
-    let (mut s, c) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, c) = leaf_and_dependent();
     s.assert_at(root, k(0), r(2));
     let v4 = s.assert_at(root, k(0), r(1));
     assert_eq!(s.candidate_at(k(1), v4), Some(c.revision));
@@ -147,7 +144,7 @@ fn a_revalidated_certificate_reattaches() {
 #[test]
 fn a_write_racing_a_commit_is_retained_for_the_versions_it_covers() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     // A transaction at version 2 computes k(1); before it writes, the leaf changes.
     let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
@@ -162,7 +159,7 @@ fn a_write_racing_a_commit_is_retained_for_the_versions_it_covers() {
 #[test]
 fn a_write_covering_a_child_attaches_it_by_inheritance() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(0), r(1));
     let child = s.fork_checked(v(root, 2));
     let c = cert(k(1), r(1), &[(k(0), r(1))], EpsilonToken::INITIAL);
@@ -185,7 +182,7 @@ fn a_write_covering_a_child_attaches_it_by_inheritance() {
 #[test]
 fn a_certificate_without_premises_covers_the_whole_branch() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     s.assert_at(root, k(9), r(1));
     s.assert_at(root, k(9), r(2));
     let c = cert(k(1), r(1), &[], EpsilonToken::INITIAL);
@@ -200,7 +197,7 @@ fn a_certificate_without_premises_covers_the_whole_branch() {
 #[test]
 fn a_write_over_a_closed_premise_does_not_reattach_the_chain() {
     let mut s = State::new();
-    let root = BranchId::FIRST;
+    let root = s.new_root();
     let c = cert(k(3), r(1), &[], EpsilonToken::INITIAL);
     let b = cert(k(2), r(1), &[(k(3), r(1))], EpsilonToken::INITIAL);
     let a = cert(k(1), r(1), &[(k(2), r(1))], EpsilonToken::INITIAL);
@@ -228,8 +225,7 @@ fn a_write_over_a_closed_premise_does_not_reattach_the_chain() {
 /// installed. This is the precision given up for one claim per slot.
 #[test]
 fn a_write_at_the_head_displaces_a_closed_claim_over_an_older_version() {
-    let (mut s, c1) = leaf_and_dependent();
-    let root = BranchId::FIRST;
+    let (mut s, root, c1) = leaf_and_dependent();
     s.assert_at(root, k(0), r(2)); // 3
     let c2 = cert(k(1), r(2), &[(k(0), r(2))], EpsilonToken::INITIAL);
     assert_eq!(s.write_checked(&c2).installed, vec![root]);

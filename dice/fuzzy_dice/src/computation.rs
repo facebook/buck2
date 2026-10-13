@@ -284,8 +284,9 @@ mod tests {
     pub async fn test_smoke() -> anyhow::Result<()> {
         let empty_state = Arc::new(FuzzState::new());
         let dice = Dice::builder().build(DetectCycles::Disabled);
+        let root = dice.new_root().await;
         let ctx = {
-            let mut ctx = dice.updater();
+            let mut ctx = dice.updater(root);
             // let x1 = true
             ctx.set_equation(Var(1), Expr::Unit(Unit::Literal(true)))?;
             // let x2 = x1

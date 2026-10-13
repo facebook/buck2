@@ -71,7 +71,8 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     // No storage is configured: this measures the overhead paid by resident cache hits.
     let dice = Dice::builder().build(DetectCycles::Disabled);
-    let tx = dice.updater().commit().await;
+    let root = dice.new_root().await;
+    let tx = dice.updater(root).commit().await;
     for i in 0..args.num_keys {
         tx.compute(&LeafKey(i)).await?;
     }

@@ -261,7 +261,7 @@ async fn make_default_dice_state(
     extra.data.set(RunActionKnobs::default());
     extra.spawner = Arc::new(BuckSpawner::current_runtime().unwrap());
 
-    let mut computations = dice_builder.build(extra).unwrap();
+    let mut computations = dice_builder.build(extra).await.unwrap();
     inject_legacy_config_for_test(
         &mut computations,
         CellName::testing_new("root"),
@@ -297,6 +297,7 @@ async fn test_get_action_for_artifact() -> buck2_error::Result<()> {
     );
     let dice_computations = dice_builder
         .build(UserComputationData::new())
+        .await
         .unwrap()
         .commit()
         .await;
@@ -482,6 +483,7 @@ async fn test_ensure_artifact_source_artifact() -> buck2_error::Result<()> {
     let dice_computations = file_ops
         .mock_in_cell(CellName::testing_new("cell"), dice_builder)
         .build(UserComputationData::new())
+        .await
         .unwrap()
         .commit()
         .await;
@@ -533,6 +535,7 @@ async fn test_ensure_artifact_external_symlink() -> buck2_error::Result<()> {
     let dice_computations = file_ops
         .mock_in_cell(CellName::testing_new("cell"), dice_builder)
         .build(UserComputationData::new())
+        .await
         .unwrap()
         .commit()
         .await;

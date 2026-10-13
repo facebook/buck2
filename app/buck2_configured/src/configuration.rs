@@ -489,6 +489,7 @@ mod tests {
 
         let mut dice = DiceBuilder::new()
             .build(UserComputationData::new())
+            .await
             .expect("should build test DICE");
         dice.set_cell_resolver(cell_resolver)?;
         inject_legacy_configs_for_test(

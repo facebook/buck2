@@ -43,6 +43,9 @@ pub type PageOutCancel = fn() -> bool;
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
+///
+/// A `Dice` begins with no branch: [`Dice::new_root`] makes one, and every updater and
+/// transaction runs on a branch its caller was handed.
 #[derive(Allocative)]
 pub struct Dice {
     pub(crate) key_index: DiceKeyIndex,
@@ -132,11 +135,10 @@ impl Dice {
         self.state_handle.fork(from)
     }
 
-    /// Starts a branch with no parent: a root like [`BranchId::FIRST`], the one every `Dice`
-    /// begins with. It starts out with no injected values, and it shares with the other branches
-    /// exactly what a certificate written elsewhere lets it: a value whose premises hold at it,
-    /// once the same inputs have been injected. Dropping the future before it yields the branch
-    /// does not leak one.
+    /// Starts a branch with no parent. It starts out with no injected values, and it shares with
+    /// the other branches exactly what a certificate written elsewhere lets it: a value whose
+    /// premises hold at it, once the same inputs have been injected. Dropping the future before
+    /// it yields the branch does not leak one.
     pub fn new_root(&self) -> impl Future<Output = BranchId> + use<> {
         self.state_handle.new_root()
     }
@@ -159,30 +161,22 @@ impl Dice {
         self.state_handle.delete_branch(branch)
     }
 
-    /// An updater for [`BranchId::FIRST`].
-    pub fn updater(self: &StdArc<Self>) -> DiceTransactionUpdater {
-        self.updater_with_data(UserComputationData::new())
+    /// An updater for `branch`: its commits extend that branch, and its transactions run at that
+    /// branch's versions.
+    pub fn updater(self: &StdArc<Self>, branch: BranchId) -> DiceTransactionUpdater {
+        self.updater_with_data(branch, UserComputationData::new())
     }
 
-    /// An updater for [`BranchId::FIRST`] whose transactions carry `extra`.
+    /// An updater for `branch` whose transactions carry `extra`.
     pub fn updater_with_data(
         self: &StdArc<Self>,
+        branch: BranchId,
         extra: UserComputationData,
     ) -> DiceTransactionUpdater {
         DiceTransactionUpdater(TransactionUpdater::new(
             self.dupe(),
-            BranchId::FIRST,
-            Arc::new(extra),
-        ))
-    }
-
-    /// An updater for `branch`: its commits extend that branch, and its transactions run at that
-    /// branch's versions.
-    pub fn updater_on(self: &StdArc<Self>, branch: BranchId) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(TransactionUpdater::new(
-            self.dupe(),
             branch,
-            Arc::new(UserComputationData::new()),
+            Arc::new(extra),
         ))
     }
 
