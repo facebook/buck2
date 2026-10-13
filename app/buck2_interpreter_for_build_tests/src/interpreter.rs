@@ -581,16 +581,14 @@ fn test_oncall() -> buck2_error::Result<()> {
     Ok(())
 }
 
-/// `rule_exists()` only asks whether a target has been declared, but it moves the file from
-/// "before targets" to "recording targets", so an `oncall()` after it fails as if a target had
-/// been declared.
+/// `rule_exists()` only asks whether a target has been declared and leaves the file in the
+/// "before targets" state, so an `oncall()` after it is accepted.
 #[test]
-fn test_oncall_after_rule_exists_without_targets() {
+fn test_oncall_after_rule_exists_without_targets() -> buck2_error::Result<()> {
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_rule_defs);
-    tester.run_starlark_test_expecting_error(
-        indoc!(
-            r#"
+    tester.run_starlark_test(indoc!(
+        r#"
             def _impl(ctx):
                 pass
             export_file = rule(impl=_impl, attrs = {})
@@ -600,14 +598,16 @@ fn test_oncall_after_rule_exists_without_targets() {
                     fail("no target declared yet")
                 oncall("valid")
                 export_file(name = "rule_name")
+                if read_oncall() != "valid":
+                    fail("oncall should be valid")
+                if not rule_exists("rule_name"):
+                    fail("target declared")
             "#
-        ),
-        "after one or more targets",
-    );
+    ))?;
+    Ok(())
 }
 
-/// With a string that is not a valid target name `rule_exists()` returns early, so `oncall()`
-/// is accepted: whether `oncall()` works depends on how the name is spelled.
+/// The same with a string that is not a valid target name.
 #[test]
 fn test_oncall_after_rule_exists_with_invalid_name() -> buck2_error::Result<()> {
     let mut tester = Tester::new().unwrap();

@@ -221,9 +221,14 @@ impl ModuleInternals {
 
     pub(crate) fn target_exists(&self, name: &str) -> bool {
         // A string that is not a valid target name cannot be a recorded target.
-        match TargetNameRef::new(name) {
-            Ok(name) => self.recording_targets().recorder.targets.contains_key(name),
-            Err(_) => false,
+        let Ok(name) = TargetNameRef::new(name) else {
+            return false;
+        };
+        // Only read the state: moving to `RecordingTargets` here would make a later `oncall()`
+        // fail although no target has been declared.
+        match &*self.state.borrow() {
+            State::BeforeTargets(_) => false,
+            State::RecordingTargets(r) => r.recorder.targets.contains_key(name),
         }
     }
 
