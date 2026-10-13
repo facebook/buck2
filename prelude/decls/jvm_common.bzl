@@ -207,16 +207,6 @@ def _incremental():
         ),
     }
 
-def _enable_used_classes():
-    return {
-        "enable_used_classes": attrs.bool(
-            default = True,
-            doc = """
-    Deprecated: for an experiment only, will be removed
-    """,
-        ),
-    }
-
 def _plugins():
     return {
         "non_exec_dep_plugins_deprecated": attrs.list(
@@ -384,7 +374,6 @@ jvm_common = struct(
     kotlin_compiler_plugins = _kotlin_compiler_plugins,
     annotation_processors = _annotation_processors,
     javac = _javac,
-    enable_used_classes = _enable_used_classes,
     multi_release_jar = _multi_release_jar,
     classic_java_content_based_paths = _classic_java_content_based_paths,
     content_based_path_attr = _content_based_path_attr,

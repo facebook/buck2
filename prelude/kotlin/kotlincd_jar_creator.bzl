@@ -80,7 +80,6 @@ def create_jar_artifact_kotlincd(
     kotlin_compiler_plugins: list[(Dependency, dict[str, [str, cmd_args]])],
     extra_kotlinc_arguments: list,
     incremental: bool,
-    enable_used_classes: bool,
     language_version: str,
     is_creating_subtarget: bool = False,
     optional_dirs: list[OutputArtifact] = [],
@@ -153,7 +152,7 @@ def create_jar_artifact_kotlincd(
         so_abi_deps = get_source_only_abi_compiling_deps(actions, compiling_deps_tset, source_only_abi_deps)
         source_only_abi_applicability_classpath = cmd_args(so_abi_deps.project_as_args("source_only_abi_jars"))
 
-    track_class_usage = enable_used_classes and enable_depfiles and kotlin_toolchain.track_class_usage_plugin != None
+    track_class_usage = enable_depfiles and kotlin_toolchain.track_class_usage_plugin != None
 
     if track_files_which_skipped_compilation:
         files_which_skipped_compilation = declare_prefixed_output(actions, actions_identifier, "files_which_skipped_compilation", has_content_based_path = True)

@@ -130,7 +130,6 @@ kotlin_library = prelude_rule(
         | jvm_common.incremental()
         | jvm_common.plugins()
         | jvm_common.javac()
-        | jvm_common.enable_used_classes()
         | jvm_common.classic_java_content_based_paths()
         | buck.labels_arg()
         | jvm_common.abi_generation_mode()
@@ -236,7 +235,6 @@ kotlin_test = prelude_rule(
             ),
         }
         | jvm_common.annotation_processors()
-        | jvm_common.enable_used_classes()
         | jvm_common.incremental()
         | jvm_common.classic_java_content_based_paths()
         | jvm_common.javac()

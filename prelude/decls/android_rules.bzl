@@ -1069,7 +1069,6 @@ android_library = prelude_rule(
         | jvm_common.k2()
         | jvm_common.kotlin_compiler_plugins()
         | jvm_common.incremental()
-        | jvm_common.enable_used_classes()
         | jvm_common.classic_java_content_based_paths()
         | android_common.patches_system_module_arg()
         | {
@@ -1815,7 +1814,6 @@ robolectric_test = prelude_rule(
         | jvm_common.incremental()
         | jvm_common.plugins()
         | jvm_common.kotlin_compiler_plugins()
-        | jvm_common.enable_used_classes()
         | jvm_common.classic_java_content_based_paths()
         | re_test_common.test_args()
         | test_common.attributes()

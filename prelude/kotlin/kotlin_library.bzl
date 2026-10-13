@@ -543,7 +543,6 @@ def build_kotlin_library(
                 "debug_port": getattr(ctx.attrs, "debug_port", None),
                 "deps": deps + [kotlin_toolchain.kotlin_stdlib],
                 "enable_depfiles": getattr(ctx.attrs, "enable_depfiles", True),
-                "enable_used_classes": ctx.attrs.enable_used_classes,
                 "extra_kotlinc_arguments": filter_out_language_version(ctx.attrs.extra_kotlinc_arguments or []),
                 "friend_paths": get_friend_paths(ctx),
                 "is_building_android_binary": ctx.attrs._is_building_android_binary,
