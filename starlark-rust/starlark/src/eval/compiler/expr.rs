@@ -948,11 +948,21 @@ impl<'f> ExprCompiled<'f> {
         step: Option<IrSpanned<'f, ExprCompiled<'f>>>,
         ctx: &mut OptCtx<'_, '_, '_, '_, 'f>,
     ) -> ExprCompiled<'f> {
+        // An omitted part is `Some(None)`; a part that is present but not constant is `None`,
+        // which disables folding.
+        fn const_part<'f>(
+            e: &Option<IrSpanned<'f, ExprCompiled<'f>>>,
+        ) -> Option<Option<Value<'f>>> {
+            match e {
+                None => Some(None),
+                Some(e) => e.as_value().map(Some),
+            }
+        }
         if let (Some(array), Some(start), Some(stop), Some(step)) = (
             array.as_builtin_value(),
-            start.as_ref().map(|e| e.as_value()),
-            stop.as_ref().map(|e| e.as_value()),
-            step.as_ref().map(|e| e.as_value()),
+            const_part(&start),
+            const_part(&stop),
+            const_part(&step),
         ) {
             let edge = ctx.edge();
             if let Ok(v) = edge.rebrand(array).slice(
