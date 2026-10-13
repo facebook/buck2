@@ -2139,6 +2139,7 @@ dependencies = [
  "buck2_core",
  "buck2_data",
  "buck2_error",
+ "buck2_event_log_format",
  "buck2_event_observer",
  "buck2_events",
  "buck2_fs",
@@ -2162,6 +2163,20 @@ dependencies = [
  "tokio-stream",
  "tokio-util 0.7.19",
  "tracing",
+]
+
+[[package]]
+name = "buck2_event_log_format"
+version = "0.1.0"
+dependencies = [
+ "allocative",
+ "buck2_cli_proto",
+ "buck2_data",
+ "buck2_error",
+ "bytes",
+ "prost",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -20,7 +20,6 @@ use std::time::SystemTime;
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::bufread::ZstdDecoder;
 use buck2_cli_proto::protobuf_util::ProtobufSplitter;
-use buck2_cli_proto::*;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
@@ -264,7 +263,7 @@ impl EventLogPathBuf {
 
             let events = LinesStream::new(log_lines).map(|line| {
                 let line = line.buck_error_context("Error reading next line")?;
-                serde_json::from_str::<StreamValue>(&line)
+                buck2_event_log_format::decode::json_line(&line)
                     .with_buck_error_context(|| format!("Invalid line: {}", line.trim_end()))
             });
 
@@ -303,21 +302,7 @@ impl EventLogPathBuf {
             let invocation = Invocation::from_proto(invocation);
 
             let events = stream.and_then(|data| async move {
-                let val = buck2_cli_proto::CommandProgress::decode_length_delimited(data)
-                    .buck_error_context("Invalid CommandProgress")?;
-                match val.progress {
-                    Some(command_progress::Progress::Event(event)) => Ok(StreamValue::Event(event)),
-                    Some(command_progress::Progress::Result(result)) => {
-                        Ok(StreamValue::Result(result))
-                    }
-                    Some(command_progress::Progress::PartialResult(result)) => {
-                        Ok(StreamValue::PartialResult(result))
-                    }
-                    None => Err(buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::InvalidEvent,
-                        "Event type not recognized"
-                    )),
-                }
+                buck2_event_log_format::decode::protobuf_frame(data)
             });
 
             // Wrap in tolerant_of_truncation to handle in-progress logs
