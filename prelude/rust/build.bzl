@@ -593,6 +593,10 @@ def miri_command(
         # `--rustc-action-separator`, so literal `$(...)` survives.
         toolchain_info.miri_driver,
         toolchain_info.miri_flags,
+        # Miri flags, most-specific-last so the invocation wins on conflicts:
+        # toolchain defaults, target `miri_flags`, `-c rust.extra_miri_flags`.
+        ctx.attrs.miri_flags,
+        toolchain_info.extra_miri_flags,
         # The driver's environment is compile time (`env!`); the interpreted
         # program's comes through Miri.
         [cmd_args("-Zmiri-env-set=", k, "=", v, delimiter = "") for (k, v) in runtime_env.items()],

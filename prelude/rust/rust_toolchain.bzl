@@ -85,6 +85,9 @@ rust_toolchain_attrs = {
     # driver applies itself (`--cfg=miri`, `-Zalways-encode-mir`, ...). Never
     # seen by native compiles; `miri_flags` is for interpreter execution.
     "miri_rustc_flags": provider_field(list[typing.Any], default = []),
+    # Miri flags from configuration, applied to override the toolchain's
+    # and target's flags
+    "extra_miri_flags": provider_field(list[typing.Any], default = []),
     # The default edition to use, if not specified.
     "default_edition": provider_field(str | None, default = None),
     # Lints

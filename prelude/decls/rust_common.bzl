@@ -65,6 +65,19 @@ def _rustc_flags_arg():
         ),
     }
 
+def _miri_flags_arg():
+    return {
+        "miri_flags": attrs.list(
+            attrs.arg(),
+            default = [],
+            doc = """
+    The set of additional flags to pass to the Miri interpreter when
+    running this target via the `[miri]` sub-target. Accepts the same
+    `-Zmiri-*` options as `cargo miri` (e.g. `-Zmiri-tree-borrows`).
+""",
+        ),
+    }
+
 def _linker_flags_arg():
     return {
         "linker_flags": attrs.list(
@@ -217,6 +230,7 @@ rust_common = struct(
     features_arg = _features_arg,
     edition_arg = _edition_arg,
     rustc_flags_arg = _rustc_flags_arg,
+    miri_flags_arg = _miri_flags_arg,
     linker_flags_arg = _linker_flags_arg,
     exported_linker_flags_arg = _exported_linker_flags_arg,
     crate = _crate,
