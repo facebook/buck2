@@ -281,10 +281,13 @@ impl Scheduler {
         daemon_id: &DaemonId,
         now: Instant,
     ) -> Self {
-        let estimated_memory_cap = effective_resource_constraints
-            .memory_high
-            .or(effective_resource_constraints.memory_max)
-            .unwrap_or(system_memory_max);
+        let estimated_memory_cap = match (
+            effective_resource_constraints.memory_high,
+            effective_resource_constraints.memory_max,
+        ) {
+            (Some(high), Some(max)) => high.min(max),
+            (high, max) => high.or(max).unwrap_or(system_memory_max),
+        };
         let mut base_tags = Vec::new();
         if enable_suspension {
             base_tags.push("suspension:enabled".to_owned());
@@ -825,8 +828,7 @@ mod tests {
         scheduler.scene_finished(scene1, timeline.secs(120));
     }
 
-    /// The initial memory cap takes the ancestor `memory.high` even when `memory.max` is lower,
-    /// although it is documented as the best estimate of the memory that can be used.
+    /// The initial memory cap is the smaller of the ancestor `memory.high` and `memory.max`.
     #[test]
     fn test_initial_cap_with_high_above_max() {
         let now = Instant::now();
@@ -845,7 +847,7 @@ mod tests {
             &DaemonId::new(),
             now,
         );
-        assert_eq!(scheduler.estimated_memory_cap, 32 << 30);
+        assert_eq!(scheduler.estimated_memory_cap, 16 << 30);
     }
 
     #[test]
