@@ -103,7 +103,7 @@ fn escape_id(value: &str) -> String {
     static RE_STRING: LazyLock<Regex> =
         LazyLock::new(|| Regex::new("^[a-zA-Z_][a-zA-Z_0-9]*$").unwrap());
     static RE_NUMBER: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new("^-?(.[0-9]+ | [0-9]+.[0-9]*)$").unwrap());
+        LazyLock::new(|| Regex::new("^-?(\\.[0-9]+|[0-9]+(\\.[0-9]*)?)$").unwrap());
 
     if RE_STRING.is_match(value) || RE_NUMBER.is_match(value) {
         return value.to_owned();
@@ -244,14 +244,15 @@ mod tests {
         );
     }
 
-    /// The number pattern of `escape_id` has an unescaped `.` and literal spaces: it never matches a numeral but
-    /// matches values such as `-O2 `, which are then written unquoted and are not DOT ids.
+    /// The number pattern of `escape_id` matches DOT numerals and nothing else, so other values are quoted.
     #[test]
     fn test_attr_value_against_the_number_pattern() {
         assert_eq!(
             render("-O2 "),
-            "digraph result_graph {\n  \"root//escapes:q\" [buck_description=-O2 ];\n}\n"
+            "digraph result_graph {\n  \"root//escapes:q\" [buck_description=\"-O2 \"];\n}\n"
         );
-        assert_eq!(escape_id("1.5"), "\"1.5\"");
+        assert_eq!(escape_id("1.5"), "1.5");
+        assert_eq!(escape_id("-7"), "-7");
+        assert_eq!(escape_id(".5"), ".5");
     }
 }
