@@ -838,7 +838,5 @@ async def test_multi_query_mixed_files_and_targets(buck: Buck) -> None:
 async def test_nattrfilter_special_attribute(buck: Buck) -> None:
     out = await buck.uquery("attrfilter(buck.type, other_rule, root//bin:the_binary)")
     assert out.stdout == ""
-    # `nattrfilter` only looks at user attributes, so a `buck.*` attribute never matches and
-    # the target is in neither result.
     out = await buck.uquery("nattrfilter(buck.type, other_rule, root//bin:the_binary)")
-    assert out.stdout == ""
+    assert out.stdout == "root//bin:the_binary\n"

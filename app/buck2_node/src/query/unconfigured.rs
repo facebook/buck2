@@ -200,11 +200,9 @@ mod tests {
         set.iter().map(|t| t.label().to_string()).collect()
     }
 
-    /// `attrfilter` looks attributes up with `map_any_attr`, which includes the `buck.*` special
-    /// attributes; `nattrfilter`, "the opposite of attrfilter", uses `map_attr` and treats a
-    /// special attribute as missing, so neither function returns the target.
+    /// `nattrfilter` is the opposite of `attrfilter`, also for the `buck.*` special attributes.
     #[test]
-    fn nattrfilter_ignores_special_attributes() {
+    fn nattrfilter_supports_special_attributes() {
         let set = TargetSet::from_iter([node("root//bin:the_binary", "my_rule", "root//lib:lib1")]);
         let is_other_rule = |s: &str| Ok(s == "other_rule");
         assert!(
@@ -214,7 +212,17 @@ mod tests {
         );
         assert_eq!(
             labels(&set.nattrfilter("buck.type", &is_other_rule).unwrap()),
-            Vec::<String>::new()
+            vec!["root//bin:the_binary".to_owned()]
+        );
+        let is_my_rule = |s: &str| Ok(s == "my_rule");
+        assert_eq!(
+            labels(&set.attrfilter("buck.type", &is_my_rule).unwrap()),
+            vec!["root//bin:the_binary".to_owned()]
+        );
+        assert!(
+            set.nattrfilter("buck.type", &is_my_rule)
+                .unwrap()
+                .is_empty()
         );
         // User attributes work as documented.
         let is_lib1 = |s: &str| Ok(s == "root//lib:lib1");
