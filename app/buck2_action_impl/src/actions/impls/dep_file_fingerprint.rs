@@ -12,6 +12,7 @@ use std::borrow::Cow;
 use std::io::Write;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_dyn::ArtifactDyn;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::impls::json;
 use buck2_build_api::actions::impls::json::JsonUnpack;
@@ -22,7 +23,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisito
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use derive_more::Display;
 use dupe::Dupe;

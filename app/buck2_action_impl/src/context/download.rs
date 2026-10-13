@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use buck2_artifact::artifact::output_type::OutputType;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
@@ -17,7 +18,6 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_common::cas_digest::CasDigest;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_error::BuckErrorContext;
-use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
 use buck2_hash::buck_indexset;
 use starlark::environment::MethodsBuilder;

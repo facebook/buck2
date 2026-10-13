@@ -12,11 +12,11 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_dyn::ArtifactDyn;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
-use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;

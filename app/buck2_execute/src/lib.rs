@@ -25,5 +25,4 @@ pub mod execute;
 pub mod knobs;
 pub mod materialize;
 pub mod output_size;
-pub mod path;
 pub mod re;

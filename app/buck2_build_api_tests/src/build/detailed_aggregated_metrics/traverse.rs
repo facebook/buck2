@@ -200,7 +200,7 @@ mod tests {
                     BuckOutPathKind::default(),
                 ),
                 key.dupe(),
-                buck2_execute::execute::request::OutputType::File,
+                buck2_artifact::artifact::output_type::OutputType::File,
             )
             .unwrap()
         }

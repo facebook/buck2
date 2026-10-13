@@ -13,6 +13,7 @@ anyhow.workspace = true
 async-recursion.workspace = true
 async-trait.workspace = true
 buck2_action_metadata_proto.workspace = true
+buck2_artifact.workspace = true
 buck2_build_info.workspace = true
 buck2_build_signals.workspace = true
 buck2_cli_proto.workspace = true

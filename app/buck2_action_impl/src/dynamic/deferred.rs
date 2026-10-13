@@ -11,6 +11,7 @@
 use std::iter;
 use std::sync::Arc;
 
+use buck2_artifact::artifact::artifact_dyn::ArtifactDyn;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::AnalysisKeyActivationData;
@@ -47,7 +48,6 @@ use buck2_events::dispatch::record_root_spans;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async_simple;
 use buck2_events::span::SpanId;
-use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;

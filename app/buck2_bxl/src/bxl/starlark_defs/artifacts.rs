@@ -17,13 +17,13 @@ use std::hash::Hasher;
 use std::iter;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_path::ArtifactPath;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
-use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_hash::BuckIndexSet;
 use derive_more::Display;
 use dice::DiceComputations;

@@ -25,10 +25,6 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
-use buck2_execute::execute::request::OutputType;
-use buck2_execute::path::artifact_path::ArtifactPath;
-use buck2_execute::path::artifact_path::BuildArtifactPathRef;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::arc_str::ThinArcS;
 use buck2_util::size_assert;
@@ -47,7 +43,11 @@ use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark_map::Hashed;
 
 use crate::actions::key::ActionKey;
+use crate::artifact::artifact_dyn::ArtifactDyn;
+use crate::artifact::artifact_path::ArtifactPath;
+use crate::artifact::artifact_path::BuildArtifactPathRef;
 use crate::artifact::build_artifact::BuildArtifact;
+use crate::artifact::output_type::OutputType;
 use crate::artifact::source_artifact::SourceArtifact;
 
 /// An 'Artifact' that can be materialized at its path. The underlying data is not very large here,
@@ -627,7 +627,6 @@ pub mod testing {
     use buck2_core::fs::buck_out_path::BuckOutPathKind;
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-    use buck2_execute::execute::request::OutputType;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     use dupe::Dupe;
 
@@ -636,6 +635,7 @@ pub mod testing {
     use crate::artifact::artifact_type::DeclaredArtifact;
     use crate::artifact::artifact_type::DeclaredArtifactKind;
     use crate::artifact::build_artifact::BuildArtifact;
+    use crate::artifact::output_type::OutputType;
 
     pub trait ArtifactTestingExt {
         fn testing_is_bound(&self) -> bool;
@@ -716,7 +716,6 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::package::source_path::SourcePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-    use buck2_execute::execute::request::OutputType;
     use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -732,6 +731,7 @@ mod tests {
     use crate::artifact::artifact_type::DeclaredArtifactKind;
     use crate::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use crate::artifact::build_artifact::BuildArtifact;
+    use crate::artifact::output_type::OutputType;
     use crate::artifact::source_artifact::SourceArtifact;
 
     #[test]

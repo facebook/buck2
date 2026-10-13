@@ -12,9 +12,9 @@ use std::io::Write;
 use std::io::sink;
 use std::sync::Arc;
 
+use buck2_artifact::artifact::artifact_dyn::ArtifactDyn;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_error::BuckErrorContext;
-use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::types::cell_path::StarlarkCellPath;

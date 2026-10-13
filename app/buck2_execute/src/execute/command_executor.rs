@@ -12,6 +12,7 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
+use buck2_artifact::artifact::output_type::OutputType;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::ExecutorNetworkAccess;
@@ -50,7 +51,6 @@ use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::prepared::PreparedCommandOptionalExecutor;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::request::ExecutorPreference;
-use crate::execute::request::OutputType;
 use crate::execute::request::RemoteWorkerSpec;
 use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionResult;

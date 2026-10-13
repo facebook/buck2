@@ -8,8 +8,8 @@
  * above-listed licenses.
  */
 
+use buck2_artifact::artifact::output_type::OutputType;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_execute::execute::request::OutputType;
 
 use crate::actions::execute::action_executor::ActionOutputs;
 

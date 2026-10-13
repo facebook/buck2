@@ -8,13 +8,13 @@
  * above-listed licenses.
  */
 
+use buck2_artifact::artifact::output_type::OutputType;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_error::internal_error;
-use buck2_execute::execute::request::OutputType;
 use buck2_hash::buck_indexset;
 use dupe::OptionDupedExt;
 use starlark::environment::MethodsBuilder;

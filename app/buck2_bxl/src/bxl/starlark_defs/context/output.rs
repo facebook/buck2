@@ -18,6 +18,7 @@ use std::sync::Mutex;
 use std::sync::MutexGuard;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_path::ArtifactPath;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
@@ -31,7 +32,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::starlark_error::from_starlark_with_options;
-use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_hash::BuckIndexSet;
 use buck2_server_ctx::bxl::BxlStreamingTracker;
 use buck2_server_ctx::bxl::GetBxlStreamingTracker;

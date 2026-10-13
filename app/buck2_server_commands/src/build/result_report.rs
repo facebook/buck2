@@ -13,6 +13,7 @@
 use std::cell::Cell;
 use std::collections::BTreeSet;
 
+use buck2_artifact::artifact::artifact_dyn::ArtifactDyn;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::BuildTargetResult;
@@ -29,7 +30,6 @@ use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_hash::BuckMutMap;
 use dupe::Dupe;

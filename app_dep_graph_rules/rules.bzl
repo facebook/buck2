@@ -38,3 +38,8 @@ BANNED_DEP_PATHS = [
     (_app("buck2_server"), _app("buck2_server_commands")),
     (_app("buck2_bxl"), _app("buck2_configured")),
 ]
+
+# Ordered pairs `(a, b)` where `a` may not depend on `b`, while `b` may depend on `a`
+BANNED_DIRECTED_DEP_PATHS = [
+    (_app("buck2_artifact"), _app("buck2_execute")),
+]

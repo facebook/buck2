@@ -11,6 +11,7 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
+use buck2_artifact::artifact::artifact_dyn::ArtifactDyn;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::content_hash::ContentBasedPathHash;
@@ -19,7 +20,6 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
-use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::RelativePath;
 use buck2_interpreter::types::regex::StarlarkBuckRegex;

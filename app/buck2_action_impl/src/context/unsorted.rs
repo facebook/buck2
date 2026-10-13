@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_artifact::artifact::output_type::OutputType;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
@@ -16,7 +17,6 @@ use buck2_build_api::interpreter::rule_defs::digest_config::StarlarkDigestConfig
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
-use buck2_execute::execute::request::OutputType;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;

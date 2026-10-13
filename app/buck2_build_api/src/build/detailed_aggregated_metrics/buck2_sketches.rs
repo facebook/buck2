@@ -619,7 +619,7 @@ mod tests {
                 BuckOutPathKind::default(),
             ),
             action_key,
-            buck2_execute::execute::request::OutputType::File,
+            buck2_artifact::artifact::output_type::OutputType::File,
         )
         .unwrap()
     }

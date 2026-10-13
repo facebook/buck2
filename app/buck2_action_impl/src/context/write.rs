@@ -10,6 +10,7 @@
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_artifact::artifact::output_type::OutputType;
 use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
@@ -27,7 +28,6 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_execute::execute::request::OutputType;
 use buck2_hash::BuckMutMap;
 use buck2_hash::buck_indexset;
 use dupe::Dupe;

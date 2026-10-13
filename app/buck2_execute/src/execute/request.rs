@@ -8,11 +8,11 @@
  * above-listed licenses.
  */
 
-use std::fmt::Display;
 use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::output_type::OutputType;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::content_hash::ContentBasedPathHash;
@@ -26,7 +26,6 @@ use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::soft_error;
 pub use buck2_data::NetworkAccess;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_directory::directory::directory::Directory;
@@ -757,73 +756,6 @@ impl CommandExecutionRequest {
 
     pub fn disable_local_network_isolation(&self) -> bool {
         self.disable_local_network_isolation
-    }
-}
-
-/// Is an output a file or a directory
-#[derive(
-    PartialEq,
-    Eq,
-    Hash,
-    Debug,
-    Copy,
-    Clone,
-    Dupe,
-    Allocative,
-    Ord,
-    PartialOrd,
-    strong_hash::StrongHash,
-    Pagable
-)]
-pub enum OutputType {
-    /// We don't know - used to represent legacy code that doesn't yet declare the output type properly.
-    /// We aim to mostly remove this alternative over time.
-    FileOrDirectory,
-    File,
-    Directory,
-}
-
-#[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Input)]
-enum OutputTypeError {
-    #[error("Expected {1:?}, but `{0}` is already declared as {2:?}")]
-    CheckPath(String, OutputType, OutputType),
-}
-
-impl OutputType {
-    /// We are hoping for something of output type self, and got a path of an existing declared type.
-    /// Raise an error if they are incompatible.
-    pub fn check_path(
-        self,
-        path_for_error_message: impl Display,
-        output_type: OutputType,
-    ) -> buck2_error::Result<()> {
-        if self == OutputType::Directory && output_type == OutputType::FileOrDirectory {
-            // If we treat paths whose declared type is FileOrDirectory like files, then that's incompatible with directory
-            soft_error!(
-                "declare_wrong_type",
-                OutputTypeError::CheckPath(
-                    path_for_error_message.to_string(),
-                    self,
-                    OutputType::File
-                )
-                .into(),
-                deprecation: true,
-                quiet: true,
-                error_on_oss: true
-            )?;
-            Ok(())
-        } else if self == output_type
-            || self == OutputType::FileOrDirectory
-            || output_type == OutputType::FileOrDirectory
-        {
-            Ok(())
-        } else {
-            Err(
-                OutputTypeError::CheckPath(path_for_error_message.to_string(), self, output_type)
-                    .into(),
-            )
-        }
     }
 }
 
