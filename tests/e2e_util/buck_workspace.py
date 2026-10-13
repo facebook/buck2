@@ -10,6 +10,7 @@
 # pyre-strict
 
 import contextlib
+import functools
 import hashlib
 import inspect
 import json
@@ -19,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from collections import namedtuple
 from pathlib import Path
 from typing import (
@@ -38,6 +40,9 @@ import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.executable import WindowsCmdOption
 from decorator import decorator
+
+if sys.platform != "win32":
+    import fcntl
 
 BuckTestMarker = namedtuple(
     "BuckTestMarker",
@@ -155,6 +160,9 @@ async def buck_fixture(  # noqa C901 : "too complex"
         # Redirect stdout to stderr during the test so that `print` statements
         # show up in the test failure output by default for debugging.
         sys.stdout = sys.stderr
+
+        if sys.platform == "darwin":
+            _ensure_fseventsd_running(common_dir)
 
         if marker.setup_eden:
             assert not marker.inplace, (
@@ -500,6 +508,66 @@ def _check_core_test_cells(project_dir: Path) -> None:
                         "test buck2 itself, not the prelude. Tests that need prelude code belong "
                         "in `tests/e2e`; see `tests/README.md`."
                     )
+
+
+_FSEVENTSD_KICKSTART = "/usr/local/bin/kickstart-fseventsd"
+_fseventsd_ready = False
+
+
+def _ensure_fseventsd_running(lock_dir: Path) -> None:
+    """
+    Sandcastle Mac VMs boot with fseventsd disabled and ship a sudo-whitelisted
+    script that starts it.
+    """
+    global _fseventsd_ready
+    if _fseventsd_ready:
+        return
+    try:
+        _start_fseventsd(lock_dir)
+    except (OSError, subprocess.SubprocessError) as e:
+        # Reported here and retried by the next test in this process.
+        print(f"could not start fseventsd: {e}", file=sys.stderr)
+        return
+    _fseventsd_ready = True
+
+
+def _start_fseventsd(lock_dir: Path) -> None:
+    run = functools.partial(
+        subprocess.run, timeout=30, stdout=sys.stdout, stderr=sys.stderr
+    )
+
+    def running(process: str) -> bool:
+        return run(["/usr/bin/pgrep", "-qx", process]).returncode == 0
+
+    def wait_until(cond: Callable[[], bool], failure: str) -> None:
+        for _ in range(300):
+            if cond():
+                return
+            time.sleep(0.1)
+        raise TimeoutError(failure)
+
+    # Test processes run in parallel. The lock serializes the watchman restart
+    # below, which is per user like the daemon; the kick itself is idempotent.
+    with open(lock_dir / "fseventsd.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if running("fseventsd"):
+            return
+        if not os.access(_FSEVENTSD_KICKSTART, os.X_OK):
+            raise FileNotFoundError(
+                f"fseventsd is not running and {_FSEVENTSD_KICKSTART} is missing"
+            )
+        run(["/usr/bin/sudo", "-n", _FSEVENTSD_KICKSTART], check=True)
+        wait_until(lambda: running("fseventsd"), "fseventsd did not start")
+        # A daemon that failed to watch while fseventsd was down may keep
+        # failing, and a client that spawns a daemon while the old one is still
+        # shutting down times out on its pid lock, so replace the daemon here.
+        watchman = shutil.which("watchman") or "/usr/local/bin/watchman"
+        if run([watchman, "--no-spawn", "shutdown-server"]).returncode != 0:
+            run(["/usr/bin/pkill", "-x", "watchman"])
+        wait_until(
+            lambda: not running("watchman"), "the old watchman daemon did not exit"
+        )
+        run([watchman, "version"], check=True)
 
 
 def _maybe_setup_prelude_and_ovr_config(path: Path) -> None:
