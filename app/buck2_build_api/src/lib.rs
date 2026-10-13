@@ -63,4 +63,5 @@ pub mod __derive_refs {
     pub use display_container;
     pub use inventory;
     pub use serde;
+    pub use starlark_map;
 }

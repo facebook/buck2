@@ -14,18 +14,19 @@ use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
 use syn::Fields;
+use syn::ext::IdentExt;
 
 pub(crate) struct InternalProviderArgs {
     creator_func: syn::Ident,
+    /// A `#[starlark_module]` of methods for the provider, replacing the generated attribute
+    /// lookup; it must then define the attributes itself.
     methods_func: Option<syn::Ident>,
 }
 
 impl syn::parse::Parse for InternalProviderArgs {
     fn parse(input: syn::parse::ParseStream) -> syn::parse::Result<Self> {
         let creator_func = syn::Ident::parse(input)?;
-
         let mut methods_func = None;
-
         while input.peek(syn::Token![,]) {
             input.parse::<syn::Token![,]>()?;
             if !input.peek(syn::Ident) {
@@ -39,7 +40,6 @@ impl syn::parse::Parse for InternalProviderArgs {
                 return Err(syn::Error::new_spanned(key, "expected `methods`"));
             }
         }
-
         Ok(InternalProviderArgs {
             creator_func,
             methods_func,
@@ -72,14 +72,17 @@ struct Field {
     name: syn::Ident,
     /// The docstring for the field, if present
     docstring: syn::Expr,
-    /// The wrapper type, with any `Option` stripped.
-    value_ty: syn::Type,
     /// The type argument of the wrapper, which carries the starlark type.
     field_type: syn::Type,
     kind: FieldKind,
 }
 
 impl Field {
+    /// The Starlark attribute name: the field name without a raw-identifier prefix.
+    fn attr_name(&self) -> syn::LitStr {
+        syn::LitStr::new(&self.name.unraw().to_string(), self.name.span())
+    }
+
     /// Expression which produces `Ty` for the field.
     fn field_type_ty(&self) -> syn::Expr {
         let field_type = &self.field_type;
@@ -106,30 +109,6 @@ impl Field {
             },
             FieldKind::OptionTyped => syn::parse_quote_spanned! { name.span() =>
                 #this.#name.map_or_else(starlark::values::Value::new_none, |v| v.to_value())
-            },
-        }
-    }
-
-    /// The type the generated starlark attribute returns.
-    fn attr_ty(&self) -> syn::Type {
-        let value_ty = &self.value_ty;
-        match self.kind {
-            FieldKind::Unchecked | FieldKind::Typed => value_ty.clone(),
-            FieldKind::OptionTyped => syn::parse_quote_spanned! { self.name.span() =>
-                starlark::values::none::NoneOr<#value_ty>
-            },
-        }
-    }
-
-    /// Expression which produces the starlark attribute's value, given `this`.
-    fn attr_value(&self, this: &syn::Expr) -> syn::Expr {
-        let name = &self.name;
-        match self.kind {
-            FieldKind::Unchecked | FieldKind::Typed => syn::parse_quote_spanned! { name.span() =>
-                #this.#name
-            },
-            FieldKind::OptionTyped => syn::parse_quote_spanned! { name.span() =>
-                starlark::values::none::NoneOr::from_option(#this.#name)
             },
         }
     }
@@ -198,18 +177,9 @@ impl ProviderCodegen {
         Ok(self.name()?.to_string())
     }
 
-    fn name_snake_str(&self) -> syn::Result<String> {
-        Ok(self.name_str()?.to_case(Case::Snake))
-    }
-
     fn callable_name(&self) -> syn::Result<syn::Ident> {
         let name = self.name()?;
         Ok(format_ident!("{}Callable", name))
-    }
-
-    fn provider_methods_func_name(&self) -> syn::Result<syn::Ident> {
-        let name_snake_str = self.name_snake_str()?;
-        Ok(format_ident!("{}_methods", name_snake_str))
     }
 
     /// `id` field is object identity, which is ignored for equality or display purposes.
@@ -217,11 +187,12 @@ impl ProviderCodegen {
         field.ident.as_ref().unwrap() == "id" && field.ty.to_token_stream().to_string() == "u64"
     }
 
-    fn field_names(&self) -> syn::Result<Vec<syn::Ident>> {
+    /// The attribute names, as string literals.
+    fn field_names(&self) -> syn::Result<Vec<syn::LitStr>> {
         Ok(self
             .fields()?
-            .into_iter()
-            .map(|f| f.name)
+            .iter()
+            .map(|f| f.attr_name())
             .collect::<Vec<_>>())
     }
 
@@ -282,15 +253,15 @@ impl ProviderCodegen {
 
         let (ident, args) = generic_segment(&field.ty).ok_or_else(err)?;
         // `Option<..>` marks the field optional; everything inside it is parsed as usual.
-        let (optional, value_ty, ident, args) = if ident == "Option" {
+        let (optional, ident, args) = if ident == "Option" {
             let [syn::GenericArgument::Type(value_ty)] = Vec::from_iter(&args.args).as_slice()
             else {
                 return Err(err());
             };
             let (ident, args) = generic_segment(value_ty).ok_or_else(err)?;
-            (true, value_ty, ident, args)
+            (true, ident, args)
         } else {
-            (false, &field.ty, ident, args)
+            (false, ident, args)
         };
 
         let kind = if ident == "ValueTyped" {
@@ -319,7 +290,6 @@ impl ProviderCodegen {
         Ok(Field {
             name,
             docstring,
-            value_ty: value_ty.clone(),
             field_type: field_type.clone(),
             kind,
         })
@@ -340,17 +310,13 @@ impl ProviderCodegen {
         }
     }
 
-    /// Grab the information for all fields on the struct, and create the
-    /// documentation() function for StarlarkValue.
+    /// The `documentation()` of the provider's callable: the constructor plus the fields.
     fn documentation_function(&self) -> syn::Result<syn::ImplItemFn> {
         let provider_docstring = self.get_docstring_impl(&self.input.attrs);
         let create_func = &self.args.creator_func;
-
-        // Generate the documentation function based on whether custom methods are provided
         if self.args.methods_func.is_some() {
-            // When using custom methods, we don't need the field arrays
             let methods_static_name = self.methods_static_name()?;
-            Ok(syn::parse_quote_spanned! {self.span=>
+            return Ok(syn::parse_quote_spanned! {self.span=>
                 fn documentation(&self) -> starlark::docs::DocItem {
                     let docstring = #provider_docstring;
                     buck2_build_api::interpreter::rule_defs::provider::doc::provider_callable_documentation(
@@ -360,60 +326,58 @@ impl ProviderCodegen {
                         &docstring,
                     )
                 }
-            })
-        } else {
-            // When not using custom methods, generate field arrays
-            let field_docs = self.fields()?;
-
-            let mut field_names = vec![];
-            let mut field_docstrings = vec![];
-            let mut field_types = vec![];
-
-            for doc in &field_docs {
-                let name = &doc.name;
-                let name = quote! { stringify!(#name) };
-
-                field_names.push(name);
-                field_docstrings.push(&doc.docstring);
-                field_types.push(doc.field_type_ty());
-            }
-
-            Ok(syn::parse_quote_spanned! {self.span=>
-                fn documentation(&self) -> starlark::docs::DocItem {
-                    let docstring = #provider_docstring;
-                    let field_names: [&str; _] = [
-                        #(#field_names),*
-                    ];
-                    let field_docs: [std::option::Option<starlark::docs::DocString>; _] = [
-                        #(#field_docstrings),*
-                    ];
-                    let field_types: [starlark::typing::Ty; _] = [
-                        #(#field_types),*
-                    ];
-                    buck2_build_api::interpreter::rule_defs::provider::doc::provider_callable_documentation(
-                        Some(#create_func),
-                        buck2_build_api::interpreter::rule_defs::provider::doc::ProviderMembersSource::FromFields {
-                            fields: &field_names,
-                            field_docs: &field_docs,
-                            field_types: &field_types,
-                        },
-                        BUILTIN_PROVIDER_TY.instance(),
-                        &docstring,
-                    )
-                }
-            })
+            });
         }
+        let fields = self.fields()?;
+        let field_names = fields.iter().map(|f| f.attr_name()).collect::<Vec<_>>();
+        let field_docstrings = fields.iter().map(|f| &f.docstring).collect::<Vec<_>>();
+        let field_types = fields.iter().map(|f| f.field_type_ty()).collect::<Vec<_>>();
+        Ok(syn::parse_quote_spanned! {self.span=>
+            fn documentation(&self) -> starlark::docs::DocItem {
+                let docstring = #provider_docstring;
+                let field_names: [&str; _] = [
+                    #(#field_names),*
+                ];
+                let field_docs: [std::option::Option<starlark::docs::DocString>; _] = [
+                    #(#field_docstrings),*
+                ];
+                let field_types: [starlark::typing::Ty; _] = [
+                    #(#field_types),*
+                ];
+                buck2_build_api::interpreter::rule_defs::provider::doc::provider_callable_documentation(
+                    Some(#create_func),
+                    buck2_build_api::interpreter::rule_defs::provider::doc::ProviderMembersSource::FromFields {
+                        fields: &field_names,
+                        field_docs: &field_docs,
+                        field_types: &field_types,
+                    },
+                    BUILTIN_PROVIDER_TY.instance(),
+                    &docstring,
+                )
+            }
+        })
     }
 
     fn builtin_provider_ty(&self) -> syn::Result<syn::Item> {
         let name = self.name()?;
         let callable_name = self.callable_name()?;
+        let fields: syn::Expr = match &self.args.methods_func {
+            // The methods table describes the attributes to the typechecker.
+            Some(_) => syn::parse_quote_spanned! { self.span=>
+                buck2_build_api::interpreter::rule_defs::provider::builtin::ty::no_fields
+            },
+            None => syn::parse_quote_spanned! { self.span=>
+                <#name<'static>>::__builtin_provider_fields
+            },
+        };
         Ok(syn::parse_quote_spanned! { self.span =>
             static BUILTIN_PROVIDER_TY: buck2_build_api::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy<
                     #name<'static>,
                     #callable_name,
             > =
-                buck2_build_api::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy::new();
+                buck2_build_api::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy::new(
+                    #fields,
+                );
         })
     }
 
@@ -441,7 +405,7 @@ impl ProviderCodegen {
                         ")",
                         "=",
                         [
-                            #((stringify!(#field_names), &#field_values)),*
+                            #((#field_names, &#field_values)),*
                         ]
                     )
                 }
@@ -449,73 +413,100 @@ impl ProviderCodegen {
         })
     }
 
-    /// The function that populates the provider's methods table: the custom one if provided,
-    /// otherwise the generated one.
-    fn methods_func_name(&self) -> syn::Result<syn::Ident> {
-        match &self.args.methods_func {
-            Some(custom) => Ok(custom.clone()),
-            None => self.provider_methods_func_name(),
-        }
-    }
-
-    /// The `methods_static!` holding the provider's methods table.
-    fn methods_static_name(&self) -> syn::Result<syn::Ident> {
-        Ok(format_ident!(
-            "{}_PROVIDER_STATICS",
-            self.methods_func_name()?.to_string().to_uppercase()
-        ))
-    }
-
+    /// Attributes are resolved directly from the fields. A methods table would say the same
+    /// thing in a few hundred more lines of generated code per provider.
     fn impl_starlark_value(&self) -> syn::Result<Vec<syn::Item>> {
         let vis = &self.input.vis;
         let name = self.name()?;
         let name_str = self.name_str()?;
-        let provider_methods_func_name = self.methods_func_name()?;
-        let methods_static_name = self.methods_static_name()?;
+        let field_names = self.field_names()?;
         let self_values = self.field_values(syn::parse_quote_spanned! { self.span=> self })?;
         let other_values = self.field_values(syn::parse_quote_spanned! { self.span=> other })?;
         let starlark_value_attr: syn::Attribute = syn::parse_quote_spanned! { self.span=>
             #[starlark::values::starlark_value(type = #name_str)]
         };
-        Ok(vec![
-            syn::parse_quote_spanned! { self.span=>
-                starlark::starlark_complex_value!(#vis #name);
-            },
-            syn::parse_quote_spanned! { self.span=>
-                starlark::methods_static!(#methods_static_name = #provider_methods_func_name);
-            },
-            syn::parse_quote_spanned! { self.span=>
-                #starlark_value_attr
-                impl<'v> starlark::values::StarlarkValue<'v> for #name<'v> {
-                    fn get_methods() -> Option<&'static starlark::environment::Methods> {
-                        Some(#methods_static_name.methods())
-                    }
-
-                    fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
-                        demand.provide_value::<
-                            &dyn buck2_build_api::interpreter::rule_defs::provider::ProviderLike>(self);
-                    }
-
-                    fn equals(&self, other: starlark::values::Value<'v>) -> starlark::Result<bool> {
-                        let other: &#name<'v> = match #name::from_value(other) {
-                            Some(other) => other,
-                            None => return Ok(false),
-                        };
-
-                        #(
-                            if !#self_values.equals(#other_values)? {
-                                return Ok(false);
+        let (methods_static, attrs): (Option<syn::Item>, Vec<syn::ImplItemFn>) =
+            match &self.args.methods_func {
+                Some(methods_func) => {
+                    let methods_static_name = self.methods_static_name()?;
+                    (
+                        Some(syn::parse_quote_spanned! { self.span=>
+                            starlark::methods_static!(#methods_static_name = #methods_func);
+                        }),
+                        vec![syn::parse_quote_spanned! { self.span=>
+                            fn get_methods() -> Option<&'static starlark::environment::Methods> {
+                                Some(#methods_static_name.methods())
                             }
-                        )*
-                        Ok(true)
-                    }
-
-                    fn get_type_starlark_repr() -> starlark::typing::Ty {
-                        BUILTIN_PROVIDER_TY.instance()
-                    }
+                        }],
+                    )
                 }
-            },
-        ])
+                None => (
+                    None,
+                    vec![
+                        syn::parse_quote_spanned! { self.span=>
+                            fn get_attr(
+                                &self,
+                                attribute: &str,
+                                _heap: starlark::values::Heap<'v>,
+                            ) -> Option<starlark::values::Value<'v>> {
+                                match attribute {
+                                    #(#field_names => Some(#self_values),)*
+                                    _ => None,
+                                }
+                            }
+                        },
+                        syn::parse_quote_spanned! { self.span=>
+                            fn dir_attr(&self) -> Vec<String> {
+                                vec![#(#field_names.to_owned()),*]
+                            }
+                        },
+                    ],
+                ),
+            };
+        Ok(vec![syn::parse_quote_spanned! { self.span=>
+            starlark::starlark_complex_value!(#vis #name);
+        }]
+        .into_iter()
+        .chain(methods_static)
+        .chain([syn::parse_quote_spanned! { self.span=>
+            #starlark_value_attr
+            impl<'v> starlark::values::StarlarkValue<'v> for #name<'v> {
+                #(#attrs)*
+                fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
+                    demand.provide_value::<
+                        &dyn buck2_build_api::interpreter::rule_defs::provider::ProviderLike>(self);
+                }
+                fn equals(&self, other: starlark::values::Value<'v>) -> starlark::Result<bool> {
+                    let other: &#name<'v> = match #name::from_value(other) {
+                        Some(other) => other,
+                        None => return Ok(false),
+                    };
+                    #(
+                        if !#self_values.equals(#other_values)? {
+                            return Ok(false);
+                        }
+                    )*
+                    Ok(true)
+                }
+                fn get_type_starlark_repr() -> starlark::typing::Ty {
+                    BUILTIN_PROVIDER_TY.instance()
+                }
+            }
+        }])
+        .collect())
+    }
+
+    /// The `methods_static!` holding a custom methods table.
+    fn methods_static_name(&self) -> syn::Result<syn::Ident> {
+        Ok(format_ident!(
+            "{}_PROVIDER_STATICS",
+            self.args
+                .methods_func
+                .as_ref()
+                .expect("only with custom methods")
+                .to_string()
+                .to_uppercase()
+        ))
     }
 
     fn impl_serializable_value(&self) -> syn::Result<syn::Item> {
@@ -531,7 +522,7 @@ impl ProviderCodegen {
                     let mut s = s.serialize_map(Some(#field_len))?;
                     #(
                         s.serialize_entry(
-                            stringify!(#field_names),
+                            #field_names,
                             &#field_values
                         )?;
                     )*
@@ -554,7 +545,7 @@ impl ProviderCodegen {
 
                 fn items(&self) -> Vec<(&str, starlark::values::Value<'v>)> {
                     vec![
-                        #((stringify!(#field_names), #field_values)),*
+                        #((#field_names, #field_values)),*
                     ]
                 }
             }
@@ -711,42 +702,26 @@ impl ProviderCodegen {
         let name = self.name()?;
         let name_str = self.name_str()?;
         let callable_name = self.callable_name()?;
-
-        let mut items = vec![];
-
-        // Only generate default provider_methods if no custom methods_func was provided
-        if self.args.methods_func.is_none() {
-            let provider_methods_func_name = self.provider_methods_func_name()?;
-            let this: syn::Expr = syn::parse_quote_spanned! { self.span=> this };
-            let fields = self.fields()?;
-            let field_names = fields.iter().map(|f| f.name.clone()).collect::<Vec<_>>();
-            let field_tys = fields.iter().map(|f| f.attr_ty()).collect::<Vec<_>>();
-            let field_values = fields
-                .iter()
-                .map(|f| f.attr_value(&this))
-                .collect::<Vec<_>>();
-
-            items.push(syn::parse_quote_spanned! { self.span=>
-                #[starlark::starlark_module]
-                fn #provider_methods_func_name(builder: &mut starlark::environment::MethodsBuilder) {
-                    #(
-                        #[starlark(attribute)]
-                        fn #field_names<'v>(this: &#name<'v>) -> starlark::Result<#field_tys>
-                        {
-                            Ok(#field_values)
-                        }
-                    )*
+        let fields = self.fields()?;
+        let field_names = fields.iter().map(|f| f.attr_name()).collect::<Vec<_>>();
+        let field_types = fields.iter().map(|f| f.field_type_ty()).collect::<Vec<_>>();
+        Ok(vec![
+            syn::parse_quote_spanned! { self.span=>
+                impl<'v> #name<'v> {
+                    #[doc(hidden)]
+                    pub fn __builtin_provider_fields() -> buck2_build_api::__derive_refs::starlark_map::sorted_map::SortedMap<String, starlark::typing::Ty> {
+                        std::iter::FromIterator::from_iter([
+                            #((#field_names.to_owned(), #field_types)),*
+                        ])
+                    }
                 }
-            });
-        }
-
-        items.push(syn::parse_quote_spanned! { self.span=>
-            fn register_provider(builder: &mut starlark::environment::GlobalsBuilder) {
-                builder.set(#name_str, #callable_name::new());
-            }
-        });
-
-        Ok(items)
+            },
+            syn::parse_quote_spanned! { self.span=>
+                fn register_provider(builder: &mut starlark::environment::GlobalsBuilder) {
+                    builder.set(#name_str, #callable_name::new());
+                }
+            },
+        ])
     }
 
     fn inventory(&self) -> syn::Result<syn::Item> {

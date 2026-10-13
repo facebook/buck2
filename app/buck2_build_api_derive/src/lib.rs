@@ -63,29 +63,13 @@ mod provider;
 ///
 /// ## Use custom methods
 ///
+/// `methods = some_module` replaces the generated attribute lookup with a
+/// `#[starlark_module]` of methods, which must then define the attributes itself:
+///
 /// ```ignore
 /// #[internal_provider(my_provider_creator, methods = my_custom_methods)]
-/// #[derive(Clone, Debug, Trace, Freeze, ProvidesStaticType, Allocative, StarlarkPagable)]
-/// #[repr(C)]
-/// struct MyProvider<'v> {
-///     field1: ValueOfUnchecked<'v, String>,
-/// }
-///
-/// #[starlark_module]
-/// fn my_custom_methods(builder: &mut MethodsBuilder) {
-///     // Custom attribute accessor
-///     #[starlark(attribute)]
-///     fn field1<'v>(this: &MyProvider<'v>) -> starlark::Result<&'v str> {
-///         // Custom logic here
-///         Ok(this.field1.get().unpack_str().unwrap())
-///     }
-///
-///     // Additional method
-///     fn my_method<'v>(this: &MyProvider<'v>, s: &str) -> starlark::Result<String> {
-///         Ok(format!("custom: {} {}", this.field1.get(), s))
-///     }
-/// }
 /// ```
+///
 ///
 /// In Starlark: `provider.field1` (custom attribute) and `provider.my_method("hello world")` (custom method)
 #[proc_macro_attribute]

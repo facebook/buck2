@@ -34,6 +34,9 @@ pub struct BuiltinProviderTy<
 > {
     callable: OnceLock<Ty>,
     instance: OnceLock<Ty>,
+    /// The provider's attributes, which the typechecker needs since instances resolve
+    /// attributes directly rather than through a methods table.
+    fields: fn() -> SortedMap<String, Ty>,
     phantom: PhantomData<&'v (P, C)>,
 }
 
@@ -48,10 +51,11 @@ unsafe impl<
 impl<'v, P: StarlarkValue<'v> + ProviderLike<'v>, C: StarlarkValue<'v> + ProviderCallableLike>
     BuiltinProviderTy<'v, P, C>
 {
-    pub const fn new() -> BuiltinProviderTy<'v, P, C> {
+    pub const fn new(fields: fn() -> SortedMap<String, Ty>) -> BuiltinProviderTy<'v, P, C> {
         BuiltinProviderTy {
             callable: OnceLock::new(),
             instance: OnceLock::new(),
+            fields,
             phantom: PhantomData,
         }
     }
@@ -73,7 +77,7 @@ impl<'v, P: StarlarkValue<'v> + ProviderLike<'v>, C: StarlarkValue<'v> + Provide
                     ),
                     TyStarlarkValue::new::<P>(),
                     None,
-                    SortedMap::new(),
+                    (self.fields)(),
                 )
                 .unwrap()
             })
@@ -102,4 +106,9 @@ fn builtin_provider_typechecker_ty<'v, C: StarlarkValue<'v> + ProviderCallableLi
         .callable()
         .dupe();
     ty_provider_callable::<C>(ty_callable).unwrap()
+}
+
+/// For providers whose attributes come from a custom methods table.
+pub fn no_fields() -> SortedMap<String, Ty> {
+    SortedMap::new()
 }
