@@ -34,7 +34,9 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
+use crate::private::Private;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
@@ -315,6 +317,10 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
             .get_hash_64()
             .hash(hasher);
         Ok(())
+    }
+
+    fn get_hash(&self, _private: Private) -> crate::Result<StarlarkHashValue> {
+        Ok(NumRef::Int(StarlarkIntRef::Big(self)).get_hash())
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
@@ -746,7 +752,7 @@ mod tests {
 
     #[test]
     fn test_dictionary_key_big_int() {
-        assert::is_true("not (noop(2147483648.0) in {2147483648: 1})");
-        assert::is_true("{noop(1e20): 1}.get(100000000000000000000) == None");
+        assert::is_true("noop(2147483648.0) in {2147483648: 1}");
+        assert::is_true("{noop(1e20): 1}.get(100000000000000000000) == 1");
     }
 }
