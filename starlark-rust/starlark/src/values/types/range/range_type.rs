@@ -152,8 +152,10 @@ impl<'v> StarlarkValue<'v> for Range {
 
     fn at(&self, index: Value, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         let index = convert_index(index, self.length()?)?;
-        // Must not overflow if `length` is computed correctly
-        Ok(heap.alloc(self.start + self.step.get() * index))
+        // The element itself fits in `i32`, but `step * index` can leave the range
+        // on the way there, so compute in `i64` like `slice` and the iterator do.
+        let element = self.start as i64 + self.step.get() as i64 * index as i64;
+        Ok(heap.alloc(i32::try_from(element).map_err(|_| ValueError::IntegerOverflow)?))
     }
 
     fn equals(&self, other: Value) -> crate::Result<bool> {
@@ -346,6 +348,21 @@ mod tests {
         assert::eq("list(range(10)[::-3])", "[9, 6, 3, 0]");
         assert::eq("list(range(2147483646, 2147483647)[:])", "[2147483646]");
         assert::eq("list(range(3, 10, 3)[1:2])", "[6]");
+    }
+
+    /// Indexing an element whose `step * index` product leaves `i32`, even though the
+    /// element itself is in range.
+    #[test]
+    fn test_at_near_i32_limits() {
+        assert::eq(
+            "range(-2000000000, 2000000000, 1000000)[3999]",
+            "1999000000",
+        );
+        assert::eq("range(-2147483648, 2147483647, 3)[1000000000]", "852516352");
+        assert::eq(
+            "range(2000000000, -2000000000, -1000000)[3999]",
+            "-1999000000",
+        );
     }
 
     #[test]
