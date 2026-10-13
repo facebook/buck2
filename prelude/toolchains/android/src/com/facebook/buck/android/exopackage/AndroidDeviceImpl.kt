@@ -702,11 +702,29 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   }
 
   override fun setDebugAppPackageName(packageName: String?): Boolean {
-    if (packageName != null) {
+    if (packageName != null && !isPersistentDebugApp(packageName)) {
       executeAdbShellCommand(adbUtils.getAmSetDebugAppCommand(packageName))
     }
     return true
   }
+
+  /**
+   * Whether [packageName] is already the persistent debug app, not waiting for a debugger: the
+   * state `am set-debug-app --persistent` writes. That command force-stops the package even when it
+   * changes nothing, so it runs only when this is false. A query that adb reports as failed counts
+   * as false; if adb cannot run at all, the error propagates, as it would from `am set-debug-app`.
+   */
+  private fun isPersistentDebugApp(packageName: String): Boolean =
+      try {
+        readGlobalSetting("debug_app") == packageName &&
+            readGlobalSetting("wait_for_debugger") in setOf("0", "null")
+      } catch (e: AdbCommandFailedException) {
+        LOG.info("Could not read the debug app settings: ${e.message}")
+        false
+      }
+
+  private fun readGlobalSetting(name: String): String =
+      executeAdbShellCommand("settings get global $name").trim()
 
   override fun enableAppLinks(packageName: String?) {
     if (packageName != null) {

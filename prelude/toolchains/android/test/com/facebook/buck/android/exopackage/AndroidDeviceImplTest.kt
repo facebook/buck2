@@ -211,6 +211,66 @@ class AndroidDeviceImplTest {
     verify(mockAdbUtils).executeAdbShellCommand("am force-stop com.test.app", serialNumber)
   }
 
+  private val debugAppQuery = "settings get global debug_app"
+  private val waitForDebuggerQuery = "settings get global wait_for_debugger"
+  private val setDebugApp = "am set-debug-app --persistent com.test.app "
+
+  private fun stubDebugAppSettings(debugApp: String, waitForDebugger: String) {
+    whenever(mockAdbUtils.getAmSetDebugAppCommand("com.test.app")).thenReturn(setDebugApp)
+    whenever(mockAdbUtils.executeAdbShellCommand(debugAppQuery, serialNumber)).thenReturn(debugApp)
+    whenever(mockAdbUtils.executeAdbShellCommand(waitForDebuggerQuery, serialNumber))
+        .thenReturn(waitForDebugger)
+  }
+
+  @Test
+  fun testSetDebugAppSkippedWhenAlreadyTheDebugApp() {
+    stubDebugAppSettings("com.test.app\n", "0\n")
+
+    androidDevice.setDebugAppPackageName("com.test.app")
+
+    verify(mockAdbUtils, never()).executeAdbShellCommand(setDebugApp, serialNumber)
+  }
+
+  @Test
+  fun testSetDebugAppRunsWhenTheSettingOutputIsUnexpected() {
+    stubDebugAppSettings("\ncom.test.app\n0\n", "0\n")
+
+    androidDevice.setDebugAppPackageName("com.test.app")
+
+    verify(mockAdbUtils).executeAdbShellCommand(setDebugApp, serialNumber)
+  }
+
+  @Test
+  fun testSetDebugAppRunsWhenAnotherAppIsTheDebugApp() {
+    stubDebugAppSettings("com.other.app\n", "0\n")
+
+    androidDevice.setDebugAppPackageName("com.test.app")
+
+    verify(mockAdbUtils).executeAdbShellCommand(setDebugApp, serialNumber)
+    verify(mockAdbUtils, never()).executeAdbShellCommand(waitForDebuggerQuery, serialNumber)
+  }
+
+  @Test
+  fun testSetDebugAppRunsWhenWaitingForADebugger() {
+    stubDebugAppSettings("com.test.app\n", "1\n")
+
+    androidDevice.setDebugAppPackageName("com.test.app")
+
+    verify(mockAdbUtils).executeAdbShellCommand(setDebugApp, serialNumber)
+  }
+
+  @Test
+  fun testSetDebugAppRunsWhenTheSettingsCannotBeRead() {
+    stubDebugAppSettings("", "")
+    doAnswer { throw AdbCommandFailedException("settings: not found") }
+        .whenever(mockAdbUtils)
+        .executeAdbShellCommand(debugAppQuery, serialNumber)
+
+    androidDevice.setDebugAppPackageName("com.test.app")
+
+    verify(mockAdbUtils).executeAdbShellCommand(setDebugApp, serialNumber)
+  }
+
   @Test
   fun testGetPackageInfo() {
     whenever(mockAdbUtils.executeAdbShellCommand("pm path com.test.app", serialNumber))
