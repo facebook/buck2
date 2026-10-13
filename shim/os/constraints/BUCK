@@ -7,7 +7,7 @@
 
 configuration_alias(
     name = "android",
-    actual = "prelude//os/constraints:android",
+    actual = "prelude//os/constraints:os[android]",
     visibility = ["PUBLIC"],
 )
 
@@ -19,19 +19,19 @@ configuration_alias(
 
 configuration_alias(
     name = "iphoneos",
-    actual = "prelude//os/constraints:iphoneos",
+    actual = "prelude//os/constraints:os[iphoneos]",
     visibility = ["PUBLIC"],
 )
 
 configuration_alias(
     name = "linux",
-    actual = "prelude//os/constraints:linux",
+    actual = "prelude//os/constraints:os[linux]",
     visibility = ["PUBLIC"],
 )
 
 configuration_alias(
     name = "macos",
-    actual = "prelude//os/constraints:macos",
+    actual = "prelude//os/constraints:os[macos]",
     visibility = ["PUBLIC"],
 )
 
@@ -43,12 +43,12 @@ configuration_alias(
 
 configuration_alias(
     name = "watchos",
-    actual = "prelude//os/constraints:watchos",
+    actual = "prelude//os/constraints:os[watchos]",
     visibility = ["PUBLIC"],
 )
 
 configuration_alias(
     name = "windows",
-    actual = "prelude//os/constraints:windows",
+    actual = "prelude//os/constraints:os[windows]",
     visibility = ["PUBLIC"],
 )

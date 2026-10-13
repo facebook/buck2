@@ -13,7 +13,7 @@ configuration_alias(
 
 config_setting(
     name = "cl",
-    constraint_values = ["prelude//os/constraints:windows"],
+    constraint_values = ["prelude//os/constraints:os[windows]"],
     values = {"cxx.windows_compiler_type": "windows"},
     visibility = ["PUBLIC"],
 )
@@ -26,7 +26,7 @@ configuration_alias(
 
 config_setting(
     name = "msvc",
-    constraint_values = ["prelude//os/constraints:windows"],
+    constraint_values = ["prelude//os/constraints:os[windows]"],
     values = {"cxx.windows_compiler_type": "windows"},
     visibility = ["PUBLIC"],
 )
