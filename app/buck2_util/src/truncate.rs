@@ -135,6 +135,21 @@ mod tests {
     }
 
     #[test]
+    fn test_truncate_multibyte_result_length() {
+        // `max_length` is documented as the maximum length of the truncated message, but for
+        // multibyte input the result is currently up to 6 bytes longer than `max_length`.
+        let max_length = TRUNCATION_MSG.len() + 2;
+
+        let truncated = truncate(&"\u{e9}".repeat(20), max_length);
+        assert_eq!(truncated, "\u{e9}<<omitted>>\u{e9}");
+        assert_eq!(truncated.len(), max_length + 2);
+
+        let truncated = truncate(&"\u{1f600}".repeat(4), max_length);
+        assert_eq!(truncated, "\u{1f600}<<omitted>>\u{1f600}");
+        assert_eq!(truncated.len(), max_length + 6);
+    }
+
+    #[test]
     fn test_truncate_unicode() {
         // This will segfault if we try and split within a char boundary
         truncate(&"❤️🧡💛💚💙💜".repeat(500), 100);
