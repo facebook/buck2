@@ -156,7 +156,10 @@ impl LivelinessObserver for LivelinessObserverForGuard {
 
 impl LivelinessObserverSync for LivelinessObserverForGuard {
     fn is_alive_sync(&self) -> bool {
-        self.try_read().is_err()
+        match self.try_read() {
+            Err(_) => true,
+            Ok(state) => matches!(*state, LivelinessObserverState::ForeverAlive),
+        }
     }
 }
 
@@ -295,9 +298,7 @@ mod tests {
         let (manager, guard) = LivelinessGuard::create_sync();
         guard.forget();
         assert!(manager.is_alive().await);
-        // `forget` promises the observer stays alive forever, but the sync check reads only
-        // whether the write lock is still held.
-        assert!(!manager.is_alive_sync());
+        assert!(manager.is_alive_sync());
     }
 
     #[tokio::test]
