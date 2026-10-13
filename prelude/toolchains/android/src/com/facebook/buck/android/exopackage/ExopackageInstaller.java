@@ -207,7 +207,7 @@ public class ExopackageInstaller {
   private boolean installApkIfNecessary(IsolatedApkInfo isolatedApkInfo) throws Exception {
     File apk = isolatedApkInfo.getApkPath().toFile();
 
-    if (shouldAppBeInstalled(isolatedApkInfo)) {
+    if (AdbHelper.shouldAppBeInstalled(device, packageName, apk, androidPrinter)) {
       long installStart = System.currentTimeMillis();
       boolean success =
           device.installApkOnDevice(
@@ -512,71 +512,6 @@ public class ExopackageInstaller {
     return exoInfo.getDexInfo().isPresent()
         || exoInfo.getNativeLibsInfo().isPresent()
         || exoInfo.getResourcesInfo().isPresent();
-  }
-
-  private Optional<PackageInfo> getPackageInfo(String packageName) throws Exception {
-    return device.getPackageInfo(packageName);
-  }
-
-  private boolean shouldAppBeInstalled(IsolatedApkInfo apkInfo) throws Exception {
-    Optional<PackageInfo> appPackageInfo = getPackageInfo(packageName);
-    if (appPackageInfo.isEmpty()) {
-      androidPrinter.printMessage("App not installed.  Installing now.");
-      return true;
-    }
-
-    String installedApkPath = appPackageInfo.get().apkPath;
-    LOG.debug("App path: %s", installedApkPath);
-    String installedAppManifestDigest;
-    try {
-      installedAppManifestDigest = getInstalledAppManifestDigest(installedApkPath);
-    } catch (AdbCommandFailedException e) {
-      LOG.info("Could not read the installed APK manifest digest: %s", e.getMessage());
-      return !installedApkContentMatches(installedApkPath, apkInfo);
-    }
-    String localAppManifestDigest =
-        ExopackageUtil.getJarManifestDigest(apkInfo.getApkPath().toString());
-    LOG.info("Local APK manifest digest: %s", localAppManifestDigest);
-    LOG.info("Installed APK manifest digest: %s", installedAppManifestDigest);
-
-    if (!installedAppManifestDigest.equals(localAppManifestDigest)) {
-      LOG.info("APK manifest digests do not match.  Must re-install.");
-      return true;
-    }
-
-    LOG.info("APK manifest digests match.  No need to install.");
-    return false;
-  }
-
-  /** Compares whole-apk content hashes, for devices that cannot read the manifest digest. */
-  private boolean installedApkContentMatches(String installedApkPath, IsolatedApkInfo apkInfo)
-      throws IOException {
-    String installedHash;
-    try {
-      installedHash = device.getContentHash(installedApkPath);
-    } catch (Exception e) {
-      LOG.info("Could not hash the installed APK.  Must re-install: %s", e.getMessage());
-      return false;
-    }
-    boolean matches =
-        installedHash.equalsIgnoreCase(
-            ExopackageUtil.getContentHash(apkInfo.getApkPath().toFile()));
-    LOG.info(
-        matches
-            ? "APK content hashes match.  No need to install."
-            : "APK content hashes do not match.  Must re-install.");
-    return matches;
-  }
-
-  private String getInstalledAppManifestDigest(String packagePath) throws Exception {
-    String output = device.getApkManifestDigest(packagePath);
-
-    String result = output.trim();
-    if (result.contains("\n") || result.contains("\r")) {
-      throw new IllegalStateException("Unexpected APK manifest digest:\n" + output);
-    }
-
-    return result;
   }
 
   /** What the device holds that no payload wants. The lock file belongs to no payload and stays. */

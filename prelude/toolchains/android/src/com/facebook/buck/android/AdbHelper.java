@@ -14,14 +14,17 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 
 import com.facebook.buck.android.apex.ApexManifestProto.ApexManifest;
 import com.facebook.buck.android.device.TargetDeviceOptions;
+import com.facebook.buck.android.exopackage.AdbCommandFailedException;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.android.exopackage.AndroidDeviceInfo;
 import com.facebook.buck.android.exopackage.AndroidDevicesHelper;
 import com.facebook.buck.android.exopackage.AndroidIntent;
 import com.facebook.buck.android.exopackage.ExopackageInstaller;
+import com.facebook.buck.android.exopackage.ExopackageUtil;
 import com.facebook.buck.android.exopackage.InstallTimings;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
+import com.facebook.buck.android.exopackage.PackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.util.log.Logger;
@@ -959,6 +962,68 @@ public class AdbHelper implements AndroidDevicesHelper {
                   BUILD_METADATA_INSTALL_ROOT, packageName, buck2BuildUuid.get()),
           true);
     }
+  }
+
+  /** Whether {@code device} lacks {@code apk} as the installed apk of {@code packageName}. */
+  public static boolean shouldAppBeInstalled(
+      AndroidDevice device, String packageName, File apk, AndroidInstallPrinter androidPrinter)
+      throws Exception {
+    Optional<PackageInfo> appPackageInfo = device.getPackageInfo(packageName);
+    if (appPackageInfo.isEmpty()) {
+      androidPrinter.printMessage("App not installed.  Installing now.");
+      return true;
+    }
+
+    String installedApkPath = appPackageInfo.get().apkPath;
+    LOG.debug("App path: %s", installedApkPath);
+    String installedAppManifestDigest;
+    try {
+      installedAppManifestDigest = getInstalledAppManifestDigest(device, installedApkPath);
+    } catch (AdbCommandFailedException e) {
+      LOG.info("Could not read the installed APK manifest digest: %s", e.getMessage());
+      return !installedApkContentMatches(device, installedApkPath, apk);
+    }
+    String localAppManifestDigest = ExopackageUtil.getJarManifestDigest(apk.getPath());
+    LOG.info("Local APK manifest digest: %s", localAppManifestDigest);
+    LOG.info("Installed APK manifest digest: %s", installedAppManifestDigest);
+
+    if (!installedAppManifestDigest.equals(localAppManifestDigest)) {
+      LOG.info("APK manifest digests do not match.  Must re-install.");
+      return true;
+    }
+
+    LOG.info("APK manifest digests match.  No need to install.");
+    return false;
+  }
+
+  /** Compares whole-apk content hashes, for devices that cannot read the manifest digest. */
+  private static boolean installedApkContentMatches(
+      AndroidDevice device, String installedApkPath, File apk) throws IOException {
+    String installedHash;
+    try {
+      installedHash = device.getContentHash(installedApkPath);
+    } catch (Exception e) {
+      LOG.info("Could not hash the installed APK.  Must re-install: %s", e.getMessage());
+      return false;
+    }
+    boolean matches = installedHash.equalsIgnoreCase(ExopackageUtil.getContentHash(apk));
+    LOG.info(
+        matches
+            ? "APK content hashes match.  No need to install."
+            : "APK content hashes do not match.  Must re-install.");
+    return matches;
+  }
+
+  private static String getInstalledAppManifestDigest(AndroidDevice device, String packagePath)
+      throws Exception {
+    String output = device.getApkManifestDigest(packagePath);
+
+    String result = output.trim();
+    if (result.contains("\n") || result.contains("\r")) {
+      throw new IllegalStateException("Unexpected APK manifest digest:\n" + output);
+    }
+
+    return result;
   }
 
   private boolean isApexFileSupportsRebootlessUpdate(File apexFile) {
