@@ -140,8 +140,16 @@ public class ExopackageInstaller {
     Preconditions.checkArgument(AdbHelper.PACKAGE_NAME_PATTERN.matcher(packageName).matches());
   }
 
-  /** Installs an apk, restarting the running app if necessary. */
-  public void doInstall(IsolatedApkInfo isolatedApkInfo, SetDebugAppMode setDebugAppMode)
+  /**
+   * Installs an apk with its exopackage payloads.
+   *
+   * <p>Stops the running app only when something requires it: ahead of a change it could observe,
+   * or, with {@code restartApp}, so that the activity started after the install gets a fresh
+   * process. Replacing the apk needs no stop of its own, since the package manager kills the app to
+   * replace it.
+   */
+  public void doInstall(
+      IsolatedApkInfo isolatedApkInfo, SetDebugAppMode setDebugAppMode, boolean restartApp)
       throws Exception {
     if (setDebugAppMode == SetDebugAppMode.SET) {
       device.setDebugAppPackageName(packageName);
@@ -189,15 +197,14 @@ public class ExopackageInstaller {
       device.installBuildUuidFile(
           AdbHelper.BUILD_METADATA_INSTALL_ROOT, packageName, buck2BuildUuid.get());
     }
-    installAndRestartApk(isolatedApkInfo);
+    boolean apkInstalled = installApkIfNecessary(isolatedApkInfo);
+    if (restartApp && !apkInstalled) {
+      stopApp();
+    }
   }
 
-  public void installAndRestartApk(IsolatedApkInfo isolatedApkInfo) throws Exception {
-    installApkIfNecessary(isolatedApkInfo);
-    killApp();
-  }
-
-  private void installApkIfNecessary(IsolatedApkInfo isolatedApkInfo) throws Exception {
+  /** Installs the apk unless the device already has this exact apk; returns whether it did. */
+  private boolean installApkIfNecessary(IsolatedApkInfo isolatedApkInfo) throws Exception {
     File apk = isolatedApkInfo.getApkPath().toFile();
 
     if (shouldAppBeInstalled(isolatedApkInfo)) {
@@ -217,11 +224,9 @@ public class ExopackageInstaller {
         throw AndroidInstallException.Companion.adbCommandFailedException(
             "Installing Apk failed.", null);
       }
+      return true;
     }
-  }
-
-  private void killApp() throws Exception {
-    device.stopPackage(packageName);
+    return false;
   }
 
   /** Stops the running app, at most once per install. */

@@ -92,7 +92,7 @@ public class ExopackageInstallerStopTest {
 
     install();
 
-    assertEquals(ImmutableList.of("stop", "delete", "stop"), device.events());
+    assertEquals(ImmutableList.of("stop", "delete"), device.events());
   }
 
   @Test
@@ -104,7 +104,7 @@ public class ExopackageInstallerStopTest {
 
     install();
 
-    assertEquals(ImmutableList.of("stop", "push:metadata", "stop"), device.events());
+    assertEquals(ImmutableList.of("stop", "push:metadata"), device.events());
   }
 
   @Test
@@ -113,8 +113,7 @@ public class ExopackageInstallerStopTest {
 
     install();
 
-    assertEquals(
-        ImmutableList.of("push:secondary_dex", "stop", "push:metadata", "stop"), device.events());
+    assertEquals(ImmutableList.of("push:secondary_dex", "stop", "push:metadata"), device.events());
   }
 
   @Test
@@ -125,7 +124,40 @@ public class ExopackageInstallerStopTest {
 
     install();
 
-    assertEquals(ImmutableList.of("stop", "push:metadata", "stop"), device.events());
+    assertEquals(ImmutableList.of("stop", "push:metadata"), device.events());
+  }
+
+  @Test
+  public void leavesTheAppRunningWhenNothingChanged() throws Exception {
+    device.files.add(DEX_FILE);
+    device.metadata(METADATA_CONTENTS);
+    device.installedApkHash = localApkHash;
+
+    install();
+
+    assertEquals(ImmutableList.of(), device.events());
+  }
+
+  @Test
+  public void restartsAnUnchangedAppWhenAnActivityWillBeStarted() throws Exception {
+    device.files.add(DEX_FILE);
+    device.metadata(METADATA_CONTENTS);
+    device.installedApkHash = localApkHash;
+
+    install(/* restartApp= */ true);
+
+    assertEquals(ImmutableList.of("stop"), device.events());
+  }
+
+  @Test
+  public void replacingTheApkNeedsNoStopOfItsOwn() throws Exception {
+    device.files.add(DEX_FILE);
+    device.metadata(METADATA_CONTENTS);
+    device.installedApkHash = "an older apk";
+
+    install(/* restartApp= */ true);
+
+    assertEquals(ImmutableList.of("install"), device.events());
   }
 
   @Test
@@ -140,9 +172,13 @@ public class ExopackageInstallerStopTest {
   }
 
   private void install() throws Exception {
+    install(/* restartApp= */ false);
+  }
+
+  private void install(boolean restartApp) throws Exception {
     new ExopackageInstaller(
             exoInfo, new NoopPrinter(), tmpDir.getRoot(), PACKAGE, device, Optional.empty())
-        .doInstall(apkInfo, SetDebugAppMode.SKIP);
+        .doInstall(apkInfo, SetDebugAppMode.SKIP, restartApp);
   }
 
   /** Records, in order, every operation an app running on the device could notice. */

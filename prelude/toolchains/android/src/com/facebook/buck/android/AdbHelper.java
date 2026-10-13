@@ -316,7 +316,8 @@ public class AdbHelper implements AndroidDevicesHelper {
       boolean installViaSd,
       boolean quiet,
       String fullyQualifiedName,
-      String packageName)
+      String packageName,
+      boolean restartApp)
       throws InterruptedException {
     Optional<String> buck2BuildUuid =
         Optional.ofNullable(EnvVariablesProvider.getSystemEnv().get("BUCK2_UUID"));
@@ -326,7 +327,13 @@ public class AdbHelper implements AndroidDevicesHelper {
     if (optionalIsolatedExopackageInfo.isPresent()) {
       IsolatedExopackageInfo isolatedExopackageInfo = optionalIsolatedExopackageInfo.get();
       installApkExopackageWithRetries(
-          rootPath, isolatedExopackageInfo, isolatedApkInfo, packageName, quiet, buck2BuildUuid);
+          rootPath,
+          isolatedExopackageInfo,
+          isolatedApkInfo,
+          packageName,
+          quiet,
+          buck2BuildUuid,
+          restartApp);
     } else {
       installApkDirectly(
           installViaSd,
@@ -825,13 +832,20 @@ public class AdbHelper implements AndroidDevicesHelper {
       IsolatedApkInfo isolatedApkInfo,
       String packageName,
       boolean quiet,
-      Optional<String> buck2BuildUuid)
+      Optional<String> buck2BuildUuid,
+      boolean restartApp)
       throws InterruptedException {
     int attempt = 1;
     while (true) {
       try {
         installApkExopackage(
-            rootPath, isolatedExopackageInfo, isolatedApkInfo, packageName, quiet, buck2BuildUuid);
+            rootPath,
+            isolatedExopackageInfo,
+            isolatedApkInfo,
+            packageName,
+            quiet,
+            buck2BuildUuid,
+            restartApp);
         LOG.info("Installing the APK using exopackage succeeded on attempt %d", attempt);
         return;
       } catch (RuntimeException e) {
@@ -883,7 +897,8 @@ public class AdbHelper implements AndroidDevicesHelper {
       IsolatedApkInfo isolatedApkInfo,
       String packageName,
       boolean quiet,
-      Optional<String> buck2BuildUuid)
+      Optional<String> buck2BuildUuid,
+      boolean restartApp)
       throws InterruptedException {
     adbCall(
         "install exopackage apk",
@@ -896,7 +911,7 @@ public class AdbHelper implements AndroidDevicesHelper {
                   device,
                   buck2BuildUuid,
                   timings)
-              .doInstall(isolatedApkInfo, setDebugAppMode);
+              .doInstall(isolatedApkInfo, setDebugAppMode, restartApp);
           return true;
         },
         quiet);

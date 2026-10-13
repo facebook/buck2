@@ -103,6 +103,8 @@ class AndroidInstall {
           adbHelper.throwIfIncompatibleAbi(deviceInfo, apkInfo);
         }
 
+        boolean startsActivity =
+            cliOptions.run || cliOptions.activity != null || cliOptions.intentUri != null;
         adbHelper.installApk(
             apkInfo,
             exopackageInfo,
@@ -110,7 +112,8 @@ class AndroidInstall {
             installViaSd,
             /* quiet= */ false,
             installId.getValue(),
-            state.packageName());
+            state.packageName(),
+            /* restartApp= */ startsActivity);
         state.metrics().recordDeviceWork(deviceWorkStart, System.currentTimeMillis());
 
         // Only now are the stage timings complete, so the metrics cannot be gathered any earlier.
@@ -151,7 +154,7 @@ class AndroidInstall {
           }
         }
 
-        if (cliOptions.run || cliOptions.activity != null || cliOptions.intentUri != null) {
+        if (startsActivity) {
           adbHelper.startActivityForIsolatedApk(
               apkInfo,
               installId.getValue(),
