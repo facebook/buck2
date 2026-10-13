@@ -26,7 +26,10 @@ test_infer_include_prefix()
 
 test_link_info_append(name = "link_info_append")
 
-clone_rule_cfg_test_rule(name = "clone_rule_cfg_fixture")
+clone_rule_cfg_test_rule(
+    name = "clone_rule_cfg_fixture",
+    src = "clone_rule_cfg_test.bxl",
+)
 
 bxl_test(
     name = "clone_rule_cfg_test",
