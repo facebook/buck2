@@ -780,6 +780,45 @@ mod tests {
         }
     }
 
+    /// A scene that finishes while it is suspended loses that suspension from its result: only `wake`
+    /// adds the open suspension to the counters.
+    #[test]
+    fn test_scene_finished_while_suspended() {
+        let (mut scheduler, timeline) = TestTimeline::new();
+        let pressure = MemoryReading {
+            allprocs_memory_current: 10000,
+            allprocs_swap_current: 0,
+            allprocs_memory_pressure: 80.0,
+            daemon_memory_current: 8000,
+            daemon_swap_current: 0,
+            time_collected: SystemTime::now(),
+        };
+        scheduler.update(pressure, UpdateBuilder::new().build(), timeline.secs(0));
+        scheduler.update(pressure, UpdateBuilder::new().build(), timeline.secs(60));
+        let desc = || SceneDescription {
+            command_type: CommandType::Build,
+            action_digest: None,
+        };
+        let (scene1, mut start1) = scheduler.scene_started(desc(), false);
+        let (scene2, mut start2) = scheduler.scene_started(desc(), false);
+        let _kill1 = start1.0.try_recv().unwrap().0;
+        let mut kill2 = start2.0.try_recv().unwrap().0;
+        scheduler.update(
+            pressure,
+            UpdateBuilder::new()
+                .add(scene1.as_ref(), 2)
+                .add(scene2.as_ref(), 3)
+                .build(),
+            timeline.secs(100),
+        );
+        assert!(kill2.0.try_recv().is_ok(), "scene2 is suspended at t=100");
+        // The action had completed when the kill arrived; the executor reports it at t=110.
+        let res = scheduler.scene_finished(scene2, timeline.secs(110));
+        assert_eq!(res.suspend_count, 0);
+        assert_eq!(res.suspend_duration, None);
+        scheduler.scene_finished(scene1, timeline.secs(120));
+    }
+
     #[test]
     fn test_peak_memory_and_swap() -> buck2_error::Result<()> {
         let (mut scheduler, timeline) = TestTimeline::new();
