@@ -109,7 +109,8 @@ fn escape_id(value: &str) -> String {
         return value.to_owned();
     }
 
-    format!("\"{}\"", value.replace('"', "\\\""))
+    // Backslashes first: a trailing `\` would otherwise escape the closing quote.
+    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
 pub(crate) struct Dot {}
@@ -234,13 +235,12 @@ mod tests {
         String::from_utf8(out).unwrap()
     }
 
-    /// An attribute value ending in a backslash is quoted without escaping the backslash, so Graphviz reads
-    /// the final `\"` as an escaped quote and the string never ends.
+    /// An attribute value ending in a backslash is escaped, so the quoted DOT string ends where it should.
     #[test]
     fn test_attr_value_with_trailing_backslash() {
         assert_eq!(
             render("C:\\dir\\"),
-            "digraph result_graph {\n  \"root//escapes:q\" [buck_description=\"C:\\dir\\\"];\n}\n"
+            "digraph result_graph {\n  \"root//escapes:q\" [buck_description=\"C:\\\\dir\\\\\"];\n}\n"
         );
     }
 }
