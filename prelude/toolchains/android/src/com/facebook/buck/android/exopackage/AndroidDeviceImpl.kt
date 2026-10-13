@@ -57,14 +57,14 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         }
       }
 
-      var installCommand: String
+      var installArgs: String
       // Fast path: use --fastdeploy on SDK-supported devices.
       // On any failure we fall back to a plain install.
       if (allowFastDeploy && !stagedInstallMode && sdkSupportsFastDeploy()) {
-        installCommand = buildInstallCommand(apk, true, stagedInstallMode, userId)
+        installArgs = buildInstallArgs(apk, true, stagedInstallMode, userId)
         try {
-          executeAdbCommandCatching(
-              installCommand,
+          executeInstallCatching(
+              installArgs,
               "Failed to install ${apk.name} with --fastdeploy.",
           )
           verifyInstalledApkMatches(apk, packageName)
@@ -77,9 +77,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         }
       }
 
-      installCommand = buildInstallCommand(apk, false, stagedInstallMode, userId)
+      installArgs = buildInstallArgs(apk, false, stagedInstallMode, userId)
       try {
-        executeAdbCommand(installCommand)
+        executeInstall(installArgs)
       } catch (e: AdbCommandFailedException) {
         val conflictingPackage = extractSignatureMismatchPackage(e.message)
         if (conflictingPackage == null) {
@@ -96,8 +96,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
             "uninstall $conflictingPackage",
             "Failed to uninstall $conflictingPackage while recovering from a signature mismatch.",
         )
-        executeAdbCommandCatching(
-            installCommand,
+        executeInstallCatching(
+            installArgs,
             "Failed to install ${apk.name} after uninstalling $conflictingPackage.",
         )
       }
@@ -202,13 +202,13 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     }
   }
 
-  private fun buildInstallCommand(
+  private fun buildInstallArgs(
       apk: File,
       fastDeploy: Boolean,
       stagedInstallMode: Boolean,
       userId: String?,
   ): String = buildString {
-    append("install -r -d")
+    append("-r -d")
     if (fastDeploy) append(" --fastdeploy")
     if (stagedInstallMode) append(" --staged")
     if (userId != null) append(" --user $userId")
@@ -256,7 +256,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     val elapsed = measureTimeMillis {
       try {
         val installArgs = "--apex ${if (softRebootAvailable) "--force-non-staged" else ""}".trim()
-        executeAdbCommand("install $installArgs ${apex.absolutePath}")
+        executeInstall("$installArgs ${apex.absolutePath}")
       } catch (e: AdbCommandFailedException) {
         if ((e.message ?: "").contains("INSTALL_FAILED_VERIFICATION_FAILURE: Staged session ")) {
           throw AndroidInstallException.rebootRequired(
@@ -272,8 +272,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
             )
         ) {
           // try install again without --force-non-staged
-          executeAdbCommandCatching(
-              "install -d --apex ${apex.absolutePath}",
+          executeInstallCatching(
+              "-d --apex ${apex.absolutePath}",
               "Failed to install ${apex.name}.",
           )
           throw AndroidInstallException.rebootRequired(
@@ -847,6 +847,39 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     }
   }
 
+  /**
+   * Runs `adb install` with [installArgs] and fails it when the package manager reports failure,
+   * which adb does not always turn into a non-zero exit (on API 23 it exits 0). The first verdict
+   * line decides: one starting with `Success`, or one that is entirely `Failure [CODE]` or `Failure
+   * [CODE: detail]`. Without a verdict line the exit code alone decides, since some versions print
+   * none on success and adb adds lines of its own around the verdict.
+   */
+  private fun executeInstall(installArgs: String): String {
+    val command = "install $installArgs"
+    val output = executeAdbCommand(command)
+    val verdict =
+        output
+            .lineSequence()
+            .map { it.trim() }
+            .firstOrNull {
+              it.startsWith("Success") || INSTALL_FAILURE_LINE.matches(it)
+            }
+    if (verdict != null && !verdict.startsWith("Success")) {
+      throw AdbCommandFailedException(
+          "Executing 'adb $command' on $serialNumber reported a failure.\nOutput:\n$output",
+      )
+    }
+    return output
+  }
+
+  private fun executeInstallCatching(installArgs: String, message: String): String {
+    try {
+      return executeInstall(installArgs)
+    } catch (e: AdbCommandFailedException) {
+      throw AndroidInstallException.adbCommandFailedException(message, e.message)
+    }
+  }
+
   private fun executeAdbCommandCatching(command: String, message: String): String {
     try {
       return adbUtils.executeAdbCommand(command, serialNumber)
@@ -870,6 +903,8 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     private const val MIN_SDK_VERSION_FOR_FASTDEPLOY = 29
 
     private const val INSTALL_FAILED_UPDATE_INCOMPATIBLE = "INSTALL_FAILED_UPDATE_INCOMPATIBLE"
+
+    private val INSTALL_FAILURE_LINE = Regex("Failure\\s+\\[(([^:]*)(:.*)?)\\]")
 
     // Matches the package name in adb's signature-mismatch message, which is phrased as either
     // "Existing package <pkg> signatures do not match ..." or "Package <pkg> signatures do not
