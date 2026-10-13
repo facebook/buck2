@@ -274,11 +274,9 @@ impl<'v, V: RecordVariant> StarlarkValue<'v> for RecordTypeGen<'v, V> {
     type Canonical = FrozenRecordType<'v>;
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
-        for (name, typ) in &self.fields {
-            name.hash(hasher);
-            // No need to hash typ.1, since it was computed from typ.0
-            typ.write_hash(hasher)?;
-        }
+        // Record types compare by identity, so the identity is enough, and unlike the fields it
+        // cannot fail to hash (a field default may be a list or a dict).
+        self.id.hash(hasher);
         Ok(())
     }
 
