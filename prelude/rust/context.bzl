@@ -298,6 +298,10 @@ _EMIT_PREFIX_SUFFIX = {
     Emit("mir"): (None, ".mir"),
     Emit("expand"): (None, ".rs"),
     Emit("clippy"): ("lib", ".rmeta"),  # Treated like metadata-fast
+    # Same naming as `link` (build_param prefix/suffix); the `miri`
+    # subdir keeps the interpreter artifact distinct. Consumed by the
+    # interpreter, never linked.
+    Emit("miri"): (None, None),
 }
 
 # Return the filename for a particular emitted artifact type

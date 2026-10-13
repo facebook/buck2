@@ -75,6 +75,16 @@ rust_toolchain_attrs = {
     "rustdoc": provider_field(RunInfo | None, default = None),
     # Clippy (linter) version of the compiler
     "clippy_driver": provider_field(RunInfo | None, default = None),
+    # The Miri driver. Compiles `miri`-kind dependency rlibs (running as rustc
+    # via `MIRI_BE_RUSTC=target`) and interprets `[miri]` sub-targets, so it
+    # must be exec-configured like `compiler`.
+    "miri_driver": provider_field(RunInfo | None, default = None),
+    # Default Miri flags (e.g. ["-Zmiri-disable-isolation"])
+    "miri_flags": provider_field(list[typing.Any], default = []),
+    # Extra rustc flags for `miri`-kind compiles, on top of the defaults the
+    # driver applies itself (`--cfg=miri`, `-Zalways-encode-mir`, ...). Never
+    # seen by native compiles; `miri_flags` is for interpreter execution.
+    "miri_rustc_flags": provider_field(list[typing.Any], default = []),
     # The default edition to use, if not specified.
     "default_edition": provider_field(str | None, default = None),
     # Lints
@@ -195,3 +205,6 @@ rust_toolchain_attrs = {
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)
+
+def toolchain_supports_miri(toolchain_info: RustToolchainInfo) -> bool:
+    return toolchain_info.miri_driver != None

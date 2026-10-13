@@ -567,6 +567,8 @@ def rust_compile(
     if not toolchain_info.nightly_features:
         if emit == Emit("expand"):
             fail("Expansion uses the unstable `-Zunpretty` flag and requires a toolchain with `nightly_features = True`")
+        if emit == Emit("miri"):
+            fail("Miri uses unstable `-Z` flags and requires a toolchain with `nightly_features = True`")
         if profile_mode in (ProfileMode("llvm-time-trace"), ProfileMode("self-profile")):
             fail("`{}` profiling uses unstable `-Z` flags and requires a toolchain with `nightly_features = True`".format(profile_mode.value))
 
@@ -626,7 +628,18 @@ def rust_compile(
         extra_flags,
     )
 
-    rustc_bin = compile_ctx.clippy_wrapper if emit == Emit("clippy") else toolchain_info.compiler
+    if emit == Emit("clippy"):
+        rustc_bin = compile_ctx.clippy_wrapper
+    elif emit == Emit("miri"):
+        # The driver running as rustc (`MIRI_BE_RUSTC=target`, set below)
+        # prepends the flags its own version needs baked into dependency MIR
+        # (`-Zmir-opt-level=0`, `-Zmir-preserve-ub`, ...), so toolchains cannot
+        # drift from the interpreter by hand-copying that list.
+        if toolchain_info.miri_driver == None:
+            fail('`Emit("miri")` requires a toolchain with `miri_driver`')
+        rustc_bin = toolchain_info.miri_driver
+    else:
+        rustc_bin = toolchain_info.compiler
 
     # If we're using failure filtering then we need to make sure the final
     # artifact location is the predeclared one since its specific path may have
@@ -675,6 +688,9 @@ def rust_compile(
                 has_content_based_path = use_cbp,
             )
             emit_op.env["CLIPPY_CONF_DIR"] = clippy_conf_dir
+
+    if emit == Emit("miri"):
+        emit_op.env["MIRI_BE_RUSTC"] = "target"
 
     split_debug_mode = compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")
     has_split_debug = split_debug_mode != SplitDebugMode("none")
@@ -978,7 +994,18 @@ def dependency_args(
         else:
             strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
 
-            artifact = strategy.outputs[dep_metadata_kind]
+            # A metadata kind is absent when its artifact wasn't built. Only the
+            # `miri` kind can be absent (toolchains without a Miri driver publish
+            # none); fail loudly with the owner instead of emitting a dangling
+            # `--extern` or a later compiler error. (Direct proc-macro deps take
+            # the `dylib` branch above, so they never reach this lookup.)
+            artifact = strategy.outputs.get(dep_metadata_kind)
+            if artifact == None:
+                fail(
+                    "dependency `{}` was analyzed without a `{}` artifact (toolchain `{}`): `miri`-kind compiles need every dependency built by a toolchain with `miri_driver`".format(
+                        dep.label, dep_metadata_kind.value, toolchain_info.rustc_target_triple or "unknown"
+                    )
+                )
             singleton_tset = strategy.singleton_tset[dep_metadata_kind]
             transitive_artifacts = strategy.transitive_deps[dep_metadata_kind]
 
@@ -1202,6 +1229,7 @@ def _abbreviated_subdir(
         Emit("mir"): "m",
         Emit("expand"): "e",
         Emit("clippy"): "c",
+        Emit("miri"): "U",  # "Undefined behavior"
         Emit("metadata-full"): "F",  # "Full metadata"
         Emit("metadata-fast"): "M",  # "Metadata"
     }[emit]
@@ -1546,6 +1574,16 @@ def _explain(
             LinkStrategy("shared"): " [shared]",
         }[link_strategy]
 
+    if emit == Emit("miri"):
+        base = (
+            "miri"
+            + {
+                LinkStrategy("static"): "",
+                LinkStrategy("static_pic"): " [pic]",
+                LinkStrategy("shared"): " [shared]",
+            }[link_strategy]
+        )
+
     if emit == Emit("link"):
         link_strategy_suffix = {
             LinkStrategy("static"): "",
@@ -1675,6 +1713,10 @@ def _rustc_emit(
             # rlibs are `--emit=link` products of the rlib crate type. For bin
             # crates there is additionally no output to bind: the extraction
             # wrapper set via `-Clinker=` captures the objects instead.
+            effective_emit = "link"
+        elif emit == Emit("miri"):
+            # Interpreted from the MIR in the rmeta; nothing runs natively.
+            emit_args.add("-Zno-codegen")
             effective_emit = "link"
         else:
             effective_emit = emit.value
@@ -1864,6 +1906,8 @@ def _rustc_invoke(
         identifier = ""
     else:
         category = "rustc"
+        if common_args.emit == Emit("miri"):
+            category = "miri"
         identifier = _explain(
             crate_type = common_args.crate_type,
             link_strategy = common_args.params.dep_link_strategy,

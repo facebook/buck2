@@ -138,7 +138,7 @@ load(
 load(":proc_macro_alias.bzl", "rust_proc_macro_alias")
 load(":profile.bzl", "make_profile_providers")
 load(":resources.bzl", "rust_attr_resources")
-load(":rust_toolchain.bzl", "RustToolchainInfo")
+load(":rust_toolchain.bzl", "RustToolchainInfo", "toolchain_supports_miri")
 load(
     ":sources.bzl",
     "RustSources",
@@ -183,6 +183,21 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
+    # One Miri compile from the rlib params: MIR is strategy-independent,
+    # and dylib crate types cannot run under the interpreter.
+    # Proc macros run natively inside the compiler and are never interpreted.
+    miri_output = None
+    if toolchain_supports_miri(toolchain_info):
+        if meta_params.crate_type != CrateType("proc-macro"):
+            miri_output = rust_compile(
+                ctx = ctx,
+                compile_ctx = compile_ctx,
+                emit = Emit("miri"),
+                params = meta_params,
+                default_roots = _DEFAULT_ROOTS,
+                incremental_enabled = ctx.attrs.incremental_enabled,
+                extra_flags = toolchain_info.miri_rustc_flags,
+            )
     # Generate the actions to build various output artifacts. Given the set of
     # parameters we need, populate maps to the linkable and metadata
     # artifacts by linkage lang.
@@ -248,6 +263,11 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     incremental_enabled = ctx.attrs.incremental_enabled,
                 )
             param_subtargets[params].update(subtargets_to_add)
+
+    # Toolchains without a Miri driver build no miri artifacts; dependents
+    # requesting the kind fail loudly (see `dependency_args`).
+    if miri_output != None:
+        param_metadata_outputs[meta_params][MetadataKind("miri")] = miri_output
 
     link_infos, linked_object = _link_infos(
         ctx = ctx,
@@ -709,6 +729,10 @@ def _rust_artifacts(
     pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
+    # The single rlib-params Miri artifact serves every strategy, like AUL
+    # reuses pic_archive metadata; dylib crate types cannot be interpreted.
+    miri_params = lang_style_param[(LinkageLang("rust"), DEFAULT_STATIC_LIB_OUTPUT_STYLE)]
+    miri_output = param_metadata_outputs[miri_params].get(MetadataKind("miri"))
     rust_artifacts = {}
     for link_strategy in LinkStrategy:
         lib_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
@@ -718,7 +742,11 @@ def _rust_artifacts(
             # the pic_archive case, which is functionally equivalent
             lib_output_style = LibOutputStyle("pic_archive")
         params = lang_style_param[(LinkageLang("rust"), lib_output_style)]
-        rust_artifacts[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, link_strategy, param_metadata_outputs[params])
+        outputs = param_metadata_outputs[params]
+        if miri_output != None:
+            outputs = dict(outputs)
+            outputs[MetadataKind("miri")] = miri_output
+        rust_artifacts[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, link_strategy, outputs)
     return rust_artifacts
 
 def _handle_rust_artifact(
@@ -1217,8 +1245,11 @@ def _compute_transitive_deps(
             continue
         strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
         for m in MetadataKind:
-            transitive_deps[m].append(strategy.singleton_tset[m])
-            transitive_deps[m].append(strategy.transitive_deps[m])
+            # The `miri` kind is absent when the toolchain provides no
+            # Miri artifacts; every other kind is always built.
+            if m in strategy.singleton_tset:
+                transitive_deps[m].append(strategy.singleton_tset[m])
+                transitive_deps[m].append(strategy.transitive_deps[m])
 
         if strategy.rust_debug_info:
             rust_debug_info.append(strategy.rust_debug_info)
