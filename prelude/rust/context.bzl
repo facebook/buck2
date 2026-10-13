@@ -58,12 +58,14 @@ CompileContext = record(
     # Clippy wrapper (wrapping clippy-driver so it has the same CLI as rustc).
     clippy_wrapper = field(cmd_args),
     # Memoized common args for reuse.
-    common_args = field(dict[(CrateType, Emit, LinkStrategy, bool, bool, bool, ProfileMode), CommonArgsInfo]),
+    common_args = field(dict[(CrateType, Emit, LinkStrategy, bool, bool, bool, bool, ProfileMode), CommonArgsInfo]),
     # Memoized dependency args for reuse across emits with the same inputs.
     dependency_args = field(dict[(CrateType, LinkStrategy, MetadataKind, bool), DependencyArgsInfo]),
     cxx_toolchain_info = field(CxxToolchainInfo),
     dep_ctx = field(DepCollectionContext),
     exec_is_windows = field(bool),
+    # Exec-platform OS lookup, for tools that branch on script flavor.
+    exec_os_type = field(OsLookup),
     internal_tools_info = field(RustInternalToolsInfo),
     # The linker that we pass to `-Clinker`. This needs to be a wrapper script for two reasons:
     #  1. The `linker` in the cxx toolchain is a `cmd_args` which might have multiple args, we need
@@ -130,7 +132,8 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     else:
         sysroot_args = cmd_args()
 
-    exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
+    exec_os_type = ctx.attrs._exec_os_type[OsLookup]
+    exec_is_windows = exec_os_type.os == Os("windows")
     path_sep = "\\" if exec_is_windows else "/"
 
     return CompileContext(
@@ -140,6 +143,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         cxx_toolchain_info = cxx_toolchain_info,
         dep_ctx = dep_ctx,
         exec_is_windows = exec_is_windows,
+        exec_os_type = exec_os_type,
         internal_tools_info = internal_tools_info,
         linker_with_pre_args = linker_with_pre_args,
         path_sep = path_sep,

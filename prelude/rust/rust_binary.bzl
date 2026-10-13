@@ -10,6 +10,7 @@ load(
     "@prelude//:artifact_tset.bzl",
     "project_artifacts",
 )
+load("@prelude//:command_alias.bzl", "command_alias")
 load("@prelude//:content_based_dist.bzl", "make_content_based_dist")
 load(
     "@prelude//:resources.bzl",
@@ -81,6 +82,7 @@ load(
     ":build.bzl",
     "generate_rustdoc",
     "get_inherited_link_args",
+    "miri_command",
     "rust_compile",
     "rust_compile_invalidation_inputs",
     "rust_link_binary",
@@ -111,6 +113,7 @@ load(":named_deps.bzl", "write_named_deps_names")
 load(":outputs.bzl", "RustcExtraOutputsInfo", "output_as_diag_subtargets")
 load(":profile.bzl", "make_profile_providers")
 load(":resources.bzl", "rust_attr_resources")
+load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo", "toolchain_supports_miri")
 
 def _get_runtime_dependency_handling(ctx: AnalysisContext, compile_ctx: CompileContext) -> RuntimeDependencyHandling:
     """Read runtime_dependency_handling from attribute, falling back to CXX toolchain default."""
@@ -187,13 +190,129 @@ def _create_content_based_dist(
 
     return make_content_based_dist(ctx, name, exe, copies = copies, symlinks = symlinks)
 
+def _native_test_info(
+    ctx: AnalysisContext,
+    args: cmd_args,
+    re_executors,
+) -> list[Provider]:
+    """Default (native) test execution for a test rule."""
+    return inject_test_run_info(
+        ctx,
+        ExternalRunnerTestInfo(
+            type = "rust",
+            command = [args],
+            env = ctx.attrs.env | ctx.attrs.run_env,
+            labels = ctx.attrs.labels,
+            contacts = ctx.attrs.contacts,
+            default_executor = re_executors.default_executor,
+            executor_overrides = re_executors.executor_overrides,
+            run_from_project_root = True,
+            use_project_relative_paths = True,
+        ),
+    )
+
+def _miri_test_info(
+    ctx: AnalysisContext,
+    miri_direct_cmd: cmd_args,
+    re_executors,
+) -> ExternalRunnerTestInfo:
+    """Miri test execution for the `[miri]` sub-target."""
+    # Compile-time env rides inside the wrapped command (`--env`/`--path-env`),
+    # so no test-info env is needed.
+    return ExternalRunnerTestInfo(
+        type = "rust",
+        command = [miri_direct_cmd],
+        env = {},
+        labels = (ctx.attrs.labels or []) + ["miri"],
+        contacts = ctx.attrs.contacts,
+        default_executor = re_executors.default_executor,
+        executor_overrides = re_executors.executor_overrides,
+        run_from_project_root = True,
+        use_project_relative_paths = True,
+    )
+
+def _miri_direct_command(
+    ctx: AnalysisContext,
+    compile_ctx: CompileContext,
+    toolchain_info: RustToolchainInfo,
+    default_roots: list[str],
+    extra_flags: list[str | ResolvedStringWithMacros | Artifact],
+    runtime_env: dict[str, str | ResolvedStringWithMacros | Artifact],
+    is_test: bool,
+    strategy_params: dict[LinkStrategy, BuildParams],
+) -> cmd_args | None:
+    """Wrapped Miri driver command, or `None` without a Miri toolchain."""
+    if not toolchain_supports_miri(toolchain_info):
+        return None
+    return miri_command(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        params = strategy_params[DEFAULT_STATIC_LINK_STRATEGY],
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+        runtime_env = runtime_env,
+        is_test = is_test,
+    )
+
+def _miri_launcher(
+    ctx: AnalysisContext,
+    compile_ctx: CompileContext,
+    miri_direct_cmd: cmd_args,
+) -> list[Provider]:
+    """Executable launcher for the `[miri]` sub-target of a binary rule."""
+    # Env rides inside the wrapped command, so the launcher is just the command.
+    base = RunInfo(args = miri_direct_cmd)
+    args = cmd_args()
+    launcher = command_alias(
+        actions = ctx.actions,
+        path = "miri_launcher.sh",
+        target_os = compile_ctx.exec_os_type,
+        base = base,
+        args = args,
+        env = {},
+        labels = [],
+        has_content_based_path = False,
+    )
+    return [
+        launcher.output,
+        RunInfo(args = launcher.cmd),
+    ]
+
+def _miri_test_sub_targets(
+    ctx: AnalysisContext,
+    compile_ctx: CompileContext,
+    toolchain_info: RustToolchainInfo,
+    miri_direct_cmd: cmd_args,
+    re_executors,
+) -> list[Provider]:
+    """Launcher plus test info for an interpreted test run."""
+    # The launcher serves `buck2 run`, where no runner adds
+    # `-Zunstable-options` to unlock `--force-run-in-process`; the test
+    # info omits it because TPX supplies it.
+    launcher_cmd = miri_direct_cmd
+    if toolchain_info.panic_runtime == PanicRuntime("abort"):
+        launcher_cmd = cmd_args(miri_direct_cmd, "-Zunstable-options")
+    return _miri_launcher(ctx, compile_ctx, launcher_cmd) + [
+        _miri_test_info(ctx, miri_direct_cmd, re_executors),
+    ]
+
+# Native link outputs shared by the binary and test impls.
+NativeBinary = record(
+    providers = field(list[Provider]),
+    default_info = field(DefaultInfo),
+    args = field(cmd_args),
+    sub_targets = field(dict[str, list[Provider]]),
+)
+
 def _rust_binary_common(
     ctx: AnalysisContext,
     compile_ctx: CompileContext,
     default_roots: list[str],
-    extra_flags: list[str],
+    extra_flags: list[str | ResolvedStringWithMacros | Artifact],
     allow_cache_upload: bool,
-) -> (list[Provider], cmd_args):
+    strategy_params: dict[LinkStrategy, BuildParams],
+    miri_sub_targets = None,
+) -> NativeBinary:
     toolchain_info = compile_ctx.toolchain_info
 
     simple_crate = attr_simple_crate_for_filenames(ctx)
@@ -216,11 +335,7 @@ def _rust_binary_common(
         ).values()
     )
 
-    extra_flags = toolchain_info.rustc_binary_flags + (extra_flags or [])
-
-    strategy_param = _strategy_params(ctx, compile_ctx)
-
-    params = strategy_param[link_strategy]
+    params = strategy_params[link_strategy]
     name = output_filename(compile_ctx, simple_crate, Emit("link"), params)
 
     # Under advanced_unstable_linking, the binary is compiled via
@@ -620,7 +735,7 @@ def _rust_binary_common(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = Emit("metadata-fast"),
-            params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+            params = strategy_params[DEFAULT_STATIC_LINK_STRATEGY],
             default_roots = default_roots,
             extra_flags = extra_flags,
             infallible_diagnostics = True,
@@ -631,7 +746,7 @@ def _rust_binary_common(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = Emit("clippy"),
-            params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+            params = strategy_params[DEFAULT_STATIC_LINK_STRATEGY],
             default_roots = default_roots,
             extra_flags = extra_flags,
             infallible_diagnostics = True,
@@ -677,7 +792,7 @@ def _rust_binary_common(
             ctx = ctx,
             compile_ctx = compile_ctx,
             emit = Emit("expand"),
-            params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+            params = strategy_params[DEFAULT_STATIC_LINK_STRATEGY],
             default_roots = default_roots,
             extra_flags = extra_flags,
             incremental_enabled = ctx.attrs.incremental_enabled,
@@ -687,7 +802,7 @@ def _rust_binary_common(
         ctx = ctx,
         compile_ctx = compile_ctx,
         emit = Emit("llvm-ir-noopt"),
-        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+        params = strategy_params[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         extra_flags = extra_flags,
         incremental_enabled = ctx.attrs.incremental_enabled,
@@ -742,7 +857,7 @@ def _rust_binary_common(
     doc_output = generate_rustdoc(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+        params = strategy_params[DEFAULT_STATIC_LINK_STRATEGY],
         default_roots = default_roots,
         document_private_items = True,
     )
@@ -776,14 +891,18 @@ def _rust_binary_common(
     if dist_bundle:
         sub_targets["dist"] = [DefaultInfo(default_output = dist_bundle)]
 
+    # Caller-built `[miri]` content, attached so sub-targets package together.
+    if miri_sub_targets != None:
+        sub_targets["miri"] = miri_sub_targets
+
+    default_info = DefaultInfo(
+        default_output = dist_exe if dist_bundle else final_output,
+        other_outputs = runtime_files
+        + (executable_shlib_args.external_debug_info + external_debug_info if compile_ctx.cxx_toolchain_info.materialize_external_debug_info else [])
+        + ([dist_bundle] if dist_bundle else []),
+        sub_targets = sub_targets,
+    )
     providers += [
-        DefaultInfo(
-            default_output = dist_exe if dist_bundle else final_output,
-            other_outputs = runtime_files
-            + (executable_shlib_args.external_debug_info + external_debug_info if compile_ctx.cxx_toolchain_info.materialize_external_debug_info else [])
-            + ([dist_bundle] if dist_bundle else []),
-            sub_targets = sub_targets,
-        ),
         DistInfo(
             shared_libs = shlib_info.set,
             # The bundle is load-bearing at runtime for a bundled binary: the
@@ -802,20 +921,46 @@ def _rust_binary_common(
             default_roots = default_roots,
         )
     )
-    return (providers, args)
+    return NativeBinary(
+        providers = providers,
+        default_info = default_info,
+        args = args,
+        sub_targets = sub_targets,
+    )
 
 def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     compile_ctx = compile_context(ctx, binary = True)
+    toolchain_info = compile_ctx.toolchain_info
 
-    providers, args = _rust_binary_common(
+    default_roots = ["main.rs"]
+    extra_flags = toolchain_info.rustc_binary_flags
+    strategy_params = _strategy_params(ctx, compile_ctx)
+
+    miri = _miri_direct_command(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        default_roots = ["main.rs"],
-        extra_flags = [],
-        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
+        toolchain_info = toolchain_info,
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+        runtime_env = {},
+        is_test = False,
+        strategy_params = strategy_params,
     )
 
-    return providers + [RunInfo(args = args)]
+    miri_sub_targets = None
+    if miri != None:
+        miri_sub_targets = _miri_launcher(ctx, compile_ctx, miri)
+    native = _rust_binary_common(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
+        strategy_params = strategy_params,
+        miri_sub_targets = miri_sub_targets,
+    )
+
+    return native.providers + [native.default_info, RunInfo(args = native.args)]
 
 def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
     compile_ctx = compile_context(ctx, binary = True)
@@ -824,35 +969,37 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
     extra_flags = toolchain_info.rustc_test_flags or []
     if ctx.attrs.framework:
         extra_flags += ["--test"]
+    extra_flags = toolchain_info.rustc_binary_flags + (extra_flags or [])
 
-    providers, args = _rust_binary_common(
+    # A test may cover a binary or a library: consider both roots.
+    default_roots = ctx.attrs.default_roots or ["main.rs", "lib.rs"]
+
+    re_executors = get_re_executors_from_props(ctx)
+    strategy_params = _strategy_params(ctx, compile_ctx)
+    # Every test provides `[miri]`; omitted without a Miri toolchain.
+    miri = _miri_direct_command(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        # Unless default_roots are provided, it is ambiguous whether this test rule is invoked
-        # to test a binary, or to test a library. As such, we must consider both main.rs and
-        # lib.rs as potential candidates.
-        default_roots = ctx.attrs.default_roots or ["main.rs", "lib.rs"],
+        toolchain_info = toolchain_info,
+        default_roots = default_roots,
         extra_flags = extra_flags,
+        runtime_env = ctx.attrs.env | ctx.attrs.run_env,
+        is_test = True,
+        strategy_params = strategy_params,
+    )
+
+    miri_sub_targets = None
+    if miri != None:
+        miri_sub_targets = _miri_test_sub_targets(ctx, compile_ctx, toolchain_info, miri, re_executors)
+
+    native = _rust_binary_common(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+        strategy_params = strategy_params,
         allow_cache_upload = False,
+        miri_sub_targets = miri_sub_targets,
     )
 
-    # Setup RE executors based on the `remote_execution` param.
-    re_executors = get_re_executors_from_props(ctx)
-
-    return (
-        inject_test_run_info(
-            ctx,
-            ExternalRunnerTestInfo(
-                type = "rust",
-                command = [args],
-                env = ctx.attrs.env | ctx.attrs.run_env,
-                labels = ctx.attrs.labels,
-                contacts = ctx.attrs.contacts,
-                default_executor = re_executors.default_executor,
-                executor_overrides = re_executors.executor_overrides,
-                run_from_project_root = True,
-                use_project_relative_paths = True,
-            ),
-        )
-        + providers
-    )
+    return _native_test_info(ctx, native.args, re_executors) + native.providers + [native.default_info]

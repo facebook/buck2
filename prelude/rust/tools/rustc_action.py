@@ -113,6 +113,7 @@ def key_value_arg(s: str) -> tuple[str, str]:
 class Args(NamedTuple):
     diag_json: Optional[IO[bytes]]
     diag_txt: Optional[IO[bytes]]
+    passthrough_stderr: bool
     env: Optional[list[tuple[str, str]]]
     path_env: Optional[list[tuple[str, str]]]
     remap_cwd_prefix: Optional[str]
@@ -127,7 +128,7 @@ class Args(NamedTuple):
     rustc: list[str]
 
 
-def arg_parse() -> Args:
+def arg_parse(argv: Optional[list[str]] = None) -> Args:
     # Command line is <action.py> [args] -- rustc command line
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument(
@@ -140,6 +141,12 @@ def arg_parse() -> Args:
         "--diag-txt",
         type=argparse.FileType("wb"),
         help="Rendered text diagnostic output (also streamed to stderr)",
+    )
+    parser.add_argument(
+        "--passthrough-stderr",
+        action="store_true",
+        help="Copy stderr through verbatim without diagnostic parsing "
+        "(for commands whose output is not rustc JSON diagnostics)",
     )
     parser.add_argument(
         "--env",
@@ -209,11 +216,10 @@ def arg_parse() -> Args:
     parser.add_argument(
         "rustc",
         nargs=argparse.REMAINDER,
-        type=arg_eval,
         help="Compiler command line",
     )
 
-    args = Args(**vars(parser.parse_args()))
+    args = Args(**vars(parser.parse_args(argv)))
     if args.strip_dwo_members is not None and not args.archiver:
         parser.error("--strip-dwo-members requires --archiver")
     return args
@@ -337,6 +343,10 @@ async def handle_output(  # noqa: C901
         if line is None or line == b"":
             break
 
+        if args.passthrough_stderr:
+            sys.stderr.buffer.write(line)
+            continue
+
         try:
             diag = json.loads(line)
         except json.JSONDecodeError:
@@ -403,10 +413,33 @@ async def handle_output(  # noqa: C901
 
 
 async def main() -> int:  # noqa: C901
-    args = arg_parse()
+    # `--program-args` is a raw argv boundary, split off before argparse's
+    # response-file expansion so the tail is never inspected or rewritten.
+    # First raw occurrence wins; absence (None) means ordinary behavior,
+    # while an empty tail still emits a literal `--`. No wrapper option
+    # takes a separate value that could equal this token.
+    raw_argv = sys.argv[1:]
+    program_args = None
+    if "--program-args" in raw_argv:
+        split = raw_argv.index("--program-args")
+        program_args = raw_argv[split + 1 :]
+        raw_argv = raw_argv[:split]
+    args = arg_parse(raw_argv)
+
+    if program_args is None:
+        # No boundary: historical behavior; expand everything.
+        positional = [arg_eval(arg) for arg in args.rustc]
+    else:
+        # With a boundary only compiler arguments expand; the prefix stays
+        # raw apart from OUT_DIR resolution below.
+        positional = list(args.rustc)
+    args = args._replace(rustc=positional)
 
     if args.echo:
-        args.echo.write("".join(arg + "\n" for arg in args.rustc).encode("utf-8"))
+        echo_argv = list(args.rustc)
+        if program_args is not None:
+            echo_argv += ["--program-args"] + program_args
+        args.echo.write("".join(arg + "\n" for arg in echo_argv).encode("utf-8"))
         return 0
 
     # Inherit a very limited initial environment, then add the new things
@@ -425,10 +458,20 @@ async def main() -> int:  # noqa: C901
     if DEBUG:
         print(f"args {repr(args)} env {env} crate_map {crate_map}", end="\n")
 
+    out_dir = env.get("OUT_DIR")
+
     separator = args.rustc.index("--rustc-action-separator")
     rustc_cmd, rustc_args_orig = args.rustc[:separator], args.rustc[separator + 1 :]
-
-    out_dir = env.get("OUT_DIR")
+    if program_args is not None:
+        # Expansion applies to compiler arguments only.
+        rustc_args_orig = [arg_eval(arg) for arg in rustc_args_orig]
+        if out_dir is not None:
+            rustc_cmd = [
+                arg.replace(OUT_DIR_SENTINEL, out_dir)
+                if OUT_DIR_SENTINEL in arg
+                else arg
+                for arg in rustc_cmd
+            ]
 
     rustc_args = []
     for arg in rustc_args_orig:
@@ -469,6 +512,12 @@ async def main() -> int:  # noqa: C901
             )
         )
 
+    # The tail travels as raw argv past the response file; Miri scans raw
+    # argv itself, so the separator must not hide inside the file.
+    prog_tail_argv = []
+    if program_args is not None:
+        prog_tail_argv = ["--", *program_args]
+
     with tempfile.NamedTemporaryFile(
         mode="wb",
         prefix="rustc-args-",
@@ -485,6 +534,7 @@ async def main() -> int:  # noqa: C901
         proc = await asyncio.create_subprocess_exec(
             *rustc_cmd,
             "@" + args_file.name,
+            *prog_tail_argv,
             env=env,
             stdin=subprocess.DEVNULL,
             stdout=None,  # Inherit
@@ -554,4 +604,5 @@ async def main() -> int:  # noqa: C901
     return res
 
 
-sys.exit(asyncio.run(main()))
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))

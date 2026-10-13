@@ -37,6 +37,15 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+prelude.python_test(
+    name = "test_rustc_action",
+    srcs = [
+        "rustc_action.py",
+        "rustc_action_test.py",
+    ],
+    base_module = "",
+)
+
 prelude.python_bootstrap_binary(
     name = "rustdoc_test_with_resources",
     has_content_based_path = True,
