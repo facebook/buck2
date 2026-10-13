@@ -8,12 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
-use buck2_artifact::actions::key::ActionIndex;
-use buck2_artifact::actions::key::ActionKey;
-use buck2_artifact::artifact::artifact_type::BoundBuildArtifact;
-use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
@@ -22,7 +16,14 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact:
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackNonPromiseInputArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
-use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_dynamic_actions::attrs::dedupe_output_artifacts;
+use buck2_dynamic_actions::dynamic_actions::StarlarkDynamicActions;
+use buck2_dynamic_actions::dynamic_actions::StarlarkDynamicActionsData;
+use buck2_dynamic_actions::dynamic_value::StarlarkDynamicValue;
+use buck2_dynamic_actions::output_binder::DynamicActionsOutputArtifactBinder;
+use buck2_dynamic_actions::params::DynamicLambdaParams;
+use buck2_dynamic_actions::params::DynamicLambdaStaticFields;
+use buck2_dynamic_actions::storage::DynamicLambdaParamsStorageImpl;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use dupe::Dupe;
@@ -35,53 +36,11 @@ use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
 use starlark_map::small_map::SmallMap;
 
-use crate::dynamic::attrs::dedupe_output_artifacts;
-use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
-use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
-use crate::dynamic::dynamic_value::StarlarkDynamicValue;
-use crate::dynamic::params::DynamicLambdaParams;
-use crate::dynamic::params::DynamicLambdaStaticFields;
-use crate::dynamic::storage::DynamicLambdaParamsStorageImpl;
-
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
 enum DynamicOutputError {
     #[error("Output list may not be empty")]
     EmptyOutput,
-}
-
-pub(crate) struct DynamicActionsOutputArtifactBinder {
-    key: DeferredHolderKey,
-    index: u32,
-}
-
-impl DynamicActionsOutputArtifactBinder {
-    pub(crate) fn new(key: &DynamicLambdaResultsKey) -> Self {
-        DynamicActionsOutputArtifactBinder {
-            key: DeferredHolderKey::DynamicLambda(Arc::new(key.dupe())),
-            index: 0,
-        }
-    }
-
-    pub(crate) fn bind(
-        &mut self,
-        output: OutputArtifact,
-    ) -> buck2_error::Result<BoundBuildArtifact> {
-        // We create ActionKeys that point directly to the dynamic_lambda's
-        // output rather than our own. This saves the resolution of the key from
-        // needing to first lookup our result just to get forwarded to the lambda's result.
-        //
-        // This means that we are creating ActionKeys for the lambda and it needs to offset
-        // its key's index to account for this (see ActionRegistry where this is done).
-        let bound = output
-            .bind(ActionKey::new(
-                self.key.dupe(),
-                ActionIndex::new(self.index),
-            ))?
-            .dupe();
-        self.index += 1;
-        Ok(bound)
-    }
 }
 
 fn output_artifacts_to_lambda_build_artifacts<'v>(

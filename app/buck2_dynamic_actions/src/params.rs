@@ -28,31 +28,31 @@ use starlark::values::ValueTyped;
 use starlark::values::structs::StructRef;
 use starlark::values::typing::StarlarkCallable;
 
-use crate::dynamic::attrs::DynamicAttrValues;
-use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
+use crate::attrs::DynamicAttrValues;
+use crate::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
 
 #[derive(Allocative, Debug, StarlarkPagable)]
-pub(crate) struct DynamicLambdaStaticFields {
+pub struct DynamicLambdaStaticFields {
     /// Input artifacts required to be materialized by the lambda.
-    pub(crate) artifact_values: Box<[Artifact]>,
+    pub artifact_values: Box<[Artifact]>,
     /// Dynamic values I depend on.
-    pub(crate) dynamic_values: Box<[DynamicValue]>,
+    pub dynamic_values: Box<[DynamicValue]>,
     /// Execution platform inherited from the owner to use for actionsfbcode/buck2/app/buck2_action_impl/src/dynamic/deferred.rs
     #[starlark_pagable(pagable)]
-    pub(crate) execution_platform: ExecutionPlatformResolution,
+    pub execution_platform: ExecutionPlatformResolution,
 }
 
 #[derive(Allocative, Trace, Debug, ProvidesStaticType)]
-pub(crate) struct DynamicLambdaParams<'v> {
-    pub(crate) attributes: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
-    pub(crate) plugins: Option<ValueTyped<'v, AnalysisPlugins<'v>>>,
-    pub(crate) lambda: StarlarkCallable<'v>,
-    pub(crate) attr_values: Option<(
+pub struct DynamicLambdaParams<'v> {
+    pub attributes: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
+    pub plugins: Option<ValueTyped<'v, AnalysisPlugins<'v>>>,
+    pub lambda: StarlarkCallable<'v>,
+    pub attr_values: Option<(
         DynamicAttrValues<'v>,
         FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable<'v>>,
     )>,
-    pub(crate) outputs: Box<[ValueTyped<'v, StarlarkOutputArtifact<'v>>]>,
-    pub(crate) static_fields: DynamicLambdaStaticFields,
+    pub outputs: Box<[ValueTyped<'v, StarlarkOutputArtifact<'v>>]>,
+    pub static_fields: DynamicLambdaStaticFields,
 }
 
 #[derive(Allocative, Debug, ProvidesStaticType, StarlarkPagable)]
@@ -64,16 +64,16 @@ pub struct FrozenDynamicLambdaParams<'fv> {
         DynamicAttrValues<'fv>,
         FrozenValueTyped<'fv, FrozenStarlarkDynamicActionsCallable<'fv>>,
     )>,
-    pub(crate) outputs: Box<[ValueTyped<'fv, FrozenStarlarkOutputArtifact<'fv>>]>,
-    pub(crate) static_fields: DynamicLambdaStaticFields,
+    pub outputs: Box<[ValueTyped<'fv, FrozenStarlarkOutputArtifact<'fv>>]>,
+    pub static_fields: DynamicLambdaStaticFields,
 }
 
 impl<'fv> FrozenDynamicLambdaParams<'fv> {
-    pub(crate) fn attributes(&self) -> Option<ValueOfUnchecked<'fv, StructRef<'static>>> {
+    pub fn attributes(&self) -> Option<ValueOfUnchecked<'fv, StructRef<'static>>> {
         self.attributes
     }
 
-    pub(crate) fn plugins(&self) -> Option<ValueTyped<'fv, AnalysisPlugins<'fv>>> {
+    pub fn plugins(&self) -> Option<ValueTyped<'fv, AnalysisPlugins<'fv>>> {
         self.plugins
     }
 

@@ -37,7 +37,7 @@ use starlark::values::starlark_value;
 )]
 #[display("ResolvedDynamicValue<{}>", self.value)]
 pub struct StarlarkResolvedDynamicValue<'v> {
-    pub(crate) value: FrozenValueTyped<'v, ProviderCollection<'v>>,
+    pub value: FrozenValueTyped<'v, ProviderCollection<'v>>,
 }
 
 starlark_complex_value!(pub StarlarkResolvedDynamicValue);
@@ -83,4 +83,4 @@ fn resolved_dynamic_value_methods(method: &mut MethodsBuilder) {
 #[starlark_types(
     StarlarkResolvedDynamicValue<'_> as ResolvedDynamicValue
 )]
-pub(crate) fn register_resolved_dynamic_value(globals: &mut GlobalsBuilder) {}
+pub fn register_resolved_dynamic_value(globals: &mut GlobalsBuilder) {}

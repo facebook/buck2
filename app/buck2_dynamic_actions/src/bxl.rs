@@ -26,8 +26,8 @@ use dice_futures::cancellation::CancellationObserver;
 use futures::Future;
 use starlark::values::OwnedFrozenRef;
 
-use crate::dynamic::deferred::InputArtifactsMaterialized;
-use crate::dynamic::params::FrozenDynamicLambdaParams;
+use crate::deferred::InputArtifactsMaterialized;
+use crate::params::FrozenDynamicLambdaParams;
 
 pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
     for<'v> fn(
@@ -45,7 +45,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
     >,
 > = LateBinding::new("EVAL_BXL_FOR_DYNAMIC_OUTPUT");
 
-pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
+pub async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v BaseDeferredKeyBxl,
     self_key: DynamicLambdaResultsKey,
     dynamic_lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams<'static>>,

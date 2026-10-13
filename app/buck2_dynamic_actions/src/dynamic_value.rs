@@ -38,7 +38,7 @@ use starlark_map::StarlarkHasher;
 #[display("DynamicValue<{}>", self.dynamic_value)]
 pub struct StarlarkDynamicValue {
     #[starlark_pagable(pagable)]
-    pub(crate) dynamic_value: DynamicValue,
+    pub dynamic_value: DynamicValue,
 }
 
 starlark::methods_static!(DYNAMIC_VALUE_METHODS = dynamic_value_methods);
@@ -71,7 +71,7 @@ impl<'v> AllocValue<'v> for StarlarkDynamicValue {
 
 #[starlark_module]
 #[starlark_types(StarlarkDynamicValue as DynamicValue)]
-pub(crate) fn register_dynamic_value(globals: &mut GlobalsBuilder) {}
+pub fn register_dynamic_value(globals: &mut GlobalsBuilder) {}
 
 /// A value produced by a dynamic action that can be consumed by other dynamic actions.
 ///

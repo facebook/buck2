@@ -19,6 +19,7 @@ buck2_common.workspace = true
 buck2_core.workspace = true
 buck2_data.workspace = true
 buck2_directory.workspace = true
+buck2_dynamic_actions.workspace = true
 buck2_error.workspace = true
 buck2_events.workspace = true
 buck2_execute.workspace = true
@@ -30,10 +31,8 @@ buck2_interpreter.workspace = true
 buck2_util.workspace = true
 derive_more.workspace = true
 dice.workspace = true
-dice_futures.workspace = true
 dupe.workspace = true
 either.workspace = true
-futures.workspace = true
 hex.workspace = true
 hmap.workspace = true
 host_sharing.workspace = true
@@ -46,12 +45,14 @@ parking_lot.workspace = true
 remote_execution.workspace = true
 serde_json.workspace = true
 sha1.workspace = true
-smallvec.workspace = true
 sorted_vector_map.workspace = true
 starlark.workspace = true
 starlark_map.workspace = true
 strong_hash.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+dice_futures.workspace = true
 
 [lints]
 workspace = true

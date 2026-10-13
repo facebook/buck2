@@ -40,17 +40,17 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark_map::small_map::SmallMap;
 
-use crate::dynamic::params::DynamicLambdaParams;
-use crate::dynamic::params::FrozenDynamicLambdaParams;
+use crate::params::DynamicLambdaParams;
+use crate::params::FrozenDynamicLambdaParams;
 
 #[derive(Debug, Allocative, ProvidesStaticType)]
-pub(crate) struct DynamicLambdaParamsStorageImpl<'v> {
+pub struct DynamicLambdaParamsStorageImpl<'v> {
     self_key: DeferredHolderKey,
     lambda_params: SmallMap<DynamicLambdaResultsKey, DynamicLambdaParams<'v>>,
 }
 
 #[derive(Debug, Allocative, ProvidesStaticType, starlark::StarlarkPagable)]
-pub(crate) struct FrozenDynamicLambdaParamsStorageImpl<'fv> {
+pub struct FrozenDynamicLambdaParamsStorageImpl<'fv> {
     // Mixed: `DynamicLambdaResultsKey` is pagable-only (`buck2_core` cannot
     // depend on `starlark`), values are starlark-aware — so the generic
     // `SmallMap<K, V>: StarlarkSerialize` blanket doesn't apply. Bridge here.
@@ -88,7 +88,7 @@ fn deserialize_lambda_params<'fv>(
 }
 
 impl<'v> DynamicLambdaParamsStorageImpl<'v> {
-    pub(crate) fn get<'a>(
+    pub fn get<'a>(
         storage: &'a mut AnalysisValueStorage<'v>,
     ) -> buck2_error::Result<&'a mut DynamicLambdaParamsStorageImpl<'v>> {
         storage
@@ -121,7 +121,7 @@ impl<'v> DynamicLambdaParamsStorageImpl<'v> {
 }
 
 impl FrozenDynamicLambdaParamsStorageImpl<'_> {
-    pub(crate) fn lookup_lambda<'f>(
+    pub fn lookup_lambda<'f>(
         storage: OwnedFrozenRef<'f, &'static FrozenAnalysisValueStorage<'static>>,
         key: &DynamicLambdaResultsKey,
     ) -> buck2_error::Result<OwnedFrozenRef<'f, &'static FrozenDynamicLambdaParams<'static>>> {
@@ -202,7 +202,7 @@ impl<'fv> FrozenDynamicLambdaParamsStorage<'fv> for FrozenDynamicLambdaParamsSto
     }
 }
 
-pub(crate) fn init_dynamic_lambda_params_storages() {
+pub fn init_dynamic_lambda_params_storages() {
     struct Impl;
 
     impl DynamicLambdaParamStorages for Impl {

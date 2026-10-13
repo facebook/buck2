@@ -84,13 +84,13 @@ use starlark::values::list::AllocList;
 use starlark::values::tuple::AllocTuple;
 use starlark_map::small_map::SmallMap;
 
-use crate::dynamic::attrs::DynamicAttrValue;
-use crate::dynamic::attrs::DynamicAttrValues;
-use crate::dynamic::bxl::eval_bxl_for_dynamic_output;
-use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
-use crate::dynamic::dynamic_actions_callable::P_ACTIONS;
-use crate::dynamic::params::FrozenDynamicLambdaParams;
-use crate::dynamic::resolved_dynamic_value::StarlarkResolvedDynamicValue;
+use crate::attrs::DynamicAttrValue;
+use crate::attrs::DynamicAttrValues;
+use crate::bxl::eval_bxl_for_dynamic_output;
+use crate::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
+use crate::dynamic_actions_callable::P_ACTIONS;
+use crate::params::FrozenDynamicLambdaParams;
+use crate::resolved_dynamic_value::StarlarkResolvedDynamicValue;
 
 pub enum DynamicLambdaArgs<'v> {
     OldPositional {
@@ -355,7 +355,7 @@ async fn execute_lambda(
     }
 }
 
-pub(crate) async fn prepare_and_execute_lambda(
+pub async fn prepare_and_execute_lambda(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext,
     lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams<'static>>,

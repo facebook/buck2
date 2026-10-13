@@ -48,10 +48,10 @@ use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableParamSpec;
 use starlark_map::small_map::SmallMap;
 
-use crate::dynamic::attrs::DynamicAttrType;
-use crate::dynamic::attrs::DynamicAttrValues;
-use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
-use crate::dynamic::dynamic_actions::StarlarkDynamicActionsData;
+use crate::attrs::DynamicAttrType;
+use crate::attrs::DynamicAttrValues;
+use crate::dynamic_actions::StarlarkDynamicActions;
+use crate::dynamic_actions::StarlarkDynamicActionsData;
 
 pub struct DynamicActionsCallbackParamSpec;
 
@@ -62,7 +62,7 @@ pub struct DynamicActionsCallbackParam {
 
 pagable::static_str!(P_ACTIONS_NAME = "actions");
 
-pub(crate) static P_ACTIONS: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
+pub static P_ACTIONS: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
     name: P_ACTIONS_NAME,
     ty: LazyLock::new(AnalysisActions::starlark_type_repr),
 };
@@ -108,11 +108,11 @@ enum DynamicActionCallableError {
     self.name.get().map_or("(unbound)", |s| s.as_str())
 )]
 pub struct DynamicActionsCallable<'v> {
-    pub(crate) self_ty: Ty,
-    pub(crate) implementation:
+    pub self_ty: Ty,
+    pub implementation:
         StarlarkCallable<'v, DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
-    pub(crate) attrs: SmallMap<String, DynamicAttrType<'v>>,
-    pub(crate) name: OnceCell<String>,
+    pub attrs: SmallMap<String, DynamicAttrType<'v>>,
+    pub name: OnceCell<String>,
 }
 
 #[derive(
@@ -126,10 +126,10 @@ pub struct DynamicActionsCallable<'v> {
 #[display("DynamicActionsCallable[{}]", name)]
 pub struct FrozenStarlarkDynamicActionsCallable<'v> {
     #[starlark_pagable(pagable)]
-    pub(crate) self_ty: Ty,
-    pub(crate) implementation:
+    pub self_ty: Ty,
+    pub implementation:
         StarlarkCallable<'v, DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
-    pub(crate) attrs: SmallMap<String, DynamicAttrType<'v>>,
+    pub attrs: SmallMap<String, DynamicAttrType<'v>>,
     name: String,
     signature: ParametersSpec<Value<'v>>,
 }

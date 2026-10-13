@@ -23,15 +23,15 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::StarlarkCallableChecked;
 use starlark_map::small_map::SmallMap;
 
-use crate::dynamic::attrs::DynamicAttrType;
-use crate::dynamic::attrs_starlark::StarlarkDynamicAttrType;
-use crate::dynamic::dynamic_actions::StarlarkDynamicActions;
-use crate::dynamic::dynamic_actions_callable::DynamicActionsCallable;
-use crate::dynamic::dynamic_actions_callable::DynamicActionsCallbackParam;
-use crate::dynamic::dynamic_actions_callable::DynamicActionsCallbackParamSpec;
-use crate::dynamic::dynamic_actions_callable::DynamicActionsCallbackReturnType;
-use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
-use crate::dynamic::dynamic_actions_callable::P_ACTIONS;
+use crate::attrs::DynamicAttrType;
+use crate::attrs_starlark::StarlarkDynamicAttrType;
+use crate::dynamic_actions::StarlarkDynamicActions;
+use crate::dynamic_actions_callable::DynamicActionsCallable;
+use crate::dynamic_actions_callable::DynamicActionsCallbackParam;
+use crate::dynamic_actions_callable::DynamicActionsCallbackParamSpec;
+use crate::dynamic_actions_callable::DynamicActionsCallbackReturnType;
+use crate::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
+use crate::dynamic_actions_callable::P_ACTIONS;
 
 pub fn new_dynamic_actions_callable<'v>(
     r#impl: StarlarkCallableChecked<
@@ -95,7 +95,7 @@ pub fn new_dynamic_actions_callable<'v>(
     StarlarkDynamicActions<'_> as DynamicActions,
     FrozenStarlarkDynamicActionsCallable<'_> as DynamicActionsCallable
 )]
-pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
+pub fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
     /// Create new dynamic action callable. Returned object will be callable,
     /// and the result of calling it can be passed to `ctx.actions.dynamic_output_new`.
     ///

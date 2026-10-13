@@ -39,8 +39,8 @@ use futures::future::BoxFuture;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
-use crate::dynamic::deferred::prepare_and_execute_lambda;
-use crate::dynamic::storage::FrozenDynamicLambdaParamsStorageImpl;
+use crate::deferred::prepare_and_execute_lambda;
+use crate::storage::FrozenDynamicLambdaParamsStorageImpl;
 
 struct DynamicLambdaCalculationImpl;
 
@@ -63,7 +63,7 @@ impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
     }
 }
 
-pub(crate) fn init_dynamic_lambda_calculation() {
+pub fn init_dynamic_lambda_calculation() {
     DYNAMIC_LAMBDA_CALCULATION_IMPL.init(&DynamicLambdaCalculationImpl)
 }
 

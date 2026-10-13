@@ -26,7 +26,7 @@ use starlark::values::tuple::UnpackTuple;
 use starlark::values::typing::TypeCompiled;
 use starlark::values::typing::TypeType;
 
-use crate::dynamic::attrs::DynamicAttrType;
+use crate::attrs::DynamicAttrType;
 
 /// Attribute type for dynamic actions. Created from `dynattrs` module.
 #[derive(
@@ -41,7 +41,7 @@ use crate::dynamic::attrs::DynamicAttrType;
 )]
 #[display("{}", ty)]
 pub struct StarlarkDynamicAttrType<'v> {
-    pub(crate) ty: DynamicAttrType<'v>,
+    pub ty: DynamicAttrType<'v>,
 }
 
 #[starlark_value(type = "DynamicAttrType", StarlarkTypeRepr, UnpackValue, frozen_vtable)]
@@ -145,6 +145,6 @@ fn struct_dynattrs(globals: &mut GlobalsBuilder) {
     }
 }
 
-pub(crate) fn register_dynamic_attrs(globals: &mut GlobalsBuilder) {
+pub fn register_dynamic_attrs(globals: &mut GlobalsBuilder) {
     globals.namespace("dynattrs", struct_dynattrs);
 }

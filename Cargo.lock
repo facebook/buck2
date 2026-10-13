@@ -778,6 +778,7 @@ dependencies = [
  "buck2_core",
  "buck2_data",
  "buck2_directory",
+ "buck2_dynamic_actions",
  "buck2_error",
  "buck2_events",
  "buck2_execute",
@@ -792,7 +793,6 @@ dependencies = [
  "dice_futures",
  "dupe",
  "either",
- "futures 0.3.34",
  "hex",
  "hmap",
  "host_sharing",
@@ -805,7 +805,6 @@ dependencies = [
  "remote_execution",
  "serde_json",
  "sha1 0.11.0",
- "smallvec",
  "sorted_vector_map",
  "starlark",
  "starlark_map",
@@ -1145,6 +1144,7 @@ dependencies = [
  "buck2_common",
  "buck2_core",
  "buck2_data",
+ "buck2_dynamic_actions",
  "buck2_error",
  "buck2_events",
  "buck2_execute",
@@ -1955,6 +1955,34 @@ dependencies = [
  "tonic",
  "tonic-prost",
  "tracing",
+]
+
+[[package]]
+name = "buck2_dynamic_actions"
+version = "0.1.0"
+dependencies = [
+ "allocative",
+ "async-trait",
+ "buck2_artifact",
+ "buck2_build_api",
+ "buck2_build_signals",
+ "buck2_core",
+ "buck2_data",
+ "buck2_error",
+ "buck2_events",
+ "buck2_execute",
+ "buck2_hash",
+ "buck2_interpreter",
+ "buck2_util",
+ "derive_more 2.1.1",
+ "dice",
+ "dice_futures",
+ "dupe",
+ "futures 0.3.34",
+ "pagable",
+ "smallvec",
+ "starlark",
+ "starlark_map",
 ]
 
 [[package]]

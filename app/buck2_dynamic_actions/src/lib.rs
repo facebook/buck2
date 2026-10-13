@@ -8,16 +8,30 @@
  * above-listed licenses.
  */
 
-pub(crate) mod attrs;
+#![feature(arbitrary_self_types)]
+
+use std::sync::Once;
+
+pub mod attrs;
 pub mod attrs_starlark;
 pub mod bxl;
 pub mod calculation;
 pub mod deferred;
-pub(crate) mod dynamic_actions;
+pub mod dynamic_actions;
 pub mod dynamic_actions_callable;
-pub(crate) mod dynamic_actions_globals;
-pub(crate) mod dynamic_value;
+pub mod dynamic_actions_globals;
+pub mod dynamic_value;
+pub mod output_binder;
 pub mod params;
-pub(crate) mod resolved_dynamic_value;
-pub(crate) mod storage;
+pub mod resolved_dynamic_value;
+pub mod storage;
+
 pub use dynamic_actions_globals::new_dynamic_actions_callable;
+
+pub fn init_late_bindings() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        calculation::init_dynamic_lambda_calculation();
+        storage::init_dynamic_lambda_params_storages();
+    });
+}

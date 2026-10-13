@@ -24,13 +24,13 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::starlark_value;
 
-use crate::dynamic::attrs::DynamicAttrValues;
-use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
+use crate::attrs::DynamicAttrValues;
+use crate::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallable;
 
 #[derive(Debug, Trace, Allocative)]
-pub(crate) struct StarlarkDynamicActionsData<'v> {
-    pub(crate) callable: FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable<'v>>,
-    pub(crate) attr_values: DynamicAttrValues<'v>,
+pub struct StarlarkDynamicActionsData<'v> {
+    pub callable: FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable<'v>>,
+    pub attr_values: DynamicAttrValues<'v>,
 }
 
 #[derive(
@@ -42,8 +42,8 @@ pub(crate) struct StarlarkDynamicActionsData<'v> {
     Allocative
 )]
 #[display("DynamicActions<...>")]
-pub(crate) struct StarlarkDynamicActions<'v> {
-    pub(crate) data: RefCell<Option<StarlarkDynamicActionsData<'v>>>,
+pub struct StarlarkDynamicActions<'v> {
+    pub data: RefCell<Option<StarlarkDynamicActionsData<'v>>>,
 }
 
 starlark::methods_static!(DYNAMIC_ACTIONS_METHODS = dynamic_actions_methods);
