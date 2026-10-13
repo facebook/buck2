@@ -176,11 +176,11 @@ fn unpack_target_compatible_with_attr(
     target_node: TargetNodeRef,
     resolved_cfg: &MatchedConfigurationSettingKeysWithCfg,
     attr_id: AttributeId,
-) -> buck2_error::Result<Option<ConfiguredAttr>> {
+) -> buck2_error::Result<MaybeCompatible<Option<ConfiguredAttr>>> {
     let attr = target_node.known_attr_or_none(attr_id, AttrInspectOptions::All);
     let attr = match attr {
         Some(attr) => attr,
-        None => return Ok(None),
+        None => return Ok(MaybeCompatible::Compatible(None)),
     };
 
     struct AttrConfigurationContextToResolveCompatibleWith<'c> {
@@ -242,21 +242,29 @@ fn unpack_target_compatible_with_attr(
         }
     }
 
-    let attr = attr
+    let attr = match attr
         .configure(&AttrConfigurationContextToResolveCompatibleWith {
             resolved_cfg,
             label: target_node.label().dupe(),
             target_label,
         })
         .with_buck_error_context(|| format!("Error configuring attribute `{}`", attr.name))
-        .require_compatible()?;
+    {
+        ResultMaybeCompatible::Compatible(attr) => attr,
+        // A `select_incompatible()` branch makes the target incompatible here as in any
+        // other attribute, rather than failing the build.
+        ResultMaybeCompatible::Incompatible(reason) => {
+            return Ok(MaybeCompatible::Incompatible(reason));
+        }
+        ResultMaybeCompatible::Err(e) => return Err(e),
+    };
 
     match attr.value.unpack_list() {
         Some(values) => {
             if !values.is_empty() {
-                Ok(Some(attr.value))
+                Ok(MaybeCompatible::Compatible(Some(attr.value)))
             } else {
-                Ok(None)
+                Ok(MaybeCompatible::Compatible(None))
             }
         }
         None => Err(NodeCalculationError::TargetCompatibleNotList(
@@ -272,18 +280,24 @@ fn check_compatible(
     target_node: TargetNodeRef,
     resolved_cfg: &MatchedConfigurationSettingKeysWithCfg,
 ) -> buck2_error::Result<MaybeCompatible<()>> {
-    let target_compatible_with = unpack_target_compatible_with_attr(
+    let target_compatible_with = match unpack_target_compatible_with_attr(
         target_label,
         target_node,
         resolved_cfg,
         TARGET_COMPATIBLE_WITH_ATTRIBUTE.id,
-    )?;
-    let legacy_compatible_with = unpack_target_compatible_with_attr(
+    )? {
+        MaybeCompatible::Compatible(attr) => attr,
+        MaybeCompatible::Incompatible(reason) => return Ok(MaybeCompatible::Incompatible(reason)),
+    };
+    let legacy_compatible_with = match unpack_target_compatible_with_attr(
         target_label,
         target_node,
         resolved_cfg,
         LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE.id,
-    )?;
+    )? {
+        MaybeCompatible::Compatible(attr) => attr,
+        MaybeCompatible::Incompatible(reason) => return Ok(MaybeCompatible::Incompatible(reason)),
+    };
 
     let compatibility_constraints = match (target_compatible_with, legacy_compatible_with) {
         (None, None) => return Ok(MaybeCompatible::Compatible(())),

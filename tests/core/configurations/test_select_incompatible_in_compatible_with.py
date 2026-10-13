@@ -26,17 +26,15 @@ async def test_select_incompatible_in_ordinary_attribute_is_incompatible(
 
 
 @buck_test()
-async def test_select_incompatible_in_target_compatible_with_is_an_error(
+async def test_select_incompatible_in_target_compatible_with_is_skipped(
     buck: Buck,
 ) -> None:
-    # In `target_compatible_with` the same `select_incompatible()` branch is turned into a hard
-    # error, so a package pattern fails instead of skipping the target.
-    result = await expect_failure(
-        buck.build("//:"),
+    # In `target_compatible_with` the `select_incompatible()` branch makes the target
+    # incompatible, like in any other attribute: a package pattern skips it.
+    result = await buck.build("//:")
+    assert "Skipped 3 incompatible targets:" in result.stderr
+    assert "root//:tcw_select_incompatible (" in result.stderr
+    await expect_failure(
+        buck.build("//:tcw_select_incompatible"),
         stderr_regex="select resolved to select_incompatible\\(\\): not for a",
     )
-    # The other incompatible targets are skipped; this one fails the build.
-    assert "Skipped 2 incompatible targets:" in result.stderr
-    assert "root//:attr_select_incompatible (" in result.stderr
-    assert "root//:incompatible (" in result.stderr
-    assert "Error running analysis for `root//:tcw_select_incompatible" in result.stderr
