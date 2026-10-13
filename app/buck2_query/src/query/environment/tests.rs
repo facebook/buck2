@@ -782,24 +782,21 @@ mod query_function_args {
         }
     }
 
-    /// The CLI runs the literal visitor first, which rejects a fourth argument to `deps`. The
-    /// evaluator itself never looks past the declared arguments, so a filter expression that is
-    /// evaluated per node (as BXL's `filter =` is) accepts any number of extra arguments,
-    /// including calls to functions that do not exist.
+    /// Both the literal visitor and the evaluator reject a fourth argument to `deps`, also when
+    /// the call is inside a filter expression that is evaluated per node.
     #[tokio::test]
-    async fn extra_arguments_are_ignored_by_the_evaluator() -> buck2_error::Result<()> {
+    async fn extra_arguments_are_rejected_by_the_evaluator() -> buck2_error::Result<()> {
         let env = env();
         let query = "deps(set(1), 1, first_order_deps(), nosuchfunction())";
         let functions = DefaultQueryFunctionsModule::<LiteralEnv>::new();
+        let expected = "too many args. function `deps` accepts maximum 3 args, got 4";
         let err = extract_target_literals(&functions, query).unwrap_err();
-        assert!(
-            format!("{err:#}")
-                .contains("too many args. function `deps` accepts maximum 3 args, got 4")
-        );
-        assert_eq!(eval(&env, query).await?, "[1, 2]");
+        assert!(format!("{err:#}").contains(expected));
+        let err = eval(&env, query).await.unwrap_err();
+        assert!(format!("{err:#}").contains(expected), "{err:#}");
 
         let filter = parse_expr("first_order_deps(nosuchfunction(), 7)")?;
-        let deps = DefaultQueryFunctions::<LiteralEnv>::new()
+        let err = DefaultQueryFunctions::<LiteralEnv>::new()
             .deps(
                 &env,
                 &functions,
@@ -807,8 +804,14 @@ mod query_function_args {
                 QueryValueDepth::Unbounded,
                 Some(&CapturedExpr { expr: &filter }),
             )
-            .await?;
-        assert_eq!(deps.to_string(), "[3, 2, 1]");
+            .await
+            .unwrap_err();
+        assert!(
+            format!("{err:#}").contains(
+                "too many args. function `first_order_deps` accepts maximum 0 args, got 2"
+            ),
+            "{err:#}"
+        );
         Ok(())
     }
 }

@@ -269,6 +269,13 @@ fn gen_for_method(parsed: &Parsed, method: &Method) -> syn::Result<MethodCodegen
                         evaluator: &QueryEvaluator<#env_ident>,
                         args: &[SpannedExpr<'_>],
                     ) -> Result<QueryValue<#env_target>, QueryError> {
+                        if args.len() > #max_args {
+                            return Err(QueryError::TooManyArgs {
+                                function: self.name().to_owned(),
+                                max: #max_args,
+                                actual: args.len(),
+                            });
+                        }
                         self.0.#func_ident(
                             #pass_ctx
                             #(#pass_args,)*
