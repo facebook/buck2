@@ -182,3 +182,65 @@ impl DotCompact {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct OneNode(&'static str);
+    struct N(&'static str);
+
+    impl DotNode for N {
+        fn attrs(&self) -> buck2_error::Result<DotNodeAttrs> {
+            let mut extra = SmallMap::new();
+            extra.insert("buck_description".to_owned(), self.0.to_owned());
+            Ok(DotNodeAttrs {
+                extra,
+                ..DotNodeAttrs::default()
+            })
+        }
+
+        fn id(&self) -> String {
+            "root//escapes:q".to_owned()
+        }
+    }
+
+    impl<'a> DotDigraph<'a> for OneNode {
+        type Node = N;
+
+        fn name(&self) -> &str {
+            "result_graph"
+        }
+
+        fn for_each_node<F: FnMut(&N) -> buck2_error::Result<()>>(
+            &'a self,
+            mut f: F,
+        ) -> buck2_error::Result<()> {
+            f(&N(self.0))
+        }
+
+        fn for_each_edge<F: FnMut(&DotEdge) -> buck2_error::Result<()>>(
+            &'a self,
+            _node: &N,
+            _f: F,
+        ) -> buck2_error::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn render(value: &'static str) -> String {
+        let mut out = Vec::new();
+        Dot::render(&OneNode(value), &mut out).unwrap();
+        String::from_utf8(out).unwrap()
+    }
+
+    /// An attribute value ending in a backslash is quoted without escaping the backslash, so Graphviz reads
+    /// the final `\"` as an escaped quote and the string never ends.
+    #[test]
+    fn test_attr_value_with_trailing_backslash() {
+        assert_eq!(
+            render("C:\\dir\\"),
+            "digraph result_graph {\n  \"root//escapes:q\" [buck_description=\"C:\\dir\\\"];\n}\n"
+        );
+    }
+}
