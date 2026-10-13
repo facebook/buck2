@@ -478,6 +478,68 @@ dir_output_dep_file = rule(
     },
 )
 
+AnonDepFileInfo = provider(fields = {"out": provider_field(typing.Any)})
+
+def _anon_dep_file_impl(ctx):
+    used_input = ctx.actions.write("used_input", ctx.attrs.used_input_contents, has_content_based_path = False)
+
+    dep_file = ctx.actions.declare_output("depfile", has_content_based_path = False)
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
+
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import sys",
+            "with open(sys.argv[3]) as used_input:",
+            "  used_contents = used_input.read()",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write(used_contents)",
+            "with open(sys.argv[2], 'w') as dep_file:",
+            "  for arg in sys.argv[3:]:",
+            "    dep_file.write('{}\\n'.format(arg))",
+        ],
+        has_content_based_path = False,
+    )
+
+    tag = ctx.actions.artifact_tag()
+    args = cmd_args(
+        [
+            "fbpython",
+            script,
+            out.as_output(),
+            tag.tag_artifacts(dep_file.as_output()),
+            tag.tag_artifacts(used_input),
+        ],
+    )
+
+    ctx.actions.run(args, category = "test_run", dep_files = {"used": tag})
+
+    return [DefaultInfo(), AnonDepFileInfo(out = out)]
+
+_anon_dep_file = anon_rule(
+    impl = _anon_dep_file_impl,
+    attrs = {
+        "used_input_contents": attrs.string(),
+    },
+    artifact_promise_mappings = {
+        "out": lambda providers: providers[AnonDepFileInfo].out,
+    },
+)
+
+def _anon_dep_file_wrapper_impl(ctx):
+    anon_out = ctx.actions.anon_target(_anon_dep_file, {
+        "used_input_contents": ctx.attrs.used_input_contents,
+    }).artifact("out")
+    out = ctx.actions.copy_file("out", anon_out, has_content_based_path = False)
+    return [DefaultInfo(default_output = out)]
+
+anon_dep_file = rule(
+    impl = _anon_dep_file_wrapper_impl,
+    attrs = {
+        "used_input_contents": attrs.string(),
+    },
+)
+
 PathArgsInfo = provider(fields = {"args": provider_field(typing.Any)})
 
 def _path_args_impl(ctx):
