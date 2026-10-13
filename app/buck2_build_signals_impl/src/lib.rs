@@ -1659,4 +1659,45 @@ mod tests {
         assert_eq!(receiver.backend.deps[&page_in_key], [work_key.dupe()]);
         assert_eq!(receiver.backend.deps[&work_key], [dep]);
     }
+
+    fn configured_label(s: &str) -> ConfiguredTargetLabel {
+        ConfiguredTargetLabel::testing_parse(
+            s,
+            buck2_core::configuration::data::ConfigurationData::testing_new(),
+        )
+    }
+
+    fn duration_from(start: Instant, from_ms: u64, to_ms: u64) -> NodeDuration {
+        NodeDuration {
+            user: Duration::from_millis(to_ms - from_ms),
+            total: TimeSpan::new_saturating(
+                start + Duration::from_millis(from_ms),
+                start + Duration::from_millis(to_ms),
+            ),
+            queue: None,
+        }
+    }
+
+    /// A top-level target with two outputs of which only one was rebuilt: the other output's
+    /// key was still valid, so it was never activated and is not in the graph. The cost
+    /// computation fails on the missing artifact and the whole target is left out of
+    /// `top_level_targets` (the code comment expects this only when the command was cancelled).
+    #[test]
+    fn top_level_target_dropped_when_one_output_not_recomputed() {
+        let mut backend = LongestPathGraphBackend::new();
+        let t0 = Instant::now();
+        let built = node_key("cell//built");
+        let untouched = node_key("cell//untouched");
+        backend.process_node(
+            built.dupe(),
+            NodeExtraData::None,
+            duration_from(t0, 0, 50),
+            std::iter::empty::<NodeKey>(),
+            Default::default(),
+            WaitingData::new(),
+        );
+        backend.process_top_level_target(configured_label("cell//pkg:t"), [built, untouched]);
+        let info = backend.finish(Default::default()).unwrap();
+        assert!(info.top_level_targets.is_empty());
+    }
 }
