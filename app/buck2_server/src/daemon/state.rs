@@ -988,6 +988,46 @@ pub struct DaemonStateData {
     pub(crate) standalone_ttl_refresh: Arc<StandaloneTtlRefreshCounters>,
 }
 
+// SAFETY: `_assert_send_sync` requires every field to be `Send + Sync`. Spelled out
+// so that auto-trait proofs for command futures stop here; see `dice::DiceComputations`.
+unsafe impl Send for DaemonStateData {}
+unsafe impl Sync for DaemonStateData {}
+
+fn _assert_send_sync(
+    DaemonStateData {
+        tenants,
+        tenant_state_factory,
+        blocking_executor_factory,
+        forkserver,
+        scribe_sink,
+        start_time,
+        http_client,
+        spawner,
+        memory_tracker,
+        daemon_id,
+        daemon_originating_cgroup,
+        named_semaphores_for_run_actions,
+        package_visibility_default_intersection,
+        standalone_ttl_refresh,
+    }: &DaemonStateData,
+) {
+    fn assert<T: Send + Sync>(_: &T) {}
+    assert(tenants);
+    assert(tenant_state_factory);
+    assert(blocking_executor_factory);
+    assert(forkserver);
+    assert(scribe_sink);
+    assert(start_time);
+    assert(http_client);
+    assert(spawner);
+    assert(memory_tracker);
+    assert(daemon_id);
+    assert(daemon_originating_cgroup);
+    assert(named_semaphores_for_run_actions);
+    assert(package_visibility_default_intersection);
+    assert(standalone_ttl_refresh);
+}
+
 impl DaemonStateData {
     fn repo_shared_services(&self) -> DaemonSharedServices<'_> {
         DaemonSharedServices {

@@ -130,6 +130,17 @@ pub struct ActionQueryNode {
     data: ActionQueryNodeData,
 }
 
+// SAFETY: `_assert_send_sync` requires every field to be `Send + Sync`. Spelled out
+// so that auto-trait proofs for aquery futures stop here; see `dice::DiceComputations`.
+unsafe impl Send for ActionQueryNode {}
+unsafe impl Sync for ActionQueryNode {}
+
+fn _assert_send_sync(ActionQueryNode { key, data }: &ActionQueryNode) {
+    fn assert<T: Send + Sync>(_: &T) {}
+    assert(key);
+    assert(data);
+}
+
 impl PartialEq for ActionQueryNode {
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key

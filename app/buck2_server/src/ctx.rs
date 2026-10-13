@@ -196,6 +196,28 @@ pub struct BaseServerCommandContext {
     pub _drop_guard: ActiveCommandDropGuard,
 }
 
+// SAFETY: `_assert_send_sync` requires every field to be `Send + Sync`. Spelled out
+// so that auto-trait proofs for command futures stop here; see `dice::DiceComputations`.
+unsafe impl Send for BaseServerCommandContext {}
+unsafe impl Sync for BaseServerCommandContext {}
+
+fn _assert_send_sync(
+    BaseServerCommandContext {
+        _fb,
+        events,
+        tenant,
+        daemon,
+        _drop_guard,
+    }: &BaseServerCommandContext,
+) {
+    fn assert<T: Send + Sync>(_: &T) {}
+    assert(_fb);
+    assert(events);
+    assert(tenant);
+    assert(daemon);
+    assert(_drop_guard);
+}
+
 impl BaseServerCommandContext {
     pub(crate) fn repo(&self) -> &RepoState {
         &self.tenant.repo
