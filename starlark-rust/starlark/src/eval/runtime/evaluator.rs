@@ -1314,4 +1314,60 @@ mod tests {
             Ok(())
         })
     }
+
+    /// The body of `test_garbage_collect_between_evaluations`, run in a child process because
+    /// the failure under test aborts the process.
+    #[test]
+    #[ignore = "run only as the child of test_garbage_collect_between_evaluations"]
+    fn child_garbage_collect_between_evaluations() {
+        if std::env::var_os("STARLARK_GC_CHILD").is_none() {
+            return;
+        }
+        let globals = Globals::standard();
+        Module::with_temp_heap(|module| {
+            let ast = AstModule::parse("test.bzl", "x = [1, 2, 3]".to_owned(), &Dialect::Standard)
+                .unwrap();
+            Evaluator::new(&module).eval_module(ast, &globals).unwrap();
+
+            let mut eval = Evaluator::new(&module);
+            unsafe { eval.garbage_collect() };
+            drop(eval);
+            assert_eq!(module.get("x").unwrap().to_repr(), "[1, 2, 3]");
+            eprintln!("STARLARK_GC_CHILD_COMPLETED");
+        });
+    }
+
+    fn run_gc_child() -> (bool, String) {
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "eval::runtime::evaluator::tests::child_garbage_collect_between_evaluations",
+                "--exact",
+                "--ignored",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env("STARLARK_GC_CHILD", "1")
+            .output()
+            .unwrap();
+        let output = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        (out.status.success(), output)
+    }
+
+    /// `garbage_collect` is documented as "do not call during Starlark evaluation", so calling
+    /// it between two evaluations looks allowed, but `Evaluator::trace` traces `current_frame`
+    /// without checking that it is initialized: in a debug build the frame assertion fails and
+    /// the process aborts (release builds read through an uninitialized frame pointer).
+    #[test]
+    fn test_garbage_collect_between_evaluations() {
+        let (success, output) = run_gc_child();
+        if cfg!(debug_assertions) {
+            assert!(!success, "{output}");
+            assert!(output.contains("is_inititalized"), "{output}");
+            assert!(!output.contains("STARLARK_GC_CHILD_COMPLETED"), "{output}");
+        }
+    }
 }
