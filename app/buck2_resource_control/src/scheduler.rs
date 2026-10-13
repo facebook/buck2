@@ -224,6 +224,20 @@ pub(crate) struct Scheduler {
     next_scene_id: SceneId,
 }
 
+/// Closes the open suspension, if any, into the scene's counters.
+impl SuspendedScene {
+    fn record_suspension_end(&mut self, now: Instant) {
+        if let Some(suspend_start) = self.suspend_start.take() {
+            let suspend_elapsed = now - suspend_start;
+            self.scene.suspend_duration = Some(match self.scene.suspend_duration {
+                Some(duration) => duration + suspend_elapsed,
+                None => suspend_elapsed,
+            });
+            self.scene.suspend_count += 1;
+        }
+    }
+}
+
 impl Scheduler {
     pub(crate) fn init(
         resource_control_config: &ResourceControlConfig,
@@ -392,9 +406,10 @@ impl Scheduler {
             .iter()
             .position(|cg| cg.scene.scene_id == scene_id.as_ref())
         {
-            let cgroup = self.suspended_scenes.remove(i).unwrap();
+            let mut cgroup = self.suspended_scenes.remove(i).unwrap();
             // Command can finish after freezing a cgroup either because freezing may take some time
             // or because we started freezing after the command finished.
+            cgroup.record_suspension_end(now);
             SceneResult::from_info(&cgroup.scene)
         } else {
             unreachable!("Scene disappeared!")
@@ -619,16 +634,7 @@ impl Scheduler {
             return;
         };
 
-        if let Some(suspend_start) = suspended_cgroup.suspend_start {
-            let suspend_elapsed = now - suspend_start;
-
-            suspended_cgroup.scene.suspend_duration =
-                Some(match suspended_cgroup.scene.suspend_duration {
-                    Some(duration) => duration + suspend_elapsed,
-                    None => suspend_elapsed,
-                });
-            suspended_cgroup.scene.suspend_count += 1;
-        }
+        suspended_cgroup.record_suspension_end(now);
 
         let (running_cgroup, event_kind) =
             wake_scene(suspended_cgroup.scene, suspended_cgroup.wake_implementation);
@@ -780,8 +786,8 @@ mod tests {
         }
     }
 
-    /// A scene that finishes while it is suspended loses that suspension from its result: only `wake`
-    /// adds the open suspension to the counters.
+    /// A scene that finishes while it is suspended counts that suspension in its result like a scene
+    /// that was woken.
     #[test]
     fn test_scene_finished_while_suspended() {
         let (mut scheduler, timeline) = TestTimeline::new();
@@ -814,8 +820,8 @@ mod tests {
         assert!(kill2.0.try_recv().is_ok(), "scene2 is suspended at t=100");
         // The action had completed when the kill arrived; the executor reports it at t=110.
         let res = scheduler.scene_finished(scene2, timeline.secs(110));
-        assert_eq!(res.suspend_count, 0);
-        assert_eq!(res.suspend_duration, None);
+        assert_eq!(res.suspend_count, 1);
+        assert_eq!(res.suspend_duration, Some(Duration::from_secs(10)));
         scheduler.scene_finished(scene1, timeline.secs(120));
     }
 
