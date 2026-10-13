@@ -361,7 +361,7 @@ async fn copy_and_hash(
         buff.peek(&chunk);
 
         writer
-            .write(&chunk)
+            .write_all(&chunk)
             .with_buck_error_context(|| format!("write({abs_path})"))
             .map_err(HttpDownloadError::IoError)?;
 
