@@ -825,6 +825,29 @@ mod tests {
         scheduler.scene_finished(scene1, timeline.secs(120));
     }
 
+    /// The initial memory cap takes the ancestor `memory.high` even when `memory.max` is lower,
+    /// although it is documented as the best estimate of the memory that can be used.
+    #[test]
+    fn test_initial_cap_with_high_above_max() {
+        let now = Instant::now();
+        let scheduler = Scheduler::new(
+            true,
+            ExperimentalAlgoVariant::new(None),
+            ActionSuspendStrategy::KillAndRetry,
+            Box::new(InflatedCurrentPressureForecast),
+            Box::new(SpreadHalfSuspendTiming::new()),
+            EffectiveResourceConstraints {
+                memory_high: Some(32 << 30),
+                memory_max: Some(16 << 30),
+                ..Default::default()
+            },
+            64 << 30,
+            &DaemonId::new(),
+            now,
+        );
+        assert_eq!(scheduler.estimated_memory_cap, 32 << 30);
+    }
+
     #[test]
     fn test_peak_memory_and_swap() -> buck2_error::Result<()> {
         let (mut scheduler, timeline) = TestTimeline::new();
