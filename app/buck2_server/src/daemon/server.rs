@@ -11,6 +11,7 @@
 use std::future;
 use std::io;
 use std::io::Write;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -555,259 +556,249 @@ impl BuckdServer {
         .await
     }
 
-    async fn run_streaming_fallible<Req, Res, PartialRes, F>(
+    /// The body of `run_streaming`, compiled once for all commands. `#[inline(never)]` keeps
+    /// it from being inlined back into each command's `run_streaming` instantiation.
+    #[inline(never)]
+    fn run_streaming_erased(
         &self,
-        req: Request<Req>,
-        opts: impl StreamingCommandOptions<Req>,
-        func: F,
-    ) -> buck2_error::Result<Response<ResponseStream>>
-    where
-        F: for<'a> FnOnce(
-                &'a ServerCommandContext,
-                PartialResultDispatcher<PartialRes>,
-                Req,
-            ) -> BoxFuture<'a, buck2_error::Result<Res>>
-            + Send
-            + 'static,
-        Req: HasClientContext + HasBuildOptions + Send + Sync + 'static,
-        Res: Into<command_result::Result> + Send + 'static,
-        PartialRes: Into<partial_result::PartialResult> + Send + 'static,
-    {
-        let command_start = Instant::now();
+        command: Box<dyn ErasedStreamingCommand>,
+    ) -> BoxFuture<'_, buck2_error::Result<Response<ResponseStream>>> {
+        Box::pin(async move {
+            let command_start = Instant::now();
 
-        if buck2_env!("BUCK2_TEST_FAIL_STREAMING", bool, applicability = testing).unwrap() {
-            Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Input,
-                "Injected client streaming error"
-            ))?;
-        }
+            if buck2_env!("BUCK2_TEST_FAIL_STREAMING", bool, applicability = testing).unwrap() {
+                Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "Injected client streaming error"
+                ))?;
+            }
 
-        let client_ctx = req.get_ref().client_context()?;
-        let soft_error_context = Arc::new(SoftErrorContext::new(
-            &client_ctx.buck2_hard_error,
-            &client_ctx.buck2_show_soft_errors,
-        )?);
+            let client_ctx = command.client_context()?;
+            let soft_error_context = Arc::new(SoftErrorContext::new(
+                &client_ctx.buck2_hard_error,
+                &client_ctx.buck2_show_soft_errors,
+            )?);
 
-        OneshotCommandOptions::pre_run(&opts, self)?;
+            command.pre_run(self)?;
 
-        let daemon_state = self.0.daemon_state.dupe();
-        let trace_id = client_ctx.trace_id.parse()?;
-        let (events, dispatch) = daemon_state.prepare_events(trace_id).await?;
-        let dispatch = dispatch.with_soft_error_context(soft_error_context);
-        let ActiveCommand {
-            guard,
-            daemon_shutdown_channel,
-            state,
-        } = ActiveCommand::new(&dispatch, client_ctx.sanitized_argv.clone());
+            let daemon_state = self.0.daemon_state.dupe();
+            let trace_id = client_ctx.trace_id.parse()?;
+            let (events, dispatch) = daemon_state.prepare_events(trace_id).await?;
+            let dispatch = dispatch.with_soft_error_context(soft_error_context);
+            let ActiveCommand {
+                guard,
+                daemon_shutdown_channel,
+                state,
+            } = ActiveCommand::new(&dispatch, client_ctx.sanitized_argv.clone());
 
-        // A command that contends for the DICE graph is starting; cancel any
-        // in-progress idle page-out so it yields resources back. Read-only /
-        // debug commands opt out (see `triggers_idle_page_out`).
-        if opts.triggers_idle_page_out() {
-            cancel_active_page_out();
-        }
+            // A command that contends for the DICE graph is starting; cancel any
+            // in-progress idle page-out so it yields resources back. Read-only /
+            // debug commands opt out (see `triggers_idle_page_out`).
+            let triggers_idle_page_out = command.triggers_idle_page_out();
+            let prevents_background_cleanup = command.prevents_background_cleanup();
+            if triggers_idle_page_out {
+                cancel_active_page_out();
+            }
 
-        let data = daemon_state.data();
-        let tenant = data.tenant_for_client_context(client_ctx).await?;
-        let repo = tenant.repo.dupe();
+            let data = daemon_state.data();
+            let tenant = data.tenant_for_client_context(client_ctx).await?;
+            let repo = tenant.repo.dupe();
 
-        // The total disk space on `buck-out`, effectively fixed for the daemon's life.
-        // Captured here alongside `SystemInfo` and handed to this command's
-        // `PagingManager`, which pairs it with the command-end snapshot's used-disk
-        // reading to gate idle page-out without a second disk stat.
-        let total_disk_space_bytes = disk_space_stats(repo.paths.buck_out_path())
-            .ok()
-            .map(|DiskSpaceStats { total_space, .. }| total_space);
+            // The total disk space on `buck-out`, effectively fixed for the daemon's life.
+            // Captured here alongside `SystemInfo` and handed to this command's
+            // `PagingManager`, which pairs it with the command-end snapshot's used-disk
+            // reading to gate idle page-out without a second disk stat.
+            let total_disk_space_bytes = disk_space_stats(repo.paths.buck_out_path())
+                .ok()
+                .map(|DiskSpaceStats { total_space, .. }| total_space);
 
-        // Fire off a system-wide event to record the memory usage of this process.
-        // TODO(ezgi): add it to oneshot command too
-        let system_warning_config = &repo.system_warning_config;
-        dispatch.instant_event(buck2_data::SystemInfo {
-            system_total_memory_bytes: Some(system_memory_stats()),
-            memory_pressure_threshold_percent: system_warning_config
-                .memory_pressure_threshold_percent,
-            total_disk_space_bytes,
-            remaining_disk_space_threshold_gb: system_warning_config
-                .remaining_disk_space_threshold_gb,
-            min_re_download_bytes_threshold: system_warning_config.min_re_download_bytes_threshold,
-            avg_re_download_bytes_per_sec_threshold: system_warning_config
-                .avg_re_download_bytes_per_sec_threshold,
-            optin_vpn_check_targets_regex: system_warning_config
-                .optin_vpn_check_targets_regex
-                .clone(),
-            enable_stable_revision_check: system_warning_config.enable_stable_revision_check,
-            enable_health_check_process_isolation: system_warning_config
-                .enable_health_check_process_isolation,
-            daemon_cgroup_path: {
-                #[cfg(unix)]
-                {
-                    data.memory_tracker
-                        .as_ref()
-                        .map(|mt| mt.cgroup_tree.daemon().path().to_string())
-                }
-                #[cfg(not(unix))]
-                {
-                    None
-                }
-            },
-            allprocs_cgroup_path: {
-                #[cfg(unix)]
-                {
-                    data.memory_tracker
-                        .as_ref()
-                        .map(|mt| mt.cgroup_tree.allprocs().path().to_string())
-                }
-                #[cfg(not(unix))]
-                {
-                    None
-                }
-            },
-            daemon_cgroup_slice_path: {
-                #[cfg(unix)]
-                {
-                    std::fs::read_to_string("/proc/self/cgroup")
-                        .ok()
-                        .and_then(|s| {
-                            s.lines()
-                                .find_map(|l| l.strip_prefix("0::"))
-                                .map(|p| format!("/sys/fs/cgroup{}", p))
-                        })
-                }
-                #[cfg(not(unix))]
-                {
-                    None
-                }
-            },
-            num_cores: Some(num_cores() as u64),
-        });
-
-        // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
-        // as a baseline.
-        let snapshot_collector =
-            SnapshotCollector::new(data.dupe(), tenant.dupe(), self.0.rt.clone());
-        dispatch.instant_event(Box::new(snapshot_collector.create_snapshot().await));
-        let cert_state = self.0.cert_state.dupe();
-
-        let repo_root = repo.paths.project_root().root().to_buf();
-        // Spawn an async task to collect expensive info
-        // We start collecting immediately, and emit the event as soon as it is ready
-        let version_control_revision_collector =
-            version_control_revision::spawn_version_control_collector(dispatch.dupe(), repo_root);
-
-        #[cfg(unix)]
-        let memory_reporter = daemon_state.data.memory_tracker.as_ref().map(|t| {
-            buck2_resource_control::memory_tracker::spawn_memory_reporter(dispatch.dupe(), t.dupe())
-        });
-
-        let resp = streaming(
-            req,
-            events,
-            state,
-            dispatch.dupe(),
-            daemon_shutdown_channel,
-            move |req, cancellations| {
-                async move {
-                    let _background_cleanup_guard = if opts.prevents_background_cleanup() {
-                        Some(repo.materializer.prevent_background_cleanup().await)
-                    } else {
-                        None
-                    };
-                    let result: buck2_error::Result<Res> = try {
-                        let base_context = daemon_state
-                            .prepare_command(tenant, dispatch.dupe(), guard)
-                            .await?;
-
-                        let client_ctx = req.client_context()?;
-
-                        let instrumentation = opts.starlark_profiler_instrumentation_override(
-                            &req,
-                            base_context.repo().paths.project_root(),
-                        )?;
-                        let profiling_manager = StarlarkProfilingManager::new(
-                            client_ctx.profile_pattern_opts.as_ref(),
-                            instrumentation,
-                            &base_context.events,
-                        )?;
-
-                        let context = ServerCommandContext::new(
-                            base_context,
-                            client_ctx,
-                            profiling_manager,
-                            req.build_options(),
-                            cert_state.dupe(),
-                            snapshot_collector,
-                            cancellations,
-                            command_start,
-                            total_disk_space_bytes,
-                        )?;
-
-                        let res = func(
-                            &context,
-                            PartialResultDispatcher::new(
-                                dispatch.dupe(),
-                                context.cancellation_context().into(),
-                            ),
-                            req,
-                        )
-                        .await;
-
-                        // Build failures are reported inside a successful response, so the
-                        // command's own result does not say whether a deferred read failed.
-                        if let Some(payload) = deferred_read_failures(
-                            context.base_context.tenant.dice_manager.unsafe_dice(),
-                        ) {
-                            dispatch.instant_event(buck2_data::StructuredError {
-                                payload,
-                                quiet: false,
-                                task: Some(false),
-                                soft_error_category: Some(buck2_data::SoftError {
-                                    category: "paging_deferred_read_failed".to_owned(),
-                                    is_quiet: false,
-                                }),
-                                daemon_in_memory_state_is_corrupted: true,
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(payload) =
-                            heap_rekeys(context.base_context.tenant.dice_manager.unsafe_dice())
-                        {
-                            dispatch.instant_event(buck2_data::StructuredError {
-                                payload,
-                                quiet: false,
-                                task: Some(false),
-                                soft_error_category: Some(buck2_data::SoftError {
-                                    category: "paging_heap_indexed_under_two_keys".to_owned(),
-                                    is_quiet: false,
-                                }),
-                                ..Default::default()
-                            });
-                        }
-
-                        // Finalize the command, emitting its paging telemetry and (if
-                        // eligible) scheduling an idle page-out.
-                        context.finalize(opts.triggers_idle_page_out()).await?;
-                        res?
-                    };
-
-                    // Do not kill the process prematurely.
-                    drop(version_control_revision_collector);
+            // Fire off a system-wide event to record the memory usage of this process.
+            // TODO(ezgi): add it to oneshot command too
+            let system_warning_config = &repo.system_warning_config;
+            dispatch.instant_event(buck2_data::SystemInfo {
+                system_total_memory_bytes: Some(system_memory_stats()),
+                memory_pressure_threshold_percent: system_warning_config
+                    .memory_pressure_threshold_percent,
+                total_disk_space_bytes,
+                remaining_disk_space_threshold_gb: system_warning_config
+                    .remaining_disk_space_threshold_gb,
+                min_re_download_bytes_threshold: system_warning_config
+                    .min_re_download_bytes_threshold,
+                avg_re_download_bytes_per_sec_threshold: system_warning_config
+                    .avg_re_download_bytes_per_sec_threshold,
+                optin_vpn_check_targets_regex: system_warning_config
+                    .optin_vpn_check_targets_regex
+                    .clone(),
+                enable_stable_revision_check: system_warning_config.enable_stable_revision_check,
+                enable_health_check_process_isolation: system_warning_config
+                    .enable_health_check_process_isolation,
+                daemon_cgroup_path: {
                     #[cfg(unix)]
-                    drop(memory_reporter);
-                    match result {
-                        Ok(_) => dispatch.command_result(result_to_command_result(result)),
-                        Err(e) => match check_cert_state(cert_state).await {
-                            Some(err) => dispatch.command_result(error_to_command_result(
-                                err.context(format!("{e:?}")),
-                            )),
-                            _ => dispatch.command_result(error_to_command_result(e)),
-                        },
+                    {
+                        data.memory_tracker
+                            .as_ref()
+                            .map(|mt| mt.cgroup_tree.daemon().path().to_string())
                     }
-                }
-                .boxed()
-            },
-            &self.0.rt,
-        );
-        Ok(resp)
+                    #[cfg(not(unix))]
+                    {
+                        None
+                    }
+                },
+                allprocs_cgroup_path: {
+                    #[cfg(unix)]
+                    {
+                        data.memory_tracker
+                            .as_ref()
+                            .map(|mt| mt.cgroup_tree.allprocs().path().to_string())
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        None
+                    }
+                },
+                daemon_cgroup_slice_path: {
+                    #[cfg(unix)]
+                    {
+                        std::fs::read_to_string("/proc/self/cgroup")
+                            .ok()
+                            .and_then(|s| {
+                                s.lines()
+                                    .find_map(|l| l.strip_prefix("0::"))
+                                    .map(|p| format!("/sys/fs/cgroup{}", p))
+                            })
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        None
+                    }
+                },
+                num_cores: Some(num_cores() as u64),
+            });
+
+            // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
+            // as a baseline.
+            let snapshot_collector =
+                SnapshotCollector::new(data.dupe(), tenant.dupe(), self.0.rt.clone());
+            dispatch.instant_event(Box::new(snapshot_collector.create_snapshot().await));
+            let cert_state = self.0.cert_state.dupe();
+
+            let repo_root = repo.paths.project_root().root().to_buf();
+            // Spawn an async task to collect expensive info
+            // We start collecting immediately, and emit the event as soon as it is ready
+            let version_control_revision_collector =
+                version_control_revision::spawn_version_control_collector(
+                    dispatch.dupe(),
+                    repo_root,
+                );
+
+            #[cfg(unix)]
+            let memory_reporter = daemon_state.data.memory_tracker.as_ref().map(|t| {
+                buck2_resource_control::memory_tracker::spawn_memory_reporter(
+                    dispatch.dupe(),
+                    t.dupe(),
+                )
+            });
+
+            let resp = streaming(
+                events,
+                state,
+                dispatch.dupe(),
+                daemon_shutdown_channel,
+                move |cancellations| {
+                    async move {
+                        let _background_cleanup_guard = if prevents_background_cleanup {
+                            Some(repo.materializer.prevent_background_cleanup().await)
+                        } else {
+                            None
+                        };
+                        let result: buck2_error::Result<command_result::Result> = try {
+                            let base_context = daemon_state
+                                .prepare_command(tenant, dispatch.dupe(), guard)
+                                .await?;
+
+                            let client_ctx = command.client_context()?;
+
+                            let instrumentation = command.starlark_profiler_configuration(
+                                base_context.repo().paths.project_root(),
+                            )?;
+                            let profiling_manager = StarlarkProfilingManager::new(
+                                client_ctx.profile_pattern_opts.as_ref(),
+                                instrumentation,
+                                &base_context.events,
+                            )?;
+
+                            let context = ServerCommandContext::new(
+                                base_context,
+                                client_ctx,
+                                profiling_manager,
+                                command.build_options(),
+                                cert_state.dupe(),
+                                snapshot_collector,
+                                cancellations,
+                                command_start,
+                                total_disk_space_bytes,
+                            )?;
+
+                            let res = command.run(&context, dispatch.dupe()).await;
+
+                            // Build failures are reported inside a successful response, so the
+                            // command's own result does not say whether a deferred read failed.
+                            if let Some(payload) = deferred_read_failures(
+                                context.base_context.tenant.dice_manager.unsafe_dice(),
+                            ) {
+                                dispatch.instant_event(buck2_data::StructuredError {
+                                    payload,
+                                    quiet: false,
+                                    task: Some(false),
+                                    soft_error_category: Some(buck2_data::SoftError {
+                                        category: "paging_deferred_read_failed".to_owned(),
+                                        is_quiet: false,
+                                    }),
+                                    daemon_in_memory_state_is_corrupted: true,
+                                    ..Default::default()
+                                });
+                            }
+                            if let Some(payload) =
+                                heap_rekeys(context.base_context.tenant.dice_manager.unsafe_dice())
+                            {
+                                dispatch.instant_event(buck2_data::StructuredError {
+                                    payload,
+                                    quiet: false,
+                                    task: Some(false),
+                                    soft_error_category: Some(buck2_data::SoftError {
+                                        category: "paging_heap_indexed_under_two_keys".to_owned(),
+                                        is_quiet: false,
+                                    }),
+                                    ..Default::default()
+                                });
+                            }
+
+                            // Finalize the command, emitting its paging telemetry and (if
+                            // eligible) scheduling an idle page-out.
+                            context.finalize(triggers_idle_page_out).await?;
+                            res?
+                        };
+
+                        // Do not kill the process prematurely.
+                        drop(version_control_revision_collector);
+                        #[cfg(unix)]
+                        drop(memory_reporter);
+                        match result {
+                            Ok(_) => dispatch.command_result(result_to_command_result(result)),
+                            Err(e) => match check_cert_state(cert_state).await {
+                                Some(err) => dispatch.command_result(error_to_command_result(
+                                    err.context(format!("{e:?}")),
+                                )),
+                                _ => dispatch.command_result(error_to_command_result(e)),
+                            },
+                        }
+                    }
+                    .boxed()
+                },
+                &self.0.rt,
+            );
+            Ok(resp)
+        })
     }
 
     /// Runs a single command (given by the func F). Prior to running the command, calls the
@@ -833,7 +824,14 @@ impl BuckdServer {
     {
         self.note_command_activity(opts.daemon_activity());
 
-        match self.run_streaming_fallible(req, opts, func).await {
+        let command = Box::new(StreamingCommand {
+            req: req.into_inner(),
+            opts,
+            func,
+            _types: PhantomData,
+        });
+
+        match self.run_streaming_erased(command).await {
             Ok(resp) => Ok(resp),
             Err(e) => match check_cert_state(self.0.cert_state.dupe()).await {
                 Some(err) => Ok(error_to_response_stream(err.context(format!("{e:?}")))),
@@ -1020,8 +1018,7 @@ fn pump_events(
 
 /// Dispatches a request to the given function and returns a stream of responses, suitable for streaming to a client.
 #[allow(clippy::mut_mut)] // select! does this internally
-fn streaming<Req, F>(
-    req: Request<Req>,
+fn streaming<F>(
     events: ChannelEventSource,
     state: ActiveCommandStateWriter,
     dispatcher: EventDispatcher,
@@ -1030,8 +1027,7 @@ fn streaming<Req, F>(
     rt: &Handle,
 ) -> Response<ResponseStream>
 where
-    Req: Send + Sync + 'static,
-    F: for<'a> FnOnce(Req, &'a CancellationContext) -> BoxFuture<'a, ()> + Send + 'static,
+    F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, ()> + Send + 'static,
 {
     // This function is responsible for receiving all events coming into an ChannelEventSource and reacting accordingly.
     // The function `func` is the computation that we are going to run. It communicates its success or failure using
@@ -1048,14 +1044,9 @@ where
 
     let trace_id = dispatcher.trace_id().dupe();
 
-    let req = req.into_inner();
     let events_ctx = EventsCtx { dispatcher };
 
-    let spawned = spawn_dropcancel(
-        |cancellations| func(req, cancellations),
-        &BuckSpawner::new(rt.clone()),
-        &events_ctx,
-    );
+    let spawned = spawn_dropcancel(func, &BuckSpawner::new(rt.clone()), &events_ctx);
     let (output_send, output_recv) = tokio::sync::mpsc::unbounded_channel();
 
     // We run the event consumer on new non-tokio thread to avoid the consumer task from getting stuck behind
@@ -1728,13 +1719,13 @@ impl DaemonApi for BuckdServer {
         } = active_command;
 
         let this = self.0.dupe();
+        let req = req.into_inner();
         Ok(streaming(
-            req,
             event_source,
             state,
             dispatcher.dupe(),
             daemon_shutdown_channel,
-            move |req, _| {
+            move |_| {
                 async move {
                     let result = try {
                         spawn_allocative(
@@ -1965,6 +1956,101 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
     /// so that it cannot delete materialized outputs from under it.
     fn prevents_background_cleanup(&self) -> bool {
         true
+    }
+}
+
+/// A streaming command with its request, result and partial result types erased.
+///
+/// `run_streaming` is instantiated once per command, so anything it does directly is compiled
+/// once per command. Everything that does not need the concrete types lives behind this trait
+/// in `run_streaming_erased`; the per-command half should stay small.
+trait ErasedStreamingCommand: Send + 'static {
+    fn client_context(&self) -> buck2_error::Result<&ClientContext>;
+
+    fn build_options(&self) -> Option<&CommonBuildOptions>;
+
+    #[allow(clippy::result_large_err)]
+    fn pre_run(&self, server: &BuckdServer) -> Result<(), Status>;
+
+    fn triggers_idle_page_out(&self) -> bool;
+
+    fn prevents_background_cleanup(&self) -> bool;
+
+    fn starlark_profiler_configuration(
+        &self,
+        project_root: &ProjectRoot,
+    ) -> buck2_error::Result<StarlarkProfilerConfiguration>;
+
+    /// Runs the command. The partial result dispatcher is created here because its type is one
+    /// of the erased ones.
+    fn run<'b>(
+        self: Box<Self>,
+        context: &'b ServerCommandContext<'_>,
+        dispatch: EventDispatcher,
+    ) -> BoxFuture<'b, buck2_error::Result<command_result::Result>>;
+}
+
+struct StreamingCommand<Req, Res, PartialRes, Opts, F> {
+    req: Req,
+    opts: Opts,
+    func: F,
+    _types: PhantomData<fn() -> (Res, PartialRes)>,
+}
+
+impl<Req, Res, PartialRes, Opts, F> ErasedStreamingCommand
+    for StreamingCommand<Req, Res, PartialRes, Opts, F>
+where
+    F: for<'a> FnOnce(
+            &'a ServerCommandContext,
+            PartialResultDispatcher<PartialRes>,
+            Req,
+        ) -> BoxFuture<'a, buck2_error::Result<Res>>
+        + Send
+        + 'static,
+    Req: HasClientContext + HasBuildOptions + Send + Sync + 'static,
+    Res: Into<command_result::Result> + Send + 'static,
+    PartialRes: Into<partial_result::PartialResult> + Send + 'static,
+    Opts: StreamingCommandOptions<Req>,
+{
+    fn client_context(&self) -> buck2_error::Result<&ClientContext> {
+        self.req.client_context()
+    }
+
+    fn build_options(&self) -> Option<&CommonBuildOptions> {
+        self.req.build_options()
+    }
+
+    fn pre_run(&self, server: &BuckdServer) -> Result<(), Status> {
+        self.opts.pre_run(server)
+    }
+
+    fn triggers_idle_page_out(&self) -> bool {
+        self.opts.triggers_idle_page_out()
+    }
+
+    fn prevents_background_cleanup(&self) -> bool {
+        self.opts.prevents_background_cleanup()
+    }
+
+    fn starlark_profiler_configuration(
+        &self,
+        project_root: &ProjectRoot,
+    ) -> buck2_error::Result<StarlarkProfilerConfiguration> {
+        self.opts
+            .starlark_profiler_instrumentation_override(&self.req, project_root)
+    }
+
+    fn run<'b>(
+        self: Box<Self>,
+        context: &'b ServerCommandContext<'_>,
+        dispatch: EventDispatcher,
+    ) -> BoxFuture<'b, buck2_error::Result<command_result::Result>> {
+        let StreamingCommand { req, func, .. } = *self;
+        let partial_result_dispatcher =
+            PartialResultDispatcher::new(dispatch, context.cancellation_context().into());
+        func(context, partial_result_dispatcher, req)
+            .map_ok(Into::into)
+            .boxed()
     }
 }
 
