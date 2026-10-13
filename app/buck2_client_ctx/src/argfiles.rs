@@ -50,6 +50,8 @@ enum ArgExpansionError {
     },
     #[error("Python mode file `{path}` output is not UTF-8")]
     PythonOutputNotUtf8 { path: String },
+    #[error("Flag file `{path}` includes itself")]
+    CyclicInclusion { path: String },
     #[error("No flag file path after @ symbol in argfile argument")]
     MissingFlagFilePathInArgfile,
     #[error("Python argfile at `{path}` exited with non-zero status, stderr: {err:?}")]
@@ -133,7 +135,6 @@ fn expand_argfiles_with_context(
                         return Err(ArgExpansionError::MissingFlagFilePath.into());
                     }
                 };
-                // TODO: We want to detect cyclic inclusion
                 resolve_and_expand_argfile(expanded_args, &flagfile, context, cwd)?;
             }
             next_arg if next_arg.starts_with('@') => {
@@ -141,7 +142,6 @@ fn expand_argfiles_with_context(
                 if flagfile.is_empty() {
                     return Err(ArgExpansionError::MissingFlagFilePathInArgfile.into());
                 }
-                // TODO: We want to detect cyclic inclusion
                 resolve_and_expand_argfile(expanded_args, flagfile, context, cwd)?;
             }
             comment if comment.starts_with("--#") => {}
@@ -162,6 +162,12 @@ fn resolve_and_expand_argfile(
 ) -> buck2_error::Result<()> {
     let flagfile = resolve_flagfile(path, context, cwd)
         .with_buck_error_context(|| format!("Error resolving flagfile `{path}`"))?;
+    if expanded.is_expanding(&flagfile) {
+        return Err(ArgExpansionError::CyclicInclusion {
+            path: flagfile.to_string(),
+        }
+        .into());
+    }
     let flagfile_lines = expand_argfile_contents(context, &flagfile)?;
     expanded.argfile_scope(flagfile, |expanded| {
         expand_argfiles_with_context(expanded, flagfile_lines, context, cwd)
@@ -550,5 +556,40 @@ mod tests {
             matches!(&kind, ArgFileKind::PythonExecutable(_, Some(f)) if f == "o"),
             "{kind:?}"
         );
+    }
+
+    /// An argfile that includes itself, directly or through another argfile, is an error.
+    #[test]
+    fn test_cyclic_argfile_is_rejected() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = AbsPathBuf::new(tempdir.path().canonicalize().unwrap()).unwrap();
+        fs_util::write(root.join("self.txt"), "@self.txt").unwrap();
+        fs_util::write(root.join("a.txt"), "--a\n@b.txt").unwrap();
+        fs_util::write(root.join("b.txt"), "@a.txt").unwrap();
+        let cwd = AbsWorkingDir::unchecked_new(AbsNormPathBuf::new(root.to_path_buf()).unwrap());
+
+        let mut context = ImmediateConfigContext::new(&cwd);
+        let err = expand_argv(None, vec!["@self.txt".to_owned()], &mut context, &cwd)
+            .err()
+            .unwrap();
+        assert!(format!("{err:#}").contains("includes itself"), "{err:#}");
+
+        let mut context = ImmediateConfigContext::new(&cwd);
+        let err = expand_argv(None, vec!["@a.txt".to_owned()], &mut context, &cwd)
+            .err()
+            .unwrap();
+        assert!(format!("{err:#}").contains("includes itself"), "{err:#}");
+
+        // The same file twice in a row is not a cycle.
+        fs_util::write(root.join("c.txt"), "--c").unwrap();
+        let mut context = ImmediateConfigContext::new(&cwd);
+        let argv = expand_argv(
+            None,
+            vec!["@c.txt".to_owned(), "@c.txt".to_owned()],
+            &mut context,
+            &cwd,
+        )
+        .unwrap();
+        assert_eq!(argv.args().collect::<Vec<_>>(), vec!["--c", "--c"]);
     }
 }

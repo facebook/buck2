@@ -129,6 +129,18 @@ impl ExpandedArgvBuilder {
         self.argv
     }
 
+    /// Whether `kind` is one of the argfiles whose expansion is in progress.
+    pub fn is_expanding(&self, kind: &ArgFileKind) -> bool {
+        let mut current = self.current_argfile.as_ref();
+        while let Some(argfile) = current {
+            if argfile.kind == *kind {
+                return true;
+            }
+            current = argfile.parent.as_ref();
+        }
+        false
+    }
+
     pub fn argfile_scope<R>(&mut self, kind: ArgFileKind, func: impl FnOnce(&mut Self) -> R) -> R {
         let parent = self.current_argfile.take();
         self.current_argfile = Some(Arc::new(FlagfileArgSource { kind, parent }));
