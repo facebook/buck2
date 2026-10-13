@@ -443,6 +443,7 @@ struct BuckRootComponent<'s> {
     header: &'s str,
     state: &'s SuperConsoleState,
     games_overlay: &'s GamesOverlay,
+    verbosity: Verbosity,
 }
 
 /// Adapter that wraps a `Component<Error = anyhow::Error>` to produce
@@ -511,6 +512,7 @@ impl Component for BuckRootComponent<'_> {
         });
 
         let mut draw = DrawVertical::new(dimensions);
+        let show_status = !matches!(mode, DrawMode::Final) || self.verbosity.print_status();
 
         if let Some(banner) = &self.state.config.banner {
             let lines = Lines(banner.lines().map(Line::sanitized).collect());
@@ -560,36 +562,38 @@ impl Component for BuckRootComponent<'_> {
             )?;
         }
 
-        draw.draw(
-            &SessionInfoComponent {
-                session_info: self.state.session_info(),
-                re_state: self.state.simple_console.observer.re_state(),
-                two_snapshots: self.state.simple_console.observer.two_snapshots(),
-            },
-            mode,
-        )?;
-        draw.draw(
-            &ReHeader {
-                super_console_config: &self.state.config,
-                re_state: self.state.simple_console.observer.re_state(),
-                two_snapshots: self.state.simple_console.observer.two_snapshots(),
-            },
-            mode,
-        )?;
-        draw.draw(
-            &IoHeader {
-                super_console_config: &self.state.config,
-                two_snapshots: self.state.simple_console.observer.two_snapshots(),
-            },
-            mode,
-        )?;
-        draw.draw(
-            &TestHeader {
-                session_info: self.state.session_info(),
-                test_state: self.state.simple_console.observer.test_state(),
-            },
-            mode,
-        )?;
+        if show_status {
+            draw.draw(
+                &SessionInfoComponent {
+                    session_info: self.state.session_info(),
+                    re_state: self.state.simple_console.observer.re_state(),
+                    two_snapshots: self.state.simple_console.observer.two_snapshots(),
+                },
+                mode,
+            )?;
+            draw.draw(
+                &ReHeader {
+                    super_console_config: &self.state.config,
+                    re_state: self.state.simple_console.observer.re_state(),
+                    two_snapshots: self.state.simple_console.observer.two_snapshots(),
+                },
+                mode,
+            )?;
+            draw.draw(
+                &IoHeader {
+                    super_console_config: &self.state.config,
+                    two_snapshots: self.state.simple_console.observer.two_snapshots(),
+                },
+                mode,
+            )?;
+            draw.draw(
+                &TestHeader {
+                    session_info: self.state.session_info(),
+                    test_state: self.state.simple_console.observer.test_state(),
+                },
+                mode,
+            )?;
+        }
         draw.draw(
             &DebugEventsComponent {
                 super_console_config: &self.state.config,
@@ -621,8 +625,10 @@ impl Component for BuckRootComponent<'_> {
             },
             mode,
         )?;
-        draw.draw(&TasksHeader::new(self.header, self.state), mode)?;
-        draw.draw(&TimedList::new(&CUTOFFS, self.state), mode)?;
+        if show_status {
+            draw.draw(&TasksHeader::new(self.header, self.state), mode)?;
+            draw.draw(&TimedList::new(&CUTOFFS, self.state), mode)?;
+        }
 
         Ok(draw.finish())
     }
@@ -1157,6 +1163,7 @@ impl StatefulSuperConsoleImpl {
                     header: &self.header,
                     state: &self.state,
                     games_overlay: &self.games_overlay,
+                    verbosity: self.verbosity,
                 })?;
                 return Ok(());
             }
@@ -1477,6 +1484,7 @@ impl StatefulSuperConsoleImpl {
             header: &self.header,
             state: &self.state,
             games_overlay: &self.games_overlay,
+            verbosity: self.verbosity,
         })?;
         Ok(())
     }
@@ -1502,6 +1510,7 @@ impl StatefulSuperConsoleImpl {
                 header: &self.header,
                 state: &self.state,
                 games_overlay: &self.games_overlay,
+                verbosity: self.verbosity,
             })
             .err();
         (self.state, err)
@@ -1930,6 +1939,41 @@ mod tests {
         console
             .handle_command_result(&buck2_cli_proto::CommandResult { result: None })
             .await?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_quiet_status_is_not_persisted() -> buck2_error::Result<()> {
+        let verbosity = Verbosity::try_from_cli("0,actions")?;
+        let state = SuperConsoleState::new(
+            Timekeeper::new(
+                Box::new(RealtimeClock),
+                EventTimestamp(SystemTime::now().into()),
+            ),
+            TraceId::new(),
+            verbosity,
+            true,
+            Default::default(),
+            None,
+        )?;
+        let games_overlay = GamesOverlay::new();
+        let root = BuckRootComponent {
+            header: "Command: run.",
+            state: &state,
+            games_overlay: &games_overlay,
+            verbosity,
+        };
+
+        assert!(
+            !root
+                .draw_unchecked(StatefulSuperConsole::FALLBACK_SIZE, DrawMode::Normal)?
+                .is_empty()
+        );
+        assert!(
+            root.draw_unchecked(StatefulSuperConsole::FALLBACK_SIZE, DrawMode::Final)?
+                .is_empty()
+        );
 
         Ok(())
     }
