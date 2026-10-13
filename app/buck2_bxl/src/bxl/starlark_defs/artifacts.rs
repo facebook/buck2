@@ -80,8 +80,9 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
     // sure we aren't re-processing tests.
     let mut visited = SmallSet::new();
 
+    // `todo` is a stack, so push in reverse to visit the groups in command line order.
     let mut todo = Vec::new();
-    todo.extend(ags.iter().duped());
+    todo.extend(ags.iter().rev().duped());
 
     while let Some(ag) = todo.pop() {
         if !visited.insert(ag.dupe()) {
@@ -93,7 +94,11 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
             }
             ResolvedArtifactGroup::TransitiveSetProjection(t) => {
                 let set = t.key.lookup(ctx).await?;
-                todo.extend(set.by_ref(|s| s.get_projection_sub_inputs(t.projection))?);
+                todo.extend(
+                    set.by_ref(|s| s.get_projection_sub_inputs(t.projection))?
+                        .into_iter()
+                        .rev(),
+                );
             }
         }
     }

@@ -248,3 +248,13 @@ async def test_bxl_print_json_ensured_in_set(buck: Buck) -> None:
     assert len(lines) == 2
     assert json.loads(lines[0])[0].endswith("artifacts/DATA"), lines[0]
     assert json.loads(lines[1]) == json.loads(lines[0]), lines[1]
+
+
+@buck_test()
+async def test_bxl_ensured_group_paths_keep_input_order(buck: Buck) -> None:
+    # The paths of `cmd_args(a, b)` come out as `a b`, the order the command line uses.
+    result = await buck.bxl("//artifacts.bxl:group_order_test")
+    lines = [json.loads(line) for line in result.stdout.strip().splitlines()]
+    assert len(lines) == 2
+    for paths in lines:
+        assert [os.path.basename(p) for p in paths] == ["DATA", "rules.bzl"]
