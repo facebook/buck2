@@ -1091,3 +1091,222 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod stopped_eval_tests {
+    use std::sync::Arc;
+    use std::sync::Condvar;
+    use std::sync::Mutex;
+    use std::time::Duration;
+
+    use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_events::Event;
+    use buck2_events::create_source_sink_pair;
+    use buck2_events::daemon_id::DaemonId;
+    use buck2_events::dispatch::EventDispatcher;
+    use buck2_events::source::ChannelEventSource;
+    use buck2_interpreter::starlark_debug::StarlarkDebugController;
+    use debugserver_types as dap;
+    use dupe::Dupe;
+    use starlark::environment::GlobalsBuilder;
+    use starlark::environment::Module;
+    use starlark::eval::Evaluator;
+    use starlark::starlark_module;
+    use starlark::syntax::AstModule;
+    use starlark::syntax::Dialect;
+    use starlark::values::none::NoneType;
+    use tokio::sync::mpsc;
+
+    use crate::BuckStarlarkDebuggerHandle;
+    use crate::run::ToClientMessage;
+    use crate::server::BuckStarlarkDebuggerServer;
+
+    /// Holds a starlark evaluation inside a native call until the test releases it.
+    struct Gate {
+        open: Mutex<bool>,
+        cv: Condvar,
+    }
+
+    impl Gate {
+        const fn new() -> Self {
+            Self {
+                open: Mutex::new(false),
+                cv: Condvar::new(),
+            }
+        }
+
+        fn wait(&self) {
+            let mut open = self.open.lock().unwrap();
+            while !*open {
+                open = self.cv.wait(open).unwrap();
+            }
+        }
+
+        fn release(&self) {
+            *self.open.lock().unwrap() = true;
+            self.cv.notify_all();
+        }
+    }
+
+    static GATE_STALE: Gate = Gate::new();
+
+    #[starlark_module]
+    fn gate_functions(builder: &mut GlobalsBuilder) {
+        fn wait_gate_stale() -> starlark::Result<NoneType> {
+            GATE_STALE.wait();
+            Ok(NoneType)
+        }
+    }
+
+    fn request(seq: i64, command: &str, arguments: serde_json::Value) -> dap::Request {
+        serde_json::from_value(serde_json::json!({
+            "seq": seq, "type": "request", "command": command, "arguments": arguments
+        }))
+        .unwrap()
+    }
+
+    struct Setup {
+        root: ProjectRootTemp,
+        server: Arc<BuckStarlarkDebuggerServer>,
+        to_client: mpsc::UnboundedReceiver<ToClientMessage>,
+        source: ChannelEventSource,
+        handle: BuckStarlarkDebuggerHandle,
+    }
+
+    /// A server with one command handle and one breakpoint on `line` of `test.bzl`.
+    async fn setup(content: &str, line: i64) -> Setup {
+        let root = ProjectRootTemp::new().unwrap();
+        root.write_file("test.bzl", content);
+        let abs = root
+            .path()
+            .resolve(ProjectRelativePath::new("test.bzl").unwrap())
+            .to_string();
+        let (send, mut to_client) = mpsc::unbounded_channel();
+        let server = Arc::new(BuckStarlarkDebuggerServer::new(send, root.path().dupe()));
+        let (source, sink) = create_source_sink_pair();
+        let handle = server
+            .new_handle(EventDispatcher::new(
+                EventDispatcher::null().trace_id().clone(),
+                DaemonId::null(),
+                sink,
+            ))
+            .unwrap();
+        server
+            .send_request(request(
+                1,
+                "setBreakpoints",
+                serde_json::json!({"source": {"path": abs}, "breakpoints": [{"line": line}]}),
+            ))
+            .unwrap();
+        loop {
+            match to_client.recv().await.unwrap() {
+                ToClientMessage::Response(r) if r.command == "setBreakpoints" => {
+                    assert!(r.success, "{:?}", r.message);
+                    break;
+                }
+                _ => {}
+            }
+        }
+        Setup {
+            root,
+            server,
+            to_client,
+            source,
+            handle,
+        }
+    }
+
+    fn run_eval(controller: &mut Box<dyn StarlarkDebugController>, content: &str) {
+        let ast = AstModule::parse("test.bzl", content.to_owned(), &Dialect::Standard).unwrap();
+        let globals = GlobalsBuilder::standard().with(gate_functions).build();
+        Module::with_temp_heap(|module| {
+            let mut eval = Evaluator::new(&module);
+            controller.initialize(&mut eval).unwrap();
+            eval.eval_module(ast, &globals).unwrap();
+        });
+    }
+
+    /// The number of stopped evaluations a debugger snapshot event reports, if `ev` is one.
+    fn stopped_evals_in(ev: &Event) -> Option<usize> {
+        let Event::Buck(ev) = ev else {
+            return None;
+        };
+        let buck2_data::buck_event::Data::Instant(inst) = ev.data() else {
+            return None;
+        };
+        let Some(buck2_data::instant_event::Data::DebugAdapterSnapshot(snap)) = &inst.data else {
+            return None;
+        };
+        Some(
+            snap.current_handles
+                .values()
+                .map(|h| h.stopped_evals.len())
+                .sum(),
+        )
+    }
+
+    /// Stops at a breakpoint inside `f`, continues, and collects the stopped-evaluation count
+    /// of the snapshots the server emits after the continue was answered.
+    async fn stopped_evals_after_continue() -> Vec<usize> {
+        // Breakpoints go inside a function: a top-level statement is hit twice.
+        let content = "def f():\n    x = 1\n    wait_gate_stale()\n    return x\nf()\n";
+        let Setup {
+            root: _root,
+            server,
+            mut to_client,
+            mut source,
+            handle,
+        } = setup(content, 2).await;
+        let mut controller = server.start_eval(&handle, "test eval").await.unwrap();
+        let srv = server.dupe();
+        let client = std::thread::spawn(move || {
+            let tid = loop {
+                match to_client.blocking_recv().unwrap() {
+                    ToClientMessage::Event(ev) if ev.event == "stopped" => {
+                        break ev.body.unwrap()["threadId"].as_i64().unwrap();
+                    }
+                    _ => {}
+                }
+            };
+            srv.send_request(request(2, "continue", serde_json::json!({"threadId": tid})))
+                .unwrap();
+            loop {
+                match to_client.blocking_recv().unwrap() {
+                    ToClientMessage::Response(r) if r.command == "continue" => {
+                        assert!(r.success, "{:?}", r.message);
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+            // Everything the server emits from now on is after the continue took effect.
+            while source.try_receive().is_some() {}
+            // A request makes the server schedule a snapshot within a second.
+            srv.send_request(request(3, "threads", serde_json::json!({})))
+                .unwrap();
+            let start = std::time::Instant::now();
+            let mut snapshots = Vec::new();
+            while std::time::Instant::now() - start < Duration::from_secs(4) && snapshots.is_empty()
+            {
+                match source.try_receive() {
+                    Some(ev) => snapshots.extend(stopped_evals_in(&ev)),
+                    None => std::thread::sleep(Duration::from_millis(20)),
+                }
+            }
+            GATE_STALE.release();
+            snapshots
+        });
+        tokio::task::block_in_place(|| run_eval(&mut controller, content));
+        let snapshots = client.join().unwrap();
+        drop(controller);
+        snapshots
+    }
+
+    /// `stopped_at` is set when an evaluation stops and never cleared, so after `continue` the
+    /// snapshots still list the running evaluation as stopped.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn snapshot_lists_a_continued_eval_as_stopped() {
+        assert_eq!(stopped_evals_after_continue().await, vec![1]);
+    }
+}
