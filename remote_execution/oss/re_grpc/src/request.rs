@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::time::Duration;
+
 pub use crate::digest::*;
 use crate::grpc::Platform as TPlatform;
 use crate::response::TActionResult2;
@@ -91,6 +93,10 @@ pub struct ExecuteRequest {
     pub execution_policy: Option<TExecutionPolicy>,
     pub host_runtime_requirements: THostRuntimeRequirements,
     pub gang: Option<GangSpecification>,
+    /// `Action.timeout` from `ctx.actions.run(timeout_seconds=...)`. Not sent
+    /// on the Execute RPC (it is already in the Action blob); used only to
+    /// size the client stream wait.
+    pub timeout: Option<Duration>,
     pub _dot_dot: (),
 }
 
