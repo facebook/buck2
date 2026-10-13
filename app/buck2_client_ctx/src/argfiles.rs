@@ -272,7 +272,7 @@ fn resolve_flagfile(
             .into_abs_path_buf(),
         None => {
             let p = Path::new(path_part);
-            match AbsPath::new(path) {
+            match AbsPath::new(path_part) {
                 Ok(abs_path) => {
                     // FIXME(JakobDegen): Checks for normalization for historical reasons, not sure
                     // why we'd want that
@@ -528,9 +528,7 @@ mod tests {
         )
     }
 
-    /// `path#flavor` resolves for a relative Python argfile but not for an absolute one:
-    /// `resolve_flagfile` hands the full argument, `#flavor` included, to `AbsPath::new` and on
-    /// to `canonicalize`.
+    /// `path#flavor` resolves for a relative and for an absolute Python argfile.
     #[test]
     fn test_absolute_python_argfile_with_flavor() {
         let tempdir = tempfile::tempdir().unwrap();
@@ -547,7 +545,10 @@ mod tests {
 
         let abs = format!("{}#o", root.join("m.py").as_path().display());
         let mut context = ImmediateConfigContext::new(&cwd);
-        let err = resolve_flagfile(&abs, &mut context, &cwd).unwrap_err();
-        assert!(format!("{err:#}").contains("m.py#o"), "{err:#}");
+        let kind = resolve_flagfile(&abs, &mut context, &cwd).unwrap();
+        assert!(
+            matches!(&kind, ArgFileKind::PythonExecutable(_, Some(f)) if f == "o"),
+            "{kind:?}"
+        );
     }
 }
