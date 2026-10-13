@@ -2952,15 +2952,27 @@ message WorkerCommand {
   repeated string fallback_exe = 4;
 }
 
-enum CacheHitType {
+// Where the result of a remote command came from.
+enum RemoteCommandOrigin {
+  // buck2's own action cache lookup.
   ACTION_CACHE = 0;
+  // buck2's own remote dep-file cache lookup.
   REMOTE_DEP_FILE_CACHE = 1;
-  EXECUTED = 2; // not a cache hit
+  // The remote execution service ran the command.
+  EXECUTED = 2;
+  // Submitted for execution, but the remote execution service served its
+  // own action cache instead of running the command.
+  RE_SERVED_FROM_CACHE = 3;
+  // Submitted for execution, but the remote execution service deduplicated
+  // it against an identical execution already in flight.
+  RE_DEDUPLICATED = 4;
 }
 
 // A representation of a command we executed remotely.
 message RemoteCommand {
   string action_digest = 1;
+  // Whether one of buck2's own cache lookups produced the result; restates
+  // `cache_hit_type` for readers that only want that distinction.
   bool cache_hit = 2;
 
   /// How long this build waited in queue.
@@ -2969,7 +2981,8 @@ message RemoteCommand {
   // Potentially more details about this command.
   optional RemoteCommandDetails details = 4;
 
-  CacheHitType cache_hit_type = 5;
+  // External readers of the JSON event log key on this field name.
+  RemoteCommandOrigin cache_hit_type = 5;
   optional string remote_dep_file_key = 6;
 
   // Project relative paths to the materialized inputs for failed

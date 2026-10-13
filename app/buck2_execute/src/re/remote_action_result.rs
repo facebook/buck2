@@ -26,6 +26,7 @@ use remote_execution::TTimestamp;
 use crate::digest_config::DigestConfig;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::kind::RemoteCommandExecutionDetails;
+use crate::execute::kind::RemoteExecutionOrigin;
 use crate::re::manager::ManagedRemoteExecutionClient;
 use crate::re::queue_stats::QueueStats;
 use crate::re::streams::RemoteCommandStdStreams;
@@ -64,6 +65,26 @@ pub struct ExecuteResponseWithQueueStats {
     pub queue_stats: QueueStats,
 }
 
+impl ExecuteResponseWithQueueStats {
+    /// How the remote execution service produced this result.
+    pub fn origin(&self) -> RemoteExecutionOrigin {
+        #[cfg(fbcode_build)]
+        let (served_from_cache, deduplicated) = {
+            let details = &self.execute_response.executed_action_details;
+            (details.was_served_from_cache, details.was_deduplicated)
+        };
+        #[cfg(not(fbcode_build))]
+        let (served_from_cache, deduplicated) = (self.execute_response.cached_result, false);
+        if served_from_cache {
+            RemoteExecutionOrigin::ServedFromCache
+        } else if deduplicated {
+            RemoteExecutionOrigin::Deduplicated
+        } else {
+            RemoteExecutionOrigin::Executed
+        }
+    }
+}
+
 impl RemoteActionResult for ExecuteResponseWithQueueStats {
     fn output_files(&self) -> &[TFile] {
         &self.execute_response.action_result.output_files
@@ -92,6 +113,7 @@ impl RemoteActionResult for ExecuteResponseWithQueueStats {
             queue_time: self.queue_stats.cumulative_queue_duration,
             materialized_inputs_for_failed,
             materialized_outputs_for_failed_actions,
+            origin: self.origin(),
         }
     }
 

@@ -948,10 +948,18 @@ impl ActionErrorDisplay<'_> {
                     } else {
                         append!(
                             "Remote action{}, reproduce with: `frecli cas download-action {}`",
-                            if remote_command.cache_hit {
-                                " cache hit"
-                            } else {
-                                ""
+                            match remote_command.cache_hit_type() {
+                                buck2_data::RemoteCommandOrigin::ActionCache
+                                | buck2_data::RemoteCommandOrigin::RemoteDepFileCache => {
+                                    " cache hit"
+                                }
+                                buck2_data::RemoteCommandOrigin::Executed => "",
+                                buck2_data::RemoteCommandOrigin::ReServedFromCache => {
+                                    " served from the remote execution cache"
+                                }
+                                buck2_data::RemoteCommandOrigin::ReDeduplicated => {
+                                    " deduplicated by remote execution"
+                                }
                             },
                             remote_command.action_digest
                         );

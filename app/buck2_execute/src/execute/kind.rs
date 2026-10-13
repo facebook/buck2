@@ -15,12 +15,33 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::RePlatform;
 use derive_more::Display;
+use dupe::Dupe;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
 
 use crate::execute::action_digest::ActionDigest;
 use crate::execute::dep_file_digest::DepFileDigest;
 use crate::re::convert::platform_to_proto;
+
+/// How the remote execution service produced the result of a command submitted for execution.
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Allocative)]
+pub enum RemoteExecutionOrigin {
+    Executed,
+    /// Served from the service's own action cache instead of running.
+    ServedFromCache,
+    /// Deduplicated against an identical execution already in flight instead of running.
+    Deduplicated,
+}
+
+impl From<RemoteExecutionOrigin> for buck2_data::RemoteCommandOrigin {
+    fn from(origin: RemoteExecutionOrigin) -> Self {
+        match origin {
+            RemoteExecutionOrigin::Executed => Self::Executed,
+            RemoteExecutionOrigin::ServedFromCache => Self::ReServedFromCache,
+            RemoteExecutionOrigin::Deduplicated => Self::ReDeduplicated,
+        }
+    }
+}
 
 #[derive(Debug, Display, Clone, Allocative)]
 pub enum CommandExecutionKind {
@@ -33,7 +54,7 @@ pub enum CommandExecutionKind {
         command: Vec<String>,
         env: SortedVectorMap<String, String>,
     },
-    /// This action was executed via a remote executor.
+    /// This action was submitted to a remote executor.
     #[display("remote")]
     Remote {
         details: RemoteCommandExecutionDetails,
@@ -47,6 +68,7 @@ pub enum CommandExecutionKind {
         /// Local paths to the materialized outputs for failed actions, if `--unstable-materialize-failed-action-outputs`
         /// was passed to build options
         materialized_outputs_for_failed_actions: Option<Vec<ProjectRelativePathBuf>>,
+        origin: RemoteExecutionOrigin,
     },
     /// This action was served by the action cache and not executed.
     #[display("action_cache")]
@@ -137,10 +159,11 @@ impl CommandExecutionKind {
                 queue_time,
                 materialized_inputs_for_failed,
                 materialized_outputs_for_failed_actions,
+                origin,
             } => Command::RemoteCommand(buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
                 cache_hit: false,
-                cache_hit_type: buck2_data::CacheHitType::Executed.into(),
+                cache_hit_type: buck2_data::RemoteCommandOrigin::from(*origin).into(),
                 remote_dep_file_key: None,
                 queue_time: (*queue_time).try_into().ok(),
                 details: details.to_proto(omit_details),
@@ -168,7 +191,7 @@ impl CommandExecutionKind {
             Self::ActionCache { details } => Command::RemoteCommand(buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
                 cache_hit: true,
-                cache_hit_type: buck2_data::CacheHitType::ActionCache.into(),
+                cache_hit_type: buck2_data::RemoteCommandOrigin::ActionCache.into(),
                 queue_time: None,
                 details: details.to_proto(omit_details),
                 remote_dep_file_key: None,
@@ -180,7 +203,7 @@ impl CommandExecutionKind {
                 Command::RemoteCommand(buck2_data::RemoteCommand {
                     action_digest: details.action_digest.to_string(),
                     cache_hit: true,
-                    cache_hit_type: buck2_data::CacheHitType::RemoteDepFileCache.into(),
+                    cache_hit_type: buck2_data::RemoteCommandOrigin::RemoteDepFileCache.into(),
                     queue_time: None,
                     details: details.to_proto(omit_details),
                     remote_dep_file_key: details

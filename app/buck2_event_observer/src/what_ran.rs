@@ -227,6 +227,11 @@ pub enum CommandReproducer {
     CacheHit(buck2_data::CacheHit),
     LocalDepFileCacheHit,
     ReExecute(buck2_data::ReExecute),
+    /// Submitted for remote execution, but the service served its action cache instead.
+    ReServedFromCache(buck2_data::ReExecute),
+    /// Submitted for remote execution, but the service deduplicated it against an identical
+    /// execution already in flight.
+    ReDeduplicated(buck2_data::ReExecute),
     LocalExecute(buck2_data::LocalExecute),
     WorkerExecute(buck2_data::WorkerExecute),
     WorkerInit(buck2_data::WorkerInit),
@@ -236,20 +241,32 @@ impl CommandReproducer {
     pub fn executor(&self) -> String {
         match self {
             Self::CacheQuery(..) => "cache_query".to_owned(),
-            Self::CacheHit(cache) => {
-                let cache_type = cache.cache_type;
-                match buck2_data::CacheHitType::try_from(cache_type) {
-                    Ok(buck2_data::CacheHitType::RemoteDepFileCache) => {
-                        "re_dep_file_cache".to_owned()
-                    }
-                    _ => "cache".to_owned(),
-                }
-            }
+            Self::CacheHit(cache) => match cache.cache_type() {
+                buck2_data::CacheType::RemoteDepFileCache => "re_dep_file_cache".to_owned(),
+                buck2_data::CacheType::ActionCache => "cache".to_owned(),
+            },
             Self::LocalDepFileCacheHit => "dep_file".to_owned(),
-            Self::ReExecute(execute) => executor_with_platform(execute),
+            Self::ReExecute(execute) => executor_with_platform(execute, ""),
+            Self::ReServedFromCache(execute) => {
+                executor_with_platform(execute, "_served_from_cache")
+            }
+            Self::ReDeduplicated(execute) => executor_with_platform(execute, "_deduplicated"),
             Self::LocalExecute(..) => "local".to_owned(),
             Self::WorkerExecute(..) => "worker".to_owned(),
             Self::WorkerInit(..) => "worker_init".to_owned(),
+        }
+    }
+
+    /// Relabels a remote execution once the result shows the service did not actually run it.
+    pub fn with_remote_origin(self, remote: &buck2_data::RemoteCommand) -> Self {
+        match (self, remote.cache_hit_type()) {
+            (Self::ReExecute(execute), buck2_data::RemoteCommandOrigin::ReServedFromCache) => {
+                Self::ReServedFromCache(execute)
+            }
+            (Self::ReExecute(execute), buck2_data::RemoteCommandOrigin::ReDeduplicated) => {
+                Self::ReDeduplicated(execute)
+            }
+            (other, _) => other,
         }
     }
 
@@ -317,7 +334,9 @@ impl fmt::Display for CommandReproducer {
                 write!(formatter, "{}", cache_hit.action_digest)
             }
             CommandReproducer::LocalDepFileCacheHit => Ok(()),
-            CommandReproducer::ReExecute(re_execute) => {
+            CommandReproducer::ReExecute(re_execute)
+            | CommandReproducer::ReServedFromCache(re_execute)
+            | CommandReproducer::ReDeduplicated(re_execute) => {
                 write!(formatter, "{}", re_execute.action_digest)
             }
             CommandReproducer::LocalExecute(local_execute) => {
@@ -450,12 +469,13 @@ impl fmt::Display for WhatRanCommandConsoleFormat<'_> {
     }
 }
 
-fn executor_with_platform(execute: &buck2_data::ReExecute) -> String {
+fn executor_with_platform(execute: &buck2_data::ReExecute, outcome: &str) -> String {
     let exec = if execute.persistent_worker {
         "re_worker"
     } else {
         "re"
     };
+    let exec = format!("{exec}{outcome}");
 
     if let Some(platform) = &execute.platform {
         let platform = platform
@@ -497,7 +517,7 @@ mod tests {
             use_case: "".to_owned(),
             persistent_worker: false,
         };
-        let result = executor_with_platform(&execute);
+        let result = executor_with_platform(&execute, "");
         assert_eq!(
             result,
             "re(platform=linux-remote-execution,name1=value1)".to_owned()
@@ -507,7 +527,36 @@ mod tests {
     #[test]
     fn test_executor_with_platform_no_platform() {
         let execute = buck2_data::ReExecute::default();
-        let result = executor_with_platform(&execute);
+        let result = executor_with_platform(&execute, "");
         assert_eq!(result, "re".to_owned());
+    }
+
+    #[test]
+    fn test_remote_origin_relabels_only_executions_the_service_did_not_run() {
+        let execute = buck2_data::ReExecute::default();
+        let remote = |origin: buck2_data::RemoteCommandOrigin| buck2_data::RemoteCommand {
+            cache_hit_type: origin.into(),
+            ..Default::default()
+        };
+        let label = |origin| {
+            CommandReproducer::ReExecute(execute.clone())
+                .with_remote_origin(&remote(origin))
+                .executor()
+        };
+        assert_eq!(label(buck2_data::RemoteCommandOrigin::Executed), "re");
+        assert_eq!(
+            label(buck2_data::RemoteCommandOrigin::ReServedFromCache),
+            "re_served_from_cache"
+        );
+        assert_eq!(
+            label(buck2_data::RemoteCommandOrigin::ReDeduplicated),
+            "re_deduplicated"
+        );
+        assert_eq!(
+            CommandReproducer::LocalDepFileCacheHit
+                .with_remote_origin(&remote(buck2_data::RemoteCommandOrigin::ReServedFromCache))
+                .executor(),
+            "dep_file"
+        );
     }
 }

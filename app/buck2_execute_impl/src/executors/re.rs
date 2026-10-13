@@ -28,6 +28,7 @@ use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::kind::RemoteCommandExecutionDetails;
+use buck2_execute::execute::kind::RemoteExecutionOrigin;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::output::CommandStdStreams;
@@ -250,6 +251,7 @@ impl ReExecutor {
                             queue_time: queue_stats.cumulative_queue_duration,
                             materialized_inputs_for_failed: None,
                             materialized_outputs_for_failed_actions: None,
+                            origin: RemoteExecutionOrigin::Executed,
                         },
                         reason,
                         CommandExecutionMetadata {
@@ -266,6 +268,7 @@ impl ReExecutor {
                                 queue_time: Duration::ZERO,
                                 materialized_inputs_for_failed: None,
                                 materialized_outputs_for_failed_actions: None,
+                                origin: RemoteExecutionOrigin::Executed,
                             },
                             CommandCancellationReason::ReQueueTimeout,
                             CommandExecutionMetadata::empty(TimeSpan::empty_now()),
@@ -396,6 +399,7 @@ impl PreparedCommandExecutor for ReExecutor {
             queue_time: Duration::ZERO,
             materialized_inputs_for_failed: None,
             materialized_outputs_for_failed_actions: None,
+            origin: RemoteExecutionOrigin::Executed,
         });
 
         if command.request.executor_preference().requires_local() {

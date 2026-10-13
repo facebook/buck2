@@ -288,7 +288,7 @@ impl WhatRanCommandState {
                 && should_emit_finished_action(&span.data, options)
             {
                 // Get extra data out of SpanEnd event
-                let (execution_kind, std_err, duration, scheduling_mode) =
+                let (execution_kind, std_err, duration, scheduling_mode, remote_command) =
                     match &span.data {
                         Some(buck2_data::span_end_event::Data::ActionExecution(action_exec)) => (
                             Some(action_exec.execution_kind),
@@ -304,8 +304,9 @@ impl WhatRanCommandState {
                                 .scheduling_mode
                                 .as_ref()
                                 .and_then(|o| SchedulingMode::try_from(*o).ok()),
+                            last_remote_command(action_exec),
                         ),
-                        _ => (None, None, None, None),
+                        _ => (None, None, None, None, None),
                     };
 
                 if execution_kind == Some(buck2_data::ActionExecutionKind::LocalDepFile as i32)
@@ -315,12 +316,37 @@ impl WhatRanCommandState {
                         .reproducers
                         .push(CommandReproducer::LocalDepFileCacheHit);
                 }
+                if let Some(remote) = remote_command {
+                    entry.reproducers = entry
+                        .reproducers
+                        .into_iter()
+                        .map(|repro| repro.with_remote_origin(remote))
+                        .collect();
+                }
 
                 entry.emit_what_ran_entry(output, options, std_err, duration, scheduling_mode)?;
             }
         }
 
         Ok(())
+    }
+}
+
+fn last_remote_command(
+    action_exec: &buck2_data::ActionExecutionEnd,
+) -> Option<&buck2_data::RemoteCommand> {
+    match action_exec
+        .commands
+        .last()?
+        .details
+        .as_ref()?
+        .command_kind
+        .as_ref()?
+        .command
+        .as_ref()?
+    {
+        buck2_data::command_execution_kind::Command::RemoteCommand(remote) => Some(remote),
+        _ => None,
     }
 }
 
@@ -398,18 +424,27 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                         }
                     },
                     CommandReproducer::LocalDepFileCacheHit => JsonReproducer::LocalDepFileCache,
-                    CommandReproducer::ReExecute(re_execute) => {
+                    CommandReproducer::ReExecute(re_execute)
+                    | CommandReproducer::ReServedFromCache(re_execute)
+                    | CommandReproducer::ReDeduplicated(re_execute) => {
+                        let not_run = match &command.repro {
+                            CommandReproducer::ReServedFromCache(..) => Some("served_from_cache"),
+                            CommandReproducer::ReDeduplicated(..) => Some("deduplicated"),
+                            _ => None,
+                        };
                         if re_execute.persistent_worker {
                             JsonReproducer::ReWorker {
                                 digest: &re_execute.action_digest,
                                 platform_properties: into_index_map(&re_execute.platform),
                                 action_key: re_execute.action_key.as_deref(),
+                                not_run,
                             }
                         } else {
                             JsonReproducer::Re {
                                 digest: &re_execute.action_digest,
                                 platform_properties: into_index_map(&re_execute.platform),
                                 action_key: re_execute.action_key.as_deref(),
+                                not_run,
                             }
                         }
                     }
@@ -551,12 +586,18 @@ mod json_reproducer {
             platform_properties: BuckIndexMap<&'a str, &'a str>,
             #[serde(skip_serializing_if = "Option::is_none")]
             action_key: Option<&'a str>,
+            /// Why the remote execution service did not run the command, if it did not.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            not_run: Option<&'static str>,
         },
         ReWorker {
             digest: &'a str,
             platform_properties: BuckIndexMap<&'a str, &'a str>,
             #[serde(skip_serializing_if = "Option::is_none")]
             action_key: Option<&'a str>,
+            /// Why the remote execution service did not run the command, if it did not.
+            #[serde(skip_serializing_if = "Option::is_none")]
+            not_run: Option<&'static str>,
         },
         Local {
             command: Cow<'a, [String]>,
@@ -625,6 +666,7 @@ mod tests {
                     "platform" => "linux-remote-execution"
                 },
                 action_key: None,
+                not_run: None,
             },
             duration: Some("1".to_owned()),
             extra: None,
