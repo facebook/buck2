@@ -274,19 +274,18 @@ assert_ne(r1(host="test"), diff(host="test"))
         );
     }
 
-    /// An omitted field takes its default without a type check. The default is checked once,
-    /// when `field()` is called, so a default mutated afterwards (before the module is frozen)
-    /// gives a record whose field does not match its type, while the same value passed
-    /// explicitly is rejected.
+    /// An omitted field takes its default only if it still matches the field type: a default
+    /// mutated after the `field()` call is rejected like the same value passed explicitly.
     #[test]
-    fn test_record_mutated_default_is_not_rechecked() {
-        assert::eq(
-            "False",
-            "d = []\nR = record(xs = field(list[int], d))\nd.append('s')\nisinstance(R().xs, list[int])",
+    fn test_record_mutated_default_is_rechecked() {
+        assert::fail(
+            "d = []\nR = record(xs = field(list[int], d))\nd.append('s')\nR()",
+            "does not match the type annotation",
         );
         assert::fail(
             "R = record(xs = field(list[int], []))\nR(xs = ['s'])",
             "does not match the type annotation",
         );
+        assert::eq("[]", "R = record(xs = field(list[int], []))\nR().xs");
     }
 }

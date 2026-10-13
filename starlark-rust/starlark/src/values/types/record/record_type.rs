@@ -311,7 +311,12 @@ impl<'v, V: RecordVariant> StarlarkValue<'v> for RecordTypeGen<'v, V> {
                     Some(default) => {
                         let v: Option<Value> = param_parser.next_opt()?;
                         match v {
-                            None => default,
+                            None => {
+                                // The default was checked by `field()`, but it may have been
+                                // mutated since if the module is not frozen yet.
+                                field.typ.check_type(default, Some(name))?;
+                                default
+                            }
                             Some(v) => {
                                 field.typ.check_type(v, Some(name))?;
                                 v
