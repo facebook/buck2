@@ -13,17 +13,22 @@ from .assemble_bundle_types import BundleSpecItem
 
 
 class TestBundleSpecItemOrder(unittest.TestCase):
-    def test_items_can_each_be_less_than_the_other(self) -> None:
+    def test_items_are_ordered_by_source_then_destination(self) -> None:
         first = BundleSpecItem(src="a/x", dst="Resources/c")
         second = BundleSpecItem(src="b/x", dst="Resources/b")
-        # The field comparisons are joined with `or`, so the smaller `dst` of `second` wins
-        # against its larger `src`.
         self.assertTrue(first < second)
-        self.assertTrue(second < first)
+        self.assertFalse(second < first)
 
         third = BundleSpecItem(src="c/x", dst="Resources/a")
         sorted_sources = {
             tuple(item.src for item in sorted(permutation))
             for permutation in itertools.permutations([first, second, third])
         }
-        self.assertGreater(len(sorted_sources), 1)
+        self.assertEqual(sorted_sources, {("a/x", "b/x", "c/x")})
+
+    def test_optional_fields_sort_none_first(self) -> None:
+        plain = BundleSpecItem(src="a", dst="b")
+        with_entitlements = BundleSpecItem(src="a", dst="b", codesign_entitlements="e")
+        self.assertTrue(plain < with_entitlements)
+        self.assertFalse(with_entitlements < plain)
+        self.assertFalse(plain < BundleSpecItem(src="a", dst="b"))

@@ -64,45 +64,22 @@ class BundleSpecItem:
             )
         )
 
-    def __lt__(self: BundleSpecItem, other: BundleSpecItem) -> bool:
+    def _ordering_key(self: BundleSpecItem) -> tuple:
+        # `None` sorts before every value of an optional field.
         return (
-            self.src < other.src
-            or self.dst < other.dst
-            or self.codesign_on_copy < other.codesign_on_copy
-            or (
-                self.codesign_entitlements < other.codesign_entitlements
-                if (
-                    self.codesign_entitlements is not None
-                    and other.codesign_entitlements is not None
-                )
-                else (
-                    self.codesign_entitlements is None
-                    and other.codesign_entitlements is not None
-                )
-            )
-            or (
-                self.codesign_flags_override < other.codesign_flags_override
-                if (
-                    self.codesign_flags_override is not None
-                    and other.codesign_flags_override is not None
-                )
-                else (
-                    self.codesign_flags_override is None
-                    and other.codesign_flags_override is not None
-                )
-            )
-            or (
-                self.extra_codesign_paths < other.extra_codesign_paths
-                if (
-                    self.extra_codesign_paths is not None
-                    and other.extra_codesign_paths is not None
-                )
-                else (
-                    self.extra_codesign_paths is None
-                    and other.extra_codesign_paths is not None
-                )
-            )
+            self.src,
+            self.dst,
+            self.codesign_on_copy,
+            self.codesign_entitlements is not None,
+            self.codesign_entitlements or "",
+            self.codesign_flags_override is not None,
+            tuple(self.codesign_flags_override or []),
+            self.extra_codesign_paths is not None,
+            tuple(self.extra_codesign_paths or []),
         )
+
+    def __lt__(self: BundleSpecItem, other: BundleSpecItem) -> bool:
+        return self._ordering_key() < other._ordering_key()
 
 
 @dataclass
