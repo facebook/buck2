@@ -360,7 +360,8 @@ impl REClientBuilder {
                 instance_name: instance_name.as_str().to_owned(),
             })
             .await
-            .context("Failed to query capabilities of remote")?
+            .context("Failed to query capabilities of remote")
+            .map_err(normalize_re_error)?
             .into_inner();
 
         let supported_compressors = if let Some(cache_cap) = &resp.cache_capabilities {
@@ -611,7 +612,32 @@ fn is_retryable(err: &anyhow::Error) -> bool {
     false
 }
 
-/// Retry a fallible async operation on transient connection errors.
+/// Attaches an RE classification to gRPC errors, preserving the original chain
+/// and any existing `REClientError` classification.
+fn normalize_re_error(err: anyhow::Error) -> anyhow::Error {
+    if err.downcast_ref::<REClientError>().is_some() {
+        return err;
+    }
+    let Some(status) = err.chain().find_map(|cause| {
+        cause.downcast_ref::<tonic::Status>().or_else(|| {
+            // `io::Error::source()` skips the wrapped error itself.
+            cause
+                .downcast_ref::<std::io::Error>()?
+                .get_ref()?
+                .downcast_ref::<tonic::Status>()
+        })
+    }) else {
+        return err;
+    };
+    let re_error = REClientError {
+        code: TCode(status.code() as i32),
+        message: status.message().to_owned(),
+        group: TCodeReasonGroup::UNKNOWN,
+    };
+    err.context(re_error)
+}
+
+/// Retry an RPC on transient connection errors and classify its final error.
 ///
 /// On retryable failure, the closure is called again from scratch — acquiring
 /// a fresh connection from the pool, rebuilding the request, etc. Up to 5
@@ -646,7 +672,7 @@ where
                 tokio::time::sleep(sleep_for).await;
                 delay = (delay * 2).min(MAX_DELAY);
             }
-            Err(e) => return Err(e),
+            Err(e) => return Err(normalize_re_error(e)),
         }
     }
     unreachable!()
@@ -793,7 +819,12 @@ impl REClient {
         .await?;
 
         let stream = futures::stream::try_unfold(stream, move |mut stream| async {
-            let msg = match stream.try_next().await.context("RE channel error")? {
+            let msg = match stream
+                .try_next()
+                .await
+                .context("RE channel error")
+                .map_err(normalize_re_error)?
+            {
                 Some(msg) => msg,
                 None => return Ok(None),
             };
@@ -1946,6 +1977,85 @@ mod tests {
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_response;
 
     use super::*;
+
+    #[tokio::test]
+    async fn test_retry_unauthenticated() {
+        let attempts = AtomicU16::new(0);
+        let err = retry(|| async {
+            attempts.fetch_add(1, Ordering::Relaxed);
+            Err::<(), _>(
+                anyhow::Error::new(tonic::Status::unauthenticated("no creds"))
+                    .context("FindMissingBlobs failed"),
+            )
+        })
+        .await
+        .unwrap_err();
+
+        assert_eq!(attempts.load(Ordering::Relaxed), 1);
+        let re_error = err.downcast_ref::<REClientError>().unwrap();
+        assert_eq!(re_error.code, TCode::UNAUTHENTICATED);
+        assert_eq!(re_error.group, TCodeReasonGroup::UNKNOWN);
+        assert_eq!(re_error.message, "no creds");
+        assert!(err.downcast_ref::<tonic::Status>().is_some());
+        assert!(format!("{err:#}").contains("FindMissingBlobs failed"));
+    }
+
+    #[tokio::test]
+    async fn test_retry_exhausted() {
+        let attempts = AtomicU16::new(0);
+        let err = retry(|| async {
+            attempts.fetch_add(1, Ordering::Relaxed);
+            Err::<(), _>(anyhow::Error::new(tonic::Status::unavailable("offline")))
+        })
+        .await
+        .unwrap_err();
+
+        assert_eq!(attempts.load(Ordering::Relaxed), 5);
+        assert_eq!(
+            err.downcast_ref::<REClientError>().unwrap().code,
+            TCode::UNAVAILABLE
+        );
+        assert!(err.downcast_ref::<tonic::Status>().is_some());
+    }
+
+    #[test]
+    fn test_normalize_re_error_io_wrapped() {
+        let io = io::Error::other(tonic::Status::unauthenticated("no creds"));
+        let err = normalize_re_error(anyhow::Error::new(io).context("stream error"));
+        assert_eq!(
+            err.downcast_ref::<REClientError>().unwrap().code,
+            TCode::UNAUTHENTICATED
+        );
+        assert!(err.downcast_ref::<io::Error>().is_some());
+        assert!(format!("{err:#}").contains("stream error"));
+    }
+
+    #[test]
+    fn test_normalize_re_error_preserves_classification() {
+        let err = anyhow::Error::new(tonic::Status::unauthenticated("no creds"))
+            .context(REClientError {
+                message: "denied".to_owned(),
+                code: TCode::PERMISSION_DENIED,
+                group: TCodeReasonGroup::USER_BAD_CERTS,
+            })
+            .context("upload failed")
+            .context("remote action failed");
+        let diagnostic = format!("{err:#}");
+        let err = normalize_re_error(err);
+        let re_error = err.downcast_ref::<REClientError>().unwrap();
+        assert_eq!(re_error.code, TCode::PERMISSION_DENIED);
+        assert_eq!(re_error.group, TCodeReasonGroup::USER_BAD_CERTS);
+        assert_eq!(re_error.message, "denied");
+        assert_eq!(format!("{err:#}"), diagnostic);
+        assert!(err.downcast_ref::<tonic::Status>().is_some());
+    }
+
+    #[test]
+    fn test_normalize_re_error_without_status() {
+        let err = normalize_re_error(anyhow::anyhow!("plain error with no grpc status"));
+        assert!(err.downcast_ref::<REClientError>().is_none());
+        assert_eq!(err.to_string(), "plain error with no grpc status");
+    }
 
     #[tokio::test]
     async fn test_download_named() -> anyhow::Result<()> {
