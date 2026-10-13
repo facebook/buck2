@@ -216,14 +216,17 @@ def _miri_test_info(
     miri_direct_cmd: cmd_args,
     re_executors,
 ) -> ExternalRunnerTestInfo:
-    """Miri test execution for the `[miri]` sub-target."""
+    """Miri test execution for the `[miri]` sub-target, or the target itself when `miri_interpreted`."""
     # Compile-time env rides inside the wrapped command (`--env`/`--path-env`),
     # so no test-info env is needed.
+    labels = list(ctx.attrs.labels or [])
+    if "miri" not in labels:
+        labels.append("miri")
     return ExternalRunnerTestInfo(
         type = "rust",
         command = [miri_direct_cmd],
         env = {},
-        labels = (ctx.attrs.labels or []) + ["miri"],
+        labels = labels,
         contacts = ctx.attrs.contacts,
         default_executor = re_executors.default_executor,
         executor_overrides = re_executors.executor_overrides,
@@ -259,7 +262,7 @@ def _miri_launcher(
     compile_ctx: CompileContext,
     miri_direct_cmd: cmd_args,
 ) -> list[Provider]:
-    """Executable launcher for the `[miri]` sub-target of a binary rule."""
+    """Executable launcher for a Miri run: the `[miri]` sub-target, or the target itself when `miri_interpreted`."""
     # Env rides inside the wrapped command, so the launcher is just the command.
     base = RunInfo(args = miri_direct_cmd)
     args = cmd_args()
@@ -285,7 +288,7 @@ def _miri_test_sub_targets(
     miri_direct_cmd: cmd_args,
     re_executors,
 ) -> list[Provider]:
-    """Launcher plus test info for an interpreted test run."""
+    """Launcher plus test info for an interpreted test run: the `[miri]` sub-target, or the target itself when `miri_interpreted`."""
     # The launcher serves `buck2 run`, where no runner adds
     # `-Zunstable-options` to unlock `--force-run-in-process`; the test
     # info omits it because TPX supplies it.
@@ -928,6 +931,12 @@ def _rust_binary_common(
         sub_targets = sub_targets,
     )
 
+def _miri_interpreted_cmd(ctx: AnalysisContext, miri: cmd_args | None) -> cmd_args:
+    """Miri driver command for a `miri_interpreted` target, failing without a Miri toolchain."""
+    if miri == None:
+        fail("`miri_interpreted = True` on `{}` requires a toolchain providing the Miri driver".format(ctx.label))
+    return miri
+
 def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     compile_ctx = compile_context(ctx, binary = True)
     toolchain_info = compile_ctx.toolchain_info
@@ -947,9 +956,16 @@ def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         strategy_params = strategy_params,
     )
 
+    if ctx.attrs.miri_interpreted:
+        # A Miri-only binary: the target itself is the interpreted run,
+        # so its own providers are the launcher, with no native link
+        # and no `[miri]` sub-target.
+        return _miri_launcher(ctx, compile_ctx, _miri_interpreted_cmd(ctx, miri))
+
     miri_sub_targets = None
     if miri != None:
         miri_sub_targets = _miri_launcher(ctx, compile_ctx, miri)
+
     native = _rust_binary_common(
         ctx = ctx,
         compile_ctx = compile_ctx,
@@ -976,7 +992,8 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     re_executors = get_re_executors_from_props(ctx)
     strategy_params = _strategy_params(ctx, compile_ctx)
-    # Every test provides `[miri]`; omitted without a Miri toolchain.
+    # Every test provides `[miri]`, unless `miri_interpreted` makes the target
+    # itself the Miri run; omitted without a Miri toolchain.
     miri = _miri_direct_command(
         ctx = ctx,
         compile_ctx = compile_ctx,
@@ -987,6 +1004,12 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
         is_test = True,
         strategy_params = strategy_params,
     )
+
+    if ctx.attrs.miri_interpreted:
+        # A Miri test: the target itself is the interpreted run, so its
+        # own providers are the launcher and test info, with no native
+        # link and no `[miri]` sub-target.
+        return _miri_test_sub_targets(ctx, compile_ctx, toolchain_info, _miri_interpreted_cmd(ctx, miri), re_executors)
 
     miri_sub_targets = None
     if miri != None:

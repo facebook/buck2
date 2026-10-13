@@ -51,6 +51,18 @@ def _rust_analyzer_target_kind(kind: str) -> dict[str, Attr]:
         ),
     }
 
+def _miri_interpreted_attr() -> dict[str, Attr]:
+    return {
+        "miri_interpreted": attrs.bool(
+            default = False,
+            doc = """
+                Makes this target itself the Miri-interpreted run: no
+                native artifact and no `[miri]` sub-target. Requires a
+                toolchain providing the Miri driver.
+            """,
+        ),
+    }
+
 def _rust_binary_attrs_group(prefix: str) -> dict[str, Attr]:
     attrs = rust_common.deps_arg(is_binary = True) | rust_common.named_deps_arg(is_binary = True) | rust_common.linker_flags_arg() | native_common.link_style()
     return {prefix + name: v for name, v in attrs.items()}
@@ -167,6 +179,7 @@ rust_binary = prelude_rule(
         | rust_common.crate(crate_type = attrs.option(attrs.string(), default = None))
         | rust_common.crate_root()
         | rust_common.env_arg()
+        | _miri_interpreted_attr()
         | _rust_binary_attrs_group(prefix = "")
         | _rust_common_attributes(is_binary = True)
         | _rust_analyzer_target_kind("bin")
@@ -341,6 +354,7 @@ rust_test = prelude_rule(
             """,
             ),
         }
+        | _miri_interpreted_attr()
         | re_test_common.test_args()
         | rust_common.cxx_toolchain_arg()
         | rust_common.rust_toolchain_arg()
