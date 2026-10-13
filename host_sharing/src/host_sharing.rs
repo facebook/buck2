@@ -229,13 +229,19 @@ impl HostSharingBroker {
         sorted_identifiers: impl Iterator<Item = &'a String>,
     ) -> HostSharingGuard {
         // Ensure that there is only one active run per identifier. The identifiers must be sorted
-        // to avoid a potential deadlock.
+        // to avoid a potential deadlock. A repeated identifier is skipped: its semaphore has a
+        // single permit, and this request already holds it.
         //
         // Acquire the identifier semaphores first, then acquire the permits needed to actually run.
         // This is so that no permits (which map to system resources / cores) are held while waiting
         // for the previous runs on these identifiers to finish.
         let mut name_guards = Vec::new();
+        let mut previous_identifier: Option<&String> = None;
         for identifier in sorted_identifiers {
+            if previous_identifier == Some(identifier) {
+                continue;
+            }
+            previous_identifier = Some(identifier);
             let run_semaphore = self.named_semaphores.get(identifier);
             let name_guard = run_semaphore.acquire(SINGLE_RUN).await;
             name_guards.push(name_guard);
@@ -300,16 +306,22 @@ mod tests {
                 .is_ready()
         );
 
-        // A repeated token waits on the semaphore that the same acquire already holds.
+        // A repeated token is acquired once, so the acquire completes on the first poll.
         let repeated = requirements(&["a", "b", "a"]);
-        let mut acquire = std::pin::pin!(broker.acquire(&repeated));
-        assert!(acquire.as_mut().poll(&mut cx).is_pending());
-        assert!(acquire.as_mut().poll(&mut cx).is_pending());
+        let guard = match std::pin::pin!(broker.acquire(&repeated))
+            .as_mut()
+            .poll(&mut cx)
+        {
+            std::task::Poll::Ready(guard) => guard,
+            std::task::Poll::Pending => panic!("acquire with a repeated token must complete"),
+        };
 
-        // Another acquire of the same token is stuck behind it, although it has no repeat.
+        // The token is held exactly once: another acquire waits until the guard is dropped.
         let other = requirements(&["a"]);
         let mut other_acquire = std::pin::pin!(broker.acquire(&other));
         assert!(other_acquire.as_mut().poll(&mut cx).is_pending());
+        drop(guard);
+        assert!(other_acquire.as_mut().poll(&mut cx).is_ready());
     }
 
     #[test]
