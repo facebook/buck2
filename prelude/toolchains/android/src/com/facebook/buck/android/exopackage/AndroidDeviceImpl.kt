@@ -10,6 +10,7 @@
 
 package com.facebook.buck.android.exopackage
 
+import com.facebook.buck.android.ContentDigests
 import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.installer.android.AndroidInstallException
 import com.google.common.base.Splitter
@@ -138,7 +139,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
               e.message,
           )
         }
-    val localApkHash = ExopackageUtil.getContentHash(apk)
+    val localApkHash = ContentDigests.getContentHash(apk)
     if (!installedHash.equals(localApkHash, ignoreCase = true)) {
       throw AndroidInstallException.installedApkMismatch(
           "Install of ${apk.name} could not be verified: the on-device apk for $packageName does" +
@@ -447,7 +448,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     val result: String = executeAdbShellCommand(
         "unzip -p $packagePath $entry | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'",
     )
-    // The first digest, as `ExopackageUtil.getJarManifestDigest` reads it locally.
+    // The first digest, as `ContentDigests.getJarManifestDigest` reads it locally.
     val digest =
         result
             .lineSequence()

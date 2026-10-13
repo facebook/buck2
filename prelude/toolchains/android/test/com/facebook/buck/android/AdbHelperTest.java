@@ -27,7 +27,6 @@ import com.facebook.buck.android.exopackage.AdbCommandFailedException;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
-import com.facebook.buck.android.exopackage.ExopackageUtil;
 import com.facebook.buck.android.exopackage.PackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
@@ -490,7 +489,7 @@ public class AdbHelperTest {
     when(device.getApkManifestDigest("/data/app/base.apk"))
         .thenThrow(new AdbCommandFailedException("unzip: not found"));
     when(device.getContentHash("/data/app/base.apk"))
-        .thenReturn(sameApk ? ExopackageUtil.getContentHash(plainApk()) : "an older apk");
+        .thenReturn(sameApk ? ContentDigests.getContentHash(plainApk()) : "an older apk");
     when(device.installApkOnDevice(
             any(File.class), anyBoolean(), anyBoolean(), anyBoolean(), anyString()))
         .thenReturn(true);

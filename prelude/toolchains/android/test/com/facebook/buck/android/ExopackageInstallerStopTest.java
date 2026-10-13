@@ -15,7 +15,6 @@ import static org.junit.Assert.assertFalse;
 
 import com.facebook.buck.android.exopackage.AdbCommandFailedException;
 import com.facebook.buck.android.exopackage.ExopackageInstaller;
-import com.facebook.buck.android.exopackage.ExopackageUtil;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
 import com.facebook.buck.android.exopackage.PackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
@@ -78,7 +77,7 @@ public class ExopackageInstallerStopTest {
     File apk = root.resolve("app.apk").toFile();
     Files.write(apk.toPath(), new byte[] {4, 5, 6});
     apkInfo = new IsolatedApkInfo(root.resolve("AndroidManifest.xml"), AbsPath.of(apk.toPath()));
-    localApkHash = ExopackageUtil.getContentHash(apk);
+    localApkHash = ContentDigests.getContentHash(apk);
 
     device = new RecordingDevice();
   }
@@ -192,7 +191,7 @@ public class ExopackageInstallerStopTest {
       files.add(METADATA);
       hashes.put(
           ExopackageInstaller.EXOPACKAGE_INSTALL_ROOT.resolve(PACKAGE).resolve(METADATA).toString(),
-          ExopackageUtil.getContentHash(text.getBytes(StandardCharsets.UTF_8)));
+          ContentDigests.getContentHash(text.getBytes(StandardCharsets.UTF_8)));
     }
 
     ImmutableList<String> events() {

@@ -15,6 +15,7 @@ HELPERS_SRCS = [
     "AdbOptions.java",
     "AdbExecutionContext.java",
     "AndroidInstallPrinter.java",
+    "ContentDigests.java",
     "exopackage/ExoHelper.java",
     "exopackage/DexExoHelper.java",
     "exopackage/ExopackageInstaller.java",

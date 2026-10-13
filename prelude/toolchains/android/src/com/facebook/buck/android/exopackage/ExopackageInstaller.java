@@ -12,6 +12,7 @@ package com.facebook.buck.android.exopackage;
 
 import com.facebook.buck.android.AdbHelper;
 import com.facebook.buck.android.AndroidInstallPrinter;
+import com.facebook.buck.android.ContentDigests;
 import com.facebook.buck.android.IsolatedApkInfo;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.util.log.Logger;
@@ -255,7 +256,7 @@ public class ExopackageInstaller {
         return true;
       }
       String wanted =
-          ExopackageUtil.getContentHash(entry.getValue().getBytes(StandardCharsets.UTF_8));
+          ContentDigests.getContentHash(entry.getValue().getBytes(StandardCharsets.UTF_8));
       if (!onDevice.equalsIgnoreCase(wanted)) {
         return true;
       }

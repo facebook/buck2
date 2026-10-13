@@ -21,7 +21,6 @@ import com.facebook.buck.android.exopackage.AndroidDeviceInfo;
 import com.facebook.buck.android.exopackage.AndroidDevicesHelper;
 import com.facebook.buck.android.exopackage.AndroidIntent;
 import com.facebook.buck.android.exopackage.ExopackageInstaller;
-import com.facebook.buck.android.exopackage.ExopackageUtil;
 import com.facebook.buck.android.exopackage.InstallTimings;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
 import com.facebook.buck.android.exopackage.PackageInfo;
@@ -991,7 +990,7 @@ public class AdbHelper implements AndroidDevicesHelper {
       LOG.info("Could not read the installed APK manifest digest: %s", e.getMessage());
       return !installedApkContentMatches(device, installedApkPath, apk);
     }
-    String localAppManifestDigest = ExopackageUtil.getJarManifestDigest(apk.getPath());
+    String localAppManifestDigest = ContentDigests.getJarManifestDigest(apk.getPath());
     LOG.info("Local APK manifest digest: %s", localAppManifestDigest);
     LOG.info("Installed APK manifest digest: %s", installedAppManifestDigest);
 
@@ -1014,7 +1013,7 @@ public class AdbHelper implements AndroidDevicesHelper {
       LOG.info("Could not hash the installed APK.  Must re-install: %s", e.getMessage());
       return false;
     }
-    boolean matches = installedHash.equalsIgnoreCase(ExopackageUtil.getContentHash(apk));
+    boolean matches = installedHash.equalsIgnoreCase(ContentDigests.getContentHash(apk));
     LOG.info(
         matches
             ? "APK content hashes match.  No need to install."

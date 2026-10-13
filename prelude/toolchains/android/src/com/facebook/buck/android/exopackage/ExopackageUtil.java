@@ -14,21 +14,8 @@ import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Collections;
 import java.util.Map;
-import java.util.Objects;
-import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
 @Nullsafe(Nullsafe.Mode.LOCAL)
 public class ExopackageUtil {
@@ -50,89 +37,5 @@ public class ExopackageUtil {
           deviceDir.resolve(String.format(filenameFormat, entry.getKey())), entry.getValue());
     }
     return filesBuilder.build();
-  }
-
-  /** MD5 of {@code file} as lowercase hex, comparable with {@link AndroidDevice#getContentHash}. */
-  public static String getContentHash(File file) throws IOException {
-    MessageDigest digest = md5();
-    try (InputStream input = new FileInputStream(file)) {
-      byte[] buffer = new byte[8192];
-      int read;
-      while ((read = input.read(buffer)) >= 0) {
-        digest.update(buffer, 0, read);
-      }
-    }
-    return toHex(digest.digest());
-  }
-
-  /**
-   * MD5 of {@code contents} as lowercase hex, comparable with {@link AndroidDevice#getContentHash}.
-   */
-  public static String getContentHash(byte[] contents) {
-    return toHex(md5().digest(contents));
-  }
-
-  private static MessageDigest md5() {
-    try {
-      return MessageDigest.getInstance("MD5");
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
-  private static String toHex(byte[] bytes) {
-    StringBuilder hex = new StringBuilder();
-    for (byte b : bytes) {
-      hex.append(String.format("%02x", b & 0xFF));
-    }
-    return hex.toString();
-  }
-
-  public static String getJarManifestDigest(String packagePath) throws IOException {
-    Pattern signatureFilePattern = Pattern.compile("META-INF/[A-Z]+\\.SF");
-
-    ZipFile packageZip = null;
-    try {
-      packageZip = new ZipFile(packagePath);
-      // For each file in the zip.
-      for (ZipEntry entry : Collections.list(packageZip.entries())) {
-        // Ignore non-signature files.
-        if (!signatureFilePattern.matcher(entry.getName()).matches()) {
-          continue;
-        }
-
-        BufferedReader sigContents = null;
-        try {
-          sigContents =
-              new BufferedReader(
-                  new InputStreamReader(Objects.requireNonNull(packageZip.getInputStream(entry))));
-          // For each line in the signature file.
-          while (true) {
-            String line = sigContents.readLine();
-            if (line == null || line.equals("")) {
-              throw new IllegalArgumentException(
-                  "Failed to find manifest digest in " + entry.getName());
-            }
-            String prefix_sha1 = "SHA1-Digest-Manifest: ";
-            String prefix_sha256 = "SHA-256-Digest-Manifest: ";
-            if (line.startsWith(prefix_sha1)) {
-              return line.substring(prefix_sha1.length());
-            } else if (line.startsWith(prefix_sha256)) {
-              return line.substring(prefix_sha256.length());
-            }
-          }
-        } finally {
-          if (sigContents != null) {
-            sigContents.close();
-          }
-        }
-      }
-    } finally {
-      if (packageZip != null) {
-        packageZip.close();
-      }
-    }
-
-    throw new IllegalArgumentException("Failed to find signature file.");
   }
 }
