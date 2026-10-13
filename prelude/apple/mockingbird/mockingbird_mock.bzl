@@ -6,7 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load(
     ":mockingbird_types.bzl",
     "MockingbirdLibraryInfo",
@@ -89,7 +88,6 @@ def mockingbird_mock_attrs():
         ## A list of source files to include. Only the name of the file, excluding the path, should be set. By default all source files are included and this doesn't need to be specified.
         "srcs": attrs.set(attrs.source(), sorted = True, default = []),
         "_mockingbird_toolchain": attrs.toolchain_dep(providers = [MockingbirdToolchainInfo], default = "toolchains//:mockingbird"),
-        APPLE_PLATFORMS_KEY: attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
     }
     return attribs
 

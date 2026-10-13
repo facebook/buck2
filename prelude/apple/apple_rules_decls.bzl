@@ -16,7 +16,6 @@ load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_info_plist.bzl", "MergeOperations", "RestrictedMergeOperations", "UpdateOperations", "apple_info_plist_impl")
 load("@prelude//apple:apple_metal_library.bzl", "apple_metal_library_impl")
-load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//apple:apple_provisioning_profile_sources.bzl", "apple_provisioning_profile_sources_impl")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", "apple_resource_dedupe_alias_impl")
 load("@prelude//apple:apple_resource_types.bzl", "AppleResourceDestination")
@@ -145,9 +144,6 @@ def apple_bundle_default_attrs():
     attributes = {}
     attributes.update(apple_bundle_base_attrs())
     attributes.update(apple_bundle_extra_attrs())
-    attributes.update({
-        APPLE_PLATFORMS_KEY: attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
-    })
     return attributes
 
 def apple_macos_bundle_attrs():

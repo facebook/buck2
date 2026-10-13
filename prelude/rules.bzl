@@ -9,7 +9,6 @@
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 # Combine the attributes we generate, we the custom implementations we have.
 load("@prelude//:rules_impl.bzl", "categorized_extra_attributes", "categorized_rule_decl_records", "extra_implemented_rules", "toolchain_rule_names")
-load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
 load("@prelude//decls:common.bzl", "prelude_rule")
 
@@ -47,11 +46,6 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
     if not fat_platform_compatible:
         # copy so we don't try change the passed in object
         attributes["_cxx_toolchain_target_configuration"] = attrs.dep(default = "prelude//platforms:fat_platform_incompatible")
-
-    # Add _apple_platforms to all rules so that we may query the target platform to use until we support configuration
-    # modifiers and can use them to set the configuration to use for operations.
-    # Map of string identifier to platform.
-    attributes[APPLE_PLATFORMS_KEY] = attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {})
 
     cfg = rule_spec.cfg
 

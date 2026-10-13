@@ -11,7 +11,7 @@ load(
     "@prelude//platforms/apple:constants.bzl",
     "apple_sdks",
 )
-load("@prelude//platforms/apple:platforms.bzl", "config_backed_apple_target_platform", "get_default_target_platform_for_platform", "set_apple_platforms")
+load("@prelude//platforms/apple:platforms.bzl", "config_backed_apple_target_platform", "get_default_target_platform_for_platform")
 load("@prelude//platforms/apple:platforms_map.bzl", "APPLE_SDK_DEFAULT_PLATFORM_MAP")
 load("@prelude//utils:buckconfig.bzl", "read")
 
@@ -75,8 +75,6 @@ def update_apple_platforms(**kwargs):
 
     if default_target_platform != None:
         kwargs["default_target_platform"] = default_target_platform
-
-    kwargs = set_apple_platforms(platform, base_config_backed_target_platform, kwargs, supported_build_modes)
 
     return kwargs
 

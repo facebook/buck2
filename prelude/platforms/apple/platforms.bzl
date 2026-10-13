@@ -6,7 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//platforms/apple:base.bzl", "apple_build_mode_backed_platform", "get_build_mode_constraints_map", "is_buck2_mac_platform", "is_mobile_platform")
 load(
     "@prelude//platforms/apple:build_mode.bzl",
@@ -176,49 +175,6 @@ def get_default_target_platform_for_platform(sdk_arch) -> str | None:
         return data.target_platform
 
     return None
-
-def set_apple_platforms(
-    platform: str | Select, base_config_backed_target_platform: str | None, kwargs: dict[str, typing.Any], supported_build_modes = None
-) -> dict[str, typing.Any]:
-    def get_supported_platforms() -> list[str] | None:
-        if platform in _SUPPORTED_IOS_PLATFORMS:
-            return _SUPPORTED_IOS_PLATFORMS
-        elif platform in _SUPPORTED_MACOS_PLATFORMS:
-            return _SUPPORTED_MACOS_PLATFORMS
-        elif platform in _SUPPORTED_MAC_CATALYST_PLATFORMS:
-            return _SUPPORTED_MAC_CATALYST_PLATFORMS
-        elif platform in _SUPPORTED_WATCHOS_PLATFORMS:
-            return _SUPPORTED_WATCHOS_PLATFORMS
-        elif platform in _SUPPORTED_APPLETV_PLATFORMS:
-            return _SUPPORTED_APPLETV_PLATFORMS
-        else:
-            return None
-
-    supported_build_modes = APPLE_BUILD_MODES if supported_build_modes == None else supported_build_modes
-
-    supported_platforms = get_supported_platforms()
-    if not supported_platforms:
-        return kwargs
-
-    # If we've already defined the apple platforms, we can avoid having to process them again.
-    if APPLE_PLATFORMS_KEY in kwargs:
-        return kwargs
-
-    apple_platforms = {}
-    for platform in supported_platforms:
-        for build_mode in supported_build_modes:
-            identifier = "{}-{}".format(platform, build_mode)
-            if base_config_backed_target_platform:
-                apple_platforms[identifier] = config_backed_apple_target_platform(base_config_backed_target_platform, platform, build_mode)
-            else:
-                base_target_platform = _get_base_target_platform_for_platform(platform)
-                if not base_target_platform:
-                    fail("A valid base target platform is required!")
-                apple_platforms[identifier] = apple_build_mode_backed_platform(base_target_platform, platform, build_mode)
-
-    kwargs[APPLE_PLATFORMS_KEY] = apple_platforms
-
-    return kwargs
 
 def _get_generated_name(base_name, platform, build_mode) -> str:
     platform_and_build_mode_name = apple_build_mode_backed_platform(platform, platform, build_mode)

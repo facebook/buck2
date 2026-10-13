@@ -6,7 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load(
     "@prelude//ide_integrations/xcode:data.bzl",
     "XCODE_DATA_SUB_TARGET",
@@ -42,6 +41,5 @@ registration_spec = RuleRegistrationSpec(
             attrs.option(attrs.source(allow_directory = True)), default = [], doc = """List of paths to the file or folders that should be included in Xcode."""
         ),
         "labels": attrs.list(attrs.string(), default = []),
-        APPLE_PLATFORMS_KEY: attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
     },
 )
