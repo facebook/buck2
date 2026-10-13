@@ -474,3 +474,31 @@ async fn test_config_unification_rollout_function_override() {
     let target_node = &target_nodes[0];
     assert!(!target_node.test_config_unification_rollout());
 }
+
+/// `set_starlark_peak_allocated_byte_limit()` in a PACKAGE file succeeds but does nothing: the
+/// limit is stored in that evaluation's own context, which is dropped. Only a build file
+/// evaluation reads it.
+#[tokio::test]
+async fn test_set_starlark_peak_allocated_byte_limit_in_package_file_is_ignored() {
+    let fs = ProjectRootTemp::new().unwrap();
+
+    // A limit of 1 byte fails any build file evaluation that it applies to.
+    fs.write_file("PACKAGE", "set_starlark_peak_allocated_byte_limit(1)");
+    fs.write_file("foo/BUCK", "");
+
+    let package_label = PackageLabel::testing_parse("root//foo");
+
+    let ctx = calculation(&fs).await;
+    let mut dice = ctx.ctx();
+    let mut interpreter = dice
+        .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
+            PackageFilePath::package_file_for_dir(package_label.as_cell_path()),
+        ))
+        .await
+        .unwrap();
+    let result = interpreter
+        .eval_build_file(package_label, CancellationContext::testing())
+        .await
+        .1;
+    assert!(result.is_ok(), "result = {result:?}");
+}
