@@ -273,4 +273,20 @@ assert_ne(r1(host="test"), diff(host="test"))
             "R = record(a = int, b = field(typing.Any, None))\nlen({R(a = 1, b = 2): 1})",
         );
     }
+
+    /// An omitted field takes its default without a type check. The default is checked once,
+    /// when `field()` is called, so a default mutated afterwards (before the module is frozen)
+    /// gives a record whose field does not match its type, while the same value passed
+    /// explicitly is rejected.
+    #[test]
+    fn test_record_mutated_default_is_not_rechecked() {
+        assert::eq(
+            "False",
+            "d = []\nR = record(xs = field(list[int], d))\nd.append('s')\nisinstance(R().xs, list[int])",
+        );
+        assert::fail(
+            "R = record(xs = field(list[int], []))\nR(xs = ['s'])",
+            "does not match the type annotation",
+        );
+    }
 }
