@@ -57,12 +57,10 @@ pub fn serialize_dense_graph<S>(graph: &GraphIntrospectable, writer: S) -> Resul
 where
     S: Serializer,
 {
-    let mut reg = HashMap::default();
-
     let num_nodes = graph.len_for_introspection();
 
     let mut seq = writer.serialize_seq(Some(num_nodes))?;
-    for node in graph.nodes(&mut reg) {
+    for node in graph.nodes() {
         seq.serialize_element(&node)?;
     }
     seq.end()

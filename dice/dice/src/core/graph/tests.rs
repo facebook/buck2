@@ -632,3 +632,36 @@ fn deleting_a_branch_keeps_revision_counters() {
     let after = compute(&mut graph, key(1), head, value(2));
     assert!(after.revision().unwrap().as_u32() > before.revision().unwrap().as_u32());
 }
+
+/// A dump covers every live branch, so it does not need the branch the state began with: that
+/// one is deleted like any other once nothing runs on it.
+#[test]
+fn introspection_covers_every_live_branch() {
+    let mut graph = with_leaf();
+    let v2 = graph.head(BranchId::FIRST);
+    compute(&mut graph, key(1), v2, value(1));
+    let root = graph.new_root();
+    graph.commit(
+        root,
+        [(
+            key(0),
+            ChangeType::UpdateValue(value(100), StorageType::Injected),
+            InvalidationSourcePriority::Normal,
+        )],
+    );
+
+    let both = graph.introspect();
+    assert_eq!(both.nodes.len(), 3);
+    assert!(both.nodes.contains_key(&(BranchId::FIRST, key(0))));
+    assert!(both.nodes.contains_key(&(BranchId::FIRST, key(1))));
+    assert!(both.nodes.contains_key(&(root, key(0))));
+    assert_eq!(both.edges[&key(1)].as_slice(), &[key(0)]);
+
+    graph.delete_branch(BranchId::FIRST);
+    let after = graph.introspect();
+    assert_eq!(
+        after.nodes.keys().collect::<Vec<_>>(),
+        vec![&(root, key(0))]
+    );
+    assert!(after.edges.values().all(|deps| deps.is_empty()));
+}

@@ -7353,4 +7353,52 @@ mod tests {
         .expect("the branch left behind should have been deleted");
         Ok(())
     }
+
+    /// A dump taken after a fresh instance, as `buck2 rage` takes one, shows the fresh root and
+    /// nothing of the branch left behind.
+    #[tokio::test]
+    async fn a_dump_after_a_fresh_instance_covers_the_fresh_root() -> buck2_error::Result<()> {
+        let dice = make_default_dice();
+        let concurrency = ConcurrencyHandler::new(dice.dupe(), BranchId::FIRST);
+        let (fresh, _) = run_counting(
+            &concurrency,
+            &FreshInstanceWhenArmed {
+                armed: AtomicBool::new(true),
+            },
+        )
+        .await?;
+        assert_ne!(fresh.branch(), BranchId::FIRST);
+
+        // The branch left behind goes once its work has drained, which the command on the
+        // fresh root does not wait for.
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let dice = dice.dupe();
+                let branches = tokio::task::spawn_blocking(move || dice.metrics().branch_count)
+                    .await
+                    .unwrap();
+                if branches == 1 {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the branch left behind should have been deleted");
+
+        let dump = tokio::task::spawn_blocking({
+            let dice = dice.dupe();
+            move || dice.to_introspectable()
+        })
+        .await
+        .unwrap();
+        let branches: Vec<u32> = dump.nodes().map(|node| node.branch).collect();
+        assert!(!branches.is_empty());
+        assert!(
+            branches
+                .iter()
+                .all(|branch| *branch == fresh.branch().as_u32())
+        );
+        Ok(())
+    }
 }

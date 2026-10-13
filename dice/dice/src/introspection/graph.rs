@@ -40,11 +40,10 @@ pub struct GraphIntrospectable {
 
 impl GraphIntrospectable {
     pub fn keys<'a>(&'a self) -> Box<dyn Iterator<Item = AnyKey> + 'a> {
+        let keys: HashSet<DiceKey> = self.graph.nodes.keys().map(|(_, key)| *key).collect();
         Box::new(
-            self.graph
-                .nodes
-                .keys()
-                .map(|k| self.key_map.get(k).expect("key should be present").clone()),
+            keys.into_iter()
+                .map(|k| self.key_map.get(&k).expect("key should be present").clone()),
         )
     }
 
@@ -67,14 +66,12 @@ impl GraphIntrospectable {
         self.version_data.versions_currently_running()
     }
 
-    pub fn nodes<'a>(
-        &'a self,
-        _keys: &'a mut HashMap<AnyKey, KeyID>,
-    ) -> Box<dyn Iterator<Item = SerializedGraphNodeForKey> + 'a> {
-        Box::new(self.graph.nodes.iter().map(|(key, node)| {
+    pub fn nodes<'a>(&'a self) -> Box<dyn Iterator<Item = SerializedGraphNodeForKey> + 'a> {
+        Box::new(self.graph.nodes.iter().map(|((branch, key), node)| {
             let any_k = self.key_map.get(key).expect("key should be present");
             SerializedGraphNodeForKey {
                 id: KeyID(node.node_id.0),
+                branch: branch.as_u32(),
                 key: any_k.to_string(),
                 type_name: any_k.type_name().to_owned(),
                 node: node.clone(),
@@ -190,6 +187,9 @@ pub struct SerializedGraphNode {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SerializedGraphNodeForKey {
     pub id: KeyID,
+    /// The branch the node describes. A key has one node per live branch it is known on, all
+    /// with the same `id`.
+    pub branch: u32,
     pub key: String,
     pub type_name: String,
     pub node: SerializedGraphNode,
