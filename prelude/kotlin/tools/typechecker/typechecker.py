@@ -67,6 +67,16 @@ def _parse_args():
         default=None,
         help="forwarded as -language-version (selects the CLI version profile)",
     )
+    p.add_argument(
+        "--jdk-base",
+        default=None,
+        help="hermetic java.base jar, forwarded as -jdk-home (JVM targets)",
+    )
+    p.add_argument(
+        "--jdk-required",
+        action="store_true",
+        help="fail loud (target unchecked) when --jdk-base is missing",
+    )
     return p.parse_args()
 
 
@@ -137,7 +147,7 @@ def _classify_exit(returncode, stderr, diagnostics, werror, nowarn):
     return 0, None
 
 
-def _run(args, t0):
+def _run(args, t0):  # noqa: C901
     with open(args.classpath_file) as f:
         classpath = f.read().strip()
     with TemporaryDirectory(prefix="typechecker_") as tmp:
@@ -171,7 +181,22 @@ def _run(args, t0):
         # Argfile contract (the CLI splits on ASCII whitespace with no quote
         # handling): fail loud on a whitespace-bearing path instead of
         # silently checking nonexistent split tokens.
-        for p in ([classpath] if classpath else []) + sources:
+        if args.jdk_required and not args.jdk_base:
+            _write_crash_report(
+                args.output,
+                "JDK unavailable for a JVM target; target unchecked",
+                round(time.time() - t0, 2),
+                plugins=args.plugins,
+                werror=args.werror,
+                nowarn=args.nowarn,
+                language_version=args.language_version,
+                java_sources_skipped=args.java_sources_skipped,
+            )
+            return
+        arg_paths = [classpath] if classpath else []
+        if args.jdk_base:
+            arg_paths.append(args.jdk_base)
+        for p in arg_paths + sources:
             if any(c in " \t\n\r\x0b\x0c" for c in p):
                 raise ValueError(f"argfile path contains whitespace: {p!r}")
         argfile = tmp + "/args.txt"
@@ -179,6 +204,8 @@ def _run(args, t0):
             f.write("--dump-diagnostics\n")
             if classpath:
                 f.write("-classpath\n" + classpath + "\n")
+            if args.jdk_base:
+                f.write("-jdk-home\n" + args.jdk_base + "\n")
             if args.werror:
                 f.write("-Werror\n")
             if args.nowarn:

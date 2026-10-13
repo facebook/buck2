@@ -810,6 +810,11 @@ def _typecheck_subtarget(
         compiling_classpath.add(compiling_deps_tset.project_as_args("args_for_compiling"))
     friend_jars = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, get_friend_paths(ctx)) if friend_path.library_output]
     compiling_classpath.add(friend_jars)
+    java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+    needs_jdk = not bootclasspath_entries
+    jdk_base_jar = java_toolchain.java_base_jar if needs_jdk else None
+    if needs_jdk:
+        compiling_classpath.add(filter(None, [java_toolchain.java_compiler_jar, java_toolchain.jdk_compiler_jar]))
     classpath_args = cmd_args(compiling_classpath, delimiter = get_path_separator_for_exec_os(ctx))
     classpath_file, _ = ctx.actions.write("typecheck_classpath", classpath_args, allow_args = True, has_content_based_path = False)
 
@@ -856,6 +861,10 @@ def _typecheck_subtarget(
     if has_plugins:
         args.add("--plugins")
     args.add(["--language-version", get_language_version(ctx)])
+    if needs_jdk:
+        args.add("--jdk-required")
+    if jdk_base_jar:
+        args.add(["--jdk-base", jdk_base_jar])
     hidden = cmd_args([compiling_classpath, kt_srcs, zip_srcs, java_srcs, generated_sources, classpath_file])
     ctx.actions.run(cmd_args(args, hidden = hidden), category = "typecheck")
     return extra_sub_targets | {

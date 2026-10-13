@@ -41,6 +41,7 @@ JavaToolchainInfo = provider(
         "jar_builder": provider_field(typing.Any, default = None),
         "java": provider_field(typing.Any, default = None),
         "java_base_jar": provider_field(typing.Any, default = None),
+        "java_compiler_jar": provider_field(typing.Any, default = None),
         "java_error_handler": provider_field(typing.Any, default = None),
         "java_for_tests": provider_field(typing.Any, default = None),
         # Major version of the JDK that `java` points at, or None when that is not known
@@ -56,6 +57,7 @@ JavaToolchainInfo = provider(
         "javacd_main_class": provider_field(typing.Any, default = None),
         "javacd_remote_worker": provider_field(typing.Any, default = None),
         "javacd_worker": provider_field(typing.Any, default = None),
+        "jdk_compiler_jar": provider_field(typing.Any, default = None),
         "jlink": provider_field(typing.Any, default = None),
         "jmod": provider_field(typing.Any, default = None),
         "jrt_fs_jar": provider_field(typing.Any, default = None),
