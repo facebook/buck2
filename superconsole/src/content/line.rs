@@ -421,4 +421,45 @@ mod tests {
             format!("{}", line.fmt_for_test())
         );
     }
+    #[test]
+    fn test_truncate_line_wide_chars() {
+        // `truncate_line` counts graphemes against a limit given in columns, so wide
+        // characters overflow the requested width.
+        let mut line = Line::unstyled("\u{6771}\u{6771}\u{6771}").unwrap();
+        assert_eq!(line.len(), 6);
+        line.truncate_line(2);
+        assert_eq!(line.to_unstyled(), "\u{6771}\u{6771}");
+        assert_eq!(line.len(), 4);
+
+        let mut line = Line::unstyled("a\u{6771}").unwrap();
+        line.truncate_line(2);
+        assert_eq!(line.to_unstyled(), "a\u{6771}");
+        assert_eq!(line.len(), 3);
+
+        let mut line = Line::from_iter([
+            Span::new_colored("a", Color::Red).unwrap(),
+            Span::new_unstyled("\u{6771}\u{6771}").unwrap(),
+        ]);
+        line.truncate_line(2);
+        assert_eq!(line.to_unstyled(), "a\u{6771}");
+        assert_eq!(line.len(), 3);
+    }
+
+    #[test]
+    fn test_truncate_line_zero_width_chars() {
+        // A zero-width grapheme is counted as a column, so content that fits is dropped.
+        let mut line = Line::unstyled("a\u{200b}bc").unwrap();
+        assert_eq!(line.len(), 3);
+        line.truncate_line(2);
+        assert_eq!(line.to_unstyled(), "a\u{200b}");
+        assert_eq!(line.len(), 1);
+    }
+
+    #[test]
+    fn test_to_exact_width_wide_chars() {
+        let mut line = Line::unstyled("\u{6771}\u{6771}").unwrap();
+        line.to_exact_width(3);
+        assert_eq!(line.to_unstyled(), "\u{6771}\u{6771}");
+        assert_eq!(line.len(), 4);
+    }
 }
