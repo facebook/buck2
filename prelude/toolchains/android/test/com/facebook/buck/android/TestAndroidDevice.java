@@ -79,6 +79,12 @@ public class TestAndroidDevice implements AndroidDevice {
   }
 
   @Override
+  public InstalledApk compareInstalledApk(String packageName, File apk, boolean exact)
+      throws Exception {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public ImmutableSortedSet<Path> listDirRecursive(Path dirPath) throws Exception {
     throw new UnsupportedOperationException();
   }

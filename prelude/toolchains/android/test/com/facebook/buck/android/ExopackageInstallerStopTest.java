@@ -13,10 +13,8 @@ package com.facebook.buck.android;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-import com.facebook.buck.android.exopackage.AdbCommandFailedException;
 import com.facebook.buck.android.exopackage.ExopackageInstaller;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
-import com.facebook.buck.android.exopackage.PackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.testutil.TemporaryPaths;
@@ -230,18 +228,16 @@ public class ExopackageInstallerStopTest {
     }
 
     @Override
-    public Optional<PackageInfo> getPackageInfo(String packageName) {
-      return Optional.of(new PackageInfo("/data/app/base.apk", "/data/app/lib", "1"));
-    }
-
-    @Override
-    public String getApkManifestDigest(String packagePath) throws Exception {
-      throw new AdbCommandFailedException("unzip: not found");
-    }
-
-    @Override
     public String getContentHash(String path) {
       return hashes.getOrDefault(path, installedApkHash);
+    }
+
+    @Override
+    public InstalledApk compareInstalledApk(String packageName, File apk, boolean exact)
+        throws Exception {
+      return installedApkHash.equals(ContentDigests.getContentHash(apk))
+          ? InstalledApk.SAME
+          : InstalledApk.DIFFERENT;
     }
 
     @Override

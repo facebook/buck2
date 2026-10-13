@@ -271,6 +271,65 @@ class AndroidDeviceImplTest {
     verify(mockAdbUtils).executeAdbShellCommand(setDebugApp, serialNumber)
   }
 
+  private val unzipList = "unzip -l $onDeviceApkPath | grep -E -o 'META-INF/[A-Z]+\\.SF'"
+
+  @Test
+  fun testCompareInstalledApkReportsAnAbsentPackage() {
+    whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
+        .thenReturn("")
+
+    assertEquals(
+        AndroidDevice.InstalledApk.ABSENT,
+        androidDevice.compareInstalledApk(packageName, apkFile, false),
+    )
+  }
+
+  @Test
+  fun testCompareInstalledApkExactComparesContentHashOnly() {
+    stubInstallVerified()
+
+    assertEquals(
+        AndroidDevice.InstalledApk.SAME,
+        androidDevice.compareInstalledApk(packageName, apkFile, true),
+    )
+    verify(mockAdbUtils, never()).executeAdbShellCommand(unzipList, serialNumber)
+  }
+
+  @Test
+  fun testCompareInstalledApkFallsBackToContentHashWhenTheLocalApkHasNoSignatureFile() {
+    stubInstallVerified()
+    whenever(mockAdbUtils.executeAdbShellCommand(unzipList, serialNumber))
+        .thenReturn("META-INF/CERT.SF")
+    whenever(
+        mockAdbUtils.executeAdbShellCommand(
+            "unzip -p $onDeviceApkPath META-INF/CERT.SF | grep -E " +
+                "'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'",
+            serialNumber,
+        ),
+    )
+        .thenReturn("SHA-256-Digest-Manifest: aGFzaA==")
+
+    assertEquals(
+        AndroidDevice.InstalledApk.SAME,
+        androidDevice.compareInstalledApk(packageName, apkFile, false),
+    )
+  }
+
+  @Test
+  fun testCompareInstalledApkFallsBackToContentHashWithoutUnzip() {
+    whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
+        .thenReturn("package:$onDeviceApkPath")
+    whenever(mockAdbUtils.executeAdbShellCommand(unzipList, serialNumber))
+        .thenReturn("/system/bin/sh: unzip: not found")
+    whenever(mockAdbUtils.executeAdbShellCommand("md5sum $onDeviceApkPath", serialNumber))
+        .thenReturn("${"0".repeat(32)}  $onDeviceApkPath")
+
+    assertEquals(
+        AndroidDevice.InstalledApk.DIFFERENT,
+        androidDevice.compareInstalledApk(packageName, apkFile, false),
+    )
+  }
+
   @Test
   fun testGetPackageInfo() {
     whenever(mockAdbUtils.executeAdbShellCommand("pm path com.test.app", serialNumber))

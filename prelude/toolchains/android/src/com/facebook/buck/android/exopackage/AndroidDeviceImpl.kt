@@ -122,16 +122,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
    * read back.
    */
   private fun verifyInstalledApkMatches(apk: File, packageName: String) {
-    val installedApk =
-        getPackageInfo(packageName).orElseThrow {
-          AndroidInstallException.installedApkMismatch(
-              "Install of ${apk.name} could not be verified: $packageName is not present on the" +
-                  " device after installing.",
-          )
-        }
-    val installedHash =
+    val installed =
         try {
-          getContentHash(installedApk.apkPath)
+          compareInstalledApk(packageName, apk, exact = true)
         } catch (e: AdbCommandFailedException) {
           throw AndroidInstallException.adbCommandFailedException(
               "Could not read the on-device apk for $packageName to verify the install of" +
@@ -139,13 +132,47 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
               e.message,
           )
         }
-    val localApkHash = ContentDigests.getContentHash(apk)
-    if (!installedHash.equals(localApkHash, ignoreCase = true)) {
-      throw AndroidInstallException.installedApkMismatch(
-          "Install of ${apk.name} could not be verified: the on-device apk for $packageName does" +
-              " not match the local apk after installing.",
-      )
+    when (installed) {
+      AndroidDevice.InstalledApk.ABSENT ->
+          throw AndroidInstallException.installedApkMismatch(
+              "Install of ${apk.name} could not be verified: $packageName is not present on the" +
+                  " device after installing.",
+          )
+      AndroidDevice.InstalledApk.DIFFERENT ->
+          throw AndroidInstallException.installedApkMismatch(
+              "Install of ${apk.name} could not be verified: the on-device apk for $packageName" +
+                  " does not match the local apk after installing.",
+          )
+      AndroidDevice.InstalledApk.SAME -> Unit
     }
+  }
+
+  @Throws(Exception::class)
+  override fun compareInstalledApk(
+      packageName: String,
+      apk: File,
+      exact: Boolean,
+  ): AndroidDevice.InstalledApk {
+    val installedApkPath =
+        getPackageInfo(packageName).map { it.apkPath }.orElse(null)
+            ?: return AndroidDevice.InstalledApk.ABSENT
+    if (!exact) {
+      try {
+        val installedDigest = getApkManifestDigest(installedApkPath)
+        val localDigest = ContentDigests.getJarManifestDigest(apk.path)
+        LOG.info("Installed APK manifest digest: $installedDigest, local: $localDigest")
+        return if (installedDigest == localDigest) AndroidDevice.InstalledApk.SAME
+        else AndroidDevice.InstalledApk.DIFFERENT
+      } catch (e: Exception) {
+        // Any failure to get both digests (no `unzip` on the device, an unexpected `.SF`, a local
+        // apk without a v1 signature) only means the cheap comparison is unavailable.
+        LOG.info("Could not compare APK manifest digests; comparing content hashes: ${e.message}")
+      }
+    }
+    val installedHash = getContentHash(installedApkPath)
+    return if (installedHash.equals(ContentDigests.getContentHash(apk), ignoreCase = true))
+        AndroidDevice.InstalledApk.SAME
+    else AndroidDevice.InstalledApk.DIFFERENT
   }
 
   @Throws(Exception::class)

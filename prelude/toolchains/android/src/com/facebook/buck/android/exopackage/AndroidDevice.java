@@ -119,6 +119,21 @@ public interface AndroidDevice {
 
   String getContentHash(String path) throws Exception;
 
+  /** How the apk installed for a package compares with a local apk. */
+  enum InstalledApk {
+    ABSENT,
+    SAME,
+    DIFFERENT
+  }
+
+  /**
+   * Compares the apk installed for {@code packageName} with {@code apk}. With {@code exact}, the
+   * comparison is byte-for-byte (MD5 of the whole apk); otherwise it compares the apks' signature
+   * manifest digests, falling back to MD5 whenever either digest cannot be read. Throws {@link
+   * AdbCommandFailedException} if the installed apk cannot be read.
+   */
+  InstalledApk compareInstalledApk(String packageName, File apk, boolean exact) throws Exception;
+
   ImmutableSortedSet<Path> listDirRecursive(Path dirPath) throws Exception;
 
   void rmFiles(String dirPath, Iterable<String> filesToDelete);

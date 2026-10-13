@@ -27,7 +27,6 @@ import com.facebook.buck.android.exopackage.AdbCommandFailedException;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
-import com.facebook.buck.android.exopackage.PackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.installer.android.IsolatedAndroidInstallerPrinter;
@@ -456,6 +455,19 @@ public class AdbHelperTest {
   }
 
   @Test
+  public void testPlainInstallInstallsWhenTheInstalledApkCannotBeRead() throws Exception {
+    AndroidDeviceImpl device = deviceWithInstalledApk(/* sameApk= */ true);
+    when(device.compareInstalledApk(eq("com.example.app"), any(File.class), eq(false)))
+        .thenThrow(new AdbCommandFailedException("md5sum: base.apk: Permission denied"));
+
+    installPlainApk(/* restartApp= */ false);
+
+    verify(device)
+        .installApkOnDevice(
+            any(File.class), anyBoolean(), anyBoolean(), anyBoolean(), eq("com.example.app"));
+  }
+
+  @Test
   public void testPlainStagedInstallInstallsEvenWhenTheApkMatches() throws Exception {
     AndroidDeviceImpl device = deviceWithInstalledApk(/* sameApk= */ true);
 
@@ -484,12 +496,9 @@ public class AdbHelperTest {
   private AndroidDeviceImpl deviceWithInstalledApk(boolean sameApk) throws Exception {
     AndroidDeviceImpl device = createRealDevice("one", "device");
     when(device.setDebugAppPackageName("com.example.app")).thenReturn(true);
-    when(device.getPackageInfo("com.example.app"))
-        .thenReturn(Optional.of(new PackageInfo("/data/app/base.apk", "/data/app/lib", "1")));
-    when(device.getApkManifestDigest("/data/app/base.apk"))
-        .thenThrow(new AdbCommandFailedException("unzip: not found"));
-    when(device.getContentHash("/data/app/base.apk"))
-        .thenReturn(sameApk ? ContentDigests.getContentHash(plainApk()) : "an older apk");
+    when(device.compareInstalledApk(eq("com.example.app"), any(File.class), eq(false)))
+        .thenReturn(
+            sameApk ? AndroidDevice.InstalledApk.SAME : AndroidDevice.InstalledApk.DIFFERENT);
     when(device.installApkOnDevice(
             any(File.class), anyBoolean(), anyBoolean(), anyBoolean(), anyString()))
         .thenReturn(true);
