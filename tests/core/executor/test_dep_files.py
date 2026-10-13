@@ -545,6 +545,110 @@ async def test_dep_file_not_persisted_across_restart_when_disabled(buck: Buck) -
     assert ACTION_EXECUTION_KIND_LOCAL in kinds, kinds
 
 
+# An anon target's actions are keyed by the anon target's identity hash rather than a configured
+# label. They persist and reload like any other locally-produced action. Without content-based paths
+# the identity hash is also part of the output path, so that case is the one where its stability
+# across sessions is observable.
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+@pytest.mark.parametrize("content_paths", ["true", "false"])
+async def test_anon_target_action_persisted_across_restart(
+    buck: Buck, content_paths: str
+) -> None:
+    target = "root//app:anon_owned_run"
+    args = [
+        target,
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        f"test.use_content_based_paths={content_paths}",
+    ]
+    await buck.build(*args)
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL in kinds, kinds
+    await buck.kill()
+
+    result = await buck.build(*args)
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL not in kinds, kinds
+    assert result.get_build_report().output_for_target(target).read_text() == "anon"
+    await check_no_cache_query(buck)
+
+
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+async def test_changed_anon_target_action_is_not_served_from_persisted_cache(
+    buck: Buck,
+) -> None:
+    # The marker is passed to the anon target by artifact, so this changes the anon action's inputs
+    # but not the anon target's identity: the persisted row from the previous session is found under
+    # the same key, and must be rejected on its digests.
+    target = "root//app:anon_owned_run"
+
+    def args(marker_content: str) -> list[str]:
+        return [
+            target,
+            "--local-only",
+            "--no-remote-cache",
+            "-c",
+            f"test.anon_marker_content={marker_content}",
+        ]
+
+    await buck.build(*args("anon1"))
+    await buck.kill()
+
+    result = await buck.build(*args("anon2"))
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE not in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL in kinds, kinds
+    assert result.get_build_report().output_for_target(target).read_text() == "anon2"
+
+
+# A BXL action's key hashes the whole BXL invocation (script, CLI args, global configuration, and
+# execution platform resolution), so the same invocation after a restart finds its persisted row.
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+async def test_bxl_action_persisted_across_restart(buck: Buck) -> None:
+    args = [
+        "root//app/run.bxl:bxl_run",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "build.execution_platforms=root//app:canonical_platforms",
+    ]
+    first = await buck.bxl(*args)
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL in kinds, kinds
+    await buck.kill()
+
+    second = await buck.bxl(*args)
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL not in kinds, kinds
+    assert second.stdout == first.stdout
+    assert (buck.cwd / second.stdout.strip()).read_text() == "bxl"
+
+    # A different CLI arg is a different BXL key as well as a different input; it re-executes.
+    third = await buck.bxl(*args, "--", "--marker_content", "bxl2")
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE not in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL in kinds, kinds
+    assert (buck.cwd / third.stdout.strip()).read_text() == "bxl2"
+
+
 @buck_test(
     setup_eden=False,
     data_dir="dep_files",
