@@ -688,9 +688,10 @@ where
     unreachable!()
 }
 
-/// Retries attempted after a failure on the execution stream, matching Bazel's
-/// `--remote_retries` default. Resuming is cheap — `WaitExecution` reattaches
-/// rather than re-running — so this can afford more than `retry` allows.
+/// Retries attempted after a failure on the execution stream or of the execution
+/// itself, matching Bazel's `--remote_retries` default. A resume is cheap —
+/// `WaitExecution` reattaches rather than re-running — but a restart re-runs the
+/// action, so one the server keeps failing runs one more time than this.
 const MAX_EXECUTION_RETRIES: u32 = 5;
 
 /// Free function so a resumed execution stream can open its own call without
@@ -774,12 +775,26 @@ fn decode_execute_operation(msg: Operation) -> anyhow::Result<ExecuteWithProgres
     }
 }
 
+/// Returns true if a server finishing an operation with `code` is worth running
+/// the action again for. A finished operation's status can be the action's own:
+/// `DEADLINE_EXCEEDED` is its timeout and would recur, and `RESOURCE_EXHAUSTED`
+/// can be the action asking for more than any worker offers, where running it
+/// again only adds load. A command that exits non-zero never gets here — REAPI
+/// reports it with an `OK` status.
+fn is_transient_execution_status(code: TCode) -> bool {
+    matches!(
+        code,
+        TCode::UNAVAILABLE | TCode::ABORTED | TCode::UNKNOWN | TCode::INTERNAL
+    )
+}
+
 struct ExecutionStreamState<F> {
     /// Opens the message stream for the operation it is given.
     open: F,
     /// Which operation to open a stream for: `None` starts a fresh `Execute`,
     /// `Some(name)` resumes that one with `WaitExecution`. Empty until the server
-    /// names the operation, and emptied again if the server loses it.
+    /// names the operation, and emptied again if the server loses it or finishes
+    /// it with a transient failure.
     operation: Option<String>,
     /// Per-action and never replenished, so a long enough action can exhaust it
     /// on unrelated failures it made progress between.
@@ -803,7 +818,9 @@ struct ExecutionStreamState<F> {
 /// with `Execute`. A stream that ends cleanly without a response is not an
 /// error — REAPI allows it when execution outlives a connection — so resuming
 /// from one does not spend the retry budget, only the separate cap on resumes
-/// that report nothing at all.
+/// that report nothing at all. An operation the server finishes with a
+/// transient failure is also started over with `Execute`, and that does spend
+/// the budget.
 fn execution_progress_stream<S, F, Fut>(
     open: F,
 ) -> impl Stream<Item = anyhow::Result<ExecuteWithProgressResponse>>
@@ -852,9 +869,30 @@ where
                             state.operation = Some(msg.name.clone());
                         }
                         state.empty_resumes = 0;
-                        let response = decode_execute_operation(msg)?;
-                        state.done = response.execute_response.is_some();
-                        return Ok(Some((response, (stream, state))));
+                        match decode_execute_operation(msg) {
+                            Ok(response) => {
+                                state.done = response.execute_response.is_some();
+                                return Ok(Some((response, (stream, state))));
+                            }
+                            Err(err) => {
+                                let Some(code) = err
+                                    .downcast_ref::<REClientError>()
+                                    .map(|e| e.code)
+                                    .filter(|&code| is_transient_execution_status(code))
+                                else {
+                                    return Err(err);
+                                };
+                                // Resuming a finished operation would only report the
+                                // same failure.
+                                state.operation = None;
+                                stream = None;
+                                let err = err.context(format!(
+                                    "Server failed the execution with status {:?}",
+                                    tonic::Code::from(code.0)
+                                ));
+                                state.back_off(err).await?;
+                            }
+                        }
                     }
                     Ok(None) => {
                         let Some(operation) = &state.operation else {
@@ -919,7 +957,16 @@ impl<F> ExecutionStreamState<F> {
             // defines `DEADLINE_EXCEEDED` there as the action's own timeout.
             || (self.operation.is_some() && code == Some(tonic::Code::DeadlineExceeded));
 
-        if self.retries_left == 0 || !retryable {
+        if !retryable {
+            return Err(err);
+        }
+        self.back_off(err).await
+    }
+
+    /// Spends one retry and waits out the backoff, or gives the error back to the
+    /// caller once the budget is spent.
+    async fn back_off(&mut self, err: anyhow::Error) -> anyhow::Result<()> {
+        if self.retries_left == 0 {
             return Err(err);
         }
         self.retries_left -= 1;
@@ -927,7 +974,7 @@ impl<F> ExecutionStreamState<F> {
         let sleep_for = delay_with_jitter(self.delay);
         self.delay = (self.delay * 2).min(MAX_DELAY);
         tracing::warn!(
-            "Remote execution stream broken (retry {}/{}), reconnecting in {:?}: {:#}",
+            "Remote execution failed (retry {}/{}), retrying in {:?}: {:#}",
             MAX_EXECUTION_RETRIES - self.retries_left,
             MAX_EXECUTION_RETRIES,
             sleep_for,
@@ -2211,6 +2258,37 @@ mod tests {
         })
     }
 
+    /// A finished operation whose `ExecuteResponse.status` is `code`.
+    fn failed_response_op(code: TCode, message: &str) -> Operation {
+        response_op(GExecuteResponse {
+            status: Some(Status {
+                code: code.0,
+                message: message.to_owned(),
+                ..Default::default()
+            }),
+            result: Some(ActionResult {
+                execution_metadata: Some(ExecutedActionMetadata::default()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        })
+    }
+
+    /// A finished operation that carries `code` in `Operation.error` instead of a
+    /// response.
+    fn error_op(code: TCode, message: &str) -> Operation {
+        Operation {
+            name: OP.to_owned(),
+            done: true,
+            result: Some(OpResult::Error(Status {
+                code: code.0,
+                message: message.to_owned(),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }
+    }
+
     fn response_op(response: GExecuteResponse) -> Operation {
         Operation {
             name: OP.to_owned(),
@@ -2469,18 +2547,13 @@ mod tests {
         );
     }
 
-    /// The action's own verdict arrives in `ExecuteResponse.status`. Retrying it
-    /// would re-run work the server already did, so it must fail outright even
-    /// when the code is one `is_retryable` treats as transient.
+    /// A command that exits non-zero ran to completion: REAPI reports it with an
+    /// `OK` status, and it reaches the caller as a response, not an error.
     #[tokio::test(start_paused = true)]
-    async fn execution_does_not_retry_a_failed_action() {
+    async fn execution_does_not_retry_a_nonzero_exit_code() {
         let op = response_op(GExecuteResponse {
-            status: Some(Status {
-                code: TCode::INTERNAL.0,
-                message: "action failed".to_owned(),
-                ..Default::default()
-            }),
             result: Some(ActionResult {
+                exit_code: 1,
                 execution_metadata: Some(ExecutedActionMetadata::default()),
                 ..Default::default()
             }),
@@ -2490,24 +2563,36 @@ mod tests {
         let (events, calls) = run_scripted(vec![Ok(vec![Ok(op)])]).await;
 
         assert_eq!(calls, vec![None]);
+        let event = events[0]
+            .as_ref()
+            .expect("expected the response to be delivered");
+        assert_eq!(
+            event
+                .execute_response
+                .as_ref()
+                .map(|r| r.action_result.exit_code),
+            Some(1)
+        );
+    }
+
+    /// The timeout is the action's own verdict, and running it again would only
+    /// time out again, even though the server attached a result.
+    #[tokio::test(start_paused = true)]
+    async fn execution_does_not_retry_a_timed_out_action() {
+        let op = failed_response_op(TCode::DEADLINE_EXCEEDED, "action timed out");
+
+        let (events, calls) = run_scripted(vec![Ok(vec![Ok(op)])]).await;
+
+        assert_eq!(calls, vec![None]);
         let Err(err) = &events[0] else {
-            panic!("expected the action failure to be surfaced")
+            panic!("expected the timeout to be surfaced")
         };
-        assert!(format!("{err:#}").contains("action failed"));
+        assert!(format!("{err:#}").contains("action timed out"));
     }
 
     #[tokio::test(start_paused = true)]
-    async fn execution_does_not_retry_an_operation_error() {
-        let op = Operation {
-            name: OP.to_owned(),
-            done: true,
-            result: Some(OpResult::Error(Status {
-                code: TCode::INTERNAL.0,
-                message: "operation failed".to_owned(),
-                ..Default::default()
-            })),
-            ..Default::default()
-        };
+    async fn execution_does_not_retry_a_permanent_operation_error() {
+        let op = error_op(TCode::INVALID_ARGUMENT, "operation rejected");
 
         let (events, calls) = run_scripted(vec![Ok(vec![Ok(op)])]).await;
 
@@ -2515,7 +2600,94 @@ mod tests {
         let Err(err) = &events[0] else {
             panic!("expected the operation error to be surfaced")
         };
-        assert!(format!("{err:#}").contains("operation failed"));
+        assert!(format!("{err:#}").contains("operation rejected"));
+    }
+
+    /// It can be the action asking for more than any worker offers, where running
+    /// it again only adds load.
+    #[tokio::test(start_paused = true)]
+    async fn execution_does_not_retry_resource_exhaustion() {
+        let op = failed_response_op(TCode::RESOURCE_EXHAUSTED, "out of quota");
+
+        let (events, calls) = run_scripted(vec![Ok(vec![Ok(op)])]).await;
+
+        assert_eq!(calls, vec![None]);
+        let Err(err) = &events[0] else {
+            panic!("expected the exhaustion to be surfaced")
+        };
+        assert!(format!("{err:#}").contains("out of quota"));
+    }
+
+    /// The operation is over, so resuming it with `WaitExecution` would only
+    /// report the same failure.
+    #[tokio::test(start_paused = true)]
+    async fn execution_restarts_after_a_transient_operation_error() {
+        let (events, calls) = run_scripted(vec![
+            Ok(vec![Ok(error_op(TCode::UNAVAILABLE, "io exception"))]),
+            Ok(vec![Ok(done_op())]),
+        ])
+        .await;
+
+        assert_eq!(calls, vec![None, None]);
+        assert_eq!(stages(&events), vec![Stage::COMPLETED]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn execution_restarts_after_an_internal_action_status() {
+        let (events, calls) = run_scripted(vec![
+            Ok(vec![Ok(failed_response_op(TCode::INTERNAL, "worker lost"))]),
+            Ok(vec![Ok(done_op())]),
+        ])
+        .await;
+
+        assert_eq!(calls, vec![None, None]);
+        assert_eq!(stages(&events), vec![Stage::COMPLETED]);
+    }
+
+    /// Every restart runs the action again, so restarts draw on the same budget as
+    /// reconnecting does.
+    #[tokio::test(start_paused = true)]
+    async fn execution_stops_restarting_once_the_budget_is_spent() {
+        let attempts = (0..=MAX_EXECUTION_RETRIES)
+            .map(|_| Ok(vec![Ok(error_op(TCode::UNAVAILABLE, "io exception"))]))
+            .collect();
+
+        let (events, calls) = run_scripted(attempts).await;
+
+        assert_eq!(calls.len() as u32, MAX_EXECUTION_RETRIES + 1);
+        let Err(err) = &events[0] else {
+            panic!("expected the last operation error to be surfaced")
+        };
+        assert_eq!(
+            err.downcast_ref::<REClientError>().map(|e| e.code),
+            Some(TCode::UNAVAILABLE)
+        );
+    }
+
+    #[test]
+    fn execution_restarts_only_on_transient_statuses() {
+        let expected = [
+            (TCode::CANCELLED, false),
+            (TCode::UNKNOWN, true),
+            (TCode::INVALID_ARGUMENT, false),
+            (TCode::DEADLINE_EXCEEDED, false),
+            (TCode::NOT_FOUND, false),
+            (TCode::ALREADY_EXISTS, false),
+            (TCode::PERMISSION_DENIED, false),
+            (TCode::RESOURCE_EXHAUSTED, false),
+            (TCode::FAILED_PRECONDITION, false),
+            (TCode::ABORTED, true),
+            (TCode::OUT_OF_RANGE, false),
+            (TCode::UNIMPLEMENTED, false),
+            (TCode::INTERNAL, true),
+            (TCode::UNAVAILABLE, true),
+            (TCode::DATA_LOSS, false),
+            (TCode::UNAUTHENTICATED, false),
+        ];
+
+        let actual = expected.map(|(code, _)| (code, is_transient_execution_status(code)));
+
+        assert_eq!(actual, expected);
     }
 
     /// Restarting would re-run an action that already used up its timeout, but
