@@ -291,6 +291,16 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_forget_keeps_sync_observer_alive() {
+        let (manager, guard) = LivelinessGuard::create_sync();
+        guard.forget();
+        assert!(manager.is_alive().await);
+        // `forget` promises the observer stays alive forever, but the sync check reads only
+        // whether the write lock is still held.
+        assert!(!manager.is_alive_sync());
+    }
+
+    #[tokio::test]
     async fn test_timeout() {
         let obs = TimeoutLivelinessObserver::new(Duration::from_secs(1));
 
