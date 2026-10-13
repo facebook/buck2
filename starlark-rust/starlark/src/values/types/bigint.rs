@@ -743,4 +743,10 @@ mod tests {
     fn test_int_type_matches_bigint() {
         assert::is_true("isinstance(1 << 100, int)");
     }
+
+    #[test]
+    fn test_dictionary_key_big_int() {
+        assert::is_true("not (noop(2147483648.0) in {2147483648: 1})");
+        assert::is_true("{noop(1e20): 1}.get(100000000000000000000) == None");
+    }
 }
