@@ -381,7 +381,10 @@ impl<'f> ExprCompiled<'f> {
             ExprCompiled::List(xs) => xs.is_empty(),
             ExprCompiled::Tuple(xs) => xs.is_empty(),
             ExprCompiled::Dict(xs) => xs.is_empty(),
-            ExprCompiled::Value(v) if v.is_builtin() => v.length().is_ok_and(|l| l == 0),
+            // Strings have a length but are not iterable.
+            ExprCompiled::Value(v) if v.is_builtin() && !v.is_str() => {
+                v.length().is_ok_and(|l| l == 0)
+            }
             _ => false,
         }
     }
