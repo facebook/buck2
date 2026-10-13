@@ -12,6 +12,7 @@ allocative.workspace = true
 async-trait.workspace = true
 buck2_build_api.workspace = true
 buck2_build_api_derive.workspace = true
+buck2_configuration_providers.workspace = true
 buck2_core.workspace = true
 buck2_error.workspace = true
 buck2_events.workspace = true

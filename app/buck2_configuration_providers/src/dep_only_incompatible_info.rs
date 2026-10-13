@@ -23,6 +23,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
@@ -33,8 +34,7 @@ use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
 
-use crate as buck2_build_api;
-use crate::interpreter::rule_defs::provider::builtin::dep_only_incompatible_rollout::DepOnlyIncompatibleRollout;
+use crate::dep_only_incompatible_rollout::DepOnlyIncompatibleRollout;
 
 /// A provider for defining custom soft error categories for dep-only incompatible targets.
 /// This can be used to get finer-grained data on whether it is safe to enable

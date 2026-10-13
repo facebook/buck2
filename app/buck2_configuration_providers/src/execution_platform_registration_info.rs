@@ -15,6 +15,7 @@ use buck2_build_api_derive::internal_provider;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
@@ -27,8 +28,7 @@ use starlark::values::list::ListRef;
 use starlark::values::list::ListType;
 use starlark::values::none::NoneOr;
 
-use crate as buck2_build_api;
-use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::ExecutionPlatformInfo;
+use crate::execution_platform_info::ExecutionPlatformInfo;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]

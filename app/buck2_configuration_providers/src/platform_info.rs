@@ -15,6 +15,7 @@ use buck2_build_api_derive::internal_provider;
 use buck2_core::configuration::data::ConfigurationData;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
@@ -23,8 +24,7 @@ use starlark::values::Trace;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 
-use crate as buck2_build_api;
-use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
+use crate::configuration_info::ConfigurationInfo;
 
 #[internal_provider(platform_info_creator)]
 #[derive(

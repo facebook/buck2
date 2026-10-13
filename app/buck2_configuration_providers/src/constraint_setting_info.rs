@@ -25,6 +25,7 @@ use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
@@ -33,8 +34,6 @@ use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::none::NoneOr;
-
-use crate as buck2_build_api;
 
 /// Provider that signals that a target can be used as a constraint key. This is the only provider
 /// returned by a `constraint_setting()` target.

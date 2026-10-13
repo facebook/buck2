@@ -42,9 +42,8 @@ use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::none::NoneOr;
 
-use crate as buck2_build_api;
-use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
-use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::ConstraintValueInfo;
+use crate::constraint_setting_info::ConstraintSettingInfo;
+use crate::constraint_value_info::ConstraintValueInfo;
 
 /// Provider that signals that a rule contains configuration info. This is used both as part of
 /// defining configurations (`platform()`, `constraint_value()`) and defining whether a target "matches"

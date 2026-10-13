@@ -11,12 +11,12 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::configs::parse_config_section_and_key;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_configuration_providers::configuration_info::ConfigurationInfo;
+use buck2_configuration_providers::platform_info::PlatformInfo;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;

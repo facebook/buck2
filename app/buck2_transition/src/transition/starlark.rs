@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use allocative::Allocative;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
+use buck2_configuration_providers::platform_info::PlatformInfo;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;

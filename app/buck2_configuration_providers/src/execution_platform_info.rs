@@ -11,6 +11,7 @@
 use std::fmt::Debug;
 
 use allocative::Allocative;
+use buck2_build_api::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::configuration::constraints::ConstraintKey;
 use buck2_core::configuration::constraints::ConstraintValue;
@@ -21,14 +22,13 @@ use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
+use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::ValueTyped;
 
-use crate as buck2_build_api;
-use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
-use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
+use crate::configuration_info::ConfigurationInfo;
 
 /// Provider that signals that a target represents an execution platform.
 #[internal_provider(info_creator)]

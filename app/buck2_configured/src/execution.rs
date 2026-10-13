@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::fmt::Display;
 use std::mem;
 use std::ops::ControlFlow;
 use std::sync::Arc;
@@ -16,13 +17,14 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::actions::execute::dice_data::HasFallbackExecutorConfig;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::constraint_value_info::ConstraintValueInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::ExecutionPlatformRegistrationInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_configuration_providers::constraint_value_info::ConstraintValueInfo;
+use buck2_configuration_providers::execution_platform_registration_info::ExecutionPlatformRegistrationInfo;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::configuration::pair::Configuration;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformError;
@@ -36,28 +38,29 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
-use dice_futures::cancellation::CancellationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::spec::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE;
+use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
+use buck2_node::cfg_constructor::CfgConstructorModifiers;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
-use buck2_node::execution::GetExecutionPlatforms;
-use buck2_node::execution::GetExecutionPlatformsImpl;
 use buck2_node::execution::EXECUTION_PLATFORMS_BUCKCONFIG;
 use buck2_node::execution::GET_EXECUTION_PLATFORMS;
+use buck2_node::execution::GetExecutionPlatforms;
+use buck2_node::execution::GetExecutionPlatformsImpl;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use derive_more::Display;
-use std::fmt::Display;
-use dice::EqualityBehavior;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use dupe::ResultDupedErrExt;
 use futures::FutureExt;
@@ -67,17 +70,14 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark_map::ordered_map::OrderedMap;
 
-use crate::configuration::get_matched_cfg_keys;
 use crate::configuration::compute_platform_cfgs;
+use crate::configuration::get_matched_cfg_keys;
 use crate::configuration::get_matched_cfg_keys_for_node;
-use crate::nodes::gather_deps;
 use crate::nodes::GatheredDeps;
-use crate::nodes::compute_configured_node_preamble;
 use crate::nodes::LookingUpConfiguredNodeContext;
+use crate::nodes::compute_configured_node_preamble;
+use crate::nodes::gather_deps;
 use crate::nodes::unspecified_attr_cfg_ctx;
-use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
-use buck2_node::cfg_constructor::CfgConstructorModifiers;
-use buck2_core::configuration::pair::Configuration;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
