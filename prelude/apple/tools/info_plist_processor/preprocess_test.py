@@ -7,10 +7,9 @@
 # above-listed licenses.
 
 import io
-import re
 import unittest
 
-from .preprocess import _process_line, _re_string, preprocess
+from .preprocess import preprocess
 
 
 class TestPreprocess(unittest.TestCase):
@@ -91,20 +90,17 @@ class TestPreprocess(unittest.TestCase):
         preprocess(input_file, output_file, substitutions_file, "my_product_name")
         self.assertEqual(output_file.getvalue(), expected)
 
-    def test_self_reference_after_text_never_terminates(self):
-        # Every substitution moves the search position, which clears the record of the
-        # variables already expanded, so the self-reference is expanded again and again.
-        pattern = _SearchCounter(re.compile(_re_string), limit=1000)
-        with self.assertRaises(_SearchLimitReached):
-            _process_line(
-                "<string>com.foo.$(SUFFIX)</string>",
-                pattern,
-                {"SUFFIX": "app.$(SUFFIX)"},
-                None,
-            )
+    def test_self_reference_after_text_is_recursive(self):
+        input_file = io.StringIO(r"<string>com.foo.$(SUFFIX)</string>")
+        substitutions_file = io.StringIO(r'{"SUFFIX": "app.$(SUFFIX)"}')
+        output_file = io.StringIO("")
+        with self.assertRaises(RuntimeError) as context:
+            preprocess(input_file, output_file, substitutions_file, "my_product_name")
+        self.assertIn("Recursive", str(context.exception))
 
-    def test_acyclic_chain_reported_as_recursive(self):
+    def test_acyclic_chain_is_expanded(self):
         input_file = io.StringIO(r"<string>$(BUNDLE_ID) $(BUNDLE_PREFIX)</string>")
+        expected = r"<string>com.foo.app com.foo</string>"
         substitutions_file = io.StringIO(
             r"""
 {
@@ -114,25 +110,5 @@ class TestPreprocess(unittest.TestCase):
 """
         )
         output_file = io.StringIO("")
-        with self.assertRaises(RuntimeError) as context:
-            preprocess(input_file, output_file, substitutions_file, "my_product_name")
-        self.assertIn("Recursive", str(context.exception))
-
-
-class _SearchLimitReached(Exception):
-    pass
-
-
-class _SearchCounter:
-    """A pattern stand-in that gives up after `limit` searches, so a substitution loop that
-    never ends fails the test instead of hanging it."""
-
-    def __init__(self, pattern, limit):
-        self._pattern = pattern
-        self._limit = limit
-
-    def search(self, string, pos=0):
-        self._limit -= 1
-        if self._limit < 0:
-            raise _SearchLimitReached()
-        return self._pattern.search(string, pos)
+        preprocess(input_file, output_file, substitutions_file, "my_product_name")
+        self.assertEqual(output_file.getvalue(), expected)
