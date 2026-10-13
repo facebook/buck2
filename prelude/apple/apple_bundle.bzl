@@ -148,6 +148,8 @@ AppleBundlePartListOutput = record(
     # Signing context parts for inner bundles
     signing_context_parts = field(list[AppleBundleSigningContextTreePart]),
     xcassets_catalogs = field([XcassetsBundleResourceCatalogs, None], None),
+    xcassets_sub_targets = field(dict[str, list[Provider]], {}),
+    xcassets_trim_providers = field(list[Provider], []),
 )
 
 _AppleBundleBinaryParts = record(
@@ -379,6 +381,8 @@ def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartList
         codesign_manifest_parts = resource_part_list.codesign_manifest_parts,
         signing_context_parts = resource_part_list.signing_context_parts,
         xcassets_catalogs = resource_part_list.xcassets_catalogs,
+        xcassets_sub_targets = resource_part_list.xcassets_sub_targets,
+        xcassets_trim_providers = resource_part_list.xcassets_trim_providers,
     )
 
 def _infer_apple_bundle_type(ctx: AnalysisContext) -> AppleBundleType:
@@ -423,6 +427,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets = bundle_result.sub_targets
     sub_targets.update(aggregated_debug_info.sub_targets)
     sub_targets.update(binary_parts.sub_targets)
+    sub_targets.update(apple_bundle_part_list_output.xcassets_sub_targets)
 
     primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
     primary_binary_path_arg = cmd_args(primary_binary_path, hidden = bundle)

@@ -59,6 +59,7 @@ load(
 )
 load(":scene_kit_assets.bzl", "compile_scene_kit_assets")
 load(":xcassets_bundle_catalogs.bzl", "XcassetsBundleResourceCatalogs", "create_xcassets_bundle_resource_catalogs")
+load(":xcassets_bundle_trim.bzl", "xcassets_trim_asset_catalog_specs")
 
 AppleBundleResourcePartListOutput = record(
     # Resource parts to be copied into an Apple bundle, *excluding* binaries
@@ -72,6 +73,8 @@ AppleBundleResourcePartListOutput = record(
     # a _subset_ of the `resource_parts` parts.
     signing_context_parts = field(list[AppleBundleSigningContextTreePart]),
     xcassets_catalogs = field([XcassetsBundleResourceCatalogs, None], None),
+    xcassets_sub_targets = field(dict[str, list[Provider]], {}),
+    xcassets_trim_providers = field(list[Provider], []),
 )
 
 def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleResourcePartListOutput:
@@ -108,7 +111,8 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
         )
         selection.resource_specs.append(runtime_resource_spec)
 
-    asset_catalog_result = compile_apple_asset_catalog(ctx, selection.asset_catalog_specs)
+    asset_catalog_specs, xcassets_sub_targets, xcassets_trim_providers = xcassets_trim_asset_catalog_specs(ctx, selection)
+    asset_catalog_result = compile_apple_asset_catalog(ctx, asset_catalog_specs)
     if asset_catalog_result != None:
         asset_catalog_part = AppleBundlePart(
             source = asset_catalog_result.compiled_catalog,
@@ -161,6 +165,8 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
         codesign_manifest_parts = first_level_codesign_manifest_parts,
         signing_context_parts = first_level_signing_context_parts,
         xcassets_catalogs = xcassets_catalogs,
+        xcassets_sub_targets = xcassets_sub_targets,
+        xcassets_trim_providers = xcassets_trim_providers,
     )
 
 # Same logic as in v1, see `buck_client/src/com/facebook/buck/apple/ApplePkgInfo.java`
