@@ -11,12 +11,9 @@ constraint_with_aliases(
     name = "os",
     aliases = {
         "android": "android",
-        "freebsd": "freebsd",
         "iphoneos": "iphoneos",
         "linux": "linux",
         "macos": "macos",
-        "none": "none",
-        "wasi": "wasi",
         "watchos": "watchos",
         "windows": "windows",
     },
