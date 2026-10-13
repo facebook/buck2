@@ -24,6 +24,7 @@ use buck2_util::late_binding::LateBinding;
 use crate::ctx::ServerCommandContextTrait;
 use crate::partial_result_dispatcher::NoPartialResult;
 use crate::partial_result_dispatcher::PartialResultDispatcher;
+use crate::streaming_request_handler::StreamingRequestHandler;
 
 #[async_trait]
 pub trait OtherServerCommands: Send + Sync + 'static {
@@ -160,3 +161,16 @@ pub trait StarlarkServerCommand: Send + Sync + 'static {
 
 pub static STARLARK_SERVER_COMMAND: LateBinding<&'static dyn StarlarkServerCommand> =
     LateBinding::new("STARLARK_SERVER_COMMAND");
+
+#[async_trait]
+pub trait LspServerCommand: Send + Sync + 'static {
+    async fn lsp(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::LspMessage>,
+        req: StreamingRequestHandler<buck2_cli_proto::LspRequest>,
+    ) -> buck2_error::Result<buck2_cli_proto::LspResponse>;
+}
+
+pub static LSP_SERVER_COMMAND: LateBinding<&'static dyn LspServerCommand> =
+    LateBinding::new("LSP_SERVER_COMMAND");

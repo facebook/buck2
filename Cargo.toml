@@ -75,6 +75,7 @@ members = [
   "app/buck2_cmd_docs_client",
   "app/buck2_cmd_docs_server",
   "app/buck2_cmd_log_client",
+  "app/buck2_cmd_lsp_server",
   "app/buck2_cmd_query_server",
   "app/buck2_cmd_rage_client",
   "app/buck2_cmd_starlark_client",
@@ -245,6 +246,7 @@ buck2_cmd_debug_client = { path = "app/buck2_cmd_debug_client" }
 buck2_cmd_docs_client = { path = "app/buck2_cmd_docs_client" }
 buck2_cmd_docs_server = { path = "app/buck2_cmd_docs_server" }
 buck2_cmd_log_client = { path = "app/buck2_cmd_log_client" }
+buck2_cmd_lsp_server = { path = "app/buck2_cmd_lsp_server" }
 buck2_cmd_query_server = { path = "app/buck2_cmd_query_server" }
 buck2_cmd_rage_client = { path = "app/buck2_cmd_rage_client" }
 buck2_cmd_starlark_client = { path = "app/buck2_cmd_starlark_client" }

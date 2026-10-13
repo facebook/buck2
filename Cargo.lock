@@ -721,6 +721,7 @@ dependencies = [
  "buck2_cmd_docs_client",
  "buck2_cmd_docs_server",
  "buck2_cmd_log_client",
+ "buck2_cmd_lsp_server",
  "buck2_cmd_query_server",
  "buck2_cmd_rage_client",
  "buck2_cmd_starlark_client",
@@ -1526,6 +1527,36 @@ dependencies = [
  "tokio-stream",
  "variant_name",
  "zstd",
+]
+
+[[package]]
+name = "buck2_cmd_lsp_server"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "buck2_build_api",
+ "buck2_cli_proto",
+ "buck2_common",
+ "buck2_core",
+ "buck2_data",
+ "buck2_error",
+ "buck2_events",
+ "buck2_fs",
+ "buck2_hash",
+ "buck2_interpreter",
+ "buck2_interpreter_for_build",
+ "buck2_server_ctx",
+ "crossbeam-channel",
+ "dice",
+ "dupe",
+ "futures 0.3.34",
+ "lsp-server",
+ "lsp-types",
+ "serde_json",
+ "starlark",
+ "starlark_lsp",
+ "tokio",
+ "tower-lsp-server",
 ]
 
 [[package]]
@@ -2989,7 +3020,6 @@ dependencies = [
  "buck2_validation",
  "buck2_wrapper_common",
  "constant_time_eq 0.6.1",
- "crossbeam-channel",
  "dice",
  "dice_futures",
  "dupe",
@@ -3003,8 +3033,6 @@ dependencies = [
  "itertools 0.15.0",
  "jiff",
  "libc",
- "lsp-server",
- "lsp-types",
  "pagable",
  "parking_lot 0.12.5",
  "pin-project",
@@ -3015,14 +3043,12 @@ dependencies = [
  "serde_json",
  "shlex",
  "starlark",
- "starlark_lsp",
  "sync_wrapper",
  "tar",
  "tempfile",
  "tokio",
  "tokio-stream",
  "tonic",
- "tower-lsp-server",
  "tracing",
  "variant_name",
 ]

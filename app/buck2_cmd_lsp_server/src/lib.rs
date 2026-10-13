@@ -13,6 +13,7 @@ use std::path::Path;
 use std::str::FromStr as _;
 use std::thread;
 
+use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_cli_proto::*;
 use buck2_common::dice::cells::HasCellResolver;
@@ -55,6 +56,8 @@ use buck2_interpreter_for_build::interpreter::interpreter_for_dir::ParseData;
 use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
+use buck2_server_ctx::late_bindings::LSP_SERVER_COMMAND;
+use buck2_server_ctx::late_bindings::LspServerCommand;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
 use dice::DiceTransaction;
@@ -769,7 +772,25 @@ impl LspContext for BuckLspContext<'_> {
     }
 }
 
-pub(crate) async fn run_lsp_server_command(
+struct LspServerCommandImpl;
+
+#[async_trait]
+impl LspServerCommand for LspServerCommandImpl {
+    async fn lsp(
+        &self,
+        ctx: &dyn ServerCommandContextTrait,
+        partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::LspMessage>,
+        req: StreamingRequestHandler<buck2_cli_proto::LspRequest>,
+    ) -> buck2_error::Result<buck2_cli_proto::LspResponse> {
+        run_lsp_server_command(ctx, partial_result_dispatcher, req).await
+    }
+}
+
+pub fn init_late_bindings() {
+    LSP_SERVER_COMMAND.init(&LspServerCommandImpl);
+}
+
+async fn run_lsp_server_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::LspMessage>,
     req: StreamingRequestHandler<buck2_cli_proto::LspRequest>,
@@ -935,7 +956,7 @@ mod tests {
     use starlark::docs::DocModule;
     use starlark_lsp::server::LspUri;
 
-    use crate::lsp::DocsCache;
+    use crate::DocsCache;
 
     #[test]
     fn cache_builds() -> buck2_error::Result<()> {

@@ -70,6 +70,7 @@ use buck2_resource_control::buck_cgroup_tree::PreppedBuckCgroups;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
+use buck2_server_ctx::late_bindings::LSP_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::OTHER_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::QUERY_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::STARLARK_SERVER_COMMAND;
@@ -123,7 +124,6 @@ use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
 use crate::file_status::file_status_command;
 use crate::hydration::hydration_command;
-use crate::lsp::run_lsp_server_command;
 use crate::new_generic::new_generic_command;
 use crate::paging::cancel_active_page_out;
 use crate::profile::profile_command;
@@ -1838,7 +1838,11 @@ impl DaemonApi for BuckdServer {
              partial_result_dispatcher,
              _client_ctx,
              req: StreamingRequestHandler<LspRequest>| {
-                run_lsp_server_command(ctx, partial_result_dispatcher, req).boxed()
+                Box::pin(async move {
+                    (LSP_SERVER_COMMAND.get()?)
+                        .lsp(ctx, partial_result_dispatcher, req)
+                        .await
+                })
             },
         )
         .await
