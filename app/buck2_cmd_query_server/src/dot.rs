@@ -243,4 +243,15 @@ mod tests {
             "digraph result_graph {\n  \"root//escapes:q\" [buck_description=\"C:\\\\dir\\\\\"];\n}\n"
         );
     }
+
+    /// The number pattern of `escape_id` has an unescaped `.` and literal spaces: it never matches a numeral but
+    /// matches values such as `-O2 `, which are then written unquoted and are not DOT ids.
+    #[test]
+    fn test_attr_value_against_the_number_pattern() {
+        assert_eq!(
+            render("-O2 "),
+            "digraph result_graph {\n  \"root//escapes:q\" [buck_description=-O2 ];\n}\n"
+        );
+        assert_eq!(escape_id("1.5"), "\"1.5\"");
+    }
 }
