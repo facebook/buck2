@@ -54,12 +54,7 @@ public class ExopackageUtil {
 
   /** MD5 of {@code file} as lowercase hex, comparable with {@link AndroidDevice#getContentHash}. */
   public static String getContentHash(File file) throws IOException {
-    MessageDigest digest;
-    try {
-      digest = MessageDigest.getInstance("MD5");
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException(e);
-    }
+    MessageDigest digest = md5();
     try (InputStream input = new FileInputStream(file)) {
       byte[] buffer = new byte[8192];
       int read;
@@ -67,8 +62,27 @@ public class ExopackageUtil {
         digest.update(buffer, 0, read);
       }
     }
+    return toHex(digest.digest());
+  }
+
+  /**
+   * MD5 of {@code contents} as lowercase hex, comparable with {@link AndroidDevice#getContentHash}.
+   */
+  public static String getContentHash(byte[] contents) {
+    return toHex(md5().digest(contents));
+  }
+
+  private static MessageDigest md5() {
+    try {
+      return MessageDigest.getInstance("MD5");
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static String toHex(byte[] bytes) {
     StringBuilder hex = new StringBuilder();
-    for (byte b : digest.digest()) {
+    for (byte b : bytes) {
       hex.append(String.format("%02x", b & 0xFF));
     }
     return hex.toString();

@@ -101,6 +101,7 @@ public class ExopackageInstaller {
   private final Optional<String> buck2BuildUuid;
   private final Path dataRoot;
   private final InstallTimings timings;
+  private boolean appStopped;
 
   public ExopackageInstaller(
       IsolatedExopackageInfo exoInfo,
@@ -151,6 +152,13 @@ public class ExopackageInstaller {
       ImmutableSortedSet<Path> filesOnDevice = device.listDirRecursive(dataRoot);
       timings.recordDeviceSetup(setupStart, System.currentTimeMillis());
       ImmutableList<ResolvedExoPayload> payloads = resolveExoPayloads();
+      // The running app may still load a file about to be deleted, and reads the metadata about to
+      // be rewritten, so it is stopped before either. New payload files need no stop: they are
+      // named by content hash, and nothing reads one until metadata names it.
+      ImmutableSortedSet<Path> filesToDelete = filesToDelete(filesOnDevice, payloads);
+      if (!filesToDelete.isEmpty()) {
+        stopApp();
+      }
 
       // Reclaim space before pushing so a device that is already full can free room for the
       // payload. Best effort on purpose: neither step is needed for the install to be correct.
@@ -161,17 +169,21 @@ public class ExopackageInstaller {
       // still does not fit fails with ENOSPC, which is tagged NO_SPACE_LEFT_ON_DEVICE.
       try {
         device.rmStaleFiles(packageName);
-        deleteFiles(filesToDelete(filesOnDevice, payloads));
+        deleteFiles(filesToDelete);
       } catch (Exception e) {
         LOG.warn(e, "Could not reclaim exopackage space for %s; continuing", packageName);
       }
       pushMissingFiles(filesOnDevice, payloads);
 
       // Metadata is what the app reads to find these files, so it must not land before them.
-      installMetadata(
+      ImmutableMap<Path, String> metadata =
           payloads.stream()
               .flatMap(payload -> payload.metadataToInstall.entrySet().stream())
-              .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+              .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+      if (metadataChanged(filesOnDevice, metadata)) {
+        stopApp();
+        installMetadata(metadata);
+      }
     }
     if (buck2BuildUuid.isPresent()) {
       device.installBuildUuidFile(
@@ -210,6 +222,40 @@ public class ExopackageInstaller {
 
   private void killApp() throws Exception {
     device.stopPackage(packageName);
+  }
+
+  /** Stops the running app, at most once per install. */
+  private void stopApp() throws Exception {
+    if (!appStopped) {
+      device.stopPackage(packageName);
+      appStopped = true;
+    }
+  }
+
+  /**
+   * Whether any metadata file on the device differs from what this install would write. Compared by
+   * content hash, so it is byte-exact and independent of how adb transfers text.
+   */
+  private boolean metadataChanged(
+      ImmutableSortedSet<Path> filesOnDevice, ImmutableMap<Path, String> metadata) {
+    for (Map.Entry<Path, String> entry : metadata.entrySet()) {
+      if (!filesOnDevice.contains(entry.getKey())) {
+        return true;
+      }
+      String onDevice;
+      try {
+        onDevice = device.getContentHash(dataRoot.resolve(entry.getKey()).toString());
+      } catch (Exception e) {
+        LOG.info("Could not hash %s; rewriting it: %s", entry.getKey(), e.getMessage());
+        return true;
+      }
+      String wanted =
+          ExopackageUtil.getContentHash(entry.getValue().getBytes(StandardCharsets.UTF_8));
+      if (!onDevice.equalsIgnoreCase(wanted)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
