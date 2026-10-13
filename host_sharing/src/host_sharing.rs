@@ -277,6 +277,42 @@ mod tests {
     }
 
     #[test]
+    fn test_one_per_tokens_with_repeated_token() {
+        use std::future::Future;
+        use std::task::Context;
+        use std::task::Waker;
+
+        let broker = HostSharingBroker::new(HostSharingStrategy::Fifo, 1);
+        let mut cx = Context::from_waker(Waker::noop());
+        let requirements = |tokens: &[&str]| {
+            HostSharingRequirements::OnePerTokens(
+                SortedVec::from(tokens.iter().map(|t| (*t).to_owned()).collect::<Vec<_>>()),
+                WeightClass::Permits(1),
+            )
+        };
+
+        // Nothing is held, so distinct tokens are acquired on the first poll.
+        let distinct = requirements(&["a", "b"]);
+        assert!(
+            std::pin::pin!(broker.acquire(&distinct))
+                .as_mut()
+                .poll(&mut cx)
+                .is_ready()
+        );
+
+        // A repeated token waits on the semaphore that the same acquire already holds.
+        let repeated = requirements(&["a", "b", "a"]);
+        let mut acquire = std::pin::pin!(broker.acquire(&repeated));
+        assert!(acquire.as_mut().poll(&mut cx).is_pending());
+        assert!(acquire.as_mut().poll(&mut cx).is_pending());
+
+        // Another acquire of the same token is stuck behind it, although it has no repeat.
+        let other = requirements(&["a"]);
+        let mut other_acquire = std::pin::pin!(broker.acquire(&other));
+        assert!(other_acquire.as_mut().poll(&mut cx).is_pending());
+    }
+
+    #[test]
     fn test_percentage() {
         let broker = HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, 10);
 
