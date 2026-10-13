@@ -133,6 +133,8 @@ pub struct InvocationRecorder {
     run_remote_count: u64,
     run_action_cache_count: u64,
     run_remote_dep_file_cache_count: u64,
+    run_remote_served_from_cache_count: u64,
+    run_remote_deduplicated_count: u64,
     run_skipped_count: u64,
     run_fallback_count: u64,
     run_fallback_re_queue_count: u64,
@@ -364,6 +366,8 @@ impl InvocationRecorder {
             run_remote_count: 0,
             run_action_cache_count: 0,
             run_remote_dep_file_cache_count: 0,
+            run_remote_served_from_cache_count: 0,
+            run_remote_deduplicated_count: 0,
             run_skipped_count: 0,
             run_fallback_count: 0,
             run_fallback_re_queue_count: 0,
@@ -1059,10 +1063,12 @@ impl InvocationRecorder {
             run_remote_count: self.run_remote_count,
             run_action_cache_count: self.run_action_cache_count,
             run_remote_dep_file_cache_count: self.run_remote_dep_file_cache_count,
+            run_remote_served_from_cache_count: self.run_remote_served_from_cache_count,
+            run_remote_deduplicated_count: self.run_remote_deduplicated_count,
             cache_hit_rate: total_cache_hit_rate(
                 self.run_local_count,
                 self.run_remote_count,
-                self.run_action_cache_count,
+                self.run_action_cache_count + self.run_remote_served_from_cache_count,
                 self.run_remote_dep_file_cache_count,
             ) as f32,
             run_skipped_count: self.run_skipped_count,
@@ -1614,6 +1620,13 @@ impl InvocationRecorder {
                 }
                 LastCommandExecutionKind::Remote => {
                     self.run_remote_count += 1;
+                }
+                LastCommandExecutionKind::RemoteServedFromCache => {
+                    self.run_remote_served_from_cache_count += 1;
+                }
+                LastCommandExecutionKind::RemoteDeduplicated => {
+                    self.run_remote_count += 1;
+                    self.run_remote_deduplicated_count += 1;
                 }
                 LastCommandExecutionKind::NoCommand => {
                     self.run_skipped_count += 1;

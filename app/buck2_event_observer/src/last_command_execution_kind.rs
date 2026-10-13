@@ -12,6 +12,11 @@ pub enum LastCommandExecutionKind {
     Local,
     LocalWorker,
     Remote,
+    /// Submitted for remote execution, but the service served its own action cache instead.
+    RemoteServedFromCache,
+    /// Executed remotely as an execution shared with another build: the service deduplicated it
+    /// against an identical execution already in flight.
+    RemoteDeduplicated,
     Cached,
     RemoteDepFileCached,
     NoCommand,
@@ -43,10 +48,12 @@ pub fn get_last_command_execution_kind(
                 buck2_data::RemoteCommandOrigin::RemoteDepFileCache => {
                     LastCommandExecutionKind::RemoteDepFileCached
                 }
-                buck2_data::RemoteCommandOrigin::Executed
-                | buck2_data::RemoteCommandOrigin::ReServedFromCache
-                | buck2_data::RemoteCommandOrigin::ReDeduplicated => {
-                    LastCommandExecutionKind::Remote
+                buck2_data::RemoteCommandOrigin::Executed => LastCommandExecutionKind::Remote,
+                buck2_data::RemoteCommandOrigin::ReServedFromCache => {
+                    LastCommandExecutionKind::RemoteServedFromCache
+                }
+                buck2_data::RemoteCommandOrigin::ReDeduplicated => {
+                    LastCommandExecutionKind::RemoteDeduplicated
                 }
             },
             None => LastCommandExecutionKind::NoCommand,

@@ -1990,6 +1990,13 @@ enum ActionExecutionKind {
   ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE = 10;
   // This action was executed remotely via a persistent worker.
   ACTION_EXECUTION_KIND_REMOTE_WORKER = 11;
+  // This action was submitted for remote execution, but the service served
+  // its own action cache instead of running it.
+  ACTION_EXECUTION_KIND_REMOTE_SERVED_FROM_CACHE = 12;
+  // This action was executed remotely as an execution shared with another
+  // build: the service deduplicated it against an identical execution already
+  // in flight.
+  ACTION_EXECUTION_KIND_REMOTE_DEDUPLICATED = 13;
 }
 
 // A name for a particular action, suitable for offline analytics and user
@@ -3432,6 +3439,13 @@ message InvocationRecord {
   // Last direct_call context entry parsed as true/false. Unset if absent or
   // invalid.
   optional bool agent_direct_call = 760;
+  // Count of actions submitted for remote execution that the service served
+  // from its own action cache instead of running.
+  uint64 run_remote_served_from_cache_count = 762;
+  // Count of `run_remote_count` actions the service ran as an execution
+  // shared with another build, deduplicated against an identical execution
+  // already in flight.
+  uint64 run_remote_deduplicated_count = 763;
 
   // DICE page-in overhead for this invocation, computed as the delta between
   // the first and last snapshot of the command.

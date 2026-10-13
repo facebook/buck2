@@ -103,10 +103,22 @@ impl CommandExecutionKind {
             Self::LocalWorker { .. } | Self::LocalWorkerInit { .. } => {
                 buck2_data::ActionExecutionKind::LocalWorker
             }
-            Self::Remote { details, .. } => match details.persistent_worker {
+            Self::Remote {
+                details,
+                origin: RemoteExecutionOrigin::Executed,
+                ..
+            } => match details.persistent_worker {
                 false => buck2_data::ActionExecutionKind::Remote,
                 true => buck2_data::ActionExecutionKind::RemoteWorker,
             },
+            Self::Remote {
+                origin: RemoteExecutionOrigin::ServedFromCache,
+                ..
+            } => buck2_data::ActionExecutionKind::RemoteServedFromCache,
+            Self::Remote {
+                origin: RemoteExecutionOrigin::Deduplicated,
+                ..
+            } => buck2_data::ActionExecutionKind::RemoteDeduplicated,
             Self::ActionCache { .. } => buck2_data::ActionExecutionKind::ActionCache,
             Self::RemoteDepFileCache { .. } => buck2_data::ActionExecutionKind::RemoteDepFileCache,
         }
