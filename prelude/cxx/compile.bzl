@@ -609,6 +609,7 @@ def _compile_single_cxx(
     compile_pch: CxxPrecompiledHeader | None,
     precompiled_header: Dependency | None,
     cuda_compile_style: CudaCompileStyle | None,
+    use_header_units: UseHeaderUnitsMode,
     # CxxCompileInfo fields
     info: CxxCompileInfo,
     shared_info: CxxSharedCompileInfo,
@@ -657,6 +658,7 @@ def _compile_single_cxx(
     # Get compiler type
     compiler_type = cxx_compile_cmd.compiler_type
     content_based = cxx_compile_cmd.allow_content_based_paths
+    uses_header_unit_pcms = use_header_units == UseHeaderUnitsMode("pcm") and cxx_compile_cmd.header_units_argsfile != None
 
     cuda_dist_spec = None
     if src.extension == ".cu":
@@ -757,6 +759,8 @@ def _compile_single_cxx(
             filename_base,
             action_dep_files,
         )
+        if uses_header_unit_pcms:
+            cmd.add("-fmodule-file-deps")
 
     if clang_remarks:
         cmd.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
@@ -871,6 +875,8 @@ def _compile_single_cxx(
                 filename_base = "{}.check".format(filename_base),
                 action_dep_files = diagnostics_dep_files,
             )
+            if uses_header_unit_pcms:
+                syntax_only_cmd.add("-fmodule-file-deps")
         actions.run(
             [
                 toolchain.internal_tools.stderr_to_file,
@@ -1127,6 +1133,7 @@ def _cxx_dynamic_compile(
             compile_pch = compile_pch,
             precompiled_header = precompiled_header,
             cuda_compile_style = cuda_compile_style,
+            use_header_units = use_header_units,
             info = infos[i],
             shared_info = shared_infos[extension],
             object = object[i],
@@ -2544,6 +2551,7 @@ def _mk_header_units_argsfile(
     filename_prefix: str = "",
     has_content_based_path: bool = False,
     stub: bool = False,
+    headers_tag: ArtifactTag | None = None,
 ) -> CompileArgsfile | None:
     """
     Generate and return an argsfile artifact containing all header unit options, and
@@ -2572,18 +2580,47 @@ def _mk_header_units_argsfile(
         "-Wno-ambiguous-macro",
     ])
 
-    # TODO(nml): Tag args with headers_tag.tag_artifacts() once -MD -MF reports correct
-    # usage of PCMs. See T225373444 and _mk_header_units_argsfile() below.
     projection_name = "header_unit_stubs_args" if stub else "header_units_args"
     args.add(preprocessor.set.project_as_args(projection_name))
-    file_args = cmd_args(args, quote = "shell")
-    argsfile, _ = actions.write(
-        file_name,
-        file_args,
-        allow_args = True,
-        has_content_based_path = has_content_based_path,
-    )
-    cmd_form = cmd_args(argsfile, format = "@{}", hidden = file_args)
+    if headers_tag == None:
+        file_args = cmd_args(args, quote = "shell")
+        argsfile, _ = actions.write(
+            file_name,
+            file_args,
+            allow_args = True,
+            has_content_based_path = has_content_based_path,
+        )
+        cmd_form = cmd_args(argsfile, format = "@{}", hidden = file_args)
+    else:
+        # We write two versions of the file:
+        # - The first is a tagged file with the optionally content-based paths, which
+        #   will be passed to the compiler as usual, but will NOT be marked used, so
+        #   whether the paths in it change or not, the action will NOT rerun.
+        # - The second is an untagged file with the same content except content-based
+        #   paths are replaced by placeholders. This file is not read by the compiler,
+        #   but is passed as a hidden input of the compiler action, so that if
+        #   something OTHER than paths in the file changes, this redacted version will
+        #   change and trigger a rerun.
+        # TODO(jtbraun): Unify with `write_for_dep_file_filtering` in `_mk_argsfiles`.
+        file_args = cmd_args(args, quote = "shell")
+        argsfile, _ = actions.write(
+            file_name,
+            file_args,
+            allow_args = True,
+            has_content_based_path = has_content_based_path,
+        )
+        redacted_argsfile, _ = actions.write(
+            file_name + "_redacted",
+            file_args,
+            allow_args = True,
+            has_content_based_path = has_content_based_path,
+            use_dep_files_placeholder_for_content_based_paths = True,
+        )
+        cmd_form = cmd_args(
+            headers_tag.tag_artifacts(argsfile),
+            format = "@{}",
+            hidden = [headers_tag.tag_artifacts(file_args), redacted_argsfile],
+        )
 
     return CompileArgsfile(
         file = argsfile,
@@ -2671,6 +2708,7 @@ def _generate_base_compile_command(
         filename_prefix,
         has_content_based_path = True,
         stub = False,
+        headers_tag = headers_tag,
     )
 
     header_unit_stubs_argsfile = _mk_header_units_argsfile(
