@@ -475,14 +475,12 @@ async fn test_config_unification_rollout_function_override() {
     assert!(!target_node.test_config_unification_rollout());
 }
 
-/// `set_starlark_peak_allocated_byte_limit()` in a PACKAGE file succeeds but does nothing: the
-/// limit is stored in that evaluation's own context, which is dropped. Only a build file
-/// evaluation reads it.
+/// `set_starlark_peak_allocated_byte_limit()` is an error outside a build file context, like
+/// the other build-file-only functions, instead of silently doing nothing.
 #[tokio::test]
-async fn test_set_starlark_peak_allocated_byte_limit_in_package_file_is_ignored() {
+async fn test_set_starlark_peak_allocated_byte_limit_in_package_file_is_an_error() {
     let fs = ProjectRootTemp::new().unwrap();
 
-    // A limit of 1 byte fails any build file evaluation that it applies to.
     fs.write_file("PACKAGE", "set_starlark_peak_allocated_byte_limit(1)");
     fs.write_file("foo/BUCK", "");
 
@@ -496,9 +494,15 @@ async fn test_set_starlark_peak_allocated_byte_limit_in_package_file_is_ignored(
         ))
         .await
         .unwrap();
-    let result = interpreter
+    let err = interpreter
         .eval_build_file(package_label, CancellationContext::testing())
         .await
-        .1;
-    assert!(result.is_ok(), "result = {result:?}");
+        .1
+        .unwrap_err();
+    assert!(
+        format!("{err:#}").contains(
+            "`set_starlark_peak_allocated_byte_limit()` can only be called from a build file context"
+        ),
+        "{err:#}"
+    );
 }
