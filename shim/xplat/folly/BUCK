@@ -1,8 +1,5 @@
-load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
-
-constraint_with_aliases(
+constraint(
     name = "folly_demangle_macos_use_iberty_constraint",
-    aliases = {},
     default = "unspecified",
     values = [
         "disable",
