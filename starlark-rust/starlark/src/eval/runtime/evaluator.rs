@@ -786,7 +786,10 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         self.time_flame_profile
             .record_call_enter(const_frozen_string!("trace/walk").at().to_value());
         self.module_env.trace(tracer);
-        self.current_frame.trace(tracer);
+        // Between evaluations no frame is active, so there is nothing to trace.
+        if self.current_frame.is_inititalized() {
+            self.current_frame.trace(tracer);
+        }
         for frame in &mut self.frame_stack {
             if frame.is_inititalized() {
                 frame.trace(tracer);
@@ -1357,17 +1360,12 @@ mod tests {
         (out.status.success(), output)
     }
 
-    /// `garbage_collect` is documented as "do not call during Starlark evaluation", so calling
-    /// it between two evaluations looks allowed, but `Evaluator::trace` traces `current_frame`
-    /// without checking that it is initialized: in a debug build the frame assertion fails and
-    /// the process aborts (release builds read through an uninitialized frame pointer).
+    /// `garbage_collect` between two evaluations, when no frame is active, completes and keeps
+    /// the module's values.
     #[test]
     fn test_garbage_collect_between_evaluations() {
         let (success, output) = run_gc_child();
-        if cfg!(debug_assertions) {
-            assert!(!success, "{output}");
-            assert!(output.contains("is_inititalized"), "{output}");
-            assert!(!output.contains("STARLARK_GC_CHILD_COMPLETED"), "{output}");
-        }
+        assert!(success, "{output}");
+        assert!(output.contains("STARLARK_GC_CHILD_COMPLETED"), "{output}");
     }
 }
