@@ -14,20 +14,31 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.facebook.buck.android.device.TargetDeviceOptions;
+import com.facebook.buck.android.exopackage.AdbCommandFailedException;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
+import com.facebook.buck.android.exopackage.ExopackageUtil;
+import com.facebook.buck.android.exopackage.PackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
+import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.installer.android.IsolatedAndroidInstallerPrinter;
 import com.facebook.buck.testutil.MoreAsserts;
+import com.facebook.buck.testutil.TemporaryPaths;
 import com.facebook.buck.testutil.TestLogSink;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.io.File;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -53,6 +64,7 @@ public class AdbHelperTest {
 
   @Rule public ExpectedException exceptionRule = ExpectedException.none();
   @Rule public TestLogSink testLogSink = new TestLogSink(AdbHelperTest.class);
+  @Rule public final TemporaryPaths tmpDir = new TemporaryPaths();
 
   private TestAdbExecutionContext adbExecutionContext;
   private AdbHelper basicAdbHelper;
@@ -408,6 +420,100 @@ public class AdbHelperTest {
     when(adbUtils.getDevices()).thenReturn(devices);
     AdbHelper helper = createAdbHelper(options);
     helper.adbCall("test", d -> true, true);
+  }
+
+  @Test
+  public void testPlainInstallSkipsAnApkTheDeviceAlreadyHas() throws Exception {
+    AndroidDeviceImpl device = deviceWithInstalledApk(/* sameApk= */ true);
+
+    installPlainApk(/* restartApp= */ false);
+
+    verify(device, never())
+        .installApkOnDevice(any(File.class), anyBoolean(), anyBoolean(), anyBoolean(), anyString());
+    verify(device, never()).stopPackage(anyString());
+  }
+
+  @Test
+  public void testPlainInstallRestartsAnUnchangedAppWhenAnActivityWillBeStarted() throws Exception {
+    AndroidDeviceImpl device = deviceWithInstalledApk(/* sameApk= */ true);
+
+    installPlainApk(/* restartApp= */ true);
+
+    verify(device, never())
+        .installApkOnDevice(any(File.class), anyBoolean(), anyBoolean(), anyBoolean(), anyString());
+    verify(device).stopPackage("com.example.app");
+  }
+
+  @Test
+  public void testPlainInstallInstallsAChangedApk() throws Exception {
+    AndroidDeviceImpl device = deviceWithInstalledApk(/* sameApk= */ false);
+
+    installPlainApk(/* restartApp= */ true);
+
+    verify(device)
+        .installApkOnDevice(
+            any(File.class), anyBoolean(), anyBoolean(), anyBoolean(), eq("com.example.app"));
+    verify(device, never()).stopPackage(anyString());
+  }
+
+  @Test
+  public void testPlainStagedInstallInstallsEvenWhenTheApkMatches() throws Exception {
+    AndroidDeviceImpl device = deviceWithInstalledApk(/* sameApk= */ true);
+
+    installPlainApk(
+        createAdbHelper(
+            createAdbOptions(
+                /* multiInstallMode= */ false,
+                /* stagedInstallMode= */ true,
+                /* ignoreMissingDevices= */ false)),
+        /* restartApp= */ false);
+
+    verify(device)
+        .installApkOnDevice(
+            any(File.class), anyBoolean(), anyBoolean(), eq(true), eq("com.example.app"));
+  }
+
+  private File plainApk() throws Exception {
+    File apk = tmpDir.getRoot().resolve("app.apk").toFile();
+    if (!apk.exists()) {
+      Files.write(apk.toPath(), new byte[] {1, 2, 3});
+    }
+    return apk;
+  }
+
+  /** A device whose installed apk for com.example.app is the local apk or a different one. */
+  private AndroidDeviceImpl deviceWithInstalledApk(boolean sameApk) throws Exception {
+    AndroidDeviceImpl device = createRealDevice("one", "device");
+    when(device.setDebugAppPackageName("com.example.app")).thenReturn(true);
+    when(device.getPackageInfo("com.example.app"))
+        .thenReturn(Optional.of(new PackageInfo("/data/app/base.apk", "/data/app/lib", "1")));
+    when(device.getApkManifestDigest("/data/app/base.apk"))
+        .thenThrow(new AdbCommandFailedException("unzip: not found"));
+    when(device.getContentHash("/data/app/base.apk"))
+        .thenReturn(sameApk ? ExopackageUtil.getContentHash(plainApk()) : "an older apk");
+    when(device.installApkOnDevice(
+            any(File.class), anyBoolean(), anyBoolean(), anyBoolean(), anyString()))
+        .thenReturn(true);
+    when(adbUtils.getDevices()).thenReturn(Collections.singletonList(device));
+    return device;
+  }
+
+  private void installPlainApk(boolean restartApp) throws Exception {
+    installPlainApk(createAdbHelper(), restartApp);
+  }
+
+  private void installPlainApk(AdbHelper adbHelper, boolean restartApp) throws Exception {
+    File apk = plainApk();
+    adbHelper.installApk(
+        new IsolatedApkInfo(
+            tmpDir.getRoot().resolve("AndroidManifest.xml"), AbsPath.of(apk.toPath())),
+        Optional.empty(),
+        tmpDir.getRoot(),
+        /* installViaSd= */ false,
+        /* quiet= */ true,
+        "//:app",
+        "com.example.app",
+        restartApp);
   }
 
   private AdbHelper createAdbHelper() {

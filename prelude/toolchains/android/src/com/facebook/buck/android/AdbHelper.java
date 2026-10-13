@@ -345,7 +345,8 @@ public class AdbHelper implements AndroidDevicesHelper {
           fullyQualifiedName,
           packageName,
           setDebugAppMode,
-          buck2BuildUuid);
+          buck2BuildUuid,
+          restartApp);
     }
     success.set(true);
   }
@@ -927,7 +928,8 @@ public class AdbHelper implements AndroidDevicesHelper {
       String buildTarget,
       String packageName,
       SetDebugAppMode setDebugAppMode,
-      Optional<String> buck2BuildUuid)
+      Optional<String> buck2BuildUuid,
+      boolean restartApp)
       throws InterruptedException {
     File apk = isolatedApkInfo.getApkPath().toFile();
     if (setDebugAppMode == SetDebugAppMode.SET) {
@@ -947,6 +949,12 @@ public class AdbHelper implements AndroidDevicesHelper {
               restart = isApexFileSupportsRebootlessUpdate(apk);
             }
             return device.installApexOnDevice(apk, quiet, restart, options.getWaitForDeviceReady());
+          } else if (!options.isStagedInstallModeEnabled()
+              && !shouldAppBeInstalled(device, packageName, apk, androidPrinter)) {
+            if (restartApp) {
+              device.stopPackage(packageName);
+            }
+            return true;
           } else {
             return device.installApkOnDevice(
                 apk, installViaSd, quiet, options.isStagedInstallModeEnabled(), packageName);
