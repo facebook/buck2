@@ -675,3 +675,140 @@ mod multi_query_merge {
         assert!(msg.contains("`root//bin:the_binary`"), "{msg}");
     }
 }
+
+mod query_function_args {
+    use buck2_core::cells::cell_path::CellPath;
+    use buck2_query_parser::parse_expr;
+
+    use super::*;
+    use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
+    use crate::query::syntax::simple::eval::file_set::FileNode;
+    use crate::query::syntax::simple::eval::literals::extract_target_literals;
+    use crate::query::syntax::simple::eval::values::QueryEvaluationValue;
+    use crate::query::syntax::simple::functions::DefaultQueryFunctions;
+    use crate::query::syntax::simple::functions::DefaultQueryFunctionsModule;
+    use crate::query::syntax::simple::functions::helpers::CapturedExpr;
+
+    /// `TestEnv` with literals: a number is a target id, anything else is not a target pattern;
+    /// any file literal is accepted.
+    struct LiteralEnv(TestEnv);
+
+    #[async_trait]
+    impl QueryEnvironment for LiteralEnv {
+        type Target = TestTarget;
+
+        async fn get_node(&self, node_ref: &TestTargetId) -> buck2_error::Result<TestTarget> {
+            self.0.get_node(node_ref).await
+        }
+
+        async fn get_node_for_default_configured_target(
+            &self,
+            _node_ref: &TestTargetId,
+        ) -> buck2_error::Result<MaybeCompatible<TestTarget>> {
+            unimplemented!()
+        }
+
+        async fn eval_literals(
+            &self,
+            literals: &[&str],
+        ) -> buck2_error::Result<TargetSet<TestTarget>> {
+            let mut set = TargetSet::new();
+            for literal in literals {
+                let id: u64 = literal.parse().map_err(|_| {
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "`{literal}` is not a target pattern"
+                    )
+                })?;
+                set.insert(self.0.get_node(&TestTargetId(id)).await?);
+            }
+            Ok(set)
+        }
+
+        async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet> {
+            Ok(FileSet::new(BuckIndexSet::from_iter([FileNode(
+                CellPath::testing_new(&format!("root//{literal}")),
+            )])))
+        }
+
+        async fn dfs_postorder(
+            &self,
+            root: &TargetSet<TestTarget>,
+            delegate: impl AsyncChildVisitor<TestTarget>,
+            visit: impl FnMut(TestTarget) -> buck2_error::Result<()> + Send,
+        ) -> buck2_error::Result<()> {
+            self.0.dfs_postorder(root, delegate, visit).await
+        }
+
+        async fn depth_limited_traversal(
+            &self,
+            root: &TargetSet<TestTarget>,
+            delegate: impl AsyncChildVisitor<TestTarget>,
+            visit: impl FnMut(TestTarget) -> buck2_error::Result<()> + Send,
+            depth: u32,
+        ) -> buck2_error::Result<()> {
+            self.0
+                .depth_limited_traversal(root, delegate, visit, depth)
+                .await
+        }
+
+        async fn owner(&self, _paths: &FileSet) -> buck2_error::Result<TargetSet<TestTarget>> {
+            unimplemented!()
+        }
+
+        async fn targets_in_buildfile(
+            &self,
+            _paths: &FileSet,
+        ) -> buck2_error::Result<TargetSet<TestTarget>> {
+            unimplemented!()
+        }
+    }
+
+    fn env() -> LiteralEnv {
+        let mut env = TestEnvBuilder::default();
+        env.edge(1, 2);
+        env.edge(2, 3);
+        LiteralEnv(env.build())
+    }
+
+    async fn eval(env: &LiteralEnv, query: &str) -> buck2_error::Result<String> {
+        let functions = DefaultQueryFunctionsModule::new();
+        match QueryEvaluator::new(env, &functions)
+            .eval_query(query)
+            .await?
+        {
+            QueryEvaluationValue::TargetSet(targets) => Ok(targets.to_string()),
+            QueryEvaluationValue::FileSet(files) => Ok(files.to_string()),
+        }
+    }
+
+    /// The CLI runs the literal visitor first, which rejects a fourth argument to `deps`. The
+    /// evaluator itself never looks past the declared arguments, so a filter expression that is
+    /// evaluated per node (as BXL's `filter =` is) accepts any number of extra arguments,
+    /// including calls to functions that do not exist.
+    #[tokio::test]
+    async fn extra_arguments_are_ignored_by_the_evaluator() -> buck2_error::Result<()> {
+        let env = env();
+        let query = "deps(set(1), 1, first_order_deps(), nosuchfunction())";
+        let functions = DefaultQueryFunctionsModule::<LiteralEnv>::new();
+        let err = extract_target_literals(&functions, query).unwrap_err();
+        assert!(
+            format!("{err:#}")
+                .contains("too many args. function `deps` accepts maximum 3 args, got 4")
+        );
+        assert_eq!(eval(&env, query).await?, "[1, 2]");
+
+        let filter = parse_expr("first_order_deps(nosuchfunction(), 7)")?;
+        let deps = DefaultQueryFunctions::<LiteralEnv>::new()
+            .deps(
+                &env,
+                &functions,
+                &env.0.set("1")?,
+                QueryValueDepth::Unbounded,
+                Some(&CapturedExpr { expr: &filter }),
+            )
+            .await?;
+        assert_eq!(deps.to_string(), "[3, 2, 1]");
+        Ok(())
+    }
+}
