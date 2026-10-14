@@ -20,6 +20,9 @@ use crate::analyses::fmt_bytes_f;
 use crate::analyses::fmt_dur;
 use crate::analyses::fmt_dur_f;
 
+/// Bound a full-record preview consistently in the GUI and headless inspector.
+pub(crate) const MAX_DETAIL_RECORD_BYTES: usize = 16 * 1024 * 1024;
+
 // ---------------------------------------------------------------- stages
 
 /// Who measured a stage's duration. The first line of every stage
