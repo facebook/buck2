@@ -274,6 +274,30 @@ impl EventLogPathBuf {
         })
     }
 
+    /// Reads the invocation of a protobuf log, then returns the remaining length-delimited records
+    /// undecoded.
+    async fn protobuf_frames<'a>(
+        &self,
+        stats: Option<&'a ReaderStats>,
+        tail: Option<TailOptions>,
+    ) -> buck2_error::Result<(
+        Invocation,
+        impl Stream<Item = buck2_error::Result<prost::bytes::BytesMut>> + use<'a>,
+    )> {
+        assert_eq!(self.encoding.mode, LogMode::Protobuf);
+
+        let log_file = self.open(stats, tail).await?;
+        let mut stream = FramedRead::new(log_file, ProtobufSplitter);
+
+        let invocation = stream
+            .try_next()
+            .await?
+            .internal_error("No invocation found")?;
+        let invocation = buck2_data::Invocation::decode_length_delimited(invocation)
+            .buck_error_context("Invalid Invocation")?;
+        Ok((Invocation::from_proto(invocation), stream))
+    }
+
     /// See `unpack_stream_json` for why this is boxed and not inlinable.
     #[inline(never)]
     fn unpack_stream_protobuf<'a, 's>(
@@ -288,18 +312,7 @@ impl EventLogPathBuf {
         'a: 's,
     {
         Box::pin(async move {
-            assert_eq!(self.encoding.mode, LogMode::Protobuf);
-
-            let log_file = self.open(stats, tail).await?;
-            let mut stream = FramedRead::new(log_file, ProtobufSplitter);
-
-            let invocation = stream
-                .try_next()
-                .await?
-                .internal_error("No invocation found")?;
-            let invocation = buck2_data::Invocation::decode_length_delimited(invocation)
-                .buck_error_context("Invalid Invocation")?;
-            let invocation = Invocation::from_proto(invocation);
+            let (invocation, stream) = self.protobuf_frames(stats, tail).await?;
 
             let events = stream.and_then(|data| async move {
                 buck2_event_log_format::decode::protobuf_frame(data)
@@ -344,6 +357,32 @@ impl EventLogPathBuf {
         impl Stream<Item = buck2_error::Result<StreamValue>> + 'static + use<>,
     )> {
         self.unpack_stream_inner(None, None).await
+    }
+
+    /// Whether the log is protobuf-encoded, which `unpack_protobuf_frames` requires.
+    pub fn is_protobuf(&self) -> bool {
+        self.encoding.mode == LogMode::Protobuf
+    }
+
+    /// Reads the invocation, then returns the remaining length-delimited protobuf records, in file
+    /// order and without decoding them, for a caller that decodes them itself, for example on
+    /// several threads. Fails for a log that isn't protobuf. Like `unpack_stream`, the records end
+    /// without an error where a log that is still being written, or was cut off, ends.
+    pub async fn unpack_protobuf_frames(
+        &self,
+    ) -> buck2_error::Result<(
+        Invocation,
+        BoxStream<'static, buck2_error::Result<prost::bytes::BytesMut>>,
+    )> {
+        if !self.is_protobuf() {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Event log `{}` is not protobuf-encoded",
+                self.path
+            ));
+        }
+        let (invocation, stream) = self.protobuf_frames(None, None).await?;
+        Ok((invocation, tolerant_of_truncation(stream).boxed()))
     }
 
     /// Like `unpack_stream`, but on reaching the end of a log that is still being written,
@@ -432,6 +471,8 @@ impl EventLogPathBuf {
 
 #[cfg(test)]
 mod tests {
+    use buck2_cli_proto::CommandProgress;
+    use buck2_cli_proto::command_progress;
     use buck2_data::CommandStart;
     use buck2_data::SpanStartEvent;
     use buck2_events::span::SpanId;
@@ -482,5 +523,65 @@ mod tests {
         } else {
             AbsNormPathBuf::new("/foo".into()).unwrap()
         }
+    }
+
+    #[tokio::test]
+    async fn protobuf_frames_keep_the_invocation_and_record_order() {
+        const TRACE_ID: &str = "7b797fa8-62f1-4123-85f9-875cd74b0a63";
+        let span_progress = |span_id| CommandProgress {
+            progress: Some(command_progress::Progress::Event(Box::new(
+                buck2_data::BuckEvent {
+                    trace_id: TRACE_ID.to_owned(),
+                    span_id,
+                    ..Default::default()
+                },
+            ))),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let invocation = buck2_data::Invocation {
+            command_line_args: vec!["buck2".to_owned(), "build".to_owned()],
+            trace_id: Some(TRACE_ID.to_owned()),
+            ..Default::default()
+        };
+        let records: Vec<CommandProgress> = (1..=3).map(span_progress).collect();
+        let mut body = invocation.encode_length_delimited_to_vec();
+        for record in &records {
+            body.extend(record.encode_length_delimited_to_vec());
+        }
+        let path = dir.path().join("log.pb");
+        tokio::fs::write(&path, body).await.unwrap();
+        let log = EventLogPathBuf {
+            path: AbsPathBuf::try_from(path).unwrap(),
+            encoding: Encoding::PROTO,
+        };
+
+        assert!(log.is_protobuf());
+        let (header, frames) = log.unpack_protobuf_frames().await.unwrap();
+        assert_eq!(header.trace_id.to_string(), TRACE_ID);
+        let frames: Vec<_> = frames.try_collect().await.unwrap();
+        let decoded: Vec<CommandProgress> = frames
+            .into_iter()
+            .map(|frame| CommandProgress::decode_length_delimited(frame).unwrap())
+            .collect();
+        assert_eq!(
+            decoded, records,
+            "the frames are the records after the invocation, in file order"
+        );
+    }
+
+    #[tokio::test]
+    async fn protobuf_frames_fail_for_json_logs() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("log.json-lines");
+        tokio::fs::write(&path, b"{}\n").await.unwrap();
+        let log = EventLogPathBuf {
+            path: AbsPathBuf::try_from(path).unwrap(),
+            encoding: Encoding::JSON,
+        };
+        assert!(!log.is_protobuf());
+        assert!(
+            log.unpack_protobuf_frames().await.is_err(),
+            "a JSON log has no protobuf frames"
+        );
     }
 }

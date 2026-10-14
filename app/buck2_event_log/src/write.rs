@@ -727,6 +727,13 @@ mod tests {
                     events.try_next().await.unwrap().is_none(),
                     "expecting no more events"
                 );
+                let (_invocation, frames) = log.unpack_protobuf_frames().await?;
+                let frames: Vec<_> = frames.try_collect().await?;
+                assert_eq!(
+                    frames.len(),
+                    1,
+                    "the undecoded records also end at the cut-off, without an error"
+                );
             }
             Compression::None => unreachable!(),
         }
