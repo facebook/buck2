@@ -528,7 +528,6 @@ impl<'d, T> DiceTaskRef<'d, T> {
     /// Calls `f` with the key of every computation that is blocked on this task: one that polled
     /// its `DicePromise` for the task, found it pending, and has not been woken since. Requests
     /// from outside of any computation (`ParentKey::None`) are not reported.
-    #[cfg(test)]
     pub(crate) fn for_each_waiting_key(&self, mut f: impl FnMut(DiceKey)) {
         self.internal.wakers.for_each_registered(|parent| {
             if let ParentKey::Some(k) = *parent {
@@ -539,7 +538,6 @@ impl<'d, T> DiceTaskRef<'d, T> {
 
     /// Records that this task's key is in `cycle`, and wakes its dependents so that those which
     /// the cycle fails find out.
-    #[allow(dead_code)]
     pub(crate) fn mark_in_cycle(&self, cycle: &StdArc<DetectedCycle>) {
         debug_assert!(cycle.keys().any(|k| k == self.internal.key));
         self.internal.cycles.add(cycle);

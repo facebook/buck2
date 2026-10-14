@@ -8,8 +8,10 @@
  * above-listed licenses.
  */
 
-//! Cycle detection: what a detected cycle does to the tasks in it.
+//! Cycle detection: what a detected cycle does to the tasks in it, and how cycles are found among
+//! a version's tasks.
 
+use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
 
@@ -27,19 +29,28 @@ use pagable::pagable_typetag;
 use tokio::sync::Notify;
 
 use crate::DiceKeyDyn;
+use crate::DiceProjectionDyn;
 use crate::EqualityBehavior;
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
+use crate::api::projection::DiceProjectionComputations;
+use crate::api::projection::ProjectionKey;
 use crate::core::graph::revision::Revision;
+use crate::epoch::cache::SharedCache;
 use crate::epoch::cycles::DetectedCycle;
+use crate::epoch::cycles::find_cycles;
+use crate::epoch::cycles::mark_cycles;
+use crate::epoch::cycles::strongly_connected_components;
 use crate::epoch::task::dice::DiceTask;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::task::spawn_dice_task;
+use crate::key::CowDiceKeyHashed;
 use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key::ParentKey;
+use crate::key_index::DiceKeyIndex;
 use crate::value::DiceKeyValue;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResidentComputedValue;
@@ -217,4 +228,184 @@ async fn a_waiting_key_of_a_cycle_gets_the_error_even_if_the_value_arrives_first
     ));
 
     Ok(())
+}
+
+// Finding the cycles among a version's tasks.
+
+#[test]
+fn components_are_strongly_connected() {
+    // 0 <-> 1 -> 2 <-> 3, 4 on its own, 5 -> 5.
+    let edges = [(0, 1), (1, 0), (1, 2), (2, 3), (3, 2), (5, 5)];
+    let (components, component_of) = strongly_connected_components(6, &edges);
+    for (c, nodes) in components.iter().enumerate() {
+        for &n in nodes {
+            assert_eq!(component_of[n as usize], c as u32);
+        }
+    }
+    let mut components: Vec<Vec<u32>> = components
+        .into_iter()
+        .map(|mut c| {
+            c.sort();
+            c
+        })
+        .collect();
+    components.sort();
+    assert_eq!(components, vec![vec![0, 1], vec![2, 3], vec![4], vec![5]]);
+}
+
+#[test]
+fn long_chains_do_not_overflow_the_stack() {
+    let n = 1_000_000u32;
+    let mut edges: Vec<(u32, u32)> = (0..n - 1).map(|i| (i, i + 1)).collect();
+    edges.push((n - 1, 0));
+    let (components, _) = strongly_connected_components(n as usize, &edges);
+    assert_eq!(components.len(), 1);
+}
+
+/// A task for `key` that runs until the returned dependent is dropped.
+fn running_task(cache: &SharedCache, key: DiceKey) -> (DiceTask, DicePromise<'static>) {
+    let (task, promise) = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
+        async move {
+            let _handle = handle;
+            std::future::pending().await
+        }
+        .boxed()
+    });
+    cache.testing_insert_task(key, task.dupe());
+    (task, promise)
+}
+
+/// Makes `waiting` wait on `task`: the wait counts once its promise has been polled.
+async fn wait(task: &DiceTask, waiting: DiceKey) -> Pin<Box<DicePromise<'_>>> {
+    let mut promise = Box::pin(task.depended_on_by(ParentKey::Some(waiting)).unwrap());
+    assert!(poll!(promise.as_mut()).is_pending());
+    promise
+}
+
+/// The keys of `cycle`, sorted.
+fn members(cycle: &DetectedCycle) -> Vec<u32> {
+    cycle.keys().map(|k| k.index).collect()
+}
+
+fn sorted(mut keys: Vec<u32>) -> Vec<u32> {
+    keys.sort();
+    keys
+}
+
+#[tokio::test]
+async fn finds_the_cycles_nothing_can_resolve() {
+    let key_index = DiceKeyIndex::default();
+    let cache = SharedCache::new();
+    let keys: Vec<DiceKey> = (0..5).map(|i| key_index.index_key(N(i))).collect();
+    let tasks: Vec<_> = keys.iter().map(|&k| running_task(&cache, k)).collect();
+    let task = |i: usize| &tasks[i].0;
+
+    // 1 and 2 wait on each other, but 2 also waits on 3, which is running on its own:
+    // whatever 3 ends up as may let 2 go, so this is not a cycle yet. 0 waiting on 1 from
+    // the outside changes nothing either way.
+    let _w12 = wait(task(2), keys[1]).await;
+    let _w21 = wait(task(1), keys[2]).await;
+    let w23 = wait(task(3), keys[2]).await;
+    let _w01 = wait(task(1), keys[0]).await;
+    assert!(find_cycles(&cache, &key_index).is_empty());
+
+    drop(w23);
+    let cycles = find_cycles(&cache, &key_index);
+    assert_eq!(cycles.len(), 1);
+    assert_eq!(
+        members(&cycles[0]),
+        sorted(vec![keys[1].index, keys[2].index])
+    );
+
+    // 4 waits on itself.
+    let _w44 = wait(task(4), keys[4]).await;
+    let cycles = find_cycles(&cache, &key_index);
+    let mut found: Vec<Vec<u32>> = cycles.iter().map(|c| members(c)).collect();
+    found.sort();
+    let mut expected = vec![
+        sorted(vec![keys[1].index, keys[2].index]),
+        vec![keys[4].index],
+    ];
+    expected.sort();
+    assert_eq!(found, expected);
+}
+
+#[tokio::test]
+async fn marking_fails_the_waits_of_the_cycle() {
+    let key_index = DiceKeyIndex::default();
+    let cache = SharedCache::new();
+    let keys: Vec<DiceKey> = (0..3).map(|i| key_index.index_key(N(i))).collect();
+    let tasks: Vec<_> = keys.iter().map(|&k| running_task(&cache, k)).collect();
+    let task = |i: usize| &tasks[i].0;
+
+    let mut w12 = wait(task(2), keys[1]).await;
+    let mut w21 = wait(task(1), keys[2]).await;
+    let mut w01 = wait(task(1), keys[0]).await;
+
+    let cycles = find_cycles(&cache, &key_index);
+    mark_cycles(&cache, &cycles);
+
+    assert_matches!(poll!(w12.as_mut()), Poll::Ready(Err(_)));
+    assert_matches!(poll!(w21.as_mut()), Poll::Ready(Err(_)));
+    assert!(poll!(w01.as_mut()).is_pending(), "not a key of the cycle");
+}
+
+/// A projection of `N`, for cycles through a projection key's task.
+#[derive(Allocative, Debug, Display, Clone, Dupe, Eq, PartialEq, Hash, Pagable)]
+#[pagable_typetag(DiceProjectionDyn)]
+struct P;
+
+impl ProjectionKey for P {
+    type DeriveFromKey = N;
+    type Value = ();
+
+    fn compute(
+        &self,
+        _derive_from: &<<Self as ProjectionKey>::DeriveFromKey as Key>::Value,
+        _ctx: &DiceProjectionComputations,
+    ) -> Self::Value {
+        unimplemented!("test")
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_, _| true)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+/// A projection key's task only exists for dep checks, and only ever waits for its base (see
+/// the projection arm of `TransactionData::evaluate`). It is a node of the wait graph like any
+/// other, but the detector does not fail its wait: that wait is served the base's value instead,
+/// once failing the regular keys' waits has broken the cycle.
+#[tokio::test]
+async fn a_projection_key_in_a_cycle_keeps_waiting_for_its_base() {
+    let key_index = DiceKeyIndex::default();
+    let cache = SharedCache::new();
+    let q = key_index.index_key(N(0));
+    let base = key_index.index_key(N(1));
+    let proj = key_index.index(CowDiceKeyHashed::proj_ref(base, &P));
+    let (q_task, _q_promise) = running_task(&cache, q);
+    let (base_task, _base_promise) = running_task(&cache, base);
+    let (proj_task, _proj_promise) = running_task(&cache, proj);
+
+    // q is checking a dep on the projection, whose task waits for the base, whose compute
+    // requested q.
+    let mut q_on_proj = wait(&proj_task, q).await;
+    let mut proj_on_base = wait(&base_task, proj).await;
+    let mut base_on_q = wait(&q_task, base).await;
+
+    let cycles = find_cycles(&cache, &key_index);
+    assert_eq!(cycles.len(), 1);
+    assert_eq!(
+        members(&cycles[0]),
+        sorted(vec![q.index, base.index, proj.index])
+    );
+    mark_cycles(&cache, &cycles);
+
+    assert_matches!(poll!(q_on_proj.as_mut()), Poll::Ready(Err(_)));
+    assert_matches!(poll!(base_on_q.as_mut()), Poll::Ready(Err(_)));
+    assert!(poll!(proj_on_base.as_mut()).is_pending());
 }

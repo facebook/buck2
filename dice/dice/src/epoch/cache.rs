@@ -221,36 +221,39 @@ impl SharedCache {
     /// projection task requires a response from the core state thread, which is typically the
     /// thread this runs on.
     pub(crate) fn pending_tasks(&self) -> Vec<DiceTask> {
+        let mut regular = Vec::new();
+        self.for_each_pending_task(|task| regular.push(task.clone_arc()));
+        for t in self.data.projection_storage.iter() {
+            t.wait_computed();
+        }
+        regular
+    }
+
+    /// Calls `f` with every task whose latest generation has not terminated, the recomputation
+    /// of a finished task's unreadable value included (see `PageInRecovery`).
+    pub(crate) fn for_each_pending_task(&self, mut f: impl FnMut(DiceTaskRef<'_>)) {
         // A running task may be inserting a dependency right now; this orders the scan after
         // every insert that has begun, so that the new task is seen along with the one that
         // started it.
         self.data.storage.synchronize_with_inserts();
 
-        let regular = self
-            .data
-            .storage
-            .iter()
-            .flat_map(|entry| {
-                let task = DiceTaskRef { internal: entry };
-                // Check the original task first: it may finish and publish a descriptor
-                // whose recovery starts while this scan is in progress.
-                let pending = task.is_pending().then(|| task.clone_arc());
-                let recovery = task
-                    .get_finished_value()
-                    .and_then(MaybeResidentComputedValue::recovery)
-                    .map(|recovery| recovery.task.as_ref())
-                    .filter(|task| task.is_pending())
-                    .map(|task| task.clone_arc());
-                // The ordinary lookup can be finished while its demanded payload is still
-                // being recomputed, including while cancellation waits on a critical section.
-                [pending, recovery].into_iter().flatten()
-            })
-            .collect();
-        for t in self.data.projection_storage.iter() {
-            t.wait_computed();
+        for entry in self.data.storage.iter() {
+            let task = DiceTaskRef { internal: entry };
+            // Check the original task first: it may finish and publish a descriptor
+            // whose recovery starts while this scan is in progress.
+            if task.is_pending() {
+                f(task);
+            }
+            // The ordinary lookup can be finished while its demanded payload is still
+            // being recomputed, including while cancellation waits on a critical section.
+            if let Some(recovery) = task
+                .get_finished_value()
+                .and_then(MaybeResidentComputedValue::recovery)
+                && recovery.task.as_ref().is_pending()
+            {
+                f(recovery.task.as_ref());
+            }
         }
-
-        regular
     }
 }
 
