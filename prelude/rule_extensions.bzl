@@ -21,9 +21,9 @@ RuleExtensionsInfo = provider(fields = {
 })
 
 RULE_EXTENSIONS_ATTR = "_rule_extensions"
-RULE_EXTENSIONS_DEFAULT = "prelude//rule_extensions:none"
+RULE_EXTENSIONS_DEFAULT = read_root_config("buck2", "rule_extensions", "prelude//rule_extensions:none")
 
-def run_with_extensions(impl: typing.Callable, rule_type: str, ctx: AnalysisContext):
+def run_with_extensions(impl: typing.Callable, rule_type: str, ctx: AnalysisContext) -> list[Provider] | Promise:
     providers = impl(ctx)
     extensions = [
         extension
@@ -32,9 +32,11 @@ def run_with_extensions(impl: typing.Callable, rule_type: str, ctx: AnalysisCont
     ]
     if not extensions:
         return providers
-    if type(providers) != "list":
-        fail("Rule extensions require `{}` to return a list of providers".format(rule_type))
+    if type(providers) == "Promise":
+        return providers.map(lambda resolved: _apply_extensions(extensions, ctx, resolved))
+    return _apply_extensions(extensions, ctx, providers)
 
+def _apply_extensions(extensions: list[RuleExtensionInfo], ctx: AnalysisContext, providers: list[Provider]) -> list[Provider]:
     specs = []
     for extension in extensions:
         specs.extend(extension.func(ctx.actions, ctx.label, ctx.attrs, providers))
