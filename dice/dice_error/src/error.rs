@@ -65,15 +65,6 @@ pub enum DiceErrorImpl {
         #[allocative(skip)]
         source: Box<dyn StdError + Send + Sync>,
     },
-    #[error(
-        "Requested cycle_guard of type {}, but current guard has type {}",
-        expected_type_name,
-        actual_type_name
-    )]
-    UnexpectedCycleGuardType {
-        expected_type_name: String,
-        actual_type_name: String,
-    },
     #[error("Activation data was already provided for this key")]
     DuplicateActivationData,
     /// The requested key is in a dependency cycle with the requesting one, so neither can be

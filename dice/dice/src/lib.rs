@@ -207,7 +207,6 @@ pub(crate) mod metrics;
 pub(crate) mod opaque;
 pub(crate) mod storage;
 pub(crate) mod updater;
-pub(crate) mod user_cycle;
 pub(crate) mod value;
 mod versions;
 
@@ -250,8 +249,6 @@ pub use crate::api::projection::ProjectionKey;
 pub use crate::api::transaction::DiceTransaction;
 pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
-pub use crate::api::user_data::UserCycleDetector;
-pub use crate::api::user_data::UserCycleDetectorGuard;
 pub use crate::dice::Dice;
 pub use crate::dice::DiceDataBuilder;
 pub use crate::dice::PagableNodeCounts;

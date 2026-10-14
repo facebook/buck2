@@ -83,7 +83,6 @@ use crate::epoch::evaluator::VersionState;
 use crate::epoch::task::dice::testing_helpers::make_completed_task;
 use crate::epoch::task::dice::testing_helpers::make_completed_task_with_computed_value;
 use crate::key::ParentKey;
-use crate::user_cycle::UserCycleDetectorData;
 use crate::value::MaybeResident;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::PageInOutcome;
@@ -1722,9 +1721,7 @@ async fn equal_revisions_get_distinct_paged_out_descriptors_across_versions() ->
         dice: dice.dupe(),
     };
     let key = dice.key_index.index_key(PagableKey(1));
-    let old_value = old_eval
-        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await?;
+    let old_value = old_eval.bring_up_to_date(key, ParentKey::None).await?;
     let old_descriptor = old_value
         .try_as_resident()
         .err()
@@ -1746,9 +1743,7 @@ async fn equal_revisions_get_distinct_paged_out_descriptors_across_versions() ->
         user_data: DiceArc::new(user_data_with_counter(&counter)),
         dice: dice.dupe(),
     };
-    let new_value = new_eval
-        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await?;
+    let new_value = new_eval.bring_up_to_date(key, ParentKey::None).await?;
     let new_descriptor = new_value
         .try_as_resident()
         .err()
@@ -1768,7 +1763,6 @@ async fn equal_revisions_get_distinct_paged_out_descriptors_across_versions() ->
         .page_in(ValueDemand {
             key,
             parent_key: ParentKey::None,
-            cycles: UserCycleDetectorData::testing_new(),
         })
         .await?;
     let resident = old_value
@@ -1811,10 +1805,7 @@ async fn recovery_demands_use_the_transaction_cache() {
 
     // Same key, version and serialized data, but distinct cache-local recoveries.
     for (eval, recovered) in [(&first_eval, 100), (&second_eval, 200)] {
-        let value = eval
-            .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-            .await
-            .unwrap();
+        let value = eval.bring_up_to_date(key, ParentKey::None).await.unwrap();
         let descriptor = value.try_as_resident().err().expect("paged out");
         assert!(
             descriptor
@@ -1835,7 +1826,6 @@ async fn recovery_demands_use_the_transaction_cache() {
             eval.page_in(ValueDemand {
                 key,
                 parent_key: ParentKey::None,
-                cycles: UserCycleDetectorData::testing_new(),
             })
             .await
             .unwrap()
@@ -1877,9 +1867,7 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
         dice: dice.dupe(),
     };
     let key = dice.key_index.index_key(UnreadableValidatedKey);
-    let validated = eval
-        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await?;
+    let validated = eval.bring_up_to_date(key, ParentKey::None).await?;
     assert!(validated.try_as_resident().is_err());
     assert_eq!(
         counter.count(),
@@ -1900,7 +1888,6 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
         .page_in(ValueDemand {
             key,
             parent_key: ParentKey::None,
-            cycles: UserCycleDetectorData::testing_new(),
         })
         .await
     {
@@ -1919,9 +1906,7 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
         [true],
         "a failed read must not activate the key again"
     );
-    let checked = eval
-        .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await?;
+    let checked = eval.bring_up_to_date(key, ParentKey::None).await?;
     assert!(std::ptr::eq(validated, checked));
     Ok(())
 }

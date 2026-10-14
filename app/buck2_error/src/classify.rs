@@ -424,7 +424,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::DiceDuplicatedChange => rank!(tier0),
         ErrorTag::DiceChangedToInvalid => rank!(tier0),
         ErrorTag::DiceInjectedKeyGotInvalidation => rank!(tier0),
-        ErrorTag::DiceUnexpectedCycleGuardType => rank!(tier0),
         ErrorTag::DiceDuplicateActivationData => rank!(tier0),
         // A dependency cycle between the user's keys.
         ErrorTag::DiceCycle => rank!(input),

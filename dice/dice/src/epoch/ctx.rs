@@ -33,7 +33,6 @@ use pin_project::pin_project;
 
 use crate::ActivationData;
 use crate::LinearRecomputeDiceComputations;
-use crate::UserCycleDetectorGuard;
 use crate::api::computations::DiceComputations;
 use crate::api::computations::DiceComputationsData;
 use crate::api::data::DiceData;
@@ -61,8 +60,6 @@ use crate::key::DiceKey;
 use crate::key::ParentKey;
 use crate::opaque::OpaqueValue;
 use crate::updater::ActiveTransactionGuard;
-use crate::user_cycle::KeyComputingUserCycleDetectorData;
-use crate::user_cycle::UserCycleDetectorData;
 use crate::value::MaybeResidentComputedValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -79,7 +76,6 @@ impl Clone for TransactionCtx {
             ctx: ComputeCtx {
                 transaction_data: self.ctx.transaction_data.dupe(),
                 parent_key: ParentKey::None,
-                cycles: KeyComputingUserCycleDetectorData::Untracked,
                 evaluation_data: Mutex::new(EvaluationData::none()),
                 dependency_failed: AtomicBool::new(false),
             },
@@ -105,7 +101,6 @@ impl TransactionCtx {
                     dice,
                 },
                 parent_key: ParentKey::None,
-                cycles: KeyComputingUserCycleDetectorData::Untracked,
                 evaluation_data: Mutex::new(EvaluationData::none()),
                 dependency_failed: AtomicBool::new(false),
             },
@@ -313,8 +308,6 @@ impl<'d> TrackedComputations<'d> {
         let inner_core_ctx = ComputeCtx {
             transaction_data: ctx_data.transaction_data.dupe(),
             parent_key: ctx_data.parent_key.dupe(),
-            // FIXME(JakobDegen): These are never looked at again below, seems bad?
-            cycles: ctx_data.cycles.clone(),
             evaluation_data: Mutex::new(EvaluationData::none()),
             dependency_failed: AtomicBool::new(false),
         };
@@ -642,10 +635,6 @@ impl<'d> TrackedComputations<'d> {
     ) -> DiceResult<()> {
         self.ctx_data().store_evaluation_data(value)
     }
-
-    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<StdArc<T>>> {
-        self.ctx_data().cycle_guard()
-    }
 }
 
 /// The base type that provides access to `.compute()` operations and stores the state needed to
@@ -655,7 +644,6 @@ impl<'d> TrackedComputations<'d> {
 pub(crate) struct ComputeCtx {
     pub(crate) transaction_data: TransactionData,
     pub(crate) parent_key: ParentKey,
-    pub(crate) cycles: KeyComputingUserCycleDetectorData,
     // data for the entire compute of a Key, including parallel computes
     pub(crate) evaluation_data: Mutex<EvaluationData>,
     /// Whether a dependency failed to produce a value, for example because its paged-out value
@@ -697,18 +685,14 @@ impl ComputeCtx {
             .key_index
             .index(CowDiceKeyHashed::key_ref(key));
 
-        let cycles = self
-            .cycles
-            .subrequest(dice_key, &self.transaction_data.dice.key_index);
-        let promise =
-            self.transaction_data
-                .bring_up_to_date(dice_key, self.parent_key, cycles.dupe());
+        let promise = self
+            .transaction_data
+            .bring_up_to_date(dice_key, self.parent_key);
         ComputeOpaqueFuture {
             state: ComputeOpaqueState::UpToDate {
                 promise,
                 compute: self,
                 key: dice_key,
-                cycles,
             },
         }
     }
@@ -716,7 +700,6 @@ impl ComputeCtx {
     fn page_in_opaque<'d, K: Key>(
         &'d self,
         key: DiceKey,
-        cycles: UserCycleDetectorData,
     ) -> BoxFuture<'d, DiceResult<OpaqueValue<'d, K>>> {
         async move {
             let value = self
@@ -724,7 +707,6 @@ impl ComputeCtx {
                 .page_in(ValueDemand {
                     key,
                     parent_key: self.parent_key,
-                    cycles,
                 })
                 .await
                 .inspect_err(|_| self.record_dependency_failure())?;
@@ -789,10 +771,6 @@ impl ComputeCtx {
         evaluation_data.0 = Some(Box::new(value) as _);
         Ok(())
     }
-
-    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<StdArc<T>>> {
-        self.cycles.cycle_guard()
-    }
 }
 
 #[pin_project(project = ComputeOpaqueStateProj)]
@@ -802,7 +780,6 @@ enum ComputeOpaqueState<'d, K: Key> {
         promise: DicePromise<'d>,
         compute: &'d ComputeCtx,
         key: DiceKey,
-        cycles: UserCycleDetectorData,
     },
     PagingIn {
         #[pin]
@@ -827,7 +804,6 @@ impl<'d, K: Key> Future for ComputeOpaqueFuture<'d, K> {
                     promise,
                     compute,
                     key,
-                    cycles,
                 } => {
                     let value = match std::task::ready!(promise.poll(cx)) {
                         Ok(value) => value,
@@ -848,7 +824,7 @@ impl<'d, K: Key> Future for ComputeOpaqueFuture<'d, K> {
                             resident.invalidation_paths(),
                         )));
                     }
-                    let future = compute.page_in_opaque(*key, cycles.dupe());
+                    let future = compute.page_in_opaque(*key);
                     this.state.set(ComputeOpaqueState::PagingIn { future });
                 }
                 ComputeOpaqueStateProj::PagingIn { future } => return future.poll(cx),

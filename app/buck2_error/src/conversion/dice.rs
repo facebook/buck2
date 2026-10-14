@@ -24,9 +24,6 @@ impl From<dice_error::DiceError> for crate::Error {
                 ErrorTag::DiceInjectedKeyGotInvalidation
             }
             DiceErrorImpl::PageInFailed { .. } => ErrorTag::Tier0,
-            DiceErrorImpl::UnexpectedCycleGuardType { .. } => {
-                ErrorTag::DiceUnexpectedCycleGuardType
-            }
             DiceErrorImpl::DuplicateActivationData => ErrorTag::DiceDuplicateActivationData,
             DiceErrorImpl::Cycle(_) => ErrorTag::DiceCycle,
         };
