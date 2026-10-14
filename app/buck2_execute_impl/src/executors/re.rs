@@ -130,6 +130,7 @@ impl ReExecutor {
                         digests_uploaded: Some(stats.total.digests_uploaded),
                         bytes_uploaded: Some(stats.total.bytes_uploaded),
                         stats_by_extension: stats.by_extension,
+                        stats: None,
                     },
                 ),
                 Err(e) => (Err(e), buck2_data::ReUploadEnd::default()),

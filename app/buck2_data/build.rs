@@ -146,6 +146,10 @@ fn main() -> io::Result<()> {
             "#[serde(default, with = \"::buck2_proto_serde::serialize_timestamp\")]",
         )
         .field_attribute(
+            "client_start_time",
+            "#[serde(default, with = \"::buck2_proto_serde::serialize_timestamp\")]",
+        )
+        .field_attribute(
             "event_time",
             "#[serde(default, with = \"::buck2_proto_serde::serialize_timestamp\")]",
         )
@@ -298,6 +302,7 @@ fn main() -> io::Result<()> {
         .boxed("RecordEvent.data.invocation_record")
         // Putting some of the larger, rarer payloads into a Box reduce the size of every event in the event queue
         .boxed("SpanEndEvent.data.action_execution")
+        .boxed("RemoteCommand.re_worker")
         .boxed("SpanEndEvent.data.cache_upload")
         .boxed("SpanEndEvent.data.dep_file_upload")
         .boxed("SpanEndEvent.data.test_discovery")

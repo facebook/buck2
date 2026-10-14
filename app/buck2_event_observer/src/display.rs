@@ -519,6 +519,7 @@ pub fn display_event(
             ))),
             Data::BxlDiceInvocation(..) => Ok(EventDisplay::bare("Waiting for graph computations")),
             Data::ReUpload(..) => Ok(EventDisplay::bare("re_upload")),
+            Data::ReSubmit(..) => Ok(EventDisplay::bare("re_submit")),
             Data::ConnectToInstaller(buck2_data::ConnectToInstallerStart { tcp_port }) => Ok(
                 EventDisplay::bare(format!("Connecting to installer on port {tcp_port}")),
             ),
@@ -667,6 +668,17 @@ pub fn display_executor_stage(
 
     let label = match stage {
         Stage::Prepare(..) => "prepare",
+        Stage::CasArtifact(cas) => {
+            use buck2_data::cas_artifact_stage::Phase;
+            match Phase::try_from(cas.phase) {
+                Ok(Phase::CheckExpiration) => "cas_check_expiration",
+                Ok(Phase::ExtendExpiration) => "cas_extend_expiration",
+                Ok(Phase::RecheckExpiration) => "cas_recheck_expiration",
+                Ok(Phase::TreeMetadata) => "cas_tree_metadata",
+                Ok(Phase::DeclareOutputs) => "cas_declare_outputs",
+                Ok(Phase::Unspecified) | Err(_) => "cas_artifact",
+            }
+        }
         Stage::CacheQuery(cache_query) => {
             match buck2_data::CacheType::try_from(cache_query.cache_type).unwrap() {
                 buck2_data::CacheType::ActionCache => "re_action_cache",
@@ -701,6 +713,7 @@ pub fn display_executor_stage(
                 Stage::Execute(..) => "local_execute",
                 Stage::MaterializeInputs(..) => "local_materialize_inputs",
                 Stage::PrepareOutputs(_) => "local_prepare_outputs",
+                Stage::FinalizeOutputs(_) => "local_finalize_outputs",
                 Stage::AcquireLocalResource(_) => "acquire_local_resource",
                 Stage::WorkerInit(_) => "initialize_worker",
                 Stage::WorkerExecute(_) => "worker_execute",
@@ -738,6 +751,7 @@ pub fn is_active_execution_stage(event: &BuckEvent) -> bool {
                 Some(Local::Queued(..))
                 | Some(Local::MaterializeInputs(..))
                 | Some(Local::PrepareOutputs(..))
+                | Some(Local::FinalizeOutputs(..))
                 | Some(Local::AcquireLocalResource(..))
                 | Some(Local::WorkerInit(..))
                 | Some(Local::WorkerQueued(..))
@@ -764,7 +778,10 @@ pub fn is_active_execution_stage(event: &BuckEvent) -> bool {
                 | None => false,
             }
         }
-        Stage::Prepare(..) | Stage::CacheQuery(..) | Stage::CacheHit(..) => false,
+        Stage::Prepare(..)
+        | Stage::CacheQuery(..)
+        | Stage::CacheHit(..)
+        | Stage::CasArtifact(..) => false,
     }
 }
 
@@ -1389,6 +1406,51 @@ mod tests {
     use buck2_wrapper_common::invocation_id::TraceId;
 
     use super::*;
+
+    fn executor_stage_event(stage: buck2_data::executor_stage_start::Stage) -> BuckEvent {
+        BuckEvent::new(
+            UNIX_EPOCH,
+            TraceId::new(),
+            Some(SpanId::next()),
+            None,
+            SpanStartEvent {
+                data: Some(buck2_data::ExecutorStageStart { stage: Some(stage) }.into()),
+            }
+            .into(),
+        )
+    }
+
+    #[test]
+    fn test_cas_artifact_stages_are_labelled_and_not_execution() {
+        use buck2_data::cas_artifact_stage::Phase;
+
+        for (phase, expected) in [
+            (Phase::CheckExpiration as i32, "cas_check_expiration"),
+            (Phase::ExtendExpiration as i32, "cas_extend_expiration"),
+            (Phase::RecheckExpiration as i32, "cas_recheck_expiration"),
+            (Phase::TreeMetadata as i32, "cas_tree_metadata"),
+            (Phase::DeclareOutputs as i32, "cas_declare_outputs"),
+            (Phase::Unspecified as i32, "cas_artifact"),
+            (i32::MAX, "cas_artifact"),
+        ] {
+            let stage = buck2_data::CasArtifactStage { phase }.into();
+            assert_eq!(display_executor_stage(&stage), Some(expected));
+            assert!(!is_active_execution_stage(&executor_stage_event(stage)));
+        }
+    }
+
+    #[test]
+    fn test_local_finalize_outputs_is_not_execution() {
+        let stage = buck2_data::LocalStage {
+            stage: Some(buck2_data::LocalFinalizeOutputs {}.into()),
+        }
+        .into();
+        assert_eq!(
+            display_executor_stage(&stage),
+            Some("local_finalize_outputs")
+        );
+        assert!(!is_active_execution_stage(&executor_stage_event(stage)));
+    }
 
     fn action_execution_event(identifier: &str) -> BuckEvent {
         BuckEvent::new(

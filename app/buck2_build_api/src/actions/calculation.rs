@@ -466,6 +466,9 @@ async fn build_action_inner(
             incremental_kind: incremental_kind.map(|k| k as i32),
             eligible_for_dedupe: is_eligible_for_dedupe as i32,
             expected_eligible_for_dedupe: is_expected_eligible_for_dedupe as i32,
+            prepare_command_us: None,
+            finish_action_us: None,
+            graph_producers: None,
         }),
     )
 }

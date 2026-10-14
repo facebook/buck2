@@ -163,6 +163,7 @@ impl CommandExecutionKind {
                                 value: value.clone(),
                             })
                             .collect(),
+                        ..Default::default()
                     })
                 }
             }
@@ -199,6 +200,7 @@ impl CommandExecutionKind {
                             .collect::<Vec<_>>()
                     })
                     .unwrap_or_default(),
+                re_worker: None,
             }),
             Self::ActionCache { details } => Command::RemoteCommand(buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
@@ -209,6 +211,7 @@ impl CommandExecutionKind {
                 remote_dep_file_key: None,
                 materialized_inputs_for_failed: Vec::new(),
                 materialized_outputs_for_failed_actions: Vec::new(),
+                re_worker: None,
             }),
 
             Self::RemoteDepFileCache { details } => {
@@ -224,6 +227,7 @@ impl CommandExecutionKind {
                         .map(|k| k.to_string()),
                     materialized_inputs_for_failed: Vec::new(),
                     materialized_outputs_for_failed_actions: Vec::new(),
+                    re_worker: None,
                 })
             }
 

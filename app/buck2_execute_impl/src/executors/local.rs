@@ -339,6 +339,7 @@ impl LocalExecutor {
                             action_digest: action_digest.to_string(),
                             argv: args.to_vec(),
                             env,
+                            ..Default::default()
                         }),
                     }
                     .into(),

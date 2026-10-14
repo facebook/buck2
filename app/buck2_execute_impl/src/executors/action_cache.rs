@@ -124,6 +124,7 @@ async fn query_action_cache_and_download_result(
                         .find_typed_context::<RemoteExecutionError>()
                         .map(|re_err| re_err.code.to_string()),
                 }),
+                ..Default::default()
             };
             (result, end)
         },
