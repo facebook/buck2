@@ -278,10 +278,10 @@ fn compute_critical_paths(
                 let (path_cost, _critical_path) = t
                     .artifacts
                     .iter()
-                    .map(|a| {
-                        let idx = keys
-                            .get(a)
-                            .with_internal_error(|| format!("Cannot find artifact: {a}"))?;
+                    // An output whose key was still valid in this build was never activated
+                    // and is not in the graph; the target's cost is that of the others.
+                    .filter_map(|a| keys.get(a).map(|idx| (a, idx)))
+                    .map(|(a, idx)| {
                         critical_path_accessor
                             .critical_path_for_vertex(idx)
                             .with_internal_error(|| format!("Invalid index for artifact: {a}"))

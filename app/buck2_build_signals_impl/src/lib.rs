@@ -1678,12 +1678,10 @@ mod tests {
         }
     }
 
-    /// A top-level target with two outputs of which only one was rebuilt: the other output's
-    /// key was still valid, so it was never activated and is not in the graph. The cost
-    /// computation fails on the missing artifact and the whole target is left out of
-    /// `top_level_targets` (the code comment expects this only when the command was cancelled).
+    /// A top-level target with two outputs of which only one was rebuilt gets the cost of the
+    /// outputs that are in the graph; it is dropped only when none of them is.
     #[test]
-    fn top_level_target_dropped_when_one_output_not_recomputed() {
+    fn top_level_target_cost_over_recomputed_outputs() {
         let mut backend = LongestPathGraphBackend::new();
         let t0 = Instant::now();
         let built = node_key("cell//built");
@@ -1697,7 +1695,11 @@ mod tests {
             WaitingData::new(),
         );
         backend.process_top_level_target(configured_label("cell//pkg:t"), [built, untouched]);
+        backend.process_top_level_target(configured_label("cell//pkg:u"), [node_key("cell//u")]);
         let info = backend.finish(Default::default()).unwrap();
-        assert!(info.top_level_targets.is_empty());
+        assert_eq!(
+            info.top_level_targets,
+            vec![(configured_label("cell//pkg:t"), Duration::from_millis(50))]
+        );
     }
 }
