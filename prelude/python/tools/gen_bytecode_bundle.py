@@ -34,17 +34,29 @@ import os
 import shutil
 import struct
 import sys
-from importlib.util import MAGIC_NUMBER, source_from_cache
+from importlib.util import MAGIC_NUMBER
 
 MAGIC = b"PYCBNDL4"
 HEADER: struct.Struct = struct.Struct("<8sII")
 PYC_HEADER_LEN = 16
 _UINT32_MAX: int = (1 << 32) - 1
+_PEP_3147_TAGS = (".cpython-", ".pypy-", ".opt-")
 
 
 def source_key(cache_relpath: str) -> str:
-    """`pkg/__pycache__/mod.cpython-312.pyc` -> `pkg/mod.py`."""
-    return source_from_cache(cache_relpath).replace(os.sep, "/")
+    """`pkg/__pycache__/mod.cpython-312.pyc` -> `pkg/mod.py`.
+
+    `importlib.util.source_from_cache` rejects a file name with more dots than
+    PEP-3147 adds, so it cannot invert the byte code path of a source whose own
+    name is dotted, e.g. `pkg/a.b.py`.
+    """
+    head, name = os.path.split(cache_relpath)
+    if os.path.basename(head) != "__pycache__":
+        raise ValueError(f"{cache_relpath} does not live in a __pycache__ directory")
+    stem = os.path.splitext(name)[0]
+    while os.path.splitext(stem)[1].startswith(_PEP_3147_TAGS):
+        stem = os.path.splitext(stem)[0]
+    return os.path.join(os.path.dirname(head), stem + ".py").replace(os.sep, "/")
 
 
 def collect(
