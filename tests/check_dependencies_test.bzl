@@ -42,6 +42,19 @@ def _check_dependencies_test(name, target, contacts, env, labels: list[str], dep
         **kwargs,
     )
 
+def _extra_buck_args_file(name, extra_buck_args):
+    extra_buck_args_target = "%s_extra_buck_args" % (name)
+    buck_args_str = "\n".join(extra_buck_args)
+    buck_genrule(
+        name = extra_buck_args_target,
+        out = "extra_buck_args",
+        bash = "echo '%s' > $OUT" % (buck_args_str),
+        cmd_exe = powershell_cmd_exe([
+            "Set-Content $OUT @(%s)" % (", ".join(["'%s'" % arg.replace("'", "''") for arg in extra_buck_args])),
+        ]),
+    )
+    return "@$(location :%s)" % (extra_buck_args_target)
+
 def check_dependencies_test(
     name,
     target,
@@ -108,16 +121,7 @@ def check_dependencies_test(
         for m in modifiers:
             extra_buck_args = extra_buck_args + ["--modifier", m]
 
-    extra_buck_args_target = "%s_extra_buck_args" % (name)
-    buck_args_str = "\n".join(extra_buck_args)
-    buck_genrule(
-        name = extra_buck_args_target,
-        out = "extra_buck_args",
-        bash = "echo '%s' > $OUT" % (buck_args_str),
-        cmd_exe = powershell_cmd_exe([
-            "Set-Content $OUT '%s'" % (buck_args_str),
-        ]),
-    )
+    extra_buck_args_file = _extra_buck_args_file(name, extra_buck_args)
 
     _check_dependencies_test(
         contacts = contacts,
@@ -130,7 +134,7 @@ def check_dependencies_test(
             "DEPS_EXCLUDE_PATTERN": deps_exclude_pattern or "",
             "DEPS_FILTER_PATTERN": deps_filter_pattern or "",
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
-            "EXTRA_BUCK_ARGS_FILE": "@$(location :%s)" % (extra_buck_args_target),
+            "EXTRA_BUCK_ARGS_FILE": extra_buck_args_file,
             "FLAVOR": "check_dependencies_test",
             "TARGET": target,
             "TARGET_DEPS": str(target_deps).lower(),
@@ -142,7 +146,7 @@ def check_dependencies_test(
         **kwargs,
     )
 
-def assert_dependencies_test(name, target, contacts, expected_deps, expect_failure_msg = None, deps = None, labels = [], **kwargs):
+def assert_dependencies_test(name, target, contacts, expected_deps, expect_failure_msg = None, deps = None, labels = [], extra_buck_args = [], **kwargs):
     """
     Creates a test target fromfbcode//buck2/tests/assert_dependencies_test.bxl:test bxl script.
 
@@ -151,7 +155,9 @@ def assert_dependencies_test(name, target, contacts, expected_deps, expect_failu
         contacts: List of oncalls for the test.
         target: The target to check dependencies for
         expected_deps: list of expected deps
+        extra_buck_args: Additional Buck arguments used for the BXL invocation.
     """
+    extra_env = {"EXTRA_BUCK_ARGS_FILE": _extra_buck_args_file(name, extra_buck_args)} if extra_buck_args else {}
     _check_dependencies_test(
         name = name,
         target = target,
@@ -162,7 +168,8 @@ def assert_dependencies_test(name, target, contacts, expected_deps, expect_failu
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
             "FLAVOR": "assert_dependencies_test",
             "TARGET": target,
-        },
+        }
+        | extra_env,
         labels = labels + ["assert_dependencies_test"],
         deps = deps,
         **kwargs,

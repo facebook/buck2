@@ -124,6 +124,41 @@ assert_dependencies_test(
     target = TARGET1,
 )
 
+CONFIG_SPECIFIC_TARGET = "fbcode//buck2/tests/targets/check_dependencies_test:config_specific_deps_target"
+
+assert_dependencies_test(
+    name = "extra_args_default_graph",
+    contacts = CONTACTS,
+    expected_deps = [TARGET1],
+    target = CONFIG_SPECIFIC_TARGET,
+)
+
+assert_dependencies_test(
+    name = "extra_args_empty_keeps_default_graph",
+    contacts = CONTACTS,
+    expect_failure_msg = "Expected dependencies not found",
+    expected_deps = [TARGET2],
+    extra_buck_args = [],
+    target = CONFIG_SPECIFIC_TARGET,
+)
+
+assert_dependencies_test(
+    name = "extra_args_config_changes_graph",
+    contacts = CONTACTS,
+    expected_deps = [TARGET2],
+    extra_buck_args = ["--config", "check_dependencies_test.extra_args=true"],
+    target = CONFIG_SPECIFIC_TARGET,
+)
+
+assert_dependencies_test(
+    name = "extra_args_config_false_keeps_default_graph",
+    contacts = CONTACTS,
+    expect_failure_msg = "Expected dependencies not found",
+    expected_deps = [TARGET2],
+    extra_buck_args = ["--config", "check_dependencies_test.extra_args=false"],
+    target = CONFIG_SPECIFIC_TARGET,
+)
+
 audit_dependents_test(
     name = "audit_dependents_test",
     allowlist_patterns = [".*check_dependencies_test:useless_target_2"],

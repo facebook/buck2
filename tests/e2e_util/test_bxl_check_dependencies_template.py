@@ -125,8 +125,11 @@ elif FLAVOR == "assert_dependencies_test":
     async def test_check_dependencies_bxl(buck) -> None:
         dep_list = process_list_arg()
         expect_failure_msg = os.environ["EXPECT_FAILURE_MSG"]
+        additional_argfile = os.environ.get("EXTRA_BUCK_ARGS_FILE")
+        additional_args = [additional_argfile] if additional_argfile else []
         bxl_call = buck.bxl(
             os.environ["BXL_MAIN"],
+            *additional_args,
             "--",
             "--target",
             os.environ["TARGET"],
