@@ -15,6 +15,7 @@
 use std::fmt::Write;
 
 use crate::export::TOPICS;
+use crate::sim::MAX_CASCADE_STEPS;
 
 /// One command-line option.
 pub struct Opt {
@@ -166,6 +167,41 @@ pub const SECTIONS: &[Section] = &[
                 ),
                 "With --json=action-detail: the action to describe, by exact name or by index",
             ),
+            with_details(
+                valued(
+                    "--cascade-steps",
+                    "=<N>",
+                    "With --json=cp-cascade: how many steps to take",
+                ),
+                "With --json=cp-cascade: how many steps to take, 1 to 20. Each step removes the \
+                 longest action on the current critical path and recomputes it. [default: 20]",
+            ),
+            with_details(
+                valued(
+                    "--simulate",
+                    "=<NAME|node:N>",
+                    "With --json=cp-rank: replay with one action changed",
+                ),
+                "With --json=cp-rank: replay the build with one action changed. An exact name \
+                 wins; otherwise a unique substring is accepted; node:N picks a graph node.",
+            ),
+            with_details(
+                valued(
+                    "--scale",
+                    "=<F>",
+                    "With --simulate: multiply that action's duration by F",
+                ),
+                "With --simulate: multiply that action's duration by F, from 0 to 1000 [default: \
+                 0, which removes it]",
+            ),
+            with_details(
+                valued(
+                    "--simulate-config",
+                    "=free-admission",
+                    "With --json=cp-rank: replay without admission waits",
+                ),
+                "With --json=cp-rank: replay the build with every execution-admission wait removed",
+            ),
         ],
     },
 ];
@@ -182,6 +218,10 @@ const EXAMPLES: &[(&str, &str)] = &[
     (
         "retrace <log> --json=critical-path --compact",
         "Print the critical path as JSON",
+    ),
+    (
+        "retrace <log> --json=cp-cascade --cascade-steps=10",
+        "Take the top 10 items off the critical path",
     ),
     (
         "retrace ingest --last --out=/tmp/rt",
@@ -376,6 +416,8 @@ pub fn render(long: bool, styled: bool) -> String {
                 what
             );
         }
+        let note = format!("Cascade steps are capped at {MAX_CASCADE_STEPS}.");
+        let _ = writeln!(out, "\n{}", wrap(&note, 0, 0));
     }
     out
 }

@@ -325,6 +325,7 @@ fn main() {
         args.iter()
             .any(|a| a == key || a.starts_with(&format!("{key}=")))
     };
+    let value = |key: &str| args.iter().find_map(|a| a.strip_prefix(key));
     let output_modes = usize::from(json_want.is_some())
         + usize::from(has("--stats"))
         + usize::from(has("--summary"));
@@ -336,9 +337,18 @@ fn main() {
     }
     if !headless
         && args.iter().any(|a| {
-            ["--repair-cycles", "--topk", "--compact", "--action"]
-                .iter()
-                .any(|k| a == k || a.starts_with(&format!("{k}=")))
+            [
+                "--repair-cycles",
+                "--topk",
+                "--simulate",
+                "--scale",
+                "--simulate-config",
+                "--cascade-steps",
+                "--compact",
+                "--action",
+            ]
+            .iter()
+            .any(|k| a == k || a.starts_with(&format!("{k}=")))
         })
     {
         refuse(
@@ -353,9 +363,45 @@ fn main() {
     if has("--compact") && json_want.is_none() {
         refuse("--compact requires --json");
     }
+    if has("--scale") && !has("--simulate") {
+        refuse("--scale requires --simulate");
+    }
+    if (has("--simulate") || has("--simulate-config")) && !topic_requested("cp-rank") {
+        refuse("simulation options require --json=cp-rank (or all)");
+    }
+    if has("--simulate") && has("--simulate-config") {
+        refuse("choose one of --simulate and --simulate-config");
+    }
+    if value("--simulate-config=").is_some_and(|v| v != "free-admission") {
+        refuse("unknown simulation configuration; expected free-admission");
+    }
+    if let Some(v) = value("--scale=") {
+        let f = v
+            .parse::<f64>()
+            .unwrap_or_else(|_| refuse("--scale wants a number"));
+        if !f.is_finite() || !(0.0..=1000.0).contains(&f) {
+            refuse("--scale wants a finite factor between 0 and 1000");
+        }
+    }
     if has("--action") && !topic_requested("action-detail") {
         refuse("--action requires --json=action-detail (or all)");
     }
+    if has("--cascade-steps") && !topic_requested("cp-cascade") {
+        refuse("--cascade-steps requires --json=cp-cascade (or all)");
+    }
+    let cascade_steps: usize = value("--cascade-steps=")
+        .map(|v| {
+            v.parse::<usize>()
+                .ok()
+                .filter(|n| (1..=retrace::sim::MAX_CASCADE_STEPS).contains(n))
+                .unwrap_or_else(|| {
+                    refuse(&format!(
+                        "--cascade-steps wants an integer from 1 to {}",
+                        retrace::sim::MAX_CASCADE_STEPS
+                    ))
+                })
+        })
+        .unwrap_or(retrace::sim::MAX_CASCADE_STEPS);
     let no_extras = json_want.as_ref().is_some_and(|w| {
         !w.is_empty()
             && w.iter()
@@ -442,8 +488,32 @@ fn main() {
             Ok(f) => f,
             Err(e) => refuse(&format!("{e:#}")),
         };
+        let cprank = export::CpRankOpts {
+            simulate: args
+                .iter()
+                .find_map(|a| a.strip_prefix("--simulate=").map(|s| s.to_owned())),
+            scale: args
+                .iter()
+                .find_map(|a| a.strip_prefix("--scale="))
+                .map(|v| {
+                    let f: f64 = v
+                        .parse()
+                        .unwrap_or_else(|_| refuse("--scale wants a number (e.g. 0.5)"));
+                    // NaN/negative/huge factors are not what-ifs, they
+                    // are garbage that would replay into garbage CPs
+                    if !f.is_finite() || !(0.0..=1000.0).contains(&f) {
+                        refuse("--scale wants a finite factor between 0 and 1000");
+                    }
+                    f
+                }),
+            config: args
+                .iter()
+                .find_map(|a| a.strip_prefix("--simulate-config=").map(|s| s.to_owned())),
+        };
         let ta = export::TopicArgs {
+            cascade_steps,
             action: args.iter().find_map(|a| a.strip_prefix("--action=")),
+            cprank,
         };
         let v = export::export(&tr, &f, g.as_ref(), run_id.as_deref(), &want, topk, &ta);
         let pretty = !args.iter().any(|a| a == "--compact");

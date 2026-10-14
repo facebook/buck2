@@ -36,6 +36,7 @@ use crate::quality;
 use crate::quality::Claim;
 use crate::quality::Dep;
 pub(crate) use crate::quality::envelope;
+use crate::sim;
 use crate::types::F_CACHE_HIT;
 use crate::types::F_FAILED;
 use crate::types::Trace;
@@ -53,17 +54,46 @@ pub const TOPICS: &[&str] = &[
     "top-memory",
     "re-queue",
     "admission",
+    "whatif",
+    "cp-rank",
+    "cp-cascade",
     "retries",
     "health",
 ];
 
 pub const DEFAULT_TOPK: usize = 20;
 
-/// Inputs some topics need beyond the trace itself.
+/// Extra inputs for the `cp-rank` topic: `--simulate=<name>|node:N`
+/// resolves an exact name or unique substring for a single what-if;
+/// `--scale=<f>` sets its duration multiplier (default 0 = removed).
 #[derive(Default)]
+pub struct CpRankOpts {
+    pub simulate: Option<String>,
+    pub scale: Option<f64>,
+    /// `--simulate-config=` — a whole-config what-if instead of a
+    /// single action ("free-admission" = execution-admission waits
+    /// removed)
+    pub config: Option<String>,
+}
+
+/// Inputs some topics need beyond the trace itself.
 pub struct TopicArgs<'a> {
     /// Exact action display name or `action:N` (index in this loaded trace).
     pub action: Option<&'a str>,
+    /// the cp-rank topic's what-if inputs
+    pub cprank: CpRankOpts,
+    /// Number of sequential interventions, independent of display top-k.
+    pub cascade_steps: usize,
+}
+
+impl Default for TopicArgs<'_> {
+    fn default() -> Self {
+        Self {
+            action: None,
+            cprank: CpRankOpts::default(),
+            cascade_steps: 20,
+        }
+    }
 }
 
 /// The critical path buck2 reported during the build, for a capture without a dependency graph.
@@ -269,6 +299,65 @@ fn action_detail(f: &Facts, query: Option<&str>, q: &quality::Quality) -> Value 
     )
 }
 
+/// Never pick a heavier action merely because several display names match.
+fn simulation_node(b: &dag::DagBundle, query: &str) -> Result<u32, String> {
+    let query = query.trim();
+    if query.is_empty() {
+        return Err("--simulate needs a nonempty exact action name or unique substring".into());
+    }
+    if let Some(node) = query.strip_prefix("node:") {
+        let node = node.parse::<u32>().ok().filter(|&n| {
+            b.dag
+                .act_of_node
+                .get(n as usize)
+                .is_some_and(|&a| a != u32::MAX)
+        });
+        return node.ok_or_else(|| {
+            "--simulate=node:N requires an action node in this loaded graph".into()
+        });
+    }
+    let matches = |exact: bool| -> Vec<u32> {
+        b.node_ev
+            .iter()
+            .enumerate()
+            .filter_map(|(n, ev)| {
+                let e = ev.as_ref()?;
+                let name = &b.events[*e].name;
+                (b.dag.act_of_node[n] != u32::MAX
+                    && if exact {
+                        name == query
+                    } else {
+                        name.contains(query)
+                    })
+                .then_some(n as u32)
+            })
+            .collect()
+    };
+    let exact = matches(true);
+    let found = if exact.is_empty() {
+        matches(false)
+    } else {
+        exact
+    };
+    match found.as_slice() {
+        [node] => Ok(*node),
+        [] => Err(format!("--simulate: no action matches `{query}`")),
+        _ => Err(format!(
+            "--simulate: `{query}` is ambiguous ({} actions); use a unique full name or node:N from this loaded graph. Candidates: {}",
+            found.len(),
+            found
+                .iter()
+                .take(5)
+                .map(|&n| {
+                    let e = b.node_ev[n as usize].expect("matched action has event");
+                    format!("{} [node {n}]", b.events[e].name)
+                })
+                .collect::<Vec<_>>()
+                .join("; ")
+        )),
+    }
+}
+
 fn ev_json(f: &Facts, e: u32) -> Value {
     let a = f.act(e);
     json!({
@@ -296,6 +385,66 @@ fn data_moved_json(f: &Facts, e: u32) -> Value {
     v
 }
 
+/// A reproducible counterpart to the GUI cascade, starting from recorded
+/// weights. Only twenty compact rows survive; graph edges and per-step
+/// weight/path snapshots are never copied into the output.
+fn cascade_json(tr: &Trace, b: &dag::DagBundle, requested: usize, topk: usize) -> Value {
+    let limit = requested.min(sim::MAX_CASCADE_STEPS);
+    let mut cascade = sim::GreedyCascade::new(&b.dag, b.dag.weight_us.clone(), limit);
+    let mut rows = Vec::with_capacity(limit);
+    for step in cascade.by_ref() {
+        let a = &tr.acts[step.act as usize];
+        rows.push(json!({
+            "index": step.index,
+            "node": step.node,
+            "action_index": step.act,
+            "action_sequence": a.seq,
+            "target": tr.names[a.name as usize],
+            "run": tr.run_ids.get(a.run as usize),
+            "start_us": tr.t0_abs.saturating_add(a.ts),
+            "duration_us": step.duration_us,
+            "cp_before_us": step.cp_before_us,
+            "cp_after_us": step.cp_after_us,
+            "marginal_saved_us": step.marginal_saved_us,
+            "cumulative_saved_us": step.cumulative_saved_us,
+            "total_saved_us": step.total_saved_us,
+            "path_changed": step.path_changed,
+            "entered_actions": step.entered_actions,
+            "exited_actions": step.exited_actions,
+        }));
+    }
+    let steps_completed = rows.len();
+    rows.truncate(topk);
+    json!({
+        "estimate": "cp-replay",
+        "strategy": "longest-positive-action-on-current-critical-path",
+        "initial_state": "recorded-weights",
+        "base_cp_us": cascade.base_cp_us(),
+        "start_cp_us": cascade.start_cp_us(),
+        "final_cp_us": cascade.cp_us(),
+        "cumulative_saved_us": cascade.start_cp_us() - cascade.cp_us(),
+        "total_saved_us": cascade.base_cp_us() - cascade.cp_us(),
+        "requested_steps": requested,
+        "step_limit": limit,
+        "steps_completed": steps_completed,
+        "rows_shown": rows.len(),
+        "rows_truncated": rows.len() < steps_completed,
+        "stop_reason": if cascade.cp_us() == 0 || steps_completed < limit {
+            "no-positive-action-on-current-critical-path"
+        } else {
+            "step-limit"
+        },
+        "rows": rows,
+        "assumptions": [
+            "After each removal, recompute the CP and select its longest positive-duration action; not global duration or standalone-savings ranking.",
+            "All nodes mapped to the chosen action become zero-duration; dependency edges and all other recorded durations remain unchanged.",
+            "Tied durations choose the lower action index, then node id; tied paths use stable predecessor/topological order.",
+            "Sequential marginal savings telescope to cumulative savings; these are not leave-one-out marginals or measured build-wall savings.",
+            "Path changes describe one representative critical path, not every tied path; this greedy exploration is not an optimal choice of actions."
+        ],
+    })
+}
+
 /// Build the requested topics. `want` empty or containing "all" =
 /// every topic. The caller validated topic names against [`TOPICS`].
 pub fn export(
@@ -307,6 +456,7 @@ pub fn export(
     topk: usize,
     ta: &TopicArgs,
 ) -> Value {
+    let cprank = &ta.cprank;
     let all = want.is_empty() || want.iter().any(|w| w == "all");
     let nsel = f.sel.len() as u64;
     let requested = |t: &str| all || want.iter().any(|w| w == t);
@@ -327,6 +477,8 @@ pub fn export(
             .get_or_init(|| g.and_then(|g| dag::build_full(tr, g, run)))
             .as_ref()
     };
+    let sim_input: OnceCell<sim::SimInput> = OnceCell::new();
+    let simulation = |b: &dag::DagBundle| sim_input.get_or_init(|| sim::sim_input(b, f.x));
     let mut out = Map::new();
     for &topic in TOPICS.iter().filter(|&&t| requested(t) && !applicable(t)) {
         out.insert(topic.replace('-', "_"), refused(vec![
@@ -819,6 +971,284 @@ pub fn export(
         out.insert("admission".into(), value);
     }
 
+    if asked("whatif") {
+        match g {
+            None => out.insert(
+                "whatif".into(),
+                refused(vec![
+                    "needs the dependency graph (a sibling *-graph.json, or --graph=)".into(),
+                ]),
+            ),
+            Some(_) => match stitch() {
+                None => out.insert(
+                    "whatif".into(),
+                    refused(vec!["nothing to stitch for the selected run".into()]),
+                ),
+                Some((b, st)) => {
+                    let si = simulation(b);
+                    let rep = sim::standard_whatifs(b, si);
+                    let full = rep.n_with_stages == rep.n_action_nodes;
+                    let mut lims = vec![
+                        "cp-replay: the change to the dependency floor under otherwise \
+                         recorded durations; scheduling overheads sit on top"
+                            .to_owned(),
+                    ];
+                    if !full {
+                        lims.push(format!(
+                            "{} action node(s) carry no stage data and keep their observed \
+                             durations where that scenario's measurements are absent",
+                            rep.n_action_nodes - rep.n_with_stages
+                        ));
+                    }
+                    out.insert(
+                        "whatif".into(),
+                        qq.stitched(st).seal(
+                            Dep::Graph,
+                            Claim::Savings,
+                            if full { "available" } else { "partial" },
+                            None,
+                            vec![(
+                                "action-nodes-with-stages",
+                                rep.n_with_stages as u64,
+                                rep.n_action_nodes.max(1) as u64,
+                            )],
+                            lims,
+                            json!({
+                                "base_cp_us": rep.base_cp_us,
+                                "summed_node_duration_us": rep.t1_us,
+                                "scenarios": rep.rows.iter().map(|r| json!({
+                                    "label": r.label,
+                                    "status": if !r.is_priced() { "refused" } else if r.coverage.is_some_and(|(n, d)| n < d) { "partial" } else { "available" },
+                                    "coverage": r.coverage.map(|(n, d)| json!({"scope": "scenario-observations", "numerator": n, "denominator": d})),
+                                    "cp_us": r.is_priced().then_some(r.cp_us),
+                                    "saved_us": r.is_priced().then_some(r.saved_us),
+                                    "saved_pct": r.is_priced().then(|| if rep.base_cp_us > 0 {
+                                        100.0 * r.saved_us as f64 / rep.base_cp_us as f64
+                                    } else { 0.0 }),
+                                    "n_modified": r.is_priced().then_some(r.n_modified),
+                                    "estimate": "cp-replay",
+                                    "basis": r.basis,
+                                    "note": r.note,
+                                    "missing_measurements": (!r.is_priced()).then_some("No relevant recorded measurements; zero savings is not established."),
+                                })).collect::<Vec<_>>(),
+                            }),
+                        ),
+                    )
+                }
+            },
+        };
+    }
+
+    if asked("cp-rank") {
+        let v = match g {
+            None => refused(vec![
+                "needs the dependency graph (a sibling *-graph.json, or --graph=)".into(),
+            ]),
+            Some(_) => match stitch() {
+                None => refused(vec!["nothing to stitch for the selected run".into()]),
+                Some((b, st)) => {
+                    let qg = qq.stitched(st);
+                    let name_of = |node: u32| -> String {
+                        b.node_ev[node as usize]
+                            .map(|e| b.events[e].name.clone())
+                            .unwrap_or_default()
+                    };
+                    let lims = vec![
+                        "cp-replay: the change to the dependency floor under otherwise \
+                         recorded durations; scheduling overheads sit on top"
+                            .to_owned(),
+                        "per-step sensitivities do not sum: removing one step changes \
+                         every other step's shadow path"
+                            .to_owned(),
+                    ];
+                    if cprank.scale.is_some() && cprank.simulate.is_none() {
+                        refused(vec!["--scale requires --simulate; it does not alter --simulate-config or the ranked list".into()])
+                    } else if cprank.simulate.is_some() && cprank.config.is_some() {
+                        refused(vec![
+                            "Choose --simulate or --simulate-config, not both".into(),
+                        ])
+                    } else if cprank.scale.is_some_and(|s| !s.is_finite() || s < 0.0) {
+                        refused(vec![
+                            "--scale must be a finite nonnegative multiplier".into(),
+                        ])
+                    } else if let Some(cfg) = &cprank.config {
+                        if cfg != "free-admission" {
+                            refused(vec![format!(
+                                "--simulate-config: unknown config `{cfg}` (known: free-admission)"
+                            )])
+                        } else {
+                            let si = simulation(b);
+                            let (recorded, total) = sim::admission_coverage(si);
+                            if recorded == 0 {
+                                refused(vec!["free-admission cannot be priced: no action node carries execution-admission measurements (absent is not zero wait)".into()])
+                            } else {
+                                let base_cp = b.dag.cp;
+                                let (w, n_modified) = sim::w_free_admission(si);
+                                let (cp, path) = sim::replay_path(&b.dag, &w);
+                                qg.seal(
+                                Dep::Graph,
+                                Claim::Savings,
+                                if recorded < total { "partial" } else { "available" },
+                                None,
+                                vec![("action-nodes-with-admission-measurements", recorded as u64, total as u64)],
+                                {
+                                    let mut lims = lims;
+                                    if recorded < total {
+                                        lims.push(format!("{} action node(s) carry no admission measurements and keep their recorded durations", total - recorded));
+                                    }
+                                    lims
+                                },
+                                json!({"simulate": {
+                                    "config": "free-admission",
+                                    "n_modified": n_modified,
+                                    "base_cp_us": base_cp,
+                                    "cp_us": cp,
+                                    "saved_us": base_cp - cp,
+                                    "estimate": "cp-replay",
+                                    "note": "Hypothetical removal of recorded client admission counters, floored at recorded execution. Other durations and dependencies remain fixed; changing a real concurrency limit also changes contention, which this model does not simulate.",
+                                    "new_cp_path": path.iter().take(topk).map(|&n| json!({
+                                        "target": name_of(n),
+                                        "duration_us": b.dag.weight_us[n as usize],
+                                        "simulated_duration_us": w[n as usize],
+                                    })).collect::<Vec<_>>(),
+                                    "new_cp_steps": path.len(),
+                                    "new_cp_rows_shown": path.len().min(topk),
+                                    "new_cp_path_truncated": path.len() > topk,
+                                }}),
+                            )
+                            }
+                        }
+                    } else if let Some(pat) = &cprank.simulate {
+                        match simulation_node(b, pat) {
+                            Err(error) => refused(vec![error]),
+                            Ok(node) => {
+                                let scale = cprank.scale.unwrap_or(0.0);
+                                let w_node = (b.dag.weight_us[node as usize] as f64 * scale) as i64;
+                                let s = sim::simulate_node(
+                                    b,
+                                    node,
+                                    w_node,
+                                    &format!("{:.0}%", scale * 100.0),
+                                );
+                                qg.seal(
+                                    Dep::Graph,
+                                    Claim::Savings,
+                                    "available",
+                                    None,
+                                    Vec::new(),
+                                    lims,
+                                    json!({"simulate": {
+                                        "target": name_of(node),
+                                        "matched": 1,
+                                        "node": node,
+                                        "action_index": b.dag.act_of_node[node as usize],
+                                        "scale": scale,
+                                        "duration_us": b.dag.weight_us[node as usize],
+                                        "simulated_duration_us": w_node,
+                                        "base_cp_us": s.base_cp_us,
+                                        "cp_us": s.cp_us,
+                                        "saved_us": s.base_cp_us - s.cp_us,
+                                        "estimate": "cp-replay",
+                                        "new_cp_path": s.path.iter().take(topk).map(|&n| json!({
+                                            "target": name_of(n),
+                                            "duration_us": b.dag.weight_us[n as usize],
+                                            "simulated_duration_us": if n == node {
+                                                w_node
+                                            } else {
+                                                b.dag.weight_us[n as usize]
+                                            },
+                                        })).collect::<Vec<_>>(),
+                                        "new_cp_steps": s.path.len(),
+                                        "new_cp_rows_shown": s.path.len().min(topk),
+                                        "new_cp_path_truncated": s.path.len() > topk,
+                                    }}),
+                                )
+                            }
+                        }
+                    } else {
+                        let rep = sim::cp_rank_topk(b, topk);
+                        qg.seal(
+                            Dep::Graph,
+                            Claim::Savings,
+                            "available",
+                            None,
+                            Vec::new(),
+                            lims,
+                            json!({
+                                "base_cp_us": rep.base_cp_us,
+                                "cp_steps": rep.cp_steps,
+                                "rows_shown": rep.rows.len(),
+                                "rows_truncated": rep.rows.len() < rep.cp_steps,
+                                "rows": rep.rows.iter().enumerate().map(|(i, r)| json!({
+                                    "rank": i + 1,
+                                    "target": name_of(r.node),
+                                    "duration_us": r.dur_us,
+                                    "exec_slot_wait_us": f.x.args
+                                        .get(r.act as usize)
+                                        .and_then(|a| a.admission_recorded.then_some(a.exec_sem_wait_us)),
+                                    "pct_of_cp": if rep.base_cp_us > 0 {
+                                        100.0 * r.dur_us as f64 / rep.base_cp_us as f64
+                                    } else { 0.0 },
+                                    "save_eliminated_us": r.save_elim_us,
+                                    "save_at_50pct_us": r.save_half_us,
+                                    "saved_pct": if rep.base_cp_us > 0 {
+                                        100.0 * r.save_elim_us as f64 / rep.base_cp_us as f64
+                                    } else { 0.0 },
+                                    "estimate": "cp-replay",
+                                })).collect::<Vec<_>>(),
+                            }),
+                        )
+                    }
+                }
+            },
+        };
+        out.insert("cp_rank".into(), v);
+    }
+
+    if asked("cp-cascade") {
+        let v = if cprank.simulate.is_some() || cprank.scale.is_some() || cprank.config.is_some() {
+            refused(vec![
+                "cp-cascade starts from recorded weights: --simulate, --scale and \
+                 --simulate-config are not supported for this topic; use the GUI \
+                 cascade to start from a composed override scenario"
+                    .to_owned(),
+            ])
+        } else {
+            match g {
+                None => refused(vec![
+                    "needs the dependency graph (a sibling *-graph.json, or --graph=)".into(),
+                ]),
+                Some(_) => match stitch() {
+                    None => refused(vec!["nothing to stitch for the selected run".into()]),
+                    Some((b, st)) => {
+                        let mut lims = vec![
+                            "cp-replay: changes to the dependency critical path under otherwise \
+                             recorded durations, not measured build-wall savings; scheduling \
+                             and resource contention are not simulated"
+                                .to_owned(),
+                        ];
+                        if ta.cascade_steps > sim::MAX_CASCADE_STEPS {
+                            lims.push(format!(
+                                "requested {} removals; cp-cascade is capped at {}",
+                                ta.cascade_steps,
+                                sim::MAX_CASCADE_STEPS
+                            ));
+                        }
+                        qq.stitched(st).seal(
+                            Dep::Graph,
+                            Claim::Savings,
+                            "available",
+                            None,
+                            Vec::new(),
+                            lims,
+                            cascade_json(tr, b, ta.cascade_steps, topk),
+                        )
+                    }
+                },
+            }
+        };
+        out.insert("cp_cascade".into(), v);
+    }
     if asked("retries") {
         let v = match analyses::retry_census(f, topk) {
             None => refused(vec!["no action in this run ran more than once".into()]),
@@ -1320,7 +1750,7 @@ mod tests {
         assert!(stats_text(&tr, &f, None, None).contains("2 with only a retry count"));
     }
 
-    const GRAPH_TOPICS: &[&str] = &["critical-path"];
+    const GRAPH_TOPICS: &[&str] = &["critical-path", "whatif", "cp-rank", "cp-cascade"];
     const TRACE_TOPICS: &[&str] = &["overview", "breakdown", "peers", "longest"];
 
     #[test]
@@ -1337,7 +1767,10 @@ mod tests {
                 None,
                 &["action-detail".into()],
                 20,
-                &TopicArgs { action },
+                &TopicArgs {
+                    action,
+                    ..Default::default()
+                },
             )
         };
         let value = get(Some("fallback (rustc)"));
@@ -1407,7 +1840,10 @@ mod tests {
                 None,
                 &["action-detail".into()],
                 20,
-                &TopicArgs { action },
+                &TopicArgs {
+                    action,
+                    ..Default::default()
+                },
             )
         };
         let legacy = get(&tr, Some(query.as_str()));
@@ -1445,7 +1881,7 @@ mod tests {
         let mut file_order: Vec<_> = tr.acts.iter().collect();
         file_order.sort_by_key(|a| a.seq);
         assert!(file_order.windows(2).any(|w| w[0].ts > w[1].ts));
-        let value = run_export(&t, Some(&g), &["critical-path", "longest"]);
+        let value = run_export(&t, Some(&g), &["critical-path", "cp-cascade", "longest"]);
         let path = &value["critical_path"]["data"];
         assert_eq!(path["cp_us"], 5_850);
         let short = |v: &Value| {
@@ -1476,6 +1912,21 @@ mod tests {
                 "fbcode//buck2/cli:buck2",
             ]
         );
+        let cascade = value["cp_cascade"]["data"]["rows"].as_array().unwrap();
+        assert_eq!(
+            short(&cascade[0]),
+            "fbcode//buck2/app/buck2_build_api:buck2_build_api"
+        );
+        assert_eq!(
+            short(&cascade[1]),
+            "fbcode//buck2/app/buck2_server_commands:buck2_server_commands"
+        );
+        for row in cascade {
+            let act = &tr.acts[row["action_index"].as_u64().unwrap() as usize];
+            assert_eq!(row["target"], tr.names[act.name as usize]);
+            assert_eq!(row["action_sequence"], act.seq);
+            assert_eq!(row["start_us"], tr.t0_abs + act.ts);
+        }
     }
 
     #[test]
@@ -1514,6 +1965,13 @@ mod tests {
                 .unwrap();
             assert_eq!(same["start_us"], row["start_us"]);
         }
+        for row in value["cp_cascade"]["data"]["rows"].as_array().unwrap() {
+            let same = longest
+                .iter()
+                .find(|a| a["target"] == row["target"])
+                .unwrap();
+            assert_eq!(same["start_us"], row["start_us"]);
+        }
         assert!(value["trace"]["t0_abs_us"].is_i64());
         assert_eq!(cov(&value["longest"], "actions-with-args"), Some((3, 3)));
         assert_eq!(value["top_memory"]["status"], "partial");
@@ -1523,6 +1981,103 @@ mod tests {
         ));
         assert!(value["critical_path"]["data"].get("t1_us").is_none());
         assert!(value["critical_path"]["data"]["summed_node_duration_us"].is_i64());
+        assert!(
+            value["whatif"]["data"]["scenarios"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|r| r["basis"].is_string())
+        );
+    }
+
+    #[test]
+    fn rank_inputs_are_explicit_and_topk_does_not_change_cascade_experiment() {
+        let (t, g) = (fixture("smoke-trace.json"), fixture("smoke-graph.jsonl"));
+        let tr = crate::parse::parse(&t).unwrap();
+        let x = analyses::load_extras(&tr);
+        let f = Facts::for_run(&tr, &x, None).unwrap();
+        let g = crate::graph::load_graph(&g).unwrap();
+        let rank = |cprank| {
+            export(
+                &tr,
+                &f,
+                Some(&g),
+                None,
+                &["cp-rank".into()],
+                1,
+                &TopicArgs {
+                    cprank,
+                    ..Default::default()
+                },
+            )
+        };
+        let plain = rank(CpRankOpts::default());
+        assert_eq!(plain["cp_rank"]["data"]["cp_steps"], 2);
+        assert_eq!(plain["cp_rank"]["data"]["rows_shown"], 1);
+        assert_eq!(plain["cp_rank"]["data"]["rows_truncated"], true);
+        let simulated = rank(CpRankOpts {
+            simulate: Some("z (cxx_link)".into()),
+            scale: Some(0.5),
+            ..Default::default()
+        });
+        assert_eq!(
+            simulated["cp_rank"]["data"]["simulate"]["simulated_duration_us"],
+            400
+        );
+        assert_eq!(simulated["cp_rank"]["data"]["simulate"]["matched"], 1);
+        assert_eq!(
+            simulated["cp_rank"]["data"]["simulate"]["new_cp_path_truncated"],
+            true
+        );
+        for (input, expected) in [
+            ("", "nonempty"),
+            ("(", "ambiguous"),
+            ("not-a-target", "no action matches"),
+        ] {
+            let result = rank(CpRankOpts {
+                simulate: Some(input.into()),
+                ..Default::default()
+            });
+            assert_eq!(result["cp_rank"]["status"], "refused");
+            assert!(has_lim(&result["cp_rank"], expected));
+        }
+        for cprank in [
+            CpRankOpts {
+                scale: Some(0.5),
+                ..Default::default()
+            },
+            CpRankOpts {
+                simulate: Some("z".into()),
+                scale: Some(f64::NAN),
+                ..Default::default()
+            },
+            CpRankOpts {
+                config: Some("free-admission".into()),
+                ..Default::default()
+            },
+        ] {
+            assert_eq!(rank(cprank)["cp_rank"]["status"], "refused");
+        }
+        let cascade = |topk| {
+            export(
+                &tr,
+                &f,
+                Some(&g),
+                None,
+                &["cp-cascade".into()],
+                topk,
+                &TopicArgs::default(),
+            )
+        };
+        let one = cascade(1);
+        let all = cascade(20);
+        assert_eq!(
+            one["cp_cascade"]["data"]["final_cp_us"],
+            all["cp_cascade"]["data"]["final_cp_us"]
+        );
+        assert_eq!(one["cp_cascade"]["data"]["steps_completed"], 3);
+        assert_eq!(one["cp_cascade"]["data"]["rows_shown"], 1);
+        assert_eq!(one["cp_cascade"]["data"]["rows_truncated"], true);
     }
 
     #[test]
@@ -1545,15 +2100,24 @@ mod tests {
             &f,
             Some(&g),
             None,
-            &["admission".into()],
+            &["admission".into(), "cp-rank".into()],
             10,
-            &TopicArgs::default(),
+            &TopicArgs {
+                cprank: CpRankOpts {
+                    config: Some("free-admission".into()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
         );
         assert_eq!(
             cov(&value["admission"], "actions-with-admission-measurements"),
             Some((1, 3))
         );
         assert_eq!(value["admission"]["data"]["exec_slot_wait_us"], 0);
+        assert_eq!(value["cp_rank"]["status"], "partial");
+        assert_eq!(value["cp_rank"]["data"]["simulate"]["n_modified"], 0);
+        assert_eq!(value["cp_rank"]["data"]["simulate"]["saved_us"], 0);
     }
 
     #[test]
@@ -1791,6 +2355,109 @@ mod tests {
         std::fs::remove_file(graph_path).unwrap();
     }
     #[test]
+    fn cascade_export_is_a_sequential_replay_with_action_identity() {
+        let (t, g) = (fixture("smoke-trace.json"), fixture("smoke-graph.jsonl"));
+        let v = run_export(&t, Some(&g), &["cp-cascade"]);
+        let topic = &v["cp_cascade"];
+        assert_eq!(topic["status"], "available");
+        assert!(topic.get("bound").is_none());
+        assert!(has_lim(topic, "not measured build-wall savings"));
+        let data = &topic["data"];
+        assert_eq!(data["initial_state"], "recorded-weights");
+        assert_eq!(data["base_cp_us"], 1300);
+        assert_eq!(data["start_cp_us"], 1300);
+        assert_eq!(data["final_cp_us"], 0);
+        assert_eq!(data["steps_completed"], 3);
+        let rows = data["rows"].as_array().unwrap();
+        assert_eq!(
+            rows.iter()
+                .map(|r| r["target"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["z (cxx_link)", "y (rustc emit)", "w (genrule)"]
+        );
+        assert_eq!(
+            rows.iter()
+                .map(|r| r["cp_after_us"].as_i64().unwrap())
+                .collect::<Vec<_>>(),
+            [800, 300, 0]
+        );
+        assert_eq!(
+            rows.iter()
+                .map(|r| r["marginal_saved_us"].as_i64().unwrap())
+                .sum::<i64>(),
+            1300
+        );
+        for (i, row) in rows.iter().enumerate() {
+            assert_eq!(row["index"], i + 1);
+            assert!(row["action_index"].is_u64());
+            assert!(row["action_sequence"].is_u64());
+            assert_eq!(row["run"], "aaaa-bbbb");
+            assert!(row["start_us"].as_i64().unwrap() >= 1000000);
+            assert!(row["path_changed"].is_boolean());
+            assert_eq!(row["cumulative_saved_us"], row["total_saved_us"]);
+        }
+        let no_graph = run_export(&t, None, &["cp-cascade"]);
+        assert_eq!(no_graph["cp_cascade"]["status"], "refused");
+        assert!(has_lim(
+            &no_graph["cp_cascade"],
+            "needs the dependency graph"
+        ));
+    }
+
+    #[test]
+    fn cascade_export_caps_steps_and_refuses_unsupported_initial_overrides() {
+        let (t, g) = (fixture("smoke-trace.json"), fixture("smoke-graph.jsonl"));
+        let tr = crate::parse::parse(&t).unwrap();
+        let x = analyses::load_extras(&tr);
+        let f = Facts::for_run(&tr, &x, None).unwrap();
+        let graph = crate::graph::load_graph(&g).unwrap();
+        let get = |steps, cprank| {
+            export(
+                &tr,
+                &f,
+                Some(&graph),
+                None,
+                &["cp-cascade".to_owned()],
+                10,
+                &TopicArgs {
+                    cascade_steps: steps,
+                    cprank,
+                    ..Default::default()
+                },
+            )
+        };
+        let one = get(1, CpRankOpts::default());
+        assert_eq!(one["cp_cascade"]["data"]["step_limit"], 1);
+        assert_eq!(one["cp_cascade"]["data"]["steps_completed"], 1);
+        assert_eq!(one["cp_cascade"]["data"]["final_cp_us"], 800);
+        assert_eq!(one["cp_cascade"]["data"]["stop_reason"], "step-limit");
+        let capped = get(999, CpRankOpts::default());
+        assert_eq!(capped["cp_cascade"]["data"]["requested_steps"], 999);
+        assert_eq!(capped["cp_cascade"]["data"]["step_limit"], 20);
+        assert!(has_lim(&capped["cp_cascade"], "capped at 20"));
+        for cprank in [
+            CpRankOpts {
+                simulate: Some("z".to_owned()),
+                ..Default::default()
+            },
+            CpRankOpts {
+                scale: Some(0.5),
+                ..Default::default()
+            },
+            CpRankOpts {
+                config: Some("free-admission".to_owned()),
+                ..Default::default()
+            },
+        ] {
+            let v = get(20, cprank);
+            let topic = &v["cp_cascade"];
+            assert_eq!(topic["status"], "refused");
+            assert!(topic["data"].is_null());
+            assert!(has_lim(topic, "not supported for this topic"));
+        }
+    }
+
+    #[test]
     fn declared_header_counts_gate_every_graph_topic_to_partial() {
         let (t, g) = (
             fixture("review-trace.json"),
@@ -1813,6 +2480,15 @@ mod tests {
             has_lim(cp, "declares 200 node row(s), 2 were loaded"),
             "{cp}"
         );
+        for topic in ["whatif", "cp_rank", "cp_cascade"] {
+            let tv = &v[topic];
+            assert_eq!(tv["status"], "partial", "{topic}: {tv}");
+            assert!(tv.get("bound").is_none(), "{topic}: {tv}");
+            assert!(
+                has_lim(tv, "conditional on the captured graph"),
+                "{topic}: {tv}"
+            );
+        }
         let h = &v["health"];
         assert_eq!(h["status"], "partial", "{h}");
         assert!(has_lim(h, "200 node row(s)"), "{h}");
@@ -1843,6 +2519,43 @@ mod tests {
             !v["health"]["limitations"].as_array().unwrap().is_empty(),
             "{}",
             v["health"]
+        );
+    }
+
+    #[test]
+    fn partial_join_drops_the_bound_from_every_savings_topic() {
+        let t = fixture("partial-trace.json");
+        let g = fixture("partial-graph.jsonl");
+        let v = run_export(
+            &t,
+            Some(&g),
+            &[
+                "critical-path",
+                "whatif",
+                "cp-rank",
+                "cp-cascade",
+                "retries",
+            ],
+        );
+        let cp = &v["critical_path"];
+        assert_eq!(cp["status"], "partial", "{cp}");
+        assert_eq!(cp["bound"], "lower", "{cp}");
+        assert_eq!(cov(cp, "actions-with-graph-nodes"), Some((1, 2)), "{cp}");
+        // the header names no run: said, not silently accepted
+        assert!(has_lim(cp, "could not be checked"), "{cp}");
+        for topic in ["whatif", "cp_rank", "cp_cascade"] {
+            let tv = &v[topic];
+            assert_eq!(tv["status"], "partial", "{topic}: {tv}");
+            assert!(tv.get("bound").is_none(), "{topic}: {tv}");
+            assert!(
+                has_lim(tv, "conditional on the captured graph"),
+                "{topic}: {tv}"
+            );
+        }
+        assert!(
+            !has_lim(&v["retries"], "conditional on the captured graph"),
+            "retries: {}",
+            v["retries"]
         );
     }
 

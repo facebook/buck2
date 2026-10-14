@@ -3259,6 +3259,19 @@ mod tests {
         let a = &x.args[0];
         assert!(a.iu.is_none(), "no sub-stage counters, so not instrumented");
         assert_eq!(a.iu_bytes_uploaded, Some(5_242_880));
+        let bytes = crate::transfer::TransferBytes {
+            bytes_in: a.bytes_in,
+            bytes_out: a.bytes_out,
+            iu_cas_call_us: a.iu.map(|s| s.cas_call_us),
+            iu_bytes: a.iu_bytes_uploaded,
+            iu_invalid: false,
+        };
+        let st = a.stages.expect("staged");
+        // 5 MiB at 100 MiB/s = 50 ms replaces the whole 3 s band
+        assert_eq!(
+            crate::transfer::transfer_delta(&st, bytes, (100i64 << 20) as f64),
+            Some(50_000 - 3_000_000)
+        );
     }
 
     #[test]

@@ -189,6 +189,7 @@ fn help_prints_to_stdout_and_succeeds() {
     ] {
         assert!(text.contains(heading), "--help has {heading}");
     }
+    assert!(text.contains("--cascade-steps=<N>") && text.contains("cp-cascade"));
     assert!(
         !text.contains('\x1b'),
         "no styling when stdout is not a terminal"
@@ -228,6 +229,7 @@ fn usage_and_unknown_topic_refuse_with_2() {
         assert_eq!(o.status.code(), Some(2));
         assert!(stderr(&o).contains("unknown --json topic"));
     }
+    assert!(stderr(&o).contains("cp-rank"), "lists the known set");
 
     // a mistyped flag must refuse, not silently fall through to the
     // default output as if it had worked
@@ -238,6 +240,12 @@ fn usage_and_unknown_topic_refuse_with_2() {
         "{}",
         stderr(&o)
     );
+
+    let o = run(&[&f, "--json=cp-rank", "--simulate=x", "--scale=nan"]);
+    assert_eq!(o.status.code(), Some(2));
+    assert!(stderr(&o).contains("finite factor"), "{}", stderr(&o));
+    let o = run(&[&f, "--json=cp-rank", "--simulate=x", "--scale=-1"]);
+    assert_eq!(o.status.code(), Some(2));
 }
 
 #[test]
@@ -272,7 +280,13 @@ fn command_only_logs_open_and_export_without_synthetic_actions() {
                 .unwrap()
                 .is_empty()
         );
-        for topic in ["critical_path", "longest", "top_memory"] {
+        for topic in [
+            "critical_path",
+            "cp_cascade",
+            "whatif",
+            "longest",
+            "top_memory",
+        ] {
             assert_eq!(value[topic]["status"], "refused", "{value}");
             assert!(
                 value[topic]["limitations"][0]
@@ -336,6 +350,39 @@ fn command_only_logs_open_and_export_without_synthetic_actions() {
         assert!(stdout(&stats).contains("not applicable: no completed actions"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
+}
+
+#[test]
+fn cp_cascade_json_recomputes_the_chain_and_honors_the_step_limit() {
+    let f = fixture("smoke-trace.json");
+    let first = run(&[&f, "--json=cp-cascade", "--cascade-steps=1", "--compact"]);
+    assert_eq!(first.status.code(), Some(0), "{}", stderr(&first));
+    let one: serde_json::Value = serde_json::from_str(&stdout(&first)).unwrap();
+    let d = &one["cp_cascade"]["data"];
+    assert_eq!(d["base_cp_us"], 1300);
+    assert_eq!(d["steps_completed"], 1);
+    assert_eq!(d["final_cp_us"], 800);
+    assert_eq!(d["rows"][0]["target"], "z (cxx_link)");
+    assert_eq!(d["rows"][0]["marginal_saved_us"], 500);
+    assert!(one["cp_cascade"].get("bound").is_none());
+    let full = run(&[
+        &f,
+        "--json=cp-cascade",
+        "--cascade-steps=20",
+        "--topk=999",
+        "--compact",
+    ]);
+    assert_eq!(full.status.code(), Some(0), "{}", stderr(&full));
+    let all: serde_json::Value = serde_json::from_str(&stdout(&full)).unwrap();
+    let d = &all["cp_cascade"]["data"];
+    assert_eq!(d["step_limit"], 20);
+    assert_eq!(d["steps_completed"], 3);
+    assert_eq!(d["final_cp_us"], 0);
+    assert_eq!(d["total_saved_us"], 1300);
+    assert_eq!(d["rows"][0], one["cp_cascade"]["data"]["rows"][0]);
+    let excessive = run(&[&f, "--json=cp-cascade", "--cascade-steps=21"]);
+    assert_eq!(excessive.status.code(), Some(2));
+    assert!(stderr(&excessive).contains("--cascade-steps wants an integer from 1 to 20"));
 }
 
 #[test]
@@ -425,6 +472,29 @@ fn json_all_topics_carry_the_envelope() {
     assert!(v.get("serial_chain").is_none());
 }
 
+/// Two actions, a graph that defines only one: the critical path over
+/// that graph is a lower bound and says so, but a saving replayed on it
+/// is not a bound in either direction, so the savings topics carry none.
+#[test]
+fn savings_topics_never_carry_a_bound_on_a_partial_graph() {
+    let f = fixture("partial-trace.json");
+    let o = run(&[
+        &f,
+        "--json=critical-path,whatif,cp-rank,cp-cascade",
+        "--compact",
+    ]);
+    assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
+    let v: serde_json::Value = serde_json::from_str(&stdout(&o)).expect("valid JSON");
+    assert_eq!(v["critical_path"]["status"], "partial");
+    assert_eq!(v["critical_path"]["bound"], "lower");
+    for topic in ["whatif", "cp_rank", "cp_cascade"] {
+        assert!(
+            v[topic].get("bound").is_none(),
+            "{topic} must not label a partial-graph saving a bound: {}",
+            v[topic]
+        );
+    }
+}
 #[test]
 fn corrupt_graph_explicit_refuses_and_discovered_degrades() {
     // a trace whose sibling graph has undefined refs and no torn lines
@@ -517,7 +587,7 @@ fn run_selection_contract_at_the_cli() {
     let selected = run(&[
         t.to_str().unwrap(),
         "--run=r2",
-        "--json=longest,critical-path,admission,top-memory",
+        "--json=longest,critical-path,cp-cascade,admission,top-memory",
         "--compact",
     ]);
     assert_eq!(selected.status.code(), Some(0), "{}", stderr(&selected));
@@ -528,6 +598,7 @@ fn run_selection_contract_at_the_cli() {
     for row in [
         &value["longest"]["data"][0],
         &value["critical_path"]["data"]["path"][0],
+        &value["cp_cascade"]["data"]["rows"][0],
     ] {
         assert_eq!(row["target"], "b", "{value}");
         assert_eq!(row["start_us"], 101, "{value}");
@@ -944,6 +1015,48 @@ fn ingest_refuses_flags_outside_its_own_set() {
     let o = run(&["ingest", &log_arg, &out_flag, "--phases"]);
     assert_eq!(o.status.code(), Some(0), "stderr: {}", stderr(&o));
     std::fs::remove_dir_all(&d).ok();
+}
+
+#[test]
+fn cp_rank_prices_an_exact_action_and_refuses_ambiguous_or_unmeasured_inputs() {
+    let trace = fixture("smoke-trace.json");
+    let output = run(&[
+        &trace,
+        "--json=cp-rank",
+        "--simulate=z (cxx_link)",
+        "--scale=0.5",
+        "--compact",
+    ]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["cp_rank"]["status"], "available");
+    let result = &value["cp_rank"]["data"]["simulate"];
+    assert_eq!(result["target"], "z (cxx_link)");
+    assert_eq!(result["matched"], 1);
+    assert_eq!(result["simulated_duration_us"], 400);
+    assert_eq!(result["cp_us"], 900);
+    assert_eq!(result["saved_us"], 400);
+
+    for (option, reason) in [
+        ("--simulate=(", "ambiguous"),
+        ("--simulate=missing", "no action matches"),
+        ("--simulate-config=free-admission", "no action node carries"),
+    ] {
+        let output = run(&[&trace, "--json=cp-rank", option, "--compact"]);
+        assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        let topic = &value["cp_rank"];
+        assert_eq!(topic["status"], "refused", "{value}");
+        assert!(topic["data"].is_null());
+        assert!(
+            topic["limitations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|l| l.as_str().unwrap().contains(reason)),
+            "{value}"
+        );
+    }
 }
 
 #[test]

@@ -29,6 +29,8 @@ pub mod lanes;
 mod parallelism;
 pub mod parse;
 pub mod quality;
+pub mod sim;
+pub mod transfer;
 pub mod types;
 
 /// Absolute path to a `testdata/` fixture, for both the in-crate tests
