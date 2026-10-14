@@ -104,7 +104,6 @@ use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 use tokio::sync::OnceCell;
 use tracing::Instrument;
-use variant_name::VariantName;
 
 use crate::active_commands::ActiveCommandDropGuard;
 use crate::ctx::BaseServerCommandContext;
@@ -675,7 +674,6 @@ impl TenantState {
             });
 
         let tags = vec![
-            format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
             // TODO(scottcao): Delete this tag since now hash all commands is always enabled.
             "hash-all-commands:true".to_owned(),
             format!(

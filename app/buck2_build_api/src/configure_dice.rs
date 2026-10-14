@@ -42,7 +42,6 @@ pub async fn configure_dice_for_buck(
     io: Arc<dyn IoProvider>,
     digest_config: DigestConfig,
     root_config: Option<&LegacyBuckConfig>,
-    detect_cycles: Option<DetectCycles>,
     tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
     buck_settings: BuckSettings,
     // Path to open pagable DICE storage at, or `None` to leave paging disabled.
@@ -51,21 +50,6 @@ pub async fn configure_dice_for_buck(
     pagable_storage_backend: PagableStorageBackend,
     defer_field_reads: bool,
 ) -> buck2_error::Result<(Arc<Dice>, BranchId)> {
-    let detect_cycles = detect_cycles.map_or_else(
-        || {
-            root_config
-                .and_then(|c| {
-                    c.parse::<DetectCycles>(BuckconfigKeyRef {
-                        section: "buck2",
-                        property: "detect_cycles",
-                    })
-                    .transpose()
-                })
-                .unwrap_or(Ok(DetectCycles::Enabled))
-        },
-        Ok,
-    )?;
-
     let mut dice = Dice::builder();
     dice.set_io_provider(io);
     dice.set_digest_config(digest_config);
@@ -110,7 +94,7 @@ pub async fn configure_dice_for_buck(
         dice.set_pagable_storage(storage);
     }
 
-    let dice = dice.build(detect_cycles);
+    let dice = dice.build(DetectCycles::Enabled);
     let root = dice.new_root().await;
     let mut dice_ctx = dice.updater(root);
     dice_ctx.set_none_cell_resolver()?;

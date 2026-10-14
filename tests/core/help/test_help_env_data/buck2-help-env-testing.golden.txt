@@ -86,7 +86,6 @@ BUCK_WRAPPER_START_TIME                        u64
 CI                                             bool                   false
 CODING_AGENT_METADATA                          String
 COMPLETION_VERIFY_LOCKFILE                     String
-DICE_DETECT_CYCLES_UNSTABLE                    DetectCycles
 ENFORCE_DISPATCHER_SET                         bool                   false
 FORCE_WANT_RESTART                             bool                   false
 SANDCASTLE                                     String

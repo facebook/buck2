@@ -43,7 +43,6 @@ use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_util::threads::thread_spawn;
 use buck2_util::tokio_runtime::new_tokio_runtime;
-use dice::DetectCycles;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::StreamExt;
@@ -249,7 +248,6 @@ impl DaemonCommand {
         fs_util::set_current_dir(paths.project_root().root()).categorize_internal()?;
 
         let server_init_ctx = BuckdServerInitPreferences {
-            detect_cycles: buck2_env!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
             enable_trace_io: self.enable_trace_io,
             reject_materializer_state: self.reject_materializer_state.map(|s| s.into()),
             daemon_startup_config: self.daemon_startup_config,
@@ -807,7 +805,6 @@ mod tests {
             <dyn LogConfigurationReloadHandle>::noop(),
             invocation_paths,
             BuckdServerInitPreferences {
-                detect_cycles: None,
                 enable_trace_io: false,
                 reject_materializer_state: None,
                 daemon_startup_config: DaemonStartupConfig::testing_empty(),

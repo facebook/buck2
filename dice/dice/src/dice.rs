@@ -310,13 +310,6 @@ impl Dice {
         }
     }
 
-    pub fn detect_cycles(&self) -> &DetectCycles {
-        match self.cycle_check_interval {
-            Some(_) => &DetectCycles::Enabled,
-            None => &DetectCycles::Disabled,
-        }
-    }
-
     /// Waits until dice is idle. See [`Dice::is_idle`] for what that means.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
         self.wait_for_idle_in(None)

@@ -17,6 +17,3 @@ ignore=ignored
 [build]
   lazy_cycle_detector = true
   execution_platforms = //:execution_platforms
-
-[buck2]
-  detect_cycles = disabled

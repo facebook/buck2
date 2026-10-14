@@ -86,7 +86,6 @@ use buck2_util::system_stats::num_cores;
 use buck2_util::system_stats::system_memory_stats;
 use buck2_util::threads::thread_spawn;
 use dice::BranchId;
-use dice::DetectCycles;
 use dice::Dice;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::drop::DropTogether;
@@ -237,7 +236,6 @@ impl DaemonShutdown {
 
 #[derive(Allocative)]
 pub struct BuckdServerInitPreferences {
-    pub detect_cycles: Option<DetectCycles>,
     pub enable_trace_io: bool,
     pub reject_materializer_state: Option<SqliteIdentity>,
     pub daemon_startup_config: DaemonStartupConfig,
@@ -247,7 +245,6 @@ pub struct BuckdServerInitPreferences {
 
 #[derive(Allocative)]
 pub(crate) struct TenantStateInitPreferences {
-    pub(crate) detect_cycles: Option<DetectCycles>,
     pub(crate) enable_trace_io: bool,
     pub(crate) reject_materializer_state: Option<SqliteIdentity>,
     pub(crate) daemon_startup_config: DaemonStartupConfig,
@@ -256,7 +253,6 @@ pub(crate) struct TenantStateInitPreferences {
 impl BuckdServerInitPreferences {
     pub(crate) fn split(self) -> (TenantStateInitPreferences, Option<String>) {
         let Self {
-            detect_cycles,
             enable_trace_io,
             reject_materializer_state,
             daemon_startup_config,
@@ -265,7 +261,6 @@ impl BuckdServerInitPreferences {
         } = self;
         (
             TenantStateInitPreferences {
-                detect_cycles,
                 enable_trace_io,
                 reject_materializer_state,
                 daemon_startup_config,
@@ -291,7 +286,6 @@ impl TenantStateInitPreferences {
             io,
             digest_config,
             Some(root_config),
-            self.detect_cycles,
             tenting_acl_provider,
             self.daemon_startup_config.buck_settings.dupe(),
             hydration.map(|_| dice_state_path),
