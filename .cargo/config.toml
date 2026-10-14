@@ -11,6 +11,16 @@ rustflags = ["--cfg", "tokio_unstable"]
 # @oss-disable: rev = "6dae86b6d4807acec081e6dc0a53167f57f8c0f4"
 # @oss-disable: replace-with = "vendored-sources"
 
+# @oss-disable: [source."git+https://github.com/arianvp/hyper?rev=13ed56aef2f6a61eadf7011b5ebaeb12a076b368"]
+# @oss-disable: git = "https://github.com/arianvp/hyper"
+# @oss-disable: rev = "13ed56aef2f6a61eadf7011b5ebaeb12a076b368"
+# @oss-disable: replace-with = "vendored-sources"
+
+# @oss-disable: [source."git+https://github.com/arianvp/tonic?rev=c9831346000aebd8b1d50b3ab0bffb42a6b5f616"]
+# @oss-disable: git = "https://github.com/arianvp/tonic"
+# @oss-disable: rev = "c9831346000aebd8b1d50b3ab0bffb42a6b5f616"
+# @oss-disable: replace-with = "vendored-sources"
+
 # @oss-disable: [source."git+https://github.com/dahosek/finl_unicode.git?rev=a1892f26245529f2ef3877a9ebd610c96cec07a6"]
 # @oss-disable: git = "https://github.com/dahosek/finl_unicode.git"
 # @oss-disable: rev = "a1892f26245529f2ef3877a9ebd610c96cec07a6"
@@ -21,9 +31,9 @@ rustflags = ["--cfg", "tokio_unstable"]
 # @oss-disable: rev = "f73ddb1002d51ae74c1b41670fae56bd5896b7a3"
 # @oss-disable: replace-with = "vendored-sources"
 
-# @oss-disable: [source."git+https://github.com/grpc/grpc-rust?rev=de65d0a48783869d89b7d8d4a65ce703f1612249"]
-# @oss-disable: git = "https://github.com/grpc/grpc-rust"
-# @oss-disable: rev = "de65d0a48783869d89b7d8d4a65ce703f1612249"
+# @oss-disable: [source."git+https://github.com/hyperium/h2?rev=e64c1662ebb14794fc19cbcbb5b5dd0f67925f27"]
+# @oss-disable: git = "https://github.com/hyperium/h2"
+# @oss-disable: rev = "e64c1662ebb14794fc19cbcbb5b5dd0f67925f27"
 # @oss-disable: replace-with = "vendored-sources"
 
 # @oss-disable: [source."git+https://github.com/jsgf/rust-bindgen?rev=4d385d21c160e6ee1f443aeb7e00528a1dc7fd44"]

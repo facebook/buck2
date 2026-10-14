@@ -4,10 +4,12 @@
 backtrace = { git = "https://github.com/rust-lang/backtrace-rs", rev = "df979dcf80027eb047d7bb9e0874710c15009f31" }
 bindgen = { git = "https://github.com/jsgf/rust-bindgen", rev = "4d385d21c160e6ee1f443aeb7e00528a1dc7fd44" }
 darwin-libproc = { git = "https://github.com/fbsource/darwin-libproc", rev = "f73ddb1002d51ae74c1b41670fae56bd5896b7a3" }
+h2 = { git = "https://github.com/hyperium/h2", rev = "e64c1662ebb14794fc19cbcbb5b5dd0f67925f27" }
+hyper = { git = "https://github.com/arianvp/hyper", rev = "13ed56aef2f6a61eadf7011b5ebaeb12a076b368" }
 perf-event = { version = "0.4", git = "https://github.com/Nero5023/perf-event.git", rev = "6dae86b6d4807acec081e6dc0a53167f57f8c0f4" }
 perf-event-open-sys = { version = "5.0", git = "https://github.com/Nero5023/perf-event.git", rev = "6dae86b6d4807acec081e6dc0a53167f57f8c0f4" }
 rustls-native-certs = { git = "https://github.com/rustls/rustls-native-certs", rev = "9734b4cc0bfa88224e0fc49867abafa1c56fa28d" }
-tonic = { git = "https://github.com/grpc/grpc-rust", rev = "de65d0a48783869d89b7d8d4a65ce703f1612249" }
+tonic = { git = "https://github.com/arianvp/tonic", rev = "c9831346000aebd8b1d50b3ab0bffb42a6b5f616" }
 wezterm-color-types = { git = "https://github.com/wezterm/wezterm.git", rev = "05343b387085842b434d267f91b6b0ec157e4331" }
 wezterm-dynamic = { git = "https://github.com/wezterm/wezterm.git", rev = "05343b387085842b434d267f91b6b0ec157e4331" }
 wezterm-input-types = { git = "https://github.com/wezterm/wezterm.git", rev = "05343b387085842b434d267f91b6b0ec157e4331" }
@@ -371,7 +373,7 @@ fxhash = "0.2.1"
 games = { path = "games" }
 glob = "0.3.4"
 globset = { version = "0.4.20", features = ["serde1"] }
-h2 = "0.4.19"
+h2 = "0.4.20"
 hashbrown = "0.17.1"
 hex = { version = "0.4.3", features = ["alloc"] }
 hmap = { version = "0.1.0", path = "gazebo/hmap" }
@@ -383,7 +385,7 @@ http-body-util = "0.1.5"
 httparse = "1.7.1"
 httptest = "0.16.4"
 humantime = "2.4.0"
-hyper = { version = "=1.11.0", features = ["client", "http1", "http2"] }
+hyper = { version = "=1.12.0", features = ["client", "http1", "http2"] }
 hyper-http-proxy = "1.2.0"
 hyper-rustls = { version = "0.27.10", features = ["http2"] }
 hyper-timeout = "0.5.2"
