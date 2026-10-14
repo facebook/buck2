@@ -44,12 +44,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 
 /** Tests {@link InstrumentationTestRunner} */
 public class InstrumentationTestRunnerTest {
+  private Process execProcessOverride = null;
 
   @Rule public final TemporaryPaths tmp = new TemporaryPaths();
 
@@ -230,6 +232,72 @@ public class InstrumentationTestRunnerTest {
     Assert.assertEquals(
         "{\"type\": {\"video_recording_test_artifact\": {}}, \"description\": \"video recording\"}",
         Files.readString(video_file_annotation));
+  }
+
+  @Test
+  public void videoRecordingThatDoesNotStopIsKilledAndRunCompletes() throws Throwable {
+    Map<String, String> env = new HashMap<>();
+    env.put("TEST_RESULT_ARTIFACTS_DIR", Files.createTempDirectory("ait-tra-").toString());
+    env.put(
+        "TEST_RESULT_ARTIFACT_ANNOTATIONS_DIR",
+        Files.createTempDirectory("ait-tra-annot-").toString());
+    HangingProcess hangingProcess = new HangingProcess();
+    execProcessOverride = hangingProcess;
+
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithDevice(new HashMap<>(), env, "--record-video");
+    runner.run();
+
+    Assert.assertTrue(hangingProcess.destroyed);
+  }
+
+  /** A process that never exits on its own, like a screenrecord session stuck while stopping. */
+  private static class HangingProcess extends Process {
+    boolean destroyed = false;
+
+    @Override
+    public OutputStream getOutputStream() {
+      return new java.io.ByteArrayOutputStream();
+    }
+
+    @Override
+    public InputStream getInputStream() {
+      return new ByteArrayInputStream(new byte[0]);
+    }
+
+    @Override
+    public InputStream getErrorStream() {
+      return new ByteArrayInputStream(new byte[0]);
+    }
+
+    @Override
+    public int waitFor() {
+      throw new AssertionError("waitFor() without a timeout would block forever");
+    }
+
+    @Override
+    public boolean waitFor(long timeout, TimeUnit unit) {
+      return destroyed;
+    }
+
+    @Override
+    public int exitValue() {
+      if (!destroyed) {
+        throw new IllegalThreadStateException();
+      }
+      return 137;
+    }
+
+    @Override
+    public void destroy() {
+      destroyed = true;
+    }
+
+    @Override
+    public Process destroyForcibly() {
+      destroyed = true;
+      return this;
+    }
   }
 
   @Test
@@ -1523,6 +1591,9 @@ public class InstrumentationTestRunnerTest {
 
           @Override
           public Process exec(String command) throws IOException {
+            if (execProcessOverride != null) {
+              return execProcessOverride;
+            }
             return new Process() {
               @Override
               public OutputStream getOutputStream() {
