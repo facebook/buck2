@@ -15,6 +15,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use thiserror::Error;
 
+use crate::cycles::CycleError;
 use crate::cycles::RequestedKey;
 
 #[derive(Clone, Dupe, Debug, Error, Allocative)]
@@ -40,6 +41,12 @@ impl DiceError {
 
     pub fn page_in_failed(key: String, source: Box<dyn StdError + Send + Sync>) -> Self {
         DiceError(Arc::new(DiceErrorImpl::PageInFailed { key, source }))
+    }
+}
+
+impl From<CycleError> for DiceError {
+    fn from(cycle: CycleError) -> Self {
+        DiceError(Arc::new(DiceErrorImpl::Cycle(cycle)))
     }
 }
 
@@ -69,6 +76,10 @@ pub enum DiceErrorImpl {
     },
     #[error("Activation data was already provided for this key")]
     DuplicateActivationData,
+    /// The requested key is in a dependency cycle with the requesting one, so neither can be
+    /// computed.
+    #[error("{0}")]
+    Cycle(CycleError),
 }
 
 pub type DiceResult<T> = Result<T, DiceError>;

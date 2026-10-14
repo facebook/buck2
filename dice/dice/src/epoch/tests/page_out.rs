@@ -1724,7 +1724,7 @@ async fn equal_revisions_get_distinct_paged_out_descriptors_across_versions() ->
     let key = dice.key_index.index_key(PagableKey(1));
     let old_value = old_eval
         .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await;
+        .await?;
     let old_descriptor = old_value
         .try_as_resident()
         .err()
@@ -1748,7 +1748,7 @@ async fn equal_revisions_get_distinct_paged_out_descriptors_across_versions() ->
     };
     let new_value = new_eval
         .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await;
+        .await?;
     let new_descriptor = new_value
         .try_as_resident()
         .err()
@@ -1813,7 +1813,8 @@ async fn recovery_demands_use_the_transaction_cache() {
     for (eval, recovered) in [(&first_eval, 100), (&second_eval, 200)] {
         let value = eval
             .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-            .await;
+            .await
+            .unwrap();
         let descriptor = value.try_as_resident().err().expect("paged out");
         assert!(
             descriptor
@@ -1878,7 +1879,7 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
     let key = dice.key_index.index_key(UnreadableValidatedKey);
     let validated = eval
         .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await;
+        .await?;
     assert!(validated.try_as_resident().is_err());
     assert_eq!(
         counter.count(),
@@ -1920,7 +1921,7 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
     );
     let checked = eval
         .bring_up_to_date(key, ParentKey::None, UserCycleDetectorData::testing_new())
-        .await;
+        .await?;
     assert!(std::ptr::eq(validated, checked));
     Ok(())
 }

@@ -186,6 +186,8 @@ pub(crate) struct ValueDemand {
 
 impl TransactionData {
     /// Establish the key's revision without demanding its payload.
+    ///
+    /// Fails if `key` turns out to be in a dependency cycle with `parent_key`, and only then.
     pub(crate) fn bring_up_to_date(
         &self,
         key: DiceKey,
@@ -229,7 +231,7 @@ impl TransactionData {
         // Look up the descriptor here so recovery can only use this transaction's cache.
         let value = self
             .bring_up_to_date(demand.key, demand.parent_key, demand.cycles.dupe())
-            .await;
+            .await?;
         let paged_out = match value.try_as_resident() {
             Ok(value) => return Ok(value),
             Err(paged_out) => paged_out,
@@ -320,7 +322,7 @@ impl TransactionData {
             PageInOutcome::Read(Ok(resident)) => Ok(resident.as_ref()),
             PageInOutcome::Read(Err(error)) => Err(error.dupe()),
             PageInOutcome::Recompute(recovery) => Ok(recovered_value(
-                self.follow_recovery(recovery, demand).await,
+                self.follow_recovery(recovery, demand).await?,
             )),
         }
     }
@@ -401,14 +403,26 @@ impl TransactionData {
                 //  3. This is insanity.
                 // `check_dependency`, the only caller that brings a projection key up to date,
                 // does so only once the base's value is resident.
+                //
+                // To cycle detection, this task is a node like any other: the dep checks waiting
+                // on it are the keys blocked on it, and this wait for the base is its one edge
+                // out, which is why the projection key is the parent of the wait. So it can be
+                // found in a cycle. When it is, the detector fails the cycle's other waits but
+                // never this one: there is nothing to do with an error here, and failing the
+                // waits of the cycle's regular keys breaks it all the same, every cycle having
+                // one (the base, for a start). This wait then gets whatever value the base
+                // finishes with. See `Member::fails` in `epoch::cycles`.
                 let base = self
                     .page_in(ValueDemand {
                         key: proj.base(),
-                        parent_key: ParentKey::Some(key), // the projection requests its base
+                        parent_key: ParentKey::Some(key),
                         cycles: cycles.subrequest(proj.base(), &self.dice.key_index),
                     })
                     .await
-                    .expect("dependency checks make a projection's base resident first");
+                    .expect(
+                        "dependency checks make a projection's base resident first, and cycle \
+                         detection never fails a projection key's wait",
+                    );
                 let result = self.evaluate_projection(
                     key,
                     base.value(),

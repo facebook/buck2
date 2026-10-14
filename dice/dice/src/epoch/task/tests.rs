@@ -126,7 +126,7 @@ async fn simple_task() -> anyhow::Result<()> {
 
     // now await on the task, and see that we wake up and complete
 
-    let v = promise.await;
+    let v = promise.await?;
     assert!(
         v.testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
@@ -220,7 +220,7 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
 
     can_terminate.notify_one();
 
-    let v = promise.await;
+    let v = promise.await?;
 
     assert!(task.is_ready());
     assert!(!task.is_cancelled());
@@ -308,6 +308,7 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
 
     let (v1, v2, v3, v4, v5) =
         futures::future::join5(promise1, promise2, promise3, promise4, promise5).await;
+    let (v1, v2, v3, v4, v5) = (v1?, v2?, v3?, v4?, v5?);
     assert!(
         v1.testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
@@ -505,8 +506,8 @@ async fn resident_task_shares_result_after_restart() -> anyhow::Result<()> {
         panic!("the restarted worker has not run yet");
     };
 
-    let first: &ResidentComputedValue = first.await;
-    let second: &ResidentComputedValue = second.await;
+    let first: &ResidentComputedValue = first.await?;
+    let second: &ResidentComputedValue = second.await?;
     assert!(
         std::ptr::eq(first, second),
         "dependents share the stored result"
@@ -582,7 +583,11 @@ fn concurrent_dependents_start_one_idle_task() {
                 .collect::<Vec<_>>();
             assert_eq!(starts, 1, "exactly one dependent starts the idle task");
             for promise in promises {
-                assert_eq!(*promise.await, 42, "all dependents share the worker result");
+                assert_eq!(
+                    *promise.await.unwrap(),
+                    42,
+                    "all dependents share the worker result"
+                );
             }
         });
     assert!(task.is_ready(), "the worker result remains available");

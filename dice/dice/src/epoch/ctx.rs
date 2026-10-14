@@ -829,7 +829,15 @@ impl<'d, K: Key> Future for ComputeOpaqueFuture<'d, K> {
                     key,
                     cycles,
                 } => {
-                    let value = std::task::ready!(promise.poll(cx));
+                    let value = match std::task::ready!(promise.poll(cx)) {
+                        Ok(value) => value,
+                        Err(cycle) => {
+                            // The dep goes unrecorded, as after a failed page-in, and the result
+                            // computed without it must likewise not be reused.
+                            compute.record_dependency_failure();
+                            return Poll::Ready(Err(cycle.into()));
+                        }
+                    };
                     if let Ok(resident) = value.try_as_resident() {
                         // Return from the poll that produced the resident value; the hot path
                         // needs neither a boxed future nor another future state transition.

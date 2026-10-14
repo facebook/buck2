@@ -12,6 +12,7 @@
 
 use std::time::Instant;
 
+use dice_error::cycles::CycleError;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::Future;
@@ -449,9 +450,16 @@ async fn check_dependency(
     // base that would have to be read is read here, where a failed read has an answer.
     if let DiceKeyErased::Projection(proj) = eval.dice.key_index.get(edge.key) {
         let base_cycles = cycles.subrequest(proj.base(), &eval.dice.key_index);
-        let base = eval
-            .bring_up_to_date(proj.base(), ParentKey::Some(edge.key), base_cycles.dupe())
-            .await;
+        // The checked key waits for the base here on the projection's behalf, so the wait is
+        // registered as its own: it is the one stuck if the base in turn waits on it. A cycle
+        // fails this wait like the one on the dep itself below.
+        let base = match eval
+            .bring_up_to_date(proj.base(), parent_key, base_cycles.dupe())
+            .await
+        {
+            Ok(base) => base,
+            Err(CycleError { .. }) => return CheckDependencyResult::Changed,
+        };
         // A demand recovery may have produced a transient base without changing the core
         // graph. Its old projection certificate is not evidence for this epoch's result.
         if base.revision().is_none() {
@@ -472,7 +480,7 @@ async fn check_dependency(
                     if !eval
                         .page_in(ValueDemand {
                             key: proj.base(),
-                            parent_key: ParentKey::Some(edge.key),
+                            parent_key,
                             cycles: base_cycles,
                         })
                         .await
@@ -494,7 +502,12 @@ async fn check_dependency(
             cycles.subrequest(edge.key, &eval.dice.key_index),
         )
         .await;
-    compare_revision(dep_result, &edge)
+    match dep_result {
+        Ok(dep_result) => compare_revision(dep_result, &edge),
+        // The dep is in a cycle with the key being checked, so no value of it is coming. The
+        // recompute this leads to runs into the same cycle and reports it.
+        Err(CycleError { .. }) => CheckDependencyResult::Changed,
+    }
 }
 
 fn compare_revision(

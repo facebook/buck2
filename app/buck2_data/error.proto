@@ -320,6 +320,7 @@ enum ErrorTag {
   DICE_UNEXPECTED_CYCLE_GUARD_TYPE = 1404;
   DICE_DUPLICATE_ACTIVATION_DATA = 1405;
   DICE_REJECTED = 1406;
+  DICE_CYCLE = 1407;
 
   // A field of a value paged back in from storage could not be read.
   DEFERRED_FIELD_READ = 1500;

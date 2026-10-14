@@ -311,7 +311,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         UserCycleDetectorData::testing_new(),
         None,
     );
-    let res = task.depended_on_by(ParentKey::None).unwrap().await;
+    let res = task.depended_on_by(ParentKey::None).unwrap().await?;
 
     let v = dice
         .state_handle
@@ -338,7 +338,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         UserCycleDetectorData::testing_new(),
         None,
     );
-    let res2 = task.depended_on_by(ParentKey::None).unwrap().await;
+    let res2 = task.depended_on_by(ParentKey::None).unwrap().await?;
 
     // verify that we incremented the total instance counter
     assert_eq!(instance.load(Ordering::SeqCst), 2);
@@ -382,7 +382,7 @@ async fn spawn_with_no_previously_cancelled_task() {
 
     let (task, _initial_promise) = spawn_task(k, eval, cycles, previously_cancelled_task);
 
-    task.depended_on_by(ParentKey::None).unwrap().await;
+    task.depended_on_by(ParentKey::None).unwrap().await.unwrap();
 
     assert!(is_ran.load(Ordering::SeqCst));
 }
@@ -440,7 +440,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let cycles = UserCycleDetectorData::testing_new();
     let (task, _initial_promise) = spawn_task(k, eval, cycles, previously_cancelled_task);
 
-    task.depended_on_by(ParentKey::None).unwrap().await;
+    task.depended_on_by(ParentKey::None).unwrap().await.unwrap();
 
     assert!(is_ran.load(Ordering::SeqCst));
 }
@@ -486,7 +486,11 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     let k = dice.key_index.index_key(Finish);
     let (previous_task, prev_task_promise) = spawn_task(k, eval.dupe(), cycles, None);
     // wait for it to finish then trigger cancel
-    previous_task.depended_on_by(ParentKey::None).unwrap().await;
+    previous_task
+        .depended_on_by(ParentKey::None)
+        .unwrap()
+        .await
+        .unwrap();
     drop(prev_task_promise);
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask::new(
@@ -498,7 +502,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     let cycles = UserCycleDetectorData::testing_new();
     let (task, _initial_promise) = spawn_task(k, eval, cycles, previously_cancelled_task);
 
-    task.depended_on_by(ParentKey::None).unwrap().await;
+    task.depended_on_by(ParentKey::None).unwrap().await.unwrap();
 
     // The previous generation finished (rather than actually cancelling), so `await_previous` reuses
     // its value instead of recomputing. The new key is therefore never evaluated — this is what
@@ -527,7 +531,7 @@ async fn writes_after_the_last_transaction_is_dropped_are_accepted() {
 
     let k = dice.key_index.index_key(Finish);
     let (task, _initial_promise) = spawn_task(k, eval.dupe(), cycles, None);
-    task.depended_on_by(ParentKey::None).unwrap().await;
+    task.depended_on_by(ParentKey::None).unwrap().await.unwrap();
 }
 
 #[tokio::test]
