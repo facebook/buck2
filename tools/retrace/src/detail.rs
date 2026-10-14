@@ -1038,7 +1038,8 @@ fn cancelled_attempt(args: &Value) -> Option<(bool, &str, i64, i64)> {
 }
 
 /// A cancelled attempt's stage, in words.
-fn attempt_phase(stage: &str) -> &str {
+/// A plain-language name for the stage a hybrid attempt was in.
+pub fn attempt_phase(stage: &str) -> &str {
     match stage {
         "Local.MaterializeInputs" => "preparing inputs on this machine",
         "Local.Execute" | "Local.WorkerExecute" => "running the command",

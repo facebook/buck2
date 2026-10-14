@@ -721,6 +721,9 @@ pub fn show_canvas(app: &mut Ready, root: &mut egui::Ui, nav: Option<usize>) {
                     app.clear_selection();
                     app.anc_set = None;
                 }
+                if i.key_pressed(egui::Key::Questionmark) || i.key_pressed(egui::Key::Slash) {
+                    app.panels.help = true;
+                }
                 if i.key_pressed(egui::Key::N) {
                     jump = if i.modifiers.shift { -1 } else { 1 };
                 }

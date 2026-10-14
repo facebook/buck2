@@ -17,6 +17,7 @@ pub mod canvas;
 pub mod command_ui;
 mod load_pipeline;
 pub mod open;
+pub mod panels;
 pub mod widgets;
 
 use std::collections::HashMap;
@@ -28,7 +29,9 @@ use std::sync::mpsc;
 use std::time::Instant;
 
 pub use load_pipeline::LoadedTrace;
+use widgets::popup_raise;
 
+use crate::analyses;
 use crate::config;
 use crate::dag;
 use crate::detail;
@@ -37,8 +40,10 @@ use crate::humanize;
 use crate::ingest;
 use crate::parse;
 use crate::quality;
+use crate::sim;
 use crate::types::CLASS_NAMES;
 use crate::types::F_CACHE_HIT;
+use crate::types::F_FAILED;
 use crate::types::F_NOT_RECIPE;
 use crate::types::Trace;
 
@@ -174,10 +179,281 @@ fn load_digest_index(tr: &Trace, cancel: &AtomicBool) -> anyhow::Result<Vec<Opti
     Ok(index)
 }
 
-/// The worst input-upload permit waits, each paired with the act index
-/// it opens; the index is `None` where the waiting action is not in the
-/// trace.
+/// Upload rows named for display, each paired with the act index it
+/// opens; the index is `None` where the action is not in the trace.
 pub type UploadWaits = Vec<(String, Option<usize>)>;
+
+/// Compact admission weights retained after temporary decoded extras are released.
+pub struct AdmissionWeights {
+    pub weights: Vec<i64>,
+    pub n_recorded: usize,
+    pub n_actions: usize,
+    pub n_modified: usize,
+}
+
+/// Advanced reports are independent requests. Completed empty reports also
+/// count, so missing graph data does not cause repeated work or a spinner.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AnalysisReports {
+    whatif: bool,
+    findings: bool,
+    blast: bool,
+}
+
+impl AnalysisReports {
+    const ALL: Self = Self {
+        whatif: true,
+        findings: true,
+        blast: true,
+    };
+
+    fn for_panels(panels: &Panels) -> Self {
+        Self {
+            whatif: panels.whatif,
+            findings: panels.findings,
+            blast: panels.blast,
+        }
+    }
+
+    fn include(&mut self, other: Self) {
+        self.whatif |= other.whatif;
+        self.findings |= other.findings;
+        self.blast |= other.blast;
+    }
+
+    fn pending(self, completed: Self) -> Self {
+        Self {
+            whatif: self.whatif && !completed.whatif,
+            findings: self.findings && !completed.findings,
+            blast: self.blast && !completed.blast,
+        }
+    }
+}
+
+/// Compact report results, computed on a worker. Expensive replay reports
+/// are requested separately from the base overview; transient Facts/Extras
+/// are released after each pass rather than retained for the whole session.
+pub struct Analysis {
+    pub reports: AnalysisReports,
+    pub admission: Option<Arc<AdmissionWeights>>,
+    pub ov_rows: Vec<analyses::OverviewRow>,
+    pub breakdown: Vec<analyses::BreakdownRow>,
+    pub rule_sites: Vec<analyses::RuleSiteRow>,
+    pub top_mem: Vec<(analyses::MemRow, Option<usize>)>,
+    pub queue: Option<(analyses::QueueOverview, Option<usize>, String)>,
+    pub peers: Vec<analyses::PeerRow>,
+    pub stall: analyses::StallReport,
+    /// cohort samples resolved to act indices, parallel to
+    /// `stall.cohorts`
+    pub stall_samples: Vec<Option<usize>>,
+    pub extras_unmatched: usize,
+    /// sorted per-category duration distributions — the same data the
+    /// peers table shows, kept for the detail popup's rank line
+    pub peer_durs: fxhash::FxHashMap<String, Vec<i64>>,
+    /// build-median effective input-fetch rate over >10 MiB transfers
+    /// (bytes/s), for the popup's rate-in-context line
+    pub fetch_med_bps: Option<f64>,
+    /// CP-replay scenarios; `None` when no DAG was stitched yet
+    pub whatif: Option<crate::sim::WhatIfReport>,
+    /// retry census + each row's act index for navigation
+    pub retries: Option<(crate::analyses::RetryCensus, Vec<Option<usize>>)>,
+    /// attempts that lost a local-vs-remote race + each row's act index
+    pub cancelled: Option<(crate::analyses::CancelledCensus, Vec<Option<usize>>)>,
+    /// ranked findings + rows' act indices for navigation (opportunities
+    /// degrade to bounds when the DAG was not stitched yet)
+    pub findings: Option<(crate::findings::FindingsReport, Vec<Option<usize>>)>,
+    /// top blast-radius candidates by recorded descendant path cost; `None`
+    /// when no DAG was stitched yet
+    pub blast: Option<Vec<crate::blast::Blast>>,
+    /// input-upload sub-stage breakdown and its click-through targets: the
+    /// worst permit waits, then the uploads that waited beside a local attempt
+    pub upload: Option<(crate::upload::UploadReport, UploadWaits, UploadWaits)>,
+}
+
+impl Analysis {
+    /// A new pass computes only missing reports. Move the compact earlier
+    /// results forward without retaining their Facts/Extras or replaying them.
+    fn retain_completed_reports(&mut self, previous: &mut Self) {
+        if !self.reports.whatif {
+            self.whatif = previous.whatif.take();
+        }
+        if !self.reports.findings {
+            self.findings = previous.findings.take();
+        }
+        if !self.reports.blast {
+            self.blast = previous.blast.take();
+        }
+        self.reports.include(previous.reports);
+    }
+}
+
+/// The panel computation, callable synchronously (tests) or from the
+/// worker thread (`ensure_analysis`).
+pub fn compute_analysis(
+    tr: &Trace,
+    g: Option<&graph::Graph>,
+    bundle: Option<&dag::DagBundle>,
+    run_id: Option<&str>,
+) -> anyhow::Result<Analysis> {
+    let summary = g.map(|g| GraphSummary::new(g, g_and_chain(tr, g, run_id)));
+    compute_analysis_cancellable(
+        tr,
+        summary.as_ref(),
+        bundle,
+        run_id,
+        AnalysisReports::ALL,
+        &|| false,
+    )
+}
+
+// Match the displayed path's tie-breaking in the window and headless reports.
+fn g_and_chain(tr: &Trace, g: &graph::Graph, run: Option<&str>) -> Option<dag::CpChain> {
+    dag::build_full(tr, g, run).map(|(b, st)| dag::chain_from_bundle(&b, &st))
+}
+
+fn compute_analysis_cancellable(
+    tr: &Trace,
+    g: Option<&GraphSummary>,
+    bundle: Option<&dag::DagBundle>,
+    run_id: Option<&str>,
+    reports: AnalysisReports,
+    cancel: &dyn Fn() -> bool,
+) -> anyhow::Result<Analysis> {
+    anyhow::ensure!(!cancel(), "analysis canceled");
+    let x = analyses::load_extras_cancellable(tr, cancel)?;
+    if let Some(e) = &x.source_error {
+        anyhow::bail!("{e}");
+    }
+    if let Some(g) = g {
+        graph::check_trace_pair(tr, run_id, &g.meta)?;
+    }
+    let f = analyses::Facts::for_run(tr, &x, run_id)?;
+    let resolve = |ev: u32| -> Option<usize> { f.ev.get(ev as usize).map(|&a| a as usize) };
+    let o = analyses::overview_facts(&f);
+    let chain = g.and_then(|g| g.chain.as_ref());
+    let ov_rows = analyses::overview_rows(&f, &o, chain, &fmt_when_local);
+    let top_mem = analyses::top_memory(&f, analyses::TOP_MEMORY_N)
+        .into_iter()
+        .map(|r| {
+            let a = resolve(r.ev);
+            (r, a)
+        })
+        .collect();
+    let queue = analyses::queue_overview(&f).map(|q| {
+        let a = resolve(q.max_ev);
+        let name = f.name(q.max_ev).to_owned();
+        (q, a, name)
+    });
+    let stall = analyses::stall_audit(&f);
+    let stall_samples = stall.cohorts.iter().map(|c| resolve(c.sample)).collect();
+    let ps = analyses::peer_stats(&f);
+    let peers = ps.table(&f);
+    let peer_durs = ps.into_named(&f);
+    anyhow::ensure!(!cancel(), "analysis canceled");
+    let sim_input = bundle.map(|b| crate::sim::sim_input(b, &x));
+    let admission = sim_input.as_ref().map(|si| {
+        let (weights, n_modified) = sim::w_free_admission(si);
+        let (n_recorded, n_actions) = sim::admission_coverage(si);
+        Arc::new(AdmissionWeights {
+            weights,
+            n_recorded,
+            n_actions,
+            n_modified,
+        })
+    });
+    let whatif = if reports.whatif {
+        bundle
+            .zip(sim_input.as_ref())
+            .map(|(b, si)| {
+                crate::sim::standard_whatifs_cancellable(b, si, &|| cancel())
+                    .ok_or_else(|| anyhow::anyhow!("analysis canceled"))
+            })
+            .transpose()?
+    } else {
+        None
+    };
+    anyhow::ensure!(!cancel(), "analysis canceled");
+    let retries = analyses::retry_census(&f, usize::MAX).map(|c| {
+        let acts = c.rows.iter().map(|r| resolve(r.ev)).collect();
+        (c, acts)
+    });
+    let cancelled = analyses::cancelled_census(&f).map(|c| {
+        let acts = c.rows.iter().map(|r| resolve(r.ev)).collect();
+        (c, acts)
+    });
+    let findings = if reports.findings {
+        let d = bundle
+            .zip(sim_input.as_ref())
+            .map(|(b, si)| {
+                crate::findings::DagCtx::new_cancellable(b, si, &|| cancel())
+                    .ok_or_else(|| anyhow::anyhow!("analysis canceled"))
+            })
+            .transpose()?;
+        let rep = crate::findings::findings_cancellable(&f, d.as_ref(), &|| cancel())
+            .ok_or_else(|| anyhow::anyhow!("analysis canceled"))?;
+        let acts: Vec<Option<usize>> = rep.rows.iter().map(|r| r.ev.and_then(resolve)).collect();
+        Some((rep, acts))
+    } else {
+        None
+    };
+    anyhow::ensure!(!cancel(), "analysis canceled");
+    let blast = if reports.blast {
+        bundle
+            .map(|b| {
+                let bi = crate::blast::BlastIndex::new_cancellable(b, tr, &x, &|| cancel())
+                    .ok_or_else(|| anyhow::anyhow!("analysis canceled"))?;
+                bi.top_candidates_cancellable(b, &x, crate::blast::MAX_CANDIDATES, &|| cancel())
+                    .ok_or_else(|| anyhow::anyhow!("analysis canceled"))
+            })
+            .transpose()?
+    } else {
+        None
+    };
+    anyhow::ensure!(!cancel(), "analysis canceled");
+    let upload = crate::upload::upload_report(&f).map(|r| {
+        let named = |rows: &[(u32, i64)]| -> UploadWaits {
+            rows.iter()
+                .map(|&(e, _)| (f.name(e).to_owned(), resolve(e)))
+                .collect()
+        };
+        let tops = named(&r.top_wait);
+        let race = named(&r.local_race);
+        (r, tops, race)
+    });
+    Ok(Analysis {
+        reports,
+        admission,
+        retries,
+        cancelled,
+        ov_rows,
+        breakdown: analyses::breakdown(&f),
+        rule_sites: analyses::rule_sites(&f, analyses::RULE_SITES_N),
+        top_mem,
+        queue,
+        peers,
+        stall,
+        stall_samples,
+        extras_unmatched: x.unmatched,
+        peer_durs,
+        fetch_med_bps: analyses::fetch_rate_median(&f),
+        whatif,
+        findings,
+        blast,
+        upload,
+    })
+}
+
+/// The overview's `Date` row renders the run's wall clock in the local
+/// zone with its abbreviation ("Wed 2026-08-27 17:30:00 PDT"); UTC
+/// fallback when the timestamp or the system zone is unusable.
+pub fn fmt_when_local(us: i64) -> String {
+    let Ok(ts) = jiff::Timestamp::from_microsecond(us) else {
+        return analyses::fmt_when_utc(us);
+    };
+    let z = ts.to_zoned(jiff::tz::TimeZone::system());
+    jiff::fmt::strtime::format("%a %Y-%m-%d %H:%M:%S %Z", &z)
+        .unwrap_or_else(|_| analyses::fmt_when_utc(us))
+}
 
 /// Once stitching is complete the viewer needs counts and provenance, not
 /// another copy of every target name and dependency edge.
@@ -258,6 +534,31 @@ pub(crate) fn quality_chips(q: &quality::Quality) -> Vec<(String, egui::Color32)
     chips
 }
 
+#[derive(Default)]
+pub struct Panels {
+    pub overview: bool,
+    pub longest: bool,
+    pub failed: bool,
+    pub retried: bool,
+    pub cancelled: bool,
+    pub breakdown: bool,
+    pub top_mem: bool,
+    pub rule_sites: bool,
+    pub whatif: bool,
+    pub findings: bool,
+    pub blast: bool,
+    pub upload: bool,
+    pub peers: bool,
+    pub stall: bool,
+    pub health: bool,
+    pub help: bool,
+    pub glossary: bool,
+}
+
+/// Opens one Analysis-menu panel. Every menu entry carries its own
+/// opener, so an entry cannot be written for a panel that does not exist.
+type PanelOpener = fn(&mut Ready);
+
 pub struct Ready {
     pub command_view: command_ui::State,
     pub tr: Arc<Trace>,
@@ -305,6 +606,11 @@ pub struct Ready {
     /// recipe action count (prompt context)
     pub n_events: usize,
     selected_class_count: [usize; config::CLASS_N],
+    pub panels: Panels,
+    pub longest: Vec<usize>,
+    /// What each of `longest` moved, read from its record when the list is built
+    pub longest_data: HashMap<usize, detail::DataMoved>,
+    pub failed_list: Vec<usize>,
     pub cp_list: Vec<usize>,
     /// act -> lowercase RE digest, built lazily by `ensure_digest_ix`
     pub digest_ix: Option<Vec<Option<String>>>,
@@ -333,6 +639,18 @@ pub struct Ready {
     pub open_warnings: Vec<String>,
     pub open_status_lines: Vec<String>,
     pub toast: Option<(String, Instant)>,
+    pub an: Option<Box<Analysis>>,
+    pub an_running: Option<Worker<anyhow::Result<Box<Analysis>>>>,
+    analysis_requested: bool,
+    analysis_reports_requested: AnalysisReports,
+    /// the current `an`/`an_running` was computed without the graph
+    /// (kicked off while it was still loading)
+    pub an_lacks_graph: bool,
+    /// a failed (or panicked) analysis worker, rendered wherever a
+    /// panel would otherwise spin forever
+    pub an_error: Option<String>,
+    pub ov_sort: (u8, bool),
+    pub sorts: HashMap<&'static str, (u8, bool)>,
     pub cp_set: Option<HashSet<usize>>,
 }
 
@@ -454,6 +772,13 @@ impl Ready {
                 selected_class_count[(a.color as usize).min(config::CLASS_N - 1)] += 1;
             }
         }
+        let failed_list = tr
+            .acts
+            .iter()
+            .enumerate()
+            .filter(|(_, a)| a.flags & F_FAILED != 0 && tr.action_in_run(a, run_id.as_deref()))
+            .map(|(i, _)| i)
+            .collect();
         Ready {
             command_view,
             tr: Arc::new(tr),
@@ -487,6 +812,10 @@ impl Ready {
             anc_set: None,
             n_events: n_events_v,
             selected_class_count,
+            panels: Panels::default(),
+            longest: Vec::new(),
+            longest_data: HashMap::new(),
+            failed_list,
             cp_list: Vec::new(),
             digest_ix: None,
             digest_running: None,
@@ -503,12 +832,23 @@ impl Ready {
             open_warnings: Vec::new(),
             open_status_lines: Vec::new(),
             toast: None,
+            an: None,
+            an_running: None,
+            analysis_requested: false,
+            analysis_reports_requested: AnalysisReports::default(),
+            an_lacks_graph: false,
+            an_error: None,
+            ov_sort: (2, true),
+            sorts: HashMap::new(),
             cp_set: None,
         }
     }
 
-    /// What the menu bar's "Close popups" does.
+    /// What the menu bar's "Close popups" does. Popup open-state that
+    /// lives outside `Panels` has to be cleared here as well, or the
+    /// button leaves those windows on screen while claiming otherwise.
     pub fn close_all_popups(&mut self) {
+        self.panels = Panels::default();
         self.find_open = false;
     }
 
@@ -686,6 +1026,57 @@ impl Ready {
         self.navigate(idx, width, view_h);
     }
 
+    /// Kick the shared analysis computation if it is not already done or
+    /// in flight. Every Analysis-menu item calls this.
+    pub fn ensure_analysis(&mut self) {
+        self.analysis_requested = true;
+        self.analysis_reports_requested
+            .include(AnalysisReports::for_panels(&self.panels));
+        let completed = self
+            .an
+            .as_ref()
+            .map_or(AnalysisReports::default(), |an| an.reports);
+        let reports = self.analysis_reports_requested.pending(completed);
+        if (self.an.is_some() && reports == AnalysisReports::default()) || self.an_running.is_some()
+        {
+            return;
+        }
+        // A pending graph would invalidate a graphless analysis immediately.
+        if matches!(self.gstate, GState::Loading(_) | GState::Building(_)) {
+            return;
+        }
+        self.an_error = None;
+        let (tx, rx, cancel) = Worker::channel();
+        let tr = self.tr.clone();
+        let run_id = self.run_id.clone();
+        let (g, bundle) = match &self.gstate {
+            GState::Ready { g, dag, .. } => (Some(g.clone()), dag.clone()),
+            _ => (None, None),
+        };
+        self.an_lacks_graph = g.is_none();
+        let started = std::thread::Builder::new()
+            .name("retrace-analysis".into())
+            .spawn(move || {
+                drop(
+                    tx.send(
+                        compute_analysis_cancellable(
+                            &tr,
+                            g.as_deref(),
+                            bundle.as_deref(),
+                            run_id.as_deref(),
+                            reports,
+                            &|| cancel.load(Ordering::Relaxed),
+                        )
+                        .map(Box::new),
+                    ),
+                );
+            });
+        match started {
+            Ok(_) => self.an_running = Some(rx),
+            Err(e) => self.an_error = Some(format!("cannot start analysis worker: {e}")),
+        }
+    }
+
     pub fn poll_graph(&mut self) {
         match &self.gstate {
             GState::Loading(rx) => {
@@ -771,6 +1162,13 @@ impl Ready {
                         dag,
                         quality: Box::new(quality),
                     };
+                    if self.an_lacks_graph {
+                        self.an = None;
+                        self.an_running = None;
+                    }
+                    if self.analysis_requested {
+                        self.ensure_analysis();
+                    }
                 }
             },
             _ => {}
@@ -786,6 +1184,9 @@ impl Ready {
             self.toast = Some((warning.clone(), Instant::now()));
             self.graph_warning = Some(warning);
             self.gstate = GState::Absent;
+        }
+        if self.analysis_requested {
+            self.ensure_analysis();
         }
     }
 }
@@ -1295,6 +1696,34 @@ pub fn update_ready(app: &mut Ready, root: &mut egui::Ui) {
     if matches!(app.gstate, GState::Loading(_) | GState::Building(_)) {
         ctx.request_repaint_after(std::time::Duration::from_millis(120));
     }
+    if let Some(rx) = &app.an_running {
+        match rx.try_recv() {
+            Ok(Ok(mut an)) => {
+                if let Some(previous) = app.an.as_deref_mut() {
+                    an.retain_completed_reports(previous);
+                }
+                app.an = Some(an);
+                app.an_running = None;
+                // A panel opened while this worker ran may need another
+                // report. Preserve completed reports and launch only that gap.
+                app.ensure_analysis();
+            }
+            Ok(Err(e)) => {
+                app.an_error = Some(format!("{e:#}"));
+                app.an_running = None;
+            }
+            // a worker that panicked drops its sender without a send;
+            // swallowing that would leave every panel spinning forever
+            // behind a busy repaint loop
+            Err(mpsc::TryRecvError::Disconnected) => {
+                app.an_error = Some("the analysis worker panicked; see stderr".to_owned());
+                app.an_running = None;
+            }
+            Err(mpsc::TryRecvError::Empty) => {
+                ctx.request_repaint_after(std::time::Duration::from_millis(100));
+            }
+        }
+    }
 
     // ---- health banner (capture warnings are never silent) ----
     if !app.open_warnings.is_empty() || !app.open_status_lines.is_empty() {
@@ -1339,14 +1768,16 @@ pub fn update_ready(app: &mut Ready, root: &mut egui::Ui) {
         app.conc_max = m;
     }
 
-    menu_bar(app, root);
+    menu_bar(app, root, ctx);
     show_toast(app, ctx);
     if app.command_view.actions.is_none() {
+        panels::show_panels(app, ctx);
         egui::CentralPanel::default().show(root, |ui| {
             ui.label("No completed actions were recorded for this command.");
         });
         return;
     }
+    panels::show_panels(app, ctx);
     let nav = app.nav_req.take();
     canvas::show_minimap(app, root);
     canvas::show_canvas(app, root, nav);
@@ -1376,10 +1807,130 @@ fn show_toast(app: &mut Ready, ctx: &egui::Context) {
     }
 }
 
-fn menu_bar(app: &mut Ready, root: &mut egui::Ui) {
+fn menu_bar(app: &mut Ready, root: &mut egui::Ui, ctx: &egui::Context) {
     egui::Panel::top("bar").show(root, |ui| {
         ui.horizontal(|ui| {
             ui.menu_button("Open", |ui| open::menu(app, ui));
+            ui.menu_button("Analysis", |ui| {
+                if app.command_view.actions.is_none() {
+                    ui.add_enabled(false, egui::Button::new("Critical Path"))
+                        .on_disabled_hover_text(
+                            "Not applicable: no completed actions are attributed to this command.",
+                        );
+                    ui.add_enabled(false, egui::Button::new("Simulation"))
+                        .on_disabled_hover_text(
+                            "Simulation requires a recorded action dependency graph.",
+                        );
+                    return;
+                }
+                if ui.button("Build Overview").clicked() {
+                    app.panels.overview = true;
+                    popup_raise(ctx, "Build overview");
+                    app.ensure_analysis();
+                    ui.close();
+                }
+                ui.separator();
+                let analyses: [(&str, PanelOpener); 9] = [
+                    ("Build breakdown by type", |r| r.panels.breakdown = true),
+                    ("Busiest categories", |r| r.panels.rule_sites = true),
+                    ("Exec-peer percentiles", |r| r.panels.peers = true),
+                    ("Top memory (peak RSS)", |r| r.panels.top_mem = true),
+                    ("What-if: CP-replay scenarios", |r| {
+                        r.panels.whatif = true;
+                    }),
+                    ("Ranked findings", |r| {
+                        r.panels.findings = true;
+                    }),
+                    ("Blast radius (recorded descendant cost)", |r| {
+                        r.panels.blast = true;
+                    }),
+                    ("Upload breakdown (inputs lane)", |r| r.panels.upload = true),
+                    ("Unaccounted time (stall audit)", |r| r.panels.stall = true),
+                ];
+                for (label, open) in analyses {
+                    if ui.button(label).clicked() {
+                        open(app);
+                        popup_raise(ctx, label);
+                        app.ensure_analysis();
+                        ui.close();
+                    }
+                }
+                ui.separator();
+                if ui.button("Longest actions").clicked() {
+                    if app.longest.is_empty() {
+                        let mut idx: Vec<usize> = (0..app.tr.acts.len())
+                            .filter(|&i| {
+                                app.tr.acts[i].flags & F_NOT_RECIPE == 0
+                                    && app.tr.action_in_run(&app.tr.acts[i], app.run_id.as_deref())
+                            })
+                            .collect();
+                        idx.sort_unstable_by_key(|&i| std::cmp::Reverse(app.tr.acts[i].dur));
+                        idx.truncate(60);
+                        app.longest_data = idx
+                            .iter()
+                            .filter_map(|&i| {
+                                let a = &app.tr.acts[i];
+                                let record = load_full(&app.tr, a.off, a.len)?;
+                                Some((i, detail::DataMoved::of(&record["args"])))
+                            })
+                            .collect();
+                        app.longest = idx;
+                    }
+                    app.panels.longest = true;
+                    popup_raise(ctx, "Longest actions");
+                    ui.close();
+                }
+                if ui
+                    .add_enabled(
+                        !app.failed_list.is_empty(),
+                        egui::Button::new(format!("Failed actions ({})", app.failed_list.len())),
+                    )
+                    .clicked()
+                {
+                    app.panels.failed = true;
+                    popup_raise(ctx, "Failed actions");
+                    ui.close();
+                }
+                {
+                    let n = app
+                        .an
+                        .as_ref()
+                        .and_then(|a| a.retries.as_ref())
+                        .map(|(c, _)| c.actions)
+                        .unwrap_or(0);
+                    if ui
+                        .add_enabled(n > 0, egui::Button::new(format!("Retried actions ({n})")))
+                        .clicked()
+                    {
+                        app.panels.retried = true;
+                        popup_raise(ctx, "Retried actions");
+                        ui.close();
+                    }
+                }
+                {
+                    let n = app
+                        .an
+                        .as_ref()
+                        .and_then(|a| a.cancelled.as_ref())
+                        .map(|(c, _)| c.actions)
+                        .unwrap_or(0);
+                    if ui
+                        .add_enabled(
+                            n > 0,
+                            egui::Button::new(format!("Cancelled attempts ({n})")),
+                        )
+                        .on_hover_text(
+                            "Actions where buck2 raced a local and a remote attempt and \
+                             cancelled the one that lost",
+                        )
+                        .clicked()
+                    {
+                        app.panels.cancelled = true;
+                        popup_raise(ctx, "Cancelled attempts");
+                        ui.close();
+                    }
+                }
+            });
             ui.menu_button("View", |ui| {
                 {
                     let mut embedded = !app.native_popups;
@@ -1407,6 +1958,21 @@ fn menu_bar(app: &mut Ready, root: &mut egui::Ui) {
                 {
                     app.find_open = true;
                     app.find_focus = true;
+                    ui.close();
+                }
+                if ui
+                    .add_enabled(
+                        app.command_view.actions.is_some(),
+                        egui::Button::new("Stage glossary"),
+                    )
+                    .clicked()
+                {
+                    app.panels.glossary = true;
+                    popup_raise(ctx, "Stage glossary");
+                    ui.close();
+                }
+                if ui.button("Parts of the window, and keys  ?").clicked() {
+                    app.panels.help = true;
                     ui.close();
                 }
             });
@@ -1444,6 +2010,25 @@ fn menu_bar(app: &mut Ready, root: &mut egui::Ui) {
                     format!("▲ {} warning(s)", app.tr.health.warnings.len()),
                     egui::Color32::from_rgb(0xf5, 0xe1, 0x9c),
                 ));
+            }
+            if let Some(an) = &app.an {
+                if an.extras_unmatched > 0 {
+                    chips.push((
+                        format!("args {} unmatched", an.extras_unmatched),
+                        egui::Color32::from_rgb(0xf5, 0xe1, 0x9c),
+                    ));
+                }
+                let st = &an.stall;
+                if st.with_stages < st.nacts {
+                    chips.push((
+                        format!(
+                            "stages {}/{}",
+                            humanize::count(st.with_stages as u64),
+                            humanize::count(st.nacts as u64)
+                        ),
+                        egui::Color32::from_gray(0xe0),
+                    ));
+                }
             }
             // capture and outcome chips come from the trace alone, so they
             // show before and without a graph
@@ -1509,12 +2094,23 @@ fn menu_bar(app: &mut Ready, root: &mut egui::Ui) {
             };
             chips.push(gchip);
             for (text, color) in chips {
-                ui.label(
-                    egui::RichText::new(text)
-                        .background_color(color)
-                        .color(egui::Color32::BLACK)
-                        .size(10.0),
-                );
+                if ui
+                    .add(
+                        egui::Label::new(
+                            egui::RichText::new(text)
+                                .background_color(color)
+                                .color(egui::Color32::BLACK)
+                                .size(10.0),
+                        )
+                        .sense(egui::Sense::click()),
+                    )
+                    .on_hover_text("click for capture health detail")
+                    .clicked()
+                {
+                    app.panels.health = true;
+                    popup_raise(ctx, "Capture health");
+                    app.ensure_analysis();
+                }
             }
         });
     });
@@ -1953,13 +2549,144 @@ mod tests {
         Ready::new(tr, None)
     }
 
+    #[test]
+    fn overview_does_not_request_advanced_replay_reports() {
+        let (app, _source) = analysis_app();
+        let base = compute_analysis_cancellable(
+            &app.tr,
+            None,
+            None,
+            None,
+            AnalysisReports::default(),
+            &|| false,
+        )
+        .unwrap();
+        assert_eq!(base.reports, AnalysisReports::default());
+        assert!(base.whatif.is_none() && base.findings.is_none() && base.blast.is_none());
+        let full = compute_analysis(&app.tr, None, None, None).unwrap();
+        assert_eq!(full.reports, AnalysisReports::ALL);
+        assert!(full.findings.is_some());
+        assert_eq!(base.ov_rows, full.ov_rows);
+    }
+
+    #[test]
+    fn report_demand_tracks_panels_independently() {
+        let mut panels = Panels {
+            whatif: true,
+            ..Panels::default()
+        };
+        let whatif = AnalysisReports::for_panels(&panels);
+        assert!(whatif.whatif && !whatif.findings && !whatif.blast);
+
+        panels.whatif = false;
+        panels.findings = true;
+        let findings = AnalysisReports::for_panels(&panels);
+        assert!(!findings.whatif && findings.findings && !findings.blast);
+
+        panels.findings = false;
+        panels.blast = true;
+        let blast = AnalysisReports::for_panels(&panels);
+        assert!(!blast.whatif && !blast.findings && blast.blast);
+
+        let mut requested = whatif;
+        requested.include(findings);
+        assert_eq!(requested.pending(whatif), findings);
+        assert_eq!(requested.pending(requested), AnalysisReports::default());
+    }
+
+    #[test]
+    fn completed_reports_are_retained_without_requesting_other_panels() {
+        let (app, _source) = analysis_app();
+        let findings = AnalysisReports {
+            findings: true,
+            ..AnalysisReports::default()
+        };
+        let whatif = AnalysisReports {
+            whatif: true,
+            ..AnalysisReports::default()
+        };
+        let mut previous =
+            compute_analysis_cancellable(&app.tr, None, None, None, findings, &|| false).unwrap();
+        assert!(previous.findings.is_some());
+        assert!(previous.whatif.is_none() && previous.blast.is_none());
+        let previous_count = previous.findings.as_ref().unwrap().0.nacts;
+
+        let mut next =
+            compute_analysis_cancellable(&app.tr, None, None, None, whatif, &|| false).unwrap();
+        assert!(next.findings.is_none());
+        next.retain_completed_reports(&mut previous);
+
+        assert!(next.reports.whatif && next.reports.findings && !next.reports.blast);
+        assert_eq!(next.findings.as_ref().unwrap().0.nacts, previous_count);
+        assert!(
+            previous.findings.is_none(),
+            "the compact report was moved, not copied"
+        );
+        assert!(
+            next.whatif.is_none(),
+            "a completed graphless report is still absent"
+        );
+        assert!(next.blast.is_none(), "an unopened panel must not run");
+    }
+
+    #[test]
+    fn missing_graph_report_is_complete_and_does_not_restart() {
+        let (mut app, _source) = analysis_app();
+        app.panels.whatif = true;
+        let requested = AnalysisReports::for_panels(&app.panels);
+        app.an = Some(Box::new(
+            compute_analysis_cancellable(&app.tr, None, None, None, requested, &|| false).unwrap(),
+        ));
+        assert!(app.an.as_ref().unwrap().whatif.is_none());
+        app.ensure_analysis();
+        assert!(app.an_running.is_none());
+        assert_eq!(app.analysis_reports_requested, requested);
+    }
+
+    #[test]
+    fn canceled_report_does_not_mark_requested_work_complete() {
+        let (app, _source) = analysis_app();
+        let mut previous = compute_analysis_cancellable(
+            &app.tr,
+            None,
+            None,
+            None,
+            AnalysisReports::default(),
+            &|| false,
+        )
+        .unwrap();
+        let requested = AnalysisReports {
+            findings: true,
+            ..AnalysisReports::default()
+        };
+        let canceled = compute_analysis_cancellable(&app.tr, None, None, None, requested, &|| true);
+        assert_eq!(canceled.err().unwrap().to_string(), "analysis canceled");
+        assert_eq!(requested.pending(previous.reports), requested);
+
+        let mut retried =
+            compute_analysis_cancellable(&app.tr, None, None, None, requested, &|| false).unwrap();
+        retried.retain_completed_reports(&mut previous);
+        assert_eq!(
+            requested.pending(retried.reports),
+            AnalysisReports::default()
+        );
+        assert!(retried.findings.is_some());
+    }
+
+    #[test]
+    fn analysis_cancellation_is_returned_before_loading_reports() {
+        let (app, _source) = analysis_app();
+        let result =
+            compute_analysis_cancellable(&app.tr, None, None, None, AnalysisReports::ALL, &|| true);
+        assert_eq!(result.err().unwrap().to_string(), "analysis canceled");
+    }
+
     struct AnalysisSource(std::path::PathBuf);
     impl Drop for AnalysisSource {
         fn drop(&mut self) {
             std::fs::remove_file(&self.0).ok();
         }
     }
-
     fn analysis_app() -> (Ready, AnalysisSource) {
         let path = crate::temp_path("gui-analysis.json");
         std::fs::write(
@@ -1970,6 +2697,82 @@ mod tests {
         let tr = parse::parse(path.to_str().unwrap()).unwrap();
         (Ready::new(tr, None), AnalysisSource(path))
     }
+
+    #[test]
+    fn cancelled_attempts_and_the_uploads_beside_them_open_their_actions() {
+        let path = crate::temp_path("gui-cancelled.json");
+        std::fs::write(
+            &path,
+            concat!(
+                "[\n",
+                r#"{"ph":"X","cat":"recipe","name":"raced","ts":100,"dur":90000000,"args":{"run":"r","stages":{"input_upload_us":71000000},"re":{"iu_materialize_us":69000000,"iu_digests_queried":1,"cancelled_stages":[{"name":"Local.MaterializeInputs","ts":101,"dur":83000000}]}}}"#,
+                "\n]\n",
+            ),
+        )
+        .unwrap();
+        let tr = parse::parse(path.to_str().unwrap()).unwrap();
+        let (app, _source) = (Ready::new(tr, None), AnalysisSource(path));
+        let an = compute_analysis_cancellable(
+            &app.tr,
+            None,
+            None,
+            None,
+            AnalysisReports::default(),
+            &|| false,
+        )
+        .unwrap();
+        let (c, acts) = an
+            .cancelled
+            .as_ref()
+            .expect("the lost local attempt is listed");
+        assert_eq!((c.actions, c.local), (1, 1));
+        let act = acts[0].expect("the row opens its action");
+        assert_eq!(app.tr.names[app.tr.acts[act].name as usize], "raced");
+        let (_, _, race) = an.upload.as_ref().expect("the upload has a breakdown");
+        assert_eq!(race, &vec![("raced".to_owned(), Some(act))]);
+    }
+
+    #[test]
+    fn overview_uses_the_displayed_chain_when_longest_paths_tie() {
+        let trace_path = crate::temp_path("overview-tied-chain.json");
+        let graph_path = crate::temp_path("overview-tied-chain.jsonl");
+        let _trace_source = AnalysisSource(trace_path.clone());
+        let _graph_source = AnalysisSource(graph_path.clone());
+        std::fs::write(
+            &trace_path,
+            concat!(
+                "[\n",
+                "{\"ph\":\"X\",\"cat\":\"recipe\",\"name\":\"a2\",\"ts\":0,\"dur\":5},\n",
+                "{\"ph\":\"X\",\"cat\":\"recipe\",\"name\":\"a\",\"ts\":5,\"dur\":5},\n",
+                "{\"ph\":\"X\",\"cat\":\"recipe\",\"name\":\"b\",\"ts\":0,\"dur\":10},\n",
+                "{\"ph\":\"X\",\"cat\":\"recipe\",\"name\":\"c\",\"ts\":10,\"dur\":1}\n]\n",
+            ),
+        )
+        .expect("should write tied-path trace");
+        std::fs::write(
+            &graph_path,
+            concat!(
+                "{\"graph\":{\"enc\":2}}\n",
+                "{\"t\":\"a2\",\"d\":[]}\n",
+                "{\"t\":\"a\",\"d\":[\"a2\"]}\n",
+                "{\"t\":\"b\",\"d\":[]}\n",
+                "{\"t\":\"c\",\"d\":[\"a\",\"b\"]}\n",
+            ),
+        )
+        .expect("should write tied-path graph");
+        let tr = parse::parse(trace_path.to_str().expect("should have a UTF-8 test path"))
+            .expect("should parse tied-path trace");
+        let g = graph::load_graph(graph_path.to_str().expect("should have a UTF-8 test path"))
+            .expect("should parse tied-path graph");
+        let an = compute_analysis(&tr, Some(&g), None, None).expect("should compute overview");
+        let cp = an
+            .ov_rows
+            .iter()
+            .find(|row| row.key == "Action model CP")
+            .expect("should report the action-model critical path");
+        assert!(cp.value.contains("over 3 steps"), "{}", cp.value);
+    }
+
     /// A build that is open stays open. Typing a path that does not
     /// exist used to swap the whole window for the error text, so a
     /// misremembered build id cost the analysis on screen and there was
@@ -2158,6 +2961,7 @@ mod tests {
         ("gui/canvas.rs", include_str!("gui/canvas.rs")),
         ("gui/command_ui.rs", include_str!("gui/command_ui.rs")),
         ("gui/open.rs", include_str!("gui/open.rs")),
+        ("gui/panels.rs", include_str!("gui/panels.rs")),
         ("gui/widgets.rs", include_str!("gui/widgets.rs")),
         ("analyses.rs", include_str!("analyses.rs")),
         ("blast.rs", include_str!("blast.rs")),
