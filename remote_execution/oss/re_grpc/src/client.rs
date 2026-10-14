@@ -571,7 +571,7 @@ fn is_transient_io_error(err: &std::io::Error) -> bool {
 /// Returns true if an error is a transient connection/transport error worth
 /// retrying. Walks the error chain checking for:
 ///   - `tonic::Status` with codes the gRPC retry policy treats as transient
-///     (Unavailable, ResourceExhausted, Aborted, Cancelled)
+///     (Unavailable, ResourceExhausted, Aborted)
 ///   - `io::Error` of a kind that indicates a transport-level disruption
 ///     (BrokenPipe, ConnectionReset/Aborted, UnexpectedEof, TimedOut)
 ///   - `h2::Error` wrapping such an `io::Error`. `h2::Error` does not
@@ -591,8 +591,7 @@ fn is_retryable(err: &anyhow::Error) -> bool {
             match status.code() {
                 tonic::Code::Unavailable
                 | tonic::Code::ResourceExhausted
-                | tonic::Code::Aborted
-                | tonic::Code::Cancelled => return true,
+                | tonic::Code::Aborted => return true,
                 _ => {}
             }
         }
