@@ -100,24 +100,12 @@ prebuilt_ocaml_library(
 
 # buildifier: disable=no-effect
 prebuilt_ocaml_library(
-    name = "stdlib-shims",
-    bytecode_lib = "opam/lib/stdlib-shims/stdlib_shims.cma",
-    include_dir = "opam/lib/stdlib-shims",
-    native_lib = "opam/lib/stdlib-shims/stdlib_shims.cmxa",
-    visibility = ["PUBLIC"],
-) if not host_info().os.is_windows else None
-
-# buildifier: disable=no-effect
-prebuilt_ocaml_library(
     name = "ppxlib.stdppx",
     bytecode_lib = "opam/lib/ppxlib/stdppx/stdppx.cma",
     include_dir = "opam/lib/ppxlib/stdppx",
     native_lib = "opam/lib/ppxlib/stdppx/stdppx.cmxa",
     visibility = ["PUBLIC"],
-    deps = [
-        ":sexplib0",
-        ":stdlib-shims",
-    ],
+    deps = [":sexplib0"],
 ) if not host_info().os.is_windows else None
 
 # buildifier: disable=no-effect
