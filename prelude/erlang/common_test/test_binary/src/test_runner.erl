@@ -263,8 +263,6 @@ provide_output_file(
                 end
         end,
 
-    {ok, _ResultOuptuFile} =
-        json_interfacer:write_json_output(OutputDir, Status, ResultExec, Results),
     ok = test_result_output:write(OutputDir, Status, FailureTime, ResultExec, Results),
     test_artifact_directory:link_to_artifact_dir(
         StdOutFile, OutputDir, ArtifactAnnotationFunction
