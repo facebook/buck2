@@ -501,6 +501,7 @@ fn render_starlark_type(typ: &syn::Type) -> syn::Expr {
 fn render_regular_native_callable_param(arg: &StarArg) -> syn::Result<syn::Expr> {
     let ty = render_starlark_type(arg.without_option());
     let name_str = ident_string(&arg.param.ident);
+    let doc_hidden = arg.doc_hidden;
     let required: syn::Expr = match (&arg.default, arg.is_option()) {
         (Some(_), true) => {
             return Err(syn::Error::new(
@@ -539,6 +540,7 @@ fn render_regular_native_callable_param(arg: &StarArg) -> syn::Result<syn::Expr>
                 name: __PARAM_STATIC_NAME,
                 ty: #ty,
                 required: #required,
+                doc_hidden: #doc_hidden,
             }
         }
     })
