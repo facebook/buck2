@@ -131,9 +131,11 @@ def should_scrub_with_focused_targets_output_paths(
 def _should_scrub_with_targets_file(
     json_file_path: str, additional_labels: set[str]
 ) -> Callable[[str], bool]:
-    focused_targets_output_paths = load_focused_targets_output_paths(json_file_path)
+    focused_targets_output_paths = load_focused_targets_output_paths(
+        json_file_path
+    ).union(additional_labels)
     return lambda debug_file_path: should_scrub_with_focused_targets_output_paths(
-        focused_targets_output_paths.union(additional_labels), debug_file_path
+        focused_targets_output_paths, debug_file_path
     )
 
 
