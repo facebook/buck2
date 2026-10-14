@@ -87,15 +87,24 @@ nodejs_binary = prelude_rule(
     `srcs` beside it (each at its short path; distinct files staging to
     the same path fail), and runs the staged `main` so Node's own
     resolution finds the deps. The default output is that directory.
-    With no `deps`, `main` runs at its original path, files it imports
-    via relative paths must be listed in `srcs` to be declared as build
-    inputs, and there is no default output. Deps must be loadable as
-    regular `node_modules` packages: each package's `package.json`
-    governs whether it is CommonJS or an ES module, and TypeScript must
-    be compiled to JavaScript before it is packaged. The merged tree is
-    also exposed via `NODE_PATH` at runtime, appended to any `NODE_PATH`
-    set in `env`, for CommonJS resolution. Transitive deps'
-    `package_name` values must be unique, as for `nodejs_library`.""",
+    With no `deps` and the `inplace` package style, `main` runs at its
+    original path, files it imports via relative paths must be listed in
+    `srcs` to be declared as build inputs, and there is no default
+    output. Deps must be loadable as regular `node_modules` packages:
+    each package's `package.json` governs whether it is CommonJS or an
+    ES module, and TypeScript must be compiled to JavaScript before it
+    is packaged. The merged tree is also exposed via `NODE_PATH` at
+    runtime, appended to any `NODE_PATH` set in `env`, for CommonJS
+    resolution. Transitive deps' `package_name` values must be unique,
+    as for `nodejs_library`. `package_style` is `"inplace"` (the
+    default) or `"standalone"`. `standalone` always stages, adds the
+    toolchain's `node_dist` binary to the staged directory as `node`
+    (`node.exe` on Windows), and replaces the default output with a zip of that
+    directory under a top-level directory named after the target (which
+    therefore cannot contain `/`), for hosts without Node. The package runs
+    as `<name>/node <name>/<main>`;
+    `args`, `node_args`, `env`, `NODE_PATH` and any flags or env the
+    toolchain's `node` wrapper adds are not applied there.""",
     examples = None,
     further = None,
     attrs = (
@@ -107,8 +116,10 @@ nodejs_binary = prelude_rule(
             "node_args": attrs.list(attrs.string(), default = []),
             "env": attrs.dict(attrs.string(), attrs.arg(), default = {}),
             "deps": attrs.list(attrs.dep(), default = []),
+            "package_style": attrs.enum(["inplace", "standalone"], default = "inplace"),
             "_nodejs_toolchain": toolchains_common.nodejs(),
             "_target_os_type": buck.target_os_type_arg(),
+            "_zip_file_toolchain": toolchains_common.zip_file(),
         }
         | buck.labels_arg()
         | buck.contacts_arg()
