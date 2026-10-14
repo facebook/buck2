@@ -94,7 +94,11 @@ def _collect_sources(srcs, generated_dirs, tmp):
             dest = f"{tmp}/{i}"
             with zipfile.ZipFile(s) as z:
                 z.extractall(dest)
-            out.extend(str(p) for p in sorted(pathlib.Path(dest).rglob("*.kt")))
+            out.extend(
+                str(p)
+                for p in sorted(pathlib.Path(dest).rglob("*"))
+                if p.name.endswith((".kt", ".java"))
+            )
         elif s.endswith(".kt") or s.endswith(".java"):
             # .java rides along for declaration stubs (the CLI scans
             # top-level types for import resolution; it never checks them).
