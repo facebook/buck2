@@ -21,7 +21,6 @@ use buck2_build_api::transition::TRANSITION_CALCULATION;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
 use buck2_build_signals::node_key::BuildSignalsNodeKeyImpl;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
@@ -102,7 +101,6 @@ use starlark_map::small_set::SmallSet;
 
 use crate::configuration::compute_platform_cfgs;
 use crate::configuration::get_matched_cfg_keys_for_node;
-use crate::cycle::ConfiguredGraphCycleDescriptor;
 use crate::execution::configure_exec_dep_with_modifiers;
 use crate::execution::find_execution_platform_by_configuration;
 use crate::execution::resolve_execution_platform;
@@ -1338,11 +1336,7 @@ impl Key for ConfiguredTargetNodeKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        let res = CycleGuard::<ConfiguredGraphCycleDescriptor>::new(ctx)?
-            .guard_this(compute_configured_target_node(self, ctx))
-            .await
-            .into_result(ctx)
-            .await??;
+        let res = compute_configured_target_node(self, ctx).await;
         LookingUpConfiguredNodeContext::add_context_rmc(res, self.0.dupe())
     }
 

@@ -43,7 +43,7 @@ async def test_transition_failed_if_attr_value_has_changed(buck: Buck) -> None:
 @buck_test()
 async def test_transition_failed_if_attr_value_cycle(buck: Buck) -> None:
     err_msg = (
-        r"Configured target cycle detected \(`->` means \"depends on\"\):\n"
+        r"Dependency cycle detected \(`->` means \"depends on\"\):\n"
         r"\s+root//:target_where_transition_cycles_via_changed_attrs \(<transitioned-from-.*>#.*\) ->.*\n"
         r"\s+root//:target_where_transition_cycles_via_changed_attrs \(<transitioned-from-.*>#.*\) ->.*\n"
     )

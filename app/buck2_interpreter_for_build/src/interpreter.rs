@@ -16,7 +16,6 @@ pub(crate) mod cell_info;
 pub(crate) mod check_starlark_stack_size;
 pub mod configuror;
 pub mod context;
-pub mod cycles;
 pub mod dice_calculation_delegate;
 mod extra_value;
 pub mod functions;

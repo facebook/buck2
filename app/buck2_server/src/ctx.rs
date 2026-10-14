@@ -45,8 +45,6 @@ use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_cli_proto::config_override::ConfigType;
-use buck2_common::dice::cycles::CycleDetectorAdapter;
-use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::file_ops::io::initialize_read_dir_cache;
 use buck2_common::http::SetHttpClient;
 use buck2_common::io::trace::TracingIoProvider;
@@ -56,7 +54,6 @@ use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_configured::cycle::ConfiguredGraphCycleDescriptor;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::facebook_only;
@@ -110,7 +107,6 @@ use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::factory::SetProfileEventListener;
 use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
-use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
 use buck2_node::package_visibility::HasPackageVisibilityDefaultIntersection;
 use buck2_resource_control::HasResourceControl;
@@ -134,7 +130,6 @@ use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceTransactionUpdater;
 use dice::UserComputationData;
-use dice::UserCycleDetector;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
@@ -724,13 +719,6 @@ struct DiceCommandUpdater<'s, 'a: 's> {
     interpreter_xcode_version: Option<XcodeVersionInfo>,
 }
 
-fn create_cycle_detector() -> Arc<dyn UserCycleDetector> {
-    Arc::new(PairDiceCycleDetector(
-        CycleDetectorAdapter::<LoadCycleDescriptor>::new(),
-        CycleDetectorAdapter::<ConfiguredGraphCycleDescriptor>::new(),
-    ))
-}
-
 #[async_trait]
 impl DiceUpdater for DiceCommandUpdater<'_, '_> {
     async fn update(
@@ -930,19 +918,6 @@ impl DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.base_context.daemon.memory_tracker.is_some(),
         ));
 
-        let cycle_detector = if root_config
-            .parse::<bool>(BuckconfigKeyRef {
-                section: "build",
-                property: "lazy_cycle_detector",
-            })?
-            .unwrap_or(true)
-        {
-            Some(create_cycle_detector())
-        } else {
-            None
-        };
-        let has_cycle_detector = cycle_detector.is_some();
-
         let mut run_action_knobs = self.run_action_knobs.dupe();
         run_action_knobs.use_network_action_output_cache |= root_config
             .parse::<bool>(BuckconfigKeyRef {
@@ -1023,7 +998,6 @@ impl DiceCommandUpdater<'_, '_> {
                     processed_requests: dice.core_state_processed_requests() as u64,
                 }),
             )?),
-            cycle_detector,
             activation_tracker: Some(self.build_signals.activation_tracker.dupe()),
             ..Default::default()
         };
@@ -1129,7 +1103,6 @@ impl DiceCommandUpdater<'_, '_> {
 
         let clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
         let mut tags = vec![
-            format!("lazy-cycle-detector:{}", has_cycle_detector),
             format!("miniperf:{}", enable_miniperf),
             format!("log-configured-graph-size:{}", log_configured_graph_size),
             "peak-load-metrics:v2".to_owned(),

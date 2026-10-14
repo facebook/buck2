@@ -16,7 +16,6 @@
 pub mod arc_str;
 pub mod async_move_clone;
 pub mod commas;
-pub mod cycle_detector;
 pub mod early_command_timing;
 pub mod env_vars;
 pub mod exact_size_iter;

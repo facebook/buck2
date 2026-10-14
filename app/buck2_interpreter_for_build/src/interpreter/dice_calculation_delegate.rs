@@ -13,7 +13,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::file_ops::error::FileReadErrorContext;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -66,7 +65,6 @@ use starlark::values::FrozenHeapName;
 use crate::interpreter::buckconfig::ConfigsOnDiceViewForStarlark;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::check_starlark_stack_size::check_starlark_stack_size;
-use crate::interpreter::cycles::LoadCycleDescriptor;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::interpreter_for_dir::InterpreterForDir;
 use crate::interpreter::interpreter_for_dir::ParseData;
@@ -253,11 +251,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         starlark_file: StarlarkPath<'_>,
     ) -> buck2_error::Result<(AstModule, ModuleDeps)> {
         let ParseData(ast, imports) = self.parse_file(starlark_file).await??;
-        let deps = CycleGuard::<LoadCycleDescriptor>::new(self.ctx)?
-            .guard_this(Self::eval_deps(self.ctx, &imports))
-            .await
-            .into_result(self.ctx)
-            .await???;
+        let deps = Self::eval_deps(self.ctx, &imports).await?;
         Ok((ast, deps))
     }
 
