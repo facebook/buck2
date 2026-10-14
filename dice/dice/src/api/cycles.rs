@@ -23,8 +23,9 @@ use variant_name::VariantName;
 /// version's computations are stuck on each other and, when they are, fails the requests that
 /// make up the cycle with a `DiceError`, which the computations involved then see from
 /// `DiceComputations::compute`. Detection is periodic, and deferred while other computations are
-/// still completing, so a cycle is reported within about two check intervals of the computation
-/// as a whole coming to a halt rather than immediately; see `DiceDataBuilder` for the interval.
+/// still completing, so a cycle is reported a check interval after the computation as a whole
+/// comes to a halt rather than immediately. The interval starts at a second and grows while the
+/// computation stays stalled without a cycle, see `DiceDataBuilder::set_cycle_check_interval`.
 ///
 /// A computation that races a dependency against something DICE knows nothing about looks stuck
 /// on that dependency all the same, so such a computation can be failed for a cycle it would

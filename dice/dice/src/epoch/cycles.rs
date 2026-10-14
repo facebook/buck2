@@ -51,10 +51,12 @@
 //! The detection runs in a task of its own per version (`ensure_cycle_detector_running`),
 //! started along with the version's first task and living as long as the version's cache. Every
 //! so often it looks at whether any task of the version has finished since it last looked, and
-//! only if none has does it scan the cache for cycles. The scan touches every pending task, and
-//! this way it happens when the version is stuck rather than every few seconds; a cycle that
-//! forms while other work is still finishing is found once that work is done, or has run into
-//! the cycle itself.
+//! only if none has does it scan the cache for cycles. The scan touches every pending task, so
+//! how often it runs matters: the first look comes soon after a version stops making progress,
+//! which is what a cycle in a small computation looks like, and the looks get rarer while the
+//! version stays stalled without one, as a version waiting on a single slow computation does
+//! (`Schedule`). A cycle that forms while other work is still finishing is found once that work
+//! is done, or has run into the cycle itself.
 
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -112,28 +114,67 @@ pub(crate) fn ensure_cycle_detector_running(eval: &TransactionData) {
     );
 }
 
-/// Checks `cache` for cycles every `interval`, while it and `dice` are alive, skipping the
-/// checks after which tasks have completed; `completed` is their count as of now. Both are held
-/// weakly so that the detector does not keep either around: the workers running in the cache
-/// keep both alive for as long as there is anything to detect cycles among.
+/// Checks `cache` for cycles on the `Schedule` with the given base, while it and `dice` are
+/// alive, skipping the checks after which tasks have completed; `completed` is their count as of
+/// now. Both are held weakly so that the detector does not keep either around: the workers
+/// running in the cache keep both alive for as long as there is anything to detect cycles among.
 async fn run_detector(
     cache: WeakSharedCache,
     dice: Weak<Dice>,
-    interval: Duration,
+    base_interval: Duration,
     mut completed: u64,
 ) {
+    let mut schedule = Schedule::new(base_interval);
     loop {
-        tokio::time::sleep(interval).await;
+        tokio::time::sleep(schedule.wait()).await;
         let (Some(cache), Some(dice)) = (cache.upgrade(), dice.upgrade()) else {
             return;
         };
         let now = cache.completed_tasks();
         if now != completed {
             completed = now;
+            schedule.progressed();
             continue;
         }
         let cycles = find_cycles(&cache, &dice.key_index);
+        schedule.scanned(!cycles.is_empty());
         mark_cycles(&cache, &cycles);
+    }
+}
+
+/// When the detector next looks at a version: soon after it last made progress, and less and
+/// less often while it stays stalled without a cycle.
+pub(super) struct Schedule {
+    base: Duration,
+    next: Duration,
+}
+
+impl Schedule {
+    /// How much longer than the base the waits get, at most.
+    const BACKOFF_CAP: u32 = 16;
+
+    pub(super) fn new(base: Duration) -> Self {
+        Schedule { base, next: base }
+    }
+
+    /// How long to wait before looking again.
+    pub(super) fn wait(&self) -> Duration {
+        self.next
+    }
+
+    /// Tasks completed since the last look.
+    pub(super) fn progressed(&mut self) {
+        self.next = self.base;
+    }
+
+    /// The version was scanned, finding cycles or not. Finding none means it is waiting on
+    /// something that is still working, which may take a while.
+    pub(super) fn scanned(&mut self, found_cycles: bool) {
+        self.next = if found_cycles {
+            self.base
+        } else {
+            (self.next * 2).min(self.base * Self::BACKOFF_CAP)
+        };
     }
 }
 

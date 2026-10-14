@@ -42,8 +42,9 @@ use crate::updater::TransactionUpdater;
 /// into each page-out worker.
 pub type PageOutCancel = fn() -> bool;
 
-/// How often running computations are checked for dependency cycles unless configured otherwise.
-pub(crate) const DEFAULT_CYCLE_CHECK_INTERVAL: Duration = Duration::from_secs(15);
+/// How soon after a version's computations stop making progress they are first checked for
+/// dependency cycles, unless configured otherwise.
+pub(crate) const DEFAULT_CYCLE_CHECK_INTERVAL: Duration = Duration::from_secs(1);
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
@@ -56,8 +57,8 @@ pub struct Dice {
     pub(crate) state_handle: CoreStateHandle,
     pub(crate) global_data: DiceData,
     pub(crate) pagable_storage: Option<DiceStorage>,
-    /// How often a version's running computations are checked for dependency cycles, or `None`
-    /// to never check. See `epoch::cycles`.
+    /// How soon after a version's computations stop making progress they are first checked for
+    /// dependency cycles, or `None` to never check. See `epoch::cycles`.
     pub(crate) cycle_check_interval: Option<Duration>,
 }
 
@@ -113,9 +114,10 @@ impl DiceDataBuilder {
         self.pagable_storage = Some(storage);
     }
 
-    /// Sets how often running computations are checked for dependency cycles, when
-    /// [`DetectCycles::Enabled`] is passed to `build`. See [`DetectCycles`] for the tradeoff.
-    /// Defaults to 15 seconds.
+    /// Sets how soon after a version's computations stop making progress they are first checked
+    /// for dependency cycles, when [`DetectCycles::Enabled`] is passed to `build`; while they
+    /// stay stalled without a cycle, further checks come less and less often, up to 16 times
+    /// this. See [`DetectCycles`] for the tradeoff. Defaults to one second.
     pub fn set_cycle_check_interval(&mut self, interval: Duration) {
         self.cycle_check_interval = interval;
     }

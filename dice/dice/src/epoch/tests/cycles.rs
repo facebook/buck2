@@ -48,6 +48,7 @@ use crate::core::graph::revision::Revision;
 use crate::dice::Dice;
 use crate::epoch::cache::SharedCache;
 use crate::epoch::cycles::DetectedCycle;
+use crate::epoch::cycles::Schedule;
 use crate::epoch::cycles::find_cycles;
 use crate::epoch::cycles::mark_cycles;
 use crate::epoch::cycles::strongly_connected_components;
@@ -606,6 +607,28 @@ async fn keys_waiting_on_each_other_are_failed_with_the_cycle() {
     // Each sees the cycle from its own side.
     assert_eq!(a.unwrap(), &Err(cycle_message(&["a", "b"])));
     assert_eq!(b.unwrap(), &Err(cycle_message(&["b", "a"])));
+}
+
+#[test]
+fn the_schedule_backs_off_while_stalled_and_resets_on_progress() {
+    let second = Duration::from_secs(1);
+    let mut schedule = Schedule::new(second);
+    assert_eq!(schedule.wait(), second);
+    let mut waits = Vec::new();
+    for _ in 0..6 {
+        schedule.scanned(false);
+        waits.push(schedule.wait().as_secs());
+    }
+    assert_eq!(waits, vec![2, 4, 8, 16, 16, 16]);
+    schedule.progressed();
+    assert_eq!(schedule.wait(), second);
+    schedule.scanned(false);
+    schedule.scanned(true);
+    assert_eq!(
+        schedule.wait(),
+        second,
+        "a found cycle gets things moving again"
+    );
 }
 
 #[tokio::test(start_paused = true)]
