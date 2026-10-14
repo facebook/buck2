@@ -11,14 +11,14 @@
 pub mod clean_stale;
 mod data_tree;
 mod extension;
-mod io_handler;
+pub(crate) mod io_handler;
 mod materialize_stack;
 
 pub(crate) mod artifact_tree;
 mod command_processor;
 pub(crate) mod file_tree;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;

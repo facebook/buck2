@@ -164,7 +164,7 @@ fn test_remove_path() {
 }
 
 #[cfg(test)]
-mod state_machine {
+pub(crate) mod state_machine {
     #[cfg(all(unix, not(target_os = "macos")))]
     use std::ffi::OsString;
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -215,14 +215,14 @@ mod state_machine {
     use crate::sqlite::materializer_db::testing_materializer_state_sqlite_db;
 
     #[derive(Debug, Eq, PartialEq, Allocative)]
-    enum Op {
+    pub(crate) enum Op {
         Clean,
         Materialize,
         MaterializeError,
     }
 
     #[derive(Allocative)]
-    struct StubIoHandler {
+    pub(crate) struct StubIoHandler {
         log: Mutex<Vec<(Op, ProjectRelativePathBuf)>>,
         fail: Mutex<bool>,
         fail_paths: Mutex<Vec<ProjectRelativePathBuf>>,
@@ -267,7 +267,7 @@ mod state_machine {
     }
 
     impl StubIoHandler {
-        fn take_log(&self) -> Vec<(Op, ProjectRelativePathBuf)> {
+        pub(crate) fn take_log(&self) -> Vec<(Op, ProjectRelativePathBuf)> {
             std::mem::take(&mut *self.log.lock())
         }
 
@@ -275,7 +275,7 @@ mod state_machine {
             *self.fail.lock() = fail;
         }
 
-        fn set_fail_on(&self, paths: Vec<ProjectRelativePathBuf>) {
+        pub(crate) fn set_fail_on(&self, paths: Vec<ProjectRelativePathBuf>) {
             *self.fail_paths.lock() = paths;
         }
 
@@ -291,7 +291,7 @@ mod state_machine {
             *self.invalidated_clean_attempts.lock()
         }
 
-        pub fn new(fs: ProjectRoot) -> Self {
+        pub(crate) fn new(fs: ProjectRoot) -> Self {
             Self {
                 log: Default::default(),
                 fail: Default::default(),
