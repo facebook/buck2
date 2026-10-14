@@ -20,6 +20,7 @@ pub mod execution_ui;
 mod load_pipeline;
 pub mod open;
 pub mod panels;
+pub mod reported_path;
 pub mod stagebar;
 pub mod widgets;
 
@@ -138,6 +139,36 @@ fn contains_folded(name: &str, query: &str) -> bool {
     } else {
         name.to_lowercase().contains(query)
     }
+}
+
+/// The rows the Previous and Next step buttons select, given the visible rows in display order
+/// and the selected row. Steps move only through visible rows, so a step never selects a row the
+/// view hides; with no visible row selected, Next selects the first one.
+fn step_targets(visible: &[usize], selected: Option<usize>) -> (Option<usize>, Option<usize>) {
+    let position = selected.and_then(|s| visible.iter().position(|&i| i == s));
+    let previous = position.and_then(|p| p.checked_sub(1)).map(|p| visible[p]);
+    let next = visible.get(position.map_or(0, |p| p + 1)).copied();
+    (previous, next)
+}
+
+/// Previous and Next step buttons over the visible rows; returns the row to select, if one was
+/// clicked.
+fn step_buttons(ui: &mut egui::Ui, visible: &[usize], selected: Option<usize>) -> Option<usize> {
+    let (previous, next) = step_targets(visible, selected);
+    let mut chosen = None;
+    if ui
+        .add_enabled(previous.is_some(), egui::Button::new("Previous step"))
+        .clicked()
+    {
+        chosen = previous;
+    }
+    if ui
+        .add_enabled(next.is_some(), egui::Button::new("Next step"))
+        .clicked()
+    {
+        chosen = next;
+    }
+    chosen
 }
 
 fn load_digest_index(tr: &Trace, cancel: &AtomicBool) -> anyhow::Result<Vec<Option<String>>> {
@@ -539,6 +570,7 @@ pub(crate) fn quality_chips(q: &quality::Quality) -> Vec<(String, egui::Color32)
 
 #[derive(Default)]
 pub struct Panels {
+    pub command: bool,
     pub overview: bool,
     pub longest: bool,
     pub failed: bool,
@@ -554,6 +586,8 @@ pub struct Panels {
     pub peers: bool,
     pub stall: bool,
     pub cp: bool,
+    /// Buck's reported path, for captures without a dependency graph.
+    pub reported_cp: bool,
     pub health: bool,
     pub help: bool,
     pub glossary: bool,
@@ -695,6 +729,7 @@ pub fn cp_walk_steps(
 
 pub struct Ready {
     pub command_view: command_ui::State,
+    pub reported_path: reported_path::State,
     pub tr: Arc<Trace>,
     pub run_id: Option<String>,
     /// the status-bar line, also quoted into the analysis prompt
@@ -957,6 +992,7 @@ impl Ready {
             .collect();
         Ready {
             command_view,
+            reported_path: Default::default(),
             tr: Arc::new(tr),
             run_id,
             summary,
@@ -2355,11 +2391,10 @@ pub fn update_ready(app: &mut Ready, root: &mut egui::Ui) {
     show_toast(app, ctx);
     if app.command_view.actions.is_none() {
         panels::show_panels(app, ctx);
-        egui::CentralPanel::default().show(root, |ui| {
-            ui.label("No completed actions were recorded for this command.");
-        });
+        command_ui::show_inline(app, root);
         return;
     }
+    command_ui::show(app, ctx);
     panels::show_panels(app, ctx);
     // nav_req only: navigate() in show_canvas records the CURRENT selection in
     // the Back history before moving — pre-assigning `selected` here
@@ -2368,6 +2403,9 @@ pub fn update_ready(app: &mut Ready, root: &mut egui::Ui) {
         app.nav_req = Some(n);
     }
     if let Some(n) = detail_ui::show_cp_walker(app, ctx) {
+        app.nav_req = Some(n);
+    }
+    if let Some(n) = reported_path::show(app, ctx) {
         app.nav_req = Some(n);
     }
     let nav = app.nav_req.take();
@@ -2405,6 +2443,7 @@ fn menu_bar(app: &mut Ready, root: &mut egui::Ui, ctx: &egui::Context) {
             ui.menu_button("Open", |ui| open::menu(app, ui));
             ui.menu_button("Analysis", |ui| {
                 if app.command_view.actions.is_none() {
+                    ui.label("Command profile is shown in the main window");
                     ui.add_enabled(false, egui::Button::new("Critical Path"))
                         .on_disabled_hover_text(
                             "Not applicable: no completed actions are attributed to this command.",
@@ -2422,15 +2461,27 @@ fn menu_bar(app: &mut Ready, root: &mut egui::Ui, ctx: &egui::Context) {
                     ui.close();
                 }
                 let have_dag = matches!(&app.gstate, GState::Ready { dag: Some(_), .. });
+                let reported = !have_dag && reported_path::available(app);
                 if ui
-                    .add_enabled(have_dag, egui::Button::new("Critical Path"))
+                    .add_enabled(have_dag || reported, egui::Button::new("Critical Path"))
                     .on_disabled_hover_text(
-                        "Needs the recorded dependency graph (buck2 build --log-action-graph)",
+                        "Needs the recorded dependency graph (buck2 build --log-action-graph) \
+                         or the critical path buck2 reports in its log",
                     )
                     .clicked()
                 {
-                    app.panels.cp = true;
-                    popup_raise(ctx, "Critical path (dependency graph)");
+                    if have_dag {
+                        app.panels.cp = true;
+                        popup_raise(ctx, "Critical path (dependency graph)");
+                    } else {
+                        app.panels.reported_cp = true;
+                        popup_raise(ctx, reported_path::TITLE);
+                    }
+                    ui.close();
+                }
+                if ui.button("Build Timeline").clicked() {
+                    app.panels.command = true;
+                    popup_raise(ctx, "Build timeline");
                     ui.close();
                 }
                 ui.separator();
@@ -2584,7 +2635,7 @@ fn menu_bar(app: &mut Ready, root: &mut egui::Ui, ctx: &egui::Context) {
                 app.close_all_popups();
             }
             if app.command_view.actions.is_none() {
-                ui.label("No attributed completed actions");
+                ui.label("Command profile · no attributed completed actions");
                 if let Some(warning) = &app.graph_warning {
                     ui.label(warning);
                 }
@@ -2593,6 +2644,15 @@ fn menu_bar(app: &mut Ready, root: &mut egui::Ui, ctx: &egui::Context) {
                 }
                 return;
             }
+            if ui
+                .button("Build timeline")
+                .on_hover_text("Startup, analysis, actions and installation on one recorded clock")
+                .clicked()
+            {
+                app.panels.command = true;
+                popup_raise(ctx, "Build timeline");
+            }
+
             ui.separator();
             for (c, name) in CLASS_NAMES.iter().enumerate() {
                 if app.selected_class_count[c] == 0 {
@@ -2834,6 +2894,21 @@ pub fn run_request(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn steps_move_only_through_visible_rows() {
+        let visible = [2, 5, 9];
+        assert_eq!(super::step_targets(&visible, Some(5)), (Some(2), Some(9)));
+        assert_eq!(super::step_targets(&visible, Some(2)), (None, Some(5)));
+        assert_eq!(super::step_targets(&visible, Some(9)), (Some(5), None));
+        assert_eq!(
+            super::step_targets(&visible, Some(3)),
+            (None, Some(2)),
+            "a hidden selection steps to the first visible row"
+        );
+        assert_eq!(super::step_targets(&visible, None), (None, Some(2)));
+        assert_eq!(super::step_targets(&[], Some(1)), (None, None));
+    }
+
     #[test]
     fn full_record_read_is_bounded_before_allocating() {
         let (app, _source) = analysis_app();
@@ -3836,6 +3911,7 @@ mod tests {
         ("gui/command_ui.rs", include_str!("gui/command_ui.rs")),
         ("gui/detail_ui.rs", include_str!("gui/detail_ui.rs")),
         ("gui/execution_ui.rs", include_str!("gui/execution_ui.rs")),
+        ("gui/reported_path.rs", include_str!("gui/reported_path.rs")),
         ("gui/open.rs", include_str!("gui/open.rs")),
         ("gui/panels.rs", include_str!("gui/panels.rs")),
         ("gui/stagebar.rs", include_str!("gui/stagebar.rs")),

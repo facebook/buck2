@@ -422,7 +422,10 @@ pub fn render(long: bool, styled: bool) -> String {
                 what
             );
         }
-        let note = format!("Cascade steps are capped at {MAX_CASCADE_STEPS}.");
+        let note = format!(
+            "Cascade steps are capped at {MAX_CASCADE_STEPS}. Commands without completed actions \
+             open a command profile; the action graph and simulations don't apply."
+        );
         let _ = writeln!(out, "\n{}", wrap(&note, 0, 0));
     }
     out
