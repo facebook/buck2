@@ -2006,12 +2006,15 @@ def _rustc_invoke(
         has_content_based_path = use_cbp,
     )
 
-    local_only = False
+    local_only = incremental_enabled
     prefer_local = False
-    if incremental_enabled:
-        local_only = True
-    elif common_args.crate_type == CrateType("bin") and common_args.emit == Emit("link") and link_cxx_binary_locally(ctx):
-        prefer_local = True
+    weight = 1
+    if common_args.crate_type == CrateType("bin") and common_args.emit == Emit("link"):
+        # A rustc-driven binary link is as heavy on the host as a cxx link of
+        # the same binary, so it shares the toolchain's link weight.
+        weight = compile_ctx.cxx_toolchain_info.linker_info.link_weight
+        if not incremental_enabled and link_cxx_binary_locally(ctx):
+            prefer_local = True
 
     if is_clippy:
         category = "clippy"
@@ -2060,6 +2063,7 @@ def _rustc_invoke(
         compile_cmd,
         local_only = local_only,
         prefer_local = prefer_local,
+        weight = weight,
         category = category,
         identifier = identifier,
         no_outputs_cleanup = incremental_enabled,
