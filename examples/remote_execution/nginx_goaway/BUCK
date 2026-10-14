@@ -1,0 +1,23 @@
+load(":defs.bzl", "cached_write", "platforms")
+
+platforms(name = "platforms")
+
+# Each action costs a few RE requests per build, so this is enough traffic for
+# nginx to send GOAWAY many times during each build.
+[
+    cached_write(
+        name = "write_{}".format(i),
+        size = 64,
+    )
+    for i in range(1000)
+]
+
+# Uploads of these are too large for the transport to buffer for a retry, so
+# when nginx rejects one it fails with UNAVAILABLE and buck2 retries it itself.
+[
+    cached_write(
+        name = "write_large_{}".format(i),
+        size = 512 * 1024,
+    )
+    for i in range(100)
+]
