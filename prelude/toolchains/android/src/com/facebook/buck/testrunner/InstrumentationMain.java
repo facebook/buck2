@@ -12,6 +12,11 @@ package com.facebook.buck.testrunner;
 
 public class InstrumentationMain {
 
+  @FunctionalInterface
+  interface InstrumentationRun {
+    void run() throws Throwable;
+  }
+
   private InstrumentationMain() {
     // Launcher class.
   }
@@ -21,19 +26,20 @@ public class InstrumentationMain {
     // filling details_short with infrastructure noise instead of test output.
     java.util.logging.Logger.getLogger("com.facebook.buck.android.exopackage")
         .setLevel(java.util.logging.Level.WARNING);
+    int exitCode = runForExitCode(() -> InstrumentationTestRunner.fromArgs(args).run());
+    // Explicitly exit to force the test runner to complete even if tests have sloppily left
+    // behind non-daemon threads that would have otherwise forced the process to wait and
+    // eventually timeout.
+    System.exit(exitCode);
+  }
+
+  static int runForExitCode(InstrumentationRun instrumentationRun) {
     try {
-      InstrumentationTestRunner.fromArgs(args).run();
+      instrumentationRun.run();
+      return 0;
     } catch (Throwable e) {
       e.printStackTrace();
-    } finally {
-      // Explicitly exit to force the test runner to complete even if tests have sloppily left
-      // behind non-daemon threads that would have otherwise forced the process to wait and
-      // eventually timeout.
-      //
-      // Separately, we're using a successful exit code regardless of test outcome since the runner
-      // is designed to execute all tests and produce a report of success or failure.  We've done
-      // that successfully if we've gotten here.
-      System.exit(0);
+      return 1;
     }
   }
 }

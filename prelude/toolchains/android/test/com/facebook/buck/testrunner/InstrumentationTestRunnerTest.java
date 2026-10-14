@@ -55,6 +55,22 @@ public class InstrumentationTestRunnerTest {
 
   @Rule public final TemporaryPaths tmp = new TemporaryPaths();
 
+  @Test
+  public void launcherReturnsFailureWhenRunnerThrows() {
+    int exitCode =
+        InstrumentationMain.runForExitCode(
+            () -> {
+              throw new IOException("runner failed before reporting results");
+            });
+
+    Assert.assertEquals(1, exitCode);
+  }
+
+  @Test
+  public void launcherReturnsSuccessWhenRunnerCompletes() {
+    Assert.assertEquals(0, InstrumentationMain.runForExitCode(() -> {}));
+  }
+
   /** Just verifies the reflection is legit */
   @Test
   public void testSetTrimLinesHappyPath() throws Throwable {
