@@ -91,6 +91,8 @@ use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::re::client::induced_cache_misses_configured;
+use buck2_execute::re::client::is_induced_cache_miss;
 use buck2_fs::fs_util;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckIndexMap;
@@ -1158,18 +1160,27 @@ impl RunAction {
         // First, check in the local dep file cache if an identical action can be found there.
         // Do this before checking the action cache as we can avoid a potentially large download.
         // Once the action cache lookup misses, we will do the full dep file cache look up.
-        let (outputs, should_fully_check_dep_file_cache) = dep_file_bundle
+        let (identical_action, should_fully_check_dep_file_cache) = dep_file_bundle
             .check_local_dep_file_cache_for_identical_action(ctx, self.outputs.as_slice())
             .await?;
-        if let Some((outputs, metadata)) = outputs {
+        // We can avoid preparing the action for a local cache hit as long as we're not forcing certain digests to cache-miss.
+        let forced_misses = induced_cache_misses_configured();
+        if !forced_misses && let Some((outputs, metadata)) = identical_action {
             return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
         }
 
         let req =
             self.command_execution_request(ctx, prepared_run_action, host_sharing_requirements)?;
-
-        // Prepare the action, check the action cache, fully check the local dep file cache if needed, then execute the command
         let prepared_action = ctx.prepare_action(&req, true)?;
+        let induced_cache_miss = is_induced_cache_miss(&prepared_action.action_and_blobs.action);
+        let req = req.with_induced_cache_miss(induced_cache_miss);
+        if !induced_cache_miss && let Some((outputs, metadata)) = identical_action {
+            return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
+        }
+        let should_fully_check_dep_file_cache =
+            should_fully_check_dep_file_cache && !induced_cache_miss;
+
+        // Check the action cache, fully check the local dep file cache if needed, then execute the command
         waiting_data.start_waiting_category_now(WaitingCategory::CheckingCaches);
         let manager = ctx.command_execution_manager(waiting_data);
 

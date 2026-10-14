@@ -375,6 +375,9 @@ pub struct CommandExecutionRequest {
     force_full_hybrid_if_capable: bool,
     /// Whether to disable capturing performance counters for this execution.
     disable_miniperf: bool,
+    /// Whether to treat this action as a cache miss everywhere: buck2's remote lookups skip it and
+    /// the remote execution service is told not to serve it from its own cache.
+    induced_cache_miss: bool,
     required_local_resources: SortedSet<LocalResourceState>,
     /// Persistent worker to use for execution
     worker: Option<WorkerSpec>,
@@ -435,6 +438,7 @@ impl CommandExecutionRequest {
             local_environment_inheritance: None,
             force_full_hybrid_if_capable: false,
             disable_miniperf: false,
+            induced_cache_miss: false,
             required_local_resources: SortedSet::new(),
             worker: None,
             remote_worker: None,
@@ -626,6 +630,15 @@ impl CommandExecutionRequest {
 
     pub fn disable_miniperf(&self) -> bool {
         self.disable_miniperf
+    }
+
+    pub fn with_induced_cache_miss(mut self, induced_cache_miss: bool) -> Self {
+        self.induced_cache_miss = induced_cache_miss;
+        self
+    }
+
+    pub fn induced_cache_miss(&self) -> bool {
+        self.induced_cache_miss
     }
 
     pub fn with_required_local_resources(

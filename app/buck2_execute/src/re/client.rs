@@ -10,13 +10,14 @@
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::sync::LazyLock;
+use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
+use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
@@ -691,21 +692,56 @@ fn trace_action_digest(
 // After we execute an action once, we no longer want to pretend that we got cache misses on it if
 // we execute it again (say, on a subsequent build); the `AtomicBool` in the value deals with that,
 // it's true after the first time we execute the action
-static INDUCED_CACHE_MISSES: LazyLock<Option<BuckMutMap<String, AtomicBool>>> =
-    LazyLock::new(|| {
-        if let Ok(p) = std::env::var("BUCK2_INDUCED_CACHE_MISSES") {
-            let c = fs_util::read_to_string(AbsNormPath::new(&p).unwrap())
-                .categorize_input()
-                .unwrap();
+static INDUCED_CACHE_MISSES: OnceLock<Option<BuckMutMap<ActionDigest, AtomicBool>>> =
+    OnceLock::new();
+
+/// Loads `BUCK2_INDUCED_CACHE_MISSES`, if set. The daemon calls this once at startup, with the
+/// digest config its action digests use; until then nothing is an induced cache miss.
+pub fn init_induced_cache_misses(config: CasDigestConfig) -> buck2_error::Result<()> {
+    let misses = match std::env::var("BUCK2_INDUCED_CACHE_MISSES") {
+        Err(_) => None,
+        Ok(path) => {
+            let path = AbsNormPath::new(&path)?;
+            let contents = fs_util::read_to_string(path).categorize_input()?;
             Some(
-                c.lines()
-                    .map(|s| (s.to_owned(), AtomicBool::new(false)))
-                    .collect(),
+                contents
+                    .lines()
+                    .filter(|line| !line.is_empty())
+                    .map(|line| {
+                        ActionDigest::parse_digest(line, config)
+                            .map(|(digest, _)| (digest, AtomicBool::new(false)))
+                            .with_buck_error_context(|| {
+                                format!("Invalid action digest `{line}` in `{path}`")
+                            })
+                    })
+                    .collect::<buck2_error::Result<_>>()?,
             )
-        } else {
-            None
         }
-    });
+    };
+    INDUCED_CACHE_MISSES.get_or_init(|| misses);
+    Ok(())
+}
+
+fn induced_cache_misses() -> Option<&'static BuckMutMap<ActionDigest, AtomicBool>> {
+    INDUCED_CACHE_MISSES
+        .get()
+        .and_then(|misses| misses.as_ref())
+}
+
+/// Whether `BUCK2_INDUCED_CACHE_MISSES` is set at all, so that `is_induced_cache_miss` can say yes.
+pub fn induced_cache_misses_configured() -> bool {
+    induced_cache_misses().is_some()
+}
+
+/// Whether `BUCK2_INDUCED_CACHE_MISSES` lists this action and it has not been executed remotely
+/// yet.
+pub fn is_induced_cache_miss(action_digest: &ActionDigest) -> bool {
+    induced_cache_misses().is_some_and(|misses| {
+        misses
+            .get(action_digest)
+            .is_some_and(|executed| !executed.load(std::sync::atomic::Ordering::Relaxed))
+    })
+}
 
 impl RemoteExecutionClientImpl {
     async fn new(re_config: &RemoteExecutionConfig) -> buck2_error::Result<Self> {
@@ -1119,12 +1155,8 @@ impl RemoteExecutionClientImpl {
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
     ) -> buck2_error::Result<Option<ActionResultResponse>> {
-        if let Some(m) = &*INDUCED_CACHE_MISSES {
-            if m.get(&action_digest.to_string())
-                .is_some_and(|b| !b.load(std::sync::atomic::Ordering::Relaxed))
-            {
-                return Ok(None);
-            }
+        if is_induced_cache_miss(&action_digest) {
+            return Ok(None);
         }
 
         let lookup = self.client().get_action_cache_client().get_action_result(
@@ -1587,12 +1619,9 @@ impl RemoteExecutionClientImpl {
             ));
         }
 
-        let induced_cache_miss = if let Some(m) = &*INDUCED_CACHE_MISSES {
-            m.get(&action_digest.to_string())
-                .filter(|v| !v.load(std::sync::atomic::Ordering::Relaxed))
-        } else {
-            None
-        };
+        let induced_cache_miss = induced_cache_misses()
+            .and_then(|misses| misses.get(&action_digest))
+            .filter(|executed| !executed.load(std::sync::atomic::Ordering::Relaxed));
 
         let metadata = RemoteExecutionMetadata {
             platform: Some(re_platform(platform)),

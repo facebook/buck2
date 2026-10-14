@@ -192,7 +192,7 @@ impl ReExecutor {
             re_gang_workers,
             identity,
             &mut manager,
-            self.skip_cache_read,
+            self.skip_cache_read || request.induced_cache_miss(),
             self.skip_cache_write,
             self.re_max_queue_time,
             self.re_resource_units,

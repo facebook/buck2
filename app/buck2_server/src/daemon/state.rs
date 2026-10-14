@@ -63,6 +63,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::BlockingExecutorFactory;
 use buck2_execute::materialize::materializer::FinalArtifactMaterialization;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::re::client::init_induced_cache_misses;
 use buck2_execute::re::invocation_re_settings::invocation_re_use_case;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_execute::re::ttl_refresh::ReChecker;
@@ -387,6 +388,7 @@ impl TenantState {
 
         let digest_config = DigestConfig::leak_new(digest_algorithms, preferred_source_algorithm)
             .buck_error_context("Error initializing DigestConfig")?;
+        init_induced_cache_misses(digest_config.cas_digest_config())?;
 
         // TODO(rafaelc): merge configs from all cells once they are consistent
         let static_metadata = Arc::new(RemoteExecutionStaticMetadata::from_legacy_config(

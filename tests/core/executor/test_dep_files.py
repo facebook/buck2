@@ -457,6 +457,58 @@ async def test_dep_file_hit_persisted_across_restart(buck: Buck) -> None:
     await check_no_cache_query(buck)
 
 
+def _action_digests(value: object) -> list[str]:
+    if isinstance(value, dict):
+        return [v for k, v in value.items() if k == "action_digest"] + [
+            d for v in value.values() for d in _action_digests(v)
+        ]
+    if isinstance(value, list):
+        return [d for v in value for d in _action_digests(v)]
+    return []
+
+
+async def _executed_action_digests(buck: Buck) -> list[str]:
+    return _action_digests(
+        await filter_events(
+            buck, "Event", "data", "SpanEnd", "data", "ActionExecution", "commands"
+        )
+    )
+
+
+# An action listed in `BUCK2_INDUCED_CACHE_MISSES` must re-execute even when the local dep-file
+# cache could serve it as an identical action.
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+async def test_induced_cache_miss_skips_local_dep_file_cache(
+    buck: Buck, tmp_path: Path
+) -> None:
+    args = [
+        "app:app_with_dummy_config",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.dummy_config=dummy1",
+    ]
+    await buck.build(*args)
+    induced_cache_misses = tmp_path / "induced_cache_misses"
+    induced_cache_misses.write_text(
+        "".join(f"{d}\n" for d in await _executed_action_digests(buck))
+    )
+    # The list is read once at daemon startup.
+    await buck.kill()
+    await buck.build(
+        *args, env={"BUCK2_INDUCED_CACHE_MISSES": str(induced_cache_misses)}
+    )
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE not in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL_DEP_FILE not in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL in kinds, kinds
+
+
 async def _prepare_persisted_dep_file_input_after_clean(
     buck: Buck,
 ) -> tuple[str, list[str]]:
