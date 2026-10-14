@@ -36,6 +36,7 @@ use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::epoch::cache::ProjectionValidation;
+use crate::epoch::cycles::ensure_cycle_detector_running;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::evaluator::ValueDemand;
 use crate::epoch::task::PreviouslyCancelledTask;
@@ -115,6 +116,8 @@ impl DiceTaskWorker {
         let spawner_ctx = self.eval.user_data.dupe();
         let state_handle = self.eval.dice.state_handle.dupe();
 
+        ensure_cycle_detector_running(&self.eval);
+
         spawn_prepared_task(prepared_task, &*spawner, &spawner_ctx, move |handle| {
             // NOTE: important to run prevent cancellation eagerly in the sync scope to prevent
             // cancellations so that we don't cancel the current task before we finish waiting
@@ -137,6 +140,9 @@ impl DiceTaskWorker {
                     Either::Right(state) => self.do_work(cancellations, state_handle, state).await,
                 };
 
+                if result.is_ok() {
+                    self.eval.version_state.cache().note_task_completed();
+                }
                 handle.finished(result.map(|state| state.value));
             }
             .boxed()

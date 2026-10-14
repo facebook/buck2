@@ -8,12 +8,14 @@
  * above-listed licenses.
  */
 
-//! Cycle detection: what a detected cycle does to the tasks in it, and how cycles are found among
-//! a version's tasks.
+//! Cycle detection: what a detected cycle does to the tasks in it, how cycles are found among a
+//! version's tasks, and the whole thing end to end.
 
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
+use std::time::Duration;
 
 use allocative::Allocative;
 use assert_matches::assert_matches;
@@ -25,19 +27,25 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::poll;
 use pagable::Pagable;
+use pagable::PagablePanic;
 use pagable::pagable_typetag;
 use tokio::sync::Notify;
 
+use crate::BranchId;
 use crate::DiceKeyDyn;
 use crate::DiceProjectionDyn;
+use crate::DiceTransaction;
 use crate::EqualityBehavior;
 use crate::api::computations::DiceComputations;
+use crate::api::cycles::DetectCycles;
+use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
 use crate::core::graph::revision::Revision;
+use crate::dice::Dice;
 use crate::epoch::cache::SharedCache;
 use crate::epoch::cycles::DetectedCycle;
 use crate::epoch::cycles::find_cycles;
@@ -408,4 +416,332 @@ async fn a_projection_key_in_a_cycle_keeps_waiting_for_its_base() {
     assert_matches!(poll!(q_on_proj.as_mut()), Poll::Ready(Err(_)));
     assert_matches!(poll!(base_on_q.as_mut()), Poll::Ready(Err(_)));
     assert!(poll!(proj_on_base.as_mut()).is_pending());
+}
+
+// End to end: computations that wait on each other get cycle errors, and only once nothing else
+// can get them going again.
+
+/// The dependency graph the `Node`s of a test compute along, kept in the global data.
+#[derive(Default)]
+struct Graph {
+    deps: HashMap<&'static str, Vec<&'static str>>,
+    /// Deps a node has in addition once `Switch` is on; a node listed here reads `Switch`.
+    switched_deps: HashMap<&'static str, Vec<&'static str>>,
+    /// Nodes that use `Projected` of the given node rather than the node itself.
+    projected_deps: HashMap<&'static str, &'static str>,
+    /// Nodes that wait for the notification before finishing.
+    blocked: HashMap<&'static str, Arc<Notify>>,
+}
+
+impl Graph {
+    fn with_deps(deps: &[(&'static str, &[&'static str])]) -> Self {
+        Graph {
+            deps: deps.iter().map(|(k, v)| (*k, v.to_vec())).collect(),
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[display("switch")]
+#[pagable_typetag(DiceKeyDyn)]
+struct Switch;
+
+#[async_trait]
+impl InjectedKey for Switch {
+    type Value = bool;
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+/// A node of the graph, which computes its deps in parallel and whose value is the first error
+/// among them, if any. Errors are transient, as they are in buck2.
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Display,
+    Eq,
+    Hash,
+    PartialEq,
+    Allocative,
+    PagablePanic
+)]
+#[display("{}", _0)]
+#[pagable_typetag(DiceKeyDyn)]
+struct Node(&'static str);
+
+#[async_trait]
+impl Key for Node {
+    type Value = Result<(), String>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let graph = ctx.global_data().get::<Graph>().unwrap();
+        let mut deps = graph.deps.get(self.0).cloned().unwrap_or_default();
+        if let Some(switched) = graph.switched_deps.get(self.0)
+            && *ctx.compute(&Switch).await.unwrap()
+        {
+            deps.extend(switched);
+        }
+        let results = ctx
+            .compute_join(deps, async |ctx, dep| {
+                let result = match graph.projected_deps.get(dep) {
+                    None => ctx.compute(&Node(dep)).await.cloned(),
+                    Some(base) => match ctx.compute_opaque(&Node(base)).await {
+                        Ok(base) => ctx.projection(&base, &Projected).map(|v| (*v).clone()),
+                        Err(e) => Err(e),
+                    },
+                };
+                result.map_err(|e| e.to_string())?
+            })
+            .await;
+        for result in results {
+            result?;
+        }
+        if let Some(notify) = graph.blocked.get(self.0) {
+            notify.notified().await;
+        }
+        Ok(())
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn validity(x: &Self::Value) -> bool {
+        x.is_ok()
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[display("projected")]
+#[pagable_typetag(DiceProjectionDyn)]
+struct Projected;
+
+impl ProjectionKey for Projected {
+    type DeriveFromKey = Node;
+    type Value = Arc<Result<(), String>>;
+
+    fn compute(
+        &self,
+        derive_from: &<<Self as ProjectionKey>::DeriveFromKey as Key>::Value,
+        _ctx: &DiceProjectionComputations,
+    ) -> Self::Value {
+        Arc::new(derive_from.clone())
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn validity(x: &Self::Value) -> bool {
+        x.is_ok()
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+/// A `Dice` computing `graph`, and the branch its transactions run on.
+async fn dice(graph: Graph) -> (Arc<Dice>, BranchId) {
+    let mut builder = Dice::builder();
+    builder.set(graph);
+    let dice = builder.build(DetectCycles::Enabled);
+    let root = dice.new_root().await;
+    (dice, root)
+}
+
+async fn transaction(dice: &Arc<Dice>, root: BranchId, switch: bool) -> DiceTransaction {
+    let mut updater = dice.updater(root);
+    updater.changed_to(vec![(Switch, switch)]).unwrap();
+    updater.commit().await
+}
+
+fn cycle_message(keys: &[&str]) -> String {
+    let mut s = "Dependency cycle detected (`->` means \"depends on\"):".to_owned();
+    for k in keys {
+        s.push_str(&format!("\n  {k} ->"));
+    }
+    s.push_str(&format!("\n  {}", keys[0]));
+    s
+}
+
+/// Asserts that `value` reports the cycle `keys`, starting from any of them.
+#[track_caller]
+fn assert_cycle(value: &Result<(), String>, keys: &[&str]) {
+    let rotations: Vec<String> = (0..keys.len())
+        .map(|i| {
+            let mut rotated = keys.to_vec();
+            rotated.rotate_left(i);
+            cycle_message(&rotated)
+        })
+        .collect();
+    match value {
+        Err(e) if rotations.contains(e) => {}
+        other => panic!("expected the cycle {keys:?}, got {other:?}"),
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn keys_waiting_on_each_other_are_failed_with_the_cycle() {
+    let (dice, root) = dice(Graph::with_deps(&[("a", &["b"]), ("b", &["a"])])).await;
+    let ctx = transaction(&dice, root, false).await;
+
+    let (a, b) = futures::join!(ctx.compute(&Node("a")), ctx.compute(&Node("b")));
+    // Each sees the cycle from its own side.
+    assert_eq!(a.unwrap(), &Err(cycle_message(&["a", "b"])));
+    assert_eq!(b.unwrap(), &Err(cycle_message(&["b", "a"])));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_key_waiting_on_itself_is_failed() {
+    let (dice, root) = dice(Graph::with_deps(&[("a", &["a"])])).await;
+    let ctx = transaction(&dice, root, false).await;
+
+    let a = ctx.compute(&Node("a")).await.unwrap();
+    assert_eq!(a, &Err(cycle_message(&["a"])));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_longer_cycle_is_reported_in_dependency_order() {
+    let (dice, root) = dice(Graph::with_deps(&[
+        ("a", &["b"]),
+        ("b", &["c"]),
+        ("c", &["a"]),
+    ]))
+    .await;
+    let ctx = transaction(&dice, root, false).await;
+
+    let a = ctx.compute(&Node("a")).await.unwrap();
+    assert_eq!(a, &Err(cycle_message(&["a", "b", "c"])));
+}
+
+#[tokio::test(start_paused = true)]
+async fn keys_outside_the_cycle_get_what_the_cycle_computes() {
+    let (dice, root) = dice(Graph::with_deps(&[
+        ("top", &["a"]),
+        ("a", &["b"]),
+        ("b", &["a"]),
+    ]))
+    .await;
+    let ctx = transaction(&dice, root, false).await;
+
+    // `top` is not failed for a cycle; it gets `a`'s value, which carries `a`'s error.
+    let top = ctx.compute(&Node("top")).await.unwrap();
+    assert_eq!(top, &Err(cycle_message(&["a", "b"])));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_cycle_with_a_way_out_waits_for_the_way_out() {
+    let release = Arc::new(Notify::new());
+    let mut graph = Graph::with_deps(&[("a", &["b"]), ("b", &["a", "c"])]);
+    graph.blocked.insert("c", release.dupe());
+    let (dice, root) = dice(graph).await;
+    let ctx = transaction(&dice, root, false).await;
+
+    let a = tokio::spawn({
+        let ctx = ctx.dupe();
+        async move { ctx.compute(&Node("a")).await.unwrap().clone() }
+    });
+    // `b` waits on `c` too, which is working: whatever it comes back with may let `b` go, so
+    // this is not a cycle yet, however long it takes.
+    tokio::time::sleep(Duration::from_secs(600)).await;
+    assert!(!a.is_finished());
+
+    // Once `c` is done, `a` and `b` are only waiting on each other.
+    release.notify_one();
+    assert_eq!(a.await.unwrap(), Err(cycle_message(&["a", "b"])));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_cycle_that_forms_during_a_dependency_check_is_found() {
+    let mut graph = Graph::with_deps(&[("a", &["b"])]);
+    graph.switched_deps.insert("b", vec!["a"]);
+    let (dice, root) = dice(graph).await;
+
+    // At first, `b` only reads the switch.
+    {
+        let ctx = transaction(&dice, root, false).await;
+        assert_eq!(ctx.compute(&Node("a")).await.unwrap(), &Ok(()));
+    }
+
+    // Flipping the switch makes `b` depend on `a`. `a` finds out by checking its dependency on
+    // `b`, which recomputes and asks for `a`. The failed check makes `a` recompute and ask for
+    // `b` again, which gets it either the cycle error or, if `b` finished with its own cycle
+    // error first, that; either way `a` reports the cycle.
+    let ctx = transaction(&dice, root, true).await;
+    assert_cycle(ctx.compute(&Node("a")).await.unwrap(), &["a", "b"]);
+}
+
+/// The dep check of a key that read a projection waits for the projection's base itself (see
+/// `check_dependency`), so a base that comes to depend on the key makes a cycle of the two.
+#[tokio::test(start_paused = true)]
+async fn a_cycle_through_a_projection_is_found() {
+    let mut graph = Graph::with_deps(&[("a", &["b"])]);
+    graph.projected_deps.insert("b", "base");
+    graph.switched_deps.insert("base", vec!["a"]);
+    let (dice, root) = dice(graph).await;
+
+    // At first, `a` reads `base` through the projection, and `base` only reads the switch.
+    {
+        let ctx = transaction(&dice, root, false).await;
+        assert_eq!(ctx.compute(&Node("a")).await.unwrap(), &Ok(()));
+    }
+
+    // Flipping the switch makes `base` depend on `a`. `a` checks its dependency on the
+    // projection, for which it waits for `base`, which recomputes and asks for `a`. `a`'s failed
+    // check makes it recompute and ask for `base` directly, which gets it either its own cycle
+    // error, or `base`'s if that finished first.
+    let ctx = transaction(&dice, root, true).await;
+    assert_cycle(ctx.compute(&Node("a")).await.unwrap(), &["a", "base"]);
+}
+
+#[tokio::test(start_paused = true)]
+async fn nothing_is_reported_without_a_cycle() {
+    let release = Arc::new(Notify::new());
+    let mut graph = Graph::with_deps(&[("a", &["b"]), ("b", &["c"])]);
+    graph.blocked.insert("c", release.dupe());
+    let (dice, root) = dice(graph).await;
+    let ctx = transaction(&dice, root, false).await;
+
+    let a = tokio::spawn({
+        let ctx = ctx.dupe();
+        async move { ctx.compute(&Node("a")).await.unwrap().clone() }
+    });
+    tokio::time::sleep(Duration::from_secs(600)).await;
+    assert!(!a.is_finished());
+    release.notify_one();
+    assert_eq!(a.await.unwrap(), Ok(()));
+}
+
+#[tokio::test(start_paused = true)]
+async fn detection_can_be_disabled() {
+    let mut builder = Dice::builder();
+    builder.set(Graph::with_deps(&[("a", &["a"])]));
+    let dice = builder.build(DetectCycles::Disabled);
+    let root = dice.new_root().await;
+    let ctx = transaction(&dice, root, false).await;
+
+    let a = tokio::spawn({
+        let ctx = ctx.dupe();
+        async move { ctx.compute(&Node("a")).await.unwrap().clone() }
+    });
+    tokio::time::sleep(Duration::from_secs(600)).await;
+    assert!(!a.is_finished());
+    a.abort();
 }

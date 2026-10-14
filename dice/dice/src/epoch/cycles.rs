@@ -47,28 +47,98 @@
 //! computations, so this is a departure, and a deliberate one: ruling it out would mean pausing
 //! the whole version to confirm a cycle before failing it, a lot of machinery on behalf of
 //! computations that are broken in subtler ways already.
+//!
+//! The detection runs in a task of its own per version (`ensure_cycle_detector_running`),
+//! started along with the version's first task and living as long as the version's cache. Every
+//! so often it looks at whether any task of the version has finished since it last looked, and
+//! only if none has does it scan the cache for cycles. The scan touches every pending task, and
+//! this way it happens when the version is stuck rather than every few seconds; a cycle that
+//! forms while other work is still finishing is found once that work is done, or has run into
+//! the cycle itself.
 
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::OnceLock;
+use std::sync::Weak;
+use std::time::Duration;
 
 use dice_error::cycles::CycleError;
 use dice_error::cycles::RequestedKey;
 use dupe::Dupe;
+use futures::FutureExt;
 use parking_lot::Mutex;
 
 use crate::DynKey;
 use crate::HashMap;
+use crate::dice::Dice;
 use crate::epoch::cache::SharedCache;
 use crate::epoch::cache::SharedCacheLookup;
+use crate::epoch::cache::WeakSharedCache;
+use crate::epoch::evaluator::TransactionData;
 use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key::ParentKey;
 use crate::key_index::DiceKeyIndex;
 
+/// Starts the cycle detector for the version `eval` computes at, unless it is running already or
+/// cycle detection is off.
+///
+/// Called for every task spawned in the version, which is also what provides the `Spawner` to
+/// run the detector on; the first of them is the one that starts it.
+pub(crate) fn ensure_cycle_detector_running(eval: &TransactionData) {
+    let Some(interval) = eval.dice.cycle_check_interval else {
+        return;
+    };
+    let cache = eval.version_state.cache();
+    if !cache.claim_cycle_detector() {
+        return;
+    }
+    let detector = run_detector(
+        cache.downgrade(),
+        Arc::downgrade(&eval.dice),
+        interval,
+        cache.completed_tasks(),
+    );
+    // Nothing waits for the detector; it ends on its own once the cache is gone.
+    drop(
+        eval.user_data.spawner.spawn(
+            &eval.user_data,
+            async move {
+                detector.await;
+                Box::new(()) as _
+            }
+            .boxed(),
+        ),
+    );
+}
+
+/// Checks `cache` for cycles every `interval`, while it and `dice` are alive, skipping the
+/// checks after which tasks have completed; `completed` is their count as of now. Both are held
+/// weakly so that the detector does not keep either around: the workers running in the cache
+/// keep both alive for as long as there is anything to detect cycles among.
+async fn run_detector(
+    cache: WeakSharedCache,
+    dice: Weak<Dice>,
+    interval: Duration,
+    mut completed: u64,
+) {
+    loop {
+        tokio::time::sleep(interval).await;
+        let (Some(cache), Some(dice)) = (cache.upgrade(), dice.upgrade()) else {
+            return;
+        };
+        let now = cache.completed_tasks();
+        if now != completed {
+            completed = now;
+            continue;
+        }
+        let cycles = find_cycles(&cache, &dice.key_index);
+        mark_cycles(&cache, &cycles);
+    }
+}
+
 /// The cycles among the pending tasks of `cache` that nothing is going to resolve, see the
 /// module docs for what that means.
-#[allow(dead_code)]
 pub(crate) fn find_cycles(
     cache: &SharedCache,
     key_index: &DiceKeyIndex,
@@ -122,7 +192,6 @@ pub(crate) fn find_cycles(
 /// Marks the tasks of `cycles` with them (`DiceTaskRef::mark_in_cycle`), which fails the waits
 /// that make them up. The tasks may have moved on since the cycles were found; the module docs
 /// say why that is fine.
-#[allow(dead_code)]
 pub(crate) fn mark_cycles(cache: &SharedCache, cycles: &[Arc<DetectedCycle>]) {
     for cycle in cycles {
         for key in cycle.keys() {

@@ -104,7 +104,7 @@ mod tests {
 
     #[tokio::test]
     async fn opaque_records_deps_when_used() {
-        let dice = Dice::new(DiceData::new(), None);
+        let dice = Dice::testing_new(DiceData::new());
         let root = dice.new_root().await;
 
         let ctx = dice.updater(root).commit().await.0;

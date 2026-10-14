@@ -167,6 +167,10 @@ impl VersionState {
     pub(crate) fn projection_validation(&self, key: DiceKey) -> ProjectionValidationCell {
         self.cache.projection_validation(key)
     }
+
+    pub(crate) fn cache(&self) -> &SharedCache {
+        &self.cache
+    }
 }
 
 /// Evaluates Keys

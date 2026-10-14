@@ -13,6 +13,9 @@
 use std::fmt;
 use std::sync::Arc as StdArc;
 use std::sync::Weak;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use dashmap::DashMap;
@@ -49,6 +52,10 @@ struct Data {
     /// Shares one validation of each projection among the dependency checks at this version.
     #[allocative(skip)]
     projection_validations: DashMap<DiceKey, ProjectionValidationCell>,
+    /// How many tasks have finished with a value, see `completed_tasks`.
+    completed_tasks: AtomicU64,
+    /// Whether the cycle detector for this cache has been started, see `claim_cycle_detector`.
+    cycle_detector_claimed: AtomicBool,
 }
 
 #[derive(Allocative, Clone, Dupe)]
@@ -204,8 +211,28 @@ impl SharedCache {
                 storage: ShardedLockFreeRawTable::new(),
                 projection_storage: ShardedLockFreeRawTable::new(),
                 projection_validations: DashMap::new(),
+                completed_tasks: AtomicU64::new(0),
+                cycle_detector_claimed: AtomicBool::new(false),
             }),
         }
+    }
+
+    pub(crate) fn note_task_completed(&self) {
+        self.data.completed_tasks.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// How many tasks have finished with a value so far. Only ever grows; two equal readings mean
+    /// that no task finished in between.
+    pub(crate) fn completed_tasks(&self) -> u64 {
+        self.data.completed_tasks.load(Ordering::Relaxed)
+    }
+
+    /// Whether the caller is the one to start this cache's cycle detector: true exactly once.
+    pub(crate) fn claim_cycle_detector(&self) -> bool {
+        !self
+            .data
+            .cycle_detector_claimed
+            .swap(true, Ordering::Relaxed)
     }
 
     pub(crate) fn downgrade(&self) -> WeakSharedCache {

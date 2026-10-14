@@ -11,6 +11,7 @@
 use std::fmt::Debug;
 use std::future::Future;
 use std::sync::Arc as StdArc;
+use std::time::Duration;
 
 use allocative::Allocative;
 use dice_core::BranchId;
@@ -41,6 +42,9 @@ use crate::updater::TransactionUpdater;
 /// into each page-out worker.
 pub type PageOutCancel = fn() -> bool;
 
+/// How often running computations are checked for dependency cycles unless configured otherwise.
+pub(crate) const DEFAULT_CYCLE_CHECK_INTERVAL: Duration = Duration::from_secs(15);
+
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
 ///
@@ -52,6 +56,9 @@ pub struct Dice {
     pub(crate) state_handle: CoreStateHandle,
     pub(crate) global_data: DiceData,
     pub(crate) pagable_storage: Option<DiceStorage>,
+    /// How often a version's running computations are checked for dependency cycles, or `None`
+    /// to never check. See `epoch::cycles`.
+    pub(crate) cycle_check_interval: Option<Duration>,
 }
 
 // SAFETY: as for `DiceComputations`.
@@ -64,6 +71,7 @@ fn _assert_send_sync(
         state_handle,
         global_data,
         pagable_storage,
+        cycle_check_interval,
     }: &Dice,
 ) {
     fn assert<T: Send + Sync>(_: &T) {}
@@ -71,6 +79,7 @@ fn _assert_send_sync(
     assert(state_handle);
     assert(global_data);
     assert(pagable_storage);
+    assert(cycle_check_interval);
 }
 
 impl Debug for Dice {
@@ -82,6 +91,7 @@ impl Debug for Dice {
 pub struct DiceDataBuilder {
     data: DiceData,
     pagable_storage: Option<DiceStorage>,
+    cycle_check_interval: Duration,
 }
 
 impl DiceDataBuilder {
@@ -89,6 +99,7 @@ impl DiceDataBuilder {
         Self {
             data: DiceData::new(),
             pagable_storage: None,
+            cycle_check_interval: DEFAULT_CYCLE_CHECK_INTERVAL,
         }
     }
 
@@ -102,13 +113,28 @@ impl DiceDataBuilder {
         self.pagable_storage = Some(storage);
     }
 
-    pub fn build(self, _detect_cycles: DetectCycles) -> StdArc<Dice> {
-        Dice::new(self.data, self.pagable_storage)
+    /// Sets how often running computations are checked for dependency cycles, when
+    /// [`DetectCycles::Enabled`] is passed to `build`. See [`DetectCycles`] for the tradeoff.
+    /// Defaults to 15 seconds.
+    pub fn set_cycle_check_interval(&mut self, interval: Duration) {
+        self.cycle_check_interval = interval;
+    }
+
+    pub fn build(self, detect_cycles: DetectCycles) -> StdArc<Dice> {
+        let cycle_check_interval = match detect_cycles {
+            DetectCycles::Enabled => Some(self.cycle_check_interval),
+            DetectCycles::Disabled => None,
+        };
+        Dice::new(self.data, self.pagable_storage, cycle_check_interval)
     }
 }
 
 impl Dice {
-    pub(crate) fn new(global_data: DiceData, pagable_storage: Option<DiceStorage>) -> StdArc<Self> {
+    pub(crate) fn new(
+        global_data: DiceData,
+        pagable_storage: Option<DiceStorage>,
+        cycle_check_interval: Option<Duration>,
+    ) -> StdArc<Self> {
         let state_handle = init_state(
             pagable_storage
                 .as_ref()
@@ -120,7 +146,14 @@ impl Dice {
             state_handle,
             global_data,
             pagable_storage,
+            cycle_check_interval,
         })
+    }
+
+    /// A `Dice` without pagable storage that detects cycles at the default interval.
+    #[cfg(test)]
+    pub(crate) fn testing_new(global_data: DiceData) -> StdArc<Self> {
+        Self::new(global_data, None, Some(DEFAULT_CYCLE_CHECK_INTERVAL))
     }
 
     pub fn builder() -> DiceDataBuilder {
@@ -277,11 +310,11 @@ impl Dice {
         }
     }
 
-    /// Note: modern dice does not support cycle detection yet
     pub fn detect_cycles(&self) -> &DetectCycles {
-        // TODO(bobyf) actually have cycles for dice modern
-        const CYCLES: DetectCycles = DetectCycles::Disabled;
-        &CYCLES
+        match self.cycle_check_interval {
+            Some(_) => &DetectCycles::Enabled,
+            None => &DetectCycles::Disabled,
+        }
     }
 
     /// Waits until dice is idle. See [`Dice::is_idle`] for what that means.

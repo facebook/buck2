@@ -313,7 +313,7 @@ async fn invalid_update() {
         }
     }
 
-    let dice = Dice::new(DiceData::new(), None);
+    let dice = Dice::testing_new(DiceData::new());
     let root = dice.new_root().await;
     let mut updater = dice.updater(root);
 

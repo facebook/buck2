@@ -267,7 +267,7 @@ mod tests {
 
     #[tokio::test]
     async fn changes_are_recorded() -> anyhow::Result<()> {
-        let dice = Dice::new(DiceData::new(), None);
+        let dice = Dice::testing_new(DiceData::new());
         let root = dice.new_root().await;
         let mut updater = dice.updater(root);
 
@@ -315,7 +315,7 @@ mod tests {
 
     #[tokio::test]
     async fn transaction_versions() -> anyhow::Result<()> {
-        let dice = Dice::new(DiceData::new(), None);
+        let dice = Dice::testing_new(DiceData::new());
         let root = dice.new_root().await;
         let mut updater = dice.updater(root);
 

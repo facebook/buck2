@@ -73,7 +73,7 @@ async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
         }
     }
 
-    let dice = Dice::new(DiceData::new(), None);
+    let dice = Dice::testing_new(DiceData::new());
     let root = dice.new_root().await;
 
     let guard = Arc::new(Mutex::new(0));
@@ -149,6 +149,7 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
 
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(n_thread)
+        .enable_time()
         .build()
         .unwrap();
 
@@ -156,7 +157,7 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
     let barrier = Arc::new(std::sync::Barrier::new(n_thread));
 
     rt.block_on(async move {
-        let dice = Dice::new(DiceData::new(), None);
+        let dice = Dice::testing_new(DiceData::new());
         let root = dice.new_root().await;
 
         let ctx = &dice.updater(root).commit().await;
