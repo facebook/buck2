@@ -39,6 +39,7 @@ def buck_e2e_test(
     compatible_with = None,
     heavyweight_threads = "4",
     remote_execution = None,
+    visibility = None,
 ):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
@@ -139,6 +140,7 @@ def buck_e2e_test(
     if "windows" in skip_for_os:
         labels += ci.remove_labels(ci.windows(ci.opt()))
 
+    kwargs = {"visibility": visibility} if visibility != None else {}
     python_pytest(
         name = name,
         base_module = base_module,
@@ -162,6 +164,7 @@ def buck_e2e_test(
         pytest_confcutdir = pytest_confcutdir,
         modifiers = cfg_modifiers,
         compatible_with = compatible_with,
+        **kwargs,
     )
 
     if e2e_flavor == "buck2_non_isolated":
@@ -228,6 +231,7 @@ def buck2_e2e_test(
     compatible_with = None,
     heavyweight_threads = "4",
     remote_execution = None,
+    visibility = None,
 ):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
@@ -274,6 +278,7 @@ def buck2_e2e_test(
         "serialize_test_cases": serialize_test_cases,
         "srcs": srcs,
         "use_buck_api": use_buck_api,
+        "visibility": visibility,
     }
 
     env = env or {}
