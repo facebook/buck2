@@ -10,6 +10,7 @@ license.workspace = true
 [dependencies]
 allocative.workspace = true
 anyhow.workspace = true
+buck2_data.workspace = true
 fxhash.workspace = true
 serde.workspace = true
 serde_json.workspace = true

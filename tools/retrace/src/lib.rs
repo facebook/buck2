@@ -13,9 +13,11 @@
 //! Modules land one reviewable diff at a time; docs/contract.md holds
 //! the honesty rules every emitted number follows.
 
+pub mod activity;
 pub mod analyses;
 pub mod command_profile;
 pub mod dag;
+pub mod detail;
 pub mod execution;
 pub mod graph;
 pub mod humanize;

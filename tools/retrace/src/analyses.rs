@@ -4008,6 +4008,74 @@ mod tests {
     }
 
     #[test]
+    fn typed_hash_composition_matches_raw_detail_after_optional_field_repair() {
+        use serde_json::Value;
+        use serde_json::json;
+        let cases = [
+            (json!("local_outputs"), json!(12)),
+            (json!("local_outputs"), json!(0)),
+            (json!("local_outputs"), Value::Null),
+            (json!("local_outputs"), json!(-1)),
+            (json!("local_outputs"), json!("12")),
+            (json!("worker"), json!(12)),
+            (Value::Null, json!(12)),
+            (json!(true), json!(12)),
+        ];
+        for (source, parent) in cases {
+            let args = json!({"stages": {
+                "hashing_us": 18, "hashing_source": source,
+                "local_finalize_outputs_us": parent, "cas_artifact_us": 3,
+            }});
+            let p = crate::temp_path("hash-composition.json");
+            let row = json!({"ph": "X", "cat": "recipe", "name": "job", "ts": 0, "dur": 100, "args": args});
+            std::fs::write(&p, format!("[\n{row}\n]\n")).unwrap();
+            let tr = parse::parse(p.to_str().unwrap()).unwrap();
+            let extras = load_extras(&tr);
+            std::fs::remove_file(&p).ok();
+            assert!(extras.source_error.is_none(), "{:?}", extras.source_error);
+            assert_eq!(extras.unmatched, 0);
+            let typed = extras.args[0].stages.unwrap();
+            let raw = crate::detail::stages_of(&args).unwrap();
+            assert_eq!(typed.hashing_us, 18, "raw counter is retained");
+            assert_eq!(typed.hard_sum(), raw.iter().sum::<i64>(), "{args}");
+        }
+    }
+
+    #[test]
+    fn inclusive_finalize_preserves_large_raw_hash_without_poisoning_composition() {
+        for finalize_us in [0, 12] {
+            let args = serde_json::json!({"stages": {
+                "hashing_us": i64::MAX, "hashing_source": "local_outputs",
+                "local_finalize_outputs_us": finalize_us, "cas_artifact_us": 3,
+            }});
+            let path = crate::temp_path("inclusive-finalize-overflow.json");
+            let row = serde_json::json!({
+                "ph": "X", "cat": "recipe", "name": "job", "ts": 0, "dur": 100,
+                "args": args,
+            });
+            std::fs::write(&path, format!("[\n{row}\n]\n")).unwrap();
+            let trace = parse::parse(path.to_str().unwrap()).unwrap();
+            let extras = load_extras(&trace);
+            std::fs::remove_file(path).unwrap();
+            assert!(extras.source_error.is_none(), "{:?}", extras.source_error);
+            assert_eq!(extras.unmatched, 0);
+            assert_eq!(extras.rejected_fields, 0);
+            let stages = extras.args[0].stages.unwrap();
+            assert_eq!(
+                stages.hashing_us,
+                i64::MAX,
+                "raw duration sum remains available"
+            );
+            assert!(stages.hashing_in_finalize_outputs);
+            assert_eq!(stages.hard_sum(), finalize_us + 3);
+            assert_eq!(
+                crate::detail::stages_of(&args).unwrap().iter().sum::<i64>(),
+                finalize_us + 3,
+            );
+        }
+    }
+
+    #[test]
     fn poisoned_upload_and_admission_fields_never_become_measured_zero() {
         assert_eq!(
             std::mem::size_of::<UploadSub>(),
