@@ -15,6 +15,9 @@
 
 pub mod command_profile;
 pub mod execution;
+pub mod lanes;
+mod parallelism;
+pub mod parse;
 pub mod types;
 
 /// Absolute path to a `testdata/` fixture, for both the in-crate tests

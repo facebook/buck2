@@ -1207,6 +1207,18 @@ pub(crate) struct TraceSource {
 }
 
 impl TraceSource {
+    pub(crate) fn new(file: File) -> io::Result<Self> {
+        let stamp = SourceStamp::read(&file)?;
+        Ok(Self { file, stamp })
+    }
+
+    pub(crate) fn reader(&self) -> TraceReader<'_> {
+        TraceReader {
+            source: self,
+            pos: 0,
+        }
+    }
+
     pub(crate) fn validate(&self) -> io::Result<()> {
         if SourceStamp::read(&self.file)? != self.stamp {
             return Err(io::Error::other(

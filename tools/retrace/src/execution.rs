@@ -666,6 +666,71 @@ mod tests {
     }
 
     #[test]
+    fn production_load_requires_matching_run_capture_span_and_source_generation() {
+        struct Scratch {
+            dir: PathBuf,
+            trace: PathBuf,
+            store: PathBuf,
+        }
+        impl Drop for Scratch {
+            fn drop(&mut self) {
+                std::fs::remove_file(&self.trace).ok();
+                std::fs::remove_file(&self.store).ok();
+                std::fs::remove_dir(&self.dir).ok();
+            }
+        }
+        let dir = crate::temp_path("execution-load");
+        std::fs::create_dir(&dir).unwrap();
+        let scratch = Scratch {
+            trace: dir.join("trace.json"),
+            store: store_path(&dir, RUN).unwrap(),
+            dir,
+        };
+        let (path, info, reference, _) = fixture();
+        std::fs::rename(path, &scratch.store).unwrap();
+        std::fs::write(
+            &scratch.trace,
+            "[\n{\"ph\":\"X\",\"name\":\"action\",\"ts\":0,\"dur\":1}\n]\n",
+        )
+        .unwrap();
+        let mut trace = crate::parse::parse(scratch.trace.to_str().unwrap()).unwrap();
+        trace.runs.push(crate::types::RunInfo {
+            run: RUN.into(),
+            capture: Some(CAPTURE.into()),
+            execution_store: Some(info),
+            ..Default::default()
+        });
+        let record = serde_json::json!({"args": {
+            "run": RUN, "span_id": 42,
+            "execution": {"schema": 1, "reference": reference}
+        }});
+        let loaded = load(&trace, &record).unwrap().unwrap();
+        assert_eq!(loaded.attempts.len(), 1);
+        assert_eq!(loaded.attempts[0].stdout.state, OutputState::NotRecorded);
+        assert_eq!(loaded.attempts[0].stderr.state, OutputState::Recorded);
+        drop(loaded);
+        assert!(
+            load(&trace, &serde_json::json!({"args": {}}))
+                .unwrap()
+                .is_none()
+        );
+        let mut wrong = record.clone();
+        wrong["args"]["span_id"] = serde_json::json!(43);
+        assert!(load(&trace, &wrong).is_err());
+        wrong = record.clone();
+        wrong["args"]["execution"]["schema"] = serde_json::json!(2);
+        assert!(load(&trace, &wrong).is_err());
+        wrong = record.clone();
+        wrong["args"]["run"] = serde_json::json!("00000000-0000-0000-0000-000000000000");
+        assert!(load(&trace, &wrong).is_err());
+        trace.runs[0].capture = Some("wrong-generation".into());
+        assert!(load(&trace, &record).is_err());
+        trace.runs[0].capture = Some(CAPTURE.into());
+        std::fs::write(&scratch.trace, "[]\n").unwrap();
+        assert!(load(&trace, &record).is_err());
+    }
+
+    #[test]
     fn lazy_execution_preview_is_bounded_utf8_safe_and_preserves_missingness() {
         let (path, info, reference, text) = fixture();
         let reader = DetailReader::open(&path, RUN, CAPTURE, &info).unwrap();

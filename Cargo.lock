@@ -7609,6 +7609,7 @@ version = "0.1.0"
 dependencies = [
  "allocative",
  "anyhow",
+ "fxhash",
  "serde",
  "serde_json",
  "sha1 0.11.0",
