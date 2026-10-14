@@ -1034,6 +1034,43 @@ pub fn load_graph_opts(path: &str, opts: &GraphLoadOpts) -> anyhow::Result<Graph
     load_graph_checked(path, *opts, || Ok(()))
 }
 
+/// A refused trace can cancel its unused speculative graph. Unit fixtures
+/// without a shared viewer allocation use the standalone hardware budget.
+#[cfg(test)]
+pub(crate) fn load_graph_cancellable(path: &str, cancel: &AtomicBool) -> anyhow::Result<Graph> {
+    load_graph_cancellable_with_workers_and_limit(
+        path,
+        cancel,
+        crate::parallelism::graph_workers(),
+        crate::parse::DEFAULT_MAX_INPUT_BYTES,
+    )
+}
+
+/// Preserve the viewer request's input cap through both speculative and serial
+/// reads. Dependency loading and cycle refusal remain mandatory for the GUI.
+pub(crate) fn load_graph_cancellable_with_workers_and_limit(
+    path: &str,
+    cancel: &AtomicBool,
+    workers: usize,
+    max_input_bytes: u64,
+) -> anyhow::Result<Graph> {
+    // Hold speculative notices until the selected trace admits this load.
+    let opts = GraphLoadOpts {
+        max_input_bytes,
+        quiet: true,
+        ..Default::default()
+    };
+    load_graph_with_workers(
+        path,
+        opts,
+        || {
+            anyhow::ensure!(!cancel.load(Ordering::Relaxed), "graph preload cancelled");
+            Ok(())
+        },
+        workers,
+    )
+}
+
 fn load_graph_checked<F: Fn() -> anyhow::Result<()>>(
     path: &str,
     opts: GraphLoadOpts,
@@ -1394,6 +1431,37 @@ mod tests {
                 assert!(Arc::ptr_eq(name, &graph.targets[id as usize]));
             }
         }
+    }
+
+    #[test]
+    fn cancellable_graph_loader_preserves_rows_indexes_and_refusals() {
+        let path = crate::temp_path("cancellable-graph.json");
+        let p = path.to_str().unwrap();
+        let cases = [
+            "{\"graph\":{\"enc\":2}}\n{\"t\":\"a\",\"d\":[\"b\"]}\n{\"t\":\"b\",\"d\":[]}\n",
+            "{\"graph\":{\"enc\":2}}\n{\"t\":\"a\",\"d\":[\"ghost\"]}\n{\"t\":",
+            "{\"graph\":{\"enc\":2}}\n{broken}\n{\"t\":\"a\",\"d\":[]}\n",
+            "{\"graph\":{\"enc\":2}}\n{\"t\":\"a\",\"d\":[\"a\"]}\n",
+            "{\"graph\":{\"enc\":2}}\n{\"t\":\"a\",\"d\":[\"ghost\"]}\n",
+            "{\"graph\":{\"enc\":2}}\n{\"graph\":{\"enc\":2}}\n",
+        ];
+        for body in cases {
+            std::fs::write(&path, body).unwrap();
+            let ordinary = load_graph_opts(p, &QUIET);
+            let cancellable = load_graph_cancellable(p, &AtomicBool::new(false));
+            match (ordinary, cancellable) {
+                (Ok(mut a), Ok(mut b)) => {
+                    a.load_ms = 0;
+                    b.load_ms = 0;
+                    assert_eq!(format!("{a:?}"), format!("{b:?}"));
+                }
+                (Err(a), Err(b)) => assert_eq!(format!("{a:#}"), format!("{b:#}")),
+                pair => panic!("loader parity failed: {pair:?}"),
+            }
+        }
+        let error = load_graph_cancellable(p, &AtomicBool::new(true)).unwrap_err();
+        assert!(error.to_string().contains("graph preload cancelled"));
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]

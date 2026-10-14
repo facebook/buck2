@@ -1,0 +1,2267 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is dual-licensed under either the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree or the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree. You may select, at your option, one of the
+ * above-listed licenses.
+ */
+
+//! The window: app shell, menu bar, health chips, popup plumbing, the
+//! analysis panels, the timeline canvas and the action-detail popup.
+//! Everything a panel shows comes from the SAME `analyses`/`dag`
+//! functions `--json` exports — the surfaces cannot disagree.
+
+pub mod canvas;
+pub mod command_ui;
+mod load_pipeline;
+pub mod open;
+pub mod widgets;
+
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::sync::mpsc;
+use std::time::Instant;
+
+pub use load_pipeline::LoadedTrace;
+
+use crate::config;
+use crate::dag;
+use crate::detail;
+use crate::graph;
+use crate::humanize;
+use crate::ingest;
+use crate::parse;
+use crate::quality;
+use crate::types::CLASS_NAMES;
+use crate::types::F_CACHE_HIT;
+use crate::types::F_NOT_RECIPE;
+use crate::types::Trace;
+
+/// Dropping a request cancels its work without joining on the UI thread.
+pub struct Worker<T> {
+    rx: mpsc::Receiver<T>,
+    cancel: Arc<AtomicBool>,
+}
+
+impl<T> Worker<T> {
+    fn channel() -> (mpsc::Sender<T>, Self, Arc<AtomicBool>) {
+        let (tx, rx) = mpsc::channel();
+        let cancel = Arc::new(AtomicBool::new(false));
+        (
+            tx,
+            Self {
+                rx,
+                cancel: cancel.clone(),
+            },
+            cancel,
+        )
+    }
+
+    pub fn try_recv(&self) -> Result<T, mpsc::TryRecvError> {
+        self.rx.try_recv()
+    }
+
+    #[cfg(test)]
+    fn recv_timeout(&self, timeout: std::time::Duration) -> Result<T, mpsc::RecvTimeoutError> {
+        self.rx.recv_timeout(timeout)
+    }
+}
+
+impl<T> Drop for Worker<T> {
+    fn drop(&mut self) {
+        self.cancel.store(true, Ordering::Relaxed);
+    }
+}
+
+/// egui's proportional face is Ubuntu-Light, which carries no arrows or
+/// triangles: `▸` and the sort carets reach the screen as the
+/// replacement square. Hack is already linked in as the monospace face
+/// and has them, so appending it to the proportional chain costs no
+/// bytes and changes no glyph Ubuntu-Light already covers. Every
+/// `egui::Context` the crate draws into needs this — the snapshot
+/// harness builds its own.
+pub fn install_fonts(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+    if let Some(proportional) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+        proportional.push("Hack".to_owned());
+    }
+    ctx.set_fonts(fonts);
+}
+
+/// Load one action's full record back from the trace file.
+pub fn load_full(tr: &Trace, off: u64, len: u32) -> Option<serde_json::Value> {
+    use std::io::Read;
+    use std::io::Seek;
+    use std::io::SeekFrom;
+    if len as usize > detail::MAX_DETAIL_RECORD_BYTES || off.checked_add(u64::from(len)).is_none() {
+        return None;
+    }
+    let mut f = tr.source_reader().ok()?;
+    f.seek(SeekFrom::Start(off)).ok()?;
+    let mut buf = vec![0u8; len as usize];
+    f.read_exact(&mut buf).ok()?;
+    tr.validate_source().ok()?;
+    let s = String::from_utf8_lossy(&buf);
+    serde_json::from_str(s.trim_end().trim_end_matches(',')).ok()
+}
+
+fn digest_query(query: &str) -> bool {
+    let (hash, size) = query
+        .split_once(':')
+        .map_or((query, None), |(h, s)| (h, Some(s)));
+    hash.len() >= 8
+        && hash.bytes().all(|b| b.is_ascii_hexdigit())
+        && size.is_none_or(|s| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()))
+}
+
+fn contains_folded(name: &str, query: &str) -> bool {
+    if query.is_empty() {
+        return true;
+    }
+    if name.is_ascii() && query.is_ascii() {
+        name.as_bytes()
+            .windows(query.len())
+            .any(|part| part.eq_ignore_ascii_case(query.as_bytes()))
+    } else {
+        name.to_lowercase().contains(query)
+    }
+}
+
+fn load_digest_index(tr: &Trace, cancel: &AtomicBool) -> anyhow::Result<Vec<Option<String>>> {
+    use std::io::Read;
+    use std::io::Seek;
+    use std::io::SeekFrom;
+    #[derive(serde::Deserialize)]
+    struct Args {
+        digest: Option<String>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Row {
+        args: Option<Args>,
+    }
+    let mut index = vec![None; tr.acts.len()];
+    let mut reader = tr.source_reader()?;
+    let mut order: Vec<_> = tr
+        .acts
+        .iter()
+        .enumerate()
+        .filter(|(_, a)| a.flags & F_NOT_RECIPE == 0)
+        .map(|(i, a)| (a.off, i))
+        .collect();
+    order.sort_unstable();
+    let mut bytes = Vec::new();
+    for (off, i) in order {
+        anyhow::ensure!(!cancel.load(Ordering::Relaxed), "digest indexing canceled");
+        bytes.resize(tr.acts[i].len as usize, 0);
+        reader.seek(SeekFrom::Start(off))?;
+        reader.read_exact(&mut bytes)?;
+        let raw = std::str::from_utf8(&bytes)?
+            .trim_end()
+            .trim_end_matches(',');
+        if let Ok(row) = serde_json::from_str::<Row>(raw) {
+            index[i] = row
+                .args
+                .and_then(|args| args.digest)
+                .map(|d| d.to_ascii_lowercase());
+        }
+    }
+    tr.validate_source()?;
+    Ok(index)
+}
+
+/// The worst input-upload permit waits, each paired with the act index
+/// it opens; the index is `None` where the waiting action is not in the
+/// trace.
+pub type UploadWaits = Vec<(String, Option<usize>)>;
+
+/// Once stitching is complete the viewer needs counts and provenance, not
+/// another copy of every target name and dependency edge.
+pub struct GraphSummary {
+    pub meta: graph::GraphMeta,
+    pub n_rows: usize,
+    pub n_edges: usize,
+    pub n_joins: usize,
+    pub chain: Option<dag::CpChain>,
+}
+
+impl GraphSummary {
+    pub fn new(g: &graph::Graph, chain: Option<dag::CpChain>) -> Self {
+        Self {
+            meta: g.meta.clone(),
+            n_rows: g.n_rows,
+            n_edges: g.n_edges,
+            n_joins: g.is_join.iter().filter(|&&v| v).count(),
+            chain,
+        }
+    }
+}
+
+pub enum GState {
+    Absent,
+    Loading(Worker<anyhow::Result<graph::Graph>>),
+    Building(
+        Worker<(
+            Arc<graph::Graph>,
+            Option<(Arc<dag::DagBundle>, dag::DagStats)>,
+        )>,
+    ),
+    Ready {
+        g: Arc<GraphSummary>,
+        dag: Option<Arc<dag::DagBundle>>,
+        /// the graph's and the stitch's shortfalls, the same decision
+        /// the JSON envelopes make
+        quality: Box<quality::Quality>,
+    },
+    Failed(String),
+}
+
+/// The health chips the quality decision owns: an incomplete capture,
+/// an unrecorded outcome, and a graph that is not whole. Empty when
+/// there is nothing to say.
+pub(crate) fn quality_chips(q: &quality::Quality) -> Vec<(String, egui::Color32)> {
+    let amber = egui::Color32::from_rgb(0xf5, 0xe1, 0x9c);
+    let mut chips = Vec::new();
+    if !q.capture_complete() {
+        chips.push(("capture: incomplete".to_owned(), amber));
+    }
+    if q.outcome_unrecorded {
+        chips.push(("outcome: unknown".to_owned(), amber));
+    }
+    if let Some(g) = &q.graph
+        && !q.graph_complete()
+    {
+        let detail = match &q.stitch {
+            Some(s) if s.n_defined < s.n_events => format!(
+                "{}/{} actions with rows",
+                humanize::count(s.n_defined as u64),
+                humanize::count(s.n_events as u64)
+            ),
+            _ => match q.graph_limitations().first() {
+                Some(reason) => humanize::mid_ellipsis(reason, 88),
+                None => match g.declared_nodes {
+                    Some(n) => format!(
+                        "{}/{} rows",
+                        humanize::count(g.loaded_rows as u64),
+                        humanize::count(n.max(0) as u64)
+                    ),
+                    None => format!("{} rows", humanize::count(g.loaded_rows as u64)),
+                },
+            },
+        };
+        chips.push((format!("graph: PARTIAL {detail}"), amber));
+    }
+    chips
+}
+
+pub struct Ready {
+    pub command_view: command_ui::State,
+    pub tr: Arc<Trace>,
+    pub run_id: Option<String>,
+    /// the status-bar line, also quoted into the analysis prompt
+    pub summary: String,
+    pub selected: Option<usize>,
+    /// navigation request the timeline consumes this frame
+    pub nav_req: Option<usize>,
+    /// previously selected actions, oldest first (Back / Backspace)
+    pub hist: Vec<usize>,
+    /// set by a Back navigation so `select` unwinds the history instead
+    /// of extending it
+    pub nav_back: bool,
+    // ---- viewport ----
+    pub t_left: f64,
+    pub upp: f64,
+    pub scroll: f32,
+    pub row_h: f32,
+    pub show_conc: bool,
+    pub show_gutter: bool,
+    pub cp_on: bool,
+    pub painted: usize,
+    // ---- filter ----
+    pub filter: String,
+    pub matches: Option<Vec<bool>>,
+    pub match_list: Vec<usize>,
+    pub match_cursor: usize,
+    /// the Find overlay is open (Cmd/Ctrl+F, View menu)
+    pub find_open: bool,
+    /// focus the Find input on the frame it opens
+    pub find_focus: bool,
+    // ---- lazily built render data ----
+    pub minimap: Option<egui::TextureHandle>,
+    pub conc: Vec<u32>,
+    pub conc_max: u32,
+    /// act index -> its stage array (None = record has no stages)
+    pub stage_cache: HashMap<usize, Option<[i64; crate::detail::STAGE_N]>>,
+    /// Compact positioned coverage; stage counters never acquire timestamps.
+    pub activity_cache: HashMap<usize, Vec<(i64, i64, bool)>>,
+    pub activity_state: Vec<u8>,
+    pub activity_cache_intervals: usize,
+    /// ancestry highlight
+    pub anc_set: Option<HashSet<usize>>,
+    /// recipe action count (prompt context)
+    pub n_events: usize,
+    selected_class_count: [usize; config::CLASS_N],
+    pub cp_list: Vec<usize>,
+    /// act -> lowercase RE digest, built lazily by `ensure_digest_ix`
+    pub digest_ix: Option<Vec<Option<String>>>,
+    digest_running: Option<Worker<anyhow::Result<Vec<Option<String>>>>>,
+    digest_error: Option<String>,
+    /// The timeline plot's painted x range, recorded each canvas frame.
+    /// The minimap, its brush, and the horizontal scrollbar are all
+    /// drawn *outside* the central panel, so the only way they can share
+    /// the plot's time axis is to be told where it is: the plot starts
+    /// one lane gutter in from the window edge and stops one scrollbar
+    /// short of the other, and anything that maps time to x with the
+    /// window's own rect is off by both.
+    pub canvas_x0: f32,
+    pub canvas_w: f32,
+    /// The plot's painted height, recorded the same way and for the same
+    /// reason: the overview's brush has to bracket the lanes on screen,
+    /// and how many those are is `canvas_h / row_h`.
+    pub canvas_h: f32,
+    pub gstate: GState,
+    graph_explicit: bool,
+    pub graph_warning: Option<String>,
+    pub native_popups: bool,
+    /// The Open menu's own state. It only ever records what was asked
+    /// for; the app is what replaces the trace.
+    pub open: open::OpenState,
+    pub open_warnings: Vec<String>,
+    pub open_status_lines: Vec<String>,
+    pub toast: Option<(String, Instant)>,
+    pub cp_set: Option<HashSet<usize>>,
+}
+
+impl Ready {
+    pub fn new(tr: Trace, run_id: Option<String>) -> Self {
+        Self::new_with_graph(tr, run_id, None)
+    }
+
+    fn new_with_graph(tr: Trace, run_id: Option<String>, graph_path: Option<String>) -> Self {
+        Self::new_with_pending_graph(tr, run_id, graph_path, None, parse::DEFAULT_MAX_INPUT_BYTES)
+    }
+
+    fn from_loaded(
+        loaded: LoadedTrace,
+        run_sel: Option<&str>,
+        graph_path: Option<String>,
+    ) -> anyhow::Result<Self> {
+        // Invalid run selection drops the request-owned preload before it
+        // can be adopted. The existing pair gate still runs in poll_graph.
+        let run_id = parse::select_trace_run(&loaded.tr, run_sel)?;
+        Ok(Self::from_validated_load(loaded, run_id, graph_path))
+    }
+
+    fn from_validated_load(
+        mut loaded: LoadedTrace,
+        run_id: Option<String>,
+        graph_path: Option<String>,
+    ) -> Self {
+        let notices = std::mem::take(&mut loaded.notices);
+        let status_lines = std::mem::take(&mut loaded.status_lines);
+        let (tr, pending, max_input_bytes) = loaded.into_parts();
+        let mut ready =
+            Self::new_with_pending_graph(tr, run_id, graph_path, pending, max_input_bytes);
+        ready.open_warnings = notices;
+        ready.open_status_lines = status_lines;
+        ready
+    }
+
+    fn new_with_pending_graph(
+        tr: Trace,
+        run_id: Option<String>,
+        graph_path: Option<String>,
+        pending: Option<Worker<anyhow::Result<graph::Graph>>>,
+        max_input_bytes: u64,
+    ) -> Self {
+        let graph_explicit = graph_path.is_some();
+        let gstate = if let Some(rx) = pending {
+            GState::Loading(rx)
+        } else {
+            match graph_path.or_else(|| graph::sibling_graph_path(&tr.path)) {
+                Some(gp) => {
+                    let (tx, rx, cancel) = Worker::channel();
+                    let started = std::thread::Builder::new()
+                        .name("retrace-graph".into())
+                        .spawn(move || {
+                            // the window can close while a worker is still running, so
+                            // a closed channel is an ordinary outcome and not an error
+                            let result = graph::load_graph_cancellable_with_workers_and_limit(
+                                &gp,
+                                &cancel,
+                                crate::parallelism::graph_workers(),
+                                max_input_bytes,
+                            );
+                            if let Ok(g) = &result {
+                                graph::dropped_line_notice(
+                                    &gp,
+                                    g.dropped_lines,
+                                    g.dropped_interior,
+                                );
+                            }
+                            drop(tx.send(result));
+                        });
+                    match started {
+                        Ok(_) => GState::Loading(rx),
+                        Err(e) => GState::Failed(format!("cannot start graph worker: {e}")),
+                    }
+                }
+                None => GState::Absent,
+            }
+        };
+        let recipes = tr
+            .acts
+            .iter()
+            .filter(|a| a.flags & F_NOT_RECIPE == 0 && tr.action_in_run(a, run_id.as_deref()));
+        let busy: i64 = recipes
+            .clone()
+            .fold(0i64, |sum, a| sum.saturating_add(a.dur.max(0)));
+        let n_events = recipes.count() as i64;
+        let nhits = tr
+            .acts
+            .iter()
+            .filter(|a| a.flags & F_CACHE_HIT != 0 && tr.action_in_run(a, run_id.as_deref()))
+            .count() as i64;
+        let restored: f64 = tr
+            .acts
+            .iter()
+            .filter(|a| tr.action_in_run(a, run_id.as_deref()))
+            .filter_map(|a| a.cache_bytes)
+            .sum();
+        let selected = tr.selected_summary(run_id.as_deref());
+        let summary = detail::summary_line(&detail::SummaryFacts {
+            n_events,
+            span: selected.span_us.max(1),
+            busy,
+            nlanes: selected.lanes as i64,
+            cache_events: Some((nhits, restored)),
+        });
+        // fit the *plot*, not the window: dividing the span by the
+        // window width leaves the last gutter-plus-scrollbar worth of
+        // the trace (4.4% of it, 10.2 s on a large capture) hanging off
+        // the right edge before the user has touched anything.
+        let upp = tr.span as f64 / f64::from(canvas::DEFAULT_CANVAS_W);
+        let n_events_v = n_events as usize;
+        let command_view = command_ui::State::new(&tr, run_id.as_deref());
+        let n_acts = tr.acts.len();
+        let mut selected_class_count = [0; config::CLASS_N];
+        for a in &tr.acts {
+            if tr.action_in_run(a, run_id.as_deref()) {
+                selected_class_count[(a.color as usize).min(config::CLASS_N - 1)] += 1;
+            }
+        }
+        Ready {
+            command_view,
+            tr: Arc::new(tr),
+            run_id,
+            summary,
+            selected: None,
+            nav_req: None,
+            hist: Vec::new(),
+            nav_back: false,
+            t_left: 0.0,
+            upp,
+            scroll: 0.0,
+            row_h: config::get().appearance.row_height.unwrap_or(11.0),
+            show_conc: config::get().appearance.concurrency_strip.unwrap_or(true),
+            show_gutter: config::get().appearance.lane_gutter.unwrap_or(true),
+            cp_on: false,
+            painted: 0,
+            filter: String::new(),
+            matches: None,
+            match_list: Vec::new(),
+            match_cursor: 0,
+            find_open: false,
+            find_focus: false,
+            minimap: None,
+            conc: Vec::new(),
+            conc_max: 1,
+            stage_cache: HashMap::new(),
+            activity_cache: HashMap::new(),
+            activity_state: vec![0; n_acts],
+            activity_cache_intervals: 0,
+            anc_set: None,
+            n_events: n_events_v,
+            selected_class_count,
+            cp_list: Vec::new(),
+            digest_ix: None,
+            digest_running: None,
+            digest_error: None,
+            // corrected by the first painted frame
+            canvas_x0: canvas::GUTTER_W,
+            canvas_w: canvas::DEFAULT_CANVAS_W,
+            canvas_h: canvas::DEFAULT_CANVAS_H,
+            gstate,
+            graph_explicit,
+            graph_warning: None,
+            native_popups: config::get().behavior.native_popups.unwrap_or(true),
+            open: open::OpenState::default(),
+            open_warnings: Vec::new(),
+            open_status_lines: Vec::new(),
+            toast: None,
+            cp_set: None,
+        }
+    }
+
+    /// What the menu bar's "Close popups" does.
+    pub fn close_all_popups(&mut self) {
+        self.find_open = false;
+    }
+
+    /// Open the action-detail popup on act `idx`: re-read its record
+    /// from the file by byte offset and build the row list once.
+    pub fn select(&mut self, idx: usize) {
+        // Re-clicking the selected action does not add a duplicate Back entry.
+        if !std::mem::take(&mut self.nav_back)
+            && let Some(prev) = self.selected
+            && prev != idx
+        {
+            self.hist.push(prev);
+            if self.hist.len() > 64 {
+                self.hist.remove(0);
+            }
+        }
+        self.selected = Some(idx);
+    }
+
+    /// Return to the previously selected action, if there is one.
+    pub fn go_back(&mut self, width: f32, view_h: f32) {
+        if let Some(prev) = self.hist.pop() {
+            self.nav_back = true;
+            self.navigate(prev, width, view_h);
+        }
+    }
+
+    pub fn fit(&mut self, width: f32) {
+        self.t_left = 0.0;
+        self.upp = self.tr.span as f64 / width.max(100.0) as f64;
+    }
+
+    /// Hard limits on the viewport, applied once per frame AFTER all
+    /// input so no individual path (drag, wheel, pinch, keys, minimap,
+    /// scrollbar, navigate) can escape them.
+    pub fn clamp_view(&mut self, width: f32, view_h: f32) {
+        let span = self.tr.span.max(1) as f64;
+        let w = width.max(1.0) as f64;
+        // never zoom out past the whole trace; the max is data-derived
+        // and f64::clamp panics when min > max (degenerate span on a
+        // wide window), so order the bounds
+        self.upp = self.upp.clamp(0.05, (span / w).max(0.05));
+        let view_us = self.upp * w;
+        self.t_left = if view_us >= span {
+            0.0
+        } else {
+            self.t_left.clamp(0.0, span - view_us)
+        };
+        let total_h = self.tr.lanes.len() as f32 * self.row_h;
+        self.scroll = self.scroll.clamp(0.0, (total_h - view_h).max(0.0));
+    }
+
+    pub fn zoom_at(&mut self, factor: f64, px: f32) {
+        let t_at = self.t_left + self.upp * px as f64;
+        self.upp = (self.upp / factor).clamp(0.05, (self.tr.span as f64).max(0.05));
+        self.t_left = t_at - self.upp * px as f64;
+    }
+
+    /// The vertical counterpart of [`Ready::zoom_at`]: taller or shorter
+    /// lane rows, holding the lane under the cursor still. `py` is the
+    /// cursor's offset from the top of the lane area, not from the top
+    /// of the window.
+    pub fn zoom_rows_at(&mut self, factor: f32, py: f32) {
+        let lane_at = (self.scroll + py.max(0.0)) / self.row_h.max(0.01);
+        self.row_h = (self.row_h * factor).clamp(canvas::ROW_H_MIN, canvas::ROW_H_MAX);
+        self.scroll = (lane_at * self.row_h - py.max(0.0)).max(0.0);
+    }
+
+    pub fn navigate(&mut self, idx: usize, width: f32, view_h: f32) {
+        let a = self.tr.acts[idx];
+        if self.upp > (a.dur as f64) / (0.15 * width as f64) {
+            self.upp = ((a.dur as f64) / (0.3 * width as f64)).max(0.05);
+        }
+        self.t_left = a.ts as f64 + a.dur as f64 / 2.0 - self.upp * width as f64 / 2.0;
+        self.scroll = (a.lane as f32 * self.row_h - view_h / 2.0).max(0.0);
+        self.select(idx);
+    }
+
+    pub fn clear_selection(&mut self) {
+        if let Some(selected) = self.selected.take() {
+            if self.hist.last() != Some(&selected) {
+                self.hist.push(selected);
+            }
+        }
+    }
+
+    /// Recompute the match set for the current `filter`: case-insensitive
+    /// substring over the full target string, plus digest-prefix matching
+    /// so a digest copied out of another tool or a log jumps straight to its
+    /// action. Clears the set when the query is empty.
+    pub fn apply_filter(&mut self) {
+        self.match_cursor = 0;
+        if self.filter.is_empty() {
+            self.matches = None;
+            self.match_list.clear();
+            return;
+        }
+        let q = self.filter.to_lowercase();
+        let as_digest = digest_query(&q);
+        if as_digest {
+            self.ensure_digest_ix();
+        }
+        let dix = self.digest_ix.as_deref().unwrap_or(&[]);
+        let mut flags = vec![false; self.tr.acts.len()];
+        let mut list = Vec::new();
+        for (i, a) in self.tr.acts.iter().enumerate() {
+            if a.flags & F_NOT_RECIPE != 0 || !self.tr.action_in_run(a, self.run_id.as_deref()) {
+                continue;
+            }
+            let name = &self.tr.names[a.name as usize];
+            let hit = contains_folded(name, &q)
+                || (as_digest
+                    && dix
+                        .get(i)
+                        .and_then(|d| d.as_deref())
+                        .is_some_and(|d| d.starts_with(&q)));
+            if hit {
+                flags[i] = true;
+                list.push(i);
+            }
+        }
+        self.matches = Some(flags);
+        self.match_list = list;
+    }
+
+    /// Names remain searchable while the optional digest index loads.
+    fn ensure_digest_ix(&mut self) {
+        if self.digest_ix.is_some() || self.digest_running.is_some() || self.digest_error.is_some()
+        {
+            return;
+        }
+        let tr = self.tr.clone();
+        let (tx, worker, cancel) = Worker::channel();
+        match std::thread::Builder::new()
+            .name("retrace-digests".into())
+            .spawn(move || {
+                drop(tx.send(load_digest_index(&tr, &cancel)));
+            }) {
+            Ok(_) => self.digest_running = Some(worker),
+            Err(e) => self.digest_error = Some(format!("cannot start digest index: {e}")),
+        }
+    }
+
+    fn poll_digest_index(&mut self, ctx: &egui::Context) {
+        let Some(worker) = &self.digest_running else {
+            return;
+        };
+        match worker.try_recv() {
+            Ok(Ok(index)) => {
+                self.digest_ix = Some(index);
+                self.digest_running = None;
+                self.apply_filter();
+            }
+            Ok(Err(e)) => {
+                self.digest_error = Some(format!("cannot index digests: {e:#}"));
+                self.digest_running = None;
+            }
+            Err(mpsc::TryRecvError::Disconnected) => {
+                self.digest_error = Some("digest index worker stopped; see stderr".into());
+                self.digest_running = None;
+            }
+            Err(mpsc::TryRecvError::Empty) => {
+                ctx.request_repaint_after(std::time::Duration::from_millis(100))
+            }
+        }
+    }
+
+    pub fn jump_match(&mut self, delta: isize, width: f32, view_h: f32) {
+        if self.match_list.is_empty() {
+            return;
+        }
+        let n = self.match_list.len() as isize;
+        self.match_cursor = (((self.match_cursor as isize + delta) % n + n) % n) as usize;
+        let idx = self.match_list[self.match_cursor];
+        self.navigate(idx, width, view_h);
+    }
+
+    pub fn poll_graph(&mut self) {
+        match &self.gstate {
+            GState::Loading(rx) => {
+                match rx.try_recv() {
+                    Err(mpsc::TryRecvError::Empty) => {}
+                    // a dead channel means the worker panicked; an
+                    // eternal spinner would hide it
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        self.reject_graph(
+                            "the graph worker stopped before producing a result; see stderr"
+                                .to_owned(),
+                        );
+                    }
+                    Ok(res) => match res {
+                        Ok(g) => {
+                            // the selected run, or the sole run; a
+                            // sidecar from another capture of the build
+                            // is a load failure, not a graph
+                            if let Err(e) =
+                                graph::check_trace_pair(&self.tr, self.run_id.as_deref(), &g.meta)
+                            {
+                                self.reject_graph(format!("{e:#}"));
+                                return;
+                            }
+                            let g = Arc::new(g);
+                            let (tx, rx2, cancel) = Worker::channel();
+                            let tr = self.tr.clone();
+                            let g2 = g.clone();
+                            let run_id = self.run_id.clone();
+                            let started = std::thread::Builder::new()
+                                .name("retrace-stitch".into())
+                                .spawn(move || {
+                                    let Ok(d) = dag::build_full_cancellable(
+                                        &tr,
+                                        &g2,
+                                        run_id.as_deref(),
+                                        &cancel,
+                                    ) else {
+                                        return;
+                                    };
+                                    let d = d.map(|(b, st)| (Arc::new(b), st));
+                                    drop(tx.send((g2, d)));
+                                });
+                            match started {
+                                Ok(_) => self.gstate = GState::Building(rx2),
+                                Err(e) => {
+                                    self.reject_graph(format!("cannot start stitch worker: {e}"))
+                                }
+                            }
+                        }
+                        Err(e) => self.reject_graph(format!("{e:#}")),
+                    },
+                }
+            }
+            GState::Building(rx) => match rx.try_recv() {
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.reject_graph(
+                        "the DAG stitch worker stopped before producing a result; see stderr"
+                            .to_owned(),
+                    );
+                }
+                Ok((g, built)) => {
+                    let mut quality =
+                        quality::Quality::assess(&self.tr, self.run_id.as_deref(), Some(&g));
+                    let chain = built.as_ref().map(|(b, st)| dag::chain_from_bundle(b, st));
+                    let summary = Arc::new(GraphSummary::new(&g, chain));
+                    let dag = built.map(|(b, st)| {
+                        quality = quality.stitched(&st);
+                        b
+                    });
+                    if let Some(b) = &dag {
+                        let d = &b.dag;
+                        self.cp_list = d
+                            .cp_path
+                            .iter()
+                            .map(|&n| d.act_of_node[n as usize] as usize)
+                            .collect();
+                        self.cp_set = Some(self.cp_list.iter().copied().collect());
+                    }
+                    self.gstate = GState::Ready {
+                        g: summary,
+                        dag,
+                        quality: Box::new(quality),
+                    };
+                }
+            },
+            _ => {}
+        }
+    }
+
+    fn reject_graph(&mut self, error: String) {
+        if self.graph_explicit {
+            self.gstate = GState::Failed(error);
+        } else {
+            let warning = format!("ignoring the graph beside this trace: {error}");
+            eprintln!("warning: {warning}");
+            self.toast = Some((warning.clone(), Instant::now()));
+            self.graph_warning = Some(warning);
+            self.gstate = GState::Absent;
+        }
+    }
+}
+
+pub enum State {
+    Loading {
+        rx: Worker<anyhow::Result<LoadedTrace>>,
+        since: Instant,
+        path: String,
+        converting: Arc<AtomicBool>,
+        /// Candidate selectors are committed only after the load is accepted.
+        run_sel: Option<String>,
+        graph_path: Option<String>,
+        /// the build that was on screen when this load started, held so a
+        /// failure can put it back
+        prev: Option<Box<Ready>>,
+    },
+    Failed(String),
+    Ready(Box<Ready>),
+}
+
+pub struct App {
+    pub state: State,
+    /// the raw `--run` selector; resolved once the parse lands
+    pub run_sel: Option<String>,
+    /// Explicit CLI graph applies to the initial trace, not later Opens.
+    pub graph_path: Option<String>,
+    /// The decode limits the first load ran under, kept so the Open menu
+    /// reads a second build the same way.
+    pub opts: parse::LoadOpts,
+    pub ingest_out: Option<std::path::PathBuf>,
+    pub ingest_phases: bool,
+    recovery_input: String,
+}
+
+impl App {
+    fn initial(
+        source: open::Request,
+        run_sel: Option<String>,
+        opts: &parse::LoadOpts,
+        graph_path: Option<String>,
+        ingest_out: Option<std::path::PathBuf>,
+        ingest_phases: bool,
+    ) -> Self {
+        let request = LoadRequest {
+            source,
+            run_sel: run_sel.clone(),
+            opts: opts.clone(),
+            out: ingest_out.clone().unwrap_or_else(ingest::default_out_dir),
+            phases: ingest_phases,
+            graph: graph_path.clone(),
+        };
+        Self {
+            state: spawn_load(request, None, load),
+            run_sel,
+            graph_path,
+            opts: opts.clone(),
+            ingest_out,
+            ingest_phases,
+            recovery_input: String::new(),
+        }
+    }
+
+    /// Start loading whatever the Open menu asked for.
+    ///
+    /// A load that succeeds replaces `State::Ready`, which drops the
+    /// previous `Ready` and with it the trace, the dependency graph, the
+    /// minimap texture and every cache keyed off them. That is the whole
+    /// mechanism: there is no list of things to reset, so there is
+    /// nothing to leave off it. Until then the previous build rides along
+    /// in `prev`, because a load that fails must not be the thing that
+    /// discards it.
+    fn begin(&mut self, req: open::Request) -> State {
+        let reload = matches!((&req, &self.state), (open::Request::Trace(path), State::Ready(r)) if path == std::path::Path::new(&r.tr.path));
+        let request = LoadRequest {
+            source: req,
+            run_sel: if reload { self.run_sel.clone() } else { None },
+            opts: self.opts.clone(),
+            out: self
+                .ingest_out
+                .clone()
+                .unwrap_or_else(ingest::default_out_dir),
+            phases: self.ingest_phases,
+            graph: if reload {
+                self.graph_path.clone()
+            } else {
+                None
+            },
+        };
+        spawn_load(request, self.take_ready(), load)
+    }
+
+    /// Takes the build currently on screen, leaving the window with no
+    /// state worth painting. Only [`App::begin`] calls this, and it puts
+    /// a state back on the same expression.
+    fn take_ready(&mut self) -> Option<Box<Ready>> {
+        match std::mem::replace(&mut self.state, State::Failed(String::new())) {
+            State::Ready(r) => Some(r),
+            other => {
+                self.state = other;
+                None
+            }
+        }
+    }
+
+    /// Accept a completed request atomically with its selectors. A rejected
+    /// parse or run must not change how the restored command is reloaded.
+    fn finish_load(
+        &mut self,
+        loaded: anyhow::Result<LoadedTrace>,
+        run_sel: Option<String>,
+        graph_path: Option<String>,
+        prev: Option<Box<Ready>>,
+    ) -> State {
+        match loaded.and_then(|tr| Ready::from_loaded(tr, run_sel.as_deref(), graph_path.clone())) {
+            Ok(ready) => {
+                self.recovery_input.clear();
+                self.run_sel = run_sel;
+                self.graph_path = graph_path;
+                State::Ready(Box::new(ready))
+            }
+            Err(error) => restore(prev, format!("{error:#}")),
+        }
+    }
+}
+
+/// What a failed load leaves behind. A build that was already on screen
+/// stays on screen and the error goes to a window over it, because the
+/// person who asked for a second build did not ask to lose the first.
+/// `State::Failed` is for a window that never had anything in it.
+fn restore(prev: Option<Box<Ready>>, err: String) -> State {
+    match prev {
+        Some(mut r) => {
+            r.open.err = Some(err);
+            State::Ready(r)
+        }
+        None => State::Failed(err),
+    }
+}
+
+/// Options captured before a load begins; later menu edits cannot change it.
+struct LoadRequest {
+    source: open::Request,
+    run_sel: Option<String>,
+    opts: parse::LoadOpts,
+    out: std::path::PathBuf,
+    phases: bool,
+    graph: Option<String>,
+}
+
+/// The first command and later Open requests use the same nonblocking path.
+fn spawn_load(
+    request: LoadRequest,
+    prev: Option<Box<Ready>>,
+    loader: impl FnOnce(LoadRequest, &AtomicBool, &AtomicBool) -> anyhow::Result<LoadedTrace>
+    + Send
+    + 'static,
+) -> State {
+    let (tx, rx, cancel) = Worker::channel();
+    let label = request.source.label();
+    let run_sel = request.run_sel.clone();
+    let graph_path = request.graph.clone();
+    let converting = Arc::new(AtomicBool::new(matches!(
+        request.source,
+        open::Request::Ingest(..)
+    )));
+    let phase = converting.clone();
+    let started = std::thread::Builder::new()
+        .name("retrace-open".into())
+        .spawn(move || {
+            let result = loader(request, &cancel, &phase);
+            if !cancel.load(Ordering::Relaxed) {
+                drop(tx.send(result));
+            }
+        });
+    match started {
+        Ok(_) => State::Loading {
+            rx,
+            since: Instant::now(),
+            path: label,
+            converting,
+            run_sel,
+            graph_path,
+            prev,
+        },
+        Err(e) => restore(prev, format!("cannot start load worker: {e}")),
+    }
+}
+
+/// Resolve and parse on the loader thread, keeping conversion off the UI thread.
+fn load(
+    request: LoadRequest,
+    cancel: &AtomicBool,
+    converting: &AtomicBool,
+) -> anyhow::Result<LoadedTrace> {
+    let mut warnings = Vec::new();
+    let mut status_lines = Vec::new();
+    let path = match request.source {
+        open::Request::Trace(p) => p,
+        open::Request::Ingest(src, from) => {
+            let output =
+                ingest::run_cached_cancellable(&src, &request.out, &from, request.phases, cancel)?;
+            for status in &output.status_lines {
+                eprintln!("{status}");
+            }
+            status_lines = output.status_lines;
+            warnings = output.warnings;
+            output.trace_path
+        }
+    };
+    let path = path
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("{}: path is not utf-8", path.display()))?;
+    converting.store(false, Ordering::Relaxed);
+    anyhow::ensure!(!cancel.load(Ordering::Relaxed), "load canceled");
+    let mut loaded = load_pipeline::load_cancellable(
+        path,
+        &request.opts,
+        request.graph.as_deref(),
+        true,
+        cancel,
+    )?;
+    loaded.notices = warnings;
+    loaded.status_lines = status_lines;
+    anyhow::ensure!(!cancel.load(Ordering::Relaxed), "load canceled");
+    Ok(loaded)
+}
+
+impl eframe::App for App {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        // collected inside the match and acted on after it, because
+        // acting on it replaces the very state the match borrows
+        let mut open_req = None;
+        let mut cancel_load = false;
+        match &mut self.state {
+            State::Loading {
+                rx,
+                since,
+                path,
+                converting,
+                run_sel,
+                graph_path,
+                prev,
+            } => {
+                match rx.try_recv() {
+                    Err(mpsc::TryRecvError::Empty) => {}
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        let prev = prev.take();
+                        self.state =
+                            restore(prev, "the parse worker panicked; see stderr".to_owned());
+                        ui.ctx().request_repaint();
+                        return;
+                    }
+                    Ok(res) => {
+                        let prev = prev.take();
+                        let run_sel = run_sel.take();
+                        let graph_path = graph_path.take();
+                        self.state = self.finish_load(res, run_sel, graph_path, prev);
+                        // the parse is what knows the build's name
+                        if let State::Ready(r) = &self.state {
+                            let label = build_label(&r.tr, r.run_id.as_deref());
+                            ui.ctx()
+                                .send_viewport_cmd(egui::ViewportCommand::Title(window_title(
+                                    label.as_deref(),
+                                    &r.tr.path,
+                                )));
+                        }
+                        ui.ctx().request_repaint();
+                        return;
+                    }
+                }
+                let elapsed = since.elapsed().as_secs_f32();
+                let path = path.clone();
+                let mut release_previous = false;
+                egui::CentralPanel::default().show(ui, |ui| {
+                    ui.centered_and_justified(|ui| {
+                        ui.vertical_centered(|ui| {
+                            ui.add_space(200.0);
+                            ui.spinner();
+                            ui.label(format!("Opening {path}"));
+                            ui.weak(if converting.load(Ordering::Relaxed) {
+                                "Resolving / converting event log (including download when needed)…"
+                            } else {
+                                "Loading trace and graph…"
+                            });
+                            ui.label(format!("{elapsed:.1}s"));
+                            cancel_load = ui.button("Cancel open").clicked();
+                            if prev.is_some() {
+                                release_previous = ui.button("Release previous command to reduce memory").clicked();
+                                ui.weak("After release, canceling or failing this Open cannot restore the previous command.");
+                            }
+                        });
+                    });
+                });
+                if release_previous {
+                    drop(prev.take());
+                }
+                ui.ctx()
+                    .request_repaint_after(std::time::Duration::from_millis(60));
+            }
+            State::Failed(e) => {
+                let e = e.clone();
+                egui::CentralPanel::default().show(ui, |ui| {
+                    ui.label(egui::RichText::new(format!("retrace: {e}")).size(13.0));
+                    ui.separator();
+                    ui.label("Open another Command ID, event log, or trace JSON:");
+                    let input = ui.text_edit_singleline(&mut self.recovery_input);
+                    if (ui.button("Open").clicked()
+                        || input.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                        && !self.recovery_input.trim().is_empty()
+                    {
+                        open_req = Some(open::classify(
+                            self.recovery_input.trim(),
+                            std::env::current_dir().unwrap_or_default(),
+                        ));
+                    }
+                });
+            }
+            State::Ready(r) => {
+                update_ready(r, ui);
+                open_req = r.open.req.take();
+            }
+        }
+        if cancel_load {
+            if let State::Loading { prev, .. } = &mut self.state {
+                let previous = prev.take();
+                self.state = restore(
+                    previous,
+                    "Open canceled. You can open another command below.".into(),
+                );
+            }
+        }
+        if let Some(req) = open_req {
+            self.state = self.begin(req);
+            ui.ctx().request_repaint();
+        }
+    }
+}
+
+/// The Find overlay: the input that feeds the existing match set
+/// (`filter` / `match_list`, navigated by n/N). Cmd/Ctrl+F and the View
+/// menu open it, Esc closes it and keeps the selection.
+fn show_find(app: &mut Ready, ctx: &egui::Context) {
+    app.poll_digest_index(ctx);
+    let toggled =
+        ctx.input(|i| i.key_pressed(egui::Key::F) && (i.modifiers.command || i.modifiers.ctrl));
+    if toggled {
+        app.find_open = true;
+        app.find_focus = true;
+    }
+    if !app.find_open {
+        return;
+    }
+    if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+        app.find_open = false;
+        return;
+    }
+    let screen = ctx
+        .input(|i| i.viewport().inner_rect)
+        .unwrap_or(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::vec2(1500.0, 950.0),
+        ));
+    let mut nav: Option<usize> = None;
+    let mut close = false;
+    egui::Area::new(egui::Id::new("find_overlay"))
+        .order(egui::Order::Foreground)
+        .fixed_pos(egui::pos2(screen.center().x - 260.0, screen.top() + 56.0))
+        .show(ctx, |ui| {
+            egui::Frame::popup(ui.style()).show(ui, |ui| {
+                ui.set_width(520.0);
+                if app.digest_running.is_some() {
+                    ui.weak("Indexing digests… Name search remains available.");
+                }
+                if let Some(error) = &app.digest_error {
+                    ui.label(error);
+                }
+                ui.horizontal(|ui| {
+                    ui.label("Find action:");
+                    let r = ui.add(
+                        egui::TextEdit::singleline(&mut app.filter)
+                            .desired_width(340.0)
+                            .hint_text("substring, or a digest prefix"),
+                    );
+                    if app.find_focus {
+                        r.request_focus();
+                        app.find_focus = false;
+                    }
+                    if r.changed() {
+                        app.apply_filter();
+                    }
+                    if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                        if let Some(&first) = app.match_list.first() {
+                            nav = Some(first);
+                            close = true;
+                        }
+                    }
+                });
+                ui.label(
+                    egui::RichText::new(if app.filter.is_empty() {
+                        "type to match action names; n / N cycle matches".to_owned()
+                    } else if app.match_list.is_empty() {
+                        "no matches".to_owned()
+                    } else {
+                        format!(
+                            "{} matches \u{2014} Enter jumps to the first, n / N cycle",
+                            humanize::count(app.match_list.len() as u64)
+                        )
+                    })
+                    .size(10.5)
+                    .weak(),
+                );
+                if !app.match_list.is_empty() {
+                    egui::ScrollArea::vertical()
+                        .max_height(260.0)
+                        .show(ui, |ui| {
+                            for &i in app.match_list.iter().take(30) {
+                                let a = app.tr.acts[i];
+                                if ui
+                                    .add(
+                                        egui::Label::new(
+                                            egui::RichText::new(format!(
+                                                "{}   {}",
+                                                humanize::dur(a.dur as f64),
+                                                app.tr.names[a.name as usize]
+                                            ))
+                                            .monospace()
+                                            .size(10.5),
+                                        )
+                                        .sense(egui::Sense::click()),
+                                    )
+                                    .clicked()
+                                {
+                                    nav = Some(i);
+                                    close = true;
+                                }
+                            }
+                        });
+                }
+            });
+        });
+    if let Some(i) = nav {
+        let w = screen.width();
+        let h = screen.height();
+        app.navigate(i, w, h);
+    }
+    if close {
+        app.find_open = false;
+    }
+}
+
+pub fn update_ready(app: &mut Ready, root: &mut egui::Ui) {
+    open::poll(app);
+    open::prompt_window(app, &root.ctx().clone());
+    open::error_window(app, &root.ctx().clone());
+    if app.command_view.actions.is_some() {
+        show_find(app, &root.ctx().clone());
+    }
+    {
+        // popup palette-level management: demote to Normal when the app
+        // deactivates, promote back when it reactivates — floating
+        // popups must not shadow OTHER apps.
+        let ctx = root.ctx().clone();
+        let popups: Vec<egui::ViewportId> = ctx.data_mut(|dd| {
+            std::mem::take(
+                dd.get_temp_mut_or_default::<Vec<egui::ViewportId>>(egui::Id::new(
+                    "open_popups_prev",
+                )),
+            )
+        });
+        let any_popup_focused = ctx
+            .data_mut(|dd| dd.remove_temp::<bool>(egui::Id::new("popup_focused")))
+            .unwrap_or(false);
+        let active = ctx.input(|i| i.viewport().focused.unwrap_or(false)) || any_popup_focused;
+        let was = ctx
+            .data(|dd| dd.get_temp::<bool>(egui::Id::new("app_was_active")))
+            .unwrap_or(true);
+        if active != was {
+            let lvl = if active {
+                egui::WindowLevel::AlwaysOnTop
+            } else {
+                egui::WindowLevel::Normal
+            };
+            for id in &popups {
+                ctx.send_viewport_cmd_to(*id, egui::ViewportCommand::WindowLevel(lvl));
+            }
+            ctx.data_mut(|dd| dd.insert_temp(egui::Id::new("app_was_active"), active));
+        }
+        ctx.data_mut(|dd| {
+            let cur = std::mem::take(
+                dd.get_temp_mut_or_default::<Vec<egui::ViewportId>>(egui::Id::new("open_popups")),
+            );
+            dd.insert_temp(egui::Id::new("open_popups_prev"), cur);
+        });
+    }
+
+    let ctx = &root.ctx().clone();
+    // Both halves of ⇧Esc land here: the root viewport only sees the press
+    // while the main window has OS keyboard focus, so a popup in front
+    // raises the same request from its own viewport.
+    let close_all = widgets::take_close_all(ctx)
+        | ctx.input(|i| i.modifiers.shift && i.key_pressed(egui::Key::Escape));
+    if close_all {
+        app.close_all_popups();
+    }
+    app.poll_graph();
+    if matches!(app.gstate, GState::Loading(_) | GState::Building(_)) {
+        ctx.request_repaint_after(std::time::Duration::from_millis(120));
+    }
+
+    // ---- health banner (capture warnings are never silent) ----
+    if !app.open_warnings.is_empty() || !app.open_status_lines.is_empty() {
+        let mut dismiss = false;
+        egui::Panel::top("open-warnings").show(root, |ui| {
+            ui.horizontal(|ui| {
+                ui.strong("Event-log open completed");
+                dismiss = ui.small_button("Dismiss").clicked();
+            });
+            for warning in &app.open_warnings {
+                ui.label(warning);
+            }
+            for status in &app.open_status_lines {
+                ui.weak(status);
+            }
+        });
+        if dismiss {
+            app.open_warnings.clear();
+            app.open_status_lines.clear();
+        }
+    }
+    if !app.tr.health.warnings.is_empty() {
+        egui::Panel::top("health")
+            .frame(
+                egui::Frame::NONE
+                    .fill(egui::Color32::from_rgb(0xf5, 0xe1, 0x9c))
+                    .inner_margin(4.0),
+            )
+            .show(root, |ui| {
+                for w in &app.tr.health.warnings {
+                    ui.label(egui::RichText::new(format!("▲ capture: {w}")).size(11.0));
+                }
+            });
+    }
+
+    if app.command_view.actions.is_some() && app.minimap.is_none() {
+        canvas::build_minimap(app, ctx);
+    }
+    if app.command_view.actions.is_some() && app.conc.is_empty() {
+        let (c, m) = canvas::build_concurrency(&app.tr);
+        app.conc = c;
+        app.conc_max = m;
+    }
+
+    menu_bar(app, root);
+    show_toast(app, ctx);
+    if app.command_view.actions.is_none() {
+        egui::CentralPanel::default().show(root, |ui| {
+            ui.label("No completed actions were recorded for this command.");
+        });
+        return;
+    }
+    let nav = app.nav_req.take();
+    canvas::show_minimap(app, root);
+    canvas::show_canvas(app, root, nav);
+}
+
+fn show_toast(app: &mut Ready, ctx: &egui::Context) {
+    if let Some((msg, at)) = &app.toast {
+        let age = at.elapsed().as_secs_f32();
+        if age < 2.2 {
+            let a = ((2.2 - age) / 0.6).clamp(0.0, 1.0);
+            egui::Area::new(egui::Id::new("toast"))
+                .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -70.0))
+                .show(ctx, |ui| {
+                    egui::Frame::popup(ui.style())
+                        .fill(egui::Color32::from_black_alpha((200.0 * a) as u8))
+                        .show(ui, |ui| {
+                            ui.label(
+                                egui::RichText::new(msg)
+                                    .color(egui::Color32::from_white_alpha((235.0 * a) as u8)),
+                            );
+                        });
+                });
+            ctx.request_repaint_after(std::time::Duration::from_millis(60));
+        } else {
+            app.toast = None;
+        }
+    }
+}
+
+fn menu_bar(app: &mut Ready, root: &mut egui::Ui) {
+    egui::Panel::top("bar").show(root, |ui| {
+        ui.horizontal(|ui| {
+            ui.menu_button("Open", |ui| open::menu(app, ui));
+            ui.menu_button("View", |ui| {
+                {
+                    let mut embedded = !app.native_popups;
+                    if ui
+                        .checkbox(&mut embedded, "Popups inside main window")
+                        .changed()
+                    {
+                        app.native_popups = !embedded;
+                    }
+                }
+                ui.separator();
+                // the only mouse path to Find: an always-on-top popup can own
+                // the keyboard, and then the chord never reaches the canvas
+                let chord = if cfg!(target_os = "macos") {
+                    "\u{2318}F"
+                } else {
+                    "Ctrl+F"
+                };
+                if ui
+                    .add_enabled(
+                        app.command_view.actions.is_some(),
+                        egui::Button::new(format!("Find action\u{2026}  {chord}")),
+                    )
+                    .clicked()
+                {
+                    app.find_open = true;
+                    app.find_focus = true;
+                    ui.close();
+                }
+            });
+            if ui.button("Close popups  \u{21e7}Esc").clicked() {
+                app.close_all_popups();
+            }
+            if app.command_view.actions.is_none() {
+                ui.label("No attributed completed actions");
+                if let Some(warning) = &app.graph_warning {
+                    ui.label(warning);
+                }
+                if let GState::Failed(error) = &app.gstate {
+                    ui.label(format!("Graph unavailable: {error}"));
+                }
+                return;
+            }
+            ui.separator();
+            for (c, name) in CLASS_NAMES.iter().enumerate() {
+                if app.selected_class_count[c] == 0 {
+                    continue;
+                }
+                ui.label(
+                    egui::RichText::new(*name)
+                        .background_color(config::class_color(c))
+                        .color(egui::Color32::BLACK)
+                        .size(10.0),
+                );
+            }
+            ui.separator();
+
+            // ---- health chips: the envelope, compact, with drill-in ----
+            let mut chips: Vec<(String, egui::Color32)> = Vec::new();
+            if !app.tr.health.warnings.is_empty() {
+                chips.push((
+                    format!("▲ {} warning(s)", app.tr.health.warnings.len()),
+                    egui::Color32::from_rgb(0xf5, 0xe1, 0x9c),
+                ));
+            }
+            // capture and outcome chips come from the trace alone, so they
+            // show before and without a graph
+            let tq = quality::Quality::assess(&app.tr, app.run_id.as_deref(), None);
+            chips.extend(quality_chips(&tq));
+            let gchip = match &app.gstate {
+                GState::Absent => match &app.graph_warning {
+                    Some(w) => (
+                        format!("graph: ignored ({w})"),
+                        egui::Color32::from_rgb(0xf5, 0xe1, 0x9c),
+                    ),
+                    None => ("graph: none".to_owned(), egui::Color32::from_gray(0xe0)),
+                },
+                GState::Loading(_) => {
+                    ("graph: loading…".to_owned(), egui::Color32::from_gray(0xe0))
+                }
+                GState::Building(_) => (
+                    "graph: stitching…".to_owned(),
+                    egui::Color32::from_gray(0xe0),
+                ),
+                GState::Failed(e) => (
+                    format!("graph: failed ({e})"),
+                    egui::Color32::from_rgb(0xf0, 0xc0, 0xc0),
+                ),
+                // a graph with a known gap never reads green
+                GState::Ready { g, dag, quality } if !quality.graph_complete() => {
+                    let (t, c) = quality_chips(quality)
+                        .into_iter()
+                        .find(|(t, _)| t.starts_with("graph:"))
+                        .unwrap_or_else(|| {
+                            (
+                                format!(
+                                    "graph: PARTIAL {} edges",
+                                    humanize::count(g.n_edges as u64)
+                                ),
+                                egui::Color32::from_rgb(0xf5, 0xe1, 0x9c),
+                            )
+                        });
+                    match dag {
+                        Some(b) => (format!("{t} | CP {}", humanize::dur(b.dag.cp as f64)), c),
+                        None => (t, c),
+                    }
+                }
+                GState::Ready { g, dag, quality } => match dag {
+                    Some(b) => (
+                        format!(
+                            "{}: {} edges | CP {}",
+                            quality.graph_label(),
+                            humanize::count(g.n_edges as u64),
+                            humanize::dur(b.dag.cp as f64),
+                        ),
+                        egui::Color32::from_rgb(0xd2, 0xe8, 0xd2),
+                    ),
+                    None => (
+                        format!(
+                            "{}: {} edges (no DAG)",
+                            quality.graph_label(),
+                            humanize::count(g.n_edges as u64)
+                        ),
+                        egui::Color32::from_gray(0xe0),
+                    ),
+                },
+            };
+            chips.push(gchip);
+            for (text, color) in chips {
+                ui.label(
+                    egui::RichText::new(text)
+                        .background_color(color)
+                        .color(egui::Color32::BLACK)
+                        .size(10.0),
+                );
+            }
+        });
+    });
+}
+
+/// Short build identity for the titlebar: the revision this binary was
+/// built from when embedded. File timestamps do not establish build identity.
+fn build_identity() -> String {
+    if let Some(rev) = option_env!("BUCK_SCM_REV").or(option_env!("VERGEN_GIT_SHA")) {
+        return rev.chars().take(12).collect();
+    }
+    "build identity not embedded".to_owned()
+}
+
+/// The short name for a capture: the target patterns the build was
+/// launched with, e.g. `igios-no-extensions`. Long lists are elided —
+/// the Build overview carries the full set, and the full artifact path.
+/// `None` when the capture records no patterns, which is every capture
+/// written before the ingester started recording them and whose argv
+/// defeats the recovery heuristic.
+pub fn build_label(tr: &Trace, run_id: Option<&str>) -> Option<String> {
+    let t = tr.run_targets(run_id);
+    let label = match t.len() {
+        0 => return None,
+        1 | 2 => t.join(", "),
+        n => format!("{}, {} +{} more", t[0], t[1], n - 2),
+    };
+    Some(match label.char_indices().nth(90) {
+        Some((i, _)) => format!("{}\u{2026}", &label[..i]),
+        None => label,
+    })
+}
+
+/// The titlebar text. The build identity always leads, because a viewer
+/// window outlives rebuilds of its own binary: a stale process silently
+/// renders a trace with fields it cannot map (an "unaccounted" band that
+/// a newer build would have named). What follows names the capture —
+/// the build's own name when we have it, the artifact path when we do
+/// not.
+fn window_title(label: Option<&str>, path: &str) -> String {
+    match label {
+        Some(l) => format!("retrace @ {} \u{2014} {l}", build_identity()),
+        None => format!("retrace @ {} \u{2014} {path}", build_identity()),
+    }
+}
+
+/// The GUI entry point: spawn the parse on a worker thread so the
+/// window opens instantly, then hand the channel to eframe. This is the
+/// only code in the crate that opens a window.
+pub fn run(path: String, run_sel: Option<String>, opts: &parse::LoadOpts) -> anyhow::Result<()> {
+    run_with_graph(path, run_sel, opts, None, None, false)
+}
+
+pub fn run_with_graph(
+    path: String,
+    run_sel: Option<String>,
+    opts: &parse::LoadOpts,
+    graph_path: Option<String>,
+    ingest_out: Option<std::path::PathBuf>,
+    ingest_phases: bool,
+) -> anyhow::Result<()> {
+    run_request(
+        open::Request::Trace(path.into()),
+        run_sel,
+        opts,
+        graph_path,
+        ingest_out,
+        ingest_phases,
+    )
+}
+
+/// Open an unresolved CLI source without blocking on ingestion before the UI.
+pub fn run_request(
+    request: open::Request,
+    run_sel: Option<String>,
+    opts: &parse::LoadOpts,
+    graph_path: Option<String>,
+    ingest_out: Option<std::path::PathBuf>,
+    ingest_phases: bool,
+) -> anyhow::Result<()> {
+    let title = window_title(None, &request.label());
+    let app = App::initial(
+        request,
+        run_sel,
+        opts,
+        graph_path,
+        ingest_out,
+        ingest_phases,
+    );
+    let native = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([1500.0, 950.0]),
+        // wgpu (Metal on macOS, Vulkan/GL elsewhere), NOT the default
+        // glow backend: glow's CGL context loses its current NSView when
+        // a macOS window's backing scale changes (a native popup viewport
+        // opening on another display, a Retina<->non-Retina drag) and
+        // aborts in glutin. The certified proto shipped on egui/wgpu for
+        // the same reason.
+        renderer: eframe::Renderer::Wgpu,
+        ..Default::default()
+    };
+    let result = eframe::run_native(
+        &title,
+        native,
+        Box::new(move |cc| {
+            install_fonts(&cc.egui_ctx);
+            Ok(Box::new(app))
+        }),
+    );
+    // The process exits without unwinding the workers that would stop these.
+    crate::interrupt::stop_children();
+    // `eframe::Error` is not guaranteed Send+Sync, so it is formatted
+    // rather than wrapped
+    result.map_err(|e| {
+        anyhow::anyhow!("cannot open a window here ({e}); use --stats or --json instead")
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn full_record_read_is_bounded_before_allocating() {
+        let (app, _source) = analysis_app();
+        let act = app.tr.acts[0];
+        assert!(load_full(&app.tr, act.off, act.len).is_some());
+        assert!(load_full(&app.tr, act.off, detail::MAX_DETAIL_RECORD_BYTES as u32 + 1).is_none());
+        assert!(load_full(&app.tr, u64::MAX, 1).is_none());
+    }
+
+    #[test]
+    fn initial_open_preserves_cli_selectors_before_any_result() {
+        let opts = parse::LoadOpts {
+            threads: 1,
+            ..Default::default()
+        };
+        let out = crate::temp_path("initial-open-cache");
+        let app = App::initial(
+            open::Request::Trace(crate::temp_path("missing-initial-trace.json")),
+            Some("chosen-run".into()),
+            &opts,
+            Some("chosen-graph.json".into()),
+            Some(out.clone()),
+            true,
+        );
+        assert_eq!(app.run_sel.as_deref(), Some("chosen-run"));
+        assert_eq!(app.graph_path.as_deref(), Some("chosen-graph.json"));
+        assert_eq!(app.ingest_out.as_ref(), Some(&out));
+        assert!(app.ingest_phases);
+        assert_eq!(app.opts.threads, 1);
+        let State::Loading {
+            converting, prev, ..
+        } = &app.state
+        else {
+            panic!("initial source should be resolved asynchronously")
+        };
+        assert!(!converting.load(Ordering::Relaxed));
+        assert!(prev.is_none());
+    }
+
+    #[test]
+    fn initial_native_loader_is_nonblocking_reports_phase_and_cancels() {
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (advance_tx, advance_rx) = mpsc::channel();
+        let (phase_tx, phase_rx) = mpsc::channel();
+        let (canceled_tx, canceled_rx) = mpsc::channel();
+        let timeout = std::time::Duration::from_secs(60);
+        let request = LoadRequest {
+            source: open::Request::Ingest(ingest::Source::Last, "checkout".into()),
+            run_sel: Some("chosen-run".into()),
+            opts: parse::LoadOpts {
+                threads: 1,
+                ..Default::default()
+            },
+            out: "chosen-cache".into(),
+            phases: true,
+            graph: Some("chosen-graph.json".into()),
+        };
+        let state = spawn_load(request, None, move |request, cancel, converting| {
+            assert!(matches!(
+                request.source,
+                open::Request::Ingest(ingest::Source::Last, _)
+            ));
+            assert_eq!(request.run_sel.as_deref(), Some("chosen-run"));
+            assert_eq!(request.opts.threads, 1);
+            assert_eq!(request.out, std::path::PathBuf::from("chosen-cache"));
+            assert!(request.phases);
+            assert_eq!(request.graph.as_deref(), Some("chosen-graph.json"));
+            entered_tx.send(()).unwrap();
+            advance_rx.recv_timeout(timeout).unwrap();
+            converting.store(false, Ordering::Relaxed);
+            phase_tx.send(()).unwrap();
+            let deadline = Instant::now() + timeout;
+            while !cancel.load(Ordering::Relaxed) {
+                assert!(
+                    Instant::now() < deadline,
+                    "dropping the loader did not cancel it"
+                );
+                std::thread::yield_now();
+            }
+            canceled_tx.send(()).unwrap();
+            anyhow::bail!("test load canceled")
+        });
+        entered_rx.recv_timeout(timeout).unwrap();
+        let State::Loading {
+            rx,
+            converting,
+            path,
+            prev,
+            ..
+        } = &state
+        else {
+            panic!("loader must return while its work is still blocked")
+        };
+        assert!(matches!(rx.try_recv(), Err(mpsc::TryRecvError::Empty)));
+        assert!(converting.load(Ordering::Relaxed));
+        assert_eq!(path, "the newest local command");
+        assert!(prev.is_none());
+        advance_tx.send(()).unwrap();
+        phase_rx.recv_timeout(timeout).unwrap();
+        assert!(!converting.load(Ordering::Relaxed));
+        drop(state);
+        canceled_rx.recv_timeout(timeout).unwrap();
+    }
+
+    fn app_with_reload_selectors() -> App {
+        App {
+            state: State::Ready(Box::new(one_bar_app(10))),
+            run_sel: Some("old-run".into()),
+            graph_path: Some("old-explicit-graph.json".into()),
+            opts: parse::LoadOpts {
+                threads: 1,
+                ..Default::default()
+            },
+            ingest_out: None,
+            ingest_phases: false,
+            recovery_input: String::new(),
+        }
+    }
+
+    fn assert_reload_retains_selectors(app: &mut App) {
+        assert_eq!(app.run_sel.as_deref(), Some("old-run"));
+        assert_eq!(app.graph_path.as_deref(), Some("old-explicit-graph.json"));
+        let State::Ready(ready) = &app.state else {
+            panic!("the previous command must be restored")
+        };
+        let path = std::path::PathBuf::from(&ready.tr.path);
+        let reload = app.begin(open::Request::Trace(path));
+        let State::Loading {
+            run_sel,
+            graph_path,
+            ..
+        } = &reload
+        else {
+            panic!("reload should start with the restored command's selectors")
+        };
+        assert_eq!(run_sel.as_deref(), Some("old-run"));
+        assert_eq!(graph_path.as_deref(), Some("old-explicit-graph.json"));
+    }
+
+    #[test]
+    fn failed_new_open_preserves_previous_reload_selectors() {
+        let mut app = app_with_reload_selectors();
+        let pending = app.begin(open::Request::Trace(crate::temp_path(
+            "missing-next-trace.json",
+        )));
+        let State::Loading {
+            rx,
+            run_sel,
+            graph_path,
+            prev,
+            ..
+        } = pending
+        else {
+            panic!("new Open must start asynchronously")
+        };
+        assert!(run_sel.is_none() && graph_path.is_none());
+        let result = rx.recv_timeout(std::time::Duration::from_secs(60)).unwrap();
+        assert!(result.is_err());
+        app.state = app.finish_load(result, run_sel, graph_path, prev);
+        assert_reload_retains_selectors(&mut app);
+    }
+
+    #[test]
+    fn canceled_new_open_preserves_previous_reload_selectors() {
+        let mut app = app_with_reload_selectors();
+        let pending = app.begin(open::Request::Trace(crate::temp_path(
+            "cancel-next-trace.json",
+        )));
+        let State::Loading { prev, .. } = pending else {
+            panic!("new Open must start asynchronously")
+        };
+        app.state = restore(prev, "Open canceled".into());
+        assert_reload_retains_selectors(&mut app);
+    }
+
+    #[test]
+    fn open_commits_selectors_only_after_run_selection_succeeds() {
+        let mut app = app_with_reload_selectors();
+        app.recovery_input = "stale recovery path".to_owned();
+        let path = crate::testdata("smoke-trace.json");
+        let loaded = load_pipeline::load(&path, &app.opts, None, false);
+        let previous = app.take_ready();
+        app.state = app.finish_load(loaded, Some("missing-run".into()), None, previous);
+        assert_eq!(app.run_sel.as_deref(), Some("old-run"));
+        assert_eq!(app.graph_path.as_deref(), Some("old-explicit-graph.json"));
+        let State::Ready(ready) = &app.state else {
+            panic!("invalid run selection must restore the previous command")
+        };
+        assert!(ready.open.err.is_some());
+        assert_eq!(app.recovery_input, "stale recovery path");
+
+        let loaded = load_pipeline::load(&path, &app.opts, None, false);
+        let previous = app.take_ready();
+        app.state = app.finish_load(loaded, None, None, previous);
+        assert!(matches!(app.state, State::Ready(_)));
+        assert!(app.run_sel.is_none() && app.graph_path.is_none());
+        assert!(app.recovery_input.is_empty());
+    }
+
+    #[test]
+    fn find_queries_and_receiver_cancellation_are_bounded() {
+        assert!(super::contains_folded("A TARGET", "target"));
+        assert!(super::contains_folded("short", ""));
+        assert!(!super::contains_folded("short", "longer"));
+        assert!(super::digest_query("ABCDEF0123:1234"));
+        assert!(!super::digest_query("ABCDEF0123:-1"));
+        assert!(!super::digest_query("bad:12"));
+        let (_, worker, cancel) = super::Worker::<()>::channel();
+        assert!(!cancel.load(super::Ordering::Relaxed));
+        drop(worker);
+        assert!(cancel.load(super::Ordering::Relaxed));
+    }
+
+    #[test]
+    fn graph_pairing_is_checked_before_gui_stitching_for_action_only_traces() {
+        let (tp, gp) = (
+            crate::testdata("review-trace.json"),
+            crate::testdata("review-mismatched-run-graph.jsonl"),
+        );
+        for explicit in [false, true] {
+            let tr = parse::parse(&tp).unwrap();
+            assert!(tr.runs.is_empty());
+            let mut app = Ready::new(tr, None);
+            app.graph_explicit = explicit;
+            let (tx, rx, _) = Worker::channel();
+            tx.send(graph::load_graph(&gp)).unwrap();
+            app.gstate = GState::Loading(rx);
+            app.poll_graph();
+            assert!(app.cp_set.is_none());
+            if explicit {
+                assert!(matches!(app.gstate, GState::Failed(_)));
+            } else {
+                assert!(matches!(app.gstate, GState::Absent));
+                assert!(app.graph_warning.as_ref().unwrap().contains("ignoring"));
+            }
+        }
+    }
+
+    #[test]
+    fn quality_chips_show_partial_graph_and_unknown_outcome() {
+        use crate::quality::GraphQuality;
+        use crate::quality::Pairing;
+        use crate::quality::Quality;
+        use crate::quality::StitchQuality;
+        use crate::types::CaptureState;
+        use crate::types::CaptureStatus;
+        use crate::types::Outcome;
+        let q = Quality {
+            capture: Some(CaptureState::Started(CaptureStatus::default())),
+            outcome: Outcome::Unknown,
+            outcome_unrecorded: true,
+            dropped_trace_lines: 0,
+            unended_runs: 0,
+            graph: Some(GraphQuality {
+                declared_nodes: Some(2),
+                loaded_rows: 2,
+                ..Default::default()
+            }),
+            stitch: Some(StitchQuality {
+                n_events: 2,
+                n_defined: 1,
+                ..Default::default()
+            }),
+            pairing: Some(Pairing::Verified),
+            graph_warning: None,
+        };
+        let texts: Vec<String> = quality_chips(&q).into_iter().map(|(t, _)| t).collect();
+        assert_eq!(
+            texts,
+            [
+                "capture: incomplete",
+                "outcome: unknown",
+                "graph: PARTIAL 1/2 actions with rows"
+            ]
+        );
+        let whole = Quality {
+            capture: Some(CaptureState::NotEnabled),
+            outcome: Outcome::Success,
+            outcome_unrecorded: false,
+            dropped_trace_lines: 0,
+            unended_runs: 0,
+            graph: Some(GraphQuality {
+                declared_nodes: Some(2),
+                loaded_rows: 2,
+                ..Default::default()
+            }),
+            stitch: Some(StitchQuality {
+                n_events: 2,
+                n_defined: 2,
+                ..Default::default()
+            }),
+            pairing: Some(Pairing::Verified),
+            graph_warning: None,
+        };
+        assert!(quality_chips(&whole).is_empty());
+        let mut torn = whole;
+        torn.graph.as_mut().unwrap().dropped_lines = 1;
+        let texts: Vec<String> = quality_chips(&torn).into_iter().map(|(t, _)| t).collect();
+        assert!(texts.iter().any(|t| t.contains("line(s)")));
+        assert!(!texts.iter().any(|t| t.contains("2/2 actions")));
+    }
+
+    use super::*;
+
+    fn one_bar_app(dur: i64) -> Ready {
+        let path = crate::temp_path(&format!("fit-{dur}.json"));
+        std::fs::write(
+            &path,
+            format!(
+                "[\n{{\"ph\":\"X\",\"cat\":\"recipe\",\"name\":\"a\",\
+                 \"ts\":0,\"dur\":{dur}}},\n"
+            ),
+        )
+        .unwrap();
+        let tr = parse::parse(path.to_str().unwrap()).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        Ready::new(tr, None)
+    }
+
+    struct AnalysisSource(std::path::PathBuf);
+    impl Drop for AnalysisSource {
+        fn drop(&mut self) {
+            std::fs::remove_file(&self.0).ok();
+        }
+    }
+
+    fn analysis_app() -> (Ready, AnalysisSource) {
+        let path = crate::temp_path("gui-analysis.json");
+        std::fs::write(
+            &path,
+            "[\n{\"ph\":\"X\",\"cat\":\"recipe\",\"name\":\"a\",\"ts\":0,\"dur\":600}\n]\n",
+        )
+        .unwrap();
+        let tr = parse::parse(path.to_str().unwrap()).unwrap();
+        (Ready::new(tr, None), AnalysisSource(path))
+    }
+    /// A build that is open stays open. Typing a path that does not
+    /// exist used to swap the whole window for the error text, so a
+    /// misremembered build id cost the analysis on screen and there was
+    /// no way back to it.
+    #[test]
+    fn a_failed_open_keeps_the_build_that_was_already_on_screen() {
+        match restore(Some(Box::new(one_bar_app(10))), "no such file".to_owned()) {
+            State::Ready(r) => assert_eq!(r.open.err.as_deref(), Some("no such file")),
+            _ => panic!("a failed Open discarded the build that was already open"),
+        }
+        // ...but the first load has nothing to keep, so it still gets
+        // the full-window message
+        assert!(matches!(
+            restore(None, "no such file".to_owned()),
+            State::Failed(_)
+        ));
+    }
+
+    /// The opening view has to show the whole trace. Seeding `upp` from
+    /// the window width rather than the plot width left the last gutter
+    /// plus scrollbar of the span off the right edge — 4.4% of it, ten
+    /// seconds on a large capture — before the user touched anything.
+    #[test]
+    fn the_opening_zoom_fits_the_plot_not_the_window() {
+        let app = one_bar_app(232_911_256);
+        let shown = app.upp * f64::from(canvas::DEFAULT_CANVAS_W);
+        assert!(
+            shown >= app.tr.span as f64,
+            "opening view shows {shown} us of a {} us trace",
+            app.tr.span
+        );
+        // and it does not overshoot so far that the trace floats in
+        // whitespace: one plot width, to the point
+        assert!(shown < app.tr.span as f64 * 1.001);
+    }
+
+    /// Vertical zoom is the counterpart of `zoom_at`: the lane under the
+    /// cursor is the one that must not move.
+    #[test]
+    fn row_zoom_holds_the_lane_under_the_cursor() {
+        let mut app = one_bar_app(1_000_000);
+        app.row_h = 11.0;
+        app.scroll = 110.0; // lane 10 at the top of the lane area
+        app.zoom_rows_at(2.0, 0.0);
+        assert_eq!(app.row_h, 22.0);
+        assert_eq!(app.scroll, 220.0, "lane 10 is still the top lane");
+
+        // a lane halfway down a 300 pt viewport stays halfway down
+        app.row_h = 10.0;
+        app.scroll = 100.0;
+        let lane_at_py = (app.scroll + 150.0) / app.row_h;
+        app.zoom_rows_at(1.5, 150.0);
+        assert!(((app.scroll + 150.0) / app.row_h - lane_at_py).abs() < 1e-3);
+    }
+
+    #[test]
+    fn row_zoom_cannot_collapse_or_run_away() {
+        let mut app = one_bar_app(1_000_000);
+        for _ in 0..50 {
+            app.zoom_rows_at(0.5, 0.0);
+        }
+        assert_eq!(app.row_h, canvas::ROW_H_MIN);
+        for _ in 0..50 {
+            app.zoom_rows_at(2.0, 0.0);
+        }
+        assert_eq!(app.row_h, canvas::ROW_H_MAX);
+        assert!(app.scroll.is_finite() && app.scroll >= 0.0);
+    }
+
+    /// Degenerate inputs (empty trace, zero/near-zero span) must never
+    /// panic in the viewport math: `f64::clamp` aborts when the
+    /// data-derived max falls below the fixed min (seen live when a
+    /// graph sidecar was passed as the trace).
+    #[test]
+    fn viewport_clamps_survive_degenerate_span() {
+        let path = crate::temp_path("gui-degenerate.json");
+        std::fs::write(
+            &path,
+            "[\n{\"ph\":\"M\",\"cat\":\"run\",\"name\":\"run_start\",\
+             \"ts\":1000,\"pid\":1,\"args\":{\"run\":\"r1\"}},\n",
+        )
+        .unwrap();
+        let tr = parse::parse(path.to_str().unwrap()).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        let mut app = Ready::new(tr, None);
+        app.clamp_view(1434.0, 800.0);
+        app.zoom_at(2.0, 700.0);
+        app.zoom_at(0.5, 700.0);
+        app.clamp_view(1.0, 1.0);
+        assert!(app.upp >= 0.05, "upp stays at or above the min bound");
+    }
+
+    /// Aaron's ask: the titlebar names the build, not the artifact. The
+    /// path moves to the Build overview, so the fallback here is the
+    /// only place it can still surface.
+    #[test]
+    fn titlebar_names_the_build_and_falls_back_to_the_path() {
+        let dir = std::env::temp_dir();
+        let write = |stem: &str, args: &str| -> Trace {
+            let path = dir.join(format!("retrace-title-{}-{stem}.json", std::process::id()));
+            std::fs::write(
+                &path,
+                format!(
+                    "[\n{{\"ph\":\"M\",\"cat\":\"run\",\"name\":\"run_start\",                     \"ts\":1000,\"pid\":1,\"args\":{{\"run\":\"r1\",{args}}}}},\n"
+                ),
+            )
+            .unwrap();
+            let tr = parse::parse(path.to_str().unwrap()).unwrap();
+            std::fs::remove_file(&path).unwrap();
+            tr
+        };
+
+        // recorded outright by the ingester
+        let tr = write("recorded", "\"targets\":[\"igios-no-extensions\"]");
+        assert_eq!(
+            build_label(&tr, None).as_deref(),
+            Some("igios-no-extensions")
+        );
+        assert!(
+            window_title(build_label(&tr, None).as_deref(), &tr.path)
+                .ends_with(" \u{2014} igios-no-extensions"),
+            "{}",
+            window_title(build_label(&tr, None).as_deref(), &tr.path)
+        );
+
+        // recovered from a pre-existing capture's argv
+        let tr = write(
+            "argv",
+            "\"argv\":[\"buck2\",\"build\",\"--log-action-deps\",\"igios-no-extensions\"]",
+        );
+        assert_eq!(
+            build_label(&tr, None).as_deref(),
+            Some("igios-no-extensions")
+        );
+
+        // three or more targets elide; the overview keeps the full set
+        let tr = write(
+            "many",
+            "\"targets\":[\"//a:a\",\"//b:b\",\"//c:c\",\"//d:d\"]",
+        );
+        assert_eq!(
+            build_label(&tr, None).as_deref(),
+            Some("//a:a, //b:b +2 more")
+        );
+
+        // nothing recoverable: the window still says which file it holds
+        let tr = write("none", "\"argv\":[\"buck2\",\"build\"]");
+        assert_eq!(build_label(&tr, None), None);
+        assert!(window_title(None, &tr.path).ends_with(&tr.path));
+    }
+
+    /// Back unwinds the history rather than extending it, and one
+    /// re-clicking the selected action is still one history entry.
+    #[test]
+    fn select_records_one_history_entry_per_navigation() {
+        let p = crate::testdata("smoke-trace.json");
+        let tr = parse::parse(&p).unwrap();
+        let mut app = Ready::new(tr, None);
+        app.select(0);
+        app.select(1);
+        app.select(1);
+        assert_eq!(app.hist, vec![0]);
+        app.go_back(1434.0, 800.0);
+        assert_eq!(app.selected, Some(0));
+        assert!(app.hist.is_empty());
+        // and the Back jump itself is not a place to come back to
+        app.select(0);
+        assert!(app.hist.is_empty());
+    }
+
+    /// Modules whose symbols never reach the screen: `graph.rs` spells
+    /// JSON unescaping with `\u{fffd}` and `\u{000c}`, `ingest` writes
+    /// files and terminal status lines only, `config` hands its
+    /// complaints about a bad file to stderr before the window opens,
+    /// and `help` prints to the terminal.
+    const NO_DRAWN_TEXT: &[&str] = &["config", "graph", "help", "ingest", "interrupt"];
+
+    /// Every source that produces text the window draws. A symbol is
+    /// only ever a `\u{...}` escape or a literal in one of these, so
+    /// scanning them catches an uncovered one the day it is written
+    /// rather than the day someone looks at a screenshot.
+    const SOURCES: &[(&str, &str)] = &[
+        ("activity.rs", include_str!("activity.rs")),
+        ("command_profile.rs", include_str!("command_profile.rs")),
+        ("gui.rs", include_str!("gui.rs")),
+        ("gui/canvas.rs", include_str!("gui/canvas.rs")),
+        ("gui/command_ui.rs", include_str!("gui/command_ui.rs")),
+        ("gui/open.rs", include_str!("gui/open.rs")),
+        ("gui/widgets.rs", include_str!("gui/widgets.rs")),
+        ("analyses.rs", include_str!("analyses.rs")),
+        ("blast.rs", include_str!("blast.rs")),
+        ("dag.rs", include_str!("dag.rs")),
+        ("detail.rs", include_str!("detail.rs")),
+        ("execution.rs", include_str!("execution.rs")),
+        ("export.rs", include_str!("export.rs")),
+        ("findings.rs", include_str!("findings.rs")),
+        ("humanize.rs", include_str!("humanize.rs")),
+        ("lanes.rs", include_str!("lanes.rs")),
+        ("parse.rs", include_str!("parse.rs")),
+        ("quality.rs", include_str!("quality.rs")),
+        ("sim.rs", include_str!("sim.rs")),
+        ("transfer.rs", include_str!("transfer.rs")),
+        ("types.rs", include_str!("types.rs")),
+        ("upload.rs", include_str!("upload.rs")),
+        // CLASS_NAMES feeds the menu-bar legend; health warnings are
+        // drawn in the banner and the Capture health panel
+        ("types.rs", include_str!("types.rs")),
+        ("parse.rs", include_str!("parse.rs")),
+    ];
+
+    fn symbols() -> Vec<(&'static str, char)> {
+        let mut out = Vec::new();
+        for (file, src) in SOURCES {
+            for line in src.lines() {
+                if line.trim_start().starts_with("//") {
+                    continue;
+                }
+                let bytes = line.as_bytes();
+                let mut i = 0;
+                while i < bytes.len() {
+                    // the escape opener is ASCII, so `i + 3` is a char
+                    // boundary and the hex slice below cannot split one
+                    if bytes[i..].starts_with(br"\u{") {
+                        if let Some(end) = line[i + 3..].find('}') {
+                            if let Some(c) = u32::from_str_radix(&line[i + 3..i + 3 + end], 16)
+                                .ok()
+                                .and_then(char::from_u32)
+                            {
+                                out.push((*file, c));
+                            }
+                            i += 3 + end + 1;
+                            continue;
+                        }
+                    }
+                    i += 1;
+                }
+                out.extend(line.chars().filter(|c| !c.is_ascii()).map(|c| (*file, c)));
+            }
+        }
+        out
+    }
+
+    /// `SOURCES` is written by hand, so a module added without an entry
+    /// would never be scanned and the guard below would quietly stop
+    /// covering it. Both crate roots declare their modules and both are
+    /// already included, so the list can check itself.
+    #[test]
+    fn the_scan_list_covers_every_module() {
+        let scanned: Vec<&str> = SOURCES
+            .iter()
+            .map(|(f, _)| f.rsplit('/').next().unwrap().trim_end_matches(".rs"))
+            .collect();
+        let missing: Vec<&str> = [include_str!("lib.rs"), include_str!("gui.rs")]
+            .iter()
+            .flat_map(|src| src.lines())
+            .filter_map(|l| l.strip_prefix("pub mod ")?.strip_suffix(';'))
+            .filter(|m| !NO_DRAWN_TEXT.contains(m) && !scanned.contains(m))
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "these modules are never scanned for uncovered glyphs; add them to \
+             SOURCES, or to NO_DRAWN_TEXT with the reason: {missing:?}"
+        );
+    }
+
+    #[test]
+    fn every_symbol_the_ui_draws_has_a_glyph() {
+        let syms = symbols();
+        assert!(syms.len() > 8, "the source scan found nothing to check");
+
+        let ctx = egui::Context::default();
+        super::install_fonts(&ctx);
+        // fonts do not exist until a pass has run; the pass's texture
+        // deltas must be consumed before drop (epaint asserts on it)
+        let mut out = ctx.run_ui(egui::RawInput::default(), |_| {});
+        out.textures_delta.clear();
+
+        // Monospace carries the same four faces in a different order,
+        // so the proportional family answers for both.
+        let id = egui::FontId::proportional(12.0);
+        let mut missing: Vec<String> = ctx.fonts_mut(|f| {
+            syms.iter()
+                .filter(|(_, c)| !f.has_glyph(&id, *c))
+                .map(|(file, c)| format!("{file}: U+{:04X} {c}", *c as u32))
+                .collect()
+        });
+        missing.sort();
+        missing.dedup();
+        assert!(
+            missing.is_empty(),
+            "no bundled font covers these, so egui draws its replacement square instead:\n  {}",
+            missing.join("\n  ")
+        );
+    }
+}

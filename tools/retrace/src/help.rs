@@ -79,9 +79,7 @@ const INPUT_DETAILS: &str = "A buck2 event log (.pb.zst, .pb.gz, .pb, .proto, .j
 pub const SECTIONS: &[Section] = &[
     Section {
         heading: "Output Options",
-        note: Some(
-            "With none of these, retrace prints a one-line summary of the build. Choose at most one.",
-        ),
+        note: Some("With none of these, retrace opens the timeline window. Choose at most one."),
         opts: &[
             Opt {
                 flag: "--json",
@@ -218,8 +216,11 @@ const HELP_OPT: (&str, &str, &str) = (
 );
 
 const EXAMPLES: &[(&str, &str)] = &[
-    ("retrace <command-id>", "Summarize a build"),
-    ("retrace --last", "Summarize the newest local build"),
+    (
+        "retrace <command-id>",
+        "Open a build in the timeline window",
+    ),
+    ("retrace --last", "Open the newest local build"),
     (
         "retrace <log> --json=critical-path --compact",
         "Print the critical path as JSON",
@@ -230,7 +231,7 @@ const EXAMPLES: &[(&str, &str)] = &[
     ),
     (
         "retrace ingest --last --out=/tmp/rt",
-        "Convert without analyzing",
+        "Convert without opening the window",
     ),
 ];
 
@@ -322,7 +323,7 @@ pub fn render(long: bool, styled: bool) -> String {
     let _ = writeln!(out, "\n{}", style.heading("Commands:"));
     let _ = writeln!(
         out,
-        "  {}  Convert an event log into retrace's files without analyzing it",
+        "  {}  Convert an event log into retrace's files without opening the window",
         style.literal("ingest")
     );
 

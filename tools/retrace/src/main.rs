@@ -13,6 +13,7 @@
 //! BUILD in the trace is data, not a tool failure.
 
 use retrace::analyses;
+use retrace::config;
 use retrace::export;
 use retrace::graph;
 use retrace::parse;
@@ -233,6 +234,13 @@ fn main() {
         print_help(false, true);
         std::process::exit(0);
     }
+    // The binary is the only caller: tests and the snapshot suite read
+    // the built-in palette, so a developer's config file cannot move a
+    // baseline render.
+    for w in config::install_from_disk() {
+        eprintln!("retrace: {w}");
+    }
+
     // options may appear in any position
     // the ingest verb owns its own small argument world
     if args.first().map(String::as_str) == Some("ingest") {
@@ -411,7 +419,36 @@ fn main() {
             && w.iter()
                 .all(|t| matches!(t.as_str(), "command-profile" | "action-detail"))
     });
+    if !headless {
+        let run_sel = args
+            .iter()
+            .find_map(|a| a.strip_prefix("--run=").map(|s| s.to_owned()));
+        let graph_path = args
+            .iter()
+            .find_map(|a| a.strip_prefix("--graph=").map(str::to_owned));
+        let ingest_out = value("--out=").map(std::path::PathBuf::from);
+        let request = match ingest_source {
+            Some(source) => retrace::gui::open::Request::Ingest(
+                source,
+                std::env::current_dir().unwrap_or_else(|e| refuse(&format!("{e}"))),
+            ),
+            None => retrace::gui::open::Request::Trace(path.into()),
+        };
+        if let Err(e) = retrace::gui::run_request(
+            request,
+            run_sel,
+            &opts,
+            graph_path,
+            ingest_out,
+            has("--phases"),
+        ) {
+            refuse(&format!("{e:#}"));
+        }
+        return;
+    }
 
+    // Headless output remains synchronous. The GUI sends the unresolved
+    // request to its cancellable loader before doing any conversion or I/O.
     let path = match ingest_source {
         Some(source) => {
             let out = run_ingest(&source, &args, &retrace::ingest::default_out_dir(), true);
@@ -549,7 +586,7 @@ fn main() {
         return;
     }
 
-    // With no output option, a one-line load summary.
+    // Load summary; the GUI lands with its diffs.
     let selected = tr.selected_summary(run_id.as_deref());
     println!(
         "{}: {} actions ({} cache hits, {} failed) | span {:.1}s | {} lanes{}",
