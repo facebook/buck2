@@ -101,7 +101,6 @@ def _run_genrule(ctx: AnalysisContext, out_name: str, extra_env_vars: dict, iden
     for symlink in symlinks:
         srcs.add(cmd_args(srcs_artifact, format = path_sep.join([".", "{}", symlink.replace("/", path_sep)])))
     env_vars = {
-        "GEN_DIR": "GEN_DIR_DEPRECATED",
         "OUT": out_artifact.as_output(),
         "SRCDIR": cmd_args(srcs_artifact, format = path_sep.join([".", "{}"])),
         "SRCS": srcs,

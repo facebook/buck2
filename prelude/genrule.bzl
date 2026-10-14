@@ -311,7 +311,6 @@ def process_genrule(
     # Setup environment variables.
     no_srcs_environment = _requires_no_srcs_environment(ctx)
     env_vars = {
-        "GEN_DIR": "GEN_DIR_DEPRECATED",
         "OUT": out_env.as_output(),
         "SRCDIR": cmd_args(srcs_artifact, format = path_sep.join([".", "{}"])),
     }
