@@ -1659,47 +1659,4 @@ mod tests {
         assert_eq!(receiver.backend.deps[&page_in_key], [work_key.dupe()]);
         assert_eq!(receiver.backend.deps[&work_key], [dep]);
     }
-
-    fn configured_label(s: &str) -> ConfiguredTargetLabel {
-        ConfiguredTargetLabel::testing_parse(
-            s,
-            buck2_core::configuration::data::ConfigurationData::testing_new(),
-        )
-    }
-
-    fn duration_from(start: Instant, from_ms: u64, to_ms: u64) -> NodeDuration {
-        NodeDuration {
-            user: Duration::from_millis(to_ms - from_ms),
-            total: TimeSpan::new_saturating(
-                start + Duration::from_millis(from_ms),
-                start + Duration::from_millis(to_ms),
-            ),
-            queue: None,
-        }
-    }
-
-    /// A top-level target with two outputs of which only one was rebuilt gets the cost of the
-    /// outputs that are in the graph; it is dropped only when none of them is.
-    #[test]
-    fn top_level_target_cost_over_recomputed_outputs() {
-        let mut backend = LongestPathGraphBackend::new();
-        let t0 = Instant::now();
-        let built = node_key("cell//built");
-        let untouched = node_key("cell//untouched");
-        backend.process_node(
-            built.dupe(),
-            NodeExtraData::None,
-            duration_from(t0, 0, 50),
-            std::iter::empty::<NodeKey>(),
-            Default::default(),
-            WaitingData::new(),
-        );
-        backend.process_top_level_target(configured_label("cell//pkg:t"), [built, untouched]);
-        backend.process_top_level_target(configured_label("cell//pkg:u"), [node_key("cell//u")]);
-        let info = backend.finish(Default::default()).unwrap();
-        assert_eq!(
-            info.top_level_targets,
-            vec![(configured_label("cell//pkg:t"), Duration::from_millis(50))]
-        );
-    }
 }

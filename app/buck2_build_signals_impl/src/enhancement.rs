@@ -567,4 +567,48 @@ mod tests {
             duration(&result[0].non_critical_path_duration)
         );
     }
+
+    fn trimmed_entry() -> buck2_data::CriticalPathEntry2 {
+        use buck2_build_signals::env::NodeDuration;
+        use buck2_build_signals::env::WaitingData;
+        use buck2_common::package_listing::dice::PackageListingKey;
+        use buck2_core::package::PackageLabel;
+        use buck2_util::time_span::TimeSpan;
+
+        let t0 = Instant::now();
+        let mut enhancer = CriticalPathProtoEnhancer::new(t0, 4);
+        // A node that started 2 s before its last dependency finished.
+        enhancer.add_entry(DetailedCriticalPathEntry {
+            key: crate::NodeKey::PackageListingKey(PackageListingKey(PackageLabel::testing_parse(
+                "cell//n",
+            ))),
+            data: crate::NodeData {
+                extra_data: NodeExtraData::None,
+                duration: NodeDuration {
+                    user: Duration::from_secs(3),
+                    total: TimeSpan::from_start_and_duration(t0, Duration::from_secs(3)),
+                    queue: None,
+                },
+                waiting_data: WaitingData::new(),
+                span_ids: Default::default(),
+            },
+            potential_improvement: Some(Duration::from_secs(3)),
+            deps_finished_time: Some(t0 + Duration::from_secs(2)),
+        });
+        enhancer.into_entries().pop().unwrap()
+    }
+
+    /// An entry that started before one of its dependencies finished is trimmed to start at
+    /// that point, but keeps its untrimmed `user_duration` and `potential_improvement_duration`,
+    /// although the proto says both are bounded by `duration`.
+    #[test]
+    fn trimmed_entry_keeps_untrimmed_user_and_potential() {
+        let e = trimmed_entry();
+        assert_eq!(duration(&e.duration), Duration::from_secs(1));
+        assert_eq!(duration(&e.user_duration), Duration::from_secs(3));
+        assert_eq!(
+            duration(&e.potential_improvement_duration),
+            Duration::from_secs(3)
+        );
+    }
 }
