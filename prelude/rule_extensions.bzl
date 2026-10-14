@@ -21,7 +21,7 @@ RuleExtensionsInfo = provider(fields = {
 })
 
 RULE_EXTENSIONS_ATTR = "_rule_extensions"
-RULE_EXTENSIONS_DEFAULT = read_root_config("buck2", "rule_extensions", "prelude//rule_extensions:none")
+RULE_EXTENSIONS_DEFAULT = read_root_config("buck2", "rule_extensions")
 
 def run_with_extensions(impl: typing.Callable, rule_type: str, ctx: AnalysisContext) -> list[Provider] | Promise:
     providers = impl(ctx)

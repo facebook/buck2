@@ -100,7 +100,9 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
     kwargs.setdefault("is_configuration_rule", name in _config_implemented_rules)
     kwargs.setdefault("is_toolchain_rule", is_toolchain_rule)
 
-    if not kwargs["is_configuration_rule"] and not kwargs["is_toolchain_rule"]:
+    # Only in repositories that configure extensions: anon targets reject `toolchain_dep`
+    # attributes, and prelude rules such as `http_archive` are invoked as anon targets.
+    if RULE_EXTENSIONS_DEFAULT and not kwargs["is_configuration_rule"] and not kwargs["is_toolchain_rule"]:
         attributes[RULE_EXTENSIONS_ATTR] = attrs.toolchain_dep(default = RULE_EXTENSIONS_DEFAULT, providers = [RuleExtensionsInfo])
         impl = partial(run_with_extensions, impl, name)
 
