@@ -13,6 +13,7 @@ cargo build --locked -p retrace
 cargo check --locked -p retrace --all-targets
 cargo doc --locked -p retrace --no-deps
 cargo test --locked -p retrace --lib --test cli_acceptance
+cargo test --locked -p retrace --test gui_snapshots
 ```
 
 Run clippy with the workspace's `lint_levels.bzl` denial/allow lists (the same
@@ -24,6 +25,15 @@ Retrace intentionally remains in the open-source workspace, including its GUI.
 The wgpu/windowing dependency cost is accepted; unused eframe glow/persistence
 features are not requested. Remote Meta integrations are compile-time gated;
 offline parsing and analyses must run in Cargo without those services.
+
+Pixel comparisons are a separate, explicit renderer-specific gate. Use the
+checked-in Linux baselines and inspect every changed image, not an automatic
+baseline refresh. The Cargo `gui_snapshots` target always runs its portable
+interaction assertions; `RETRACE_PIXEL_SNAPSHOTS=1` additionally enables pixel
+comparisons with the pinned Linux software-renderer environment. Running the
+target without that opt-in does not validate the images. A Linux pass does not
+establish macOS or Windows support;
+run the CLI/library gates and interactive reopen/scroll/cascade checks there.
 
 ## Performance and boundary checks
 

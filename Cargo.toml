@@ -358,6 +358,7 @@ dunce = "1.0.5"
 dupe = { version = "0.9.1", path = "gazebo/dupe" }
 dupe_derive = { version = "0.9.1", path = "gazebo/dupe_derive" }
 egui = "0.36.2"
+egui_kittest = { version = "0.36.2", features = ["snapshot", "wgpu"] }
 either = "1.18.0"
 elf = "0.8"
 enum-iterator = "2.3.0"
