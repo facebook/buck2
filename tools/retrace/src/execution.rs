@@ -453,12 +453,7 @@ impl DetailReader {
 
     pub fn copy_to(&self, reference: DetailRef, path: &Path) -> anyhow::Result<()> {
         self.check(reference)?;
-        let mut options = OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        options.mode(0o600);
-        let mut dest = options.open(path)?;
-        let result = (|| -> anyhow::Result<()> {
+        write_new_file(path, |dest| {
             let mut left = reference.len;
             let mut offset = reference.offset;
             let mut buf = vec![0; 64 * 1024];
@@ -469,15 +464,8 @@ impl DetailReader {
                 offset += n as u64;
                 left -= n as u64;
             }
-            self.validate()?;
-            dest.flush()?;
-            Ok(())
-        })();
-        drop(dest);
-        if result.is_err() {
-            std::fs::remove_file(path).ok();
-        }
-        result
+            self.validate()
+        })
     }
 
     fn record(&self, reference: DetailRef, budget: &mut u64) -> anyhow::Result<Record> {
@@ -587,6 +575,25 @@ impl LoadedAction {
             .all(|o| o.command == first.command)
             .then_some(&first.command)
     }
+}
+
+/// Creates `path`, which must not already exist, readable only by the user, and fills it with
+/// `write`. If writing fails the file is removed, so a failed save never leaves a partial copy.
+pub fn write_new_file(
+    path: &Path,
+    write: impl FnOnce(&mut File) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut file = options.open(path)?;
+    let result = write(&mut file).and_then(|()| Ok(file.flush()?));
+    drop(file);
+    if result.is_err() {
+        std::fs::remove_file(path).ok();
+    }
+    result
 }
 
 pub fn load(trace: &Trace, record: &serde_json::Value) -> anyhow::Result<Option<LoadedAction>> {
@@ -806,6 +813,17 @@ mod tests {
         assert_eq!(std::fs::metadata(&destination).unwrap().len(), text.len);
         std::fs::remove_file(path).unwrap();
         std::fs::remove_file(destination).unwrap();
+    }
+
+    #[test]
+    fn failed_write_leaves_no_file() {
+        let destination = crate::temp_path("failed-save.txt");
+        let result = write_new_file(&destination, |file| {
+            file.write_all(b"partial")?;
+            anyhow::bail!("disk full")
+        });
+        assert!(result.is_err());
+        assert!(!destination.exists());
     }
 
     #[test]

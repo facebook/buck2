@@ -16,6 +16,7 @@
 pub mod canvas;
 pub mod command_ui;
 pub mod detail_ui;
+pub mod execution_ui;
 mod load_pipeline;
 pub mod open;
 pub mod panels;
@@ -3834,6 +3835,7 @@ mod tests {
         ("gui/canvas.rs", include_str!("gui/canvas.rs")),
         ("gui/command_ui.rs", include_str!("gui/command_ui.rs")),
         ("gui/detail_ui.rs", include_str!("gui/detail_ui.rs")),
+        ("gui/execution_ui.rs", include_str!("gui/execution_ui.rs")),
         ("gui/open.rs", include_str!("gui/open.rs")),
         ("gui/panels.rs", include_str!("gui/panels.rs")),
         ("gui/stagebar.rs", include_str!("gui/stagebar.rs")),
@@ -3843,6 +3845,7 @@ mod tests {
         ("dag.rs", include_str!("dag.rs")),
         ("detail.rs", include_str!("detail.rs")),
         ("execution.rs", include_str!("execution.rs")),
+        ("execution_fetch.rs", include_str!("execution_fetch.rs")),
         ("export.rs", include_str!("export.rs")),
         ("findings.rs", include_str!("findings.rs")),
         ("humanize.rs", include_str!("humanize.rs")),

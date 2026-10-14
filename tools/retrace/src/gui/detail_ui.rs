@@ -28,6 +28,7 @@ use super::canvas::stage_color;
 use super::canvas::stage_tail;
 use super::canvas::stages_from_record;
 use super::canvas::unmeasured_color;
+use super::execution_ui::ExecutionUi;
 use super::load_full;
 use super::stagebar;
 use super::widgets;
@@ -109,6 +110,7 @@ pub struct Detail {
     pub iu_inflight: Option<i64>,
     pub prompt: Option<Prompt>,
     timing: DetailTimingUi,
+    execution: ExecutionUi,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -642,6 +644,23 @@ fn det_buttons(ui: &mut egui::Ui, cx: &DetCtx<'_>, d: &Detail, out: &mut DetOut)
             ui.ctx().copy_text(j);
             out.copied = Some("record JSON copied to the clipboard");
         }
+        if let Some(command) = d
+            .rec
+            .get("args")
+            .and_then(|a| a.get("digest"))
+            .and_then(|v| v.as_str())
+            .and_then(crate::execution_fetch::full_input_download_command)
+            && ui
+                .button("Copy full-input download")
+                .on_hover_text("Copies a command that downloads the full input tree for the action row's digest, not the selected command report. Nothing is downloaded by copying.")
+                .clicked()
+        {
+            ui.ctx().copy_text(command);
+            out.copied = Some(
+                "Full-input download command copied \u{2014} running it downloads the \
+                 whole input tree for the action row's digest",
+            );
+        }
     });
 }
 
@@ -948,6 +967,10 @@ fn det_layout(ui: &mut egui::Ui, cx: &DetCtx<'_>, d: &mut Detail, out: &mut DetO
             det_stage_pointer(ui, d, out);
         });
     d.timing.initialized = true;
+    sec(ui, "Execution");
+    if let Some(copied) = d.execution.show(ui) {
+        out.copied = Some(copied);
+    }
     let known: Vec<&str> = DET_IDENTITY
         .iter()
         .chain(DET_TIMING.iter())
@@ -2602,6 +2625,7 @@ pub fn build_detail(app: &Ready, idx: usize) -> Option<Detail> {
         .find(|r| Some(r.run.as_str()) == run_id)
         .and_then(|r| r.re_session.as_deref());
     let diagnostics = activity.diagnostics_text(&rec, re_session);
+    let execution = ExecutionUi::new(&app.tr, &rec);
     Some(Detail {
         idx,
         rec,
@@ -2618,6 +2642,7 @@ pub fn build_detail(app: &Ready, idx: usize) -> Option<Detail> {
         iu_inflight,
         prompt: None,
         timing: DetailTimingUi::default(),
+        execution,
     })
 }
 

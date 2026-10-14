@@ -21,6 +21,7 @@ pub mod config;
 pub mod dag;
 pub mod detail;
 pub mod execution;
+pub mod execution_fetch;
 pub mod export;
 pub mod findings;
 pub mod graph;
