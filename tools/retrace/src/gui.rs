@@ -14,6 +14,7 @@
 //! functions `--json` exports — the surfaces cannot disagree.
 
 pub mod canvas;
+pub mod cascade;
 pub mod command_ui;
 pub mod detail_ui;
 pub mod execution_ui;
@@ -588,6 +589,7 @@ pub struct Panels {
     pub cp: bool,
     /// Buck's reported path, for captures without a dependency graph.
     pub reported_cp: bool,
+    pub cascade: bool,
     pub health: bool,
     pub help: bool,
     pub glossary: bool,
@@ -863,6 +865,8 @@ pub struct Ready {
     /// CP-walker context menu: (act index, where and when it opened, in
     /// the walker's own viewport)
     pub cp_ctx: Option<(usize, widgets::MenuAt)>,
+    /// Compact results and the cancelable worker for greedy CP removals.
+    pub cascade: cascade::CascadeState,
 }
 
 impl Ready {
@@ -1072,6 +1076,7 @@ impl Ready {
             cp_savings_error: None,
             cp_savings_combined: None,
             cp_ctx: None,
+            cascade: cascade::CascadeState::default(),
         }
     }
 
@@ -1079,6 +1084,7 @@ impl Ready {
     /// lives outside `Panels` has to be cleared here as well, or the
     /// button leaves those windows on screen while claiming otherwise.
     pub fn close_all_popups(&mut self) {
+        self.cascade.cancel();
         self.panels = Panels::default();
         self.ctx_menu = None;
         // the prompt window hangs off the detail popup, so dropping the
@@ -1414,6 +1420,7 @@ impl Ready {
     /// Called by every mutation of `cp_overrides`, so the displayed
     /// scenario is always the one the overrides describe.
     pub fn respawn_cp_sim(&mut self) {
+        self.cascade.invalidate();
         self.cp_margins = vec![None; self.cp_overrides.len()];
         // the previous scenario's numbers must not sit under the NEW
         // override rows while the replay is in flight; `cp_sim_rx`
@@ -1843,7 +1850,10 @@ impl App {
     /// a state back on the same expression.
     fn take_ready(&mut self) -> Option<Box<Ready>> {
         match std::mem::replace(&mut self.state, State::Failed(String::new())) {
-            State::Ready(r) => Some(r),
+            State::Ready(mut r) => {
+                r.cascade.cancel();
+                Some(r)
+            }
             other => {
                 self.state = other;
                 None
@@ -2252,6 +2262,10 @@ pub fn update_ready(app: &mut Ready, root: &mut egui::Ui) {
         app.close_all_popups();
     }
     app.poll_graph();
+    app.cascade.poll();
+    if app.cascade.is_running() {
+        ctx.request_repaint_after(std::time::Duration::from_millis(100));
+    }
     if matches!(app.gstate, GState::Loading(_) | GState::Building(_)) {
         ctx.request_repaint_after(std::time::Duration::from_millis(120));
     }
@@ -2396,6 +2410,7 @@ pub fn update_ready(app: &mut Ready, root: &mut egui::Ui) {
     }
     command_ui::show(app, ctx);
     panels::show_panels(app, ctx);
+    cascade::show(app, ctx);
     // nav_req only: navigate() in show_canvas records the CURRENT selection in
     // the Back history before moving — pre-assigning `selected` here
     // made every popup/walker navigation vanish from that history
@@ -3908,6 +3923,7 @@ mod tests {
         ("command_profile.rs", include_str!("command_profile.rs")),
         ("gui.rs", include_str!("gui.rs")),
         ("gui/canvas.rs", include_str!("gui/canvas.rs")),
+        ("gui/cascade.rs", include_str!("gui/cascade.rs")),
         ("gui/command_ui.rs", include_str!("gui/command_ui.rs")),
         ("gui/detail_ui.rs", include_str!("gui/detail_ui.rs")),
         ("gui/execution_ui.rs", include_str!("gui/execution_ui.rs")),

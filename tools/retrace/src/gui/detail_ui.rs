@@ -2447,6 +2447,7 @@ pub fn show_cp_walker(app: &mut Ready, ctx: &egui::Context) -> Option<usize> {
                 let mut close = false;
                 let mut launch: Option<(i64, &str)> = None;
                 let mut reset = false;
+                let mut cascade = false;
                 let overridden = app.cp_override_of(act).is_some();
                 let (_, dismissed) = widgets::ctx_menu(ui.ctx(), "cpwhatif", menu, |ui| {
                     egui::Frame::popup(ui.style()).show(ui, |ui| {
@@ -2454,11 +2455,7 @@ pub fn show_cp_walker(app: &mut Ready, ctx: &egui::Context) -> Option<usize> {
                         ui.label(egui::RichText::new(&short).monospace().size(10.5));
                         ui.separator();
                         for (label, sim_label, w) in [
-                            (
-                                "Simulate at 75%",
-                                "at 75% of current scenario",
-                                (i128::from(dur) * 3 / 4) as i64,
-                            ),
+                            ("Simulate at 75%", "at 75% of current scenario", (i128::from(dur) * 3 / 4) as i64),
                             ("Simulate at 50%", "at 50%", dur / 2),
                             ("Simulate at 25%", "at 25%", dur / 4),
                             ("Simulate removed", "removed", 0),
@@ -2476,6 +2473,18 @@ pub fn show_cp_walker(app: &mut Ready, ctx: &egui::Context) -> Option<usize> {
                             && let Some(w) = hit_w
                         {
                             launch = Some((w, hit_label));
+                            close = true;
+                        }
+                        if ui
+                            .button("Cascade\u{2026}")
+                            .on_hover_text(
+                                "Open the greedy critical-path experiment for the current scenario. \
+                                 It chooses the longest remaining critical-path action after each \
+                                 removal; opening it does not change this action or start a replay.",
+                            )
+                            .clicked()
+                        {
+                            cascade = true;
                             close = true;
                         }
                         if overridden {
@@ -2499,6 +2508,10 @@ pub fn show_cp_walker(app: &mut Ready, ctx: &egui::Context) -> Option<usize> {
                 }
                 if reset {
                     app.clear_cp_override(act);
+                }
+                if cascade {
+                    app.panels.cascade = true;
+                    popup_raise(ctx, super::cascade::TITLE);
                 }
                 if close || dismissed {
                     app.cp_ctx = None;
