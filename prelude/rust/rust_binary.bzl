@@ -268,7 +268,7 @@ def _miri_launcher(
     args = cmd_args()
     launcher = command_alias(
         actions = ctx.actions,
-        path = "miri_launcher.sh",
+        path = "miri_launcher",
         target_os = compile_ctx.exec_os_type,
         base = base,
         args = args,
