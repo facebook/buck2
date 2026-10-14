@@ -20,8 +20,8 @@ Based on a combination of:
 
 ## Pre-requisites
 
-You need to have npm v7+ installed. Afterwards, run `npm install` in this folder
-and in `client`.
+You need Node.js 22+ and npm v7+ installed to run the extension packager.
+Afterwards, run `npm install` in this folder and in `client`.
 
 ## Debugging
 

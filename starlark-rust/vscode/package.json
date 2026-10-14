@@ -144,7 +144,7 @@
         "typescript": "^4.4.3"
     },
     "dependencies": {
-        "@vscode/vsce": "^3.9.2",
+        "@vscode/vsce": "^4.0.0",
         "vscode-languageclient": "^9.0.1"
     },
     "overrides": {
