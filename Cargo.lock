@@ -7604,6 +7604,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "retrace"
+version = "0.1.0"
+dependencies = [
+ "allocative",
+ "anyhow",
+ "serde",
+ "serde_json",
+ "sha1 0.11.0",
+]
+
+[[package]]
 name = "rgb"
 version = "0.8.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -192,6 +192,7 @@ members = [
   "starlark-rust/starlark_lsp",
   "starlark-rust/starlark_map",
   "starlark-rust/starlark_syntax",
+  "tools/retrace",
   "tools/starlark_fmt",
 ]
 exclude = ["superconsole"]
