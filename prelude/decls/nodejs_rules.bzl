@@ -11,18 +11,38 @@ load(":toolchains_common.bzl", "toolchains_common")
 
 nodejs_library = prelude_rule(
     name = "nodejs_library",
-    docs = """A Node.js library that packages the artifacts it is given
-    as-is (no compilation): whatever produced them (a TypeScript build
-    step emitting JavaScript, plain JavaScript sources, generated files)
-    feeds this rule, and the result must be loadable by Node as a regular
-    `node_modules` package without custom loaders. Each entry of `srcs` is staged under
-    `dist/<short_path>` inside the package (repeating the same source is
-    allowed; distinct sources mapping to the same staged path fail,
-    and staged paths must not nest, e.g. `dist/a` and `dist/a/b` fail).
-    Each entry of `resources` is staged the same way, for non-code files
-    (including generated artifacts and directory artifacts from other
-    rules) that ship with the package. `deps` must be `nodejs_library`
-    targets; use `resources` for non-code artifacts.
+    docs = """A Node.js library that packages code as a regular
+    `node_modules` package loadable by Node without custom loaders.
+    Without `tsconfig`, the artifacts it is given are packaged as-is
+    (no compilation): whatever produced them (plain JavaScript sources,
+    generated files, another rule's output) feeds `srcs`, and each entry
+    is staged under `dist/<short_path>` inside the package (repeating the
+    same source is allowed; distinct sources mapping to the same staged
+    path fail, and staged paths must not nest, e.g. `dist/a` and
+    `dist/a/b` fail).
+    With `tsconfig`, `srcs` must be TypeScript compiled with the
+    toolchain's `tsc` before staging: sources are staged by short path
+    next to the `tsconfig`, the `package_json` (whose `"type"` decides the
+    emitted module format) and the merged `node_modules` of `deps` (so
+    cross-package type imports resolve), compiled with `--outDir`,
+    `--rootDir` (the staging root, so `<path>.ts` emits
+    `dist/<path>.js` and `dist/<path>.d.ts`, and `.mts` / `.cts` emit
+    `.mjs` / `.cjs`), `--declaration`, `--noEmit false` and
+    `--emitDeclarationOnly false`, and the emitted tree is staged as the
+    package's `dist/`. `srcs` are the compiled files: the `tsconfig`'s
+    `files` and `include` are replaced by `srcs` and its `declarationDir`
+    is cleared. At least one source is required. Only `.ts`, `.tsx`,
+    `.mts` and `.cts` sources may be compiled, not `.d.ts`, `.d.mts` or
+    `.d.cts` declaration files; declarations are always emitted because
+    downstream compiles need them. Only the `tsconfig` file itself is staged, so an `extends`
+    pointing at a sibling config file does not resolve. A source whose
+    first path segment is `tsconfig.json`, `tsconfig.buck.json`, or a
+    staged `package.json` or `node_modules` fails.
+    Without `tsconfig`, each entry of `resources` is staged under
+    `dist/<short_path>`, for non-code files (including generated artifacts
+    and directory artifacts from other rules) that ship with the package;
+    `resources` cannot be combined with `tsconfig`. `deps` must
+    be `nodejs_library` targets; use `resources` for non-code artifacts.
     Staging copies files so the package runs under Node without
     `--preserve-symlinks`. `package_json`, when supplied, is staged at the
     package root as `package.json`. Its `name` is not checked against
@@ -50,7 +70,9 @@ nodejs_library = prelude_rule(
             "resources": attrs.list(attrs.source(), default = []),
             "package_name": attrs.option(attrs.string(), default = None),
             "package_json": attrs.option(attrs.source(allow_directory = False), default = None),
+            "tsconfig": attrs.option(attrs.source(allow_directory = False), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
+            "_nodejs_toolchain": toolchains_common.nodejs(),
         }
         | buck.labels_arg()
         | buck.contacts_arg()

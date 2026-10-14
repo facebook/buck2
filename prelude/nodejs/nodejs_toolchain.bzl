@@ -10,6 +10,8 @@ NodejsToolchainInfo = provider(
     doc = "Node.js toolchain.",
     fields = {
         "node": provider_field(RunInfo),
+        # Targets that set `tsconfig` fail when this is `None`.
+        "tsc": provider_field([RunInfo, None], default = None),
     },
 )
 
@@ -18,13 +20,17 @@ def _nodejs_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         fail("nodejs_toolchain requires the `node` attribute")
     return [
         DefaultInfo(),
-        NodejsToolchainInfo(node = ctx.attrs.node[RunInfo]),
+        NodejsToolchainInfo(
+            node = ctx.attrs.node[RunInfo],
+            tsc = ctx.attrs.tsc[RunInfo] if ctx.attrs.tsc != None else None,
+        ),
     ]
 
 nodejs_toolchain = rule(
     impl = _nodejs_toolchain_impl,
     attrs = {
         "node": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
+        "tsc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
     },
     is_toolchain_rule = True,
 )

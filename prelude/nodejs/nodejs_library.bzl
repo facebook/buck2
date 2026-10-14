@@ -7,6 +7,8 @@
 # above-listed licenses.
 
 load(":nodejs_providers.bzl", "NodejsLibraryInfo", "NodejsLibraryPackage", "build_node_modules", "get_nodejs_dep_infos", "get_transitive_outputs")
+load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
+load(":nodejs_typescript.bzl", "compile_typescript")
 
 def _fail_invalid(label: Label, package_name: str, reason: str, hint: str) -> None:
     fail("nodejs_library {}: invalid `package_name` '{}': {}{}".format(label, package_name, reason, hint))
@@ -61,19 +63,35 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
         package_name = ctx.attrs.name
     _validate_package_name(ctx.label, package_name, is_default = is_default)
 
+    dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label, non_code_attr = "resources")
+
     srcs_map = {}
-    for src in ctx.attrs.srcs:
-        key = "dist/" + src.short_path
-        existing = srcs_map.get(key)
-        if existing != None and existing != src:
-            fail("nodejs_library {}: duplicate `srcs` '{}' and '{}' both map to '{}'".format(ctx.label, existing, src, key))
-        srcs_map[key] = src
-    for res in ctx.attrs.resources:
-        key = "dist/" + res.short_path
-        existing = srcs_map.get(key)
-        if existing != None and existing != res:
-            fail("nodejs_library {}: duplicate `srcs`/`resources` '{}' and '{}' both map to '{}'".format(ctx.label, existing, res, key))
-        srcs_map[key] = res
+    if ctx.attrs.tsconfig != None:
+        if ctx.attrs.resources:
+            fail("nodejs_library {}: `resources` cannot be combined with `tsconfig` yet".format(ctx.label))
+        srcs_map["dist"] = compile_typescript(
+            actions = ctx.actions,
+            label = ctx.label,
+            tsc = ctx.attrs._nodejs_toolchain[NodejsToolchainInfo].tsc,
+            srcs = ctx.attrs.srcs,
+            tsconfig = ctx.attrs.tsconfig,
+            package_json = ctx.attrs.package_json,
+            dep_infos = dep_infos,
+            identifier = ctx.attrs.name,
+        )
+    else:
+        for src in ctx.attrs.srcs:
+            key = "dist/" + src.short_path
+            existing = srcs_map.get(key)
+            if existing != None and existing != src:
+                fail("nodejs_library {}: duplicate `srcs` '{}' and '{}' both map to '{}'".format(ctx.label, existing, src, key))
+            srcs_map[key] = src
+        for res in ctx.attrs.resources:
+            key = "dist/" + res.short_path
+            existing = srcs_map.get(key)
+            if existing != None and existing != res:
+                fail("nodejs_library {}: duplicate `srcs`/`resources` '{}' and '{}' both map to '{}'".format(ctx.label, existing, res, key))
+            srcs_map[key] = res
     if ctx.attrs.package_json != None:
         srcs_map["package.json"] = ctx.attrs.package_json
     for key in sorted(srcs_map):
@@ -88,8 +106,6 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 )
             prefix += "/" + segments[i]
     package_dir = ctx.actions.copied_dir("package_dir", srcs_map)
-
-    dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label, non_code_attr = "resources")
 
     own_package = NodejsLibraryPackage(
         label = ctx.label,
