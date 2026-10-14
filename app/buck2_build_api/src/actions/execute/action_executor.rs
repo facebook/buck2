@@ -81,6 +81,7 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use either::Either;
 use itertools::Itertools;
+use mini_vec::MiniBoxSlice;
 use remote_execution::TActionResult2;
 use strong_hash::StrongHash;
 
@@ -120,12 +121,73 @@ impl OutputSize for ActionOutputs {
 
 #[derive(Debug, Allocative, pagable::Pagable)]
 struct ActionOutputsData {
-    outputs: BuckIndexMap<BuildArtifactPath, ArtifactValue>,
+    outputs: ActionOutputsMap,
     /// Strong hash of `outputs`, computed at construction; see `PartialEq`
     /// below.
     // This is OK to skip because the hash is stored inline.
     #[allocative(skip)]
     fingerprint: blake3::Hash,
+}
+
+/// Most actions have a handful of outputs, where an exact-sized slice with
+/// linear lookups beats the index map's two allocations plus bucket slack.
+/// Big producers (dist-ThinLTO index actions emit tens of thousands) keep
+/// the map so `get` stays O(1). Both preserve insertion order, which the
+/// fingerprint depends on. The map is boxed so the enum stays two words:
+/// an inline `BuckIndexMap` is 9 words, and every action would carry it.
+#[derive(Debug, Allocative, pagable::Pagable)]
+enum ActionOutputsMap {
+    Small(MiniBoxSlice<(BuildArtifactPath, ArtifactValue)>),
+    Large(Box<BuckIndexMap<BuildArtifactPath, ArtifactValue>>),
+}
+
+// One of these is retained per executed action; with the 32-byte fingerprint
+// and the Arc header this is the 64-byte jemalloc bin.
+buck2_util::size_assert::words_of_type!(ActionOutputsMap, 2);
+
+/// At 8 entries a linear scan is still cheap next to the map's hashing,
+/// and beyond that the allocation-shape win stops mattering.
+const SMALL_OUTPUTS_MAX: usize = 8;
+
+impl ActionOutputsMap {
+    fn new(outputs: BuckIndexMap<BuildArtifactPath, ArtifactValue>) -> Self {
+        if outputs.len() <= SMALL_OUTPUTS_MAX {
+            ActionOutputsMap::Small(MiniBoxSlice::from_iter(outputs))
+        } else {
+            ActionOutputsMap::Large(Box::new(outputs))
+        }
+    }
+
+    fn get(&self, artifact: &BuildArtifactPath) -> Option<&ArtifactValue> {
+        match self {
+            ActionOutputsMap::Small(entries) => entries
+                .iter()
+                .find(|(path, _)| path == artifact)
+                .map(|(_, value)| value),
+            ActionOutputsMap::Large(map) => map.get(artifact),
+        }
+    }
+
+    fn contains_key(&self, artifact: &BuildArtifactPath) -> bool {
+        self.get(artifact).is_some()
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (&BuildArtifactPath, &ArtifactValue)> {
+        match self {
+            ActionOutputsMap::Small(entries) => {
+                Either::Left(entries.iter().map(|(path, value)| (path, value)))
+            }
+            ActionOutputsMap::Large(map) => Either::Right(map.iter()),
+        }
+    }
+
+    fn keys(&self) -> impl Iterator<Item = &BuildArtifactPath> {
+        self.iter().map(|(path, _)| path)
+    }
+
+    fn values(&self) -> impl Iterator<Item = &ArtifactValue> {
+        self.iter().map(|(_, value)| value)
+    }
 }
 
 /// Equality compares the fingerprint, making it O(1). That matters because
@@ -274,7 +336,7 @@ impl ActionOutputs {
         }
         let fingerprint = hasher.finalize();
         Self(Arc::new(ActionOutputsData {
-            outputs,
+            outputs: ActionOutputsMap::new(outputs),
             fingerprint,
         }))
     }
@@ -849,6 +911,87 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_execute::execute::clean_output_paths::cleanup_path;
     use buck2_fs::fs_util::uncategorized as fs_util;
+    use dupe::Dupe;
+
+    use super::*;
+
+    #[test]
+    fn test_action_outputs_map_small_large_boundary() {
+        use buck2_common::cas_digest::CasDigestConfig;
+        use buck2_common::file_ops::metadata::FileMetadata;
+        use buck2_common::file_ops::metadata::TrackedFileDigest;
+        use buck2_core::configuration::data::ConfigurationData;
+        use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+        use buck2_core::fs::buck_out_path::BuckOutPathKind;
+        use buck2_core::fs::buck_out_path::BuildArtifactPath;
+        use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+        use buck2_execute::artifact_value::ArtifactValue;
+        use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+
+        let owner = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
+            "cell//pkg:target",
+            ConfigurationData::testing_new(),
+        ));
+        let config = CasDigestConfig::testing_default();
+        let entry = |i: usize| {
+            let path = BuildArtifactPath::new(
+                owner.dupe(),
+                ForwardRelativePathBuf::unchecked_new(format!("out/{i}")),
+                BuckOutPathKind::Configuration,
+            );
+            let value = ArtifactValue::file(FileMetadata {
+                digest: TrackedFileDigest::from_content(format!("{i}").as_bytes(), config),
+                is_executable: false,
+            });
+            (path, value)
+        };
+
+        for (n, expect_small) in [
+            (0, true),
+            (1, true),
+            (SMALL_OUTPUTS_MAX, true),
+            (SMALL_OUTPUTS_MAX + 1, false),
+        ] {
+            let outputs: BuckIndexMap<_, _> = (0..n).rev().map(entry).collect();
+            let map = ActionOutputsMap::new(outputs.clone());
+            assert_eq!(
+                matches!(map, ActionOutputsMap::Small(_)),
+                expect_small,
+                "n = {n}"
+            );
+            for (key, value) in &outputs {
+                assert_eq!(map.get(key), Some(value));
+                assert!(map.contains_key(key));
+            }
+            let (missing, _) = entry(n);
+            assert!(map.get(&missing).is_none());
+            assert!(!map.contains_key(&missing));
+            // Use reverse insertion order to catch accidental sorting.
+            assert_eq!(
+                map.iter().collect::<Vec<_>>(),
+                outputs.iter().collect::<Vec<_>>()
+            );
+            assert_eq!(
+                map.keys().collect::<Vec<_>>(),
+                outputs.keys().collect::<Vec<_>>()
+            );
+            assert_eq!(
+                map.values().collect::<Vec<_>>(),
+                outputs.values().collect::<Vec<_>>()
+            );
+
+            let mut serializer = pagable::testing::TestingSerializer::new();
+            pagable::PagableSerialize::pagable_serialize(&map, &mut serializer).unwrap();
+            let bytes = serializer.finish();
+            let mut deserializer = pagable::testing::TestingDeserializer::new(&bytes);
+            let restored: ActionOutputsMap =
+                pagable::PagableDeserialize::pagable_deserialize(&mut deserializer).unwrap();
+            assert_eq!(
+                restored.iter().collect::<Vec<_>>(),
+                map.iter().collect::<Vec<_>>()
+            );
+        }
+    }
 
     #[test]
     fn test_cleanup_path_missing() -> buck2_error::Result<()> {
