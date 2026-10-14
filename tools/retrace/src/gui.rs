@@ -15,9 +15,11 @@
 
 pub mod canvas;
 pub mod command_ui;
+pub mod detail_ui;
 mod load_pipeline;
 pub mod open;
 pub mod panels;
+pub mod stagebar;
 pub mod widgets;
 
 use std::collections::HashMap;
@@ -550,6 +552,7 @@ pub struct Panels {
     pub upload: bool,
     pub peers: bool,
     pub stall: bool,
+    pub cp: bool,
     pub health: bool,
     pub help: bool,
     pub glossary: bool,
@@ -558,6 +561,136 @@ pub struct Panels {
 /// Opens one Analysis-menu panel. Every menu entry carries its own
 /// opener, so an entry cannot be written for a panel that does not exist.
 type PanelOpener = fn(&mut Ready);
+
+/// One or more live overrides on the critical path. The walker keeps a
+/// stack of them rather than a single slot: two steps on the same chain
+/// each showing "saves 66s" do not save 132s together, so the only way
+/// to answer "what do I get if I fix all three" is to replay them at
+/// once.
+#[derive(Clone, Debug, PartialEq)]
+pub enum CpOverride {
+    /// one step's duration replaced; `label` is the menu wording
+    /// ("at 50%", "removed") the banner reads back
+    Node {
+        act: usize,
+        w_us: i64,
+        label: String,
+    },
+    /// every node's execution-admission wait removed. Rewrites the whole
+    /// weight vector rather than one entry, so it is the base any `Node`
+    /// override is then applied on top of: a `Node` override on the same
+    /// node wins, and that row's marginal restores the admission-free
+    /// weight, not the measured one.
+    FreeAdmission,
+}
+
+const FREE_ADMISSION_LABEL: &str = "execution_concurrency_limit waits removed";
+
+/// How many top steps the walker's combined-savings caption replays at
+/// once.
+pub const N_TOP_SAVINGS: usize = 5;
+
+/// The pair behind [`Ready::cp_savings_combined`]: the sum of the
+/// `N_TOP_SAVINGS` largest single-step savings, and one replay with all
+/// of them free. `None` when there is nothing to compare — fewer than
+/// two steps, or no step that saves anything.
+fn combined_top_savings(b: &dag::DagBundle, savings: &HashMap<usize, i64>) -> Option<(i64, i64)> {
+    let mut top: Vec<(usize, i64)> = savings.iter().map(|(&a, &s)| (a, s)).collect();
+    // ties break on act index so the caption is stable across runs
+    top.sort_by(|x, y| y.1.cmp(&x.1).then(x.0.cmp(&y.0)));
+    top.truncate(N_TOP_SAVINGS);
+    if top.len() < 2 {
+        return None;
+    }
+    let sum: i64 = top.iter().map(|&(_, s)| s).sum();
+    if sum <= 0 {
+        return None;
+    }
+    let edits: Vec<(u32, i64)> = b
+        .dag
+        .act_of_node
+        .iter()
+        .enumerate()
+        .filter(|&(_, &a)| top.iter().any(|&(act, _)| act as u32 == a))
+        .map(|(n, _)| (n as u32, 0))
+        .collect();
+    let s = sim::simulate_edits(b, &edits, "top steps free");
+    Some((sum, s.base_cp_us - s.cp_us))
+}
+
+/// One result from the savings worker.
+pub enum CpSavingsMsg {
+    /// (act index, wall saved if that step alone were free)
+    One(usize, i64),
+    /// the pair behind [`Ready::cp_savings_combined`], sent last
+    Combined(i64, i64),
+    Complete,
+}
+
+/// The what-if the CP walker displays in place of the live critical
+/// path — the replayed result of every live [`CpOverride`]. Sim-vs-sim:
+/// `base_cp_us` is the measured critical path, the same baseline for
+/// every override count, so stacking a second one cannot re-score the
+/// first.
+#[derive(Clone)]
+pub struct CpSimView {
+    /// the edited step's act index; `None` when the scenario does not
+    /// name one action (several steps at once, or a whole-graph replay)
+    pub act: Option<usize>,
+    pub label: String,
+    pub base_cp_us: i64,
+    pub cp_us: i64,
+    /// the simulated critical path as act indices
+    pub path: Vec<usize>,
+    /// each `path` step's simulated duration, parallel to `path`. Every
+    /// surface that totals or scales the path must read these — a
+    /// simulated path drawn with measured durations sums to neither
+    /// `cp_us` nor the measured wall.
+    pub w_us: Vec<i64>,
+}
+
+impl CpSimView {
+    pub fn has_consistent_duration(&self) -> bool {
+        self.path.len() == self.w_us.len()
+            && self.w_us.iter().all(|&weight| weight >= 0)
+            && self
+                .w_us
+                .iter()
+                .try_fold(0i64, |total, &weight| total.checked_add(weight))
+                == Some(self.cp_us)
+    }
+}
+
+/// What the scenario worker streams back: the replay first, then one
+/// marginal per override as each extra replay lands. They arrive
+/// separately because the scenario is one replay and the marginals are
+/// N more — making the walker wait for all of them would stall the
+/// numbers it already has.
+pub enum CpSimMsg {
+    View(CpSimView),
+    /// (index into `cp_overrides`, that override's marginal saving)
+    Margin(usize, i64),
+    Complete,
+}
+
+/// The critical-path walker's steps and the duration of each: the live
+/// path with measured durations, or the simulated path with its replayed
+/// weights. The two come back together because a simulated path drawn
+/// with measured durations sums to neither `cp_us` nor the measured
+/// wall, and every surface that totals or scales the path reads this.
+pub fn cp_walk_steps(
+    sim: Option<&CpSimView>,
+    cp_list: &[usize],
+    acts: &[crate::types::Act],
+) -> (Vec<usize>, Vec<i64>) {
+    match sim {
+        Some(s) => (s.path.clone(), s.w_us.clone()),
+        None => (
+            cp_list.to_vec(),
+            cp_list.iter().map(|&i| acts[i].dur).collect(),
+        ),
+    }
+}
 
 pub struct Ready {
     pub command_view: command_ui::State,
@@ -601,11 +734,27 @@ pub struct Ready {
     pub activity_cache: HashMap<usize, Vec<(i64, i64, bool)>>,
     pub activity_state: Vec<u8>,
     pub activity_cache_intervals: usize,
-    /// ancestry highlight
+    /// per act, the recorded `stages.cache_query_us`: `None` when the
+    /// record has no such key, which is distinct from a measured zero
+    pub lookup_cache: HashMap<usize, Option<i64>>,
+    /// ancestry highlight (right-click ▸ show/list)
     pub anc_set: Option<HashSet<usize>>,
+    pub anc_list: Vec<usize>,
+    pub anc_title: String,
+    pub anc_window: bool,
+    /// right-click context menu: (act index, where and when it opened)
+    pub ctx_menu: Option<(usize, widgets::MenuAt)>,
+    /// the open action-detail popup, built once per selection
+    pub detail: Option<detail_ui::Detail>,
     /// recipe action count (prompt context)
     pub n_events: usize,
     selected_class_count: [usize; config::CLASS_N],
+    /// critical-path walker slider position
+    pub cp_step: usize,
+    pub cp_selected: Option<usize>,
+    /// pan/zoom of the critical-path strip, driven by the same gestures
+    /// as the stage bar
+    pub cp_view: stagebar::BarState,
     pub panels: Panels,
     pub longest: Vec<usize>,
     /// What each of `longest` moved, read from its record when the list is built
@@ -652,6 +801,32 @@ pub struct Ready {
     pub ov_sort: (u8, bool),
     pub sorts: HashMap<&'static str, (u8, bool)>,
     pub cp_set: Option<HashSet<usize>>,
+    /// every live what-if, in the order they were clicked. Mutate only
+    /// through `set_cp_override` / `clear_cp_override(s)`, which respawn
+    /// the replay — an edit that skips the respawn leaves the walker
+    /// drawing the previous scenario's numbers.
+    pub cp_overrides: Vec<CpOverride>,
+    /// the replay of `cp_overrides` (None = live critical path)
+    pub cp_sim: Option<CpSimView>,
+    pub cp_sim_rx: Option<Worker<CpSimMsg>>,
+    pub cp_sim_error: Option<String>,
+    /// each override's marginal saving, parallel to `cp_overrides`;
+    /// `None` until its replay lands. Reset by `respawn_cp_sim`, so a
+    /// row can never show the previous scenario's number — and never
+    /// `0`, which means reverting that override alone does not raise the
+    /// current simulated critical path (not that the action is off-path).
+    pub cp_margins: Vec<Option<i64>>,
+    /// act idx -> simulated wall saved if that CP step were free
+    pub cp_savings: HashMap<usize, i64>,
+    pub cp_savings_rx: Option<Worker<CpSavingsMsg>>,
+    pub cp_savings_error: Option<String>,
+    /// (Σ of the five largest single-step savings, one replay with all
+    /// five free). Only meaningful as a pair: the gap between them is
+    /// the whole point, and neither number answers the question alone.
+    pub cp_savings_combined: Option<(i64, i64)>,
+    /// CP-walker context menu: (act index, where and when it opened, in
+    /// the walker's own viewport)
+    pub cp_ctx: Option<(usize, widgets::MenuAt)>,
 }
 
 impl Ready {
@@ -809,9 +984,18 @@ impl Ready {
             activity_cache: HashMap::new(),
             activity_state: vec![0; n_acts],
             activity_cache_intervals: 0,
+            lookup_cache: HashMap::new(),
             anc_set: None,
+            anc_list: Vec::new(),
+            anc_title: String::new(),
+            anc_window: false,
+            ctx_menu: None,
+            detail: None,
             n_events: n_events_v,
             selected_class_count,
+            cp_step: 0,
+            cp_selected: None,
+            cp_view: stagebar::BarState::default(),
             panels: Panels::default(),
             longest: Vec::new(),
             longest_data: HashMap::new(),
@@ -841,6 +1025,16 @@ impl Ready {
             ov_sort: (2, true),
             sorts: HashMap::new(),
             cp_set: None,
+            cp_overrides: Vec::new(),
+            cp_sim: None,
+            cp_sim_rx: None,
+            cp_sim_error: None,
+            cp_margins: Vec::new(),
+            cp_savings: HashMap::new(),
+            cp_savings_rx: None,
+            cp_savings_error: None,
+            cp_savings_combined: None,
+            cp_ctx: None,
         }
     }
 
@@ -849,6 +1043,12 @@ impl Ready {
     /// button leaves those windows on screen while claiming otherwise.
     pub fn close_all_popups(&mut self) {
         self.panels = Panels::default();
+        self.ctx_menu = None;
+        // the prompt window hangs off the detail popup, so dropping the
+        // detail closes it too
+        self.detail = None;
+        self.anc_window = false;
+        self.cp_ctx = None;
         self.find_open = false;
     }
 
@@ -866,6 +1066,17 @@ impl Ready {
             }
         }
         self.selected = Some(idx);
+        self.detail = detail_ui::build_detail(self, idx);
+        if self.detail.is_none() {
+            // the record could not be re-read from the file (truncated,
+            // replaced, unreadable range): a click that selects but
+            // opens nothing must say why
+            self.toast = Some((
+                "cannot re-read this action's record from the trace file (was it truncated or replaced?)"
+                    .to_owned(),
+                Instant::now(),
+            ));
+        }
     }
 
     /// Return to the previously selected action, if there is one.
@@ -1077,6 +1288,311 @@ impl Ready {
         }
     }
 
+    /// Override one step, replacing whatever that step was set to
+    /// before. Two weights for one action are not a scenario, so the
+    /// same act never appears twice.
+    pub fn set_cp_override(&mut self, act: usize, w_us: i64, label: String) {
+        if w_us < 0 {
+            self.cp_sim_error = Some("a simulated duration cannot be negative".into());
+            return;
+        }
+        let o = CpOverride::Node { act, w_us, label };
+        match self
+            .cp_overrides
+            .iter_mut()
+            .find(|x| matches!(x, CpOverride::Node { act: a, .. } if *a == act))
+        {
+            Some(slot) => *slot = o,
+            None => self.cp_overrides.push(o),
+        }
+        self.respawn_cp_sim();
+    }
+
+    /// Whether `act` currently carries an override — what the context
+    /// menu keys its "reset" entry off.
+    pub fn cp_override_of(&self, act: usize) -> Option<&CpOverride> {
+        self.cp_overrides
+            .iter()
+            .find(|x| matches!(x, CpOverride::Node { act: a, .. } if *a == act))
+    }
+
+    pub fn clear_cp_override(&mut self, act: usize) {
+        self.cp_overrides
+            .retain(|x| !matches!(x, CpOverride::Node { act: a, .. } if *a == act));
+        self.respawn_cp_sim();
+    }
+
+    /// Drop the `k`th override, so a scenario row can remove exactly the
+    /// entry it names.
+    pub fn remove_cp_override(&mut self, k: usize) {
+        if k < self.cp_overrides.len() {
+            self.cp_overrides.remove(k);
+            self.respawn_cp_sim();
+        }
+    }
+
+    pub fn clear_cp_overrides(&mut self) {
+        self.cp_overrides.clear();
+        self.respawn_cp_sim();
+    }
+
+    /// The banner's subject line: one act only when exactly one step is
+    /// overridden, since the banner names a single action.
+    fn cp_sim_subject(&self) -> (Option<usize>, String) {
+        match &self.cp_overrides[..] {
+            [CpOverride::Node { act, label, .. }] => return (Some(*act), label.clone()),
+            [CpOverride::FreeAdmission] => return (None, FREE_ADMISSION_LABEL.to_owned()),
+            _ => {}
+        }
+        let name = |act: usize| -> String {
+            self.tr.names[self.tr.acts[act].name as usize]
+                .chars()
+                .take(28)
+                .collect()
+        };
+        let mut parts: Vec<String> = self
+            .cp_overrides
+            .iter()
+            .take(3)
+            .map(|o| match o {
+                CpOverride::Node { act, label, .. } => format!("{} {label}", name(*act)),
+                CpOverride::FreeAdmission => FREE_ADMISSION_LABEL.to_owned(),
+            })
+            .collect();
+        if self.cp_overrides.len() > parts.len() {
+            parts.push(format!("+{} more", self.cp_overrides.len() - parts.len()));
+        }
+        (
+            None,
+            format!(
+                "{} overrides: {}",
+                self.cp_overrides.len(),
+                parts.join(" + ")
+            ),
+        )
+    }
+
+    /// Replay every live override, on a worker thread: the replay walks
+    /// a multi-million-node DAG and must never run on the UI thread.
+    /// Called by every mutation of `cp_overrides`, so the displayed
+    /// scenario is always the one the overrides describe.
+    pub fn respawn_cp_sim(&mut self) {
+        self.cp_margins = vec![None; self.cp_overrides.len()];
+        // the previous scenario's numbers must not sit under the NEW
+        // override rows while the replay is in flight; `cp_sim_rx`
+        // doubles as the walker's "replaying" indicator
+        self.cp_sim = None;
+        self.cp_sim_rx = None;
+        self.cp_sim_error = None;
+        if self.cp_overrides.is_empty() {
+            return;
+        }
+        let GState::Ready { dag: Some(b), .. } = &self.gstate else {
+            self.cp_sim_error = Some(
+                match self.gstate {
+                    GState::Loading(_) | GState::Building(_) => {
+                        "Waiting for the action dependency graph\u{2026}"
+                    }
+                    _ => "No action dependency graph is available for scenario replay.",
+                }
+                .into(),
+            );
+            return;
+        };
+        let b = b.clone();
+        let (act, label) = self.cp_sim_subject();
+        // act indices, resolved to node ids on the worker: the lookup is
+        // a pass over every node in the graph. The override's own index
+        // rides along so its marginal can be streamed back to the row
+        // that owns it.
+        let mut want: Vec<(usize, usize, i64)> = Vec::new();
+        let mut free_row = None;
+        for (k, o) in self.cp_overrides.iter().enumerate() {
+            match o {
+                CpOverride::Node { act, w_us, .. } => want.push((k, *act, *w_us)),
+                CpOverride::FreeAdmission => free_row = Some(k),
+            }
+        }
+        let admission = if free_row.is_some() {
+            match self.an.as_ref().and_then(|an| an.admission.clone()) {
+                Some(a) if a.n_recorded > 0 => Some(a),
+                Some(_) => {
+                    self.cp_sim_error = Some("Execution-admission timing was not recorded; this scenario is unavailable.".into());
+                    return;
+                }
+                None => {
+                    self.ensure_analysis();
+                    self.cp_sim_error = Some("Loading execution-admission measurements…".into());
+                    return;
+                }
+            }
+        } else {
+            None
+        };
+        let (tx, rx, cancel) = Worker::channel();
+        self.cp_sim_rx = Some(rx);
+        let started = std::thread::Builder::new()
+            .name("retrace-scenario".into())
+            .spawn(move || {
+                let canceled = || cancel.load(Ordering::Relaxed);
+                if canceled() {
+                    return;
+                }
+                let base = admission
+                    .as_ref()
+                    .map_or_else(|| b.dag.weight_us.clone(), |a| a.weights.clone());
+                let acts: Vec<(usize, i64)> = want.iter().map(|&(_, act, w)| (act, w)).collect();
+                let Some(sc) = sim::stack_overrides_cancellable(&b, base, &acts, &label, &canceled)
+                else {
+                    return;
+                };
+                let mut w = sc.w;
+                let s = sc.sim;
+                let w_us = s.path.iter().map(|&n| w[n as usize]).collect();
+                let path = s
+                    .path
+                    .iter()
+                    .map(|&n| b.dag.act_of_node[n as usize] as usize)
+                    .collect();
+                let cp_us = s.cp_us;
+                if tx
+                    .send(CpSimMsg::View(CpSimView {
+                        act,
+                        label: s.label,
+                        base_cp_us: s.base_cp_us,
+                        cp_us,
+                        path,
+                        w_us,
+                    }))
+                    .is_err()
+                {
+                    return;
+                }
+                // N more replays, one per row. That is what a marginal costs;
+                // they stream so the scenario's own numbers never wait on them.
+                for (g, &(k, _, _)) in sc.groups.iter().zip(&want) {
+                    let Some(m) = sim::marginal_at_cancellable(&b.dag, &mut w, cp_us, g, &canceled)
+                    else {
+                        return;
+                    };
+                    if tx.send(CpSimMsg::Margin(k, m)).is_err() {
+                        return;
+                    }
+                }
+                if let Some(k) = free_row {
+                    let g = sim::whole_graph_group(&b.dag.weight_us, &w, &sc.edits);
+                    let Some(m) =
+                        sim::marginal_at_cancellable(&b.dag, &mut w, cp_us, &g, &canceled)
+                    else {
+                        return;
+                    };
+                    drop(tx.send(CpSimMsg::Margin(k, m)));
+                }
+                tx.send(CpSimMsg::Complete).ok();
+            });
+        if let Err(e) = started {
+            self.cp_sim_rx = None;
+            self.cp_sim_error = Some(format!("cannot start scenario worker: {e}"));
+        }
+    }
+
+    /// The config-level what-if: every node's execution-admission wait
+    /// removed (the "raise `execution_concurrency_limit`" replay). It
+    /// stacks with per-step overrides, so it is a toggle rather than a
+    /// scenario of its own.
+    pub fn toggle_cp_free_admission(&mut self) {
+        match self
+            .cp_overrides
+            .iter()
+            .position(|o| *o == CpOverride::FreeAdmission)
+        {
+            Some(k) => {
+                self.cp_overrides.remove(k);
+            }
+            None => self.cp_overrides.push(CpOverride::FreeAdmission),
+        }
+        self.respawn_cp_sim();
+    }
+
+    /// Fill the CP walker's "savings if eliminated" column: one full
+    /// replay per CP step. Small graphs compute inline — instant, and
+    /// deterministic for the snapshot fixture; big graphs go to a
+    /// worker thread streaming results as they land.
+    pub fn ensure_cp_savings(&mut self) {
+        // A worker that failed is not restarted on every frame; reopening the trace tries again.
+        if !self.cp_savings.is_empty()
+            || self.cp_savings_rx.is_some()
+            || self.cp_savings_error.is_some()
+        {
+            return;
+        }
+        let GState::Ready { dag: Some(b), .. } = &self.gstate else {
+            return;
+        };
+        let b = b.clone();
+        // inline only when the whole sweep is small: each step costs a
+        // full O(V+E) replay, and node count alone does not bound the
+        // number of steps (a long serial chain froze the UI here)
+        if b.dag
+            .cp_path
+            .len()
+            .saturating_add(1)
+            .saturating_mul(b.dag.weight_us.len().saturating_add(b.dag.preds.len()))
+            <= 5_000_000
+        {
+            let dag = &b.dag;
+            let mut w = dag.weight_us.clone();
+            let base_cp = sim::replay(dag, &w).cp_us;
+            for &node in &dag.cp_path {
+                let act = dag.act_of_node[node as usize];
+                if act == u32::MAX {
+                    continue;
+                }
+                let s = sim::savings_at(dag, &mut w, base_cp, node, 0);
+                self.cp_savings.insert(act as usize, s);
+            }
+            self.cp_savings_combined = combined_top_savings(&b, &self.cp_savings);
+            return;
+        }
+        let (tx, rx, cancel) = Worker::channel();
+        self.cp_savings_rx = Some(rx);
+        let started = std::thread::Builder::new()
+            .name("retrace-cp-savings".into())
+            .spawn(move || {
+                let canceled = || cancel.load(Ordering::Relaxed);
+                let dag = &b.dag;
+                let mut w = dag.weight_us.clone();
+                let mut scratch = sim::ReplayScratch::new(w.len());
+                let Some(base) = scratch.replay(dag, &w, &canceled) else {
+                    return;
+                };
+                let base_cp = base.cp_us;
+                let mut all: HashMap<usize, i64> = HashMap::new();
+                for &node in &dag.cp_path {
+                    let act = dag.act_of_node[node as usize];
+                    if act == u32::MAX {
+                        continue;
+                    }
+                    let Some(s) = scratch.savings_at(dag, &mut w, base_cp, node, 0, &canceled)
+                    else {
+                        return;
+                    };
+                    all.insert(act as usize, s);
+                    if tx.send(CpSavingsMsg::One(act as usize, s)).is_err() {
+                        return;
+                    }
+                }
+                if let Some(c) = combined_top_savings(&b, &all) {
+                    drop(tx.send(CpSavingsMsg::Combined(c.0, c.1)));
+                }
+                tx.send(CpSavingsMsg::Complete).ok();
+            });
+        if let Err(e) = started {
+            self.cp_savings_rx = None;
+            self.cp_savings_error = Some(format!("cannot start savings worker: {e}"));
+        }
+    }
+
     pub fn poll_graph(&mut self) {
         match &self.gstate {
             GState::Loading(rx) => {
@@ -1169,6 +1685,9 @@ impl Ready {
                     if self.analysis_requested {
                         self.ensure_analysis();
                     }
+                    if !self.cp_overrides.is_empty() {
+                        self.respawn_cp_sim();
+                    }
                 }
             },
             _ => {}
@@ -1187,6 +1706,9 @@ impl Ready {
         }
         if self.analysis_requested {
             self.ensure_analysis();
+        }
+        if !self.cp_overrides.is_empty() {
+            self.respawn_cp_sim();
         }
     }
 }
@@ -1707,6 +2229,9 @@ pub fn update_ready(app: &mut Ready, root: &mut egui::Ui) {
                 // A panel opened while this worker ran may need another
                 // report. Preserve completed reports and launch only that gap.
                 app.ensure_analysis();
+                if app.cp_overrides.contains(&CpOverride::FreeAdmission) {
+                    app.respawn_cp_sim();
+                }
             }
             Ok(Err(e)) => {
                 app.an_error = Some(format!("{e:#}"));
@@ -1721,6 +2246,63 @@ pub fn update_ready(app: &mut Ready, root: &mut egui::Ui) {
             }
             Err(mpsc::TryRecvError::Empty) => {
                 ctx.request_repaint_after(std::time::Duration::from_millis(100));
+            }
+        }
+    }
+    if let Some(rx) = &app.cp_sim_rx {
+        loop {
+            match rx.try_recv() {
+                Ok(CpSimMsg::View(sim)) => app.cp_sim = Some(sim),
+                // the worker addresses rows by position and the receiver
+                // is replaced on every mutation, so a margin can only
+                // belong to the list that is on screen
+                Ok(CpSimMsg::Margin(k, m)) => {
+                    if let Some(slot) = app.cp_margins.get_mut(k) {
+                        *slot = Some(m);
+                    }
+                }
+                Ok(CpSimMsg::Complete) => {
+                    app.cp_sim_rx = None;
+                    break;
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    app.cp_sim_error = Some(
+                        "Scenario worker stopped before all results completed; see stderr.".into(),
+                    );
+                    app.cp_sim_rx = None;
+                    break;
+                }
+                Err(mpsc::TryRecvError::Empty) => {
+                    ctx.request_repaint_after(std::time::Duration::from_millis(100));
+                    break;
+                }
+            }
+        }
+    }
+    if let Some(rx) = &app.cp_savings_rx {
+        loop {
+            match rx.try_recv() {
+                Ok(CpSavingsMsg::One(act, save)) => {
+                    app.cp_savings.insert(act, save);
+                }
+                Ok(CpSavingsMsg::Combined(sum, together)) => {
+                    app.cp_savings_combined = Some((sum, together));
+                }
+                Ok(CpSavingsMsg::Complete) => {
+                    app.cp_savings_rx = None;
+                    break;
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    app.cp_savings_error = Some(
+                        "Savings worker stopped before all results completed; see stderr.".into(),
+                    );
+                    app.cp_savings_rx = None;
+                    break;
+                }
+                Err(mpsc::TryRecvError::Empty) => {
+                    ctx.request_repaint_after(std::time::Duration::from_millis(150));
+                    break;
+                }
             }
         }
     }
@@ -1778,6 +2360,15 @@ pub fn update_ready(app: &mut Ready, root: &mut egui::Ui) {
         return;
     }
     panels::show_panels(app, ctx);
+    // nav_req only: navigate() in show_canvas records the CURRENT selection in
+    // the Back history before moving — pre-assigning `selected` here
+    // made every popup/walker navigation vanish from that history
+    if let Some(n) = detail_ui::show_detail_ui(app, ctx) {
+        app.nav_req = Some(n);
+    }
+    if let Some(n) = detail_ui::show_cp_walker(app, ctx) {
+        app.nav_req = Some(n);
+    }
     let nav = app.nav_req.take();
     canvas::show_minimap(app, root);
     canvas::show_canvas(app, root, nav);
@@ -1827,6 +2418,18 @@ fn menu_bar(app: &mut Ready, root: &mut egui::Ui, ctx: &egui::Context) {
                     app.panels.overview = true;
                     popup_raise(ctx, "Build overview");
                     app.ensure_analysis();
+                    ui.close();
+                }
+                let have_dag = matches!(&app.gstate, GState::Ready { dag: Some(_), .. });
+                if ui
+                    .add_enabled(have_dag, egui::Button::new("Critical Path"))
+                    .on_disabled_hover_text(
+                        "Needs the recorded dependency graph (buck2 build --log-action-graph)",
+                    )
+                    .clicked()
+                {
+                    app.panels.cp = true;
+                    popup_raise(ctx, "Critical path (dependency graph)");
                     ui.close();
                 }
                 ui.separator();
@@ -2237,6 +2840,90 @@ mod tests {
         assert!(load_full(&app.tr, act.off, act.len).is_some());
         assert!(load_full(&app.tr, act.off, detail::MAX_DETAIL_RECORD_BYTES as u32 + 1).is_none());
         assert!(load_full(&app.tr, u64::MAX, 1).is_none());
+    }
+
+    #[test]
+    fn pending_node_override_replays_when_the_graph_finishes_loading() {
+        let trace = parse::parse(&crate::testdata("smoke-trace.json")).unwrap();
+        let graph = Arc::new(graph::load_graph(&crate::testdata("smoke-graph.jsonl")).unwrap());
+        let (bundle, stats) = dag::build_full(&trace, &graph, None).unwrap();
+        let mut app = Ready::new(trace, None);
+        let (tx, rx, _) = Worker::channel();
+        app.gstate = GState::Building(rx);
+        app.set_cp_override(0, 0, "removed".into());
+        assert!(app.cp_sim_error.as_deref().unwrap().contains("Waiting for"));
+        assert!(app.cp_sim_rx.is_none());
+        tx.send((graph, Some((Arc::new(bundle), stats)))).unwrap();
+        app.poll_graph();
+        assert!(app.cp_sim_error.is_none());
+        let worker = app
+            .cp_sim_rx
+            .as_ref()
+            .expect("loading must start the queued replay");
+        let CpSimMsg::View(result) = worker
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .unwrap()
+        else {
+            panic!("the replay view must precede marginal results")
+        };
+        assert_eq!(result.act, Some(0));
+        assert_eq!(result.path.len(), result.w_us.len());
+        assert_eq!(result.w_us.iter().sum::<i64>(), result.cp_us);
+    }
+
+    #[test]
+    fn rejected_graph_finishes_pending_scenario_with_an_unavailable_status() {
+        for explicit in [false, true] {
+            for disconnected in [false, true] {
+                let trace = parse::parse(&crate::testdata("smoke-trace.json")).unwrap();
+                let mut app = Ready::new(trace, None);
+                let (tx, rx, _) = Worker::channel();
+                app.gstate = GState::Loading(rx);
+                app.graph_explicit = explicit;
+                app.set_cp_override(0, 0, "removed".into());
+                assert!(app.cp_sim_error.as_deref().unwrap().contains("Waiting for"));
+                if disconnected {
+                    drop(tx);
+                } else {
+                    tx.send(Err(anyhow::anyhow!("test graph refusal"))).unwrap();
+                }
+                app.poll_graph();
+                assert!(if explicit {
+                    matches!(app.gstate, GState::Failed(_))
+                } else {
+                    matches!(app.gstate, GState::Absent)
+                });
+                assert_eq!(
+                    app.cp_sim_error.as_deref(),
+                    Some("No action dependency graph is available for scenario replay.")
+                );
+                assert!(app.cp_sim.is_none() && app.cp_sim_rx.is_none());
+                assert_eq!(app.cp_overrides.len(), 1);
+            }
+        }
+    }
+
+    #[test]
+    fn simulated_path_duration_validation_rejects_mismatch_and_overflow() {
+        let mut view = CpSimView {
+            act: None,
+            label: "test".into(),
+            base_cp_us: 100,
+            cp_us: 30,
+            path: vec![0, 1],
+            w_us: vec![10, 20],
+        };
+        assert!(view.has_consistent_duration());
+        view.cp_us = 31;
+        assert!(!view.has_consistent_duration());
+        view.cp_us = 30;
+        view.path.pop();
+        assert!(!view.has_consistent_duration());
+        view.path.push(1);
+        view.w_us = vec![i64::MAX, 1];
+        assert!(!view.has_consistent_duration());
+        view.w_us = vec![-1, 31];
+        assert!(!view.has_consistent_duration());
     }
 
     #[test]
@@ -2773,6 +3460,81 @@ mod tests {
         assert!(cp.value.contains("over 3 steps"), "{}", cp.value);
     }
 
+    #[test]
+    fn scenario_worker_routes_node_and_admission_marginals_to_original_rows() {
+        let (mut app, _source) = analysis_app();
+        let mut an = compute_analysis(&app.tr, None, None, None).unwrap();
+        an.admission = Some(Arc::new(AdmissionWeights {
+            weights: vec![80, 150, 200],
+            n_recorded: 3,
+            n_actions: 3,
+            n_modified: 3,
+        }));
+        app.an = Some(Box::new(an));
+        Arc::get_mut(&mut app.tr).unwrap().acts = vec![act_of(100), act_of(200), act_of(300)];
+        let b = dag::DagBundle {
+            dag: dag::Dag {
+                act_of_node: vec![0, 1, 2],
+                weight_us: vec![100, 200, 300],
+                pred_off: vec![0, 0, 1, 2],
+                preds: vec![0, 1],
+                succ_off: vec![0, 1, 2, 2],
+                succs: vec![1, 2],
+                t1: 600,
+                cp: 600,
+                up: vec![100, 300, 600],
+                down: vec![600, 500, 300],
+                cp_path: vec![0, 1, 2],
+            },
+            node_ev: vec![Some(0), Some(1), Some(2)],
+            events: (0..3)
+                .map(|_| dag::Ev {
+                    name: "action".into(),
+                    ts: 0,
+                    has_cache: false,
+                })
+                .collect(),
+        };
+        app.gstate = GState::Ready {
+            g: Arc::new(GraphSummary {
+                meta: Default::default(),
+                n_rows: 3,
+                n_edges: 2,
+                n_joins: 0,
+                chain: None,
+            }),
+            dag: Some(Arc::new(b)),
+            quality: Box::new(quality::Quality::assess(&app.tr, None, None)),
+        };
+        app.cp_overrides = vec![
+            CpOverride::Node {
+                act: 2,
+                w_us: 100,
+                label: "first".into(),
+            },
+            CpOverride::FreeAdmission,
+            CpOverride::Node {
+                act: 0,
+                w_us: 50,
+                label: "last".into(),
+            },
+        ];
+        app.respawn_cp_sim();
+        let rx = app.cp_sim_rx.take().unwrap();
+        loop {
+            match rx
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .expect("scenario completion")
+            {
+                CpSimMsg::View(v) => app.cp_sim = Some(v),
+                CpSimMsg::Margin(k, m) => app.cp_margins[k] = Some(m),
+                CpSimMsg::Complete => break,
+            }
+        }
+        assert_eq!(app.cp_sim.as_ref().unwrap().cp_us, 300);
+        assert_eq!(app.cp_margins, vec![Some(100), Some(50), Some(30)]);
+    }
+
     /// A build that is open stays open. Typing a path that does not
     /// exist used to swap the whole window for the error text, so a
     /// misremembered build id cost the analysis on screen and there was
@@ -2924,6 +3686,26 @@ mod tests {
         assert!(window_title(None, &tr.path).ends_with(&tr.path));
     }
 
+    /// The frontier is both the button count and the list behind it, so
+    /// a duplicated edge must count once and a join node must resolve to
+    /// the action behind it.
+    #[test]
+    fn direct_frontier_dedups_and_resolves_joins() {
+        let p = crate::testdata("smoke-trace.json");
+        let tr = parse::parse(&p).unwrap();
+        let g = crate::graph::load_graph(&crate::testdata("smoke-graph.jsonl")).unwrap();
+        let (b, _) = crate::dag::build_full(&tr, &g, None).unwrap();
+        let act = |n: usize| b.dag.act_of_node[n] as usize;
+        let (y, z, w) = (act(0), act(1), act(2));
+        assert_eq!(detail_ui::direct_neighbors(&b, z, true), vec![y]);
+        // w's pred list carries y twice: direct, and through the tset row
+        assert_eq!(detail_ui::direct_neighbors(&b, w, true), vec![y]);
+        let mut want = vec![z, w];
+        want.sort_unstable();
+        // the exit node is a pure join: it contributes nothing of its own
+        assert_eq!(detail_ui::direct_neighbors(&b, y, false), want);
+    }
+
     /// Back unwinds the history rather than extending it, and one
     /// re-clicking the selected action is still one history entry.
     #[test]
@@ -2943,6 +3725,97 @@ mod tests {
         assert!(app.hist.is_empty());
     }
 
+    fn act_of(dur: i64) -> crate::types::Act {
+        crate::types::Act {
+            ts: 0,
+            dur,
+            lane: 0,
+            color: 0,
+            flags: 0,
+            name: 0,
+            off: 0,
+            len: 0,
+            seq: 0,
+            dir: crate::types::NO_STR,
+            why: crate::types::NO_STR,
+            run: crate::types::NO_STR,
+            cache_bytes: None,
+        }
+    }
+
+    /// The walker's header total is only checked against `cp_us` by a
+    /// `debug_assert!`, so a release build would show a wrong total in
+    /// silence.
+    #[test]
+    fn the_walker_totals_the_simulated_weights_not_the_measured_ones() {
+        let acts = [act_of(500), act_of(800), act_of(300)];
+        let (list, w) = cp_walk_steps(None, &[0, 2], &acts);
+        assert_eq!(list, vec![0, 2]);
+        assert_eq!(w.iter().sum::<i64>(), 800);
+
+        let sim = CpSimView {
+            act: Some(1),
+            label: "at 50%".to_owned(),
+            base_cp_us: 1300,
+            cp_us: 900,
+            path: vec![0, 1],
+            w_us: vec![500, 400],
+        };
+        let (list, w) = cp_walk_steps(Some(&sim), &[0, 2], &acts);
+        assert_eq!(list, sim.path);
+        assert_eq!(w.iter().sum::<i64>(), sim.cp_us);
+        // the measured durations of those same steps do not
+        assert_ne!(
+            list.iter().map(|&i| acts[i].dur).sum::<i64>(),
+            sim.cp_us,
+            "the fixture has to make the two totals differ"
+        );
+    }
+
+    /// The scenario rows address overrides by position, so removing one
+    /// has to drop exactly that entry and leave the rest of the scenario
+    /// standing.
+    #[test]
+    fn removing_one_override_leaves_the_rest_of_the_scenario() {
+        let p = crate::testdata("smoke-trace.json");
+        let tr = parse::parse(&p).unwrap();
+        let mut app = Ready::new(tr, None);
+        app.set_cp_override(0, 0, "removed".to_owned());
+        app.set_cp_override(1, 50, "at 50%".to_owned());
+        app.set_cp_override(2, 0, "removed".to_owned());
+        app.remove_cp_override(1);
+        let acts: Vec<usize> = app
+            .cp_overrides
+            .iter()
+            .filter_map(|o| match o {
+                CpOverride::Node { act, .. } => Some(*act),
+                CpOverride::FreeAdmission => None,
+            })
+            .collect();
+        assert_eq!(acts, vec![0, 2]);
+        // the chips are built one frame and clicked the next, so an index
+        // past the end is a no-op rather than a panic
+        app.remove_cp_override(9);
+        assert_eq!(app.cp_overrides.len(), 2);
+    }
+
+    /// Free admission is a config-level replay and the step overrides are
+    /// per-action, so the two have to compose instead of replacing each
+    /// other.
+    #[test]
+    fn free_admission_stacks_with_step_overrides_and_toggles_off() {
+        let p = crate::testdata("smoke-trace.json");
+        let tr = parse::parse(&p).unwrap();
+        let mut app = Ready::new(tr, None);
+        app.set_cp_override(0, 0, "removed".to_owned());
+        app.toggle_cp_free_admission();
+        assert_eq!(app.cp_overrides.len(), 2);
+        assert!(app.cp_overrides.contains(&CpOverride::FreeAdmission));
+        app.toggle_cp_free_admission();
+        assert_eq!(app.cp_overrides.len(), 1);
+        assert!(!app.cp_overrides.contains(&CpOverride::FreeAdmission));
+    }
+
     /// Modules whose symbols never reach the screen: `graph.rs` spells
     /// JSON unescaping with `\u{fffd}` and `\u{000c}`, `ingest` writes
     /// files and terminal status lines only, `config` hands its
@@ -2960,8 +3833,10 @@ mod tests {
         ("gui.rs", include_str!("gui.rs")),
         ("gui/canvas.rs", include_str!("gui/canvas.rs")),
         ("gui/command_ui.rs", include_str!("gui/command_ui.rs")),
+        ("gui/detail_ui.rs", include_str!("gui/detail_ui.rs")),
         ("gui/open.rs", include_str!("gui/open.rs")),
         ("gui/panels.rs", include_str!("gui/panels.rs")),
+        ("gui/stagebar.rs", include_str!("gui/stagebar.rs")),
         ("gui/widgets.rs", include_str!("gui/widgets.rs")),
         ("analyses.rs", include_str!("analyses.rs")),
         ("blast.rs", include_str!("blast.rs")),

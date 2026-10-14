@@ -562,7 +562,17 @@ pub fn show_panels(app: &mut Ready, ctx: &egui::Context) {
                         return;
                     };
                     ui.weak(format!("Stage-counter coverage: {} of {} actions. Opportunities price only the available evidence.", rep.with_stages, rep.nacts));
-                    ui.weak("Findings use recorded durations.");
+                    ui.weak("Findings use recorded durations; what-if overrides are not applied.");
+                    if !app.cp_overrides.is_empty() {
+                        ui.label(
+                            egui::RichText::new(format!(
+                                "▲ {} what-if override(s) are active; these findings ignore them and may list actions your scenario already removed.",
+                                app.cp_overrides.len()
+                            ))
+                            .size(11.0)
+                            .color(crate::config::ui_color(crate::config::UI_CAUTION)),
+                        );
+                    }
                     ui.label(
                         egui::RichText::new(match rep.base_cp_us {
                             Some(cp) => format!(

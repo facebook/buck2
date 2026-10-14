@@ -720,6 +720,7 @@ pub fn show_canvas(app: &mut Ready, root: &mut egui::Ui, nav: Option<usize>) {
                 if i.key_pressed(egui::Key::Escape) && !i.modifiers.shift {
                     app.clear_selection();
                     app.anc_set = None;
+                    app.ctx_menu = None;
                 }
                 if i.key_pressed(egui::Key::Questionmark) || i.key_pressed(egui::Key::Slash) {
                     app.panels.help = true;
@@ -1206,6 +1207,9 @@ pub fn show_canvas(app: &mut Ready, root: &mut egui::Ui, nav: Option<usize>) {
                             if resp.clicked() {
                                 app.select(hit_idx);
                             }
+                            if resp.secondary_clicked() {
+                                app.ctx_menu = Some((hit_idx, widgets::MenuAt::open(ctx, p)));
+                            }
                         }
                     }
                 }
@@ -1342,6 +1346,13 @@ mod tests {
         });
         output.drop_without_applying_deltas();
         assert_eq!(app.selected, Some(1));
+        assert_eq!(
+            app.detail
+                .as_ref()
+                .expect("should open navigated detail")
+                .idx,
+            1
+        );
         assert_eq!(app.hist, vec![0]);
     }
 
