@@ -24,9 +24,11 @@ load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//utils:expect.bzl", "expect")
 
 # Native-library debug sub-targets forwarded through the apk_genrule wrapper only if present on the
-# wrapped android_apk/android_aab. These exist only in certain configurations (e.g. relinked_libs
-# and native_merge_debug require the relinker or native merging). Always-present sub-targets like
-# native_libs, linker_commands and native_build_commands are forwarded in the required set below.
+# wrapped android_apk/android_aab. These exist only in certain configurations (e.g. native_merge_debug
+# requires the relinker or native merging); relinked_libs and relinked_libs_manifest are always
+# present on an android_binary, and empty unless it defers a relink. Always-present
+# sub-targets like native_libs, linker_commands and native_build_commands are forwarded in the
+# required set below.
 _OPTIONAL_NATIVE_LIB_SUBTARGETS = [
     "gatorade_phase_evidence",
     "native_merge_debug",
