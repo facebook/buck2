@@ -14,7 +14,9 @@
 //! the honesty rules every emitted number follows.
 
 pub mod command_profile;
+pub mod dag;
 pub mod execution;
+pub mod graph;
 pub mod lanes;
 mod parallelism;
 pub mod parse;

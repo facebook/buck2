@@ -17,6 +17,7 @@
 //! canceling previous load can still be alive. Batch limits bound ordinary
 //! in-flight work, not the retained graph or an accepted oversized record.
 
+const GRAPH_MAX: usize = 4;
 const TRACE_PARSE_MAX: usize = 16;
 
 fn available() -> usize {
@@ -43,6 +44,18 @@ fn trace_threads_for(cores: usize, requested: usize) -> usize {
 /// An explicit --threads value is an upper bound, still capped by hardware.
 pub(crate) fn trace_threads(requested: usize) -> usize {
     trace_threads_for(available(), requested)
+}
+
+fn graph_workers_for(cores: usize) -> usize {
+    match pool(cores, 1, GRAPH_MAX) {
+        0 | 1 => 0,
+        workers => workers,
+    }
+}
+
+/// Zero is serial; otherwise there is one read/merge caller plus N workers.
+pub(crate) fn graph_workers() -> usize {
+    graph_workers_for(available())
 }
 
 #[cfg(test)]
