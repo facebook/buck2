@@ -46,7 +46,7 @@ impl CriticalPathProtoEnhancer {
         let DetailedCriticalPathEntry {
             key,
             mut data,
-            potential_improvement,
+            mut potential_improvement,
             deps_finished_time,
         } = entry;
         let proto_entry = key.into_critical_path_entry_data(&data.extra_data);
@@ -74,6 +74,10 @@ impl CriticalPathProtoEnhancer {
         if waiting_for_deps_end > data.duration.total.start() {
             data.duration.total =
                 TimeSpan::new_saturating(waiting_for_deps_end, data.duration.total.end());
+            // The user and improvable parts are subsets of the duration: trim them with it.
+            let trimmed = data.duration.total.duration();
+            data.duration.user = data.duration.user.min(trimmed);
+            potential_improvement = potential_improvement.map(|p| p.min(trimmed));
         }
 
         let node_start = data.duration.total.start();
@@ -599,16 +603,15 @@ mod tests {
     }
 
     /// An entry that started before one of its dependencies finished is trimmed to start at
-    /// that point, but keeps its untrimmed `user_duration` and `potential_improvement_duration`,
-    /// although the proto says both are bounded by `duration`.
+    /// that point, and so are its `user_duration` and `potential_improvement_duration`.
     #[test]
-    fn trimmed_entry_keeps_untrimmed_user_and_potential() {
+    fn trimmed_entry_trims_user_and_potential() {
         let e = trimmed_entry();
         assert_eq!(duration(&e.duration), Duration::from_secs(1));
-        assert_eq!(duration(&e.user_duration), Duration::from_secs(3));
+        assert_eq!(duration(&e.user_duration), Duration::from_secs(1));
         assert_eq!(
             duration(&e.potential_improvement_duration),
-            Duration::from_secs(3)
+            Duration::from_secs(1)
         );
     }
 }
