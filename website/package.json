@@ -77,7 +77,11 @@
     "express": {
       "path-to-regexp": ">=0.1.13 <0.2.0"
     },
-    "node-forge": ">=1.4.0 <2.0.0"
+    "node-forge": ">=1.4.0 <2.0.0",
+    "webpack-bundle-analyzer": {
+      "ws": ">=7.5.13 <8.0.0"
+    },
+    "ws": ">=8.22.0 <9.0.0"
   },
   "resolutions": {
     "**/gray-matter/js-yaml": ">=3.15.2 <4.0.0",
@@ -114,6 +118,8 @@
     "source-map-js": ">=1.2.2 <2.0.0",
     "websocket-driver": ">=0.7.5 <0.8.0",
     "yaml": ">=1.10.3 <2.0.0",
-    "**/express/path-to-regexp": ">=0.1.13 <0.2.0"
+    "**/express/path-to-regexp": ">=0.1.13 <0.2.0",
+    "**/webpack-bundle-analyzer/ws": ">=7.5.13 <8.0.0",
+    "**/ws": ">=8.22.0 <9.0.0"
   }
 }
