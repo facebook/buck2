@@ -34,6 +34,9 @@ pub struct RunActionKnobs {
     /// Whether write actions ask the CAS for their content first and declare a CAS download
     /// instead of a write when it is there.
     pub write_cas_probe: bool,
+
+    /// Whether `download_file` uploads the file it downloaded to the CAS.
+    pub upload_downloads_to_cas: bool,
 }
 
 pub trait HasRunActionKnobs {

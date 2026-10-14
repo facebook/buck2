@@ -385,6 +385,22 @@ async def test_uses_the_cas_when_it_has_the_content(buck: Buck) -> None:
 
 
 @buck_test(data_dir="download")
+async def test_a_download_is_uploaded_to_the_cas(buck: Buck) -> None:
+    content = random_string().encode()
+    async with StaticHttpServer({"/file": content}) as server:
+        declared = configs(server.url("/file"), sha1=sha1_hex(content))
+        await buck.build("//:download", *declared)
+        assert server.count("GET", "/file") == 1
+
+        # A new daemon knows nothing of the first download, so only the CAS can serve it.
+        await buck.kill()
+        target = "//:download_again"
+        res = await buck.build(target, "--materializations=none", *declared)
+        assert not res.get_build_report().output_for_target(target).exists()
+        assert server.count("GET", "/file") == 1
+
+
+@buck_test(data_dir="download")
 async def test_content_the_cas_holds_needs_no_url(buck: Buck) -> None:
     content = random_string().encode()
     async with StaticHttpServer({"/file": content}) as server:
