@@ -73,7 +73,10 @@
     "qs": ">=6.15.2 <7.0.0",
     "shell-quote": ">=1.12.0 <2.0.0",
     "source-map-js": ">=1.2.2 <2.0.0",
-    "websocket-driver": ">=0.7.5 <0.8.0"
+    "websocket-driver": ">=0.7.5 <0.8.0",
+    "express": {
+      "path-to-regexp": ">=0.1.13 <0.2.0"
+    }
   },
   "resolutions": {
     "**/gray-matter/js-yaml": ">=3.15.2 <4.0.0",
@@ -111,6 +114,7 @@
     "shell-quote": ">=1.12.0 <2.0.0",
     "source-map-js": ">=1.2.2 <2.0.0",
     "websocket-driver": ">=0.7.5 <0.8.0",
-    "yaml": ">=1.10.3 <2.0.0"
+    "yaml": ">=1.10.3 <2.0.0",
+    "**/express/path-to-regexp": ">=0.1.13 <0.2.0"
   }
 }
