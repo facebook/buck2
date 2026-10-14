@@ -463,6 +463,7 @@ library_attrs = (
     | validation_common.attrs_validators_arg()
     | {
         "archive_allow_cache_upload": attrs.bool(default = False),
+        "archive_contents": attrs.option(attrs.enum(ArchiveContentsType.values()), default = None),
         "bridging_header": attrs.option(attrs.source(), default = None),
         "can_be_asset": attrs.option(attrs.bool(), default = None),
         "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
