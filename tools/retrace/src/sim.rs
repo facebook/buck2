@@ -230,7 +230,20 @@ pub(crate) fn w_zero_stage_cancellable(
     pick: impl Fn(&Stages) -> i64,
     cancelled: &impl Fn() -> bool,
 ) -> Option<(Vec<i64>, usize)> {
+    w_zero_stage_where_cancellable(si, |_| true, pick, cancelled)
+}
+
+/// [`w_zero_stage_cancellable`] for only the nodes `selected` accepts.
+pub(crate) fn w_zero_stage_where_cancellable(
+    si: &SimInput,
+    selected: impl Fn(usize) -> bool,
+    pick: impl Fn(&Stages) -> i64,
+    cancelled: &impl Fn() -> bool,
+) -> Option<(Vec<i64>, usize)> {
     weights_cancellable(si, cancelled, |i| {
+        if !selected(i) {
+            return si.base[i];
+        }
         si.stages[i].map_or(si.base[i], |stage| {
             let cut = pick(&stage);
             if cut > 0 {
@@ -2605,6 +2618,98 @@ mod tests {
             si2.stages[node].expect("staged").execute_us,
             "execution-only strips the submit window too"
         );
+    }
+
+    #[test]
+    fn poisoned_upload_fields_preserve_other_measurements_without_pricing_fallbacks() {
+        for (re, expected_weight, measured_wait, measured_cas, measured_absent, has_breakdown) in [
+            (
+                serde_json::json!({"iu_sem_wait_us": -1, "iu_cas_call_us": 12,
+                "iu_digests_absent": -1}),
+                988,
+                0,
+                1,
+                0,
+                true,
+            ),
+            (
+                serde_json::json!({"iu_sem_wait_us": 20, "iu_cas_call_us": 999,
+                "invalid_counter_fields": ["iu_cas_call_us"]}),
+                1000,
+                1,
+                0,
+                1,
+                true,
+            ),
+            (
+                serde_json::json!({"iu_cas_call_us": 12, "iu_bytes_uploaded": -1}),
+                1000,
+                1,
+                1,
+                1,
+                true,
+            ),
+            (
+                serde_json::json!({"invalid_counter_fields": ["iu_bytes_uploaded"]}),
+                1000,
+                0,
+                0,
+                0,
+                false,
+            ),
+        ] {
+            let tp = crate::temp_path("upload-poison-trace.json");
+            let gp = crate::temp_path("upload-poison-graph.jsonl");
+            std::fs::write(
+                &tp,
+                format!(
+                    "[\n{}\n]\n",
+                    serde_json::json!({
+                        "ph":"X", "cat":"recipe", "name":"job", "ts":0, "dur":1000,
+                        "args":{"bytes_in":42, "re":re,
+                            "stages":{"input_upload_us":900, "execute_us":10}}
+                    })
+                ),
+            )
+            .unwrap();
+            std::fs::write(&gp, "{\"graph\":{\"enc\":2}}\n{\"t\":\"job\",\"d\":[]}\n").unwrap();
+            let tr = parse::parse(tp.to_str().unwrap()).unwrap();
+            let x = load_extras(&tr);
+            assert_eq!(x.unmatched, 0);
+            assert_eq!(x.args[0].iu.is_some(), has_breakdown);
+            let graph = load_graph(gp.to_str().unwrap()).unwrap();
+            let (b, _) = crate::dag::build_full(&tr, &graph, None).unwrap();
+            let si = sim_input(&b, &x);
+            let node = b
+                .dag
+                .act_of_node
+                .iter()
+                .position(|&a| a != u32::MAX)
+                .unwrap();
+            assert_eq!(w_bandwidth(&si, 1_000_000_000_000).0[node], expected_weight);
+            let f = crate::analyses::Facts::for_run(&tr, &x, None).unwrap();
+            let report = crate::upload::upload_report(&f).unwrap();
+            assert_eq!(report.subs[0].n_measured, measured_wait);
+            assert_eq!(report.subs[3].n_measured, measured_cas);
+            assert_eq!(report.absent_measured, measured_absent);
+            let exported = crate::export::export(
+                &tr,
+                &f,
+                None,
+                None,
+                &["upload".into()],
+                10,
+                &crate::export::TopicArgs::default(),
+            );
+            if measured_wait == 0 {
+                assert!(exported["upload"]["data"]["sub_stages"][0]["sum_us"].is_null());
+            }
+            if measured_absent == 0 {
+                assert!(exported["upload"]["data"]["digests_absent"].is_null());
+            }
+            std::fs::remove_file(tp).unwrap();
+            std::fs::remove_file(gp).unwrap();
+        }
     }
 
     /// Replay the wire shape of a no-transfer upload: the zero CAS timing is

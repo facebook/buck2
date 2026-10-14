@@ -29,8 +29,10 @@ use serde_json::json;
 
 use crate::analyses;
 use crate::analyses::Facts;
+use crate::blast;
 use crate::dag;
 use crate::detail::MAX_DETAIL_RECORD_BYTES;
+use crate::findings;
 use crate::graph::Graph;
 use crate::quality;
 use crate::quality::Claim;
@@ -58,6 +60,9 @@ pub const TOPICS: &[&str] = &[
     "cp-rank",
     "cp-cascade",
     "retries",
+    "findings",
+    "blast",
+    "upload",
     "health",
 ];
 
@@ -80,6 +85,8 @@ pub struct CpRankOpts {
 pub struct TopicArgs<'a> {
     /// Exact action display name or `action:N` (index in this loaded trace).
     pub action: Option<&'a str>,
+    /// `--target=` — scope the blast topic to one target label
+    pub target: Option<&'a str>,
     /// the cp-rank topic's what-if inputs
     pub cprank: CpRankOpts,
     /// Number of sequential interventions, independent of display top-k.
@@ -90,6 +97,7 @@ impl Default for TopicArgs<'_> {
     fn default() -> Self {
         Self {
             action: None,
+            target: None,
             cprank: CpRankOpts::default(),
             cascade_steps: 20,
         }
@@ -1352,6 +1360,228 @@ pub fn export(
         out.insert("retries".into(), v);
     }
 
+    if asked("findings") {
+        let built = stitch();
+        let rep = match built {
+            Some((b, _)) => {
+                let si = simulation(b);
+                let d = findings::DagCtx::new(b, si);
+                findings::findings(f, Some(&d))
+            }
+            None => findings::findings(f, None),
+        };
+        let mut lims = vec![
+            "cp-replay opportunities are dependency-floor deltas; bound rows are upper \
+             bounds, not replays"
+                .to_owned(),
+        ];
+        if built.is_none() {
+            lims.push(
+                "no dependency graph: every opportunity degrades to a bound or none".to_owned(),
+            );
+        }
+        if rep.with_stages < rep.nacts {
+            lims.push(format!(
+                "{} action(s) carry no stage data",
+                rep.nacts - rep.with_stages
+            ));
+        }
+        let qg = built.map(|(_, st)| qq.stitched(st));
+        out.insert(
+            "findings".into(),
+            qg.as_ref().unwrap_or(&qq).seal(
+                Dep::Graph,
+                Claim::Savings,
+                if built.is_none() || rep.with_stages < rep.nacts {
+                    "partial"
+                } else {
+                    "available"
+                },
+                None,
+                vec![(
+                    "actions-with-stages",
+                    rep.with_stages as u64,
+                    rep.nacts.max(1) as u64,
+                )],
+                lims,
+                json!({
+                    "base_cp_us": rep.base_cp_us,
+                    "rows_shown": rep.rows.len().min(topk),
+                    "rows_truncated": rep.n_found > rep.rows.len().min(topk),
+                    "findings": rep.rows.iter().take(topk).map(|r| json!({
+                        "class": r.class,
+                        "title": r.title,
+                        "target": r.ev.map(|e| f.name(e)),
+                        "cost_us": r.cost_us,
+                        "opportunity_us": r.opportunity_us,
+                        "estimate": r.estimate,
+                        "detail": r.detail,
+                    })).collect::<Vec<_>>(),
+                }),
+            ),
+        );
+    }
+
+    if asked("blast") {
+        let blast_json = |bl: &blast::Blast| {
+            json!({
+                "label": bl.label,
+                "actions": bl.n_actions,
+                "descendant_path_us": bl.warm_wall_us,
+                "downstream_actions": bl.downstream_actions,
+                "downstream_cache_hits": bl.downstream_cache_hits,
+                "downstream_work_us": bl.downstream_work_us,
+            })
+        };
+        let lims = || {
+            vec![
+                "Recorded descendant reachability and path cost, not an incremental-build forecast. Dependency reachability does not prove invalidation. Cached actions keep their recorded hit durations; execution on a miss is not estimated. Startup and analysis are outside this action graph."
+                    .to_owned(),
+            ]
+        };
+        let labeled = f.sel.iter().filter(|&&e| f.args(e).label.is_some()).count() as u64;
+        match stitch() {
+            None => {
+                out.insert(
+                    "blast".into(),
+                    refused(vec![
+                        "needs the dependency graph (a sibling *-graph.json, or --graph=)".into(),
+                    ]),
+                );
+            }
+            Some((b, st)) => {
+                let bi = blast::BlastIndex::new(b, tr, f.x);
+                let data = match ta.target {
+                    Some(q) => match bi.resolve(f.x, q) {
+                        Err(e) => {
+                            out.insert("blast".into(), refused(vec![format!("{e:#}")]));
+                            None
+                        }
+                        Ok(l) => {
+                            let mut vis = Vec::new();
+                            match bi.blast_of(b, f.x, l, &mut vis, 1) {
+                                Some(bl) => Some(json!({"target": blast_json(&bl)})),
+                                None => {
+                                    out.insert("blast".into(), refused(vec!["The selected label has no mapped actions in this dependency graph.".into()]));
+                                    None
+                                }
+                            }
+                        }
+                    },
+                    None => {
+                        let top = bi.top_candidates(b, f.x, topk);
+                        Some(json!({
+                            "candidates": top.iter().map(blast_json).collect::<Vec<_>>(),
+                        }))
+                    }
+                };
+                if let Some(data) = data {
+                    out.insert(
+                        "blast".into(),
+                        qq.stitched(st).seal(
+                            Dep::Graph,
+                            Claim::DescendantPath,
+                            if labeled < nsel {
+                                "partial"
+                            } else {
+                                "available"
+                            },
+                            None,
+                            vec![("actions-with-target-label", labeled, nsel.max(1))],
+                            {
+                                let mut lims = lims();
+                                if ta.target.is_none() && topk > blast::MAX_CANDIDATES {
+                                    lims.push(format!("Descendant analysis evaluates at most {} candidate labels to bound graph walks; use --target for a specific label.", blast::MAX_CANDIDATES));
+                                }
+                                if labeled < nsel {
+                                    lims.push(format!("{} action(s) carry no target label and cannot be selected by label; no historical miss duration is inferred", nsel - labeled));
+                                }
+                                lims
+                            },
+                            data,
+                        ),
+                    );
+                }
+            }
+        }
+    }
+
+    if asked("upload") {
+        match crate::upload::upload_report(f) {
+            None => {
+                out.insert(
+                    "upload".into(),
+                    refused(vec![
+                        "No selected action carries an input-upload stage or upload breakdown. The cause of absent measurements is not recorded."
+                            .into(),
+                    ]),
+                );
+            }
+            Some(r) => {
+                out.insert(
+                    "upload".into(),
+                    qq.seal(
+                        Dep::Trace,
+                        Claim::Measurement,
+                        if r.n_with_breakdown < r.n_upload_actions || r.n_breakdown_without_stage > 0
+                            || r.subs.iter().any(|s| s.n_measured < r.n_with_breakdown)
+                            || r.absent_measured < r.n_with_breakdown {
+                            "partial"
+                        } else {
+                            "available"
+                        },
+                        None,
+                        vec![(
+                            "uploading-actions-with-breakdown",
+                            r.n_with_breakdown as u64,
+                            r.n_upload_actions.max(1) as u64,
+                        )],
+                        {
+                            let mut lims = vec!["Client-side phase counters sum overlapping action time, not build wall time. Permit wait is admission, not transfer; unmeasured remainder has no established cause. Percentiles summarize positive observations; measured zeros are counted separately. Rejected fields are excluded individually from measurement counts and totals, not replaced by zeros.".into()];
+                            if r.n_with_breakdown < r.n_upload_actions {
+                                lims.push(format!("{} uploading action(s) lack phase breakdowns; absence is not zero", r.n_upload_actions - r.n_with_breakdown));
+                            }
+                            if r.n_breakdown_without_stage > 0 {
+                                lims.push(format!("{} action(s) have a phase breakdown without a positive upload stage and are excluded from the uploading population", r.n_breakdown_without_stage));
+                            }
+                            lims
+                        },
+                        json!({
+                            "stage_sum_us": r.stage_sum_us,
+                            "uploading_actions": r.n_upload_actions,
+                            "actions_with_breakdown": r.n_with_breakdown,
+                            "breakdowns_without_upload_stage": r.n_breakdown_without_stage,
+                            "sub_stages": (0..crate::upload::SUB_N).map(|i| {
+                                let s = &r.subs[i];
+                                json!({
+                                    "label": crate::upload::SUB_CHIP[i],
+                                    "n": s.n,
+                                    "n_measured": s.n_measured,
+                                    "n_zero": s.n_zero,
+                                    "sum_us": (s.n_measured > 0).then_some(s.sum_us),
+                                    "p50_us": (s.n_measured > 0).then_some(s.p50_us),
+                                    "p90_us": (s.n_measured > 0).then_some(s.p90_us),
+                                    "p99_us": (s.n_measured > 0).then_some(s.p99_us),
+                                    "max_us": (s.n_measured > 0).then_some(s.max_us),
+                                    "max_action": s.max_ev.map(|e| f.name(e)),
+                                })
+                            }).collect::<Vec<_>>(),
+                            "digests_absent": (r.absent_measured > 0).then_some(r.absent),
+                            "actions_with_digests_absent": r.absent_measured,
+                            "top_permit_waits_truncated": r.n_waits > r.top_wait.len().min(topk),
+                            "top_permit_waits": r.top_wait.iter().take(topk).map(|&(e, w)| json!({
+                                "action": f.name(e), "sem_wait_us": w,
+                            })).collect::<Vec<_>>(),
+                            "uploads_beside_local_attempt_truncated": r.local_race.len() > topk,
+                            "uploads_beside_local_attempt": r.local_race.iter().take(topk).map(|&(e, gather)| json!({
+                                "action": f.name(e), "gathering_us": gather,
+                            })).collect::<Vec<_>>(),
+                        }),
+                    ),
+                );
+            }
+        }
+    }
     if asked("health") {
         // the trace's own warnings already carry the capture strings;
         // this topic adds only the graph, stitch and pairing ones, so no
@@ -1750,7 +1980,127 @@ mod tests {
         assert!(stats_text(&tr, &f, None, None).contains("2 with only a retry count"));
     }
 
-    const GRAPH_TOPICS: &[&str] = &["critical-path", "whatif", "cp-rank", "cp-cascade"];
+    #[test]
+    fn findings_and_permit_waits_respect_topk() {
+        // Twelve waits: more than the census keeps, so even --topk=20 is a truncated list.
+        let rows: Vec<_> = (0..12)
+            .map(|i| {
+                json!({
+                    "ph":"X", "cat":"recipe", "name":format!("a{i}"), "ts":0, "dur":10_000_000,
+                    "args":{
+                        "stages":{"input_upload_us":6_000_000},
+                        "re":{"iu_sem_wait_us":5_000_000, "iu_cas_call_us":1_000_000},
+                    },
+                })
+            })
+            .collect();
+        let (tr, x) = trace_rows(&rows);
+        let f = Facts::for_run(&tr, &x, None).unwrap();
+        for topk in [1, 20] {
+            let value = export(
+                &tr,
+                &f,
+                None,
+                None,
+                &["findings".into(), "upload".into()],
+                topk,
+                &TopicArgs::default(),
+            );
+            let findings = &value["findings"]["data"];
+            let shown = findings["findings"].as_array().unwrap().len();
+            assert!(shown <= topk, "{findings}");
+            assert_eq!(findings["rows_shown"], shown);
+            let waits = &value["upload"]["data"]["top_permit_waits"];
+            assert_eq!(waits.as_array().unwrap().len(), topk.min(10), "{waits}");
+            assert_eq!(value["upload"]["data"]["top_permit_waits_truncated"], true);
+        }
+    }
+
+    #[test]
+    fn upload_json_lists_uploads_that_waited_beside_a_local_attempt() {
+        let (tr, x) = trace_rows(&[json!({
+            "ph":"X", "cat":"recipe", "name":"raced", "ts":0, "dur":90_000_000,
+            "args":{
+                "stages":{"input_upload_us":71_000_000},
+                "re":{
+                    "iu_materialize_us":69_000_000,
+                    "cancelled_stages":[{"name":"Local.MaterializeInputs","ts":1,"dur":83_000_000}],
+                },
+            },
+        })]);
+        let f = Facts::for_run(&tr, &x, None).unwrap();
+        let value = export(
+            &tr,
+            &f,
+            None,
+            None,
+            &["upload".into()],
+            20,
+            &TopicArgs::default(),
+        );
+        let data = &value["upload"]["data"];
+        assert_eq!(
+            data["uploads_beside_local_attempt"],
+            json!([{"action": "raced", "gathering_us": 69_000_000}]),
+            "{data}"
+        );
+        assert_eq!(data["uploads_beside_local_attempt_truncated"], false);
+    }
+
+    #[test]
+    fn upload_breakdown_without_stage_has_nonzero_coverage_denominator() {
+        let (tr, x) = trace_rows(&[json!({
+            "ph":"X", "cat":"recipe", "name":"upload", "ts":0, "dur":10,
+            "args":{"re":{"iu_sem_wait_us":1}},
+        })]);
+        let f = Facts::for_run(&tr, &x, None).unwrap();
+        let value = export(
+            &tr,
+            &f,
+            None,
+            None,
+            &["upload".into()],
+            20,
+            &TopicArgs::default(),
+        );
+        let topic = &value["upload"];
+        assert_eq!(topic["status"], "partial", "{topic}");
+        assert!(
+            topic["coverage"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|c| c["denominator"].as_u64().unwrap() > 0)
+        );
+    }
+
+    #[test]
+    fn blast_discloses_candidate_cap_without_refusing_large_topk() {
+        let tr = crate::parse::parse(&fixture("smoke-trace.json")).unwrap();
+        let x = analyses::load_extras(&tr);
+        let f = Facts::for_run(&tr, &x, None).unwrap();
+        let g = crate::graph::load_graph(&fixture("smoke-graph.jsonl")).unwrap();
+        let v = export(
+            &tr,
+            &f,
+            Some(&g),
+            None,
+            &["blast".into()],
+            1000,
+            &TopicArgs::default(),
+        );
+        assert_ne!(v["blast"]["status"], "refused", "{v}");
+        assert!(has_lim(&v["blast"], "at most 20"), "{v}");
+    }
+
+    const GRAPH_TOPICS: &[&str] = &[
+        "critical-path",
+        "whatif",
+        "cp-rank",
+        "cp-cascade",
+        "findings",
+        "blast",
+    ];
     const TRACE_TOPICS: &[&str] = &["overview", "breakdown", "peers", "longest"];
 
     #[test]
@@ -2100,7 +2450,7 @@ mod tests {
             &f,
             Some(&g),
             None,
-            &["admission".into(), "cp-rank".into()],
+            &["admission".into(), "upload".into(), "cp-rank".into()],
             10,
             &TopicArgs {
                 cprank: CpRankOpts {
@@ -2118,6 +2468,12 @@ mod tests {
         assert_eq!(value["cp_rank"]["status"], "partial");
         assert_eq!(value["cp_rank"]["data"]["simulate"]["n_modified"], 0);
         assert_eq!(value["cp_rank"]["data"]["simulate"]["saved_us"], 0);
+        for row in value["upload"]["data"]["sub_stages"].as_array().unwrap() {
+            assert_eq!(row["n_measured"], 1);
+            assert_eq!(row["n_zero"], 1);
+            assert_eq!(row["n"], 0);
+            assert!(row["max_action"].is_null());
+        }
     }
 
     #[test]
@@ -2180,6 +2536,43 @@ mod tests {
         let stats = stats_text(&tr, &f, None, None);
         assert!(stats.contains("no completed actions"));
         assert!(stats.contains("command capture ended early"));
+    }
+
+    #[test]
+    fn blast_exports_reachability_basis_and_always_answers_target_requests() {
+        let (t, g) = (fixture("smoke-trace.json"), fixture("smoke-graph.jsonl"));
+        let tr = crate::parse::parse(&t).unwrap();
+        let mut x = analyses::load_extras(&tr);
+        x.labels.push("fbcode//scope:root".into());
+        let label = (x.labels.len() - 1) as u32;
+        for a in &mut x.args {
+            a.label = Some(label);
+        }
+        let f = Facts::for_run(&tr, &x, None).unwrap();
+        let g = crate::graph::load_graph(&g).unwrap();
+        let get = |target| {
+            export(
+                &tr,
+                &f,
+                Some(&g),
+                None,
+                &["blast".into()],
+                10,
+                &TopicArgs {
+                    target,
+                    ..Default::default()
+                },
+            )
+        };
+        let targeted = get(Some("scope:root"));
+        assert!(targeted["blast"]["data"]["target"]["descendant_path_us"].is_i64());
+        assert!(targeted["blast"]["data"]["target"]["downstream_cache_hits"].is_u64());
+        assert!(has_lim(
+            &targeted["blast"],
+            "not an incremental-build forecast"
+        ));
+        assert!(get(None)["blast"]["data"]["candidates"].is_array());
+        assert_eq!(get(Some("missing"))["blast"]["status"], "refused");
     }
 
     #[test]
@@ -2480,7 +2873,7 @@ mod tests {
             has_lim(cp, "declares 200 node row(s), 2 were loaded"),
             "{cp}"
         );
-        for topic in ["whatif", "cp_rank", "cp_cascade"] {
+        for topic in ["whatif", "cp_rank", "cp_cascade", "findings"] {
             let tv = &v[topic];
             assert_eq!(tv["status"], "partial", "{topic}: {tv}");
             assert!(tv.get("bound").is_none(), "{topic}: {tv}");
@@ -2489,6 +2882,7 @@ mod tests {
                 "{topic}: {tv}"
             );
         }
+        assert_eq!(v["blast"]["status"], "partial");
         let h = &v["health"];
         assert_eq!(h["status"], "partial", "{h}");
         assert!(has_lim(h, "200 node row(s)"), "{h}");
@@ -2534,7 +2928,9 @@ mod tests {
                 "whatif",
                 "cp-rank",
                 "cp-cascade",
+                "findings",
                 "retries",
+                "upload",
             ],
         );
         let cp = &v["critical_path"];
@@ -2543,7 +2939,7 @@ mod tests {
         assert_eq!(cov(cp, "actions-with-graph-nodes"), Some((1, 2)), "{cp}");
         // the header names no run: said, not silently accepted
         assert!(has_lim(cp, "could not be checked"), "{cp}");
-        for topic in ["whatif", "cp_rank", "cp_cascade"] {
+        for topic in ["whatif", "cp_rank", "cp_cascade", "findings"] {
             let tv = &v[topic];
             assert_eq!(tv["status"], "partial", "{topic}: {tv}");
             assert!(tv.get("bound").is_none(), "{topic}: {tv}");
@@ -2552,11 +2948,13 @@ mod tests {
                 "{topic}: {tv}"
             );
         }
-        assert!(
-            !has_lim(&v["retries"], "conditional on the captured graph"),
-            "retries: {}",
-            v["retries"]
-        );
+        for topic in ["retries", "upload"] {
+            assert!(
+                !has_lim(&v[topic], "conditional on the captured graph"),
+                "{topic}: {}",
+                v[topic]
+            );
+        }
     }
 
     #[test]

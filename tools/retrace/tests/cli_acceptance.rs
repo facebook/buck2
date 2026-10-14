@@ -480,14 +480,14 @@ fn savings_topics_never_carry_a_bound_on_a_partial_graph() {
     let f = fixture("partial-trace.json");
     let o = run(&[
         &f,
-        "--json=critical-path,whatif,cp-rank,cp-cascade",
+        "--json=critical-path,whatif,cp-rank,cp-cascade,findings",
         "--compact",
     ]);
     assert_eq!(o.status.code(), Some(0), "{}", stderr(&o));
     let v: serde_json::Value = serde_json::from_str(&stdout(&o)).expect("valid JSON");
     assert_eq!(v["critical_path"]["status"], "partial");
     assert_eq!(v["critical_path"]["bound"], "lower");
-    for topic in ["whatif", "cp_rank", "cp_cascade"] {
+    for topic in ["whatif", "cp_rank", "cp_cascade", "findings"] {
         assert!(
             v[topic].get("bound").is_none(),
             "{topic} must not label a partial-graph saving a bound: {}",
@@ -1060,6 +1060,31 @@ fn cp_rank_prices_an_exact_action_and_refuses_ambiguous_or_unmeasured_inputs() {
 }
 
 #[test]
+fn blast_target_is_resolved_and_missing_targets_are_explicit_refusals() {
+    let trace = fixture("smoke-trace.json");
+    for target in ["fbcode//x:y", "x:y"] {
+        let output = run(&[
+            &trace,
+            "--json=blast",
+            &format!("--target={target}"),
+            "--compact",
+        ]);
+        assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_ne!(value["blast"]["status"], "refused", "{value}");
+        let scoped = &value["blast"]["data"]["target"];
+        assert_eq!(scoped["descendant_path_us"], 1300, "{value}");
+        assert_eq!(scoped["downstream_cache_hits"], 1);
+        assert!(scoped.get("warm_wall_us").is_none());
+    }
+    let output = run(&[&trace, "--json=blast", "--target=not-present", "--compact"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["blast"]["status"], "refused");
+    assert!(value["blast"]["data"].is_null());
+}
+
+#[test]
 fn action_detail_reads_one_record_without_loading_the_graph_or_all_extras() {
     let source = fixture("activity-trace.json");
     let dir = ingest_dir("action-detail");
@@ -1215,6 +1240,27 @@ fn non_utf8_arguments_refuse_without_panicking() {
     assert!(stderr(&output).contains("UTF-8"), "{}", stderr(&output));
     assert!(!stderr(&output).contains("panicked"));
     assert!(output.stdout.is_empty());
+}
+
+#[test]
+fn findings_without_a_graph_keep_replay_unavailability_visible() {
+    let source = fixture("activity-trace.json");
+    let dir = ingest_dir("findings-no-graph");
+    let trace = dir.join("activity-trace.json");
+    std::fs::copy(source, &trace).unwrap();
+    let output = run(&[trace.to_str().unwrap(), "--json=findings", "--compact"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["findings"]["status"], "partial", "{value}");
+    assert!(value["findings"]["data"]["base_cp_us"].is_null());
+    assert!(
+        value["findings"]["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v.as_str().unwrap().contains("no dependency graph"))
+    );
+    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]

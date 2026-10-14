@@ -15,11 +15,13 @@
 
 pub mod activity;
 pub mod analyses;
+pub mod blast;
 pub mod command_profile;
 pub mod dag;
 pub mod detail;
 pub mod execution;
 pub mod export;
+pub mod findings;
 pub mod graph;
 pub mod help;
 pub mod humanize;
@@ -32,6 +34,7 @@ pub mod quality;
 pub mod sim;
 pub mod transfer;
 pub mod types;
+pub mod upload;
 
 /// Absolute path to a `testdata/` fixture, for both the in-crate tests
 /// and the acceptance suite.

@@ -159,6 +159,11 @@ pub const SECTIONS: &[Section] = &[
                 valued("--topk", "=<N>", "Rows per table"),
                 "Rows per table [default: 20]",
             ),
+            valued(
+                "--target",
+                "=<LABEL>",
+                "With --json=blast: the target whose downstream reach to show",
+            ),
             with_details(
                 valued(
                     "--action",

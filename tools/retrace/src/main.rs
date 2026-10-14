@@ -340,6 +340,7 @@ fn main() {
             [
                 "--repair-cycles",
                 "--topk",
+                "--target",
                 "--simulate",
                 "--scale",
                 "--simulate-config",
@@ -382,6 +383,9 @@ fn main() {
         if !f.is_finite() || !(0.0..=1000.0).contains(&f) {
             refuse("--scale wants a finite factor between 0 and 1000");
         }
+    }
+    if has("--target") && !topic_requested("blast") {
+        refuse("--target requires --json=blast (or all)");
     }
     if has("--action") && !topic_requested("action-detail") {
         refuse("--action requires --json=action-detail (or all)");
@@ -512,6 +516,7 @@ fn main() {
         };
         let ta = export::TopicArgs {
             cascade_steps,
+            target: args.iter().find_map(|a| a.strip_prefix("--target=")),
             action: args.iter().find_map(|a| a.strip_prefix("--action=")),
             cprank,
         };
