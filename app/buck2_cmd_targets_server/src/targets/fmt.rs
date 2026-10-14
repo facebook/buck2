@@ -805,3 +805,32 @@ pub fn create_configured_formatter(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use buck2_error::ErrorTag;
+
+    use super::Stats;
+
+    /// `Stats::merge` adds the counts but not the error tags, so the error built after merging
+    /// (as the streaming command does) carries only the `Input` tag of the summary.
+    #[test]
+    fn test_stats_merge_error_tags() {
+        let e = buck2_error::buck2_error!(ErrorTag::Tier0, "package failed");
+        let mut package = Stats::default();
+        package.add_error(&e);
+        assert!(
+            package
+                .to_error()
+                .unwrap()
+                .tags()
+                .contains(&ErrorTag::Tier0)
+        );
+
+        let mut total = Stats::default();
+        total.merge(&package);
+        let err = total.to_error().unwrap();
+        assert!(!err.tags().contains(&ErrorTag::Tier0));
+        assert!(err.tags().contains(&ErrorTag::Input));
+    }
+}
