@@ -24,6 +24,8 @@ from .utils import MachOException
 
 
 FAKE_PATH = b"fake/path"
+# Covers almost every path in one read: PATH_MAX is 1024 on macOS.
+_PATH_READ_SIZE = 1024
 # buck-out/isolation_dir/gen/project_cell/{hash}/....
 NUM_OF_COMPONENTS_IN_BUCK2_OUTPUT_PATH_BEFORE_PROJECT_PATH = 5
 # buck-out/isolation_dir/gen/project_cell//X/Y/__name__/{hash}/....
@@ -156,18 +158,19 @@ def _scrub(
     """
     results = []
     for symbol in symbols:
-        f.seek(strtab_offset)
-        f.seek(symbol.strtab_index, 1)
+        start = strtab_offset + symbol.strtab_index
+        f.seek(start)
 
-        # Read a byte at a time until we reach the end of the path, denoted by Hex 0.
-        start = end = f.tell()
+        # Read until we reach the end of the path, denoted by Hex 0.
         path = b""
-        b = f.read(1)
-        while b != b"\x00":
-            path += b
-            end += 1
-            b = f.read(1)
-        str_len = end - start
+        end = -1
+        while end == -1:
+            chunk = f.read(_PATH_READ_SIZE)
+            if not chunk:
+                raise MachOException("Unterminated string in the string table")
+            end = chunk.find(b"\x00")
+            path += chunk if end == -1 else chunk[:end]
+        str_len = len(path)
 
         path_str = path.decode()
         if scrub_handler(path_str):
