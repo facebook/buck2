@@ -88,7 +88,7 @@ fn clang_hash_uses_c_char_and_only_folds_ascii() {
 fn compatibility_formats_keep_their_string_layout() {
     let mappings = [("include/café.h", "generated/雪/naïve.hpp")];
     let legacy = encode(&mappings, WriteFormat::LegacyClangd);
-    let python = encode(&mappings, WriteFormat::PythonHmaptool);
+    let python = encode(&mappings, WriteFormat::PythonHmaptool(PathStyle::Unix));
     let legacy_bucket = legacy.buckets.iter().find(|b| b[0] != 0).unwrap();
     let python_bucket = python.buckets.iter().find(|b| b[0] != 0).unwrap();
     assert_eq!(
@@ -116,10 +116,10 @@ fn compatibility_formats_keep_their_string_layout() {
     );
     assert_eq!(
         ('ä' as u32) * 13,
-        hash_key("Ä", WriteFormat::PythonHmaptool).unwrap()
+        hash_key("Ä", WriteFormat::PythonHmaptool(PathStyle::Unix)).unwrap()
     );
     assert!(matches!(
-        hash_key("İ", WriteFormat::PythonHmaptool),
+        hash_key("İ", WriteFormat::PythonHmaptool(PathStyle::Unix)),
         Err(HeaderMapError::InvalidLowercase('İ'))
     ));
 }

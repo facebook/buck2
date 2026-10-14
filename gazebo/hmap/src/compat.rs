@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use crate::PathStyle;
+
 pub(crate) fn split_legacy_path(value: &str) -> (&str, &str) {
     let mut separator = value.rfind(['\\', '/']).unwrap_or(0);
     if separator != 0 {
@@ -19,24 +21,22 @@ pub(crate) fn split_legacy_path(value: &str) -> (&str, &str) {
     )
 }
 
-pub(crate) fn split_hmaptool_path(value: &str) -> (&str, &str) {
-    #[cfg(windows)]
-    return split_windows_path(value);
+pub(crate) fn split_hmaptool_path(value: &str, path_style: PathStyle) -> (&str, &str) {
+    if matches!(path_style, PathStyle::Windows) {
+        return split_windows_path(value);
+    }
 
-    #[cfg(not(windows))]
     let separator = value
         .char_indices()
         .rev()
         .find(|(_, character)| *character == '/')
         .map(|(index, character)| index + character.len_utf8());
-    #[cfg(not(windows))]
     match separator {
         Some(index) => value.split_at(index),
         None => ("", value),
     }
 }
 
-#[cfg(any(windows, test))]
 fn split_windows_path(value: &str) -> (&str, &str) {
     let character = |index: usize| value.chars().nth(index);
     let remainder_start = if character(0).is_some_and(is_windows_separator) {
@@ -68,7 +68,6 @@ fn split_windows_path(value: &str) -> (&str, &str) {
     value.split_at(suffix_start)
 }
 
-#[cfg(any(windows, test))]
 fn windows_unc_remainder_start(value: &str) -> Option<usize> {
     let extended_unc_prefix = ['\\', '\\', '?', '\\', 'U', 'N', 'C', '\\'];
     let is_extended_unc = value
@@ -96,7 +95,6 @@ fn windows_unc_remainder_start(value: &str) -> Option<usize> {
     Some(share_byte_start + share_separator_relative_byte_index + 1)
 }
 
-#[cfg(any(windows, test))]
 fn is_windows_separator(character: char) -> bool {
     character == '/' || character == '\\'
 }

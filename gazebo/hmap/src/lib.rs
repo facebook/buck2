@@ -92,6 +92,24 @@ impl CharSignedness {
     }
 }
 
+/// The path rules of the Python writer whose output is being reproduced.
+#[derive(Clone, Copy, Debug)]
+pub enum PathStyle {
+    Unix,
+    Windows,
+}
+
+impl PathStyle {
+    /// Uses the current process platform. Remote actions should select a style explicitly.
+    pub const fn native() -> Self {
+        if cfg!(windows) {
+            Self::Windows
+        } else {
+            Self::Unix
+        }
+    }
+}
+
 /// Selects hashing, string-table layout, and path splitting.
 #[derive(Clone, Copy, Debug)]
 pub enum WriteFormat {
@@ -101,7 +119,8 @@ pub enum WriteFormat {
     LegacyClangd,
     /// Preserves Python hmaptool's Unicode hash and character-counted offsets.
     /// Non-ASCII output can be invalid for Clang and may not round trip.
-    PythonHmaptool,
+    /// The path style is the Python writer's platform, which may differ from this process.
+    PythonHmaptool(PathStyle),
 }
 
 impl Default for WriteFormat {
@@ -176,7 +195,7 @@ impl HeaderMap {
                 return Err(HeaderMapError::InvalidEntryCount);
             }
             let value_length = match format {
-                WriteFormat::PythonHmaptool => value.chars().count(),
+                WriteFormat::PythonHmaptool(_) => value.chars().count(),
                 _ => value.len(),
             };
             max_value_length = max_value_length
@@ -184,7 +203,9 @@ impl HeaderMap {
             let (prefix, suffix) = match format {
                 WriteFormat::Clang(_) => value.split_at(value.rfind('/').map_or(0, |i| i + 1)),
                 WriteFormat::LegacyClangd => compat::split_legacy_path(value),
-                WriteFormat::PythonHmaptool => compat::split_hmaptool_path(value),
+                WriteFormat::PythonHmaptool(path_style) => {
+                    compat::split_hmaptool_path(value, path_style)
+                }
             };
             let bucket = [
                 strings.add(key)?,
@@ -371,7 +392,7 @@ fn hash_key(key: &str, format: WriteFormat) -> Result<u32, HeaderMapError> {
         WriteFormat::LegacyClangd => Ok(key.chars().fold(0u32, |hash, ch| {
             hash.wrapping_add((ch.to_ascii_lowercase() as u32).wrapping_mul(13))
         })),
-        WriteFormat::PythonHmaptool => key.chars().try_fold(0u32, |hash, ch| {
+        WriteFormat::PythonHmaptool(_) => key.chars().try_fold(0u32, |hash, ch| {
             let mut lowercase = ch.to_lowercase();
             let lowered = lowercase
                 .next()
@@ -411,14 +432,14 @@ impl StringTable {
             return Ok(*offset);
         }
         let length = match self.format {
-            WriteFormat::PythonHmaptool => self.character_length,
+            WriteFormat::PythonHmaptool(_) => self.character_length,
             _ => self.bytes.len(),
         };
         let offset = u32::try_from(length).map_err(|_| HeaderMapError::TooLarge)?;
         self.bytes.extend_from_slice(value.as_bytes());
         self.bytes.push(0);
         if !matches!(self.format, WriteFormat::LegacyClangd) {
-            if matches!(self.format, WriteFormat::PythonHmaptool) {
+            if matches!(self.format, WriteFormat::PythonHmaptool(_)) {
                 self.character_length = self
                     .character_length
                     .checked_add(value.chars().count())
