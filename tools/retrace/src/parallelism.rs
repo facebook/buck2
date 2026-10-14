@@ -17,6 +17,7 @@
 //! canceling previous load can still be alive. Batch limits bound ordinary
 //! in-flight work, not the retained graph or an accepted oversized record.
 
+const DECODE_MAX: usize = 4;
 const GRAPH_MAX: usize = 4;
 const TRACE_PARSE_MAX: usize = 16;
 
@@ -26,6 +27,12 @@ fn available() -> usize {
 
 fn pool(cores: usize, coordinators: usize, ceiling: usize) -> usize {
     cores.max(1).saturating_sub(coordinators).min(ceiling)
+}
+
+/// Zero selects inline decoding. Parallel decode also has a framer and an
+/// ordered reducer, so a one- or two-core machine keeps the serial path.
+pub(crate) fn decode_workers() -> usize {
+    pool(available(), 2, DECODE_MAX)
 }
 
 fn trace_limit(requested: usize) -> usize {
@@ -61,6 +68,22 @@ pub(crate) fn graph_workers() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ingest_pools_reserve_their_coordinators() {
+        for cores in 0..=256 {
+            let budget = cores.max(1);
+            let decode = pool(cores, 2, DECODE_MAX);
+            assert!(decode <= DECODE_MAX);
+            assert!(decode == 0 || decode + 2 <= budget);
+            let emit = pool(cores, 1, GRAPH_MAX);
+            assert!(emit <= GRAPH_MAX);
+            assert!(emit == 0 || emit < budget);
+        }
+        assert_eq!(pool(2, 2, DECODE_MAX), 0);
+        assert_eq!(pool(3, 2, DECODE_MAX), 1);
+        assert_eq!(pool(96, 2, DECODE_MAX), 4);
+    }
 
     #[test]
     fn explicit_limits_do_not_oversubscribe() {

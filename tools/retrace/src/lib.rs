@@ -23,6 +23,7 @@ pub mod export;
 pub mod graph;
 pub mod help;
 pub mod humanize;
+pub mod ingest;
 pub mod lanes;
 mod parallelism;
 pub mod parse;

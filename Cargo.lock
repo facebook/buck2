@@ -7609,11 +7609,19 @@ version = "0.1.0"
 dependencies = [
  "allocative",
  "anyhow",
+ "buck2_cli_proto",
  "buck2_data",
+ "buck2_error",
+ "buck2_event_log",
+ "buck2_fs",
+ "futures 0.3.34",
  "fxhash",
+ "prost",
+ "prost-types",
  "serde",
  "serde_json",
  "sha1 0.11.0",
+ "tokio",
 ]
 
 [[package]]
