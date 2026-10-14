@@ -36,13 +36,27 @@ use crate::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 /// How an input reaches the action. Leaves report the default; each enclosing
 /// `cmd_args` scope rewrites it on the way up to the action's visitor.
 ///
-/// A visitor that branches on the properties must destructure it without `..`, so that a new
-/// property is a compile error at every site that decides on it. Wrappers that only
-/// rewrite one property forward the rest with `..props`.
+/// A visitor that branches on the properties must destructure it without `..` and match
+/// `requires` exhaustively, so that a new property or need is a compile error at every
+/// site that decides on it. Wrappers that only rewrite one property forward the rest
+/// with `..props`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct InputProperties {
     /// Reached through some `cmd_args`'s `hidden` list; nothing renders it.
     pub hidden: bool,
+    pub requires: Requires,
+}
+
+/// What the command requires of an input.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Requires {
+    /// The contents: a regular input, built and materialized.
+    #[default]
+    Contents,
+    /// Only the path, as under `ignore_artifacts`: built when the path embeds the
+    /// content hash and is rendered, never materialized. Hidden, nothing renders it,
+    /// so it is not an input at all.
+    Path,
 }
 
 pub trait CommandLineArtifactVisitor<'v> {
@@ -114,9 +128,15 @@ impl<'v> CommandLineArtifactVisitor<'v> for SimpleCommandLineArtifactVisitor<'v>
     fn visit_input(
         &mut self,
         input: ArtifactGroup,
-        _props: InputProperties,
+        props: InputProperties,
         _tags: Vec<&ArtifactTag>,
     ) {
+        let InputProperties { hidden, requires } = props;
+        match requires {
+            Requires::Contents => {}
+            Requires::Path if hidden => return,
+            Requires::Path => {}
+        }
         self.inputs.insert(input);
     }
 

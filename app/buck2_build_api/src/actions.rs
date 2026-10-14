@@ -66,6 +66,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckIndexSet;
 use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_hash::buck_indexmap;
 use buck2_http::HttpClient;
 use derivative::Derivative;
@@ -307,10 +308,24 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// as an input to the associated action or a panic will be raised.
     fn artifact_values(&self, input: &ArtifactGroup) -> &ArtifactGroupValues;
 
+    /// Content-based path hashes of the action's inputs, restricted to the groups in
+    /// `filter` when given.
     fn artifact_path_mapping(
         &self,
-        filter: Option<BuckIndexSet<ArtifactGroup>>,
+        filter: Option<&BuckIndexSet<ArtifactGroup>>,
     ) -> BuckMutMap<&Artifact, ContentBasedPathHash>;
+
+    /// Like `artifact_path_mapping` over the union of `rendered` and `path_only`,
+    /// also returning the artifacts that belong to a `path_only` group. One pass over
+    /// the inputs serves both.
+    fn artifact_path_mapping_with_path_only(
+        &self,
+        rendered: &BuckIndexSet<ArtifactGroup>,
+        path_only: &BuckIndexSet<ArtifactGroup>,
+    ) -> (
+        BuckMutMap<&Artifact, ContentBasedPathHash>,
+        BuckMutSet<&Artifact>,
+    );
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
 

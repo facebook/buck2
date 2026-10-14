@@ -46,6 +46,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::InputProperties;
+use buck2_build_api::interpreter::rule_defs::cmd_args::Requires;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
@@ -98,6 +99,8 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_hash::buck_indexmap;
 use derive_more::Display;
 use dupe::Dupe;
@@ -476,12 +479,14 @@ type ExpandedCommandLineDigestForDepFiles = ExpandedCommandLineDigest;
 /// A CommandLineArtifactVisitor that gathers non-hidden inputs.
 pub struct SkipHiddenCommandLineArtifactVisitor {
     pub inputs: BuckIndexSet<ArtifactGroup>,
+    pub path_only_inputs: BuckIndexSet<ArtifactGroup>,
 }
 
 impl SkipHiddenCommandLineArtifactVisitor {
     pub fn new() -> Self {
         Self {
             inputs: BuckIndexSet::default(),
+            path_only_inputs: BuckIndexSet::default(),
         }
     }
 }
@@ -490,10 +495,21 @@ impl CommandLineArtifactVisitor<'_> for SkipHiddenCommandLineArtifactVisitor {
     fn visit_input(
         &mut self,
         input: ArtifactGroup,
-        _props: InputProperties,
+        props: InputProperties,
         _tags: Vec<&ArtifactTag>,
     ) {
-        self.inputs.insert(input);
+        let InputProperties {
+            hidden: _,
+            requires,
+        } = props;
+        match requires {
+            Requires::Contents => {
+                self.inputs.insert(input);
+            }
+            Requires::Path => {
+                self.path_only_inputs.insert(input);
+            }
+        }
     }
 
     fn visit_declared_output(&mut self, _artifact: OutputArtifact<'_>, _tags: Vec<&ArtifactTag>) {}
@@ -502,6 +518,27 @@ impl CommandLineArtifactVisitor<'_> for SkipHiddenCommandLineArtifactVisitor {
 
     fn skip_hidden(&self) -> bool {
         true
+    }
+}
+
+/// Dep-file command line digests normally render every content-based path as a
+/// placeholder: the content of a real input already participates in dep-file
+/// matching, and using the real hash would defeat it. A path-only input
+/// participates in nothing else — its content affects the action solely through
+/// its rendered path — so its real hash must reach the digest, or a change to it
+/// could be missed by a dep-file match.
+struct PathOnlyAwareDepFilesPlaceholderMapper<'a> {
+    mapping: &'a BuckMutMap<&'a Artifact, ContentBasedPathHash>,
+    path_only: &'a BuckMutSet<&'a Artifact>,
+}
+
+impl ArtifactPathMapper for PathOnlyAwareDepFilesPlaceholderMapper<'_> {
+    fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash> {
+        if self.path_only.contains(artifact) {
+            self.mapping.get(artifact)
+        } else {
+            Some(&ContentBasedPathHash::DepFilesPlaceholder)
+        }
     }
 }
 
@@ -607,8 +644,11 @@ impl RunAction {
         // is not hidden.
         let mut skip_hidden_visitor = SkipHiddenCommandLineArtifactVisitor::new();
         self.visit_artifacts(&mut skip_hidden_visitor)?;
-        let artifact_path_mapping =
-            action_execution_ctx.artifact_path_mapping(Some(skip_hidden_visitor.inputs));
+        let (artifact_path_mapping, path_only_artifacts) = action_execution_ctx
+            .artifact_path_mapping_with_path_only(
+                &skip_hidden_visitor.inputs,
+                &skip_hidden_visitor.path_only_inputs,
+            );
 
         let mut exe_rendered = Vec::<String>::new();
         values
@@ -620,7 +660,10 @@ impl RunAction {
             ))?;
 
         let mut command_line_digest_for_dep_files = ExpandedCommandLineFingerprinter::new();
-        let artifact_path_mapping_for_dep_files = DepFilesPlaceholderArtifactPathMapper {};
+        let artifact_path_mapping_for_dep_files = PathOnlyAwareDepFilesPlaceholderMapper {
+            mapping: &artifact_path_mapping,
+            path_only: &path_only_artifacts,
+        };
         values
             .exe
             .add_to_command_line(&mut CommandLineBuilder::new(
@@ -1446,6 +1489,16 @@ impl<'v> CommandLineArtifactVisitor<'v> for RunActionVisitor<'v> {
         props: InputProperties,
         tags: Vec<&ArtifactTag>,
     ) {
+        let InputProperties {
+            hidden: _,
+            requires,
+        } = props;
+        match requires {
+            Requires::Contents => {}
+            // In no dep file and no incremental metadata; the rendered path carries its content.
+            Requires::Path => return,
+        }
+
         // If incremental_metadata_ignore_tags is None, then we're not going to produce
         // incremental metadata at all, so there's nothing to do here.
         if let Some(ignore_tags) = self.incremental_metadata_ignore_tags {

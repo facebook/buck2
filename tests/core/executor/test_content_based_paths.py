@@ -375,15 +375,83 @@ async def test_projection_with_content_based_path(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_ignores_content_based_artifact(buck: Buck) -> None:
+async def test_ignore_artifacts_content_based_input_is_not_materialized_but_path_is_real(
+    buck: Buck,
+) -> None:
+    target = "root//:ignore_artifacts_content_based_artifact"
+    result = await buck.build(target, "--show-output", "--remote-only")
+    path = result.get_target_to_build_output().get(target)
+    assert path is not None
+    # The remote action asserts the stamp artifact is absent from its input tree;
+    # its output records the rendered path.
+    out = (buck.cwd / path).read_text()
+    assert "stamp.txt" in out
+    # The rendered path embeds the real content hash, not a placeholder.
+    assert "output_artifact" not in out
+    assert "dep_files_placeholder" not in out
+
+
+@buck_test()
+async def test_ignore_artifacts_content_based_input_content_change_reruns_consumer(
+    buck: Buck,
+) -> None:
+    target = "root//:ignore_artifacts_content_based_artifact"
+    result1 = await buck.build(
+        target, "-c", "test.stamp_data=one", "--show-output", "--remote-only"
+    )
+    path1 = result1.get_target_to_build_output().get(target)
+    assert path1 is not None
+    out1 = (buck.cwd / path1).read_text()
+    result2 = await buck.build(
+        target, "-c", "test.stamp_data=two", "--show-output", "--remote-only"
+    )
+    path2 = result2.get_target_to_build_output().get(target)
+    assert path2 is not None
+    out2 = (buck.cwd / path2).read_text()
+    # The stamp is not an input, but its content reaches the command line via the
+    # rendered path, so changing it must re-run the consumer.
+    assert out1 != out2
+
+
+@buck_test()
+async def test_ignore_artifacts_rejects_hidden_content_based_artifact(
+    buck: Buck,
+) -> None:
+    # Nothing renders a hidden artifact, so nothing could carry a content-based
+    # one's content to the action: analysis rejects it rather than dropping it.
     await expect_failure(
         buck.build(
-            "root//:ignores_content_based_artifact",
+            "root//:ignore_artifacts_rejects_hidden_content_based_artifact",
             "--target-platforms",
             "root//:p_default",
-            "--show-output",
         ),
-        stderr_regex=r"Artifact\(s\).*ignored.txt.*cannot be used with ignore_artifacts as they are content-based",
+        stderr_regex=r"Artifact\(s\).*stamp.txt.*content-based and `hidden` under `ignore_artifacts`",
+    )
+
+
+@buck_test()
+async def test_ignore_artifacts_nested_under_hidden_is_not_a_dependency(
+    buck: Buck,
+) -> None:
+    # The content-based artifact's producer fails, but nothing renders it, so it
+    # is not a dependency: the consumer builds without running the producer.
+    await buck.build(
+        "root//:ignore_artifacts_nested_under_hidden",
+        "--target-platforms",
+        "root//:p_default",
+    )
+
+
+@buck_test()
+async def test_ignore_artifacts_does_not_depend_on_static_path_artifacts(
+    buck: Buck,
+) -> None:
+    # The referenced artifact's producer fails, but a static path needs no
+    # dependency at all, so the consumer builds without running it.
+    await buck.build(
+        "root//:ignore_artifacts_skips_failing_static_path_dep",
+        "--target-platforms",
+        "root//:p_default",
     )
 
 

@@ -532,23 +532,45 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
 
     fn artifact_path_mapping(
         &self,
-        filter: Option<BuckIndexSet<ArtifactGroup>>,
+        filter: Option<&BuckIndexSet<ArtifactGroup>>,
     ) -> BuckMutMap<&Artifact, ContentBasedPathHash> {
         self.inputs
             .iter()
             .filter(|(ag, _)| {
-                if !ag.path_resolution_may_require_artifact_value() {
-                    return false;
-                }
-
-                match filter {
-                    Some(ref filter) => filter.contains(*ag),
-                    None => true,
-                }
+                ag.path_resolution_may_require_artifact_value()
+                    && filter.is_none_or(|filter| filter.contains(*ag))
             })
             .flat_map(|(_, v)| v.iter())
             .map(|(a, v)| (a, v.content_based_path_hash()))
             .collect()
+    }
+
+    fn artifact_path_mapping_with_path_only(
+        &self,
+        rendered: &BuckIndexSet<ArtifactGroup>,
+        path_only: &BuckIndexSet<ArtifactGroup>,
+    ) -> (
+        BuckMutMap<&Artifact, ContentBasedPathHash>,
+        BuckMutSet<&Artifact>,
+    ) {
+        let mut mapping = BuckMutMap::default();
+        let mut path_only_artifacts = BuckMutSet::default();
+        for (ag, values) in self.inputs.iter() {
+            if !ag.path_resolution_may_require_artifact_value() {
+                continue;
+            }
+            let is_path_only = path_only.contains(ag);
+            if !is_path_only && !rendered.contains(ag) {
+                continue;
+            }
+            for (artifact, value) in values.iter() {
+                mapping.insert(artifact, value.content_based_path_hash());
+                if is_path_only {
+                    path_only_artifacts.insert(artifact);
+                }
+            }
+        }
+        (mapping, path_only_artifacts)
     }
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor {
