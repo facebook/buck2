@@ -54,6 +54,7 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInpu
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueIsInputArtifactAnnotation;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::InputProperties;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::provider::ProviderCollection;
 
@@ -319,7 +320,12 @@ impl<'v> DefaultInfo<'v> {
         struct Visitor<'x>(&'x mut dyn FnMut(ArtifactGroup));
 
         impl<'v> CommandLineArtifactVisitor<'v> for Visitor<'_> {
-            fn visit_input(&mut self, input: ArtifactGroup, _: Vec<&ArtifactTag>) {
+            fn visit_input(
+                &mut self,
+                input: ArtifactGroup,
+                _: InputProperties,
+                _: Vec<&ArtifactTag>,
+            ) {
                 (self.0)(input);
             }
 

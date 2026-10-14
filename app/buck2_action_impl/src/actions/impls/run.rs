@@ -45,6 +45,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisito
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
+use buck2_build_api::interpreter::rule_defs::cmd_args::InputProperties;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
@@ -486,7 +487,12 @@ impl SkipHiddenCommandLineArtifactVisitor {
 }
 
 impl CommandLineArtifactVisitor<'_> for SkipHiddenCommandLineArtifactVisitor {
-    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        _props: InputProperties,
+        _tags: Vec<&ArtifactTag>,
+    ) {
         self.inputs.insert(input);
     }
 
@@ -1434,7 +1440,12 @@ impl<'a> RunActionVisitor<'a> {
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for RunActionVisitor<'v> {
-    fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>) {
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        props: InputProperties,
+        tags: Vec<&ArtifactTag>,
+    ) {
         // If incremental_metadata_ignore_tags is None, then we're not going to produce
         // incremental metadata at all, so there's nothing to do here.
         if let Some(ignore_tags) = self.incremental_metadata_ignore_tags {
@@ -1443,7 +1454,7 @@ impl<'v> CommandLineArtifactVisitor<'v> for RunActionVisitor<'v> {
             }
         }
 
-        self.dep_files_visitor.visit_input(input, tags);
+        self.dep_files_visitor.visit_input(input, props, tags);
     }
 
     fn visit_declared_output(&mut self, _artifact: OutputArtifact<'v>, tags: Vec<&ArtifactTag>) {

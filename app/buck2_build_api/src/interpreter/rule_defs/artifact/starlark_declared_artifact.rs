@@ -59,6 +59,7 @@ use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::InputProperties;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 
@@ -266,12 +267,16 @@ impl<'v> CommandLineArgLike<'v> for StarlarkDeclaredArtifact<'v> {
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
-        visitor.visit_declared_artifact(self.artifact.dupe(), vec![])?;
+        visitor.visit_declared_artifact(
+            self.artifact.dupe(),
+            InputProperties::default(),
+            vec![],
+        )?;
 
         if !visitor.inputs_for_path_resolution() {
             self.associated_artifacts
                 .iter()
-                .for_each(|ag| visitor.visit_input(ag.dupe(), vec![]));
+                .for_each(|ag| visitor.visit_input(ag.dupe(), InputProperties::default(), vec![]));
         }
         Ok(())
     }

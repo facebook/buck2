@@ -30,6 +30,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineSink;
+use buck2_build_api::interpreter::rule_defs::cmd_args::InputProperties;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
@@ -76,7 +77,12 @@ impl CommandLineContentBasedInputVisitor {
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor {
-    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        _props: InputProperties,
+        _tags: Vec<&ArtifactTag>,
+    ) {
         if input.path_resolution_may_require_artifact_value() {
             self.content_based_inputs.insert(input);
         }
@@ -89,11 +95,12 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor 
     fn visit_declared_artifact(
         &mut self,
         declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
+        props: InputProperties,
         tags: Vec<&ArtifactTag>,
     ) -> buck2_error::Result<()> {
         if declared_artifact.has_content_based_path() {
             let artifact = declared_artifact.ensure_bound()?.into_artifact();
-            self.visit_input(ArtifactGroup::Artifact(artifact), tags);
+            self.visit_input(ArtifactGroup::Artifact(artifact), props, tags);
         }
 
         Ok(())

@@ -32,6 +32,7 @@ use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLineD
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::InputProperties;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::CasDigestData;
@@ -2707,7 +2708,12 @@ impl<'a> DepFilesCommandLineVisitor<'a> {
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for DepFilesCommandLineVisitor<'_> {
-    fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>) {
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        _props: InputProperties,
+        tags: Vec<&ArtifactTag>,
+    ) {
         self.inputs.visit_input(input, tags, self.dep_files);
     }
 

@@ -19,6 +19,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact:
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::InputProperties;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
@@ -344,7 +345,12 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         }
 
         impl<'v> CommandLineArtifactVisitor<'v> for RunCommandArtifactVisitor<'v> {
-            fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>) {
+            fn visit_input(
+                &mut self,
+                input: ArtifactGroup,
+                props: InputProperties,
+                tags: Vec<&ArtifactTag>,
+            ) {
                 if let Some(ref dep_file_artifact_tags) = self.dep_file_artifact_tags {
                     let dep_file_tags: Vec<&ArtifactTag> = tags
                         .iter()
@@ -363,7 +369,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                         ));
                     }
                 }
-                self.inner.visit_input(input, tags);
+                self.inner.visit_input(input, props, tags);
             }
 
             fn visit_declared_output(

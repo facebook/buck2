@@ -78,6 +78,7 @@ use crate::interpreter::rule_defs::cmd_args::options::RelativeOrigin;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::traits::InputProperties;
 use crate::interpreter::rule_defs::cmd_args::traits::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::traits::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
@@ -87,6 +88,65 @@ pub enum CommandLineError {
     #[error("Artifact(s) {0:?} cannot be used with ignore_artifacts as they are content-based")]
     #[buck2(input)]
     ContentBasedIgnoreArtifacts(BuckIndexSet<String>),
+}
+
+/// Forwards to `inner`, rewriting the properties of every input below.
+struct MapProperties<'a, 'v, F> {
+    inner: &'a mut dyn CommandLineArtifactVisitor<'v>,
+    map: F,
+}
+
+/// Entries of a `cmd_args`'s `hidden` list: every input below is reported as hidden.
+fn hidden_visitor<'a, 'v>(
+    inner: &'a mut dyn CommandLineArtifactVisitor<'v>,
+) -> MapProperties<'a, 'v, impl Fn(InputProperties) -> InputProperties> {
+    MapProperties {
+        inner,
+        map: |_props| InputProperties { hidden: true },
+    }
+}
+
+impl<'v, F: Fn(InputProperties) -> InputProperties> CommandLineArtifactVisitor<'v>
+    for MapProperties<'_, 'v, F>
+{
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        props: InputProperties,
+        tags: Vec<&ArtifactTag>,
+    ) {
+        self.inner.visit_input(input, (self.map)(props), tags);
+    }
+
+    fn visit_declared_artifact(
+        &mut self,
+        declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
+        props: InputProperties,
+        tags: Vec<&ArtifactTag>,
+    ) -> buck2_error::Result<()> {
+        self.inner
+            .visit_declared_artifact(declared_artifact, (self.map)(props), tags)
+    }
+
+    fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, tags: Vec<&ArtifactTag>) {
+        self.inner.visit_declared_output(artifact, tags);
+    }
+
+    fn visit_frozen_output(&mut self, artifact: Artifact, tags: Vec<&ArtifactTag>) {
+        self.inner.visit_frozen_output(artifact, tags);
+    }
+
+    fn push_frame(&mut self) -> buck2_error::Result<()> {
+        self.inner.push_frame()
+    }
+
+    fn pop_frame(&mut self) {
+        self.inner.pop_frame()
+    }
+
+    fn skip_hidden(&self) -> bool {
+        self.inner.skip_hidden()
+    }
 }
 
 /// Fields of `cmd_args`. Abstract mutable and frozen versions.
@@ -240,7 +300,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
 
             visit_items(visitor, self.0.items())?;
             if !visitor.skip_hidden() {
-                visit_items(visitor, self.0.hidden())?;
+                visit_items(&mut hidden_visitor(visitor), self.0.hidden())?;
             }
         } else {
             struct IgnoredArtifactsVisitor {
@@ -256,7 +316,12 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
             }
 
             impl<'v> CommandLineArtifactVisitor<'v> for IgnoredArtifactsVisitor {
-                fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
+                fn visit_input(
+                    &mut self,
+                    input: ArtifactGroup,
+                    _props: InputProperties,
+                    _tags: Vec<&ArtifactTag>,
+                ) {
                     if input.path_resolution_may_require_artifact_value() {
                         self.content_based_artifacts.insert(input.to_string());
                     }
@@ -265,6 +330,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
                 fn visit_declared_artifact(
                     &mut self,
                     declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact,
+                    _props: InputProperties,
                     _tags: Vec<&ArtifactTag>,
                 ) -> buck2_error::Result<()> {
                     if declared_artifact.has_content_based_path() {

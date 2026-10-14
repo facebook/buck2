@@ -65,6 +65,7 @@ use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::InputProperties;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
@@ -537,7 +538,12 @@ impl<'v> TransitiveSet<'v> {
         }
 
         impl<'a, 'v> CommandLineArtifactVisitor<'v> for InputVisitor<'a> {
-            fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
+            fn visit_input(
+                &mut self,
+                input: ArtifactGroup,
+                _props: InputProperties,
+                _tags: Vec<&ArtifactTag>,
+            ) {
                 if input.path_resolution_may_require_artifact_value() {
                     self.path_resolution_may_require_artifact_value = true;
                 }

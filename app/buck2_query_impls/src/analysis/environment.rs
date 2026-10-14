@@ -23,6 +23,7 @@ use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::InputProperties;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
@@ -442,6 +443,7 @@ pub(crate) async fn get_from_template_placeholder_info(
                                     fn visit_input(
                                         &mut self,
                                         input: ArtifactGroup,
+                                        _props: InputProperties,
                                         _tags: Vec<&ArtifactTag>,
                                     ) {
                                         self.0.push_back((self.1.dupe(), input));

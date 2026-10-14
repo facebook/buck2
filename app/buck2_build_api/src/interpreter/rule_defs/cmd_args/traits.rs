@@ -33,8 +33,25 @@ use crate::interpreter::rule_defs::cmd_args::builder::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 
+/// How an input reaches the action. Leaves report the default; each enclosing
+/// `cmd_args` scope rewrites it on the way up to the action's visitor.
+///
+/// A visitor that branches on the properties must destructure it without `..`, so that a new
+/// property is a compile error at every site that decides on it. Wrappers that only
+/// rewrite one property forward the rest with `..props`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct InputProperties {
+    /// Reached through some `cmd_args`'s `hidden` list; nothing renders it.
+    pub hidden: bool,
+}
+
 pub trait CommandLineArtifactVisitor<'v> {
-    fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>);
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        props: InputProperties,
+        tags: Vec<&ArtifactTag>,
+    );
 
     fn visit_declared_output(&mut self, artifact: OutputArtifact<'v>, tags: Vec<&ArtifactTag>);
 
@@ -50,10 +67,12 @@ pub trait CommandLineArtifactVisitor<'v> {
     fn visit_declared_artifact(
         &mut self,
         declared_artifact: DeclaredArtifact<'v>,
+        props: InputProperties,
         tags: Vec<&ArtifactTag>,
     ) -> buck2_error::Result<()> {
         self.visit_input(
             ArtifactGroup::Artifact(declared_artifact.ensure_bound()?.into_artifact()),
+            props,
             tags,
         );
         Ok(())
@@ -92,7 +111,12 @@ impl SimpleCommandLineArtifactVisitor<'_> {
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for SimpleCommandLineArtifactVisitor<'v> {
-    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        _props: InputProperties,
+        _tags: Vec<&ArtifactTag>,
+    ) {
         self.inputs.insert(input);
     }
 

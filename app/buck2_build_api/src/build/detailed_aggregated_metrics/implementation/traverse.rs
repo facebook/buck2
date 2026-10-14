@@ -27,6 +27,7 @@ use crate::deferred::calculation::ActionLookup;
 use crate::deferred::calculation::OwnedDeferredHolder;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::InputProperties;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash)]
@@ -160,7 +161,12 @@ impl<'a> Graph<'a> {
                 }
                 struct Visitor<'a, 'b, F: FnMut(Key)>(F, &'a Graph<'b>, buck2_error::Result<()>);
                 impl<'v, F: FnMut(Key)> CommandLineArtifactVisitor<'v> for Visitor<'_, '_, F> {
-                    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
+                    fn visit_input(
+                        &mut self,
+                        input: ArtifactGroup,
+                        _props: InputProperties,
+                        _tags: Vec<&ArtifactTag>,
+                    ) {
                         if self.2.is_err() {
                             return;
                         }

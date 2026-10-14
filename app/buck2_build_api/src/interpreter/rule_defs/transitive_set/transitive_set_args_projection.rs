@@ -45,6 +45,7 @@ use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::InputProperties;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -264,6 +265,7 @@ impl<'v> CommandLineArgLike<'v> for TransitiveSetArgsProjection<'v> {
                     .get(self.projection)?,
                 set.projection_is_eligible_for_dedupe.get(self.projection)?,
             ))),
+            InputProperties::default(),
             vec![],
         );
 

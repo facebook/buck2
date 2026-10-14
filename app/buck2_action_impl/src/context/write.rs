@@ -20,6 +20,7 @@ use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::InputProperties;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
@@ -107,7 +108,12 @@ impl CommandLineInputVisitor {
 }
 
 impl<'v> CommandLineArtifactVisitor<'v> for CommandLineInputVisitor {
-    fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
+    fn visit_input(
+        &mut self,
+        input: ArtifactGroup,
+        _props: InputProperties,
+        _tags: Vec<&ArtifactTag>,
+    ) {
         if self.with_associated_artifacts {
             self.associated_artifacts.insert(input.dupe());
         }
@@ -120,11 +126,12 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineInputVisitor {
     fn visit_declared_artifact(
         &mut self,
         declared_artifact: buck2_artifact::artifact::artifact_type::DeclaredArtifact<'v>,
+        props: InputProperties,
         tags: Vec<&ArtifactTag>,
     ) -> buck2_error::Result<()> {
         if self.with_associated_artifacts || declared_artifact.has_content_based_path() {
             let artifact = declared_artifact.ensure_bound()?.into_artifact();
-            self.visit_input(ArtifactGroup::Artifact(artifact), tags);
+            self.visit_input(ArtifactGroup::Artifact(artifact), props, tags);
         }
 
         Ok(())

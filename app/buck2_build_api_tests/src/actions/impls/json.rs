@@ -17,6 +17,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::InputProperties;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckMutMap;
@@ -41,7 +42,12 @@ fn test_tagging() -> buck2_error::Result<()> {
     }
 
     impl<'v> CommandLineArtifactVisitor<'v> for AssertVisitor {
-        fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>) {
+        fn visit_input(
+            &mut self,
+            input: ArtifactGroup,
+            _props: InputProperties,
+            tags: Vec<&ArtifactTag>,
+        ) {
             assert_eq!(tags, vec![&self.tag]);
             assert_eq!(input, ArtifactGroup::Artifact(self.artifact.dupe()));
         }
