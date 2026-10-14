@@ -103,3 +103,37 @@ def compile_typescript(
     )
 
     return out_dir
+
+def compile_module_typescript(actions: AnalysisActions, label: Label, tsc: RunInfo | None, module_dir: Artifact, identifier: str) -> Artifact:
+    """Compile a whole project directory with the toolchain's `tsc`, returning the emitted tree.
+
+    Emitted paths mirror source paths from the module root, so `src/main.ts`
+    emits `src/main.js` even when the `tsconfig` sets `rootDir: "src"`. The
+    module tsconfig must not require writes into the tree (no incremental or
+    composite state).
+    """
+    if tsc == None:
+        fail("nodejs_library {}: typescript compilation requires `tsc` on the nodejs toolchain".format(label))
+
+    out_dir = actions.declare_output("__tsc_mod__/" + identifier, dir = True)
+
+    cmd = cmd_args(
+        tsc,
+        "-p",
+        cmd_args(module_dir, format = "{}/tsconfig.json"),
+        "--outDir",
+        out_dir.as_output(),
+        "--rootDir",
+        module_dir,
+        "--declaration",
+        "--noEmit",
+        "false",
+    )
+
+    actions.run(
+        cmd,
+        category = "tsc_module_compile",
+        identifier = identifier,
+    )
+
+    return out_dir

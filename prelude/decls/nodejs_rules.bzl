@@ -63,6 +63,19 @@ nodejs_library = prelude_rule(
     packages with no `nodejs_library` target. It requires `tsconfig` and
     cannot be combined with `deps`: prebuilt trees cannot merge with
     package deps.
+    `module`, when set, compiles a whole project directory (a target whose
+    single output holds a `tsconfig.json` and its sources) instead of
+    compiling `srcs`: `tsc -p` runs on the module's own `tsconfig.json`
+    with `--outDir`, `--rootDir` (the
+    module root, overriding any `tsconfig` `rootDir`), `--declaration` and
+    `--noEmit false`,
+    and the emitted tree is staged as the package's `dist/`, mirroring
+    source paths (`src/main.ts` emits `dist/src/main.js`). It cannot be
+    combined with `srcs`, `resources`, `deps`, `node_modules` or `tsconfig`;
+    the module tsconfig must not require writes into the tree. Only the
+    emitted tree is staged, not the module's own `node_modules`: a
+    `nodejs_binary` running the package must supply that tree through its
+    own `node_modules`.
     The default output is the package's own directory
     (`package_dir`). The `[node_modules]` sub-target is the merged
     `node_modules` tree for this package and its transitive `deps`,
@@ -80,6 +93,8 @@ nodejs_library = prelude_rule(
             "tsconfig": attrs.option(attrs.source(allow_directory = False), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "node_modules": attrs.option(attrs.dep(), default = None),
+            "module": attrs.option(attrs.dep(), default = None),
+            "_exec_os_type": buck.exec_os_type_arg(),
             "_nodejs_toolchain": toolchains_common.nodejs(),
         }
         | buck.labels_arg()
@@ -133,18 +148,41 @@ nodejs_binary = prelude_rule(
     therefore cannot contain `/`), for hosts without Node. The package runs
     as `<name>/node <name>/<main>`;
     `args`, `node_args`, `env`, `NODE_PATH` and any flags or env the
-    toolchain's `node` wrapper adds are not applied there.""",
+    toolchain's `node` wrapper adds are not applied there.
+    With `library`, the entry is `<name>/node_modules/<package_name>/<entry_point>`.
+    The tree at index `<i>` of the `node_modules` attribute is staged as
+    `node_modules_tree_<i>`, which whoever runs the package must put on
+    `NODE_PATH`; with no merged tree, the first is staged as `node_modules`
+    instead.
+    `library`, when set, runs a file from inside a `nodejs_library`'s staged
+    package instead of `main`: `entry_point` names the file relative to the
+    package root (e.g. `"dist/main.js"`; a relative `/`-separated path with
+    no `:` and no `.` or `..` segments), and the library's transitive closure
+    (plus `deps`) forms the `node_modules`. `main`/`srcs` cannot be combined
+    with `library`; `entry_point` is required with it, and required to be
+    absent without it. `node_modules`, when set, appends prebuilt trees
+    (`nodejs_node_modules` targets) to `NODE_PATH` alongside any merged
+    `deps` tree; they are used as installed, so unlike the merged tree
+    they keep their `.d.ts` files.
+    On non-Windows executors, the merged tree stages each `nodejs_library`
+    package without its `.d.ts`/`.d.mts`/`.d.cts` files and their maps,
+    because Node's type stripping refuses declarations under `node_modules`;
+    the stripped copy is built once per library and shared by every consumer.
+    On Windows executors the merged tree keeps them.""",
     examples = None,
     further = None,
     attrs = (
         # @unsorted-dict-items
         {
-            "main": attrs.source(),
+            "main": attrs.option(attrs.source(), default = None),
             "srcs": attrs.list(attrs.source(), default = []),
             "args": attrs.list(attrs.arg(), default = []),
             "node_args": attrs.list(attrs.string(), default = []),
             "env": attrs.dict(attrs.string(), attrs.arg(), default = {}),
             "deps": attrs.list(attrs.dep(), default = []),
+            "library": attrs.option(attrs.dep(), default = None),
+            "entry_point": attrs.option(attrs.string(), default = None),
+            "node_modules": attrs.list(attrs.dep(), default = []),
             "package_style": attrs.enum(["inplace", "standalone"], default = "inplace"),
             "_nodejs_toolchain": toolchains_common.nodejs(),
             "_target_os_type": buck.target_os_type_arg(),
@@ -174,18 +212,24 @@ nodejs_test = prelude_rule(
     deps' `package_name` values must be unique, as for `nodejs_library`.
     It runs via a `command_alias` wrapper script for the target platform,
     which sets `env` (including `NODE_PATH` from `deps`) on Unix and
-    Windows.""",
+    Windows. `library`/`entry_point` run a file from inside a
+    `nodejs_library`, and `node_modules` appends prebuilt trees to
+    `NODE_PATH`, with the same combination rules and `.d.ts` stripping as
+    `nodejs_binary`.""",
     examples = None,
     further = None,
     attrs = (
         # @unsorted-dict-items
         {
-            "main": attrs.source(),
+            "main": attrs.option(attrs.source(), default = None),
             "srcs": attrs.list(attrs.source(), default = []),
             "args": attrs.list(attrs.arg(), default = []),
             "node_args": attrs.list(attrs.string(), default = []),
             "env": attrs.dict(attrs.string(), attrs.arg(), default = {}),
             "deps": attrs.list(attrs.dep(), default = []),
+            "library": attrs.option(attrs.dep(), default = None),
+            "entry_point": attrs.option(attrs.string(), default = None),
+            "node_modules": attrs.list(attrs.dep(), default = []),
             "_nodejs_toolchain": toolchains_common.nodejs(),
             "_target_os_type": buck.target_os_type_arg(),
         }

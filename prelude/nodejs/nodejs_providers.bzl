@@ -6,10 +6,13 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
+
 NodejsLibraryPackage = record(
     label = field(Label),
     package_dir = field(Artifact),
     package_name = field(str),
+    runtime_dir = field(Artifact),
 )
 
 NodejsLibraryTSet = transitive_set()
@@ -64,12 +67,19 @@ def get_transitive_outputs(actions: AnalysisActions, value: NodejsLibraryPackage
         kwargs["children"] = [info.transitive_outputs for info in deps]
     return actions.tset(NodejsLibraryTSet, **kwargs)
 
+def check_relative_path(path: str, error_prefix: str, allow_colon: bool = False) -> list[str]:
+    if not is_relative_slash_path(path) or (not allow_colon and ":" in path):
+        colon_rule = "" if allow_colon else " no ':' and"
+        fail("{} '{}': must be a relative path using '/' separators, with{} no '.' or '..' segments".format(error_prefix, path, colon_rule))
+    return path.split("/")
+
 def build_node_modules(
     actions: AnalysisActions,
     name: str,
     transitive_outputs: NodejsLibraryTSet,
     own_package: NodejsLibraryPackage | None = None,
     root_files: dict[str, Artifact] | None = None,
+    for_runtime: bool = False,
 ) -> Artifact:
     packages_by_name = {}
     if own_package != None:
@@ -92,11 +102,36 @@ def build_node_modules(
                     pkg.package_name, existing.label, pkg.label
                 )
             )
-    tree = {"node_modules/" + n: packages_by_name[n].package_dir for n in sorted(packages_by_name)}
+    tree = {"node_modules/" + n: packages_by_name[n].runtime_dir if for_runtime else packages_by_name[n].package_dir for n in sorted(packages_by_name)}
     for root_name, root_file in (root_files or {}).items():
-        if not is_relative_slash_path(root_name):
-            fail("invalid `root_files` path '{}': must be a relative path using '/' separators with no '.' or '..' segments".format(root_name))
-        if root_name.split("/")[0].lower() == "node_modules":
+        segments = check_relative_path(root_name, "invalid `root_files` path", allow_colon = True)
+        if packages_by_name and segments[0].lower() == "node_modules":
             fail("root file '{}' collides with the merged `node_modules` tree".format(root_name))
         tree[root_name] = root_file
     return actions.copied_dir(name, tree)
+
+def strip_type_declarations(actions: AnalysisActions, tree: Artifact, identifier: str, exec_os_type = None) -> Artifact:
+    """Copy a package without `.d.ts`/`.d.mts`/`.d.cts` files or their maps, for packages that Node runs.
+
+    Node's type stripping refuses declarations under `node_modules`, which breaks
+    directory scanners like `require-directory`. Symlinks are copied as their
+    targets, so declarations behind a linked file or directory are stripped too;
+    a symlink cycle fails the action. On Windows executors the tree is returned
+    unchanged.
+    """
+    is_windows = exec_os_type != None and exec_os_type[OsLookup].os == Os("windows")
+    if is_windows:
+        return tree
+    stripped = actions.declare_output(identifier, dir = True)
+    actions.run(
+        cmd_args(
+            "/bin/sh",
+            "-c",
+            'mkdir -p "$1" && cp -RL "$0/." "$1" && chmod -R u+w "$1" && find "$1" \\( -name "*.d.ts" -o -name "*.d.[mc]ts" -o -name "*.d.ts.map" -o -name "*.d.[mc]ts.map" \\) -delete',
+            tree,
+            stripped.as_output(),
+        ),
+        category = "strip_type_declarations",
+        identifier = identifier,
+    )
+    return stripped

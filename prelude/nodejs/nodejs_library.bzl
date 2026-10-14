@@ -14,9 +14,10 @@ load(
     "get_nodejs_dep_infos",
     "get_nodejs_tree_info",
     "get_transitive_outputs",
+    "strip_type_declarations",
 )
 load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
-load(":nodejs_typescript.bzl", "compile_typescript")
+load(":nodejs_typescript.bzl", "compile_module_typescript", "compile_typescript")
 
 def _fail_invalid(label: Label, package_name: str, reason: str, hint: str) -> None:
     fail("nodejs_library {}: invalid `package_name` '{}': {}{}".format(label, package_name, reason, hint))
@@ -72,6 +73,11 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
     _validate_package_name(ctx.label, package_name, is_default = is_default)
 
     dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label, non_code_attr = "resources")
+    if ctx.attrs.module != None:
+        if ctx.attrs.srcs or ctx.attrs.resources or dep_infos or ctx.attrs.node_modules != None:
+            fail("nodejs_library {}: `module` cannot be combined with `srcs`, `resources`, `deps` or `node_modules`".format(ctx.label))
+        if ctx.attrs.tsconfig != None:
+            fail("nodejs_library {}: `module` uses the module's own tsconfig.json; `tsconfig` cannot be combined with `module`".format(ctx.label))
     node_modules_tree = None
     if ctx.attrs.node_modules != None:
         if dep_infos:
@@ -79,7 +85,18 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
         node_modules_tree = get_nodejs_tree_info(ctx.attrs.node_modules, consumer_label = ctx.label).node_modules
 
     srcs_map = {}
-    if ctx.attrs.tsconfig != None:
+    if ctx.attrs.module != None:
+        module_outs = ctx.attrs.module[DefaultInfo].default_outputs
+        if len(module_outs) != 1:
+            fail("nodejs_library {}: `module` target `{}` must have exactly one default output".format(ctx.label, ctx.attrs.module.label))
+        srcs_map["dist"] = compile_module_typescript(
+            ctx.actions,
+            ctx.label,
+            ctx.attrs._nodejs_toolchain[NodejsToolchainInfo].tsc,
+            module_outs[0],
+            ctx.attrs.name,
+        )
+    elif ctx.attrs.tsconfig != None:
         if ctx.attrs.resources:
             fail("nodejs_library {}: `resources` cannot be combined with `tsconfig` yet".format(ctx.label))
         srcs_map["dist"] = compile_typescript(
@@ -127,6 +144,7 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
         label = ctx.label,
         package_dir = package_dir,
         package_name = package_name,
+        runtime_dir = strip_type_declarations(ctx.actions, package_dir, "runtime_dir", ctx.attrs._exec_os_type),
     )
     transitive_outputs = get_transitive_outputs(ctx.actions, value = own_package, deps = dep_infos)
     node_modules = build_node_modules(ctx.actions, "node_modules", transitive_outputs, own_package = own_package)
