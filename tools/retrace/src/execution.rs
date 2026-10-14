@@ -244,6 +244,11 @@ impl DetailWriter {
         })
     }
 
+    #[cfg(test)]
+    pub(crate) fn fail_writes_after(&mut self, additional_bytes: u64) {
+        self.fail_after = Some(self.bytes.saturating_add(additional_bytes));
+    }
+
     pub fn append_text(&mut self, text: &str) -> anyhow::Result<DetailRef> {
         let offset = self.bytes;
         self.write_all(text.as_bytes())?;

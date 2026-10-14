@@ -64,10 +64,16 @@ const fn with_details(mut opt: Opt, details: &'static str) -> Opt {
 const ABOUT: &str = "Explore a recorded buck2 build: its timeline, critical path, cascades, what-if replays \
      and per-action timing";
 
-const USAGE: &[&str] = &["retrace [OPTIONS] <INPUT>"];
+const USAGE: &[&str] = &[
+    "retrace [OPTIONS] <INPUT>",
+    "retrace [OPTIONS] --last",
+    "retrace ingest [--out=<DIR>] [--phases] <INPUT|--last>",
+];
 
-const INPUT_DETAILS: &str = "A trace JSON (`<id>-trace.json`), read with the dependency graph \
-     beside it. Record the action graph with `buck2 build --log-action-graph`.";
+const INPUT_DETAILS: &str = "A buck2 event log (.pb.zst, .pb.gz, .pb, .proto, .json-lines[.zst|.gz]), a \
+     Command ID (the UUID buck2 prints), or a trace JSON retrace wrote earlier. Event logs and \
+     Command IDs are converted first, and an unchanged conversion is reused. Record the action \
+     graph with `buck2 build --log-action-graph`.";
 
 pub const SECTIONS: &[Section] = &[
     Section {
@@ -99,6 +105,16 @@ pub const SECTIONS: &[Section] = &[
         heading: "Input Options",
         note: None,
         opts: &[
+            switch(
+                "--last",
+                "Open the newest local buck2 log instead of <INPUT>",
+            ),
+            with_details(
+                valued("--out", "=<DIR>", "Where converted files go"),
+                "Where converted files go [default: ~/.cache/retrace; for `retrace ingest`: the \
+                 current directory]",
+            ),
+            switch("--phases", "Print how long each conversion phase took"),
             with_details(
                 valued(
                     "--graph",
@@ -161,10 +177,15 @@ const HELP_OPT: (&str, &str, &str) = (
 );
 
 const EXAMPLES: &[(&str, &str)] = &[
-    ("retrace <trace.json>", "Summarize a build"),
+    ("retrace <command-id>", "Summarize a build"),
+    ("retrace --last", "Summarize the newest local build"),
     (
-        "retrace <trace.json> --json=critical-path --compact",
+        "retrace <log> --json=critical-path --compact",
         "Print the critical path as JSON",
+    ),
+    (
+        "retrace ingest --last --out=/tmp/rt",
+        "Convert without analyzing",
     ),
 ];
 
@@ -181,6 +202,9 @@ pub fn known_flags() -> Vec<String> {
         })
         .collect()
 }
+
+/// The `retrace ingest` flags: it reaches none of the analysis or window options.
+pub const INGEST_FLAGS: &[&str] = &["--last", "--out=", "--phases"];
 
 const WIDTH: usize = 100;
 const DETAIL_INDENT: usize = 10;
@@ -250,6 +274,13 @@ pub fn render(long: bool, styled: bool) -> String {
         let _ = writeln!(out, "{lead}{}", style.literal(usage));
     }
 
+    let _ = writeln!(out, "\n{}", style.heading("Commands:"));
+    let _ = writeln!(
+        out,
+        "  {}  Convert an event log into retrace's files without analyzing it",
+        style.literal("ingest")
+    );
+
     let _ = writeln!(out, "\n{}", style.heading("Arguments:"));
     if long {
         let _ = writeln!(
@@ -262,7 +293,7 @@ pub fn render(long: bool, styled: bool) -> String {
     } else {
         let _ = writeln!(
             out,
-            "  {}  A trace JSON (see more with '--help')",
+            "  {}  An event log, a Command ID or a trace JSON (see more with '--help')",
             style.literal("<INPUT>")
         );
     }
@@ -385,9 +416,13 @@ mod tests {
             has("--json") && has("--json="),
             "--json takes an optional value"
         );
+        assert!(has("--out=") && !has("--out"), "--out needs a value");
         assert!(
             has("--compact") && !has("--compact="),
             "--compact is a switch"
         );
+        for flag in INGEST_FLAGS {
+            assert!(has(flag), "{flag} is also a main flag");
+        }
     }
 }

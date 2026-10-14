@@ -678,6 +678,7 @@ pub(super) fn zstd_copy(path: &Path, complete: bool) -> PathBuf {
 pub(super) enum StructureCase {
     Complete,
     NoTouch,
+    MissingChunk,
     AliasCycle,
     Incomplete,
     ContradictoryDefinition,
@@ -740,6 +741,7 @@ pub(super) fn structural_log(dir: &Path, case: StructureCase) -> PathBuf {
                         }
                         footer.structure_defs = match case {
                             StructureCase::AliasCycle => 0,
+                            StructureCase::MissingChunk => 2,
                             _ => 1,
                         };
                         footer.aliases = if case == StructureCase::AliasCycle {

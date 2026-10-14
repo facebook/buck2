@@ -18,6 +18,9 @@ buck2_cli_proto.workspace = true
 buck2_data.workspace = true
 buck2_error.workspace = true
 buck2_event_log.workspace = true
+buck2_fs.workspace = true
+buck2_wrapper_common.workspace = true
+dirs.workspace = true
 futures.workspace = true
 fxhash.workspace = true
 prost.workspace = true
@@ -27,8 +30,11 @@ serde_json.workspace = true
 sha1.workspace = true
 tokio.workspace = true
 
-[dev-dependencies]
-buck2_fs.workspace = true
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc.workspace = true
 
 [lints]
 workspace = true

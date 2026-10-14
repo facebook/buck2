@@ -26,6 +26,43 @@ fn bin() -> String {
 }
 
 #[test]
+fn cli_syntax_is_validated_before_conversion() {
+    for args in [vec![""], vec!["ingest", ""]] {
+        let output = run(&args);
+        assert_eq!(output.status.code(), Some(2));
+        assert!(stderr(&output).contains("--last"), "{}", stderr(&output));
+    }
+    for args in [
+        vec!["missing.pb.zst", "extra"],
+        vec!["missing.pb.zst", "-run=2"],
+        vec!["missing.pb.zst", "--last"],
+        vec!["missing.pb.zst", "--threads=1", "--threads=2"],
+        vec!["missing.pb.zst", "--threads=no"],
+        vec!["missing.pb.zst", "--json=typo"],
+        vec!["missing.pb.zst", "--json=cp-rank", "--simulate="],
+        vec!["missing.pb.zst", "--json=cp-rank", "--simulate-config=typo"],
+        vec!["missing.pb.zst", "--json=cp-rank", "--scale=0.5"],
+        vec!["missing.pb.zst", "--repair-cycles"],
+        vec!["ingest", "missing.pb.zst", "extra"],
+    ] {
+        let output = run(&args);
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "{args:?}: {}",
+            stderr(&output)
+        );
+        assert!(
+            !stderr(&output).contains("No such file"),
+            "validation performed I/O: {args:?}"
+        );
+    }
+    assert!(run(&["--help"]).status.success());
+    assert!(run(&["-h"]).status.success());
+    assert!(run(&["ingest", "--help"]).status.success());
+}
+
+#[test]
 fn output_modes_refuse_conflicts_but_bench_can_extend_the_summary() {
     for (left, right, diagnostic) in [
         ("--json", "--stats", "choose one output mode"),
@@ -76,6 +113,14 @@ fn run(args: &[&str]) -> Output {
         .expect("binary runs")
 }
 
+fn run_env(args: &[&str], env: &[(&str, &str)]) -> Output {
+    let mut c = Command::new(bin());
+    c.args(args);
+    for (k, v) in env {
+        c.env(k, v);
+    }
+    c.output().expect("binary runs")
+}
 fn stdout(o: &Output) -> String {
     String::from_utf8_lossy(&o.stdout).into_owned()
 }
@@ -135,7 +180,13 @@ fn help_prints_to_stdout_and_succeeds() {
     let long = run(&["--help"]);
     assert_eq!(long.status.code(), Some(0));
     let text = String::from_utf8_lossy(&long.stdout).into_owned();
-    for heading in ["Usage:", "Arguments:", "Output Options:", "Examples:"] {
+    for heading in [
+        "Usage:",
+        "Commands:",
+        "Arguments:",
+        "Output Options:",
+        "Examples:",
+    ] {
         assert!(text.contains(heading), "--help has {heading}");
     }
     assert!(
@@ -187,6 +238,104 @@ fn usage_and_unknown_topic_refuse_with_2() {
         "{}",
         stderr(&o)
     );
+}
+
+#[test]
+fn command_only_logs_open_and_export_without_synthetic_actions() {
+    use retrace::ingest::testlog::CommandOnlyResult as R;
+    use retrace::ingest::testlog::command_only_log;
+    for (result, phases, outcome, kind) in [
+        (R::Success, true, "success", "aquery"),
+        (R::Error, false, "failed", "uquery"),
+        (R::TestFailure, false, "failed", "test"),
+        (R::Missing, false, "unknown", "aquery"),
+        (R::Unrecognized, false, "unknown", "aquery"),
+        (R::Truncated, true, "unknown", "aquery"),
+    ] {
+        let dir = std::env::temp_dir().join(format!(
+            "retrace-command-only-cli-{}-{result:?}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let log = command_only_log(&dir, result, phases);
+        let out_arg = format!("--out={}", dir.display());
+        let output = run(&[log.to_str().unwrap(), &out_arg, "--json=all", "--compact"]);
+        assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+        let value: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+        assert_eq!(value["trace"]["actions"], 0);
+        assert_eq!(value["trace"]["outcome"], outcome);
+        assert!(value["trace"]["graph"].is_null());
+        assert_eq!(value["command_profile"]["data"]["command_kind"], kind);
+        assert!(
+            value["command_profile"]["data"]["snapshots"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        for topic in ["critical_path", "longest", "top_memory"] {
+            assert_eq!(value[topic]["status"], "refused", "{value}");
+            assert!(
+                value[topic]["limitations"][0]
+                    .as_str()
+                    .unwrap()
+                    .contains("Not applicable")
+            );
+        }
+        if result == R::Error {
+            assert!(
+                value["command_profile"]["data"]["result_error"]
+                    .as_str()
+                    .unwrap()
+                    .contains("`%s` placeholder")
+            );
+        }
+        if phases {
+            assert_eq!(
+                value["command_profile"]["data"]["phases"][0]["completed"],
+                1
+            );
+        }
+        let trace = dir.join(format!("{}-trace.json", retrace::ingest::testlog::RUN_ID));
+        let selected = run(&[
+            trace.to_str().unwrap(),
+            "--run=1",
+            "--json=command-profile",
+            "--compact",
+        ]);
+        assert_eq!(selected.status.code(), Some(0), "{}", stderr(&selected));
+        assert_eq!(
+            run(&[
+                trace.to_str().unwrap(),
+                "--run=wrong",
+                "--json=command-profile"
+            ])
+            .status
+            .code(),
+            Some(2)
+        );
+        let cached = run(&[log.to_str().unwrap(), &out_arg, "--json=all", "--compact"]);
+        assert_eq!(cached.status.code(), Some(0), "{}", stderr(&cached));
+        let mut cached_value: serde_json::Value = serde_json::from_str(&stdout(&cached)).unwrap();
+        let mut fresh_value = value.clone();
+        for v in [&mut cached_value, &mut fresh_value] {
+            v["health"]["data"]
+                .as_object_mut()
+                .unwrap()
+                .remove("parse_ms");
+            v["health"]["data"]
+                .as_object_mut()
+                .unwrap()
+                .remove("index_ms");
+        }
+        assert_eq!(cached_value, fresh_value);
+        if matches!(result, R::Success | R::Error | R::TestFailure) {
+            assert!(stderr(&cached).contains("reusing cached conversion"));
+        }
+        let stats = run(&[trace.to_str().unwrap(), "--stats"]);
+        assert_eq!(stats.status.code(), Some(0));
+        assert!(stdout(&stats).contains("not applicable: no completed actions"));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }
 
 #[test]
@@ -483,6 +632,32 @@ fn cached_result_stages_and_nested_timings_reach_cli_without_extending_the_path(
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[test]
+fn ingest_verb_exports_the_pair_and_the_pair_feeds_the_pipeline() {
+    let d = ingest_dir("verb");
+    let log = retrace::ingest::testlog::demo_log(&d, Some(1), true, true);
+    let out_flag = format!("--out={}", d.display());
+
+    let o = run(&["ingest", &log.display().to_string(), &out_flag]);
+    assert_eq!(o.status.code(), Some(0), "stderr: {}", stderr(&o));
+    assert!(stdout(&o).contains("actions ("), "stdout: {}", stdout(&o));
+    assert!(
+        stdout(&o).contains("full dependency graph"),
+        "{}",
+        stdout(&o)
+    );
+
+    let trace = d.join(format!("{}-trace.json", retrace::ingest::testlog::RUN_ID));
+    let graph = d.join(format!("{}-graph.json", retrace::ingest::testlog::RUN_ID));
+    assert!(trace.exists() && graph.exists());
+
+    // The emitted pair drives the ordinary headless pipeline.
+    let o2 = run(&[&trace.display().to_string(), "--json=overview"]);
+    assert_eq!(o2.status.code(), Some(0), "stderr: {}", stderr(&o2));
+    let v: serde_json::Value = serde_json::from_str(&stdout(&o2)).unwrap();
+    assert!(v["overview"]["status"].is_string());
+    std::fs::remove_dir_all(&d).ok();
+}
 /// Declared counts and the rows actually loaded remain visible together.
 #[test]
 fn the_summary_line_reconciles_declared_counts() {
@@ -628,6 +803,149 @@ fn cyclic_and_malformed_graphs_never_report_available() {
     }
 }
 
+/// A complete log with an undefined projection is refused; the refusal
+/// exits 2 and publishes neither half of the pair nor any staging file.
+#[test]
+fn a_graph_refusal_exits_2_and_publishes_nothing() {
+    let d = ingest_dir("refusal");
+    let log = retrace::ingest::testlog::demo_log(&d, Some(1), false, true);
+    let out_flag = format!("--out={}", d.display());
+    let o = run(&["ingest", &log.display().to_string(), &out_flag]);
+    assert_eq!(o.status.code(), Some(2), "stderr: {}", stderr(&o));
+    assert!(
+        stderr(&o).contains("refusing to emit a silently-holed graph"),
+        "{}",
+        stderr(&o)
+    );
+    let left: Vec<String> = std::fs::read_dir(&d)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(
+        left.iter().all(|n| !n.ends_with("-trace.json")
+            && !n.ends_with("-graph.json")
+            && !n.ends_with(".partial")),
+        "{left:?}"
+    );
+    std::fs::remove_dir_all(&d).ok();
+}
+
+#[test]
+fn viewing_a_log_defaults_its_artifacts_to_the_cache_dir_not_cwd() {
+    let d = ingest_dir("cachedefault");
+    let log = retrace::ingest::testlog::demo_log(&d, Some(1), true, true);
+    let cache = d.join("xdg-cache");
+
+    // No --out: the auto-route must not write into the working
+    // directory — a `retrace --last` runs from inside a repo.
+    let o = run_env(
+        &[&log.display().to_string(), "--json=critical-path"],
+        &[("XDG_CACHE_HOME", &cache.display().to_string())],
+    );
+    assert_eq!(o.status.code(), Some(0), "stderr: {}", stderr(&o));
+    let trace = cache
+        .join("retrace")
+        .join(format!("{}-trace.json", retrace::ingest::testlog::RUN_ID));
+    assert!(trace.exists(), "expected {}", trace.display());
+    std::fs::remove_dir_all(&d).ok();
+}
+
+#[test]
+fn a_log_positional_ingests_then_analyzes_with_clean_stdout() {
+    let d = ingest_dir("route");
+    let log = retrace::ingest::testlog::demo_log(&d, Some(1), true, true);
+    let out_flag = format!("--out={}", d.display());
+
+    let o = run(&[
+        &log.display().to_string(),
+        "--json=critical-path",
+        &out_flag,
+    ]);
+    assert_eq!(o.status.code(), Some(0), "stderr: {}", stderr(&o));
+    // stdout is pure JSON; the ingest status went to stderr.
+    let v: serde_json::Value = serde_json::from_str(&stdout(&o)).unwrap();
+    assert!(v["critical_path"]["status"].is_string());
+    assert!(stderr(&o).contains("actions ("), "stderr: {}", stderr(&o));
+    std::fs::remove_dir_all(&d).ok();
+}
+
+#[test]
+#[cfg(unix)]
+fn reopening_a_log_reuses_the_pair_and_explicit_ingest_refreshes_it() {
+    use std::os::unix::fs::MetadataExt;
+    let d = ingest_dir("reuse-conversion");
+    let log = retrace::ingest::testlog::demo_log(&d, Some(1), true, true);
+    let log_arg = log.display().to_string();
+    let out_flag = format!("--out={}", d.display());
+    let args = [&*log_arg, "--json=critical-path", &*out_flag];
+    let first = run(&args);
+    assert_eq!(first.status.code(), Some(0), "{}", stderr(&first));
+    assert!(stderr(&first).contains("converting"));
+    let trace = d.join(format!("{}-trace.json", retrace::ingest::testlog::RUN_ID));
+    let graph = d.join(format!("{}-graph.json", retrace::ingest::testlog::RUN_ID));
+    let stamp = |p: &std::path::PathBuf| {
+        let m = std::fs::metadata(p).unwrap();
+        (m.modified().unwrap(), m.ino(), m.ctime(), m.ctime_nsec())
+    };
+    let times = [&trace, &graph].map(stamp);
+    let second = run(&args);
+    assert_eq!(second.status.code(), Some(0), "{}", stderr(&second));
+    assert!(stderr(&second).contains("reusing cached conversion"));
+    assert!(!stderr(&second).contains("retrace: converting"));
+    assert_eq!(
+        [&trace, &graph].map(stamp),
+        times,
+        "a cache hit does not rewrite the artifact pair"
+    );
+    let a: serde_json::Value = serde_json::from_str(&stdout(&first)).unwrap();
+    let b: serde_json::Value = serde_json::from_str(&stdout(&second)).unwrap();
+    assert_eq!(a["critical_path"]["data"], b["critical_path"]["data"]);
+    let forced = run(&["ingest", &log_arg, &out_flag]);
+    assert_eq!(forced.status.code(), Some(0), "{}", stderr(&forced));
+    assert!(!stdout(&forced).contains("reusing cached conversion"));
+    let phases = run(&[&log_arg, "--json=critical-path", &out_flag, "--phases"]);
+    assert_eq!(phases.status.code(), Some(0), "{}", stderr(&phases));
+    assert!(stderr(&phases).contains("converting"));
+    std::fs::remove_dir_all(&d).ok();
+}
+
+#[test]
+fn ingest_refuses_a_source_it_cannot_classify() {
+    let o = run(&["ingest", "not-a-log.txt"]);
+    assert_eq!(o.status.code(), Some(2));
+    assert!(stderr(&o).contains("not an event log"), "{}", stderr(&o));
+
+    let o2 = run(&["ingest"]);
+    assert_eq!(o2.status.code(), Some(2));
+    assert!(stderr(&o2).contains("--last"), "{}", stderr(&o2));
+}
+
+#[test]
+fn ingest_refuses_flags_outside_its_own_set() {
+    let d = ingest_dir("flags");
+    let log = retrace::ingest::testlog::demo_log(&d, Some(1), true, true);
+    let out_flag = format!("--out={}", d.display());
+    let log_arg = log.display().to_string();
+
+    // Analysis flags belong to the viewer, not to the verb: accepting
+    // one silently would export the pair and drop the flag on the
+    // floor, which reads as if it had been honoured.
+    for bad in ["--json=overview", "--stats", "--stets"] {
+        let o = run(&["ingest", &log_arg, &out_flag, bad]);
+        assert_eq!(o.status.code(), Some(2), "{bad}: {}", stderr(&o));
+        assert!(
+            stderr(&o).contains(&format!("unknown option {bad}")),
+            "{bad}: {}",
+            stderr(&o)
+        );
+    }
+
+    // ... while its own three still work.
+    let o = run(&["ingest", &log_arg, &out_flag, "--phases"]);
+    assert_eq!(o.status.code(), Some(0), "stderr: {}", stderr(&o));
+    std::fs::remove_dir_all(&d).ok();
+}
+
 #[test]
 fn action_detail_reads_one_record_without_loading_the_graph_or_all_extras() {
     let source = fixture("activity-trace.json");
@@ -691,6 +1009,50 @@ fn action_detail_reads_one_record_without_loading_the_graph_or_all_extras() {
         &format!("--graph={}", graph.display()),
     ]);
     assert_eq!(explicit.status.code(), Some(2), "{}", stderr(&explicit));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn last_and_command_id_resolve_a_local_log_from_inside_the_checkout() {
+    use retrace::ingest::testlog::CommandOnlyResult;
+    use retrace::ingest::testlog::RUN_ID;
+    use retrace::ingest::testlog::command_only_log;
+
+    let dir = ingest_dir("local-resolution");
+    std::fs::write(dir.join(".buckconfig"), "[project]\n").unwrap();
+    let logs = dir.join("buck-out/v2/log");
+    std::fs::create_dir_all(&logs).unwrap();
+    let source = command_only_log(&dir, CommandOnlyResult::Success, true);
+    let log = logs.join(format!("20260918-000000_aquery_{RUN_ID}_events.pb"));
+    std::fs::rename(source, log).unwrap();
+    let cwd = dir.join("nested/working-directory");
+    std::fs::create_dir_all(&cwd).unwrap();
+    // Buck may supply a checkout-relative artifact path. Resolve it before
+    // changing the child's working directory to the fixture checkout.
+    let executable = std::fs::canonicalize(bin()).unwrap();
+    for (selector, suffix) in [("--last", "last"), (RUN_ID, "id")] {
+        // Separate outputs prevent the UUID path from reusing the --last
+        // receipt, so both local resolution routes are exercised.
+        let out = dir.join(suffix);
+        let output = Command::new(&executable)
+            .current_dir(&cwd)
+            // A regression cannot silently fall back to a real download.
+            .env("PATH", dir.join("no-helper-binaries"))
+            .args([
+                selector,
+                "--json=command-profile",
+                "--compact",
+                &format!("--out={}", out.display()),
+            ])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(value["command_profile"]["data"]["run"], RUN_ID);
+        assert_eq!(value["command_profile"]["data"]["command_kind"], "aquery");
+        assert!(out.join(format!("{RUN_ID}-trace.json")).is_file());
+        assert!(!stderr(&output).contains("downloading"));
+    }
     std::fs::remove_dir_all(dir).unwrap();
 }
 

@@ -18,6 +18,7 @@
 //! in-flight work, not the retained graph or an accepted oversized record.
 
 const DECODE_MAX: usize = 4;
+const TRACE_EMIT_MAX: usize = 8;
 const GRAPH_MAX: usize = 4;
 const TRACE_PARSE_MAX: usize = 16;
 
@@ -33,6 +34,15 @@ fn pool(cores: usize, coordinators: usize, ceiling: usize) -> usize {
 /// ordered reducer, so a one- or two-core machine keeps the serial path.
 pub(crate) fn decode_workers() -> usize {
     pool(available(), 2, DECODE_MAX)
+}
+
+/// Zero selects the serial writer. A parallel writer owns one coordinator.
+pub(crate) fn trace_emit_workers() -> usize {
+    pool(available(), 1, TRACE_EMIT_MAX)
+}
+
+pub(crate) fn graph_emit_workers() -> usize {
+    pool(available(), 1, GRAPH_MAX)
 }
 
 fn trace_limit(requested: usize) -> usize {
@@ -76,9 +86,11 @@ mod tests {
             let decode = pool(cores, 2, DECODE_MAX);
             assert!(decode <= DECODE_MAX);
             assert!(decode == 0 || decode + 2 <= budget);
-            let emit = pool(cores, 1, GRAPH_MAX);
-            assert!(emit <= GRAPH_MAX);
-            assert!(emit == 0 || emit < budget);
+            for cap in [TRACE_EMIT_MAX, GRAPH_MAX] {
+                let emit = pool(cores, 1, cap);
+                assert!(emit <= cap);
+                assert!(emit == 0 || emit < budget);
+            }
         }
         assert_eq!(pool(2, 2, DECODE_MAX), 0);
         assert_eq!(pool(3, 2, DECODE_MAX), 1);

@@ -63,6 +63,64 @@ fn usage_error() -> ! {
     std::process::exit(2);
 }
 
+/// `retrace ingest …`: headless export, converter-style status lines
+/// on stdout.
+fn ingest_main(args: &[String]) -> ! {
+    let positional = validate_args(args, retrace::help::INGEST_FLAGS);
+    let source = if args.iter().any(|a| a == "--last") {
+        retrace::ingest::Source::Last
+    } else {
+        match positional {
+            Some(arg) => retrace::ingest::classify_source(arg).unwrap_or_else(|| {
+                refuse(&format!(
+                    "{arg}: not an event log (known extensions: .pb.zst, .pb.gz, .pb, \
+                     .proto, .json-lines[.zst|.gz]) or a Command ID"
+                ))
+            }),
+            None => refuse("ingest wants an event-log path, a Command ID, or --last"),
+        }
+    };
+    let out = run_ingest(&source, args, std::path::Path::new("."), false);
+    for line in &out.status_lines {
+        println!("{line}");
+    }
+    std::process::exit(0);
+}
+
+/// Shared ingest driver: resolves `--out=`/`--phases`, refuses on
+/// error, and reports warnings on stderr.  `default_out` is the verb's
+/// own: an explicit `retrace ingest` exports where it is invoked, the
+/// viewer auto-route does not (see `ingest::default_out_dir`).
+/// Only the viewer auto-route reuses completed conversions.
+fn run_ingest(
+    source: &retrace::ingest::Source,
+    args: &[String],
+    default_out: &std::path::Path,
+    reuse: bool,
+) -> retrace::ingest::IngestOutput {
+    let out_dir = args
+        .iter()
+        .find_map(|a| a.strip_prefix("--out="))
+        .map_or_else(|| default_out.to_owned(), std::path::PathBuf::from);
+    let phases = args.iter().any(|a| a == "--phases");
+    // a command line names the checkout by being run inside it, so the
+    // working directory is the right place to start looking for its logs
+    let from = std::env::current_dir().unwrap_or_else(|e| refuse(&format!("{e}")));
+    let ingest = if reuse {
+        retrace::ingest::run_cached
+    } else {
+        retrace::ingest::run
+    };
+    let out = match ingest(source, &out_dir, &from, phases) {
+        Ok(out) => out,
+        Err(e) => refuse(&format!("{e:#}")),
+    };
+    for w in &out.warnings {
+        eprintln!("warning: {w}");
+    }
+    out
+}
+
 fn refuse(msg: &str) -> ! {
     eprintln!("retrace: {msg}");
     std::process::exit(2);
@@ -176,10 +234,31 @@ fn main() {
         std::process::exit(0);
     }
     // options may appear in any position
+    // the ingest verb owns its own small argument world
+    if args.first().map(String::as_str) == Some("ingest") {
+        ingest_main(&args[1..]);
+    }
     let path = match validate_args(&args, &retrace::help::known_flags()) {
         Some(p) => p.clone(),
+        None if args.iter().any(|a| a == "--last") => String::new(),
         None => usage_error(),
     };
+    // A positional that names a log (or a build id, or --last) gets
+    // ingested first; the produced trace then flows through the
+    // normal pipeline.  Status goes to stderr so --json stdout stays
+    // machine-readable.
+    let ingest_source = if path.is_empty() {
+        Some(retrace::ingest::Source::Last)
+    } else {
+        retrace::ingest::classify_source(&path)
+    };
+    if ingest_source.is_none()
+        && args
+            .iter()
+            .any(|a| a == "--phases" || a.starts_with("--out="))
+    {
+        refuse("--out and --phases apply to event logs / Command IDs, not trace JSON");
+    }
     let mut opts = parse::LoadOpts::default();
     if let Some(v) = args
         .iter()
@@ -282,6 +361,17 @@ fn main() {
             && w.iter()
                 .all(|t| matches!(t.as_str(), "command-profile" | "action-detail"))
     });
+
+    let path = match ingest_source {
+        Some(source) => {
+            let out = run_ingest(&source, &args, &retrace::ingest::default_out_dir(), true);
+            for line in &out.status_lines {
+                eprintln!("{line}");
+            }
+            out.trace_path.to_string_lossy().into_owned()
+        }
+        None => path,
+    };
 
     let mut tr = match parse::parse_opts(&path, &opts) {
         Ok(tr) => tr,

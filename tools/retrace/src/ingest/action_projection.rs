@@ -244,3 +244,219 @@ fn status_name(c: &buck2_data::CommandExecution) -> &'static str {
         None => "Unknown",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::path::Path;
+    use std::sync::atomic::AtomicU64;
+    use std::sync::atomic::Ordering;
+
+    use prost::Message as _;
+
+    use super::*;
+    use crate::ingest::Staged;
+    use crate::ingest::emit;
+    use crate::ingest::infer;
+    use crate::ingest::scan;
+    use crate::ingest::testlog;
+
+    static NEXT_DIR: AtomicU64 = AtomicU64::new(0);
+
+    // The fixture is independently decoded here, not rebuilt from the Scan's
+    // already-projected fields. Pairing remains sequential like the reducer.
+    fn project_fixture(path: &Path) -> Vec<ProjectedAction> {
+        use buck2_cli_proto::command_progress::Progress;
+        use buck2_data::buck_event::Data;
+
+        let input = std::fs::read(path).unwrap();
+        let mut input = input.as_slice();
+        buck2_data::Invocation::decode_length_delimited(&mut input).unwrap();
+        let mut starts = HashMap::new();
+        let mut projected = Vec::new();
+        while !input.is_empty() {
+            let frame =
+                buck2_cli_proto::CommandProgress::decode_length_delimited(&mut input).unwrap();
+            let Some(Progress::Event(event)) = frame.progress else {
+                continue;
+            };
+            let Some(timestamp) = event.timestamp.as_ref().map(ts_us) else {
+                continue;
+            };
+            match event.data {
+                Some(Data::SpanStart(buck2_data::SpanStartEvent {
+                    data: Some(buck2_data::span_start_event::Data::ActionExecution(start)),
+                })) => {
+                    starts.insert(event.span_id, (timestamp, start));
+                }
+                Some(Data::SpanEnd(end)) => {
+                    let duration = end.duration.as_ref().map(dur_us).unwrap_or(0);
+                    if let Some(buck2_data::span_end_event::Data::ActionExecution(end)) = end.data
+                        && let Some((ts, start)) = starts.remove(&event.span_id)
+                    {
+                        projected.push(project_action(event.span_id, ts, duration, start, end));
+                    }
+                }
+                _ => {}
+            }
+        }
+        projected
+    }
+
+    fn emit_pair(scan: scan::Scan, dir: &Path, label: &str) -> (Vec<u8>, Option<Vec<u8>>) {
+        let trace = Staged::beside(dir.join(format!("{label}-trace.json")));
+        let graph = Staged::beside(dir.join(format!("{label}-graph.json")));
+        let summary = emit::emit(scan, &trace, Some(&graph), false).unwrap();
+        let graph_bytes = match summary.graph {
+            emit::GraphOutcome::Written => Some(std::fs::read(&graph.write_to).unwrap()),
+            emit::GraphOutcome::NotWritten => None,
+        };
+        (std::fs::read(&trace.write_to).unwrap(), graph_bytes)
+    }
+
+    fn assert_fixture_parity(make_log: impl FnOnce(&Path) -> std::path::PathBuf) {
+        let dir = std::env::temp_dir().join(format!(
+            "retrace-action-projection-{}-{}",
+            std::process::id(),
+            NEXT_DIR.fetch_add(1, Ordering::Relaxed),
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let log = make_log(&dir);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let reference = runtime.block_on(scan::scan(&infer(&log).unwrap())).unwrap();
+        let mut actual = runtime.block_on(scan::scan(&infer(&log).unwrap())).unwrap();
+        let projected = project_fixture(&log);
+        assert_eq!(projected.len(), reference.actions.len());
+        actual.actions = projected
+            .into_iter()
+            .zip(&reference.actions)
+            .map(|(mut projected, expected)| {
+                assert_eq!(projected.record.sid, expected.sid);
+                assert_eq!(projected.cfg, reference.cfg_names[expected.cfg as usize]);
+                assert_eq!(
+                    projected.category,
+                    reference.category_names[expected.category as usize]
+                );
+                assert_eq!(projected.record.dep_span_ids, expected.dep_span_ids);
+                assert_eq!(projected.record.dep_action_keys, expected.dep_action_keys);
+                assert_eq!(projected.record.dep_tset_ids, expected.dep_tset_ids);
+                projected.record.cfg = expected.cfg;
+                projected.record.category = expected.category;
+                projected.record
+            })
+            .collect();
+        assert_eq!(
+            emit_pair(actual, &dir, "worker"),
+            emit_pair(reference, &dir, "reference")
+        );
+    }
+
+    #[test]
+    fn owned_projection_matches_serial_projection_and_artifact_bytes() {
+        assert_fixture_parity(|d| testlog::demo_log(d, Some(1), true, true));
+        assert_fixture_parity(testlog::cache_hit_log);
+        for (kind, hit) in [
+            (2, false),
+            (2, true),
+            (3, false),
+            (7, false),
+            (9, false),
+            (10, false),
+        ] {
+            for local_attempt in [false, true] {
+                assert_fixture_parity(|d| {
+                    testlog::cached_execution_log(d, kind, hit, local_attempt)
+                });
+            }
+        }
+    }
+
+    #[test]
+    fn upload_outcomes_match_reference_artifact_bytes() {
+        for (cache, dep_file) in [(0, 0), (6, 1), (i32::MAX, -1)] {
+            assert_fixture_parity(|dir| {
+                let path = testlog::demo_log(dir, Some(1), true, true);
+                testlog::rewrite(&path, |records| {
+                    for record in records {
+                        let Some(buck2_cli_proto::command_progress::Progress::Event(event)) =
+                            &mut record.progress
+                        else {
+                            continue;
+                        };
+                        let Some(buck2_data::buck_event::Data::SpanEnd(end)) = &mut event.data
+                        else {
+                            continue;
+                        };
+                        if let Some(buck2_data::span_end_event::Data::ActionExecution(action)) =
+                            &mut end.data
+                        {
+                            action.cache_upload_result = cache;
+                            action.dep_file_cache_upload_result = dep_file;
+                            action.allows_cache_upload = false;
+                        }
+                    }
+                });
+                path
+            });
+        }
+    }
+
+    #[test]
+    fn names_and_owner_fallbacks_are_preserved_before_interning() {
+        use buck2_data::action_key::Owner;
+
+        let start = buck2_data::ActionExecutionStart {
+            key: Some(buck2_data::ActionKey {
+                owner: Some(Owner::TargetLabel(buck2_data::ConfiguredTargetLabel {
+                    label: Some(buck2_data::TargetLabel {
+                        package: "fbcode//démo".to_owned(),
+                        name: "target".to_owned(),
+                    }),
+                    configuration: Some(buck2_data::Configuration {
+                        full_name: "cfg:x".to_owned(),
+                    }),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }),
+            name: Some(buck2_data::ActionName {
+                category: " rustc ".to_owned(),
+                identifier: " lib.rs ".to_owned(),
+            }),
+            ..Default::default()
+        };
+        let p = project_action(17, 10, 20, start, Box::default());
+        assert_eq!(p.record.full_target, "fbcode//démo:target (rustc   lib.rs)");
+        assert_eq!(p.record.short(), "target (rustc   lib.rs)");
+        assert_eq!(p.cfg, "cfg:x");
+        assert_eq!(p.category, " rustc ");
+        assert_eq!((p.record.cfg, p.record.category), (0, 0));
+        for (owner, label) in [
+            (Some(Owner::BxlKey(Default::default())), "BxlKey"),
+            (
+                Some(Owner::TestTargetLabel(Default::default())),
+                "TestTargetLabel",
+            ),
+            (Some(Owner::AnonTarget(Default::default())), "AnonTarget"),
+            (
+                Some(Owner::LocalResourceSetup(Default::default())),
+                "LocalResourceSetup",
+            ),
+            (None, "?"),
+        ] {
+            let start = buck2_data::ActionExecutionStart {
+                key: Some(buck2_data::ActionKey {
+                    owner,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+            let p = project_action(17, 10, 20, start, Box::default());
+            assert_eq!(p.record.full_target, format!("?:{label} ()"));
+            assert!(p.cfg.is_empty() && p.category.is_empty());
+        }
+    }
+}

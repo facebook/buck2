@@ -2498,6 +2498,392 @@ mod new_stage_tests {
 }
 
 #[cfg(test)]
+mod execution_tests {
+    use prost::Message as _;
+
+    use super::*;
+    use crate::execution;
+
+    fn timestamp(us: i64) -> prost_types::Timestamp {
+        prost_types::Timestamp {
+            seconds: 1_700_000_000,
+            nanos: (us * 1000) as i32,
+        }
+    }
+
+    fn event(us: i64, sid: u64, parent: u64, data: buck2_data::buck_event::Data) -> StreamValue {
+        StreamValue::Event(Box::new(buck2_data::BuckEvent {
+            timestamp: Some(timestamp(us)),
+            span_id: sid,
+            parent_id: parent,
+            data: Some(data),
+            ..Default::default()
+        }))
+    }
+
+    fn start(
+        us: i64,
+        sid: u64,
+        parent: u64,
+        data: buck2_data::span_start_event::Data,
+    ) -> StreamValue {
+        event(
+            us,
+            sid,
+            parent,
+            buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
+                data: Some(data),
+            }),
+        )
+    }
+
+    fn end(
+        us: i64,
+        sid: u64,
+        duration: i64,
+        data: buck2_data::span_end_event::Data,
+    ) -> StreamValue {
+        event(
+            us,
+            sid,
+            0,
+            buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
+                duration: Some(prost_types::Duration {
+                    seconds: 0,
+                    nanos: (duration * 1000) as i32,
+                }),
+                data: Some(data),
+                ..Default::default()
+            }),
+        )
+    }
+
+    fn local() -> buck2_data::LocalCommand {
+        buck2_data::LocalCommand {
+            argv: vec![
+                "python3.12".to_owned(),
+                "rustc_action.py".to_owned(),
+                "@args".to_owned(),
+            ],
+            env: vec![buck2_data::EnvironmentEntry {
+                key: "EXPLICIT".to_owned(),
+                value: "value".to_owned(),
+            }],
+            action_digest: "local:148".to_owned(),
+            ..Default::default()
+        }
+    }
+
+    fn fixture() -> Vec<StreamValue> {
+        use buck2_data::command_execution::Status;
+        use buck2_data::command_execution_kind::Command;
+        use buck2_data::local_stage::Stage as Local;
+        use buck2_data::span_end_event::Data as End;
+        use buck2_data::span_start_event::Data as Start;
+        let execute = || {
+            Start::ExecutorStage(buck2_data::ExecutorStageStart {
+                stage: Some(buck2_data::executor_stage_start::Stage::Local(
+                    buck2_data::LocalStage {
+                        stage: Some(Local::Execute(buck2_data::LocalExecute {
+                            command: Some(local()),
+                        })),
+                    },
+                )),
+            })
+        };
+        vec![
+            start(0, 10, 0, Start::ActionExecution(Default::default())),
+            start(5, 11, 10, execute()),
+            end(60, 11, 55, End::ExecutorStage(Default::default())),
+            // A resource-control restart is another observation, not proof of
+            // another report. Its cancellation is not command-output evidence.
+            start(70, 12, 10, execute()),
+            end(100, 12, 30, End::SpanCancelled(Default::default())),
+            // The action can finish without this command start's own end;
+            // preserve its source evidence but do not synthesize a stage end.
+            start(
+                101,
+                13,
+                10,
+                Start::ExecutorStage(buck2_data::ExecutorStageStart {
+                    stage: Some(buck2_data::executor_stage_start::Stage::Local(
+                        buck2_data::LocalStage {
+                            stage: Some(Local::WorkerInit(buck2_data::WorkerInit {
+                                command: Some(buck2_data::WorkerInitCommand {
+                                    argv: vec!["worker".to_owned()],
+                                    env: Vec::new(),
+                                }),
+                            })),
+                        },
+                    )),
+                }),
+            ),
+            end(
+                200,
+                10,
+                200,
+                End::ActionExecution(Box::new(buck2_data::ActionExecutionEnd {
+                    commands: vec![
+                        buck2_data::CommandExecution {
+                            status: Some(Status::Failure(Default::default())),
+                            details: Some(buck2_data::CommandExecutionDetails {
+                                command_kind: Some(buck2_data::CommandExecutionKind {
+                                    command: Some(Command::LocalCommand(local())),
+                                }),
+                                cmd_stdout: "first attempt stdout\n".to_owned(),
+                                cmd_stderr: "first attempt stderr\n".to_owned(),
+                                signed_exit_code: Some(1),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        },
+                        buck2_data::CommandExecution {
+                            status: Some(Status::Cancelled(Default::default())),
+                            details: None,
+                            ..Default::default()
+                        },
+                        buck2_data::CommandExecution {
+                            status: Some(Status::Success(Default::default())),
+                            details: Some(buck2_data::CommandExecutionDetails {
+                                command_kind: Some(buck2_data::CommandExecutionKind {
+                                    command: Some(Command::OmittedLocalCommand(
+                                        buck2_data::OmittedLocalCommand {
+                                            action_digest: "local:148".to_owned(),
+                                        },
+                                    )),
+                                }),
+                                cmd_stderr: "warning: unstable -Ctarget-feature=v9a\n".to_owned(),
+                                signed_exit_code: Some(0),
+                                metadata: Some(buck2_data::CommandExecutionMetadata {
+                                    client_start_time: Some(timestamp(10)),
+                                    wall_time: Some(prost_types::Duration {
+                                        seconds: 0,
+                                        nanos: 190_000,
+                                    }),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        },
+                    ],
+                    execution_kind: buck2_data::ActionExecutionKind::Local as i32,
+                    ..Default::default()
+                })),
+            ),
+            // A late start has no live enclosing action. It must not attach
+            // retrospectively to a completed action's execution manifest.
+            start(210, 14, 10, execute()),
+            start(220, 20, 0, Start::ActionExecution(Default::default())),
+            start(225, 21, 20, execute()),
+            // Open action 20 never produces a finished row/manifest.
+            StreamValue::Result(Box::default()),
+        ]
+    }
+
+    fn fixture_log(dir: &std::path::Path, broken: bool) -> EventLogPathBuf {
+        std::fs::create_dir_all(dir).unwrap();
+        let mut bytes = buck2_data::Invocation {
+            trace_id: Some(crate::ingest::testlog::RUN_ID.to_owned()),
+            start_time: Some(timestamp(0)),
+            ..Default::default()
+        }
+        .encode_length_delimited_to_vec();
+        for (index, item) in fixture().into_iter().enumerate() {
+            if broken && index == 7 {
+                // A framed protobuf with an invalid tag; later records must
+                // not be reduced or written even when decoded speculatively.
+                bytes.extend([1, 0]);
+            }
+            let progress = match item {
+                StreamValue::Event(event) => {
+                    buck2_cli_proto::command_progress::Progress::Event(event)
+                }
+                StreamValue::Result(result) => {
+                    buck2_cli_proto::command_progress::Progress::Result(result)
+                }
+                StreamValue::PartialResult(result) => {
+                    buck2_cli_proto::command_progress::Progress::PartialResult(result)
+                }
+            };
+            bytes.extend(
+                buck2_cli_proto::CommandProgress {
+                    progress: Some(progress),
+                }
+                .encode_length_delimited_to_vec(),
+            );
+        }
+        let path = dir.join("input.pb");
+        std::fs::write(&path, bytes).unwrap();
+        crate::ingest::infer(&path).unwrap()
+    }
+
+    #[test]
+    fn serial_and_worker_details_are_identical_lazy_and_report_complete() {
+        let dir = std::env::temp_dir().join(format!(
+            "retrace-execution-ingest-parity-{}",
+            std::process::id()
+        ));
+        let log = fixture_log(&dir, false);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let mut expected = None;
+        for phases in [false, true] {
+            for workers in [0, 1, 4] {
+                let staged = crate::ingest::Staged::beside(dir.join("execution.bin"));
+                let mut writer = execution::DetailWriter::create(&staged.write_to).unwrap();
+                let scan = runtime
+                    .block_on(scan_with_workers_and_details(
+                        &log,
+                        phases,
+                        workers,
+                        Some(&mut writer),
+                    ))
+                    .unwrap();
+                assert_eq!(scan.actions.len(), 1);
+                assert!(scan.incomplete.is_none());
+                assert_eq!(
+                    scan.stages[&10].len(),
+                    2,
+                    "open worker start is not a completed stage"
+                );
+                let info = writer.finish().unwrap();
+                let bytes = std::fs::read(&staged.write_to).unwrap();
+                if let Some(expected) = &expected {
+                    assert_eq!(&bytes, expected);
+                } else {
+                    expected = Some(bytes);
+                }
+                execution::stamp(&staged.write_to, &scan.trace_id, "test-capture", &info).unwrap();
+                let reader = execution::DetailReader::open(
+                    &staged.write_to,
+                    &scan.trace_id,
+                    "test-capture",
+                    &info,
+                )
+                .unwrap();
+                let loaded = reader
+                    .action(scan.actions[0].execution.unwrap(), 10)
+                    .unwrap();
+                assert_eq!(
+                    loaded
+                        .attempts
+                        .iter()
+                        .map(|a| a.status.as_str())
+                        .collect::<Vec<_>>(),
+                    ["Failure", "Cancelled", "Success"]
+                );
+                assert_eq!(
+                    loaded
+                        .observations
+                        .iter()
+                        .map(|o| o.span_id)
+                        .collect::<Vec<_>>(),
+                    [11, 12, 13]
+                );
+                assert_eq!(
+                    loaded.attempts[0].command.as_ref().unwrap().env,
+                    [("EXPLICIT".to_owned(), "value".to_owned())]
+                );
+                assert_eq!(
+                    loaded.attempts[1].stdout.state,
+                    execution::OutputState::NotRecorded
+                );
+                assert_eq!(
+                    loaded.attempts[2].stdout.state,
+                    execution::OutputState::NotRecorded
+                );
+                assert!(
+                    loaded.attempts[2].command.is_none(),
+                    "omission remains explicit in the report"
+                );
+                assert_eq!(loaded.command_for(2).unwrap().argv, local().argv);
+                let output = reader
+                    .preview(loaded.attempts[2].stderr.content.unwrap(), 4096)
+                    .unwrap();
+                assert_eq!(output.text, "warning: unstable -Ctarget-feature=v9a\n");
+                assert!(!output.truncated);
+            }
+        }
+    }
+
+    #[test]
+    fn execution_store_errors_are_fatal_and_input_error_preserves_only_the_prefix() {
+        let dir = std::env::temp_dir().join(format!(
+            "retrace-execution-ingest-errors-{}",
+            std::process::id()
+        ));
+        let log = fixture_log(&dir, false);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let staged = crate::ingest::Staged::beside(dir.join("failed.bin"));
+        let mut writer = execution::DetailWriter::create(&staged.write_to).unwrap();
+        writer.fail_writes_after(0);
+        let error = runtime
+            .block_on(scan_with_workers_and_details(
+                &log,
+                false,
+                0,
+                Some(&mut writer),
+            ))
+            .err()
+            .expect("store I/O must fail the conversion");
+        assert!(
+            error
+                .to_string()
+                .contains("injected execution store write failure")
+        );
+        // Exercise output/attempt writes as well as the earlier start record.
+        let mut projected = normalized::project_end(
+            10,
+            200,
+            Box::new(buck2_data::ActionExecutionEnd {
+                commands: vec![buck2_data::CommandExecution {
+                    details: Some(buck2_data::CommandExecutionDetails {
+                        cmd_stdout: "output".to_owned(),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }),
+        );
+        assert!(write_action_details(&mut projected, Vec::new(), &mut writer).is_err());
+
+        let log = fixture_log(&dir, true);
+        let mut expected = None;
+        for workers in [0, 1, 4] {
+            let staged = crate::ingest::Staged::beside(dir.join("prefix.bin"));
+            let mut writer = execution::DetailWriter::create(&staged.write_to).unwrap();
+            let scan = runtime
+                .block_on(scan_with_workers_and_details(
+                    &log,
+                    false,
+                    workers,
+                    Some(&mut writer),
+                ))
+                .unwrap();
+            assert!(matches!(
+                scan.incomplete,
+                Some(Incomplete::Undecodable { records: 7, .. })
+            ));
+            assert_eq!(scan.actions.len(), 1);
+            writer.finish().unwrap();
+            let bytes = std::fs::read(&staged.write_to).unwrap();
+            if let Some(expected) = &expected {
+                assert_eq!(&bytes, expected);
+            } else {
+                expected = Some(bytes);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -2861,6 +3247,190 @@ mod tests {
     }
 
     #[test]
+    fn structural_graphs_preserve_bridges_without_fabricated_action_work() {
+        use crate::ingest::testlog::StructureCase;
+        use crate::ingest::testlog::structural_log;
+        use crate::ingest::testlog::zstd_copy;
+        let dir = crate::temp_path("structural-bridge-native");
+        std::fs::create_dir_all(&dir).unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        for case in [
+            StructureCase::Complete,
+            StructureCase::NoTouch,
+            StructureCase::InputsOmitted,
+            StructureCase::MissingChunk,
+            StructureCase::AliasCycle,
+            StructureCase::Incomplete,
+            StructureCase::ContradictoryDefinition,
+        ] {
+            let path = structural_log(&dir, case);
+            let compressed = zstd_copy(&path, true);
+            let log = crate::ingest::infer(&compressed).unwrap();
+            let mut expected = None;
+            for interface in [0, 3, 4, 6, 7, 8] {
+                let scan = runtime
+                    .block_on(fixture_interface_scan(&log, false, interface))
+                    .unwrap();
+                assert_eq!(
+                    scan.actions.len(),
+                    if case == StructureCase::NoTouch { 0 } else { 2 },
+                    "{case:?}, interface {interface}"
+                );
+                assert_eq!(
+                    scan.capture_state().is_complete(),
+                    Some(matches!(
+                        case,
+                        StructureCase::Complete
+                            | StructureCase::NoTouch
+                            | StructureCase::InputsOmitted
+                    ))
+                );
+                if let Some(expected) = &expected {
+                    assert_eq!(&scan.capture_state(), expected);
+                } else {
+                    expected = Some(scan.capture_state());
+                }
+                if case == StructureCase::AliasCycle {
+                    assert_eq!(scan.integrity.alias_cycles, 1);
+                }
+                if matches!(case, StructureCase::Complete | StructureCase::NoTouch) {
+                    let trace = crate::ingest::Staged::beside(
+                        dir.join(format!("trace-{case:?}-{interface}.json")),
+                    );
+                    let graph = crate::ingest::Staged::beside(
+                        dir.join(format!("graph-{case:?}-{interface}.json")),
+                    );
+                    super::super::emit::emit(scan, &trace, Some(&graph), false).unwrap();
+                    let trace = crate::parse::parse(trace.write_to.to_str().unwrap()).unwrap();
+                    let graph = crate::graph::load_graph(graph.write_to.to_str().unwrap()).unwrap();
+                    if case == StructureCase::NoTouch {
+                        let coverage = graph.meta.coverage.as_ref().unwrap();
+                        assert_eq!(coverage.action_rows, Some(0));
+                        assert_eq!(coverage.join_rows, Some(2));
+                        assert_eq!(coverage.structural_rows, Some(1));
+                        assert_eq!(coverage.nodes, Some(2));
+                        assert_eq!(coverage.edges, Some(1));
+                        assert!(
+                            trace
+                                .acts
+                                .iter()
+                                .all(|act| act.flags & crate::types::F_NOT_RECIPE != 0)
+                        );
+                        continue;
+                    }
+                    let (bundle, stats) = crate::dag::build_full(&trace, &graph, None).unwrap();
+                    assert_eq!(stats.n_events, 2);
+                    assert_eq!(bundle.dag.cp, 300_000);
+                    assert_eq!(bundle.dag.cp_path.len(), 2);
+                    assert_eq!(bundle.dag.weight_us.iter().sum::<i64>(), 300_000);
+                    assert_eq!(graph.meta.coverage.as_ref().unwrap().action_rows, Some(2));
+                    assert_eq!(graph.meta.coverage.as_ref().unwrap().join_rows, Some(2));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn activity_scope_survives_all_readers_without_degrading_current_action_models() {
+        use crate::quality::Claim;
+        use crate::quality::Dep;
+        use crate::quality::Quality;
+        let dir = crate::temp_path("activity-scope-native");
+        std::fs::create_dir_all(&dir).unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        for empty in [false, true] {
+            let path = crate::ingest::testlog::activity_log(&dir, empty);
+            let log = crate::ingest::infer(&path).unwrap();
+            for interface in 0..9 {
+                let scan = runtime
+                    .block_on(fixture_interface_scan(&log, false, interface))
+                    .unwrap();
+                let state = scan.capture_state();
+                assert_eq!(state.scope(), Some(CaptureScope::CurrentActionAncestors));
+                assert_eq!(state.is_complete(), Some(true), "{:?}", state.problems());
+                assert_eq!(state.to_json()["structure_wall_time_us"], 123);
+                let trace = crate::ingest::Staged::beside(
+                    dir.join(format!("activity-{empty}-{interface}-trace.json")),
+                );
+                let graph = crate::ingest::Staged::beside(
+                    dir.join(format!("activity-{empty}-{interface}-graph.json")),
+                );
+                let emitted = super::super::emit::emit(scan, &trace, Some(&graph), false).unwrap();
+                assert!(
+                    emitted
+                        .status_lines
+                        .iter()
+                        .any(|line| line.contains("actions-that-ran dependency graph"))
+                );
+                let trace = crate::parse::parse(trace.write_to.to_str().unwrap()).unwrap();
+                let graph = crate::graph::load_graph(graph.write_to.to_str().unwrap()).unwrap();
+                assert_eq!(graph.meta.enc, Some(3));
+                assert_eq!(graph.meta.kind, "current_action_ancestors");
+                assert_eq!(
+                    graph.meta.coverage.as_ref().unwrap().dep_capture.as_ref(),
+                    Some(&state)
+                );
+                if empty {
+                    assert_eq!(graph.meta.coverage.as_ref().unwrap().nodes, Some(0));
+                    assert_eq!(graph.meta.coverage.as_ref().unwrap().edges, Some(0));
+                    continue;
+                }
+                let (bundle, stats) = crate::dag::build_full(&trace, &graph, None).unwrap();
+                assert_eq!(stats.n_events, 2);
+                assert_eq!(bundle.dag.cp, 300_000);
+                assert_eq!(bundle.dag.weight_us.iter().sum::<i64>(), 300_000);
+                let quality = Quality::assess(&trace, None, Some(&graph)).stitched(&stats);
+                assert!(quality.capture_complete() && quality.graph_complete());
+                assert_eq!(quality.graph_label(), "graph (current-action ancestors)");
+                for claim in [Claim::LongestPath, Claim::Savings] {
+                    let report = quality.seal(
+                        Dep::Graph,
+                        claim,
+                        "available",
+                        None,
+                        vec![],
+                        vec![],
+                        serde_json::json!({"cp_us": bundle.dag.cp}),
+                    );
+                    assert_eq!(report["status"], "available");
+                    assert!(report.get("bound").is_none());
+                    assert_eq!(report["graph_scope"], "current_action_ancestors");
+                    assert!(
+                        report["limitations"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .any(|note| note == crate::quality::ACTIVITY_SCOPE_NOTE)
+                    );
+                }
+                let fanout = quality.seal(
+                    Dep::Graph,
+                    Claim::DescendantPath,
+                    "available",
+                    None,
+                    vec![],
+                    vec![],
+                    serde_json::Value::Null,
+                );
+                assert_eq!(
+                    fanout["status"], "partial",
+                    "whole-build fanout is scope-limited"
+                );
+                assert!(
+                    fanout.get("bound").is_none(),
+                    "intact scoped paths are not degraded"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn unsupported_schema_fails_closed_on_every_scan_interface() {
         use buck2_cli_proto::command_progress::Progress;
         use buck2_data::buck_event::Data;
@@ -2973,6 +3543,189 @@ mod tests {
                     Some(StageDetails::LocalCacheTimings(_))
                 ));
             }
+        }
+    }
+
+    #[test]
+    fn serial_and_worker_scans_preserve_full_pairs_and_json_fallback() {
+        use prost::Message as _;
+
+        let dir = std::env::temp_dir().join(format!(
+            "retrace-production-decode-parity-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let proto_path = crate::ingest::testlog::demo_log(&dir, Some(1), true, true);
+        let wire = std::fs::read(&proto_path).unwrap();
+        let mut input = wire.as_slice();
+        let invocation = buck2_data::Invocation::decode_length_delimited(&mut input).unwrap();
+        let mut json = serde_json::to_vec(&invocation).unwrap();
+        json.push(b'\n');
+        while !input.is_empty() {
+            let record =
+                buck2_cli_proto::CommandProgress::decode_length_delimited(&mut input).unwrap();
+            let record = match record.progress.unwrap() {
+                buck2_cli_proto::command_progress::Progress::Event(value) => {
+                    StreamValue::Event(value)
+                }
+                buck2_cli_proto::command_progress::Progress::Result(value) => {
+                    StreamValue::Result(value)
+                }
+                buck2_cli_proto::command_progress::Progress::PartialResult(value) => {
+                    StreamValue::PartialResult(value)
+                }
+            };
+            serde_json::to_writer(&mut json, &record).unwrap();
+            json.push(b'\n');
+        }
+        let json_path = dir.join("same-log.json-lines");
+        std::fs::write(&json_path, json).unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        for phases in [false, true] {
+            let mut expected = None;
+            for path in [&proto_path, &json_path] {
+                let log = crate::ingest::infer(path).unwrap();
+                for workers in [0, 1, 4] {
+                    let scan = runtime
+                        .block_on(scan_with_workers(&log, phases, workers))
+                        .unwrap();
+                    assert!(scan.command_result_seen && scan.incomplete.is_none());
+                    let trace = crate::ingest::Staged::beside(dir.join("trace.json"));
+                    let graph = crate::ingest::Staged::beside(dir.join("graph.json"));
+                    let summary =
+                        super::super::emit::emit(scan, &trace, Some(&graph), phases).unwrap();
+                    assert!(matches!(
+                        summary.graph,
+                        super::super::emit::GraphOutcome::Written
+                    ));
+                    let actual = (
+                        std::fs::read(&trace.write_to).unwrap(),
+                        std::fs::read(&graph.write_to).unwrap(),
+                        summary.capture,
+                    );
+                    if let Some(expected) = &expected {
+                        assert_eq!(
+                            &actual, expected,
+                            "{path:?}, workers={workers}, phases={phases}"
+                        );
+                    } else {
+                        expected = Some(actual);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn batch_consumer_emits_identical_demo_artifacts_for_both_phase_modes() {
+        let dir = std::env::temp_dir().join(format!(
+            "retrace-batch-consumer-artifacts-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let log =
+            crate::ingest::infer(&crate::ingest::testlog::demo_log(&dir, Some(1), true, true))
+                .unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        for phases in [false, true] {
+            let mut expected = None;
+            for interface in 0..9 {
+                let scan = runtime
+                    .block_on(fixture_interface_scan(&log, phases, interface))
+                    .unwrap();
+                assert!(scan.command_result_seen && scan.incomplete.is_none());
+                let trace = crate::ingest::Staged::beside(
+                    dir.join(format!("trace-{phases}-{interface}.json")),
+                );
+                let graph = crate::ingest::Staged::beside(
+                    dir.join(format!("graph-{phases}-{interface}.json")),
+                );
+                super::super::emit::emit(scan, &trace, Some(&graph), phases).unwrap();
+                let actual = (
+                    std::fs::read(&trace.write_to).unwrap(),
+                    std::fs::read(&graph.write_to).unwrap(),
+                );
+                if let Some(expected) = &expected {
+                    assert_eq!(&actual, expected, "phases={phases}, interface={interface}");
+                } else {
+                    expected = Some(actual);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn normalization_preserves_cache_retry_wait_and_missing_metadata_artifacts() {
+        use crate::ingest::testlog;
+        let dir = std::env::temp_dir().join(format!(
+            "retrace-normalized-artifacts-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let compare = |path: std::path::PathBuf| {
+            let log = crate::ingest::infer(&path).unwrap();
+            let mut expected = None;
+            for interface in [0, 4, 6, 7, 8] {
+                let scan = runtime
+                    .block_on(fixture_interface_scan(&log, false, interface))
+                    .unwrap();
+                let trace =
+                    crate::ingest::Staged::beside(dir.join(format!("norm-{interface}-trace.json")));
+                let graph =
+                    crate::ingest::Staged::beside(dir.join(format!("norm-{interface}-graph.json")));
+                let state = scan.capture_state().to_json();
+                let host = scan.run_host.clone();
+                let summary = super::super::emit::emit(scan, &trace, Some(&graph), false).unwrap();
+                let graph_bytes = match summary.graph {
+                    super::super::emit::GraphOutcome::Written => {
+                        Some(std::fs::read(&graph.write_to).unwrap())
+                    }
+                    super::super::emit::GraphOutcome::NotWritten => None,
+                };
+                let actual = (
+                    std::fs::read(&trace.write_to).unwrap(),
+                    graph_bytes,
+                    state,
+                    host,
+                );
+                if let Some(expected) = &expected {
+                    assert_eq!(&actual, expected, "interface={interface}, log={path:?}");
+                } else {
+                    expected = Some(actual);
+                }
+            }
+        };
+        compare(testlog::cache_hit_log(&dir));
+        for (kind, hit) in [
+            (2, false),
+            (2, true),
+            (3, false),
+            (7, false),
+            (9, false),
+            (10, false),
+        ] {
+            for prior in [false, true] {
+                compare(testlog::cached_execution_log(&dir, kind, hit, prior));
+            }
+        }
+        for case in [
+            testlog::WaitStateCase::LocalWinner {
+                download_end: false,
+            },
+            testlog::WaitStateCase::LocalWinner { download_end: true },
+            testlog::WaitStateCase::RemoteRetry,
+        ] {
+            compare(testlog::wait_state_log(&dir, case));
         }
     }
 
@@ -3119,6 +3872,89 @@ mod tests {
                 assert_eq!(&actual, expected);
             } else {
                 expected = Some(actual);
+            }
+        }
+    }
+
+    #[test]
+    fn command_profile_survives_native_interfaces_emission_and_first_trace_parse() {
+        let dir =
+            std::env::temp_dir().join(format!("retrace-command-profile-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let log = crate::ingest::infer(&crate::ingest::testlog::command_profile_log(&dir)).unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let mut expected_profile = None;
+        for phases in [false, true] {
+            let mut expected_bytes = None;
+            for interface in 0..9 {
+                let scan = runtime
+                    .block_on(fixture_interface_scan(&log, phases, interface))
+                    .unwrap();
+                assert_eq!(scan.actions.len(), 1);
+                assert_eq!(scan.stages[&10][0].name, "Local.Execute");
+                assert_eq!(scan.target_patterns, ["fb4a"]);
+                assert_eq!(
+                    scan.command_profile.result_outcome.as_deref(),
+                    Some("success")
+                );
+                assert_eq!(
+                    scan.command_profile.command_kind.as_deref(),
+                    Some("install")
+                );
+                assert!(scan.footer.is_none());
+                let profile = scan.command_profile.clone();
+                let analysis = profile
+                    .phases
+                    .iter()
+                    .find(|p| p.kind == "Analysis")
+                    .unwrap();
+                assert_eq!(analysis.total_duration_us, 1000);
+                assert_eq!(analysis.active_us(), Some(700));
+                assert_eq!(analysis.union_intervals, [[200, 900]]);
+                assert_eq!(profile.snapshots[0].rss_bytes, Some(1000));
+                assert_eq!(profile.install_duration_us, Some(3));
+                let cp = profile.critical_path.as_ref().unwrap();
+                assert_eq!(cp.entries.len(), 5);
+                assert_eq!(cp.command_start_offset_us, profile.command_start_offset_us);
+                assert!(cp.approximate_alignment);
+                if let Some(expected) = &expected_profile {
+                    assert_eq!(&profile, expected);
+                } else {
+                    expected_profile = Some(profile.clone());
+                }
+                let trace = crate::ingest::Staged::beside(
+                    dir.join(format!("{phases}-{interface}-trace.json")),
+                );
+                let graph = crate::ingest::Staged::beside(
+                    dir.join(format!("{phases}-{interface}-graph.json")),
+                );
+                let summary = super::super::emit::emit(scan, &trace, Some(&graph), phases).unwrap();
+                let graph_bytes = match summary.graph {
+                    super::super::emit::GraphOutcome::Written => {
+                        Some(std::fs::read(&graph.write_to).unwrap())
+                    }
+                    super::super::emit::GraphOutcome::NotWritten => None,
+                };
+                let bytes = (std::fs::read(&trace.write_to).unwrap(), graph_bytes);
+                if let Some(expected) = &expected_bytes {
+                    assert_eq!(&bytes, expected, "interface={interface}, phases={phases}");
+                } else {
+                    expected_bytes = Some(bytes);
+                }
+                let parsed = crate::parse::parse(trace.write_to.to_str().unwrap()).unwrap();
+                assert_eq!(parsed.runs.len(), 1);
+                assert_eq!(parsed.runs[0].outcome, crate::types::Outcome::Success);
+                // Emission links the reported action step (span 10) to the trace's only action.
+                let mut linked = profile.clone();
+                for entry in &mut linked.critical_path.as_mut().unwrap().entries {
+                    if entry.span_ids == [10] {
+                        entry.acts = vec![0];
+                    }
+                }
+                assert_eq!(parsed.runs[0].command_profile.as_ref(), Some(&linked));
             }
         }
     }

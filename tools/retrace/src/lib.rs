@@ -24,6 +24,7 @@ pub mod graph;
 pub mod help;
 pub mod humanize;
 pub mod ingest;
+pub mod interrupt;
 pub mod lanes;
 mod parallelism;
 pub mod parse;
