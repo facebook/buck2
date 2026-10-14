@@ -6,7 +6,15 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":nodejs_providers.bzl", "NodejsLibraryInfo", "NodejsLibraryPackage", "build_node_modules", "get_nodejs_dep_infos", "get_transitive_outputs")
+load(
+    ":nodejs_providers.bzl",
+    "NodejsLibraryInfo",
+    "NodejsLibraryPackage",
+    "build_node_modules",
+    "get_nodejs_dep_infos",
+    "get_nodejs_tree_info",
+    "get_transitive_outputs",
+)
 load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
 load(":nodejs_typescript.bzl", "compile_typescript")
 
@@ -64,6 +72,11 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
     _validate_package_name(ctx.label, package_name, is_default = is_default)
 
     dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label, non_code_attr = "resources")
+    node_modules_tree = None
+    if ctx.attrs.node_modules != None:
+        if dep_infos:
+            fail("nodejs_library {}: `node_modules` cannot be combined with `deps`: prebuilt trees cannot merge with package deps".format(ctx.label))
+        node_modules_tree = get_nodejs_tree_info(ctx.attrs.node_modules, consumer_label = ctx.label).node_modules
 
     srcs_map = {}
     if ctx.attrs.tsconfig != None:
@@ -78,8 +91,11 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
             package_json = ctx.attrs.package_json,
             dep_infos = dep_infos,
             identifier = ctx.attrs.name,
+            node_modules_tree = node_modules_tree,
         )
     else:
+        if node_modules_tree != None:
+            fail("nodejs_library {}: `node_modules` requires `tsconfig`: without compilation the tree is unused".format(ctx.label))
         for src in ctx.attrs.srcs:
             key = "dist/" + src.short_path
             existing = srcs_map.get(key)

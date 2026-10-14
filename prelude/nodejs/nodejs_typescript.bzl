@@ -20,8 +20,9 @@ def compile_typescript(
     package_json: Artifact | None,
     dep_infos: list,
     identifier: str,
+    node_modules_tree = None,
 ) -> Artifact:
-    """Compile TypeScript `srcs` with `tsc` against the `node_modules` of `dep_infos`, returning the emitted tree.
+    """Compile TypeScript `srcs` with `tsc` against the `node_modules` of `dep_infos` or `node_modules_tree`, returning the emitted tree.
 
     `package_json` is staged beside the sources so its `"type"` decides the emitted module format.
     """
@@ -42,7 +43,7 @@ def compile_typescript(
     reserved = ["tsconfig.json", "tsconfig.buck.json"]
     if package_json != None:
         reserved.append("package.json")
-    if dep_infos:
+    if dep_infos or node_modules_tree != None:
         reserved.append("node_modules")
 
     stage = {}
@@ -74,6 +75,8 @@ def compile_typescript(
             get_transitive_outputs(actions, deps = dep_infos),
         )
         stage["node_modules"] = dep_tree.project("node_modules")
+    elif node_modules_tree != None:
+        stage["node_modules"] = node_modules_tree
     src_dir = actions.symlinked_dir("__ts_src__/" + identifier, stage)
 
     out_dir = actions.declare_output("__tsc__/" + identifier, dir = True)

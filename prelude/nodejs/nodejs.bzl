@@ -8,10 +8,12 @@
 
 load("@prelude//nodejs:nodejs_binary.bzl", "nodejs_binary_impl")
 load("@prelude//nodejs:nodejs_library.bzl", "nodejs_library_impl")
+load("@prelude//nodejs:nodejs_node_modules.bzl", "nodejs_node_modules_impl")
 load("@prelude//nodejs:nodejs_test.bzl", "nodejs_test_impl")
 
 implemented_rules = {
     "nodejs_binary": nodejs_binary_impl,
     "nodejs_library": nodejs_library_impl,
+    "nodejs_node_modules": nodejs_node_modules_impl,
     "nodejs_test": nodejs_test_impl,
 }

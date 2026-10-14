@@ -23,8 +23,9 @@ nodejs_library = prelude_rule(
     With `tsconfig`, `srcs` must be TypeScript compiled with the
     toolchain's `tsc` before staging: sources are staged by short path
     next to the `tsconfig`, the `package_json` (whose `"type"` decides the
-    emitted module format) and the merged `node_modules` of `deps` (so
-    cross-package type imports resolve), compiled with `--outDir`,
+    emitted module format) and a `node_modules` (the merged tree of `deps`,
+    or the prebuilt `node_modules` tree; so cross-package type imports
+    resolve), compiled with `--outDir`,
     `--rootDir` (the staging root, so `<path>.ts` emits
     `dist/<path>.js` and `dist/<path>.d.ts`, and `.mts` / `.cts` emit
     `.mjs` / `.cjs`), `--declaration`, `--noEmit false` and
@@ -56,6 +57,12 @@ nodejs_library = prelude_rule(
     not start with `.` or `_`. The unscoped names `node_modules` and
     `favicon.ico` are reserved and rejected, as is `@scope/node_modules`;
     either may be used as the scope.
+    `node_modules`, when set, stages a prebuilt `node_modules` tree (a
+    `nodejs_node_modules` target, e.g. over a yarn install output) for the
+    `tsc` compile instead of the merged `deps` tree, for third-party
+    packages with no `nodejs_library` target. It requires `tsconfig` and
+    cannot be combined with `deps`: prebuilt trees cannot merge with
+    package deps.
     The default output is the package's own directory
     (`package_dir`). The `[node_modules]` sub-target is the merged
     `node_modules` tree for this package and its transitive `deps`,
@@ -72,7 +79,29 @@ nodejs_library = prelude_rule(
             "package_json": attrs.option(attrs.source(allow_directory = False), default = None),
             "tsconfig": attrs.option(attrs.source(allow_directory = False), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
+            "node_modules": attrs.option(attrs.dep(), default = None),
             "_nodejs_toolchain": toolchains_common.nodejs(),
+        }
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)
+
+nodejs_node_modules = prelude_rule(
+    name = "nodejs_node_modules",
+    docs = """A prebuilt `node_modules` directory tree, for third-party
+    packages with no `nodejs_library` target (e.g. a yarn install output).
+    `src` is a target whose default output is a directory; `path` (default
+    `"node_modules"`) is the tree's relative, `/`-separated location inside
+    that output, with no `.` or `..` segments. The default
+    output is the tree itself, and consumers take it via `node_modules`.""",
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "src": attrs.dep(),
+            "path": attrs.string(default = "node_modules"),
         }
         | buck.labels_arg()
         | buck.contacts_arg()
@@ -169,5 +198,6 @@ nodejs_test = prelude_rule(
 nodejs_rules = struct(
     nodejs_binary = nodejs_binary,
     nodejs_library = nodejs_library,
+    nodejs_node_modules = nodejs_node_modules,
     nodejs_test = nodejs_test,
 )

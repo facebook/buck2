@@ -23,6 +23,17 @@ NodejsLibraryInfo = provider(
     },
 )
 
+NodejsTreeInfo = provider(
+    doc = "A prebuilt `node_modules` directory tree (for example a yarn install output), usable where third-party packages have no `nodejs_library` target.",
+    fields = {
+        "node_modules": provider_field(Artifact),
+    },
+)
+
+def is_relative_slash_path(path: str) -> bool:
+    segments = path.split("/")
+    return not (path.startswith("/") or "\\" in path or "" in segments or "." in segments or ".." in segments)
+
 def get_nodejs_dep_infos(deps: list, consumer_label, non_code_attr: str | None = None) -> list[NodejsLibraryInfo]:
     infos = []
     for dep in deps:
@@ -35,6 +46,15 @@ def get_nodejs_dep_infos(deps: list, consumer_label, non_code_attr: str | None =
             )
         infos.append(dep[NodejsLibraryInfo])
     return infos
+
+def get_nodejs_tree_info(node_modules: Dependency, consumer_label) -> NodejsTreeInfo:
+    if NodejsTreeInfo not in node_modules:
+        fail(
+            "target {} has `node_modules` `{}` which does not provide `NodejsTreeInfo`; `node_modules` must be a `nodejs_node_modules` target".format(
+                consumer_label, node_modules.label
+            )
+        )
+    return node_modules[NodejsTreeInfo]
 
 def get_transitive_outputs(actions: AnalysisActions, value: NodejsLibraryPackage | None = None, deps: list[NodejsLibraryInfo] = []) -> NodejsLibraryTSet:
     kwargs = {}
@@ -74,10 +94,9 @@ def build_node_modules(
             )
     tree = {"node_modules/" + n: packages_by_name[n].package_dir for n in sorted(packages_by_name)}
     for root_name, root_file in (root_files or {}).items():
-        segments = root_name.split("/")
-        if root_name.startswith("/") or "\\" in root_name or "" in segments or "." in segments or ".." in segments:
+        if not is_relative_slash_path(root_name):
             fail("invalid `root_files` path '{}': must be a relative path using '/' separators with no '.' or '..' segments".format(root_name))
-        if segments[0].lower() == "node_modules":
+        if root_name.split("/")[0].lower() == "node_modules":
             fail("root file '{}' collides with the merged `node_modules` tree".format(root_name))
         tree[root_name] = root_file
     return actions.copied_dir(name, tree)
