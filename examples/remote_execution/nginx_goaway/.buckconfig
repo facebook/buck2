@@ -1,0 +1,15 @@
+[cells]
+  root = .
+
+[buck2]
+  digest_algorithms = SHA256
+
+# nginx, see nginx.conf and test.sh.
+[buck2_re_client]
+  engine_address = grpc://127.0.0.1:18443
+  action_cache_address = grpc://127.0.0.1:18443
+  cas_address = grpc://127.0.0.1:18443
+  tls = false
+
+[build]
+  execution_platforms = root//:platforms
