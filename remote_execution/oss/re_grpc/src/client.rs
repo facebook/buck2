@@ -558,7 +558,6 @@ fn tonic_status_indicates_broken_connection(status: &tonic::Status) -> bool {
         || message.contains("connection closed")
         || message.contains("connection error")
         || message.contains("broken pipe")
-        || message.contains("goaway")
         || message.contains("http2")
         || message.contains("io error")
 }
@@ -677,7 +676,22 @@ fn is_transient_transport_error(err: &anyhow::Error) -> bool {
     })
 }
 
+/// Whether the server refused the request without processing it: the request
+/// was above a GOAWAY's last stream ID, or its stream was reset with
+/// REFUSED_STREAM. The transport sends such a request again when it can, and
+/// replaces a connection that a GOAWAY closed, so it needs no reconnect.
+fn is_refused_by_server(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        cause
+            .downcast_ref::<hyper::Error>()
+            .is_some_and(hyper::Error::is_protocol_nack)
+    })
+}
+
 fn is_broken_connection_error(err: &anyhow::Error) -> bool {
+    if is_refused_by_server(err) {
+        return false;
+    }
     if is_transient_transport_error(err) {
         return true;
     }
