@@ -499,6 +499,7 @@ impl Stats {
         self.errors += stats.errors;
         self.success += stats.success;
         self.targets += stats.targets;
+        self.error_tags.extend(stats.error_tags.iter().copied());
     }
 
     pub(crate) fn add_error(&mut self, e: &buck2_error::Error) {
@@ -812,8 +813,8 @@ mod tests {
 
     use super::Stats;
 
-    /// `Stats::merge` adds the counts but not the error tags, so the error built after merging
-    /// (as the streaming command does) carries only the `Input` tag of the summary.
+    /// `Stats::merge` carries the error tags of the merged stats, so the error built by the
+    /// streaming command keeps the tags of the package failures.
     #[test]
     fn test_stats_merge_error_tags() {
         let e = buck2_error::buck2_error!(ErrorTag::Tier0, "package failed");
@@ -830,7 +831,7 @@ mod tests {
         let mut total = Stats::default();
         total.merge(&package);
         let err = total.to_error().unwrap();
-        assert!(!err.tags().contains(&ErrorTag::Tier0));
+        assert!(err.tags().contains(&ErrorTag::Tier0));
         assert!(err.tags().contains(&ErrorTag::Input));
     }
 }
