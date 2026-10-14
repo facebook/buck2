@@ -219,6 +219,7 @@ impl<'v, 'a> CommandLineBuilder<'v, 'a> {
             absolute_suffix,
             parent,
             ignore_artifacts: _,
+            salt_hidden: _,
             delimiter,
             format,
             prepend,

@@ -83,6 +83,7 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::request::ActionMetadataBlob;
+use buck2_execute::execute::request::ActionSalt;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
@@ -509,6 +510,7 @@ impl CommandLineArtifactVisitor<'_> for SkipHiddenCommandLineArtifactVisitor {
             Requires::Path => {
                 self.path_only_inputs.insert(input);
             }
+            Requires::Digest => {}
         }
     }
 
@@ -635,6 +637,7 @@ impl RunAction {
         ExpandedCommandLineDigestForDepFiles,
         Option<WorkerSpec>,
         Option<RemoteWorkerSpec>,
+        Option<ActionSalt>,
     )> {
         let fs = &action_execution_ctx.executor_fs();
         let values = Self::unpack(self.values())?;
@@ -908,6 +911,25 @@ impl RunAction {
             command_line_digest_for_dep_files.push_count();
         }
 
+        // Digest inputs are in neither the command line nor the input tree; one digest
+        // over their paths and contents stands in for the input-tree entries they would
+        // otherwise have contributed.
+        let salt = if artifact_visitor.digest_inputs.is_empty() {
+            None
+        } else {
+            let groups: Vec<&ArtifactGroupValues> = artifact_visitor
+                .digest_inputs
+                .iter()
+                .map(|group| action_execution_ctx.artifact_values(group))
+                .collect();
+            let (_, digest) =
+                metadata_content(fs.fs(), &groups, action_execution_ctx.digest_config())?;
+            let salt = ActionSalt::from_digest(&digest);
+            command_line_digest_for_dep_files.push_bytes(salt.as_bytes());
+            command_line_digest_for_dep_files.push_count();
+            Some(salt)
+        };
+
         Ok((
             ExpandedCommandLine {
                 exe: exe_rendered,
@@ -917,6 +939,7 @@ impl RunAction {
             command_line_digest_for_dep_files.finalize(),
             worker,
             remote_worker,
+            salt,
         ))
     }
 
@@ -962,7 +985,7 @@ impl RunAction {
         ExpandedCommandLineDigestForDepFiles,
         HostSharingRequirements,
     )> {
-        let (expanded, expanded_command_line_digest_for_dep_files, worker, remote_worker) =
+        let (expanded, expanded_command_line_digest_for_dep_files, worker, remote_worker, salt) =
             self.expand_command_line_and_worker(ctx, visitor)?;
 
         let executor_fs = ctx.executor_fs();
@@ -1037,6 +1060,7 @@ impl RunAction {
                 paths,
                 worker,
                 remote_worker,
+                salt,
             },
             expanded_command_line_digest_for_dep_files,
             host_sharing_requirements,
@@ -1437,6 +1461,7 @@ pub(crate) struct PreparedRunAction {
     paths: CommandExecutionPaths,
     worker: Option<WorkerSpec>,
     remote_worker: Option<RemoteWorkerSpec>,
+    salt: Option<ActionSalt>,
 }
 
 impl PreparedRunAction {
@@ -1447,6 +1472,7 @@ impl PreparedRunAction {
             paths,
             worker,
             remote_worker,
+            salt,
         } = self;
 
         for (k, v) in extra_env {
@@ -1456,6 +1482,7 @@ impl PreparedRunAction {
         CommandExecutionRequest::new(exe, args, paths, env)
             .with_worker(worker)
             .with_remote_worker(remote_worker)
+            .with_salt(salt)
     }
 }
 
@@ -1463,6 +1490,8 @@ pub struct RunActionVisitor<'a> {
     pub(crate) dep_files_visitor: DepFilesCommandLineVisitor<'a>,
     pub(crate) incremental_metadata_inputs: Vec<ArtifactGroup>,
     incremental_metadata_ignore_tags: Option<&'a SmallSet<ArtifactTag>>,
+    /// Built but never materialized; folded into the action key as a salt.
+    digest_inputs: BuckIndexSet<ArtifactGroup>,
 }
 
 impl<'a> RunActionVisitor<'a> {
@@ -1474,6 +1503,7 @@ impl<'a> RunActionVisitor<'a> {
             dep_files_visitor: DepFilesCommandLineVisitor::new(dep_files),
             incremental_metadata_inputs: Vec::new(),
             incremental_metadata_ignore_tags,
+            digest_inputs: BuckIndexSet::default(),
         }
     }
 
@@ -1497,6 +1527,10 @@ impl<'v> CommandLineArtifactVisitor<'v> for RunActionVisitor<'v> {
             Requires::Contents => {}
             // In no dep file and no incremental metadata; the rendered path carries its content.
             Requires::Path => return,
+            Requires::Digest => {
+                self.digest_inputs.insert(input);
+                return;
+            }
         }
 
         // If incremental_metadata_ignore_tags is None, then we're not going to produce

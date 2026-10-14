@@ -969,3 +969,38 @@ ignore_artifacts_nested_under_hidden = rule(
     impl = _ignore_artifacts_nested_under_hidden_impl,
     attrs = {},
 )
+
+def _salt_hidden_dependency_impl(ctx):
+    stamp = ctx.actions.write("stamp.txt", ctx.attrs.data, has_content_based_path = False)
+
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import os",
+            "import sys",
+            "import uuid",
+            "assert not os.path.exists(sys.argv[2]), 'ignored input was materialized: ' + sys.argv[2]",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write(uuid.uuid4().hex)",
+        ],
+    )
+
+    out = ctx.actions.declare_output("out")
+    args = cmd_args([
+        "fbpython",
+        script,
+        out.as_output(),
+        # The path is passed only so the script can assert it was not materialized.
+        cmd_args(stamp, ignore_artifacts = True),
+        # The content dependency: nothing rendered, built but not materialized.
+        cmd_args(hidden = stamp, experimental_salt_hidden = True),
+    ])
+    ctx.actions.run(args, category = "test_run", prefer_remote = True)
+    return [DefaultInfo(default_output = out)]
+
+salt_hidden_dependency = rule(
+    impl = _salt_hidden_dependency_impl,
+    attrs = {
+        "data": attrs.string(),
+    },
+)

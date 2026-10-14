@@ -357,6 +357,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                     Requires::Contents => {}
                     Requires::Path if hidden => return,
                     Requires::Path => {}
+                    Requires::Digest => {}
                 }
                 if let Some(ref dep_file_artifact_tags) = self.dep_file_artifact_tags {
                     let dep_file_tags: Vec<&ArtifactTag> = tags

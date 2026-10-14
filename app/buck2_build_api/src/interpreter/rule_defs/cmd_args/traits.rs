@@ -57,6 +57,9 @@ pub enum Requires {
     /// content hash and is rendered, never materialized. Hidden, nothing renders it,
     /// so it is not an input at all.
     Path,
+    /// Only the content hash: built, folded into the run action's salt, never
+    /// materialized.
+    Digest,
 }
 
 pub trait CommandLineArtifactVisitor<'v> {
@@ -136,6 +139,7 @@ impl<'v> CommandLineArtifactVisitor<'v> for SimpleCommandLineArtifactVisitor<'v>
             Requires::Contents => {}
             Requires::Path if hidden => return,
             Requires::Path => {}
+            Requires::Digest => {}
         }
         self.inputs.insert(input);
     }

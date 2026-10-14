@@ -49,6 +49,7 @@ use crate::execute::prepared::PreparedAction;
 use crate::execute::prepared::PreparedCommand;
 use crate::execute::prepared::PreparedCommandExecutor;
 use crate::execute::prepared::PreparedCommandOptionalExecutor;
+use crate::execute::request::ActionSalt;
 use crate::execute::request::CommandExecutionRequest;
 use crate::execute::request::ExecutorPreference;
 use crate::execute::request::RemoteWorkerSpec;
@@ -258,6 +259,7 @@ impl CommandExecutor {
                 request
                     .meta_internal_extra_params()
                     .allow_unsandboxed_action_cache_uploads,
+                request.salt(),
             )?;
 
             buck2_error::Ok(action)
@@ -286,6 +288,7 @@ fn re_create_action(
     worker: &Option<RemoteWorkerSpec>,
     re_outputs_required: bool,
     allow_unsandboxed_action_cache_uploads: bool,
+    salt: Option<&ActionSalt>,
 ) -> buck2_error::Result<PreparedAction> {
     let (worker_tool_init_action, command_args) = if let Some(worker) = worker {
         let mut action_and_blobs = ActionDigestAndBlobsBuilder::new(digest_config);
@@ -398,6 +401,9 @@ fn re_create_action(
             .transpose()
             .buck_error_context("Cannot convert timeout to GRPC")?,
         do_not_cache,
+        salt: salt
+            .map(|salt| salt.as_bytes().to_vec())
+            .unwrap_or_default(),
         #[cfg(fbcode_build)]
         allow_unsandboxed_action_cache_uploads,
         #[cfg(fbcode_build)]

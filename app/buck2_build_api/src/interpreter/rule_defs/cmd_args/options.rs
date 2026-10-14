@@ -95,6 +95,7 @@ impl QuoteStyle {
 
 pub(crate) trait CommandLineOptionsTrait<'v> {
     fn ignore_artifacts(&self) -> bool;
+    fn salt_hidden(&self) -> bool;
     fn delimiter(&self) -> Option<StringValue<'v>>;
 
     fn to_command_line_options<'a>(&'a self) -> CommandLineOptionsRef<'v, 'a>;
@@ -109,6 +110,7 @@ pub(crate) struct CommandLineOptions<'v> {
     pub(crate) absolute_suffix: Option<StringValue<'v>>,
     pub(crate) parent: u32,
     pub(crate) ignore_artifacts: bool,
+    pub(crate) salt_hidden: bool,
 
     // These impact the formatting of each string
     pub(crate) delimiter: Option<StringValue<'v>>,
@@ -171,6 +173,7 @@ pub(crate) struct CommandLineOptionsRef<'v, 'a> {
     pub(crate) absolute_suffix: Option<StringValue<'v>>,
     pub(crate) parent: u32,
     pub(crate) ignore_artifacts: bool,
+    pub(crate) salt_hidden: bool,
 
     pub(crate) delimiter: Option<StringValue<'v>>,
     pub(crate) format: Option<StringValue<'v>>,
@@ -187,6 +190,7 @@ impl<'v, 'a> CommandLineOptionsRef<'v, 'a> {
             absolute_suffix: self.absolute_suffix,
             parent: self.parent,
             ignore_artifacts: self.ignore_artifacts,
+            salt_hidden: self.salt_hidden,
             delimiter: self.delimiter,
             format: self.format,
             prepend: self.prepend,
@@ -205,6 +209,10 @@ impl<'v> CommandLineOptionsTrait<'v> for CommandLineOptions<'v> {
         self.ignore_artifacts
     }
 
+    fn salt_hidden(&self) -> bool {
+        self.salt_hidden
+    }
+
     fn delimiter(&self) -> Option<StringValue<'v>> {
         self.delimiter.dupe()
     }
@@ -216,6 +224,7 @@ impl<'v> CommandLineOptionsTrait<'v> for CommandLineOptions<'v> {
             absolute_suffix: self.absolute_suffix,
             parent: self.parent,
             ignore_artifacts: self.ignore_artifacts,
+            salt_hidden: self.salt_hidden,
             delimiter: self.delimiter,
             format: self.format,
             prepend: self.prepend,
@@ -235,6 +244,7 @@ enum FrozenCommandLineOption<'v> {
     AbsoluteSuffix(StringValue<'v>),
     Parent(u32),
     IgnoreArtifacts,
+    SaltHidden,
     Delimiter(StringValue<'v>),
     Format(StringValue<'v>),
     Prepend(StringValue<'v>),
@@ -303,6 +313,15 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions<'v> {
         false
     }
 
+    fn salt_hidden(&self) -> bool {
+        for option in self.options.iter() {
+            if let FrozenCommandLineOption::SaltHidden = option {
+                return true;
+            }
+        }
+        false
+    }
+
     fn delimiter(&self) -> Option<StringValue<'v>> {
         for option in self.options.iter() {
             if let FrozenCommandLineOption::Delimiter(value) = option {
@@ -330,6 +349,9 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions<'v> {
                 }
                 FrozenCommandLineOption::IgnoreArtifacts => {
                     options.ignore_artifacts = true;
+                }
+                FrozenCommandLineOption::SaltHidden => {
+                    options.salt_hidden = true;
                 }
                 FrozenCommandLineOption::Delimiter(value) => {
                     options.delimiter = Some(*value);
@@ -383,6 +405,7 @@ impl<'v> Freeze<'v> for CommandLineOptions<'v> {
             absolute_suffix,
             parent,
             ignore_artifacts,
+            salt_hidden,
             delimiter,
             format,
             prepend,
@@ -411,6 +434,9 @@ impl<'v> Freeze<'v> for CommandLineOptions<'v> {
         }
         if ignore_artifacts {
             options.push(FrozenCommandLineOption::IgnoreArtifacts);
+        }
+        if salt_hidden {
+            options.push(FrozenCommandLineOption::SaltHidden);
         }
         if let Some(delimiter) = delimiter {
             let delimiter = Freeze::freeze(delimiter, freezer)?;
@@ -507,6 +533,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                 quote: None,
                 replacements,
                 ignore_artifacts: _, // Doesn't impact the builder
+                salt_hidden: _,      // Doesn't impact the builder
             } if replacements.is_empty() => false,
             _ => true,
         }
@@ -522,6 +549,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             absolute_suffix,
             parent,
             ignore_artifacts,
+            salt_hidden,
             delimiter,
             format,
             prepend,
@@ -565,6 +593,12 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
         }
         if *ignore_artifacts {
             iter.push(("ignore_artifacts", CommandLineOptionsIterItem::Str("True")));
+        }
+        if *salt_hidden {
+            iter.push((
+                "experimental_salt_hidden",
+                CommandLineOptionsIterItem::Str("True"),
+            ));
         }
         if let Some(value) = delimiter {
             iter.push(("delimiter", CommandLineOptionsIterItem::StringValue(*value)));

@@ -248,6 +248,13 @@ impl<'v, F: Fields<'v>> FieldsRef<'v, F> {
             .unwrap_or_default()
     }
 
+    fn salt_hidden(&self) -> bool {
+        self.0
+            .options()
+            .map(|o| o.salt_hidden())
+            .unwrap_or_default()
+    }
+
     fn is_concat(&self) -> bool {
         if let Some(x) = &self.0.options() {
             x.delimiter().is_some()
@@ -303,10 +310,33 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
             Ok(())
         }
 
+        // The salted hidden list asks for digests, whatever else the scope says.
+        fn visit_hidden<'a>(
+            visitor: &mut dyn CommandLineArtifactVisitor<'a>,
+            hidden: &[CommandLineArg<'a>],
+            salt: bool,
+        ) -> buck2_error::Result<()> {
+            let mut hidden_visitor = MapProperties {
+                inner: visitor,
+                map: move |props: InputProperties| {
+                    let InputProperties {
+                        hidden: _,
+                        requires,
+                    } = props;
+                    InputProperties {
+                        hidden: true,
+                        requires: if salt { Requires::Digest } else { requires },
+                    }
+                },
+            };
+            visit_items(&mut hidden_visitor, hidden)
+        }
+
+        let salt_hidden = self.salt_hidden();
         if !self.ignore_artifacts() {
             visit_items(visitor, self.0.items())?;
             if !visitor.skip_hidden() {
-                visit_items(&mut hidden_visitor(visitor), self.0.hidden())?;
+                visit_hidden(visitor, self.0.hidden(), salt_hidden)?;
             }
             return Ok(());
         }
@@ -402,13 +432,21 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
             rejected: BuckIndexSet::default(),
         };
         visit_items(&mut path_only_visitor, self.0.items())?;
-        if !path_only_visitor.skip_hidden() {
+        let skip_hidden = path_only_visitor.skip_hidden();
+        if !skip_hidden && !salt_hidden {
             visit_items(&mut hidden_visitor(&mut path_only_visitor), self.0.hidden())?;
         }
-        if path_only_visitor.rejected.is_empty() {
-            return Ok(());
+        let PathOnlyVisitor {
+            inner: visitor,
+            rejected,
+        } = path_only_visitor;
+        if !rejected.is_empty() {
+            return Err(CommandLineError::HiddenContentBasedIgnoreArtifacts(rejected).into());
         }
-        Err(CommandLineError::HiddenContentBasedIgnoreArtifacts(path_only_visitor.rejected).into())
+        if !skip_hidden && salt_hidden {
+            visit_hidden(visitor, self.0.hidden(), true)?;
+        }
+        Ok(())
     }
 
     fn contains_arg_attr(&self) -> bool {
@@ -1147,6 +1185,8 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
         prepend: Option<StringValue<'v>>,
         quote: Option<&str>,
         #[starlark(default = false)] ignore_artifacts: bool,
+        #[starlark(default = false, require = named, doc_hidden = true)]
+        experimental_salt_hidden: bool,
         absolute_prefix: Option<StringValue<'v>>,
         absolute_suffix: Option<StringValue<'v>>,
         #[starlark(default = 0)] parent: u32,
@@ -1166,6 +1206,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             || prepend.is_some()
             || quote.is_some()
             || ignore_artifacts
+            || experimental_salt_hidden
             || absolute_prefix.is_some()
             || absolute_suffix.is_some()
             || parent != 0
@@ -1177,6 +1218,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             opts.prepend = prepend;
             opts.quote = quote;
             opts.ignore_artifacts = ignore_artifacts;
+            opts.salt_hidden = experimental_salt_hidden;
             opts.absolute_prefix = absolute_prefix;
             opts.absolute_suffix = absolute_suffix;
             opts.parent = parent;

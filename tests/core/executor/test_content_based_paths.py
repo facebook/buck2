@@ -13,6 +13,7 @@ import json
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import ExitCodeV2
@@ -452,6 +453,36 @@ async def test_ignore_artifacts_does_not_depend_on_static_path_artifacts(
         "root//:ignore_artifacts_skips_failing_static_path_dep",
         "--target-platforms",
         "root//:p_default",
+    )
+
+
+async def _build_output_text(buck: Buck, target: str, *args: str) -> str:
+    result = await buck.build(target, *args, "--show-output", "--remote-only")
+    path = result.get_target_to_build_output().get(target)
+    assert path is not None
+    return (buck.cwd / path).read_text()
+
+
+async def _what_ran_test_run(buck: Buck) -> list[dict[str, Any]]:
+    return [e for e in await read_what_ran(buck) if "(test_run)" in e["identity"]]
+
+
+@buck_test()
+async def test_salt_hidden_is_a_content_dependency(buck: Buck) -> None:
+    target = "root//:salt_hidden_dependency"
+    # The remote action asserts the hidden stamp is absent from its input tree.
+    await _build_output_text(buck, target, "-c", "test.stamp_data=one")
+    what_ran1 = await _what_ran_test_run(buck)
+    assert len(what_ran1) == 1
+
+    # Nothing on the command line or in the input tree mentions the stamp's
+    # content; the action must still re-run, under a different digest, when it changes.
+    await _build_output_text(buck, target, "-c", "test.stamp_data=two")
+    what_ran2 = await _what_ran_test_run(buck)
+    assert len(what_ran2) == 1
+    assert (
+        what_ran1[0]["reproducer"]["details"]["digest"]
+        != what_ran2[0]["reproducer"]["details"]["digest"]
     )
 
 

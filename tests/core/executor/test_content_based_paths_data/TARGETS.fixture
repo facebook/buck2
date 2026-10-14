@@ -25,6 +25,7 @@ load(
     "run_with_symlink_to_non_cbp_input",
     "rust_pattern_consumer",
     "rust_pattern_producer",
+    "salt_hidden_dependency",
     "sets_inconsistent_params",
     "slow_running_local_action_with_content_based_path",
     "symlink",
@@ -292,4 +293,9 @@ ignore_artifacts_rejects_hidden_content_based_artifact(
 
 ignore_artifacts_nested_under_hidden(
     name = "ignore_artifacts_nested_under_hidden",
+)
+
+salt_hidden_dependency(
+    name = "salt_hidden_dependency",
+    data = read_config("test", "stamp_data", "hello world"),
 )

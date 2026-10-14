@@ -347,6 +347,21 @@ pub struct RemoteWorkerSpec {
     pub concurrency: Option<usize>,
 }
 
+/// Bytes folded into an action's digest without being part of its command or inputs,
+/// so that the action key covers dependencies the command observes only by content.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActionSalt(Vec<u8>);
+
+impl ActionSalt {
+    pub fn from_digest(digest: &TrackedFileDigest) -> Self {
+        Self(digest.raw_digest().as_bytes().to_vec())
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 /// The data contains the information about the command to be executed.
 pub struct CommandExecutionRequest {
     /// Optional arguments including executable prepended to `args` to get full command line.
@@ -386,6 +401,7 @@ pub struct CommandExecutionRequest {
     /// Whether the executor should guarantee that the inodes for all inputs are unique (i.e. avoid
     /// hardlinking identical input files, for example)
     unique_input_inodes: bool,
+    salt: Option<ActionSalt>,
     /// Remote dep file key, if the action has a dep file.
     /// If this key is set and remote dep file caching is enabled, it will be used to query the cache.
     pub remote_dep_file_key: Option<DepFileDigest>,
@@ -443,6 +459,7 @@ impl CommandExecutionRequest {
             worker: None,
             remote_worker: None,
             unique_input_inodes: false,
+            salt: None,
             remote_dep_file_key: None,
             re_gang_workers: Vec::new(),
             remote_execution_dependencies: Vec::new(),
@@ -667,6 +684,15 @@ impl CommandExecutionRequest {
 
     pub fn unique_input_inodes(&self) -> bool {
         self.unique_input_inodes
+    }
+
+    pub fn with_salt(mut self, salt: Option<ActionSalt>) -> Self {
+        self.salt = salt;
+        self
+    }
+
+    pub fn salt(&self) -> Option<&ActionSalt> {
+        self.salt.as_ref()
     }
 
     pub fn with_re_gang_workers(mut self, re_gang_workers: Vec<ReGangWorker>) -> Self {
