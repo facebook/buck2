@@ -112,6 +112,30 @@ transition_to_watchos = rule(
 )
 ```
 
+### Execution platform marker
+
+An execution platform registration can mark its configurations using
+`ExecutionPlatformRegistrationInfo.exec_marker_constraint`, for example
+`prelude//cfg/exec_platform/marker:is_exec_platform[true]`. Buck2 preserves this
+marker when a transition changes an internally marked exec configuration.
+
+If the transition returns another platform or builds a new `PlatformInfo` without
+the marker, Buck2 adds it back. If it assigns a different value to the marker's
+setting, Buck2 reports an error. For the marker above, explicitly returning
+`prelude//cfg/exec_platform/marker:is_exec_platform[false]` is an error; omitting it
+restores `prelude//cfg/exec_platform/marker:is_exec_platform[true]`. A transition
+can change the tool's configuration, but cannot clear its exec marking.
+Other constraints retain their usual transition behavior.
+
+This applies to each split output and to configuration constructor results.
+For single transitions, the marker is restored before the output is passed back
+to the transition for the idempotence check described below.
+
+Manually adding the same constraint to an ordinary target configuration does not
+enable automatic restoration: if its transition drops the constraint, Buck2 will
+not add it back. See [execution platform markers](configurations.md#execution-platform-marker)
+for how registration establishes this behavior.
+
 ### Idempotence
 
 A transition function applied twice must produce the configuration identical to
