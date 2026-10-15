@@ -1,5 +1,5 @@
 load("@fbcode//buck2/tests:bxl_test.bzl", "bxl_test")
-load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
 load(":clone_rule_cfg_test.bzl", "clone_rule_cfg_test_rule")
 load(":graph_utils_tests.bzl", "test_find_cycle", "test_post_order_traversal", "test_pre_order_traversal")
 load(":headers_tests.bzl", "test_infer_include_prefix")
@@ -7,11 +7,17 @@ load(":link_info_tests.bzl", "test_get_lib_output_style", "test_link_info_append
 
 oncall("build_infra")
 
-fb_native.constraint_setting(name = "clone_rule_cfg_setting")
-
-fb_native.constraint_value(
-    name = "clone_rule_cfg_value",
-    constraint_setting = ":clone_rule_cfg_setting",
+constraint_with_aliases(
+    name = "clone_rule_cfg_setting",
+    aliases = {
+        "clone_rule_cfg_value": "value",
+    },
+    default = "unspecified",
+    values = [
+        "value",
+        "unspecified",
+    ],
+    visibility = ["PUBLIC"],
 )
 
 test_get_lib_output_style()
