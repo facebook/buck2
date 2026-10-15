@@ -1948,7 +1948,7 @@ def _rustc_invoke(
 ) -> Invoke:
     toolchain_info = compile_ctx.toolchain_info
 
-    plain_env, path_env = process_env(compile_ctx, toolchain_info.rustc_env | ctx.attrs.env)
+    plain_env, path_env = _base_rustc_env(ctx, compile_ctx)
 
     more_plain_env, more_path_env = process_env(compile_ctx, env)
     plain_env.update(more_plain_env)
@@ -2201,6 +2201,15 @@ def _dist_thinlto_enabled(ctx: AnalysisContext, compile_ctx: CompileContext) -> 
         return False
     linker_info = compile_ctx.cxx_toolchain_info.linker_info
     return linker_info.supports_distributed_thinlto and linker_info.lto_mode == LtoMode("thin")
+
+def _base_rustc_env(ctx: AnalysisContext, compile_ctx: CompileContext) -> (dict[str, cmd_args | str], dict[str, cmd_args]):
+    cached = compile_ctx.processed_env.get("rustc")
+    if cached == None:
+        cached = process_env(compile_ctx, compile_ctx.toolchain_info.rustc_env | ctx.attrs.env)
+        compile_ctx.processed_env["rustc"] = cached
+
+    # Fresh dicts for the caller to extend with emit-specific values.
+    return (dict(cached[0]), dict(cached[1]))
 
 def get_inherited_link_args(
     ctx: AnalysisContext,

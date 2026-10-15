@@ -61,6 +61,10 @@ CompileContext = record(
     common_args = field(dict[(CrateType, Emit, LinkStrategy, bool, bool, bool, bool, ProfileMode), CommonArgsInfo]),
     # Memoized dependency args for reuse across emits with the same inputs.
     dependency_args = field(dict[(CrateType, LinkStrategy, MetadataKind, bool), DependencyArgsInfo]),
+    # Memoized environment classifications for reuse across multiple emits,
+    # keyed by the environment's origin. A record field cannot be reassigned,
+    # so the memo lives in a dict even while "rustc" is its only key.
+    processed_env = field(dict[str, tuple]),
     cxx_toolchain_info = field(CxxToolchainInfo),
     dep_ctx = field(DepCollectionContext),
     exec_is_windows = field(bool),
@@ -140,6 +144,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         clippy_wrapper = clippy_wrapper,
         common_args = {},
         dependency_args = {},
+        processed_env = {},
         cxx_toolchain_info = cxx_toolchain_info,
         dep_ctx = dep_ctx,
         exec_is_windows = exec_is_windows,
