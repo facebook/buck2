@@ -569,7 +569,7 @@ fn get_default_re_properties(host_platform: HostPlatformOverride) -> RePlatformF
         properties: Arc::new(
             props
                 .iter()
-                .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+                .map(|(k, v)| ((*k).to_owned(), vec![(*v).to_owned()]))
                 .collect(),
         ),
     }

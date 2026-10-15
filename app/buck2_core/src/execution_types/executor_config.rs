@@ -365,7 +365,7 @@ pub enum RemoteEnabledExecutor {
 /// Normalized `remote_execution::Platform`. Also implements `Eq`, `Hash`.
 #[derive(Default, Debug, Clone, PartialEq, Eq, Hash, Pagable, Allocative)]
 pub struct RePlatformFields {
-    pub properties: Arc<SortedMap<String, String>>,
+    pub properties: Arc<SortedMap<String, Vec<String>>>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Pagable, Allocative)]
