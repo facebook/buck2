@@ -12,6 +12,14 @@ pub use crate::digest::*;
 use crate::grpc::Platform as TPlatform;
 use crate::response::TActionResult2;
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum TChunkingFunction {
+    #[default]
+    Unknown,
+    FastCdc2020,
+    RepMaxCdc,
+}
+
 #[derive(Default)]
 pub struct ActionResultRequest {
     pub digest: TDigest,
@@ -67,6 +75,21 @@ pub struct InlinedBlobWithDigest {
 #[derive(Default)]
 pub struct FindMissingBlobsRequest {
     pub digests: Vec<TDigest>,
+    pub _dot_dot: (),
+}
+
+#[derive(Default)]
+pub struct SplitBlobRequest {
+    pub blob_digest: TDigest,
+    pub chunking_function: TChunkingFunction,
+    pub _dot_dot: (),
+}
+
+#[derive(Default)]
+pub struct SpliceBlobRequest {
+    pub blob_digest: TDigest,
+    pub chunk_digests: Vec<TDigest>,
+    pub chunking_function: TChunkingFunction,
     pub _dot_dot: (),
 }
 

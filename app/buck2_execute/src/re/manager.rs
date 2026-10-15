@@ -384,6 +384,10 @@ impl ManagedRemoteExecutionClient {
         self.inner.lock()
     }
 
+    pub async fn action_cache_update_enabled(&self) -> buck2_error::Result<Option<bool>> {
+        Ok(self.lock()?.get().await?.action_cache_update_enabled())
+    }
+
     pub async fn action_cache(
         &self,
         action_digest: ActionDigest,
@@ -401,6 +405,28 @@ impl ManagedRemoteExecutionClient {
                 platform,
             )
             .await
+    }
+
+    pub async fn record_missing_remote_cas_digests_from_action_result(
+        &self,
+        action_result: &TActionResult2,
+    ) -> buck2_error::Result<()> {
+        self.lock()?
+            .get()
+            .await?
+            .record_missing_remote_cas_digests_from_action_result(action_result);
+        Ok(())
+    }
+
+    pub async fn record_missing_remote_cas_digest(
+        &self,
+        digest: TDigest,
+    ) -> buck2_error::Result<()> {
+        self.lock()?
+            .get()
+            .await?
+            .record_missing_remote_cas_digest(digest);
+        Ok(())
     }
 
     pub async fn upload(

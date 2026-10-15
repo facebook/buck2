@@ -20,7 +20,10 @@ static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 /// We put functions here that both things need to implement for code that isn't gated behind a
 /// fbcode_build or not(fbcode_build)
 pub trait RemoteExecutionStaticMetadataImpl: Sized {
-    fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self>;
+    fn from_legacy_config(
+        legacy_config: &LegacyBuckConfig,
+        digest_algorithms: Vec<String>,
+    ) -> buck2_error::Result<Self>;
     /// Whether there is a CAS to talk to at all. Independent of any executor configuration: a
     /// command that runs nothing remotely still has one, and asks it about blobs.
     fn cas_configured(&self) -> bool;
@@ -163,7 +166,10 @@ mod fbcode {
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
-        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
+        fn from_legacy_config(
+            legacy_config: &LegacyBuckConfig,
+            _digest_algorithms: Vec<String>,
+        ) -> buck2_error::Result<Self> {
             Ok(Self {
                 cas_address: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
@@ -408,9 +414,13 @@ mod not_fbcode {
     pub struct RemoteExecutionStaticMetadata(pub Buck2OssReConfiguration);
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
-        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
+        fn from_legacy_config(
+            legacy_config: &LegacyBuckConfig,
+            digest_algorithms: Vec<String>,
+        ) -> buck2_error::Result<Self> {
             Ok(Self(Buck2OssReConfiguration::from_legacy_config(
                 legacy_config,
+                digest_algorithms,
             )?))
         }
 
@@ -443,21 +453,25 @@ mod not_fbcode {
 #[derive(Clone, Debug, Default, Allocative)]
 pub struct Buck2OssReConfiguration {
     /// Address for RBE Content Addresable Storage service (including bytestream uploads service).
+    /// Accepted schemes: grpc, grpcs, http, https, dns, ipv4, ipv6. If no scheme is provided,
+    /// TLS is enabled by default.
     pub cas_address: Option<String>,
-    /// Address for RBE Engine service (including capabilities service).
+    /// Address for RBE Engine service (including capabilities service). Accepted schemes:
+    /// grpc, grpcs, http, https, dns, ipv4, ipv6. If no scheme is provided, TLS is enabled by
+    /// default.
     pub engine_address: Option<String>,
-    /// Address for RBE Action Cache service.
+    /// Address for RBE Action Cache service. Accepted schemes: grpc, grpcs, http, https, dns,
+    /// ipv4, ipv6. If no scheme is provided, TLS is enabled by default.
     pub action_cache_address: Option<String>,
-    /// Whether to use TLS to interact with remote execution.
-    pub tls: bool,
-    /// Path to a CA certificates bundle. This must be PEM-encoded. If none is set, a default
-    /// bundle will be used.
+    /// Path to a CA certificates bundle. This must be PEM-encoded. If set, this replaces the
+    /// default trust roots. If none is set, a default bundle will be used when TLS is enabled by
+    /// endpoint scheme.
     ///
     /// This can contain environment variables using shell interpolation syntax (i.e. $VAR). They
     /// will be substituted before using the value.
     pub tls_ca_certs: Option<String>,
     /// Path to a client certificate (and intermediate chain), as well as its associated private
-    /// key. This must be PEM-encoded.
+    /// key. This must be PEM-encoded and is only used when TLS is enabled by endpoint scheme.
     ///
     /// This can contain environment variables using shell interpolation syntax (i.e. $VAR). They
     /// will be substituted before using the value.
@@ -476,8 +490,10 @@ pub struct Buck2OssReConfiguration {
     pub use_fbcode_metadata: bool,
     /// The max size for a GRPC message to be decoded.
     pub max_decoding_message_size: Option<usize>,
-    /// The max cumulative blob size for `Read` and `BatchReadBlobs` methods.
+    /// The max cumulative blob size for batch CAS methods.
     pub max_total_batch_size: Option<usize>,
+    /// Minimum blob size for remote cache compression.
+    pub remote_cache_compression_threshold: Option<usize>,
     /// Maximum number of concurrent upload requests for each action.
     pub max_concurrent_uploads_per_action: Option<usize>,
     /// Maximum number of digests to ask about in a single
@@ -488,6 +504,19 @@ pub struct Buck2OssReConfiguration {
     pub find_missing_blobs_batch_size: Option<usize>,
     /// Time that digests are assumed to live in CAS after being touched.
     pub cas_ttl_secs: Option<i64>,
+    /// Whether to chunk large remote-cache blobs using FastCDC 2020 and SpliceBlob.
+    pub remote_cache_chunking: bool,
+    /// Optional local directory used to cache FastCDC chunk blobs.
+    pub remote_cache_chunk_cache_dir: Option<String>,
+    /// Number of retry attempts for transient gRPC errors. This is the number of retries, not
+    /// total attempts, so a value of 5 means each RPC may be attempted up to 6 times.
+    pub retries: Option<usize>,
+    /// Maximum backoff delay in milliseconds between retry attempts.
+    pub retry_max_delay_ms: Option<u64>,
+    /// Per-attempt timeout in seconds for unary gRPC requests.
+    pub grpc_request_timeout_secs: Option<u64>,
+    /// Maximum time in seconds a ByteStream download may make no read progress.
+    pub bytestream_progress_timeout_secs: Option<u64>,
     /// Interval in seconds for HTTP/2 ping frames to detect stale connections.
     pub grpc_keepalive_time_secs: Option<u64>,
     /// Timeout in seconds for receiving HTTP/2 ping acknowledgement.
@@ -502,6 +531,12 @@ pub struct Buck2OssReConfiguration {
     pub max_connections: Option<usize>,
     /// Maximum concurrent streams per connection.
     pub max_concurrency_per_connection: Option<usize>,
+    /// Interval in seconds for TCP keepalive probes on the socket.
+    pub tcp_keepalive_secs: Option<u64>,
+    /// Effective digest algorithms used by the daemon.
+    /// This is used by OSS RE clients to disambiguate hash validation when
+    /// multiple algorithms share the same digest length (for example, SHA256 and BLAKE3).
+    pub digest_algorithms: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -530,7 +565,10 @@ impl FromStr for HttpHeader {
 }
 
 impl Buck2OssReConfiguration {
-    pub fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
+    pub fn from_legacy_config(
+        legacy_config: &LegacyBuckConfig,
+        digest_algorithms: Vec<String>,
+    ) -> buck2_error::Result<Self> {
         // this is used for all three services by default, if given; if one of
         // them has an explicit address given as well though, use that instead
         let default_address: Option<String> = legacy_config.parse(BuckconfigKeyRef {
@@ -557,12 +595,6 @@ impl Buck2OssReConfiguration {
                     property: "action_cache_address",
                 })?
                 .or(default_address),
-            tls: legacy_config
-                .parse(BuckconfigKeyRef {
-                    section: BUCK2_RE_CLIENT_CFG_SECTION,
-                    property: "tls",
-                })?
-                .unwrap_or(true),
             tls_ca_certs: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "tls_ca_certs",
@@ -599,6 +631,10 @@ impl Buck2OssReConfiguration {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_total_batch_size",
             })?,
+            remote_cache_compression_threshold: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "remote_cache_compression_threshold",
+            })?,
             max_concurrent_uploads_per_action: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_concurrent_uploads_per_action",
@@ -610,6 +646,32 @@ impl Buck2OssReConfiguration {
             cas_ttl_secs: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "cas_ttl_secs",
+            })?,
+            remote_cache_chunking: legacy_config
+                .parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "remote_cache_chunking",
+                })?
+                .unwrap_or(false),
+            remote_cache_chunk_cache_dir: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "remote_cache_chunk_cache_dir",
+            })?,
+            retries: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "retries",
+            })?,
+            retry_max_delay_ms: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "retry_max_delay_ms",
+            })?,
+            grpc_request_timeout_secs: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "grpc_request_timeout_secs",
+            })?,
+            bytestream_progress_timeout_secs: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "bytestream_progress_timeout_secs",
             })?,
             grpc_keepalive_time_secs: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
@@ -639,6 +701,11 @@ impl Buck2OssReConfiguration {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_concurrency_per_connection",
             })?,
+            tcp_keepalive_secs: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "tcp_keepalive_secs",
+            })?,
+            digest_algorithms,
         })
     }
 }
@@ -647,3 +714,25 @@ impl Buck2OssReConfiguration {
 pub use fbcode::RemoteExecutionStaticMetadata;
 #[cfg(not(fbcode_build))]
 pub use not_fbcode::RemoteExecutionStaticMetadata;
+
+#[cfg(test)]
+mod tests {
+    use buck2_common::legacy_configs::configs::testing::parse;
+
+    use super::*;
+
+    #[test]
+    fn oss_config_parses_remote_cache_compression_threshold() -> buck2_error::Result<()> {
+        let legacy_config = parse(
+            &[(
+                "config",
+                "[buck2_re_client]\nremote_cache_compression_threshold = 100\n",
+            )],
+            "config",
+        )?;
+        let config = Buck2OssReConfiguration::from_legacy_config(&legacy_config, Vec::new())?;
+
+        assert_eq!(config.remote_cache_compression_threshold, Some(100));
+        Ok(())
+    }
+}

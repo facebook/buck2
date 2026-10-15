@@ -48,6 +48,7 @@ BUCK2_TEST_FAIL_CONNECT                        bool                   false
 BUCK2_TEST_FAIL_PAGE_OUT                       bool                   false
 BUCK2_TEST_FAIL_RE_DOWNLOADS                   bool                   false
 BUCK2_TEST_FAIL_RE_EXECUTE                     bool                   false
+BUCK2_TEST_FAIL_RE_EXECUTE_MISSING_INPUTS_ONCE bool                   false
 BUCK2_TEST_FAIL_RE_RESOURCE_EXHAUSTED          bool                   false
 BUCK2_TEST_FAIL_STREAMING                      bool                   false
 BUCK2_TEST_FAKE_SYSTEM_TOTAL_MEMORY            u64

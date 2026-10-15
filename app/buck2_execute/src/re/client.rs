@@ -10,6 +10,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
@@ -39,6 +40,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 #[cfg(fbcode_build)]
 use buck2_re_configuration::CASdMode;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
@@ -62,6 +64,7 @@ use remote_execution::ExtendDigestsTtlRequest;
 use remote_execution::GetDigestsTtlRequest;
 use remote_execution::GetDigestsTtlResponse;
 use remote_execution::InlinedBlobWithDigest;
+use remote_execution::InlinedDigestWithStatus;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
 use remote_execution::OperationMetadata;
@@ -254,6 +257,19 @@ impl RemoteExecutionClient {
                 presence_check_concurrency: re_config.static_metadata.presence_check_concurrency(),
             }),
         })
+    }
+
+    pub fn record_missing_remote_cas_digest(&self, digest: TDigest) {
+        self.data.client.record_missing_remote_cas_digest(digest);
+    }
+
+    pub fn record_missing_remote_cas_digests_from_action_result(
+        &self,
+        action_result: &TActionResult2,
+    ) {
+        self.data
+            .client
+            .record_missing_remote_cas_digests_from_action_result(action_result);
     }
 
     pub async fn new_retry(re_config: &RemoteExecutionConfig) -> buck2_error::Result<Self> {
@@ -480,15 +496,9 @@ impl RemoteExecutionClient {
         metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<Vec<(TDigest, jiff::Timestamp)>> {
         let now = jiff::Timestamp::now();
+        let expected_digests = digests.clone();
         let ttls = self.get_digests_ttl(digests, metadata, false).await?;
-        Ok(ttls
-            .digests_with_ttl
-            .into_iter()
-            .map(|t| {
-                let expiration = re_expiration_from_ttl(now, t.ttl, &t.digest);
-                (t.digest, expiration)
-            })
-            .collect())
+        validate_digest_expirations(expected_digests, ttls, now)
     }
 
     pub async fn extend_digest_ttl(
@@ -559,6 +569,10 @@ impl RemoteExecutionClient {
         stats.local_cache = LocalCacheRemoteExecutionClientStats::from(&self.data.local_cache);
     }
 
+    pub fn action_cache_update_enabled(&self) -> Option<bool> {
+        self.data.client.action_cache_update_enabled()
+    }
+
     pub(super) fn get_raw_re_client(&self) -> &REClient {
         self.data.client.client()
     }
@@ -589,6 +603,8 @@ struct RemoteExecutionClientImpl {
     /// Preserve file symlinks as symlinks when uploading action result.
     respect_file_symlinks: bool,
     persistent_cache_mode: Option<String>,
+    #[allocative(skip)]
+    missing_remote_cas_digests: Mutex<BuckMutSet<TDigest>>,
 }
 
 fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
@@ -742,6 +758,8 @@ pub fn is_induced_cache_miss(action_digest: &ActionDigest) -> bool {
             .is_some_and(|executed| !executed.load(std::sync::atomic::Ordering::Relaxed))
     })
 }
+
+static TEST_FAIL_RE_EXECUTE_MISSING_INPUTS_ONCE: AtomicBool = AtomicBool::new(false);
 
 impl RemoteExecutionClientImpl {
     async fn new(re_config: &RemoteExecutionConfig) -> buck2_error::Result<Self> {
@@ -1132,6 +1150,7 @@ impl RemoteExecutionClientImpl {
                 download_chunk_size,
                 respect_file_symlinks,
                 persistent_cache_mode,
+                missing_remote_cas_digests: Mutex::new(BuckMutSet::default()),
             }
         };
 
@@ -1146,6 +1165,40 @@ impl RemoteExecutionClientImpl {
 
     fn get_session_id(&self) -> &str {
         self.client().get_session_id()
+    }
+
+    fn action_cache_update_enabled(&self) -> Option<bool> {
+        self.client().action_cache_update_enabled()
+    }
+
+    fn record_missing_remote_cas_digest(&self, digest: TDigest) {
+        self.missing_remote_cas_digests
+            .lock()
+            .expect("missing CAS digest mutex was poisoned")
+            .insert(digest);
+    }
+
+    fn record_missing_remote_cas_digests_from_action_result(&self, action_result: &TActionResult2) {
+        let digests = action_result_cas_digests(action_result);
+        if digests.is_empty() {
+            return;
+        }
+
+        self.missing_remote_cas_digests
+            .lock()
+            .expect("missing CAS digest mutex was poisoned")
+            .extend(digests);
+    }
+
+    fn action_result_references_missing_cas(
+        &self,
+        response: &ActionResultResponse,
+    ) -> Option<TDigest> {
+        let missing_digests = self
+            .missing_remote_cas_digests
+            .lock()
+            .expect("missing CAS digest mutex was poisoned");
+        action_result_references_any_digest(&response.action_result, &missing_digests)
     }
 
     async fn action_cache(
@@ -1175,6 +1228,21 @@ impl RemoteExecutionClientImpl {
                 Some(re_err) if re_err.code == TCode::NOT_FOUND => None,
                 _ => return Err(e),
             },
+        };
+        let res = match res {
+            Some(response) => {
+                if let Some(missing_digest) = self.action_result_references_missing_cas(&response) {
+                    tracing::info!(
+                        action_digest = %action_digest,
+                        missing_digest = %missing_digest,
+                        "Ignoring remote action cache hit because it references a known-missing CAS digest"
+                    );
+                    None
+                } else {
+                    Some(response)
+                }
+            }
+            None => None,
         };
         trace_action_digest(
             &action_digest,
@@ -1776,7 +1844,30 @@ impl RemoteExecutionClientImpl {
             },
             ..Default::default()
         };
-        let re_action = format!("Execute with digest {}", action_digest);
+        let re_action = format!("Execute with digest {}", &action_digest);
+        if buck2_env!(
+            "BUCK2_TEST_FAIL_RE_EXECUTE_MISSING_INPUTS_ONCE",
+            bool,
+            applicability = testing
+        )? && !TEST_FAIL_RE_EXECUTE_MISSING_INPUTS_ONCE
+            .swap(true, std::sync::atomic::Ordering::Relaxed)
+        {
+            return Ok(ExecuteResponseOrCancelled::Response(
+                ExecuteResponseWithQueueStats {
+                    execute_response: remote_execution::ExecuteResponse {
+                        status: remote_execution::TStatus {
+                            code: TCode::FAILED_PRECONDITION,
+                            message: "Missing CAS input digest injected by test".to_owned(),
+                            ..Default::default()
+                        },
+                        action_digest: action_digest.to_re(),
+                        ..Default::default()
+                    },
+                    queue_stats: QueueStats::default(),
+                },
+            ));
+        }
+
         let res = with_error_handler(
             re_action.as_str(),
             self.get_session_id(),
@@ -1879,7 +1970,7 @@ impl RemoteExecutionClientImpl {
             self.client().get_cas_client().download(
                 &metadata,
                 DownloadRequest {
-                    inlined_digests: Some(digests),
+                    inlined_digests: Some(digests.clone()),
                     ..Default::default()
                 },
             )
@@ -1892,7 +1983,8 @@ impl RemoteExecutionClientImpl {
 
         let mut blobs: Vec<T> = Vec::with_capacity(expected_blobs);
         if let Some(ds) = response.inlined_blobs {
-            for d in ds {
+            for (expected_digest, d) in digests.iter().zip(ds) {
+                validate_inlined_blob(expected_digest, &d)?;
                 blobs.push(
                     Message::decode(d.blob.as_slice()).with_buck_error_context(|| {
                         format!("Failed to Protobuf decode tree at `{}`", d.digest)
@@ -1928,13 +2020,18 @@ impl RemoteExecutionClientImpl {
         let response =
             with_error_handler(re_action.as_str(), self.get_session_id(), download.await)?;
 
-        response
-            .inlined_blobs
-            .into_iter()
-            .flat_map(|blobs| blobs.into_iter())
+        let mut blobs = response.inlined_blobs.unwrap_or_default().into_iter();
+        let blob = blobs
             .next()
-            .map(|blob| (blob.blob, response.local_cache_stats))
-            .with_internal_error(|| format!("No digest was returned in request for {digest}"))
+            .with_internal_error(|| format!("No digest was returned in request for {digest}"))?;
+        if blobs.next().is_some() {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::ReInvalidGetCasResponse,
+                "CAS client returned more than one blob for `{digest}`"
+            ));
+        }
+        validate_inlined_blob(digest, &blob)?;
+        Ok((blob.blob, response.local_cache_stats))
     }
 
     pub async fn upload_blob(
@@ -1965,29 +2062,37 @@ impl RemoteExecutionClientImpl {
             ));
         }
 
-        let futs = chunks(files, self.download_chunk_size).map(|chunk| async move {
-            let _permit = self
-                .download_files_semapore
-                .acquire_many(
-                    chunk
-                        .len()
-                        .try_into()
-                        .buck_error_context("chunk is too large")?,
-                )
-                .await
-                .buck_error_context("Failed to acquire download_files_semapore")?;
+        let futs = chunks(files, self.download_chunk_size).map(|chunk| {
+            async move {
+                let _permit = self
+                    .download_files_semapore
+                    .acquire_many(
+                        chunk
+                            .len()
+                            .try_into()
+                            .buck_error_context("chunk is too large")?,
+                    )
+                    .await
+                    .buck_error_context("Failed to acquire download_files_semapore")?;
 
-            let download = self.client().get_cas_client().download(
-                metadata,
-                DownloadRequest {
-                    file_digests: Some(chunk),
-                    ..Default::default()
-                },
-            );
-            let response =
-                with_error_handler("materialize_files", self.get_session_id(), download.await)?;
+                let download = self.client().get_cas_client().download(
+                    metadata,
+                    DownloadRequest {
+                        file_digests: Some(chunk),
+                        ..Default::default()
+                    },
+                );
+                let response = with_error_handler(
+                    "materialize_files",
+                    self.get_session_id(),
+                    // boxed() to segment the future
+                    download.boxed().await,
+                )?;
 
-            buck2_error::Ok(response.local_cache_stats)
+                buck2_error::Ok(response.local_cache_stats)
+            }
+            // boxed() to segment the future
+            .boxed()
         });
 
         let stat = buck2_util::future::try_join_all(futs).await?.iter().fold(
@@ -2156,9 +2261,214 @@ fn chunks<T>(v: Vec<T>, chunk_size: usize) -> impl ExactSizeIterator<Item = Vec<
     Either::Right(chunks.into_iter())
 }
 
+fn validate_inlined_blob(
+    expected_digest: &TDigest,
+    blob: &InlinedDigestWithStatus,
+) -> buck2_error::Result<()> {
+    if blob.status.code != TCode::OK {
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::ReInvalidGetCasResponse,
+            "CAS client returned status `{}` for `{}`: {}",
+            blob.status.code,
+            expected_digest,
+            blob.status.message
+        ));
+    }
+
+    if blob.digest.hash != expected_digest.hash
+        || blob.digest.size_in_bytes != expected_digest.size_in_bytes
+    {
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::ReInvalidGetCasResponse,
+            "CAS client returned digest `{}` when `{}` was requested",
+            blob.digest,
+            expected_digest
+        ));
+    }
+
+    let expected_size: usize = expected_digest.size_in_bytes.try_into().map_err(|_| {
+        buck2_error!(
+            buck2_error::ErrorTag::ReInvalidGetCasResponse,
+            "CAS client was asked to download invalid negative-size digest `{}`",
+            expected_digest
+        )
+    })?;
+    if blob.blob.len() != expected_size {
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::ReInvalidGetCasResponse,
+            "CAS client returned {} bytes for `{}`, expected {} bytes",
+            blob.blob.len(),
+            expected_digest,
+            expected_size
+        ));
+    }
+
+    Ok(())
+}
+
+fn compare_digest(left: &TDigest, right: &TDigest) -> std::cmp::Ordering {
+    left.hash
+        .cmp(&right.hash)
+        .then_with(|| left.size_in_bytes.cmp(&right.size_in_bytes))
+}
+
+fn action_result_references_any_digest(
+    action_result: &TActionResult2,
+    digests: &BuckMutSet<TDigest>,
+) -> Option<TDigest> {
+    action_result_cas_digests(action_result)
+        .into_iter()
+        .find(|digest| digests.contains(digest))
+}
+
+fn action_result_cas_digests(action_result: &TActionResult2) -> Vec<TDigest> {
+    let mut digests = Vec::new();
+
+    for output_file in &action_result.output_files {
+        digests.push(output_file.digest.digest.clone());
+    }
+
+    for output_directory in &action_result.output_directories {
+        digests.push(output_directory.tree_digest.clone());
+        digests.push(output_directory.root_directory_digest.clone());
+    }
+
+    if let Some(digest) = &action_result.stdout_digest {
+        digests.push(digest.clone());
+    }
+    if let Some(digest) = &action_result.stderr_digest {
+        digests.push(digest.clone());
+    }
+
+    digests
+}
+
+fn validate_digest_expirations(
+    mut expected_digests: Vec<TDigest>,
+    response: GetDigestsTtlResponse,
+    now: jiff::Timestamp,
+) -> buck2_error::Result<Vec<(TDigest, jiff::Timestamp)>> {
+    let mut digests_with_ttl = response.digests_with_ttl;
+
+    if expected_digests.len() != digests_with_ttl.len() {
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::DigestTtlMismatch,
+            "Invalid response from get_digests_ttl: expected {}, got {} digests",
+            expected_digests.len(),
+            digests_with_ttl.len()
+        ));
+    }
+
+    expected_digests.sort_by(compare_digest);
+    digests_with_ttl.sort_by(|left, right| compare_digest(&left.digest, &right.digest));
+
+    digests_with_ttl
+        .into_iter()
+        .zip(expected_digests)
+        .map(|(t, expected_digest)| {
+            if t.digest.hash != expected_digest.hash
+                || t.digest.size_in_bytes != expected_digest.size_in_bytes
+            {
+                return Err(buck2_error!(
+                    buck2_error::ErrorTag::DigestTtlInvalidResponse,
+                    "Invalid response from get_digests_ttl"
+                ));
+            }
+
+            let expiration = re_expiration_from_ttl(now, t.ttl, &t.digest);
+            Ok((t.digest, expiration))
+        })
+        .collect::<buck2_error::Result<_>>()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_digest(size: i64) -> TDigest {
+        TDigest {
+            hash: "0123456789abcdef0123456789abcdef01234567".to_owned(),
+            size_in_bytes: size,
+            ..Default::default()
+        }
+    }
+
+    fn test_digest_with_hash(hash: &str, size: i64) -> TDigest {
+        TDigest {
+            hash: hash.to_owned(),
+            size_in_bytes: size,
+            ..Default::default()
+        }
+    }
+
+    fn test_blob(digest: TDigest, blob: Vec<u8>) -> InlinedDigestWithStatus {
+        InlinedDigestWithStatus {
+            digest,
+            status: remote_execution::TStatus {
+                code: TCode::OK,
+                message: String::new(),
+                ..Default::default()
+            },
+            blob,
+        }
+    }
+
+    #[test]
+    fn action_result_references_known_missing_output_digest() {
+        let missing = test_digest(1);
+        let present = test_digest(2);
+        let mut missing_digests = BuckMutSet::default();
+        missing_digests.insert(missing.clone());
+
+        let action_result = TActionResult2 {
+            output_files: vec![remote_execution::TFile {
+                digest: remote_execution::DigestWithStatus {
+                    digest: missing.clone(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }],
+            stdout_digest: Some(present),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            action_result_references_any_digest(&action_result, &missing_digests),
+            Some(missing)
+        );
+    }
+
+    #[test]
+    fn action_result_cas_digests_includes_cache_references() {
+        let output_file = test_digest(1);
+        let tree = test_digest(2);
+        let root = test_digest(3);
+        let stdout = test_digest(4);
+        let stderr = test_digest(5);
+
+        let action_result = TActionResult2 {
+            output_files: vec![remote_execution::TFile {
+                digest: remote_execution::DigestWithStatus {
+                    digest: output_file.clone(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }],
+            output_directories: vec![remote_execution::TDirectory2 {
+                tree_digest: tree.clone(),
+                root_directory_digest: root.clone(),
+                ..Default::default()
+            }],
+            stdout_digest: Some(stdout.clone()),
+            stderr_digest: Some(stderr.clone()),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            action_result_cas_digests(&action_result),
+            vec![output_file, tree, root, stdout, stderr]
+        );
+    }
 
     #[test]
     fn test_chunks_skips() {
@@ -2182,5 +2492,112 @@ mod tests {
         assert_eq!(it.next(), Some(vec![1, 2]));
         assert_eq!(it.next(), Some(vec![3]));
         assert_eq!(it.next(), None);
+    }
+
+    #[test]
+    fn validate_inlined_blob_accepts_matching_blob() {
+        let digest = test_digest(4);
+        let blob = test_blob(digest.clone(), b"test".to_vec());
+
+        validate_inlined_blob(&digest, &blob).unwrap();
+    }
+
+    #[test]
+    fn validate_inlined_blob_rejects_wrong_digest() {
+        let digest = test_digest(4);
+        let mut returned_digest = digest.clone();
+        returned_digest.hash = "fedcba9876543210fedcba9876543210fedcba98".to_owned();
+        let blob = test_blob(returned_digest, b"test".to_vec());
+
+        assert!(validate_inlined_blob(&digest, &blob).is_err());
+    }
+
+    #[test]
+    fn validate_inlined_blob_rejects_wrong_size() {
+        let digest = test_digest(4);
+        let blob = test_blob(digest.clone(), b"too long".to_vec());
+
+        assert!(validate_inlined_blob(&digest, &blob).is_err());
+    }
+
+    #[test]
+    fn validate_inlined_blob_rejects_remote_error() {
+        let digest = test_digest(4);
+        let mut blob = test_blob(digest.clone(), b"test".to_vec());
+        blob.status.code = TCode::DATA_LOSS;
+        blob.status.message = "corrupt blob".to_owned();
+
+        assert!(validate_inlined_blob(&digest, &blob).is_err());
+    }
+
+    #[test]
+    fn validate_digest_expirations_accepts_out_of_order_response() {
+        let now = jiff::Timestamp::now();
+        let digest_a = test_digest_with_hash("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1);
+        let digest_b = test_digest_with_hash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 2);
+
+        let expirations = validate_digest_expirations(
+            vec![digest_b.clone(), digest_a.clone()],
+            GetDigestsTtlResponse {
+                digests_with_ttl: vec![
+                    remote_execution::DigestWithTtl {
+                        digest: digest_a.clone(),
+                        ttl: 10,
+                    },
+                    remote_execution::DigestWithTtl {
+                        digest: digest_b.clone(),
+                        ttl: 20,
+                    },
+                ],
+            },
+            now,
+        )
+        .unwrap();
+
+        assert_eq!(
+            expirations,
+            vec![
+                (digest_a.clone(), re_expiration_from_ttl(now, 10, &digest_a)),
+                (digest_b.clone(), re_expiration_from_ttl(now, 20, &digest_b))
+            ]
+        );
+    }
+
+    #[test]
+    fn validate_digest_expirations_rejects_wrong_count() {
+        let now = jiff::Timestamp::now();
+        let digest = test_digest(1);
+
+        assert!(
+            validate_digest_expirations(
+                vec![digest],
+                GetDigestsTtlResponse {
+                    digests_with_ttl: Vec::new(),
+                },
+                now,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn validate_digest_expirations_rejects_wrong_digest() {
+        let now = jiff::Timestamp::now();
+        let digest = test_digest_with_hash("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1);
+        let returned_digest = test_digest_with_hash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 1);
+
+        assert!(
+            validate_digest_expirations(
+                vec![digest],
+                GetDigestsTtlResponse {
+                    digests_with_ttl: vec![remote_execution::DigestWithTtl {
+                        digest: returned_digest,
+                        ttl: 10,
+                    }],
+                },
+                now,
+            )
+            .is_err()
+        );
     }
 }

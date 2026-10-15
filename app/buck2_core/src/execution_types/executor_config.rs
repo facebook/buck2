@@ -50,12 +50,38 @@ pub struct RemoteEnabledExecutorOptions {
     pub re_action_key: Option<String>,
     pub cache_upload_behavior: CacheUploadBehavior,
     pub remote_cache_enabled: bool,
+    pub remote_cache_unavailable_fallback: bool,
     pub remote_dep_file_cache_enabled: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
     pub gang_workers: Vec<ReGangWorker>,
     pub custom_image: Option<Box<RemoteExecutorCustomImage>>,
     pub meta_internal_extra_params: Arc<MetaInternalExtraParams>,
     pub priority: Option<i32>,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Pagable, Allocative)]
+pub struct RemoteCachePolicy {
+    pub action_cache_enabled: bool,
+    pub unavailable_fallback: bool,
+    pub dep_file_cache_enabled: bool,
+    pub upload_behavior: CacheUploadBehavior,
+}
+
+impl RemoteCachePolicy {
+    pub fn any_lookup_enabled(self) -> bool {
+        self.action_cache_enabled || self.dep_file_cache_enabled
+    }
+}
+
+impl RemoteEnabledExecutorOptions {
+    pub fn remote_cache_policy(&self) -> RemoteCachePolicy {
+        RemoteCachePolicy {
+            action_cache_enabled: self.remote_cache_enabled,
+            unavailable_fallback: self.remote_cache_unavailable_fallback,
+            dep_file_cache_enabled: self.remote_dep_file_cache_enabled,
+            upload_behavior: self.cache_upload_behavior,
+        }
+    }
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -392,18 +418,27 @@ impl Display for Executor {
                 )
             }
             Self::RemoteEnabled(options) => {
-                let cache = match options.remote_cache_enabled {
+                let cache_policy = options.remote_cache_policy();
+                let cache = match cache_policy.action_cache_enabled {
                     true => "enabled",
                     false => "disabled",
                 };
-                let dep_file_cache = match options.remote_dep_file_cache_enabled {
+                let dep_file_cache = match cache_policy.dep_file_cache_enabled {
+                    true => "enabled",
+                    false => "disabled",
+                };
+                let cache_fallback = match cache_policy.unavailable_fallback {
                     true => "enabled",
                     false => "disabled",
                 };
                 write!(
                     f,
-                    "RemoteEnabled + executor {} + remote cache {} + cache upload {} + remote dep file cache {}",
-                    options.executor, cache, options.cache_upload_behavior, dep_file_cache
+                    "RemoteEnabled + executor {} + remote cache {} + remote cache fallback {} + cache upload {} + remote dep file cache {}",
+                    options.executor,
+                    cache,
+                    cache_fallback,
+                    cache_policy.upload_behavior,
+                    dep_file_cache
                 )
             }
             Self::None => write!(f, "None"),
@@ -618,6 +653,63 @@ impl MetaInternalExtraParams {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn remote_cache_policy_tracks_executor_options() {
+        let options = RemoteEnabledExecutorOptions {
+            executor: RemoteEnabledExecutor::Local(LocalExecutorOptions::default()),
+            re_properties: RePlatformFields::default(),
+            re_use_case: RemoteExecutorUseCase::buck2_default(),
+            re_action_key: None,
+            cache_upload_behavior: CacheUploadBehavior::Enabled {
+                max_bytes: Some(42),
+            },
+            remote_cache_enabled: true,
+            remote_cache_unavailable_fallback: true,
+            remote_dep_file_cache_enabled: false,
+            dependencies: Vec::new(),
+            gang_workers: Vec::new(),
+            custom_image: None,
+            meta_internal_extra_params: MetaInternalExtraParams::default_arc(),
+            priority: None,
+        };
+
+        let policy = options.remote_cache_policy();
+        assert!(policy.action_cache_enabled);
+        assert!(policy.unavailable_fallback);
+        assert!(!policy.dep_file_cache_enabled);
+        assert_eq!(
+            policy.upload_behavior,
+            CacheUploadBehavior::Enabled {
+                max_bytes: Some(42)
+            }
+        );
+        assert!(policy.any_lookup_enabled());
+    }
+
+    #[test]
+    fn remote_enabled_display_includes_cache_fallback() {
+        let options = RemoteEnabledExecutorOptions {
+            executor: RemoteEnabledExecutor::Local(LocalExecutorOptions::default()),
+            re_properties: RePlatformFields::default(),
+            re_use_case: RemoteExecutorUseCase::buck2_default(),
+            re_action_key: None,
+            cache_upload_behavior: CacheUploadBehavior::Disabled,
+            remote_cache_enabled: true,
+            remote_cache_unavailable_fallback: true,
+            remote_dep_file_cache_enabled: false,
+            dependencies: Vec::new(),
+            gang_workers: Vec::new(),
+            custom_image: None,
+            meta_internal_extra_params: MetaInternalExtraParams::default_arc(),
+            priority: None,
+        };
+
+        assert_eq!(
+            Executor::RemoteEnabled(options).to_string(),
+            "RemoteEnabled + executor local + remote cache enabled + remote cache fallback enabled + cache upload disabled + remote dep file cache disabled"
+        );
+    }
 
     #[test]
     fn test_re_gang_worker_parse_success() {

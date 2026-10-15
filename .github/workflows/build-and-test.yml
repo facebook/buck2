@@ -20,6 +20,7 @@ jobs:
     - uses: actions/checkout@v6
     - uses: ./.github/actions/setup_linux_env
     - uses: ./.github/actions/build_debug
+    - uses: ./.github/actions/build_example_nginx_goaway
     - uses: ./.github/actions/run_test_py
   macos-build-and-test:
     # Pinned to macos-14: on the macos-15 runner image `latest-stable` selects an

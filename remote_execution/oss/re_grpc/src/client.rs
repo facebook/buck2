@@ -9,14 +9,20 @@
  */
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::hash_map;
 use std::env::VarError;
 use std::io;
 use std::io::Cursor;
+use std::io::SeekFrom;
 use std::num::NonZeroUsize;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -36,6 +42,7 @@ use futures::future::Future;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
+use hyper_util::client::legacy::connect::HttpConnector;
 use lru::LruCache;
 use prost::Message;
 use re_grpc_proto::build::bazel::remote::execution::v2::ActionResult;
@@ -43,11 +50,13 @@ use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchUpdateBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchUpdateBlobsResponse;
+use re_grpc_proto::build::bazel::remote::execution::v2::CacheCapabilities;
 use re_grpc_proto::build::bazel::remote::execution::v2::Digest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteOperationMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteRequest as GExecuteRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExecuteResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecutedActionMetadata;
+use re_grpc_proto::build::bazel::remote::execution::v2::ExecutionCapabilities;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecutionPolicy;
 use re_grpc_proto::build::bazel::remote::execution::v2::FindMissingBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::FindMissingBlobsResponse;
@@ -56,30 +65,45 @@ use re_grpc_proto::build::bazel::remote::execution::v2::GetCapabilitiesRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::OutputDirectory;
 use re_grpc_proto::build::bazel::remote::execution::v2::OutputFile;
 use re_grpc_proto::build::bazel::remote::execution::v2::OutputSymlink;
+use re_grpc_proto::build::bazel::remote::execution::v2::PriorityCapabilities;
 use re_grpc_proto::build::bazel::remote::execution::v2::RequestMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
+use re_grpc_proto::build::bazel::remote::execution::v2::SpliceBlobRequest as GSpliceBlobRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::SpliceBlobResponse as GSpliceBlobResponse;
+use re_grpc_proto::build::bazel::remote::execution::v2::SplitBlobRequest as GSplitBlobRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::SplitBlobResponse as GSplitBlobResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::ToolDetails;
 use re_grpc_proto::build::bazel::remote::execution::v2::UpdateActionResultRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::WaitExecutionRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
 use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client::CapabilitiesClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::chunking_function;
 use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::digest_function;
 use re_grpc_proto::build::bazel::remote::execution::v2::execution_client::ExecutionClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::execution_stage;
+use re_grpc_proto::build::bazel::semver::SemVer;
+use re_grpc_proto::google::bytestream::QueryWriteStatusRequest;
 use re_grpc_proto::google::bytestream::ReadRequest;
 use re_grpc_proto::google::bytestream::ReadResponse;
 use re_grpc_proto::google::bytestream::WriteRequest;
 use re_grpc_proto::google::bytestream::WriteResponse;
 use re_grpc_proto::google::bytestream::byte_stream_client::ByteStreamClient;
+use re_grpc_proto::google::longrunning::Operation;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
 use regex::Regex;
+use sha1::Sha1;
+use sha2::Digest as _;
+use sha2::Sha256;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncBufRead;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
+use tokio::io::AsyncSeekExt;
 use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
 use tokio_util::io::StreamReader;
@@ -88,19 +112,36 @@ use tonic::metadata;
 use tonic::metadata::MetadataKey;
 use tonic::metadata::MetadataValue;
 use tonic::service::Interceptor;
+use tonic::transport::Certificate;
 use tonic::transport::Channel;
+use tonic::transport::Endpoint;
+use tonic::transport::Identity;
+use tonic::transport::Uri;
+use tonic::transport::channel::ClientTlsConfig;
+use uuid::Uuid;
 
 use crate::error::*;
 use crate::metadata::*;
-use crate::pool::ChannelConfig;
 use crate::pool::ChannelPool;
+use crate::pool::MakeChannel;
 use crate::pool::PoolConfig;
 use crate::pool::PooledChannel;
-use crate::pool::create_channel;
 use crate::request::*;
 use crate::response::*;
+use crate::stats::CountingConnector;
 
 const DEFAULT_MAX_TOTAL_BATCH_SIZE: usize = 4 * 1000 * 1000;
+const DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD: usize = 100;
+const DEFAULT_RETRIES: usize = 5;
+const GRPC_RETRY_INITIAL_DELAY_MILLIS: u64 = 100;
+const DEFAULT_RETRY_MAX_DELAY_MILLIS: u64 = 5000;
+const GRPC_RETRY_JITTER: f64 = 0.1;
+const DEFAULT_GRPC_KEEPALIVE_TIME_SECS: u64 = 60;
+const DEFAULT_GRPC_KEEPALIVE_TIMEOUT_SECS: u64 = 20;
+const DEFAULT_GRPC_KEEPALIVE_WHILE_IDLE: bool = false;
+const DEFAULT_GRPC_REQUEST_TIMEOUT_SECS: u64 = 60;
+const DEFAULT_BYTESTREAM_PROGRESS_TIMEOUT_SECS: u64 = 60;
+const DEFAULT_FAST_CDC_2020_AVG_CHUNK_SIZE: u64 = 512 * 1024;
 
 fn tdigest_to(tdigest: &TDigest) -> Digest {
     Digest {
@@ -125,16 +166,846 @@ fn tstatus_ok() -> TStatus {
     }
 }
 
+enum BlobHashVerifier {
+    Sha1(Sha1),
+    Sha256(Sha256),
+    Blake3(blake3::Hasher),
+}
+
+impl BlobHashVerifier {
+    fn name(&self) -> &'static str {
+        match self {
+            Self::Sha1(_) => "SHA1",
+            Self::Sha256(_) => "SHA256",
+            Self::Blake3(_) => "BLAKE3",
+        }
+    }
+
+    fn update(&mut self, data: &[u8]) {
+        match self {
+            Self::Sha1(hasher) => hasher.update(data),
+            Self::Sha256(hasher) => hasher.update(data),
+            Self::Blake3(hasher) => {
+                hasher.update(data);
+            }
+        }
+    }
+
+    fn finalize_hex(self) -> String {
+        match self {
+            Self::Sha1(hasher) => hex::encode(hasher.finalize()),
+            Self::Sha256(hasher) => hex::encode(hasher.finalize()),
+            Self::Blake3(hasher) => blake3::Hasher::finalize(&hasher).to_hex().to_string(),
+        }
+    }
+}
+
+struct BlobHashValidators {
+    expected_hash: String,
+    verifiers: Vec<BlobHashVerifier>,
+}
+
+impl BlobHashValidators {
+    fn new(
+        expected_hash: &str,
+        selected_digest_function: Option<digest_function::Value>,
+    ) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            !expected_hash.is_empty(),
+            "Digest hash is empty and cannot be validated"
+        );
+        anyhow::ensure!(
+            expected_hash.bytes().all(|b| b.is_ascii_hexdigit()),
+            "Digest hash contains non-hex characters: `{expected_hash}`"
+        );
+
+        let expected_hash = expected_hash.to_ascii_lowercase();
+        let verifiers = if let Some(digest_function) = selected_digest_function {
+            match digest_function {
+                digest_function::Value::Sha1 => {
+                    anyhow::ensure!(
+                        expected_hash.len() == 40,
+                        "Digest hash length mismatch for configured SHA1: `{expected_hash}`"
+                    );
+                    vec![BlobHashVerifier::Sha1(Sha1::new())]
+                }
+                digest_function::Value::Sha256 => {
+                    anyhow::ensure!(
+                        expected_hash.len() == 64,
+                        "Digest hash length mismatch for configured SHA256: `{expected_hash}`"
+                    );
+                    vec![BlobHashVerifier::Sha256(Sha256::new())]
+                }
+                digest_function::Value::Blake3 => {
+                    anyhow::ensure!(
+                        expected_hash.len() == 64,
+                        "Digest hash length mismatch for configured BLAKE3: `{expected_hash}`"
+                    );
+                    vec![BlobHashVerifier::Blake3(blake3::Hasher::new())]
+                }
+                _ => {
+                    anyhow::bail!(
+                        "Configured digest function {:?} is not supported for download hash validation",
+                        digest_function
+                    )
+                }
+            }
+        } else {
+            match expected_hash.len() {
+                40 => vec![BlobHashVerifier::Sha1(Sha1::new())],
+                // Could be either SHA256 or BLAKE3. Validate against both.
+                64 => vec![
+                    BlobHashVerifier::Sha256(Sha256::new()),
+                    BlobHashVerifier::Blake3(blake3::Hasher::new()),
+                ],
+                n => {
+                    anyhow::bail!(
+                        "Unsupported digest hash length `{n}` for `{expected_hash}`; cannot validate downloaded blob hash"
+                    )
+                }
+            }
+        };
+
+        Ok(Self {
+            expected_hash,
+            verifiers,
+        })
+    }
+
+    fn update(&mut self, data: &[u8]) {
+        for verifier in &mut self.verifiers {
+            verifier.update(data);
+        }
+    }
+
+    fn finish(self, digest: &TDigest) -> anyhow::Result<()> {
+        let mut tried = Vec::with_capacity(self.verifiers.len());
+        for verifier in self.verifiers {
+            let name = verifier.name();
+            tried.push(name);
+            if verifier.finalize_hex() == self.expected_hash {
+                return Ok(());
+            }
+        }
+        anyhow::bail!(
+            "Downloaded blob hash mismatch for `{digest}` after validating with [{}]",
+            tried.join(", ")
+        );
+    }
+}
+
+fn validate_downloaded_blob_size(digest: &TDigest, actual_size: usize) -> anyhow::Result<()> {
+    let expected_size = usize::try_from(digest.size_in_bytes)
+        .with_context(|| format!("Invalid negative digest size for `{digest}`"))?;
+    anyhow::ensure!(
+        actual_size == expected_size,
+        "Downloaded blob size mismatch for `{digest}`: expected {expected_size} bytes, got {actual_size} bytes"
+    );
+    Ok(())
+}
+
+fn validate_downloaded_blob_hash(
+    digest: &TDigest,
+    data: &[u8],
+    selected_digest_function: Option<digest_function::Value>,
+) -> anyhow::Result<()> {
+    let mut validators = BlobHashValidators::new(&digest.hash, selected_digest_function)?;
+    validators.update(data);
+    validators.finish(digest)
+}
+
+fn validate_downloaded_blob(
+    digest: &TDigest,
+    data: &[u8],
+    selected_digest_function: Option<digest_function::Value>,
+) -> anyhow::Result<()> {
+    validate_downloaded_blob_size(digest, data.len())?;
+    validate_downloaded_blob_hash(digest, data, selected_digest_function)
+}
+
+fn should_validate_upload_hash(digest: &TDigest) -> bool {
+    matches!(digest.hash.len(), 40 | 64) && digest.hash.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+fn validate_upload_blob(
+    digest: &TDigest,
+    data: &[u8],
+    selected_digest_function: Option<digest_function::Value>,
+) -> anyhow::Result<()> {
+    validate_downloaded_blob_size(digest, data.len())?;
+    if should_validate_upload_hash(digest) {
+        validate_downloaded_blob_hash(digest, data, selected_digest_function)?;
+    }
+    Ok(())
+}
+
+#[derive(Clone, PartialEq, ::prost::Message)]
+struct RetryInfoDetail {
+    #[prost(message, optional, tag = "1")]
+    retry_delay: Option<::prost_types::Duration>,
+}
+
+#[derive(Clone, PartialEq, ::prost::Message)]
+struct PreconditionFailureDetail {
+    #[prost(message, repeated, tag = "1")]
+    violations: Vec<PreconditionFailureViolation>,
+}
+
+#[derive(Clone, PartialEq, ::prost::Message)]
+struct PreconditionFailureViolation {
+    #[prost(string, tag = "1")]
+    r#type: String,
+    #[prost(string, tag = "2")]
+    subject: String,
+    #[prost(string, tag = "3")]
+    description: String,
+}
+
+const RETRY_INFO_TYPE_URL: &str = "type.googleapis.com/google.rpc.RetryInfo";
+const PRECONDITION_FAILURE_TYPE_URL: &str = "type.googleapis.com/google.rpc.PreconditionFailure";
+
 fn check_status(status: Status) -> Result<(), REClientError> {
     if status.code == 0 {
         return Ok(());
     }
 
-    Err(REClientError {
-        code: TCode(status.code),
-        message: status.message,
-        group: TCodeReasonGroup::UNKNOWN,
+    Err(re_client_error_from_rpc_status(&status))
+}
+
+fn grpc_duration_to_duration(duration: &::prost_types::Duration) -> Option<Duration> {
+    if duration.seconds < 0 || duration.nanos < 0 {
+        return None;
+    }
+
+    Some(Duration::new(
+        u64::try_from(duration.seconds).ok()?,
+        u32::try_from(duration.nanos).ok()?,
+    ))
+}
+
+fn retry_delay_from_rpc_status(status: &Status) -> Option<Duration> {
+    status.details.iter().find_map(|detail| {
+        if detail.type_url != RETRY_INFO_TYPE_URL {
+            return None;
+        }
+
+        let retry_info = RetryInfoDetail::decode(detail.value.as_slice()).ok()?;
+        retry_info
+            .retry_delay
+            .as_ref()
+            .and_then(grpc_duration_to_duration)
     })
+}
+
+fn capped_retry_delay_from_rpc_status(
+    status: &Status,
+    retry_max_delay: Duration,
+) -> Option<Duration> {
+    retry_delay_from_rpc_status(status).map(|delay| std::cmp::min(delay, retry_max_delay))
+}
+
+async fn sleep_for_execute_retry_info(
+    status: &Status,
+    retry_max_delay: Duration,
+    operation_name: Option<&str>,
+) {
+    let Some(delay) = capped_retry_delay_from_rpc_status(status, retry_max_delay) else {
+        return;
+    };
+
+    tracing::debug!(
+        operation_name = operation_name.unwrap_or(""),
+        delay_ms = delay.as_millis(),
+        "Delaying Execute retry per RetryInfo"
+    );
+    tokio::time::sleep(delay).await;
+}
+
+fn precondition_failures(status: &Status) -> impl Iterator<Item = PreconditionFailureDetail> + '_ {
+    status.details.iter().filter_map(|detail| {
+        if detail.type_url != PRECONDITION_FAILURE_TYPE_URL {
+            return None;
+        }
+
+        PreconditionFailureDetail::decode(detail.value.as_slice()).ok()
+    })
+}
+
+fn rpc_status_has_missing_precondition(status: &Status) -> bool {
+    status.code == Code::FailedPrecondition as i32
+        && precondition_failures(status).any(|failure| {
+            !failure.violations.is_empty()
+                && failure
+                    .violations
+                    .iter()
+                    .all(|violation| violation.r#type.eq_ignore_ascii_case("MISSING"))
+        })
+}
+
+fn message_indicates_quota(message: &str) -> bool {
+    let message = message.to_ascii_lowercase();
+    message.contains("quota") || message.contains("rate limit")
+}
+
+fn group_for_rpc_status(status: &Status) -> TCodeReasonGroup {
+    if status.code == Code::ResourceExhausted as i32 && message_indicates_quota(&status.message) {
+        TCodeReasonGroup::USER_QUOTA
+    } else {
+        TCodeReasonGroup::UNKNOWN
+    }
+}
+
+fn format_rpc_status_message(status: &Status) -> String {
+    let mut details = Vec::new();
+    if let Some(retry_delay) = retry_delay_from_rpc_status(status) {
+        details.push(format!(
+            "RetryInfo(retry_delay_ms={})",
+            retry_delay.as_millis()
+        ));
+    }
+
+    for failure in precondition_failures(status) {
+        for violation in failure.violations {
+            details.push(format!(
+                "PreconditionFailure(type={}, subject={}, description={})",
+                violation.r#type, violation.subject, violation.description
+            ));
+        }
+    }
+
+    for detail in &status.details {
+        if detail.type_url != RETRY_INFO_TYPE_URL
+            && detail.type_url != PRECONDITION_FAILURE_TYPE_URL
+        {
+            details.push(format!("detail_type={}", detail.type_url));
+        }
+    }
+
+    if details.is_empty() {
+        status.message.clone()
+    } else if status.message.is_empty() {
+        details.join("; ")
+    } else {
+        format!("{} ({})", status.message, details.join("; "))
+    }
+}
+
+fn re_client_error_from_rpc_status(status: &Status) -> REClientError {
+    REClientError {
+        code: TCode(status.code),
+        message: format_rpc_status_message(status),
+        group: group_for_rpc_status(status),
+    }
+}
+
+fn tcode_is_retryable(code: TCode) -> bool {
+    matches!(
+        code,
+        TCode::UNKNOWN
+            | TCode::DEADLINE_EXCEEDED
+            | TCode::ABORTED
+            | TCode::INTERNAL
+            | TCode::UNAVAILABLE
+            | TCode::RESOURCE_EXHAUSTED
+    )
+}
+
+fn tcode_from_grpc_code(code: tonic::Code) -> TCode {
+    match code {
+        tonic::Code::Ok => TCode::OK,
+        tonic::Code::Cancelled => TCode::CANCELLED,
+        tonic::Code::Unknown => TCode::UNKNOWN,
+        tonic::Code::InvalidArgument => TCode::INVALID_ARGUMENT,
+        tonic::Code::DeadlineExceeded => TCode::DEADLINE_EXCEEDED,
+        tonic::Code::NotFound => TCode::NOT_FOUND,
+        tonic::Code::AlreadyExists => TCode::ALREADY_EXISTS,
+        tonic::Code::PermissionDenied => TCode::PERMISSION_DENIED,
+        tonic::Code::ResourceExhausted => TCode::RESOURCE_EXHAUSTED,
+        tonic::Code::FailedPrecondition => TCode::FAILED_PRECONDITION,
+        tonic::Code::Aborted => TCode::ABORTED,
+        tonic::Code::OutOfRange => TCode::OUT_OF_RANGE,
+        tonic::Code::Unimplemented => TCode::UNIMPLEMENTED,
+        tonic::Code::Internal => TCode::INTERNAL,
+        tonic::Code::Unavailable => TCode::UNAVAILABLE,
+        tonic::Code::DataLoss => TCode::DATA_LOSS,
+        tonic::Code::Unauthenticated => TCode::UNAUTHENTICATED,
+    }
+}
+
+fn tonic_status_rpc_status(status: &tonic::Status) -> Option<Status> {
+    if status.details().is_empty() {
+        return None;
+    }
+
+    Status::decode(status.details()).ok()
+}
+
+fn tonic_status_indicates_broken_connection(status: &tonic::Status) -> bool {
+    if !matches!(
+        status.code(),
+        tonic::Code::Unavailable
+            | tonic::Code::Unknown
+            | tonic::Code::Internal
+            | tonic::Code::DeadlineExceeded
+    ) {
+        return false;
+    }
+
+    let message = status.message().to_ascii_lowercase();
+    message.contains("transport error")
+        || message.contains("connection reset")
+        || message.contains("connection refused")
+        || message.contains("connection closed")
+        || message.contains("connection error")
+        || message.contains("broken pipe")
+        || message.contains("http2")
+        || message.contains("io error")
+}
+
+fn re_client_error_from_tonic_status(status: &tonic::Status) -> REClientError {
+    let rpc_status = tonic_status_rpc_status(status);
+    let mut message = status.message().to_owned();
+    let mut group = if tonic_status_indicates_broken_connection(status) {
+        TCodeReasonGroup::RE_CONNECTION
+    } else {
+        TCodeReasonGroup::UNKNOWN
+    };
+
+    if let Some(rpc_status) = &rpc_status {
+        let rpc_group = group_for_rpc_status(rpc_status);
+        if group == TCodeReasonGroup::UNKNOWN {
+            group = rpc_group;
+        }
+        let rpc_message = format_rpc_status_message(rpc_status);
+        if !rpc_message.is_empty() {
+            message = rpc_message;
+        }
+    } else if status.code() == tonic::Code::ResourceExhausted && message_indicates_quota(&message) {
+        group = TCodeReasonGroup::USER_QUOTA;
+    }
+
+    REClientError {
+        code: tcode_from_grpc_code(status.code()),
+        message,
+        group,
+    }
+}
+
+fn tonic_status_from_io_error(error: &io::Error) -> Option<&tonic::Status> {
+    let source = error.get_ref()?;
+    if let Some(status) = source.downcast_ref::<tonic::Status>() {
+        return Some(status);
+    }
+
+    let mut current = source.source();
+    while let Some(source) = current {
+        if let Some(status) = source.downcast_ref::<tonic::Status>() {
+            return Some(status);
+        }
+        current = source.source();
+    }
+    None
+}
+
+fn normalize_grpc_error(err: anyhow::Error) -> anyhow::Error {
+    if err.downcast_ref::<REClientError>().is_some() {
+        return err;
+    }
+
+    let re_client_error = err
+        .downcast_ref::<tonic::Status>()
+        .map(re_client_error_from_tonic_status)
+        .or_else(|| {
+            err.downcast_ref::<io::Error>()
+                .and_then(tonic_status_from_io_error)
+                .map(re_client_error_from_tonic_status)
+        });
+    match re_client_error {
+        Some(re_client_error) => anyhow::Error::from(re_client_error),
+        None => err,
+    }
+}
+
+fn error_tcode(err: &anyhow::Error) -> Option<TCode> {
+    err.downcast_ref::<REClientError>()
+        .map(|status| status.code)
+        .or_else(|| {
+            err.downcast_ref::<tonic::Status>()
+                .map(|status| tcode_from_grpc_code(status.code()))
+        })
+        .or_else(|| {
+            err.downcast_ref::<io::Error>()
+                .and_then(tonic_status_from_io_error)
+                .map(|status| tcode_from_grpc_code(status.code()))
+        })
+}
+
+fn grpc_error_retry_delay(err: &anyhow::Error) -> Option<Duration> {
+    err.downcast_ref::<tonic::Status>()
+        .and_then(tonic_status_rpc_status)
+        .and_then(|status| retry_delay_from_rpc_status(&status))
+        .or_else(|| {
+            err.downcast_ref::<io::Error>()
+                .and_then(tonic_status_from_io_error)
+                .and_then(tonic_status_rpc_status)
+                .and_then(|status| retry_delay_from_rpc_status(&status))
+        })
+}
+
+fn is_transient_io_error(err: &io::Error) -> bool {
+    matches!(
+        err.kind(),
+        io::ErrorKind::BrokenPipe
+            | io::ErrorKind::ConnectionReset
+            | io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::UnexpectedEof
+            | io::ErrorKind::TimedOut
+    )
+}
+
+fn is_transient_transport_error(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        if let Some(io_error) = cause.downcast_ref::<io::Error>() {
+            return is_transient_io_error(io_error);
+        }
+        // h2 does not expose its wrapped I/O error through source().
+        cause
+            .downcast_ref::<h2::Error>()
+            .and_then(h2::Error::get_io)
+            .is_some_and(is_transient_io_error)
+    })
+}
+
+/// Whether the server refused the request without processing it: the request
+/// was above a GOAWAY's last stream ID, or its stream was reset with
+/// REFUSED_STREAM. The transport sends such a request again when it can, and
+/// replaces a connection that a GOAWAY closed, so it needs no reconnect.
+fn is_refused_by_server(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        cause.downcast_ref::<h2::Error>().is_some_and(|error| {
+            error.is_remote()
+                && ((error.is_go_away() && error.reason() == Some(h2::Reason::NO_ERROR))
+                    || error.reason() == Some(h2::Reason::REFUSED_STREAM))
+        })
+    })
+}
+
+fn is_broken_connection_error(err: &anyhow::Error) -> bool {
+    if is_refused_by_server(err) {
+        return false;
+    }
+    if is_transient_transport_error(err) {
+        return true;
+    }
+
+    if err
+        .downcast_ref::<REClientError>()
+        .is_some_and(|error| error.group == TCodeReasonGroup::RE_CONNECTION)
+    {
+        return true;
+    }
+
+    if err
+        .downcast_ref::<tonic::Status>()
+        .is_some_and(tonic_status_indicates_broken_connection)
+    {
+        return true;
+    }
+
+    if let Some(io_error) = err.downcast_ref::<io::Error>() {
+        if tonic_status_from_io_error(io_error)
+            .is_some_and(tonic_status_indicates_broken_connection)
+        {
+            return true;
+        }
+    }
+
+    let message = format!("{err:#}").to_ascii_lowercase();
+    message.contains("connection reset")
+        || message.contains("connection refused")
+        || message.contains("connection closed")
+        || message.contains("broken pipe")
+        || message.contains("transport error")
+}
+
+fn is_retryable_grpc_error(err: &anyhow::Error) -> bool {
+    grpc_error_retry_delay(err).is_some()
+        || error_tcode(err).is_some_and(|code| code == TCode::CANCELLED || tcode_is_retryable(code))
+        || is_transient_transport_error(err)
+}
+
+fn is_operation_not_found(err: &anyhow::Error) -> bool {
+    error_tcode(err) == Some(TCode::NOT_FOUND)
+}
+
+fn should_retry_execute_after_wait_execution_error(err: &anyhow::Error) -> bool {
+    is_operation_not_found(err)
+}
+
+fn should_retry_execute_after_operation_stream_error(err: &anyhow::Error) -> bool {
+    is_operation_not_found(err)
+}
+
+fn should_retry_execute_after_operation_error(status: &Status) -> bool {
+    if rpc_status_has_missing_precondition(status) {
+        return false;
+    }
+    retry_delay_from_rpc_status(status).is_some() || tcode_is_retryable(TCode(status.code))
+}
+
+fn should_retry_execute_after_execute_response_status(status: &Status) -> bool {
+    if rpc_status_has_missing_precondition(status) {
+        return false;
+    }
+    retry_delay_from_rpc_status(status).is_some()
+        || (TCode(status.code) != TCode::DEADLINE_EXCEEDED
+            && tcode_is_retryable(TCode(status.code)))
+}
+
+fn can_retry_execute(retry_attempts: usize, retries: usize) -> bool {
+    retry_attempts < retries
+}
+
+fn jittered_retry_delay(base_delay: Duration) -> Duration {
+    let random_bytes = Uuid::new_v4().into_bytes();
+    let random = u16::from_be_bytes([random_bytes[0], random_bytes[1]]) as f64 / u16::MAX as f64;
+    let jitter_ratio = GRPC_RETRY_JITTER * ((2.0 * random) - 1.0);
+    base_delay.mul_f64(1.0 + jitter_ratio)
+}
+
+async fn retry_grpc_request<T, Fut, F>(
+    retries: usize,
+    retry_max_delay: Duration,
+    request: F,
+) -> anyhow::Result<T>
+where
+    Fut: Future<Output = anyhow::Result<T>>,
+    F: FnMut() -> Fut,
+{
+    retry_grpc_request_with_reconnect(retries, retry_max_delay, request, || async {}).await
+}
+
+async fn retry_grpc_request_with_reconnect<T, Fut, F, RFut, R>(
+    retries: usize,
+    retry_max_delay: Duration,
+    mut request: F,
+    mut reconnect: R,
+) -> anyhow::Result<T>
+where
+    Fut: Future<Output = anyhow::Result<T>>,
+    F: FnMut() -> Fut,
+    RFut: Future<Output = ()>,
+    R: FnMut() -> RFut,
+{
+    let mut retry_attempt = 0usize;
+    let mut next_delay = Duration::from_millis(GRPC_RETRY_INITIAL_DELAY_MILLIS);
+
+    loop {
+        match request().await {
+            Ok(response) => return Ok(response),
+            Err(err) => {
+                if retry_attempt >= retries || !is_retryable_grpc_error(&err) {
+                    return Err(normalize_grpc_error(err));
+                }
+
+                if is_broken_connection_error(&err) {
+                    reconnect().await;
+                }
+
+                let delay = grpc_error_retry_delay(&err)
+                    .map(|delay| std::cmp::min(delay, retry_max_delay))
+                    .unwrap_or_else(|| jittered_retry_delay(next_delay));
+                tracing::debug!(
+                    retry_attempt = retry_attempt + 1,
+                    retries,
+                    delay_ms = delay.as_millis(),
+                    "Retrying transient gRPC failure"
+                );
+                tokio::time::sleep(delay).await;
+                retry_attempt += 1;
+                next_delay = std::cmp::min(next_delay.saturating_mul(2), retry_max_delay);
+            }
+        }
+    }
+}
+
+async fn retry_grpc_request_with_client_reconnect<T, Fut, F>(
+    grpc_clients: Arc<GRPCClients>,
+    kind: GrpcClientKind,
+    retries: usize,
+    retry_max_delay: Duration,
+    request: F,
+) -> anyhow::Result<T>
+where
+    Fut: Future<Output = anyhow::Result<T>>,
+    F: FnMut() -> Fut,
+{
+    retry_grpc_request_with_reconnect(retries, retry_max_delay, request, || {
+        let grpc_clients = grpc_clients.clone();
+        async move {
+            grpc_clients.reconnect_after_broken_connection(kind).await;
+        }
+    })
+    .await
+}
+
+async fn execute_stream(
+    grpc_clients: Arc<GRPCClients>,
+    metadata: RemoteExecutionMetadata,
+    use_fbcode_metadata: bool,
+    request: GExecuteRequest,
+    retries: usize,
+    retry_max_delay: Duration,
+) -> anyhow::Result<tonic::Streaming<Operation>> {
+    retry_grpc_request_with_client_reconnect(
+        grpc_clients.clone(),
+        GrpcClientKind::Execution,
+        retries,
+        retry_max_delay,
+        || {
+            let grpc_clients = grpc_clients.clone();
+            let metadata = metadata.clone();
+            let request = request.clone();
+            async move {
+                let mut client = grpc_clients.execution_client().await?;
+                Ok(client
+                    .execute(with_re_metadata(request, &metadata, use_fbcode_metadata))
+                    .await?
+                    .into_inner())
+            }
+        },
+    )
+    .await
+}
+
+async fn wait_execution_stream(
+    grpc_clients: Arc<GRPCClients>,
+    metadata: RemoteExecutionMetadata,
+    use_fbcode_metadata: bool,
+    operation_name: String,
+    retries: usize,
+    retry_max_delay: Duration,
+) -> anyhow::Result<tonic::Streaming<Operation>> {
+    retry_grpc_request_with_client_reconnect(
+        grpc_clients.clone(),
+        GrpcClientKind::Execution,
+        retries,
+        retry_max_delay,
+        || {
+            let grpc_clients = grpc_clients.clone();
+            let metadata = metadata.clone();
+            let operation_name = operation_name.clone();
+            async move {
+                let mut client = grpc_clients.execution_client().await?;
+                Ok(client
+                    .wait_execution(with_re_metadata(
+                        WaitExecutionRequest {
+                            name: operation_name,
+                        },
+                        &metadata,
+                        use_fbcode_metadata,
+                    ))
+                    .await?
+                    .into_inner())
+            }
+        },
+    )
+    .await
+}
+
+async fn wait_execution_or_retry_execute(
+    grpc_clients: Arc<GRPCClients>,
+    metadata: RemoteExecutionMetadata,
+    use_fbcode_metadata: bool,
+    operation_name: String,
+    execute_request: GExecuteRequest,
+    execute_retry_attempts: usize,
+    retries: usize,
+    retry_max_delay: Duration,
+    wait_failure_context: &'static str,
+) -> anyhow::Result<(tonic::Streaming<Operation>, Option<String>, usize)> {
+    match wait_execution_stream(
+        grpc_clients.clone(),
+        metadata.clone(),
+        use_fbcode_metadata,
+        operation_name.clone(),
+        retries,
+        retry_max_delay,
+    )
+    .await
+    {
+        Ok(stream) => Ok((stream, Some(operation_name), execute_retry_attempts)),
+        Err(wait_err) if should_retry_execute_after_wait_execution_error(&wait_err) => {
+            if !can_retry_execute(execute_retry_attempts, retries) {
+                return Err(wait_err.context(format!(
+                    "RE operation `{operation_name}` was lost after retry limit"
+                )));
+            }
+
+            let execute_retry_attempts = execute_retry_attempts + 1;
+            tracing::debug!(
+                operation_name = %operation_name,
+                retry_attempt = execute_retry_attempts,
+                retries,
+                "RE operation was lost; retrying Execute"
+            );
+            let stream = execute_stream(
+                grpc_clients,
+                metadata,
+                use_fbcode_metadata,
+                execute_request,
+                retries,
+                retry_max_delay,
+            )
+            .await
+            .context(format!(
+                "RE operation `{operation_name}` was lost and Execute retry failed"
+            ))?;
+            Ok((stream, None, execute_retry_attempts))
+        }
+        Err(wait_err) => Err(wait_err.context(wait_failure_context)),
+    }
+}
+
+enum BystreamWritePlan {
+    Write(Vec<WriteRequest>),
+    AlreadyCommitted(i64),
+}
+
+fn total_bystream_write_size(segments: &[WriteRequest]) -> i64 {
+    segments
+        .last()
+        .map(|segment| segment.write_offset + segment.data.len() as i64)
+        .unwrap_or(0)
+}
+
+fn trim_bystream_write_segments(
+    segments: Vec<WriteRequest>,
+    committed_size: i64,
+) -> Vec<WriteRequest> {
+    if committed_size <= 0 {
+        return segments;
+    }
+
+    let mut resumed = Vec::with_capacity(segments.len());
+    for mut segment in segments {
+        let start = segment.write_offset;
+        let end = start + segment.data.len() as i64;
+
+        if end <= committed_size {
+            continue;
+        }
+
+        if start < committed_size {
+            let skip = (committed_size - start) as usize;
+            segment.data = segment.data[skip..].to_vec();
+            segment.write_offset = committed_size;
+        }
+
+        resumed.push(segment);
+    }
+
+    resumed
 }
 
 fn ttimestamp_to(ts: &TTimestamp) -> ::prost_types::Timestamp {
@@ -170,13 +1041,111 @@ fn tany_from(any: ::prost_types::Any) -> TAny {
     }
 }
 
+async fn create_tls_config(settings: &GrpcTlsSettings) -> anyhow::Result<ClientTlsConfig> {
+    let config = match settings.tls_ca_certs.as_ref() {
+        Some(tls_ca_certs) => {
+            let tls_ca_certs =
+                substitute_env_vars(tls_ca_certs).context("Invalid `tls_ca_certs`")?;
+            let data = tokio::fs::read(&tls_ca_certs)
+                .await
+                .with_context(|| format!("Error reading `{tls_ca_certs}`"))?;
+            ClientTlsConfig::new().ca_certificate(Certificate::from_pem(data))
+        }
+        None => {
+            // We set the `tls-webpki-roots` feature so we'll get that default.
+            ClientTlsConfig::new().with_enabled_roots()
+        }
+    };
+
+    let config = match settings.tls_client_cert.as_ref() {
+        Some(tls_client_cert) => {
+            let tls_client_cert =
+                substitute_env_vars(tls_client_cert).context("Invalid `tls_client_cert`")?;
+            let data = tokio::fs::read(&tls_client_cert)
+                .await
+                .with_context(|| format!("Error reading `{tls_client_cert}`"))?;
+            config.identity(Identity::from_pem(&data, &data))
+        }
+        None => config,
+    };
+
+    Ok(config)
+}
+
+fn prepare_uri(uri: Uri) -> anyhow::Result<(Uri, bool)> {
+    // Now do some awkward things with the protocol. Why do we do all this? The reason is
+    // because we'd like our configuration to not be super confusing. We don't want to e.g.
+    // allow setting the address to `https://foobar`; instead we infer TLS from the source
+    // scheme and only accept schemes that are valid in GRPC naming.
+
+    // This is the GRPC spec for naming: https://github.com/grpc/grpc/blob/master/doc/naming.md
+    // Many people (including Bazel), use grpc:// and grpcs://, so we tolerate both.
+    // We also accept http:// and https:// for convenience.
+
+    let tls = match uri.scheme_str() {
+        Some("grpc") => false,
+        Some("grpcs") => true,
+        Some("http") => false,
+        Some("https") => true,
+        Some("dns") | Some("ipv4") | Some("ipv6") | None => true,
+        Some(scheme) => {
+            return Err(anyhow::anyhow!(
+                "Invalid URI scheme: `{}` for `{}` (expected one of grpc, grpcs, http, https, dns, ipv4, ipv6, or no scheme)",
+                scheme,
+                uri,
+            ));
+        }
+    };
+
+    // And now, let's put back a proper scheme for Tonic to be happy with. First, because
+    // Tonic will blow up if we don't. Second, so we get port inference.
+    let mut parts = uri.into_parts();
+    parts.scheme = Some(if tls {
+        http::uri::Scheme::HTTPS
+    } else {
+        http::uri::Scheme::HTTP
+    });
+
+    // Is this API actually designed to be unusable? If you've got a scheme, you must
+    // have a path_and_query. I'm sure there's a good reason, so we abide:
+    if parts.path_and_query.is_none() {
+        parts.path_and_query = Some(http::uri::PathAndQuery::from_static("/"));
+    }
+
+    Ok((Uri::from_parts(parts)?, tls))
+}
+
 /// Contains information queried from the Remote Execution Capabilities service.
 pub struct RECapabilities {
+    /// Whether these capabilities came from the remote server.
+    capabilities_queried: bool,
     /// Largest size of a message before being uploaded using bytestream service.
     /// 0 indicates no limit beyond constraint of underlying transport (which is unknown).
     max_total_batch_size: usize,
+    /// Largest CAS blob the server accepts for uploads, if advertised.
+    max_cas_blob_size_bytes: Option<i64>,
     /// Compressors supported by the "compressed-blobs" bytestream resources.
     supported_compressors: Vec<Compressor>,
+    /// Compressors supported for BatchUpdateBlobs inlined data.
+    supported_batch_update_compressors: Vec<Compressor>,
+    /// Digest functions supported by the remote cache/execution capabilities.
+    supported_digest_functions: Vec<digest_function::Value>,
+    /// Digest functions supported by the remote cache capabilities.
+    cache_digest_functions: Vec<digest_function::Value>,
+    /// Digest functions supported by the remote execution capabilities.
+    execution_digest_functions: Vec<digest_function::Value>,
+    /// Supported nonzero execution priority ranges.
+    execution_priority_ranges: Vec<PriorityRange>,
+    /// Whether the action cache accepts updates, if advertised by the server.
+    action_cache_update_enabled: Option<bool>,
+    /// Whether remote execution is enabled, if advertised by the server.
+    execution_enabled: Option<bool>,
+    /// Whether the server supports CAS SplitBlob.
+    blob_split_supported: bool,
+    /// Whether the server supports CAS SpliceBlob.
+    blob_splice_supported: bool,
+    /// FastCDC 2020 chunking parameters advertised by the remote cache.
+    fast_cdc_2020: Option<FastCdc2020Config>,
 }
 
 /// Contains runtime options for the remote execution client as set under `buck2_re_client`
@@ -189,6 +1158,30 @@ pub struct RERuntimeOpts {
     cas_ttl_secs: i64,
     /// Maximum number of digests per `FindMissingBlobs` RPC.
     find_missing_blobs_batch_size: usize,
+    /// Whether to chunk large remote-cache blobs using FastCDC 2020 and SpliceBlob.
+    remote_cache_chunking: bool,
+    /// Minimum blob size for remote cache compression.
+    remote_cache_compression_threshold: usize,
+    /// Number of retries to apply for transient gRPC errors.
+    retries: usize,
+    /// Maximum delay between retry attempts.
+    retry_max_delay_ms: u64,
+    /// Per-attempt timeout for unary gRPC requests.
+    grpc_request_timeout: Duration,
+    /// Maximum idle time for a ByteStream download before the stream is retried.
+    bytestream_progress_timeout: Duration,
+    /// Digest function selected from user config and capabilities for download hash validation.
+    download_hash_digest_function: Option<digest_function::Value>,
+    /// Digest functions selected from daemon config for RE request fields.
+    request_digest_function_config: DigestFunctionConfig,
+}
+
+impl RERuntimeOpts {
+    fn download_hash_digest_function_for_hash(&self, hash: &str) -> Option<digest_function::Value> {
+        self.request_digest_function_config
+            .for_hash(hash)
+            .or(self.download_hash_digest_function)
+    }
 }
 
 struct InstanceName(Option<String>);
@@ -229,8 +1222,16 @@ impl Compressor {
         }
     }
 
+    fn as_grpc(&self) -> i32 {
+        match self {
+            Self::Zstd => compressor::Value::Zstd as i32,
+            Self::Deflate => compressor::Value::Deflate as i32,
+            Self::Brotli => compressor::Value::Brotli as i32,
+        }
+    }
+
     /// The compressor name used in compressed-blob resource paths
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         match self {
             Self::Zstd => "zstd",
             Self::Deflate => "deflate",
@@ -239,19 +1240,938 @@ impl Compressor {
     }
 }
 
+fn select_preferred_compressor(compressors: &[Compressor]) -> Option<Compressor> {
+    if compressors.contains(&Compressor::Zstd) {
+        Some(Compressor::Zstd)
+    } else if compressors.contains(&Compressor::Brotli) {
+        Some(Compressor::Brotli)
+    } else if compressors.contains(&Compressor::Deflate) {
+        Some(Compressor::Deflate)
+    } else {
+        None
+    }
+}
+
+fn compressor_names(compressors: &[Compressor]) -> String {
+    if compressors.is_empty() {
+        return "<none>".to_owned();
+    }
+
+    compressors
+        .iter()
+        .map(Compressor::name)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn compression_for_blob(
+    compressor: Option<Compressor>,
+    size_in_bytes: i64,
+    threshold: usize,
+) -> Option<Compressor> {
+    let size = usize::try_from(size_in_bytes).ok()?;
+    if size == 0 || size < threshold {
+        None
+    } else {
+        compressor
+    }
+}
+
+async fn compress_data(data: Vec<u8>, compressor: Compressor) -> anyhow::Result<Vec<u8>> {
+    async fn read_all(mut reader: impl AsyncRead + Unpin) -> anyhow::Result<Vec<u8>> {
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data).await?;
+        Ok(data)
+    }
+
+    match compressor {
+        Compressor::Zstd => read_all(ZstdEncoder::new(Cursor::new(data))).await,
+        Compressor::Deflate => read_all(DeflateEncoder::new(Cursor::new(data))).await,
+        Compressor::Brotli => read_all(BrotliEncoder::new(Cursor::new(data))).await,
+    }
+}
+
+async fn decompress_data(data: Vec<u8>, compressor: Compressor) -> anyhow::Result<Vec<u8>> {
+    async fn read_all(mut reader: impl AsyncRead + Unpin) -> anyhow::Result<Vec<u8>> {
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data).await?;
+        Ok(data)
+    }
+
+    match compressor {
+        Compressor::Zstd => {
+            let mut decoder = ZstdDecoder::new(Cursor::new(data));
+            decoder.multiple_members(true);
+            read_all(decoder).await
+        }
+        Compressor::Deflate => read_all(DeflateDecoder::new(Cursor::new(data))).await,
+        Compressor::Brotli => read_all(BrotliDecoder::new(Cursor::new(data))).await,
+    }
+}
+
+fn digest_function_from_grpc(val: i32) -> Option<digest_function::Value> {
+    let value = digest_function::Value::try_from(val).ok()?;
+    if value == digest_function::Value::Unknown {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+fn parse_configured_digest_function(value: &str) -> Option<digest_function::Value> {
+    match value.trim().to_ascii_uppercase().as_str() {
+        "SHA1" => Some(digest_function::Value::Sha1),
+        "SHA256" => Some(digest_function::Value::Sha256),
+        // RE API only has BLAKE3 (not keyed); map config tokens to that capability.
+        "BLAKE3" | "BLAKE3-KEYED" => Some(digest_function::Value::Blake3),
+        _ => None,
+    }
+}
+
+fn digest_function_name(value: digest_function::Value) -> &'static str {
+    match value {
+        digest_function::Value::Md5 => "MD5",
+        digest_function::Value::Murmur3 => "MURMUR3",
+        digest_function::Value::Sha1 => "SHA1",
+        digest_function::Value::Sha256 => "SHA256",
+        digest_function::Value::Sha384 => "SHA384",
+        digest_function::Value::Sha512 => "SHA512",
+        digest_function::Value::Vso => "VSO",
+        digest_function::Value::Sha256tree => "SHA256TREE",
+        digest_function::Value::Blake3 => "BLAKE3",
+        digest_function::Value::Unknown => "UNKNOWN",
+    }
+}
+
+fn digest_function_names(digest_functions: &[digest_function::Value]) -> String {
+    if digest_functions.is_empty() {
+        return "<unknown>".to_owned();
+    }
+
+    digest_functions
+        .iter()
+        .map(|digest_function| digest_function_name(*digest_function))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn cache_digest_functions_from_capabilities(
+    cache_capabilities: Option<&CacheCapabilities>,
+) -> (Vec<digest_function::Value>, bool) {
+    let Some(cache_capabilities) = cache_capabilities else {
+        return (Vec::new(), false);
+    };
+
+    let mut cache_digest_functions = cache_capabilities
+        .digest_functions
+        .iter()
+        .copied()
+        .filter_map(digest_function_from_grpc)
+        .collect::<Vec<_>>();
+    cache_digest_functions.sort_unstable();
+    cache_digest_functions.dedup();
+
+    if cache_digest_functions.is_empty() {
+        (vec![digest_function::Value::Sha256], true)
+    } else {
+        (cache_digest_functions, false)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PriorityRange {
+    min_priority: i32,
+    max_priority: i32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct FastCdc2020Config {
+    avg_chunk_size_bytes: u64,
+    seed: u32,
+}
+
+#[derive(Debug)]
+struct LocalChunkCache {
+    root: PathBuf,
+}
+
+impl LocalChunkCache {
+    fn new(root: PathBuf) -> Self {
+        Self { root }
+    }
+
+    fn path_for(&self, digest: &TDigest) -> Option<PathBuf> {
+        if digest.size_in_bytes < 0 || digest.hash.is_empty() {
+            return None;
+        }
+        if !digest.hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return None;
+        }
+
+        let hash = digest.hash.to_ascii_lowercase();
+        let prefix_len = hash.len().min(2);
+        let prefix = &hash[..prefix_len];
+        Some(
+            self.root
+                .join(hash.len().to_string())
+                .join(prefix)
+                .join(format!("{}-{}", hash, digest.size_in_bytes)),
+        )
+    }
+
+    async fn read(
+        &self,
+        digest: &TDigest,
+        selected_digest_function: Option<digest_function::Value>,
+    ) -> anyhow::Result<Option<Vec<u8>>> {
+        let Some(path) = self.path_for(digest) else {
+            return Ok(None);
+        };
+
+        match tokio::fs::read(&path).await {
+            Ok(blob) => match validate_downloaded_blob(digest, &blob, selected_digest_function) {
+                Ok(()) => Ok(Some(blob)),
+                Err(error) => {
+                    tracing::debug!(
+                        path = %path.display(),
+                        digest = %digest,
+                        %error,
+                        "Ignoring corrupt local FastCDC chunk cache entry"
+                    );
+                    let _ = tokio::fs::remove_file(&path).await;
+                    Ok(None)
+                }
+            },
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(error) => {
+                tracing::debug!(
+                    path = %path.display(),
+                    digest = %digest,
+                    %error,
+                    "Failed to read local FastCDC chunk cache entry"
+                );
+                Ok(None)
+            }
+        }
+    }
+
+    async fn write(
+        &self,
+        digest: &TDigest,
+        blob: &[u8],
+        selected_digest_function: Option<digest_function::Value>,
+    ) {
+        let Some(path) = self.path_for(digest) else {
+            return;
+        };
+        if let Err(error) = validate_downloaded_blob(digest, blob, selected_digest_function) {
+            tracing::debug!(
+                path = %path.display(),
+                digest = %digest,
+                %error,
+                "Skipping invalid local FastCDC chunk cache write"
+            );
+            return;
+        }
+
+        let Some(parent) = path.parent() else {
+            return;
+        };
+        if let Err(error) = tokio::fs::create_dir_all(parent).await {
+            tracing::debug!(
+                path = %parent.display(),
+                digest = %digest,
+                %error,
+                "Failed to create local FastCDC chunk cache directory"
+            );
+            return;
+        }
+
+        let tmp_path = parent.join(format!(".{}.tmp", Uuid::new_v4()));
+        if let Err(error) = tokio::fs::write(&tmp_path, blob).await {
+            tracing::debug!(
+                path = %tmp_path.display(),
+                digest = %digest,
+                %error,
+                "Failed to write local FastCDC chunk cache entry"
+            );
+            let _ = tokio::fs::remove_file(&tmp_path).await;
+            return;
+        }
+
+        if let Err(error) = tokio::fs::rename(&tmp_path, &path).await {
+            tracing::debug!(
+                path = %path.display(),
+                digest = %digest,
+                %error,
+                "Failed to commit local FastCDC chunk cache entry"
+            );
+            let _ = tokio::fs::remove_file(&tmp_path).await;
+        }
+    }
+}
+
+impl FastCdc2020Config {
+    fn min_chunk_size_bytes(&self) -> u64 {
+        self.avg_chunk_size_bytes / 4
+    }
+
+    fn max_chunk_size_bytes(&self) -> u64 {
+        self.avg_chunk_size_bytes * 4
+    }
+
+    fn chunking_threshold_bytes(&self) -> u64 {
+        self.max_chunk_size_bytes()
+    }
+
+    fn chunking_function(&self) -> TChunkingFunction {
+        TChunkingFunction::FastCdc2020
+    }
+
+    fn normalization_level(&self) -> fastcdc::v2020::Normalization {
+        fastcdc::v2020::Normalization::Level2
+    }
+}
+
+fn fast_cdc_2020_config_from_capabilities(
+    cache_capabilities: Option<&CacheCapabilities>,
+) -> Option<FastCdc2020Config> {
+    let params = cache_capabilities?.fast_cdc_2020_params.as_ref()?;
+    let configured_avg = params.avg_chunk_size_bytes;
+    let avg_chunk_size_bytes =
+        if (1024..=1024 * 1024).contains(&configured_avg) && configured_avg.is_power_of_two() {
+            configured_avg
+        } else {
+            DEFAULT_FAST_CDC_2020_AVG_CHUNK_SIZE
+        };
+
+    Some(FastCdc2020Config {
+        avg_chunk_size_bytes,
+        seed: params.seed,
+    })
+}
+
+fn preferred_split_blob_chunking_function(
+    capabilities: &RECapabilities,
+    requested: TChunkingFunction,
+) -> TChunkingFunction {
+    if requested != TChunkingFunction::Unknown {
+        return requested;
+    }
+
+    capabilities.fast_cdc_2020.as_ref().map_or(
+        TChunkingFunction::Unknown,
+        FastCdc2020Config::chunking_function,
+    )
+}
+
+fn validate_chunking_function_supported(
+    capabilities: &RECapabilities,
+    chunking_function: TChunkingFunction,
+) -> anyhow::Result<()> {
+    match chunking_function {
+        TChunkingFunction::Unknown => Ok(()),
+        TChunkingFunction::FastCdc2020 if capabilities.fast_cdc_2020.is_some() => Ok(()),
+        TChunkingFunction::FastCdc2020 => Err(anyhow::anyhow!(
+            "FastCDC 2020 chunking is not supported by the remote server"
+        )),
+        TChunkingFunction::RepMaxCdc => Err(anyhow::anyhow!(
+            "RepMaxCDC chunking is not supported by this client"
+        )),
+    }
+}
+
+fn validate_remote_cache_chunking_enabled(
+    remote_cache_chunking: bool,
+    capabilities: &RECapabilities,
+) -> anyhow::Result<()> {
+    if !remote_cache_chunking {
+        return Ok(());
+    }
+
+    anyhow::ensure!(
+        capabilities.capabilities_queried,
+        "`remote_cache_chunking` requires RE server capabilities to be enabled"
+    );
+    validate_blob_split_supported(capabilities.blob_split_supported)?;
+    validate_blob_splice_supported(capabilities.blob_splice_supported)?;
+    anyhow::ensure!(
+        capabilities.fast_cdc_2020.is_some(),
+        "`remote_cache_chunking` requires FastCDC 2020 parameters from the remote server"
+    );
+
+    Ok(())
+}
+
+fn digest_blob(data: &[u8], digest_function: digest_function::Value) -> anyhow::Result<TDigest> {
+    let hash = match digest_function {
+        digest_function::Value::Sha1 => hex::encode(Sha1::digest(data)),
+        digest_function::Value::Sha256 => hex::encode(Sha256::digest(data)),
+        digest_function::Value::Blake3 => blake3::hash(data).to_hex().to_string(),
+        _ => {
+            anyhow::bail!(
+                "Digest function {} is not supported for FastCDC chunk digests",
+                digest_function_name(digest_function)
+            )
+        }
+    };
+
+    Ok(TDigest {
+        hash,
+        size_in_bytes: i64::try_from(data.len()).context("Blob is too large to digest")?,
+        ..Default::default()
+    })
+}
+
+fn chunk_inlined_blob_fast_cdc_2020(
+    blob: &InlinedBlobWithDigest,
+    config: &FastCdc2020Config,
+    digest_function: digest_function::Value,
+) -> anyhow::Result<Vec<InlinedBlobWithDigest>> {
+    let min_size = usize::try_from(config.min_chunk_size_bytes())
+        .context("FastCDC minimum chunk size does not fit usize")?;
+    let avg_size = usize::try_from(config.avg_chunk_size_bytes)
+        .context("FastCDC average chunk size does not fit usize")?;
+    let max_size = usize::try_from(config.max_chunk_size_bytes())
+        .context("FastCDC maximum chunk size does not fit usize")?;
+
+    let chunker = fastcdc::v2020::FastCDC::with_level_and_seed(
+        &blob.blob,
+        min_size,
+        avg_size,
+        max_size,
+        config.normalization_level(),
+        u64::from(config.seed),
+    );
+
+    let mut chunks = Vec::new();
+    for chunk in chunker {
+        let end = chunk
+            .offset
+            .checked_add(chunk.length)
+            .context("FastCDC chunk range overflowed")?;
+        let data = blob
+            .blob
+            .get(chunk.offset..end)
+            .context("FastCDC chunk range was outside the blob")?
+            .to_vec();
+        chunks.push(InlinedBlobWithDigest {
+            digest: digest_blob(&data, digest_function)?,
+            blob: data,
+            ..Default::default()
+        });
+    }
+
+    Ok(chunks)
+}
+
+fn chunk_file_fast_cdc_2020(
+    path: &str,
+    config: &FastCdc2020Config,
+    digest_function: digest_function::Value,
+) -> anyhow::Result<Vec<InlinedBlobWithDigest>> {
+    let min_size = usize::try_from(config.min_chunk_size_bytes())
+        .context("FastCDC minimum chunk size does not fit usize")?;
+    let avg_size = usize::try_from(config.avg_chunk_size_bytes)
+        .context("FastCDC average chunk size does not fit usize")?;
+    let max_size = usize::try_from(config.max_chunk_size_bytes())
+        .context("FastCDC maximum chunk size does not fit usize")?;
+    let file = std::fs::File::open(path).with_context(|| format!("Opening `{path}` failed"))?;
+    let chunker = fastcdc::v2020::StreamCDC::with_level_and_seed(
+        file,
+        min_size,
+        avg_size,
+        max_size,
+        config.normalization_level(),
+        u64::from(config.seed),
+    );
+
+    let mut chunks = Vec::new();
+    for chunk in chunker {
+        let chunk = chunk.with_context(|| format!("Reading FastCDC chunk from `{path}` failed"))?;
+        chunks.push(InlinedBlobWithDigest {
+            digest: digest_blob(&chunk.data, digest_function)?,
+            blob: chunk.data,
+            ..Default::default()
+        });
+    }
+
+    Ok(chunks)
+}
+
+fn priority_ranges(capabilities: &PriorityCapabilities) -> Vec<PriorityRange> {
+    capabilities
+        .priorities
+        .iter()
+        .map(|range| PriorityRange {
+            min_priority: range.min_priority,
+            max_priority: range.max_priority,
+        })
+        .collect()
+}
+
+fn priority_range_names(ranges: &[PriorityRange]) -> String {
+    if ranges.is_empty() {
+        return "<unknown>".to_owned();
+    }
+
+    ranges
+        .iter()
+        .map(|range| format!("{}-{}", range.min_priority, range.max_priority))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn validate_priority_in_range(
+    priority: i32,
+    option_name: &str,
+    ranges: &[PriorityRange],
+) -> anyhow::Result<()> {
+    if priority == 0 {
+        return Ok(());
+    }
+
+    if ranges
+        .iter()
+        .any(|range| range.min_priority <= priority && priority <= range.max_priority)
+    {
+        return Ok(());
+    }
+
+    Err(anyhow::anyhow!(
+        "`{option_name}` {priority} is outside of server supported range {}",
+        priority_range_names(ranges)
+    ))
+}
+
+fn supports_hash_validation(digest_function: digest_function::Value) -> bool {
+    matches!(
+        digest_function,
+        digest_function::Value::Sha1
+            | digest_function::Value::Sha256
+            | digest_function::Value::Blake3
+    )
+}
+
+fn select_download_hash_digest_function(
+    configured_digest_algorithms: &[String],
+    supported_digest_functions: &[digest_function::Value],
+) -> anyhow::Result<Option<digest_function::Value>> {
+    let mut configured = vec![];
+    for configured_algorithm in configured_digest_algorithms {
+        match parse_configured_digest_function(configured_algorithm) {
+            Some(digest_function) if supports_hash_validation(digest_function) => {
+                configured.push(digest_function);
+            }
+            _ => {
+                tracing::debug!(
+                    "Ignoring unsupported digest_algorithms entry for download validation: `{}`",
+                    configured_algorithm
+                );
+            }
+        }
+    }
+    let mut configured_dedup = vec![];
+    for digest_function in configured {
+        if !configured_dedup.contains(&digest_function) {
+            configured_dedup.push(digest_function);
+        }
+    }
+    let configured = configured_dedup;
+
+    let mut supported = supported_digest_functions
+        .iter()
+        .copied()
+        .filter(|digest_function| supports_hash_validation(*digest_function))
+        .collect::<Vec<_>>();
+    supported.sort_unstable();
+    supported.dedup();
+
+    if !configured.is_empty() {
+        if supported.is_empty() {
+            return Ok(unique_digest_function(configured.iter().copied()));
+        }
+        let compatible = configured
+            .iter()
+            .copied()
+            .filter(|configured_digest_function| supported.contains(configured_digest_function))
+            .collect::<Vec<_>>();
+        if !compatible.is_empty() {
+            return Ok(unique_digest_function(compatible.into_iter()));
+        }
+        return Err(anyhow::anyhow!(
+            "Configured digest_algorithms are incompatible with RE server capabilities. configured={}, server={}",
+            digest_function_names(&configured),
+            digest_function_names(&supported)
+        ));
+    }
+
+    if supported.len() == 1 {
+        Ok(supported.first().copied())
+    } else {
+        Ok(None)
+    }
+}
+
+fn configured_digest_functions(
+    configured_digest_algorithms: &[String],
+) -> Vec<digest_function::Value> {
+    let mut digest_functions = Vec::new();
+    for configured_algorithm in configured_digest_algorithms {
+        let Some(digest_function) = parse_configured_digest_function(configured_algorithm) else {
+            tracing::debug!(
+                "Ignoring unsupported digest_algorithms entry for RE capabilities validation: `{}`",
+                configured_algorithm
+            );
+            continue;
+        };
+        if !digest_functions.contains(&digest_function) {
+            digest_functions.push(digest_function);
+        }
+    }
+    digest_functions
+}
+
+fn validate_digest_functions_supported(
+    configured_digest_functions: &[digest_function::Value],
+    supported_digest_functions: &[digest_function::Value],
+    capability_name: &str,
+) -> anyhow::Result<()> {
+    let unsupported = configured_digest_functions
+        .iter()
+        .copied()
+        .filter(|digest_function| !supported_digest_functions.contains(digest_function))
+        .collect::<Vec<_>>();
+
+    if unsupported.is_empty() {
+        return Ok(());
+    }
+
+    Err(anyhow::anyhow!(
+        "Configured digest_algorithms {} are incompatible with remote {capability_name} capabilities. Server supported functions are: {}",
+        digest_function_names(&unsupported),
+        digest_function_names(supported_digest_functions),
+    ))
+}
+
+fn validate_digest_function_capabilities(
+    configured_digest_algorithms: &[String],
+    capabilities: &RECapabilities,
+) -> anyhow::Result<()> {
+    if !capabilities.capabilities_queried {
+        return Ok(());
+    }
+
+    let configured_digest_functions = configured_digest_functions(configured_digest_algorithms);
+    if configured_digest_functions.is_empty() {
+        return Ok(());
+    }
+
+    validate_digest_functions_supported(
+        &configured_digest_functions,
+        &capabilities.cache_digest_functions,
+        "cache",
+    )?;
+
+    if capabilities.execution_enabled == Some(true) {
+        validate_digest_functions_supported(
+            &configured_digest_functions,
+            &capabilities.execution_digest_functions,
+            "execution",
+        )?;
+    }
+
+    Ok(())
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+struct DigestFunctionConfig {
+    digest160: Option<digest_function::Value>,
+    digest256: Option<digest_function::Value>,
+}
+
+impl DigestFunctionConfig {
+    fn from_configured_algorithms(configured_digest_algorithms: &[String]) -> Self {
+        let configured_digest_functions = configured_digest_functions(configured_digest_algorithms);
+        let digest160 = unique_digest_function(
+            configured_digest_functions
+                .iter()
+                .copied()
+                .filter(|digest_function| *digest_function == digest_function::Value::Sha1),
+        );
+        let digest256 = unique_digest_function(configured_digest_functions.iter().copied().filter(
+            |digest_function| {
+                matches!(
+                    digest_function,
+                    digest_function::Value::Sha256 | digest_function::Value::Blake3
+                )
+            },
+        ));
+
+        Self {
+            digest160,
+            digest256,
+        }
+    }
+
+    fn for_hash(self, hash: &str) -> Option<digest_function::Value> {
+        match hash.len() {
+            40 => self.digest160,
+            64 => self.digest256,
+            _ => None,
+        }
+    }
+
+    fn for_digest(self, digest: &Digest) -> Option<digest_function::Value> {
+        self.for_hash(&digest.hash)
+    }
+
+    fn for_common_digest_function(self, digests: &[Digest]) -> Option<digest_function::Value> {
+        let mut common = None;
+        for digest in digests {
+            let digest_function = self.for_digest(digest)?;
+            if common.is_some_and(|common| common != digest_function) {
+                return None;
+            }
+            common = Some(digest_function);
+        }
+        common
+    }
+}
+
+fn digest_function_to_grpc(digest_function: Option<digest_function::Value>) -> i32 {
+    digest_function
+        .map(|digest_function| digest_function as i32)
+        .unwrap_or_default()
+}
+
+fn chunking_function_to_grpc(chunking_function: TChunkingFunction) -> i32 {
+    (match chunking_function {
+        TChunkingFunction::Unknown => chunking_function::Value::Unknown,
+        TChunkingFunction::FastCdc2020 => chunking_function::Value::FastCdc2020,
+        TChunkingFunction::RepMaxCdc => chunking_function::Value::RepMaxCdc,
+    }) as i32
+}
+
+fn chunking_function_from_grpc(chunking_function: i32) -> TChunkingFunction {
+    match chunking_function::Value::try_from(chunking_function).ok() {
+        Some(chunking_function::Value::FastCdc2020) => TChunkingFunction::FastCdc2020,
+        Some(chunking_function::Value::RepMaxCdc) => TChunkingFunction::RepMaxCdc,
+        Some(chunking_function::Value::Unknown) | None => TChunkingFunction::Unknown,
+    }
+}
+
+fn digest_function_resource_segment(
+    digest_function: Option<digest_function::Value>,
+) -> Option<&'static str> {
+    match digest_function {
+        Some(digest_function::Value::Blake3) => Some("blake3"),
+        _ => None,
+    }
+}
+
+fn unique_digest_function(
+    digest_functions: impl Iterator<Item = digest_function::Value>,
+) -> Option<digest_function::Value> {
+    let mut unique = None;
+    for digest_function in digest_functions {
+        if unique.is_some_and(|unique| unique != digest_function) {
+            return None;
+        }
+        unique = Some(digest_function);
+    }
+    unique
+}
+
+fn validate_remote_execution_enabled(execution_enabled: Option<bool>) -> anyhow::Result<()> {
+    match execution_enabled {
+        Some(false) => Err(anyhow::anyhow!(concat!(
+            "Remote execution is not supported by the remote server or the ",
+            "current account is not authorized to use remote execution"
+        ))),
+        Some(true) | None => Ok(()),
+    }
+}
+
+fn validate_blob_split_supported(blob_split_supported: bool) -> anyhow::Result<()> {
+    if blob_split_supported {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "CAS SplitBlob is not supported by the remote server"
+        ))
+    }
+}
+
+fn validate_blob_splice_supported(blob_splice_supported: bool) -> anyhow::Result<()> {
+    if blob_splice_supported {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "CAS SpliceBlob is not supported by the remote server"
+        ))
+    }
+}
+
+fn action_cache_update_enabled_from_capabilities(
+    cache_capabilities: Option<&CacheCapabilities>,
+) -> bool {
+    cache_capabilities
+        .and_then(|cache_cap| cache_cap.action_cache_update_capabilities.as_ref())
+        .is_some_and(|capabilities| capabilities.update_enabled)
+}
+
+fn execution_enabled_from_capabilities(
+    execution_capabilities: Option<&ExecutionCapabilities>,
+) -> bool {
+    execution_capabilities.is_some_and(|capabilities| capabilities.exec_enabled)
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ApiVersion {
+    major: i32,
+    minor: i32,
+    patch: i32,
+    prerelease: String,
+}
+
+impl ApiVersion {
+    fn client_low() -> Self {
+        Self::new(2, 0, 0, "")
+    }
+
+    fn client_high() -> Self {
+        Self::new(2, 11, 0, "")
+    }
+
+    fn new(major: i32, minor: i32, patch: i32, prerelease: &str) -> Self {
+        Self {
+            major,
+            minor,
+            patch,
+            prerelease: prerelease.to_owned(),
+        }
+    }
+
+    fn from_semver(semver: Option<&SemVer>) -> Self {
+        let Some(semver) = semver else {
+            return Self::new(0, 0, 0, "");
+        };
+
+        Self {
+            major: semver.major,
+            minor: semver.minor,
+            patch: semver.patch,
+            prerelease: semver.prerelease.clone(),
+        }
+    }
+}
+
+impl std::fmt::Display for ApiVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.prerelease.is_empty() {
+            return f.write_str(&self.prerelease);
+        }
+        if self.patch != 0 {
+            write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+        } else {
+            write!(f, "{}.{}", self.major, self.minor)
+        }
+    }
+}
+
+impl Ord for ApiVersion {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self.prerelease.is_empty(), other.prerelease.is_empty()) {
+            (false, true) => return std::cmp::Ordering::Less,
+            (true, false) => return std::cmp::Ordering::Greater,
+            (false, false) => return self.prerelease.cmp(&other.prerelease),
+            (true, true) => {}
+        }
+
+        self.major
+            .cmp(&other.major)
+            .then_with(|| self.minor.cmp(&other.minor))
+            .then_with(|| self.patch.cmp(&other.patch))
+    }
+}
+
+impl PartialOrd for ApiVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+fn highest_supported_api_version(
+    server_low: &ApiVersion,
+    server_high: &ApiVersion,
+) -> Option<ApiVersion> {
+    let client_low = ApiVersion::client_low();
+    let client_high = ApiVersion::client_high();
+    let highest_low = std::cmp::max(client_low, server_low.clone());
+    let lowest_high = std::cmp::min(client_high, server_high.clone());
+
+    if highest_low <= lowest_high {
+        Some(lowest_high)
+    } else {
+        None
+    }
+}
+
+fn validate_re_api_versions(
+    low_api_version: Option<&SemVer>,
+    high_api_version: Option<&SemVer>,
+    deprecated_api_version: Option<&SemVer>,
+) -> anyhow::Result<Option<String>> {
+    let server_low = ApiVersion::from_semver(low_api_version);
+    let server_high = ApiVersion::from_semver(high_api_version);
+
+    if highest_supported_api_version(&server_low, &server_high).is_some() {
+        return Ok(None);
+    }
+
+    if let Some(deprecated_api_version) = deprecated_api_version {
+        let deprecated = ApiVersion::from_semver(Some(deprecated_api_version));
+        if let Some(highest) = highest_supported_api_version(&deprecated, &server_high) {
+            return Ok(Some(format!(
+                "The highest RE API version Buck2 supports {highest} is deprecated by the server. \
+                Please upgrade to the server's recommended version: {server_low} to {server_high}."
+            )));
+        }
+    }
+
+    Err(anyhow::anyhow!(
+        "The client supported RE API versions, {} to {}, are not supported by the server, {} to {}. Please switch to a different server or upgrade Buck2.",
+        ApiVersion::client_low(),
+        ApiVersion::client_high(),
+        server_low,
+        server_high,
+    ))
+}
+
 pub struct REClientBuilder;
 
 impl REClientBuilder {
     pub async fn build_and_connect(opts: &Buck2OssReConfiguration) -> anyhow::Result<REClient> {
-        // Create channel config once (reads TLS files)
-        let channel_config = ChannelConfig::new(opts)
-            .await
-            .context("Failed to create channel config")?;
+        // Channels infer TLS from the address scheme, and read the TLS files the
+        // first time one needs them.
+        let tls_config = Arc::new(tokio::sync::OnceCell::new());
+        let channel_settings = GrpcChannelSettings::from_options(opts);
+        let connector = |address: &str| {
+            GrpcChannelConnector::new(
+                address.to_owned(),
+                channel_settings.clone(),
+                tls_config.clone(),
+            )
+        };
 
-        // Create a single channel for fetching capabilities. Other channels are created
-        // on-demand through the connection pool.
+        // Connect a single channel for fetching capabilities, so that an
+        // unreachable remote fails early. Other channels are created on-demand
+        // through the connection pool.
         let engine_address = opts.engine_address.as_ref().context("No engine address")?;
-        let capabilities_channel = create_channel(&channel_config, engine_address)
+        let capabilities_channel = connector(engine_address)
+            .connect()
+            .await
             .context("Error creating Capabilities channel")?;
 
         let interceptor = InjectHeadersInterceptor::new(&opts.http_headers)?;
@@ -265,20 +2185,70 @@ impl REClientBuilder {
         }
 
         let instance_name = InstanceName(opts.instance_name.clone());
+        let retries = opts.retries.unwrap_or(DEFAULT_RETRIES);
+        let retry_max_delay_ms = opts
+            .retry_max_delay_ms
+            .unwrap_or(DEFAULT_RETRY_MAX_DELAY_MILLIS);
+        let grpc_request_timeout = Duration::from_secs(
+            opts.grpc_request_timeout_secs
+                .unwrap_or(DEFAULT_GRPC_REQUEST_TIMEOUT_SECS),
+        );
+        let bytestream_progress_timeout = Duration::from_secs(
+            opts.bytestream_progress_timeout_secs
+                .unwrap_or(DEFAULT_BYTESTREAM_PROGRESS_TIMEOUT_SECS),
+        );
 
         let capabilities = if opts.capabilities.unwrap_or(true) {
             Self::fetch_rbe_capabilities(
                 &mut capabilities_client,
                 &instance_name,
                 opts.max_total_batch_size,
+                retries,
+                retry_max_delay_ms,
+                grpc_request_timeout,
             )
             .await?
         } else {
             RECapabilities {
+                capabilities_queried: false,
                 max_total_batch_size: DEFAULT_MAX_TOTAL_BATCH_SIZE,
+                max_cas_blob_size_bytes: None,
                 supported_compressors: Vec::new(),
+                supported_batch_update_compressors: Vec::new(),
+                supported_digest_functions: Vec::new(),
+                cache_digest_functions: Vec::new(),
+                execution_digest_functions: Vec::new(),
+                execution_priority_ranges: Vec::new(),
+                action_cache_update_enabled: None,
+                execution_enabled: None,
+                blob_split_supported: false,
+                blob_splice_supported: false,
+                fast_cdc_2020: None,
             }
         };
+
+        validate_digest_function_capabilities(&opts.digest_algorithms, &capabilities)?;
+        validate_remote_cache_chunking_enabled(opts.remote_cache_chunking, &capabilities)?;
+
+        let download_hash_digest_function = select_download_hash_digest_function(
+            &opts.digest_algorithms,
+            &capabilities.supported_digest_functions,
+        )?;
+        let request_digest_function_config =
+            DigestFunctionConfig::from_configured_algorithms(&opts.digest_algorithms);
+        let local_chunk_cache = opts
+            .remote_cache_chunk_cache_dir
+            .as_deref()
+            .map(|path| {
+                let path =
+                    substitute_env_vars(path).context("Invalid `remote_cache_chunk_cache_dir`")?;
+                anyhow::ensure!(
+                    !path.is_empty(),
+                    "`remote_cache_chunk_cache_dir` must not be empty"
+                );
+                Ok(LocalChunkCache::new(PathBuf::from(path)))
+            })
+            .transpose()?;
 
         let max_decoding_msg_size = opts
             .max_decoding_message_size
@@ -290,25 +2260,48 @@ impl REClientBuilder {
             ));
         }
 
-        // Choose a ByteStream compressor
-        let bystream_compressor = if capabilities
-            .supported_compressors
-            .contains(&Compressor::Zstd)
-        {
-            Some(Compressor::Zstd)
-        } else if capabilities
-            .supported_compressors
-            .contains(&Compressor::Brotli)
-        {
-            Some(Compressor::Brotli)
-        } else if capabilities
-            .supported_compressors
-            .contains(&Compressor::Deflate)
-        {
-            Some(Compressor::Deflate)
-        } else {
-            None
-        };
+        // Choose compressors for ByteStream and inlined batch uploads.
+        let bystream_compressor = select_preferred_compressor(&capabilities.supported_compressors);
+        let batch_update_compressor =
+            select_preferred_compressor(&capabilities.supported_batch_update_compressors);
+        let remote_cache_compression_threshold = opts
+            .remote_cache_compression_threshold
+            .unwrap_or(DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD);
+
+        tracing::info!(
+            max_total_batch_size = capabilities.max_total_batch_size,
+            max_cas_blob_size_bytes = ?capabilities.max_cas_blob_size_bytes,
+            supported_digest_functions = %digest_function_names(&capabilities.supported_digest_functions),
+            execution_priority_ranges = %priority_range_names(&capabilities.execution_priority_ranges),
+            selected_download_hash_digest_function = %download_hash_digest_function
+                .map(digest_function_name)
+                .unwrap_or("<auto>"),
+            supported_compressors = %compressor_names(&capabilities.supported_compressors),
+            selected_bystream_compressor = %bystream_compressor
+                .map(|compressor| compressor.name())
+                .unwrap_or("<none>"),
+            supported_batch_update_compressors = %compressor_names(
+                &capabilities.supported_batch_update_compressors
+            ),
+            selected_batch_update_compressor = %batch_update_compressor
+                .map(|compressor| compressor.name())
+                .unwrap_or("<none>"),
+            remote_cache_compression_threshold,
+            action_cache_update_enabled = ?capabilities.action_cache_update_enabled,
+            execution_enabled = ?capabilities.execution_enabled,
+            blob_split_supported = capabilities.blob_split_supported,
+            blob_splice_supported = capabilities.blob_splice_supported,
+            fast_cdc_2020_avg_chunk_size_bytes = ?capabilities.fast_cdc_2020
+                .as_ref()
+                .map(|config| config.avg_chunk_size_bytes),
+            fast_cdc_2020_seed = ?capabilities.fast_cdc_2020
+                .as_ref()
+                .map(|config| config.seed),
+            local_fast_cdc_chunk_cache_dir = ?local_chunk_cache
+                .as_ref()
+                .map(|cache| cache.root.display().to_string()),
+            "RE server capabilities"
+        );
 
         // Extract addresses
         let cas_address = opts.cas_address.clone().context("No CAS address")?;
@@ -316,6 +2309,14 @@ impl REClientBuilder {
             .action_cache_address
             .clone()
             .context("No action cache address")?;
+
+        // The pool makes the channels to each address with the same settings.
+        let mut make_channels: HashMap<String, MakeChannel> = HashMap::new();
+        for address in [&cas_address, engine_address, &action_cache_address] {
+            if let hash_map::Entry::Vacant(entry) = make_channels.entry(address.clone()) {
+                entry.insert(connector(address).make_channel().await?);
+            }
+        }
 
         // Create connection pool
         let min_connections = opts.min_connections.unwrap_or(1).max(1);
@@ -325,7 +2326,24 @@ impl REClientBuilder {
             max_connections,
             max_concurrency_per_connection: opts.max_concurrency_per_connection.unwrap_or(100),
         };
-        let pool = ChannelPool::new(pool_config, channel_config);
+        let pool = ChannelPool::new(
+            pool_config,
+            Box::new(move |address| {
+                make_channels
+                    .get(address)
+                    .cloned()
+                    .with_context(|| format!("No channel settings for `{address}`"))
+            }),
+        );
+
+        let grpc_clients = GRPCClients {
+            pool,
+            cas_address,
+            engine_address: engine_address.clone(),
+            action_cache_address,
+            interceptor,
+            max_decoding_message_size: max_decoding_msg_size,
+        };
 
         Ok(REClient::new(
             RERuntimeOpts {
@@ -334,17 +2352,25 @@ impl REClientBuilder {
                 // NOTE: This is an arbitrary number because RBE does not return information
                 // on the TTL of the remote blob.
                 cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(3 * 60 * 60),
-                find_missing_blobs_batch_size: opts.find_missing_blobs_batch_size.unwrap_or(100),
+                find_missing_blobs_batch_size: opts
+                    .find_missing_blobs_batch_size
+                    .unwrap_or(100)
+                    .max(1),
+                remote_cache_chunking: opts.remote_cache_chunking,
+                remote_cache_compression_threshold,
+                retries,
+                retry_max_delay_ms,
+                grpc_request_timeout,
+                bytestream_progress_timeout,
+                download_hash_digest_function,
+                request_digest_function_config,
             },
+            grpc_clients,
             capabilities,
             instance_name,
             bystream_compressor,
-            pool,
-            max_decoding_msg_size,
-            interceptor,
-            cas_address,
-            engine_address.clone(),
-            action_cache_address,
+            batch_update_compressor,
+            local_chunk_cache,
         ))
     }
 
@@ -352,17 +2378,30 @@ impl REClientBuilder {
         client: &mut CapabilitiesClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
         instance_name: &InstanceName,
         max_total_batch_size: Option<usize>,
+        retries: usize,
+        retry_max_delay_ms: u64,
+        grpc_request_timeout: Duration,
     ) -> anyhow::Result<RECapabilities> {
         // TODO use more of the capabilities of the remote build executor
 
-        let resp = client
-            .get_capabilities(GetCapabilitiesRequest {
+        let resp = retry_grpc_request(retries, Duration::from_millis(retry_max_delay_ms), || {
+            let mut client = client.clone();
+            let mut request = tonic::Request::new(GetCapabilitiesRequest {
                 instance_name: instance_name.as_str().to_owned(),
-            })
-            .await
-            .context("Failed to query capabilities of remote")
-            .map_err(normalize_re_error)?
-            .into_inner();
+            });
+            request.set_timeout(grpc_request_timeout);
+            async move { Ok(client.get_capabilities(request).await?.into_inner()) }
+        })
+        .await
+        .context("Failed to query capabilities of remote")?;
+
+        if let Some(warning) = validate_re_api_versions(
+            resp.low_api_version.as_ref(),
+            resp.high_api_version.as_ref(),
+            resp.deprecated_api_version.as_ref(),
+        )? {
+            tracing::warn!("{}", warning);
+        }
 
         let supported_compressors = if let Some(cache_cap) = &resp.cache_capabilities {
             cache_cap
@@ -374,15 +2413,61 @@ impl REClientBuilder {
         } else {
             Vec::new()
         };
+        let supported_batch_update_compressors = if let Some(cache_cap) = &resp.cache_capabilities {
+            cache_cap
+                .supported_batch_update_compressors
+                .iter()
+                .copied()
+                .filter_map(Compressor::from_grpc)
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let (cache_digest_functions, assumed_sha256_cache_digest_function) =
+            cache_digest_functions_from_capabilities(resp.cache_capabilities.as_ref());
+        if assumed_sha256_cache_digest_function {
+            tracing::warn!(
+                "Remote cache capabilities did not advertise digest functions; assuming SHA256. \
+                Configure `[buck2] digest_algorithms` only when the remote cache advertises \
+                matching digest function support."
+            );
+        }
+
+        let mut execution_digest_functions = resp
+            .execution_capabilities
+            .as_ref()
+            .map(|exec_cap| {
+                if exec_cap.digest_functions.is_empty() {
+                    digest_function_from_grpc(exec_cap.digest_function)
+                        .into_iter()
+                        .collect()
+                } else {
+                    exec_cap
+                        .digest_functions
+                        .iter()
+                        .copied()
+                        .filter_map(digest_function_from_grpc)
+                        .collect::<Vec<_>>()
+                }
+            })
+            .unwrap_or_default();
+        execution_digest_functions.sort_unstable();
+        execution_digest_functions.dedup();
+
+        let mut supported_digest_functions = cache_digest_functions.clone();
+        if supported_digest_functions.is_empty() {
+            supported_digest_functions.extend(execution_digest_functions.iter().copied());
+        }
+        supported_digest_functions.sort_unstable();
+        supported_digest_functions.dedup();
 
         let max_total_batch_size_from_capabilities: Option<usize> =
-            if let Some(cache_cap) = resp.cache_capabilities {
+            resp.cache_capabilities.as_ref().and_then(|cache_cap| {
                 let size = cache_cap.max_batch_total_size_bytes as usize;
                 // A value of 0 means no limit is set
                 if size != 0 { Some(size) } else { None }
-            } else {
-                None
-            };
+            });
 
         let max_total_batch_size =
             match (max_total_batch_size_from_capabilities, max_total_batch_size) {
@@ -393,8 +2478,38 @@ impl REClientBuilder {
             };
 
         Ok(RECapabilities {
+            capabilities_queried: true,
             max_total_batch_size,
+            max_cas_blob_size_bytes: resp.cache_capabilities.as_ref().and_then(|cache_cap| {
+                let size = cache_cap.max_cas_blob_size_bytes;
+                if size > 0 { Some(size) } else { None }
+            }),
             supported_compressors,
+            supported_batch_update_compressors,
+            supported_digest_functions,
+            cache_digest_functions,
+            execution_digest_functions,
+            execution_priority_ranges: resp
+                .execution_capabilities
+                .as_ref()
+                .and_then(|exec_cap| exec_cap.execution_priority_capabilities.as_ref())
+                .map(priority_ranges)
+                .unwrap_or_default(),
+            action_cache_update_enabled: Some(action_cache_update_enabled_from_capabilities(
+                resp.cache_capabilities.as_ref(),
+            )),
+            execution_enabled: Some(execution_enabled_from_capabilities(
+                resp.execution_capabilities.as_ref(),
+            )),
+            blob_split_supported: resp
+                .cache_capabilities
+                .as_ref()
+                .is_some_and(|cache_cap| cache_cap.split_blob_support),
+            blob_splice_supported: resp
+                .cache_capabilities
+                .as_ref()
+                .is_some_and(|cache_cap| cache_cap.splice_blob_support),
+            fast_cdc_2020: fast_cdc_2020_config_from_capabilities(resp.cache_capabilities.as_ref()),
         })
     }
 }
@@ -446,6 +2561,232 @@ impl Interceptor for InjectHeadersInterceptor {
 
 type GrpcService = InterceptedService<PooledChannel, InjectHeadersInterceptor>;
 
+#[derive(Clone)]
+struct GrpcTlsSettings {
+    tls_ca_certs: Option<String>,
+    tls_client_cert: Option<String>,
+}
+
+#[derive(Clone)]
+struct GrpcChannelSettings {
+    tls: GrpcTlsSettings,
+    grpc_keepalive_time_secs: u64,
+    grpc_keepalive_timeout_secs: u64,
+    grpc_keepalive_while_idle: bool,
+    tcp_keepalive_secs: Option<u64>,
+}
+
+impl GrpcChannelSettings {
+    fn from_options(opts: &Buck2OssReConfiguration) -> Self {
+        Self {
+            tls: GrpcTlsSettings {
+                tls_ca_certs: opts.tls_ca_certs.clone(),
+                tls_client_cert: opts.tls_client_cert.clone(),
+            },
+            grpc_keepalive_time_secs: opts
+                .grpc_keepalive_time_secs
+                .unwrap_or(DEFAULT_GRPC_KEEPALIVE_TIME_SECS),
+            grpc_keepalive_timeout_secs: opts
+                .grpc_keepalive_timeout_secs
+                .unwrap_or(DEFAULT_GRPC_KEEPALIVE_TIMEOUT_SECS),
+            grpc_keepalive_while_idle: opts
+                .grpc_keepalive_while_idle
+                .unwrap_or(DEFAULT_GRPC_KEEPALIVE_WHILE_IDLE),
+            tcp_keepalive_secs: opts.tcp_keepalive_secs,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct GrpcChannelConnector {
+    address: String,
+    settings: GrpcChannelSettings,
+    tls_config: Arc<tokio::sync::OnceCell<ClientTlsConfig>>,
+}
+
+impl GrpcChannelConnector {
+    fn new(
+        address: String,
+        settings: GrpcChannelSettings,
+        tls_config: Arc<tokio::sync::OnceCell<ClientTlsConfig>>,
+    ) -> Self {
+        Self {
+            address,
+            settings,
+            tls_config,
+        }
+    }
+
+    /// The endpoint, and the address it was made from with variables substituted.
+    async fn endpoint(&self) -> anyhow::Result<(Endpoint, String)> {
+        let address = substitute_env_vars(&self.address).context("Invalid address")?;
+        let uri = address.parse().context("Invalid address")?;
+        let (uri, tls) = prepare_uri(uri).context("Invalid URI")?;
+
+        let mut endpoint = Channel::builder(uri);
+        if tls {
+            let tls_config = self
+                .tls_config
+                .get_or_try_init(|| async {
+                    create_tls_config(&self.settings.tls)
+                        .await
+                        .context("Invalid TLS config")
+                })
+                .await?
+                .clone();
+            endpoint = endpoint.tls_config(tls_config)?;
+        }
+
+        endpoint = endpoint
+            .http2_keep_alive_interval(Duration::from_secs(self.settings.grpc_keepalive_time_secs))
+            .keep_alive_timeout(Duration::from_secs(
+                self.settings.grpc_keepalive_timeout_secs,
+            ))
+            .keep_alive_while_idle(self.settings.grpc_keepalive_while_idle);
+
+        Ok((endpoint, address))
+    }
+
+    fn http_connector(&self) -> CountingConnector<HttpConnector> {
+        // Since we are creating the HttpConnector ourselves, any TCP settings
+        // need to be set here instead of on the endpoint.
+        let mut http = HttpConnector::new();
+        http.enforce_http(false);
+        if let Some(tcp_keepalive_secs) = self.settings.tcp_keepalive_secs {
+            http.set_keepalive(Some(Duration::from_secs(tcp_keepalive_secs)));
+        }
+        CountingConnector::new(http)
+    }
+
+    async fn connect(&self) -> anyhow::Result<Channel> {
+        let (endpoint, address) = self.endpoint().await?;
+        endpoint
+            .connect_with_connector(self.http_connector())
+            .await
+            .map_err(|error| REClientError {
+                code: TCode::UNAVAILABLE,
+                message: format!("Error connecting to `{address}`: {error:#}"),
+                group: TCodeReasonGroup::RE_CONNECTION,
+            })
+            .map_err(anyhow::Error::from)
+    }
+
+    /// Makes channels for the connection pool, which connect when first used.
+    async fn make_channel(&self) -> anyhow::Result<MakeChannel> {
+        let (endpoint, _) = self.endpoint().await?;
+        let connector = self.clone();
+        Ok(Arc::new(move || {
+            endpoint.connect_with_connector_lazy(connector.http_connector())
+        }))
+    }
+}
+
+fn build_cas_client(
+    channel: PooledChannel,
+    interceptor: InjectHeadersInterceptor,
+    max_decoding_message_size: usize,
+) -> ContentAddressableStorageClient<GrpcService> {
+    ContentAddressableStorageClient::with_interceptor(channel, interceptor)
+        .max_decoding_message_size(max_decoding_message_size)
+}
+
+fn build_execution_client(
+    channel: PooledChannel,
+    interceptor: InjectHeadersInterceptor,
+    max_decoding_message_size: usize,
+) -> ExecutionClient<GrpcService> {
+    ExecutionClient::with_interceptor(channel, interceptor)
+        .max_decoding_message_size(max_decoding_message_size)
+}
+
+fn build_action_cache_client(
+    channel: PooledChannel,
+    interceptor: InjectHeadersInterceptor,
+    max_decoding_message_size: usize,
+) -> ActionCacheClient<GrpcService> {
+    ActionCacheClient::with_interceptor(channel, interceptor)
+        .max_decoding_message_size(max_decoding_message_size)
+}
+
+fn build_bytestream_client(
+    channel: PooledChannel,
+    interceptor: InjectHeadersInterceptor,
+    max_decoding_message_size: usize,
+) -> ByteStreamClient<GrpcService> {
+    ByteStreamClient::with_interceptor(channel, interceptor)
+        .max_decoding_message_size(max_decoding_message_size)
+}
+
+#[derive(Debug, Copy, Clone)]
+enum GrpcClientKind {
+    Cas,
+    Execution,
+    ActionCache,
+    ByteStream,
+}
+
+pub struct GRPCClients {
+    pool: ChannelPool,
+    cas_address: String,
+    engine_address: String,
+    action_cache_address: String,
+    interceptor: InjectHeadersInterceptor,
+    max_decoding_message_size: usize,
+}
+
+impl GRPCClients {
+    fn address(&self, kind: GrpcClientKind) -> &str {
+        match kind {
+            GrpcClientKind::Cas | GrpcClientKind::ByteStream => &self.cas_address,
+            GrpcClientKind::Execution => &self.engine_address,
+            GrpcClientKind::ActionCache => &self.action_cache_address,
+        }
+    }
+
+    async fn channel(&self, kind: GrpcClientKind) -> anyhow::Result<PooledChannel> {
+        self.pool.get(self.address(kind)).await
+    }
+
+    async fn cas_client(&self) -> anyhow::Result<ContentAddressableStorageClient<GrpcService>> {
+        Ok(build_cas_client(
+            self.channel(GrpcClientKind::Cas).await?,
+            self.interceptor.dupe(),
+            self.max_decoding_message_size,
+        ))
+    }
+
+    async fn execution_client(&self) -> anyhow::Result<ExecutionClient<GrpcService>> {
+        Ok(build_execution_client(
+            self.channel(GrpcClientKind::Execution).await?,
+            self.interceptor.dupe(),
+            self.max_decoding_message_size,
+        ))
+    }
+
+    async fn action_cache_client(&self) -> anyhow::Result<ActionCacheClient<GrpcService>> {
+        Ok(build_action_cache_client(
+            self.channel(GrpcClientKind::ActionCache).await?,
+            self.interceptor.dupe(),
+            self.max_decoding_message_size,
+        ))
+    }
+
+    async fn bytestream_client(&self) -> anyhow::Result<ByteStreamClient<GrpcService>> {
+        Ok(build_bytestream_client(
+            self.channel(GrpcClientKind::ByteStream).await?,
+            self.interceptor.dupe(),
+            self.max_decoding_message_size,
+        ))
+    }
+
+    /// Replaces the pool's connections to the address `kind` uses. Calls
+    /// already running keep theirs.
+    async fn reconnect_after_broken_connection(&self, kind: GrpcClientKind) {
+        self.pool.reset(self.address(kind)).await;
+        tracing::debug!(?kind, "Reconnected gRPC client after transport failure");
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 enum DigestRemoteState {
     ExistsOnRemote,
@@ -479,19 +2820,221 @@ impl FindMissingCache {
     }
 }
 
+struct ActiveTransferState<T> {
+    sender: tokio::sync::watch::Sender<Option<Result<Arc<T>, String>>>,
+    receiver: tokio::sync::watch::Receiver<Option<Result<Arc<T>, String>>>,
+}
+
+impl<T> ActiveTransferState<T> {
+    fn new() -> Self {
+        let (sender, receiver) = tokio::sync::watch::channel(None);
+        Self { sender, receiver }
+    }
+}
+
+struct ActiveTransferRegistry<T> {
+    active: Mutex<HashMap<TDigest, Arc<ActiveTransferState<T>>>>,
+}
+
+impl<T> ActiveTransferRegistry<T> {
+    fn new() -> Self {
+        Self {
+            active: Mutex::new(HashMap::new()),
+        }
+    }
+
+    // Only coalesce work while a same-digest ByteStream transfer is active.
+    // Completed transfers are removed immediately; this is not a cache.
+    fn enter(&self, digest: TDigest) -> ActiveTransfer<'_, T> {
+        let mut active = self.active.lock().unwrap();
+        if let Some(state) = active.get(&digest) {
+            return ActiveTransfer::Follower(state.dupe());
+        }
+
+        let state = Arc::new(ActiveTransferState::new());
+        active.insert(digest.clone(), state.dupe());
+        ActiveTransfer::Leader(ActiveTransferLeader {
+            registry: self,
+            digest,
+            state,
+            completed: false,
+        })
+    }
+
+    async fn wait(state: Arc<ActiveTransferState<T>>) -> anyhow::Result<Arc<T>> {
+        let mut receiver = state.receiver.clone();
+        loop {
+            if let Some(result) = receiver.borrow().clone() {
+                return result.map_err(|err| anyhow::anyhow!(err));
+            }
+            receiver
+                .changed()
+                .await
+                .context("active transfer completed without a result")?;
+        }
+    }
+
+    fn complete(
+        &self,
+        digest: &TDigest,
+        state: &Arc<ActiveTransferState<T>>,
+        result: Result<Arc<T>, String>,
+    ) {
+        let _ = state.sender.send(Some(result));
+        let mut active = self.active.lock().unwrap();
+        if active
+            .get(digest)
+            .is_some_and(|active_state| Arc::ptr_eq(active_state, state))
+        {
+            active.remove(digest);
+        }
+    }
+}
+
+enum ActiveTransfer<'a, T> {
+    Leader(ActiveTransferLeader<'a, T>),
+    Follower(Arc<ActiveTransferState<T>>),
+}
+
+struct ActiveTransferLeader<'a, T> {
+    registry: &'a ActiveTransferRegistry<T>,
+    digest: TDigest,
+    state: Arc<ActiveTransferState<T>>,
+    completed: bool,
+}
+
+impl<T> ActiveTransferLeader<'_, T> {
+    fn finish(mut self, result: anyhow::Result<T>) -> anyhow::Result<Arc<T>> {
+        self.completed = true;
+        match result {
+            Ok(value) => {
+                let value = Arc::new(value);
+                self.registry
+                    .complete(&self.digest, &self.state, Ok(value.dupe()));
+                Ok(value)
+            }
+            Err(err) => {
+                let err = format!("{err:#}");
+                self.registry
+                    .complete(&self.digest, &self.state, Err(err.clone()));
+                Err(anyhow::anyhow!(err))
+            }
+        }
+    }
+}
+
+impl<T> Drop for ActiveTransferLeader<'_, T> {
+    fn drop(&mut self) {
+        if !self.completed {
+            self.registry.complete(
+                &self.digest,
+                &self.state,
+                Err("active transfer was cancelled before completion".to_owned()),
+            );
+        }
+    }
+}
+
+enum ActiveDownloadResult {
+    Bytes(Vec<u8>),
+    File(PathBuf),
+}
+
+fn download_output_options(is_executable: bool) -> OpenOptions {
+    let mut opts = OpenOptions::new();
+    opts.read(true).write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        if is_executable {
+            opts.mode(0o755);
+        } else {
+            opts.mode(0o644);
+        }
+    }
+    opts
+}
+
+async fn read_active_download_file(path: &PathBuf) -> anyhow::Result<Vec<u8>> {
+    let mut file = tokio::fs::File::open(path)
+        .await
+        .with_context(|| format!("Error opening active download source {}", path.display()))?;
+    let mut data = Vec::new();
+    file.read_to_end(&mut data)
+        .await
+        .with_context(|| format!("Error reading active download source {}", path.display()))?;
+    Ok(data)
+}
+
+async fn active_download_result_to_bytes(result: &ActiveDownloadResult) -> anyhow::Result<Vec<u8>> {
+    match result {
+        ActiveDownloadResult::Bytes(data) => Ok(data.clone()),
+        ActiveDownloadResult::File(path) => read_active_download_file(path).await,
+    }
+}
+
+async fn active_download_result_into_bytes(
+    result: Arc<ActiveDownloadResult>,
+) -> anyhow::Result<Vec<u8>> {
+    match Arc::try_unwrap(result) {
+        Ok(ActiveDownloadResult::Bytes(data)) => Ok(data),
+        Ok(ActiveDownloadResult::File(path)) => read_active_download_file(&path).await,
+        Err(result) => active_download_result_to_bytes(&result).await,
+    }
+}
+
+async fn write_active_download_result_to_file(
+    result: &ActiveDownloadResult,
+    output_path: &str,
+    is_executable: bool,
+) -> anyhow::Result<()> {
+    match result {
+        ActiveDownloadResult::File(source_path) if source_path == &PathBuf::from(output_path) => {
+            Ok(())
+        }
+        ActiveDownloadResult::Bytes(data) => {
+            let mut file = download_output_options(is_executable)
+                .open(output_path)
+                .await
+                .context("Error opening")?;
+            file.write_all(data)
+                .await
+                .with_context(|| format!("Error writing active download to {output_path}"))?;
+            file.flush().await.context("Error flushing")?;
+            Ok(())
+        }
+        ActiveDownloadResult::File(source_path) => {
+            let mut source = tokio::fs::File::open(source_path).await.with_context(|| {
+                format!(
+                    "Error opening active download source {}",
+                    source_path.display()
+                )
+            })?;
+            let mut file = download_output_options(is_executable)
+                .open(output_path)
+                .await
+                .context("Error opening")?;
+            tokio::io::copy(&mut source, &mut file)
+                .await
+                .with_context(|| format!("Error copying active download to {output_path}"))?;
+            file.flush().await.context("Error flushing")?;
+            Ok(())
+        }
+    }
+}
+
 pub struct REClient {
     runtime_opts: RERuntimeOpts,
-    pool: ChannelPool,
+    grpc_clients: Arc<GRPCClients>,
     capabilities: RECapabilities,
     instance_name: InstanceName,
     // buck2 calls find_missing for same blobs
     find_missing_cache: Mutex<FindMissingCache>,
     bystream_compressor: Option<Compressor>,
-    max_decoding_msg_size: usize,
-    interceptor: InjectHeadersInterceptor,
-    cas_address: String,
-    engine_address: String,
-    action_cache_address: String,
+    batch_update_compressor: Option<Compressor>,
+    local_chunk_cache: Option<LocalChunkCache>,
+    query_write_status_supported: AtomicBool,
+    active_uploads: ActiveTransferRegistry<()>,
+    active_downloads: ActiveTransferRegistry<ActiveDownloadResult>,
 }
 
 impl Drop for REClient {
@@ -540,7 +3083,7 @@ impl BatchUploadReqAggregator {
 
         self.curr_request_size += size_in_bytes;
 
-        if self.curr_request_size >= self.max_msg_size {
+        if self.curr_request_size > self.max_msg_size {
             self.requests.push(std::mem::take(&mut self.curr_req));
             self.curr_request_size = size_in_bytes;
         }
@@ -553,63 +3096,6 @@ impl BatchUploadReqAggregator {
         }
         self.requests
     }
-}
-
-/// Returns true if an `io::Error` indicates a transport-level disruption that
-/// a fresh connection can recover from.
-fn is_transient_io_error(err: &std::io::Error) -> bool {
-    matches!(
-        err.kind(),
-        std::io::ErrorKind::BrokenPipe
-            | std::io::ErrorKind::ConnectionReset
-            | std::io::ErrorKind::ConnectionAborted
-            | std::io::ErrorKind::UnexpectedEof
-            | std::io::ErrorKind::TimedOut
-    )
-}
-
-/// Returns true if an error is a transient connection/transport error worth
-/// retrying. Walks the error chain checking for:
-///   - `tonic::Status` with codes the gRPC retry policy treats as transient
-///     (Unavailable, ResourceExhausted, Aborted, Cancelled)
-///   - `io::Error` of a kind that indicates a transport-level disruption
-///     (BrokenPipe, ConnectionReset/Aborted, UnexpectedEof, TimedOut)
-///   - `h2::Error` wrapping such an `io::Error`. `h2::Error` does not
-///     implement `source()`, so the inner `io::Error` never appears as its
-///     own link in the chain; tonic also maps these errors to
-///     `Code::Unknown`. Body errors on an established connection (for
-///     example a TCP reset during a `BatchReadBlobs` response) take this
-///     path and need the explicit downcast.
-///
-/// `tonic::transport::Error` is not matched directly — its transient subset
-/// surfaces as an `io::Error` somewhere in the chain, which we catch above.
-/// Non-transient transport errors (TLS handshake, invalid URI) do not have
-/// an `io::Error` source, so they correctly do not retry.
-fn is_retryable(err: &anyhow::Error) -> bool {
-    for cause in err.chain() {
-        if let Some(status) = cause.downcast_ref::<tonic::Status>() {
-            match status.code() {
-                tonic::Code::Unavailable
-                | tonic::Code::ResourceExhausted
-                | tonic::Code::Aborted
-                | tonic::Code::Cancelled => return true,
-                _ => {}
-            }
-        }
-        if let Some(io_err) = cause.downcast_ref::<std::io::Error>() {
-            if is_transient_io_error(io_err) {
-                return true;
-            }
-        }
-        if let Some(h2_err) = cause.downcast_ref::<h2::Error>() {
-            if let Some(io_err) = h2_err.get_io() {
-                if is_transient_io_error(io_err) {
-                    return true;
-                }
-            }
-        }
-    }
-    false
 }
 
 /// Attaches an RE classification to gRPC errors, preserving the original chain
@@ -637,76 +3123,92 @@ fn normalize_re_error(err: anyhow::Error) -> anyhow::Error {
     err.context(re_error)
 }
 
-/// Retry an RPC on transient connection errors and classify its final error.
-///
-/// On retryable failure, the closure is called again from scratch — acquiring
-/// a fresh connection from the pool, rebuilding the request, etc. Up to 5
-/// attempts with exponential backoff (100ms, 200ms, 400ms, 800ms — capped at
-/// 5s) plus 0–50ms of jitter to avoid synchronized retry storms across
-/// concurrent in-flight requests.
-async fn retry<F, Fut, T>(f: F) -> anyhow::Result<T>
-where
-    F: Fn() -> Fut,
-    Fut: Future<Output = anyhow::Result<T>>,
-{
-    use rand::RngExt;
-
-    const MAX_ATTEMPTS: u32 = 5;
-    const INITIAL_DELAY: Duration = Duration::from_millis(100);
-    const MAX_DELAY: Duration = Duration::from_secs(5);
-
-    let mut delay = INITIAL_DELAY;
-    for attempt in 1..=MAX_ATTEMPTS {
-        match f().await {
-            Ok(v) => return Ok(v),
-            Err(e) if is_retryable(&e) && attempt < MAX_ATTEMPTS => {
-                let jitter = Duration::from_millis(rand::rng().random_range(0..50));
-                let sleep_for = delay + jitter;
-                tracing::warn!(
-                    "Transient error (attempt {}/{}), retrying in {:?}: {:#}",
-                    attempt,
-                    MAX_ATTEMPTS,
-                    sleep_for,
-                    e
-                );
-                tokio::time::sleep(sleep_for).await;
-                delay = (delay * 2).min(MAX_DELAY);
-            }
-            Err(e) => return Err(normalize_re_error(e)),
-        }
-    }
-    unreachable!()
-}
-
 impl REClient {
     fn new(
         runtime_opts: RERuntimeOpts,
+        grpc_clients: GRPCClients,
         capabilities: RECapabilities,
         instance_name: InstanceName,
         bystream_compressor: Option<Compressor>,
-        pool: ChannelPool,
-        max_decoding_msg_size: usize,
-        interceptor: InjectHeadersInterceptor,
-        cas_address: String,
-        engine_address: String,
-        action_cache_address: String,
+        batch_update_compressor: Option<Compressor>,
+        local_chunk_cache: Option<LocalChunkCache>,
     ) -> Self {
+        let cas_ttl_secs = runtime_opts.cas_ttl_secs;
         REClient {
             runtime_opts,
-            pool,
+            grpc_clients: Arc::new(grpc_clients),
             capabilities,
             instance_name,
             find_missing_cache: Mutex::new(FindMissingCache {
                 cache: LruCache::new(NonZeroUsize::new(500_000).unwrap()),
-                ttl: Duration::from_hours(12), // 12 hours TODO: Tune this parameter
+                ttl: Duration::from_secs(cas_ttl_secs.max(0) as u64),
                 last_check: Instant::now(),
             }),
             bystream_compressor,
-            max_decoding_msg_size,
-            interceptor,
-            cas_address,
-            engine_address,
-            action_cache_address,
+            batch_update_compressor,
+            local_chunk_cache,
+            query_write_status_supported: AtomicBool::new(true),
+            active_uploads: ActiveTransferRegistry::new(),
+            active_downloads: ActiveTransferRegistry::new(),
+        }
+    }
+
+    pub fn action_cache_update_enabled(&self) -> Option<bool> {
+        self.capabilities.action_cache_update_enabled
+    }
+
+    async fn bystream_write_plan(
+        &self,
+        bytestream_client: &mut ByteStreamClient<GrpcService>,
+        metadata: RemoteExecutionMetadata,
+        segments: Vec<WriteRequest>,
+    ) -> anyhow::Result<BystreamWritePlan> {
+        if segments.is_empty() || !self.query_write_status_supported.load(Ordering::Relaxed) {
+            return Ok(BystreamWritePlan::Write(segments));
+        }
+
+        let resource_name = segments[0].resource_name.clone();
+        let total_size = total_bystream_write_size(&segments);
+
+        match bytestream_client
+            .query_write_status(with_re_metadata_timeout(
+                QueryWriteStatusRequest {
+                    resource_name: resource_name.clone(),
+                },
+                metadata,
+                self.runtime_opts.use_fbcode_metadata,
+                self.runtime_opts.grpc_request_timeout,
+            ))
+            .await
+        {
+            Ok(resp) => {
+                let status = resp.into_inner();
+                if status.complete || status.committed_size >= total_size {
+                    return Ok(BystreamWritePlan::AlreadyCommitted(total_size));
+                }
+
+                Ok(BystreamWritePlan::Write(trim_bystream_write_segments(
+                    segments,
+                    status.committed_size,
+                )))
+            }
+            Err(status) if status.code() == tonic::Code::Unimplemented => {
+                self.query_write_status_supported
+                    .store(false, Ordering::Relaxed);
+                tracing::debug!(
+                    resource_name = %resource_name,
+                    "Bytestream QueryWriteStatus is not supported by server; disabling resume probes"
+                );
+                Ok(BystreamWritePlan::Write(segments))
+            }
+            Err(status) => {
+                tracing::debug!(
+                    resource_name = %resource_name,
+                    code = ?status.code(),
+                    "Bytestream QueryWriteStatus failed; retrying write from offset 0"
+                );
+                Ok(BystreamWritePlan::Write(segments))
+            }
         }
     }
 
@@ -716,31 +3218,50 @@ impl REClient {
         request: ActionResultRequest,
     ) -> impl Future<Output = anyhow::Result<ActionResultResponse>> + Send + use<'a> {
         let action_digest = tdigest_to(&request.digest);
-        let headers = with_re_metadata((), metadata, self.runtime_opts.use_fbcode_metadata)
-            .into_parts()
-            .0;
+        let digest_function = self
+            .runtime_opts
+            .request_digest_function_config
+            .for_digest(&action_digest);
+        let digest_function = digest_function_to_grpc(digest_function);
+        let metadata = metadata.clone();
         async move {
-            retry(|| async {
-                let res = self
-                    .action_cache_client()
-                    .await?
-                    .get_action_result(tonic::Request::from_parts(
-                        headers.clone(),
-                        Default::default(),
-                        GetActionResultRequest {
-                            instance_name: self.instance_name.as_str().to_owned(),
-                            action_digest: Some(action_digest.clone()),
-                            ..Default::default()
-                        },
-                    ))
-                    .await?;
+            let res = retry_grpc_request_with_client_reconnect(
+                self.grpc_clients.clone(),
+                GrpcClientKind::ActionCache,
+                self.runtime_opts.retries,
+                Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+                || {
+                    let grpc_clients = self.grpc_clients.clone();
+                    let metadata = metadata.clone();
+                    let action_digest = action_digest.clone();
+                    async move {
+                        let mut client = grpc_clients.action_cache_client().await?;
+                        client
+                            .get_action_result(with_re_metadata_timeout(
+                                GetActionResultRequest {
+                                    instance_name: self.instance_name.as_str().to_owned(),
+                                    action_digest: Some(action_digest),
+                                    digest_function,
+                                    ..Default::default()
+                                },
+                                metadata,
+                                self.runtime_opts.use_fbcode_metadata,
+                                self.runtime_opts.grpc_request_timeout,
+                            ))
+                            .await
+                            .map_err(anyhow::Error::from)
+                    }
+                },
+            )
+            .await?;
 
-                Ok(ActionResultResponse {
-                    action_result: convert_action_result(res.into_inner())?,
-                    ttl: 0,
-                })
+            Ok(ActionResultResponse {
+                action_result: convert_action_result(
+                    res.into_inner(),
+                    self.runtime_opts.cas_ttl_secs,
+                )?,
+                ttl: self.runtime_opts.cas_ttl_secs,
             })
-            .await
         }
     }
 
@@ -750,35 +3271,55 @@ impl REClient {
         request: &WriteActionResultRequest,
     ) -> impl Future<Output = anyhow::Result<WriteActionResultResponse>> + Send + use<'a> {
         let action_result = convert_t_action_result2(&request.action_result);
-        let action_digest = request.action_digest.clone();
-        let headers = with_re_metadata((), metadata, self.runtime_opts.use_fbcode_metadata)
-            .into_parts()
-            .0;
+        let action_digest = tdigest_to(&request.action_digest);
+        let digest_function = self
+            .runtime_opts
+            .request_digest_function_config
+            .for_digest(&action_digest);
+        let digest_function = digest_function_to_grpc(digest_function);
+        let metadata = metadata.clone();
         async move {
             let action_result = action_result?;
-            retry(|| async {
-                let res = self
-                    .action_cache_client()
-                    .await?
-                    .update_action_result(tonic::Request::from_parts(
-                        headers.clone(),
-                        Default::default(),
-                        UpdateActionResultRequest {
-                            instance_name: self.instance_name.as_str().to_owned(),
-                            action_digest: Some(tdigest_to(&action_digest)),
-                            action_result: Some(action_result.clone()),
-                            results_cache_policy: None,
-                            ..Default::default()
-                        },
-                    ))
-                    .await?;
+            let res = retry_grpc_request_with_client_reconnect(
+                self.grpc_clients.clone(),
+                GrpcClientKind::ActionCache,
+                self.runtime_opts.retries,
+                Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+                || {
+                    let grpc_clients = self.grpc_clients.clone();
+                    let metadata = metadata.clone();
+                    let action_digest = action_digest.clone();
+                    let action_result = action_result.clone();
+                    async move {
+                        let mut client = grpc_clients.action_cache_client().await?;
+                        client
+                            .update_action_result(with_re_metadata_timeout(
+                                UpdateActionResultRequest {
+                                    instance_name: self.instance_name.as_str().to_owned(),
+                                    action_digest: Some(action_digest),
+                                    action_result: Some(action_result),
+                                    results_cache_policy: None,
+                                    digest_function,
+                                    ..Default::default()
+                                },
+                                metadata,
+                                self.runtime_opts.use_fbcode_metadata,
+                                self.runtime_opts.grpc_request_timeout,
+                            ))
+                            .await
+                            .map_err(anyhow::Error::from)
+                    }
+                },
+            )
+            .await?;
 
-                Ok(WriteActionResultResponse {
-                    actual_action_result: convert_action_result(res.into_inner())?,
-                    ttl_seconds: 0,
-                })
+            Ok(WriteActionResultResponse {
+                actual_action_result: convert_action_result(
+                    res.into_inner(),
+                    self.runtime_opts.cas_ttl_secs,
+                )?,
+                ttl_seconds: self.runtime_opts.cas_ttl_secs,
             })
-            .await
         }
     }
 
@@ -787,115 +3328,346 @@ impl REClient {
         metadata: &RemoteExecutionMetadata,
         mut execute_request: ExecuteRequest,
     ) -> anyhow::Result<BoxStream<'static, anyhow::Result<ExecuteWithProgressResponse>>> {
+        validate_remote_execution_enabled(self.capabilities.execution_enabled)?;
+
         // TODO(aloiscochard): Map those properly in the request
         // use crate::proto::build::bazel::remote::execution::v2::ExecutionPolicy;
 
         let action_digest = tdigest_to(&execute_request.action_digest);
-        let priority = execute_request
+        let digest_function = self
+            .runtime_opts
+            .request_digest_function_config
+            .for_digest(&action_digest);
+        let digest_function = digest_function_to_grpc(digest_function);
+        let execution_priority = execute_request
             .execution_policy
+            .as_ref()
             .map(|ep| ep.priority)
             .unwrap_or_default();
+        validate_priority_in_range(
+            execution_priority,
+            "remote_execution_priority",
+            &self.capabilities.execution_priority_ranges,
+        )?;
 
-        let stream = retry(|| async {
-            let stream = self
-                .execution_client()
-                .await?
-                .execute(with_re_metadata(
-                    GExecuteRequest {
-                        instance_name: self.instance_name.as_str().to_owned(),
-                        skip_cache_lookup: execute_request.skip_cache_lookup,
-                        execution_policy: Some(ExecutionPolicy { priority }),
-                        results_cache_policy: Some(ResultsCachePolicy { priority: 0 }),
-                        action_digest: Some(action_digest.clone()),
-                        ..Default::default()
-                    },
-                    metadata,
-                    self.runtime_opts.use_fbcode_metadata,
-                ))
-                .await?
-                .into_inner();
-            anyhow::Ok(stream)
-        })
+        let grpc_request = GExecuteRequest {
+            instance_name: self.instance_name.as_str().to_owned(),
+            skip_cache_lookup: execute_request.skip_cache_lookup,
+            execution_policy: Some(ExecutionPolicy {
+                priority: execution_priority,
+            }),
+            results_cache_policy: Some(ResultsCachePolicy { priority: 0 }),
+            action_digest: Some(action_digest.clone()),
+            digest_function,
+            ..Default::default()
+        };
+
+        let stream = execute_stream(
+            self.grpc_clients.clone(),
+            metadata.clone(),
+            self.runtime_opts.use_fbcode_metadata,
+            grpc_request.clone(),
+            self.runtime_opts.retries,
+            Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+        )
         .await?;
 
-        let stream = futures::stream::try_unfold(stream, move |mut stream| async {
-            let msg = match stream
-                .try_next()
-                .await
-                .context("RE channel error")
-                .map_err(normalize_re_error)?
-            {
-                Some(msg) => msg,
-                None => return Ok(None),
-            };
+        let grpc_clients = self.grpc_clients.clone();
+        let metadata_for_wait_execution = metadata.clone();
+        let grpc_request_for_retry = grpc_request.clone();
+        let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
+        let retries = self.runtime_opts.retries;
+        let retry_max_delay = Duration::from_millis(self.runtime_opts.retry_max_delay_ms);
+        let cas_ttl_secs = self.runtime_opts.cas_ttl_secs;
 
-            let status = if msg.done {
-                match msg
-                    .result
-                    .context("Missing `result` when message was `done`")?
-                {
-                    OpResult::Error(rpc_status) => {
-                        return Err(REClientError {
-                            code: TCode(rpc_status.code),
-                            message: rpc_status.message,
-                            group: TCodeReasonGroup::UNKNOWN,
-                        }
-                        .into());
-                    }
-                    OpResult::Response(any) => {
-                        let execute_response_grpc: GExecuteResponse =
-                            GExecuteResponse::decode(&any.value[..])?;
+        let stream = futures::stream::try_unfold(
+            (stream, None::<String>, 0usize),
+            move |(mut stream, mut operation_name, mut execute_retry_attempts)| {
+                let grpc_clients = grpc_clients.clone();
+                let metadata = metadata_for_wait_execution.clone();
+                let grpc_request = grpc_request_for_retry.clone();
+                async move {
+                    loop {
+                        let msg = loop {
+                            match stream.try_next().await {
+                                Ok(Some(msg)) => break msg,
+                                Ok(None) => {
+                                    let Some(name) = operation_name.clone() else {
+                                        return Err(anyhow::anyhow!(
+                                            "RE Execute stream ended before operation creation"
+                                        ));
+                                    };
 
-                        check_status(execute_response_grpc.status.unwrap_or_default())?;
+                                    tracing::debug!(
+                                        operation_name = %name,
+                                        "Execute stream ended before completion; resuming with WaitExecution"
+                                    );
+                                    let (
+                                        next_stream,
+                                        next_operation_name,
+                                        next_execute_retry_attempts,
+                                    ) = wait_execution_or_retry_execute(
+                                        grpc_clients.clone(),
+                                        metadata.clone(),
+                                        use_fbcode_metadata,
+                                        name,
+                                        grpc_request.clone(),
+                                        execute_retry_attempts,
+                                        retries,
+                                        retry_max_delay,
+                                        "RE WaitExecution failed after Execute stream ended before completion",
+                                    )
+                                    .await?;
+                                    stream = next_stream;
+                                    operation_name = next_operation_name;
+                                    execute_retry_attempts = next_execute_retry_attempts;
+                                }
+                                Err(err) => {
+                                    let err = anyhow::Error::from(err);
+                                    if should_retry_execute_after_operation_stream_error(&err) {
+                                        if !can_retry_execute(execute_retry_attempts, retries) {
+                                            return Err(err.context(match &operation_name {
+                                                Some(name) => format!(
+                                                    "RE operation `{name}` was lost after retry limit"
+                                                ),
+                                                None => "RE Execute stream returned NOT_FOUND before operation creation after retry limit".to_owned(),
+                                            }));
+                                        }
 
-                        let action_result = execute_response_grpc
-                            .result
-                            .with_context(|| "The action result is not defined.")?;
+                                        execute_retry_attempts += 1;
+                                        tracing::debug!(
+                                            operation_name =
+                                                operation_name.as_deref().unwrap_or(""),
+                                            retry_attempt = execute_retry_attempts,
+                                            retries,
+                                            "RE operation stream returned NOT_FOUND; retrying Execute"
+                                        );
+                                        stream = execute_stream(
+                                            grpc_clients.clone(),
+                                            metadata.clone(),
+                                            use_fbcode_metadata,
+                                            grpc_request.clone(),
+                                            retries,
+                                            retry_max_delay,
+                                        )
+                                        .await
+                                        .context("RE operation stream returned NOT_FOUND and Execute retry failed")?;
+                                        operation_name = None;
+                                        continue;
+                                    }
 
-                        let action_result = convert_action_result(action_result)?;
+                                    if !is_retryable_grpc_error(&err) {
+                                        return Err(normalize_re_error(
+                                            err.context("RE channel error"),
+                                        ));
+                                    }
+                                    if is_broken_connection_error(&err) {
+                                        grpc_clients
+                                            .reconnect_after_broken_connection(
+                                                GrpcClientKind::Execution,
+                                            )
+                                            .await;
+                                    }
 
-                        let execute_response = ExecuteResponse {
-                            action_result,
-                            action_result_digest: TDigest::default(),
-                            action_result_ttl: 0,
-                            status: TStatus {
-                                code: TCode::OK,
-                                message: execute_response_grpc.message,
-                                ..Default::default()
-                            },
-                            cached_result: execute_response_grpc.cached_result,
-                            action_digest: Default::default(), // Filled in below.
+                                    let Some(name) = operation_name.clone() else {
+                                        if !can_retry_execute(execute_retry_attempts, retries) {
+                                            return Err(err.context(
+                                                "RE Execute stream failed before operation creation after retry limit",
+                                            ));
+                                        }
+
+                                        execute_retry_attempts += 1;
+                                        tracing::debug!(
+                                            retry_attempt = execute_retry_attempts,
+                                            retries,
+                                            "Execute stream failed before operation creation; retrying Execute"
+                                        );
+                                        stream = execute_stream(
+                                            grpc_clients.clone(),
+                                            metadata.clone(),
+                                            use_fbcode_metadata,
+                                            grpc_request.clone(),
+                                            retries,
+                                            retry_max_delay,
+                                        )
+                                        .await
+                                        .context(
+                                            "Execute stream failed before operation creation and Execute retry failed",
+                                        )?;
+                                        continue;
+                                    };
+
+                                    tracing::debug!(
+                                        operation_name = %name,
+                                        "Execute stream failed after operation creation; resuming with WaitExecution"
+                                    );
+                                    let (
+                                        next_stream,
+                                        next_operation_name,
+                                        next_execute_retry_attempts,
+                                    ) = wait_execution_or_retry_execute(
+                                        grpc_clients.clone(),
+                                        metadata.clone(),
+                                        use_fbcode_metadata,
+                                        name,
+                                        grpc_request.clone(),
+                                        execute_retry_attempts,
+                                        retries,
+                                        retry_max_delay,
+                                        "RE WaitExecution failed after Execute stream interruption",
+                                    )
+                                    .await?;
+                                    stream = next_stream;
+                                    operation_name = next_operation_name;
+                                    execute_retry_attempts = next_execute_retry_attempts;
+                                }
+                            }
                         };
 
-                        ExecuteWithProgressResponse {
-                            stage: Stage::COMPLETED,
-                            execute_response: Some(execute_response),
-                            ..Default::default()
+                        if !msg.name.is_empty() {
+                            operation_name = Some(msg.name.clone());
                         }
+
+                        let status = if msg.done {
+                            match msg
+                                .result
+                                .context("Missing `result` when message was `done`")?
+                            {
+                                OpResult::Error(rpc_status) => {
+                                    if should_retry_execute_after_operation_error(&rpc_status)
+                                        && can_retry_execute(execute_retry_attempts, retries)
+                                    {
+                                        execute_retry_attempts += 1;
+                                        tracing::debug!(
+                                            operation_name =
+                                                operation_name.as_deref().unwrap_or(""),
+                                            retry_attempt = execute_retry_attempts,
+                                            retries,
+                                            code = rpc_status.code,
+                                            "Execute operation returned retryable error; retrying Execute"
+                                        );
+                                        sleep_for_execute_retry_info(
+                                            &rpc_status,
+                                            retry_max_delay,
+                                            operation_name.as_deref(),
+                                        )
+                                        .await;
+                                        stream = execute_stream(
+                                            grpc_clients.clone(),
+                                            metadata.clone(),
+                                            use_fbcode_metadata,
+                                            grpc_request.clone(),
+                                            retries,
+                                            retry_max_delay,
+                                        )
+                                        .await
+                                        .context(
+                                            "Execute operation failed and Execute retry failed",
+                                        )?;
+                                        operation_name = None;
+                                        continue;
+                                    }
+
+                                    return Err(re_client_error_from_rpc_status(&rpc_status).into());
+                                }
+                                OpResult::Response(any) => {
+                                    let execute_response_grpc: GExecuteResponse =
+                                        GExecuteResponse::decode(&any.value[..])?;
+
+                                    let execute_response_status =
+                                        execute_response_grpc.status.unwrap_or_default();
+                                    if should_retry_execute_after_execute_response_status(
+                                        &execute_response_status,
+                                    ) && can_retry_execute(execute_retry_attempts, retries)
+                                    {
+                                        execute_retry_attempts += 1;
+                                        tracing::debug!(
+                                            operation_name =
+                                                operation_name.as_deref().unwrap_or(""),
+                                            retry_attempt = execute_retry_attempts,
+                                            retries,
+                                            code = execute_response_status.code,
+                                            "Execute response returned retryable status; retrying Execute"
+                                        );
+                                        sleep_for_execute_retry_info(
+                                            &execute_response_status,
+                                            retry_max_delay,
+                                            operation_name.as_deref(),
+                                        )
+                                        .await;
+                                        stream = execute_stream(
+                                            grpc_clients.clone(),
+                                            metadata.clone(),
+                                            use_fbcode_metadata,
+                                            grpc_request.clone(),
+                                            retries,
+                                            retry_max_delay,
+                                        )
+                                        .await
+                                        .context(
+                                            "Execute response failed and Execute retry failed",
+                                        )?;
+                                        operation_name = None;
+                                        continue;
+                                    }
+                                    check_status(execute_response_status)?;
+
+                                    let action_result = execute_response_grpc
+                                        .result
+                                        .with_context(|| "The action result is not defined.")?;
+
+                                    let action_result =
+                                        convert_action_result(action_result, cas_ttl_secs)?;
+
+                                    let execute_response = ExecuteResponse {
+                                        action_result,
+                                        action_result_digest: TDigest::default(),
+                                        action_result_ttl: cas_ttl_secs,
+                                        status: TStatus {
+                                            code: TCode::OK,
+                                            message: execute_response_grpc.message,
+                                            ..Default::default()
+                                        },
+                                        cached_result: execute_response_grpc.cached_result,
+                                        action_digest: Default::default(), // Filled in below.
+                                    };
+
+                                    ExecuteWithProgressResponse {
+                                        stage: Stage::COMPLETED,
+                                        execute_response: Some(execute_response),
+                                        ..Default::default()
+                                    }
+                                }
+                            }
+                        } else {
+                            let meta = ExecuteOperationMetadata::decode(
+                                &msg.metadata.unwrap_or_default().value[..],
+                            )?;
+
+                            let stage = match execution_stage::Value::try_from(meta.stage) {
+                                Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
+                                Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
+                                Ok(execution_stage::Value::Queued) => Stage::QUEUED,
+                                Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
+                                Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
+                                _ => Stage::UNKNOWN,
+                            };
+
+                            ExecuteWithProgressResponse {
+                                stage,
+                                execute_response: None,
+                                ..Default::default()
+                            }
+                        };
+
+                        return anyhow::Ok(Some((
+                            status,
+                            (stream, operation_name, execute_retry_attempts),
+                        )));
                     }
                 }
-            } else {
-                let meta =
-                    ExecuteOperationMetadata::decode(&msg.metadata.unwrap_or_default().value[..])?;
-
-                let stage = match execution_stage::Value::try_from(meta.stage) {
-                    Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
-                    Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
-                    Ok(execution_stage::Value::Queued) => Stage::QUEUED,
-                    Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
-                    Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
-                    _ => Stage::UNKNOWN,
-                };
-
-                ExecuteWithProgressResponse {
-                    stage,
-                    execute_response: None,
-                    ..Default::default()
-                }
-            };
-
-            anyhow::Ok(Some((status, stream)))
-        });
+            },
+        );
 
         // We fill in the action digest a little later here. We do it this way so we don't have to
         // clone the execute_request into every future we create above.
@@ -922,48 +3694,412 @@ impl REClient {
         metadata: &RemoteExecutionMetadata,
         request: UploadRequest,
     ) -> impl Future<Output = anyhow::Result<UploadResponse>> + Send + use<'a> {
-        let headers = with_re_metadata((), metadata, self.runtime_opts.use_fbcode_metadata)
-            .into_parts()
-            .0;
+        let metadata = metadata.clone();
         async move {
-            upload_impl(
-                &self.instance_name,
-                request,
-                self.bystream_compressor,
-                self.capabilities.max_total_batch_size,
-                self.runtime_opts.max_concurrent_uploads_per_action,
-                |re_request| {
-                    let headers = headers.clone();
-                    async move {
-                        let resp = self
-                            .cas_client()
-                            .await?
-                            .batch_update_blobs(tonic::Request::from_parts(
-                                headers,
-                                Default::default(),
-                                re_request,
-                            ))
-                            .await?;
-                        Ok(resp.into_inner())
-                    }
-                },
-                |segments| {
-                    let headers = headers.clone();
-                    async move {
-                        let resp = self
-                            .bytestream_client()
-                            .await?
-                            .write(tonic::Request::from_parts(
-                                headers,
-                                Default::default(),
-                                futures::stream::iter(segments),
-                            ))
-                            .await?;
-                        Ok(resp.into_inner())
-                    }
+            let mut request = request;
+            if request.upload_only_missing {
+                request = self
+                    .filter_upload_request_to_missing(metadata.clone(), request)
+                    .await?;
+            }
+            let (request, spliced_digests) = self
+                .upload_chunked_inlined_blobs(metadata.clone(), request)
+                .await?;
+            let (request, file_spliced_digests) =
+                self.upload_chunked_files(metadata.clone(), request).await?;
+            let response = self.upload_direct(metadata, request).await?;
+            self.mark_digests_exist_on_remote(spliced_digests);
+            self.mark_digests_exist_on_remote(file_spliced_digests);
+
+            Ok(response)
+        }
+    }
+
+    async fn upload_direct(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        request: UploadRequest,
+    ) -> anyhow::Result<UploadResponse> {
+        validate_upload_request_sizes(&request, self.capabilities.max_cas_blob_size_bytes)?;
+        let uploaded_digests = upload_payload_digests(&request);
+        let response = upload_impl(
+            &self.instance_name,
+            request,
+            self.bystream_compressor,
+            self.batch_update_compressor,
+            self.capabilities.max_total_batch_size,
+            self.runtime_opts.remote_cache_compression_threshold,
+            self.runtime_opts.max_concurrent_uploads_per_action,
+            self.runtime_opts.request_digest_function_config,
+            &self.active_uploads,
+            |re_request| {
+                let metadata = metadata.clone();
+                async move {
+                    retry_grpc_request_with_client_reconnect(
+                        self.grpc_clients.clone(),
+                        GrpcClientKind::Cas,
+                        self.runtime_opts.retries,
+                        Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+                        || {
+                            let grpc_clients = self.grpc_clients.clone();
+                            let metadata = metadata.clone();
+                            let re_request = re_request.clone();
+                            async move {
+                                let mut cas_client = grpc_clients.cas_client().await?;
+                                Ok(cas_client
+                                    .batch_update_blobs(with_re_metadata_timeout(
+                                        re_request,
+                                        metadata,
+                                        self.runtime_opts.use_fbcode_metadata,
+                                        self.runtime_opts.grpc_request_timeout,
+                                    ))
+                                    .await?
+                                    .into_inner())
+                            }
+                        },
+                    )
+                    .await
+                }
+            },
+            |segments| {
+                let metadata = metadata.clone();
+                async move {
+                    retry_grpc_request_with_client_reconnect(
+                        self.grpc_clients.clone(),
+                        GrpcClientKind::ByteStream,
+                        self.runtime_opts.retries,
+                        Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+                        || {
+                            let grpc_clients = self.grpc_clients.clone();
+                            let metadata = metadata.clone();
+                            let segments = segments.clone();
+                            async move {
+                                let mut bytestream_client =
+                                    grpc_clients.bytestream_client().await?;
+                                let segments = match self
+                                    .bystream_write_plan(
+                                        &mut bytestream_client,
+                                        metadata.clone(),
+                                        segments,
+                                    )
+                                    .await?
+                                {
+                                    BystreamWritePlan::Write(segments) => segments,
+                                    BystreamWritePlan::AlreadyCommitted(committed_size) => {
+                                        return Ok(WriteResponse { committed_size });
+                                    }
+                                };
+                                let requests = futures::stream::iter(segments);
+                                Ok(bytestream_client
+                                    .write(with_re_metadata(
+                                        requests,
+                                        &metadata,
+                                        self.runtime_opts.use_fbcode_metadata,
+                                    ))
+                                    .await?
+                                    .into_inner())
+                            }
+                        },
+                    )
+                    .await
+                }
+            },
+        )
+        .await?;
+
+        self.mark_digests_exist_on_remote(uploaded_digests);
+
+        Ok(response)
+    }
+
+    async fn upload_chunked_inlined_blobs(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        mut request: UploadRequest,
+    ) -> anyhow::Result<(UploadRequest, Vec<TDigest>)> {
+        let Some(config) = self.fast_cdc_2020_upload_config() else {
+            return Ok((request, Vec::new()));
+        };
+
+        let inlined_blobs = request.inlined_blobs_with_digest.take().unwrap_or_default();
+        if inlined_blobs.is_empty() {
+            return Ok((request, Vec::new()));
+        }
+
+        let mut remaining_blobs = Vec::new();
+        let mut spliced_digests = Vec::new();
+
+        for blob in inlined_blobs {
+            if blob.digest.size_in_bytes <= 0
+                || blob.digest.size_in_bytes as u64 <= config.chunking_threshold_bytes()
+            {
+                remaining_blobs.push(blob);
+                continue;
+            }
+
+            let Some(digest_function) = self
+                .runtime_opts
+                .request_digest_function_config
+                .for_digest(&tdigest_to(&blob.digest))
+            else {
+                tracing::debug!(
+                    digest = %blob.digest,
+                    "Skipping FastCDC chunked upload because the digest function is ambiguous"
+                );
+                remaining_blobs.push(blob);
+                continue;
+            };
+            if !supports_hash_validation(digest_function) {
+                tracing::debug!(
+                    digest = %blob.digest,
+                    digest_function = %digest_function_name(digest_function),
+                    "Skipping FastCDC chunked upload because the digest function is unsupported"
+                );
+                remaining_blobs.push(blob);
+                continue;
+            }
+
+            let chunked_digest = blob.digest.clone();
+            let chunks = chunk_inlined_blob_fast_cdc_2020(&blob, &config, digest_function)
+                .with_context(|| format!("Failed to chunk `{chunked_digest}` for upload"))?;
+            if chunks.is_empty() {
+                remaining_blobs.push(blob);
+                continue;
+            }
+
+            self.upload_fast_cdc_chunks(
+                metadata.clone(),
+                chunked_digest.clone(),
+                chunks,
+                &config,
+                digest_function,
+            )
+            .await?;
+            spliced_digests.push(chunked_digest);
+        }
+
+        request.inlined_blobs_with_digest = if remaining_blobs.is_empty() {
+            None
+        } else {
+            Some(remaining_blobs)
+        };
+        Ok((request, spliced_digests))
+    }
+
+    async fn upload_chunked_files(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        mut request: UploadRequest,
+    ) -> anyhow::Result<(UploadRequest, Vec<TDigest>)> {
+        let Some(config) = self.fast_cdc_2020_upload_config() else {
+            return Ok((request, Vec::new()));
+        };
+
+        let files = request.files_with_digest.take().unwrap_or_default();
+        if files.is_empty() {
+            return Ok((request, Vec::new()));
+        }
+
+        let mut remaining_files = Vec::new();
+        let mut spliced_digests = Vec::new();
+
+        for file in files {
+            if file.digest.size_in_bytes <= 0
+                || file.digest.size_in_bytes as u64 <= config.chunking_threshold_bytes()
+            {
+                remaining_files.push(file);
+                continue;
+            }
+
+            let Some(digest_function) = self
+                .runtime_opts
+                .request_digest_function_config
+                .for_digest(&tdigest_to(&file.digest))
+            else {
+                tracing::debug!(
+                    digest = %file.digest,
+                    path = %file.name,
+                    "Skipping FastCDC chunked upload because the digest function is ambiguous"
+                );
+                remaining_files.push(file);
+                continue;
+            };
+            if !supports_hash_validation(digest_function) {
+                tracing::debug!(
+                    digest = %file.digest,
+                    path = %file.name,
+                    digest_function = %digest_function_name(digest_function),
+                    "Skipping FastCDC chunked upload because the digest function is unsupported"
+                );
+                remaining_files.push(file);
+                continue;
+            }
+
+            let chunked_digest = file.digest.clone();
+            let path = file.name.clone();
+            let chunk_config = config.clone();
+            let chunks = tokio::task::spawn_blocking(move || {
+                chunk_file_fast_cdc_2020(&path, &chunk_config, digest_function)
+            })
+            .await
+            .context("FastCDC chunking task failed")?
+            .with_context(|| format!("Failed to chunk `{chunked_digest}` for upload"))?;
+            if chunks.is_empty() {
+                remaining_files.push(file);
+                continue;
+            }
+
+            self.upload_fast_cdc_chunks(
+                metadata.clone(),
+                chunked_digest.clone(),
+                chunks,
+                &config,
+                digest_function,
+            )
+            .await?;
+            spliced_digests.push(chunked_digest);
+        }
+
+        request.files_with_digest = if remaining_files.is_empty() {
+            None
+        } else {
+            Some(remaining_files)
+        };
+        Ok((request, spliced_digests))
+    }
+
+    async fn upload_fast_cdc_chunks(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        blob_digest: TDigest,
+        chunks: Vec<InlinedBlobWithDigest>,
+        config: &FastCdc2020Config,
+        digest_function: digest_function::Value,
+    ) -> anyhow::Result<()> {
+        let chunk_digests = chunks
+            .iter()
+            .map(|chunk| chunk.digest.clone())
+            .collect::<Vec<_>>();
+        self.write_fast_cdc_chunks_to_local_cache(&chunks, digest_function)
+            .await;
+        let missing = self
+            .get_digests_ttl(
+                &metadata,
+                GetDigestsTtlRequest {
+                    digests: chunk_digests.clone(),
+                    is_for_upload: Some(true),
+                    _dot_dot: (),
                 },
             )
-            .await
+            .await?
+            .digests_with_ttl
+            .into_iter()
+            .filter(|digest| digest.ttl == 0)
+            .map(|digest| digest.digest)
+            .collect::<HashSet<_>>();
+
+        let mut uploaded = HashSet::new();
+        let missing_chunks = chunks
+            .into_iter()
+            .filter(|chunk| missing.contains(&chunk.digest))
+            .filter(|chunk| uploaded.insert(chunk.digest.clone()))
+            .collect::<Vec<_>>();
+
+        if !missing_chunks.is_empty() {
+            self.upload_direct(
+                metadata.clone(),
+                UploadRequest {
+                    inlined_blobs_with_digest: Some(missing_chunks),
+                    upload_only_missing: false,
+                    ..Default::default()
+                },
+            )
+            .await?;
+        }
+
+        self.splice_blob(
+            metadata,
+            SpliceBlobRequest {
+                blob_digest,
+                chunk_digests,
+                chunking_function: config.chunking_function(),
+                ..Default::default()
+            },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    async fn write_fast_cdc_chunks_to_local_cache(
+        &self,
+        chunks: &[InlinedBlobWithDigest],
+        digest_function: digest_function::Value,
+    ) {
+        let Some(cache) = &self.local_chunk_cache else {
+            return;
+        };
+
+        for chunk in chunks {
+            cache
+                .write(&chunk.digest, &chunk.blob, Some(digest_function))
+                .await;
+        }
+    }
+
+    fn fast_cdc_2020_upload_config(&self) -> Option<FastCdc2020Config> {
+        if !self.runtime_opts.remote_cache_chunking || !self.capabilities.blob_splice_supported {
+            return None;
+        }
+
+        self.capabilities.fast_cdc_2020.clone()
+    }
+
+    fn fast_cdc_2020_download_config(&self) -> Option<FastCdc2020Config> {
+        if !self.runtime_opts.remote_cache_chunking || !self.capabilities.blob_split_supported {
+            return None;
+        }
+
+        self.capabilities.fast_cdc_2020.clone()
+    }
+
+    fn should_chunk_blob(&self, digest: &TDigest, config: &FastCdc2020Config) -> bool {
+        digest.size_in_bytes > 0 && digest.size_in_bytes as u64 > config.chunking_threshold_bytes()
+    }
+
+    async fn filter_upload_request_to_missing(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        request: UploadRequest,
+    ) -> anyhow::Result<UploadRequest> {
+        let digests = upload_request_digests(&request);
+        if digests.is_empty() {
+            return Ok(request);
+        }
+
+        let missing = self
+            .get_digests_ttl(
+                &metadata,
+                GetDigestsTtlRequest {
+                    digests,
+                    is_for_upload: Some(true),
+                    _dot_dot: (),
+                },
+            )
+            .await?
+            .digests_with_ttl
+            .into_iter()
+            .filter(|digest| digest.ttl == 0)
+            .map(|digest| digest.digest)
+            .collect::<HashSet<_>>();
+
+        Ok(filter_upload_request_by_missing_digests(request, &missing))
+    }
+
+    fn mark_digests_exist_on_remote(&self, digests: impl IntoIterator<Item = TDigest>) {
+        let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
+        for digest in digests {
+            find_missing_cache.put(digest, DigestRemoteState::ExistsOnRemote);
         }
     }
 
@@ -994,54 +4130,544 @@ impl REClient {
         }
     }
 
+    pub async fn split_blob(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        request: SplitBlobRequest,
+    ) -> anyhow::Result<SplitBlobResponse> {
+        validate_blob_split_supported(self.capabilities.blob_split_supported)?;
+
+        let SplitBlobRequest {
+            blob_digest,
+            chunking_function,
+            ..
+        } = request;
+        let blob_digest = tdigest_to(&blob_digest);
+        let request_chunking_function =
+            preferred_split_blob_chunking_function(&self.capabilities, chunking_function);
+        validate_chunking_function_supported(&self.capabilities, request_chunking_function)?;
+        let request_chunking_function = chunking_function_to_grpc(request_chunking_function);
+        let digest_function = digest_function_to_grpc(
+            self.runtime_opts
+                .request_digest_function_config
+                .for_digest(&blob_digest),
+        );
+        let res: GSplitBlobResponse = retry_grpc_request_with_client_reconnect(
+            self.grpc_clients.clone(),
+            GrpcClientKind::Cas,
+            self.runtime_opts.retries,
+            Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+            || {
+                let grpc_clients = self.grpc_clients.clone();
+                let metadata = metadata.clone();
+                let blob_digest = blob_digest.clone();
+                async move {
+                    let mut client = grpc_clients.cas_client().await?;
+                    client
+                        .split_blob(with_re_metadata_timeout(
+                            GSplitBlobRequest {
+                                instance_name: self.instance_name.as_str().to_owned(),
+                                blob_digest: Some(blob_digest),
+                                digest_function,
+                                chunking_function: request_chunking_function,
+                            },
+                            metadata,
+                            self.runtime_opts.use_fbcode_metadata,
+                            self.runtime_opts.grpc_request_timeout,
+                        ))
+                        .await
+                        .map(|response| response.into_inner())
+                        .map_err(anyhow::Error::from)
+                }
+            },
+        )
+        .await?;
+
+        let chunking_function = chunking_function_from_grpc(res.chunking_function);
+        Ok(SplitBlobResponse {
+            chunk_digests: validate_split_blob_response(&blob_digest, res)?,
+            chunking_function,
+        })
+    }
+
+    pub async fn splice_blob(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        request: SpliceBlobRequest,
+    ) -> anyhow::Result<SpliceBlobResponse> {
+        validate_blob_splice_supported(self.capabilities.blob_splice_supported)?;
+
+        let SpliceBlobRequest {
+            blob_digest,
+            chunk_digests,
+            chunking_function,
+            ..
+        } = request;
+        let blob_digest = tdigest_to(&blob_digest);
+        let chunk_digests = chunk_digests.iter().map(tdigest_to).collect::<Vec<_>>();
+        validate_chunking_function_supported(&self.capabilities, chunking_function)?;
+        let request_chunking_function = chunking_function_to_grpc(chunking_function);
+        validate_chunk_digests_reconstruct_blob(
+            "SpliceBlob request",
+            &blob_digest,
+            &chunk_digests,
+        )?;
+        let mut request_digests = vec![blob_digest.clone()];
+        request_digests.extend(chunk_digests.iter().cloned());
+        let digest_function = digest_function_to_grpc(
+            self.runtime_opts
+                .request_digest_function_config
+                .for_common_digest_function(&request_digests),
+        );
+
+        let res: GSpliceBlobResponse = retry_grpc_request_with_client_reconnect(
+            self.grpc_clients.clone(),
+            GrpcClientKind::Cas,
+            self.runtime_opts.retries,
+            Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+            || {
+                let grpc_clients = self.grpc_clients.clone();
+                let metadata = metadata.clone();
+                let blob_digest = blob_digest.clone();
+                let chunk_digests = chunk_digests.clone();
+                async move {
+                    let mut client = grpc_clients.cas_client().await?;
+                    client
+                        .splice_blob(with_re_metadata_timeout(
+                            GSpliceBlobRequest {
+                                instance_name: self.instance_name.as_str().to_owned(),
+                                blob_digest: Some(blob_digest),
+                                chunk_digests,
+                                digest_function,
+                                chunking_function: request_chunking_function,
+                            },
+                            metadata,
+                            self.runtime_opts.use_fbcode_metadata,
+                            self.runtime_opts.grpc_request_timeout,
+                        ))
+                        .await
+                        .map(|response| response.into_inner())
+                        .map_err(anyhow::Error::from)
+                }
+            },
+        )
+        .await?;
+
+        let blob_digest = validate_splice_blob_response_digest(&blob_digest, res)?;
+
+        Ok(SpliceBlobResponse { blob_digest })
+    }
+
     pub fn download<'a>(
         &'a self,
         metadata: &RemoteExecutionMetadata,
         request: DownloadRequest,
     ) -> impl Future<Output = anyhow::Result<DownloadResponse>> + Send + use<'a> {
-        let headers = with_re_metadata((), metadata, self.runtime_opts.use_fbcode_metadata)
-            .into_parts()
-            .0;
+        let metadata = metadata.clone();
         async move {
-            download_impl(
-                &self.instance_name,
-                request,
-                self.bystream_compressor,
-                self.capabilities.max_total_batch_size,
-                |re_request| {
-                    let headers = headers.clone();
-                    async move {
-                        let resp = self
-                            .cas_client()
-                            .await?
-                            .batch_read_blobs(tonic::Request::from_parts(
-                                headers,
-                                Default::default(),
-                                re_request,
-                            ))
-                            .await?;
-                        Ok(resp.into_inner())
+            let (request, chunked_inlined_blobs) = self
+                .download_chunked_blobs(metadata.clone(), request)
+                .await?;
+            let mut response = self.download_direct(metadata, request).await?;
+            if !chunked_inlined_blobs.is_empty() {
+                let mut chunked_inlined_blobs =
+                    chunked_inlined_blobs.into_iter().collect::<HashMap<_, _>>();
+                let direct_inlined_blobs = response.inlined_blobs.take().unwrap_or_default();
+                let mut direct_inlined_blobs = direct_inlined_blobs.into_iter();
+                let mut inlined_blobs = Vec::new();
+                for index in 0..chunked_inlined_blobs.len() + direct_inlined_blobs.len() {
+                    if let Some(chunked_blob) = chunked_inlined_blobs.remove(&index) {
+                        inlined_blobs.push(chunked_blob);
+                    } else if let Some(direct_blob) = direct_inlined_blobs.next() {
+                        inlined_blobs.push(direct_blob);
                     }
+                }
+                response.inlined_blobs = Some(inlined_blobs);
+            }
+
+            Ok(response)
+        }
+    }
+
+    async fn download_direct(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        request: DownloadRequest,
+    ) -> anyhow::Result<DownloadResponse> {
+        download_impl(
+            &self.instance_name,
+            request,
+            self.bystream_compressor,
+            self.capabilities.max_total_batch_size,
+            self.runtime_opts.remote_cache_compression_threshold,
+            self.runtime_opts.download_hash_digest_function,
+            self.runtime_opts.request_digest_function_config,
+            self.runtime_opts.retries,
+            Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+            self.runtime_opts.bytestream_progress_timeout,
+            &self.active_downloads,
+            |re_request| {
+                let metadata = metadata.clone();
+                async move {
+                    retry_grpc_request_with_client_reconnect(
+                        self.grpc_clients.clone(),
+                        GrpcClientKind::Cas,
+                        self.runtime_opts.retries,
+                        Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+                        || {
+                            let grpc_clients = self.grpc_clients.clone();
+                            let metadata = metadata.clone();
+                            let re_request = re_request.clone();
+                            async move {
+                                let mut client = grpc_clients.cas_client().await?;
+                                Ok(client
+                                    .batch_read_blobs(with_re_metadata_timeout(
+                                        re_request,
+                                        metadata,
+                                        self.runtime_opts.use_fbcode_metadata,
+                                        self.runtime_opts.grpc_request_timeout,
+                                    ))
+                                    .await?
+                                    .into_inner())
+                            }
+                        },
+                    )
+                    .await
+                }
+            },
+            |read_request| {
+                let metadata = metadata.clone();
+                async move {
+                    let response = retry_grpc_request_with_client_reconnect(
+                        self.grpc_clients.clone(),
+                        GrpcClientKind::ByteStream,
+                        self.runtime_opts.retries,
+                        Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+                        || {
+                            let grpc_clients = self.grpc_clients.clone();
+                            let metadata = metadata.clone();
+                            let read_request = read_request.clone();
+                            async move {
+                                let mut client = grpc_clients.bytestream_client().await?;
+                                Ok(client
+                                    .read(with_re_metadata(
+                                        read_request,
+                                        &metadata,
+                                        self.runtime_opts.use_fbcode_metadata,
+                                    ))
+                                    .await?
+                                    .into_inner())
+                            }
+                        },
+                    )
+                    .await?;
+                    Ok(Box::pin(response.into_stream()))
+                }
+            },
+            || {
+                let grpc_clients = self.grpc_clients.clone();
+                async move {
+                    grpc_clients
+                        .reconnect_after_broken_connection(GrpcClientKind::ByteStream)
+                        .await;
+                }
+            },
+        )
+        .await
+    }
+
+    async fn download_chunked_blobs(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        mut request: DownloadRequest,
+    ) -> anyhow::Result<(DownloadRequest, Vec<(usize, InlinedDigestWithStatus)>)> {
+        let Some(config) = self.fast_cdc_2020_download_config() else {
+            return Ok((request, Vec::new()));
+        };
+
+        let inlined_digests = request.inlined_digests.take().unwrap_or_default();
+        let file_digests = request.file_digests.take().unwrap_or_default();
+        if inlined_digests.is_empty() && file_digests.is_empty() {
+            return Ok((request, Vec::new()));
+        }
+
+        let mut remaining_inlined_digests = Vec::new();
+        let mut chunked_inlined_blobs = Vec::new();
+        for (index, digest) in inlined_digests.into_iter().enumerate() {
+            if !self.should_chunk_blob(&digest, &config) {
+                remaining_inlined_digests.push(digest);
+                continue;
+            }
+
+            let blob = self
+                .download_fast_cdc_blob(metadata.clone(), digest.clone(), &config)
+                .await?;
+            chunked_inlined_blobs.push((
+                index,
+                InlinedDigestWithStatus {
+                    digest,
+                    status: tstatus_ok(),
+                    blob,
                 },
-                |read_request| {
-                    let headers = headers.clone();
-                    async move {
-                        let response = self
-                            .bytestream_client()
-                            .await?
-                            .read(tonic::Request::from_parts(
-                                headers,
-                                Default::default(),
-                                read_request,
-                            ))
-                            .await?
-                            .into_inner();
-                        Ok(Box::pin(response.into_stream()))
-                    }
+            ));
+        }
+
+        let mut remaining_file_digests = Vec::new();
+        for file in file_digests {
+            if !self.should_chunk_blob(&file.named_digest.digest, &config) {
+                remaining_file_digests.push(file);
+                continue;
+            }
+
+            self.download_fast_cdc_file(metadata.clone(), file, &config)
+                .await?;
+        }
+
+        request.inlined_digests = if remaining_inlined_digests.is_empty() {
+            None
+        } else {
+            Some(remaining_inlined_digests)
+        };
+        request.file_digests = if remaining_file_digests.is_empty() {
+            None
+        } else {
+            Some(remaining_file_digests)
+        };
+
+        Ok((request, chunked_inlined_blobs))
+    }
+
+    async fn download_fast_cdc_blob(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        digest: TDigest,
+        config: &FastCdc2020Config,
+    ) -> anyhow::Result<Vec<u8>> {
+        let split = self
+            .split_blob(
+                metadata.clone(),
+                SplitBlobRequest {
+                    blob_digest: digest.clone(),
+                    chunking_function: config.chunking_function(),
+                    ..Default::default()
                 },
             )
-            .await
+            .await?;
+        let chunk_digests = split.chunk_digests;
+        let chunk_blobs = self
+            .download_fast_cdc_chunks(metadata, &chunk_digests)
+            .await?;
+
+        let mut blob = Vec::new();
+        for chunk_digest in chunk_digests {
+            let chunk_blob = chunk_blobs
+                .get(&chunk_digest)
+                .with_context(|| format!("Chunked download missing chunk `{chunk_digest}`"))?;
+            blob.extend_from_slice(chunk_blob);
         }
+        validate_downloaded_blob(
+            &digest,
+            &blob,
+            self.runtime_opts
+                .download_hash_digest_function_for_hash(&digest.hash),
+        )?;
+
+        Ok(blob)
+    }
+
+    async fn download_fast_cdc_chunks(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        chunk_digests: &[TDigest],
+    ) -> anyhow::Result<HashMap<TDigest, Vec<u8>>> {
+        let mut chunk_blobs = HashMap::new();
+        let mut missing_digests = Vec::new();
+        let mut queued_missing = HashSet::new();
+
+        for digest in chunk_digests {
+            if chunk_blobs.contains_key(digest) {
+                continue;
+            }
+            if let Some(cache) = &self.local_chunk_cache {
+                if let Some(blob) = cache
+                    .read(
+                        digest,
+                        self.runtime_opts
+                            .download_hash_digest_function_for_hash(&digest.hash),
+                    )
+                    .await?
+                {
+                    chunk_blobs.insert(digest.clone(), blob);
+                    continue;
+                }
+            }
+            if queued_missing.insert(digest.clone()) {
+                missing_digests.push(digest.clone());
+            }
+        }
+
+        if missing_digests.is_empty() {
+            return Ok(chunk_blobs);
+        }
+
+        let response = self
+            .download_direct(
+                metadata,
+                DownloadRequest {
+                    inlined_digests: Some(missing_digests.clone()),
+                    ..Default::default()
+                },
+            )
+            .await?;
+        let remote_chunk_blobs = response.inlined_blobs.unwrap_or_default();
+        anyhow::ensure!(
+            remote_chunk_blobs.len() == missing_digests.len(),
+            "Chunked download received {} chunks, expected {}",
+            remote_chunk_blobs.len(),
+            missing_digests.len()
+        );
+
+        for (expected_digest, chunk_blob) in missing_digests.into_iter().zip(remote_chunk_blobs) {
+            anyhow::ensure!(
+                chunk_blob.digest == expected_digest,
+                "Chunked download received digest `{}`, expected `{expected_digest}`",
+                chunk_blob.digest
+            );
+            if let Some(cache) = &self.local_chunk_cache {
+                cache
+                    .write(
+                        &expected_digest,
+                        &chunk_blob.blob,
+                        self.runtime_opts
+                            .download_hash_digest_function_for_hash(&expected_digest.hash),
+                    )
+                    .await;
+            }
+            chunk_blobs.insert(expected_digest, chunk_blob.blob);
+        }
+
+        Ok(chunk_blobs)
+    }
+
+    async fn download_fast_cdc_chunk(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        digest: &TDigest,
+    ) -> anyhow::Result<Vec<u8>> {
+        if let Some(cache) = &self.local_chunk_cache {
+            if let Some(blob) = cache
+                .read(
+                    digest,
+                    self.runtime_opts
+                        .download_hash_digest_function_for_hash(&digest.hash),
+                )
+                .await?
+            {
+                return Ok(blob);
+            }
+        }
+
+        let response = self
+            .download_direct(
+                metadata,
+                DownloadRequest {
+                    inlined_digests: Some(vec![digest.clone()]),
+                    ..Default::default()
+                },
+            )
+            .await?;
+        let mut remote_chunk_blobs = response.inlined_blobs.unwrap_or_default();
+        anyhow::ensure!(
+            remote_chunk_blobs.len() == 1,
+            "Chunked download received {} chunks, expected 1",
+            remote_chunk_blobs.len()
+        );
+
+        let chunk_blob = remote_chunk_blobs
+            .pop()
+            .context("Missing downloaded chunk")?;
+        anyhow::ensure!(
+            chunk_blob.digest == *digest,
+            "Chunked download received digest `{}`, expected `{digest}`",
+            chunk_blob.digest
+        );
+        if let Some(cache) = &self.local_chunk_cache {
+            cache
+                .write(
+                    digest,
+                    &chunk_blob.blob,
+                    self.runtime_opts
+                        .download_hash_digest_function_for_hash(&digest.hash),
+                )
+                .await;
+        }
+
+        Ok(chunk_blob.blob)
+    }
+
+    async fn download_fast_cdc_file(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        file: NamedDigestWithPermissions,
+        config: &FastCdc2020Config,
+    ) -> anyhow::Result<()> {
+        let split = self
+            .split_blob(
+                metadata.clone(),
+                SplitBlobRequest {
+                    blob_digest: file.named_digest.digest.clone(),
+                    chunking_function: config.chunking_function(),
+                    ..Default::default()
+                },
+            )
+            .await?;
+        let chunk_digests = split.chunk_digests;
+
+        let mut opts = OpenOptions::new();
+        opts.read(true).write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            if file.is_executable {
+                opts.mode(0o755);
+            } else {
+                opts.mode(0o644);
+            }
+        }
+
+        let mut output = opts
+            .open(&file.named_digest.name)
+            .await
+            .context("Error opening")?;
+        let mut hash_validators = BlobHashValidators::new(
+            &file.named_digest.digest.hash,
+            self.runtime_opts
+                .download_hash_digest_function_for_hash(&file.named_digest.digest.hash),
+        )?;
+        let mut copied_bytes = 0usize;
+
+        for chunk_digest in chunk_digests {
+            let chunk_blob = self
+                .download_fast_cdc_chunk(metadata.clone(), &chunk_digest)
+                .await?;
+            copied_bytes = copied_bytes
+                .checked_add(chunk_blob.len())
+                .with_context(|| {
+                    format!(
+                        "Downloaded blob is too large to validate on this platform: {}",
+                        file.named_digest.digest
+                    )
+                })?;
+            hash_validators.update(&chunk_blob);
+            output
+                .write_all(chunk_blob.as_slice())
+                .await
+                .with_context(|| format!("Error writing chunk of: {}", file.named_digest.digest))?;
+        }
+        validate_downloaded_blob_size(&file.named_digest.digest, copied_bytes)?;
+        hash_validators.finish(&file.named_digest.digest)?;
+        output.flush().await.context("Error flushing")?;
+
+        Ok(())
     }
 
     pub async fn get_digests_ttl(
@@ -1062,6 +4688,10 @@ impl REClient {
                     if let Some(rs) = find_missing_cache.get(digest) {
                         // We have our final result already cached
                         remote_results.insert(digest.clone(), rs);
+                    } else if digests_to_check.contains(digest) {
+                        // This digest is already part of the in-flight request. The
+                        // final response is rebuilt from the original request, so this
+                        // duplicate will still get a matching TTL entry.
                     } else {
                         // We can check this blob
                         digests_to_check.push(digest.clone());
@@ -1075,72 +4705,98 @@ impl REClient {
             // Send a request and notify others of the result
             if !digests_to_check.is_empty() {
                 tracing::debug!(num_digests = digests_to_check.len(), "FindMissingBlobs");
-                let blob_digests: Vec<_> =
-                    digests_to_check.iter().map(tdigest_to).collect::<Vec<_>>();
-                let resp: FindMissingBlobsResponse = retry(|| async {
-                    let resp = self
-                        .cas_client()
-                        .await?
-                        .find_missing_blobs(with_re_metadata(
-                            FindMissingBlobsRequest {
-                                instance_name: self.instance_name.as_str().to_owned(),
-                                blob_digests: blob_digests.clone(),
-                                ..Default::default()
-                            },
-                            metadata,
-                            self.runtime_opts.use_fbcode_metadata,
-                        ))
-                        .await
-                        .context("Failed to request what blobs are not present on remote")?;
-                    Ok(resp.into_inner())
-                })
-                .await?;
+                let requested_digests = digests_to_check.iter().map(tdigest_to).collect::<Vec<_>>();
+                let request_digest_function = self
+                    .runtime_opts
+                    .request_digest_function_config
+                    .for_common_digest_function(&requested_digests);
+                let request_digest_function = digest_function_to_grpc(request_digest_function);
+                let missing_blobs = retry_grpc_request_with_client_reconnect(
+                    self.grpc_clients.clone(),
+                    GrpcClientKind::Cas,
+                    self.runtime_opts.retries,
+                    Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+                    || {
+                        let metadata = metadata.clone();
+                        let requested_digests = requested_digests.clone();
+                        let grpc_clients = self.grpc_clients.clone();
+                        async move {
+                            let mut cas_client = grpc_clients.cas_client().await?;
+                            cas_client
+                                .find_missing_blobs(with_re_metadata_timeout(
+                                    FindMissingBlobsRequest {
+                                        instance_name: self.instance_name.as_str().to_owned(),
+                                        blob_digests: requested_digests,
+                                        digest_function: request_digest_function,
+                                        ..Default::default()
+                                    },
+                                    metadata,
+                                    self.runtime_opts.use_fbcode_metadata,
+                                    self.runtime_opts.grpc_request_timeout,
+                                ))
+                                .await
+                                .map_err(anyhow::Error::from)
+                        }
+                    },
+                )
+                .await
+                .context("Failed to request what blobs are not present on remote")?;
+                let resp: FindMissingBlobsResponse = missing_blobs.into_inner();
+                validate_find_missing_blobs_response_digests(&requested_digests, &resp)?;
 
-                // Update the results and the cache
-                let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
-                for digest in &digests_to_check {
-                    remote_results.insert(digest.clone(), DigestRemoteState::ExistsOnRemote);
-                    find_missing_cache.put(digest.clone(), DigestRemoteState::ExistsOnRemote);
-                }
-
-                for digest in resp
+                // Build the set of missing digests first, so we don't
+                // prematurely cache them as ExistsOnRemote.
+                let missing: HashSet<TDigest> = resp
                     .missing_blob_digests
                     .iter()
                     .map(|d| tdigest_from(d.clone()))
-                {
-                    // If it's present in the MissingBlobsResponse, it's expired on the remote and
-                    // needs to be refetched.
-                    remote_results.insert(digest.clone(), DigestRemoteState::Missing);
-                    find_missing_cache.put(digest, DigestRemoteState::Missing);
+                    .collect();
+
+                let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
+                for digest in &digests_to_check {
+                    if missing.contains(digest) {
+                        // Missing is a transient state: the blob may be uploaded
+                        // or produced by an RE action at any time.  Do NOT cache
+                        // it -- a stale "Missing" entry would prevent future
+                        // FindMissingBlobs RPCs, and a premature "ExistsOnRemote"
+                        // entry would cause concurrent actions to skip uploading
+                        // a blob that hasn't been uploaded yet.
+                        remote_results.insert(digest.clone(), DigestRemoteState::Missing);
+                    } else {
+                        remote_results.insert(digest.clone(), DigestRemoteState::ExistsOnRemote);
+                        find_missing_cache.put(digest.clone(), DigestRemoteState::ExistsOnRemote);
+                    }
                 }
                 digests_to_check.clear();
             }
         }
 
         Ok(GetDigestsTtlResponse {
-            digests_with_ttl: remote_results
-                .iter()
-                .map(|(digest, rs)| match rs {
-                    DigestRemoteState::Missing => DigestWithTtl {
-                        digest: digest.clone(),
-                        ttl: 0,
-                    },
-                    DigestRemoteState::ExistsOnRemote => DigestWithTtl {
-                        digest: digest.clone(),
-                        ttl: self.runtime_opts.cas_ttl_secs,
-                    },
-                })
-                .collect::<Vec<DigestWithTtl>>(),
+            digests_with_ttl: digests_with_ttl_for_requested_digests(
+                &request.digests,
+                &remote_results,
+                self.runtime_opts.cas_ttl_secs,
+            )?,
         })
     }
 
     pub async fn extend_digest_ttl(
         &self,
-        _metadata: &RemoteExecutionMetadata,
-        _request: ExtendDigestsTtlRequest,
+        metadata: &RemoteExecutionMetadata,
+        request: ExtendDigestsTtlRequest,
     ) -> anyhow::Result<TDigest> {
-        // TODO(arr)
-        Err(anyhow::anyhow!("Not implemented (RE extend_digest_ttl)"))
+        let response = self
+            .get_digests_ttl(
+                metadata,
+                GetDigestsTtlRequest {
+                    digests: request.digests.clone(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .context("Failed to refresh CAS TTLs with FindMissingBlobs")?;
+        validate_extend_digests_ttl_response(&request.digests, response)?;
+        Ok(TDigest::default())
     }
 
     pub fn get_execution_client(&self) -> &Self {
@@ -1153,41 +4809,6 @@ impl REClient {
 
     pub fn get_action_cache_client(&self) -> &Self {
         self
-    }
-
-    async fn cas_client(&self) -> anyhow::Result<ContentAddressableStorageClient<GrpcService>> {
-        let channel = self.pool.get(&self.cas_address).await?;
-        Ok(
-            ContentAddressableStorageClient::new(InterceptedService::new(
-                channel,
-                self.interceptor.dupe(),
-            ))
-            .max_decoding_message_size(self.max_decoding_msg_size),
-        )
-    }
-
-    async fn bytestream_client(&self) -> anyhow::Result<ByteStreamClient<GrpcService>> {
-        let channel = self.pool.get(&self.cas_address).await?;
-        Ok(
-            ByteStreamClient::new(InterceptedService::new(channel, self.interceptor.dupe()))
-                .max_decoding_message_size(self.max_decoding_msg_size),
-        )
-    }
-
-    async fn execution_client(&self) -> anyhow::Result<ExecutionClient<GrpcService>> {
-        let channel = self.pool.get(&self.engine_address).await?;
-        Ok(ExecutionClient::new(InterceptedService::new(
-            channel,
-            self.interceptor.dupe(),
-        )))
-    }
-
-    async fn action_cache_client(&self) -> anyhow::Result<ActionCacheClient<GrpcService>> {
-        let channel = self.pool.get(&self.action_cache_address).await?;
-        Ok(ActionCacheClient::new(InterceptedService::new(
-            channel,
-            self.interceptor.dupe(),
-        )))
     }
 
     pub fn get_metrics_client(&self) -> &Self {
@@ -1208,7 +4829,382 @@ impl REClient {
     }
 }
 
-fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionResult2> {
+fn validate_upload_digest_size(
+    digest: &TDigest,
+    max_cas_blob_size_bytes: Option<i64>,
+) -> anyhow::Result<()> {
+    let Some(max_cas_blob_size_bytes) = max_cas_blob_size_bytes else {
+        return Ok(());
+    };
+
+    if digest.size_in_bytes > max_cas_blob_size_bytes {
+        return Err(anyhow::anyhow!(
+            "CAS blob `{digest}` is {} bytes, exceeding server max_cas_blob_size_bytes {}",
+            digest.size_in_bytes,
+            max_cas_blob_size_bytes
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_upload_request_sizes(
+    request: &UploadRequest,
+    max_cas_blob_size_bytes: Option<i64>,
+) -> anyhow::Result<()> {
+    for blob in request.inlined_blobs_with_digest.iter().flatten() {
+        validate_upload_digest_size(&blob.digest, max_cas_blob_size_bytes)
+            .context("Upload request contains an oversized inlined blob")?;
+    }
+
+    for file in request.files_with_digest.iter().flatten() {
+        validate_upload_digest_size(&file.digest, max_cas_blob_size_bytes)
+            .with_context(|| format!("Upload request contains oversized file `{}`", file.name))?;
+    }
+
+    for directory in request.directories.iter().flatten() {
+        if let Some(digest) = &directory.digest {
+            validate_upload_digest_size(digest, max_cas_blob_size_bytes).with_context(|| {
+                format!(
+                    "Upload request contains oversized directory `{}`",
+                    directory.path
+                )
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
+fn upload_request_digests(request: &UploadRequest) -> Vec<TDigest> {
+    let mut digests = Vec::new();
+
+    digests.extend(upload_payload_digests(request));
+    if let Some(directories) = &request.directories {
+        digests.extend(
+            directories
+                .iter()
+                .filter_map(|directory| directory.digest.clone()),
+        );
+    }
+
+    digests
+}
+
+fn upload_payload_digests(request: &UploadRequest) -> Vec<TDigest> {
+    let mut digests = Vec::new();
+
+    if let Some(blobs) = &request.inlined_blobs_with_digest {
+        digests.extend(blobs.iter().map(|blob| blob.digest.clone()));
+    }
+    if let Some(files) = &request.files_with_digest {
+        digests.extend(files.iter().map(|file| file.digest.clone()));
+    }
+
+    digests
+}
+
+fn filter_upload_request_by_missing_digests(
+    mut request: UploadRequest,
+    missing_digests: &HashSet<TDigest>,
+) -> UploadRequest {
+    request.upload_only_missing = false;
+
+    if let Some(blobs) = request.inlined_blobs_with_digest.take() {
+        request.inlined_blobs_with_digest = Some(
+            blobs
+                .into_iter()
+                .filter(|blob| missing_digests.contains(&blob.digest))
+                .collect(),
+        );
+    }
+    if let Some(files) = request.files_with_digest.take() {
+        request.files_with_digest = Some(
+            files
+                .into_iter()
+                .filter(|file| missing_digests.contains(&file.digest))
+                .collect(),
+        );
+    }
+    if let Some(directories) = request.directories.take() {
+        request.directories = Some(
+            directories
+                .into_iter()
+                .filter(|directory| {
+                    directory
+                        .digest
+                        .as_ref()
+                        .is_some_and(|digest| missing_digests.contains(digest))
+                })
+                .collect(),
+        );
+    }
+
+    request
+}
+
+fn digests_with_ttl_for_requested_digests(
+    requested_digests: &[TDigest],
+    remote_results: &HashMap<TDigest, DigestRemoteState>,
+    cas_ttl_secs: i64,
+) -> anyhow::Result<Vec<DigestWithTtl>> {
+    requested_digests
+        .iter()
+        .map(|digest| {
+            let state = remote_results.get(digest).with_context(|| {
+                format!("No FindMissingBlobs result recorded for requested digest `{digest}`")
+            })?;
+            let ttl = match state {
+                DigestRemoteState::Missing => 0,
+                DigestRemoteState::ExistsOnRemote => cas_ttl_secs,
+            };
+            Ok(DigestWithTtl {
+                digest: digest.clone(),
+                ttl,
+            })
+        })
+        .collect()
+}
+
+fn validate_extend_digests_ttl_response(
+    requested_digests: &[TDigest],
+    response: GetDigestsTtlResponse,
+) -> anyhow::Result<()> {
+    let response_count = response.digests_with_ttl.len();
+    anyhow::ensure!(
+        requested_digests.len() == response_count,
+        "Invalid CAS TTL refresh response: expected {} digests, got {}",
+        requested_digests.len(),
+        response_count,
+    );
+
+    let missing_digests = response
+        .digests_with_ttl
+        .into_iter()
+        .filter(|digest_ttl| digest_ttl.ttl <= 0)
+        .map(|digest_ttl| digest_ttl.digest.to_string())
+        .collect::<Vec<_>>();
+
+    anyhow::ensure!(
+        missing_digests.is_empty(),
+        "Cannot refresh CAS TTL for missing digests: {}",
+        missing_digests.join(", ")
+    );
+
+    Ok(())
+}
+
+fn digest_name(digest: &Digest) -> String {
+    format!("{}/{}", digest.hash, digest.size_bytes)
+}
+
+fn validate_find_missing_blobs_response_digests(
+    requested_digests: &[Digest],
+    response: &FindMissingBlobsResponse,
+) -> anyhow::Result<()> {
+    let mut unmatched_digests = requested_digests.to_vec();
+    let mut failures = Vec::new();
+
+    for digest in &response.missing_blob_digests {
+        let Some(index) = unmatched_digests
+            .iter()
+            .position(|requested| requested == digest)
+        else {
+            failures.push(format!(
+                "FindMissingBlobs response included unexpected digest `{}`",
+                digest_name(digest)
+            ));
+            continue;
+        };
+        unmatched_digests.swap_remove(index);
+    }
+
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("FindMissingBlobs failed: {:?}", failures))
+    }
+}
+
+fn validate_batch_read_blobs_response_digests(
+    requested_digests: &[Digest],
+    response: &BatchReadBlobsResponse,
+) -> anyhow::Result<()> {
+    let mut missing_digests = requested_digests.to_vec();
+    let mut failures = Vec::new();
+
+    for response in &response.responses {
+        let Some(digest) = &response.digest else {
+            failures.push("BatchReadBlobs response omitted a digest".to_owned());
+            continue;
+        };
+
+        let Some(index) = missing_digests
+            .iter()
+            .position(|requested| requested == digest)
+        else {
+            failures.push(format!(
+                "BatchReadBlobs response included unexpected digest `{}`",
+                digest_name(digest)
+            ));
+            continue;
+        };
+        missing_digests.swap_remove(index);
+    }
+
+    for digest in &missing_digests {
+        failures.push(format!(
+            "BatchReadBlobs response missing digest `{}`",
+            digest_name(digest)
+        ));
+    }
+
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("Batch download failed: {:?}", failures))
+    }
+}
+
+fn validate_batch_update_blobs_response(
+    requested_digests: &[Digest],
+    response: &BatchUpdateBlobsResponse,
+) -> anyhow::Result<()> {
+    let mut missing_digests = requested_digests.to_vec();
+    let mut failures = Vec::new();
+
+    for response in &response.responses {
+        let Some(digest) = &response.digest else {
+            failures.push("BatchUpdateBlobs response omitted a digest".to_owned());
+            continue;
+        };
+
+        let Some(index) = missing_digests
+            .iter()
+            .position(|requested| requested == digest)
+        else {
+            failures.push(format!(
+                "BatchUpdateBlobs response included unexpected digest `{}`",
+                digest_name(digest)
+            ));
+            continue;
+        };
+        missing_digests.swap_remove(index);
+
+        let status = response.status.as_ref().cloned().unwrap_or_default();
+        if status.code != Code::Ok as i32 {
+            failures.push(format!(
+                "Unable to upload blob '{}', rpc status code: {}, message: \"{}\"",
+                digest_name(digest),
+                status.code,
+                status.message
+            ));
+        }
+    }
+
+    for digest in &missing_digests {
+        failures.push(format!(
+            "BatchUpdateBlobs response missing digest `{}`",
+            digest_name(digest)
+        ));
+    }
+
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("Batch upload failed: {:?}", failures))
+    }
+}
+
+fn validate_splice_blob_response_digest(
+    requested_digest: &Digest,
+    response: GSpliceBlobResponse,
+) -> anyhow::Result<TDigest> {
+    let Some(response_digest) = response.blob_digest else {
+        return Err(anyhow::anyhow!("SpliceBlob response omitted blob digest"));
+    };
+
+    if &response_digest != requested_digest {
+        return Err(anyhow::anyhow!(
+            "SpliceBlob response included unexpected digest `{}`; requested `{}`",
+            digest_name(&response_digest),
+            digest_name(requested_digest),
+        ));
+    }
+
+    Ok(tdigest_from(response_digest))
+}
+
+fn validate_split_blob_response(
+    requested_digest: &Digest,
+    response: GSplitBlobResponse,
+) -> anyhow::Result<Vec<TDigest>> {
+    validate_chunk_digests_reconstruct_blob(
+        "SplitBlob response",
+        requested_digest,
+        &response.chunk_digests,
+    )?;
+
+    Ok(response
+        .chunk_digests
+        .into_iter()
+        .map(tdigest_from)
+        .collect::<Vec<_>>())
+}
+
+fn validate_chunk_digests_reconstruct_blob(
+    context: &str,
+    requested_digest: &Digest,
+    chunk_digests: &[Digest],
+) -> anyhow::Result<()> {
+    if requested_digest.size_bytes > 0 && chunk_digests.is_empty() {
+        return Err(anyhow::anyhow!(
+            "{context} included no chunks for non-empty digest `{}`",
+            digest_name(requested_digest),
+        ));
+    }
+
+    let mut total_size = 0i64;
+    for chunk_digest in chunk_digests {
+        if chunk_digest.hash.len() != requested_digest.hash.len() {
+            return Err(anyhow::anyhow!(
+                "{context} included chunk digest `{}` with hash length {}, expected {}",
+                digest_name(chunk_digest),
+                chunk_digest.hash.len(),
+                requested_digest.hash.len(),
+            ));
+        }
+        if chunk_digest.size_bytes < 0 {
+            return Err(anyhow::anyhow!(
+                "{context} included negative-size chunk digest `{}`",
+                digest_name(chunk_digest),
+            ));
+        }
+        total_size = total_size
+            .checked_add(chunk_digest.size_bytes)
+            .with_context(|| {
+                format!(
+                    "{context} chunks are too large to sum for requested digest `{}`",
+                    digest_name(requested_digest),
+                )
+            })?;
+    }
+
+    if total_size != requested_digest.size_bytes {
+        return Err(anyhow::anyhow!(
+            "{context} chunks sum to {total_size} bytes; requested digest `{}` has {} bytes",
+            digest_name(requested_digest),
+            requested_digest.size_bytes,
+        ));
+    }
+
+    Ok(())
+}
+
+fn convert_action_result(
+    action_result: ActionResult,
+    cas_ttl_secs: i64,
+) -> anyhow::Result<TActionResult2> {
     let execution_metadata = action_result
         .execution_metadata
         .with_context(|| "The execution metadata are not defined.")?;
@@ -1228,7 +5224,7 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
                 name: output_file.path,
                 existed: false,
                 executable: output_file.is_executable,
-                ttl: 0,
+                ttl: cas_ttl_secs,
                 _dot_dot_default: (),
             })
         })
@@ -1398,9 +5394,9 @@ fn convert_t_action_result2(t_action_result: &TActionResult2) -> anyhow::Result<
         output_symlinks,
         output_directories,
         exit_code: t_action_result.exit_code,
-        stdout_raw: Vec::new(),
+        stdout_raw: t_action_result.stdout_raw.clone().unwrap_or_default(),
         stdout_digest: t_action_result.stdout_digest.as_ref().map(tdigest_to),
-        stderr_raw: Vec::new(),
+        stderr_raw: t_action_result.stderr_raw.clone().unwrap_or_default(),
         stderr_digest: t_action_result.stderr_digest.as_ref().map(tdigest_to),
         execution_metadata,
         ..Default::default()
@@ -1409,29 +5405,79 @@ fn convert_t_action_result2(t_action_result: &TActionResult2) -> anyhow::Result<
     Ok(action_result)
 }
 
-async fn download_impl<Byt, BytRet, Cas>(
+async fn read_with_progress_timeout(
+    reader: &mut Pin<Box<dyn AsyncRead + Unpin + Send>>,
+    buffer: &mut [u8],
+    timeout: Duration,
+) -> anyhow::Result<usize> {
+    match tokio::time::timeout(timeout, reader.read(buffer)).await {
+        Ok(result) => result.map_err(anyhow::Error::from),
+        Err(_) => Err(REClientError {
+            code: TCode::DEADLINE_EXCEEDED,
+            message: format!(
+                "ByteStream read made no progress for {}s",
+                timeout.as_secs()
+            ),
+            group: TCodeReasonGroup::RE_CONNECTION,
+        }
+        .into()),
+    }
+}
+
+async fn download_impl<Byt, BytRet, Cas, RetryFut>(
     instance_name: &InstanceName,
     request: DownloadRequest,
     bystream_compressor: Option<Compressor>,
     max_total_batch_size: usize,
+    remote_cache_compression_threshold: usize,
+    download_hash_digest_function: Option<digest_function::Value>,
+    request_digest_function_config: DigestFunctionConfig,
+    retries: usize,
+    retry_max_delay: Duration,
+    bystream_progress_timeout: Duration,
+    active_downloads: &ActiveTransferRegistry<ActiveDownloadResult>,
     cas_f: impl Fn(BatchReadBlobsRequest) -> Cas,
     bystream_fut: impl Fn(ReadRequest) -> Byt + Sync + Send + Copy,
+    bystream_retry_hook: impl Fn() -> RetryFut + Sync + Send + Copy,
 ) -> anyhow::Result<DownloadResponse>
 where
     Byt: Future<Output = anyhow::Result<Pin<Box<BytRet>>>>,
-    BytRet: Stream<Item = Result<ReadResponse, tonic::Status>> + Send,
+    BytRet: Stream<Item = Result<ReadResponse, tonic::Status>> + Send + 'static,
     Cas: Future<Output = anyhow::Result<BatchReadBlobsResponse>>,
+    RetryFut: Future<Output = ()>,
 {
     fn resource_name(
         instance_name: &InstanceName,
         compressor: Option<Compressor>,
         digest: &TDigest,
+        request_digest_function_config: DigestFunctionConfig,
     ) -> String {
+        let digest_function_segment =
+            digest_function_resource_segment(request_digest_function_config.for_hash(&digest.hash));
         if let Some(compressor) = compressor {
+            if let Some(digest_function_segment) = digest_function_segment {
+                format!(
+                    "{}compressed-blobs/{}/{}/{}/{}",
+                    instance_name.as_resource_prefix(),
+                    compressor.name(),
+                    digest_function_segment,
+                    digest.hash,
+                    digest.size_in_bytes,
+                )
+            } else {
+                format!(
+                    "{}compressed-blobs/{}/{}/{}",
+                    instance_name.as_resource_prefix(),
+                    compressor.name(),
+                    digest.hash,
+                    digest.size_in_bytes,
+                )
+            }
+        } else if let Some(digest_function_segment) = digest_function_segment {
             format!(
-                "{}compressed-blobs/{}/{}/{}",
+                "{}blobs/{}/{}/{}",
                 instance_name.as_resource_prefix(),
-                compressor.name(),
+                digest_function_segment,
                 digest.hash,
                 digest.size_in_bytes,
             )
@@ -1445,12 +5491,22 @@ where
         }
     }
 
-    let bystream_fut = |digest: TDigest| async move {
-        let resource_name = resource_name(instance_name, bystream_compressor, &digest);
+    let bystream_reader = |digest: TDigest, read_offset: i64| async move {
+        let compressor = compression_for_blob(
+            bystream_compressor,
+            digest.size_in_bytes,
+            remote_cache_compression_threshold,
+        );
+        let resource_name = resource_name(
+            instance_name,
+            compressor,
+            &digest,
+            request_digest_function_config,
+        );
 
         bystream_fut(ReadRequest {
             resource_name: resource_name.clone(),
-            read_offset: 0,
+            read_offset,
             read_limit: 0,
         })
         .await
@@ -1459,7 +5515,8 @@ where
             let blob_reader = StreamReader::new(
                 p.map(|r| r.map(|rr| Cursor::new(rr.data)).map_err(io::Error::other)),
             );
-            let reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match bystream_compressor {
+            // Wrap the blob reader in a compression reader
+            let reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match compressor {
                 None => Pin::new(Box::new(blob_reader)),
                 Some(Compressor::Zstd) => {
                     let mut decoder = ZstdDecoder::new(blob_reader);
@@ -1486,9 +5543,25 @@ where
     let inlined_digests = request.inlined_digests.unwrap_or_default();
     let file_digests = request.file_digests.unwrap_or_default();
 
+    let new_read_blob_req = |digests: &mut Vec<Digest>, batch_compressor: Option<Compressor>| {
+        let digest_function = request_digest_function_config.for_common_digest_function(digests);
+        let mut acceptable_compressors = vec![compressor::Value::Identity as i32];
+        if let Some(compressor) = batch_compressor {
+            acceptable_compressors.push(compressor.as_grpc());
+        }
+        BatchReadBlobsRequest {
+            instance_name: instance_name.as_str().to_owned(),
+            digests: std::mem::take(digests),
+            acceptable_compressors,
+            digest_function: digest_function_to_grpc(digest_function),
+            ..Default::default()
+        }
+    };
+
     let mut curr_size = 0;
     let mut requests = vec![];
     let mut curr_digests = vec![];
+    let mut curr_batch_compressor = None;
     for digest in file_digests
         .iter()
         .map(|req| &req.named_digest.digest)
@@ -1496,71 +5569,187 @@ where
         .map(tdigest_to)
         .filter(|d| d.size_bytes > 0)
     {
-        if digest.size_bytes as usize >= max_total_batch_size {
+        if digest.size_bytes as usize > max_total_batch_size {
             // digest is too big to download in a BatchReadBlobsRequest
             // need to use the bytstream api
             continue;
         }
-        curr_size += digest.size_bytes;
-        if curr_size >= max_total_batch_size as i64 {
-            let read_blob_req = BatchReadBlobsRequest {
-                instance_name: instance_name.as_str().to_owned(),
-                digests: std::mem::take(&mut curr_digests),
-                acceptable_compressors: vec![compressor::Value::Identity as i32],
-                ..Default::default()
-            };
-            requests.push(read_blob_req);
+        let digest_compressor = compression_for_blob(
+            bystream_compressor,
+            digest.size_bytes,
+            remote_cache_compression_threshold,
+        );
+        let would_exceed = curr_size + digest.size_bytes > max_total_batch_size as i64;
+        if !curr_digests.is_empty() && (would_exceed || digest_compressor != curr_batch_compressor)
+        {
+            requests.push(new_read_blob_req(&mut curr_digests, curr_batch_compressor));
             curr_size = digest.size_bytes;
+        } else {
+            curr_size += digest.size_bytes;
         }
         curr_digests.push(digest.clone());
+        curr_batch_compressor = digest_compressor;
     }
 
     if !curr_digests.is_empty() {
-        let read_blob_req = BatchReadBlobsRequest {
-            instance_name: instance_name.as_str().to_owned(),
-            digests: std::mem::take(&mut curr_digests),
-            acceptable_compressors: vec![compressor::Value::Identity as i32],
-            ..Default::default()
-        };
-        requests.push(read_blob_req);
+        requests.push(new_read_blob_req(&mut curr_digests, curr_batch_compressor));
     }
 
     let mut batched_blobs_response = HashMap::new();
     for read_blob_req in requests {
-        let resp = retry(|| async {
-            cas_f(read_blob_req.clone())
-                .await
-                .context("Failed to make BatchReadBlobs request")
-        })
-        .await?;
+        let requested_digests = read_blob_req.digests.clone();
+        let resp = cas_f(read_blob_req)
+            .await
+            .context("Failed to make BatchReadBlobs request")?;
+        validate_batch_read_blobs_response_digests(&requested_digests, &resp)?;
         for r in resp.responses.into_iter() {
             let digest = tdigest_from(r.digest.context("Response digest not found.")?);
             check_status(r.status.unwrap_or_default())?;
-            batched_blobs_response.insert(digest, r.data);
+            let data = match Compressor::from_grpc(r.compressor) {
+                Some(compressor) => decompress_data(r.data, compressor)
+                    .await
+                    .with_context(|| format!("Failed to decompress batch blob `{digest}`"))?,
+                None if r.compressor == compressor::Value::Identity as i32 => r.data,
+                None => {
+                    return Err(anyhow::anyhow!(
+                        "Unsupported BatchReadBlobs response compressor `{}` for `{}`",
+                        r.compressor,
+                        digest
+                    ));
+                }
+            };
+            batched_blobs_response.insert(digest, data);
         }
     }
 
+    let download_hash_digest_function_for_hash = |hash: &str| {
+        request_digest_function_config
+            .for_hash(hash)
+            .or(download_hash_digest_function)
+    };
+
     let get = |digest: &TDigest| -> anyhow::Result<Vec<u8>> {
         if digest.size_in_bytes == 0 {
+            validate_downloaded_blob(
+                digest,
+                &[],
+                download_hash_digest_function_for_hash(&digest.hash),
+            )?;
             return Ok(Vec::new());
         }
 
-        Ok(batched_blobs_response
+        let data = batched_blobs_response
             .get(digest)
             .with_context(|| format!("Did not receive digest data for `{digest}`"))?
-            .clone())
+            .clone();
+        validate_downloaded_blob(
+            digest,
+            &data,
+            download_hash_digest_function_for_hash(&digest.hash),
+        )?;
+        Ok(data)
     };
 
     let mut inlined_blobs = vec![];
     for digest in inlined_digests {
-        let data = if digest.size_in_bytes as usize >= max_total_batch_size {
-            retry(|| async {
-                let mut accum = vec![];
-                let mut reader = bystream_fut(digest.clone()).await?;
-                tokio::io::copy(&mut reader, &mut accum).await?;
-                Ok(accum)
-            })
-            .await?
+        let data = if digest.size_in_bytes as usize > max_total_batch_size {
+            match active_downloads.enter(digest.clone()) {
+                ActiveTransfer::Follower(state) => {
+                    let result = ActiveTransferRegistry::wait(state).await?;
+                    let data = active_download_result_to_bytes(&result).await?;
+                    validate_downloaded_blob(
+                        &digest,
+                        &data,
+                        download_hash_digest_function_for_hash(&digest.hash),
+                    )?;
+                    data
+                }
+                ActiveTransfer::Leader(leader) => {
+                    let result = async {
+                        let mut accum = vec![];
+                        let restart_from_zero = compression_for_blob(
+                            bystream_compressor,
+                            digest.size_in_bytes,
+                            remote_cache_compression_threshold,
+                        )
+                        .is_some();
+                        let mut retry_attempt = 0usize;
+                        let mut next_delay = Duration::from_millis(GRPC_RETRY_INITIAL_DELAY_MILLIS);
+                        loop {
+                            if restart_from_zero {
+                                accum.clear();
+                            }
+                            let read_offset = if restart_from_zero {
+                                0
+                            } else {
+                                i64::try_from(accum.len()).with_context(|| {
+                                    format!("Downloaded blob is too large to resume on this platform: {digest}")
+                                })?
+                            };
+
+                            let read_result: anyhow::Result<()> = async {
+                                let mut reader = bystream_reader(digest.clone(), read_offset).await?;
+                                let mut buffer = vec![0u8; 64 * 1024];
+                                loop {
+                                    let read_bytes = read_with_progress_timeout(
+                                        &mut reader,
+                                        &mut buffer,
+                                        bystream_progress_timeout,
+                                    )
+                                    .await
+                                    .with_context(|| format!("Error reading chunk of: {digest}"))?;
+                                    if read_bytes == 0 {
+                                        break;
+                                    }
+                                    accum.extend_from_slice(&buffer[..read_bytes]);
+                                }
+                                anyhow::Ok(())
+                            }
+                            .await;
+
+                            match read_result {
+                                Ok(()) => {
+                                    validate_downloaded_blob(
+                                        &digest,
+                                        &accum,
+                                        download_hash_digest_function_for_hash(&digest.hash),
+                                    )?;
+                                    break anyhow::Ok(accum);
+                                }
+                                Err(err)
+                                    if retry_attempt < retries && is_retryable_grpc_error(&err) =>
+                                {
+                                    if is_broken_connection_error(&err) {
+                                        bystream_retry_hook().await;
+                                    }
+                                    let delay = grpc_error_retry_delay(&err)
+                                        .map(|delay| std::cmp::min(delay, retry_max_delay))
+                                        .unwrap_or_else(|| jittered_retry_delay(next_delay));
+                                    tracing::debug!(
+                                        digest = %digest,
+                                        retry_attempt = retry_attempt + 1,
+                                        retries,
+                                        read_offset,
+                                        delay_ms = delay.as_millis(),
+                                        "Retrying ByteStream read"
+                                    );
+                                    tokio::time::sleep(delay).await;
+                                    retry_attempt += 1;
+                                    next_delay =
+                                        std::cmp::min(next_delay.saturating_mul(2), retry_max_delay);
+                                }
+                                Err(err) => {
+                                    return Err(normalize_grpc_error(err)
+                                        .context(format!("Error downloading digest `{digest}`")));
+                                }
+                            }
+                        }
+                    }
+                    .await;
+                    let result = leader.finish(result.map(ActiveDownloadResult::Bytes))?;
+                    active_download_result_into_bytes(result).await?
+                }
+            }
         } else {
             get(&digest)?
         };
@@ -1572,44 +5761,160 @@ where
     }
 
     let writes = file_digests.iter().map(|req| async {
-        let mut opts = OpenOptions::new();
-        opts.read(true).write(true).create(true).truncate(true);
-        #[cfg(unix)]
-        {
-            if req.is_executable {
-                opts.mode(0o755);
-            } else {
-                opts.mode(0o644);
-            }
-        }
-
-        retry(|| async {
-            let mut file = opts
-                .open(&req.named_digest.name)
-                .await
-                .context("Error opening")?;
-
+        let fut = async {
             // If the data is small enough to be transferred in a batch
             // blob update, write it all at once to the file. Otherwise, it'll
             // be streamed in chunks as the remote responds.
-            if req.named_digest.digest.size_in_bytes < max_total_batch_size as i64 {
+            if req.named_digest.digest.size_in_bytes <= max_total_batch_size as i64 {
                 let data = get(&req.named_digest.digest)?;
-                file.write_all(&data)
-                    .await
-                    .with_context(|| format!("Error writing: {}", req.named_digest.digest))?;
-            } else {
-                let mut reader = bystream_fut(req.named_digest.digest.clone()).await?;
-                tokio::io::copy(&mut reader, &mut file)
-                    .await
-                    .with_context(|| {
-                        format!("Error writing chunk of: {}", req.named_digest.digest)
-                    })?;
+                write_active_download_result_to_file(
+                    &ActiveDownloadResult::Bytes(data),
+                    &req.named_digest.name,
+                    req.is_executable,
+                )
+                .await?;
+                return anyhow::Ok(());
             }
-            file.flush().await.context("Error flushing")?;
+            match active_downloads.enter(req.named_digest.digest.clone()) {
+                ActiveTransfer::Follower(state) => {
+                    let result = ActiveTransferRegistry::wait(state).await?;
+                    write_active_download_result_to_file(
+                        &result,
+                        &req.named_digest.name,
+                        req.is_executable,
+                    )
+                    .await?;
+                }
+                ActiveTransfer::Leader(leader) => {
+                    let result = async {
+                        let mut file = download_output_options(req.is_executable)
+                            .open(&req.named_digest.name)
+                            .await
+                            .context("Error opening")?;
+                        let restart_from_zero = compression_for_blob(
+                            bystream_compressor,
+                            req.named_digest.digest.size_in_bytes,
+                            remote_cache_compression_threshold,
+                        )
+                        .is_some();
+                        let mut hash_validators = BlobHashValidators::new(
+                            &req.named_digest.digest.hash,
+                            download_hash_digest_function_for_hash(&req.named_digest.digest.hash),
+                        )?;
+                        let mut copied_bytes = 0usize;
+                        let mut retry_attempt = 0usize;
+                        let mut next_delay = Duration::from_millis(GRPC_RETRY_INITIAL_DELAY_MILLIS);
+                        loop {
+                            if restart_from_zero {
+                                copied_bytes = 0;
+                                hash_validators = BlobHashValidators::new(
+                                    &req.named_digest.digest.hash,
+                                    download_hash_digest_function_for_hash(
+                                        &req.named_digest.digest.hash,
+                                    ),
+                                )?;
+                                file.set_len(0).await.with_context(|| {
+                                    format!("Error truncating: {}", req.named_digest.digest)
+                                })?;
+                                file.seek(SeekFrom::Start(0)).await.with_context(|| {
+                                    format!("Error seeking: {}", req.named_digest.digest)
+                                })?;
+                            }
+
+                            let read_offset = if restart_from_zero {
+                                0
+                            } else {
+                                i64::try_from(copied_bytes).with_context(|| {
+                                    format!(
+                                        "Downloaded blob is too large to resume on this platform: {}",
+                                        req.named_digest.digest
+                                    )
+                                })?
+                            };
+
+                            let read_result: anyhow::Result<()> = async {
+                                let mut reader =
+                                    bystream_reader(req.named_digest.digest.clone(), read_offset)
+                                        .await?;
+                                let mut buffer = vec![0u8; 64 * 1024];
+                                loop {
+                                    let read_bytes = read_with_progress_timeout(
+                                        &mut reader,
+                                        &mut buffer,
+                                        bystream_progress_timeout,
+                                    )
+                                    .await
+                                    .with_context(|| {
+                                        format!("Error reading chunk of: {}", req.named_digest.digest)
+                                    })?;
+                                    if read_bytes == 0 {
+                                        break;
+                                    }
+                                    copied_bytes = copied_bytes.checked_add(read_bytes).with_context(
+                                        || {
+                                            format!(
+                                                "Downloaded blob is too large to validate on this platform: {}",
+                                                req.named_digest.digest
+                                            )
+                                        },
+                                    )?;
+                                    hash_validators.update(&buffer[..read_bytes]);
+                                    file.write_all(&buffer[..read_bytes]).await.with_context(
+                                        || {
+                                            format!(
+                                                "Error writing chunk of: {}",
+                                                req.named_digest.digest
+                                            )
+                                        },
+                                    )?;
+                                }
+                                anyhow::Ok(())
+                            }
+                            .await;
+
+                            match read_result {
+                                Ok(()) => break,
+                                Err(err)
+                                    if retry_attempt < retries && is_retryable_grpc_error(&err) =>
+                                {
+                                    if is_broken_connection_error(&err) {
+                                        bystream_retry_hook().await;
+                                    }
+                                    let delay = grpc_error_retry_delay(&err)
+                                        .map(|delay| std::cmp::min(delay, retry_max_delay))
+                                        .unwrap_or_else(|| jittered_retry_delay(next_delay));
+                                    tracing::debug!(
+                                        digest = %req.named_digest.digest,
+                                        retry_attempt = retry_attempt + 1,
+                                        retries,
+                                        read_offset,
+                                        delay_ms = delay.as_millis(),
+                                        "Retrying ByteStream file download"
+                                    );
+                                    tokio::time::sleep(delay).await;
+                                    retry_attempt += 1;
+                                    next_delay =
+                                        std::cmp::min(next_delay.saturating_mul(2), retry_max_delay);
+                                }
+                                Err(err) => {
+                                    return Err(normalize_grpc_error(err));
+                                }
+                            }
+                        }
+                        validate_downloaded_blob_size(&req.named_digest.digest, copied_bytes)?;
+                        hash_validators.finish(&req.named_digest.digest)?;
+                        file.flush().await.context("Error flushing")?;
+                        anyhow::Ok(ActiveDownloadResult::File(PathBuf::from(
+                            req.named_digest.name.clone(),
+                        )))
+                    }
+                    .await;
+                    leader.finish(result)?;
+                }
+            }
             anyhow::Ok(())
-        })
-        .await
-        .with_context(|| {
+        };
+        fut.await.with_context(|| {
             format!(
                 "Error downloading digest `{}` to `{}`",
                 req.named_digest.digest, req.named_digest.name,
@@ -1626,12 +5931,47 @@ where
     })
 }
 
+async fn send_batch_update_blobs<Cas>(
+    mut request: BatchUpdateBlobsRequest,
+    request_digest_function_config: DigestFunctionConfig,
+    cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
+) -> anyhow::Result<Vec<String>>
+where
+    Cas: Future<Output = anyhow::Result<BatchUpdateBlobsResponse>> + Send,
+{
+    if request.requests.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let blob_hashes = request
+        .requests
+        .iter()
+        .map(|x| x.digest.as_ref().unwrap().hash.clone())
+        .collect::<Vec<String>>();
+    let requested_digests = request
+        .requests
+        .iter()
+        .map(|x| x.digest.as_ref().unwrap().clone())
+        .collect::<Vec<_>>();
+    let digest_function =
+        request_digest_function_config.for_common_digest_function(&requested_digests);
+    request.digest_function = digest_function_to_grpc(digest_function);
+
+    let response = cas_f(request).await?;
+    validate_batch_update_blobs_response(&requested_digests, &response)?;
+    Ok(blob_hashes)
+}
+
 async fn upload_impl<Byt, Cas>(
     instance_name: &InstanceName,
     request: UploadRequest,
     bystream_compressor: Option<Compressor>,
+    batch_update_compressor: Option<Compressor>,
     max_total_batch_size: usize,
+    remote_cache_compression_threshold: usize,
     max_concurrent_uploads: Option<usize>,
+    request_digest_function_config: DigestFunctionConfig,
+    active_uploads: &ActiveTransferRegistry<()>,
     cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
     bystream_fut: impl Fn(Vec<WriteRequest>) -> Byt + Sync + Send + Copy,
 ) -> anyhow::Result<UploadResponse>
@@ -1644,13 +5984,37 @@ where
         client_uuid: &str,
         compressor: Option<Compressor>,
         digest: &TDigest,
+        request_digest_function_config: DigestFunctionConfig,
     ) -> String {
+        let digest_function_segment =
+            digest_function_resource_segment(request_digest_function_config.for_hash(&digest.hash));
         if let Some(compressor) = compressor {
+            if let Some(digest_function_segment) = digest_function_segment {
+                format!(
+                    "{}uploads/{}/compressed-blobs/{}/{}/{}/{}",
+                    instance_name.as_resource_prefix(),
+                    client_uuid,
+                    compressor.name(),
+                    digest_function_segment,
+                    digest.hash,
+                    digest.size_in_bytes,
+                )
+            } else {
+                format!(
+                    "{}uploads/{}/compressed-blobs/{}/{}/{}",
+                    instance_name.as_resource_prefix(),
+                    client_uuid,
+                    compressor.name(),
+                    digest.hash,
+                    digest.size_in_bytes,
+                )
+            }
+        } else if let Some(digest_function_segment) = digest_function_segment {
             format!(
-                "{}uploads/{}/compressed-blobs/{}/{}/{}",
+                "{}uploads/{}/blobs/{}/{}/{}",
                 instance_name.as_resource_prefix(),
                 client_uuid,
-                compressor.name(),
+                digest_function_segment,
                 digest.hash,
                 digest.size_in_bytes,
             )
@@ -1673,21 +6037,40 @@ where
     let mut batched_blob_updates = BatchUploadReqAggregator::new(max_total_batch_size);
 
     // Adapt the given bystream_fut to take in an AsyncBufRead
-    let bystream_fut = |resource_name: String, reader: Box<dyn AsyncBufRead + Unpin + Send>| async move {
-        let mut reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match bystream_compressor {
+    let bystream_fut = |resource_name: String,
+                        reader: Box<dyn AsyncBufRead + Unpin + Send>,
+                        expected_digest: Option<TDigest>,
+                        blob_compressor: Option<Compressor>| async move {
+        let mut reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match blob_compressor {
             None => Pin::new(Box::new(reader)),
             Some(Compressor::Zstd) => Pin::new(Box::new(ZstdEncoder::new(reader))),
             Some(Compressor::Deflate) => Pin::new(Box::new(DeflateEncoder::new(reader))),
             Some(Compressor::Brotli) => Pin::new(Box::new(BrotliEncoder::new(reader))),
         };
+        let mut hash_validators = expected_digest
+            .as_ref()
+            .filter(|digest| blob_compressor.is_none() && should_validate_upload_hash(digest))
+            .map(|digest| {
+                BlobHashValidators::new(
+                    &digest.hash,
+                    request_digest_function_config.for_hash(&digest.hash),
+                )
+            })
+            .transpose()?;
 
         let mut current_offset = 0;
         let mut upload_segments = Vec::new();
         let mut buf = vec![0; max_total_batch_size];
         loop {
-            let n_read = reader.read(&mut buf).await?;
+            let n_read = reader
+                .read(&mut buf)
+                .await
+                .with_context(|| format!("Failed reading upload source for `{resource_name}`"))?;
             if n_read == 0 {
                 break;
+            }
+            if let Some(hash_validators) = &mut hash_validators {
+                hash_validators.update(&buf[0..n_read]);
             }
             upload_segments.push(WriteRequest {
                 resource_name: resource_name.clone(),
@@ -1696,6 +6079,14 @@ where
                 data: buf[0..n_read].to_vec(),
             });
             current_offset += n_read as i64;
+        }
+        if blob_compressor.is_none() {
+            if let Some(expected_digest) = &expected_digest {
+                validate_downloaded_blob_size(expected_digest, current_offset as usize)?;
+                if let Some(hash_validators) = hash_validators {
+                    hash_validators.finish(expected_digest)?;
+                }
+            }
         }
         if let Some(last_segment) = upload_segments.last_mut() {
             last_segment.finish_write = true;
@@ -1721,25 +6112,52 @@ where
         let hash = blob.digest.hash.clone();
         let size = blob.digest.size_in_bytes;
 
-        if size < max_total_batch_size as i64 {
+        if size <= max_total_batch_size as i64 {
             batched_blob_updates.push(BatchUploadRequest::Blob(blob));
             continue;
         }
 
-        let data = prost::bytes::Bytes::from(blob.blob);
+        let blob_compressor = compression_for_blob(
+            bystream_compressor,
+            size,
+            remote_cache_compression_threshold,
+        );
         let client_uuid = uuid::Uuid::new_v4().to_string();
         let resource_name = resource_name(
             instance_name,
             &client_uuid,
-            bystream_compressor,
+            blob_compressor,
             &blob.digest,
+            request_digest_function_config,
         );
+        let digest = blob.digest;
+        let data = blob.blob;
+        let active_upload = active_uploads.enter(digest.clone());
         let fut = async move {
-            retry(|| async {
-                bystream_fut(resource_name.clone(), Box::new(Cursor::new(data.clone()))).await?;
-                Ok(vec![hash.clone()])
-            })
-            .await
+            match active_upload {
+                ActiveTransfer::Leader(leader) => {
+                    let result = bystream_fut(
+                        resource_name,
+                        Box::new(Cursor::new(data)),
+                        Some(digest),
+                        blob_compressor,
+                    )
+                    .await;
+                    leader.finish(result)?;
+                }
+                ActiveTransfer::Follower(state) => {
+                    if blob_compressor.is_none() {
+                        validate_upload_blob(
+                            &digest,
+                            &data,
+                            request_digest_function_config.for_hash(&digest.hash),
+                        )?;
+                    }
+                    ActiveTransferRegistry::wait(state).await?;
+                }
+            }
+
+            Ok(vec![hash])
         };
         upload_futures.push(Box::pin(fut));
     }
@@ -1749,28 +6167,53 @@ where
         let hash = file.digest.hash.clone();
         let size = file.digest.size_in_bytes;
         let name = file.name.clone();
-        if size < max_total_batch_size as i64 {
+        if size <= max_total_batch_size as i64 {
             batched_blob_updates.push(BatchUploadRequest::File(file));
             continue;
         }
+        let blob_compressor = compression_for_blob(
+            bystream_compressor,
+            size,
+            remote_cache_compression_threshold,
+        );
         let client_uuid = uuid::Uuid::new_v4().to_string();
         let resource_name = resource_name(
             instance_name,
             &client_uuid,
-            bystream_compressor,
+            blob_compressor,
             &file.digest,
+            request_digest_function_config,
         );
+        let active_upload = active_uploads.enter(file.digest.clone());
 
         let fut = async move {
-            retry(|| async {
-                let file = tokio::fs::File::open(&name)
-                    .await
-                    .with_context(|| format!("Opening `{name}` for reading failed"))?;
+            match active_upload {
+                ActiveTransfer::Leader(leader) => {
+                    let expected_digest = file.digest;
+                    let result = async {
+                        let file = tokio::fs::File::open(&name)
+                            .await
+                            .with_context(|| format!("Opening `{name}` for reading failed"))?;
 
-                bystream_fut(resource_name.clone(), Box::new(BufReader::new(file))).await?;
-                Ok(vec![hash.clone()])
-            })
-            .await
+                        bystream_fut(
+                            resource_name,
+                            Box::new(BufReader::new(file)),
+                            Some(expected_digest),
+                            blob_compressor,
+                        )
+                        .await
+                    }
+                    .await;
+                    leader.finish(result)?;
+                }
+                ActiveTransfer::Follower(state) => {
+                    tokio::fs::metadata(&name)
+                        .await
+                        .with_context(|| format!("Opening `{name}` for reading failed"))?;
+                    ActiveTransferRegistry::wait(state).await?;
+                }
+            }
+            Ok(vec![hash])
         };
         upload_futures.push(Box::pin(fut));
     }
@@ -1780,19 +6223,29 @@ where
     let batched_blob_updates = batched_blob_updates.done();
     for batch in batched_blob_updates {
         let fut = async move {
+            let new_request = || BatchUpdateBlobsRequest {
+                instance_name: instance_name.as_str().to_owned(),
+                requests: vec![],
+                ..Default::default()
+            };
             let mut re_request = BatchUpdateBlobsRequest {
                 instance_name: instance_name.as_str().to_owned(),
                 requests: vec![],
                 ..Default::default()
             };
+            let mut request_size = 0usize;
+            let mut blob_hashes = Vec::new();
             for blob in batch {
-                match blob {
+                let (digest, data) = match blob {
                     BatchUploadRequest::Blob(blob) => {
-                        re_request.requests.push(Request {
-                            digest: Some(tdigest_to(&blob.digest)),
-                            data: blob.blob.clone(),
-                            compressor: compressor::Value::Identity as i32,
-                        });
+                        let digest = blob.digest;
+                        let data = blob.blob;
+                        validate_upload_blob(
+                            &digest,
+                            &data,
+                            request_digest_function_config.for_hash(&digest.hash),
+                        )?;
+                        (digest, data)
                     }
                     BatchUploadRequest::File(file) => {
                         // These should be small files, so no need to use a buffered reader.
@@ -1801,44 +6254,49 @@ where
                             .with_context(|| format!("Opening {} for reading failed", file.name))?;
                         let mut data = vec![];
                         fin.read_to_end(&mut data).await?;
-
-                        re_request.requests.push(Request {
-                            digest: Some(tdigest_to(&file.digest)),
-                            data,
-                            compressor: compressor::Value::Identity as i32,
-                        });
+                        validate_upload_blob(
+                            &file.digest,
+                            &data,
+                            request_digest_function_config.for_hash(&file.digest.hash),
+                        )?;
+                        (file.digest, data)
                     }
+                };
+                let blob_compressor = compression_for_blob(
+                    batch_update_compressor,
+                    digest.size_in_bytes,
+                    remote_cache_compression_threshold,
+                );
+                let data = if let Some(compressor) = blob_compressor {
+                    compress_data(data, compressor).await.with_context(|| {
+                        format!("Failed to compress BatchUpdateBlobs request for `{digest}`")
+                    })?
+                } else {
+                    data
+                };
+                let additional_size = data.len();
+                if !re_request.requests.is_empty()
+                    && request_size + additional_size > max_total_batch_size
+                {
+                    blob_hashes.extend(
+                        send_batch_update_blobs(re_request, request_digest_function_config, cas_f)
+                            .await?,
+                    );
+                    re_request = new_request();
+                    request_size = 0;
                 }
+                re_request.requests.push(Request {
+                    digest: Some(tdigest_to(&digest)),
+                    data,
+                    compressor: blob_compressor
+                        .map(|compressor| compressor.as_grpc())
+                        .unwrap_or(compressor::Value::Identity as i32),
+                });
+                request_size += additional_size;
             }
-            let blob_hashes = re_request
-                .requests
-                .iter()
-                .map(|x| x.digest.as_ref().unwrap().hash.clone())
-                .collect::<Vec<String>>();
-
-            let response = retry(|| async { cas_f(re_request.clone()).await }).await?;
-            let failures: Vec<String> = response
-                .responses
-                .iter()
-                .filter_map(|r| {
-                    r.status.as_ref().and_then(|s| {
-                        if s.code == (Code::Ok as i32) {
-                            None
-                        } else {
-                            Some(format!(
-                                "Unable to upload blob '{}', rpc status code: {}, message: \"{}\"",
-                                r.digest.as_ref().map_or("N/A", |d| &d.hash),
-                                s.code,
-                                s.message
-                            ))
-                        }
-                    })
-                })
-                .collect();
-
-            if !failures.is_empty() {
-                return Err(anyhow::anyhow!("Batch upload failed: {:?}", failures));
-            }
+            blob_hashes.extend(
+                send_batch_update_blobs(re_request, request_digest_function_config, cas_f).await?,
+            );
             Ok(blob_hashes)
         };
         upload_futures.push(Box::pin(fut));
@@ -1938,6 +6396,17 @@ fn with_re_metadata<T>(
     msg
 }
 
+fn with_re_metadata_timeout<T>(
+    t: T,
+    metadata: RemoteExecutionMetadata,
+    use_fbcode_metadata: bool,
+    timeout: Duration,
+) -> tonic::Request<T> {
+    let mut request = with_re_metadata(t, &metadata, use_fbcode_metadata);
+    request.set_timeout(timeout);
+    request
+}
+
 /// Replace occurrences of $FOO in a string with the value of the env var $FOO.
 fn substitute_env_vars(s: &str) -> anyhow::Result<String> {
     substitute_env_vars_impl(s, |v| std::env::var(v))
@@ -1969,53 +6438,1586 @@ fn substitute_env_vars_impl(
 }
 
 #[cfg(test)]
+mod goaway_tests;
+
+#[cfg(test)]
 mod tests {
     use core::sync::atomic::Ordering;
     use std::sync::atomic::AtomicU16;
 
+    use re_grpc_proto::build::bazel::remote::execution::v2::ActionCacheUpdateCapabilities;
+    use re_grpc_proto::build::bazel::remote::execution::v2::FastCdc2020Params;
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_read_blobs_response;
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_response;
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_retry_unauthenticated() {
-        let attempts = AtomicU16::new(0);
-        let err = retry(|| async {
-            attempts.fetch_add(1, Ordering::Relaxed);
-            Err::<(), _>(
-                anyhow::Error::new(tonic::Status::unauthenticated("no creds"))
-                    .context("FindMissingBlobs failed"),
-            )
-        })
+    async fn test_download_impl<Byt, BytRet, Cas>(
+        instance_name: &InstanceName,
+        request: DownloadRequest,
+        bystream_compressor: Option<Compressor>,
+        max_total_batch_size: usize,
+        download_hash_digest_function: Option<digest_function::Value>,
+        request_digest_function_config: DigestFunctionConfig,
+        cas_f: impl Fn(BatchReadBlobsRequest) -> Cas,
+        bystream_fut: impl Fn(ReadRequest) -> Byt + Sync + Send + Copy,
+    ) -> anyhow::Result<DownloadResponse>
+    where
+        Byt: std::future::Future<Output = anyhow::Result<Pin<Box<BytRet>>>>,
+        BytRet: futures::Stream<Item = Result<ReadResponse, tonic::Status>> + Send + 'static,
+        Cas: std::future::Future<Output = anyhow::Result<BatchReadBlobsResponse>>,
+    {
+        let active_downloads = ActiveTransferRegistry::new();
+        download_impl(
+            instance_name,
+            request,
+            bystream_compressor,
+            max_total_batch_size,
+            DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+            download_hash_digest_function,
+            request_digest_function_config,
+            0,
+            Duration::from_millis(1),
+            Duration::from_secs(DEFAULT_BYTESTREAM_PROGRESS_TIMEOUT_SECS),
+            &active_downloads,
+            cas_f,
+            bystream_fut,
+            || async {},
+        )
         .await
-        .unwrap_err();
+    }
 
-        assert_eq!(attempts.load(Ordering::Relaxed), 1);
-        let re_error = err.downcast_ref::<REClientError>().unwrap();
-        assert_eq!(re_error.code, TCode::UNAUTHENTICATED);
-        assert_eq!(re_error.group, TCodeReasonGroup::UNKNOWN);
-        assert_eq!(re_error.message, "no creds");
-        assert!(err.downcast_ref::<tonic::Status>().is_some());
-        assert!(format!("{err:#}").contains("FindMissingBlobs failed"));
+    async fn upload_impl<Byt, Cas>(
+        instance_name: &InstanceName,
+        request: UploadRequest,
+        bystream_compressor: Option<Compressor>,
+        max_total_batch_size: usize,
+        max_concurrent_uploads: Option<usize>,
+        request_digest_function_config: DigestFunctionConfig,
+        cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
+        bystream_fut: impl Fn(Vec<WriteRequest>) -> Byt + Sync + Send + Copy,
+    ) -> anyhow::Result<UploadResponse>
+    where
+        Cas: Future<Output = anyhow::Result<BatchUpdateBlobsResponse>> + Send,
+        Byt: Future<Output = anyhow::Result<WriteResponse>> + Send,
+    {
+        let active_uploads = ActiveTransferRegistry::new();
+        super::upload_impl(
+            instance_name,
+            request,
+            bystream_compressor,
+            None,
+            max_total_batch_size,
+            DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+            max_concurrent_uploads,
+            request_digest_function_config,
+            &active_uploads,
+            cas_f,
+            bystream_fut,
+        )
+        .await
+    }
+
+    #[test]
+    fn wait_execution_not_found_retries_execute() {
+        let err = anyhow::Error::from(tonic::Status::not_found("operation was lost"));
+
+        assert!(should_retry_execute_after_wait_execution_error(&err));
+    }
+
+    #[test]
+    fn operation_stream_not_found_retries_execute() {
+        let err = anyhow::Error::from(tonic::Status::not_found("operation was lost"));
+
+        assert!(should_retry_execute_after_operation_stream_error(&err));
+    }
+
+    #[test]
+    fn operation_stream_transient_error_does_not_restart_execute_directly() {
+        let err = anyhow::Error::from(tonic::Status::unavailable("try wait again"));
+
+        assert!(!should_retry_execute_after_operation_stream_error(&err));
+    }
+
+    #[test]
+    fn wait_execution_transient_error_does_not_restart_execute_directly() {
+        let err = anyhow::Error::from(tonic::Status::unavailable("try wait again"));
+
+        assert!(!should_retry_execute_after_wait_execution_error(&err));
+    }
+
+    fn status_for_code(code: TCode) -> Status {
+        Status {
+            code: code.0,
+            ..Default::default()
+        }
+    }
+
+    fn retry_info_rpc_status(code: TCode, retry_delay: Duration) -> Status {
+        let mut retry_info = Vec::new();
+        RetryInfoDetail {
+            retry_delay: Some(prost_types::Duration {
+                seconds: retry_delay.as_secs() as i64,
+                nanos: retry_delay.subsec_nanos() as i32,
+            }),
+        }
+        .encode(&mut retry_info)
+        .unwrap();
+
+        Status {
+            code: code.0,
+            message: "retry later".to_owned(),
+            details: vec![prost_types::Any {
+                type_url: RETRY_INFO_TYPE_URL.to_owned(),
+                value: retry_info,
+            }],
+        }
+    }
+
+    fn retry_info_tonic_status(code: tonic::Code, retry_delay: Duration) -> tonic::Status {
+        let mut details = Vec::new();
+        retry_info_rpc_status(tcode_from_grpc_code(code), retry_delay)
+            .encode(&mut details)
+            .unwrap();
+
+        tonic::Status::with_details(code, "retry later", details.into())
+    }
+
+    #[test]
+    fn operation_error_retry_policy_matches_grpc_retry_codes() {
+        assert!(should_retry_execute_after_operation_error(
+            &status_for_code(TCode::UNAVAILABLE)
+        ));
+        assert!(should_retry_execute_after_operation_error(
+            &status_for_code(TCode::DEADLINE_EXCEEDED)
+        ));
+        assert!(!should_retry_execute_after_operation_error(
+            &status_for_code(TCode::PERMISSION_DENIED)
+        ));
+        assert!(!should_retry_execute_after_operation_error(
+            &status_for_code(TCode::CANCELLED)
+        ));
+    }
+
+    #[test]
+    fn execute_retry_delay_from_retry_info_is_capped() {
+        let status = retry_info_rpc_status(TCode::RESOURCE_EXHAUSTED, Duration::from_secs(5));
+
+        assert_eq!(
+            capped_retry_delay_from_rpc_status(&status, Duration::from_millis(250)),
+            Some(Duration::from_millis(250))
+        );
+    }
+
+    #[test]
+    fn execute_response_status_retry_policy_matches_bazel() {
+        assert!(should_retry_execute_after_execute_response_status(
+            &status_for_code(TCode::UNAVAILABLE)
+        ));
+        assert!(!should_retry_execute_after_execute_response_status(
+            &status_for_code(TCode::DEADLINE_EXCEEDED)
+        ));
+        assert!(!should_retry_execute_after_execute_response_status(
+            &status_for_code(TCode::PERMISSION_DENIED)
+        ));
+        assert!(!should_retry_execute_after_execute_response_status(
+            &status_for_code(TCode::CANCELLED)
+        ));
     }
 
     #[tokio::test]
-    async fn test_retry_exhausted() {
+    async fn retry_grpc_request_retries_retry_info_status() {
         let attempts = AtomicU16::new(0);
-        let err = retry(|| async {
-            attempts.fetch_add(1, Ordering::Relaxed);
-            Err::<(), _>(anyhow::Error::new(tonic::Status::unavailable("offline")))
+        retry_grpc_request(1, Duration::from_millis(1), || async {
+            if attempts.fetch_add(1, Ordering::Relaxed) == 0 {
+                Err(anyhow::Error::from(retry_info_tonic_status(
+                    tonic::Code::FailedPrecondition,
+                    Duration::from_millis(1),
+                )))
+            } else {
+                Ok(())
+            }
         })
         .await
+        .unwrap();
+
+        assert_eq!(attempts.load(Ordering::Relaxed), 2);
+    }
+
+    #[test]
+    fn execute_retry_attempts_are_bounded() {
+        assert!(!can_retry_execute(0, 0));
+        assert!(can_retry_execute(0, 1));
+        assert!(!can_retry_execute(1, 1));
+    }
+
+    #[test]
+    fn test_select_download_hash_digest_function() -> anyhow::Result<()> {
+        assert_eq!(
+            select_download_hash_digest_function(
+                &["BLAKE3".to_owned()],
+                &[
+                    digest_function::Value::Sha256,
+                    digest_function::Value::Blake3
+                ],
+            )?,
+            Some(digest_function::Value::Blake3)
+        );
+        assert_eq!(
+            select_download_hash_digest_function(
+                &[],
+                &[
+                    digest_function::Value::Sha256,
+                    digest_function::Value::Blake3
+                ],
+            )?,
+            None
+        );
+        assert_eq!(
+            select_download_hash_digest_function(&[], &[digest_function::Value::Sha256],)?,
+            Some(digest_function::Value::Sha256)
+        );
+        assert!(
+            select_download_hash_digest_function(
+                &["SHA256".to_owned()],
+                &[digest_function::Value::Blake3],
+            )
+            .is_err()
+        );
+        assert_eq!(
+            select_download_hash_digest_function(
+                &["BLAKE3".to_owned(), "SHA256".to_owned()],
+                &[
+                    digest_function::Value::Sha256,
+                    digest_function::Value::Blake3
+                ],
+            )?,
+            None
+        );
+        assert_eq!(
+            select_download_hash_digest_function(
+                &["SHA256".to_owned(), "SHA1".to_owned()],
+                &[digest_function::Value::Sha1, digest_function::Value::Sha256],
+            )?,
+            None
+        );
+        assert_eq!(
+            select_download_hash_digest_function(
+                &["SHA384".to_owned()],
+                &[digest_function::Value::Sha384],
+            )?,
+            None
+        );
+        let err = select_download_hash_digest_function(
+            &["SHA256".to_owned()],
+            &[digest_function::Value::Blake3],
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(err.contains("configured=SHA256"));
+        assert!(err.contains("server=BLAKE3"));
+        Ok(())
+    }
+
+    fn test_re_capabilities(
+        capabilities_queried: bool,
+        cache_digest_functions: Vec<digest_function::Value>,
+        execution_digest_functions: Vec<digest_function::Value>,
+    ) -> RECapabilities {
+        RECapabilities {
+            capabilities_queried,
+            max_total_batch_size: DEFAULT_MAX_TOTAL_BATCH_SIZE,
+            max_cas_blob_size_bytes: None,
+            supported_compressors: Vec::new(),
+            supported_batch_update_compressors: Vec::new(),
+            supported_digest_functions: Vec::new(),
+            cache_digest_functions,
+            execution_digest_functions,
+            execution_priority_ranges: Vec::new(),
+            action_cache_update_enabled: None,
+            execution_enabled: Some(true),
+            blob_split_supported: false,
+            blob_splice_supported: false,
+            fast_cdc_2020: None,
+        }
+    }
+
+    #[test]
+    fn cache_digest_functions_default_to_sha256_when_missing() {
+        let (digest_functions, assumed_sha256) =
+            cache_digest_functions_from_capabilities(Some(&CacheCapabilities::default()));
+
+        assert!(assumed_sha256);
+        assert_eq!(digest_functions, vec![digest_function::Value::Sha256]);
+    }
+
+    #[test]
+    fn cache_digest_functions_preserve_advertised_blake3() {
+        let (digest_functions, assumed_sha256) =
+            cache_digest_functions_from_capabilities(Some(&CacheCapabilities {
+                digest_functions: vec![digest_function::Value::Blake3 as i32],
+                ..Default::default()
+            }));
+
+        assert!(!assumed_sha256);
+        assert_eq!(digest_functions, vec![digest_function::Value::Blake3]);
+    }
+
+    #[test]
+    fn test_validate_digest_function_capabilities() -> anyhow::Result<()> {
+        validate_digest_function_capabilities(
+            &["SHA256".to_owned()],
+            &test_re_capabilities(
+                true,
+                vec![digest_function::Value::Sha256],
+                vec![digest_function::Value::Sha256],
+            ),
+        )?;
+
+        validate_digest_function_capabilities(
+            &["BLAKE3".to_owned()],
+            &test_re_capabilities(
+                true,
+                vec![digest_function::Value::Blake3],
+                vec![digest_function::Value::Blake3],
+            ),
+        )?;
+
+        let cache_err = validate_digest_function_capabilities(
+            &["SHA256".to_owned()],
+            &test_re_capabilities(
+                true,
+                vec![digest_function::Value::Blake3],
+                vec![digest_function::Value::Sha256],
+            ),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(cache_err.contains("remote cache capabilities"));
+
+        let multi_err = validate_digest_function_capabilities(
+            &["SHA1".to_owned(), "SHA256".to_owned()],
+            &test_re_capabilities(
+                true,
+                vec![digest_function::Value::Sha256],
+                vec![digest_function::Value::Sha1, digest_function::Value::Sha256],
+            ),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(multi_err.contains("SHA1"));
+
+        let execution_err = validate_digest_function_capabilities(
+            &["SHA256".to_owned()],
+            &test_re_capabilities(
+                true,
+                vec![digest_function::Value::Sha256],
+                vec![digest_function::Value::Blake3],
+            ),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(execution_err.contains("remote execution capabilities"));
+
+        validate_digest_function_capabilities(
+            &["SHA256".to_owned()],
+            &test_re_capabilities(false, Vec::new(), Vec::new()),
+        )?;
+
+        let mut execution_disabled =
+            test_re_capabilities(true, vec![digest_function::Value::Sha256], Vec::new());
+        execution_disabled.execution_enabled = Some(false);
+        validate_digest_function_capabilities(&["SHA256".to_owned()], &execution_disabled)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_digest_function_config_selects_unambiguous_requests() {
+        let sha256 = Digest {
+            hash: "a".repeat(64),
+            size_bytes: 1,
+        };
+        let sha1 = Digest {
+            hash: "b".repeat(40),
+            size_bytes: 1,
+        };
+
+        let sha256_config = DigestFunctionConfig::from_configured_algorithms(&["SHA256".into()]);
+        assert_eq!(
+            sha256_config.for_digest(&sha256),
+            Some(digest_function::Value::Sha256)
+        );
+        assert_eq!(sha256_config.for_digest(&sha1), None);
+
+        let multi_config =
+            DigestFunctionConfig::from_configured_algorithms(&["SHA1".into(), "SHA256".into()]);
+        assert_eq!(
+            multi_config.for_digest(&sha1),
+            Some(digest_function::Value::Sha1)
+        );
+        assert_eq!(
+            multi_config.for_digest(&sha256),
+            Some(digest_function::Value::Sha256)
+        );
+        assert_eq!(
+            multi_config.for_common_digest_function(std::slice::from_ref(&sha1)),
+            Some(digest_function::Value::Sha1)
+        );
+        assert_eq!(
+            multi_config.for_common_digest_function(&[sha1.clone(), sha256.clone()]),
+            None
+        );
+
+        let ambiguous_config =
+            DigestFunctionConfig::from_configured_algorithms(&["SHA256".into(), "BLAKE3".into()]);
+        assert_eq!(ambiguous_config.for_digest(&sha256), None);
+    }
+
+    #[test]
+    fn test_download_validation_selects_digest_function_by_hash() -> anyhow::Result<()> {
+        let data = b"mixed digest validation";
+        let sha1_digest = TDigest {
+            hash: hex::encode(Sha1::digest(data)),
+            size_in_bytes: data.len() as i64,
+            ..Default::default()
+        };
+        let sha256_digest = digest_for_test_data(data);
+        let digest_function_config =
+            DigestFunctionConfig::from_configured_algorithms(&["SHA256".into(), "SHA1".into()]);
+        let runtime_opts = RERuntimeOpts {
+            use_fbcode_metadata: false,
+            max_concurrent_uploads_per_action: None,
+            cas_ttl_secs: 0,
+            find_missing_blobs_batch_size: 100,
+            remote_cache_chunking: false,
+            remote_cache_compression_threshold: DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+            retries: 0,
+            retry_max_delay_ms: 0,
+            grpc_request_timeout: Duration::from_secs(DEFAULT_GRPC_REQUEST_TIMEOUT_SECS),
+            bytestream_progress_timeout: Duration::from_secs(
+                DEFAULT_BYTESTREAM_PROGRESS_TIMEOUT_SECS,
+            ),
+            download_hash_digest_function: Some(digest_function::Value::Sha256),
+            request_digest_function_config: digest_function_config,
+        };
+
+        assert_eq!(
+            runtime_opts.download_hash_digest_function_for_hash(&sha1_digest.hash),
+            Some(digest_function::Value::Sha1)
+        );
+        validate_downloaded_blob(
+            &sha1_digest,
+            data,
+            runtime_opts.download_hash_digest_function_for_hash(&sha1_digest.hash),
+        )?;
+        validate_downloaded_blob(
+            &sha256_digest,
+            data,
+            runtime_opts.download_hash_digest_function_for_hash(&sha256_digest.hash),
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_chunking_function_conversion() {
+        assert_eq!(
+            chunking_function_to_grpc(TChunkingFunction::Unknown),
+            chunking_function::Value::Unknown as i32
+        );
+        assert_eq!(
+            chunking_function_to_grpc(TChunkingFunction::FastCdc2020),
+            chunking_function::Value::FastCdc2020 as i32
+        );
+        assert_eq!(
+            chunking_function_to_grpc(TChunkingFunction::RepMaxCdc),
+            chunking_function::Value::RepMaxCdc as i32
+        );
+
+        assert_eq!(
+            chunking_function_from_grpc(chunking_function::Value::FastCdc2020 as i32),
+            TChunkingFunction::FastCdc2020
+        );
+        assert_eq!(
+            chunking_function_from_grpc(chunking_function::Value::RepMaxCdc as i32),
+            TChunkingFunction::RepMaxCdc
+        );
+        assert_eq!(
+            chunking_function_from_grpc(i32::MAX),
+            TChunkingFunction::Unknown
+        );
+    }
+
+    #[test]
+    fn test_fast_cdc_2020_config_from_capabilities() {
+        let none = fast_cdc_2020_config_from_capabilities(Some(&CacheCapabilities::default()));
+        assert_eq!(none, None);
+
+        let config = fast_cdc_2020_config_from_capabilities(Some(&CacheCapabilities {
+            fast_cdc_2020_params: Some(FastCdc2020Params {
+                avg_chunk_size_bytes: 256 * 1024,
+                seed: 7,
+            }),
+            ..Default::default()
+        }));
+        assert_eq!(
+            config,
+            Some(FastCdc2020Config {
+                avg_chunk_size_bytes: 256 * 1024,
+                seed: 7,
+            })
+        );
+        let config = config.unwrap();
+        assert_eq!(config.min_chunk_size_bytes(), 64 * 1024);
+        assert_eq!(config.max_chunk_size_bytes(), 1024 * 1024);
+        assert_eq!(config.chunking_threshold_bytes(), 1024 * 1024);
+        assert_eq!(config.chunking_function(), TChunkingFunction::FastCdc2020);
+        assert_eq!(
+            config.normalization_level(),
+            fastcdc::v2020::Normalization::Level2
+        );
+        assert_eq!(config.seed, 7);
+
+        let invalid_avg = fast_cdc_2020_config_from_capabilities(Some(&CacheCapabilities {
+            fast_cdc_2020_params: Some(FastCdc2020Params {
+                avg_chunk_size_bytes: 17,
+                seed: 9,
+            }),
+            ..Default::default()
+        }));
+        assert_eq!(
+            invalid_avg,
+            Some(FastCdc2020Config {
+                avg_chunk_size_bytes: DEFAULT_FAST_CDC_2020_AVG_CHUNK_SIZE,
+                seed: 9,
+            })
+        );
+    }
+
+    #[test]
+    fn test_preferred_split_blob_chunking_function() {
+        let mut capabilities = test_re_capabilities(true, Vec::new(), Vec::new());
+        assert_eq!(
+            preferred_split_blob_chunking_function(&capabilities, TChunkingFunction::Unknown),
+            TChunkingFunction::Unknown
+        );
+
+        capabilities.fast_cdc_2020 = Some(FastCdc2020Config {
+            avg_chunk_size_bytes: DEFAULT_FAST_CDC_2020_AVG_CHUNK_SIZE,
+            seed: 0,
+        });
+        assert_eq!(
+            preferred_split_blob_chunking_function(&capabilities, TChunkingFunction::Unknown),
+            TChunkingFunction::FastCdc2020
+        );
+        assert_eq!(
+            preferred_split_blob_chunking_function(&capabilities, TChunkingFunction::RepMaxCdc),
+            TChunkingFunction::RepMaxCdc
+        );
+    }
+
+    #[test]
+    fn test_validate_chunking_function_supported() -> anyhow::Result<()> {
+        let mut capabilities = test_re_capabilities(true, Vec::new(), Vec::new());
+        validate_chunking_function_supported(&capabilities, TChunkingFunction::Unknown)?;
+
+        let fast_cdc_err =
+            validate_chunking_function_supported(&capabilities, TChunkingFunction::FastCdc2020)
+                .unwrap_err()
+                .to_string();
+        assert!(fast_cdc_err.contains("FastCDC 2020"));
+
+        capabilities.fast_cdc_2020 = Some(FastCdc2020Config {
+            avg_chunk_size_bytes: DEFAULT_FAST_CDC_2020_AVG_CHUNK_SIZE,
+            seed: 0,
+        });
+        validate_chunking_function_supported(&capabilities, TChunkingFunction::FastCdc2020)?;
+
+        let rep_max_err =
+            validate_chunking_function_supported(&capabilities, TChunkingFunction::RepMaxCdc)
+                .unwrap_err()
+                .to_string();
+        assert!(rep_max_err.contains("RepMaxCDC"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_remote_cache_chunking_enabled() -> anyhow::Result<()> {
+        let mut capabilities = test_re_capabilities(false, Vec::new(), Vec::new());
+        validate_remote_cache_chunking_enabled(false, &capabilities)?;
+
+        let unqueried = validate_remote_cache_chunking_enabled(true, &capabilities)
+            .unwrap_err()
+            .to_string();
+        assert!(unqueried.contains("capabilities"));
+
+        capabilities.capabilities_queried = true;
+        let missing_split = validate_remote_cache_chunking_enabled(true, &capabilities)
+            .unwrap_err()
+            .to_string();
+        assert!(missing_split.contains("SplitBlob"));
+
+        capabilities.blob_split_supported = true;
+        let missing_splice = validate_remote_cache_chunking_enabled(true, &capabilities)
+            .unwrap_err()
+            .to_string();
+        assert!(missing_splice.contains("SpliceBlob"));
+
+        capabilities.blob_splice_supported = true;
+        let missing_fast_cdc = validate_remote_cache_chunking_enabled(true, &capabilities)
+            .unwrap_err()
+            .to_string();
+        assert!(missing_fast_cdc.contains("FastCDC 2020"));
+
+        capabilities.fast_cdc_2020 = Some(FastCdc2020Config {
+            avg_chunk_size_bytes: DEFAULT_FAST_CDC_2020_AVG_CHUNK_SIZE,
+            seed: 0,
+        });
+        validate_remote_cache_chunking_enabled(true, &capabilities)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_chunk_inlined_blob_fast_cdc_2020() -> anyhow::Result<()> {
+        let data = (0..10_000)
+            .map(|value| (value % 251) as u8)
+            .collect::<Vec<_>>();
+        let blob = InlinedBlobWithDigest {
+            digest: digest_for_test_data(&data),
+            blob: data.clone(),
+            ..Default::default()
+        };
+        let config = FastCdc2020Config {
+            avg_chunk_size_bytes: 1024,
+            seed: 0,
+        };
+
+        let chunks =
+            chunk_inlined_blob_fast_cdc_2020(&blob, &config, digest_function::Value::Sha256)?;
+
+        assert!(chunks.len() > 1);
+        let mut reassembled = Vec::new();
+        for chunk in &chunks {
+            validate_downloaded_blob(
+                &chunk.digest,
+                &chunk.blob,
+                Some(digest_function::Value::Sha256),
+            )?;
+            assert!(chunk.digest.size_in_bytes <= config.max_chunk_size_bytes() as i64);
+            reassembled.extend_from_slice(&chunk.blob);
+        }
+        assert_eq!(reassembled, data);
+
+        let chunk_digests = chunks
+            .into_iter()
+            .map(|chunk| tdigest_to(&chunk.digest))
+            .collect::<Vec<_>>();
+        validate_chunk_digests_reconstruct_blob(
+            "FastCDC test",
+            &tdigest_to(&blob.digest),
+            &chunk_digests,
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_chunk_file_fast_cdc_2020() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+        let path = work.path().join("blob");
+        let data = (0..10_000)
+            .map(|value| ((value * 7) % 251) as u8)
+            .collect::<Vec<_>>();
+        std::fs::write(&path, &data)?;
+
+        let blob = InlinedBlobWithDigest {
+            digest: digest_for_test_data(&data),
+            blob: data,
+            ..Default::default()
+        };
+        let config = FastCdc2020Config {
+            avg_chunk_size_bytes: 1024,
+            seed: 0,
+        };
+        let inlined_chunks =
+            chunk_inlined_blob_fast_cdc_2020(&blob, &config, digest_function::Value::Sha256)?;
+        let file_chunks = chunk_file_fast_cdc_2020(
+            path.to_str().context("temp path is not utf8")?,
+            &config,
+            digest_function::Value::Sha256,
+        )?;
+
+        assert_eq!(
+            inlined_chunks
+                .iter()
+                .map(|chunk| &chunk.digest)
+                .collect::<Vec<_>>(),
+            file_chunks
+                .iter()
+                .map(|chunk| &chunk.digest)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            inlined_chunks
+                .iter()
+                .map(|chunk| &chunk.blob)
+                .collect::<Vec<_>>(),
+            file_chunks
+                .iter()
+                .map(|chunk| &chunk.blob)
+                .collect::<Vec<_>>()
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_local_chunk_cache_reads_valid_chunks() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+        let cache = LocalChunkCache::new(work.path().to_path_buf());
+        let data = b"cached chunk".to_vec();
+        let digest = digest_for_test_data(&data);
+
+        assert!(
+            cache
+                .read(&digest, Some(digest_function::Value::Sha256))
+                .await?
+                .is_none()
+        );
+        cache
+            .write(&digest, &data, Some(digest_function::Value::Sha256))
+            .await;
+
+        assert_eq!(
+            cache
+                .read(&digest, Some(digest_function::Value::Sha256))
+                .await?,
+            Some(data)
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_local_chunk_cache_ignores_corrupt_chunks() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+        let cache = LocalChunkCache::new(work.path().to_path_buf());
+        let data = b"cached chunk".to_vec();
+        let digest = digest_for_test_data(&data);
+
+        cache
+            .write(&digest, &data, Some(digest_function::Value::Sha256))
+            .await;
+        let path = cache.path_for(&digest).context("expected cache path")?;
+        tokio::fs::write(&path, b"bad").await?;
+
+        assert!(
+            cache
+                .read(&digest, Some(digest_function::Value::Sha256))
+                .await?
+                .is_none()
+        );
+        assert!(!path.exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_local_chunk_cache_rejects_non_hex_paths() {
+        let cache = LocalChunkCache::new(PathBuf::from("cache"));
+        let digest = TDigest {
+            hash: "../not-a-digest".to_owned(),
+            size_in_bytes: 1,
+            ..Default::default()
+        };
+
+        assert!(cache.path_for(&digest).is_none());
+    }
+
+    #[test]
+    fn test_capability_names_are_readable() {
+        assert_eq!(
+            digest_function_names(&[
+                digest_function::Value::Sha256,
+                digest_function::Value::Blake3
+            ]),
+            "SHA256,BLAKE3"
+        );
+        assert_eq!(digest_function_names(&[]), "<unknown>");
+        assert_eq!(
+            compressor_names(&[Compressor::Zstd, Compressor::Brotli]),
+            "zstd,brotli"
+        );
+        assert_eq!(compressor_names(&[]), "<none>");
+        assert_eq!(
+            priority_range_names(&[
+                PriorityRange {
+                    min_priority: 1,
+                    max_priority: 10,
+                },
+                PriorityRange {
+                    min_priority: 20,
+                    max_priority: 30,
+                },
+            ]),
+            "1-10,20-30"
+        );
+        assert_eq!(priority_range_names(&[]), "<unknown>");
+    }
+
+    #[test]
+    fn test_validate_remote_execution_enabled() -> anyhow::Result<()> {
+        validate_remote_execution_enabled(None)?;
+        validate_remote_execution_enabled(Some(true))?;
+
+        let err = validate_remote_execution_enabled(Some(false))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Remote execution is not supported"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_split_splice_supported() {
+        assert!(validate_blob_split_supported(true).is_ok());
+        assert!(
+            validate_blob_split_supported(false)
+                .unwrap_err()
+                .to_string()
+                .contains("SplitBlob")
+        );
+
+        assert!(validate_blob_splice_supported(true).is_ok());
+        assert!(
+            validate_blob_splice_supported(false)
+                .unwrap_err()
+                .to_string()
+                .contains("SpliceBlob")
+        );
+    }
+
+    #[test]
+    fn test_validate_splice_blob_response_digest() -> anyhow::Result<()> {
+        let requested = tdigest_to(&test_digest("aa", 1));
+
+        let digest = validate_splice_blob_response_digest(
+            &requested,
+            GSpliceBlobResponse {
+                blob_digest: Some(requested.clone()),
+            },
+        )?;
+        assert_eq!(digest, tdigest_from(requested.clone()));
+
+        let missing = validate_splice_blob_response_digest(
+            &requested,
+            GSpliceBlobResponse { blob_digest: None },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(missing.contains("omitted blob digest"));
+
+        let unexpected = validate_splice_blob_response_digest(
+            &requested,
+            GSpliceBlobResponse {
+                blob_digest: Some(tdigest_to(&test_digest("bb", 2))),
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(unexpected.contains("unexpected digest"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_split_blob_response() -> anyhow::Result<()> {
+        let requested = tdigest_to(&test_digest("aa", 3));
+        let chunks = validate_split_blob_response(
+            &requested,
+            GSplitBlobResponse {
+                chunk_digests: vec![
+                    tdigest_to(&test_digest("bb", 1)),
+                    tdigest_to(&test_digest("cc", 2)),
+                ],
+                ..Default::default()
+            },
+        )?;
+        assert_eq!(chunks, vec![test_digest("bb", 1), test_digest("cc", 2)]);
+
+        let empty = validate_split_blob_response(
+            &requested,
+            GSplitBlobResponse {
+                chunk_digests: Vec::new(),
+                ..Default::default()
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(empty.contains("no chunks"));
+
+        let wrong_size = validate_split_blob_response(
+            &requested,
+            GSplitBlobResponse {
+                chunk_digests: vec![tdigest_to(&test_digest("bb", 1))],
+                ..Default::default()
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(wrong_size.contains("sum to 1 bytes"));
+
+        let wrong_hash_length = validate_split_blob_response(
+            &requested,
+            GSplitBlobResponse {
+                chunk_digests: vec![tdigest_to(&test_digest("bbbb", 3))],
+                ..Default::default()
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(wrong_hash_length.contains("hash length"));
+
+        let negative_size = validate_split_blob_response(
+            &requested,
+            GSplitBlobResponse {
+                chunk_digests: vec![Digest {
+                    hash: "bb".to_owned(),
+                    size_bytes: -1,
+                }],
+                ..Default::default()
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(negative_size.contains("negative-size"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_splice_blob_request_chunks() -> anyhow::Result<()> {
+        let requested = tdigest_to(&test_digest("aa", 3));
+        validate_chunk_digests_reconstruct_blob(
+            "SpliceBlob request",
+            &requested,
+            &[
+                tdigest_to(&test_digest("bb", 1)),
+                tdigest_to(&test_digest("cc", 2)),
+            ],
+        )?;
+
+        let wrong_size = validate_chunk_digests_reconstruct_blob(
+            "SpliceBlob request",
+            &requested,
+            &[tdigest_to(&test_digest("bb", 1))],
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(wrong_size.contains("SpliceBlob request"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_default_capabilities_are_disabled() {
+        assert!(!action_cache_update_enabled_from_capabilities(None));
+        assert!(!action_cache_update_enabled_from_capabilities(Some(
+            &CacheCapabilities::default()
+        )));
+        assert!(action_cache_update_enabled_from_capabilities(Some(
+            &CacheCapabilities {
+                action_cache_update_capabilities: Some(ActionCacheUpdateCapabilities {
+                    update_enabled: true,
+                }),
+                ..Default::default()
+            }
+        )));
+
+        assert!(!execution_enabled_from_capabilities(None));
+        assert!(!execution_enabled_from_capabilities(Some(
+            &ExecutionCapabilities::default()
+        )));
+        assert!(execution_enabled_from_capabilities(Some(
+            &ExecutionCapabilities {
+                exec_enabled: true,
+                ..Default::default()
+            }
+        )));
+    }
+
+    #[test]
+    fn test_validate_priority_in_range() -> anyhow::Result<()> {
+        let ranges = vec![
+            PriorityRange {
+                min_priority: 1,
+                max_priority: 10,
+            },
+            PriorityRange {
+                min_priority: 20,
+                max_priority: 30,
+            },
+        ];
+
+        validate_priority_in_range(0, "remote_execution_priority", &[])?;
+        validate_priority_in_range(1, "remote_execution_priority", &ranges)?;
+        validate_priority_in_range(30, "remote_execution_priority", &ranges)?;
+
+        let err = validate_priority_in_range(11, "remote_execution_priority", &ranges)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("1-10,20-30"));
+
+        let err = validate_priority_in_range(1, "remote_execution_priority", &[])
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("<unknown>"));
+
+        Ok(())
+    }
+
+    fn semver(major: i32, minor: i32, patch: i32) -> SemVer {
+        SemVer {
+            major,
+            minor,
+            patch,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_validate_re_api_versions() -> anyhow::Result<()> {
+        assert_eq!(
+            validate_re_api_versions(Some(&semver(2, 0, 0)), Some(&semver(2, 11, 0)), None)?,
+            None
+        );
+        assert_eq!(
+            validate_re_api_versions(Some(&semver(2, 1, 0)), Some(&semver(2, 3, 0)), None)?,
+            None
+        );
+
+        let warning = validate_re_api_versions(
+            Some(&semver(3, 0, 0)),
+            Some(&semver(3, 1, 0)),
+            Some(&semver(2, 0, 0)),
+        )?
+        .expect("deprecated overlap should warn");
+        assert!(warning.contains("deprecated"));
+
+        let err = validate_re_api_versions(Some(&semver(3, 0, 0)), Some(&semver(3, 1, 0)), None)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("not supported by the server"));
+
+        Ok(())
+    }
+
+    fn test_digest(hash: &str, size_in_bytes: i64) -> TDigest {
+        TDigest {
+            hash: hash.to_owned(),
+            size_in_bytes,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_digests_with_ttl_preserves_requested_duplicates() -> anyhow::Result<()> {
+        let digest1 = test_digest("aa", 1);
+        let digest2 = test_digest("bb", 2);
+
+        let mut remote_results = HashMap::new();
+        remote_results.insert(digest1.clone(), DigestRemoteState::ExistsOnRemote);
+        remote_results.insert(digest2.clone(), DigestRemoteState::Missing);
+
+        let digests_with_ttl = digests_with_ttl_for_requested_digests(
+            &[digest1.clone(), digest2.clone(), digest1.clone()],
+            &remote_results,
+            17,
+        )?;
+
+        assert_eq!(digests_with_ttl.len(), 3);
+        assert_eq!(digests_with_ttl[0].digest, digest1);
+        assert_eq!(digests_with_ttl[0].ttl, 17);
+        assert_eq!(digests_with_ttl[1].digest, digest2);
+        assert_eq!(digests_with_ttl[1].ttl, 0);
+        assert_eq!(digests_with_ttl[2].digest, digest1);
+        assert_eq!(digests_with_ttl[2].ttl, 17);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_convert_action_result_preserves_execution_auxiliary_metadata() -> anyhow::Result<()> {
+        let action_result = ActionResult {
+            execution_metadata: Some(ExecutedActionMetadata {
+                auxiliary_metadata: vec![prost_types::Any {
+                    type_url: "type.googleapis.com/buck2.RemoteDepFile".to_owned(),
+                    value: b"dep-file-metadata".to_vec(),
+                }],
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let converted = convert_action_result(action_result, 42)?;
+
+        assert_eq!(converted.execution_metadata.auxiliary_metadata.len(), 1);
+        let metadata = &converted.execution_metadata.auxiliary_metadata[0];
+        assert_eq!(metadata.type_url, "type.googleapis.com/buck2.RemoteDepFile");
+        assert_eq!(metadata.value, b"dep-file-metadata".to_vec());
+        Ok(())
+    }
+
+    #[test]
+    fn test_convert_t_action_result2_preserves_execution_auxiliary_metadata_and_raw_stdio()
+    -> anyhow::Result<()> {
+        let t_action_result = TActionResult2 {
+            stdout_raw: Some(b"inline stdout".to_vec()),
+            stderr_raw: Some(b"inline stderr".to_vec()),
+            execution_metadata: Box::new(TExecutedActionMetadata {
+                auxiliary_metadata: vec![TAny {
+                    type_url: "type.googleapis.com/buck2.RemoteDepFile".to_owned(),
+                    value: b"dep-file-metadata".to_vec(),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let converted = convert_t_action_result2(&t_action_result)?;
+
+        assert_eq!(converted.stdout_raw, b"inline stdout".to_vec());
+        assert_eq!(converted.stderr_raw, b"inline stderr".to_vec());
+        let metadata = &converted
+            .execution_metadata
+            .as_ref()
+            .expect("execution metadata should be set")
+            .auxiliary_metadata;
+        assert_eq!(metadata.len(), 1);
+        assert_eq!(
+            metadata[0].type_url,
+            "type.googleapis.com/buck2.RemoteDepFile"
+        );
+        assert_eq!(metadata[0].value, b"dep-file-metadata".to_vec());
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_extend_digests_ttl_response_rejects_missing() {
+        let digest = test_digest("aa", 1);
+
+        let error = validate_extend_digests_ttl_response(
+            &[digest.clone()],
+            GetDigestsTtlResponse {
+                digests_with_ttl: vec![DigestWithTtl { digest, ttl: 0 }],
+            },
+        )
         .unwrap_err();
 
-        assert_eq!(attempts.load(Ordering::Relaxed), 5);
-        assert_eq!(
-            err.downcast_ref::<REClientError>().unwrap().code,
-            TCode::UNAVAILABLE
+        assert!(
+            error
+                .to_string()
+                .contains("Cannot refresh CAS TTL for missing digests")
         );
-        assert!(err.downcast_ref::<tonic::Status>().is_some());
+    }
+
+    #[test]
+    fn test_validate_extend_digests_ttl_response_accepts_present() -> anyhow::Result<()> {
+        let digest = test_digest("aa", 1);
+
+        validate_extend_digests_ttl_response(
+            &[digest.clone()],
+            GetDigestsTtlResponse {
+                digests_with_ttl: vec![DigestWithTtl { digest, ttl: 17 }],
+            },
+        )
+    }
+
+    #[test]
+    fn test_validate_upload_request_sizes_allows_unknown_limit() -> anyhow::Result<()> {
+        validate_upload_request_sizes(
+            &UploadRequest {
+                inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                    blob: vec![0; 4],
+                    digest: test_digest("aa", 4),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            None,
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_upload_request_sizes_rejects_oversized_blob() {
+        let err = validate_upload_request_sizes(
+            &UploadRequest {
+                inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                    blob: vec![0; 11],
+                    digest: test_digest("aa", 11),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            Some(10),
+        )
+        .unwrap_err();
+        let err = format!("{err:#}");
+
+        assert!(err.contains("oversized inlined blob"));
+        assert!(err.contains("max_cas_blob_size_bytes 10"));
+    }
+
+    #[test]
+    fn test_validate_upload_request_sizes_checks_files_and_directories() {
+        let file_err = validate_upload_request_sizes(
+            &UploadRequest {
+                files_with_digest: Some(vec![NamedDigest {
+                    name: "file.out".to_owned(),
+                    digest: test_digest("bb", 12),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            Some(10),
+        )
+        .unwrap_err()
+        .to_string();
+
+        assert!(file_err.contains("oversized file `file.out`"));
+
+        let directory_err = validate_upload_request_sizes(
+            &UploadRequest {
+                directories: Some(vec![Path {
+                    path: "tree".to_owned(),
+                    digest: Some(test_digest("cc", 13)),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            Some(10),
+        )
+        .unwrap_err()
+        .to_string();
+
+        assert!(directory_err.contains("oversized directory `tree`"));
+    }
+
+    #[test]
+    fn test_filter_upload_request_by_missing_digests() {
+        let present = test_digest("aa", 1);
+        let missing_file = test_digest("bb", 2);
+        let missing_blob = test_digest("cc", 3);
+        let missing_directory = test_digest("dd", 4);
+
+        let request = UploadRequest {
+            files_with_digest: Some(vec![
+                NamedDigest {
+                    name: "present.out".to_owned(),
+                    digest: present.clone(),
+                    ..Default::default()
+                },
+                NamedDigest {
+                    name: "missing.out".to_owned(),
+                    digest: missing_file.clone(),
+                    ..Default::default()
+                },
+            ]),
+            inlined_blobs_with_digest: Some(vec![
+                InlinedBlobWithDigest {
+                    blob: b"present".to_vec(),
+                    digest: present.clone(),
+                    ..Default::default()
+                },
+                InlinedBlobWithDigest {
+                    blob: b"missing".to_vec(),
+                    digest: missing_blob.clone(),
+                    ..Default::default()
+                },
+            ]),
+            directories: Some(vec![
+                Path {
+                    path: "present-tree".to_owned(),
+                    digest: Some(present.clone()),
+                    ..Default::default()
+                },
+                Path {
+                    path: "missing-tree".to_owned(),
+                    digest: Some(missing_directory.clone()),
+                    ..Default::default()
+                },
+                Path {
+                    path: "unknown-tree".to_owned(),
+                    digest: None,
+                    ..Default::default()
+                },
+            ]),
+            upload_only_missing: true,
+            ..Default::default()
+        };
+
+        assert_eq!(upload_request_digests(&request).len(), 6);
+        assert_eq!(upload_payload_digests(&request).len(), 4);
+
+        let missing_digests = HashSet::from([
+            missing_file.clone(),
+            missing_blob.clone(),
+            missing_directory.clone(),
+        ]);
+        let request = filter_upload_request_by_missing_digests(request, &missing_digests);
+
+        assert!(!request.upload_only_missing);
+        assert_eq!(
+            request
+                .files_with_digest
+                .unwrap()
+                .into_iter()
+                .map(|file| file.digest)
+                .collect::<Vec<_>>(),
+            vec![missing_file]
+        );
+        assert_eq!(
+            request
+                .inlined_blobs_with_digest
+                .unwrap()
+                .into_iter()
+                .map(|blob| blob.digest)
+                .collect::<Vec<_>>(),
+            vec![missing_blob]
+        );
+        assert_eq!(
+            request
+                .directories
+                .unwrap()
+                .into_iter()
+                .map(|directory| directory.digest.unwrap())
+                .collect::<Vec<_>>(),
+            vec![missing_directory]
+        );
+    }
+
+    #[test]
+    fn test_validate_batch_update_blobs_response_checks_digests() -> anyhow::Result<()> {
+        let digest1 = tdigest_to(&test_digest("aa", 1));
+        let digest2 = tdigest_to(&test_digest("bb", 2));
+
+        validate_batch_update_blobs_response(
+            &[digest1.clone(), digest2.clone()],
+            &BatchUpdateBlobsResponse {
+                responses: vec![
+                    batch_update_blobs_response::Response {
+                        digest: Some(digest2.clone()),
+                        status: Some(Status::default()),
+                    },
+                    batch_update_blobs_response::Response {
+                        digest: Some(digest1.clone()),
+                        status: Some(Status::default()),
+                    },
+                ],
+            },
+        )?;
+
+        let missing = validate_batch_update_blobs_response(
+            &[digest1.clone(), digest2.clone()],
+            &BatchUpdateBlobsResponse {
+                responses: vec![batch_update_blobs_response::Response {
+                    digest: Some(digest1.clone()),
+                    status: Some(Status::default()),
+                }],
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(missing.contains("missing digest"));
+
+        let unexpected = validate_batch_update_blobs_response(
+            &[digest1],
+            &BatchUpdateBlobsResponse {
+                responses: vec![batch_update_blobs_response::Response {
+                    digest: Some(digest2),
+                    status: Some(Status::default()),
+                }],
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(unexpected.contains("unexpected digest"));
+
+        let failed = validate_batch_update_blobs_response(
+            &[tdigest_to(&test_digest("cc", 3))],
+            &BatchUpdateBlobsResponse {
+                responses: vec![batch_update_blobs_response::Response {
+                    digest: Some(tdigest_to(&test_digest("cc", 3))),
+                    status: Some(Status {
+                        code: Code::InvalidArgument as i32,
+                        message: "bad digest".to_owned(),
+                        ..Default::default()
+                    }),
+                }],
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(failed.contains("bad digest"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn grpc_retry_preserves_transient_transport_recovery() {
+        for kind in [
+            io::ErrorKind::BrokenPipe,
+            io::ErrorKind::ConnectionReset,
+            io::ErrorKind::ConnectionAborted,
+            io::ErrorKind::UnexpectedEof,
+            io::ErrorKind::TimedOut,
+        ] {
+            let err = anyhow::Error::from(io::Error::from(kind)).context("request failed");
+            assert!(is_retryable_grpc_error(&err));
+            assert!(is_broken_connection_error(&err));
+        }
+
+        let err = anyhow::Error::from(tonic::Status::cancelled("request cancelled"));
+        assert!(is_retryable_grpc_error(&err));
+        let err = anyhow::Error::from(io::Error::from(io::ErrorKind::PermissionDenied));
+        assert!(!is_retryable_grpc_error(&err));
+    }
+
+    #[tokio::test]
+    async fn retry_grpc_request_preserves_exhausted_status_code() {
+        let result: anyhow::Result<()> =
+            retry_grpc_request(0, Duration::from_millis(1), || async {
+                Err(anyhow::Error::from(tonic::Status::unavailable(
+                    "cache down",
+                )))
+            })
+            .await;
+
+        let err = result.unwrap_err();
+        let err = err.downcast_ref::<REClientError>().expect("REClientError");
+        assert_eq!(err.code, TCode::UNAVAILABLE);
+    }
+
+    #[test]
+    fn test_validate_batch_read_blobs_response_checks_digests() -> anyhow::Result<()> {
+        let digest1 = tdigest_to(&test_digest("aa", 1));
+        let digest2 = tdigest_to(&test_digest("bb", 2));
+
+        validate_batch_read_blobs_response_digests(
+            &[digest1.clone(), digest2.clone()],
+            &BatchReadBlobsResponse {
+                responses: vec![
+                    batch_read_blobs_response::Response {
+                        digest: Some(digest2.clone()),
+                        status: Some(Status::default()),
+                        data: Vec::new(),
+                        ..Default::default()
+                    },
+                    batch_read_blobs_response::Response {
+                        digest: Some(digest1.clone()),
+                        status: Some(Status::default()),
+                        data: Vec::new(),
+                        ..Default::default()
+                    },
+                ],
+            },
+        )?;
+
+        let missing = validate_batch_read_blobs_response_digests(
+            &[digest1.clone(), digest2.clone()],
+            &BatchReadBlobsResponse {
+                responses: vec![batch_read_blobs_response::Response {
+                    digest: Some(digest1.clone()),
+                    status: Some(Status::default()),
+                    data: Vec::new(),
+                    ..Default::default()
+                }],
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(missing.contains("missing digest"));
+
+        let unexpected = validate_batch_read_blobs_response_digests(
+            &[digest1],
+            &BatchReadBlobsResponse {
+                responses: vec![batch_read_blobs_response::Response {
+                    digest: Some(digest2),
+                    status: Some(Status::default()),
+                    data: Vec::new(),
+                    ..Default::default()
+                }],
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(unexpected.contains("unexpected digest"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_find_missing_blobs_response_checks_digests() -> anyhow::Result<()> {
+        let digest1 = tdigest_to(&test_digest("aa", 1));
+        let digest2 = tdigest_to(&test_digest("bb", 2));
+
+        validate_find_missing_blobs_response_digests(
+            &[digest1.clone(), digest2.clone()],
+            &FindMissingBlobsResponse {
+                missing_blob_digests: vec![digest2.clone()],
+            },
+        )?;
+
+        validate_find_missing_blobs_response_digests(
+            &[digest1.clone(), digest2.clone()],
+            &FindMissingBlobsResponse {
+                missing_blob_digests: Vec::new(),
+            },
+        )?;
+
+        let unexpected = validate_find_missing_blobs_response_digests(
+            &[digest1],
+            &FindMissingBlobsResponse {
+                missing_blob_digests: vec![digest2.clone()],
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(unexpected.contains("unexpected digest"));
+
+        let duplicate = validate_find_missing_blobs_response_digests(
+            &[digest2.clone()],
+            &FindMissingBlobsResponse {
+                missing_blob_digests: vec![digest2.clone(), digest2],
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(duplicate.contains("unexpected digest"));
+
+        Ok(())
+    }
+
+    fn digest_for_test_data(data: &[u8]) -> TDigest {
+        TDigest {
+            hash: hex::encode(Sha256::digest(data)),
+            size_in_bytes: data.len() as i64,
+            ..Default::default()
+        }
+    }
+
+    fn blake3_digest_for_test_data(data: &[u8]) -> TDigest {
+        TDigest {
+            hash: blake3::hash(data).to_hex().to_string(),
+            size_in_bytes: data.len() as i64,
+            ..Default::default()
+        }
     }
 
     #[test]
@@ -2067,17 +8069,10 @@ mod tests {
         let path2 = work.path().join("path2");
         let path2 = path2.to_str().context("tempdir is not utf8")?;
 
-        let digest1 = TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest2 = TDigest {
-            hash: "bb".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
+        let blob1 = vec![1, 2, 3];
+        let blob2 = vec![4, 5, 6];
+        let digest1 = digest_for_test_data(&blob1);
+        let digest2 = digest_for_test_data(&blob2);
 
         let req = DownloadRequest {
             file_digests: Some(vec![
@@ -2108,22 +8103,24 @@ mod tests {
                 // Reply out of order
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest2)),
-                    data: vec![4, 5, 6],
+                    data: blob2.clone(),
                     ..Default::default()
                 },
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest1)),
-                    data: vec![1, 2, 3],
+                    data: blob1.clone(),
                     ..Default::default()
                 },
             ],
         };
 
-        download_impl(
+        test_download_impl(
             &InstanceName(None),
             req,
             None,
             10000,
+            None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2168,21 +8165,14 @@ mod tests {
         let path2 = work.path().join("path2");
         let path2 = path2.to_str().context("tempdir is not utf8")?;
 
-        let digest1 = TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
+        let blob1 = vec![1, 2, 3];
+        let digest1 = digest_for_test_data(&blob1);
 
         let blob_data = vec![
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
         ];
 
-        let digest2 = TDigest {
-            hash: "xl".to_owned(),
-            size_in_bytes: 18,
-            ..Default::default()
-        };
+        let digest2 = digest_for_test_data(&blob_data);
 
         let req = DownloadRequest {
             file_digests: Some(vec![
@@ -2213,7 +8203,7 @@ mod tests {
                 // Reply out of order
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest1)),
-                    data: vec![1, 2, 3],
+                    data: blob1.clone(),
                     ..Default::default()
                 },
             ],
@@ -2226,11 +8216,13 @@ mod tests {
             data: blob_data[10..].to_vec(),
         };
 
-        download_impl(
+        test_download_impl(
             &InstanceName(None),
             req,
             None,
             10, // kept small to simulate a large file download
+            None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2243,8 +8235,9 @@ mod tests {
             |req| {
                 let read_response1 = read_response1.clone();
                 let read_response2 = read_response2.clone();
+                let digest2 = digest2.clone();
                 async move {
-                    assert_eq!(req.resource_name, "blobs/xl/18");
+                    assert_eq!(req.resource_name, format!("blobs/{}/18", digest2.hash));
                     anyhow::Ok(Box::pin(futures::stream::iter(vec![
                         Ok(read_response1),
                         Ok(read_response2),
@@ -2274,18 +8267,79 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_download_inlined() -> anyhow::Result<()> {
-        let digest1 = &TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 3,
+    async fn test_download_large_named_dedupes_concurrent_bytestream() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+
+        let path1 = work.path().join("path1");
+        let path1 = path1.to_str().context("tempdir is not utf8")?;
+
+        let path2 = work.path().join("path2");
+        let path2 = path2.to_str().context("tempdir is not utf8")?;
+
+        let blob_data = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+        let blob_data_ref = blob_data.as_slice();
+        let digest = digest_for_test_data(&blob_data);
+        let digest_hash = digest.hash.as_str();
+        let reads = AtomicU16::new(0);
+
+        let req = DownloadRequest {
+            file_digests: Some(vec![
+                NamedDigestWithPermissions {
+                    named_digest: NamedDigest {
+                        name: path1.to_owned(),
+                        digest: digest.clone(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                NamedDigestWithPermissions {
+                    named_digest: NamedDigest {
+                        name: path2.to_owned(),
+                        digest: digest.clone(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            ]),
             ..Default::default()
         };
 
-        let digest2 = &TDigest {
-            hash: "bb".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
+        test_download_impl(
+            &InstanceName(None),
+            req,
+            None,
+            10,
+            None,
+            DigestFunctionConfig::default(),
+            |_req| async { Ok(BatchReadBlobsResponse { responses: vec![] }) },
+            |req| {
+                reads.fetch_add(1, Ordering::Relaxed);
+                async move {
+                    tokio::task::yield_now().await;
+                    assert_eq!(req.resource_name, format!("blobs/{digest_hash}/18"));
+                    anyhow::Ok(Box::pin(futures::stream::iter(vec![Ok(ReadResponse {
+                        data: blob_data_ref.to_vec(),
+                    })])))
+                }
+            },
+        )
+        .await?;
+
+        assert_eq!(tokio::fs::read(&path1).await?, blob_data);
+        assert_eq!(tokio::fs::read(&path2).await?, blob_data);
+        assert_eq!(reads.load(Ordering::Relaxed), 1);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_inlined() -> anyhow::Result<()> {
+        let blob1 = vec![1, 2, 3];
+        let blob2 = vec![4, 5, 6];
+        let digest1 = &digest_for_test_data(&blob1);
+        let digest2 = &digest_for_test_data(&blob2);
 
         let req = DownloadRequest {
             inlined_digests: Some(vec![digest1.clone(), digest2.clone()]),
@@ -2297,22 +8351,24 @@ mod tests {
                 // Reply out of order
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest2)),
-                    data: vec![4, 5, 6],
+                    data: blob2.clone(),
                     ..Default::default()
                 },
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest1)),
-                    data: vec![1, 2, 3],
+                    data: blob1.clone(),
                     ..Default::default()
                 },
             ],
         };
 
-        let res = download_impl(
+        let res = test_download_impl(
             &InstanceName(None),
             req,
             None,
             100000,
+            None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2333,51 +8389,112 @@ mod tests {
         assert_eq!(inlined_blobs.len(), 2);
 
         assert_eq!(inlined_blobs[0].digest, *digest1);
-        assert_eq!(inlined_blobs[0].blob, vec![1, 2, 3]);
+        assert_eq!(inlined_blobs[0].blob, blob1);
 
         assert_eq!(inlined_blobs[1].digest, *digest2);
-        assert_eq!(inlined_blobs[1].blob, vec![4, 5, 6]);
+        assert_eq!(inlined_blobs[1].blob, blob2);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_batch_compressed() -> anyhow::Result<()> {
+        let blob = vec![1u8; DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD + 1];
+        let digest = &digest_for_test_data(&blob);
+        let compressed_blob = compress_data(blob.clone(), Compressor::Zstd).await?;
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        let res = test_download_impl(
+            &InstanceName(None),
+            req,
+            Some(Compressor::Zstd),
+            100000,
+            None,
+            DigestFunctionConfig::default(),
+            |req| {
+                let digest = digest.clone();
+                let compressed_blob = compressed_blob.clone();
+                async move {
+                    assert_eq!(
+                        req.acceptable_compressors,
+                        vec![
+                            compressor::Value::Identity as i32,
+                            compressor::Value::Zstd as i32,
+                        ]
+                    );
+                    Ok(BatchReadBlobsResponse {
+                        responses: vec![batch_read_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            data: compressed_blob,
+                            compressor: compressor::Value::Zstd as i32,
+                            ..Default::default()
+                        }],
+                    })
+                }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await?;
+
+        assert_eq!(res.inlined_blobs.unwrap()[0].blob, blob);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_batch_compression_respects_threshold() -> anyhow::Result<()> {
+        let blob = vec![1u8; DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD - 1];
+        let digest = &digest_for_test_data(&blob);
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        test_download_impl(
+            &InstanceName(None),
+            req,
+            Some(Compressor::Zstd),
+            100000,
+            None,
+            DigestFunctionConfig::default(),
+            |req| {
+                let digest = digest.clone();
+                let blob = blob.clone();
+                async move {
+                    assert_eq!(
+                        req.acceptable_compressors,
+                        vec![compressor::Value::Identity as i32]
+                    );
+                    Ok(BatchReadBlobsResponse {
+                        responses: vec![batch_read_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            data: blob,
+                            compressor: compressor::Value::Identity as i32,
+                            ..Default::default()
+                        }],
+                    })
+                }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await?;
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_download_multiple_batches() -> anyhow::Result<()> {
-        let digest1 = &TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest2 = &TDigest {
-            hash: "bb".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest3 = &TDigest {
-            hash: "cc".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest4 = &TDigest {
-            hash: "dd".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest5 = &TDigest {
-            hash: "dd".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest6 = &TDigest {
-            hash: "dd".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
+        let blob_data = vec![0, 1, 2];
+        let digest1 = &digest_for_test_data(&blob_data);
+        let digest2 = &digest_for_test_data(&blob_data);
+        let digest3 = &digest_for_test_data(&blob_data);
+        let digest4 = &digest_for_test_data(&blob_data);
+        let digest5 = &digest_for_test_data(&blob_data);
+        let digest6 = &digest_for_test_data(&blob_data);
 
         let digests = vec![
             digest1.clone(),
@@ -2395,11 +8512,13 @@ mod tests {
 
         let counter = AtomicU16::new(0);
 
-        let res = download_impl(
+        let res = test_download_impl(
             &InstanceName(None),
             req,
             None,
             7,
+            None,
+            DigestFunctionConfig::default(),
             |req| {
                 counter.fetch_add(1, Ordering::Relaxed);
                 let res = BatchReadBlobsResponse {
@@ -2408,7 +8527,7 @@ mod tests {
                         .iter()
                         .map(|d| batch_read_blobs_response::Response {
                             digest: Some(d.clone()),
-                            data: vec![0, 1, 2],
+                            data: blob_data.clone(),
                             ..Default::default()
                         })
                         .collect::<Vec<_>>(),
@@ -2429,17 +8548,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_download_large_inlined() -> anyhow::Result<()> {
-        let digest1 = &TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest2 = &TDigest {
-            hash: "xl".to_owned(),
-            size_in_bytes: 18,
-            ..Default::default()
-        };
+        let blob1 = vec![1, 2, 3];
+        let digest1 = &digest_for_test_data(&blob1);
+        let blob_data = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+        let digest2 = &digest_for_test_data(&blob_data);
 
         let req = DownloadRequest {
             inlined_digests: Some(vec![digest1.clone(), digest2.clone()]),
@@ -2451,15 +8565,11 @@ mod tests {
                 // Reply out of order
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest1)),
-                    data: vec![1, 2, 3],
+                    data: blob1.clone(),
                     ..Default::default()
                 },
             ],
         };
-
-        let blob_data = vec![
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-        ];
 
         let read_response1 = ReadResponse {
             data: blob_data[..10].to_vec(),
@@ -2468,11 +8578,13 @@ mod tests {
             data: blob_data[10..].to_vec(),
         };
 
-        let res = download_impl(
+        let res = test_download_impl(
             &InstanceName(None),
             req,
             None,
             10, // intentionally small value to keep data in the test blobs small
+            None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2485,8 +8597,9 @@ mod tests {
             |req| {
                 let read_response1 = read_response1.clone();
                 let read_response2 = read_response2.clone();
+                let digest2 = digest2.clone();
                 async move {
-                    assert_eq!(req.resource_name, "blobs/xl/18");
+                    assert_eq!(req.resource_name, format!("blobs/{}/18", digest2.hash));
                     anyhow::Ok(Box::pin(futures::stream::iter(vec![
                         Ok(read_response1),
                         Ok(read_response2),
@@ -2501,7 +8614,7 @@ mod tests {
         assert_eq!(inlined_blobs.len(), 2);
 
         assert_eq!(inlined_blobs[0].digest, *digest1);
-        assert_eq!(inlined_blobs[0].blob, vec![1, 2, 3]);
+        assert_eq!(inlined_blobs[0].blob, blob1);
 
         assert_eq!(inlined_blobs[1].digest, *digest2);
         assert_eq!(inlined_blobs[1].blob, blob_data);
@@ -2510,12 +8623,127 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_download_empty() -> anyhow::Result<()> {
-        let digest1 = &TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 0,
+    async fn test_download_large_inlined_dedupes_concurrent_bytestream() -> anyhow::Result<()> {
+        let blob_data = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+        let blob_data_ref = blob_data.as_slice();
+        let digest = digest_for_test_data(&blob_data);
+        let digest_hash = digest.hash.as_str();
+        let reads = AtomicU16::new(0);
+        let active_downloads = ActiveTransferRegistry::new();
+
+        let download = || {
+            download_impl(
+                &InstanceName(None),
+                DownloadRequest {
+                    inlined_digests: Some(vec![digest.clone()]),
+                    ..Default::default()
+                },
+                None,
+                10,
+                DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+                None,
+                DigestFunctionConfig::default(),
+                0,
+                Duration::from_millis(1),
+                Duration::from_secs(DEFAULT_BYTESTREAM_PROGRESS_TIMEOUT_SECS),
+                &active_downloads,
+                |_req| async { Ok(BatchReadBlobsResponse { responses: vec![] }) },
+                |req| {
+                    reads.fetch_add(1, Ordering::Relaxed);
+                    async move {
+                        tokio::task::yield_now().await;
+                        assert_eq!(req.resource_name, format!("blobs/{digest_hash}/18"));
+                        anyhow::Ok(Box::pin(futures::stream::iter(vec![Ok(ReadResponse {
+                            data: blob_data_ref.to_vec(),
+                        })])))
+                    }
+                },
+                || async {},
+            )
+        };
+
+        let (res1, res2) = tokio::try_join!(download(), download())?;
+
+        assert_eq!(res1.inlined_blobs.unwrap()[0].blob, blob_data);
+        assert_eq!(res2.inlined_blobs.unwrap()[0].blob, blob_data);
+        assert_eq!(reads.load(Ordering::Relaxed), 1);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_large_inlined_resumes_bystream_after_error() -> anyhow::Result<()> {
+        let blob_data = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+        let digest = &digest_for_test_data(&blob_data);
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
             ..Default::default()
         };
+
+        let attempts = AtomicU16::new(0);
+        let reconnects = AtomicU16::new(0);
+        let active_downloads = ActiveTransferRegistry::new();
+        let res = download_impl(
+            &InstanceName(None),
+            req,
+            None,
+            10,
+            DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+            None,
+            DigestFunctionConfig::default(),
+            1,
+            Duration::from_millis(1),
+            Duration::from_secs(DEFAULT_BYTESTREAM_PROGRESS_TIMEOUT_SECS),
+            &active_downloads,
+            |_req| async { Ok(BatchReadBlobsResponse { responses: vec![] }) },
+            |req| {
+                let attempt = attempts.fetch_add(1, Ordering::Relaxed);
+                let digest = digest.clone();
+                let blob_data = blob_data.clone();
+                async move {
+                    assert_eq!(req.resource_name, format!("blobs/{}/18", digest.hash));
+                    let responses = if attempt == 0 {
+                        assert_eq!(req.read_offset, 0);
+                        vec![
+                            Ok(ReadResponse {
+                                data: blob_data[..10].to_vec(),
+                            }),
+                            Err(tonic::Status::unavailable(
+                                "transport error: connection reset",
+                            )),
+                        ]
+                    } else {
+                        assert_eq!(req.read_offset, 10);
+                        vec![Ok(ReadResponse {
+                            data: blob_data[10..].to_vec(),
+                        })]
+                    };
+                    anyhow::Ok(Box::pin(futures::stream::iter(responses)))
+                }
+            },
+            || {
+                reconnects.fetch_add(1, Ordering::Relaxed);
+                async {}
+            },
+        )
+        .await?;
+
+        let inlined_blobs = res.inlined_blobs.unwrap();
+        assert_eq!(inlined_blobs[0].blob, blob_data);
+        assert_eq!(attempts.load(Ordering::Relaxed), 2);
+        assert_eq!(reconnects.load(Ordering::Relaxed), 1);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_empty() -> anyhow::Result<()> {
+        let digest1 = &digest_for_test_data(&[]);
 
         let req = DownloadRequest {
             inlined_digests: Some(vec![digest1.clone()]),
@@ -2524,11 +8752,13 @@ mod tests {
 
         let res = BatchReadBlobsResponse { responses: vec![] };
 
-        let res = download_impl(
+        let res = test_download_impl(
             &InstanceName(None),
             req,
             None,
             100000,
+            None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 async move {
@@ -2551,27 +8781,286 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_download_resource_name() -> anyhow::Result<()> {
-        let digest1 = &TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 0,
-            ..Default::default()
-        };
+    async fn test_download_inlined_size_mismatch_fails() -> anyhow::Result<()> {
+        let digest1 = digest_for_test_data(&[1, 2, 3]);
 
         let req = DownloadRequest {
             inlined_digests: Some(vec![digest1.clone()]),
             ..Default::default()
         };
 
-        download_impl(
+        let res = BatchReadBlobsResponse {
+            responses: vec![batch_read_blobs_response::Response {
+                digest: Some(tdigest_to(&digest1)),
+                data: vec![1, 2],
+                ..Default::default()
+            }],
+        };
+
+        let err = match test_download_impl(
+            &InstanceName(None),
+            req,
+            None,
+            100000,
+            None,
+            DigestFunctionConfig::default(),
+            |_req| {
+                let res = res.clone();
+                async move { Ok(res) }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await
+        {
+            Ok(_) => anyhow::bail!("expected size mismatch error"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.chain()
+                .any(|e| e.to_string().contains("Downloaded blob size mismatch"))
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_named_stream_size_mismatch_fails() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+
+        let path = work.path().join("path");
+        let path = path.to_str().context("tempdir is not utf8")?;
+
+        let digest = digest_for_test_data(&[1; 18]);
+        let req = DownloadRequest {
+            file_digests: Some(vec![NamedDigestWithPermissions {
+                named_digest: NamedDigest {
+                    name: path.to_owned(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                },
+                is_executable: false,
+                ..Default::default()
+            }]),
+            ..Default::default()
+        };
+
+        let read_response = ReadResponse { data: vec![1; 17] };
+        let err = match test_download_impl(
+            &InstanceName(None),
+            req,
+            None,
+            10,
+            None,
+            DigestFunctionConfig::default(),
+            |_req| async { Ok(BatchReadBlobsResponse { responses: vec![] }) },
+            |req| {
+                let read_response = read_response.clone();
+                let digest = digest.clone();
+                async move {
+                    assert_eq!(req.resource_name, format!("blobs/{}/18", digest.hash));
+                    anyhow::Ok(Box::pin(futures::stream::iter(vec![Ok(read_response)])))
+                }
+            },
+        )
+        .await
+        {
+            Ok(_) => anyhow::bail!("expected size mismatch error"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.chain()
+                .any(|e| e.to_string().contains("Downloaded blob size mismatch"))
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_inlined_hash_mismatch_fails() -> anyhow::Result<()> {
+        let digest = digest_for_test_data(&[1, 2, 3]);
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        let res = BatchReadBlobsResponse {
+            responses: vec![batch_read_blobs_response::Response {
+                digest: Some(tdigest_to(&digest)),
+                data: vec![4, 5, 6],
+                ..Default::default()
+            }],
+        };
+
+        let err = match test_download_impl(
+            &InstanceName(None),
+            req,
+            None,
+            100000,
+            None,
+            DigestFunctionConfig::default(),
+            |_req| {
+                let res = res.clone();
+                async move { Ok(res) }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await
+        {
+            Ok(_) => anyhow::bail!("expected hash mismatch error"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.chain()
+                .any(|e| e.to_string().contains("Downloaded blob hash mismatch"))
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_named_stream_hash_mismatch_fails() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+
+        let path = work.path().join("path");
+        let path = path.to_str().context("tempdir is not utf8")?;
+
+        let expected_data = vec![1u8; 18];
+        let actual_data = vec![2u8; 18];
+        let digest = digest_for_test_data(&expected_data);
+        let req = DownloadRequest {
+            file_digests: Some(vec![NamedDigestWithPermissions {
+                named_digest: NamedDigest {
+                    name: path.to_owned(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                },
+                is_executable: false,
+                ..Default::default()
+            }]),
+            ..Default::default()
+        };
+
+        let read_response = ReadResponse {
+            data: actual_data.clone(),
+        };
+        let err = match test_download_impl(
+            &InstanceName(None),
+            req,
+            None,
+            10,
+            None,
+            DigestFunctionConfig::default(),
+            |_req| async { Ok(BatchReadBlobsResponse { responses: vec![] }) },
+            |req| {
+                let read_response = read_response.clone();
+                let digest = digest.clone();
+                async move {
+                    assert_eq!(req.resource_name, format!("blobs/{}/18", digest.hash));
+                    anyhow::Ok(Box::pin(futures::stream::iter(vec![Ok(read_response)])))
+                }
+            },
+        )
+        .await
+        {
+            Ok(_) => anyhow::bail!("expected hash mismatch error"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.chain()
+                .any(|e| e.to_string().contains("Downloaded blob hash mismatch"))
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_resource_name() -> anyhow::Result<()> {
+        let digest1 = &digest_for_test_data(&[]);
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest1.clone()]),
+            ..Default::default()
+        };
+
+        test_download_impl(
             &InstanceName(Some("instance".to_owned())),
             req,
             None,
             0,
+            None,
+            DigestFunctionConfig::default(),
             |_req| async { panic!("not called") },
             |req| async move {
-                assert_eq!(req.resource_name, "instance/blobs/aa/0");
+                assert_eq!(
+                    req.resource_name,
+                    format!("instance/blobs/{}/0", digest1.hash)
+                );
                 anyhow::Ok(Box::pin(futures::stream::iter(vec![])))
+            },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_sets_blake3_digest_function() -> anyhow::Result<()> {
+        let blob = b"aaa".to_vec();
+        let digest = blake3_digest_for_test_data(&blob);
+        let config = DigestFunctionConfig::from_configured_algorithms(&["BLAKE3".into()]);
+
+        let batch_req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        test_download_impl(
+            &InstanceName(None),
+            batch_req,
+            None,
+            10000,
+            Some(digest_function::Value::Blake3),
+            config,
+            |req| {
+                let digest = digest.clone();
+                let blob = blob.clone();
+                async move {
+                    assert_eq!(req.digest_function, digest_function::Value::Blake3 as i32);
+                    Ok(BatchReadBlobsResponse {
+                        responses: vec![batch_read_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            data: blob,
+                            ..Default::default()
+                        }],
+                    })
+                }
+            },
+            |_req| async { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await?;
+
+        let stream_req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        test_download_impl(
+            &InstanceName(None),
+            stream_req,
+            None,
+            1,
+            Some(digest_function::Value::Blake3),
+            config,
+            |_req| async { panic!("not called") },
+            |req| {
+                let digest = digest.clone();
+                let blob = blob.clone();
+                async move {
+                    assert_eq!(req.resource_name, format!("blobs/blake3/{}/3", digest.hash));
+                    anyhow::Ok(Box::pin(futures::stream::iter(vec![Ok(ReadResponse {
+                        data: blob,
+                    })])))
+                }
             },
         )
         .await?;
@@ -2639,6 +9128,7 @@ mod tests {
             None,
             10000,
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2650,6 +9140,101 @@ mod tests {
                     assert_eq!(req.requests[1].digest, Some(tdigest_to(&digest2)));
                     assert_eq!(req.requests[1].data, b"bbb");
                     Ok(res)
+                }
+            },
+            |_req| async { panic!("A Bytestream upload should not be triggered") },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_batch_compressed() -> anyhow::Result<()> {
+        let blob = vec![1u8; DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD + 1];
+        let digest = digest_for_test_data(&blob);
+
+        let active_uploads = ActiveTransferRegistry::new();
+        super::upload_impl(
+            &InstanceName(None),
+            UploadRequest {
+                inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                    blob: blob.clone(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            None,
+            Some(Compressor::Zstd),
+            100000,
+            DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+            None,
+            DigestFunctionConfig::default(),
+            &active_uploads,
+            |req| {
+                let digest = digest.clone();
+                let blob = blob.clone();
+                async move {
+                    assert_eq!(req.requests.len(), 1);
+                    assert_eq!(req.requests[0].compressor, compressor::Value::Zstd as i32);
+                    let decompressed =
+                        decompress_data(req.requests[0].data.clone(), Compressor::Zstd).await?;
+                    assert_eq!(decompressed, blob);
+                    Ok(BatchUpdateBlobsResponse {
+                        responses: vec![batch_update_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            status: Some(Status::default()),
+                        }],
+                    })
+                }
+            },
+            |_req| async { panic!("A Bytestream upload should not be triggered") },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_batch_compression_respects_threshold() -> anyhow::Result<()> {
+        let blob = vec![1u8; DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD - 1];
+        let digest = digest_for_test_data(&blob);
+
+        let active_uploads = ActiveTransferRegistry::new();
+        super::upload_impl(
+            &InstanceName(None),
+            UploadRequest {
+                inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                    blob: blob.clone(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            None,
+            Some(Compressor::Zstd),
+            100000,
+            DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+            None,
+            DigestFunctionConfig::default(),
+            &active_uploads,
+            |req| {
+                let digest = digest.clone();
+                let blob = blob.clone();
+                async move {
+                    assert_eq!(req.requests.len(), 1);
+                    assert_eq!(
+                        req.requests[0].compressor,
+                        compressor::Value::Identity as i32
+                    );
+                    assert_eq!(req.requests[0].data, blob);
+                    Ok(BatchUpdateBlobsResponse {
+                        responses: vec![batch_update_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            status: Some(Status::default()),
+                        }],
+                    })
                 }
             },
             |_req| async { panic!("A Bytestream upload should not be triggered") },
@@ -2704,17 +9289,10 @@ mod tests {
         };
 
         let res = BatchUpdateBlobsResponse {
-            responses: vec![
-                // Reply out of order
-                batch_update_blobs_response::Response {
-                    digest: Some(tdigest_to(&digest2)),
-                    status: Some(Status::default()),
-                },
-                batch_update_blobs_response::Response {
-                    digest: Some(tdigest_to(&digest1)),
-                    status: Some(Status::default()),
-                },
-            ],
+            responses: vec![batch_update_blobs_response::Response {
+                digest: Some(tdigest_to(&digest1)),
+                status: Some(Status::default()),
+            }],
         };
 
         upload_impl(
@@ -2723,6 +9301,7 @@ mod tests {
             None,
             10, // kept small to simulate a large file upload
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2748,6 +9327,70 @@ mod tests {
             },
         )
         .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_large_named_dedupes_concurrent_bytestream() -> anyhow::Result<()> {
+        let blob_data = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+        let blob_data_ref = blob_data.as_slice();
+        let digest = digest_for_test_data(&blob_data);
+        let writes = AtomicU16::new(0);
+
+        let work = tempfile::tempdir()?;
+        let path1 = work.path().join("path1");
+        let path1 = path1.to_str().context("tempdir is not utf8")?;
+        tokio::fs::write(path1, &blob_data).await?;
+
+        let path2 = work.path().join("path2");
+        let path2 = path2.to_str().context("tempdir is not utf8")?;
+        tokio::fs::write(path2, &blob_data).await?;
+
+        let req = UploadRequest {
+            files_with_digest: Some(vec![
+                NamedDigest {
+                    name: path1.to_owned(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                },
+                NamedDigest {
+                    name: path2.to_owned(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                },
+            ]),
+            ..Default::default()
+        };
+
+        upload_impl(
+            &InstanceName(None),
+            req,
+            None,
+            10,
+            None,
+            DigestFunctionConfig::default(),
+            |_req| async { panic!("A BatchUpdateBlobs upload should not be triggered") },
+            |write_reqs| {
+                writes.fetch_add(1, Ordering::Relaxed);
+                async move {
+                    tokio::task::yield_now().await;
+                    let uploaded = write_reqs
+                        .iter()
+                        .flat_map(|req| req.data.iter().copied())
+                        .collect::<Vec<_>>();
+                    assert_eq!(uploaded.as_slice(), blob_data_ref);
+                    anyhow::Ok(WriteResponse {
+                        committed_size: blob_data_ref.len() as i64,
+                    })
+                }
+            },
+        )
+        .await?;
+
+        assert_eq!(writes.load(Ordering::Relaxed), 1);
+
         Ok(())
     }
 
@@ -2787,7 +9430,7 @@ mod tests {
 
         let res = BatchUpdateBlobsResponse {
             responses: vec![batch_update_blobs_response::Response {
-                digest: Some(tdigest_to(&digest2)),
+                digest: Some(tdigest_to(&digest1)),
                 status: Some(Status::default()),
             }],
         };
@@ -2798,6 +9441,7 @@ mod tests {
             None,
             10, // kept small to simulate a large inlined upload
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2824,6 +9468,61 @@ mod tests {
             },
         )
         .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_large_inlined_dedupes_concurrent_bytestream() -> anyhow::Result<()> {
+        let blob_data = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+        let blob_data_ref = blob_data.as_slice();
+        let digest = digest_for_test_data(&blob_data);
+        let writes = AtomicU16::new(0);
+
+        let req = UploadRequest {
+            inlined_blobs_with_digest: Some(vec![
+                InlinedBlobWithDigest {
+                    blob: blob_data.clone(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                },
+                InlinedBlobWithDigest {
+                    blob: blob_data.clone(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                },
+            ]),
+            ..Default::default()
+        };
+
+        upload_impl(
+            &InstanceName(None),
+            req,
+            None,
+            10,
+            None,
+            DigestFunctionConfig::default(),
+            |_req| async { panic!("A BatchUpdateBlobs upload should not be triggered") },
+            |write_reqs| {
+                writes.fetch_add(1, Ordering::Relaxed);
+                async move {
+                    tokio::task::yield_now().await;
+                    let uploaded = write_reqs
+                        .iter()
+                        .flat_map(|req| req.data.iter().copied())
+                        .collect::<Vec<_>>();
+                    assert_eq!(uploaded.as_slice(), blob_data_ref);
+                    anyhow::Ok(WriteResponse {
+                        committed_size: blob_data_ref.len() as i64,
+                    })
+                }
+            },
+        )
+        .await?;
+
+        assert_eq!(writes.load(Ordering::Relaxed), 1);
+
         Ok(())
     }
 
@@ -2860,6 +9559,7 @@ mod tests {
             None,
             10,
             None,
+            DigestFunctionConfig::default(),
             |_req| async move {
                 panic!("This should not be called as there are no blobs to upload in batch");
             },
@@ -2922,6 +9622,7 @@ mod tests {
             None,
             3,
             None,
+            DigestFunctionConfig::default(),
             |_req| async move {
                 panic!("Not called");
             },
@@ -2969,6 +9670,7 @@ mod tests {
                     compressor,
                     0, // max_total_batch_size=0 forces bytestream API
                     None,
+                    DigestFunctionConfig::default(),
                     |_req| async move {
                         panic!("Not called");
                     },
@@ -2994,6 +9696,7 @@ mod tests {
                     compressor,
                     1024, // forces the batch API
                     None,
+                    DigestFunctionConfig::default(),
                     |_req| async move {
                         panic!("Not called");
                     },
@@ -3041,6 +9744,7 @@ mod tests {
             None,
             1,
             None,
+            DigestFunctionConfig::default(),
             |_req| async move {
                 panic!("Not called");
             },
@@ -3048,6 +9752,82 @@ mod tests {
                 assert!(write_reqs[0].resource_name.starts_with("instance/uploads/"));
                 assert!(write_reqs[0].resource_name.ends_with("/blobs/aa/3"));
                 anyhow::Ok(WriteResponse { committed_size: 3 })
+            },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_sets_blake3_digest_function() -> anyhow::Result<()> {
+        let blob = b"aaa".to_vec();
+        let digest = blake3_digest_for_test_data(&blob);
+        let config = DigestFunctionConfig::from_configured_algorithms(&["BLAKE3".into()]);
+
+        upload_impl(
+            &InstanceName(None),
+            UploadRequest {
+                inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                    digest: digest.clone(),
+                    blob: blob.clone(),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            None,
+            10000,
+            None,
+            config,
+            |req| {
+                let digest = digest.clone();
+                async move {
+                    assert_eq!(req.digest_function, digest_function::Value::Blake3 as i32);
+                    assert_eq!(req.requests.len(), 1);
+                    Ok(BatchUpdateBlobsResponse {
+                        responses: vec![batch_update_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            status: Some(Status::default()),
+                        }],
+                    })
+                }
+            },
+            |_req| async { panic!("not called") },
+        )
+        .await?;
+
+        upload_impl(
+            &InstanceName(None),
+            UploadRequest {
+                inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                    digest: digest.clone(),
+                    blob,
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            None,
+            1,
+            None,
+            config,
+            |_req| async { panic!("not called") },
+            |write_reqs| {
+                let digest = digest.clone();
+                async move {
+                    assert_eq!(write_reqs.len(), 3);
+                    assert!(write_reqs[0].resource_name.starts_with("uploads/"));
+                    assert!(
+                        write_reqs
+                            .iter()
+                            .all(|req| req.resource_name == write_reqs[0].resource_name)
+                    );
+                    assert!(
+                        write_reqs[0]
+                            .resource_name
+                            .ends_with(&format!("/blobs/blake3/{}/3", digest.hash))
+                    );
+                    anyhow::Ok(WriteResponse { committed_size: 3 })
+                }
             },
         )
         .await?;
@@ -3082,12 +9862,17 @@ mod tests {
             ..Default::default()
         };
 
-        upload_impl(
+        let active_uploads = ActiveTransferRegistry::new();
+        super::upload_impl(
             &InstanceName(Some("instance".to_owned())),
             req,
             Some(Compressor::Zstd),
-            1,
             None,
+            1,
+            0,
+            None,
+            DigestFunctionConfig::default(),
+            &active_uploads,
             |_req| async move {
                 panic!("Not called");
             },
@@ -3131,6 +9916,63 @@ mod tests {
         assert_eq!(substitute_env_vars_impl("FOO", getter).unwrap(), "FOO");
         assert!(substitute_env_vars_impl("$FOO$BAZ", getter).is_err());
     }
+
+    #[test]
+    fn prepare_uri_adds_root_path_to_bare_authority() -> anyhow::Result<()> {
+        let (uri, tls) = prepare_uri("remote.buildbuddy.io".parse()?)?;
+        assert_eq!(uri.to_string(), "https://remote.buildbuddy.io/");
+        assert!(tls);
+
+        let (uri, tls) = prepare_uri("grpc://localhost:8980".parse()?)?;
+        assert_eq!(uri.to_string(), "http://localhost:8980/");
+        assert!(!tls);
+
+        let (uri, tls) = prepare_uri("grpcs://remote.buildbuddy.io/cache".parse()?)?;
+        assert_eq!(uri.to_string(), "https://remote.buildbuddy.io/cache");
+        assert!(tls);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_trim_bystream_write_segments_partial() {
+        let resource_name = "uploads/uuid/blobs/hash/18".to_owned();
+        let segments = vec![
+            WriteRequest {
+                resource_name: resource_name.clone(),
+                write_offset: 0,
+                finish_write: false,
+                data: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            },
+            WriteRequest {
+                resource_name,
+                write_offset: 10,
+                finish_write: true,
+                data: vec![11, 12, 13, 14, 15, 16, 17, 18],
+            },
+        ];
+
+        assert_eq!(18, total_bystream_write_size(&segments));
+
+        let resumed = trim_bystream_write_segments(segments, 12);
+        assert_eq!(1, resumed.len());
+        assert_eq!(12, resumed[0].write_offset);
+        assert_eq!(vec![13, 14, 15, 16, 17, 18], resumed[0].data);
+        assert!(resumed[0].finish_write);
+    }
+
+    #[test]
+    fn test_trim_bystream_write_segments_no_trim() {
+        let segments = vec![WriteRequest {
+            resource_name: "uploads/uuid/blobs/hash/3".to_owned(),
+            write_offset: 0,
+            finish_write: true,
+            data: vec![1, 2, 3],
+        }];
+
+        let resumed = trim_bystream_write_segments(segments.clone(), 0);
+        assert_eq!(segments, resumed);
+    }
 }
 
 #[tokio::test]
@@ -3152,12 +9994,17 @@ async fn test_upload_compressed() -> anyhow::Result<()> {
     };
 
     let blob_data_ref = &blob_data;
+    let active_uploads = ActiveTransferRegistry::new();
     upload_impl(
         &InstanceName(Some("instance".to_owned())),
         req,
         Some(Compressor::Zstd),
-        1,
         None,
+        1,
+        DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+        None,
+        DigestFunctionConfig::default(),
+        &active_uploads,
         |_req| async move {
             panic!("Not called");
         },
@@ -3189,13 +10036,12 @@ async fn test_download_compressed() -> anyhow::Result<()> {
         .read_to_end(&mut compressed_data)
         .await
         .unwrap();
-    let compressed_data_ref = &compressed_data;
-
+    let active_downloads = ActiveTransferRegistry::new();
     let d_resp = download_impl(
         &InstanceName(None),
         DownloadRequest {
             inlined_digests: Some(vec![TDigest {
-                hash: "aa".to_owned(),
+                hash: hex::encode(Sha256::digest(&blob_data)),
                 size_in_bytes: blob_data.len() as i64,
                 ..Default::default()
             }]),
@@ -3204,14 +10050,25 @@ async fn test_download_compressed() -> anyhow::Result<()> {
         },
         Some(Compressor::Zstd),
         10,
+        DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+        None,
+        DigestFunctionConfig::default(),
+        0,
+        Duration::from_millis(1),
+        Duration::from_secs(DEFAULT_BYTESTREAM_PROGRESS_TIMEOUT_SECS),
+        &active_downloads,
         |_req| async { panic!("not called") },
-        |_req| async move {
-            Ok(Box::pin(futures::stream::iter(
-                compressed_data_ref
+        |_req| {
+            let compressed_data = compressed_data.clone();
+            async move {
+                let responses = compressed_data
                     .chunks(10)
-                    .map(|d| Result::Ok(ReadResponse { data: d.to_vec() })),
-            )))
+                    .map(|d| Result::Ok(ReadResponse { data: d.to_vec() }))
+                    .collect::<Vec<_>>();
+                Ok(Box::pin(futures::stream::iter(responses)))
+            }
         },
+        || async {},
     )
     .await?;
 

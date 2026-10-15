@@ -1,0 +1,23 @@
+name: build_example_nginx_goaway
+description: Build examples/remote_execution/nginx_goaway against bazel-remote behind an nginx proxy that sends GOAWAY
+runs:
+  using: composite
+  steps:
+  - name: Install nginx and bazel-remote
+    run: |-
+      command -v nginx >/dev/null || sudo apt-get install -y nginx
+      # test.sh needs `nginx -e` (1.19.5) and `keepalive_requests` to apply
+      # to HTTP/2 connections (1.19.7).
+      nginx -v 2>&1 | awk -F/ '{ split($2, v, "."); if (v[1] + 0 == 1 && (v[2] + 0 < 19 || v[2] + 0 == 19 && v[3] + 0 < 7)) { print "nginx is too old: " $0; exit 1 } }'
+      curl --fail --silent --show-error --location \
+        --output "$RUNNER_TEMP/bazel-remote" \
+        https://github.com/buchgr/bazel-remote/releases/download/v2.6.2/bazel-remote-2.6.2-linux-amd64
+      echo "62e236bf8396e69396928e0d0c32062fbd5575f20fe55dc10a82eb791297e1a0  $RUNNER_TEMP/bazel-remote" | sha256sum --check
+      chmod +x "$RUNNER_TEMP/bazel-remote"
+    shell: bash
+  - name: Build examples/remote_execution/nginx_goaway
+    run: |-
+      BUCK2=$RUNNER_TEMP/artifacts/buck2 \
+      BAZEL_REMOTE=$RUNNER_TEMP/bazel-remote \
+        examples/remote_execution/nginx_goaway/test.sh
+    shell: bash

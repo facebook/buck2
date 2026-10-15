@@ -318,6 +318,7 @@ fn re_create_action(
                 .transpose()
                 .buck_error_context("Cannot convert timeout to GRPC")?,
             do_not_cache,
+            platform: Some(platform.clone()),
             ..Default::default()
         };
         #[cfg(fbcode_build)]
@@ -331,7 +332,7 @@ fn re_create_action(
     let mut command = RE::Command {
         arguments: command_args,
         #[allow(deprecated)]
-        platform: Some(platform),
+        platform: Some(platform.clone()),
         working_directory: working_directory.as_str().to_owned(),
         environment_variables: environment
             .iter()
@@ -406,6 +407,7 @@ fn re_create_action(
             .unwrap_or_default(),
         #[cfg(fbcode_build)]
         allow_unsandboxed_action_cache_uploads,
+        platform: Some(platform),
         #[cfg(fbcode_build)]
         worker_tool_action_digest: worker_tool_init_action.clone().map(|a| a.action.to_grpc()),
         ..Default::default()

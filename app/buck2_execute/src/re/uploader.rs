@@ -223,9 +223,9 @@ impl Uploader {
                     }
                     Err(
                         ref err @ ArtifactNotMaterializedReason::RequiresCasDownload {
+                            ref path,
                             ref entry,
                             ref info,
-                            ..
                         },
                     ) => {
                         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) =
@@ -237,6 +237,7 @@ impl Uploader {
                             // a very long time, it might have expired.
                             if file.digest.to_re() == digest {
                                 if should_error_for_missing_digest(info) {
+                                    client.record_missing_remote_cas_digest(digest.clone());
                                     soft_error!(
                                         "cas_missing_fatal",
                                         buck2_error::buck2_error!(
@@ -272,6 +273,20 @@ impl Uploader {
                                     quiet: true
                                 )?;
 
+                                // Materialize the file locally from CAS and add it to
+                                // the upload list. Silently skipping this file (the old
+                                // behavior) leaves the downstream action with incomplete
+                                // inputs, causing confusing failures. Materializing
+                                // bypasses FindMissingCache and talks directly to CAS;
+                                // if the blob truly is gone, we fail here with a clear
+                                // error rather than later with a mysterious one.
+                                artifacts_to_materialize
+                                    .push((path.clone(), ArtifactValue::file(metadata)));
+                                upload_files.push(NamedDigest {
+                                    name: fs.resolve(path).as_maybe_relativized_str()?.to_owned(),
+                                    digest,
+                                    ..Default::default()
+                                });
                                 continue;
                             }
                         }
