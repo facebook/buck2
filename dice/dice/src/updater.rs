@@ -18,6 +18,7 @@ use dupe::Dupe;
 
 use crate::Dice;
 use crate::HashMap;
+use crate::api::data::DiceData;
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
@@ -25,6 +26,7 @@ use crate::api::user_data::UserComputationData;
 use crate::arc::Arc;
 use crate::core::state::CoreStateHandle;
 use crate::epoch::ctx::TransactionCtx;
+use crate::epoch::evaluator::TransactionData;
 use crate::epoch::evaluator::VersionState;
 use crate::key::DiceKey;
 use crate::value::DiceKeyValue;
@@ -37,6 +39,7 @@ use crate::versions::VersionNumber;
 pub(crate) struct TransactionUpdater {
     dice: StdArc<Dice>,
     branch: BranchId,
+    global_data: StdArc<DiceData>,
     scheduled_changes: Changes,
     user_data: Arc<UserComputationData>,
 }
@@ -47,9 +50,11 @@ impl TransactionUpdater {
         branch: BranchId,
         user_data: Arc<UserComputationData>,
     ) -> Self {
+        let global_data = dice.data_for_branch(branch);
         Self {
             dice: dice.dupe(),
             branch,
+            global_data,
             scheduled_changes: Changes::new(dice),
             user_data,
         }
@@ -61,6 +66,7 @@ impl TransactionUpdater {
 
     pub(crate) fn retarget(&mut self, branch: BranchId) {
         self.branch = branch;
+        self.global_data = self.dice.data_for_branch(branch);
     }
 
     /// Records a set of `Key`s as changed so that they, and any dependents will
@@ -107,27 +113,43 @@ impl TransactionUpdater {
     pub(crate) async fn commit(self) -> TransactionCtx {
         let user_data = self.user_data.dupe();
         let dice = self.dice.dupe();
+        let global_data = self.global_data.dupe();
 
         let (transaction, guard) = self.commit_to_state().await;
 
-        TransactionCtx::new(transaction, user_data, dice, guard)
+        TransactionCtx::new(
+            TransactionData::new(transaction, user_data, dice, global_data),
+            guard,
+        )
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
     /// replacing the user data with the given set
     pub(crate) async fn commit_with_data(self, extra: UserComputationData) -> TransactionCtx {
         let dice = self.dice.dupe();
+        let global_data = self.global_data.dupe();
 
         let (transaction, guard) = self.commit_to_state().await;
 
-        TransactionCtx::new(transaction, Arc::new(extra), dice, guard)
+        TransactionCtx::new(
+            TransactionData::new(transaction, Arc::new(extra), dice, global_data),
+            guard,
+        )
     }
 
     pub(crate) async fn existing_state(&self) -> TransactionCtx {
         let v = self.dice.state_handle.current_version(self.branch).await;
         let guard = ActiveTransactionGuard::new(v, self.dice.state_handle.dupe());
         let (transaction, guard) = self.dice.state_handle.ctx_at_version(v, guard).await;
-        TransactionCtx::new(transaction, self.user_data.dupe(), self.dice.dupe(), guard)
+        TransactionCtx::new(
+            TransactionData::new(
+                transaction,
+                self.user_data.dupe(),
+                self.dice.dupe(),
+                self.global_data.dupe(),
+            ),
+            guard,
+        )
     }
 
     async fn commit_to_state(self) -> (VersionState, ActiveTransactionGuard) {

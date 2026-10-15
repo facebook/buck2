@@ -1755,6 +1755,7 @@ async fn equal_revisions_get_distinct_paged_out_descriptors_across_versions() ->
     let old_eval = TransactionData {
         version_state: old_state.dupe(),
         user_data: DiceArc::new(user_data_with_counter(&counter)),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
     let key = dice.key_index.index_key(PagableKey(1));
@@ -1778,6 +1779,7 @@ async fn equal_revisions_get_distinct_paged_out_descriptors_across_versions() ->
     let new_eval = TransactionData {
         version_state: new_state.dupe(),
         user_data: DiceArc::new(user_data_with_counter(&counter)),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
     let new_value = new_eval.bring_up_to_date(key, ParentKey::None).await?;
@@ -1834,6 +1836,7 @@ async fn recovery_demands_use_the_transaction_cache() {
         TransactionData {
             version_state: VersionState::new(tx.0.get_version(), cache),
             user_data: DiceArc::new(UserComputationData::new()),
+            global_data: dice.global_data.dupe(),
             dice: dice.dupe(),
         }
     };
@@ -1901,6 +1904,7 @@ async fn validated_unreadable_value_fails_only_on_demand() -> anyhow::Result<()>
     let eval = TransactionData {
         version_state: version_state.dupe(),
         user_data: DiceArc::new(data),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
     let key = dice.key_index.index_key(UnreadableValidatedKey);

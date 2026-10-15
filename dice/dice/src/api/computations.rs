@@ -450,8 +450,7 @@ impl<'d> DiceComputations<'d> {
         self.0.data()
     }
 
-    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
-    /// time that Dice is initialized via the constructor.
+    /// Untracked data that is static for the lifetime of this branch tree.
     pub fn global_data(&self) -> &'d DiceData {
         self.0.global_data()
     }
@@ -543,8 +542,7 @@ impl<'l, 'a> LinearRecomputeDiceComputations<'l, 'a> {
 pub struct DiceComputationsData(pub(crate) ModernDiceComputationsData);
 
 impl DiceComputationsData {
-    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
-    /// time that Dice is initialized via the constructor.
+    /// Untracked data that is static for the lifetime of this branch tree.
     pub fn global_data(&self) -> &DiceData {
         self.0.global_data()
     }

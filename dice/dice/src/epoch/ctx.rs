@@ -40,20 +40,17 @@ use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
-use crate::arc::Arc;
 use crate::core::graph::revision::Revision;
 use crate::deps::LinearDepsTracker;
 use crate::deps::RecordedDeps;
 use crate::deps::RecordingDepsTracker;
 use crate::deps::graph::DepEdge;
-use crate::dice::Dice;
 use crate::epoch::branches::BranchEntry;
 use crate::epoch::branches::LinearRecomputeArena;
 use crate::epoch::branches::ParallelArena;
 use crate::epoch::branches::ParallelBranchFuture;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::evaluator::ValueDemand;
-use crate::epoch::evaluator::VersionState;
 use crate::epoch::task::promise::DicePromise;
 use crate::key::CowDiceKeyHashed;
 use crate::key::DiceKey;
@@ -88,18 +85,12 @@ impl Dupe for TransactionCtx {}
 
 impl TransactionCtx {
     pub(crate) fn new(
-        per_live_version_ctx: VersionState,
-        user_data: Arc<UserComputationData>,
-        dice: StdArc<Dice>,
+        transaction_data: TransactionData,
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
             ctx: ComputeCtx {
-                transaction_data: TransactionData {
-                    version_state: per_live_version_ctx,
-                    user_data,
-                    dice,
-                },
+                transaction_data,
                 parent_key: ParentKey::None,
                 evaluation_data: Mutex::new(EvaluationData::none()),
                 dependency_failed: AtomicBool::new(false),
@@ -457,7 +448,7 @@ pub struct ModernDiceComputationsData(TransactionData);
 
 impl ModernDiceComputationsData {
     pub fn global_data(&self) -> &DiceData {
-        &self.0.dice.global_data
+        &self.0.global_data
     }
 
     pub fn per_transaction_data(&self) -> &UserComputationData {
@@ -610,8 +601,7 @@ impl<'d> TrackedComputations<'d> {
             .dupe())
     }
 
-    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
-    /// time that Dice is initialized via the constructor.
+    /// Untracked data that is static for the lifetime of this branch tree.
     pub(crate) fn global_data(&self) -> &'d DiceData {
         self.ctx_data().global_data()
     }
@@ -742,10 +732,9 @@ impl ComputeCtx {
         Ok((dice_key, value))
     }
 
-    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
-    /// time that Dice is initialized via the constructor.
+    /// Untracked data that is static for the lifetime of this branch tree.
     pub(crate) fn global_data(&self) -> &DiceData {
-        &self.transaction_data.dice.global_data
+        &self.transaction_data.global_data
     }
 
     /// Data that is static for the lifetime of the current request context. This lifetime is

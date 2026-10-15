@@ -59,6 +59,133 @@ impl InjectedKey for Foo {
     }
 }
 
+#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[display("GlobalDataKey")]
+#[pagable_typetag(DiceKeyDyn)]
+struct GlobalDataKey;
+
+#[async_trait]
+impl Key for GlobalDataKey {
+    type Value = usize;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        ctx.global_data()
+            .get::<Arc<AtomicUsize>>()
+            .expect("test should configure a compute counter")
+            .fetch_add(1, Ordering::SeqCst);
+        *ctx.compute(&Foo(0)).await.unwrap() as usize
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+fn root_data(value: usize, counter: &Arc<AtomicUsize>) -> DiceData {
+    let mut data = DiceData::new();
+    data.set(value);
+    data.set(counter.dupe());
+    data
+}
+
+#[tokio::test]
+async fn root_data_follows_tracked_inputs() -> anyhow::Result<()> {
+    let ordinary_count = Arc::new(AtomicUsize::new(0));
+    let dice = Dice::testing_new(root_data(1, &ordinary_count));
+    let ordinary = dice.new_root().await;
+    let new_ordinary = dice.new_root().await;
+    let isolated_count = Arc::new(AtomicUsize::new(0));
+    let isolated = dice.new_root_with_data(root_data(2, &isolated_count)).await;
+    let other_count = Arc::new(AtomicUsize::new(0));
+    let other = dice.new_root_with_data(root_data(3, &other_count)).await;
+
+    for (branch, expected, counter) in [
+        (ordinary, 1, &ordinary_count),
+        (isolated, 2, &isolated_count),
+        (other, 3, &other_count),
+    ] {
+        let mut updater = dice.updater(branch);
+        updater.changed_to(vec![(Foo(0), expected as i32)])?;
+        let first = updater.commit().await;
+        assert_eq!(*first.compute(&GlobalDataKey).await?, expected);
+        drop(first);
+        let second = dice.updater(branch).commit().await;
+        assert_eq!(*second.compute(&GlobalDataKey).await?, expected);
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+    }
+
+    let child = dice.fork(dice.head(isolated).await).await;
+    dice.delete_branch(isolated);
+    let child_ctx = dice.updater(child).commit().await;
+    assert_eq!(*child_ctx.compute(&GlobalDataKey).await?, 2);
+    assert_eq!(isolated_count.load(Ordering::SeqCst), 1);
+
+    let mut updater = dice.updater(new_ordinary);
+    updater.changed_to(vec![(Foo(0), 1)])?;
+    let ctx = updater.commit().await;
+    assert_eq!(*ctx.compute(&GlobalDataKey).await?, 1);
+    assert_eq!(ordinary_count.load(Ordering::SeqCst), 1);
+
+    let shared_count = Arc::new(AtomicUsize::new(0));
+    let shared = dice.new_root_with_data(root_data(1, &shared_count)).await;
+    let mut updater = dice.updater(shared);
+    updater.changed_to(vec![(Foo(0), 1)])?;
+    let ctx = updater.commit().await;
+    assert_eq!(*ctx.compute(&GlobalDataKey).await?, 1);
+    assert_eq!(shared_count.load(Ordering::SeqCst), 0);
+    assert!(Arc::ptr_eq(
+        ctx.global_data().get::<Arc<AtomicUsize>>()?,
+        &shared_count
+    ));
+    Ok(())
+}
+
+#[tokio::test]
+async fn retargeting_an_updater_selects_the_new_roots_data() -> anyhow::Result<()> {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let dice = Dice::testing_new(root_data(1, &counter));
+    let ordinary = dice.new_root().await;
+    let isolated = dice.new_root_with_data(root_data(2, &counter)).await;
+    let mut updater = dice.updater(ordinary);
+    updater.retarget(isolated);
+    updater.changed_to(vec![(Foo(0), 2)])?;
+    updater.commit().await;
+    let mut updater = dice.updater(ordinary);
+    updater.retarget(isolated);
+    let existing = updater.existing_state().await;
+    assert_eq!(*existing.global_data().get::<usize>()?, 2);
+    assert_eq!(*existing.compute(&GlobalDataKey).await?, 2);
+    let committed = updater.commit().await;
+    assert_eq!(*committed.compute(&GlobalDataKey).await?, 2);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn cancelled_root_with_data_creation_releases_its_branch_and_data() {
+    let dice = Dice::testing_new(DiceData::new());
+    for wait_for_reply in [false, true] {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let creation = dice.new_root_with_data(root_data(1, &counter));
+        if wait_for_reply {
+            assert!(dice.is_idle().await);
+        }
+        drop(creation);
+        // The second query also follows deletion of an unclaimed reply sent after the first.
+        assert!(dice.is_idle().await);
+        assert!(dice.is_idle().await);
+        assert_eq!(dice.metrics().branch_count, 0);
+        assert_eq!(Arc::strong_count(&counter), 1);
+    }
+}
+
 #[derive(Clone, Dupe, Debug, Derivative, Allocative, Display, PagablePanic)]
 #[derivative(PartialEq, Eq, Hash)]
 #[display("{:?}", self)]

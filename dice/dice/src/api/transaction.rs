@@ -148,7 +148,7 @@ impl DiceTransaction {
         self.0.per_transaction_data()
     }
 
-    /// Data that is shared for all requests of this DICE instance.
+    /// Untracked data that is shared by transactions in this branch tree.
     pub fn global_data(&self) -> &DiceData {
         self.0.global_data()
     }

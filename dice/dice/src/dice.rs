@@ -19,6 +19,7 @@ use dice_core::Version;
 use dupe::Dupe;
 use pagable::StorageContext;
 use pagable::storage::handle::PagableStorageHandle;
+use parking_lot::RwLock;
 
 use crate::DiceTransactionUpdater;
 use crate::HashMap;
@@ -56,7 +57,8 @@ pub(crate) const DEFAULT_CYCLE_CHECK_INTERVAL: Duration = Duration::from_secs(1)
 pub struct Dice {
     pub(crate) key_index: DiceKeyIndex,
     pub(crate) state_handle: CoreStateHandle,
-    pub(crate) global_data: DiceData,
+    pub(crate) global_data: StdArc<DiceData>,
+    branch_data: StdArc<RwLock<HashMap<BranchId, StdArc<DiceData>>>>,
     pub(crate) pagable_storage: Option<DiceStorage>,
     /// How soon after a version's computations stop making progress they are first checked for
     /// dependency cycles, or `None` to never check. See `epoch::cycles`.
@@ -72,6 +74,7 @@ fn _assert_send_sync(
         key_index,
         state_handle,
         global_data,
+        branch_data,
         pagable_storage,
         cycle_check_interval,
     }: &Dice,
@@ -80,6 +83,7 @@ fn _assert_send_sync(
     assert(key_index);
     assert(state_handle);
     assert(global_data);
+    assert(branch_data);
     assert(pagable_storage);
     assert(cycle_check_interval);
 }
@@ -140,10 +144,13 @@ impl Dice {
     ) -> StdArc<Self> {
         let state_handle = init_state(pagable_storage.as_ref().map(DiceStorage::paging_setup));
 
+        let global_data = StdArc::new(global_data);
+
         StdArc::new(Dice {
             key_index: Default::default(),
             state_handle,
             global_data,
+            branch_data: StdArc::new(RwLock::new(HashMap::default())),
             pagable_storage,
             cycle_check_interval,
         })
@@ -164,7 +171,14 @@ impl Dice {
     /// branch, its head included. Dropping the future before it yields the branch does not leak
     /// one.
     pub fn fork(&self, from: Version) -> impl Future<Output = BranchId> + use<> {
-        self.state_handle.fork(from)
+        let data = self.data_for_branch(from.branch());
+        let branch_data = self.branch_data.dupe();
+        let branch = self.state_handle.fork(from);
+        async move {
+            let branch = branch.await;
+            branch_data.write().insert(branch, data);
+            branch
+        }
     }
 
     /// Starts a branch with no parent. It starts out with no injected values, and it shares with
@@ -172,7 +186,28 @@ impl Dice {
     /// premises hold at it, once the same inputs have been injected. Dropping the future before
     /// it yields the branch does not leak one.
     pub fn new_root(&self) -> impl Future<Output = BranchId> + use<> {
-        self.state_handle.new_root()
+        let data = self.global_data.dupe();
+        let branch_data = self.branch_data.dupe();
+        let branch = self.state_handle.new_root();
+        async move {
+            let branch = branch.await;
+            branch_data.write().insert(branch, data);
+            branch
+        }
+    }
+
+    /// Starts a root whose computations use `data`. Certificates are shared with other roots
+    /// under the same rules as [`Self::new_root`]. Any differences in this untracked data that
+    /// affect computed values must be represented by keys or tracked dependencies. Dropping
+    /// the future before it yields the branch does not leak one.
+    pub fn new_root_with_data(&self, data: DiceData) -> impl Future<Output = BranchId> + use<> {
+        let branch_data = self.branch_data.dupe();
+        let branch = self.state_handle.new_root();
+        async move {
+            let branch = branch.await;
+            branch_data.write().insert(branch, StdArc::new(data));
+            branch
+        }
     }
 
     /// The branch's newest version.
@@ -190,7 +225,8 @@ impl Dice {
     /// be idle first ([`Self::wait_for_idle_on`]). Starting a transaction on the branch,
     /// committing to it or forking from it afterwards is an error that panics.
     pub fn delete_branch(&self, branch: BranchId) {
-        self.state_handle.delete_branch(branch)
+        self.state_handle.delete_branch(branch);
+        self.branch_data.write().remove(&branch);
     }
 
     /// An updater for `branch`: its commits extend that branch, and its transactions run at that
@@ -210,6 +246,16 @@ impl Dice {
             branch,
             Arc::new(extra),
         ))
+    }
+
+    pub(crate) fn data_for_branch(&self, branch: BranchId) -> StdArc<DiceData> {
+        self.branch_data
+            .read()
+            .get(&branch)
+            .map(Dupe::dupe)
+            // Constructing an updater for a deleted branch remains cheap; the core rejects any
+            // attempt to start a transaction on it before this fallback data can be observed.
+            .unwrap_or_else(|| self.global_data.dupe())
     }
 
     pub fn metrics(&self) -> Metrics {

@@ -24,6 +24,7 @@ use crate::ActivationData;
 use crate::DiceEvent;
 use crate::DynKey;
 use crate::api::activation_tracker::PageInPhase;
+use crate::api::data::DiceData;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
@@ -177,6 +178,7 @@ pub(crate) struct TransactionData {
     pub(super) version_state: VersionState,
     pub(super) user_data: Arc<UserComputationData>,
     pub(super) dice: StdArc<Dice>,
+    pub(super) global_data: StdArc<DiceData>,
 }
 
 #[derive(Clone, Dupe)]
@@ -186,6 +188,20 @@ pub(crate) struct ValueDemand {
 }
 
 impl TransactionData {
+    pub(crate) fn new(
+        version_state: VersionState,
+        user_data: Arc<UserComputationData>,
+        dice: StdArc<Dice>,
+        global_data: StdArc<DiceData>,
+    ) -> Self {
+        Self {
+            version_state,
+            user_data,
+            dice,
+            global_data,
+        }
+    }
+
     /// Establish the key's revision without demanding its payload.
     ///
     /// Fails if `key` turns out to be in a dependency cycle with `parent_key`, and only then.
@@ -430,7 +446,7 @@ impl TransactionData {
             unreachable!("cannot evaluate async keys synchronously")
         };
         let ctx = DiceProjectionComputations {
-            data: &self.dice.global_data,
+            data: &self.global_data,
             user_data: &self.user_data,
         };
 

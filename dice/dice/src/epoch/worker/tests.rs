@@ -185,6 +185,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let eval = TransactionData {
         version_state: ctx.dupe(),
         user_data: user_data.dupe(),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
 
@@ -210,6 +211,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let eval = TransactionData {
         version_state: ctx.dupe(),
         user_data: user_data.dupe(),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
 
@@ -296,6 +298,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let eval = TransactionData {
         version_state: ctx.dupe(),
         user_data: user_data.dupe(),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
 
@@ -318,6 +321,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let eval = TransactionData {
         version_state: ctx.dupe(),
         user_data: user_data.dupe(),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
 
@@ -359,6 +363,7 @@ async fn spawn_with_no_previously_cancelled_task() {
     let eval = TransactionData {
         version_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
     let previously_cancelled_task = None;
@@ -380,6 +385,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let eval = TransactionData {
         version_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
 
@@ -436,6 +442,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     let eval = TransactionData {
         version_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
 
@@ -502,6 +509,7 @@ async fn writes_after_the_last_transaction_is_dropped_are_accepted() {
     let eval = TransactionData {
         version_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
 
@@ -603,6 +611,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
     let eval = TransactionData {
         version_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
 
@@ -785,6 +794,7 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
     let eval = TransactionData {
         version_state: ctx.dupe(),
         user_data: user_data.dupe(),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
 
@@ -870,6 +880,7 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     let eval = TransactionData {
         version_state: ctx.dupe(),
         user_data: user_data.dupe(),
+        global_data: dice.global_data.dupe(),
         dice: dice.dupe(),
     };
 
