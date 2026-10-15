@@ -18,6 +18,19 @@ use std::sync::Arc;
 
 use crate::packed_ptr::PackedPtr;
 
+#[cfg(not(mini_vec_no_ptr_packing))]
+#[test]
+fn packed_word_round_trips() {
+    static TARGET: u32 = 7;
+    let p = PackedPtr::new(&TARGET, 0xAB);
+    let word = p.to_packed_word();
+    // SAFETY: `word` came from `to_packed_word` on a `PackedPtr<&'static u32>`.
+    let q: PackedPtr<&'static u32> = unsafe { PackedPtr::from_packed_word(word) };
+    assert_eq!(q.extra(), 0xAB);
+    assert!(std::ptr::eq(q.as_ref(), &TARGET));
+    assert_eq!(q.to_packed_word(), word);
+}
+
 #[test]
 fn size_is_one_pointer() {
     // Packing fits in a single machine word; with packing disabled the metadata
