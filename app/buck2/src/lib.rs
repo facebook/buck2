@@ -39,6 +39,7 @@ use buck2_client::commands::test::TestCommand;
 use buck2_client_ctx::agent_context::AgentContext;
 use buck2_client_ctx::agent_context::AgentContextEntry;
 use buck2_client_ctx::agent_context::parse_agent_context;
+use buck2_client_ctx::agent_invocation_info::AgentInvocationInfo;
 use buck2_client_ctx::argfiles::expand_argv;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -576,7 +577,7 @@ impl CommandKind {
             common_opts.oncall,
             common_opts.client_metadata,
             common_opts.isolation_dir,
-            AgentContext::new(common_opts.agent_context),
+            AgentInvocationInfo::from_client(AgentContext::new(common_opts.agent_context)),
         );
         if let Some(recorder) = events_ctx.recorder.as_mut() {
             recorder.update_for_client_ctx(&command_ctx, self.command_name());

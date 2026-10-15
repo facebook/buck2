@@ -75,6 +75,7 @@ use termwiz::istty::IsTty;
 use tokio::sync::mpsc::Receiver;
 use variant_name::VariantName;
 
+use crate::agent_invocation_info::AgentInvocationInfo;
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
 use crate::common::CommonBuildConfigurationOptions;
@@ -234,7 +235,7 @@ pub struct InvocationRecorder {
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
     should_restart: bool,
     client_metadata: Vec<buck2_data::ClientMetadata>,
-    agent_context: Vec<buck2_data::AgentContextEntry>,
+    agent_invocation_info: AgentInvocationInfo,
     command_errors: Vec<ErrorReport>,
     exit_code: Option<u32>,
     exit_result_name: Option<String>,
@@ -465,7 +466,7 @@ impl InvocationRecorder {
             daemon_was_started: None,
             should_restart: false,
             client_metadata: Vec::new(),
-            agent_context: Vec::new(),
+            agent_invocation_info: AgentInvocationInfo::default(),
             command_errors: Vec::new(),
             exit_code: None,
             exit_result_name: None,
@@ -576,7 +577,7 @@ impl InvocationRecorder {
             );
         }
 
-        self.agent_context = ctx.agent_context().to_proto();
+        self.agent_invocation_info = ctx.agent_invocation_info().clone();
 
         self.command_name = Some(command_name);
     }
@@ -1034,6 +1035,8 @@ impl InvocationRecorder {
             &buck2_action_parallelism::PERCENTILES,
         );
 
+        let agent_invocation_info = std::mem::take(&mut self.agent_invocation_info);
+        let agent_context = agent_invocation_info.agent_context().to_proto();
         let record = buck2_data::InvocationRecord {
             command_name: Some(self.command_name.unwrap_or("unknown").to_owned()),
             command_end: self.command_end.take(),
@@ -1192,13 +1195,13 @@ impl InvocationRecorder {
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             should_restart: Some(self.should_restart),
             client_metadata: std::mem::take(&mut self.client_metadata),
-            agent_direct_call: self
-                .agent_context
+            agent_direct_call: agent_context
                 .iter()
                 .rev()
                 .find(|entry| entry.key == buck2_data::AgentContextEntry::KEY_DIRECT_CALL)
                 .and_then(|entry| entry.value.parse::<bool>().ok()),
-            agent_context: std::mem::take(&mut self.agent_context),
+            agent_inferred_direct_call: agent_invocation_info.inferred_direct_call(),
+            agent_context,
             errors,
             target_rule_type_names: unique_and_sorted(
                 std::mem::take(&mut self.target_rule_type_names).into_iter(),

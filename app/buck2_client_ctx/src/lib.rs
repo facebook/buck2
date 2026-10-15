@@ -15,6 +15,9 @@
 #![feature(used_with_arg)]
 
 pub mod agent_context;
+#[cfg(all(fbcode_build, target_os = "linux"))]
+mod agent_detection;
+pub mod agent_invocation_info;
 pub mod argfiles;
 pub mod client_cpu_tracker;
 pub mod client_ctx;

@@ -3705,6 +3705,10 @@ message InvocationRecord {
   // already in flight.
   uint64 run_remote_deduplicated_count = 763;
 
+  // Client ancestry inference, independent of agent_direct_call and never used
+  // to enable advice. Unset when inference is unavailable or inconclusive.
+  optional bool agent_inferred_direct_call = 764;
+
   // DICE page-in overhead for this invocation, computed as the delta between
   // the first and last snapshot of the command.
   optional uint64 page_in_count = 438;

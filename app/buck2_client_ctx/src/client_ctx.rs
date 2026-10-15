@@ -33,6 +33,7 @@ use superconsole::Stdin;
 use tokio::runtime::Runtime;
 
 use crate::agent_context::AgentContext;
+use crate::agent_invocation_info::AgentInvocationInfo;
 use crate::client_metadata::ClientMetadata;
 use crate::common::BuckArgMatches;
 use crate::common::CommonEventLogOptions;
@@ -69,7 +70,7 @@ pub struct ClientCommandContext<'a> {
     oncall: Option<String>,
     pub(crate) client_metadata: Vec<ClientMetadata>,
     pub(crate) isolation: FileNameBuf,
-    agent_context: AgentContext,
+    agent_invocation_info: AgentInvocationInfo,
 }
 
 impl<'a> ClientCommandContext<'a> {
@@ -89,7 +90,7 @@ impl<'a> ClientCommandContext<'a> {
         oncall: Option<String>,
         client_metadata: Vec<ClientMetadata>,
         isolation: FileNameBuf,
-        agent_context: AgentContext,
+        agent_invocation_info: AgentInvocationInfo,
     ) -> Self {
         ClientCommandContext {
             init,
@@ -107,7 +108,7 @@ impl<'a> ClientCommandContext<'a> {
             oncall,
             client_metadata,
             isolation,
-            agent_context,
+            agent_invocation_info,
         }
     }
 
@@ -121,7 +122,11 @@ impl<'a> ClientCommandContext<'a> {
     }
 
     pub fn agent_context(&self) -> &AgentContext {
-        &self.agent_context
+        self.agent_invocation_info.agent_context()
+    }
+
+    pub(crate) fn agent_invocation_info(&self) -> &AgentInvocationInfo {
+        &self.agent_invocation_info
     }
 
     pub fn paths(&self) -> buck2_error::Result<&InvocationPaths> {
@@ -297,7 +302,7 @@ impl<'a> ClientCommandContext<'a> {
             representative_config_flags: Vec::new(),
             exit_when: Default::default(),
             profile_pattern_opts: None,
-            agent_context: self.agent_context.to_proto(),
+            agent_context: self.agent_context().to_proto(),
             tenant_identity,
         })
     }

@@ -23,7 +23,7 @@ pub struct AgentContextEntry {
 }
 
 /// Agent metadata for one invocation, preserving entry order and repeated keys.
-#[derive(Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct AgentContext {
     entries: Vec<AgentContextEntry>,
 }
@@ -34,7 +34,7 @@ impl AgentContext {
         Self { entries }
     }
 
-    /// Only the last direct-call marker determines whether the call is direct.
+    /// The last direct-call marker determines whether the call is direct.
     pub fn is_direct_call(&self) -> bool {
         self.entries
             .iter()
