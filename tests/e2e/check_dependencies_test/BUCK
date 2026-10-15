@@ -85,6 +85,15 @@ check_dependencies_test(
 )
 
 check_dependencies_test(
+    name = "fail_blocklist_lookahead",
+    blocklist_patterns = [".*:(?=useless_target_1$)useless_target_1"],
+    contacts = CONTACTS,
+    expect_failure_msg = "Found blocklisted targets",
+    mode = "blocklist",
+    target = TARGET2,
+)
+
+check_dependencies_test(
     name = "fail_blocklist_with_allowlist",
     allowlist_patterns = [
         ".*:useless_target_1",
