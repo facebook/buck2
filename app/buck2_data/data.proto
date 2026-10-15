@@ -1466,8 +1466,9 @@ message Snapshot {
   uint64 file_digest_interner_hits = 469;
   uint64 file_digest_interner_misses = 470;
 
-  // Interner entries that a value paged out of memory refers to, and so are
-  // kept and refreshed until it is read back.
+  // Interner entries that a row on disk holds, and so are kept and refreshed
+  // for the rest of the daemon's life: the row can be read back any number of
+  // times.
   uint64 file_digest_interner_paged_entries = 471;
 
   // Delay between time snapshot is created and time it is received

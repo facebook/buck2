@@ -197,9 +197,10 @@ impl buck2_core::directory_digest::DirectoryDigest for TrackedFileDigest {}
 
 /// Paging preserves identity the same way the interner does: the payload is the digest and its
 /// expiration, and page-in constructs through the interner, so a paged-in digest shares the
-/// live entry rather than becoming an untracked duplicate of it. A page counts as a holder of
-/// the entry while it is out of memory, so the entry is still there, and still being refreshed,
-/// when the page comes back.
+/// live entry rather than becoming an untracked duplicate of it. A row holding the digest counts
+/// as a holder of the entry for the rest of the daemon's life: rows are never removed, and one is
+/// read back as often as its value is paged in, so the entry is still there, and still being
+/// refreshed, each time.
 impl ArcErase for TrackedFileDigest {
     type Weak = ();
 
@@ -240,9 +241,7 @@ impl ArcErase for TrackedFileDigest {
         deser: &mut D,
     ) -> pagable::Result<Self> {
         let inner = TrackedFileDigestInner::pagable_deserialize(deser)?;
-        let digest = Self::from_parts(inner.data, inner.expires.into_inner());
-        FILE_DIGEST_INTERNER.page_in(digest.data());
-        Ok(digest)
+        Ok(Self::from_parts(inner.data, inner.expires.into_inner()))
     }
 }
 
@@ -360,14 +359,14 @@ pub struct DigestInterner {
     /// ([`sweep`](Self::sweep)) or looks into it ([`peek`](Self::peek)) works on the bare
     /// `Arc`s and hands out handles only once the guard is gone.
     ///
-    /// The value is how many paged-out values hold the digest; see [`page_out`](Self::page_out).
+    /// The value is whether a row on disk holds the digest; see [`page_out`](Self::page_out).
     /// It lives here rather than in the entry so that it is read and written under the same
     /// shard lock that decides removal.
-    entries: BuckDashMap<InternedDigest, u32>,
+    entries: BuckDashMap<InternedDigest, bool>,
     /// Entries whose expiration is set; maintained at the transition, since counting them by
     /// walking the table would make snapshots proportional to the table.
     pinned: AtomicU64,
-    /// Entries some paged-out value holds, likewise maintained at the transition.
+    /// Entries a row on disk holds, likewise maintained at the transition.
     paged: AtomicU64,
     hits: AtomicU64,
     misses: AtomicU64,
@@ -404,7 +403,7 @@ pub struct DigestInternerStats {
     pub entries: u64,
     /// Entries kept alive past their last handle because a CAS expiration is recorded for them.
     pub pinned: u64,
-    /// Entries a value that has been paged out of memory refers to.
+    /// Entries a row on disk holds; they live as long as the daemon.
     pub paged: u64,
     /// Constructions that found an existing entry, cumulatively.
     pub hits: u64,
@@ -501,7 +500,7 @@ impl DigestInterner {
         let mut picked = Vec::new();
         self.entries.retain(|entry, paged| {
             stats.visited += 1;
-            if Arc::count(&entry.0) == 1 && *paged == 0 {
+            if Arc::count(&entry.0) == 1 && !*paged {
                 stats.swept += 1;
                 if entry.0.is_pinned() {
                     pinned_swept += 1;
@@ -547,7 +546,7 @@ impl DigestInterner {
                 let entry = self
                     .entries
                     .entry(InternedDigest(candidate.clone()))
-                    .or_insert(0);
+                    .or_insert(false);
                 let inner = entry.key().0.clone();
                 drop(entry);
                 if Arc::ptr_eq(&inner, &candidate) {
@@ -567,53 +566,20 @@ impl DigestInterner {
         TrackedFileDigest { inner }
     }
 
-    /// Records that a value holding this digest has been paged out of memory, so that the entry
-    /// outlives the handles that went with it. Its expiration keeps being refreshed while the
-    /// value is away, and the value finds the same entry when it comes back.
+    /// Records that a row on disk holds this digest, so that the entry outlives the handles that
+    /// went with it: its expiration keeps being refreshed, and a value read back from the row
+    /// finds the same entry, with the refreshed expiration rather than the one written with it.
     ///
-    /// Balanced by [`page_in`](Self::page_in). That balance is what pagable gives us: a value is
-    /// serialized once per page-out and deserialized once per page-in. A page dropped without
-    /// being read back leaks its references, which costs the entries their 64 bytes and a TTL
-    /// refresh each until the daemon exits.
+    /// Nothing undoes this. A row is never removed while the daemon runs, and its value may be
+    /// read back any number of times, after each of which it can be evicted again without being
+    /// rewritten; so no page-in can tell that the last reference from disk is gone. The cost is
+    /// the entry's 64 bytes and a TTL refresh until the daemon exits, per digest ever paged out.
     fn page_out(&self, data: &FileDigest) {
         // The entry is there: the caller holds a handle to it.
-        if let Some(mut entry) = self.entries.get_mut(data) {
-            let paged = entry.value_mut();
-            *paged += 1;
-            if *paged == 1 {
-                self.paged.fetch_add(1, Ordering::Relaxed);
-            }
-        }
-    }
-
-    /// The counterpart of [`page_out`](Self::page_out), called once the paged-out value is back
-    /// in memory and holding the digest itself again.
-    fn page_in(&self, data: &FileDigest) {
-        let balanced = match self.entries.get_mut(data) {
-            Some(mut entry) => {
-                let paged = entry.value_mut();
-                if *paged == 0 {
-                    false
-                } else {
-                    *paged -= 1;
-                    if *paged == 0 {
-                        self.paged.fetch_sub(1, Ordering::Relaxed);
-                    }
-                    true
-                }
-            }
-            None => false,
-        };
-        if !balanced {
-            // Only reachable if pagable reads a page back more than once, or reads one it never
-            // wrote. Then an entry may be swept while a page still refers to it, and a digest
-            // paged back in later keeps whatever expiration was written with it rather than the
-            // refreshed one.
-            let _ignored = buck2_core::soft_error!(
-                "digest_interner_page_in_without_page_out",
-                buck2_error::internal_error!("Digest `{data}` was paged in without being paged out"),
-                quiet: true
-            );
+        if let Some(mut entry) = self.entries.get_mut(data)
+            && !std::mem::replace(entry.value_mut(), true)
+        {
+            self.paged.fetch_add(1, Ordering::Relaxed);
         }
     }
 
@@ -645,7 +611,7 @@ impl DigestInterner {
             Arc::ptr_eq(&entry.0, inner)
                 && Arc::count(&entry.0) == 2
                 && !entry.0.is_pinned()
-                && *paged == 0
+                && !*paged
         });
     }
 }
@@ -1029,10 +995,12 @@ mod tests {
         assert!(!entry.referenced);
         assert_eq!(entry.expires_secs, expiry.as_second());
 
-        table.page_in(&data);
-        assert_eq!(table.stats().paged, 0);
-        assert_eq!(table.sweep(|_| false).0.swept, 1);
-        assert!(table.get(&data).is_none());
+        // Nothing undoes it: the row stays on disk, and a second page-out of the same digest
+        // counts once.
+        table.page_out(&data);
+        assert_eq!(table.stats().paged, 1);
+        assert_eq!(table.sweep(|_| false).0.swept, 0);
+        assert!(table.get(&data).is_some());
     }
 
     #[test]
