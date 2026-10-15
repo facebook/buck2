@@ -416,6 +416,25 @@ fn test_bytes_repr_invalid_utf8() {
     assert::eq(r#"repr(b"\xed\xb0\x80")"#, r#""b\"\\xed\\xb0\\x80\"" "#);
 }
 
+// repr decodes one character at a time, so characters that follow each other,
+// a 4-byte character and a sequence cut off at the end must all come out the same.
+#[test]
+fn test_bytes_repr_adjacent_multibyte() {
+    assert::eq(
+        r#"repr(b"\xc3\xa9\xe4\xb8\x96\xc3")"#,
+        r#""b\"é世\\xc3\"" "#,
+    );
+    assert::eq(
+        r#"repr(b"\xf0\x9f\x98\x80\xc3\xa9")"#,
+        r#""b\"\\U0001f600é\"" "#,
+    );
+    assert::eq(
+        r#"repr(b"\xe4\xb8\x96\xe4\xb8")"#,
+        r#""b\"世\\xe4\\xb8\"" "#,
+    );
+    assert::eq(r#"len(repr(b"\xc3\xa9" * 100000))"#, "100003");
+}
+
 // str() on an incomplete UTF-8 sequence yields U+FFFD replacements.
 // from_utf8_lossy replaces each maximal invalid subsequence with one U+FFFD.
 #[test]
