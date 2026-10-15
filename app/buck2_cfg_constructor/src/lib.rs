@@ -43,6 +43,7 @@ use buck2_node::rule_type::RuleType;
 use calculation::CfgConstructorCalculationInstance;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationContext;
+use dupe::OptionDupedExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::collections::SmallMap;
@@ -182,9 +183,8 @@ fn eval_post_constraint_analysis<'v>(
     params: Value<'v>,
     eval: &mut ReentrantStarlarkEvaluator<'v, '_, '_>,
     refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
-    is_marked_as_exec_platform: bool,
-) -> buck2_error::Result<ConfigurationData> {
-    eval.with_evaluator(|eval| -> buck2_error::Result<ConfigurationData> {
+) -> buck2_error::Result<&'v PlatformInfo<'v>> {
+    eval.with_evaluator(|eval| {
         let post_constraint_analysis_args = vec![
             (
                 "refs",
@@ -207,8 +207,9 @@ fn eval_post_constraint_analysis<'v>(
         )?;
 
         // Type check + unpack
-        <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?
-            .to_configuration(is_marked_as_exec_platform)
+        Ok(<&PlatformInfo>::unpack_value_err(
+            post_constraint_analysis_result,
+        )?)
     })
 }
 
@@ -264,8 +265,8 @@ async fn eval_underlying(
             params,
             &mut reentrant_eval,
             refs_providers_map,
-            cfg.is_marked_as_exec_platform(),
-        )?;
+        )?
+        .to_configuration(cfg.exec_marker().duped())?;
 
         let finished_eval = reentrant_eval.finish_evaluation();
         let (token, _) = finished_eval.finish()?;

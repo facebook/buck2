@@ -511,7 +511,7 @@ mod tests {
             ConfigurationDataData {
                 constraints: BTreeMap::new(),
             },
-            false,
+            None,
         )
         .unwrap();
         let config_hash = configuration.output_hash().to_string();

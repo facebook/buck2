@@ -379,13 +379,13 @@ mod tests {
         let foo = ConfigurationData::from_platform(
             "<foo>".to_owned(),
             ConfigurationDataData::empty(),
-            false,
+            None,
         )
         .unwrap();
         let bar = ConfigurationData::from_platform(
             "<bar>".to_owned(),
             ConfigurationDataData::empty(),
-            false,
+            None,
         )
         .unwrap();
 

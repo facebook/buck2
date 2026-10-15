@@ -1205,7 +1205,7 @@ mod tests {
             let cfg = ConfigurationData::from_platform(
                 "cell//cfg:platform".to_owned(),
                 ConfigurationDataData::new(constraints.clone()),
-                false,
+                None,
             )
             .expect("valid platform configuration");
             let matched_keys = MatchedConfigurationSettingKeys::new(

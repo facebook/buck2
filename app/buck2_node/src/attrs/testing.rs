@@ -84,7 +84,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationDataData {
                 constraints: BTreeMap::new(),
             },
-            false,
+            None,
         )
         .unwrap(),
         MatchedConfigurationSettingKeys::new(UnorderedMap::from_iter([

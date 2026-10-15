@@ -24,6 +24,7 @@ use buck2_configuration_providers::execution_platform_registration_info::Executi
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::configuration::data::ExecPlatformMarker;
 use buck2_core::configuration::pair::Configuration;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::execution_types::execution::ExecutionPlatform;
@@ -527,7 +528,8 @@ async fn compute_execution_platforms(
                 )
             })?;
 
-        Some(constraint_value_info.to_constraint_key_value())
+        let (key, value) = constraint_value_info.to_constraint_key_value();
+        Some(Arc::new(ExecPlatformMarker::new(key, value)))
     } else {
         None
     };
@@ -535,7 +537,7 @@ async fn compute_execution_platforms(
     let registration_info = registration_info.as_ref().value().as_ref();
     let mut platforms = Vec::new();
     for platform in registration_info.platforms()? {
-        platforms.push(platform.to_execution_platform_with_marker(marker_constraint.as_ref())?);
+        platforms.push(platform.to_execution_platform_with_marker(marker_constraint.dupe())?);
     }
     Ok(Some(Arc::new(ExecutionPlatformsData::new(
         execution_platforms_target,

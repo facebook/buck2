@@ -11,6 +11,7 @@
 use std::collections::BTreeMap;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::sync::Arc;
 use std::sync::LazyLock;
 
 use allocative::Allocative;
@@ -46,6 +47,17 @@ enum ConfigurationError {
     Builtin(BuiltinPlatform),
     #[error("Platform is not bound: {0}")]
     NotBound(String),
+    #[error(
+        "Transitions and configuration constructors cannot change exec marker `{setting}` \
+        from `{expected}` to `{actual}` in configuration `{label}`. \
+        You may omit the marker from the returned configuration; Buck2 will restore it automatically."
+    )]
+    ConflictingExecMarker {
+        label: BoundConfigurationLabel,
+        setting: ConstraintKey,
+        expected: ConstraintValue,
+        actual: ConstraintValue,
+    },
     #[error(
         "Attempted to access the configuration data for the \"unspecified_exec\" platform. This platform is used when no execution platform was resolved for a target."
     )]
@@ -125,16 +137,48 @@ impl Equivalent<HashedConfigurationPlatform> for ConfigurationHashRef<'_> {
 
 interner!(INTERNER, BuckHasher, HashedConfigurationPlatform);
 
+/// The internal constraint inherited by configurations of a marked execution platform.
+#[derive(
+    Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative, StrongHash, Pagable
+)]
+pub struct ExecPlatformMarker {
+    key: ConstraintKey,
+    value: ConstraintValue,
+}
+
+impl ExecPlatformMarker {
+    /// Creates a marker from a resolved constraint setting and value.
+    pub fn new(key: ConstraintKey, value: ConstraintValue) -> Self {
+        Self { key, value }
+    }
+}
+
 impl ConfigurationData {
     /// Produces a "bound" configuration for a platform. The label should be a unique identifier for the data.
+    /// Restores a missing inherited exec marker and rejects a conflicting value.
     pub fn from_platform(
         label: String,
-        data: ConfigurationDataData,
-        is_marked_as_exec_platform: bool,
+        mut data: ConfigurationDataData,
+        exec_marker: Option<Arc<ExecPlatformMarker>>,
     ) -> buck2_error::Result<Self> {
         let label = BoundConfigurationLabel::new(label)?;
+        if let Some(marker) = &exec_marker {
+            if let Some(value) = data.constraints.get(&marker.key)
+                && value != &marker.value
+            {
+                return Err(ConfigurationError::ConflictingExecMarker {
+                    label,
+                    setting: marker.key.dupe(),
+                    expected: marker.value.dupe(),
+                    actual: value.dupe(),
+                }
+                .into());
+            }
+            data.constraints
+                .insert(marker.key.dupe(), marker.value.dupe());
+        }
         let (cfg, disposition) = Self::from_data(HashedConfigurationPlatform::new(
-            ConfigurationPlatform::Bound(label, data, is_marked_as_exec_platform),
+            ConfigurationPlatform::Bound(label, data, exec_marker),
         ));
         if let InternDisposition::Computed = disposition {
             emit_configuration_instant_event(&cfg)?;
@@ -204,7 +248,7 @@ impl ConfigurationData {
                 ConfigurationDataData {
                     constraints: BTreeMap::new(),
                 },
-                false,
+                None,
             ),
         ))
         .0
@@ -301,10 +345,15 @@ impl ConfigurationData {
     }
 
     pub fn is_marked_as_exec_platform(&self) -> bool {
-        matches!(
-            &self.0.configuration_platform,
-            ConfigurationPlatform::Bound(_, _, true)
-        )
+        self.exec_marker().is_some()
+    }
+
+    /// The internal exec marker to inherit when deriving a configuration.
+    pub fn exec_marker(&self) -> Option<&Arc<ExecPlatformMarker>> {
+        match &self.0.configuration_platform {
+            ConfigurationPlatform::Bound(_, _, marker) => marker.as_ref(),
+            ConfigurationPlatform::Builtin(_) => None,
+        }
     }
 
     pub fn output_hash(&self) -> &ConfigurationHash {
@@ -345,8 +394,11 @@ impl ToProtoMessage for ConfigurationData {
 )]
 enum ConfigurationPlatform {
     /// This represents the normal case where a platform has been defined by a `platform()` (or similar) target.
-    /// The `bool` indicates whether the user provided a modifier constraint to mark this as an execution platform.
-    Bound(BoundConfigurationLabel, ConfigurationDataData, bool),
+    Bound(
+        BoundConfigurationLabel,
+        ConfigurationDataData,
+        Option<Arc<ExecPlatformMarker>>,
+    ),
     Builtin(BuiltinPlatform),
 }
 
@@ -465,12 +517,136 @@ impl HashedConfigurationPlatform {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
+    use std::mem::size_of;
+    use std::sync::Arc;
+
+    use dupe::Dupe;
 
     use crate::configuration::bound_id::BoundConfigurationId;
     use crate::configuration::constraints::ConstraintKey;
     use crate::configuration::constraints::ConstraintValue;
     use crate::configuration::data::ConfigurationData;
     use crate::configuration::data::ConfigurationDataData;
+    use crate::configuration::data::ConfigurationPlatform;
+    use crate::configuration::data::ExecPlatformMarker;
+    use crate::configuration::data::HashedConfigurationPlatform;
+
+    #[test]
+    fn test_exec_marker_preserves_registered_value() -> buck2_error::Result<()> {
+        let marker = Arc::new(ExecPlatformMarker::new(
+            ConstraintKey::testing_new("cfg//:exec"),
+            ConstraintValue::testing_new("cfg//:exec", Some("true")),
+        ));
+        for (i, value) in [None, Some(marker.value.dupe())].into_iter().enumerate() {
+            let cfg = ConfigurationData::from_platform(
+                format!("exec_marker_preserve_{i}"),
+                ConfigurationDataData::new(
+                    value.into_iter().map(|v| (marker.key.dupe(), v)).collect(),
+                ),
+                Some(marker.dupe()),
+            )?;
+            assert!(cfg.is_marked_as_exec_platform());
+            assert_eq!(cfg.data()?.constraints.len(), 1);
+            assert_eq!(cfg.get_constraint_value(&marker.key)?, Some(&marker.value));
+            assert!(Arc::ptr_eq(cfg.exec_marker().unwrap(), &marker));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_exec_marker_rejects_conflicting_value() -> buck2_error::Result<()> {
+        let marker = Arc::new(ExecPlatformMarker::new(
+            ConstraintKey::testing_new("cfg//:exec"),
+            ConstraintValue::testing_new("cfg//:exec", Some("true")),
+        ));
+        for value in ["false", "other"] {
+            let constraints = || {
+                ConfigurationDataData::new(BTreeMap::from([(
+                    marker.key.dupe(),
+                    ConstraintValue::testing_new("cfg//:exec", Some(value)),
+                )]))
+            };
+            let error = ConfigurationData::from_platform(
+                "exec_marker_conflict".to_owned(),
+                constraints(),
+                Some(marker.dupe()),
+            )
+            .expect_err("an explicit conflicting marker must be rejected");
+            assert_eq!(
+                error.to_string(),
+                format!(
+                    "Transitions and configuration constructors cannot change exec marker `cfg//:exec` \
+                    from `cfg//:exec[true]` to `cfg//:exec[{value}]` in configuration `exec_marker_conflict`. \
+                    You may omit the marker from the returned configuration; Buck2 will restore it automatically."
+                ),
+            );
+
+            let unmarked = ConfigurationData::from_platform(
+                "unmarked_configuration".to_owned(),
+                constraints(),
+                None,
+            )?;
+            assert_eq!(unmarked.data()?, &constraints());
+            assert!(!unmarked.is_marked_as_exec_platform());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_exec_marker_configuration_identity() -> buck2_error::Result<()> {
+        let marker_a = Arc::new(ExecPlatformMarker::new(
+            ConstraintKey::testing_new("cfg//:exec_a"),
+            ConstraintValue::testing_new("cfg//:exec_a", Some("true")),
+        ));
+        let marker_b = Arc::new(ExecPlatformMarker::new(
+            ConstraintKey::testing_new("cfg//:exec_b"),
+            ConstraintValue::testing_new("cfg//:exec_b", Some("true")),
+        ));
+        let make_cfg = |marker| {
+            ConfigurationData::from_platform(
+                "exec_marker_identity".to_owned(),
+                ConfigurationDataData::new(BTreeMap::from([
+                    (marker_a.key.dupe(), marker_a.value.dupe()),
+                    (marker_b.key.dupe(), marker_b.value.dupe()),
+                ])),
+                marker,
+            )
+        };
+        let a = make_cfg(Some(marker_a.dupe()))?;
+        let same_a = make_cfg(Some(Arc::new(ExecPlatformMarker::new(
+            marker_a.key.dupe(),
+            marker_a.value.dupe(),
+        ))))?;
+        assert_eq!(a, same_a);
+        assert_eq!(a.output_hash(), same_a.output_hash());
+
+        let b = make_cfg(Some(marker_b.dupe()))?;
+        let unmarked = make_cfg(None)?;
+        assert_eq!(a.data()?, b.data()?);
+        assert_eq!(a.data()?, unmarked.data()?);
+        assert_ne!(a, b);
+        assert_ne!(a.output_hash(), b.output_hash());
+        assert_ne!(a.output_hash(), unmarked.output_hash());
+        assert!(!unmarked.is_marked_as_exec_platform());
+        assert!(unmarked.exec_marker().is_none());
+        for cfg in [a, b, unmarked] {
+            assert_eq!(
+                ConfigurationData::lookup_bound(cfg.bound_id().unwrap())?,
+                cfg
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(target_pointer_width = "64")]
+    fn test_configuration_sizes() {
+        assert_eq!(size_of::<ConfigurationData>(), 8);
+        assert_eq!(size_of::<Option<Arc<ExecPlatformMarker>>>(), 8);
+        assert_eq!(size_of::<ExecPlatformMarker>(), 40);
+        assert_eq!(size_of::<ConfigurationPlatform>(), 56);
+        assert_eq!(size_of::<HashedConfigurationPlatform>(), 104);
+    }
 
     /// We don't want the output hash to change by accident. This test is here to assert that it
     /// doesn't. If we have a legit reason to update the config hash, we can update the hash here,
@@ -491,7 +667,7 @@ mod tests {
                     ),
                 ]),
             },
-            false,
+            None,
         )
         .unwrap();
 
@@ -520,7 +696,7 @@ mod tests {
                     ),
                 ]),
             },
-            false,
+            None,
         )
         .unwrap();
 
