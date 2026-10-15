@@ -60,6 +60,7 @@ use re_grpc_proto::build::bazel::remote::execution::v2::RequestMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
 use re_grpc_proto::build::bazel::remote::execution::v2::ToolDetails;
 use re_grpc_proto::build::bazel::remote::execution::v2::UpdateActionResultRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::WaitExecutionRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
 use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client::CapabilitiesClient;
@@ -72,6 +73,7 @@ use re_grpc_proto::google::bytestream::ReadResponse;
 use re_grpc_proto::google::bytestream::WriteRequest;
 use re_grpc_proto::google::bytestream::WriteResponse;
 use re_grpc_proto::google::bytestream::byte_stream_client::ByteStreamClient;
+use re_grpc_proto::google::longrunning::Operation;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
@@ -481,7 +483,7 @@ impl FindMissingCache {
 
 pub struct REClient {
     runtime_opts: RERuntimeOpts,
-    pool: ChannelPool,
+    pool: Arc<ChannelPool>,
     capabilities: RECapabilities,
     instance_name: InstanceName,
     // buck2 calls find_missing for same blobs
@@ -637,6 +639,19 @@ fn normalize_re_error(err: anyhow::Error) -> anyhow::Error {
     err.context(re_error)
 }
 
+const INITIAL_DELAY: Duration = Duration::from_millis(100);
+const MAX_DELAY: Duration = Duration::from_secs(5);
+/// Upper bound of the jitter added to every delay, to avoid synchronized retry
+/// storms across concurrent in-flight requests.
+const MAX_JITTER: Duration = Duration::from_millis(50);
+
+fn delay_with_jitter(delay: Duration) -> Duration {
+    use rand::RngExt;
+
+    let jitter = rand::rng().random_range(0..MAX_JITTER.as_millis() as u64);
+    delay + Duration::from_millis(jitter)
+}
+
 /// Retry an RPC on transient connection errors and classify its final error.
 ///
 /// On retryable failure, the closure is called again from scratch — acquiring
@@ -649,19 +664,14 @@ where
     F: Fn() -> Fut,
     Fut: Future<Output = anyhow::Result<T>>,
 {
-    use rand::RngExt;
-
     const MAX_ATTEMPTS: u32 = 5;
-    const INITIAL_DELAY: Duration = Duration::from_millis(100);
-    const MAX_DELAY: Duration = Duration::from_secs(5);
 
     let mut delay = INITIAL_DELAY;
     for attempt in 1..=MAX_ATTEMPTS {
         match f().await {
             Ok(v) => return Ok(v),
             Err(e) if is_retryable(&e) && attempt < MAX_ATTEMPTS => {
-                let jitter = Duration::from_millis(rand::rng().random_range(0..50));
-                let sleep_for = delay + jitter;
+                let sleep_for = delay_with_jitter(delay);
                 tracing::warn!(
                     "Transient error (attempt {}/{}), retrying in {:?}: {:#}",
                     attempt,
@@ -676,6 +686,256 @@ where
         }
     }
     unreachable!()
+}
+
+/// Retries attempted after a failure on the execution stream, matching Bazel's
+/// `--remote_retries` default. Resuming is cheap — `WaitExecution` reattaches
+/// rather than re-running — so this can afford more than `retry` allows.
+const MAX_EXECUTION_RETRIES: u32 = 5;
+
+/// Free function so a resumed execution stream can open its own call without
+/// borrowing an `REClient`.
+async fn execution_client_for(
+    pool: &ChannelPool,
+    engine_address: &str,
+    interceptor: &InjectHeadersInterceptor,
+) -> anyhow::Result<ExecutionClient<GrpcService>> {
+    let channel = pool.get(engine_address).await?;
+    Ok(ExecutionClient::new(InterceptedService::new(
+        channel,
+        interceptor.dupe(),
+    )))
+}
+
+/// Resumes that report nothing before the stream is treated as broken.
+const MAX_EMPTY_RESUMES: u32 = 5;
+
+/// Decodes one `Operation` from an execution stream into a progress event.
+fn decode_execute_operation(msg: Operation) -> anyhow::Result<ExecuteWithProgressResponse> {
+    if !msg.done {
+        let meta = ExecuteOperationMetadata::decode(&msg.metadata.unwrap_or_default().value[..])?;
+
+        let stage = match execution_stage::Value::try_from(meta.stage) {
+            Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
+            Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
+            Ok(execution_stage::Value::Queued) => Stage::QUEUED,
+            Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
+            Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
+            _ => Stage::UNKNOWN,
+        };
+
+        return Ok(ExecuteWithProgressResponse {
+            stage,
+            execute_response: None,
+            ..Default::default()
+        });
+    }
+
+    match msg
+        .result
+        .context("Missing `result` when message was `done`")?
+    {
+        OpResult::Error(rpc_status) => Err(REClientError {
+            code: TCode(rpc_status.code),
+            message: rpc_status.message,
+            group: TCodeReasonGroup::UNKNOWN,
+        }
+        .into()),
+        OpResult::Response(any) => {
+            let execute_response_grpc: GExecuteResponse = GExecuteResponse::decode(&any.value[..])?;
+
+            check_status(execute_response_grpc.status.unwrap_or_default())?;
+
+            let action_result = execute_response_grpc
+                .result
+                .with_context(|| "The action result is not defined.")?;
+
+            let action_result = convert_action_result(action_result)?;
+
+            let execute_response = ExecuteResponse {
+                action_result,
+                action_result_digest: TDigest::default(),
+                action_result_ttl: 0,
+                status: TStatus {
+                    code: TCode::OK,
+                    message: execute_response_grpc.message,
+                    ..Default::default()
+                },
+                cached_result: execute_response_grpc.cached_result,
+                action_digest: Default::default(), // Filled in by the caller.
+            };
+
+            Ok(ExecuteWithProgressResponse {
+                stage: Stage::COMPLETED,
+                execute_response: Some(execute_response),
+                ..Default::default()
+            })
+        }
+    }
+}
+
+struct ExecutionStreamState<F> {
+    /// Opens the message stream for the operation it is given.
+    open: F,
+    /// Which operation to open a stream for: `None` starts a fresh `Execute`,
+    /// `Some(name)` resumes that one with `WaitExecution`. Empty until the server
+    /// names the operation, and emptied again if the server loses it.
+    operation: Option<String>,
+    /// Per-action and never replenished, so a long enough action can exhaust it
+    /// on unrelated failures it made progress between.
+    retries_left: u32,
+    /// Resumes since the last message arrived. `WaitExecution` must respond
+    /// immediately with the operation's current status, so a resume that yields
+    /// nothing at all means the server is misbehaving, and only those are capped.
+    /// A long action closing and resuming repeatedly resets this every time.
+    empty_resumes: u32,
+    delay: Duration,
+    /// The response has been delivered, so there is nothing left to read and
+    /// reopening the call would only produce a second one.
+    done: bool,
+}
+
+/// Streams progress events for one action, resuming across a broken connection.
+///
+/// Follows Bazel's `GrpcRemoteExecutor`: `Execute` starts the action, and once
+/// the server has named the operation, `WaitExecution` resumes it rather than
+/// re-queueing. `NOT_FOUND` means the server lost the operation, so start over
+/// with `Execute`. A stream that ends cleanly without a response is not an
+/// error — REAPI allows it when execution outlives a connection — so resuming
+/// from one does not spend the retry budget, only the separate cap on resumes
+/// that report nothing at all.
+fn execution_progress_stream<S, F, Fut>(
+    open: F,
+) -> impl Stream<Item = anyhow::Result<ExecuteWithProgressResponse>>
+where
+    S: Stream<Item = Result<Operation, tonic::Status>> + Unpin,
+    F: Fn(Option<String>) -> Fut,
+    Fut: Future<Output = anyhow::Result<S>>,
+{
+    let state = ExecutionStreamState {
+        open,
+        operation: None,
+        retries_left: MAX_EXECUTION_RETRIES,
+        empty_resumes: 0,
+        delay: INITIAL_DELAY,
+        done: false,
+    };
+
+    futures::stream::try_unfold(
+        (None::<S>, state),
+        move |(mut stream, mut state)| async move {
+            loop {
+                if state.done {
+                    return Ok(None);
+                }
+
+                let live = match &mut stream {
+                    Some(live) => live,
+                    None => match (state.open)(state.operation.clone()).await {
+                        Ok(opened) => stream.insert(opened),
+                        Err(err) => {
+                            let err = match &state.operation {
+                                Some(name) => {
+                                    err.context(format!("Failed to resume remote execution {name}"))
+                                }
+                                None => err.context("Failed to start remote execution"),
+                            };
+                            state.wait_to_retry(err).await?;
+                            continue;
+                        }
+                    },
+                };
+
+                match live.try_next().await {
+                    Ok(Some(msg)) => {
+                        if !msg.name.is_empty() {
+                            state.operation = Some(msg.name.clone());
+                        }
+                        state.empty_resumes = 0;
+                        let response = decode_execute_operation(msg)?;
+                        state.done = response.execute_response.is_some();
+                        return Ok(Some((response, (stream, state))));
+                    }
+                    Ok(None) => {
+                        let Some(operation) = &state.operation else {
+                            return Err(anyhow::anyhow!(
+                                "Remote server error: execution request terminated with no result"
+                            ));
+                        };
+                        // Not charged to the retry budget: REAPI allows execution to
+                        // outlive a connection, so closing and resuming is normal for
+                        // a long action and budgeting it would kill exactly the
+                        // actions it exists for.
+                        if state.empty_resumes == MAX_EMPTY_RESUMES {
+                            return Err(anyhow::anyhow!(
+                                "Remote server error: execution of {operation} was resumed \
+                                 {MAX_EMPTY_RESUMES} times without the server reporting anything"
+                            ));
+                        }
+                        state.empty_resumes += 1;
+                        tracing::debug!(
+                            "Remote execution stream for {} closed before completing, resuming",
+                            operation
+                        );
+                        stream = None;
+                    }
+                    Err(status) => {
+                        let err = anyhow::Error::new(status).context("RE channel error");
+                        stream = None;
+                        state.wait_to_retry(err).await?;
+                    }
+                }
+            }
+        },
+    )
+}
+
+impl<F> ExecutionStreamState<F> {
+    /// Spends one retry and waits out the backoff, or gives the error back to the
+    /// caller if the budget is spent or the failure is not worth another attempt.
+    /// Retrying itself is the caller's job.
+    async fn wait_to_retry(&mut self, err: anyhow::Error) -> anyhow::Result<()> {
+        let code = err
+            .chain()
+            .find_map(|cause| cause.downcast_ref::<tonic::Status>())
+            .map(|status| status.code());
+
+        // Only meaningful while resuming, where it means the server no longer
+        // knows the operation and REAPI says to start over. Answering a fresh
+        // `Execute` this way is permanent — a bad instance name, or an endpoint
+        // with no execution service — and retrying cannot change it.
+        let operation_lost = self.operation.is_some()
+            && matches!(
+                code,
+                Some(tonic::Code::NotFound | tonic::Code::Unimplemented)
+            );
+        if operation_lost {
+            self.operation = None;
+        }
+
+        let retryable = operation_lost
+            || is_retryable(&err)
+            // Only while resuming: starting over re-runs the action, and REAPI
+            // defines `DEADLINE_EXCEEDED` there as the action's own timeout.
+            || (self.operation.is_some() && code == Some(tonic::Code::DeadlineExceeded));
+
+        if self.retries_left == 0 || !retryable {
+            return Err(err);
+        }
+        self.retries_left -= 1;
+
+        let sleep_for = delay_with_jitter(self.delay);
+        self.delay = (self.delay * 2).min(MAX_DELAY);
+        tracing::warn!(
+            "Remote execution stream broken (retry {}/{}), reconnecting in {:?}: {:#}",
+            MAX_EXECUTION_RETRIES - self.retries_left,
+            MAX_EXECUTION_RETRIES,
+            sleep_for,
+            err
+        );
+        tokio::time::sleep(sleep_for).await;
+        Ok(())
+    }
 }
 
 impl REClient {
@@ -693,7 +953,7 @@ impl REClient {
     ) -> Self {
         REClient {
             runtime_opts,
-            pool,
+            pool: Arc::new(pool),
             capabilities,
             instance_name,
             find_missing_cache: Mutex::new(FindMissingCache {
@@ -796,106 +1056,50 @@ impl REClient {
             .map(|ep| ep.priority)
             .unwrap_or_default();
 
-        let stream = retry(|| async {
-            let stream = self
-                .execution_client()
-                .await?
-                .execute(with_re_metadata(
-                    GExecuteRequest {
-                        instance_name: self.instance_name.as_str().to_owned(),
-                        skip_cache_lookup: execute_request.skip_cache_lookup,
-                        execution_policy: Some(ExecutionPolicy { priority }),
-                        results_cache_policy: Some(ResultsCachePolicy { priority: 0 }),
-                        action_digest: Some(action_digest.clone()),
-                        ..Default::default()
-                    },
-                    metadata,
-                    self.runtime_opts.use_fbcode_metadata,
-                ))
-                .await?
-                .into_inner();
-            anyhow::Ok(stream)
-        })
-        .await?;
+        let pool = self.pool.dupe();
+        let interceptor = self.interceptor.dupe();
+        let engine_address = self.engine_address.clone();
+        let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
+        let request = GExecuteRequest {
+            instance_name: self.instance_name.as_str().to_owned(),
+            skip_cache_lookup: execute_request.skip_cache_lookup,
+            execution_policy: Some(ExecutionPolicy { priority }),
+            results_cache_policy: Some(ResultsCachePolicy { priority: 0 }),
+            action_digest: Some(action_digest),
+            ..Default::default()
+        };
 
-        let stream = futures::stream::try_unfold(stream, move |mut stream| async {
-            let msg = match stream
-                .try_next()
-                .await
-                .context("RE channel error")
-                .map_err(normalize_re_error)?
-            {
-                Some(msg) => msg,
-                None => return Ok(None),
-            };
+        let owned_metadata = metadata.clone();
+        let open = move |resume: Option<String>| {
+            let pool = pool.dupe();
+            let interceptor = interceptor.dupe();
+            let engine_address = engine_address.clone();
+            let metadata = owned_metadata.clone();
+            let request = request.clone();
 
-            let status = if msg.done {
-                match msg
-                    .result
-                    .context("Missing `result` when message was `done`")?
-                {
-                    OpResult::Error(rpc_status) => {
-                        return Err(REClientError {
-                            code: TCode(rpc_status.code),
-                            message: rpc_status.message,
-                            group: TCodeReasonGroup::UNKNOWN,
-                        }
-                        .into());
-                    }
-                    OpResult::Response(any) => {
-                        let execute_response_grpc: GExecuteResponse =
-                            GExecuteResponse::decode(&any.value[..])?;
+            async move {
+                let mut client = execution_client_for(&pool, &engine_address, &interceptor).await?;
 
-                        check_status(execute_response_grpc.status.unwrap_or_default())?;
-
-                        let action_result = execute_response_grpc
-                            .result
-                            .with_context(|| "The action result is not defined.")?;
-
-                        let action_result = convert_action_result(action_result)?;
-
-                        let execute_response = ExecuteResponse {
-                            action_result,
-                            action_result_digest: TDigest::default(),
-                            action_result_ttl: 0,
-                            status: TStatus {
-                                code: TCode::OK,
-                                message: execute_response_grpc.message,
-                                ..Default::default()
-                            },
-                            cached_result: execute_response_grpc.cached_result,
-                            action_digest: Default::default(), // Filled in below.
-                        };
-
-                        ExecuteWithProgressResponse {
-                            stage: Stage::COMPLETED,
-                            execute_response: Some(execute_response),
-                            ..Default::default()
-                        }
-                    }
-                }
-            } else {
-                let meta =
-                    ExecuteOperationMetadata::decode(&msg.metadata.unwrap_or_default().value[..])?;
-
-                let stage = match execution_stage::Value::try_from(meta.stage) {
-                    Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
-                    Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
-                    Ok(execution_stage::Value::Queued) => Stage::QUEUED,
-                    Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
-                    Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
-                    _ => Stage::UNKNOWN,
+                let stream = match resume {
+                    Some(name) => client
+                        .wait_execution(with_re_metadata(
+                            WaitExecutionRequest { name },
+                            &metadata,
+                            use_fbcode_metadata,
+                        ))
+                        .await?
+                        .into_inner(),
+                    None => client
+                        .execute(with_re_metadata(request, &metadata, use_fbcode_metadata))
+                        .await?
+                        .into_inner(),
                 };
 
-                ExecuteWithProgressResponse {
-                    stage,
-                    execute_response: None,
-                    ..Default::default()
-                }
-            };
+                anyhow::Ok(stream)
+            }
+        };
 
-            anyhow::Ok(Some((status, stream)))
-        });
+        let stream = execution_progress_stream(open).map_err(normalize_re_error);
 
         // We fill in the action digest a little later here. We do it this way so we don't have to
         // clone the execute_request into every future we create above.
@@ -1172,14 +1376,6 @@ impl REClient {
             ByteStreamClient::new(InterceptedService::new(channel, self.interceptor.dupe()))
                 .max_decoding_message_size(self.max_decoding_msg_size),
         )
-    }
-
-    async fn execution_client(&self) -> anyhow::Result<ExecutionClient<GrpcService>> {
-        let channel = self.pool.get(&self.engine_address).await?;
-        Ok(ExecutionClient::new(InterceptedService::new(
-            channel,
-            self.interceptor.dupe(),
-        )))
     }
 
     async fn action_cache_client(&self) -> anyhow::Result<ActionCacheClient<GrpcService>> {
@@ -1971,12 +2167,438 @@ fn substitute_env_vars_impl(
 #[cfg(test)]
 mod tests {
     use core::sync::atomic::Ordering;
+    use std::collections::VecDeque;
     use std::sync::atomic::AtomicU16;
 
+    use futures::FutureExt;
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_read_blobs_response;
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_response;
 
     use super::*;
+
+    const OP: &str = "operations/action-1";
+
+    type ScriptedItem = Result<Operation, tonic::Status>;
+
+    /// One scripted call to the opener: either a stream of messages, or a failure
+    /// of the call itself. The distinction matters — tonic reports a server that
+    /// rejects a streaming RPC outright when the call is opened, not when the
+    /// stream is first read.
+    type ScriptedCall = Result<Vec<ScriptedItem>, tonic::Status>;
+
+    fn progress_op(stage: execution_stage::Value) -> Operation {
+        Operation {
+            name: OP.to_owned(),
+            metadata: Some(prost_types::Any {
+                type_url: String::new(),
+                value: ExecuteOperationMetadata {
+                    stage: stage as i32,
+                    ..Default::default()
+                }
+                .encode_to_vec(),
+            }),
+            ..Default::default()
+        }
+    }
+
+    fn done_op() -> Operation {
+        response_op(GExecuteResponse {
+            result: Some(ActionResult {
+                execution_metadata: Some(ExecutedActionMetadata::default()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        })
+    }
+
+    fn response_op(response: GExecuteResponse) -> Operation {
+        Operation {
+            name: OP.to_owned(),
+            done: true,
+            result: Some(OpResult::Response(prost_types::Any {
+                type_url: String::new(),
+                value: response.encode_to_vec(),
+            })),
+            ..Default::default()
+        }
+    }
+
+    /// Drives `execution_progress_stream` over one scripted stream per call to
+    /// the opener, returning the events yielded and the `resume` argument each
+    /// call was made with — `None` for `Execute`, `Some(name)` for
+    /// `WaitExecution`.
+    async fn run_scripted(
+        attempts: Vec<ScriptedCall>,
+    ) -> (
+        Vec<anyhow::Result<ExecuteWithProgressResponse>>,
+        Vec<Option<String>>,
+    ) {
+        let attempts = Arc::new(Mutex::new(VecDeque::from(attempts)));
+        let calls = Arc::new(Mutex::new(Vec::new()));
+
+        let open = {
+            let attempts = attempts.dupe();
+            let calls = calls.dupe();
+            move |resume: Option<String>| {
+                let attempts = attempts.dupe();
+                let calls = calls.dupe();
+                async move {
+                    calls.lock().unwrap().push(resume);
+                    let script = attempts
+                        .lock()
+                        .unwrap()
+                        .pop_front()
+                        .context("opener called more often than scripted")?;
+                    anyhow::Ok(futures::stream::iter(script?).boxed())
+                }
+                .boxed()
+            }
+        };
+
+        let events = execution_progress_stream(open).collect().await;
+        let calls = calls.lock().unwrap().clone();
+        (events, calls)
+    }
+
+    fn stages(events: &[anyhow::Result<ExecuteWithProgressResponse>]) -> Vec<Stage> {
+        events
+            .iter()
+            .map(|e| e.as_ref().unwrap().stage)
+            .collect::<Vec<_>>()
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn execution_resumes_a_named_operation_with_wait_execution() {
+        let (events, calls) = run_scripted(vec![
+            Ok(vec![
+                Ok(progress_op(execution_stage::Value::Queued)),
+                Err(tonic::Status::unavailable("connection reset")),
+            ]),
+            Ok(vec![Ok(done_op())]),
+        ])
+        .await;
+
+        assert_eq!(calls, vec![None, Some(OP.to_owned())]);
+        assert_eq!(stages(&events), vec![Stage::QUEUED, Stage::COMPLETED]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn execution_restarts_when_it_fails_before_the_operation_is_named() {
+        let (events, calls) = run_scripted(vec![
+            Ok(vec![Err(tonic::Status::unavailable("no backends"))]),
+            Ok(vec![Ok(done_op())]),
+        ])
+        .await;
+
+        assert_eq!(calls, vec![None, None]);
+        assert_eq!(stages(&events), vec![Stage::COMPLETED]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn execution_retries_a_call_that_fails_when_opened() {
+        let (events, calls) = run_scripted(vec![
+            Err(tonic::Status::unavailable("no backends")),
+            Ok(vec![Ok(done_op())]),
+        ])
+        .await;
+
+        assert_eq!(calls, vec![None, None]);
+        assert_eq!(stages(&events), vec![Stage::COMPLETED]);
+    }
+
+    /// The realistic shape: a server that no longer knows the operation rejects
+    /// `WaitExecution` when the call is opened.
+    #[tokio::test(start_paused = true)]
+    async fn execution_restarts_when_resuming_is_rejected_as_not_found() {
+        let (events, calls) = run_scripted(vec![
+            Ok(vec![
+                Ok(progress_op(execution_stage::Value::Executing)),
+                Err(tonic::Status::unavailable("goaway")),
+            ]),
+            Err(tonic::Status::not_found("unknown operation")),
+            Ok(vec![Ok(done_op())]),
+        ])
+        .await;
+
+        assert_eq!(calls, vec![None, Some(OP.to_owned()), None]);
+        assert_eq!(stages(&events), vec![Stage::EXECUTING, Stage::COMPLETED]);
+    }
+
+    /// A server without `WaitExecution` support has to fall back the same way.
+    #[tokio::test(start_paused = true)]
+    async fn execution_restarts_when_resuming_is_unimplemented() {
+        let (events, calls) = run_scripted(vec![
+            Ok(vec![
+                Ok(progress_op(execution_stage::Value::Executing)),
+                Err(tonic::Status::unavailable("goaway")),
+            ]),
+            Err(tonic::Status::unimplemented("WaitExecution")),
+            Ok(vec![Ok(done_op())]),
+        ])
+        .await;
+
+        assert_eq!(calls, vec![None, Some(OP.to_owned()), None]);
+        assert_eq!(stages(&events), vec![Stage::EXECUTING, Stage::COMPLETED]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn execution_restarts_when_the_server_lost_the_operation_mid_stream() {
+        let (events, calls) = run_scripted(vec![
+            Ok(vec![
+                Ok(progress_op(execution_stage::Value::Executing)),
+                Err(tonic::Status::unavailable("goaway")),
+            ]),
+            Ok(vec![Err(tonic::Status::not_found("unknown operation"))]),
+            Ok(vec![Ok(done_op())]),
+        ])
+        .await;
+
+        assert_eq!(calls, vec![None, Some(OP.to_owned()), None]);
+        assert_eq!(stages(&events), vec![Stage::EXECUTING, Stage::COMPLETED]);
+    }
+
+    /// REAPI allows a stream to end without a response when execution outlives a
+    /// connection, so an action can close and resume far more often than either
+    /// limit allows — and still have its whole retry budget for a real failure.
+    #[tokio::test(start_paused = true)]
+    async fn execution_resumes_after_a_clean_close_without_spending_retries() {
+        let closes = (MAX_EMPTY_RESUMES + MAX_EXECUTION_RETRIES) * 3;
+
+        let mut attempts = Vec::new();
+        for _ in 0..=closes {
+            attempts.push(Ok(vec![Ok(progress_op(execution_stage::Value::Executing))]));
+        }
+        for _ in 0..MAX_EXECUTION_RETRIES {
+            attempts.push(Ok(vec![Err(tonic::Status::unavailable(
+                "connection reset",
+            ))]));
+        }
+        attempts.push(Ok(vec![Ok(done_op())]));
+
+        let (events, calls) = run_scripted(attempts).await;
+
+        assert_eq!(calls.len() as u32, closes + MAX_EXECUTION_RETRIES + 2);
+        assert!(calls[1..].iter().all(|c| c.as_deref() == Some(OP)));
+        assert_eq!(
+            events.last().unwrap().as_ref().unwrap().stage,
+            Stage::COMPLETED,
+            "the retry budget survived every resume"
+        );
+    }
+
+    /// `WaitExecution` must report current status immediately, so a resume that
+    /// reports nothing is a broken server and must not loop forever.
+    #[tokio::test(start_paused = true)]
+    async fn execution_gives_up_on_a_server_that_resumes_without_reporting() {
+        let mut attempts = vec![Ok(vec![Ok(progress_op(execution_stage::Value::Executing))])];
+        for _ in 0..(MAX_EMPTY_RESUMES + 1) {
+            attempts.push(Ok(vec![]));
+        }
+
+        let (events, calls) = run_scripted(attempts).await;
+
+        assert_eq!(calls.len() as u32, MAX_EMPTY_RESUMES + 1);
+        let Err(err) = events.last().unwrap() else {
+            panic!("expected the resume loop to give up")
+        };
+        assert!(format!("{err:#}").contains("without the server reporting anything"));
+    }
+
+    /// Permanent for a fresh `Execute` — a bad instance name, or an endpoint with
+    /// no execution service — so it must not buy the whole retry budget.
+    #[tokio::test(start_paused = true)]
+    async fn execution_does_not_retry_not_found_from_a_fresh_execute() {
+        let (events, calls) =
+            run_scripted(vec![Err(tonic::Status::not_found("no such instance"))]).await;
+
+        assert_eq!(calls, vec![None]);
+        let Err(err) = &events[0] else {
+            panic!("expected the status to be surfaced")
+        };
+        assert!(format!("{err:#}").contains("Failed to start remote execution"));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn execution_does_not_retry_unimplemented_from_a_fresh_execute() {
+        let (_events, calls) = run_scripted(vec![Err(tonic::Status::unimplemented(
+            "no Execution service",
+        ))])
+        .await;
+
+        assert_eq!(calls, vec![None]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn execution_fails_when_it_closes_before_naming_an_operation() {
+        let (events, calls) = run_scripted(vec![Ok(vec![])]).await;
+
+        assert_eq!(calls, vec![None]);
+        let Err(err) = &events[0] else {
+            panic!("expected a hard error")
+        };
+        assert!(format!("{err:#}").contains("terminated with no result"));
+    }
+
+    /// Progress is forwarded verbatim; keeping the caller's view consistent is
+    /// the caller's job.
+    #[tokio::test(start_paused = true)]
+    async fn execution_forwards_replayed_stages() {
+        let (events, _calls) = run_scripted(vec![
+            Ok(vec![
+                Ok(progress_op(execution_stage::Value::Queued)),
+                Ok(progress_op(execution_stage::Value::Executing)),
+                Err(tonic::Status::unavailable("goaway")),
+            ]),
+            Ok(vec![
+                Ok(progress_op(execution_stage::Value::Queued)),
+                Ok(progress_op(execution_stage::Value::Executing)),
+                Ok(done_op()),
+            ]),
+        ])
+        .await;
+
+        assert_eq!(
+            stages(&events),
+            vec![
+                Stage::QUEUED,
+                Stage::EXECUTING,
+                Stage::QUEUED,
+                Stage::EXECUTING,
+                Stage::COMPLETED
+            ]
+        );
+    }
+
+    /// The action's own verdict arrives in `ExecuteResponse.status`. Retrying it
+    /// would re-run work the server already did, so it must fail outright even
+    /// when the code is one `is_retryable` treats as transient.
+    #[tokio::test(start_paused = true)]
+    async fn execution_does_not_retry_a_failed_action() {
+        let op = response_op(GExecuteResponse {
+            status: Some(Status {
+                code: TCode::INTERNAL.0,
+                message: "action failed".to_owned(),
+                ..Default::default()
+            }),
+            result: Some(ActionResult {
+                execution_metadata: Some(ExecutedActionMetadata::default()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+
+        let (events, calls) = run_scripted(vec![Ok(vec![Ok(op)])]).await;
+
+        assert_eq!(calls, vec![None]);
+        let Err(err) = &events[0] else {
+            panic!("expected the action failure to be surfaced")
+        };
+        assert!(format!("{err:#}").contains("action failed"));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn execution_does_not_retry_an_operation_error() {
+        let op = Operation {
+            name: OP.to_owned(),
+            done: true,
+            result: Some(OpResult::Error(Status {
+                code: TCode::INTERNAL.0,
+                message: "operation failed".to_owned(),
+                ..Default::default()
+            })),
+            ..Default::default()
+        };
+
+        let (events, calls) = run_scripted(vec![Ok(vec![Ok(op)])]).await;
+
+        assert_eq!(calls, vec![None]);
+        let Err(err) = &events[0] else {
+            panic!("expected the operation error to be surfaced")
+        };
+        assert!(format!("{err:#}").contains("operation failed"));
+    }
+
+    /// Restarting would re-run an action that already used up its timeout, but
+    /// resuming a named operation costs nothing.
+    #[tokio::test(start_paused = true)]
+    async fn execution_only_retries_deadline_exceeded_when_it_can_resume() {
+        let (_events, calls) = run_scripted(vec![Ok(vec![Err(tonic::Status::deadline_exceeded(
+            "too slow",
+        ))])])
+        .await;
+        assert_eq!(calls, vec![None]);
+
+        let (events, calls) = run_scripted(vec![
+            Ok(vec![
+                Ok(progress_op(execution_stage::Value::Executing)),
+                Err(tonic::Status::deadline_exceeded("too slow")),
+            ]),
+            Ok(vec![Ok(done_op())]),
+        ])
+        .await;
+        assert_eq!(calls, vec![None, Some(OP.to_owned())]);
+        assert_eq!(stages(&events), vec![Stage::EXECUTING, Stage::COMPLETED]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn execution_gives_up_once_the_budget_is_spent() {
+        let attempts = (0..=MAX_EXECUTION_RETRIES)
+            .map(|_| Ok(vec![Err(tonic::Status::unavailable("connection reset"))]))
+            .collect();
+
+        let (events, calls) = run_scripted(attempts).await;
+
+        assert_eq!(calls.len() as u32, MAX_EXECUTION_RETRIES + 1);
+        let Err(err) = &events[0] else {
+            panic!("expected the last status to be surfaced")
+        };
+        assert!(err.chain().any(|c| {
+            c.downcast_ref::<tonic::Status>()
+                .is_some_and(|s| s.code() == tonic::Code::Unavailable)
+        }));
+    }
+
+    /// Opening is deferred into the stream, so this is the only thing that still
+    /// says a call never got off the ground.
+    #[tokio::test(start_paused = true)]
+    async fn execution_reports_a_call_that_never_opened() {
+        let attempts = (0..=MAX_EXECUTION_RETRIES)
+            .map(|_| Err(tonic::Status::unavailable("no backends")))
+            .collect();
+
+        let (events, calls) = run_scripted(attempts).await;
+
+        assert_eq!(calls.len() as u32, MAX_EXECUTION_RETRIES + 1);
+        let Err(err) = &events[0] else {
+            panic!("expected the open failure to be surfaced")
+        };
+        assert!(format!("{err:#}").contains("Failed to start remote execution"));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn execution_stops_once_a_response_arrives() {
+        let (events, calls) = run_scripted(vec![Ok(vec![Ok(done_op())])]).await;
+
+        assert_eq!(calls, vec![None]);
+        assert_eq!(stages(&events), vec![Stage::COMPLETED]);
+    }
+
+    /// Whatever the connection says after the response is moot — resuming would
+    /// only fetch the same completed operation again.
+    #[tokio::test(start_paused = true)]
+    async fn execution_stops_even_if_the_stream_then_errors() {
+        let (events, calls) = run_scripted(vec![
+            Ok(vec![
+                Ok(done_op()),
+                Err(tonic::Status::unavailable("connection reset")),
+            ]),
+            Ok(vec![Ok(done_op())]),
+        ])
+        .await;
+
+        assert_eq!(calls, vec![None]);
+        assert_eq!(stages(&events), vec![Stage::COMPLETED]);
+    }
 
     #[tokio::test]
     async fn test_retry_unauthenticated() {
