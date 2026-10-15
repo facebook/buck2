@@ -879,6 +879,11 @@ def _typecheck_subtarget(
         args.add(["--warning-level", level])
     if has_plugins:
         args.add("--plugins")
+
+    # The checker generates plugin declarations (e.g. kotlinx.serialization
+    # `serializer()`) only for plugins the compilation registers.
+    for plugin, _options in ctx.attrs.kotlin_compiler_plugins:
+        args.add(["--kotlin-plugin", plugin[DefaultInfo].default_outputs[0]])
     args.add(["--language-version", get_language_version(ctx)])
     args.add("--jdk-required")
     if jdk_base_jar:

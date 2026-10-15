@@ -63,6 +63,12 @@ def _parse_args():
         "--plugins", action="store_true", help="target uses compiler plugins"
     )
     p.add_argument(
+        "--kotlin-plugin",
+        action="append",
+        default=[],
+        help="compiler plugin jar, forwarded as -Xplugin= (repeatable)",
+    )
+    p.add_argument(
         "--java-sources-skipped",
         type=int,
         default=0,
@@ -206,6 +212,7 @@ def _run(args, t0):  # noqa: C901
         arg_paths = [classpath] if classpath else []
         if args.jdk_base:
             arg_paths.append(args.jdk_base)
+        arg_paths += args.kotlin_plugin
         for p in arg_paths + sources:
             if any(c in " \t\n\r\x0b\x0c" for c in p):
                 raise ValueError(f"argfile path contains whitespace: {p!r}")
@@ -220,6 +227,8 @@ def _run(args, t0):  # noqa: C901
                 f.write("-Werror\n")
             for level in args.warning_level:
                 f.write("-Xwarning-level=" + level + "\n")
+            for plugin in args.kotlin_plugin:
+                f.write("-Xplugin=" + plugin + "\n")
             if args.nowarn:
                 f.write("-nowarn\n")
             if args.language_version:
