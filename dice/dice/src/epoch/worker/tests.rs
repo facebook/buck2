@@ -1129,6 +1129,11 @@ async fn _run_cancellation_caching_test(
         semaphore: Arc<Semaphore>,
         #[allocative(skip)]
         shared: Arc<Mutex<KeySyncData>>,
+        /// Whether a synchronous loop returned because it saw the cancellation.
+        /// Atomic: the loop runs on a runtime thread, where the mutex above
+        /// cannot be locked synchronously.
+        #[allocative(skip)]
+        saw_cancellation: Arc<AtomicBool>,
     }
 
     impl Eq for DelayOrCancelsSynchronously {}
@@ -1156,6 +1161,7 @@ async fn _run_cancellation_caching_test(
             shared.duration_ms = duration_ms;
             shared.ran_compute = false;
             shared.cancel_poller_type = cancel_poller_type;
+            self.saw_cancellation.store(false, Ordering::Release);
 
             self.semaphore.forget_permits(1);
         }
@@ -1200,8 +1206,14 @@ async fn _run_cancellation_caching_test(
                             Either::Right(observer) => observer.is_cancelled(),
                         },
                     } {
+                        self.saw_cancellation.store(true, Ordering::Release);
                         return cancel_type;
                     }
+                    // Several of these tests spin at once under `cargo test`
+                    // (it runs tests in parallel threads, Buck one per
+                    // process); don't starve the runtime threads that
+                    // deliver the cancellation on a small machine.
+                    std::thread::yield_now();
                 }
                 CancelType::NotCancelled
             };
@@ -1273,11 +1285,13 @@ async fn _run_cancellation_caching_test(
         ran_compute: false,
         cancel_poller_type: CancelPollerType::Context,
     }));
+    let saw_cancellation = Arc::new(AtomicBool::new(false));
 
     let k = DelayOrCancelsSynchronously {
         name,
         shared: shared.dupe(),
         semaphore: semaphore.dupe(),
+        saw_cancellation: saw_cancellation.dupe(),
     };
     k.reset(&cancel_type, FIRST_COMPUTE_MS, cancel_poller_type)
         .await;
@@ -1310,6 +1324,12 @@ async fn _run_cancellation_caching_test(
     // Note that we can't check an expected_value_initial_compute here because
     // we drop the task handle, preventing us from awaiting on it for a result.
     assert!(shared.lock().await.ran_compute);
+    if cancel_type == CancelType::Sync {
+        assert!(
+            saw_cancellation.load(Ordering::Acquire),
+            "the synchronous loop did not see the cancellation within {CANCELLATION_WAIT_MS}ms"
+        );
+    }
 
     // Now in the same transaction, compute the key again, but this time with a
     // key that should succeed. Since we don't cancel this computation it
