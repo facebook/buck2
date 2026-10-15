@@ -70,7 +70,7 @@ def _parse_args():
     p.add_argument(
         "--jdk-base",
         default=None,
-        help="hermetic java.base jar, forwarded as -jdk-home (JVM targets)",
+        help="hermetic java.base jar, forwarded as -jdk-home",
     )
     p.add_argument(
         "--jdk-required",
@@ -188,7 +188,7 @@ def _run(args, t0):  # noqa: C901
         if args.jdk_required and not args.jdk_base:
             _write_crash_report(
                 args.output,
-                "JDK unavailable for a JVM target; target unchecked",
+                "JDK unavailable; target unchecked",
                 round(time.time() - t0, 2),
                 plugins=args.plugins,
                 werror=args.werror,

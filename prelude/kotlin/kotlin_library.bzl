@@ -800,21 +800,27 @@ def _typecheck_subtarget(
     zip_srcs = [s for s in srcs if s.basename.endswith(".src.zip") or s.basename.endswith("-sources.jar")]
     java_srcs = [s for s in srcs if s.extension == ".java"]
 
-    # Compiling classpath: same recipe as the kotlinc action (ABI jars).
+    # Compiling classpath (ABI jars) in the order kotlincd hands kotlinc
+    # (ClasspathUtils.getAllClasspaths): the compiling deps, projected as in
+    # cd_jar_creator_util.bzl, then the bootclasspath (kotlincd extraClassPaths).
+    compiling_deps_tset = get_compiling_deps_tset(
+        ctx.actions,
+        deps + [kotlin_toolchain.kotlin_stdlib],
+        [additional_classpath_entries] if additional_classpath_entries else [],
+    )
     compiling_classpath = cmd_args()
-    if additional_classpath_entries:
-        compiling_classpath.add(additional_classpath_entries.project_as_args("args_for_compiling"))
-    compiling_classpath.add(bootclasspath_entries)
-    compiling_deps_tset = get_compiling_deps_tset(ctx.actions, deps + [kotlin_toolchain.kotlin_stdlib])
     if compiling_deps_tset:
-        compiling_classpath.add(compiling_deps_tset.project_as_args("args_for_compiling"))
+        compiling_classpath.add(compiling_deps_tset.project_as_args("args_for_compiling", ordering = "topological"))
     friend_jars = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, get_friend_paths(ctx)) if friend_path.library_output]
     compiling_classpath.add(friend_jars)
+    compiling_classpath.add(bootclasspath_entries)
+
+    # kotlincd passes neither -no-jdk nor -jdk-home, so kotlinc also compiles
+    # against the JDK it runs on, for Android targets too, after every
+    # classpath root (kotlin-2.3.21 ClasspathRootsResolver.computeRoots).
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
-    needs_jdk = not bootclasspath_entries
-    jdk_base_jar = java_toolchain.java_base_jar if needs_jdk else None
-    if needs_jdk:
-        compiling_classpath.add(filter(None, [java_toolchain.java_compiler_jar, java_toolchain.jdk_compiler_jar]))
+    compiling_classpath.add(filter(None, [java_toolchain.jdk_modules_jar]))
+    jdk_base_jar = java_toolchain.java_base_jar
     classpath_args = cmd_args(compiling_classpath, delimiter = get_path_separator_for_exec_os(ctx))
     classpath_file, _ = ctx.actions.write("typecheck_classpath", classpath_args, allow_args = True, has_content_based_path = False)
 
@@ -861,8 +867,7 @@ def _typecheck_subtarget(
     if has_plugins:
         args.add("--plugins")
     args.add(["--language-version", get_language_version(ctx)])
-    if needs_jdk:
-        args.add("--jdk-required")
+    args.add("--jdk-required")
     if jdk_base_jar:
         args.add(["--jdk-base", jdk_base_jar])
     hidden = cmd_args([compiling_classpath, kt_srcs, zip_srcs, java_srcs, generated_sources, classpath_file])
