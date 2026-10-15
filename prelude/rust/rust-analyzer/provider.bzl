@@ -33,7 +33,7 @@ RustAnalyzerInfo = provider(
         "edition": str,
         # The processed env as produced by the buck build prelude. Some env vars like `OUT_DIR` and `CARGO_MANIFEST_DIR`
         # will be made into absolute paths.
-        "env": dict[str, cmd_args],
+        "env": dict[str, cmd_args | str | ResolvedStringWithMacros],
         "features": list[str],
         # The list of rust deps needed for RustAnalyzer to function. Namely, this excludes things like
         # exec deps used as inputs to genrules and other non-rust dependencies.
@@ -82,7 +82,7 @@ def _compute_transitive_target_set(ctx: AnalysisContext, first_order_deps: list[
             transitive_targets.add(target_set)
     return transitive_targets
 
-def _compute_env(ctx: AnalysisContext, compile_ctx: CompileContext) -> dict[str, cmd_args]:
+def _compute_env(ctx: AnalysisContext, compile_ctx: CompileContext) -> dict[str, cmd_args | str | ResolvedStringWithMacros]:
     # Disable rustc_action processing, as rust-project will handle windows + any escaping necessary.
     plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, False)
     return plain_env | path_env

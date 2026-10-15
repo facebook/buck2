@@ -2109,9 +2109,14 @@ _DIRECTORY_ENV = [
 # paths to absolute paths so they'll work in any context. Hence the need to
 # distinguish path from non-path. (This will not work if the value contains both
 # path and non-path content, but we'll burn that bridge when we get to it.)
+def _env_value_needs_escape(value: str) -> bool:
+    # Match the full escape path below, which rewrites carriage returns as
+    # well as newlines; a value with only `\r` must not bypass escaping.
+    return "\n" in value or "\\n" in value or "\r" in value or "\\r" in value
+
 def process_env(
     compile_ctx: CompileContext, env: dict[str, str | ResolvedStringWithMacros | Artifact], escape_for_rustc_action: bool = True
-) -> (dict[str, cmd_args], dict[str, cmd_args]):
+) -> (dict[str, cmd_args | str | ResolvedStringWithMacros], dict[str, cmd_args]):
     # Values with inputs (ie artifact references).
     path_env = {}
 
@@ -2119,6 +2124,10 @@ def process_env(
     plain_env = {}
 
     for k, v in env.items():
+        if type(v) == "string" and not (escape_for_rustc_action and _env_value_needs_escape(v)):
+            plain_env[k] = v
+            continue
+
         arg = cmd_args(v)
         if len(arg.inputs) > 0:
             path_env[k] = arg
@@ -2136,7 +2145,9 @@ def process_env(
                 ],
             )
         else:
-            plain_env[k] = arg
+            # No escaping requested and no inputs to track: retain the value
+            # itself rather than a single-element `cmd_args` wrapper.
+            plain_env[k] = v
 
     # If CARGO_MANIFEST_DIR is not already expressed in terms of $(location ...)
     # of some target, then interpret it as a relative path inside of the crate's
@@ -2175,7 +2186,7 @@ def process_env(
     # (which is the repo root in Buck builds).
     for key in _DIRECTORY_ENV:
         value = plain_env.pop(key, None)
-        if value:
+        if value != None:
             path_env[key] = cmd_args(
                 compile_ctx.symlinked_srcs,
                 compile_ctx.path_sep,
