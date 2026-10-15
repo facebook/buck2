@@ -16,6 +16,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
 use dashmap::DashMap;
+use dashmap::mapref::entry::Entry;
 use dupe::Dupe;
 use either::Either;
 use once_cell::sync::OnceCell;
@@ -32,13 +33,44 @@ use crate::storage::data::PagableData;
 use crate::storage::support::SerializerForPaging;
 use crate::traits::StorageContext;
 
+/// Shards for the binding map. It changes mostly in bulk, at page-out and at
+/// the sweep after it, and page-ins of one key are already serialized by
+/// [`DeserializedArcCache::get_or_page_in`], so a few shards are enough and
+/// the rounding waste of many power-of-two tables is not paid.
+const SHARDS: usize = 64;
+
 /// Thread-safe cache of arcs keyed by `(TypeId, DataKey)`.
-/// `OnceCell` per deserialized entry ensures each arc is deserialized at most once.
-// TODO: Merge `map` and `resident`, and add eviction for resident values when
-// paged-in values can be paged out again.
+///
+/// Each key is bound to at most one allocation, held weakly: the cache hands
+/// out the identity every live referrer shares without keeping it resident.
+/// Once the allocation is dropped, the next page-in binds a fresh one and
+/// [`evict_expired`](Self::evict_expired) discards the stale entry.
+///
+/// A bound key costs its map bucket and the boxed weak, with no allocation of
+/// its own: a page-out of a large graph leaves millions of bindings behind.
 pub struct DeserializedArcCache {
-    map: DashMap<(TypeId, DataKey), Arc<OnceCell<Box<dyn ArcEraseDyn>>>>,
-    resident: DashMap<(TypeId, DataKey), Box<dyn WeakEraseDyn>>,
+    map: DashMap<(TypeId, DataKey), Slot>,
+}
+
+/// What a `(TypeId, DataKey)` holds: its binding, or the gate of the page-in
+/// about to bind it. Concurrent page-ins of one key wait on the gate, so the
+/// key deserializes at most once between them.
+enum Slot {
+    Bound(Box<dyn WeakEraseDyn>),
+    PagingIn(Arc<Mutex<()>>),
+}
+
+impl Slot {
+    fn live(&self) -> Option<Box<dyn ArcEraseDyn>> {
+        match self {
+            Slot::Bound(weak) => weak.upgrade(),
+            Slot::PagingIn(_) => None,
+        }
+    }
+
+    fn expired(&self) -> bool {
+        matches!(self, Slot::Bound(weak) if weak.is_expired())
+    }
 }
 
 /// Per-allocation serialization slots for one type view.
@@ -146,31 +178,108 @@ impl<'a> ArcSerCacheLocal<'a> {
 impl DeserializedArcCache {
     pub fn new() -> Self {
         Self {
-            map: DashMap::new(),
-            resident: DashMap::new(),
+            map: DashMap::with_shard_amount(SHARDS),
         }
     }
 
+    /// The live allocation bound to `(type_id, key)`, if any.
     pub fn get(&self, type_id: &TypeId, key: &DataKey) -> Option<Box<dyn ArcEraseDyn>> {
-        // A live allocation may be retained by another resident object graph. Reusing an
-        // older deserialized allocation would mix pointer identities during one page-in.
-        if let Some(arc) = self
-            .resident
-            .get(&(*type_id, *key))
-            .and_then(|weak| weak.upgrade())
-        {
-            return Some(arc);
-        }
-        if let Some(arc) = self
-            .map
-            .get(&(*type_id, *key))
-            .and_then(|cell| cell.get().map(|v| v.clone_dyn()))
-        {
-            return Some(arc);
-        }
-        None
+        self.map.get(&(*type_id, *key))?.live()
     }
 
+    /// Returns the allocation bound to `(type_id, key)`, or binds the one
+    /// `page_in` produces. Concurrent callers for one key run `page_in` at most
+    /// once between them; the rest block and share its result.
+    pub fn get_or_page_in<E>(
+        &self,
+        type_id: TypeId,
+        key: DataKey,
+        page_in: impl FnOnce() -> Result<Box<dyn ArcEraseDyn>, E>,
+    ) -> Result<Box<dyn ArcEraseDyn>, E> {
+        let gate = Arc::new(Mutex::new(()));
+        // Locked before it is published and until the binding is, so waiters
+        // block on it and find the binding when they retry.
+        let held = gate.lock();
+        loop {
+            let replaced = match self.map.entry((type_id, key)) {
+                Entry::Occupied(mut occupied) => {
+                    if let Some(live) = occupied.get().live() {
+                        return Ok(live);
+                    }
+                    if let Slot::PagingIn(other) = occupied.get() {
+                        let other = other.dupe();
+                        drop(occupied);
+                        // Wait for the holder, then look again. Never this
+                        // thread's own gate: a key is the hash of its row,
+                        // nested keys included, so no value can reference
+                        // itself and `page_in` cannot reach the same key.
+                        drop(other.lock());
+                        continue;
+                    }
+                    Some(occupied.insert(Slot::PagingIn(gate.dupe())))
+                }
+                Entry::Vacant(vacant) => {
+                    vacant.insert(Slot::PagingIn(gate.dupe()));
+                    None
+                }
+            };
+            // Dropped outside the shard lock: a strong-as-weak binding frees its value.
+            drop(replaced);
+            break;
+        }
+        let result = page_in().map(|arc| self.bind_unless_live(type_id, key, arc));
+        if result.is_err() {
+            // Unless a page-out bound the key meanwhile, leave it to the next caller.
+            self.map.remove_if(
+                &(type_id, key),
+                |_, slot| matches!(slot, Slot::PagingIn(own) if Arc::ptr_eq(own, &gate)),
+            );
+        }
+        drop(held);
+        result
+    }
+
+    /// Binds `arc` to `(type_id, key)` and returns it, unless a live allocation
+    /// was bound meanwhile, in which case that one is returned instead: a
+    /// page-out registered it from a resident object graph, while nothing but
+    /// the caller holds `arc` yet. Keys are content hashes, so two allocations
+    /// of one key are not a fault, but handing out both would split identity.
+    fn bind_unless_live(
+        &self,
+        type_id: TypeId,
+        key: DataKey,
+        arc: Box<dyn ArcEraseDyn>,
+    ) -> Box<dyn ArcEraseDyn> {
+        let previous = match self.map.entry((type_id, key)) {
+            Entry::Occupied(mut occupied) => {
+                if let Some(live) = occupied.get().live() {
+                    drop(occupied);
+                    return live;
+                }
+                Some(occupied.insert(Slot::Bound(arc.downgrade())))
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(Slot::Bound(arc.downgrade()));
+                None
+            }
+        };
+        // Dropped outside the shard lock: a strong-as-weak binding frees its value.
+        drop(previous);
+        arc
+    }
+
+    /// Replaces any earlier binding of `(type_id, key)`: the newest resident
+    /// allocation is the one live object graphs hold, so page-in must hand out
+    /// that identity rather than an older allocation that happens to survive.
+    fn bind(&self, type_id: TypeId, key: DataKey, arc: &dyn ArcEraseDyn) {
+        // Dropped outside the shard lock: a strong-as-weak binding frees its value.
+        let previous = self
+            .map
+            .insert((type_id, key), Slot::Bound(arc.downgrade()));
+        drop(previous);
+    }
+
+    /// Strong references to every live allocation of type `T` bound to a key.
     pub(crate) fn snapshot<T: ArcErase>(&self) -> Vec<T> {
         let type_id = TypeId::of::<T>();
         self.map
@@ -179,7 +288,7 @@ impl DeserializedArcCache {
                 if entry.key().0 != type_id {
                     return None;
                 }
-                let arc = entry.value().get()?;
+                let arc = entry.value().live()?;
                 Some(
                     arc.as_arc_any()
                         .downcast_ref::<T>()
@@ -190,43 +299,52 @@ impl DeserializedArcCache {
             .collect()
     }
 
+    /// Binds `arc` to `key` when `arc` records `key` as its stored
+    /// representation, so a later page-in of `key` reuses this allocation.
     pub fn register_resident(&self, key: DataKey, arc: &dyn ArcEraseDyn) {
         if arc.data_key() != Some(key) {
             return;
         }
-        self.resident
-            .insert((arc.as_arc_any().type_id(), key), arc.downgrade());
+        self.bind(arc.as_arc_any().type_id(), key, arc);
     }
 
-    /// Returns the `OnceCell` for this key, creating it if needed.
-    /// Use `cell.get_or_try_init(|| ...)` to deserialize at most once.
-    pub fn get_or_create_cell(
-        &self,
-        type_id: TypeId,
-        key: DataKey,
-    ) -> Arc<OnceCell<Box<dyn ArcEraseDyn>>> {
-        self.map
-            .entry((type_id, key))
-            .or_insert_with(|| Arc::new(OnceCell::new()))
-            .clone()
+    /// Drops entries whose allocation is gone, or that the cache alone keeps
+    /// alive. A pass visits every entry, so this runs after a page-out or an
+    /// eviction, where values drop in bulk, not per command.
+    pub fn evict_expired(&self) {
+        // Dropping a strong-as-weak binding frees its value, which may leave
+        // the arcs inside it held by the cache alone, so passes repeat until
+        // one frees nothing.
+        while self.evict_expired_once() > 0 {}
+    }
+
+    /// One pass of [`Self::evict_expired`]; returns how many entries it dropped.
+    fn evict_expired_once(&self) -> usize {
+        // Removed in two steps: a page-in may rebind a key between them, and
+        // the bindings are dropped outside the shard locks, since dropping a
+        // strong-as-weak binding frees its value.
+        let expired: Vec<(TypeId, DataKey)> = self
+            .map
+            .iter()
+            .filter(|entry| entry.value().expired())
+            .map(|entry| *entry.key())
+            .collect();
+        let unbound: Vec<Slot> = expired
+            .into_iter()
+            .filter_map(|key| self.map.remove_if(&key, |_, slot| slot.expired()))
+            .map(|(_, slot)| slot)
+            .collect();
+        let dropped = unbound.len();
+        drop(unbound);
+        dropped
+    }
+
+    pub fn len(&self) -> usize {
+        self.map.len()
     }
 
     pub fn clear(&self) {
         self.map.clear();
-        self.resident.clear();
-    }
-
-    pub fn on_arc_deserialized(
-        &self,
-        typeid: TypeId,
-        key: DataKey,
-        arc: Box<dyn ArcEraseDyn>,
-    ) -> Option<Box<dyn ArcEraseDyn>> {
-        let cell = self.get_or_create_cell(typeid, key);
-        match cell.set(arc) {
-            Ok(()) => None,
-            Err(_already_set) => cell.get().map(|v| v.clone_dyn()),
-        }
     }
 }
 
@@ -317,8 +435,6 @@ impl CommitFrontier {
 /// - [`fetch_arc_or_data_blocking`](Self::fetch_arc_or_data_blocking): Try to fetch either
 ///   a cached deserialized arc or raw data synchronously
 /// - [`fetch_data`](Self::fetch_data): Fetch raw serialized data asynchronously
-/// - [`on_arc_deserialized`](Self::on_arc_deserialized): Hook called when an arc is deserialized,
-///   allowing storage to cache it
 /// - [`schedule_for_paging`](Self::schedule_for_paging): Schedule an arc for eviction to storage
 #[async_trait::async_trait]
 pub trait PagableStorage: Send + Sync + 'static {
@@ -352,19 +468,6 @@ pub trait PagableStorage: Send + Sync + 'static {
 
     /// Fetches raw serialized data asynchronously.
     async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>>;
-
-    /// Hook called when an arc is deserialized from data.
-    ///
-    /// Returns a cached arc if one already exists for this `(typeid, key)`,
-    /// otherwise caches the provided arc and returns `None`.
-    fn on_arc_deserialized(
-        &self,
-        typeid: TypeId,
-        key: DataKey,
-        arc: Box<dyn ArcEraseDyn>,
-    ) -> Option<Box<dyn ArcEraseDyn>> {
-        self.arc_cache().on_arc_deserialized(typeid, key, arc)
-    }
 
     /// Schedules a type-erased arc for background paging to storage.
     ///
