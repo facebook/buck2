@@ -64,13 +64,15 @@ sorted_vector_map.workspace = true
 starlark_map.workspace = true
 static_interner.workspace = true
 strong_hash.workspace = true
+tempfile.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true
+buck2_certs.workspace = true
+httptest.workspace = true
 prost-types.workspace = true
-tempfile.workspace = true
 
 [lints]
 workspace = true
