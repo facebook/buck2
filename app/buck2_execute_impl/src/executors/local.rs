@@ -701,7 +701,7 @@ impl LocalExecutor {
             },
         };
 
-        let (time_span, start_time, res, manager) = match self
+        let executed = self
             .exec_with_resource_control(
                 action_digest,
                 request,
@@ -714,8 +714,14 @@ impl LocalExecutor {
                 &env,
                 network_access,
             )
-            .await
-        {
+            .await;
+        release_scratch_path(
+            &scratch_path,
+            &self.artifact_fs,
+            self.blocking_executor.as_ref(),
+        )
+        .await;
+        let (time_span, start_time, res, manager) = match executed {
             Ok(x) => x,
             Err(e) => return e,
         };
@@ -1448,6 +1454,35 @@ pub async fn prep_scratch_path(
     };
     CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
     async_fs_util::create_dir_all(artifact_fs.fs().resolve(path)).await
+}
+
+/// Deletes an action's scratch directory once its command has exited, whatever the outcome.
+///
+/// The scratch directory is the command's `TMPDIR` and `BUCK_SCRATCH_PATH`. It is live exactly
+/// while the command runs: `prep_scratch_path` wipes it before every run, so nothing can depend
+/// on its contents afterwards. Without this, every scratch directory stays on disk until the
+/// same action runs again, which for a key that changes or an action that moves to a cache hit
+/// is never, and one long build accumulates the scratch of every local action it ran (20 GiB of
+/// a 42 GiB `buck-out` in an ix CI run). `clean_scratch_on_idle` reclaims it only when the
+/// daemon goes idle, which a single long command never does.
+///
+/// A failure leaves the directory for the next `prep_scratch_path` or idle sweep, as before, and
+/// is reported as a soft error rather than failing an action that already finished.
+pub async fn release_scratch_path(
+    scratch_path: &ScratchPath,
+    artifact_fs: &ArtifactFs,
+    blocking_executor: &dyn BlockingExecutor,
+) {
+    let Some(path) = scratch_path.0.as_ref() else {
+        return;
+    };
+    let fs = artifact_fs.fs();
+    if let Err(e) = blocking_executor
+        .execute_io_inline(|| CleanOutputPaths::clean(std::iter::once(path.as_ref()), fs))
+        .await
+    {
+        let _unused = soft_error!("scratch_release_failed", e, quiet: true);
+    }
 }
 
 async fn check_inputs(

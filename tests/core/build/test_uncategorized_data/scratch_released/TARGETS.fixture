@@ -1,0 +1,5 @@
+load(":defs.bzl", "scratch_user")
+
+scratch_user(name = "ok", script = "write_scratch.py", fail = False)
+
+scratch_user(name = "fails", script = "write_scratch.py", fail = True)
