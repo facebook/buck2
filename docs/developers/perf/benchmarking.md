@@ -42,8 +42,11 @@ buck run @fbcode//mode/opt fbcode//buck2/scripts/abtest:abtest -- \
   your machine and is only good for smoke-testing a setup, along with `--dummy` and `--no-action`.
 - Scheduling prints the workflow URL; `analyze` waits for the workflow, so it can be run
   immediately after.
-- Start with the default `--samples 100 --shards 10`. Intervals are computed across shards, so if
-  the reported interval is wider than the effect you're hunting, more shards help most.
+- Start with the default `--samples 100 --shards 50`. All shards run at once and each runs its
+  share of every row back to back, so a run takes about `rows × (samples / shards + 1 warm-up)`
+  samples' worth of time. Raise `--shards` when the command is slow. Intervals are computed across
+  shards, so if the reported interval is wider than the effect you're hunting, more shards help
+  there too.
 
 ## Metrics and `--daemon-lifecycle`
 
