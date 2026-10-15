@@ -12,6 +12,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_fs::paths::file_name::FileName;
+use dice::EvictionPolicy;
+use dice::PageOutPolicy;
 use dupe::Dupe;
 use pagable::Pagable;
 use serde::Deserialize;
@@ -173,8 +175,9 @@ const HYDRATION_DEFER_FIELD_READS: SettingKey<bool> = SettingKey {
         },
         overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
     },
-    // Rolled out only through the `[hydration.2]` stanza: binaries at version 1
-    // never select that stanza, so the key never reaches one that would reject it.
+    // Rolled out only through the section's versioned stanza, which binaries at
+    // an earlier version never select, so the key never reaches one that would
+    // reject it.
     internal_default: Some(false),
     oss_default: Some(false),
 };
@@ -222,6 +225,30 @@ const HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE: SettingKey<PageOutOnIdleIs
         internal_default: Some(PageOutOnIdleIsolationDirScope::All),
         oss_default: Some(PageOutOnIdleIsolationDirScope::All),
     };
+
+const HYDRATION_PAGE_OUT_POLICY: SettingKey<PageOutPolicy> = SettingKey {
+    metadata: SettingKeyMetadata {
+        key: SettingKeyRef {
+            section: "hydration",
+            name: "page_out_policy",
+        },
+        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+    },
+    internal_default: Some(PageOutPolicy::OncePerKey),
+    oss_default: Some(PageOutPolicy::OncePerKey),
+};
+
+const HYDRATION_EVICTION_POLICY: SettingKey<EvictionPolicy> = SettingKey {
+    metadata: SettingKeyMetadata {
+        key: SettingKeyRef {
+            section: "hydration",
+            name: "eviction_policy",
+        },
+        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+    },
+    internal_default: Some(EvictionPolicy::OnIdle),
+    oss_default: Some(EvictionPolicy::OnIdle),
+};
 
 const ANALYSIS_RECORD_REQUESTED_ANON_TARGETS: SettingKey<bool> = SettingKey {
     metadata: SettingKeyMetadata {
@@ -286,6 +313,8 @@ pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
     HYDRATION_DEFER_FIELD_READS.metadata,
     HYDRATION_PAGE_OUT_ON_IDLE.metadata,
     HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE.metadata,
+    HYDRATION_PAGE_OUT_POLICY.metadata,
+    HYDRATION_EVICTION_POLICY.metadata,
     LOG_USE_MANIFOLD.metadata,
     LOG_URL.metadata,
     PACKAGE_VISIBILITY_DEFAULT_INTERSECTION.metadata,
@@ -336,6 +365,8 @@ struct HydrationSectionData {
     defer_field_reads: Option<bool>,
     page_out_on_idle: Option<bool>,
     page_out_on_idle_isolation_dir_scope: Option<PageOutOnIdleIsolationDirScope>,
+    page_out_policy: Option<PageOutPolicy>,
+    eviction_policy: Option<EvictionPolicy>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
@@ -446,7 +477,7 @@ impl HydrationSection {
     /// copy of every key from the previous version's stanza.
     pub(crate) const METADATA: SectionMetadata = SectionMetadata {
         section_name: "hydration",
-        section_version: 2,
+        section_version: 3,
     };
 
     /// Returns `None` when legacy buckconfig should determine the behavior.
@@ -464,6 +495,20 @@ impl HydrationSection {
     /// Returns `None` when legacy buckconfig should determine the behavior.
     pub fn page_out_on_idle(&self) -> Option<bool> {
         HYDRATION_PAGE_OUT_ON_IDLE.resolve(self.0.page_out_on_idle)
+    }
+
+    /// Which values a page-out writes; see [`PageOutPolicy`].
+    pub fn page_out_policy(&self) -> PageOutPolicy {
+        HYDRATION_PAGE_OUT_POLICY
+            .resolve(self.0.page_out_policy)
+            .expect("Page-out policy should have a default")
+    }
+
+    /// When the values a page-out writes leave memory; see [`EvictionPolicy`].
+    pub fn eviction_policy(&self) -> EvictionPolicy {
+        HYDRATION_EVICTION_POLICY
+            .resolve(self.0.eviction_policy)
+            .expect("Eviction policy should have a default")
     }
 
     pub(crate) fn page_out_on_idle_applies_to_isolation_dir(
@@ -697,6 +742,8 @@ Use test to execute tests.
         assert_eq!(hydration.enable_paging(), None);
         assert!(!hydration.defer_field_reads());
         assert_eq!(hydration.page_out_on_idle(), None);
+        assert_eq!(hydration.page_out_policy(), PageOutPolicy::OncePerKey);
+        assert_eq!(hydration.eviction_policy(), EvictionPolicy::OnIdle);
         assert!(
             hydration.page_out_on_idle_applies_to_isolation_dir(
                 FileName::new(DEFAULT_ISOLATION_DIR)
@@ -711,11 +758,16 @@ Use test to execute tests.
     #[test]
     fn test_hydration_settings() -> buck2_error::Result<()> {
         let settings = resolve_setting_flags(vec![table(
-            "[hydration]\nenable_paging = true\ndefer_field_reads = true\npage_out_on_idle = false\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
+            "[hydration]\nenable_paging = true\ndefer_field_reads = true\npage_out_on_idle = false\npage_out_on_idle_isolation_dir_scope = \"non_default\"\npage_out_policy = \"once_per_key\"\neviction_policy = \"on_idle\"",
         )])?;
         assert_eq!(settings.hydration.enable_paging(), Some(true));
         assert!(settings.hydration.defer_field_reads());
         assert_eq!(settings.hydration.page_out_on_idle(), Some(false));
+        assert_eq!(
+            settings.hydration.page_out_policy(),
+            PageOutPolicy::OncePerKey
+        );
+        assert_eq!(settings.hydration.eviction_policy(), EvictionPolicy::OnIdle);
         assert!(
             !settings
                 .hydration

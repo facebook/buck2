@@ -18,7 +18,7 @@ use crate::core::state::StateRequest;
 use crate::core::state::UnclaimedBranch;
 use crate::core::state::WeakCoreStateHandle;
 use crate::epoch::evaluator::VersionState;
-use crate::metrics::PagingMemoryMetrics;
+use crate::storage::PagingSetup;
 
 pub(super) struct StateProcessor {
     state: ActorState,
@@ -30,9 +30,9 @@ pub(super) struct StateProcessor {
 }
 
 impl StateProcessor {
-    pub(super) fn spawn(paging_memory: Option<Arc<PagingMemoryMetrics>>) -> CoreStateHandle {
+    pub(super) fn spawn(paging: Option<PagingSetup>) -> CoreStateHandle {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-        let state = ActorState::new(paging_memory);
+        let state = ActorState::new(paging);
         let counters = Arc::new(QueueCounters::new());
         let handle = CoreStateHandle::new(tx, counters.clone());
 
@@ -159,8 +159,11 @@ impl StateProcessor {
             StateRequest::KeysToPageOut { resp } => {
                 drop(resp.send(self.state.keys_to_page_out()));
             }
-            StateRequest::EvictKeys { keys } => {
-                self.state.evict_keys(keys);
+            StateRequest::EvictKeys {
+                keys,
+                eviction_policy,
+            } => {
+                self.state.evict_keys(keys, eviction_policy);
             }
             StateRequest::MarkNonPageable { keys } => {
                 self.state.mark_non_pageable(keys);
@@ -182,7 +185,7 @@ impl StateProcessor {
                 use std::sync::Arc;
 
                 let (complete_tx, complete_rx) = tokio::sync::oneshot::channel();
-                // Placeholder, swapped back below, so it needs no metrics.
+                // Placeholder, swapped back below, so it needs no paging setup.
                 let state = std::mem::replace(&mut self.state, ActorState::new(None));
                 let arc_state = Arc::new(state);
                 drop(resp.send((Arc::clone(&arc_state), complete_tx)));

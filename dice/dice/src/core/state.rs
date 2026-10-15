@@ -42,7 +42,8 @@ use crate::epoch::evaluator::VersionState;
 use crate::epoch::task::dice::DiceTask;
 use crate::key::DiceKey;
 use crate::metrics::Metrics;
-use crate::metrics::PagingMemoryMetrics;
+use crate::storage::EvictionPolicy;
+use crate::storage::PagingSetup;
 use crate::updater::ActiveTransactionGuard;
 use crate::updater::ChangeType;
 use crate::value::DiceValidValue;
@@ -356,8 +357,15 @@ impl CoreStateHandle {
     /// Evict in-memory values that still match the serialized page-out snapshot.
     /// Fire-and-forget; any subsequent state requests are guaranteed to see
     /// the evicted state because state requests are processed FIFO.
-    pub(crate) fn evict_keys(&self, keys: Vec<(DiceKey, PageOutResult)>) {
-        self.request(StateRequest::EvictKeys { keys })
+    pub(crate) fn evict_keys(
+        &self,
+        keys: Vec<(DiceKey, PageOutResult)>,
+        eviction_policy: EvictionPolicy,
+    ) {
+        self.request(StateRequest::EvictKeys {
+            keys,
+            eviction_policy,
+        })
     }
 
     /// Mark nodes that page-out could not serialize so they are not offered as
@@ -420,10 +428,8 @@ impl Allocative for CoreStateHandle {
 impl Dupe for CoreStateHandle {}
 
 /// Start processing state
-pub(crate) fn init_state(
-    paging_memory: Option<std::sync::Arc<PagingMemoryMetrics>>,
-) -> CoreStateHandle {
-    StateProcessor::spawn(paging_memory)
+pub(crate) fn init_state(paging: Option<PagingSetup>) -> CoreStateHandle {
+    StateProcessor::spawn(paging)
 }
 
 /// A [`CoreStateHandle`] that does not keep the actor alive: what the actor holds to make
@@ -569,7 +575,10 @@ pub(super) enum StateRequest {
         resp: Sender<Vec<(DiceKey, DiceValidValue)>>,
     },
     /// Mark unchanged page-out snapshots as paged out, dropping their in-memory values.
-    EvictKeys { keys: Vec<(DiceKey, PageOutResult)> },
+    EvictKeys {
+        keys: Vec<(DiceKey, PageOutResult)>,
+        eviction_policy: EvictionPolicy,
+    },
     /// Mark nodes that page-out could not serialize.
     MarkNonPageable {
         keys: Vec<(DiceKey, DiceValidValue)>,

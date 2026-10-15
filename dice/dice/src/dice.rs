@@ -137,11 +137,7 @@ impl Dice {
         pagable_storage: Option<DiceStorage>,
         cycle_check_interval: Option<Duration>,
     ) -> StdArc<Self> {
-        let state_handle = init_state(
-            pagable_storage
-                .as_ref()
-                .map(|storage| storage.paging_memory_metrics()),
-        );
+        let state_handle = init_state(pagable_storage.as_ref().map(DiceStorage::paging_setup));
 
         StdArc::new(Dice {
             key_index: Default::default(),

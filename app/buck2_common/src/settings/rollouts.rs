@@ -197,11 +197,13 @@ mod tests {
     fn accepts_valid_hydration_settings() -> buck2_error::Result<()> {
         let selected = select_rollout_table(table(
             r#"
-                [hydration.2]
+                [hydration.3]
                 enable_paging = true
                 defer_field_reads = true
                 page_out_on_idle = true
                 page_out_on_idle_isolation_dir_scope = "non_default"
+                page_out_policy = "once_per_key"
+                eviction_policy = "on_idle"
             "#,
         ))?
         .expect("The hydration section version is present");
@@ -215,6 +217,8 @@ mod tests {
                     defer_field_reads = true
                     page_out_on_idle = true
                     page_out_on_idle_isolation_dir_scope = "non_default"
+                    page_out_policy = "once_per_key"
+                    eviction_policy = "on_idle"
                 "#,
             ),
         );
@@ -226,7 +230,7 @@ mod tests {
         assert_eq!(
             select_rollout_table(table(
                 r#"
-                    [hydration.1]
+                    [hydration.2]
                     enable_paging = true
                     page_out_on_idle = true
                 "#,

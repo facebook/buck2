@@ -29,7 +29,9 @@ use dice::BranchId;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceStorage;
+use dice::EvictionPolicy;
 use dice::PagableStorageBackend;
+use dice::PageOutPolicy;
 use starlark::pagable::DeferredFieldReadsEnabled;
 
 use crate::actions::execute::dice_data::SetInvalidationTrackingConfig;
@@ -48,6 +50,10 @@ pub async fn configure_dice_for_buck(
     dice_state_path: Option<&Path>,
     // On-disk backend for pagable storage (`buck2_hydration.pagable_storage_backend`).
     pagable_storage_backend: PagableStorageBackend,
+    // Which values a page-out writes (`hydration.page_out_policy`).
+    page_out_policy: PageOutPolicy,
+    // When the values a page-out writes leave memory (`hydration.eviction_policy`).
+    eviction_policy: EvictionPolicy,
     defer_field_reads: bool,
 ) -> buck2_error::Result<(Arc<Dice>, BranchId)> {
     let mut dice = Dice::builder();
@@ -83,9 +89,11 @@ pub async fn configure_dice_for_buck(
         let backend = pagable_storage_backend.with_env_override().map_err(|e| {
             buck2_error::conversion::from_any_with_tag(e, buck2_error::ErrorTag::Environment)
         })?;
-        let storage = DiceStorage::open(&path, backend).map_err(|e| {
+        let mut storage = DiceStorage::open(&path, backend).map_err(|e| {
             buck2_error::conversion::from_any_with_tag(e, buck2_error::ErrorTag::Environment)
         })?;
+        storage.set_page_out_policy(page_out_policy);
+        storage.set_eviction_policy(eviction_policy);
         if defer_field_reads {
             storage
                 .storage_context()

@@ -12,6 +12,8 @@ use allocative::Allocative;
 use dupe::Dupe;
 use pagable::DataKey;
 
+use crate::storage::EvictionPolicy;
+use crate::storage::PageOutPolicy;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResident;
 
@@ -26,8 +28,8 @@ pub(crate) enum PagableValue {
     /// Resident but not serializable (e.g. `NoValueSerialize`, or a serialization error); never
     /// a page-out candidate.
     NonPageable(DiceValidValue),
-    /// Paged out once and resident again, recomputed or read back. A value is paged out at most
-    /// once, so this is not a candidate either.
+    /// Paged out once and resident again, recomputed or read back. Under
+    /// [`PageOutPolicy::OncePerKey`] a value is paged out at most once, so not a candidate.
     Recomputed(DiceValidValue),
 }
 
@@ -52,8 +54,15 @@ impl PagableValue {
         }
     }
 
-    pub(crate) fn is_page_out_candidate(&self) -> bool {
-        matches!(self, PagableValue::NeverPagedOut(_))
+    /// Whether the next page-out serializes this value.
+    pub(crate) fn is_page_out_candidate(&self, policy: PageOutPolicy) -> bool {
+        match self {
+            PagableValue::NeverPagedOut(_) => true,
+            PagableValue::Recomputed(_) => match policy {
+                PageOutPolicy::OncePerKey => false,
+            },
+            PagableValue::PagedOut(_) | PagableValue::NonPageable(_) => false,
+        }
     }
 
     /// The value as a lookup hands it out.
@@ -82,11 +91,23 @@ impl PagableValue {
         }
     }
 
+    /// The row at `data_key` now holds this value. Returns whether the value was evicted.
+    pub(crate) fn row_committed(&mut self, data_key: DataKey, policy: EvictionPolicy) -> bool {
+        match policy {
+            EvictionPolicy::OnIdle => {
+                *self = PagableValue::PagedOut(data_key);
+                true
+            }
+        }
+    }
+
     /// Makes a paged-out value resident again with `value`, which was read back from its
     /// `DataKey` or has just been proven equal to it.
-    pub(crate) fn make_resident(&mut self, value: DiceValidValue) {
+    pub(crate) fn make_resident(&mut self, value: DiceValidValue, policy: PageOutPolicy) {
         if matches!(self, PagableValue::PagedOut(_)) {
-            *self = PagableValue::Recomputed(value);
+            *self = match policy {
+                PageOutPolicy::OncePerKey => PagableValue::Recomputed(value),
+            };
         }
     }
 }

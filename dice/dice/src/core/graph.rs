@@ -38,6 +38,8 @@ use crate::core::graph::types::VersionedGraphResult;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::PagableNodeCounts;
 use crate::key::DiceKey;
+use crate::storage::EvictionPolicy;
+use crate::storage::PageOutPolicy;
 use crate::updater::ChangeType;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResident;
@@ -116,10 +118,15 @@ impl KeyValues {
 
     /// Appendix A step 1: the value behind `revision` is the canonical one for the trace, and
     /// `value` is discarded, unless the stored value is paged out and `value` takes its place.
-    fn adopt(&mut self, revision: Revision, value: DiceValidValue) -> DiceValidValue {
+    fn adopt(
+        &mut self,
+        revision: Revision,
+        value: DiceValidValue,
+        policy: PageOutPolicy,
+    ) -> DiceValidValue {
         match self.entry_mut(revision) {
             Some(stored) => {
-                stored.make_resident(value);
+                stored.make_resident(value, policy);
                 stored.as_hydrated().expect("made resident above").dupe()
             }
             None => {
@@ -170,11 +177,12 @@ impl KeyValues {
         &mut self,
         revision: Revision,
         value: MaybeResident<DiceValidValue>,
+        policy: PageOutPolicy,
     ) -> MaybeResident<DiceValidValue> {
         match self.entry_mut(revision) {
             Some(stored) => {
                 if let MaybeResident::Resident(value) = value {
-                    stored.make_resident(value);
+                    stored.make_resident(value, policy);
                 }
                 stored.as_maybe_resident()
             }
@@ -190,7 +198,7 @@ impl KeyValues {
         }
     }
 
-    fn contribution(&self) -> Contribution {
+    fn contribution(&self, policy: PageOutPolicy) -> Contribution {
         let mut c = Contribution::default();
         if self.injected {
             return c;
@@ -198,11 +206,13 @@ impl KeyValues {
         for (_, value) in &self.entries {
             match value {
                 PagableValue::PagedOut(_) => c.paged_out += 1,
-                PagableValue::NeverPagedOut(_) => {
+                PagableValue::NeverPagedOut(_) | PagableValue::Recomputed(_) => {
                     c.resident += 1;
-                    c.candidates += 1;
+                    if value.is_page_out_candidate(policy) {
+                        c.candidates += 1;
+                    }
                 }
-                PagableValue::NonPageable(_) | PagableValue::Recomputed(_) => c.resident += 1,
+                PagableValue::NonPageable(_) => c.resident += 1,
             }
         }
         c
@@ -255,6 +265,8 @@ pub(crate) struct VersionedGraph {
     values: KeyMap<KeyValues>,
     #[allocative(skip)]
     index: PagableIndex,
+    /// Which values a page-out writes; see [`PageOutPolicy`].
+    page_out_policy: PageOutPolicy,
 }
 
 impl VersionedGraph {
@@ -263,7 +275,15 @@ impl VersionedGraph {
             core: CoreState::new(),
             values: KeyMap::default(),
             index: PagableIndex::default(),
+            page_out_policy: PageOutPolicy::default(),
         }
+    }
+
+    /// Sets which values a page-out writes. Only before any computed value is retained: the
+    /// candidate index follows values as they arrive and is not rebuilt.
+    pub(crate) fn set_page_out_policy(&mut self, policy: PageOutPolicy) {
+        debug_assert_eq!(self.index.resident_count + self.index.paged_out_count, 0);
+        self.page_out_policy = policy;
     }
 
     pub(crate) fn core(&self) -> &CoreState<DiceEnv> {
@@ -292,19 +312,26 @@ impl VersionedGraph {
 
     /// The one path through which a key's values change, so that the paging index follows.
     fn with_values<R>(&mut self, key: DiceKey, f: impl FnOnce(&mut KeyValues) -> R) -> R {
-        Self::with_values_of(&mut self.values, &mut self.index, key, f)
+        Self::with_values_of(
+            &mut self.values,
+            &mut self.index,
+            self.page_out_policy,
+            key,
+            f,
+        )
     }
 
     fn with_values_of<R>(
         values: &mut KeyMap<KeyValues>,
         index: &mut PagableIndex,
+        policy: PageOutPolicy,
         key: DiceKey,
         f: impl FnOnce(&mut KeyValues) -> R,
     ) -> R {
         let key_values = values.entry(key).or_default();
-        let before = key_values.contribution();
+        let before = key_values.contribution(policy);
         let result = f(key_values);
-        let after = key_values.contribution();
+        let after = key_values.contribution(policy);
         index.apply(key, before, after);
         result
     }
@@ -357,8 +384,9 @@ impl VersionedGraph {
     fn release_unreferenced(&mut self, keys: impl IntoIterator<Item = DiceKey>) {
         let core = &self.core;
         let mut dropped = Vec::new();
+        let policy = self.page_out_policy;
         for key in keys {
-            Self::with_values_of(&mut self.values, &mut self.index, key, |kv| {
+            Self::with_values_of(&mut self.values, &mut self.index, policy, key, |kv| {
                 let (kept, unreferenced): (SmallVec<_>, SmallVec<_>) =
                     std::mem::take(&mut kv.entries)
                         .into_iter()
@@ -480,7 +508,8 @@ impl VersionedGraph {
             .cloned();
         let (cert, value) = match identical {
             Some(cert) => {
-                let stored = self.with_values(key, |kv| kv.adopt(cert.revision, value));
+                let policy = self.page_out_policy;
+                let stored = self.with_values(key, |kv| kv.adopt(cert.revision, value, policy));
                 (cert, stored)
             }
             None => {
@@ -510,7 +539,8 @@ impl VersionedGraph {
                 revision,
             );
         }
-        let value = self.with_values(at.k, |kv| kv.restore(revision, candidate.entry));
+        let policy = self.page_out_policy;
+        let value = self.with_values(at.k, |kv| kv.restore(revision, candidate.entry, policy));
         let paths = self.finish_update(at, candidate.cert, invalidation_paths);
         MaybeResidentComputedValue::new(value.into_payload(), paths, revision)
     }
@@ -525,7 +555,8 @@ impl VersionedGraph {
         let invalidation_paths = invalidation_paths.for_dependent(key);
         self.core.write(cert, invalidation_paths.dupe());
         let core = &self.core;
-        Self::with_values_of(&mut self.values, &mut self.index, key, |kv| {
+        let policy = self.page_out_policy;
+        Self::with_values_of(&mut self.values, &mut self.index, policy, key, |kv| {
             kv.entries.retain(|(r, _)| core.is_referenced(key, *r));
         });
         let mut paths = invalidation_paths;
@@ -565,7 +596,7 @@ impl VersionedGraph {
             };
             if let Some(kv) = self.values.get(&key) {
                 for (_, value) in &kv.entries {
-                    if value.is_page_out_candidate() {
+                    if value.is_page_out_candidate(self.page_out_policy) {
                         out.push((
                             key,
                             value.as_hydrated().expect("a candidate is resident").dupe(),
@@ -624,7 +655,11 @@ impl VersionedGraph {
     /// Evicts each value that is still the exact allocation page-out serialized. A value that a
     /// write replaced in the meantime is left alone. Returns how many values
     /// were evicted.
-    pub(crate) fn evict_keys(&mut self, keys: Vec<(DiceKey, PageOutResult)>) -> u64 {
+    pub(crate) fn evict_keys(
+        &mut self,
+        keys: Vec<(DiceKey, PageOutResult)>,
+        eviction_policy: EvictionPolicy,
+    ) -> u64 {
         let mut evicted = 0u64;
         for (
             key,
@@ -640,8 +675,9 @@ impl VersionedGraph {
                         .as_hydrated()
                         .is_some_and(|current| current.ptr_eq(&serialized_value))
                     {
-                        *value = PagableValue::PagedOut(data_key);
-                        evicted += 1;
+                        if value.row_committed(data_key, eviction_policy) {
+                            evicted += 1;
+                        }
                     }
                 }
             });
@@ -669,13 +705,14 @@ impl VersionedGraph {
     /// Makes the value paged out at `data_key` resident again. No-op if no such value is
     /// retained any more.
     pub(crate) fn rehydrate(&mut self, key: DiceKey, data_key: DataKey, value: DiceValidValue) {
+        let policy = self.page_out_policy;
         self.with_values(key, |kv| {
             if let Some((_, stored)) = kv
                 .entries
                 .iter_mut()
                 .find(|(_, v)| v.data_key() == Some(data_key))
             {
-                stored.make_resident(value);
+                stored.make_resident(value, policy);
             }
         });
     }
@@ -690,7 +727,7 @@ impl VersionedGraph {
         let mut total = Contribution::default();
         let mut candidates = Vec::new();
         for (key, kv) in &self.values {
-            let c = kv.contribution();
+            let c = kv.contribution(self.page_out_policy);
             total.resident += c.resident;
             total.paged_out += c.paged_out;
             total.candidates += c.candidates;

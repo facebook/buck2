@@ -37,6 +37,7 @@ use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::PagableNodeCounts;
 use crate::key::DiceKey;
+use crate::storage::EvictionPolicy;
 use crate::updater::ChangeType;
 use crate::value::DiceKeyValue;
 use crate::value::DiceValidValue;
@@ -211,7 +212,7 @@ fn page_out(graph: &mut VersionedGraph, k: DiceKey, data_key: u128) {
         })
         .collect();
     assert!(!to_evict.is_empty(), "{k:?} has no page-out candidate");
-    graph.evict_keys(to_evict);
+    graph.evict_keys(to_evict, EvictionPolicy::OnIdle);
     graph.assert_consistent();
 }
 

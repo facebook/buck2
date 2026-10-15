@@ -86,6 +86,48 @@ pub enum PagableStorageBackend {
     Noop,
 }
 
+/// Which values a page-out writes, from `hydration.page_out_policy`.
+#[derive(
+    Allocative,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Dupe,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq
+)]
+#[serde(rename_all = "snake_case")]
+pub enum PageOutPolicy {
+    /// A key's value is paged out at most once: a value recomputed or read back
+    /// after a page-out stays resident, with no row to fall back on.
+    #[default]
+    OncePerKey,
+}
+
+/// When the values a page-out writes leave memory, from `hydration.eviction_policy`.
+#[derive(
+    Allocative,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Dupe,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq
+)]
+#[serde(rename_all = "snake_case")]
+pub enum EvictionPolicy {
+    /// A page-out evicts the values it writes; the idle page-out after a
+    /// command is where memory is given back.
+    #[default]
+    OnIdle,
+}
+
 impl PagableStorageBackend {
     /// This backend, unless the `PAGABLE_STORAGE_BACKEND` env var is set, in which
     /// case that overrides it. Lets benchmarks pick a backend without a buckconfig.
@@ -158,6 +200,18 @@ pub struct DiceStorage {
     /// `soft_error`) instead of reporting 0. `Arc` so `dupe`d handles share one cache.
     #[allocative(skip)]
     cached_db_size_bytes: Arc<ArcSwap<Result<u64, Arc<std::io::Error>>>>,
+    /// Which values a page-out writes; see [`PageOutPolicy`].
+    page_out_policy: PageOutPolicy,
+    /// When the values a page-out writes leave memory; see [`EvictionPolicy`].
+    eviction_policy: EvictionPolicy,
+}
+
+/// What the core state is given about paging: where to record what paging moves, and which
+/// values a page-out writes. A `Dice` without storage never pages and has none.
+#[derive(Clone, Dupe)]
+pub(crate) struct PagingSetup {
+    pub(crate) memory: Arc<PagingMemoryMetrics>,
+    pub(crate) page_out_policy: PageOutPolicy,
 }
 
 impl DiceStorage {
@@ -171,6 +225,26 @@ impl DiceStorage {
             paging_memory: Arc::new(PagingMemoryMetrics::default()),
             path: None,
             cached_db_size_bytes: Arc::new(ArcSwap::new(Arc::new(Ok(0)))),
+            page_out_policy: PageOutPolicy::default(),
+            eviction_policy: EvictionPolicy::default(),
+        }
+    }
+
+    /// Sets which values a page-out writes; see [`PageOutPolicy`]. Only before the storage is
+    /// given to a `Dice`, whose core state reads the policy once.
+    pub fn set_page_out_policy(&mut self, policy: PageOutPolicy) {
+        self.page_out_policy = policy;
+    }
+
+    /// Sets when the values a page-out writes leave memory; see [`EvictionPolicy`].
+    pub fn set_eviction_policy(&mut self, policy: EvictionPolicy) {
+        self.eviction_policy = policy;
+    }
+
+    pub(crate) fn paging_setup(&self) -> PagingSetup {
+        PagingSetup {
+            memory: self.paging_memory.dupe(),
+            page_out_policy: self.page_out_policy,
         }
     }
 
@@ -362,7 +436,11 @@ impl DiceStorage {
         // values stay resident.
         let frontier = self.storage.commit_frontier();
         bind_in_parallel(&self.storage, finished.take_covered(&frontier)).await;
-        evict_in_batches(state_handle, pending.take_covered(&frontier));
+        evict_in_batches(
+            state_handle,
+            pending.take_covered(&frontier),
+            self.eviction_policy,
+        );
         self.storage.release_memory();
         // Evictions are fire-and-forget. The sweep must run after the core has
         // processed every one, or the arcs of late evictions stay pinned until
@@ -624,7 +702,11 @@ async fn evict_as_rows_commit(
         tokio::time::sleep(Duration::from_millis(250)).await;
         let frontier = storage.storage.commit_frontier();
         bind_in_parallel(&storage.storage, finished.take_covered(&frontier)).await;
-        evict_in_batches(&state_handle, pending.take_covered(&frontier));
+        evict_in_batches(
+            &state_handle,
+            pending.take_covered(&frontier),
+            storage.eviction_policy,
+        );
     }
 }
 
@@ -656,11 +738,15 @@ async fn bind_in_parallel(
 }
 
 /// Sends evictions in batches small enough to keep the core thread responsive.
-fn evict_in_batches(state_handle: &CoreStateHandle, mut keys: Vec<(DiceKey, PageOutResult)>) {
+fn evict_in_batches(
+    state_handle: &CoreStateHandle,
+    mut keys: Vec<(DiceKey, PageOutResult)>,
+    eviction_policy: EvictionPolicy,
+) {
     const EVICT_BATCH_SIZE: usize = 1000;
     while !keys.is_empty() {
         let rest = keys.split_off(keys.len().min(EVICT_BATCH_SIZE));
-        state_handle.evict_keys(std::mem::replace(&mut keys, rest));
+        state_handle.evict_keys(std::mem::replace(&mut keys, rest), eviction_policy);
     }
 }
 

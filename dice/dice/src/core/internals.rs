@@ -30,6 +30,8 @@ use crate::key::DiceKey;
 use crate::metrics::AllocWindow;
 use crate::metrics::Metrics;
 use crate::metrics::PagingMemoryMetrics;
+use crate::storage::EvictionPolicy;
+use crate::storage::PagingSetup;
 use crate::updater::ChangeType;
 use crate::value::DiceValidValue;
 use crate::value::MaybeResidentComputedValue;
@@ -65,11 +67,15 @@ pub(crate) struct PagableStatusRaw {
 }
 
 impl ActorState {
-    pub(super) fn new(paging_memory: Option<std::sync::Arc<PagingMemoryMetrics>>) -> Self {
+    pub(super) fn new(paging: Option<PagingSetup>) -> Self {
+        let mut graph = VersionedGraph::new();
+        if let Some(paging) = &paging {
+            graph.set_page_out_policy(paging.page_out_policy);
+        }
         Self {
             version_tracker: VersionTracker::new(),
-            graph: VersionedGraph::new(),
-            paging_memory,
+            graph,
+            paging_memory: paging.map(|paging| paging.memory),
         }
     }
 
@@ -161,13 +167,17 @@ impl ActorState {
     /// Evict values that still share the exact allocation serialized by page-out.
     /// A recomputation may replace the graph value while serialization runs; its
     /// stale `DataKey` must not evict that newer value.
-    pub(super) fn evict_keys(&mut self, keys: Vec<(DiceKey, PageOutResult)>) {
+    pub(super) fn evict_keys(
+        &mut self,
+        keys: Vec<(DiceKey, PageOutResult)>,
+        eviction_policy: EvictionPolicy,
+    ) {
         // The graph holds the last reference to each value — `page_out_value`
         // consumed and dropped the worker's copy before this eviction was even
         // queued — so the drops below are where the memory is actually released,
         // and jemalloc charges a free to the thread performing it.
         let window = AllocWindow::open();
-        let evicted = self.graph.evict_keys(keys);
+        let evicted = self.graph.evict_keys(keys, eviction_policy);
         if let Some(metrics) = &self.paging_memory {
             metrics.record_nodes_paged_out(evicted);
             metrics.record_offloaded(window.net_freed());

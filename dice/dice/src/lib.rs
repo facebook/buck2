@@ -264,7 +264,9 @@ pub use crate::metrics::PagingMemorySnapshot;
 pub use crate::metrics::set_thread_alloc_counters;
 pub use crate::opaque::OpaqueValue;
 pub use crate::storage::DiceStorage;
+pub use crate::storage::EvictionPolicy;
 pub use crate::storage::PagableStorageBackend;
+pub use crate::storage::PageOutPolicy;
 pub use crate::value::DiceValueDyn;
 
 pub mod testing {
