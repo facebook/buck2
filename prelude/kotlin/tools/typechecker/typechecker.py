@@ -69,6 +69,12 @@ def _parse_args():
         help="compiler plugin jar, forwarded as -Xplugin= (repeatable)",
     )
     p.add_argument(
+        "--friend-path",
+        action="append",
+        default=[],
+        help="friend module jar, forwarded in -Xfriend-paths= (repeatable)",
+    )
+    p.add_argument(
         "--java-sources-skipped",
         type=int,
         default=0,
@@ -212,7 +218,7 @@ def _run(args, t0):  # noqa: C901
         arg_paths = [classpath] if classpath else []
         if args.jdk_base:
             arg_paths.append(args.jdk_base)
-        arg_paths += args.kotlin_plugin
+        arg_paths += args.kotlin_plugin + args.friend_path
         for p in arg_paths + sources:
             if any(c in " \t\n\r\x0b\x0c" for c in p):
                 raise ValueError(f"argfile path contains whitespace: {p!r}")
@@ -229,6 +235,8 @@ def _run(args, t0):  # noqa: C901
                 f.write("-Xwarning-level=" + level + "\n")
             for plugin in args.kotlin_plugin:
                 f.write("-Xplugin=" + plugin + "\n")
+            if args.friend_path:
+                f.write("-Xfriend-paths=" + ",".join(args.friend_path) + "\n")
             if args.nowarn:
                 f.write("-nowarn\n")
             if args.language_version:

@@ -884,6 +884,11 @@ def _typecheck_subtarget(
     # `serializer()`) only for plugins the compilation registers.
     for plugin, _options in ctx.attrs.kotlin_compiler_plugins:
         args.add(["--kotlin-plugin", plugin[DefaultInfo].default_outputs[0]])
+
+    # Friend jars ride the classpath like any dep; the checker must also know
+    # they are friends (kotlinc -Xfriend-paths) to see their internals.
+    for friend_jar in friend_jars:
+        args.add(["--friend-path", friend_jar])
     args.add(["--language-version", get_language_version(ctx)])
     args.add("--jdk-required")
     if jdk_base_jar:
