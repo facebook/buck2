@@ -67,9 +67,10 @@ def _paged_in_count_for_key_type(result: BuildResult, key_type: str) -> int:
 
 
 async def _hydration_counts_for_key_type(buck: Buck, key_type: str) -> tuple[int, int]:
+    # `(resident, paged out)`; the backed column is a subset of resident.
     out = (await buck.debug("hydration", "status")).stdout
     match = re.search(
-        rf"^\s*(\d+)\s+(\d+)\s+{re.escape(key_type)}\s*$",
+        rf"^\s*(\d+)\s+(\d+)\s+\d+\s+{re.escape(key_type)}\s*$",
         out,
         re.MULTILINE,
     )
@@ -118,6 +119,12 @@ def _disable_idle_page_out(buck: Buck) -> None:
 def _set_defer_field_reads(buck: Buck, enabled: bool) -> None:
     (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
         f"[hydration]\ndefer_field_reads = {str(enabled).lower()}\n"
+    )
+
+
+def _set_page_out_policy(buck: Buck, policy: str) -> None:
+    (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
+        f'[hydration]\npage_out_policy = "{policy}"\n'
     )
 
 
@@ -180,6 +187,21 @@ async def test_incremental_build_after_page_out(
     )
     (buck.cwd / "src.txt").write_text("content-2\n")
     assert _output(await _build(buck)) == "content-2\n"
+
+
+async def _status_count(buck: Buck, what: str) -> int:
+    out = (await buck.debug("hydration", "status")).stdout
+    match = re.search(rf"(\d+) {what}", out)
+    assert match is not None, f"unexpected status output:\n{out}"
+    return int(match.group(1))
+
+
+async def _backed_count(buck: Buck) -> int:
+    return await _status_count(buck, "backed")
+
+
+async def _candidate_count(buck: Buck) -> int:
+    return await _status_count(buck, "page-out candidates")
 
 
 @buck_test(
@@ -415,9 +437,9 @@ async def test_page_out_triggered_only_when_values_computed(buck: Buck) -> None:
 
 @buck_test(data_dir="paging", write_invocation_record=True)
 async def test_page_out_at_most_once(buck: Buck) -> None:
-    # A value is paged out at most once: once an incremental build pages a value
-    # back in (or recomputes it), it stays resident rather than being paged out
-    # again.
+    # Under the default policy a value is paged out at most once: once an
+    # incremental build pages a value back in (or recomputes it), it stays
+    # resident rather than being paged out again.
     (buck.cwd / "src.txt").write_text("content-0\n")
     assert _output(await _build(buck)) == "content-0\n"
     await _wait_for_page_out_idle(buck)
@@ -439,6 +461,49 @@ async def test_page_out_at_most_once(buck: Buck) -> None:
         "values paged in by an incremental build must stay resident, leaving "
         "nothing new to page out"
     )
+
+    # The working set stayed resident, so the next incremental build pages nothing
+    # back in.
+    (buck.cwd / "src.txt").write_text("content-2\n")
+    result = await _build(buck)
+    assert _output(result) == "content-2\n"
+    assert _paged_in_count(result) == 0, (
+        f"expected the working set to stay resident, but {_paged_in_count(result)} "
+        "values were paged in"
+    )
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
+async def test_values_paged_out_once_stay_resident(buck: Buck) -> None:
+    # Under `once_per_value`: once an incremental build pages a value back in, or
+    # recomputes it, the value stays resident: the idle page-out writes the
+    # recomputed ones but evicts neither.
+    _set_page_out_policy(buck, "once_per_value")
+    (buck.cwd / "src.txt").write_text("content-0\n")
+    assert _output(await _build(buck)) == "content-0\n"
+    await _wait_for_page_out_idle(buck)
+
+    # This build pages its working set back in and recomputes the affected nodes.
+    # The recomputed values have no row yet, so the build triggers a page-out,
+    # which writes them and leaves them resident.
+    (buck.cwd / "src.txt").write_text("content-1\n")
+    result = await _build(buck)
+    assert _output(result) == "content-1\n"
+    # Precondition: this build actually paged values back in (otherwise the
+    # assertion below would hold vacuously).
+    assert _paged_in_count(result) > 0, (
+        "expected the incremental build to page its working set back in"
+    )
+    assert (
+        result.invocation_record().get("page_out_started") == _PAGE_OUT_STARTED_STARTED
+    ), "recomputed values should be written by an idle page-out"
+    paged_out_before = await _paged_out_count(buck)
+    await _wait_for_page_out_idle(buck)
+    assert await _paged_out_count(buck) == paged_out_before, (
+        "writing recomputed values must not evict anything"
+    )
+    assert await _candidate_count(buck) == 0
+    assert await _backed_count(buck) > 0
 
     # The working set stayed resident, so the next incremental build pages nothing
     # back in.

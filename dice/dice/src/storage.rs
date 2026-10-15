@@ -105,6 +105,10 @@ pub enum PageOutPolicy {
     /// after a page-out stays resident, with no row to fall back on.
     #[default]
     OncePerKey,
+    /// Each value is written at most once: a recomputed value is written by the
+    /// next page-out and stays resident, backed by its row, as does a value read
+    /// back from its row. A backed value can be evicted again without a write.
+    OncePerValue,
 }
 
 /// When the values a page-out writes leave memory, from `hydration.eviction_policy`.
@@ -436,7 +440,7 @@ impl DiceStorage {
         // values stay resident.
         let frontier = self.storage.commit_frontier();
         bind_in_parallel(&self.storage, finished.take_covered(&frontier)).await;
-        evict_in_batches(
+        commit_in_batches(
             state_handle,
             pending.take_covered(&frontier),
             self.eviction_policy,
@@ -702,7 +706,7 @@ async fn evict_as_rows_commit(
         tokio::time::sleep(Duration::from_millis(250)).await;
         let frontier = storage.storage.commit_frontier();
         bind_in_parallel(&storage.storage, finished.take_covered(&frontier)).await;
-        evict_in_batches(
+        commit_in_batches(
             &state_handle,
             pending.take_covered(&frontier),
             storage.eviction_policy,
@@ -737,16 +741,16 @@ async fn bind_in_parallel(
     }
 }
 
-/// Sends evictions in batches small enough to keep the core thread responsive.
-fn evict_in_batches(
+/// Sends committed rows in batches small enough to keep the core thread responsive.
+fn commit_in_batches(
     state_handle: &CoreStateHandle,
     mut keys: Vec<(DiceKey, PageOutResult)>,
     eviction_policy: EvictionPolicy,
 ) {
-    const EVICT_BATCH_SIZE: usize = 1000;
+    const COMMIT_BATCH_SIZE: usize = 1000;
     while !keys.is_empty() {
-        let rest = keys.split_off(keys.len().min(EVICT_BATCH_SIZE));
-        state_handle.evict_keys(std::mem::replace(&mut keys, rest), eviction_policy);
+        let rest = keys.split_off(keys.len().min(COMMIT_BATCH_SIZE));
+        state_handle.commit_page_out(std::mem::replace(&mut keys, rest), eviction_policy);
     }
 }
 

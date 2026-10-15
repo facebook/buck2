@@ -758,14 +758,14 @@ Use test to execute tests.
     #[test]
     fn test_hydration_settings() -> buck2_error::Result<()> {
         let settings = resolve_setting_flags(vec![table(
-            "[hydration]\nenable_paging = true\ndefer_field_reads = true\npage_out_on_idle = false\npage_out_on_idle_isolation_dir_scope = \"non_default\"\npage_out_policy = \"once_per_key\"\neviction_policy = \"on_idle\"",
+            "[hydration]\nenable_paging = true\ndefer_field_reads = true\npage_out_on_idle = false\npage_out_on_idle_isolation_dir_scope = \"non_default\"\npage_out_policy = \"once_per_value\"\neviction_policy = \"on_idle\"",
         )])?;
         assert_eq!(settings.hydration.enable_paging(), Some(true));
         assert!(settings.hydration.defer_field_reads());
         assert_eq!(settings.hydration.page_out_on_idle(), Some(false));
         assert_eq!(
             settings.hydration.page_out_policy(),
-            PageOutPolicy::OncePerKey
+            PageOutPolicy::OncePerValue
         );
         assert_eq!(settings.hydration.eviction_policy(), EvictionPolicy::OnIdle);
         assert!(

@@ -17,6 +17,7 @@ use derive_more::Display;
 use dice_core::BranchId;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::DataKey;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -38,6 +39,7 @@ use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::PagableNodeCounts;
 use crate::key::DiceKey;
 use crate::storage::EvictionPolicy;
+use crate::storage::PageOutPolicy;
 use crate::updater::ChangeType;
 use crate::value::DiceKeyValue;
 use crate::value::DiceValidValue;
@@ -106,7 +108,13 @@ fn key(i: u32) -> DiceKey {
 
 /// A graph with one root, holding the injected key `key(0)` at value 100 (version 2).
 fn with_leaf() -> (VersionedGraph, BranchId) {
+    with_leaf_under(PageOutPolicy::default())
+}
+
+/// [`with_leaf`] paging under `policy`.
+fn with_leaf_under(policy: PageOutPolicy) -> (VersionedGraph, BranchId) {
     let mut graph = VersionedGraph::new();
+    graph.set_page_out_policy(policy);
     let root = graph.new_root();
     inject(&mut graph, root, key(0), 100);
     (graph, root)
@@ -212,7 +220,7 @@ fn page_out(graph: &mut VersionedGraph, k: DiceKey, data_key: u128) {
         })
         .collect();
     assert!(!to_evict.is_empty(), "{k:?} has no page-out candidate");
-    graph.evict_keys(to_evict, EvictionPolicy::OnIdle);
+    graph.commit_page_out(to_evict, EvictionPolicy::OnIdle);
     graph.assert_consistent();
 }
 
@@ -422,7 +430,8 @@ fn dependency_validated_paged_out_value_stays_paged_out() {
         PagableNodeCounts {
             resident: 0,
             paged_out: 1,
-            candidates: 0
+            candidates: 0,
+            backed: 0,
         }
     );
 }
@@ -459,7 +468,77 @@ fn counts(resident: usize, paged_out: usize, candidates: usize) -> PagableNodeCo
         resident,
         paged_out,
         candidates,
+        backed: 0,
     }
+}
+
+fn backed_counts(resident: usize, paged_out: usize, backed: usize) -> PagableNodeCounts {
+    PagableNodeCounts {
+        resident,
+        paged_out,
+        candidates: 0,
+        backed,
+    }
+}
+
+fn stored_data_key(graph: &VersionedGraph, k: DiceKey, v: VersionNumber) -> Option<DataKey> {
+    graph
+        .get(VersionedGraphKey::new(v, k))
+        .unpack_match()
+        .unwrap()
+        .paged_out_data_key()
+}
+
+/// Under the default policy a key's value is paged out at most once: a value recomputed or read
+/// back after a page-out stays resident with no row, and is not a candidate.
+#[test]
+fn once_per_key_keeps_recomputed_and_read_back_values_resident() {
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
+    compute(&mut graph, key(1), v2, value(7));
+    page_out(&mut graph, key(1), 0x1);
+    let v3 = inject(&mut graph, root, key(0), 200);
+    compute(&mut graph, key(1), v3, value(8));
+    assert_eq!(graph.pagable_node_counts(), counts(1, 0, 0));
+    assert!(graph.keys_to_page_out().is_empty());
+
+    compute(&mut graph, key(2), v3, value(9));
+    page_out(&mut graph, key(2), 0x2);
+    graph.rehydrate(key(2), DataKey::testing_new(0x2), value(9));
+    graph.assert_consistent();
+    assert_eq!(graph.pagable_node_counts(), counts(2, 0, 0));
+    assert!(stored_data_key(&graph, key(2), v3).is_none());
+}
+
+/// A recomputed value is written by the next page-out but stays resident, backed by its row.
+#[test]
+fn recomputed_value_is_written_and_kept_resident() {
+    let (mut graph, root) = with_leaf_under(PageOutPolicy::OncePerValue);
+    let v2 = graph.head(root);
+    compute(&mut graph, key(1), v2, value(7));
+    page_out(&mut graph, key(1), 0x1);
+    let v3 = inject(&mut graph, root, key(0), 200);
+    compute(&mut graph, key(1), v3, value(8));
+    assert_eq!(graph.pagable_node_counts(), counts(1, 0, 1));
+
+    page_out(&mut graph, key(1), 0x2);
+    assert_eq!(graph.pagable_node_counts(), backed_counts(1, 0, 1));
+    assert!(stored_data_key(&graph, key(1), v3).is_none());
+    assert!(graph.keys_to_page_out().is_empty());
+}
+
+/// A value read back from its row is backed by it.
+#[test]
+fn rehydrated_value_is_backed_by_its_row() {
+    let (mut graph, root) = with_leaf_under(PageOutPolicy::OncePerValue);
+    let v2 = graph.head(root);
+    compute(&mut graph, key(1), v2, value(7));
+    page_out(&mut graph, key(1), 0x1234);
+    graph.rehydrate(key(1), DataKey::testing_new(0x1234), value(7));
+    graph.assert_consistent();
+    assert_eq!(graph.pagable_node_counts(), backed_counts(1, 0, 1));
+    assert!(graph.keys_to_page_out().is_empty());
+    assert!(stored_data_key(&graph, key(1), v2).is_none());
 }
 
 /// A computed key whose values are asserted (`changed_to` on a `Key`, which buck2 does for its
@@ -467,6 +546,7 @@ fn counts(resident: usize, paged_out: usize, candidates: usize) -> PagableNodeCo
 #[test]
 fn asserted_values_of_computed_keys_page_out() {
     let mut graph = VersionedGraph::new();
+    graph.set_page_out_policy(PageOutPolicy::OncePerValue);
     let root = graph.new_root();
     let v2 = graph.commit(
         root,
@@ -490,12 +570,12 @@ fn asserted_values_of_computed_keys_page_out() {
     );
     graph.rehydrate(key(1), pagable::DataKey::testing_new(7), value(1));
     graph.assert_consistent();
-    assert_eq!(graph.pagable_node_counts(), counts(1, 0, 0));
+    assert_eq!(graph.pagable_node_counts(), backed_counts(1, 0, 1));
 }
 
 #[test]
 fn page_out_index_tracks_the_values() {
-    let (mut graph, root) = with_leaf();
+    let (mut graph, root) = with_leaf_under(PageOutPolicy::OncePerValue);
     let v2 = graph.head(root);
     // An `InjectedKey` takes no part in paging.
     assert_eq!(graph.pagable_node_counts(), counts(0, 0, 0));
@@ -507,7 +587,15 @@ fn page_out_index_tracks_the_values() {
     assert_eq!(graph.paged_out_keys().len(), 1);
     graph.rehydrate(key(1), pagable::DataKey::testing_new(1), value(1));
     graph.assert_consistent();
-    assert_eq!(graph.pagable_node_counts(), counts(2, 0, 1));
+    assert_eq!(
+        graph.pagable_node_counts(),
+        PagableNodeCounts {
+            resident: 2,
+            paged_out: 0,
+            candidates: 1,
+            backed: 1,
+        }
+    );
     // A stale page-in for a data key no value holds is ignored.
     graph.rehydrate(key(1), pagable::DataKey::testing_new(99), value(1));
     graph.assert_consistent();
@@ -516,7 +604,7 @@ fn page_out_index_tracks_the_values() {
     let k2_value = k2_value.testing_resident_value().testing_value().dupe();
     graph.mark_non_pageable(vec![(key(2), DiceValidValue::from_arc(k2_value))]);
     graph.assert_consistent();
-    assert_eq!(graph.pagable_node_counts(), counts(2, 0, 0));
+    assert_eq!(graph.pagable_node_counts(), backed_counts(2, 0, 1));
     assert!(graph.keys_to_page_out().is_empty());
     // Deleting the branch releases the values, and the index with them.
     graph.delete_branch(root);

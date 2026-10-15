@@ -354,22 +354,22 @@ impl CoreStateHandle {
         self.call(StateRequest::KeysToPageOut { resp }, recv)
     }
 
-    /// Evict in-memory values that still match the serialized page-out snapshot.
-    /// Fire-and-forget; any subsequent state requests are guaranteed to see
-    /// the evicted state because state requests are processed FIFO.
-    pub(crate) fn evict_keys(
+    /// Record the rows of values that still match the serialized page-out snapshot, evicting
+    /// those never paged out before. Fire-and-forget; any subsequent state requests are
+    /// guaranteed to see the result because state requests are processed FIFO.
+    pub(crate) fn commit_page_out(
         &self,
         keys: Vec<(DiceKey, PageOutResult)>,
         eviction_policy: EvictionPolicy,
     ) {
-        self.request(StateRequest::EvictKeys {
+        self.request(StateRequest::CommitPageOut {
             keys,
             eviction_policy,
         })
     }
 
     /// Mark nodes that page-out could not serialize so they are not offered as
-    /// candidates again. Fire-and-forget (FIFO, as with `evict_keys`).
+    /// candidates again. Fire-and-forget (FIFO, as with `commit_page_out`).
     pub(crate) fn mark_non_pageable(&self, keys: Vec<(DiceKey, DiceValidValue)>) {
         self.request(StateRequest::MarkNonPageable { keys })
     }
@@ -574,8 +574,9 @@ pub(super) enum StateRequest {
     KeysToPageOut {
         resp: Sender<Vec<(DiceKey, DiceValidValue)>>,
     },
-    /// Mark unchanged page-out snapshots as paged out, dropping their in-memory values.
-    EvictKeys {
+    /// Record the rows of unchanged page-out snapshots, dropping the in-memory values of those
+    /// never paged out before.
+    CommitPageOut {
         keys: Vec<(DiceKey, PageOutResult)>,
         eviction_policy: EvictionPolicy,
     },

@@ -60,6 +60,7 @@ use crate::DiceProjectionDyn;
 use crate::DiceStorage;
 use crate::DynKey;
 use crate::PagableStorageBackend;
+use crate::PageOutPolicy;
 use crate::api::activation_tracker::ActivationData;
 use crate::api::activation_tracker::ActivationTracker;
 use crate::api::computations::DiceComputations;
@@ -1074,6 +1075,12 @@ impl Key for PageOutRaceRoot {
 }
 
 async fn make_dice(storage: DiceStorage) -> (Arc<Dice>, BranchId) {
+    make_dice_under(storage, PageOutPolicy::default()).await
+}
+
+/// [`make_dice`] paging under `policy`.
+async fn make_dice_under(mut storage: DiceStorage, policy: PageOutPolicy) -> (Arc<Dice>, BranchId) {
+    storage.set_page_out_policy(policy);
     let mut builder = Dice::builder();
     builder.set_pagable_storage(storage);
     let dice = builder.build(DetectCycles::Disabled);
@@ -2250,6 +2257,49 @@ async fn page_out_does_not_evict_a_recomputed_value() {
             .expect("root should remain available"),
         0
     );
+}
+
+/// A recomputed value is written by the next page-out but stays resident.
+#[tokio::test]
+async fn page_out_writes_a_recomputed_value_and_keeps_it_resident() -> anyhow::Result<()> {
+    let tmp = tempdir()?;
+    let (dice, root) = make_dice_under(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?,
+        PageOutPolicy::OncePerValue,
+    )
+    .await;
+    let compute_root = |dice: &Arc<Dice>, input: <DeferredInput as Key>::Value| {
+        let dice = dice.dupe();
+        async move {
+            let mut updater = dice.updater(root);
+            updater.changed_to([(DeferredInput(0), input)])?;
+            let tx = updater.commit().await;
+            let value = *tx.compute(&PageOutRaceRoot).await?;
+            drop(tx);
+            dice.wait_for_idle().await;
+            anyhow::Ok(value)
+        }
+    };
+
+    assert_eq!(compute_root(&dice, 1).await?, 1);
+    dice.page_out().await?;
+    // The recompute may read the old value back to compare against.
+    assert_eq!(compute_root(&dice, 2).await?, 0);
+    let counts = dice.pagable_node_counts().await;
+    assert_eq!((counts.candidates, counts.backed), (1, 0));
+    let page_ins = page_in_count::<PageOutRaceRoot>(&dice);
+
+    let written_before = dice.storage_io_metrics().unwrap().data_keys_out;
+    dice.page_out().await?;
+    assert!(dice.storage_io_metrics().unwrap().data_keys_out > written_before);
+    let counts = dice.pagable_node_counts().await;
+    assert_eq!(
+        (counts.candidates, counts.backed, counts.paged_out),
+        (0, 1, 0)
+    );
+    assert_eq!(compute_root(&dice, 2).await?, 0);
+    assert_eq!(page_in_count::<PageOutRaceRoot>(&dice), page_ins);
+    Ok(())
 }
 
 /// Keys whose `value_serialize` returns `NoValueSerialize` should silently be skipped

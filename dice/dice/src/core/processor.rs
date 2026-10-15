@@ -159,11 +159,11 @@ impl StateProcessor {
             StateRequest::KeysToPageOut { resp } => {
                 drop(resp.send(self.state.keys_to_page_out()));
             }
-            StateRequest::EvictKeys {
+            StateRequest::CommitPageOut {
                 keys,
                 eviction_policy,
             } => {
-                self.state.evict_keys(keys, eviction_policy);
+                self.state.commit_page_out(keys, eviction_policy);
             }
             StateRequest::MarkNonPageable { keys } => {
                 self.state.mark_non_pageable(keys);

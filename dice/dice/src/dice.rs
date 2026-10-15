@@ -29,6 +29,7 @@ use crate::arc::Arc;
 use crate::core::state::CoreStateHandle;
 use crate::core::state::init_state;
 use crate::introspection::graph::GraphIntrospectable;
+use crate::key::DiceKey;
 use crate::key_index::DiceKeyIndex;
 use crate::metrics::Metrics;
 use crate::metrics::PageInKeyTypeMetrics;
@@ -469,27 +470,23 @@ impl Dice {
         // `key_index.get` can't panic here: keys are interned before their node
         // enters the graph, and we snapshot the graph before resolving keys (the
         // dual of `to_introspectable`'s ordering). Don't reorder those two steps.
-        let mut counts: HashMap<&'static str, (usize, usize)> = HashMap::default();
-        for key in &raw.resident {
-            counts
-                .entry(self.key_index.get(*key).key_type_name())
-                .or_default()
-                .0 += 1;
-        }
-        for key in &raw.paged_out {
-            counts
-                .entry(self.key_index.get(*key).key_type_name())
-                .or_default()
-                .1 += 1;
-        }
-        let mut by_type: Vec<PagableTypeStat> = counts
-            .into_iter()
-            .map(|(key_type, (resident, paged_out))| PagableTypeStat {
-                key_type,
-                resident,
-                paged_out,
-            })
-            .collect();
+        let mut counts: HashMap<&'static str, PagableTypeStat> = HashMap::default();
+        let mut tally = |keys: &[DiceKey], count: fn(&mut PagableTypeStat) -> &mut usize| {
+            for key in keys {
+                let key_type = self.key_index.get(*key).key_type_name();
+                let stat = counts.entry(key_type).or_insert(PagableTypeStat {
+                    key_type,
+                    resident: 0,
+                    paged_out: 0,
+                    backed: 0,
+                });
+                *count(stat) += 1;
+            }
+        };
+        tally(&raw.resident, |t| &mut t.resident);
+        tally(&raw.paged_out, |t| &mut t.paged_out);
+        tally(&raw.backed, |t| &mut t.backed);
+        let mut by_type: Vec<PagableTypeStat> = counts.into_values().collect();
         // Biggest contributors first, with a name tie-break so output is stable
         // across runs (the underlying HashMap iteration order is not).
         by_type.sort_by(|a, b| {
@@ -503,6 +500,7 @@ impl Dice {
             resident_count: raw.counts.resident,
             paged_out_count: raw.counts.paged_out,
             candidate_count: raw.counts.candidates,
+            backed_count: raw.counts.backed,
             by_type,
         }
     }
@@ -543,13 +541,15 @@ impl StorageIoSnapshot {
     }
 }
 
-/// Resident, paged-out, and page-out-candidate DICE node counts. `candidates` is the
-/// subset of `resident` never paged out.
+/// Resident, paged-out, page-out-candidate, and backed DICE node counts. `candidates`, the
+/// subset of `resident` the next page-out serializes, and `backed`, the subset a row already
+/// holds, are disjoint.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PagableNodeCounts {
     pub resident: usize,
     pub paged_out: usize,
     pub candidates: usize,
+    pub backed: usize,
 }
 
 /// Summary of how many DICE node values are resident in memory vs paged out to
@@ -560,9 +560,11 @@ pub struct PagableStatus {
     pub total_nodes: usize,
     pub resident_count: usize,
     pub paged_out_count: usize,
-    /// Resident nodes eligible for page-out (never paged out); a subset of
-    /// `resident_count`.
+    /// Resident nodes the next page-out serializes; a subset of `resident_count`.
     pub candidate_count: usize,
+    /// Resident nodes a row already holds; a subset of `resident_count`, disjoint from the
+    /// candidates.
+    pub backed_count: usize,
     /// Per-key-type counts, sorted by total (resident + paged-out) descending.
     pub by_type: Vec<PagableTypeStat>,
 }
@@ -573,6 +575,8 @@ pub struct PagableTypeStat {
     pub key_type: &'static str,
     pub resident: usize,
     pub paged_out: usize,
+    /// Resident values a row already holds; a subset of `resident`.
+    pub backed: usize,
 }
 
 #[cfg(test)]

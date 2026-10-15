@@ -29,6 +29,7 @@ use crate::api::key::InvalidationSourcePriority;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::core::graph::lifecycle::PagableValue;
+use crate::core::graph::lifecycle::RowCommitted;
 use crate::core::graph::revision::EpsilonToken;
 use crate::core::graph::revision::Revision;
 use crate::core::graph::revision::RevisionMint;
@@ -212,6 +213,10 @@ impl KeyValues {
                         c.candidates += 1;
                     }
                 }
+                PagableValue::Backed(_) => {
+                    c.resident += 1;
+                    c.backed += 1;
+                }
                 PagableValue::NonPageable(_) => c.resident += 1,
             }
         }
@@ -225,15 +230,19 @@ struct Contribution {
     resident: usize,
     paged_out: usize,
     candidates: usize,
+    backed: usize,
 }
 
-/// The page-out candidate index and the resident / paged-out tallies, kept in step with the
-/// values by [`VersionedGraph::with_values`] so that no operation needs a scan.
+/// The page-out candidate and backed-value indexes and the resident / paged-out tallies, kept
+/// in step with the values by [`VersionedGraph::with_values`] so that no operation needs a scan.
 #[derive(Default)]
 struct PagableIndex {
     /// Keys with at least one page-out candidate, by `DiceKey::index`.
     candidates: BitSet,
     candidate_count: usize,
+    /// Keys with at least one backed value, by `DiceKey::index`.
+    backed: BitSet,
+    backed_count: usize,
     resident_count: usize,
     paged_out_count: usize,
 }
@@ -246,12 +255,23 @@ impl PagableIndex {
         self.resident_count = self.resident_count + after.resident - before.resident;
         self.paged_out_count = self.paged_out_count + after.paged_out - before.paged_out;
         self.candidate_count = self.candidate_count + after.candidates - before.candidates;
-        match (before.candidates > 0, after.candidates > 0) {
+        self.backed_count = self.backed_count + after.backed - before.backed;
+        Self::track(
+            &mut self.candidates,
+            key,
+            before.candidates,
+            after.candidates,
+        );
+        Self::track(&mut self.backed, key, before.backed, after.backed);
+    }
+
+    fn track(set: &mut BitSet, key: DiceKey, before: usize, after: usize) {
+        match (before > 0, after > 0) {
             (false, true) => {
-                self.candidates.insert(key.index as usize);
+                set.insert(key.index as usize);
             }
             (true, false) => {
-                self.candidates.remove(key.index as usize);
+                set.remove(key.index as usize);
             }
             _ => {}
         }
@@ -587,7 +607,7 @@ impl VersionedGraph {
         self.core.key_count()
     }
 
-    /// Every resident value that has never been paged out, with its key.
+    /// Every resident value the next page-out serializes, with its key.
     pub(crate) fn keys_to_page_out(&self) -> Vec<(DiceKey, DiceValidValue)> {
         let mut out = Vec::with_capacity(self.index.candidate_count);
         for index in self.index.candidates.iter() {
@@ -624,24 +644,28 @@ impl VersionedGraph {
         out
     }
 
-    /// The keys of every resident and every paged-out value that takes part in paging, a key
-    /// once per value.
-    pub(crate) fn resident_and_paged_out(&self) -> (Vec<DiceKey>, Vec<DiceKey>) {
+    /// The keys of every resident, every paged-out, and every backed value that takes part in
+    /// paging, a key once per value; the backed keys are also among the resident ones.
+    pub(crate) fn keys_by_paging_state(&self) -> (Vec<DiceKey>, Vec<DiceKey>, Vec<DiceKey>) {
         let mut resident = Vec::with_capacity(self.index.resident_count);
         let mut paged_out = Vec::with_capacity(self.index.paged_out_count);
+        let mut backed = Vec::with_capacity(self.index.backed_count);
         for (key, kv) in &self.values {
             if kv.injected {
                 continue;
             }
             for (_, value) in &kv.entries {
-                if value.as_hydrated().is_some() {
-                    resident.push(*key);
-                } else {
-                    paged_out.push(*key);
+                match value {
+                    PagableValue::PagedOut(_) => paged_out.push(*key),
+                    PagableValue::Backed(_) => {
+                        resident.push(*key);
+                        backed.push(*key);
+                    }
+                    _ => resident.push(*key),
                 }
             }
         }
-        (resident, paged_out)
+        (resident, paged_out, backed)
     }
 
     pub(crate) fn pagable_node_counts(&self) -> PagableNodeCounts {
@@ -649,13 +673,15 @@ impl VersionedGraph {
             resident: self.index.resident_count,
             paged_out: self.index.paged_out_count,
             candidates: self.index.candidate_count,
+            backed: self.index.backed_count,
         }
     }
 
-    /// Evicts each value that is still the exact allocation page-out serialized. A value that a
-    /// write replaced in the meantime is left alone. Returns how many values
-    /// were evicted.
-    pub(crate) fn evict_keys(
+    /// Records the row of each value that is still the exact allocation page-out serialized: a
+    /// value never paged out is evicted, a recomputed one stays resident, backed by its row. A
+    /// value that a write replaced in the meantime is left alone. Returns how many values were
+    /// evicted.
+    pub(crate) fn commit_page_out(
         &mut self,
         keys: Vec<(DiceKey, PageOutResult)>,
         eviction_policy: EvictionPolicy,
@@ -675,7 +701,7 @@ impl VersionedGraph {
                         .as_hydrated()
                         .is_some_and(|current| current.ptr_eq(&serialized_value))
                     {
-                        if value.row_committed(data_key, eviction_policy) {
+                        if value.row_committed(data_key, eviction_policy) == RowCommitted::Evicted {
                             evicted += 1;
                         }
                     }
@@ -726,13 +752,18 @@ impl VersionedGraph {
         self.core.check_invariants();
         let mut total = Contribution::default();
         let mut candidates = Vec::new();
+        let mut backed = Vec::new();
         for (key, kv) in &self.values {
             let c = kv.contribution(self.page_out_policy);
             total.resident += c.resident;
             total.paged_out += c.paged_out;
             total.candidates += c.candidates;
+            total.backed += c.backed;
             if c.candidates > 0 {
                 candidates.push(key.index as usize);
+            }
+            if c.backed > 0 {
+                backed.push(key.index as usize);
             }
             for cert in self.core.pinned_certs(*key) {
                 assert!(
@@ -749,8 +780,11 @@ impl VersionedGraph {
             }
         }
         candidates.sort_unstable();
+        backed.sort_unstable();
         assert_eq!(self.index.candidates.iter().collect::<Vec<_>>(), candidates);
         assert_eq!(self.index.candidate_count, total.candidates);
+        assert_eq!(self.index.backed.iter().collect::<Vec<_>>(), backed);
+        assert_eq!(self.index.backed_count, total.backed);
         assert_eq!(self.index.resident_count, total.resident);
         assert_eq!(self.index.paged_out_count, total.paged_out);
     }

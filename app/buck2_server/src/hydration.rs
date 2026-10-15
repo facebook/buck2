@@ -151,12 +151,13 @@ fn format_status_summary(
         .saturating_sub(status.resident_count)
         .saturating_sub(status.paged_out_count);
     let mut summary = format!(
-        "DICE hydration: {} nodes ({} resident, {} paged out, {} other; {} page-out candidates)\n",
+        "DICE hydration: {} nodes ({} resident, {} paged out, {} other; {} page-out candidates, {} backed)\n",
         status.total_nodes,
         status.resident_count,
         status.paged_out_count,
         other,
         status.candidate_count,
+        status.backed_count,
     );
     summary.push_str(&format!(
         "idle page-out in progress: {}\n",
@@ -175,13 +176,13 @@ fn format_status_summary(
     if !status.by_type.is_empty() {
         summary.push('\n');
         summary.push_str(&format!(
-            "{:>12}  {:>12}  {}\n",
-            "resident", "paged-out", "key type"
+            "{:>12}  {:>12}  {:>12}  {}\n",
+            "resident", "paged-out", "backed", "key type"
         ));
         for t in &status.by_type {
             summary.push_str(&format!(
-                "{:>12}  {:>12}  {}\n",
-                t.resident, t.paged_out, t.key_type
+                "{:>12}  {:>12}  {:>12}  {}\n",
+                t.resident, t.paged_out, t.backed, t.key_type
             ));
         }
     }
