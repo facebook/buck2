@@ -477,7 +477,8 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_targets["lazy-import-cache"] = [DefaultInfo(default_output = lazy_imports_cache_output)]
 
     # Type check
-    type_checker = python_toolchain.type_checker
+    typing_enabled = ctx.attrs.typing != None and ctx.attrs.typing != False
+    type_checker = ctx.attrs.typing[RunInfo] if typing_enabled and ctx.attrs.typing != True else python_toolchain.type_checker
     pyre_validation_spec = None
     if type_checker != None:
         type_check_info = create_per_target_type_check(
@@ -487,13 +488,13 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             deps,
             typeshed = python_toolchain.typeshed_stubs,
             py_version = ctx.attrs.py_version_for_type_checking,
-            typing_enabled = ctx.attrs.typing,
+            typing_enabled = typing_enabled,
             sharding_enabled = ctx.attrs.shard_typing,
         )
         sub_targets["typecheck"] = [type_check_info]
 
         # Build-time type check validation (separate action for sole-output constraint)
-        if ctx.attrs.typing and ctx.attrs.typing_validation:
+        if typing_enabled and ctx.attrs.typing_validation:
             validation_output = create_type_check_validation(ctx, type_check_info.default_outputs[0])
             pyre_validation_spec = ValidationSpec(name = "pyre", validation_result = validation_output)
 

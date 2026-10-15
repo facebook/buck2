@@ -250,7 +250,8 @@ def _add_executable_subtargets(
     })
 
     # Type check
-    type_checker = python_toolchain.type_checker
+    typing_enabled = ctx.attrs.typing != None and ctx.attrs.typing != False
+    type_checker = ctx.attrs.typing[RunInfo] if typing_enabled and ctx.attrs.typing != True else python_toolchain.type_checker
     validation_output = None
 
     if type_checker != None:
@@ -261,12 +262,12 @@ def _add_executable_subtargets(
             python_deps,
             typeshed = python_toolchain.typeshed_stubs,
             py_version = ctx.attrs.py_version_for_type_checking,
-            typing_enabled = ctx.attrs.typing,
+            typing_enabled = typing_enabled,
             sharding_enabled = ctx.attrs.shard_typing,
         )
         exe.sub_targets.update({"typecheck": [type_check_info]})
 
-        if ctx.attrs.typing and ctx.attrs.typing_validation:
+        if typing_enabled and ctx.attrs.typing_validation:
             validation_output = create_type_check_validation(ctx, type_check_info.default_outputs[0])
 
     return exe, validation_output

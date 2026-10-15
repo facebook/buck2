@@ -180,12 +180,12 @@ def _typing_arg():
     Determines if sharding should be enabled on a given target.
 """,
         ),
-        # NOTE(grievejia): Setting default to True here may have non-trivial impact on build memory
-        # usage (see S395002)
-        "typing": attrs.bool(
+        "typing": attrs.one_of(
+            attrs.bool(),
+            attrs.exec_dep(providers = [RunInfo]),
             default = False,
             doc = """
-    Determines whether to perform type checking on the given target. Default is False.
+    Determines whether to perform type checking on the given target. A RunInfo-producing target enables typing and overrides the Python toolchain's type checker for this target.
 """,
         ),
         "typing_validation": attrs.bool(
