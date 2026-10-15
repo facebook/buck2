@@ -54,6 +54,12 @@ def _parse_args():
         help="suppress the werror escalation (also forwarded to the checker)",
     )
     p.add_argument(
+        "--warning-level",
+        action="append",
+        default=[],
+        help="NAME:LEVEL, forwarded as -Xwarning-level (repeatable)",
+    )
+    p.add_argument(
         "--plugins", action="store_true", help="target uses compiler plugins"
     )
     p.add_argument(
@@ -212,6 +218,8 @@ def _run(args, t0):  # noqa: C901
                 f.write("-jdk-home\n" + args.jdk_base + "\n")
             if args.werror:
                 f.write("-Werror\n")
+            for level in args.warning_level:
+                f.write("-Xwarning-level=" + level + "\n")
             if args.nowarn:
                 f.write("-nowarn\n")
             if args.language_version:

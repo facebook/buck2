@@ -846,6 +846,17 @@ def _typecheck_subtarget(
     werror = has_flag("-Werror")
     nowarn = has_flag("-nowarn", "-W")
 
+    # Per-warning severity overrides (kotlinc -Xwarning-level=NAME:LEVEL and
+    # its deprecated alias -Xsuppress-warning=NAME) change which warnings
+    # kotlinc reports, so the checker must see them too.
+    warning_levels = []
+    for a in ctx.attrs.extra_kotlinc_arguments or []:
+        flag = str(a).strip().strip('"')
+        if flag.startswith("-Xwarning-level="):
+            warning_levels.append(flag[len("-Xwarning-level=") :])
+        elif flag.startswith("-Xsuppress-warning="):
+            warning_levels.append(flag[len("-Xsuppress-warning=") :] + ":disabled")
+
     report = ctx.actions.declare_output("typecheck_report.json")
     args = cmd_args([
         typechecker_wrapper[RunInfo],
@@ -864,6 +875,8 @@ def _typecheck_subtarget(
         args.add("--werror")
     if nowarn:
         args.add("--nowarn")
+    for level in warning_levels:
+        args.add(["--warning-level", level])
     if has_plugins:
         args.add("--plugins")
     args.add(["--language-version", get_language_version(ctx)])
