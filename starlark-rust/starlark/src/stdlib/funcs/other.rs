@@ -342,48 +342,40 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<AllocList<impl IntoIterator<Item = Value<'v>> + use<'v>>> {
         let it = x.get().iterate(eval.heap())?;
-        let mut it = match key {
-            None => it.map(|x| (x, x)).collect(),
+        let mut it: Vec<(usize, Value, Value)> = match key {
+            None => it.enumerate().map(|(i, x)| (i, x, x)).collect(),
             Some(key) => {
                 let mut v = Vec::new();
-                for el in it {
-                    v.push((el, key.invoke_pos(&[el], eval)?));
+                for (i, el) in it.enumerate() {
+                    v.push((i, el, key.invoke_pos(&[el], eval)?));
                 }
                 v
             }
         };
 
-        if it.len() > 1 {
-            for i in 1..it.len() {
-                let cmp_result = if reverse {
-                    it[0].1.compare(it[i].1).map(Ordering::reverse)
-                } else {
-                    it[0].1.compare(it[i].1)
-                };
-                cmp_result?;
-            }
-        }
-
         let mut compare_ok = Ok(());
 
-        it.sort_by(|x: &(Value, Value), y: &(Value, Value)| {
+        it.sort_by(|x, y| {
+            if compare_ok.is_err() {
+                return x.0.cmp(&y.0);
+            }
             let ord_or_err = if reverse {
-                x.1.compare(y.1).map(Ordering::reverse)
+                x.2.compare(y.2).map(Ordering::reverse)
             } else {
-                x.1.compare(y.1)
+                x.2.compare(y.2)
             };
             match ord_or_err {
                 Ok(r) => r,
                 Err(e) => {
                     compare_ok = Err(e);
-                    Ordering::Equal
+                    x.0.cmp(&y.0)
                 }
             }
         });
 
         compare_ok?;
 
-        Ok(AllocList(it.into_iter().map(|x| x.0)))
+        Ok(AllocList(it.into_iter().map(|x| x.1)))
     }
 
     /// [type](
@@ -505,6 +497,22 @@ noop(hash)(foo)
         assert::fail(
             "sorted([5, 4, 3, 2, 1, 0, len, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, len, 9, 8, 7, 6])",
             "compare",
+        );
+    }
+
+    #[test]
+    fn test_sorted_non_transitive() {
+        assert::fail(
+            "sorted([(1,), (1, 'a'), (1, 2)])",
+            "compare",
+        );
+    }
+
+    #[test]
+    fn test_sorted_large_mixed_incomparable() {
+        assert::fail(
+            "sorted([3, (1,), 7, (1, 'a'), 2, (1, 2), 9, 'hello', 1, (2,), 5, 'world', 8])",
+            "not supported",
         );
     }
 }
