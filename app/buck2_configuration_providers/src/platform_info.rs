@@ -9,12 +9,10 @@
  */
 
 use std::fmt::Debug;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::data::ExecPlatformMarker;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
@@ -45,10 +43,9 @@ pub struct PlatformInfo<'v> {
 }
 
 impl<'v> PlatformInfo<'v> {
-    /// Convert to an internal configuration with the inherited execution marker.
     pub fn to_configuration(
         &self,
-        exec_marker: Option<Arc<ExecPlatformMarker>>,
+        is_marked_as_exec_platform: bool,
     ) -> buck2_error::Result<ConfigurationData> {
         let label = self
             .label
@@ -57,7 +54,7 @@ impl<'v> PlatformInfo<'v> {
             .expect("type checked during construction")
             .to_owned();
         let data = self.configuration.to_configuration_data()?;
-        ConfigurationData::from_platform(label, data, exec_marker)
+        ConfigurationData::from_platform(label, data, is_marked_as_exec_platform)
     }
 
     pub fn from_configuration(

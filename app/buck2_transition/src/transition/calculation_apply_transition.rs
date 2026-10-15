@@ -76,22 +76,13 @@ enum ApplyTransitionError {
     InconsistentTransitionAndComputation,
 }
 
-struct TransitionFunctionArgs<'a, 'v> {
-    transition: &'a TransitionData,
+fn call_transition_function<'v>(
+    transition: &TransitionData,
+    conf: &ConfigurationData,
     refs: Value<'v>,
     attrs: Option<Value<'v>>,
-}
-
-fn call_transition_function<'v>(
-    conf: &ConfigurationData,
-    params: &TransitionFunctionArgs<'_, 'v>,
     eval: &mut Evaluator<'v, '_, '_>,
 ) -> buck2_error::Result<TransitionApplied> {
-    let TransitionFunctionArgs {
-        transition,
-        refs,
-        attrs,
-    } = *params;
     let mut args = vec![(
         "platform",
         eval.heap()
@@ -110,6 +101,7 @@ fn call_transition_function<'v>(
     let new_platforms = eval
         .eval_function(impl_, &[], &args)
         .map_err(buck2_error::Error::from)?;
+    let is_marked_as_exec_platform = conf.is_marked_as_exec_platform();
     if transition.is_split() {
         match UnpackDictEntries::<&str, &PlatformInfo>::unpack_value(new_platforms)? {
             Some(dict) => {
@@ -117,7 +109,7 @@ fn call_transition_function<'v>(
                 for (k, v) in dict.entries {
                     let prev = split.insert(
                         k.to_owned(),
-                        v.to_configuration(conf.exec_marker().duped())?,
+                        v.to_configuration(is_marked_as_exec_platform)?,
                     );
                     assert!(prev.is_none());
                 }
@@ -128,7 +120,7 @@ fn call_transition_function<'v>(
     } else {
         match <&PlatformInfo>::unpack_value_err(new_platforms) {
             Ok(platform) => Ok(TransitionApplied::Single(
-                platform.to_configuration(conf.exec_marker().duped())?,
+                platform.to_configuration(is_marked_as_exec_platform)?,
             )),
             Err(_) => Err(ApplyTransitionError::NonSplitTransitionMustReturnPlatformInfo.into()),
         }
@@ -190,23 +182,20 @@ async fn do_apply_transition(
                         );
                     }
                 };
-                let params = TransitionFunctionArgs {
-                    transition: &transition,
-                    refs,
-                    attrs,
-                };
-                match call_transition_function(conf, &params, eval)? {
+                match call_transition_function(&transition, conf, refs, attrs, eval)? {
                     TransitionApplied::Single(new) => {
-                        let new_2 = match call_transition_function(&new, &params, eval)
-                            .buck_error_context("applying transition again on transition output")?
-                        {
-                            TransitionApplied::Single(new_2) => new_2,
-                            TransitionApplied::Split(_) => {
-                                unreachable!(
-                                    "split transition filtered out in call_transition_function"
-                                )
-                            }
-                        };
+                        let new_2 =
+                            match call_transition_function(&transition, &new, refs, attrs, eval)
+                                .buck_error_context(
+                                    "applying transition again on transition output",
+                                )? {
+                                TransitionApplied::Single(new_2) => new_2,
+                                TransitionApplied::Split(_) => {
+                                    unreachable!(
+                                        "split transition filtered out in call_transition_function"
+                                    )
+                                }
+                            };
                         if let Err(diff) = cfg_diff(&new, &new_2) {
                             return Err(
                                 ApplyTransitionError::SplitTransitionAgainDifferentPlatformInfo(

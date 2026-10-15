@@ -9,13 +9,13 @@
  */
 
 use std::fmt::Debug;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_build_api::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use buck2_build_api_derive::internal_provider;
+use buck2_core::configuration::constraints::ConstraintKey;
+use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::data::ExecPlatformMarker;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -59,12 +59,21 @@ impl<'v> ExecutionPlatformInfo<'v> {
     /// Convert to an ExecutionPlatform, optionally adding a marker constraint to the configuration.
     pub fn to_execution_platform_with_marker(
         &self,
-        exec_marker: Option<Arc<ExecPlatformMarker>>,
+        marker_constraint: Option<&(ConstraintKey, ConstraintValue)>,
     ) -> buck2_error::Result<ExecutionPlatform> {
         let target = self.label.label();
-        let cfg = self.configuration.to_configuration_data()?;
-        let cfg =
-            ConfigurationData::from_platform(TargetLabel::to_string(target), cfg, exec_marker)?;
+        let mut cfg = self.configuration.to_configuration_data()?;
+
+        // Add the marker constraint if provided
+        if let Some((key, value)) = marker_constraint {
+            cfg.constraints.insert(key.clone(), value.clone());
+        }
+
+        let cfg = ConfigurationData::from_platform(
+            TargetLabel::to_string(target),
+            cfg,
+            marker_constraint.is_some(),
+        )?;
         Ok(ExecutionPlatform::platform(
             target.dupe(),
             cfg,

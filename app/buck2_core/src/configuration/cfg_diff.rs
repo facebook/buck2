@@ -174,7 +174,7 @@ mod tests {
                     ConstraintValue::testing_new("foo//qux:vx", None),
                 ),
             ])),
-            None,
+            false,
         )
         .unwrap();
         let y = ConfigurationData::from_platform(
@@ -193,7 +193,7 @@ mod tests {
                     ConstraintValue::testing_new("foo//qux:vy", None),
                 ),
             ])),
-            None,
+            false,
         )
         .unwrap();
         let diff = cfg_diff(&x, &y).unwrap_err();
@@ -224,7 +224,7 @@ mod tests {
                     ConstraintValue::testing_new("foo//qux:cpu", Some("x86_64")),
                 ),
             ])),
-            None,
+            false,
         )
         .unwrap();
         let y = ConfigurationData::from_platform(
@@ -243,7 +243,7 @@ mod tests {
                     ConstraintValue::testing_new("foo//qux:cpu", Some("arm64")),
                 ),
             ])),
-            None,
+            false,
         )
         .unwrap();
         let diff = cfg_diff(&x, &y).unwrap_err();
