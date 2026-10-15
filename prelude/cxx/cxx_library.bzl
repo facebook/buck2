@@ -757,7 +757,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     frameworks_linkable = apple_create_frameworks_linkable(ctx)
     swiftmodule_linkable = impl_params.swiftmodule_linkable
-    dep_infos, link_group_map, link_execution_preference = _get_shared_library_links(
+    shared_library_links = _get_shared_library_links(
         ctx,
         partial(reduce_linkable_graph, deps_linkable_graph),
         link_group,
@@ -771,8 +771,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         swiftmodule_linkable,
         force_static_follows_dependents = impl_params.link_groups_force_static_follows_dependents,
     )
-    if impl_params.generate_sub_targets.link_group_map and link_group_map:
-        sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [link_group_map]
+    if impl_params.generate_sub_targets.link_group_map and shared_library_links.link_group_map_database:
+        sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [shared_library_links.link_group_map_database]
 
     extra_static_linkables = []
     if frameworks_linkable:
@@ -785,10 +785,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         impl_params = impl_params,
         compiled_srcs = compiled_srcs,
         preferred_linkage = preferred_linkage,
-        dep_infos = dep_infos,
+        dep_infos = shared_library_links.link_args,
         extra_static_linkables = extra_static_linkables,
         gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
-        link_execution_preference = link_execution_preference,
+        link_execution_preference = shared_library_links.link_execution_preference,
         compile_pch = compile_pch,
     )
     shared_libs = create_flavored_shared_libraries(ctx, library_outputs.solibs)
@@ -2096,6 +2096,13 @@ def _strip_objects(
 
     return stripped_objects
 
+_SharedLibraryLinks = record(
+    link_args = field(LinkArgs),
+    # The `[link-group-map-database]` output of a link group-aware link.
+    link_group_map_database = field(DefaultInfo | None),
+    link_execution_preference = field(LinkExecutionPreference),
+)
+
 def _get_shared_library_links(
     ctx: AnalysisContext,
     reduce_linkable_graph_func: typing.Callable[[], ReducedLinkableGraph],
@@ -2109,9 +2116,10 @@ def _get_shared_library_links(
     frameworks_linkable: [FrameworksLinkable, None],
     swiftmodule_linkable: [SwiftmoduleLinkable, None],
     force_static_follows_dependents: bool = True,
-) -> (LinkArgs, [DefaultInfo, None], LinkExecutionPreference):
+) -> _SharedLibraryLinks:
     """
-    Returns LinkArgs with the content to link, and a link group map json output if applicable.
+    Returns the link args of the library's shared output, with the link group
+    map database of a link group-aware link and the link execution preference.
 
     TODO(T110378116): Omnibus linking always creates shared libraries by linking
     against shared dependencies. This is not true for link groups and possibly
@@ -2137,8 +2145,8 @@ def _get_shared_library_links(
             get_link_execution_preference(ctx, []) if hasattr(ctx.attrs, "link_execution_preference") else LinkExecutionPreference("any")
         )
 
-        return (
-            apple_build_link_args_with_deduped_flags(
+        return _SharedLibraryLinks(
+            link_args = apple_build_link_args_with_deduped_flags(
                 ctx,
                 deps_merged_link_infos,
                 frameworks_linkable,
@@ -2150,8 +2158,8 @@ def _get_shared_library_links(
                 None,
                 swiftmodule_linkable,
             ),
-            None,
-            link_execution_preference,
+            link_group_map_database = None,
+            link_execution_preference = link_execution_preference,
         )
 
     # Else get filtered link group links
@@ -2206,7 +2214,11 @@ def _get_shared_library_links(
     if additional_links:
         filtered_links.append(additional_links)
 
-    return LinkArgs(infos = filtered_links), get_link_group_map_json(ctx, filtered_targets), link_execution_preference
+    return _SharedLibraryLinks(
+        link_args = LinkArgs(infos = filtered_links),
+        link_group_map_database = get_link_group_map_json(ctx, filtered_targets),
+        link_execution_preference = link_execution_preference,
+    )
 
 def _use_pic(output_style: LibOutputStyle) -> bool:
     """
