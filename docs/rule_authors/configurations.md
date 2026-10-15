@@ -178,28 +178,6 @@ image. You could have dozens of auto-generated execution platforms, or a
 few well-known platforms that are maintained and rotated as you migrate
 infrastructure over time.
 
-#### Execution platform marker
-
-[`ExecutionPlatformRegistrationInfo`](../../api/build/#executionplatformregistrationinfo)
-accepts an optional `exec_marker_constraint`, the label of a constraint value such
-as `prelude//cfg/exec_platform/marker:is_exec_platform[true]`. Buck2 adds this
-constraint to the configuration of each entry in `platforms` and internally
-marks the configuration as exec. The underlying platform targets do not need
-to include it in their constraints.
-
-Once marked, configurations retain the marker through configuration constructors
-and transitions, including split transitions. If a returned `PlatformInfo` drops
-the marker, Buck2 restores the registered value. Explicitly assigning a different
-value to the marker's setting is an error. This lets modifier
-conditions continue to recognize the exec context after a transition. See
-[execution platform markers in transitions](configuration_transitions.md#execution-platform-marker)
-for the behavior visible to transition authors.
-
-Adding the same constraint to an ordinary target configuration does not enable
-this automatic restoration. Registrations without `exec_marker_constraint` do
-not add a marker, and the field does not mark an explicit `fallback` platform or
-an unspecified exec configuration.
-
 ### Execution deps
 
 Some target deps are "execution deps". These are the dependencies of the

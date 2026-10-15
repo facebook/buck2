@@ -50,11 +50,6 @@ For example, it could:
 - Make up an arbitrary configuration based on the constraints currently
   set.
 
-For configurations marked as exec by Buck2, the registered execution platform
-marker is restored if the transition returns an otherwise empty configuration.
-Explicitly changing the marker's value is an error. See
-[execution platform markers](../rule_authors/configuration_transitions.md#execution-platform-marker).
-
 ## Using outgoing transitions
 
 Outgoing transitions are used by rule authors, not end users.

@@ -67,18 +67,9 @@ pub struct ExecutionPlatformRegistrationInfo<'v> {
     ///   platform from the `platforms` list matches.
     // TODO(nga): specify type more precisely.
     fallback: ValueOfUnchecked<'v, Value<'static>>,
-    /// Optional label of a constraint value used to mark execution configurations.
-    /// Buck2 adds this constraint to each execution platform in `platforms` and
-    /// internally marks its configuration as exec. The underlying platform target
-    /// does not need to include the constraint itself.
-    ///
-    /// Configuration constructors and transitions inherit this marking. Buck2
-    /// restores a missing marker in their results, including every split output.
-    /// Explicitly assigning a different value to its setting is an error.
-    ///
-    /// Manually adding the same constraint to an ordinary target configuration
-    /// does not enable automatic restoration. This field marks entries in
-    /// `platforms`; it does not mark an explicit `fallback` platform.
+    /// Optional marker constraint that identifies platforms as execution platforms.
+    /// If set, every execution platform in `platforms` will be marked with this constraint,
+    /// allowing to distinguish execution platforms from target platforms.
     exec_marker_constraint: ValueOfUnchecked<'v, Option<String>>,
 }
 

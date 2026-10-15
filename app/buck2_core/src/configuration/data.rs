@@ -397,9 +397,6 @@ enum ConfigurationPlatform {
     Bound(
         BoundConfigurationLabel,
         ConfigurationDataData,
-        /// `Some` identifies an internally marked exec configuration and the
-        /// constraint it must preserve. `None` means no internal marking, which
-        /// also includes execution configurations registered without a marker.
         Option<Arc<ExecPlatformMarker>>,
     ),
     Builtin(BuiltinPlatform),
