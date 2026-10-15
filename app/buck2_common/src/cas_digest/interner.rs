@@ -211,6 +211,12 @@ impl ArcErase for TrackedFileDigest {
         None
     }
 
+    fn is_unique(&self) -> bool {
+        // The table's own reference plus this handle. The table only removes an
+        // entry whose handles are all gone, so the count is never below two.
+        Arc::count(&self.inner) == 2
+    }
+
     fn erase_type() -> impl ArcEraseType {
         StdArcEraseType::<Self>::new()
     }

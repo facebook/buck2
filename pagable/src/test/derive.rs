@@ -425,24 +425,23 @@ mod inner {
 
             assert_eq!((*strong_eval_result).len(), 3);
 
-            // cfgnode1 is pinned above, so the reference here shouldn't be paged out.
-            assert!(!strong_eval_result[0].0.is_paged_out());
-
-            // TODO(cjhopman): Several of these asserts here depend on PagableArc being lazily serialized in (as is our intent in the future), but that's not implemented yet.
-
-            // assert!(strong_eval_result[1].0.is_paged_out());
-            // assert!(strong_eval_result[2].0.is_paged_out());
-
-            // node1 was loaded in by cfgnode1 above, but the arc held here should not be strong.
-            assert!(strong_eval_result[0].0.is_pinned());
-            // assert!(!strong_eval_result[0].0.is_pinned());
-
-            // assert!(!strong_eval_result[1].0.is_pinned());
+            // Page-in hands back the allocations the `weak_node*` handles still
+            // refer to, and nothing pins them: `cfgnode1` pins node1 through a
+            // `PinnedPagableArc`, a different type view with its own cache entry.
+            assert_eq!(strong_eval_result[0].0.identity(), weak_node1.identity());
+            assert_eq!(strong_eval_result[1].0.identity(), weak_node2.identity());
+            assert_eq!(strong_eval_result[2].0.identity(), weak_node3.identity());
+            assert!(strong_eval_result[0].0.is_paged_out());
+            assert!(strong_eval_result[1].0.is_paged_out());
+            assert!(strong_eval_result[2].0.is_paged_out());
+            assert!(!strong_eval_result[0].0.is_pinned());
+            assert!(!strong_eval_result[1].0.is_pinned());
 
             let strong_node2 = strong_eval_result[1].0.pin().await?;
             assert!(strong_eval_result[1].0.is_pinned());
+            assert!(!strong_eval_result[1].0.is_paged_out());
 
-            // assert!(!cfgnode3.0.is_pinned());
+            assert!(!cfgnode3.0.is_pinned());
 
             let strong_cfgnode3 = cfgnode3.0.pin().await?;
             assert!(cfgnode3.0.is_pinned());

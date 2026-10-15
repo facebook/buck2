@@ -184,6 +184,10 @@ impl ArcErase for ArcStr {
         None
     }
 
+    fn is_unique(&self) -> bool {
+        self.base.is_unique()
+    }
+
     fn serialize_inner(
         &self,
         ser: &mut dyn PagableSerializer,
@@ -207,6 +211,7 @@ mod tests {
     use std::sync::atomic;
 
     use dupe::Dupe;
+    use pagable::arc_erase::ArcErase;
 
     use crate::arc_str::ArcStr;
 
@@ -244,6 +249,17 @@ mod tests {
         assert_eq!(2, ref_count(&s));
         drop(s);
         assert_eq!(1, ref_count(&s2));
+    }
+
+    #[test]
+    fn test_is_unique() {
+        let s = ArcStr::from("hello");
+        assert!(ArcErase::is_unique(&s));
+        let s2 = s.dupe();
+        assert!(!ArcErase::is_unique(&s));
+        drop(s2);
+        assert!(ArcErase::is_unique(&s));
+        assert!(!ArcErase::is_unique(&ArcStr::from("")));
     }
 
     #[test]

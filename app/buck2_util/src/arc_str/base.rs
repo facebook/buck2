@@ -122,6 +122,11 @@ impl<P: ArcStrLenStrategy> ArcStrBase<P> {
         self.data.addr().get()
     }
 
+    /// Static strings keep a refcount of 0 and never report unique.
+    pub(crate) fn is_unique(&self) -> bool {
+        self.inner().refcount.load(atomic::Ordering::Acquire) == 1
+    }
+
     #[inline]
     fn len(&self) -> usize {
         P::unpack_len((self.inner().allocated_payload, self.value_payload)) as usize

@@ -556,13 +556,6 @@ impl<T: StarlarkSerialize + for<'fv> StarlarkDeserialize<'fv> + Send + Sync + 's
         })
     }
 
-    fn upgrade_weak(weak: &Self::Weak) -> Option<Self> {
-        weak.inner.upgrade().map(|inner| Self {
-            inner,
-            scope: weak.scope,
-        })
-    }
-
     fn serialize_inner(
         &self,
         ser: &mut dyn PagableSerializer,

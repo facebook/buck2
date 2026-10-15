@@ -60,7 +60,6 @@ impl<
     }
 
     fn downgrade(&self) -> Option<Self::Weak> {
-        // TODO(ctolliday): Since we never drop interned things, we could have Self::Weak = Self and return a value here
         None
     }
 

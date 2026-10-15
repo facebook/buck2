@@ -1296,6 +1296,10 @@ mod tests {
         finished.bind_covered(&*storage, &storage.commit_frontier());
         let arc_key = storage.fetch_data_blocking(&item_key)?.arcs[0];
         assert_eq!(ArcEraseDyn::data_key(&arc), Some(arc_key));
+        // The resident registration keeps the arc alive, and the arc keeps the
+        // storage alive.
+        drop(arc);
+        storage.arc_cache().clear();
         Ok(())
     }
 

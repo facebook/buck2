@@ -86,6 +86,10 @@ impl ArcErase for ThinArcStr {
         None
     }
 
+    fn is_unique(&self) -> bool {
+        self.base.is_unique()
+    }
+
     fn serialize_inner(
         &self,
         ser: &mut dyn PagableSerializer,

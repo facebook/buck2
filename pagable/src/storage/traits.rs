@@ -194,10 +194,8 @@ impl DeserializedArcCache {
         if arc.data_key() != Some(key) {
             return;
         }
-        if let Some(weak) = arc.downgrade() {
-            self.resident
-                .insert((arc.as_arc_any().type_id(), key), weak);
-        }
+        self.resident
+            .insert((arc.as_arc_any().type_id(), key), arc.downgrade());
     }
 
     /// Returns the `OnceCell` for this key, creating it if needed.

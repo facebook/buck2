@@ -18,6 +18,7 @@
 //! - [`ArcErase`] - implemented by Arc types to provide serialization capabilities
 //! - [`ArcEraseDyn`] - object-safe version for dynamic dispatch over heterogeneous Arcs
 //! - [`WeakErase`] / [`WeakEraseDyn`] - corresponding traits for weak references
+//! - [`StrongAsWeak`] - what the erased view holds for an Arc type that has no weak reference
 
 use std::any::TypeId;
 use std::sync::Arc;
@@ -60,7 +61,7 @@ pub trait ArcEraseDyn: std::any::Any + Send + Sync + 'static {
 
     fn clone_dyn(&self) -> Box<dyn ArcEraseDyn>;
 
-    fn downgrade(&self) -> Option<Box<dyn WeakEraseDyn>>;
+    fn downgrade(&self) -> Box<dyn WeakEraseDyn>;
 
     /// Associates this arc with a storage key.
     ///
@@ -132,8 +133,11 @@ impl<T: ArcErase> ArcEraseDyn for T {
         ArcErase::identity(self)
     }
 
-    fn downgrade(&self) -> Option<Box<dyn WeakEraseDyn>> {
-        ArcErase::downgrade(self).map(|w| Box::new(w) as Box<dyn WeakEraseDyn>)
+    fn downgrade(&self) -> Box<dyn WeakEraseDyn> {
+        match ArcErase::downgrade(self) {
+            Some(weak) => Box::new(weak),
+            None => Box::new(StrongAsWeak::new(self.dupe_strong())),
+        }
     }
 
     fn set_data_key(&self, k: DataKey) {
@@ -180,10 +184,35 @@ impl<T: WeakErase> WeakEraseDyn for T {
 /// Implemented for weak reference types like `std::sync::Weak<T>`.
 /// Types implementing this trait can be stored as `Box<dyn WeakEraseDyn>`.
 pub trait WeakErase: std::any::Any + Sized + Send + Sync + 'static {
-    /// Returns true if the referenced Arc has been dropped.
+    /// Returns true once no strong reference to the allocation remains, not
+    /// counting any this value itself holds (see [`StrongAsWeak`]).
     fn is_expired(&self) -> bool;
     /// Attempts to upgrade to a strong reference, returning None if expired.
     fn upgrade_weak(&self) -> Option<Box<dyn ArcEraseDyn>>;
+}
+
+/// A strong reference standing in for a weak one: what [`ArcEraseDyn::downgrade`]
+/// hands out for an Arc type whose [`ArcErase::downgrade`] returns `None`.
+///
+/// Because it keeps the allocation alive, it reports expiry through
+/// [`ArcErase::is_unique`] instead: once it is the last reference, nothing else
+/// can observe the allocation, so a cache holding it may drop it.
+pub struct StrongAsWeak<A>(A);
+
+impl<A: ArcErase> StrongAsWeak<A> {
+    pub fn new(arc: A) -> Self {
+        Self(arc)
+    }
+}
+
+impl<A: ArcErase> WeakErase for StrongAsWeak<A> {
+    fn is_expired(&self) -> bool {
+        self.0.is_unique()
+    }
+
+    fn upgrade_weak(&self) -> Option<Box<dyn ArcEraseDyn>> {
+        Some(Box::new(self.0.dupe_strong()))
+    }
 }
 
 /// Trait for Arc types that support pagable serialization.
@@ -193,7 +222,7 @@ pub trait WeakErase: std::any::Any + Sized + Send + Sync + 'static {
 /// - Cloning the Arc (`dupe_strong`)
 /// - Getting a unique identity for deduplication (`identity`)
 /// - Serializing/deserializing the inner value (`serialize_inner`/`deserialize_inner`)
-/// - Converting to/from weak references (`downgrade`/`upgrade_weak`)
+/// - Downgrading to a weak reference (`downgrade`), when the type has one
 ///
 /// # Implementations
 ///
@@ -209,12 +238,23 @@ pub trait ArcErase: std::any::Any + Sized + Send + Sync + 'static {
     type Weak: WeakErase + 'static;
 
     fn dupe_strong(&self) -> Self;
+    /// A weak reference to the allocation, or `None` for a type that has no
+    /// weak form. Every Arc still gets one through the erased view: for `None`,
+    /// [`ArcEraseDyn::downgrade`] holds a [`StrongAsWeak`], which expires per
+    /// [`is_unique`](Self::is_unique).
     fn downgrade(&self) -> Option<Self::Weak>;
-    fn upgrade_weak(_weak: &Self::Weak) -> Option<Self> {
-        None
-    }
     fn erase_type() -> impl ArcEraseType;
     fn identity(&self) -> usize;
+
+    /// Returns true when `self` is the only strong reference to its allocation.
+    ///
+    /// Consulted only through [`StrongAsWeak`], so it matters only for Arc
+    /// types without a weak form. The default never reports uniqueness, which
+    /// keeps such an Arc cached for the life of the cache; that is right for
+    /// immortal allocations such as interned values.
+    fn is_unique(&self) -> bool {
+        false
+    }
 
     /// Associates this arc with a storage key.
     ///
@@ -248,6 +288,8 @@ pub trait ArcErase: std::any::Any + Sized + Send + Sync + 'static {
     ) -> crate::Result<Self>;
 }
 
+/// The weak form of an Arc type that has none: never handed out, since
+/// [`ArcErase::downgrade`] returns `None` for such a type.
 impl WeakErase for () {
     fn is_expired(&self) -> bool {
         true
@@ -325,6 +367,10 @@ impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'sta
         None
     }
 
+    fn is_unique(&self) -> bool {
+        triomphe::Arc::is_unique(self)
+    }
+
     fn serialize_inner(
         &self,
         ser: &mut dyn PagableSerializer,
@@ -356,6 +402,10 @@ impl ArcErase for triomphe::Arc<str> {
 
     fn downgrade(&self) -> Option<Self::Weak> {
         None
+    }
+
+    fn is_unique(&self) -> bool {
+        triomphe::Arc::is_unique(self)
     }
 
     fn serialize_inner(
@@ -394,6 +444,10 @@ impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'sta
         None
     }
 
+    fn is_unique(&self) -> bool {
+        triomphe::Arc::is_unique(self)
+    }
+
     fn serialize_inner(
         &self,
         ser: &mut dyn PagableSerializer,
@@ -430,6 +484,10 @@ impl<
 
     fn downgrade(&self) -> Option<Self::Weak> {
         None
+    }
+
+    fn is_unique(&self) -> bool {
+        triomphe::ThinArc::strong_count(self) == 1
     }
 
     fn serialize_inner(
