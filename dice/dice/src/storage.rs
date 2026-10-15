@@ -277,12 +277,6 @@ impl DiceStorage {
         self.io_metrics.snapshot()
     }
 
-    /// Shared with the core state thread so it can charge the memory that
-    /// evicting values actually releases.
-    pub(crate) fn paging_memory_metrics(&self) -> Arc<PagingMemoryMetrics> {
-        self.paging_memory.dupe()
-    }
-
     /// Cumulative memory paging has moved, measured from the allocator.
     pub(crate) fn paging_memory_snapshot(&self) -> Option<PagingMemorySnapshot> {
         self.paging_memory.snapshot()
