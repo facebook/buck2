@@ -187,16 +187,6 @@ def _required_for_source_only_abi():
         ),
     }
 
-def _k2():
-    return {
-        "k2": attrs.bool(
-            default = True,
-            doc = """
-    Enables the Kotlin K2 compiler.
-    """,
-        ),
-    }
-
 def _incremental():
     return {
         "incremental": attrs.bool(
@@ -368,7 +358,6 @@ jvm_common = struct(
     source_only_abi_deps = _source_only_abi_deps,
     abi_generation_mode = _abi_generation_mode,
     required_for_source_only_abi = _required_for_source_only_abi,
-    k2 = _k2,
     incremental = _incremental,
     plugins = _plugins,
     kotlin_compiler_plugins = _kotlin_compiler_plugins,
