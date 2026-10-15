@@ -342,7 +342,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<AllocList<impl IntoIterator<Item = Value<'v>> + use<'v>>> {
         fn merge_sort_fallible<'v>(
-            vec: &mut Vec<(usize, Value<'v>, Value<'v>)>,
+            vec: &mut [(usize, Value<'v>, Value<'v>)],
             reverse: bool,
         ) -> starlark::Result<()> {
             if vec.len() <= 1 {
@@ -359,7 +359,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
             let mut i = 0;
             let mut j = 0;
 
-            for k in 0..vec.len() {
+            for slot in vec.iter_mut() {
                 let use_left = if i >= left.len() {
                     false
                 } else if j >= right.len() {
@@ -378,10 +378,10 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
                 };
 
                 if use_left {
-                    vec[k] = left[i];
+                    *slot = left[i];
                     i += 1;
                 } else {
-                    vec[k] = right[j];
+                    *slot = right[j];
                     j += 1;
                 }
             }
@@ -530,10 +530,7 @@ noop(hash)(foo)
 
     #[test]
     fn test_sorted_non_transitive() {
-        assert::fail(
-            "sorted([(1,), (1, 'a'), (1, 2)])",
-            "not supported",
-        );
+        assert::fail("sorted([(1,), (1, 'a'), (1, 2)])", "not supported");
     }
 
     #[test]
@@ -557,7 +554,10 @@ noop(hash)(foo)
 
         for size in [25, 30, 50] {
             a.fail(
-                &format!("sorted([1,2,3,len,4,5,min,6,7,max,8,9] * {})", size / 12 + 1),
+                &format!(
+                    "sorted([1,2,3,len,4,5,min,6,7,max,8,9] * {})",
+                    size / 12 + 1
+                ),
                 "not supported",
             );
             a.fail(
