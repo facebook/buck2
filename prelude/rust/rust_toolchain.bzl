@@ -47,6 +47,8 @@ rust_toolchain_attrs = {
     "rustc_env": provider_field(dict[str, typing.Any], default = {}),
     # Baseline compiler config
     "rustc_flags": provider_field(list[typing.Any], default = []),
+    # Extra rustc flags applied only while compiling a proc-macro crate.
+    "rustc_proc_macro_flags": provider_field(list[typing.Any], default = []),
     # Rustc flags, except that they are applied on the command line after the
     # target's rustc flags
     "extra_rustc_flags": provider_field(list[typing.Any], default = []),
@@ -176,6 +178,10 @@ rust_toolchain_attrs = {
     # Suffix to append onto all -Cmetadata arguments to differentiate the same
     # crate in different configurations
     "configuration_hash": provider_field(str | None, default = None),
+    # Optional configuration hash used only for proc-macro crates. Toolchains
+    # may remove execution-only constraints here without weakening identity for
+    # ordinary target crates.
+    "proc_macro_configuration_hash": provider_field(str | None, default = None),
     # Error handler used to categorize rust errors encountered by users
     "rust_error_handler": provider_field(typing.Any, default = None),
     # LLVM remarks filter (e.g., "all", "inline") - used with -Cremark flag

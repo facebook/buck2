@@ -1544,7 +1544,14 @@ def _compute_common_args(
         "--crate-type={}".format(crate_type.value),
         "-Crelocation-model={}".format(params.reloc_model.value),
         "--edition={}".format(edition),
-        "-Cmetadata={}".format(_metadata(compile_ctx, ctx.label, is_rustdoc_test)[0]),
+        "-Cmetadata={}".format(
+            _metadata(
+                compile_ctx,
+                ctx.label,
+                is_rustdoc_test,
+                _host_agnostic_proc_macro(crate_type, emit, is_rustdoc_test, incremental_enabled),
+            )[0]
+        ),
         # JSON diagnostics are for `rustc_action.py`; commands run at test time
         # print rendered text directly.
         ["--error-format=json", "--json=diagnostic-rendered-ansi"] if not (is_rustdoc_test or is_miri_run) else [],
@@ -1566,6 +1573,9 @@ def _compute_common_args(
         if toolchain_info.pgo_profile and toolchain_info.explicit_sysroot_deps and toolchain_info.explicit_sysroot_deps.core
         else [],
         _rustc_flags(toolchain_info.rustc_flags, toolchain_info),
+        _rustc_flags(toolchain_info.rustc_proc_macro_flags, toolchain_info)
+        if _host_agnostic_proc_macro(crate_type, emit, is_rustdoc_test, incremental_enabled)
+        else [],
         # `rustc_check_flags` is specifically interpreted as flags that are used
         # only on the metadata-fast graph.
         _rustc_flags(toolchain_info.rustc_check_flags, toolchain_info) if dep_metadata_kind == MetadataKind("fast") else [],
@@ -1610,13 +1620,23 @@ def rust_compile_invalidation_inputs(
         profile_mode = None,
     ).args
 
+def _host_agnostic_proc_macro(crate_type: CrateType, emit: Emit, is_rustdoc_test: bool, incremental_enabled: bool) -> bool:
+    return crate_type == CrateType("proc-macro") and emit != Emit("clippy") and not is_rustdoc_test and not incremental_enabled
+
 # Returns the full label and its hash. The full label is used for `-Cmetadata`
 # which provided the primary disambiguator for two otherwise identically named
 # crates. The hash is added to the filename to give them a lower likelihood of
 # duplicate names, but it doesn't matter if they collide.
-def _metadata(compile_ctx: CompileContext, label: Label, is_rustdoc_test: bool) -> (str, str):
+def _metadata(
+    compile_ctx: CompileContext,
+    label: Label,
+    is_rustdoc_test: bool,
+    host_agnostic_proc_macro: bool,
+) -> (str, str):
     raw_target = str(label.raw_target())
-    configuration_hash = compile_ctx.toolchain_info.configuration_hash or label.configured_target().config().hash
+    configuration_hash = (
+        compile_ctx.toolchain_info.proc_macro_configuration_hash if host_agnostic_proc_macro else compile_ctx.toolchain_info.configuration_hash
+    ) or label.configured_target().config().hash
     metadata = "{}#{}".format(raw_target, configuration_hash)
 
     if is_rustdoc_test:
@@ -1780,7 +1800,15 @@ def _rustc_emit(
         # Don't support profiles with predeclared outputs
         crate_name_and_extra_for_profile = None
     else:
-        extra_hash = "-" + _metadata(compile_ctx, ctx.label, False)[1]
+        extra_hash = (
+            "-"
+            + _metadata(
+                compile_ctx,
+                ctx.label,
+                False,
+                _host_agnostic_proc_macro(crate_type, emit, False, incremental_enabled),
+            )[1]
+        )
         emit_args.add("-Cextra-filename={}".format(extra_hash))
         crate_name_and_extra_for_profile = simple_crate + extra_hash
 
