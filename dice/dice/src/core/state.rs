@@ -368,6 +368,13 @@ impl CoreStateHandle {
         })
     }
 
+    /// Evict the backed values of up to `limit` keys, returning how many values were evicted:
+    /// zero only once none is left.
+    pub(crate) fn evict_backed(&self, limit: usize) -> impl Future<Output = u64> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::EvictBacked { limit, resp }, recv)
+    }
+
     /// Mark nodes that page-out could not serialize so they are not offered as
     /// candidates again. Fire-and-forget (FIFO, as with `commit_page_out`).
     pub(crate) fn mark_non_pageable(&self, keys: Vec<(DiceKey, DiceValidValue)>) {
@@ -580,6 +587,8 @@ pub(super) enum StateRequest {
         keys: Vec<(DiceKey, PageOutResult)>,
         eviction_policy: EvictionPolicy,
     },
+    /// Drop the backed values of up to `limit` keys, leaving their rows.
+    EvictBacked { limit: usize, resp: Sender<u64> },
     /// Mark nodes that page-out could not serialize.
     MarkNonPageable {
         keys: Vec<(DiceKey, DiceValidValue)>,

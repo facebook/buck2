@@ -185,6 +185,16 @@ impl ActorState {
         }
     }
 
+    pub(super) fn evict_backed(&mut self, limit: usize) -> u64 {
+        let window = AllocWindow::open();
+        let evicted = self.graph.evict_backed(limit);
+        if let Some(metrics) = &self.paging_memory {
+            metrics.record_nodes_paged_out(evicted);
+            metrics.record_offloaded(window.net_freed());
+        }
+        evicted
+    }
+
     /// Mark values that page-out considered but could not serialize, so they are
     /// not offered as page-out candidates again. Ignore stale results if a
     /// recomputation replaced the value while page-out was inspecting it.

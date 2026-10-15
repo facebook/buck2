@@ -711,6 +711,32 @@ impl VersionedGraph {
         evicted
     }
 
+    /// Evicts the backed values of up to `limit` keys, leaving their rows. Returns how many
+    /// values were evicted: zero only once no key has a backed value.
+    pub(crate) fn evict_backed(&mut self, limit: usize) -> u64 {
+        // Collected first: evicting a key's values takes it out of the index.
+        let keys: Vec<DiceKey> = self
+            .index
+            .backed
+            .iter()
+            .take(limit)
+            .map(|index| DiceKey {
+                index: index as u32,
+            })
+            .collect();
+        let mut evicted = 0u64;
+        for key in keys {
+            self.with_values(key, |kv| {
+                for (_, value) in kv.entries.iter_mut() {
+                    if value.evict_backed() {
+                        evicted += 1;
+                    }
+                }
+            });
+        }
+        evicted
+    }
+
     /// Marks each value page-out could not serialize, if it is still the exact allocation
     /// inspected, so that it is not offered as a candidate again.
     pub(crate) fn mark_non_pageable(&mut self, keys: Vec<(DiceKey, DiceValidValue)>) {

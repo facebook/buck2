@@ -439,6 +439,19 @@ impl Dice {
             .await
     }
 
+    /// Drops the resident values whose rows already hold them, one read back or written by an
+    /// earlier page-out, without writing anything; for reclaiming memory under pressure. Bounded
+    /// by the values backed when the call starts: ones a concurrent computation reads back
+    /// meanwhile are left for the next eviction. Returns how many values were evicted.
+    ///
+    /// No-op if `DiceStorage` was not configured on the builder.
+    pub async fn evict_backed(&self) -> u64 {
+        match self.pagable_storage.as_ref() {
+            Some(storage) => storage.evict_backed(&self.state_handle).await,
+            None => 0,
+        }
+    }
+
     /// Page in (rehydrate) all paged-out values from the
     /// configured `DiceStorage`, used for debugging.
     ///

@@ -204,6 +204,37 @@ async def _candidate_count(buck: Buck) -> int:
     return await _status_count(buck, "page-out candidates")
 
 
+@buck_test(data_dir="paging", write_invocation_record=True)
+async def test_evict_drops_values_rows_already_hold(buck: Buck) -> None:
+    # Values read back from storage stay resident, backed by their rows, and
+    # `buck2 debug hydration evict`, what memory pressure triggers, drops them
+    # without a write.
+    # Read-back values are backed only under `once_per_value`; idle page-out is
+    # off so the page-outs below are the explicit ones.
+    (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
+        '[hydration]\npage_out_on_idle = false\npage_out_policy = "once_per_value"\n'
+    )
+    (buck.cwd / "src.txt").write_text("content-0\n")
+    assert _output(await _build(buck)) == "content-0\n"
+    await buck.debug("hydration", "page-out")
+    paged_out = await _paged_out_count(buck)
+    assert paged_out > 0
+
+    result = await _build(buck)
+    read_back = _paged_in_count(result)
+    assert read_back > 0
+    assert await _backed_count(buck) == read_back
+    assert await _paged_out_count(buck) == paged_out - read_back
+
+    out = (await buck.debug("hydration", "evict")).stdout
+    assert f"evicted {read_back} backed DICE values" in out, out
+    assert await _backed_count(buck) == 0
+    assert await _paged_out_count(buck) == paged_out
+    result = await _build(buck)
+    assert _output(result) == "content-0\n"
+    assert _paged_in_count(result) == read_back, "evicted values are read back"
+
+
 @buck_test(
     data_dir="paging",
     write_invocation_record=True,

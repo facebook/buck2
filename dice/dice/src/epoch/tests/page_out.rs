@@ -1088,6 +1088,23 @@ async fn make_dice_under(mut storage: DiceStorage, policy: PageOutPolicy) -> (Ar
     (dice, root)
 }
 
+/// Computes `PagableKey(3)` at `root`, counting the computations that run in `counter`, and
+/// waits for the computation to settle.
+async fn compute_counted(
+    dice: &Arc<Dice>,
+    root: BranchId,
+    counter: &ComputeCounter,
+) -> anyhow::Result<u64> {
+    let tx = dice
+        .updater_with_data(root, user_data_with_counter(counter))
+        .commit()
+        .await;
+    let value: u64 = *tx.compute(&PagableKey(3)).await?;
+    drop(tx);
+    dice.wait_for_idle().await;
+    Ok(value)
+}
+
 fn user_data_with_counter(counter: &ComputeCounter) -> UserComputationData {
     let mut d = UserComputationData::new();
     d.data.set(counter.dupe());
@@ -2259,7 +2276,45 @@ async fn page_out_does_not_evict_a_recomputed_value() {
     );
 }
 
-/// A recomputed value is written by the next page-out but stays resident.
+/// A value read back from its row stays resident, backed by the row, until evicted on demand,
+/// which writes nothing; the next lookup reads it back rather than recomputing it.
+#[tokio::test]
+async fn evict_backed_drops_read_back_values_without_a_write() -> anyhow::Result<()> {
+    let counter = ComputeCounter::new();
+    let tmp = tempdir()?;
+    let (dice, root) = make_dice_under(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?,
+        PageOutPolicy::OncePerValue,
+    )
+    .await;
+
+    let value = compute_counted(&dice, root, &counter).await?;
+    dice.page_out().await?;
+    assert_eq!(dice.pagable_node_counts().await.paged_out, 1);
+
+    assert_eq!(compute_counted(&dice, root, &counter).await?, value);
+    let counts = dice.pagable_node_counts().await;
+    assert_eq!(
+        (counts.backed, counts.candidates, counts.paged_out),
+        (1, 0, 0)
+    );
+
+    let written_before = dice.storage_io_metrics().unwrap().data_keys_out;
+    assert_eq!(dice.evict_backed().await, 1);
+    assert_eq!(
+        dice.storage_io_metrics().unwrap().data_keys_out,
+        written_before
+    );
+    assert_eq!(dice.pagable_node_counts().await.paged_out, 1);
+
+    assert_eq!(compute_counted(&dice, root, &counter).await?, value);
+    assert_eq!(counter.count(), 1, "an evicted value is read back");
+    assert_eq!(dice.evict_backed().await, 1);
+    Ok(())
+}
+
+/// A recomputed value is written by the next page-out but stays resident; only an eviction on
+/// demand drops it, after which it reads back.
 #[tokio::test]
 async fn page_out_writes_a_recomputed_value_and_keeps_it_resident() -> anyhow::Result<()> {
     let tmp = tempdir()?;
@@ -2299,6 +2354,10 @@ async fn page_out_writes_a_recomputed_value_and_keeps_it_resident() -> anyhow::R
     );
     assert_eq!(compute_root(&dice, 2).await?, 0);
     assert_eq!(page_in_count::<PageOutRaceRoot>(&dice), page_ins);
+
+    assert_eq!(dice.evict_backed().await, 1);
+    assert_eq!(compute_root(&dice, 2).await?, 0);
+    assert_eq!(page_in_count::<PageOutRaceRoot>(&dice), page_ins + 1);
     Ok(())
 }
 

@@ -481,6 +481,12 @@ fn backed_counts(resident: usize, paged_out: usize, backed: usize) -> PagableNod
     }
 }
 
+fn evict_backed(graph: &mut VersionedGraph) -> u64 {
+    let evicted = graph.evict_backed(usize::MAX);
+    graph.assert_consistent();
+    evicted
+}
+
 fn stored_data_key(graph: &VersionedGraph, k: DiceKey, v: VersionNumber) -> Option<DataKey> {
     graph
         .get(VersionedGraphKey::new(v, k))
@@ -510,7 +516,8 @@ fn once_per_key_keeps_recomputed_and_read_back_values_resident() {
     assert!(stored_data_key(&graph, key(2), v3).is_none());
 }
 
-/// A recomputed value is written by the next page-out but stays resident, backed by its row.
+/// A recomputed value is written by the next page-out but stays resident, backed by its row,
+/// until evicted on demand.
 #[test]
 fn recomputed_value_is_written_and_kept_resident() {
     let (mut graph, root) = with_leaf_under(PageOutPolicy::OncePerValue);
@@ -525,9 +532,16 @@ fn recomputed_value_is_written_and_kept_resident() {
     assert_eq!(graph.pagable_node_counts(), backed_counts(1, 0, 1));
     assert!(stored_data_key(&graph, key(1), v3).is_none());
     assert!(graph.keys_to_page_out().is_empty());
+
+    assert_eq!(evict_backed(&mut graph), 1);
+    assert_eq!(graph.pagable_node_counts(), counts(0, 1, 0));
+    assert_eq!(
+        stored_data_key(&graph, key(1), v3),
+        Some(DataKey::testing_new(0x2))
+    );
 }
 
-/// A value read back from its row is backed by it.
+/// A value read back from its row is backed by it, and evicts without another write.
 #[test]
 fn rehydrated_value_is_backed_by_its_row() {
     let (mut graph, root) = with_leaf_under(PageOutPolicy::OncePerValue);
@@ -539,6 +553,14 @@ fn rehydrated_value_is_backed_by_its_row() {
     assert_eq!(graph.pagable_node_counts(), backed_counts(1, 0, 1));
     assert!(graph.keys_to_page_out().is_empty());
     assert!(stored_data_key(&graph, key(1), v2).is_none());
+
+    assert_eq!(evict_backed(&mut graph), 1);
+    assert_eq!(graph.pagable_node_counts(), counts(0, 1, 0));
+    assert_eq!(
+        stored_data_key(&graph, key(1), v2),
+        Some(DataKey::testing_new(0x1234))
+    );
+    assert_eq!(evict_backed(&mut graph), 0);
 }
 
 /// A computed key whose values are asserted (`changed_to` on a `Key`, which buck2 does for its

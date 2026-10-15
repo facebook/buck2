@@ -445,12 +445,11 @@ impl DiceStorage {
             pending.take_covered(&frontier),
             self.eviction_policy,
         );
-        self.storage.release_memory();
         // Evictions are fire-and-forget. The sweep must run after the core has
         // processed every one, or the arcs of late evictions stay pinned until
         // the next sweep. State requests are FIFO, so any round trip is the barrier.
         let _ = state_handle.pagable_node_counts().await;
-        self.storage.arc_cache().evict_expired();
+        self.release_after_evictions();
         // The append-only store only changes here; refresh the cached size so the
         // command-end path reports it without a filesystem walk.
         self.refresh_db_size_bytes().await;
@@ -465,6 +464,37 @@ impl DiceStorage {
         }
         flushed?;
         Ok(())
+    }
+
+    /// Drops the resident values a row already backs, one read back or written by an earlier
+    /// page-out, without writing anything: those backed when the call starts, not ones that
+    /// become backed while it runs. Returns how many values were evicted. Runs alongside
+    /// computations: a lookup of an evicted value reads it back.
+    pub(crate) async fn evict_backed(&self, state_handle: &CoreStateHandle) -> u64 {
+        // In batches of keys, so the core thread stays responsive between them.
+        const EVICT_BATCH_KEYS: usize = 1000;
+        // Bounded by what was backed at the start. Computations run meanwhile, and under
+        // `OncePerValue` each value one reads back is backed again by the next batch; evicting
+        // those would be evicting what is in use, and would never end while anything runs. They
+        // are left for the next eviction.
+        let target = state_handle.pagable_node_counts().await.backed as u64;
+        let mut evicted = 0;
+        while evicted < target {
+            let batch = state_handle.evict_backed(EVICT_BATCH_KEYS).await;
+            if batch == 0 {
+                break;
+            }
+            evicted += batch;
+        }
+        self.release_after_evictions();
+        evicted
+    }
+
+    /// Frees what evictions the core has applied left behind: the backend's caches and the
+    /// arc-cache bindings whose values the evictions dropped.
+    fn release_after_evictions(&self) {
+        self.storage.release_memory();
+        self.storage.arc_cache().evict_expired();
     }
 
     fn page_out_chunk(

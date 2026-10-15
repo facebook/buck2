@@ -558,6 +558,25 @@ pub(crate) async fn page_out_measured(
     (result, summary)
 }
 
+/// Evicts backed values and returns the freed memory to the OS, logging what it moved. Returns
+/// how many values were evicted.
+pub(crate) async fn evict_backed_measured(dice: &Arc<Dice>) -> u64 {
+    let (resident_before, allocated_before, _) = page_out_memory_snapshot(dice);
+    let start = Instant::now();
+    let evicted = dice.evict_backed().await;
+    if let Err(e) = memory::purge_jemalloc() {
+        tracing::warn!("purging the allocator after evicting backed values failed: {e:#}");
+    }
+    let (resident_after, allocated_after, _) = page_out_memory_snapshot(dice);
+    tracing::info!(
+        "Evicted {evicted} backed DICE values in {:?}; \
+         RSS {resident_before:?} -> {resident_after:?} bytes, \
+         allocated {allocated_before:?} -> {allocated_after:?} bytes",
+        start.elapsed(),
+    );
+    evicted
+}
+
 /// `(resident RSS, jemalloc allocated, pagable DB on-disk size)` in bytes, each
 /// `None` when unavailable: no RSS on this platform, not built with jemalloc, or no
 /// pagable storage configured. Reads `/proc` and the store directory, so it is only

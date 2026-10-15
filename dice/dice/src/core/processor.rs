@@ -165,6 +165,9 @@ impl StateProcessor {
             } => {
                 self.state.commit_page_out(keys, eviction_policy);
             }
+            StateRequest::EvictBacked { limit, resp } => {
+                drop(resp.send(self.state.evict_backed(limit)));
+            }
             StateRequest::MarkNonPageable { keys } => {
                 self.state.mark_non_pageable(keys);
             }

@@ -1000,6 +1000,8 @@ enum HydrationSubcommand {
   PAGE_OUT = 0;
   PAGE_IN = 1;
   STATUS = 2;
+  // Drop the resident values a row already holds, as memory pressure would.
+  EVICT = 3;
 }
 
 message HydrationRequest {
@@ -1010,7 +1012,7 @@ message HydrationRequest {
 }
 
 message HydrationResponse {
-  // Human-readable status report. Set only for `status`;
+  // Human-readable report. Set for `status` and `evict`;
   // absent for page-out / page-in.
   optional string summary = 1;
   // What the page-out moved. Set only for `page-out`, and only on success —

@@ -146,4 +146,14 @@ impl PagableValue {
             }
         }
     }
+
+    /// Drops a backed value, leaving its row. Returns whether there was one.
+    pub(crate) fn evict_backed(&mut self) -> bool {
+        let PagableValue::Backed(backed) = self else {
+            return false;
+        };
+        let data_key = backed.data_key;
+        *self = PagableValue::PagedOut(data_key);
+        true
+    }
 }
