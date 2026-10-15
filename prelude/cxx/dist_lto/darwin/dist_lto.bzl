@@ -51,6 +51,9 @@ load(":thin_link_record_defs.bzl", "BitcodeMergeState", "ObjectFileOptimizationP
 def identity_projection(value: cmd_args):
     return value
 
+def get_distributed_link_action_identifier(final_binary_out: Artifact) -> str:
+    return final_binary_out.short_path + ".dist_lto"
+
 # This tset exists for the sole purpose of saving memory. When action inputs
 # are hashed, the memory cost for hashing tset projection generated input
 # tree nodes is paid once per unique node. Without a tset projection every
@@ -135,19 +138,13 @@ def complete_distributed_link_with_expanded_archive_link_data(
     lto_opt = cxx_toolchain.internal_tools.dist_lto.opt[LinkerType("darwin")]
     lto_archive_mapper = cxx_toolchain.internal_tools.dist_lto.archive_mapper
 
-    normalized_identifier = link_options.identifier.replace("[", "_").replace("]", "_").replace(" ", "_") if link_options.identifier != None else None
-
-    def make_id(i: str) -> str:
-        """Used to make sure identifiers for our actions include the provided identifier"""
-        if normalized_identifier != None:
-            return normalized_identifier + "_" + i
-        return i
+    distributed_link_action_identifier = get_distributed_link_action_identifier(final_binary_out)
 
     recorded_outputs = {}
 
     def name_for_obj(link_name: str, object_artifact: Artifact) -> str:
         """Creates a unique name/path we can use for a particular object file input"""
-        prefix = "{}/{}".format(link_name, object_artifact.short_path)
+        prefix = "{}/{}/{}".format(distributed_link_action_identifier, link_name, object_artifact.short_path)
         case_insensitive_prefix = prefix.lower()
         # it's possible (though unlikely) that we can get duplicate name/short_path, so just uniquify them.
         # Make sure we case normalize before to avoid collisions on case in-sensitive file systems.
@@ -169,7 +166,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
         else:
             names[name] += 1
             name += "-{}".format(names[name])
-        return make_id(name)
+        return name
 
     # The process to optimize and codegen a given bitcode file may depend on other bitcode
     # files (ie. to inline function calls between bitcode files). Which bitcode files depend
@@ -349,7 +346,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
         premerger_enabled = premerger_enabled,
         use_content_based_output_paths = uses_content_based_paths,
         make_cat = make_cat,
-        make_id = make_id,
+        distributed_link_action_identifier = distributed_link_action_identifier,
     )
 
     # Create an argsfile and dump all the flags to be processed later by lto_opt.
