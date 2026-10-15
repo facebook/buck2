@@ -28,6 +28,8 @@ RustExplicitSysrootDeps = record(
     others = list[Dependency],
 )
 
+RustSysrootInfo = provider(fields = {"sysroot_deps": RustExplicitSysrootDeps | None})
+
 PanicRuntime = enum("unwind", "abort", "none")
 
 RustSanitizer = enum("address", "cfi", "hwaddress", "kcfi", "leak", "memory", "memtag", "safestack", "shadow-call-stack", "thread")
