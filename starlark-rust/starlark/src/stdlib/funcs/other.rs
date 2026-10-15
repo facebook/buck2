@@ -341,6 +341,54 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = false)] reverse: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<AllocList<impl IntoIterator<Item = Value<'v>> + use<'v>>> {
+        fn merge_sort_fallible<'v>(
+            vec: &mut Vec<(usize, Value<'v>, Value<'v>)>,
+            reverse: bool,
+        ) -> starlark::Result<()> {
+            if vec.len() <= 1 {
+                return Ok(());
+            }
+
+            let mid = vec.len() / 2;
+            let mut left = vec[..mid].to_vec();
+            let mut right = vec[mid..].to_vec();
+
+            merge_sort_fallible(&mut left, reverse)?;
+            merge_sort_fallible(&mut right, reverse)?;
+
+            let mut i = 0;
+            let mut j = 0;
+
+            for k in 0..vec.len() {
+                let use_left = if i >= left.len() {
+                    false
+                } else if j >= right.len() {
+                    true
+                } else {
+                    let cmp = if reverse {
+                        right[j].2.compare(left[i].2)?
+                    } else {
+                        left[i].2.compare(right[j].2)?
+                    };
+                    match cmp {
+                        Ordering::Less => true,
+                        Ordering::Greater => false,
+                        Ordering::Equal => left[i].0 <= right[j].0,
+                    }
+                };
+
+                if use_left {
+                    vec[k] = left[i];
+                    i += 1;
+                } else {
+                    vec[k] = right[j];
+                    j += 1;
+                }
+            }
+
+            Ok(())
+        }
+
         let it = x.get().iterate(eval.heap())?;
         let mut it: Vec<(usize, Value, Value)> = match key {
             None => it.enumerate().map(|(i, x)| (i, x, x)).collect(),
@@ -353,27 +401,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
             }
         };
 
-        let mut compare_ok = Ok(());
-
-        it.sort_by(|x, y| {
-            if compare_ok.is_err() {
-                return x.0.cmp(&y.0);
-            }
-            let ord_or_err = if reverse {
-                x.2.compare(y.2).map(Ordering::reverse)
-            } else {
-                x.2.compare(y.2)
-            };
-            match ord_or_err {
-                Ok(r) => r,
-                Err(e) => {
-                    compare_ok = Err(e);
-                    x.0.cmp(&y.0)
-                }
-            }
-        });
-
-        compare_ok?;
+        merge_sort_fallible(&mut it, reverse)?;
 
         Ok(AllocList(it.into_iter().map(|x| x.1)))
     }
@@ -504,7 +532,7 @@ noop(hash)(foo)
     fn test_sorted_non_transitive() {
         assert::fail(
             "sorted([(1,), (1, 'a'), (1, 2)])",
-            "compare",
+            "not supported",
         );
     }
 
@@ -514,5 +542,43 @@ noop(hash)(foo)
             "sorted([3, (1,), 7, (1, 'a'), 2, (1, 2), 9, 'hello', 1, (2,), 5, 'world', 8])",
             "not supported",
         );
+    }
+
+    #[test]
+    fn test_sorted_stress_many_shuffled_mixed() {
+        let mut a = Assert::new();
+        a.disable_static_typechecking();
+
+        a.pass("sorted([1]*25)");
+        a.pass("sorted(list(range(50)))");
+        a.pass("sorted(list(range(100, 0, -1)))");
+        a.pass("sorted(['z', 'a', 'm', 'b'] * 20)");
+        a.pass("sorted([(1,), (2,), (3,), (1,), (2,)] * 10)");
+
+        for size in [25, 30, 50] {
+            a.fail(
+                &format!("sorted([1,2,3,len,4,5,min,6,7,max,8,9] * {})", size / 12 + 1),
+                "not supported",
+            );
+            a.fail(
+                &format!("sorted([1,2,'a',3,'b',4,'c'] * {})", size / 7 + 1),
+                "not supported",
+            );
+            a.fail(
+                &format!("sorted(['a',(1,),'b',(2,),'c',(3,)] * {})", size / 6 + 1),
+                "not supported",
+            );
+            a.fail(
+                &format!("sorted([(1,),len,(2,),min,(3,),max] * {})", size / 6 + 1),
+                "not supported",
+            );
+            a.fail(
+                &format!(
+                    "sorted([(1,), (1, 'a'), (1, 2), (2,), (2, 'b'), (2, 3)] * {})",
+                    size / 6 + 1
+                ),
+                "not supported",
+            );
+        }
     }
 }
