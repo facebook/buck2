@@ -23,6 +23,7 @@ use dupe::Dupe;
 use futures::StreamExt as _;
 use futures::stream::FuturesUnordered;
 use tokio::sync::mpsc;
+use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
 use crate::action_scene::ActionScene;
@@ -66,6 +67,17 @@ pub struct MemoryTrackerSharedState {
     /// of the scenes. This map stores the current pairing of scenes to the actions they're
     /// associated with, and is used by the memory tracker to update the scheduler.
     pub(crate) scene_action_mapping: tokio::sync::Mutex<BuckMutMap<SceneIdRef, ActionScene>>,
+    /// `true` while the scheduler sees memory pressure; see [`Self::memory_pressure`].
+    memory_pressure: watch::Sender<bool>,
+}
+
+impl MemoryTrackerSharedState {
+    /// Whether the system is under memory pressure: `true` from a few seconds into a pressure
+    /// episode until it has eased for longer, once per episode however the scheduler's own
+    /// intent moves meanwhile. Daemon-wide, and independent of whether any action is running.
+    pub fn memory_pressure(&self) -> watch::Receiver<bool> {
+        self.memory_pressure.subscribe()
+    }
 }
 
 pub struct MemoryReporter {
@@ -142,6 +154,7 @@ pub async fn create_memory_tracker(
         action_cgroups: std::sync::Mutex::new(action_cgroups),
         pool: tokio::sync::Mutex::new(cgroup_pool),
         scene_action_mapping: tokio::sync::Mutex::new(BuckMutMap::default()),
+        memory_pressure: watch::Sender::new(false),
     };
     let handle = Arc::new(handle);
     let memory_tracker = MemoryTracker {
@@ -188,8 +201,14 @@ impl MemoryTracker {
                 continue;
             };
 
-            let mut action_cgroups = self.handle.action_cgroups.lock().unwrap();
-            action_cgroups.update(memory_reading, scene_readings, now);
+            let under_pressure = {
+                let mut action_cgroups = self.handle.action_cgroups.lock().unwrap();
+                action_cgroups.update(memory_reading, scene_readings, now);
+                action_cgroups.under_memory_pressure()
+            };
+            self.handle.memory_pressure.send_if_modified(|current| {
+                std::mem::replace(current, under_pressure) != under_pressure
+            });
         }
     }
 

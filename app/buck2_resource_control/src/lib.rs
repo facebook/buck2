@@ -94,6 +94,13 @@ pub mod memory_tracker {
         pub cgroup_tree: BuckCgroupTree,
     }
 
+    impl MemoryTracker {
+        /// Never signals pressure; its sender is already gone.
+        pub fn memory_pressure(&self) -> tokio::sync::watch::Receiver<bool> {
+            tokio::sync::watch::Sender::new(false).subscribe()
+        }
+    }
+
     pub type MemoryTrackerHandle = Arc<MemoryTracker>;
 
     pub async fn create_memory_tracker(

@@ -877,7 +877,7 @@ mod tests {
     fn test_hydration_settings_page_out_policy() -> buck2_error::Result<()> {
         let config = parse(&[("config", "")], "config")?;
         let settings = resolve_setting_flags(vec![table(
-            "[hydration]\nenable_paging = true\npage_out_policy = \"once_per_value\"\neviction_policy = \"on_idle\"",
+            "[hydration]\nenable_paging = true\npage_out_policy = \"once_per_value\"\neviction_policy = \"on_memory_pressure\"",
         )])?;
 
         let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
@@ -885,7 +885,7 @@ mod tests {
             .hydration
             .expect("enable_paging should enable pagable storage");
         assert_eq!(hydration.page_out_policy, PageOutPolicy::OncePerValue);
-        assert_eq!(hydration.eviction_policy, EvictionPolicy::OnIdle);
+        assert_eq!(hydration.eviction_policy, EvictionPolicy::OnMemoryPressure);
         Ok(())
     }
 

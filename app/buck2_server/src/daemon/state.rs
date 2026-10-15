@@ -97,6 +97,7 @@ use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::ctx::LockedPreviousCommandData;
 use buck2_wrapper_common::invocation_id::TraceId;
+use dice::EvictionPolicy;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use host_sharing::NamedSemaphores;
@@ -668,12 +669,27 @@ impl TenantState {
             .resource_control
             .enable_suspension;
 
+        let evicts_on_memory_pressure = init_ctx
+            .daemon_startup_config
+            .hydration
+            .as_ref()
+            .is_some_and(|hydration| hydration.eviction_policy == EvictionPolicy::OnMemoryPressure);
+        // Under `on_memory_pressure` only the memory tracker evicts, so without one an idle
+        // page-out would write rows for values that never leave memory.
+        let evictions_impossible = evicts_on_memory_pressure && shared.memory_tracker.is_none();
         let page_out_on_idle = init_ctx
             .daemon_startup_config
             .idle_page_out_config_for_isolation_dir(paths.isolation())
+            .filter(|_| !evictions_impossible)
             .map(|hydration| PageOutThresholds {
                 min_free_disk_gb: hydration.page_out_min_free_disk_gb,
             });
+        if evictions_impossible {
+            tracing::info!(
+                "Idle page-out disabled: `hydration.eviction_policy` is `on_memory_pressure` \
+                 and this daemon has no memory tracker to see pressure with"
+            );
+        }
 
         let tags = vec![
             // TODO(scottcao): Delete this tag since now hash all commands is always enabled.
@@ -697,6 +713,14 @@ impl TenantState {
         ];
 
         let dice_manager = ConcurrencyHandler::new(dice, root);
+        if let Some(memory_tracker) = shared.memory_tracker
+            && evicts_on_memory_pressure
+        {
+            crate::paging::spawn_evict_on_memory_pressure(
+                Arc::downgrade(&dice_manager),
+                memory_tracker.memory_pressure(),
+            );
+        }
         let repo = Arc::new(RepoState {
             paths,
             file_watcher,

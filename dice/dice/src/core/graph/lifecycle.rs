@@ -126,15 +126,20 @@ impl PagableValue {
     }
 
     /// The row at `data_key` now holds this value. A value never paged out is evicted under
-    /// [`EvictionPolicy::OnIdle`]; a recomputed one stays resident, backed by the row.
+    /// [`EvictionPolicy::OnIdle`]; otherwise it, like a recomputed one, stays resident, backed
+    /// by the row.
     pub(crate) fn row_committed(
         &mut self,
         data_key: DataKey,
         policy: EvictionPolicy,
     ) -> RowCommitted {
         match std::mem::replace(self, PagableValue::PagedOut(data_key)) {
-            PagableValue::NeverPagedOut(_) => match policy {
+            PagableValue::NeverPagedOut(value) => match policy {
                 EvictionPolicy::OnIdle => RowCommitted::Evicted,
+                EvictionPolicy::OnMemoryPressure => {
+                    *self = PagableValue::Backed(Box::new(BackedValue { value, data_key }));
+                    RowCommitted::Backed
+                }
             },
             PagableValue::Recomputed(value) => {
                 *self = PagableValue::Backed(Box::new(BackedValue { value, data_key }));

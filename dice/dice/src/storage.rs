@@ -126,10 +126,14 @@ pub enum PageOutPolicy {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum EvictionPolicy {
-    /// A page-out evicts the values it writes; the idle page-out after a
-    /// command is where memory is given back.
+    /// A page-out evicts the values it writes that were never paged out before;
+    /// the idle page-out after a command is where memory is given back.
     #[default]
     OnIdle,
+    /// A page-out evicts nothing: what it writes stays resident, backed by its
+    /// row, until resource control sees memory pressure, which evicts every
+    /// backed value.
+    OnMemoryPressure,
 }
 
 impl PagableStorageBackend {

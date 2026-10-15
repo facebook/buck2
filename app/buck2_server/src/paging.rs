@@ -33,6 +33,7 @@
 
 use std::sync::Arc;
 use std::sync::LazyLock;
+use std::sync::Weak;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
@@ -57,6 +58,7 @@ use dupe::Dupe;
 use starlark::pagable::starlark_partial_deser_stats;
 use starlark::pagable::starlark_serialization_state_retained_bytes;
 use tokio::sync::Notify;
+use tokio::sync::watch;
 
 use crate::active_commands::is_only_active_command;
 use crate::daemon::state::TenantState;
@@ -556,6 +558,28 @@ pub(crate) async fn page_out_measured(
             .map(|h| h.arc_cache_entries() as u64),
     };
     (result, summary)
+}
+
+/// Evicts a tenant's backed DICE values, those a row already holds, each time resource control
+/// starts seeing memory pressure (`hydration.eviction_policy = "on_memory_pressure"`, under which
+/// a page-out evicts nothing and these are the only evictions). Only the onset
+/// triggers it: while pressure lasts, what a command reads back is what it is using. Ends with
+/// the tenant or the tracker.
+pub(crate) fn spawn_evict_on_memory_pressure(
+    dice_manager: Weak<ConcurrencyHandler>,
+    mut pressure: watch::Receiver<bool>,
+) {
+    tokio::spawn(async move {
+        while pressure.changed().await.is_ok() {
+            if !*pressure.borrow_and_update() {
+                continue;
+            }
+            let Some(dice_manager) = dice_manager.upgrade() else {
+                return;
+            };
+            evict_backed_measured(dice_manager.unsafe_dice()).await;
+        }
+    });
 }
 
 /// Evicts backed values and returns the freed memory to the OS, logging what it moved. Returns

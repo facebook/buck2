@@ -59,6 +59,7 @@ use crate::DiceKeyDyn;
 use crate::DiceProjectionDyn;
 use crate::DiceStorage;
 use crate::DynKey;
+use crate::EvictionPolicy;
 use crate::PagableStorageBackend;
 use crate::PageOutPolicy;
 use crate::api::activation_tracker::ActivationData;
@@ -1079,8 +1080,18 @@ async fn make_dice(storage: DiceStorage) -> (Arc<Dice>, BranchId) {
 }
 
 /// [`make_dice`] paging under `policy`.
-async fn make_dice_under(mut storage: DiceStorage, policy: PageOutPolicy) -> (Arc<Dice>, BranchId) {
-    storage.set_page_out_policy(policy);
+async fn make_dice_under(storage: DiceStorage, policy: PageOutPolicy) -> (Arc<Dice>, BranchId) {
+    make_dice_with(storage, policy, EvictionPolicy::default()).await
+}
+
+/// [`make_dice`] paging under both policies.
+async fn make_dice_with(
+    mut storage: DiceStorage,
+    page_out: PageOutPolicy,
+    eviction: EvictionPolicy,
+) -> (Arc<Dice>, BranchId) {
+    storage.set_page_out_policy(page_out);
+    storage.set_eviction_policy(eviction);
     let mut builder = Dice::builder();
     builder.set_pagable_storage(storage);
     let dice = builder.build(DetectCycles::Disabled);
@@ -2274,6 +2285,37 @@ async fn page_out_does_not_evict_a_recomputed_value() {
             .expect("root should remain available"),
         0
     );
+}
+
+/// Under `OnMemoryPressure` a page-out writes but evicts nothing; only an eviction on demand
+/// drops the values, after which they read back.
+#[tokio::test]
+async fn page_out_under_memory_pressure_policy_evicts_nothing() -> anyhow::Result<()> {
+    let counter = ComputeCounter::new();
+    let tmp = tempdir()?;
+    let (dice, root) = make_dice_with(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?,
+        PageOutPolicy::default(),
+        EvictionPolicy::OnMemoryPressure,
+    )
+    .await;
+
+    let value = compute_counted(&dice, root, &counter).await?;
+    dice.page_out().await?;
+    let counts = dice.pagable_node_counts().await;
+    assert_eq!(
+        (counts.paged_out, counts.backed, counts.candidates),
+        (0, 1, 0),
+        "a page-out under OnMemoryPressure writes without evicting"
+    );
+    assert_eq!(compute_counted(&dice, root, &counter).await?, value);
+    assert_eq!(counter.count(), 1, "the value stayed resident");
+
+    assert_eq!(dice.evict_backed().await, 1);
+    assert_eq!(dice.pagable_node_counts().await.paged_out, 1);
+    assert_eq!(compute_counted(&dice, root, &counter).await?, value);
+    assert_eq!(counter.count(), 1, "an evicted value is read back");
+    Ok(())
 }
 
 /// A value read back from its row stays resident, backed by the row, until evicted on demand,

@@ -203,6 +203,8 @@ pub(crate) struct Scheduler {
     /// At any given time, we're either considering increasing or decreasing parallelism. This
     /// indicates which.
     current_intent: CurrentIntent,
+    /// Memory pressure as reported outside the scheduler; see [`Self::under_memory_pressure`].
+    memory_pressure: bool,
     /// Tracks wake-side hysteresis only. Suspend timing maintains its own state.
     last_parallelism_increase_time: Instant,
     /// Current best estimate for the maximum amount of memory we can use.
@@ -307,6 +309,7 @@ impl Scheduler {
             running_scenes: Vec::new(),
             suspended_scenes: VecDeque::new(),
             current_intent: CurrentIntent::Increase,
+            memory_pressure: false,
             last_parallelism_increase_time: now,
             estimated_memory_cap,
             allprocs_memory_current: Timeseries::new(Duration::from_secs(60), now, 0.0),
@@ -419,6 +422,14 @@ impl Scheduler {
         }
     }
 
+    /// Whether the system is under memory pressure: on once the short-term pressure average
+    /// rises, off only once both the short- and the long-term average have eased. Latched apart
+    /// from the intent, which flips back and forth while the long-term average catches up with
+    /// sustained pressure; each onset reported here starts an eviction.
+    pub(crate) fn under_memory_pressure(&self) -> bool {
+        self.memory_pressure
+    }
+
     pub(crate) fn update(
         &mut self,
         memory_reading: MemoryReading,
@@ -497,6 +508,18 @@ impl Scheduler {
         match self.current_intent {
             CurrentIntent::Decrease => self.maybe_decrease_running_count(now),
             CurrentIntent::Increase => self.maybe_increase_running_count(now),
+        }
+
+        let avg5 = self
+            .allprocs_memory_pressure
+            .average_over_last(Duration::from_secs(5));
+        let avg30 = self
+            .allprocs_memory_pressure
+            .average_over_last(Duration::from_secs(30));
+        if !self.memory_pressure && avg5 > 10.0 {
+            self.memory_pressure = true;
+        } else if self.memory_pressure && avg5 < 5.0 && avg30 < 5.0 {
+            self.memory_pressure = false;
         }
 
         // Update dynamic tags based on current state
@@ -1078,6 +1101,66 @@ mod tests {
             &[(60, 0.0), (after_duration, second_level)],
             expect_kill,
         )
+    }
+
+    /// The pressure signal turns on once at the onset of sustained pressure, stays on through
+    /// the intent's flapping while the long-term average catches up and through short dips, and
+    /// turns off once after pressure has subsided; at the production sampling cadence.
+    #[test]
+    fn test_memory_pressure_signal_latches_per_episode() {
+        let (mut scheduler, timeline) = TestTimeline::new();
+        let reading = |level: f64| MemoryReading {
+            allprocs_memory_pressure: level,
+            allprocs_swap_current: 0,
+            allprocs_memory_current: 0,
+            daemon_memory_current: 0,
+            daemon_swap_current: 0,
+            time_collected: SystemTime::now(),
+        };
+        let mut now_ms = 0;
+        let mut was_on = false;
+        // Runs `seconds` of `level` at a 300ms cadence, returning the (rising, falling) edges.
+        let mut run = |scheduler: &mut Scheduler, level: f64, seconds: u64| {
+            let (mut rising, mut falling) = (0, 0);
+            for _ in 0..(seconds * 1000 / 300) {
+                scheduler.update(
+                    reading(level),
+                    UpdateBuilder::new().build(),
+                    timeline.0 + Duration::from_millis(now_ms),
+                );
+                now_ms += 300;
+                let on = scheduler.under_memory_pressure();
+                match (was_on, on) {
+                    (false, true) => rising += 1,
+                    (true, false) => falling += 1,
+                    _ => {}
+                }
+                was_on = on;
+            }
+            (rising, falling)
+        };
+        assert_eq!(run(&mut scheduler, 0.0, 10), (0, 0));
+        assert_eq!(
+            run(&mut scheduler, 12.0, 40),
+            (1, 0),
+            "steady pressure is one onset, however often the intent flips"
+        );
+        assert_eq!(
+            run(&mut scheduler, 0.0, 8),
+            (0, 0),
+            "a dip shorter than the long-term window is not the end of the episode"
+        );
+        assert_eq!(run(&mut scheduler, 12.0, 10), (0, 0));
+        assert_eq!(
+            run(&mut scheduler, 0.0, 40),
+            (0, 1),
+            "the episode ends once both averages have eased"
+        );
+        assert_eq!(
+            run(&mut scheduler, 50.0, 6),
+            (1, 0),
+            "a new episode is a new onset"
+        );
     }
 
     #[test]

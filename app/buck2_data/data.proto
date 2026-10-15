@@ -659,7 +659,9 @@ enum PageOutStarted {
   PAGE_OUT_STARTED_UNSPECIFIED = 0;
   // A background idle page-out was scheduled.
   PAGE_OUT_STARTED_STARTED = 1;
-  // Idle page-out is disabled (`buck2_hydration.page_out_on_idle` unset).
+  // Idle page-out is disabled: `buck2_hydration.page_out_on_idle` unset, or
+  // `hydration.eviction_policy` is `on_memory_pressure` on a daemon with no
+  // memory tracker, so nothing a page-out wrote would ever be evicted.
   PAGE_OUT_STARTED_DISABLED = 2;
   // Nothing to page out (no pagable candidates).
   PAGE_OUT_STARTED_NOTHING_TO_PAGE_OUT = 3;

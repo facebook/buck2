@@ -28,6 +28,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, env
 # `buck2_data.PageOutStarted::*` — the invocation record serializes the
 # `page_out_started` enum field as its integer value (see data.proto).
 _PAGE_OUT_STARTED_STARTED = 1
+_PAGE_OUT_STARTED_DISABLED = 2
 _PAGE_OUT_STARTED_DISABLED_AFTER_ERROR = 9
 
 
@@ -128,6 +129,12 @@ def _set_page_out_policy(buck: Buck, policy: str) -> None:
     )
 
 
+def _set_eviction_policy(buck: Buck, policy: str) -> None:
+    (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
+        f'[hydration]\neviction_policy = "{policy}"\n'
+    )
+
+
 async def _wait_for_page_out_idle(buck: Buck) -> int:
     # `status --wait` blocks until any in-progress idle page-out finishes, so tests
     # observe the settled state without polling. Returns the paged-out node count.
@@ -202,6 +209,38 @@ async def _backed_count(buck: Buck) -> int:
 
 async def _candidate_count(buck: Buck) -> int:
     return await _status_count(buck, "page-out candidates")
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
+async def test_eviction_on_memory_pressure_keeps_paged_out_values_resident(
+    buck: Buck,
+) -> None:
+    # Under `on_memory_pressure` a page-out writes the values but evicts none;
+    # `buck2 debug hydration evict`, what memory pressure triggers, drops them
+    # without another write. A daemon with no memory tracker could never see
+    # pressure, so it does not page out on idle at all: the test host decides
+    # which of the two this daemon is.
+    _set_eviction_policy(buck, "on_memory_pressure")
+    (buck.cwd / "src.txt").write_text("content-0\n")
+    result = await _build(buck)
+    assert _output(result) == "content-0\n"
+    started = result.invocation_record().get("page_out_started")
+    if started == _PAGE_OUT_STARTED_STARTED:
+        await _wait_for_page_out_idle(buck)
+    else:
+        assert started == _PAGE_OUT_STARTED_DISABLED, (
+            "without a memory tracker, idle page-out must be disabled rather than "
+            f"write rows nothing evicts; got {started}"
+        )
+        await _page_out(buck)
+    assert await _paged_out_count(buck) == 0, "a page-out must evict nothing"
+    backed = await _backed_count(buck)
+    assert backed > 0, "the written values stay resident, backed by their rows"
+
+    out = (await buck.debug("hydration", "evict")).stdout
+    assert f"evicted {backed} backed DICE values" in out, out
+    assert await _paged_out_count(buck) == backed
+    assert await _backed_count(buck) == 0
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)

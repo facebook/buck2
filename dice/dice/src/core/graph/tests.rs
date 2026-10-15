@@ -205,6 +205,11 @@ fn candidate_at(graph: &VersionedGraph, k: DiceKey, v: VersionNumber) -> Candida
 }
 
 fn page_out(graph: &mut VersionedGraph, k: DiceKey, data_key: u128) {
+    page_out_under(graph, k, data_key, EvictionPolicy::OnIdle);
+}
+
+/// [`page_out`] committing under `policy`.
+fn page_out_under(graph: &mut VersionedGraph, k: DiceKey, data_key: u128, policy: EvictionPolicy) {
     let to_evict: Vec<_> = graph
         .keys_to_page_out()
         .into_iter()
@@ -220,7 +225,7 @@ fn page_out(graph: &mut VersionedGraph, k: DiceKey, data_key: u128) {
         })
         .collect();
     assert!(!to_evict.is_empty(), "{k:?} has no page-out candidate");
-    graph.commit_page_out(to_evict, EvictionPolicy::OnIdle);
+    graph.commit_page_out(to_evict, policy);
     graph.assert_consistent();
 }
 
@@ -514,6 +519,24 @@ fn once_per_key_keeps_recomputed_and_read_back_values_resident() {
     graph.assert_consistent();
     assert_eq!(graph.pagable_node_counts(), counts(2, 0, 0));
     assert!(stored_data_key(&graph, key(2), v3).is_none());
+}
+
+/// Under `OnMemoryPressure` a page-out evicts nothing: a value never paged out is written and
+/// stays resident, backed by its row, until evicted on demand.
+#[test]
+fn on_memory_pressure_page_out_keeps_the_values_it_writes_resident() {
+    let (mut graph, root) = with_leaf();
+    let v2 = graph.head(root);
+    compute(&mut graph, key(1), v2, value(7));
+    page_out_under(&mut graph, key(1), 0x1, EvictionPolicy::OnMemoryPressure);
+    assert_eq!(graph.pagable_node_counts(), backed_counts(1, 0, 1));
+    assert!(graph.keys_to_page_out().is_empty());
+    assert_eq!(evict_backed(&mut graph), 1);
+    assert_eq!(graph.pagable_node_counts(), counts(0, 1, 0));
+    assert_eq!(
+        stored_data_key(&graph, key(1), v2),
+        Some(DataKey::testing_new(0x1))
+    );
 }
 
 /// A recomputed value is written by the next page-out but stays resident, backed by its row,
