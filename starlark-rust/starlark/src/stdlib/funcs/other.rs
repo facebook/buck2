@@ -353,6 +353,17 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
             }
         };
 
+        if it.len() > 1 {
+            for i in 1..it.len() {
+                let cmp_result = if reverse {
+                    it[0].1.compare(it[i].1).map(Ordering::reverse)
+                } else {
+                    it[0].1.compare(it[i].1)
+                };
+                cmp_result?;
+            }
+        }
+
         let mut compare_ok = Ok(());
 
         it.sort_by(|x: &(Value, Value), y: &(Value, Value)| {
@@ -365,7 +376,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
                 Ok(r) => r,
                 Err(e) => {
                     compare_ok = Err(e);
-                    Ordering::Equal // does not matter
+                    Ordering::Equal
                 }
             }
         });
@@ -487,5 +498,13 @@ noop(hash)(foo)
         a.disable_static_typechecking();
         a.eq("(1, 2)", "tuple((1, 2))");
         a.eq("(1, 2)", "tuple([1, 2])");
+    }
+
+    #[test]
+    fn test_sorted_incomparable_items() {
+        assert::fail(
+            "sorted([5, 4, 3, 2, 1, 0, len, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, len, 9, 8, 7, 6])",
+            "compare",
+        );
     }
 }
