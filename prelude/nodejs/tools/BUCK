@@ -1,0 +1,20 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+python_bootstrap_binary(
+    name = "package_tree",
+    main = "package_tree.py",
+    visibility = ["PUBLIC"],
+)
+
+python_test(
+    name = "test_package_tree",
+    srcs = [
+        "package_tree.py",
+        "tests/test_package_tree.py",
+    ],
+    base_module = "",
+)

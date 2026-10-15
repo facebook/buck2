@@ -12,10 +12,10 @@ load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 load(":nodejs_package.bzl", "get_bundled_node", "package_standalone")
 load(
     ":nodejs_providers.bzl",
-    "NodejsLibraryInfo",
     "build_node_modules",
     "check_relative_path",
     "get_nodejs_dep_infos",
+    "get_nodejs_library_info",
     "get_nodejs_tree_info",
     "get_transitive_outputs",
 )
@@ -32,13 +32,7 @@ def build_nodejs_command(ctx: AnalysisContext, bundled_node: (str, Artifact) | N
         if ctx.attrs.entry_point == None:
             fail("{}: `library` requires `entry_point`".format(ctx.label))
         check_relative_path(ctx.attrs.entry_point, "{}: invalid `entry_point`".format(ctx.label))
-        if NodejsLibraryInfo not in ctx.attrs.library:
-            fail(
-                "{}: `library` target `{}` does not provide `NodejsLibraryInfo`; `library` must be a `nodejs_library`".format(
-                    ctx.label, ctx.attrs.library.label
-                )
-            )
-        lib_info = ctx.attrs.library[NodejsLibraryInfo]
+        lib_info = get_nodejs_library_info(ctx.attrs.library, consumer_label = ctx.label)
     else:
         if ctx.attrs.entry_point != None:
             fail("{}: `entry_point` requires `library`".format(ctx.label))
@@ -85,7 +79,7 @@ def build_nodejs_command(ctx: AnalysisContext, bundled_node: (str, Artifact) | N
             for_runtime = True,
         )
         if lib_info != None:
-            entry = cmd_args(runtime, format = "{}/node_modules/" + lib_info.package_name + "/" + ctx.attrs.entry_point)
+            entry = cmd_args(runtime, format = "{}/node_modules/" + lib_info.dir_name + "/" + ctx.attrs.entry_point)
         else:
             entry = cmd_args(runtime, format = "{}/" + ctx.attrs.main.short_path)
 

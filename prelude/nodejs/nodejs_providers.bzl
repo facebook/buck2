@@ -13,6 +13,7 @@ NodejsLibraryPackage = record(
     package_dir = field(Artifact),
     package_name = field(str),
     runtime_dir = field(Artifact),
+    dir_name = field(str),
 )
 
 NodejsLibraryTSet = transitive_set()
@@ -20,6 +21,7 @@ NodejsLibraryTSet = transitive_set()
 NodejsLibraryInfo = provider(
     doc = "Information about a Node.js library package.",
     fields = {
+        "dir_name": provider_field(str),
         "package_dir": provider_field(Artifact),
         "package_name": provider_field(str),
         "transitive_outputs": provider_field(NodejsLibraryTSet),
@@ -49,6 +51,15 @@ def get_nodejs_dep_infos(deps: list, consumer_label, non_code_attr: str | None =
             )
         infos.append(dep[NodejsLibraryInfo])
     return infos
+
+def get_nodejs_library_info(library, consumer_label):
+    if NodejsLibraryInfo not in library:
+        fail(
+            "target {} has `library` target `{}` which does not provide `NodejsLibraryInfo`; `library` must be a `nodejs_library`".format(
+                consumer_label, library.label
+            )
+        )
+    return library[NodejsLibraryInfo]
 
 def get_nodejs_tree_info(node_modules: Dependency, consumer_label) -> NodejsTreeInfo:
     if NodejsTreeInfo not in node_modules:
@@ -83,25 +94,35 @@ def build_node_modules(
 ) -> Artifact:
     packages_by_name = {}
     if own_package != None:
-        packages_by_name[own_package.package_name] = own_package
+        packages_by_name[own_package.dir_name] = own_package
     for pkg in transitive_outputs.traverse():
-        if own_package != None and pkg.package_name == own_package.package_name:
+        if own_package != None and pkg.dir_name == own_package.dir_name:
             if pkg.package_dir != own_package.package_dir:
                 fail(
-                    "duplicate `package_name` '{}' ('{}' vs '{}'); `package_name` must be unique across transitive deps".format(
-                        pkg.package_name, own_package.label, pkg.label
+                    "duplicate package directory '{}' ('{}' vs '{}'); package directories must be unique across transitive deps".format(
+                        pkg.dir_name, own_package.label, pkg.label
                     )
                 )
             continue
-        existing = packages_by_name.get(pkg.package_name)
+        existing = packages_by_name.get(pkg.dir_name)
         if existing == None:
-            packages_by_name[pkg.package_name] = pkg
+            packages_by_name[pkg.dir_name] = pkg
         elif existing.package_dir != pkg.package_dir:
             fail(
-                "duplicate `package_name` '{}' ('{}' vs '{}'); `package_name` must be unique across transitive deps".format(
-                    pkg.package_name, existing.label, pkg.label
+                "duplicate package directory '{}' ('{}' vs '{}'); package directories must be unique across transitive deps".format(
+                    pkg.dir_name, existing.label, pkg.label
                 )
             )
+    for n in packages_by_name:
+        segments = n.split("/")
+        for i in range(1, len(segments)):
+            parent = packages_by_name.get("/".join(segments[:i]))
+            if parent != None:
+                fail(
+                    "package directory '{}' ('{}') is nested inside package directory '{}' ('{}'); package directories must not nest".format(
+                        n, packages_by_name[n].label, parent.dir_name, parent.label
+                    )
+                )
     tree = {"node_modules/" + n: packages_by_name[n].runtime_dir if for_runtime else packages_by_name[n].package_dir for n in sorted(packages_by_name)}
     for root_name, root_file in (root_files or {}).items():
         segments = check_relative_path(root_name, "invalid `root_files` path", allow_colon = True)

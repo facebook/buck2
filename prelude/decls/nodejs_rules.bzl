@@ -23,19 +23,14 @@ nodejs_library = prelude_rule(
     With `tsconfig`, `srcs` must be TypeScript compiled with the
     toolchain's `tsc` before staging: sources are staged by short path
     next to the `tsconfig`, the `package_json` (whose `"type"` decides the
-    emitted module format) and a `node_modules` (the merged tree of `deps`,
-    or the prebuilt `node_modules` tree; so cross-package type imports
+    emitted module format) and a `node_modules` (the merged tree of `deps`
+    and the prebuilt `node_modules` tree; so cross-package type imports
     resolve), compiled with `--outDir`,
-    `--rootDir` (the staging root, so `<path>.ts` emits
-    `dist/<path>.js` and `dist/<path>.d.ts`, and `.mts` / `.cts` emit
-    `.mjs` / `.cjs`), `--declaration`, `--noEmit false` and
-    `--emitDeclarationOnly false`, and the emitted tree is staged as the
-    package's `dist/`. `srcs` are the compiled files: the `tsconfig`'s
-    `files` and `include` are replaced by `srcs` and its `declarationDir`
-    is cleared. At least one source is required. Only `.ts`, `.tsx`,
-    `.mts` and `.cts` sources may be compiled, not `.d.ts`, `.d.mts` or
-    `.d.cts` declaration files; declarations are always emitted because
-    downstream compiles need them. Only the `tsconfig` file itself is staged, so an `extends`
+    `--rootDir` (the sources' deepest common directory), `--declaration`,
+    `--noEmit false` and `--emitDeclarationOnly false`, into `dist/`.
+    `srcs` replace the `tsconfig`'s `files` and `include`. Only `.ts`,
+    `.tsx`, `.mts` and `.cts` sources, not declarations, are compiled.
+    Only the `tsconfig` is staged, so an `extends`
     pointing at a sibling config file does not resolve. A source whose
     first path segment is `tsconfig.json`, `tsconfig.buck.json`, or a
     staged `package.json` or `node_modules` fails.
@@ -59,10 +54,9 @@ nodejs_library = prelude_rule(
     either may be used as the scope.
     `node_modules`, when set, stages a prebuilt `node_modules` tree (a
     `nodejs_node_modules` target, e.g. over a yarn install output) for the
-    `tsc` compile instead of the merged `deps` tree, for third-party
-    packages with no `nodejs_library` target. It requires `tsconfig` and
-    cannot be combined with `deps`: prebuilt trees cannot merge with
-    package deps.
+    `tsc` compile, merged with the `deps` tree when both are present, for
+    third-party packages with no `nodejs_library` target. It requires
+    `tsconfig`.
     `module`, when set, compiles a whole project directory (a target whose
     single output holds a `tsconfig.json` and its sources) instead of
     compiling `srcs`: `tsc -p` runs on the module's own `tsconfig.json`
@@ -76,11 +70,18 @@ nodejs_library = prelude_rule(
     emitted tree is staged, not the module's own `node_modules`: a
     `nodejs_binary` running the package must supply that tree through its
     own `node_modules`.
+    `out`, when set, stages the package under that directory name inside
+    `node_modules` instead of `package_name` (a relative path with `/`
+    separators, no `:` and no `.`, `..` or `node_modules` segments), for packages whose
+    imports address a canonical directory. `flatten`, when set, stages the compiled emit at
+    the package root instead of under `dist/` (plus `package.json`); it
+    requires compilation (`tsconfig` or `module`).
     The default output is the package's own directory
     (`package_dir`). The `[node_modules]` sub-target is the merged
     `node_modules` tree for this package and its transitive `deps`,
-    laid out by `package_name`. A duplicate `package_name` in the
-    transitive closure with a different package output fails the build.""",
+    laid out by `package_name` (or `out`). A duplicate `package_name` in the
+    transitive closure with a different package output fails the build, as
+    does one package directory nested inside another.""",
     examples = None,
     further = None,
     attrs = (
@@ -94,8 +95,11 @@ nodejs_library = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = []),
             "node_modules": attrs.option(attrs.dep(), default = None),
             "module": attrs.option(attrs.dep(), default = None),
+            "out": attrs.option(attrs.string(), default = None),
+            "flatten": attrs.bool(default = False),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_nodejs_toolchain": toolchains_common.nodejs(),
+            "_package_tree_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//nodejs/tools:package_tree")),
         }
         | buck.labels_arg()
         | buck.contacts_arg()
@@ -139,7 +143,7 @@ nodejs_binary = prelude_rule(
     ES module, and TypeScript must be compiled to JavaScript before it
     is packaged. The merged tree is also exposed via `NODE_PATH` at
     runtime, appended to any `NODE_PATH` set in `env`, for CommonJS
-    resolution. Transitive deps' `package_name` values must be unique,
+    resolution. Transitive deps' package directories must be unique,
     as for `nodejs_library`. `package_style` is `"inplace"` (the
     default) or `"standalone"`. `standalone` always stages, adds the
     toolchain's `node_dist` binary to the staged directory as `node`
@@ -209,7 +213,7 @@ nodejs_test = prelude_rule(
     TypeScript must be compiled to JavaScript before it is packaged.
     The merged tree is also exposed via `NODE_PATH` at runtime, appended
     to any `NODE_PATH` set in `env`, for CommonJS resolution. Transitive
-    deps' `package_name` values must be unique, as for `nodejs_library`.
+    deps' package directories must be unique, as for `nodejs_library`.
     It runs via a `command_alias` wrapper script for the target platform,
     which sets `env` (including `NODE_PATH` from `deps`) on Unix and
     Windows. `library`/`entry_point` run a file from inside a

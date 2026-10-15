@@ -11,13 +11,14 @@ load(
     "NodejsLibraryInfo",
     "NodejsLibraryPackage",
     "build_node_modules",
+    "check_relative_path",
     "get_nodejs_dep_infos",
     "get_nodejs_tree_info",
     "get_transitive_outputs",
     "strip_type_declarations",
 )
 load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
-load(":nodejs_typescript.bzl", "compile_module_typescript", "compile_typescript")
+load(":nodejs_typescript.bzl", "assemble_flat_package", "compile_module_typescript", "compile_typescript")
 
 def _fail_invalid(label: Label, package_name: str, reason: str, hint: str) -> None:
     fail("nodejs_library {}: invalid `package_name` '{}': {}{}".format(label, package_name, reason, hint))
@@ -73,6 +74,13 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
     _validate_package_name(ctx.label, package_name, is_default = is_default)
 
     dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label, non_code_attr = "resources")
+    if ctx.attrs.out != None:
+        out_segments = check_relative_path(ctx.attrs.out, "nodejs_library {}: invalid `out`".format(ctx.label))
+        if "node_modules" in [s.lower() for s in out_segments]:
+            fail("nodejs_library {}: invalid `out` '{}': must not contain a 'node_modules' segment".format(ctx.label, ctx.attrs.out))
+    dir_name = ctx.attrs.out if ctx.attrs.out != None else package_name
+    if ctx.attrs.flatten and ctx.attrs.tsconfig == None and ctx.attrs.module == None:
+        fail("nodejs_library {}: `flatten` requires compilation (`tsconfig` or `module`)".format(ctx.label))
     if ctx.attrs.module != None:
         if ctx.attrs.srcs or ctx.attrs.resources or dep_infos or ctx.attrs.node_modules != None:
             fail("nodejs_library {}: `module` cannot be combined with `srcs`, `resources`, `deps` or `node_modules`".format(ctx.label))
@@ -80,16 +88,15 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
             fail("nodejs_library {}: `module` uses the module's own tsconfig.json; `tsconfig` cannot be combined with `module`".format(ctx.label))
     node_modules_tree = None
     if ctx.attrs.node_modules != None:
-        if dep_infos:
-            fail("nodejs_library {}: `node_modules` cannot be combined with `deps`: prebuilt trees cannot merge with package deps".format(ctx.label))
         node_modules_tree = get_nodejs_tree_info(ctx.attrs.node_modules, consumer_label = ctx.label).node_modules
 
     srcs_map = {}
+    emit = None
     if ctx.attrs.module != None:
         module_outs = ctx.attrs.module[DefaultInfo].default_outputs
         if len(module_outs) != 1:
             fail("nodejs_library {}: `module` target `{}` must have exactly one default output".format(ctx.label, ctx.attrs.module.label))
-        srcs_map["dist"] = compile_module_typescript(
+        emit = compile_module_typescript(
             ctx.actions,
             ctx.label,
             ctx.attrs._nodejs_toolchain[NodejsToolchainInfo].tsc,
@@ -99,7 +106,7 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
     elif ctx.attrs.tsconfig != None:
         if ctx.attrs.resources:
             fail("nodejs_library {}: `resources` cannot be combined with `tsconfig` yet".format(ctx.label))
-        srcs_map["dist"] = compile_typescript(
+        emit = compile_typescript(
             actions = ctx.actions,
             label = ctx.label,
             tsc = ctx.attrs._nodejs_toolchain[NodejsToolchainInfo].tsc,
@@ -108,6 +115,7 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
             package_json = ctx.attrs.package_json,
             dep_infos = dep_infos,
             identifier = ctx.attrs.name,
+            package_tree_tool = ctx.attrs._package_tree_tool[RunInfo],
             node_modules_tree = node_modules_tree,
         )
     else:
@@ -125,26 +133,38 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
             if existing != None and existing != res:
                 fail("nodejs_library {}: duplicate `srcs`/`resources` '{}' and '{}' both map to '{}'".format(ctx.label, existing, res, key))
             srcs_map[key] = res
-    if ctx.attrs.package_json != None:
-        srcs_map["package.json"] = ctx.attrs.package_json
-    for key in sorted(srcs_map):
-        segments = key.split("/")
-        prefix = segments[0]
-        for i in range(1, len(segments)):
-            if prefix in srcs_map:
-                fail(
-                    "nodejs_library {}: overlapping staged paths '{}' and '{}' ('{}' and '{}'): staged entries must not nest".format(
-                        ctx.label, prefix, key, srcs_map[prefix], srcs_map[key]
+    if emit != None and ctx.attrs.flatten:
+        package_dir = assemble_flat_package(
+            ctx.actions,
+            ctx.attrs._package_tree_tool[RunInfo],
+            emit,
+            ctx.attrs.package_json,
+            ctx.attrs.name,
+        )
+    else:
+        if emit != None:
+            srcs_map["dist"] = emit
+        if ctx.attrs.package_json != None:
+            srcs_map["package.json"] = ctx.attrs.package_json
+        for key in sorted(srcs_map):
+            segments = key.split("/")
+            prefix = segments[0]
+            for i in range(1, len(segments)):
+                if prefix in srcs_map:
+                    fail(
+                        "nodejs_library {}: overlapping staged paths '{}' and '{}' ('{}' and '{}'): staged entries must not nest".format(
+                            ctx.label, prefix, key, srcs_map[prefix], srcs_map[key]
+                        )
                     )
-                )
-            prefix += "/" + segments[i]
-    package_dir = ctx.actions.copied_dir("package_dir", srcs_map)
+                prefix += "/" + segments[i]
+        package_dir = ctx.actions.copied_dir("package_dir", srcs_map)
 
     own_package = NodejsLibraryPackage(
         label = ctx.label,
         package_dir = package_dir,
         package_name = package_name,
         runtime_dir = strip_type_declarations(ctx.actions, package_dir, "runtime_dir", ctx.attrs._exec_os_type),
+        dir_name = dir_name,
     )
     transitive_outputs = get_transitive_outputs(ctx.actions, value = own_package, deps = dep_infos)
     node_modules = build_node_modules(ctx.actions, "node_modules", transitive_outputs, own_package = own_package)
@@ -157,6 +177,7 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
         NodejsLibraryInfo(
             package_dir = package_dir,
             package_name = package_name,
+            dir_name = dir_name,
             transitive_outputs = transitive_outputs,
         ),
     ]
