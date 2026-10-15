@@ -55,7 +55,11 @@ public class CrashAnalyzer {
         "Illegal state exception detected",
         false),
     new CrashType(
-        Pattern.compile("(?i)Fatal signal 6|signal 6|SIGABRT|Abort"),
+        // Match a libc/debuggerd "signal 6 (SIGABRT)" line or debuggerd's "Abort message:". A bare
+        // "Abort" token matched any line containing the word, e.g. WhatsApp's
+        // "SafeModuleLoader ... Loading module: abort_hook" logged at every app start, which
+        // produced a false SIGABRT verdict on every run of those apps.
+        Pattern.compile("(?i)\\bsignal 6\\b|SIGABRT|\\bAbort message\\b"),
         "SIGABRT signal detected",
         true),
     new CrashType(

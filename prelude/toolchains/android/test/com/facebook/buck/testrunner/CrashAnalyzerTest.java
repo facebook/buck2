@@ -1169,6 +1169,37 @@ public class CrashAnalyzerTest {
   }
 
   @Test
+  public void testDoesNotFalsePositiveOnAbortHookModuleLoad() {
+    // Regression: WhatsApp logs "Loading module: abort_hook" at every app start. It is not a
+    // SIGABRT and must not be detected as one (previously the bare "Abort" alternative matched it).
+    String logcatOutput =
+        "10-14 01:35:04.592  5977  5977 I WhatsApp: LL_I D [2:main]SafeModuleLoader.java:122"
+            + " Loading module: abort_hook\n"
+            + "I/TestRunner(9012): Test passed successfully\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    String errorOutput = errContent.toString();
+    assertFalse(
+        "abort_hook module load must not be detected as a SIGABRT",
+        errorOutput.contains("SIGABRT signal detected"));
+    assertTrue(
+        "Should report no crashes for the module load",
+        errorOutput.contains("No crashes detected"));
+  }
+
+  @Test
+  public void testDoesNotFalsePositiveOnSignal60() {
+    String logcatOutput = "I/Example(1234): received signal 60 from peer\n";
+
+    crashAnalyzer.analyzeCrashInformation(logcatOutput);
+
+    assertFalse(
+        "signal 60 must not be detected as a SIGABRT",
+        errContent.toString().contains("SIGABRT signal detected"));
+  }
+
+  @Test
   public void testDoesNotFalsePositiveOnQplIllegalStateWarning() {
     // Regression: QPLProvider logs a caught IllegalStateException ("No QPL instance provided") at
     // error level under its own tag on many runs. It is not an uncaught crash and must not be
