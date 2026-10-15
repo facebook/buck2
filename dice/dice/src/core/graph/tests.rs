@@ -106,9 +106,10 @@ fn key(i: u32) -> DiceKey {
     DiceKey { index: i }
 }
 
-/// A graph with one root, holding the injected key `key(0)` at value 100 (version 2).
+/// A graph with one root, holding the injected key `key(0)` at value 100 (version 2), paging
+/// each key out once, the semantics the tests here are written against.
 fn with_leaf() -> (VersionedGraph, BranchId) {
-    with_leaf_under(PageOutPolicy::default())
+    with_leaf_under(PageOutPolicy::OncePerKey)
 }
 
 /// [`with_leaf`] paging under `policy`.
@@ -500,8 +501,8 @@ fn stored_data_key(graph: &VersionedGraph, k: DiceKey, v: VersionNumber) -> Opti
         .paged_out_data_key()
 }
 
-/// Under the default policy a key's value is paged out at most once: a value recomputed or read
-/// back after a page-out stays resident with no row, and is not a candidate.
+/// Under `OncePerKey` a key's value is paged out at most once: a value recomputed or read back
+/// after a page-out stays resident with no row, and is not a candidate.
 #[test]
 fn once_per_key_keeps_recomputed_and_read_back_values_resident() {
     let (mut graph, root) = with_leaf();

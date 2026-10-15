@@ -561,8 +561,8 @@ pub(crate) async fn page_out_measured(
 }
 
 /// Evicts a tenant's backed DICE values, those a row already holds, each time resource control
-/// starts seeing memory pressure (`hydration.eviction_policy = "on_memory_pressure"`, under which
-/// a page-out evicts nothing and these are the only evictions). Only the onset
+/// starts seeing memory pressure (the default `hydration.eviction_policy`, `on_memory_pressure`,
+/// under which a page-out evicts nothing and these are the only evictions). Only the onset
 /// triggers it: while pressure lasts, what a command reads back is what it is using. Ends with
 /// the tenant or the tracker.
 pub(crate) fn spawn_evict_on_memory_pressure(

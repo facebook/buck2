@@ -103,11 +103,11 @@ pub enum PagableStorageBackend {
 pub enum PageOutPolicy {
     /// A key's value is paged out at most once: a value recomputed or read back
     /// after a page-out stays resident, with no row to fall back on.
-    #[default]
     OncePerKey,
     /// Each value is written at most once: a recomputed value is written by the
     /// next page-out and stays resident, backed by its row, as does a value read
     /// back from its row. A backed value can be evicted again without a write.
+    #[default]
     OncePerValue,
 }
 
@@ -128,11 +128,11 @@ pub enum PageOutPolicy {
 pub enum EvictionPolicy {
     /// A page-out evicts the values it writes that were never paged out before;
     /// the idle page-out after a command is where memory is given back.
-    #[default]
     OnIdle,
     /// A page-out evicts nothing: what it writes stays resident, backed by its
     /// row, until resource control sees memory pressure, which evicts every
     /// backed value.
+    #[default]
     OnMemoryPressure,
 }
 

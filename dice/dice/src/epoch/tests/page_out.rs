@@ -1075,13 +1075,15 @@ impl Key for PageOutRaceRoot {
     }
 }
 
+/// Pages each key out once and evicts at page-out, the semantics the tests here are written
+/// against.
 async fn make_dice(storage: DiceStorage) -> (Arc<Dice>, BranchId) {
-    make_dice_under(storage, PageOutPolicy::default()).await
+    make_dice_under(storage, PageOutPolicy::OncePerKey).await
 }
 
 /// [`make_dice`] paging under `policy`.
 async fn make_dice_under(storage: DiceStorage, policy: PageOutPolicy) -> (Arc<Dice>, BranchId) {
-    make_dice_with(storage, policy, EvictionPolicy::default()).await
+    make_dice_with(storage, policy, EvictionPolicy::OnIdle).await
 }
 
 /// [`make_dice`] paging under both policies.
@@ -2295,7 +2297,7 @@ async fn page_out_under_memory_pressure_policy_evicts_nothing() -> anyhow::Resul
     let tmp = tempdir()?;
     let (dice, root) = make_dice_with(
         DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?,
-        PageOutPolicy::default(),
+        PageOutPolicy::OncePerKey,
         EvictionPolicy::OnMemoryPressure,
     )
     .await;

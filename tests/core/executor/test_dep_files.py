@@ -1942,6 +1942,11 @@ async def test_canonical_input_persisted_dep_file(
 )
 @pytest.mark.parametrize("input_format", ["json", "args"])
 async def test_canonical_input_paged_analysis(buck: Buck, input_format: str) -> None:
+    # The page-in below needs the page-out to evict, which the default
+    # `eviction_policy`, `on_memory_pressure`, does not.
+    (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
+        '[hydration]\neviction_policy = "on_idle"\n'
+    )
     options = {"canonical_unused_src": "true", "canonical_format": input_format}
     await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL)
     await buck.debug("hydration", "page-out")

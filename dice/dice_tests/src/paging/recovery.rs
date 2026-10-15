@@ -134,10 +134,7 @@ async fn recovery_dice()
 -> anyhow::Result<(tempfile::TempDir, Arc<Dice>, BranchId, Arc<RecoveryControl>)> {
     let tmp = tempdir()?;
     let mut builder = Dice::builder();
-    builder.set_pagable_storage(DiceStorage::open(
-        tmp.path(),
-        PagableStorageBackend::Sqlite,
-    )?);
+    builder.set_pagable_storage(test_storage(tmp.path())?);
     let dice = builder.build(DetectCycles::Disabled);
     let root = dice.new_root().await;
     let control = RecoveryControl::new();

@@ -24,6 +24,8 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, env
 # The fixture's `.buckconfig` sets two `DaemonStartupConfig`s:
 # `buck2_hydration.enable_paging` (pagable DICE storage on disk) and
 # `buck2_hydration.page_out_on_idle` (page the graph out when the daemon goes idle).
+# `_hydration_settings` adds `page_out_policy = "once_per_key"` and
+# `eviction_policy = "on_idle"` unless a test says otherwise.
 
 # `buck2_data.PageOutStarted::*` — the invocation record serializes the
 # `page_out_started` enum field as its integer value (see data.proto).
@@ -106,33 +108,36 @@ def _target_output(result: BuildResult, target: str) -> str:
     return Path(output).read_text()
 
 
-def _disable_idle_page_out(buck: Buck) -> None:
+def _hydration_settings(buck: Buck, **settings: bool | str) -> None:
     # Through the settings layer: the fixture's `.buckconfig` sets
     # `page_out_on_idle = true` as a project config, which outranks the external
     # config `extra_buck_config` writes - but settings outrank both, and
     # `page_out_on_idle` only falls back to buckconfig when settings leave it
     # unset. `enable_paging` stays unset here so the fixture still provides it.
+    #
+    # Under the default `eviction_policy`, `on_memory_pressure`, a page-out
+    # evicts nothing, and a daemon with no memory tracker does not page out on
+    # idle at all; the evictions these tests observe come from `on_idle`. The
+    # page-out policy is pinned too, so each test states the one it is about.
+    settings = {
+        "page_out_policy": "once_per_key",
+        "eviction_policy": "on_idle",
+        **settings,
+    }
+    lines = ["[hydration]"]
+    for key, value in settings.items():
+        if isinstance(value, bool):
+            lines.append(f"{key} = {str(value).lower()}")
+        else:
+            lines.append(f'{key} = "{value}"')
     (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
-        "[hydration]\npage_out_on_idle = false\n"
+        "\n".join(lines) + "\n"
     )
 
 
-def _set_defer_field_reads(buck: Buck, enabled: bool) -> None:
-    (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
-        f"[hydration]\ndefer_field_reads = {str(enabled).lower()}\n"
-    )
-
-
-def _set_page_out_policy(buck: Buck, policy: str) -> None:
-    (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
-        f'[hydration]\npage_out_policy = "{policy}"\n'
-    )
-
-
-def _set_eviction_policy(buck: Buck, policy: str) -> None:
-    (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
-        f'[hydration]\neviction_policy = "{policy}"\n'
-    )
+@pytest.fixture(autouse=True)
+async def _pin_paging_policies(buck: Buck) -> None:
+    _hydration_settings(buck)
 
 
 async def _wait_for_page_out_idle(buck: Buck) -> int:
@@ -154,7 +159,7 @@ async def _wait_for_page_out_idle(buck: Buck) -> int:
 async def test_incremental_build_after_page_out(
     buck: Buck, defer_field_reads: bool
 ) -> None:
-    _set_defer_field_reads(buck, defer_field_reads)
+    _hydration_settings(buck, defer_field_reads=defer_field_reads)
     # Incremental builds must stay correct after an explicit `buck2 debug
     # hydration page-out`, relying on on-demand page-in during the build. Page-in
     # is measured per command via `page_in_count` in the invocation record.
@@ -215,12 +220,12 @@ async def _candidate_count(buck: Buck) -> int:
 async def test_eviction_on_memory_pressure_keeps_paged_out_values_resident(
     buck: Buck,
 ) -> None:
-    # Under `on_memory_pressure` a page-out writes the values but evicts none;
-    # `buck2 debug hydration evict`, what memory pressure triggers, drops them
-    # without another write. A daemon with no memory tracker could never see
-    # pressure, so it does not page out on idle at all: the test host decides
-    # which of the two this daemon is.
-    _set_eviction_policy(buck, "on_memory_pressure")
+    # Under the default `on_memory_pressure` a page-out writes the values but
+    # evicts none; `buck2 debug hydration evict`, what memory pressure triggers,
+    # drops them without another write. A daemon with no memory tracker could
+    # never see pressure, so it does not page out on idle at all: the test host
+    # decides which of the two this daemon is.
+    _hydration_settings(buck, eviction_policy="on_memory_pressure")
     (buck.cwd / "src.txt").write_text("content-0\n")
     result = await _build(buck)
     assert _output(result) == "content-0\n"
@@ -250,9 +255,7 @@ async def test_evict_drops_values_rows_already_hold(buck: Buck) -> None:
     # without a write.
     # Read-back values are backed only under `once_per_value`; idle page-out is
     # off so the page-outs below are the explicit ones.
-    (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
-        '[hydration]\npage_out_on_idle = false\npage_out_policy = "once_per_value"\n'
-    )
+    _hydration_settings(buck, page_out_on_idle=False, page_out_policy="once_per_value")
     (buck.cwd / "src.txt").write_text("content-0\n")
     assert _output(await _build(buck)) == "content-0\n"
     await buck.debug("hydration", "page-out")
@@ -284,7 +287,7 @@ async def test_evict_drops_values_rows_already_hold(buck: Buck) -> None:
     },
 )
 async def test_failed_demand_page_in_recomputes_without_restart(buck: Buck) -> None:
-    _disable_idle_page_out(buck)
+    _hydration_settings(buck, page_out_on_idle=False)
     storage_dir = buck.cwd / "paging-storage"
     storage_env = {"BUCK2_DICE_DB_PATH": str(storage_dir)}
     (buck.cwd / "src.txt").write_text("content-0\n")
@@ -313,7 +316,7 @@ async def test_failed_demand_page_in_recomputes_without_restart(buck: Buck) -> N
 @buck_test(data_dir="paging", write_invocation_record=True)
 @env("BUCK2_DICE_SNAPSHOT_INTERVAL_MS", "1")
 async def test_config_change_after_page_out_analysis_validation(buck: Buck) -> None:
-    _disable_idle_page_out(buck)
+    _hydration_settings(buck, page_out_on_idle=False)
     await buck.build("//:analysis_root")
     await buck.debug("hydration", "page-out")
     assert await _paged_out_count(buck) > 0, "expected the analysis graph to page out"
@@ -376,7 +379,7 @@ async def test_page_out_frozen_value_into_already_paged_out_heap(
 async def test_page_out_bxl_dynamic_callback_after_page_in(
     buck: Buck, defer_field_reads: bool
 ) -> None:
-    _set_defer_field_reads(buck, defer_field_reads)
+    _hydration_settings(buck, defer_field_reads=defer_field_reads)
     # `page_out.bxl` creates a nested dynamic-output callback. The callback is
     # allocated on the BXL evaluation heap, but its compiler metadata lives on
     # the loaded `.bxl` module heap. Page-out must retain and serialize that
@@ -393,7 +396,7 @@ async def test_page_out_bxl_dynamic_callback_after_page_in(
 @buck_test(data_dir="paging", write_invocation_record=True)
 @pytest.mark.parametrize("defer_field_reads", [False, True])
 async def test_page_in_shared_anon_target(buck: Buck, defer_field_reads: bool) -> None:
-    _set_defer_field_reads(buck, defer_field_reads)
+    _hydration_settings(buck, defer_field_reads=defer_field_reads)
     # Bound post-page-out commands because the old typetag mismatch hung hydration.
     command_timeout_seconds = 60
     result = await buck.build("//:uses_anon_a")
@@ -507,9 +510,10 @@ async def test_page_out_triggered_only_when_values_computed(buck: Buck) -> None:
 
 @buck_test(data_dir="paging", write_invocation_record=True)
 async def test_page_out_at_most_once(buck: Buck) -> None:
-    # Under the default policy a value is paged out at most once: once an
+    # Under `once_per_key` a value is paged out at most once: once an
     # incremental build pages a value back in (or recomputes it), it stays
     # resident rather than being paged out again.
+    _hydration_settings(buck, page_out_policy="once_per_key")
     (buck.cwd / "src.txt").write_text("content-0\n")
     assert _output(await _build(buck)) == "content-0\n"
     await _wait_for_page_out_idle(buck)
@@ -548,7 +552,7 @@ async def test_values_paged_out_once_stay_resident(buck: Buck) -> None:
     # Under `once_per_value`: once an incremental build pages a value back in, or
     # recomputes it, the value stays resident: the idle page-out writes the
     # recomputed ones but evicts neither.
-    _set_page_out_policy(buck, "once_per_value")
+    _hydration_settings(buck, page_out_policy="once_per_value")
     (buck.cwd / "src.txt").write_text("content-0\n")
     assert _output(await _build(buck)) == "content-0\n"
     await _wait_for_page_out_idle(buck)
@@ -627,7 +631,7 @@ async def test_data_key_io_in_invocation_record(buck: Buck) -> None:
     # A value is paged out at most once per daemon, so an idle page-out would
     # leave nothing for the explicit one below. With it off, this test's own
     # page-out is the only one, and every counter it asserts on is its doing.
-    _disable_idle_page_out(buck)
+    _hydration_settings(buck, page_out_on_idle=False)
     (buck.cwd / "src.txt").write_text("content-0\n")
     await _build(buck)
     page_out = await _page_out(buck)
@@ -690,7 +694,7 @@ async def test_page_out_command_reports_summary(buck: Buck) -> None:
     # The manual page-out reports the same `PageOutSummary` the idle one logs.
     # Idle page-out is off: a value is paged out at most once per daemon, so an
     # idle one would leave nothing for the manual one this test is about.
-    _disable_idle_page_out(buck)
+    _hydration_settings(buck, page_out_on_idle=False)
     (buck.cwd / "src.txt").write_text("content-0\n")
     await _build(buck)
 
