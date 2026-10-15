@@ -66,6 +66,9 @@ rust_toolchain_attrs = {
     "rustdoc_flags": provider_field(list[typing.Any], default = []),
     # Extra flags to pass to the linker
     "linker_flags": provider_field(list[typing.Any], default = []),
+    # Native dependencies added to every crate, and therefore to every link
+    # that includes Rust code
+    "linker_deps": provider_field(list[Dependency], default = []),
     # When you `buck test` a library, also compile and run example code in its
     # documentation comments.
     "doctests": provider_field(bool, default = False),

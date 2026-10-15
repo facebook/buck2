@@ -108,6 +108,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         is_proc_macro = getattr(ctx.attrs, "proc_macro", False),
         explicit_sysroot_deps = toolchain_info.explicit_sysroot_deps,
         panic_runtime = toolchain_info.panic_runtime,
+        linker_deps = toolchain_info.linker_deps,
     )
 
     transitive_srcs = ctx.actions.tset(

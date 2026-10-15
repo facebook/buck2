@@ -401,7 +401,7 @@ def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNa
 
 def resolve_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[RustOrNativeDependency]:
     dependencies = _do_resolve_deps(
-        deps = ctx.attrs.deps,
+        deps = ctx.attrs.deps + dep_ctx.linker_deps,
         named_deps = ctx.attrs.named_deps,
         flagged_deps = ctx.attrs.flagged_deps,
     )

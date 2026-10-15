@@ -315,6 +315,7 @@ def generate_rustdoc_test(
         is_proc_macro = False,
         explicit_sysroot_deps = compile_ctx.dep_ctx.explicit_sysroot_deps,
         panic_runtime = compile_ctx.dep_ctx.panic_runtime,
+        linker_deps = compile_ctx.dep_ctx.linker_deps,
     )
     transitive_srcs = ctx.actions.tset(
         RustSourcesTSet,
