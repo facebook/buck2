@@ -54,6 +54,28 @@ def identity_projection(value: cmd_args):
 def get_distributed_link_action_identifier(final_binary_out: Artifact) -> str:
     return final_binary_out.short_path + ".dist_lto"
 
+def name_for_obj(distributed_link_action_identifier: str, artifact: Artifact, recorded_outputs: dict[str, int]) -> str:
+    """Returns a unique object path qualified by its distributed link and owner."""
+    owner = artifact.owner
+    if owner != None:
+        target = owner.raw_target()
+        parts = [distributed_link_action_identifier, "__target__", target.cell]
+        if target.package:
+            parts.append(target.package)
+        parts.extend([target.name, "__artifact__", artifact.short_path])
+        prefix = "/".join(parts)
+    else:
+        prefix = "{}/__ownerless__/{}".format(distributed_link_action_identifier, artifact.short_path)
+
+    case_insensitive_prefix = prefix.lower()
+    if case_insensitive_prefix in recorded_outputs:
+        recorded_outputs[case_insensitive_prefix] += 1
+        extra = recorded_outputs[case_insensitive_prefix]
+        prefix = "{}-{}".format(prefix, extra)
+    else:
+        recorded_outputs[case_insensitive_prefix] = 1
+    return prefix
+
 # This tset exists for the sole purpose of saving memory. When action inputs
 # are hashed, the memory cost for hashing tset projection generated input
 # tree nodes is paid once per unique node. Without a tset projection every
@@ -139,34 +161,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
     lto_archive_mapper = cxx_toolchain.internal_tools.dist_lto.archive_mapper
 
     distributed_link_action_identifier = get_distributed_link_action_identifier(final_binary_out)
-
     recorded_outputs = {}
-
-    def name_for_obj(link_name: str, object_artifact: Artifact) -> str:
-        """Creates a unique name/path we can use for a particular object file input"""
-        prefix = "{}/{}/{}".format(distributed_link_action_identifier, link_name, object_artifact.short_path)
-        case_insensitive_prefix = prefix.lower()
-        # it's possible (though unlikely) that we can get duplicate name/short_path, so just uniquify them.
-        # Make sure we case normalize before to avoid collisions on case in-sensitive file systems.
-        if case_insensitive_prefix in recorded_outputs:
-            recorded_outputs[case_insensitive_prefix] += 1
-            extra = recorded_outputs[case_insensitive_prefix]
-            prefix = "{}-{}".format(prefix, extra)
-        else:
-            recorded_outputs[case_insensitive_prefix] = 1
-        return prefix
-
-    names = {}
-
-    def name_for_link(info: LinkInfo) -> str:
-        """Creates a unique name for a LinkInfo that we are consuming"""
-        name = info.name or "unknown"
-        if name not in names:
-            names[name] = 1
-        else:
-            names[name] += 1
-            name += "-{}".format(names[name])
-        return name
 
     # The process to optimize and codegen a given bitcode file may depend on other bitcode
     # files (ie. to inline function calls between bitcode files). Which bitcode files depend
@@ -185,15 +180,13 @@ def complete_distributed_link_with_expanded_archive_link_data(
         return result
 
     for link in link_infos:
-        link_name = name_for_link(link)
-
         deps_linker_flags.add(link.pre_flags)
         deps_linker_flags.add(link.post_flags)
 
         for linkable in link.linkables:
             if isinstance(linkable, ObjectsLinkable):
                 for obj in linkable.objects:
-                    name = name_for_obj(link_name, obj)
+                    name = name_for_obj(distributed_link_action_identifier, obj, recorded_outputs)
                     index_shard_output = ctx.actions.declare_output(name + ".thinlto.bc", has_content_based_path = uses_content_based_paths)
                     plan_output = ctx.actions.declare_output(name + ".opt.plan", has_content_based_path = uses_content_based_paths)
                     final_native_object_file_output = ctx.actions.declare_output(name + ".opt.o", has_content_based_path = uses_content_based_paths)
@@ -227,7 +220,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
                     debug_info_symlink_map["debug_info_file_{}".format(len(debug_info_symlink_map))] = final_native_object_file_output
             elif isinstance(linkable, ArchiveLinkable) and linkable.archive.external_objects:
                 for virtual_archive_index, obj in enumerate(linkable.archive.external_objects):
-                    name = name_for_obj(link_name, obj)
+                    name = name_for_obj(distributed_link_action_identifier, obj, recorded_outputs)
                     index_shard_output = ctx.actions.declare_output(name + ".thinlto.bc", has_content_based_path = uses_content_based_paths)
                     plan_output = ctx.actions.declare_output(name + ".opt.plan", has_content_based_path = uses_content_based_paths)
                     final_native_object_file_output = ctx.actions.declare_output(name + ".opt.o", has_content_based_path = uses_content_based_paths)
@@ -269,7 +262,11 @@ def complete_distributed_link_with_expanded_archive_link_data(
                 if not len(manifest["objects"]):
                     continue
 
-                archive_name = name_for_obj(link_name, linkable.archive.artifact)
+                archive_name = name_for_obj(
+                    distributed_link_action_identifier,
+                    linkable.archive.artifact,
+                    recorded_outputs,
+                )
                 archive_contents_mapper_cmd = cmd_args(lto_archive_mapper)
                 archive_contents_mapper_cmd.add("--objects_dir", prepared_archive_artifacts[linkable.archive.artifact].extracted_object_files_dir)
                 for archive_index, object_basename in enumerate(manifest["objects"]):
@@ -781,20 +778,16 @@ def cxx_darwin_dist_link(
 
     uses_content_based_paths = get_uses_content_based_paths(ctx)
 
-    recorded_artifact_names = {}
+    distributed_link_action_identifier = get_distributed_link_action_identifier(output)
+    recorded_outputs = {}
     for link in link_infos:
         for linkable in link.linkables:
             if isinstance(linkable, ArchiveLinkable) and not linkable.archive.external_objects:
-                link_name = link.name or "unknown"
-                archive_name_candidate = "{}-{}".format(link_name, linkable.archive.artifact.short_path)
-                # On case in-sensitive file systems, we need to make sure that, we normalize case before checking for duplicates
-                case_insensitive_archive_name_candidate = archive_name_candidate.lower()
-                if case_insensitive_archive_name_candidate in recorded_artifact_names:
-                    recorded_artifact_names[case_insensitive_archive_name_candidate] += 1
-                    archive_name = "{}-{}".format(archive_name_candidate, recorded_artifact_names[case_insensitive_archive_name_candidate])
-                else:
-                    recorded_artifact_names[case_insensitive_archive_name_candidate] = 1
-                    archive_name = archive_name_candidate
+                archive_name = name_for_obj(
+                    distributed_link_action_identifier,
+                    linkable.archive.artifact,
+                    recorded_outputs,
+                )
 
                 archive_manifest = ctx.actions.declare_output(
                     "%s/%s/manifest.json" % (prepare_cat, archive_name), has_content_based_path = uses_content_based_paths
