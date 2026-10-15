@@ -1102,19 +1102,10 @@ fn test_deser_state_retained_bytes_tracks_cached_heap_memory() -> crate::Result<
     );
 
     drop((restored, restored_again));
-    #[cfg(fbcode_build)]
     assert_eq!(
         starlark_deserialization_state_retained_bytes(&handle),
         0,
         "the deserialized Arc cache must not keep a dropped heap alive",
-    );
-    // The published pagable crate's cache still holds every deserialized Arc;
-    // remove with the release that holds them weakly.
-    #[cfg(not(fbcode_build))]
-    assert_eq!(
-        starlark_deserialization_state_retained_bytes(&handle),
-        retained_bytes,
-        "the published pagable cache keeps the heap state alive",
     );
     Ok(())
 }
