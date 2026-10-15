@@ -8,7 +8,7 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
-    "ArtifactTSet",  # @unused Used as a type
+    "ArtifactTSet",
     "make_artifact_tset",
 )
 load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
@@ -81,7 +81,7 @@ load(
     "LinkInfos",
     "LinkOrdering",
     "LinkStrategy",
-    "LinkableFlavor",  # @unused Used as a type
+    "LinkableFlavor",
     "LinkedObject",
     "ObjectsLinkable",
     "SharedLibLinkable",
@@ -166,7 +166,7 @@ load(
     ":compile_types.bzl",
     "CxxCompileCommandOutput",
     "CxxCompileFlavor",
-    "CxxCompileOutput",  # @unused Used as a type
+    "CxxCompileOutput",
     "CxxExtension",
     "CxxSrcCompileCommand",
     "CxxSrcPrecompileCommand",
@@ -207,7 +207,7 @@ load(
 load(
     ":cxx_types.bzl",
     "CxxLibraryInfo",
-    "CxxRuleConstructorParams",  # @unused Used as a type
+    "CxxRuleConstructorParams",
 )
 load(":diagnostics.bzl", "check_sub_target")
 load(":gcno.bzl", "GcnoFilesInfo")
@@ -215,7 +215,7 @@ load(":hip_debug_extract.bzl", "PRE_EXTRACT_SUFFIX", "hip_debug_extract_availabl
 load(":index_store.bzl", "IndexStoreInfo", "create_index_store_subtargets_and_provider")
 load(
     ":link.bzl",
-    "CxxLinkResult",  # @unused Used as a type
+    "CxxLinkResult",
     "CxxLinkerMapData",
     "cxx_link_shared_library",
     "link_args_have_hip_device_debug",
@@ -251,10 +251,10 @@ load(
 )
 load(
     ":preprocessor.bzl",
-    "CPreprocessor",  # @unused Used as a type
+    "CPreprocessor",
     "CPreprocessorArgs",
     "CPreprocessorForTestsInfo",
-    "CPreprocessorInfo",  # @unused Used as a type
+    "CPreprocessorInfo",
     "cxx_exported_preprocessor_info",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",

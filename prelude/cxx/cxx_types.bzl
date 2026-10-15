@@ -13,11 +13,11 @@ load(
 )
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
-    "RuntimeDependencyHandling",  # @unused Used as a type
+    "RuntimeDependencyHandling",
 )
 load(
     "@prelude//cxx:link_groups_types.bzl",
-    "LinkGroupInfo",  # @unused Used as a type
+    "LinkGroupInfo",
 )
 load(
     "@prelude//linking:link_info.bzl",
@@ -30,7 +30,7 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
-    "SharedLibrary",  # @unused Used as a type
+    "SharedLibrary",
 )
 load(":argsfiles.bzl", "CompileArgsfiles")
 load(
@@ -40,7 +40,7 @@ load(
 )
 load(
     ":cxx_sources.bzl",
-    "CxxSrcWithFlags",  # @unused Used as a type
+    "CxxSrcWithFlags",
 )
 load(
     ":headers.bzl",
@@ -48,7 +48,7 @@ load(
 )
 load(
     ":link_groups.bzl",
-    "LinkGroupLibSpec",  # @unused Used as a type
+    "LinkGroupLibSpec",
 )
 load(
     ":linker.bzl",

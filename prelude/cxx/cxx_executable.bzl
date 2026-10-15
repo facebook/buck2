@@ -81,9 +81,9 @@ load(
     "LinkArgs",
     "LinkCommandDebugOutput",
     "LinkInfo",
-    "LinkOrdering",  # @unused Used as a type
+    "LinkOrdering",
     "LinkStrategy",
-    "LinkedObject",  # @unused Used as a type
+    "LinkedObject",
     "ObjectsLinkable",
     "get_lib_output_style",
     "make_link_command_debug_output",
@@ -94,25 +94,25 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "LinkableGraph",  # @unused Used as a type
+    "LinkableGraph",
     "create_linkable_graph",
     "get_linkable_graph_node_map_func",
     "reduce_linkable_graph",
 )
 load(
     "@prelude//linking:linkables.bzl",
-    "LinkableProviders",  # @unused Used as a type
+    "LinkableProviders",
     "linkables",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
-    "SharedLibrary",  # @unused Used as a type
-    "SharedLibraryInfo",  # @unused Used as a type
+    "SharedLibrary",
+    "SharedLibraryInfo",
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
 load("@prelude//linking:stamp_build_info.bzl", "PRE_STAMPED_SUFFIX", "cxx_stamp_build_info")
-load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
+load("@prelude//utils:arglike.bzl", "ArgLike")
 load(
     "@prelude//utils:build_graph_pattern.bzl",
     "new_build_graph_info",
@@ -136,7 +136,7 @@ load(
 )
 load(
     ":comp_db.bzl",
-    "CxxCompilationDbInfo",  # @unused Used as a type
+    "CxxCompilationDbInfo",
     "create_compilation_database",
     "make_compilation_db_info",
 )
@@ -170,7 +170,7 @@ load(
 )
 load(
     ":cxx_types.bzl",
-    "CxxRuleConstructorParams",  # @unused Used as a type
+    "CxxRuleConstructorParams",
     "LinkPreference",
 )
 load(":diagnostics.bzl", "check_sub_target")

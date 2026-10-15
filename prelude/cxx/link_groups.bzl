@@ -9,7 +9,7 @@
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//cxx:groups_types.bzl",
-    "Group",  # @unused Used as a type
+    "Group",
 )
 load(
     "@prelude//cxx:link_groups_types.bzl",
@@ -20,7 +20,7 @@ load(
 )
 load(
     "@prelude//cxx:transformation_spec.bzl",
-    "TransformationSpecContext",  # @unused Used as a type
+    "TransformationSpecContext",
 )
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
@@ -34,7 +34,7 @@ load(
     "LinkInfo",
     "LinkInfos",
     "LinkStrategy",
-    "LinkedObject",  # @unused Used as a type
+    "LinkedObject",
     "SharedLibLinkable",
     "get_lib_output_style",
     "get_link_info_for_transformation",
@@ -45,9 +45,9 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "LinkableGraph",  # @unused Used as a type
+    "LinkableGraph",
     "LinkableNode",  # @unused Used as a type
-    "LinkableRootInfo",  # @unused Used as a type
+    "LinkableRootInfo",
     "ReducedLinkableGraph",
     "create_linkable_graph",
     "get_deps_for_link",
@@ -93,7 +93,7 @@ load(
 load(":hip_debug_extract.bzl", "PRE_EXTRACT_SUFFIX", "hip_debug_extract_available")
 load(
     ":link.bzl",
-    "CxxLinkerMapData",  # @unused Used as a type
+    "CxxLinkerMapData",
     "collect_hip_debug_from_links",
     "cxx_link_shared_library",
     "link_args_have_hip_device_debug",
