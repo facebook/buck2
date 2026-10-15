@@ -364,6 +364,11 @@ impl DiceStorage {
         bind_in_parallel(&self.storage, finished.take_covered(&frontier)).await;
         evict_in_batches(state_handle, pending.take_covered(&frontier));
         self.storage.release_memory();
+        // Evictions are fire-and-forget. The sweep must run after the core has
+        // processed every one, or the arcs of late evictions stay pinned until
+        // the next sweep. State requests are FIFO, so any round trip is the barrier.
+        let _ = state_handle.pagable_node_counts().await;
+        self.storage.arc_cache().evict_expired();
         // The append-only store only changes here; refresh the cached size so the
         // command-end path reports it without a filesystem walk.
         self.refresh_db_size_bytes().await;

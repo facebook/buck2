@@ -1383,6 +1383,10 @@ impl InvocationRecorder {
                 .paging_summary
                 .as_ref()
                 .and_then(|s| s.paging_memory_restored_bytes),
+            paging_arc_cache_entries: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_arc_cache_entries),
             starlark_partial_deser: self
                 .paging_summary
                 .as_ref()

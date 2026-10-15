@@ -201,6 +201,11 @@ impl PagableStorageHandle {
         Ok(Arc::new(PagableDeserializerRecipeImpl::new(data)))
     }
 
+    /// Entries in the arc cache, live or not yet swept.
+    pub fn arc_cache_entries(&self) -> usize {
+        self.backing_storage.arc_cache().len()
+    }
+
     /// Storage-lifetime state, for a caller holding a handle rather than a
     /// deserializer.
     pub fn storage_context(&self) -> &StorageContext {

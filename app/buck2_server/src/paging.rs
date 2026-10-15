@@ -126,6 +126,9 @@ impl PagingManager {
             paging_daemon_data_key_bytes_in: cumulative.map(|c| c.bytes_in),
             paging_memory_offloaded_bytes: memory.map(|m| m.bytes_offloaded),
             paging_memory_restored_bytes: memory.map(|m| m.bytes_restored),
+            paging_arc_cache_entries: dice
+                .pagable_storage_handle()
+                .map(|h| h.arc_cache_entries() as u64),
             starlark_partial_deser: starlark_partial_deser_proto(),
         }
     }
@@ -548,6 +551,9 @@ pub(crate) async fn page_out_measured(
         daemon_memory_restored_bytes: memory.map(|m| m.bytes_restored),
         memory_offloaded_bytes: memory_delta.map(|d| d.bytes_offloaded),
         memory_restored_bytes: memory_delta.map(|d| d.bytes_restored),
+        daemon_arc_cache_entries: dice
+            .pagable_storage_handle()
+            .map(|h| h.arc_cache_entries() as u64),
     };
     (result, summary)
 }
