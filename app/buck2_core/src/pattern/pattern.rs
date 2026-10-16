@@ -27,7 +27,6 @@ use strong_hash::StrongHash;
 
 use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
-use crate::cells::alias::CellAlias;
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathCow;
 use crate::cells::cell_path::CellPathRef;
@@ -762,19 +761,6 @@ impl<'a, T: PatternType> PatternData<'a, T> {
     pub fn is_adjacent_target(&self) -> bool {
         self.package_path().as_str().is_empty() && self.target().is_some()
     }
-}
-
-// Splits a pattern into cell alias and forward relative path if "//" is present, otherwise returns None,
-pub fn maybe_split_cell_alias_and_relative_path(
-    pattern: &str,
-) -> buck2_error::Result<Option<(CellAlias, &ForwardRelativePath)>> {
-    Ok(match split1_opt_ascii(pattern, AsciiStr2::new("//")) {
-        Some((a, p)) => Some((
-            CellAlias::new(trim_prefix_ascii(a, AsciiChar::new('@')).to_owned()),
-            ForwardRelativePath::new(p)?,
-        )),
-        None => None,
-    })
 }
 
 fn lex_provider_pattern(

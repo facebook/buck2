@@ -15,8 +15,7 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
-use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::pattern::parse_package::parse_cell_path;
 use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::file_name::FileName;
 
@@ -54,21 +53,13 @@ pub struct ParseImportOptions<'a> {
     pub relative_import_option: RelativeImports<'a>,
 }
 
-// Parses a string of the form `(@<cell>)//dir/name` to the corresponding
-// alias and cell relative path.
-fn parse_import_cell_path_parts(path: &str, allow_missing_at_symbol: bool) -> Option<(&str, &str)> {
-    let (alias, cell_rel_path) = path.split_once("//")?;
-    let alias = if alias.is_empty() {
-        alias
-    } else if !alias.starts_with('@') {
-        if !allow_missing_at_symbol {
-            return None;
-        }
-        alias
-    } else {
-        &alias[1..]
+/// Returns true if the path has a cell alias prefix (e.g. `@cell//path` or `//path`),
+/// respecting the `allow_missing_at_symbol` option.
+fn has_cell_alias_prefix(path: &str, allow_missing_at_symbol: bool) -> bool {
+    let Some((alias, _)) = path.split_once("//") else {
+        return false;
     };
-    Some((alias, cell_rel_path))
+    alias.is_empty() || alias.starts_with('@') || allow_missing_at_symbol
 }
 
 pub fn parse_import(
@@ -100,25 +91,16 @@ pub fn parse_import_with_config(
         None => {
             // import without `:`, so just try to parse the cell and cell relative paths
 
-            match parse_import_cell_path_parts(import, opts.allow_missing_at_symbol) {
-                None => {
-                    if let RelativeImports::Allow {
-                        current_dir_with_allowed_relative,
-                    } = opts.relative_import_option
-                    {
-                        current_dir_with_allowed_relative
-                            .join_normalized(RelativePath::unchecked_new(import))
-                    } else {
-                        Err(ImportParseError::ProhibitedRelativeImport(import.to_owned()).into())
-                    }
-                }
-                Some((alias, cell_relative_path)) => {
-                    let cell = cell_resolver.resolve(alias)?;
-                    Ok(CellPath::new(
-                        cell,
-                        CellRelativePathBuf::try_from(cell_relative_path.to_owned())?,
-                    ))
-                }
+            if has_cell_alias_prefix(import, opts.allow_missing_at_symbol) {
+                Ok(parse_cell_path(import, cell_resolver)?)
+            } else if let RelativeImports::Allow {
+                current_dir_with_allowed_relative,
+            } = opts.relative_import_option
+            {
+                current_dir_with_allowed_relative
+                    .join_normalized(RelativePath::unchecked_new(import))
+            } else {
+                Err(ImportParseError::ProhibitedRelativeImport(import.to_owned()).into())
             }
         }
         Some((path, filename)) => {
@@ -138,15 +120,11 @@ pub fn parse_import_with_config(
                 } else {
                     Err(ImportParseError::ProhibitedRelativeImport(import.to_owned()).into())
                 }
+            } else if has_cell_alias_prefix(path, opts.allow_missing_at_symbol) {
+                let cell_path = parse_cell_path(path, cell_resolver)?;
+                Ok(cell_path.join(filename))
             } else {
-                let (alias, cell_relative_path) =
-                    parse_import_cell_path_parts(path, opts.allow_missing_at_symbol)
-                        .ok_or_else(|| ImportParseError::MatchFailed(import.to_owned()))?;
-                let cell = cell_resolver.resolve(alias)?;
-                Ok(CellPath::new(
-                    cell,
-                    <&CellRelativePath>::try_from(cell_relative_path)?.join(filename),
-                ))
+                Err(ImportParseError::MatchFailed(import.to_owned()).into())
             }
         }
     }

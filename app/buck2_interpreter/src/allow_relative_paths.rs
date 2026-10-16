@@ -19,10 +19,9 @@ use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
-use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
-use buck2_core::cells::paths::CellRelativePathBuf;
+use buck2_core::pattern::parse_package::parse_cell_path;
 use dice::DiceComputations;
 use dice::EqualityBehavior;
 use dice::Key;
@@ -36,8 +35,6 @@ use pagable::pagable_typetag;
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
 enum RelativePathParseError {
-    #[error("Relative path `{0}` could not be parsed.")]
-    InvalidAllowedDirForRelativePaths(String),
     #[error("Multiple relative-enabled directory prefixes found for the current dir: `{0}`.")]
     MultipleAllowedDirsForCurrentDir(String),
     #[error(
@@ -98,7 +95,7 @@ impl<'d> HasAllowRelativePaths<'d> for DiceComputations<'d> {
                     .unwrap_or_default()
                     .into_iter()
                     .filter_map(|dir| {
-                        get_cell_path_from_raw_string(dir, cell_alias_resolver)
+                        parse_cell_path(dir.trim(), cell_alias_resolver)
                             .map(|allow_dir| {
                                 if self.cell_path.starts_with(allow_dir.as_ref()) {
                                     Some(allow_dir)
@@ -151,18 +148,6 @@ impl<'d> HasAllowRelativePaths<'d> for DiceComputations<'d> {
             .as_ref()
             .duped_err()
     }
-}
-
-fn get_cell_path_from_raw_string(
-    dir: String,
-    cell_alias_resolver: &CellAliasResolver,
-) -> buck2_error::Result<CellPath> {
-    let Some((cell_str, path_str)) = dir.trim().split_once("//") else {
-        return Err(RelativePathParseError::InvalidAllowedDirForRelativePaths(dir).into());
-    };
-    let cell = cell_alias_resolver.resolve(cell_str)?;
-    let path: CellRelativePathBuf = CellRelativePathBuf::try_from(path_str.to_owned())?;
-    Ok(CellPath::new(cell, path))
 }
 
 async fn validate_no_symlinks_between_current_dir_and_allowed_dir(

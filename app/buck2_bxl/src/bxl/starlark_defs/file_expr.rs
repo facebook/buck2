@@ -20,9 +20,8 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::instance::CellInstance;
-use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::pattern::pattern::maybe_split_cell_alias_and_relative_path;
+use buck2_core::pattern::parse_package::maybe_parse_cell_path;
 use buck2_fs::paths::abs_path::AbsPath;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -79,16 +78,7 @@ fn parse_cell_path_as_file_expr_literal(
     val: &str,
     cell_alias_resolver: &CellAliasResolver,
 ) -> buck2_error::Result<Option<CellPath>> {
-    Ok(match maybe_split_cell_alias_and_relative_path(val)? {
-        Some((alias, path)) => {
-            let cell_name = cell_alias_resolver.resolve(alias.as_str())?;
-
-            let cell_relative_path = CellRelativePath::new(path);
-
-            Some(CellPath::new(cell_name, cell_relative_path.to_buf()))
-        }
-        None => None,
-    })
+    maybe_parse_cell_path(val, cell_alias_resolver)
 }
 
 impl<'a> FileExpr<'a> {
