@@ -23,6 +23,7 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::blob_store::BlobStore;
+use buck2_execute::blob_store::FileToLink;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryEntry;
@@ -39,6 +40,7 @@ use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::MaterializeResponse;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteLease;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutMap;
 use buck2_hash::IntentionallyStdHashMap;
@@ -209,6 +211,23 @@ fn leaf(value: &ArtifactValue) -> ActionDirectoryEntry<ActionImmutableDirectory>
         DirectoryEntry::Leaf(leaf) => DirectoryEntry::Leaf(leaf.dupe()),
         DirectoryEntry::Dir(_) => panic!("a file"),
     }
+}
+
+/// Whether the store has `content`, by asking it to put the content at `dest`.
+async fn in_store(
+    dm: &DiskStateMaterializer<StubIoHandler>,
+    content: &[u8],
+    dest: &AbsNormPath,
+) -> buck2_error::Result<bool> {
+    let digest = TrackedFileDigest::from_content(content, CasDigestConfig::testing_default());
+    Ok(dm
+        .store()
+        .materialize(vec![FileToLink {
+            digest,
+            executable: false,
+            dest: dest.to_owned(),
+        }])
+        .await?[0])
 }
 
 /// Clean-stale arguments under which everything this daemon has not used is stale.
@@ -1118,6 +1137,32 @@ async fn test_content_the_store_has_is_linked_rather_than_downloaded() -> buck2_
                 .resolve(d.join(ForwardRelativePath::unchecked_new("b")))
                 .exists()
         );
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// A reported output enters the store as it is reported; one that is not on disk, which is a bug
+/// upstream, is reported as a soft error and costs the store's copy only.
+#[tokio::test]
+async fn test_a_reported_output_enters_the_store() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, _io) = make(temp.path(), None, None);
+        let out = path("buck-out/v2/gen/out");
+        let on_disk = temp.path().resolve(&out);
+        std::fs::create_dir_all(on_disk.parent().unwrap())?;
+        std::fs::write(&on_disk, b"built here")?;
+        drop(report(&dm, &out, file("built here")).await?);
+
+        let copy = temp.path().resolve(path("buck-out/v2/gen/copy"));
+        assert!(in_store(&dm, b"built here", &copy).await?);
+        assert_eq!(std::fs::read_to_string(&copy)?, "built here");
+
+        drop(report(&dm, &path("buck-out/v2/gen/missing"), file("never written")).await?);
+        let nowhere = temp.path().resolve(path("buck-out/v2/gen/nowhere"));
+        assert!(!in_store(&dm, b"never written", &nowhere).await?);
         abort(dm);
         Ok(())
     })

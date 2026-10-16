@@ -12,9 +12,12 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 use crate::execute::blocking::IoRequest;
 
@@ -107,6 +110,62 @@ fn clear_stale_parent(parent: &AbsNormPath) -> buck2_error::Result<()> {
     }
 }
 
+/// Gives every file under `paths` an inode of its own, for an action about to write its previous
+/// outputs in place: a file the BlobStore holds by hardlink (plan-blobstore.md §4) is cloned or
+/// copied over itself, so that the write stays out of the store. A file with one link is left
+/// alone. Symlinks are not followed.
+pub fn unshare_output_paths(
+    fs: &ProjectRoot,
+    paths: &[ProjectRelativePathBuf],
+) -> buck2_error::Result<()> {
+    for path in paths {
+        unshare(&fs.resolve(path))?;
+    }
+    Ok(())
+}
+
+fn unshare(path: &AbsNormPath) -> buck2_error::Result<()> {
+    let Some(metadata) = fs_util::symlink_metadata_if_exists(path)? else {
+        return Ok(());
+    };
+    let file_type = metadata.file_type();
+    if file_type.is_dir() {
+        for entry in fs_util::read_dir(path).categorize_internal()? {
+            let entry = entry.map_err(|e| {
+                buck2_fs::error::IoError::new_with_path("read_dir", path, e).categorize_internal()
+            })?;
+            let name = entry.file_name();
+            unshare(&path.join(ForwardRelativePath::new(&name)?))?;
+        }
+    } else if file_type.is_file() && shared(&metadata) {
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .internal_error("a file has a name")?;
+        let parent = path.parent().internal_error("a file has a parent")?;
+        let unshared = parent.join(ForwardRelativePathBuf::unchecked_new(format!(
+            "{name}.unshare"
+        )));
+        fs_util::reflink_or_copy(path, &unshared).categorize_internal()?;
+        fs_util::set_permissions(&unshared, metadata.permissions()).categorize_internal()?;
+        fs_util::rename(&unshared, path).categorize_internal()?;
+    }
+    Ok(())
+}
+
+/// Whether the file has another name, so that a write to it would be seen elsewhere.
+#[cfg(unix)]
+fn shared(metadata: &std::fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    metadata.nlink() > 1
+}
+
+/// Windows reports the link count only through an unstable API, so every file counts as shared.
+#[cfg(not(unix))]
+fn shared(_metadata: &std::fs::Metadata) -> bool {
+    true
+}
+
 impl IoRequest for CleanOutputPaths {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         Self::clean(self.paths.iter().map(AsRef::as_ref), project_fs)
@@ -174,6 +233,37 @@ mod tests {
         clear_stale_parent(&fs.resolve(rel("out/dir")))?;
         assert!(fs.resolve(rel("out/dir")).is_dir());
         clear_stale_parent(&fs.resolve(rel("out/gone")))?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_unshare_gives_linked_files_their_own_inode() -> buck2_error::Result<()> {
+        use std::os::unix::fs::MetadataExt;
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path();
+        let out = fs.resolve(rel("buck-out/v2/gen/out"));
+        fs_util::create_dir_all(&out)?;
+        let a = out.join(ForwardRelativePath::unchecked_new("a"));
+        let b = out.join(ForwardRelativePath::unchecked_new("b"));
+        let alone = out.join(ForwardRelativePath::unchecked_new("alone"));
+        fs_util::write(&a, b"shared")?;
+        fs_util::set_executable(&a, true)?;
+        fs_util::hard_link(&a, &b)?;
+        fs_util::write(&alone, b"alone")?;
+        let alone_inode = fs_util::metadata(&alone)?.ino();
+
+        unshare_output_paths(fs, &[rel("buck-out/v2/gen/out").to_owned()])?;
+
+        let (a_meta, b_meta) = (fs_util::metadata(&a)?, fs_util::metadata(&b)?);
+        assert_ne!(a_meta.ino(), b_meta.ino());
+        assert_eq!(a_meta.nlink(), 1);
+        assert_eq!(fs_util::read_to_string(&a)?, "shared");
+        assert_eq!(fs_util::read_to_string(&b)?, "shared");
+        assert_ne!(a_meta.permissions().mode() & 0o111, 0, "the mode survives");
+        assert_eq!(fs_util::metadata(&alone)?.ino(), alone_inode);
         Ok(())
     }
 }

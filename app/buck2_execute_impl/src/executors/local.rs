@@ -588,6 +588,11 @@ impl LocalExecutor {
                     // if the paths already exist on disk, should explore that
                     self.prepare_content_based_incremental_actions(request, cancellations)
                         .await?;
+                    // The run writes its previous outputs in place, and the store may hold them
+                    // by hardlink.
+                    self.materializer
+                        .unshare_outputs(output_paths(&self.artifact_fs, request)?)
+                        .await?;
                 }
 
                 buck2_error::Ok((materialized_inputs, Instant::now() - start))

@@ -68,7 +68,9 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::blob_store::BlobStore;
+use buck2_execute::blob_store::FileToInsert;
 use buck2_execute::blob_store::FileToLink;
+use buck2_execute::blob_store::Origin;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -76,6 +78,7 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
+use buck2_execute::execute::clean_output_paths::unshare_output_paths;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
@@ -499,6 +502,21 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         self.store
     }
 
+    /// Puts a reported root's files into the store: content this daemon produced, not known to
+    /// be in the CAS, entering the store as it comes into existence (plan-blobstore.md §3). The
+    /// root is write-held, so nothing reads or replaces it meanwhile. A failure costs only the
+    /// store's copy, which is why it is reported rather than failing the report.
+    async fn stash(&self, root: &Root) {
+        let files = files_to_insert(self.io.fs(), &root.path, &root.entry, Origin::BuckOut);
+        if let Err(e) = self.store.insert_files(files).await {
+            let _ignored = buck2_core::soft_error!(
+                "blob_store_insert_failed",
+                e.context(format!("Putting `{}` into the store", root.path)),
+                quiet: true
+            );
+        }
+    }
+
     /// The roots behind a write lease this materializer handed out.
     fn roots_of<'a>(&self, lease: &'a WriteLease) -> buck2_error::Result<&'a Roots> {
         lease
@@ -588,6 +606,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
                         root.path
                     )
                 })?;
+                self.stash(&root).await;
                 self.report(guard, root.entry, ArtifactClassification::IntermediateOnly)
                     .await?;
             }
@@ -769,6 +788,13 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         paths: Vec<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<WriteLease> {
         Ok(WriteLease::new(self.take_all_for_writing(paths).await?))
+    }
+
+    async fn unshare_outputs(&self, paths: Vec<ProjectRelativePathBuf>) -> buck2_error::Result<()> {
+        let fs = self.io.fs().dupe();
+        self.blocking_executor
+            .execute_io_inline(move || unshare_output_paths(&fs, &paths))
+            .await
     }
 
     async fn publish(
@@ -1234,6 +1260,29 @@ fn files_to_link(
         paths.push(path);
     }
     (paths, files)
+}
+
+/// The files of `entry`, on disk under `root`, as the store wants them for insertion.
+fn files_to_insert(
+    fs: &ProjectRoot,
+    root: &ProjectRelativePath,
+    entry: &ArtifactMetadata,
+    origin: Origin,
+) -> Vec<FileToInsert> {
+    let mut files = Vec::new();
+    let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
+    while let Some((path, entry)) = walk.next() {
+        let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry else {
+            continue;
+        };
+        files.push(FileToInsert {
+            path: fs.resolve(root.join(path.get())),
+            digest: file.digest.dupe(),
+            executable: file.is_executable,
+            origin,
+        });
+    }
+    files
 }
 
 /// Marks a task as started: from here on it runs to its end whatever cancellation asks, so that
