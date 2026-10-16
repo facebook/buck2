@@ -14,7 +14,6 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -78,25 +77,17 @@ impl CellPackageBoundaryExceptions {
         })
     }
 
-    fn get_package_boundary_exception_path(
-        &self,
-        path: &CellRelativePath,
-    ) -> Option<CellRelativePathBuf> {
+    fn check_for_package_boundary_exception(&self, path: &CellRelativePath) -> bool {
         if self.allow_everything {
-            return Some(CellRelativePathBuf::unchecked_new("".to_owned()));
+            return true;
         }
         let path: &ForwardRelativePath = path.as_ref();
         if let Some((package_prefix, package_subpath)) = path.split_first() {
             if let Some(subpaths) = self.prefix_to_subpaths.get(package_prefix) {
-                return subpaths
-                    .iter()
-                    .find(|p| package_subpath.starts_with(p))
-                    .map(|p| {
-                        CellRelativePath::new(<&ForwardRelativePath>::from(package_prefix)).join(p)
-                    });
+                return subpaths.iter().any(|p| package_subpath.starts_with(p));
             }
         }
-        None
+        false
     }
 }
 
@@ -169,7 +160,7 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
 
         #[async_trait]
         impl Key for PackageBoundaryExceptionKey {
-            type Value = buck2_error::Result<Option<CellPath>>;
+            type Value = buck2_error::Result<bool>;
 
             async fn compute(
                 &self,
@@ -182,11 +173,9 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
                     .as_ref()
                     .duped_err()?
                 else {
-                    return Ok(None);
+                    return Ok(false);
                 };
-                Ok(exceptions
-                    .get_package_boundary_exception_path(self.0.path())
-                    .map(|p| CellPath::new(self.0.cell(), p)))
+                Ok(exceptions.check_for_package_boundary_exception(self.0.path()))
             }
 
             fn validity(x: &Self::Value) -> bool {
@@ -205,12 +194,11 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
             }
         }
 
-        Ok(self
+        Ok(*self
             .compute(&PackageBoundaryExceptionKey(path.to_owned()))
             .await?
             .as_ref()
-            .duped_err()?
-            .is_some())
+            .duped_err()?)
     }
 }
 
@@ -219,15 +207,11 @@ mod tests {
 
     use super::*;
 
-    fn get_package_boundary_exception_path(
+    fn check_package_boundary_exception_path(
         exceptions: &CellPackageBoundaryExceptions,
         s: &str,
-    ) -> Option<CellRelativePathBuf> {
-        exceptions.get_package_boundary_exception_path(CellRelativePath::unchecked_new(s))
-    }
-
-    fn package_boundary_allowlist_path(s: &str) -> Option<CellRelativePathBuf> {
-        Some(CellRelativePathBuf::unchecked_new(s.to_owned()))
+    ) -> bool {
+        exceptions.check_for_package_boundary_exception(CellRelativePath::unchecked_new(s))
     }
 
     #[test]
@@ -237,45 +221,45 @@ mod tests {
                 .unwrap();
 
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foo/bar/foo"),
-            package_boundary_allowlist_path("foo/bar/foo"),
+            check_package_boundary_exception_path(&exceptions, "foo/bar/foo"),
+            true,
         );
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foo/bar/bar"),
-            package_boundary_allowlist_path("foo/bar/bar"),
+            check_package_boundary_exception_path(&exceptions, "foo/bar/bar"),
+            true,
         );
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foo/bar/baz"),
-            package_boundary_allowlist_path("foo/bar/baz"),
+            check_package_boundary_exception_path(&exceptions, "foo/bar/baz"),
+            true,
         );
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foo/bar/baz/test"),
-            package_boundary_allowlist_path("foo/bar/baz"),
+            check_package_boundary_exception_path(&exceptions, "foo/bar/baz/test"),
+            true,
         );
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foo/baz/util"),
-            package_boundary_allowlist_path("foo/baz"),
+            check_package_boundary_exception_path(&exceptions, "foo/baz/util"),
+            true,
         );
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foo/baz/util"),
-            package_boundary_allowlist_path("foo/baz"),
+            check_package_boundary_exception_path(&exceptions, "foo/baz/util"),
+            true,
         );
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "baz/foo/bar"),
-            package_boundary_allowlist_path("baz"),
+            check_package_boundary_exception_path(&exceptions, "baz/foo/bar"),
+            true,
         );
 
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foo/bar/scripts"),
-            None,
+            check_package_boundary_exception_path(&exceptions, "foo/bar/scripts"),
+            false,
         );
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foo/scripts"),
-            None,
+            check_package_boundary_exception_path(&exceptions, "foo/scripts"),
+            false,
         );
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "qux"),
-            None,
+            check_package_boundary_exception_path(&exceptions, "qux"),
+            false,
         );
     }
 
@@ -283,44 +267,41 @@ mod tests {
     #[test]
     fn test_package_boundary_trailing_slash() {
         let exceptions = CellPackageBoundaryExceptions::new("bar, foo/").unwrap();
-        assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foo/x"),
-            package_boundary_allowlist_path("foo"),
-        );
-        assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "bar"),
-            package_boundary_allowlist_path("bar"),
-        );
-        assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foobar"),
-            None
-        );
+        assert!(check_package_boundary_exception_path(&exceptions, "foo/x"));
+        assert!(check_package_boundary_exception_path(&exceptions, "bar"));
+        assert!(!check_package_boundary_exception_path(
+            &exceptions,
+            "foobar"
+        ));
     }
 
     #[test]
     fn test_package_boundary_dot() {
         let exceptions = CellPackageBoundaryExceptions::new("").unwrap();
-        assert!(get_package_boundary_exception_path(&exceptions, "foo/bar/foo").is_none());
+        assert!(!check_package_boundary_exception_path(
+            &exceptions,
+            "foo/bar/foo"
+        ));
 
         let exceptions = CellPackageBoundaryExceptions::new(",foo").unwrap();
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foo/bar/foo"),
-            package_boundary_allowlist_path("foo"),
+            check_package_boundary_exception_path(&exceptions, "foo/bar/foo"),
+            true,
         );
         assert_eq!(
             exceptions
-                .get_package_boundary_exception_path(CellRelativePath::unchecked_new("bar/foo")),
-            None,
+                .check_for_package_boundary_exception(CellRelativePath::unchecked_new("bar/foo")),
+            false,
         );
 
         let exceptions = CellPackageBoundaryExceptions::new(".").unwrap();
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "foo/bar/foo"),
-            package_boundary_allowlist_path(""),
+            check_package_boundary_exception_path(&exceptions, "foo/bar/foo"),
+            true,
         );
         assert_eq!(
-            get_package_boundary_exception_path(&exceptions, "bar/foo"),
-            package_boundary_allowlist_path(""),
+            check_package_boundary_exception_path(&exceptions, "bar/foo"),
+            true,
         );
     }
 }
