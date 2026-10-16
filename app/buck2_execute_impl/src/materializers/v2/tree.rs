@@ -627,7 +627,7 @@ impl<R> DiskTree<R> {
     }
 
     /// Bumps the access time of the root holding `path`, if any, and returns that root's path.
-    fn touch(
+    pub(crate) fn touch(
         &mut self,
         path: &ProjectRelativePath,
         now: Timestamp,

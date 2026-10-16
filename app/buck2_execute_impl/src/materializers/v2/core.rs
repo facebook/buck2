@@ -774,15 +774,27 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
             .collect())
     }
 
+    /// A match is a use of the matched roots, as a read is: what a dep-file hit goes on relying
+    /// on stays active for the cleaner, as it does under the deferred core.
     async fn declare_match(
         &self,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
     ) -> buck2_error::Result<DeclareMatchOutcome> {
         let all_match = self
             .on_processor(move |processor| {
-                artifacts
+                let all_match = artifacts
                     .iter()
-                    .all(|(path, value)| processor.tree.matches(path, value.entry()))
+                    .all(|(path, value)| processor.tree.matches(path, value.entry()));
+                if all_match {
+                    let now = Timestamp::now();
+                    let mut change = TreeChange::default();
+                    for (path, _) in &artifacts {
+                        change.touched.extend(processor.tree.touch(path, now));
+                    }
+                    processor.account(&change);
+                    processor.persist(change);
+                }
+                all_match
             })
             .await?;
         Ok(all_match.into())

@@ -272,7 +272,12 @@ async fn restarted_with(
     let (dm, _io) = make(fs, Some(db), None);
     for (path, value) in &roots {
         drop(report(&dm, path, value.dupe()).await?);
-        fs.write_file(path, path.as_str(), false)?;
+        // Content of the size the value says, which is what the next instance checks it by.
+        let size = match value.entry() {
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => file.digest.size(),
+            _ => panic!("restarted_with takes file values"),
+        };
+        fs.write_file(path, "x".repeat(size as usize), false)?;
     }
     abort(dm);
     let (db, state) = testing_materializer_state_sqlite_db(fs, versions(), metadata(), None)?;
@@ -1034,6 +1039,42 @@ async fn test_clean_stale_deletes_what_this_daemon_has_not_used() -> buck2_error
         );
         assert!(dm.has_artifact_at(p).await?);
         assert!(!dm.has_artifact_at(d).await?);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// What a dep-file hit matches against stays active for the cleaner, as it does under the
+/// deferred core, where a match re-declares the outputs.
+#[tokio::test]
+async fn test_a_match_keeps_a_loaded_root_from_the_cleaner() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path().dupe();
+        let (matched, unused) = (
+            path("buck-out/v2/gen/matched"),
+            path("buck-out/v2/gen/unused"),
+        );
+        let (dm, _io) = restarted_with(
+            &fs,
+            vec![(matched.clone(), file("M")), (unused.clone(), file("U"))],
+        )
+        .await?;
+        assert!(
+            dm.declare_match(vec![(matched.clone(), file("M"))])
+                .await?
+                .is_match()
+        );
+        assert!(
+            !dm.declare_match(vec![(unused.clone(), file("other"))])
+                .await?
+                .is_match()
+        );
+
+        dm.clean_stale_artifacts(clean_unused()).await?;
+        assert!(dm.has_artifact_at(matched).await?);
+        assert!(!dm.has_artifact_at(unused).await?);
         abort(dm);
         Ok(())
     })
