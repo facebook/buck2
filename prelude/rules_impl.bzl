@@ -46,7 +46,6 @@ load("@prelude//decls:haskell_rules.bzl", "haskell_rules")
 load("@prelude//decls:java_rules.bzl", "java_rules")
 load("@prelude//decls:js_rules.bzl", "js_rules")
 load("@prelude//decls:kotlin_rules.bzl", "kotlin_rules")
-load("@prelude//decls:lua_rules.bzl", "lua_rules")
 load("@prelude//decls:nodejs_rules.bzl", "nodejs_rules")
 load("@prelude//decls:python_rules.bzl", "python_rules")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
@@ -78,9 +77,7 @@ load("@prelude//kotlin:kotlin.bzl", _kotlin_implemented_rules = "implemented_rul
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
-load("@prelude//lua:cxx_lua_extension.bzl", "cxx_lua_extension_impl")
-load("@prelude//lua:lua_binary.bzl", "lua_binary_impl")
-load("@prelude//lua:lua_library.bzl", "lua_library_impl")
+load("@prelude//lua:rules.bzl", _lua_rules = "rules")
 load("@prelude//matlab:matlab.bzl", _matlab_extra_attributes = "extra_attributes", _matlab_implemented_rules = "implemented_rules")
 load("@prelude//nodejs:nodejs.bzl", _nodejs_implemented_rules = "implemented_rules")
 load("@prelude//ocaml:rules.bzl", _ocaml_rules = "rules")
@@ -137,7 +134,7 @@ categorized_rule_decl_records = {
     _JAVA_RULES_KEY: java_rules,
     _JS_RULES_KEY: js_rules,
     _KOTLIN_RULES_KEY: kotlin_rules,
-    _LUA_RULES_KEY: lua_rules,
+    _LUA_RULES_KEY: _lua_rules,
     _NODEJS_RULES_KEY: nodejs_rules,
     _OCAML_RULES_KEY: _ocaml_rules,
     _PYTHON_RULES_KEY: python_rules,
@@ -207,10 +204,6 @@ extra_implemented_rules = struct(
     haskell_haddock = haskell_haddock_impl,
     haskell_ide = haskell_ide_impl,
     haskell_prebuilt_library = haskell_prebuilt_library_impl,
-    # lua
-    cxx_lua_extension = cxx_lua_extension_impl,
-    lua_binary = lua_binary_impl,
-    lua_library = lua_library_impl,
     # python
     prebuilt_python_library = prebuilt_python_library_impl,
     python_binary = python_binary_impl,
