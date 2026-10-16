@@ -17,14 +17,18 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
+use buck2_execute::directory::ActionDirectoryEntry;
+use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy;
+use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
@@ -182,6 +186,14 @@ fn make_with_configs(
     )
     .unwrap();
     (Arc::new(dm), io)
+}
+
+/// A file value's entry as a copy names it at its destination.
+fn leaf(value: &ArtifactValue) -> ActionDirectoryEntry<ActionImmutableDirectory> {
+    match value.entry() {
+        DirectoryEntry::Leaf(leaf) => DirectoryEntry::Leaf(leaf.dupe()),
+        DirectoryEntry::Dir(_) => panic!("a file"),
+    }
 }
 
 /// Clean-stale arguments under which everything this daemon has not used is stale.
@@ -966,6 +978,80 @@ async fn test_an_active_root_stays_when_its_upload_fails() -> buck2_error::Resul
         assert_eq!(stats.unmaterialization_upload_failed_artifact_count, 1);
         assert_eq!(stats.cleaned_artifact_count, 0);
         assert!(dm.has_artifact_at(p).await?, "still tracked, still there");
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// The destination's value names the same digests as the source's, so nothing is copied, held or
+/// tracked: whoever needs the destination materializes it from them.
+#[tokio::test]
+async fn test_a_copy_of_buck_out_content_is_nothing_to_the_core() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let (src, dest) = (path("buck-out/v2/gen/src"), path("buck-out/v2/gen/copy"));
+        drop(report(&dm, &src, file("S")).await?);
+        dm.declare_copy_impl(
+            dest.clone(),
+            file("S"),
+            vec![CopiedArtifact::new(
+                src.clone(),
+                dest.clone(),
+                leaf(&file("S")),
+                None,
+            )],
+        )
+        .await?;
+        // So is a copy with no sources at all, the symlink at a configuration path.
+        dm.declare_copy_impl(path("buck-out/v2/gen/link"), file("L"), vec![])
+            .await?;
+        assert_eq!(io.take_log(), vec![]);
+        assert!(!dm.has_artifact_at(dest).await?);
+        // The source is not held: it can be taken for writing right away.
+        drop(
+            timeout(A_BIT, dm.prepare_outputs(vec![src]))
+                .await
+                .expect("nothing holds the source")?,
+        );
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// A source file is not in buck-out and not known to be in the CAS, so its part of the
+/// destination is copied in now and tracked there; the part from buck-out is left to whoever
+/// materializes the destination.
+#[tokio::test]
+async fn test_a_copy_from_outside_buck_out_is_made_now() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let dest = path("buck-out/v2/gen/copy");
+        let (a, b) = (
+            dest.join(ForwardRelativePath::unchecked_new("a")),
+            dest.join(ForwardRelativePath::unchecked_new("b")),
+        );
+        dm.declare_copy_impl(
+            dest.clone(),
+            dir(&[("a", "A"), ("b", "B")]),
+            vec![
+                CopiedArtifact::new(
+                    path("buck-out/v2/gen/built"),
+                    a.clone(),
+                    leaf(&file("A")),
+                    None,
+                ),
+                CopiedArtifact::new(path("src/b.txt"), b.clone(), leaf(&file("B")), None),
+            ],
+        )
+        .await?;
+        assert_eq!(io.take_log(), vec![(Op::Materialize, b.clone())]);
+        assert!(dm.has_artifact_at(b).await?);
+        assert!(!dm.has_artifact_at(a).await?);
+        assert!(!dm.has_artifact_at(dest).await?);
         abort(dm);
         Ok(())
     })

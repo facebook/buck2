@@ -436,6 +436,41 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         Ok(Roots(guards))
     }
 
+    /// Copies one source from outside buck-out to its place in a copy's destination and tracks
+    /// it there.
+    async fn copy_in(
+        &self,
+        granted: oneshot::Receiver<Granted>,
+        src: CopiedArtifact,
+    ) -> buck2_error::Result<()> {
+        let entry = src.dest_entry.clone().map_dir(|dir| dir.shared(&*INTERNER));
+        let Granted { mut held, .. } = granted.await.map_err(|_| stopped())?;
+        held.settle_except(None).await;
+        held.tasks.push(Task::spawn(
+            src.dest.clone(),
+            entry.dupe(),
+            copy_task(
+                self.io.dupe(),
+                self.blocking_executor.dupe(),
+                src,
+                entry.dupe(),
+                get_dispatcher(),
+            ),
+        ));
+        match finished(held.finish().await) {
+            Ok(()) => {
+                self.report(
+                    held.guard(),
+                    entry,
+                    ArtifactClassification::IntermediateOnly,
+                )
+                .await
+            }
+            Err(SharedMaterializingError::Error(e)) => Err(e),
+            Err(SharedMaterializingError::NotFound(e)) => Err(e.into()),
+        }
+    }
+
     /// The roots behind a write lease this materializer handed out.
     fn roots_of<'a>(&self, lease: &'a WriteLease) -> buck2_error::Result<&'a Roots> {
         lease
@@ -609,41 +644,42 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         })
     }
 
-    /// Eager: the copy is made now and the destination tracked. What this core will do instead,
-    /// once it has the digest index, is record that the destination's content is the source's.
+    /// A copy of buck-out content is nothing to this core: the destination's value names the
+    /// same digests as the source's, and whoever needs the destination on disk materializes it
+    /// from them, today from the CAS and later from the BlobStore (plan-new-core.md §2e). Until
+    /// the store exists, a copy of content that is only on this disk fails to materialize. A
+    /// source outside buck-out, a source file, is not known to be in the CAS and has no store to
+    /// go into yet, so that part of the destination is copied in now and tracked, as a write is
+    /// written now.
     async fn declare_copy_impl(
         &self,
-        path: ProjectRelativePathBuf,
-        value: ArtifactValue,
+        _path: ProjectRelativePathBuf,
+        _value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
     ) -> buck2_error::Result<()> {
-        let entry = value.entry().dupe();
-        let Granted { mut held, .. } = self.acquire_one(path.clone(), Want::Write).await?;
-        held.settle_except(None).await;
-        held.tasks.push(Task::spawn(
-            path.clone(),
-            entry.dupe(),
-            copy_task(
-                self.io.dupe(),
-                self.blocking_executor.dupe(),
-                path,
-                entry.dupe(),
-                srcs,
-                get_dispatcher(),
-            ),
-        ));
-        match finished(held.finish().await) {
-            Ok(()) => {
-                self.report(
-                    held.guard(),
-                    entry,
-                    ArtifactClassification::IntermediateOnly,
-                )
-                .await
-            }
-            Err(SharedMaterializingError::Error(e)) => Err(e),
-            Err(SharedMaterializingError::NotFound(e)) => Err(e.into()),
+        let buck_out = self.io.buck_out_path();
+        let from_outside: Vec<CopiedArtifact> = srcs
+            .into_iter()
+            .filter(|src| !src.src.starts_with(buck_out))
+            .collect();
+        if from_outside.is_empty() {
+            return Ok(());
         }
+        let (answers, withdraw) = self.acquire(
+            from_outside
+                .iter()
+                .map(|src| (src.dest.clone(), Want::Write))
+                .collect(),
+        )?;
+        let results = join_all(
+            answers
+                .into_iter()
+                .zip(from_outside)
+                .map(|(answer, src)| self.copy_in(answer, src)),
+        )
+        .await;
+        withdraw.disarm();
+        results.into_iter().collect()
     }
 
     /// Nothing to record: content in the CAS is reached through `materialize`, which carries the
@@ -1138,13 +1174,12 @@ fn started(
     })
 }
 
-/// The IO of an eager `declare_copy`: the destination is cleared and the sources copied in.
+/// The IO of a copy from outside buck-out: the destination is cleared and the source copied in.
 fn copy_task<T: IoHandler>(
     io: Arc<T>,
     blocking_executor: Arc<dyn BlockingExecutor>,
-    path: ProjectRelativePathBuf,
+    src: CopiedArtifact,
     entry: ArtifactMetadata,
-    srcs: Vec<CopiedArtifact>,
     dispatcher: EventDispatcher,
 ) -> impl for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, Result<(), SharedMaterializingError>>
 + Send {
@@ -1152,16 +1187,16 @@ fn copy_task<T: IoHandler>(
         async move {
             let _running = started(cancellations)?;
             let fs = io.fs().dupe();
-            let clean = path.clone();
+            let clean = src.dest.clone();
             blocking_executor
                 .execute_io_inline(move || cleanup_path(&fs, &clean))
                 .await
                 .map_err(SharedMaterializingError::Error)?;
             io.materialize_entry(
-                path,
+                src.dest.clone(),
                 Arc::new(ArtifactMaterializationMethod::LocalCopy(
                     FileTree::new(),
-                    srcs,
+                    vec![src],
                 )),
                 entry,
                 dispatcher,
