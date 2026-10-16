@@ -10,12 +10,9 @@ load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//utils:utils.bzl", "flatten")
-load(":toolchain.bzl", _PythonBootstrapToolchainInfo = "PythonBootstrapToolchainInfo")
+load(":toolchain.bzl", "PythonBootstrapToolchainInfo")
 
 PythonBootstrapSources = provider(fields = {"srcs": provider_field(typing.Any, default = None)})
-
-# Re-exported for users that still load the provider from here.
-PythonBootstrapToolchainInfo = _PythonBootstrapToolchainInfo
 
 def python_bootstrap_library_impl(ctx: AnalysisContext) -> list[Provider]:
     has_content_based_path = ctx.attrs.has_content_based_path

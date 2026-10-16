@@ -11,11 +11,7 @@ load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//go:attrs.bzl", "go_common")
-load(":toolchain.bzl", _GoBootstrapDistrInfo = "GoBootstrapDistrInfo", _GoBootstrapToolchainInfo = "GoBootstrapToolchainInfo")
-
-# Re-exported for users that still load the providers from here.
-GoBootstrapDistrInfo = _GoBootstrapDistrInfo
-GoBootstrapToolchainInfo = _GoBootstrapToolchainInfo
+load(":toolchain.bzl", "GoBootstrapToolchainInfo")
 
 def go_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     """

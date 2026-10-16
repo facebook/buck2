@@ -26,8 +26,8 @@ load(
     "ErlangAppInfo",
     "ErlangAppOrTestInfo",
     "ErlangDependencyInfo",
+    "StartType",
     "code_path_args",
-    _StartType = "StartType",
 )
 load(":erlang_shell.bzl", "erlang_shell")
 load(
@@ -39,9 +39,6 @@ load(
     ":erlang_utils.bzl",
     "app_name",
 )
-
-# Also loadable from here, for users outside the prelude.
-StartType = _StartType
 
 StartDependencySet = transitive_set()
 
