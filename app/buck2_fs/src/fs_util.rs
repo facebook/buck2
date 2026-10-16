@@ -22,7 +22,6 @@ use std::path::Path;
 use std::path::PathBuf;
 
 pub use buck2_env::soft_error::soft_error;
-#[cfg(unix)]
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
@@ -39,6 +38,7 @@ use crate::paths::abs_norm_path::AbsNormPath;
 use crate::paths::abs_norm_path::AbsNormPathBuf;
 use crate::paths::abs_path::AbsPath;
 use crate::paths::abs_path::AbsPathBuf;
+use crate::paths::forward_rel_path::ForwardRelativePath;
 
 fn is_retryable(err: &io::Error) -> bool {
     cfg!(target_os = "macos")
@@ -421,6 +421,239 @@ fn copy_impl(from: &Path, to: &Path) -> io::Result<u64> {
 #[cfg(not(target_os = "linux"))]
 fn copy_impl(from: &Path, to: &Path) -> io::Result<u64> {
     fs::copy(from, to)
+}
+
+/// Clones `from` to `to` where the filesystem shares blocks between files (btrfs, XFS with
+/// reflinks, APFS), after which the two are independent. `Ok(false)` when the filesystem, or the
+/// pair of them, has no such thing, in which case nothing is left at `to`; any other failure is
+/// an error with the OS error intact. `from` must be a regular file and `to` must not exist. The
+/// clone gets the source's permission bits, as a copy does.
+#[cfg(target_os = "linux")]
+fn reflink(from: &AbsPath, to: &AbsPath) -> io::Result<bool> {
+    use std::os::fd::AsRawFd;
+
+    let src = fs::File::open(from.as_maybe_relativized())?;
+    let dst = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(to.as_maybe_relativized())?;
+    // SAFETY: `FICLONE` takes the source descriptor as its argument; both descriptors are open.
+    let ret = unsafe { libc::ioctl(dst.as_raw_fd(), libc::FICLONE as _, src.as_raw_fd()) };
+    if ret == 0 {
+        return dst
+            .set_permissions(src.metadata()?.permissions())
+            .map(|()| true);
+    }
+    let error = io::Error::last_os_error();
+    drop(dst);
+    let _ignored = fs::remove_file(to.as_maybe_relativized());
+    match error.raw_os_error() {
+        // No reflinks on this filesystem, across these two, for this file, or on this kernel.
+        Some(libc::EOPNOTSUPP | libc::EXDEV | libc::EINVAL | libc::ENOTTY | libc::ENOSYS) => {
+            Ok(false)
+        }
+        _ => Err(error),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn reflink(from: &AbsPath, to: &AbsPath) -> io::Result<bool> {
+    use std::ffi::CString;
+    use std::os::fd::AsRawFd;
+    use std::os::unix::ffi::OsStrExt;
+
+    /// Give the clone to the caller rather than copying the source's owner.
+    const CLONE_NOOWNERCOPY: u32 = 0x0002;
+    let src = fs::File::open(from.as_maybe_relativized())?;
+    let dst = CString::new(to.as_maybe_relativized().as_os_str().as_bytes())
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+    // SAFETY: an open descriptor and a NUL-terminated path. `clonefile` creates `to` whole or
+    // not at all, and copies the source's mode.
+    let ret = unsafe {
+        libc::fclonefileat(
+            src.as_raw_fd(),
+            libc::AT_FDCWD,
+            dst.as_ptr(),
+            CLONE_NOOWNERCOPY,
+        )
+    };
+    if ret == 0 {
+        return Ok(true);
+    }
+    let error = io::Error::last_os_error();
+    match error.raw_os_error() {
+        Some(libc::ENOTSUP | libc::EXDEV | libc::EINVAL) => Ok(false),
+        _ => Err(error),
+    }
+}
+
+/// Windows clones blocks on ReFS only, through an API nothing here needs yet.
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn reflink(_from: &AbsPath, _to: &AbsPath) -> io::Result<bool> {
+    Ok(false)
+}
+
+/// Copies `from` to `to`, which must not exist, with the source's permission bits; nothing is
+/// left at `to` on failure.
+fn copy_new(from: &AbsPath, to: &AbsPath) -> io::Result<()> {
+    let mut src = fs::File::open(from.as_maybe_relativized())?;
+    let mut dst = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(to.as_maybe_relativized())?;
+    let copied = io::copy(&mut src, &mut dst)
+        .and_then(|_| dst.set_permissions(src.metadata()?.permissions()));
+    if let Err(e) = copied {
+        drop(dst);
+        let _ignored = fs::remove_file(to.as_maybe_relativized());
+        return Err(e);
+    }
+    Ok(())
+}
+
+/// Copy `from` to `to`, sharing the underlying blocks with the source where the filesystem
+/// supports it and falling back to a full copy where it does not. The two paths are independent
+/// either way: writing to one never changes the other.
+///
+/// `from` must be a regular file and `to` must not exist. Use [`reflink_or_copy_all`] to clone a
+/// whole tree.
+pub fn reflink_or_copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
+    from: P,
+    to: Q,
+) -> Result<(), IoError> {
+    let _guard = IoCounterKey::Copy.guard();
+    let from_ref = from.as_ref();
+    let to_ref = to.as_ref();
+    with_retries(|| {
+        if reflink(from_ref, to_ref)? {
+            Ok(())
+        } else {
+            copy_new(from_ref, to_ref)
+        }
+    })
+    .map_err(|e| {
+        IoError::new(e)
+            .context(format!(
+                "reflink_or_copy(from={}, to={})",
+                from_ref.display(),
+                to_ref.display(),
+            ))
+            .check_eden(from_ref)
+            .check_eden(to_ref)
+    })
+}
+
+/// Makes `link` another name for the file at `original`: one inode, so a write through either
+/// path is seen through the other. `link` must not exist.
+pub fn hard_link<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
+    original: P,
+    link: Q,
+) -> Result<(), IoError> {
+    let _guard = IoCounterKey::Hardlink.guard();
+    let original_ref = original.as_ref();
+    let link_ref = link.as_ref();
+    with_retries(|| {
+        fs::hard_link(
+            original_ref.as_maybe_relativized(),
+            link_ref.as_maybe_relativized(),
+        )
+    })
+    .map_err(|e| {
+        IoError::new(e)
+            .context(format!(
+                "hard_link(original={}, link={})",
+                original_ref.display(),
+                link_ref.display(),
+            ))
+            .check_eden(original_ref)
+            .check_eden(link_ref)
+    })
+}
+
+/// How [`reflink_or_hardlink_or_copy`] put the content in place.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Linked {
+    /// A clone: independent of the source, sharing its blocks until one of them is written.
+    Reflinked,
+    /// The source's inode under a second name: a write through either path is seen through
+    /// the other.
+    Hardlinked,
+    /// A full copy.
+    Copied,
+}
+
+/// Puts the content of `from` at `to` as cheaply as the filesystem allows: a reflink where it
+/// has them, else a hardlink, else a full copy. Unlike [`reflink_or_copy`], the result may share
+/// an inode with the source, which is for callers that can bear a write through one path being
+/// seen through the other. `from` must be a regular file and `to` must not exist.
+pub fn reflink_or_hardlink_or_copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
+    from: P,
+    to: Q,
+) -> Result<Linked, IoError> {
+    let from_ref = from.as_ref();
+    let to_ref = to.as_ref();
+    let context = |e: io::Error| {
+        IoError::new(e)
+            .context(format!(
+                "reflink_or_hardlink_or_copy(from={}, to={})",
+                from_ref.display(),
+                to_ref.display(),
+            ))
+            .check_eden(from_ref)
+            .check_eden(to_ref)
+    };
+    {
+        let _guard = IoCounterKey::Copy.guard();
+        if with_retries(|| reflink(from_ref, to_ref)).map_err(context)? {
+            return Ok(Linked::Reflinked);
+        }
+    }
+    if hard_link(from_ref, to_ref).is_ok() {
+        return Ok(Linked::Hardlinked);
+    }
+    let _guard = IoCounterKey::Copy.guard();
+    with_retries(|| copy_new(from_ref, to_ref))
+        .map(|()| Linked::Copied)
+        .map_err(context)
+}
+
+/// Recursively copy `from` to `to`, sharing the underlying blocks with the source where the
+/// filesystem supports it and falling back to a full copy where it does not. The two trees are
+/// independent either way: writing to one never changes the other.
+///
+/// Symlinks are recreated with their target string unchanged, so a relative symlink that points
+/// outside the copied tree resolves elsewhere at the destination - the same thing that happens
+/// when a tree is renamed.
+///
+/// `to` must not exist.
+pub fn reflink_or_copy_all<P: AsRef<AbsNormPath>, Q: AsRef<AbsNormPath>>(
+    from: P,
+    to: Q,
+) -> buck2_error::Result<()> {
+    let from = from.as_ref();
+    let to = to.as_ref();
+    reflink_or_copy_all_impl(from, to)
+        .with_buck_error_context(|| format!("reflink_or_copy_all(from={from}, to={to})"))
+}
+
+fn reflink_or_copy_all_impl(from: &AbsNormPath, to: &AbsNormPath) -> buck2_error::Result<()> {
+    let file_type = symlink_metadata(from).categorize_internal()?.file_type();
+    if file_type.is_dir() {
+        create_dir_all(to)?;
+        for entry in read_dir(from).categorize_internal()? {
+            let entry = entry
+                .map_err(|e| IoError::new_with_path("read_dir", from, e).categorize_internal())?;
+            let file_name = entry.file_name();
+            let name = ForwardRelativePath::new(&file_name)?;
+            reflink_or_copy_all_impl(&entry.path(), &to.join(name))?;
+        }
+        Ok(())
+    } else if file_type.is_symlink() {
+        let target = read_link(from).categorize_internal()?;
+        symlink(target, to).categorize_internal()
+    } else {
+        reflink_or_copy(from, to).categorize_internal()
+    }
 }
 
 pub fn read_link<P: AsRef<AbsPath>>(path: P) -> Result<PathBuf, IoError> {
@@ -840,6 +1073,7 @@ pub mod uncategorized {
     use std::path::Path;
     use std::path::PathBuf;
 
+    pub use super::Linked;
     pub use super::canonicalize_if_exists;
     pub use super::create_dir_all;
     pub use super::create_file_if_not_exists;
@@ -848,6 +1082,7 @@ pub mod uncategorized {
     pub use super::read_dir_if_exists;
     pub use super::read_if_exists;
     pub use super::read_to_string_if_exists;
+    pub use super::reflink_or_copy_all;
     pub use super::simplified;
     pub use super::symlink_metadata_if_exists;
     pub use super::try_exists;
@@ -889,6 +1124,27 @@ pub mod uncategorized {
 
     pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> buck2_error::Result<u64> {
         super::copy(from, to).uncategorized()
+    }
+
+    pub fn reflink_or_copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
+        from: P,
+        to: Q,
+    ) -> buck2_error::Result<()> {
+        super::reflink_or_copy(from, to).uncategorized()
+    }
+
+    pub fn hard_link<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
+        original: P,
+        link: Q,
+    ) -> buck2_error::Result<()> {
+        super::hard_link(original, link).uncategorized()
+    }
+
+    pub fn reflink_or_hardlink_or_copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
+        from: P,
+        to: Q,
+    ) -> buck2_error::Result<Linked> {
+        super::reflink_or_hardlink_or_copy(from, to).uncategorized()
     }
 
     pub fn read_link<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<PathBuf> {
@@ -1570,6 +1826,168 @@ mod tests {
         let path = root.join("foo.txt");
         let _file = fs_util::create_file_if_not_exists(&path)?.unwrap();
         assert!(fs_util::create_file_if_not_exists(path)?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn test_reflink_or_copy_file() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let src = root.join("src");
+        let dest = root.join("dest");
+
+        fs_util::write(&src, b"original")?;
+        fs_util::reflink_or_copy(&src, &dest)?;
+        assert_eq!(fs_util::read_to_string(&dest)?, "original");
+
+        // Whether the copy reflinked or not, the two files must be independent.
+        fs_util::write(&src, b"modified")?;
+        assert_eq!(fs_util::read_to_string(&dest)?, "original");
+        fs_util::write(&dest, b"dest only")?;
+        assert_eq!(fs_util::read_to_string(&src)?, "modified");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_hard_link_shares_the_inode() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let src = root.join("src");
+        let link = root.join("link");
+
+        fs_util::write(&src, b"content")?;
+        fs_util::hard_link(&src, &link)?;
+        assert_eq!(fs_util::read_to_string(&link)?, "content");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            assert_eq!(
+                fs_util::metadata(&src)?.ino(),
+                fs_util::metadata(&link)?.ino()
+            );
+        }
+        assert_matches!(fs_util::hard_link(&src, &link), Err(..));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_reflink_or_hardlink_or_copy_puts_the_content_and_refuses_an_existing_dest()
+    -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let src = root.join("src");
+        let dest = root.join("dest");
+
+        fs_util::write(&src, b"content")?;
+        let linked = fs_util::reflink_or_hardlink_or_copy(&src, &dest)?;
+        assert_eq!(fs_util::read_to_string(&dest)?, "content");
+        // Which leg ran is the filesystem's business; only a hardlink shares the inode.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let same_inode = fs_util::metadata(&src)?.ino() == fs_util::metadata(&dest)?.ino();
+            assert_eq!(same_inode, linked == fs_util::Linked::Hardlinked);
+        }
+        assert_matches!(fs_util::reflink_or_hardlink_or_copy(&src, &dest), Err(..));
+        assert_eq!(fs_util::read_to_string(&dest)?, "content");
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_reflink_or_copy_keeps_the_mode() -> buck2_error::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let src = root.join("src");
+        let dest = root.join("dest");
+
+        fs_util::write(&src, b"run me")?;
+        fs_util::set_executable(&src, true)?;
+        fs_util::reflink_or_copy(&src, &dest)?;
+        assert_ne!(fs_util::metadata(&dest)?.permissions().mode() & 0o111, 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_reflink_or_copy_rejects_existing_dest() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let src = root.join("src");
+        let dest = root.join("dest");
+
+        fs_util::write(&src, b"src")?;
+        fs_util::write(&dest, b"dest")?;
+        assert_matches!(fs_util::reflink_or_copy(&src, &dest), Err(..));
+        assert_eq!(fs_util::read_to_string(&dest)?, "dest");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_reflink_or_copy_all_directory() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let canonical = tempdir.path().canonicalize()?;
+        let root = AbsNormPath::new(&canonical)?;
+        let src = root.join(ForwardRelativePath::new("src")?);
+        let dest = root.join(ForwardRelativePath::new("dest")?);
+
+        fs_util::create_dir_all(src.join(ForwardRelativePath::new("sub/subsub")?))?;
+        fs_util::write(src.join(ForwardRelativePath::new("top")?), b"top")?;
+        fs_util::write(src.join(ForwardRelativePath::new("sub/mid")?), b"mid")?;
+        fs_util::write(
+            src.join(ForwardRelativePath::new("sub/subsub/leaf")?),
+            b"leaf",
+        )?;
+
+        fs_util::reflink_or_copy_all(&src, &dest)?;
+
+        assert_eq!(
+            fs_util::read_to_string(dest.join(ForwardRelativePath::new("top")?))?,
+            "top"
+        );
+        assert_eq!(
+            fs_util::read_to_string(dest.join(ForwardRelativePath::new("sub/mid")?))?,
+            "mid"
+        );
+        assert_eq!(
+            fs_util::read_to_string(dest.join(ForwardRelativePath::new("sub/subsub/leaf")?))?,
+            "leaf"
+        );
+
+        // The trees must not share storage that a write can be observed through.
+        fs_util::write(src.join(ForwardRelativePath::new("sub/mid")?), b"changed")?;
+        assert_eq!(
+            fs_util::read_to_string(dest.join(ForwardRelativePath::new("sub/mid")?))?,
+            "mid"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_reflink_or_copy_all_preserves_symlinks() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let canonical = tempdir.path().canonicalize()?;
+        let root = AbsNormPath::new(&canonical)?;
+        let src = root.join(ForwardRelativePath::new("src")?);
+        let dest = root.join(ForwardRelativePath::new("dest")?);
+
+        fs_util::create_dir_all(&src)?;
+        fs_util::write(src.join(ForwardRelativePath::new("file")?), b"content")?;
+        fs_util::symlink("file", src.join(ForwardRelativePath::new("link")?))?;
+
+        fs_util::reflink_or_copy_all(&src, &dest)?;
+
+        let dest_link = dest.join(ForwardRelativePath::new("link")?);
+        assert!(fs_util::symlink_metadata(&dest_link)?.is_symlink());
+        assert_eq!(fs_util::read_to_string(&dest_link)?, "content");
+
         Ok(())
     }
 
