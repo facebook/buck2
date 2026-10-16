@@ -11,8 +11,8 @@
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_dyn::ArtifactDyn;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
-use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::WaitingCategory;
 use buck2_build_signals::env::WaitingData;
 use buck2_cli_proto::build_request::Materializations;
@@ -44,7 +44,7 @@ pub async fn materialize_and_upload_artifact_group(
     ctx: &mut DiceComputations<'_>,
     artifact_group: &ArtifactGroup,
     contexts: MaterializationAndUploadContext,
-    queue_tracker: &Arc<BuckDashSet<BuildArtifact>>,
+    queue_tracker: &Arc<BuckDashSet<Artifact>>,
 ) -> buck2_error::Result<ArtifactGroupValues> {
     let (values, _) = {
         let fut = ctx.try_compute2(
@@ -79,7 +79,7 @@ async fn materialize_artifact_group(
     ctx: &mut DiceComputations<'_>,
     artifact_group: &ArtifactGroup,
     materialization_context: MaterializationContext,
-    queue_tracker: &Arc<BuckDashSet<BuildArtifact>>,
+    queue_tracker: &Arc<BuckDashSet<Artifact>>,
 ) -> buck2_error::Result<ArtifactGroupValues> {
     let values = ctx.ensure_artifact_group(artifact_group).await?;
 
@@ -102,7 +102,9 @@ async fn materialize_artifact_group(
 
         for (artifact, value) in values.iter() {
             let (base, projected_path) = artifact.as_parts();
-            if let BaseArtifactKind::Build(artifact) = base {
+            if let BaseArtifactKind::Build(build_artifact) = base {
+                // Keyed by the projection too: each projection of an output is its own request,
+                // for its own part of the output.
                 if !queue_tracker.insert(artifact.dupe()) {
                     // We've already requested this artifact, no use requesting it again.
                     continue;
@@ -110,7 +112,7 @@ async fn materialize_artifact_group(
 
                 let fut = {
                     let waiting_data = waiting_data.clone();
-                    let artifact = artifact.dupe();
+                    let artifact = build_artifact.dupe();
                     let projected_path = projected_path.to_buf();
                     let value = value.dupe();
                     let shared_data = shared_data.dupe();
@@ -160,7 +162,9 @@ async fn materialize_artifact_group(
                             )?;
                             vec![(configuration_hash_path, symlink_value)]
                         } else {
-                            vec![(configuration_hash_path, value)]
+                            // A projection's value is its part of the output, which goes at
+                            // the part's own path, not the output's.
+                            vec![(configuration_hash_path.join(&projected_path), value)]
                         };
 
                         data.try_materialize_requested_artifact(
@@ -294,12 +298,12 @@ impl From<(Materializations, Uploads)> for MaterializationAndUploadContext {
 /// This map contains all the artifacts that we enqueued for materialization. This ensures
 /// we don't enqueue the same thing more than once. Should be shared across work done
 /// in a single DICE transaction.
-pub struct MaterializationQueueTrackerHolder(Arc<BuckDashSet<BuildArtifact>>);
+pub struct MaterializationQueueTrackerHolder(Arc<BuckDashSet<Artifact>>);
 
 pub trait HasMaterializationQueueTracker {
     fn init_materialization_queue_tracker(&mut self);
 
-    fn get_materialization_queue_tracker(&self) -> Arc<BuckDashSet<BuildArtifact>>;
+    fn get_materialization_queue_tracker(&self) -> Arc<BuckDashSet<Artifact>>;
 }
 
 impl HasMaterializationQueueTracker for UserComputationData {
@@ -309,7 +313,7 @@ impl HasMaterializationQueueTracker for UserComputationData {
         )));
     }
 
-    fn get_materialization_queue_tracker(&self) -> Arc<BuckDashSet<BuildArtifact>> {
+    fn get_materialization_queue_tracker(&self) -> Arc<BuckDashSet<Artifact>> {
         self.data
             .get::<MaterializationQueueTrackerHolder>()
             .expect("MaterializationQueueTracker should be set")
