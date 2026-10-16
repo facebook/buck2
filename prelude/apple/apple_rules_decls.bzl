@@ -1147,6 +1147,7 @@ apple_test = prelude_rule(
 
 apple_toolchain = prelude_rule(
     name = "apple_toolchain",
+    is_toolchain_rule = True,
     docs = """
         An `apple_toolchain()` rule defines the set of tools and settings used to build Apple targets.
         It specifies paths to compilers, linkers, code signing utilities, resource compilers, and other
@@ -1374,6 +1375,7 @@ scene_kit_assets = prelude_rule(
 
 swift_toolchain = prelude_rule(
     name = "swift_toolchain",
+    is_toolchain_rule = True,
     docs = """
         A `swift_toolchain()` rule defines the Swift compiler and associated tools used to build
         Swift code in Apple targets. It specifies the `swiftc` compiler, standard library tools,

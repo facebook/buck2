@@ -17,8 +17,7 @@ load("@prelude//:sh_binary.bzl", "sh_binary")
 load("@prelude//:sh_test.bzl", "sh_test")
 load("@prelude//:test_suite.bzl", "test_suite_impl")
 load("@prelude//android:rules.bzl", _android_rules = "rules")
-load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
-load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
+load("@prelude//apple:rules.bzl", _apple_rules = "rules")
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 load("@prelude//csharp:rules.bzl", _dotnet_rules = "rules")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
@@ -79,7 +78,7 @@ categorized_rule_decl_records = {
     _GIT_RULES_KEY: _git_rules,
     _GO_RULES_KEY: _go_rules,
     _HASKELL_RULES_KEY: _haskell_rules,
-    _APPLE_RULES_KEY: apple_rules,
+    _APPLE_RULES_KEY: _apple_rules,
     _JAVA_RULES_KEY: _java_rules,
     _JS_RULES_KEY: _js_rules,
     _JULIA_RULES_KEY: _julia_rules,
@@ -124,7 +123,6 @@ extra_implemented_rules = struct(
     worker_tool = worker_tool,
     # merged **kwargs
     **_merge_dictionaries([
-        _apple_implemented_rules,
         _config_implemented_rules,
         _zip_file_implemented_rules,
     ]),
@@ -153,16 +151,8 @@ _uncategorized_extra_attributes = {
 
 categorized_extra_attributes = {
     _CORE_RULES_KEY: _core_extra_attributes,
-    _APPLE_RULES_KEY: _apple_extra_attributes,
     _JAVA_RULES_KEY: {},
     _KOTLIN_RULES_KEY: {},
     _NODEJS_RULES_KEY: {},
     _UNCATEGORIZED_RULES_KEY: _uncategorized_extra_attributes,
 }
-
-toolchain_rule_names = [
-    "apple_toolchain",
-    "swift_macro_toolchain",
-    "swift_toolchain",
-    "toolchain_alias",
-]

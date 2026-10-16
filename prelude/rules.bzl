@@ -9,7 +9,7 @@
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
 # Combine the attributes we generate, we the custom implementations we have.
-load("@prelude//:rules_impl.bzl", "categorized_extra_attributes", "categorized_rule_decl_records", "extra_implemented_rules", "toolchain_rule_names")
+load("@prelude//:rules_impl.bzl", "categorized_extra_attributes", "categorized_rule_decl_records", "extra_implemented_rules")
 
 def _unimplemented(name, ctx):
     fail("Unimplemented rule type `{}` for target `{}`.".format(name, ctx.label))
@@ -83,15 +83,8 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
     if rule_spec.supports_incoming_transition != None:
         kwargs["supports_incoming_transition"] = rule_spec.supports_incoming_transition
 
-    is_toolchain_rule = rule_spec.is_toolchain_rule
-    is_toolchain_rule_via_rule_name = name in toolchain_rule_names
-    if is_toolchain_rule == None:
-        is_toolchain_rule = is_toolchain_rule_via_rule_name
-    elif is_toolchain_rule_via_rule_name:
-        fail("Cannot set `is_toolchain_rule` on `prelude_rule` and also via `toolchain_rule_names`")
-
     kwargs.setdefault("is_configuration_rule", rule_spec.is_configuration_rule)
-    kwargs.setdefault("is_toolchain_rule", is_toolchain_rule)
+    kwargs.setdefault("is_toolchain_rule", rule_spec.is_toolchain_rule)
     return rule(impl = impl, attrs = attributes, **kwargs)
 
 def _categorized_decls():

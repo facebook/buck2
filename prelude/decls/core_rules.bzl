@@ -1317,6 +1317,7 @@ test_suite = prelude_rule(
 
 toolchain_alias = prelude_rule(
     name = "toolchain_alias",
+    is_toolchain_rule = True,
     docs = """
 toolchain_alias acts like alias but for toolchain rules.
 
