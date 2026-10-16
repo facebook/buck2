@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//go_bootstrap:go_bootstrap.bzl", "GoBootstrapToolchainInfo")
+load("@prelude//go_bootstrap:toolchain.bzl", "GoBootstrapToolchainInfo")
 load("@prelude//os_lookup:defs.bzl", "ScriptLanguage")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
 

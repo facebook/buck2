@@ -21,10 +21,7 @@ load(
     "PythonPlatformInfo",
     "PythonToolchainInfo",
 )
-load(
-    "@prelude//python_bootstrap:python_bootstrap.bzl",
-    "PythonBootstrapToolchainInfo",
-)
+load("@prelude//python_bootstrap:toolchain.bzl", "PythonBootstrapToolchainInfo")
 
 def _system_python_wheel_toolchain_impl(ctx):
     return [

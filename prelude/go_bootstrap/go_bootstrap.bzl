@@ -7,23 +7,11 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load(":toolchain.bzl", _GoBootstrapDistrInfo = "GoBootstrapDistrInfo", _GoBootstrapToolchainInfo = "GoBootstrapToolchainInfo")
 
-GoBootstrapDistrInfo = provider(
-    # @unsorted-dict-items
-    fields = {
-        "bin_go": provider_field(RunInfo),
-        "go_root": provider_field(Artifact | None),
-    },
-)
-GoBootstrapToolchainInfo = provider(
-    fields = {
-        "env_go_arch": provider_field(str),
-        "env_go_os": provider_field(str),
-        "env_go_root": provider_field(Artifact | None, default = None),
-        "go": provider_field(RunInfo),
-        "go_wrapper": provider_field(RunInfo),
-    },
-)
+# Re-exported for users that still load the providers from here.
+GoBootstrapDistrInfo = _GoBootstrapDistrInfo
+GoBootstrapToolchainInfo = _GoBootstrapToolchainInfo
 
 def go_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     """

@@ -7,10 +7,12 @@
 # above-listed licenses.
 
 load("@prelude//utils:utils.bzl", "flatten")
+load(":toolchain.bzl", _PythonBootstrapToolchainInfo = "PythonBootstrapToolchainInfo")
 
 PythonBootstrapSources = provider(fields = {"srcs": provider_field(typing.Any, default = None)})
 
-PythonBootstrapToolchainInfo = provider(fields = {"interpreter": provider_field(str | cmd_args)})
+# Re-exported for users that still load the provider from here.
+PythonBootstrapToolchainInfo = _PythonBootstrapToolchainInfo
 
 def python_bootstrap_library_impl(ctx: AnalysisContext) -> list[Provider]:
     has_content_based_path = ctx.attrs.has_content_based_path
