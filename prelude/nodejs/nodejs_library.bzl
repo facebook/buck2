@@ -6,6 +6,9 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load(
     ":nodejs_providers.bzl",
     "NodejsLibraryInfo",
@@ -181,3 +184,101 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
             transitive_outputs = transitive_outputs,
         ),
     ]
+
+nodejs_library = prelude_rule(
+    name = "nodejs_library",
+    impl = nodejs_library_impl,
+    docs = """A Node.js library that packages code as a regular
+    `node_modules` package loadable by Node without custom loaders.
+    Without `tsconfig`, the artifacts it is given are packaged as-is
+    (no compilation): whatever produced them (plain JavaScript sources,
+    generated files, another rule's output) feeds `srcs`, and each entry
+    is staged under `dist/<short_path>` inside the package (repeating the
+    same source is allowed; distinct sources mapping to the same staged
+    path fail, and staged paths must not nest, e.g. `dist/a` and
+    `dist/a/b` fail).
+    With `tsconfig`, `srcs` must be TypeScript compiled with the
+    toolchain's `tsc` before staging: sources are staged by short path
+    next to the `tsconfig`, the `package_json` (whose `"type"` decides the
+    emitted module format) and a `node_modules` (the merged tree of `deps`
+    and the prebuilt `node_modules` tree; so cross-package type imports
+    resolve), compiled with `--outDir`,
+    `--rootDir` (the sources' deepest common directory), `--declaration`,
+    `--noEmit false` and `--emitDeclarationOnly false`, into `dist/`.
+    `srcs` replace the `tsconfig`'s `files` and `include`. Only `.ts`,
+    `.tsx`, `.mts` and `.cts` sources, not declarations, are compiled.
+    Only the `tsconfig` is staged, so an `extends`
+    pointing at a sibling config file does not resolve. A source whose
+    first path segment is `tsconfig.json`, `tsconfig.buck.json`, or a
+    staged `package.json` or `node_modules` fails.
+    Without `tsconfig`, each entry of `resources` is staged under
+    `dist/<short_path>`, for non-code files (including generated artifacts
+    and directory artifacts from other rules) that ship with the package;
+    `resources` cannot be combined with `tsconfig`. `deps` must
+    be `nodejs_library` targets; use `resources` for non-code artifacts.
+    Staging copies files so the package runs under Node without
+    `--preserve-symlinks`. `package_json`, when supplied, is staged at the
+    package root as `package.json`. Its `name` is not checked against
+    `package_name`; keep the two in sync. Without it, importing by package
+    name does not resolve in Node; for packages that must be imported by name,
+    supply `package_json` whose `exports` (or `main`) entry points at the
+    staged file, e.g. `{"exports": {".": "./dist/<file>"}}`.
+    `package_name` (default: target name): a valid npm package name of
+    at most 214 characters, `name` or `@scope/name`, where each segment
+    contains only lowercase letters, digits, `-`, `.`, `_`, `~` and does
+    not start with `.` or `_`. The unscoped names `node_modules` and
+    `favicon.ico` are reserved and rejected, as is `@scope/node_modules`;
+    either may be used as the scope.
+    `node_modules`, when set, stages a prebuilt `node_modules` tree (a
+    `nodejs_node_modules` target, e.g. over a yarn install output) for the
+    `tsc` compile, merged with the `deps` tree when both are present, for
+    third-party packages with no `nodejs_library` target. It requires
+    `tsconfig`.
+    `module`, when set, compiles a whole project directory (a target whose
+    single output holds a `tsconfig.json` and its sources) instead of
+    compiling `srcs`: `tsc -p` runs on the module's own `tsconfig.json`
+    with `--outDir`, `--rootDir` (the
+    module root, overriding any `tsconfig` `rootDir`), `--declaration` and
+    `--noEmit false`,
+    and the emitted tree is staged as the package's `dist/`, mirroring
+    source paths (`src/main.ts` emits `dist/src/main.js`). It cannot be
+    combined with `srcs`, `resources`, `deps`, `node_modules` or `tsconfig`;
+    the module tsconfig must not require writes into the tree. Only the
+    emitted tree is staged, not the module's own `node_modules`: a
+    `nodejs_binary` running the package must supply that tree through its
+    own `node_modules`.
+    `out`, when set, stages the package under that directory name inside
+    `node_modules` instead of `package_name` (a relative path with `/`
+    separators, no `:` and no `.`, `..` or `node_modules` segments), for packages whose
+    imports address a canonical directory. `flatten`, when set, stages the compiled emit at
+    the package root instead of under `dist/` (plus `package.json`); it
+    requires compilation (`tsconfig` or `module`).
+    The default output is the package's own directory
+    (`package_dir`). The `[node_modules]` sub-target is the merged
+    `node_modules` tree for this package and its transitive `deps`,
+    laid out by `package_name` (or `out`). A duplicate `package_name` in the
+    transitive closure with a different package output fails the build, as
+    does one package directory nested inside another.""",
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "srcs": attrs.list(attrs.source(), default = []),
+            "resources": attrs.list(attrs.source(), default = []),
+            "package_name": attrs.option(attrs.string(), default = None),
+            "package_json": attrs.option(attrs.source(allow_directory = False), default = None),
+            "tsconfig": attrs.option(attrs.source(allow_directory = False), default = None),
+            "deps": attrs.list(attrs.dep(), default = []),
+            "node_modules": attrs.option(attrs.dep(), default = None),
+            "module": attrs.option(attrs.dep(), default = None),
+            "out": attrs.option(attrs.string(), default = None),
+            "flatten": attrs.bool(default = False),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_nodejs_toolchain": toolchains_common.nodejs(),
+            "_package_tree_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//nodejs/tools:package_tree")),
+        }
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)

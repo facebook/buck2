@@ -7,6 +7,9 @@
 # above-listed licenses.
 
 load("@prelude//:command_alias.bzl", "command_alias")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 load(":nodejs_package.bzl", "get_bundled_node", "package_standalone")
@@ -134,3 +137,74 @@ def nodejs_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(default_output = default_output, other_outputs = command.output.output.other_outputs),
         RunInfo(args = command.output.cmd),
     ]
+
+nodejs_binary = prelude_rule(
+    name = "nodejs_binary",
+    impl = nodejs_binary_impl,
+    docs = """A runnable Node.js script, executed with the toolchain's
+    Node runtime and no custom loaders. When `deps` is non-empty, builds
+    a merged `node_modules` from transitive deps, stages `main` and
+    `srcs` beside it (each at its short path; distinct files staging to
+    the same path fail), and runs the staged `main` so Node's own
+    resolution finds the deps. The default output is that directory.
+    With no `deps` and the `inplace` package style, `main` runs at its
+    original path, files it imports via relative paths must be listed in
+    `srcs` to be declared as build inputs, and there is no default
+    output. Deps must be loadable as regular `node_modules` packages:
+    each package's `package.json` governs whether it is CommonJS or an
+    ES module, and TypeScript must be compiled to JavaScript before it
+    is packaged. The merged tree is also exposed via `NODE_PATH` at
+    runtime, appended to any `NODE_PATH` set in `env`, for CommonJS
+    resolution. Transitive deps' package directories must be unique,
+    as for `nodejs_library`. `package_style` is `"inplace"` (the
+    default) or `"standalone"`. `standalone` always stages, adds the
+    toolchain's `node_dist` binary to the staged directory as `node`
+    (`node.exe` on Windows), and replaces the default output with a zip of that
+    directory under a top-level directory named after the target (which
+    therefore cannot contain `/`), for hosts without Node. The package runs
+    as `<name>/node <name>/<main>`;
+    `args`, `node_args`, `env`, `NODE_PATH` and any flags or env the
+    toolchain's `node` wrapper adds are not applied there.
+    With `library`, the entry is `<name>/node_modules/<package_name>/<entry_point>`.
+    The tree at index `<i>` of the `node_modules` attribute is staged as
+    `node_modules_tree_<i>`, which whoever runs the package must put on
+    `NODE_PATH`; with no merged tree, the first is staged as `node_modules`
+    instead.
+    `library`, when set, runs a file from inside a `nodejs_library`'s staged
+    package instead of `main`: `entry_point` names the file relative to the
+    package root (e.g. `"dist/main.js"`; a relative `/`-separated path with
+    no `:` and no `.` or `..` segments), and the library's transitive closure
+    (plus `deps`) forms the `node_modules`. `main`/`srcs` cannot be combined
+    with `library`; `entry_point` is required with it, and required to be
+    absent without it. `node_modules`, when set, appends prebuilt trees
+    (`nodejs_node_modules` targets) to `NODE_PATH` alongside any merged
+    `deps` tree; they are used as installed, so unlike the merged tree
+    they keep their `.d.ts` files.
+    On non-Windows executors, the merged tree stages each `nodejs_library`
+    package without its `.d.ts`/`.d.mts`/`.d.cts` files and their maps,
+    because Node's type stripping refuses declarations under `node_modules`;
+    the stripped copy is built once per library and shared by every consumer.
+    On Windows executors the merged tree keeps them.""",
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "main": attrs.option(attrs.source(), default = None),
+            "srcs": attrs.list(attrs.source(), default = []),
+            "args": attrs.list(attrs.arg(), default = []),
+            "node_args": attrs.list(attrs.string(), default = []),
+            "env": attrs.dict(attrs.string(), attrs.arg(), default = {}),
+            "deps": attrs.list(attrs.dep(), default = []),
+            "library": attrs.option(attrs.dep(), default = None),
+            "entry_point": attrs.option(attrs.string(), default = None),
+            "node_modules": attrs.list(attrs.dep(), default = []),
+            "package_style": attrs.enum(["inplace", "standalone"], default = "inplace"),
+            "_nodejs_toolchain": toolchains_common.nodejs(),
+            "_target_os_type": buck.target_os_type_arg(),
+            "_zip_file_toolchain": toolchains_common.zip_file(),
+        }
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)

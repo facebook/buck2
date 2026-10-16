@@ -44,7 +44,6 @@ load("@prelude//decls:erlang_rules.bzl", "erlang_rules")
 load("@prelude//decls:java_rules.bzl", "java_rules")
 load("@prelude//decls:js_rules.bzl", "js_rules")
 load("@prelude//decls:kotlin_rules.bzl", "kotlin_rules")
-load("@prelude//decls:nodejs_rules.bzl", "nodejs_rules")
 load("@prelude//decls:python_rules.bzl", "python_rules")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
 load("@prelude//decls:rust_rules.bzl", "rust_rules")
@@ -66,7 +65,7 @@ load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//lua:rules.bzl", _lua_rules = "rules")
 load("@prelude//matlab:matlab.bzl", _matlab_extra_attributes = "extra_attributes", _matlab_implemented_rules = "implemented_rules")
-load("@prelude//nodejs:nodejs.bzl", _nodejs_implemented_rules = "implemented_rules")
+load("@prelude//nodejs:rules.bzl", _nodejs_rules = "rules")
 load("@prelude//ocaml:rules.bzl", _ocaml_rules = "rules")
 load("@prelude//python:cxx_python_extension.bzl", "cxx_python_extension_impl")
 load("@prelude//python:prebuilt_python_library.bzl", "prebuilt_python_library_impl")
@@ -122,7 +121,7 @@ categorized_rule_decl_records = {
     _JS_RULES_KEY: js_rules,
     _KOTLIN_RULES_KEY: kotlin_rules,
     _LUA_RULES_KEY: _lua_rules,
-    _NODEJS_RULES_KEY: nodejs_rules,
+    _NODEJS_RULES_KEY: _nodejs_rules,
     _OCAML_RULES_KEY: _ocaml_rules,
     _PYTHON_RULES_KEY: python_rules,
     _RUST_RULES_KEY: rust_rules,
@@ -198,7 +197,6 @@ extra_implemented_rules = struct(
         _julia_implemented_rules,
         _kotlin_implemented_rules,
         _matlab_implemented_rules,
-        _nodejs_implemented_rules,
         _zip_file_implemented_rules,
     ]),
 )
