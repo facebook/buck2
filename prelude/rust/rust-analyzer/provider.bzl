@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//rust:attrs.bzl", "RustAnalyzerTargetKind")
 load("@prelude//rust:build.bzl", "crate_root", "process_env")
 load(
     "@prelude//rust:context.bzl",
@@ -20,8 +21,6 @@ load(
     "DepCollectionContext",  # @unused Used as a type
 )
 load("@prelude//rust:link_info.bzl", "attr_crate", "get_available_proc_macros", "resolve_rust_deps")
-
-RustAnalyzerTargetKind = enum("bin", "lib", "test")
 
 RustAnalyzerInfo = provider(
     fields = {

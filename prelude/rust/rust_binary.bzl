@@ -12,12 +12,14 @@ load(
 )
 load("@prelude//:command_alias.bzl", "command_alias")
 load("@prelude//:content_based_dist.bzl", "make_content_based_dist")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load(
     "@prelude//:resources.bzl",
     "create_relocatable_resources_info",
     "create_resource_db",
     "gather_resources",
 )
+load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR")
 load("@prelude//cxx:cxx_bolt.bzl", "cxx_use_bolt")
 load("@prelude//cxx:cxx_executable.bzl", "get_cxx_post_link_suffix")
 load(
@@ -42,6 +44,10 @@ load(
 )
 load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_dumpbin_providers", "get_pdb_providers")
 load("@prelude//cxx:transformation_spec.bzl", "build_transformation_spec_context")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:native_common.bzl", "native_common")
+load("@prelude//decls:re_test_common.bzl", "re_test_common")
+load("@prelude//decls:test_common.bzl", "test_common")
 load(
     "@prelude//dist:dist_info.bzl",
     "DistInfo",
@@ -67,6 +73,16 @@ load(
 )
 load("@prelude//linking:stamp_build_info.bzl", "cxx_stamp_build_info", "stamp_build_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load(
+    "@prelude//rust:attrs.bzl",
+    "RUST_EXECUTABLE_ATTRIBUTES",
+    "miri_interpreted_attr",
+    "rust_analyzer_target_kind",
+    "rust_binary_attrs_group",
+    "rust_common",
+    "rust_common_attributes",
+)
+load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
@@ -1026,3 +1042,176 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     return _native_test_info(ctx, native.args, re_executors) + native.providers + [native.default_info]
+
+rust_binary = prelude_rule(
+    name = "rust_binary",
+    impl = rust_binary_impl,
+    docs = """
+        A rust\\_binary() rule builds a native executable from the supplied set of Rust source files
+        and dependencies.
+
+        If you invoke a build with the `check` flavor, then Buck will invoke rustc
+        to check the code (typecheck, produce warnings, etc), but won't generate an executable code.
+        When applied to binaries it produces no output; for libraries it produces metadata for
+        consumers of the library.
+
+        Note: Buck is currently tested with (and therefore supports) version 1.32.0 of Rust.
+    """,
+    examples = """
+        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/rust/testdata/).
+
+        ```
+        rust_binary(
+          name='greet',
+          srcs=[
+            'greet.rs',
+          ],
+          deps=[
+            ':greeting',
+          ],
+        )
+
+        rust_library(
+          name='greeting',
+          srcs=[
+            'greeting.rs',
+          ],
+          deps=[
+            ':join',
+          ],
+        )
+
+        rust_library(
+          name='join',
+          srcs=[
+            'join.rs',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        rust_common.srcs_arg()
+        | rust_common.srcs_filegroup_arg()
+        | rust_common.mapped_srcs_arg()
+        | rust_common.edition_arg()
+        | rust_common.features_arg()
+        | rust_common.rustc_flags_arg()
+        | rust_common.miri_flags_arg()
+        | rust_common.crate(crate_type = attrs.option(attrs.string(), default = None))
+        | rust_common.crate_root()
+        | rust_common.env_arg()
+        | miri_interpreted_attr()
+        | rust_binary_attrs_group(prefix = "")
+        | rust_common_attributes(is_binary = True)
+        | rust_analyzer_target_kind("bin")
+        | RUST_EXECUTABLE_ATTRIBUTES
+        | rust_common.cxx_toolchain_arg()
+        | rust_common.rust_toolchain_arg()
+        | rust_common.workspaces_arg()
+        | native_common.transformation_spec_arg()
+        | buck.allow_cache_upload_arg()
+        | {
+            "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "_generated_build_info_args": attrs.list(attrs.arg(), default = []),
+            "_generated_build_info_data": attrs.option(attrs.source(), default = None),
+            "_generated_build_info_enabled": attrs.bool(default = False),
+            "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
+            "_generated_build_info_spec": BUILD_INFO_ATTR,
+        }
+    ),
+    uses_plugins = [RustProcMacroPlugin],
+    supports_incoming_transition = True,
+)
+
+rust_test = prelude_rule(
+    name = "rust_test",
+    impl = rust_test_impl,
+    docs = """
+        A rust\\_test() rule builds a Rust test native executable from the supplied set of Rust source
+        files and dependencies and runs this test.
+
+        Note: Buck is currently tested with (and therefore supports) version 1.32.0 of Rust.
+    """,
+    examples = """
+        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/rust/testdata/).
+
+        ```
+        rust_test(
+          name='greet',
+          srcs=[
+            'greet.rs',
+          ],
+          deps=[
+            ':greeting',
+          ],
+        )
+
+        rust_library(
+          name='greeting',
+          srcs=[
+            'greeting.rs',
+          ],
+          deps=[
+            ':join',
+          ],
+        )
+
+        rust_library(
+          name='join',
+          srcs=[
+            'join.rs',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        buck.inject_test_env_arg()
+        | rust_common.srcs_arg()
+        | rust_common.srcs_filegroup_arg()
+        | rust_common.mapped_srcs_arg()
+        | rust_common.edition_arg()
+        | rust_common.features_arg()
+        | rust_common.rustc_flags_arg()
+        | rust_common.miri_flags_arg()
+        | rust_common.crate(crate_type = attrs.option(attrs.string(), default = None))
+        | rust_common.crate_root()
+        | rust_common.default_roots_arg()
+        | rust_common.run_env_arg()
+        | rust_common.build_and_run_env_arg()
+        | rust_binary_attrs_group(prefix = "")
+        | rust_common_attributes(is_binary = True)
+        | rust_analyzer_target_kind("test")
+        | RUST_EXECUTABLE_ATTRIBUTES
+        | {
+            "framework": attrs.bool(
+                default = True,
+                doc = """
+                Use the standard test framework. If this is set to false, then the result is a normal
+                executable which requires a `main()`, etc. It is still expected to accept the
+                same command-line parameters and produce the same output as the test framework.
+            """,
+            ),
+        }
+        | miri_interpreted_attr()
+        | re_test_common.test_args()
+        | rust_common.cxx_toolchain_arg()
+        | rust_common.rust_toolchain_arg()
+        | rust_common.workspaces_arg()
+        | native_common.transformation_spec_arg()
+        | test_common.attributes()
+        | {
+            "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "_generated_build_info_args": attrs.list(attrs.arg(), default = []),
+            "_generated_build_info_data": attrs.option(attrs.source(), default = None),
+            "_generated_build_info_enabled": attrs.bool(default = False),
+            "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
+            "_generated_build_info_spec": BUILD_INFO_ATTR,
+        }
+    ),
+    uses_plugins = [RustProcMacroPlugin],
+    supports_incoming_transition = True,
+)

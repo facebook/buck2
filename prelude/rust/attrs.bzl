@@ -6,9 +6,14 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR", "cxx_common")
+load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
+load("@prelude//decls:common.bzl", "RuntimeDependencyHandling", "buck")
+load("@prelude//decls:native_common.bzl", "native_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
+load("@prelude//rust:clippy_configuration.bzl", "ClippyConfiguration")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust:sources.bzl", "mapped_srcs_arg", "srcs_arg", "srcs_filegroup_arg")
-load(":toolchains_common.bzl", "toolchains_common")
 
 def rust_target_dep(is_binary: bool) -> Attr:
     return attrs.dep(
@@ -245,3 +250,105 @@ rust_common = struct(
     cxx_toolchain_arg = _cxx_toolchain_arg,
     workspaces_arg = _workspaces_arg,
 )
+
+# Values of the `_rust_analyzer_target_kind` attribute, which tells rust-analyzer
+# what kind of crate a target produces.
+RustAnalyzerTargetKind = enum("bin", "lib", "test")
+
+def rust_common_attributes(is_binary: bool):
+    return (
+        buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "clippy_configuration": attrs.option(attrs.dep(providers = [ClippyConfiguration]), default = None),
+            "coverage": attrs.bool(default = False),
+            "default_platform": attrs.option(attrs.string(), default = None),
+            "flagged_deps": attrs.list(attrs.tuple(rust_target_dep(is_binary), attrs.list(attrs.string())), default = []),
+            "incremental_enabled": attrs.bool(default = False),
+            "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
+            "rustdoc_flags": attrs.list(attrs.arg(), default = []),
+            "separate_debug_info": attrs.bool(default = False),
+            "use_content_based_paths": attrs.bool(default = True),
+            "uses_restricted_rustc_flags": attrs.bool(default = False),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_target_os_type": buck.target_os_type_arg(),
+        }
+        | cxx_common.default_deps_arg()
+    )
+
+def rust_analyzer_target_kind(kind: str) -> dict[str, Attr]:
+    return {
+        "_rust_analyzer_target_kind": attrs.default_only(
+            attrs.enum(RustAnalyzerTargetKind.values(), default = kind),
+        ),
+    }
+
+def miri_interpreted_attr() -> dict[str, Attr]:
+    return {
+        "miri_interpreted": attrs.bool(
+            default = False,
+            doc = """
+                Makes this target itself the Miri-interpreted run: no
+                native artifact and no `[miri]` sub-target. Requires a
+                toolchain providing the Miri driver.
+            """,
+        ),
+    }
+
+def rust_binary_attrs_group(prefix: str) -> dict[str, Attr]:
+    attrs = rust_common.deps_arg(is_binary = True) | rust_common.named_deps_arg(is_binary = True) | rust_common.linker_flags_arg() | native_common.link_style()
+    return {prefix + name: v for name, v in attrs.items()}
+
+RUST_EXECUTABLE_ATTRIBUTES = {
+    "anonymous_link_groups": attrs.bool(default = True),
+    # Unlike cxx which supports pre-defined link groups, we only support
+    # auto_link_groups in rust
+    "auto_link_groups": attrs.bool(default = True),
+    # BOLT post-link optimization only applies when cxx performs the link
+    # (advanced_unstable_linking toolchains; see rust_link_binary).
+    "bolt_flags": attrs.list(attrs.arg(), default = []),
+    "bolt_profile": attrs.option(attrs.source(), default = None),
+    # Contents to embed into the linked executable as named ELF sections, added
+    # after BOLT and before build info stamping. Only applies when cxx performs
+    # the link (advanced_unstable_linking toolchains; see rust_link_binary).
+    "elf_sections": attrs.dict(
+        key = attrs.string(),
+        value = attrs.source(),
+        sorted = True,
+        default = {},
+    ),
+    "enable_distributed_thinlto": attrs.bool(default = False),
+    "extra_dwp_flags": attrs.list(attrs.string(), default = []),
+    # Opt the final executable output into content-based (immutable) buck-out
+    # pathing (default off). A bare static binary becomes a content-based exe.
+    # A binary with adjacent files (`resources` and/or a shared-lib tree)
+    # ships as a content-addressed `assembled_dir` dist bundle instead (exe
+    # copied in, adjacent files symlinked; `[dist]` subtarget). Bundle
+    # immutability is per-entry: copied entries always; symlinked entries only
+    # when their target is itself content-based -- config-based resources and
+    # the (deliberately config-based) shlib tree remain rewrite-in-place.
+    "has_content_based_path": attrs.bool(default = False),
+    # Required by the rules but not supported, since Rust is auto-link groups only
+    "link_group": attrs.default_only(attrs.option(attrs.string(), default = None)),
+    "link_group_map": LINK_GROUP_MAP_ATTR,
+    "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
+    "rpath": attrs.bool(
+        default = False,
+        doc = """
+              Set the "rpath" in the executable when using a shared link style.
+          """,
+    ),
+    "runtime_dependency_handling": attrs.option(
+        attrs.enum(RuntimeDependencyHandling),
+        default = None,
+        doc = """
+              Controls how shared library dependencies are handled at runtime. If not set,
+              falls back to the CXX toolchain default. If ``symlink`` is specified then shared
+              library dependencies with ``preferred_linkage = "shared"`` are automatically
+              detected and included in a symlink tree alongside the executable. If ``no_symlink``
+              is specified then shared library dependencies are not included in the symlink tree.
+          """,
+    ),
+    "_build_info": BUILD_INFO_ATTR,
+}

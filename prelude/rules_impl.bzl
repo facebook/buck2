@@ -21,11 +21,9 @@ load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 load("@prelude//csharp:rules.bzl", _dotnet_rules = "rules")
-load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//cxx:rules.bzl", _cxx_rules = "rules")
 load("@prelude//decls:core_rules.bzl", "core_rules")
-load("@prelude//decls:rust_rules.bzl", "rust_rules")
 load("@prelude//decls:uncategorized_rules.bzl", "uncategorized_rules")
 load("@prelude//erlang:rules.bzl", _erlang_rules = "rules")
 load("@prelude//git:rules.bzl", _git_rules = "rules")
@@ -43,6 +41,7 @@ load("@prelude//nodejs:rules.bzl", _nodejs_rules = "rules")
 load("@prelude//ocaml:rules.bzl", _ocaml_rules = "rules")
 load("@prelude//python:rules.bzl", _python_rules = "rules")
 load("@prelude//python/cython:rules.bzl", _cython_rules = "rules")
+load("@prelude//rust:rules.bzl", _rust_rules = "rules")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
 
@@ -88,7 +87,7 @@ categorized_rule_decl_records = {
     _NODEJS_RULES_KEY: _nodejs_rules,
     _OCAML_RULES_KEY: _ocaml_rules,
     _PYTHON_RULES_KEY: _python_rules,
-    _RUST_RULES_KEY: rust_rules,
+    _RUST_RULES_KEY: _rust_rules,
     _SHELL_RULES_KEY: {
         "sh_binary": sh_binary,
         "sh_test": sh_test,
@@ -131,25 +130,6 @@ extra_implemented_rules = struct(
     ]),
 )
 
-_rust_extra_attributes = {
-    "rust_binary": {
-        "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "_generated_build_info_args": attrs.list(attrs.arg(), default = []),
-        "_generated_build_info_data": attrs.option(attrs.source(), default = None),
-        "_generated_build_info_enabled": attrs.bool(default = False),
-        "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
-        "_generated_build_info_spec": BUILD_INFO_ATTR,
-    },
-    "rust_test": {
-        "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "_generated_build_info_args": attrs.list(attrs.arg(), default = []),
-        "_generated_build_info_data": attrs.option(attrs.source(), default = None),
-        "_generated_build_info_enabled": attrs.bool(default = False),
-        "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
-        "_generated_build_info_spec": BUILD_INFO_ATTR,
-    },
-}
-
 _core_extra_attributes = (
     {
         "export_file": constraint_overrides.attributes,
@@ -179,7 +159,6 @@ categorized_extra_attributes = {
     _KOTLIN_RULES_KEY: {},
     _MATLAB_RULES_KEY: _matlab_extra_attributes,
     _NODEJS_RULES_KEY: {},
-    _RUST_RULES_KEY: _rust_extra_attributes,
     _UNCATEGORIZED_RULES_KEY: _uncategorized_extra_attributes,
 }
 
