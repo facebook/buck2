@@ -9,26 +9,15 @@
 load("@prelude//go:cgo_builder.bzl", "project_go_and_c_files")
 load("@prelude//go:go_list.bzl", "GoListOut", "parse_go_list_out")
 load("@prelude//go:packages.bzl", "GoPackageInfo")
-load(
-    "@prelude//go:toolchain.bzl",
-    "GoToolchainInfo",
-    "GoVersion",  # @unused used as a type
-)
+load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//utils:utils.bzl", "flatten")
 
-importable_go_rules = {
-    "prelude//rules.bzl:go_library": None,
-}
-
 def _go_kind(need_tests: bool) -> str:
-    go_rules = "go_binary|go_library|go_exported_library"
-    if need_tests:
-        return go_rules + "|go_test"
-    return go_rules
+    return "go_binary|go_library|go_exported_library" + ("|go_test" if need_tests else "")
 
 TargetData = record(
     target = field(bxl.ConfiguredTargetNode),
-    go_package_info = field(GoPackageInfo | None),
+    go_package_info = field(GoPackageInfo),
 )
 
 LoadMode = record(
@@ -47,7 +36,6 @@ PackageError = record(
 
 DriverData = record(
     targets = field(dict[str, TargetData]),
-    analysis_results = field(dict[str, bxl.Result]),
     build_results = field(dict[Artifact, bxl.Result]),
     import_table = field(dict[str, str]),
     load_mode = field(LoadMode),
@@ -65,9 +53,7 @@ DriverData = record(
 # - handles standard library packages
 #
 def _driver(ctx):
-    # get flat list of resolved target labels
     requested_targets = ctx.unconfigured_targets(flatten(ctx.cli_args.target_exprs or []))
-    # print("Matched targets:", len(target_exprs))
 
     if ctx.cli_args.files:
         requested_targets += ctx.uquery().owner(ctx.cli_args.files)
@@ -76,25 +62,25 @@ def _driver(ctx):
         requested_targets += ctx.uquery().testsof(requested_targets)
 
     load_mode = _parse_load_mode(ctx)
+    need_inputs = load_mode.need_files or load_mode.need_compiled_go_files
 
     go_kind = _go_kind(ctx.cli_args.need_tests)
     go_root_targets = ctx.uquery().kind(go_kind, requested_targets)
-    # print("Matched Go targets:", len(go_targets))
 
-    cquery_errors = []
+    errors = []
     all_go_targets = bxl.ctarget_set()
     for utarget, cquery_result in _cquery(ctx, "kind('{}', deps(%s, 2147483647, target_deps()))".format(go_kind), go_root_targets):
         if cquery_result.is_ok():
             all_go_targets += cquery_result.unwrap()
         else:
-            cquery_errors.append((utarget, cquery_result.unwrap_err()))
+            errors.append({"Errors": [PackageError(Msg = cquery_result.unwrap_err().message)], "ID": str(utarget.label)})
 
     # using dict to get rid of duplicated targets with different configurations
     unique_go_targets = {_target_id(t): t.unwrap_forward() for t in all_go_targets}
 
     analysis_results = _analysis(ctx, unique_go_targets.values())
 
-    artifacts_to_build = []
+    go_list_artifacts = []
     artifacts_to_ensure = []
 
     targets_data = {}
@@ -102,13 +88,9 @@ def _driver(ctx):
     for id, target in unique_go_targets.items():
         analysis_result = analysis_results[id]
         if not analysis_result.is_ok():
-            targets_data[id] = TargetData(
-                target = target,
-                go_package_info = None,
-            )
+            errors.append({"Errors": [PackageError(Msg = analysis_result.unwrap_err().message)], "ID": _target_id(target)})
             continue
 
-        need_inputs = load_mode.need_files or load_mode.need_compiled_go_files
         go_package_info = analysis_result.unwrap().providers()[GoPackageInfo]
 
         targets_data[id] = TargetData(
@@ -116,24 +98,21 @@ def _driver(ctx):
             go_package_info = go_package_info,
         )
 
-        if target.rule_type in importable_go_rules:
+        if target.rule_type == "prelude//rules.bzl:go_library":
             import_table[go_package_info.pkg_import_path] = _target_id(target)
 
-        artifacts_to_build.append(go_package_info.go_list_out)
+        go_list_artifacts.append(go_package_info.go_list_out)
 
         if need_inputs:
-            artifacts_to_build.extend(go_package_info.srcs)
             artifacts_to_ensure.extend(go_package_info.srcs)
 
         if load_mode.need_export_file:
-            artifacts_to_build.append(go_package_info.build_out)
             artifacts_to_ensure.append(go_package_info.build_out)
 
         if load_mode.need_compiled_go_files:
-            artifacts_to_build.append(go_package_info.cgo_gen_dir)
             artifacts_to_ensure.append(go_package_info.cgo_gen_dir)
 
-    build_results = _build_artifacts(ctx, artifacts_to_build)
+    build_results = _build_artifacts(ctx, go_list_artifacts + artifacts_to_ensure)
 
     # Materialize the only artifacts we were able to build to avoid script execution failure
     ctx.output.ensure_multiple([a for a in artifacts_to_ensure if build_results[a].is_ok()])
@@ -141,23 +120,22 @@ def _driver(ctx):
     actions = ctx.bxl_actions().actions
     dynamic_out = actions.declare_output("dynamic_out.json", has_content_based_path = False)
 
-    go_version = _go_version(ctx)
+    go_version = ctx.analysis(ctx.configured_targets("toolchains//:go")).providers()[GoToolchainInfo].version
     actions.dynamic_output_new(
         _produce_result_json(
             data = DriverData(
                 targets = targets_data,
-                analysis_results = analysis_results,
                 build_results = build_results,
                 import_table = import_table,
                 load_mode = load_mode,
-                errors = [{"Errors": [PackageError(Msg = error.message)], "ID": str(utarget.label)} for (utarget, error) in cquery_errors],
+                errors = errors,
                 roots = [str(t.label) for t in go_root_targets],
                 go_version = go_version.minor if go_version else 0,
             ),
             artifacts = {
                 td.go_package_info.go_list_out: td.go_package_info.go_list_out
                 for td in targets_data.values()
-                if td.go_package_info and build_results[td.go_package_info.go_list_out].is_ok()
+                if build_results[td.go_package_info.go_list_out].is_ok()
             },
             output = dynamic_out.as_output(),
         ),
@@ -167,42 +145,28 @@ def _driver(ctx):
 
 def _produce_result_json_impl(bxl_ctx: bxl.Context, data: DriverData, artifacts, output):
     packages = []
-    for id, td in data.targets.items():
-        if not data.analysis_results[id].is_ok():
-            analysis_error = data.analysis_results[id].unwrap_err()
-
-            # @unsorted-dict-items
+    for td in data.targets.values():
+        info = td.go_package_info
+        if info.go_list_out not in artifacts:
+            go_files = [src for src in info.srcs if src.extension == ".go"]
             package = {
-                "ID": _target_id(td.target),
-                "Errors": [PackageError(Msg = analysis_error.message)],
-            }
-        elif not data.build_results[td.go_package_info.go_list_out].is_ok():
-            # If building go_list_out failed report an error and recover as much data as we can
-            go_list_error = data.build_results[td.go_package_info.go_list_out].unwrap_err()
-            go_files = [i for i in td.go_package_info.srcs if i.extension == ".go"]
-
-            # @unsorted-dict-items
-            package = {
-                "ID": _target_id(td.target),
-                "PkgPath": td.go_package_info.pkg_import_path,
-                "GoFiles": go_files,
                 "CompiledGoFiles": go_files,
-                "Errors": [PackageError(Msg = go_list_error.message)],
+                "Errors": [PackageError(Msg = data.build_results[info.go_list_out].unwrap_err().message)],
+                "GoFiles": go_files,
+                "ID": _target_id(td.target),
+                "PkgPath": info.pkg_import_path,
             }
-
         else:
-            go_list_out = parse_go_list_out(td.go_package_info.srcs, td.go_package_info.package_root, artifacts[td.go_package_info.go_list_out])
+            go_list_out = parse_go_list_out(info.srcs, info.package_root, artifacts[info.go_list_out])
             package = _make_protocol_package(data.load_mode, go_list_out, td, data.import_table, data.build_results)
 
         packages.append(package)
-
-    packages += data.errors
 
     bxl_ctx.bxl_actions().actions.write_json(
         output,
         {
             "GoVersion": data.go_version,
-            "Packages": packages,
+            "Packages": packages + data.errors,
             "Roots": data.roots,
         },
         pretty = True,
@@ -231,14 +195,24 @@ def _make_protocol_package(
     if load_mode.need_files:
         # todo: handle invalid Go files
         # We don't need to use "if" statements for _test.go files, because they are always empty for non-test targets
-        package["GoFiles"] = [] + go_list_out.go_files + go_list_out.cgo_files + go_list_out.test_go_files + go_list_out.x_test_go_files
-        package["OtherFiles"] = [] + go_list_out.h_files + go_list_out.c_files + go_list_out.cxx_files + go_list_out.s_files
-        package["IgnoredFiles"] = [] + go_list_out.ignored_go_files + go_list_out.ignored_other_files
+        package["GoFiles"] = go_list_out.go_files + go_list_out.cgo_files + go_list_out.test_go_files + go_list_out.x_test_go_files
+        package["OtherFiles"] = go_list_out.h_files + go_list_out.c_files + go_list_out.cxx_files + go_list_out.s_files
+        package["IgnoredFiles"] = go_list_out.ignored_go_files + go_list_out.ignored_other_files
 
     if load_mode.need_compiled_go_files:
-        compiled_go_files, compiled_go_files_errors = _compiled_go_files(load_mode, go_list_out, td, build_results)
+        compiled_go_files = go_list_out.go_files + go_list_out.test_go_files + go_list_out.x_test_go_files
+        if go_list_out.cgo_files:
+            cgo_gen_dir = td.go_package_info.cgo_gen_dir
+            cgo_result = build_results[cgo_gen_dir]
+            if cgo_result.is_ok():
+                cgo_tool_out = project_go_and_c_files(go_list_out.cgo_files, cgo_gen_dir)
+                # gopls needs the original CGO files to typecheck their special C imports.
+                # https://github.com/golang/tools/blob/v0.23.0/go/packages/golist.go#L509-L516
+                cgo_files = go_list_out.cgo_files if load_mode.typecheck_cgo else cgo_tool_out.cgo1_go_files
+                compiled_go_files += [cgo_tool_out.cgo_gotypes] + cgo_files
+            else:
+                errors.add(_to_protocol_error(cgo_result.unwrap_err(), td.target))
         package["CompiledGoFiles"] = compiled_go_files
-        errors |= compiled_go_files_errors
 
     if load_mode.need_export_file:
         export_file_result = build_results[td.go_package_info.build_out]
@@ -258,39 +232,18 @@ def _make_protocol_package(
 
     return package
 
-def _compiled_go_files(
-    load_mode: LoadMode, go_list_out: GoListOut, td: TargetData, build_results: dict[Artifact, bxl.Result]
-) -> (list[Artifact], set[PackageError]):
-    compiled_go_files = [] + go_list_out.go_files + go_list_out.test_go_files + go_list_out.x_test_go_files
-    if len(go_list_out.cgo_files) > 0:
-        cgo_gen_dir_result = build_results[td.go_package_info.cgo_gen_dir]
-        if not cgo_gen_dir_result.is_ok():
-            return compiled_go_files, set([_to_protocol_error(cgo_gen_dir_result.unwrap_err(), td.target)])
-
-        cgo_tool_out = project_go_and_c_files(go_list_out.cgo_files, td.go_package_info.cgo_gen_dir)
-        if load_mode.typecheck_cgo:
-            # Replace generated `.cgo1.go` files with raw CGo files
-            # That's a bit hacky, but gopls relies on it
-            # Source: https://github.com/golang/tools/blob/v0.23.0/go/packages/golist.go#L509-L516
-            compiled_go_files += [cgo_tool_out.cgo_gotypes] + go_list_out.cgo_files
-        else:
-            compiled_go_files += [cgo_tool_out.cgo_gotypes] + cgo_tool_out.cgo1_go_files
-
-    return compiled_go_files, set()
-
 # map import names to packages ID, for non-buck packages like stdlib leave names as is
 # Example {"foo/bar": "fbcode//foo/bar:bar"}
 def _imports(go_list_out: GoListOut, import_table: dict[str, str]) -> dict[str, str]:
     # todo: make it work when deps are not requested
 
     # We don't need to use "if" statements for test imports, because they are always empty for non-test targets
-    all_imports = [] + go_list_out.imports + go_list_out.test_imports
+    all_imports = go_list_out.imports + go_list_out.test_imports
 
     # resolve imports, consider an import as stdlib import if not found in buck deps
     imports = {imp: import_table.get(imp, imp) for imp in all_imports if imp != "C"}
 
-    has_cgo_files = len(go_list_out.cgo_files) > 0
-    if has_cgo_files:
+    if go_list_out.cgo_files:
         # we don't pass -compiled flag to `go list` to make it faster
         # so we have to manually add there imports from generated code
         imports |= {
@@ -305,6 +258,7 @@ def _target_id(target: bxl.ConfiguredTargetNode) -> str:
     return str(target.label.raw_target())
 
 def _build_artifacts(ctx: bxl.Context, artifacts: list[Artifact]) -> dict[Artifact, bxl.Result]:
+    artifacts = list(set(artifacts))
     results = ctx.lazy.join_all([ctx.lazy.build_artifact(a).catch() for a in artifacts]).resolve()
     return {k: v for k, v in zip(artifacts, results)}
 
@@ -344,18 +298,12 @@ def _to_protocol_error(error: bxl.Error, expected_target: bxl.ConfiguredTargetNo
 
     return PackageError(Msg = msg)
 
-def _go_version(ctx: bxl.Context) -> GoVersion | None:
-    toolchain = ctx.analysis(ctx.configured_targets("toolchains//:go")).providers()[GoToolchainInfo]
-    return toolchain.version
-
 # https://github.com/golang/tools/blob/v0.23.0/go/packages/packages.go#L41-L42
 # The zero value is a special case, equivalent to combining
 # the NeedName, NeedFiles, and NeedCompiledGoFiles bits.
 def _parse_load_mode(ctx: bxl.Context) -> LoadMode:
     args = ctx.cli_args
-    is_default_load_mode = (
-        any([args.need_name, args.need_files, args.need_compiled_go_files, args.need_imports, args.need_deps, args.need_export_file]) == False
-    )
+    is_default_load_mode = not any([args.need_name, args.need_files, args.need_compiled_go_files, args.need_imports, args.need_deps, args.need_export_file])
     if is_default_load_mode:
         return LoadMode(need_name = True, need_files = True, need_compiled_go_files = True)
 
