@@ -366,6 +366,43 @@ mod tests {
         assert!(GlobSpec::new(&["a/*/"], &[""; 0]).is_err());
     }
 
+    fn resolve_for_test(patterns: &[&str], files: &[&str]) -> Vec<String> {
+        let spec = GlobSpec::new(patterns, &[""; 0]).unwrap();
+        let listing = PackageFileListing::testing_new(files);
+        spec.resolve_glob(&listing)
+            .map(|p| p.as_str().to_owned())
+            .collect()
+    }
+
+    /// `file` plus enough unrelated files to reach `BINARY_SEARCH_CUTOFF`.
+    fn large_listing(file: &str) -> Vec<String> {
+        let mut files: Vec<String> = (0..GlobSpec::BINARY_SEARCH_CUTOFF - 1)
+            .map(|i| format!("z{i:03}"))
+            .collect();
+        files.push(file.to_owned());
+        files
+    }
+
+    #[test]
+    fn test_resolve_glob_non_ascii_prefix() {
+        // `longest_common_glob_prefix` takes a byte offset for the first wildcard and uses it as
+        // a char count, so a multibyte character before the wildcard pulls the wildcard into the
+        // literal prefix, and large packages then match nothing.
+        assert_eq!("\u{e9}*", longest_common_glob_prefix(&["\u{e9}*"]));
+
+        assert_eq!(vec!["\u{e9}"], resolve_for_test(&["\u{e9}*"], &["\u{e9}"]));
+        let files = large_listing("\u{e9}");
+        let files: Vec<&str> = files.iter().map(String::as_str).collect();
+        assert_eq!(Vec::<String>::new(), resolve_for_test(&["\u{e9}*"], &files));
+
+        let files = large_listing("donn\u{e9}es/a.txt");
+        let files: Vec<&str> = files.iter().map(String::as_str).collect();
+        assert_eq!(
+            Vec::<String>::new(),
+            resolve_for_test(&["donn\u{e9}es/*"], &files)
+        );
+    }
+
     #[test]
     fn test_glob_prefix() {
         assert_eq!("a/", longest_common_glob_prefix(&["a/1", "a/2"]));
