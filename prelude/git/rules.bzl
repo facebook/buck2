@@ -6,13 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:prelude_rule.bzl", "make_rules")
-load(":git_fetch.bzl", git_fetch_spec = "git_fetch")
+load(":git_fetch.bzl", "git_fetch")
 
-specs = {
-    "git_fetch": git_fetch_spec,
+rules = {
+    "git_fetch": git_fetch,
 }
-
-rules = make_rules(specs)
-
-load_symbols(rules)

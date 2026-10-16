@@ -6,23 +6,18 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:prelude_rule.bzl", "make_rules")
-load("@prelude//go_bootstrap:go_bootstrap.bzl", go_bootstrap_binary_spec = "go_bootstrap_binary")
-load(":go_binary.bzl", go_binary_spec = "go_binary")
-load(":go_exported_library.bzl", go_exported_library_spec = "go_exported_library")
-load(":go_library.bzl", go_library_spec = "go_library")
-load(":go_stdlib.bzl", go_stdlib_spec = "go_stdlib")
-load(":go_test.bzl", go_test_spec = "go_test")
+load("@prelude//go_bootstrap:go_bootstrap.bzl", "go_bootstrap_binary")
+load(":go_binary.bzl", "go_binary")
+load(":go_exported_library.bzl", "go_exported_library")
+load(":go_library.bzl", "go_library")
+load(":go_stdlib.bzl", "go_stdlib")
+load(":go_test.bzl", "go_test")
 
-specs = {
-    "go_binary": go_binary_spec,
-    "go_bootstrap_binary": go_bootstrap_binary_spec,
-    "go_exported_library": go_exported_library_spec,
-    "go_library": go_library_spec,
-    "go_stdlib": go_stdlib_spec,
-    "go_test": go_test_spec,
+rules = {
+    "go_binary": go_binary,
+    "go_bootstrap_binary": go_bootstrap_binary,
+    "go_exported_library": go_exported_library,
+    "go_library": go_library,
+    "go_stdlib": go_stdlib,
+    "go_test": go_test,
 }
-
-rules = make_rules(specs)
-
-load_symbols(rules)

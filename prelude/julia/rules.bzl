@@ -6,18 +6,13 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:prelude_rule.bzl", "make_rules")
-load(":julia_binary.bzl", julia_binary_spec = "julia_binary")
-load(":julia_library.bzl", julia_jll_library_spec = "julia_jll_library", julia_library_spec = "julia_library")
-load(":julia_test.bzl", julia_test_spec = "julia_test")
+load(":julia_binary.bzl", "julia_binary")
+load(":julia_library.bzl", "julia_jll_library", "julia_library")
+load(":julia_test.bzl", "julia_test")
 
-specs = {
-    "julia_binary": julia_binary_spec,
-    "julia_jll_library": julia_jll_library_spec,
-    "julia_library": julia_library_spec,
-    "julia_test": julia_test_spec,
+rules = {
+    "julia_binary": julia_binary,
+    "julia_jll_library": julia_jll_library,
+    "julia_library": julia_library,
+    "julia_test": julia_test,
 }
-
-rules = make_rules(specs)
-
-load_symbols(rules)

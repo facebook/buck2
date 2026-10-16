@@ -6,17 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:prelude_rule.bzl", "make_rules")
-load(":js_bundle.bzl", js_bundle_spec = "js_bundle")
-load(":js_bundle_genrule.bzl", js_bundle_genrule_spec = "js_bundle_genrule")
-load(":js_library.bzl", js_library_spec = "js_library")
+load(":js_bundle.bzl", "js_bundle")
+load(":js_bundle_genrule.bzl", "js_bundle_genrule")
+load(":js_library.bzl", "js_library")
 
-specs = {
-    "js_bundle": js_bundle_spec,
-    "js_bundle_genrule": js_bundle_genrule_spec,
-    "js_library": js_library_spec,
+rules = {
+    "js_bundle": js_bundle,
+    "js_bundle_genrule": js_bundle_genrule,
+    "js_library": js_library,
 }
-
-rules = make_rules(specs)
-
-load_symbols(rules)

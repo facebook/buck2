@@ -6,16 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:prelude_rule.bzl", "make_rules")
-load(":rust_binary.bzl", rust_binary_spec = "rust_binary", rust_test_spec = "rust_test")
-load(":rust_library.bzl", rust_library_spec = "rust_library")
+load(":rust_binary.bzl", "rust_binary", "rust_test")
+load(":rust_library.bzl", "rust_library")
 
-specs = {
-    "rust_binary": rust_binary_spec,
-    "rust_library": rust_library_spec,
-    "rust_test": rust_test_spec,
+rules = {
+    "rust_binary": rust_binary,
+    "rust_library": rust_library,
+    "rust_test": rust_test,
 }
-
-rules = make_rules(specs)
-
-load_symbols(rules)

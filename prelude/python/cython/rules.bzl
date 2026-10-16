@@ -6,17 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:prelude_rule.bzl", "make_rules")
-load(":cython_library.bzl", cython_library_spec = "cython_library")
-load(":cython_static_extension.bzl", cython_static_extension_spec = "cython_static_extension")
-load(":cython_toolchain.bzl", cython_toolchain_spec = "cython_toolchain")
+load(":cython_library.bzl", "cython_library")
+load(":cython_static_extension.bzl", "cython_static_extension")
+load(":cython_toolchain.bzl", "cython_toolchain")
 
-specs = {
-    "cython_library": cython_library_spec,
-    "cython_static_extension": cython_static_extension_spec,
-    "cython_toolchain": cython_toolchain_spec,
+rules = {
+    "cython_library": cython_library,
+    "cython_static_extension": cython_static_extension,
+    "cython_toolchain": cython_toolchain,
 }
-
-rules = make_rules(specs)
-
-load_symbols(rules)
