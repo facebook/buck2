@@ -8,35 +8,32 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::WriteRequest;
-use buck2_execute::re::presence::NegativeCache;
 use dupe::Dupe;
 use itertools::Itertools;
+
+use crate::actions::impls::cas_probe;
 
 /// Declares the outputs of a write action. Returns their values in the order `generate`
 /// produced them, and `Deferred` when none of them had to be written because the CAS already
 /// held every output's content, `Simple` otherwise.
 ///
-/// Whether the CAS is asked at all is the `write_cas_probe` knob's decision; without it, or
-/// without a CAS to ask, this is a plain `declare_write`.
+/// Whether the CAS is asked at all is `cas_probe`'s decision; when it is not, this is a plain
+/// `declare_write`.
 pub(crate) async fn declare_writes(
     ctx: &dyn ActionExecutionCtx,
     generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + '_>,
 ) -> buck2_error::Result<(Vec<ArtifactValue>, ActionExecutionKind)> {
-    if !ctx.run_action_knobs().write_cas_probe || !ctx.cas_configured() {
+    if !cas_probe::enabled(ctx) {
         let values = ctx.materializer().declare_write(generate).await?;
         return Ok((values, ActionExecutionKind::Simple));
     }
-    let use_case = ctx.invocation_re_use_case();
 
     let requests = generate()?;
     let cas_digest_config = ctx.digest_config().cas_digest_config();
@@ -44,51 +41,36 @@ pub(crate) async fn declare_writes(
         .iter()
         .map(|request| TrackedFileDigest::from_content(&request.content, cas_digest_config))
         .collect();
-
-    let info = Arc::new(CasDownloadInfo::new_probed(use_case));
-    // A stale miss only costs the write that would otherwise have been skipped.
-    let presence = match ctx
-        .re_client()
-        .with_use_case(use_case)
-        .check_presence(digests.clone(), NegativeCache::Allowed, &info)
-        .await
-    {
-        Ok(presence) => presence,
-        Err(e) => {
-            // Writing is the right fallback for this action, but a CAS that cannot answer would
-            // silently turn every write back into a deferred write, which should be visible.
-            let _ignored = buck2_core::soft_error!(
-                "write_cas_probe_failed",
-                e.context("CAS lookup for write action content failed; writing instead"),
-                quiet: true
-            );
-            vec![None; requests.len()]
-        }
+    let Some((info, held)) = cas_probe::probe(ctx, digests.clone()).await else {
+        let values = ctx
+            .materializer()
+            .declare_write(Box::new(move || Ok(requests)))
+            .await?;
+        return Ok((values, ActionExecutionKind::Simple));
     };
 
     let mut values: Vec<Option<ArtifactValue>> = vec![None; requests.len()];
     let mut in_cas = Vec::new();
     let mut to_write = Vec::new();
-    for (i, ((request, digest), presence)) in requests
+    for (i, ((request, digest), held)) in requests
         .into_iter()
         .zip_eq(digests)
-        .zip_eq(presence)
+        .zip_eq(held)
         .enumerate()
     {
-        match presence {
-            Some(_) => {
-                // The check stamped the expiration onto `digest`.
-                let value = ArtifactValue::file(FileMetadata {
-                    digest,
-                    is_executable: request.is_executable,
-                });
-                in_cas.push(DeclareArtifactPayload {
-                    path: request.path,
-                    artifact: value.dupe(),
-                });
-                values[i] = Some(value);
-            }
-            _ => to_write.push((i, request)),
+        if held {
+            // The check stamped the expiration onto `digest`.
+            let value = ArtifactValue::file(FileMetadata {
+                digest,
+                is_executable: request.is_executable,
+            });
+            in_cas.push(DeclareArtifactPayload {
+                path: request.path,
+                artifact: value.dupe(),
+            });
+            values[i] = Some(value);
+        } else {
+            to_write.push((i, request));
         }
     }
 

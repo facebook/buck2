@@ -10,6 +10,7 @@
 
 pub(crate) mod assembled_dir;
 pub(crate) mod cas_artifact;
+pub(crate) mod cas_probe;
 pub(crate) mod copy;
 pub(crate) mod declare_writes;
 pub(crate) mod dep_file_fingerprint;

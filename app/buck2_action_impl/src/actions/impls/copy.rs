@@ -39,6 +39,8 @@ use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
 use starlark::values::Value;
 
+use crate::actions::impls::cas_probe;
+
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
 enum CopyActionValidationError {
@@ -212,32 +214,47 @@ impl Action for CopyAction {
             tmp_dest
         };
 
-        ctx.materializer()
-            .declare_copy(
-                dest.clone(),
-                value.dupe(),
-                // FIXME(JakobDegen): This is wrong in cases where the input artifact is a source
-                // directory with ignored paths, as the materializer will incorrectly assume that
-                // the source directory matches the artifact value when it doesn't.
-                vec![CopiedArtifact::new(
-                    src,
-                    dest,
-                    value.entry().dupe().map_dir(|d| d.as_immutable()),
-                    match self.copy {
-                        CopyMode::Copy {
-                            executable_bit_override,
-                        } => executable_bit_override,
-                        CopyMode::Symlink => None,
-                    },
-                )],
-            )
-            .await?;
+        // A source file's content is not known to be in the CAS, and the probe a write makes
+        // spares copying it when the CAS has it. A build artifact's content is the materializer's
+        // already, and a symlink copies nothing.
+        let in_cas = match self.copy {
+            CopyMode::Copy { .. } if input.is_source() => {
+                cas_probe::declare_if_in_cas(ctx, dest.clone(), &value).await?
+            }
+            _ => false,
+        };
+        let execution_kind = if in_cas {
+            ActionExecutionKind::Deferred
+        } else {
+            ctx.materializer()
+                .declare_copy(
+                    dest.clone(),
+                    value.dupe(),
+                    // FIXME(JakobDegen): This is wrong in cases where the input artifact is a
+                    // source directory with ignored paths, as the materializer will incorrectly
+                    // assume that the source directory matches the artifact value when it
+                    // doesn't.
+                    vec![CopiedArtifact::new(
+                        src,
+                        dest,
+                        value.entry().dupe().map_dir(|d| d.as_immutable()),
+                        match self.copy {
+                            CopyMode::Copy {
+                                executable_bit_override,
+                            } => executable_bit_override,
+                            CopyMode::Symlink => None,
+                        },
+                    )],
+                )
+                .await?;
+            ActionExecutionKind::Simple
+        };
 
         Ok((
             ActionOutputs::from_single(self.output().get_path().dupe(), value),
             ActionExecutionMetadata {
                 dep_file_db_writes_queued: 0,
-                execution_kind: ActionExecutionKind::Simple,
+                execution_kind,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,
                 waiting_data,

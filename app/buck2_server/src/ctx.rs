@@ -945,7 +945,8 @@ impl DiceCommandUpdater<'_, '_> {
         // A write whose content the CAS already has is declared as a CAS download, so its bytes
         // then exist nowhere but the CAS. That is only sound if the materializer would otherwise
         // have kept them in memory rather than on disk; a hit would trade a write for a download
-        // otherwise.
+        // otherwise. A copy from a source file follows the same decision: the same question about
+        // content produced here, and its source stays where it is either way.
         run_action_knobs.write_cas_probe = root_config
             .parse::<RolloutPercentage>(BuckconfigKeyRef {
                 section: "buck2",

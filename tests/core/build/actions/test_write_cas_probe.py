@@ -11,7 +11,8 @@
 """
 With `buck2.write_cas_probe` on, a write action asks the CAS for its content before writing it.
 When the CAS has the content with enough TTL left, the output is declared as a CAS download and
-nothing is written until something needs the file; otherwise the write proceeds as before.
+nothing is written until something needs the file; otherwise the write proceeds as before. A copy
+of a source file asks the same way before copying.
 """
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -72,6 +73,40 @@ async def test_write_whose_content_the_cas_has_is_not_written(buck: Buck) -> Non
     assert presence_check_answers(res) >= 1, "the probe ran"
     assert (
         await get_last_execution_kind(buck, category="write")
+        == ACTION_EXECUTION_KIND_DEFERRED
+    )
+    assert not output.exists()
+
+    # ...until something needs the file, which then comes out of the CAS.
+    await buck.build(target, *configs)
+    assert output.read_text() == content
+
+
+@buck_test(write_invocation_record=True)
+async def test_copy_of_a_source_file_the_cas_has_is_not_made(buck: Buck) -> None:
+    content = random_string()
+    (buck.cwd / "src.txt").write_text(content)
+    # The write targets in the same file need their content configured.
+    configs = ["-c", f"test.content={random_string()}"]
+
+    res = await buck.build("//:copy_src", "--materializations=none", *configs)
+    assert presence_check_rpcs(res) >= 1, "the probe asked the CAS"
+    assert (
+        await get_last_execution_kind(buck, category="copy")
+        == ACTION_EXECUTION_KIND_SIMPLE
+    )
+
+    # An RE action reading the source file uploads its content to the CAS.
+    await buck.build("//:consume_src", "--remote-only", "--no-remote-cache", *configs)
+
+    # A copy of it now finds the content there: the output is declared as a CAS download and
+    # nothing is copied...
+    target = "//:copy_src_again"
+    res = await buck.build(target, "--materializations=none", *configs)
+    output = res.get_build_report().output_for_target(target)
+    assert presence_check_answers(res) >= 1, "the probe ran"
+    assert (
+        await get_last_execution_kind(buck, category="copy")
         == ACTION_EXECUTION_KIND_DEFERRED
     )
     assert not output.exists()
