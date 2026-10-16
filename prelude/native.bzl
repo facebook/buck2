@@ -419,7 +419,7 @@ def _prebuilt_apple_xcframework_macro_stub(**kwargs):
         filegroup_rule = __rules__["filegroup"], genrule = __rules__["genrule"], prebuilt_apple_framework_rule = __rules__["prebuilt_apple_framework"], **kwargs
     )
 
-# TODO(cjhopman): These macro wrappers should be handled in prelude/rules.bzl+rule_impl.bzl.
+# TODO(cjhopman): These macro wrappers should be handled in prelude/rules.bzl.
 # Probably good if they were defined to take in the base rule that
 # they are wrapping and return the wrapped one.
 __extra_rules__ = {

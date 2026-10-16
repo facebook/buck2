@@ -8,9 +8,18 @@
 
 # The declaration of a rule that the prelude exposes via `native` and documents.
 #
-# The actual `rule()` object is created from this record in `prelude//:rules.bzl`,
-# which also applies the prelude-wide policies (fat platform compatibility and
-# the like), so that individual declarations don't have to.
+# Conventions:
+#  - A rule is declared in the `.bzl` file that implements it, next to its
+#    implementation function.
+#  - Attribute groups shared between the rules of one language live in that
+#    language's `attrs.bzl`; groups shared across languages live in `decls/`.
+#    Keep `attrs.bzl` files free of implementation code so that implementation
+#    files can load them without cycles.
+#  - Every language directory has a `rules.bzl` exporting `rules`, the
+#    declarations it contributes, keyed by rule name. `prelude//:rules.bzl`
+#    collects those and turns them into `rule` objects, applying the prelude-wide
+#    policies (fat platform compatibility and the like) so that individual
+#    declarations don't have to.
 prelude_rule = record(
     name = field(str),
     docs = field([str, None], None),

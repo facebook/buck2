@@ -6,10 +6,109 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+# The rules the prelude provides, as `rule` objects. `native.bzl` exposes them as
+# `native.<name>`, and they can also be loaded from this module by name.
+#
+# See `prelude_rule.bzl` for how rules are declared. This file only collects the
+# per-language registries and turns the declarations into rules.
+
+load("@prelude//:alias.bzl", "alias", "configured_alias", "toolchain_alias", "versioned_alias")
+load("@prelude//:command_alias.bzl", "command_alias_rule")
+load("@prelude//:export_file.bzl", "export_file")
+load("@prelude//:filegroup.bzl", "filegroup")
+load("@prelude//:genrule.bzl", "genrule")
+load("@prelude//:http_file.bzl", "http_file")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
-load("@prelude//:prelude_rule.bzl", "prelude_rule")
-# Combine the attributes we generate, we the custom implementations we have.
-load("@prelude//:rules_impl.bzl", "categorized_extra_attributes", "categorized_rule_decl_records", "extra_implemented_rules")
+load("@prelude//:remote_file.bzl", "remote_file")
+load("@prelude//:sh_binary.bzl", "sh_binary")
+load("@prelude//:sh_test.bzl", "sh_test")
+load("@prelude//:test_suite.bzl", "test_suite")
+load("@prelude//android:ndk_toolchain.bzl", "ndk_toolchain")
+load("@prelude//android:rules.bzl", _android_rules = "rules")
+load("@prelude//apple:rules.bzl", _apple_rules = "rules")
+load("@prelude//configurations:rules.bzl", _configuration_rules = "rules")
+load("@prelude//csharp:rules.bzl", _dotnet_rules = "rules")
+load("@prelude//cxx:rules.bzl", _cxx_rules = "rules")
+load("@prelude//erlang:rules.bzl", _erlang_rules = "rules")
+load("@prelude//git:rules.bzl", _git_rules = "rules")
+load("@prelude//go:rules.bzl", _go_rules = "rules")
+load("@prelude//haskell:rules.bzl", _haskell_rules = "rules")
+load("@prelude//http_archive:http_archive.bzl", "http_archive")
+load("@prelude//java:rules.bzl", _java_rules = "rules")
+load("@prelude//js:rules.bzl", _js_rules = "rules")
+load("@prelude//js:worker_tool.bzl", "worker_tool")
+load("@prelude//julia:rules.bzl", _julia_rules = "rules")
+load("@prelude//kotlin:rules.bzl", _kotlin_rules = "rules")
+load("@prelude//lua:rules.bzl", _lua_rules = "rules")
+load("@prelude//matlab:rules.bzl", _matlab_rules = "rules")
+load("@prelude//nodejs:rules.bzl", _nodejs_rules = "rules")
+load("@prelude//ocaml:rules.bzl", _ocaml_rules = "rules")
+load("@prelude//python:rules.bzl", _python_rules = "rules")
+load("@prelude//python/cython:rules.bzl", _cython_rules = "rules")
+load("@prelude//rust:rules.bzl", _rust_rules = "rules")
+load("@prelude//zip_file:zip_file.bzl", "zip_file")
+
+# Rule declarations grouped by the category they are documented under.
+_categorized_rule_specs = {
+    ".NET": _dotnet_rules,
+    "android": _android_rules,
+    "apple": _apple_rules,
+    "core": {
+        "alias": alias,
+        "command_alias": command_alias_rule,
+        "configured_alias": configured_alias,
+        "export_file": export_file,
+        "filegroup": filegroup,
+        "genrule": genrule,
+        "http_archive": http_archive,
+        "http_file": http_file,
+        "remote_file": remote_file,
+        "test_suite": test_suite,
+        "toolchain_alias": toolchain_alias,
+        "versioned_alias": versioned_alias,
+        "worker_tool": worker_tool,
+        "zip_file": zip_file,
+    }
+    | _configuration_rules,
+    "cxx": _cxx_rules,
+    "cython": _cython_rules,
+    "erlang": _erlang_rules,
+    "git": _git_rules,
+    "go": _go_rules,
+    "haskell": _haskell_rules,
+    "java": _java_rules,
+    "js": _js_rules,
+    "julia": _julia_rules,
+    "kotlin": _kotlin_rules,
+    "lua": _lua_rules,
+    "matlab": _matlab_rules,
+    "nodejs": _nodejs_rules,
+    "ocaml": _ocaml_rules,
+    "python": _python_rules,
+    "rust": _rust_rules,
+    "shell": {
+        "sh_binary": sh_binary,
+        "sh_test": sh_test,
+    },
+    "uncategorized": {
+        "ndk_toolchain": ndk_toolchain,
+    },
+}
+
+def _flatten(categorized: dict[str, dict[str, typing.Any]]) -> dict[str, typing.Any]:
+    flat = {}
+    for category, by_name in categorized.items():
+        for name, value in by_name.items():
+            if name in flat:
+                fail("Rule `{}` is declared in more than one category (`{}`)".format(name, category))
+            flat[name] = value
+    return flat
+
+_rule_specs = _flatten(_categorized_rule_specs)
+
+for _name, _spec in _rule_specs.items():
+    if _spec.name != _name:
+        fail("Rule `{}` is registered under the name `{}`".format(_spec.name, _name))
 
 def _unimplemented(name, ctx):
     fail("Unimplemented rule type `{}` for target `{}`.".format(name, ctx.label))
@@ -69,11 +168,6 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
         kwargs["doc"] = doc
 
     impl = rule_spec.impl
-    extra_impl = getattr(extra_implemented_rules, name, None)
-    if extra_impl:
-        if impl:
-            fail("{} had an impl in the declaration and in the extra_implemented_rules overrides".format(name))
-        impl = extra_impl
     if not impl:
         impl = _unimplemented_impl(name)
     if impl_override != None:
@@ -87,77 +181,14 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
     kwargs.setdefault("is_toolchain_rule", rule_spec.is_toolchain_rule)
     return rule(impl = impl, attrs = attributes, **kwargs)
 
-def _categorized_decls():
-    grouped_decls = {}
-    for group_name, decl_set in categorized_rule_decl_records.items():
-        if isinstance(decl_set, dict):
-            group_rules = dict(decl_set)
-        else:
-            # TODO: Remove once all rule declarations have been moved out of `decls/`
-            group_rules = {}
-            for rule in dir(decl_set):
-                group_rules[rule] = getattr(decl_set, rule)
-        grouped_decls[group_name] = group_rules
-    return grouped_decls
-
-Attributes = dict[str, Attr]
-
-def _update_categorized_rules(categorized_rules: dict[str, dict[str, prelude_rule]], categorized_extra_attributes: dict[str, dict[str, Attributes]]):
-    flatten_rules = {}
-    for category, rules in categorized_rules.items():
-        for rule_name, rule_spec in rules.items():
-            flatten_rules[rule_name] = (category, rule_spec)
-    for attr_category, extra_attributes_dict in categorized_extra_attributes.items():
-        for rule_name, extra_attributes in extra_attributes_dict.items():
-            if rule_name in flatten_rules:
-                category, rule_spec = flatten_rules[rule_name]
-                d = dict(rule_spec.attrs)
-                d.update(extra_attributes)
-
-                # Use the category from the categorized_rules not categorized_extra_attributes
-                categorized_rules[category][rule_name] = prelude_rule(
-                    name = rule_spec.name,
-                    impl = rule_spec.impl,
-                    attrs = d,
-                    docs = rule_spec.docs,
-                    examples = rule_spec.examples,
-                    further = rule_spec.further,
-                    uses_plugins = rule_spec.uses_plugins,
-                    supports_incoming_transition = rule_spec.supports_incoming_transition,
-                    is_toolchain_rule = rule_spec.is_toolchain_rule,
-                    is_configuration_rule = rule_spec.is_configuration_rule,
-                    cfg = rule_spec.cfg,
-                )
-            else:
-                if attr_category not in categorized_rules:
-                    categorized_rules[attr_category] = {}
-                categorized_rules[attr_category][rule_name] = prelude_rule(
-                    name = rule_name,
-                    impl = None,
-                    attrs = extra_attributes,
-                    docs = None,
-                    examples = None,
-                    further = None,
-                    uses_plugins = None,
-                    supports_incoming_transition = None,
-                )
-
-_categorized_declared_rules = _categorized_decls()
-_update_categorized_rules(_categorized_declared_rules, categorized_extra_attributes)
-
-_declared_rules = {rule_name: rule for category in _categorized_declared_rules.values() for rule_name, rule in category.items()}
-
-categorized_rules = {
-    group_name: {rule_name: _mk_rule(rule_decl) for rule_name, rule_decl in group_rules.items()}
-    for group_name, group_rules in _categorized_declared_rules.items()
-}
-rules = {rule_name: rule for category in categorized_rules.values() for rule_name, rule in category.items()}
+categorized_rules = {category: {name: _mk_rule(spec) for name, spec in specs.items()} for category, specs in _categorized_rule_specs.items()}
+rules = _flatten(categorized_rules)
 
 # The rules are accessed by doing module.name, so we have to put them on the correct module.
 load_symbols(rules)
 
 # TODO(akrieger): Remove this and instead refactor to allow impl bzl files to export attrs.
 def clone_rule(rule: str, extra_attrs: dict[str, typing.Any] = dict(), impl_override = None, **kwargs):
-    if not rule in _declared_rules:
+    if not rule in _rule_specs:
         fail("Tried clone rule {} which does not exist".format(rule))
-    return _mk_rule(_declared_rules[rule], extra_attrs, impl_override, **kwargs)
+    return _mk_rule(_rule_specs[rule], extra_attrs, impl_override, **kwargs)
