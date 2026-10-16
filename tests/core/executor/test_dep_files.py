@@ -33,9 +33,14 @@ from buck2.tests.e2e_util.helper.utils import (
 ACTION_EXECUTION_KIND_LOCAL = 1
 ACTION_EXECUTION_KIND_ACTION_CACHE = 3
 ACTION_EXECUTION_KIND_SIMPLE = 4
+# A write whose content the CAS already holds, which the disk-state core probes for.
+ACTION_EXECUTION_KIND_DEFERRED = 6
 ACTION_EXECUTION_KIND_LOCAL_DEP_FILE = 7
 ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE = 9
 ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE = 10
+
+# The kinds a write action reports, which these tests look past.
+WRITE_KINDS = [ACTION_EXECUTION_KIND_SIMPLE, ACTION_EXECUTION_KIND_DEFERRED]
 
 CACHE_UPLOAD_REASON_LOCAL_EXECUTION = 0
 CACHE_UPLOAD_REASON_DEP_FILE = 1
@@ -147,7 +152,7 @@ async def _test_dep_files_impl(buck: Buck, use_content_based_paths: bool) -> Non
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
         # A symlinked_dir command was re-run because app/other.h was changed
-        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+        ignored=WRITE_KINDS,
     )
 
     # Changing the command line itself should cause a rebuild.
@@ -244,7 +249,7 @@ async def _test_dep_files_in_same_package_impl(
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
-        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+        ignored=WRITE_KINDS,
     )
 
     unused_input2_contents = random_string()
@@ -260,7 +265,7 @@ async def _test_dep_files_in_same_package_impl(
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
-        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+        ignored=WRITE_KINDS,
     )
 
 
@@ -326,7 +331,7 @@ async def _test_dep_files_in_same_dir_impl(
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
-        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+        ignored=WRITE_KINDS,
     )
 
 
@@ -386,9 +391,7 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
         "-c",
         f"test.dummy_config={dummy1}",
     )
-    await check_execution_kind(
-        buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=[ACTION_EXECUTION_KIND_SIMPLE]
-    )
+    await check_execution_kind(buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=WRITE_KINDS)
 
     dummy2 = "dummy2"
     await buck.build(
@@ -405,7 +408,7 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE],
-        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+        ignored=WRITE_KINDS,
     )
     # The MatchDepFilesStart span should indicate we only checked the depfile cache once
     await check_match_dep_files_events(
@@ -867,9 +870,7 @@ async def test_dep_file_hit_across_configurations(buck: Buck) -> None:
         "--no-remote-cache",  # Turn off remote cache query so we execute locally
         "--show-output",
     )
-    await check_execution_kind(
-        buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=[ACTION_EXECUTION_KIND_SIMPLE]
-    )
+    await check_execution_kind(buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=WRITE_KINDS)
 
     result_b = await buck.build(
         "app:simple_dep_file",
@@ -882,7 +883,7 @@ async def test_dep_file_hit_across_configurations(buck: Buck) -> None:
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE],
-        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+        ignored=WRITE_KINDS,
     )
     await check_match_dep_files_events(
         buck, [MatchDepFilesEvent(remote_cache=False, checking_filtered_inputs=False)]
@@ -966,7 +967,7 @@ async def test_no_cross_config_hit_without_content_based_paths(buck: Buck) -> No
         await check_execution_kind(
             buck,
             [ACTION_EXECUTION_KIND_LOCAL],
-            ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+            ignored=WRITE_KINDS,
         )
 
 
@@ -993,9 +994,7 @@ async def test_select_divergent_actions_do_not_thrash_across_configurations(
         "-c",
         "test.dummy_config=d1",
     )
-    await check_execution_kind(
-        buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=[ACTION_EXECUTION_KIND_SIMPLE]
-    )
+    await check_execution_kind(buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=WRITE_KINDS)
 
     # Build under platform_b -> a different action (different command line). It must execute (no
     # cross-config hit, since the identity differs) and must not evict platform_a's entry.
@@ -1008,9 +1007,7 @@ async def test_select_divergent_actions_do_not_thrash_across_configurations(
         "-c",
         "test.dummy_config=d1",
     )
-    await check_execution_kind(
-        buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=[ACTION_EXECUTION_KIND_SIMPLE]
-    )
+    await check_execution_kind(buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=WRITE_KINDS)
 
     # Rebuild under platform_a with a no-op config change to force a DICE recompute. platform_a's
     # entry survived the platform_b build, so this is served by the local action cache.
@@ -1025,7 +1022,7 @@ async def test_select_divergent_actions_do_not_thrash_across_configurations(
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE],
-        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+        ignored=WRITE_KINDS,
     )
 
 
@@ -1048,7 +1045,7 @@ async def test_dep_file_hit_with_action_key_change(buck: Buck) -> None:
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL],
-        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+        ignored=WRITE_KINDS,
     )
 
     # Add a preceding action, shifting the dep-file action's ActionKey index.
@@ -1063,7 +1060,7 @@ async def test_dep_file_hit_with_action_key_change(buck: Buck) -> None:
     await check_execution_kind(
         buck,
         [ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE],
-        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+        ignored=WRITE_KINDS,
     )
 
 

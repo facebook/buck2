@@ -947,15 +947,18 @@ impl DiceCommandUpdater<'_, '_> {
         // them at the output path right away: the deferred core keeping them in memory, the
         // disk-state core in the BlobStore; a hit would trade a write for a download otherwise.
         // A copy from a source file follows the same decision: the same question about content
-        // produced here, and its source stays where it is either way.
-        run_action_knobs.write_cas_probe = root_config
-            .parse::<RolloutPercentage>(BuckconfigKeyRef {
-                section: "buck2",
-                property: "write_cas_probe",
-            })?
-            .unwrap_or_else(RolloutPercentage::never)
-            .roll()
-            && self.cmd_ctx.base_context.repo().materializer_defers_writes;
+        // produced here, and its source stays where it is either way. The disk-state core asks
+        // for the probe itself (`materializer_probes_writes`); the knob is the deferred core's.
+        let repo = self.cmd_ctx.base_context.repo();
+        run_action_knobs.write_cas_probe = repo.materializer_probes_writes
+            || (root_config
+                .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "write_cas_probe",
+                })?
+                .unwrap_or_else(RolloutPercentage::never)
+                .roll()
+                && repo.materializer_defers_writes);
 
         let output_trees_download_semaphore_size = root_config.parse::<u32>(BuckconfigKeyRef {
             section: "buck2",

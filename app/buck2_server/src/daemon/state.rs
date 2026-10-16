@@ -260,6 +260,13 @@ pub struct RepoState {
     /// says so, the disk-state core's always, since its writes go to the BlobStore.
     pub(crate) materializer_defers_writes: bool,
 
+    /// Whether this repo's `materializer` wants every write and source copy probed against the
+    /// CAS before its content is produced, whatever `buck2.write_cas_probe` says: the disk-state
+    /// core's, which otherwise writes into its store what the CAS already holds, 98% of a cold
+    /// adfinder build's writes (RESULTS.md, 2026-10-13). One switch for the core and its probe
+    /// keeps a rollout from meeting the two in every combination.
+    pub(crate) materializer_probes_writes: bool,
+
     /// How often this repo's `materializer` refreshes TTLs (`buck2.ttl_refresh_frequency_seconds`).
     /// The daemon-wide walk over the digest interner runs at the first repo's.
     pub(crate) ttl_refresh_frequency: Duration,
@@ -497,6 +504,7 @@ impl TenantState {
         };
         let materializer_defers_writes =
             disk_state_core || deferred_materializer_configs.defer_write_actions;
+        let materializer_probes_writes = disk_state_core;
         let ttl_refresh_frequency = deferred_materializer_configs.ttl_refresh.frequency;
 
         let use_eden_thrift_read = root_config
@@ -799,6 +807,7 @@ impl TenantState {
             system_warning_config: SystemWarningConfig::from_config(root_config)?,
             detect_eden_restart,
             materializer_defers_writes,
+            materializer_probes_writes,
             ttl_refresh_frequency,
             clean_scratch_on_idle: root_config
                 .parse::<RolloutPercentage>(BuckconfigKeyRef {
