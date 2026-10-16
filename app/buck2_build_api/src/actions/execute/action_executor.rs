@@ -589,6 +589,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
         self.executor.invocation_re_settings.cas_configured
     }
 
+    fn may_probe_cas(&self) -> bool {
+        self.executor.invocation_re_settings.may_probe_cas
+    }
+
     fn re_platform(&self) -> &remote_execution::Platform {
         self.executor.command_executor.re_platform()
     }

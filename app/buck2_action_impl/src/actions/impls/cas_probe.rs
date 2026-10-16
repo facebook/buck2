@@ -28,10 +28,10 @@ use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::re::presence::NegativeCache;
 use dupe::Dupe;
 
-/// Whether the CAS is asked before content is produced: the knob's decision, and never without a
-/// CAS to ask.
+/// Whether the CAS is asked before content is produced: the knob's decision, and never when the
+/// invocation asks the CAS nothing (`ActionExecutionCtx::may_probe_cas`).
 pub(crate) fn enabled(ctx: &dyn ActionExecutionCtx) -> bool {
-    ctx.run_action_knobs().write_cas_probe && ctx.cas_configured()
+    ctx.run_action_knobs().write_cas_probe && ctx.may_probe_cas()
 }
 
 /// Which of `digests` the CAS holds, one answer per digest, with the `CasDownloadInfo` to

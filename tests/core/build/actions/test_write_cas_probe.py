@@ -12,7 +12,8 @@
 With `buck2.write_cas_probe` on, a write action asks the CAS for its content before writing it.
 When the CAS has the content with enough TTL left, the output is declared as a CAS download and
 nothing is written until something needs the file; otherwise the write proceeds as before. A copy
-of a source file asks the same way before copying.
+of a source file asks the same way before copying. Neither asks under `--local-only` or
+`--no-remote-cache`.
 """
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -135,3 +136,25 @@ async def test_content_already_on_disk_is_copied_rather_than_downloaded(
     assert output.read_text() == content
     snapshot = res.invocation_record()["last_snapshot"]
     assert int(snapshot.get("disk_state_materializer_copied_from_disk", 0)) >= 1
+
+
+async def _written_without_a_probe(buck: Buck, *flags: str) -> None:
+    content = random_string()
+    res = await buck.build("//:write", *flags, "-c", f"test.content={content}")
+    output = res.get_build_report().output_for_target("//:write")
+    assert presence_check_rpcs(res) == 0, "the CAS was not asked"
+    assert (
+        await get_last_execution_kind(buck, category="write")
+        == ACTION_EXECUTION_KIND_SIMPLE
+    )
+    assert output.read_text() == content
+
+
+@buck_test(write_invocation_record=True)
+async def test_a_local_only_build_does_not_probe(buck: Buck) -> None:
+    await _written_without_a_probe(buck, "--local-only")
+
+
+@buck_test(write_invocation_record=True)
+async def test_a_build_without_remote_cache_does_not_probe(buck: Buck) -> None:
+    await _written_without_a_probe(buck, "--no-remote-cache")

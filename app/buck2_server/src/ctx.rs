@@ -1023,14 +1023,18 @@ impl DiceCommandUpdater<'_, '_> {
         // Computed from the root config here rather than read through dice by whoever needs it:
         // the override key is one dice deliberately cannot see (`CONFIGS_INVISIBLE_TO_DICE`, so
         // that changing it does not invalidate dice state), and this is where it is visible.
+        let cas_configured = self
+            .cmd_ctx
+            .base_context
+            .repo()
+            .re_client_manager
+            .cas_configured();
         let invocation_re_settings = InvocationReSettings {
             use_case: invocation_re_use_case(root_config)?,
-            cas_configured: self
-                .cmd_ctx
-                .base_context
-                .repo()
-                .re_client_manager
-                .cas_configured(),
+            cas_configured,
+            may_probe_cas: cas_configured
+                && self.execution_strategy != ExecutionStrategy::LocalOnly
+                && !self.skip_cache_read,
         };
 
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());

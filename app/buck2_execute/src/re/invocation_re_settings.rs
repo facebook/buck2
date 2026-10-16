@@ -39,6 +39,11 @@ pub struct InvocationReSettings {
     /// Whether there is a CAS to talk to at all. Independent of any executor configuration: a
     /// build that runs nothing remotely still has one.
     pub cas_configured: bool,
+    /// Whether an action may ask the CAS whether it already holds content it would otherwise
+    /// produce: false without a CAS, and under `--local-only` and `--no-remote-cache`, which forgo
+    /// what remote caches hold. Says nothing about materialization: content tracked as the CAS's
+    /// is fetched from it either way.
+    pub may_probe_cas: bool,
 }
 
 /// The invocation's own RE use case as configured: [`RE_USE_CASE_OVERRIDE_KEY`] if set, else
