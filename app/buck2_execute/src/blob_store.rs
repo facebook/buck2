@@ -12,15 +12,17 @@
 //! them back (plan-blobstore.md). It is the digest interner with its backings made explicit, a
 //! recorded CAS expiration and a recorded stash entry, the stash directory under buck-out that
 //! keeps content this daemon produced and the CAS is not known to hold, and one walk over the
-//! table that refreshes CAS expirations and collects the stash. Where a digest's entry says the
-//! stash holds the blob, the materializer links the content out of it before asking the CAS.
+//! table that refreshes CAS expirations. Where a digest's entry says the stash holds the blob,
+//! the materializer links the content out of it before asking the CAS.
 //!
-//! Nothing here coordinates in memory. An insertion writes a file under a name of its own and
-//! commits by recording it on the digest's entry in one atomic step; a second insertion of the
-//! same digest finds the record and leaves its own file for the loader. The walk drops entries
-//! nothing holds, under the table's lock, and unlinks their files afterwards, which cannot meet
-//! a fresh insertion since that one uses a new name. What the store asks of its callers is what
-//! the interner already asks: whoever needs a blob holds a `TrackedFileDigest` for it.
+//! The stash holds exactly the blobs some `TrackedFileDigest` is held for and the CAS is not
+//! known to hold, and starts empty with every daemon. An insertion writes a file under a name of
+//! its own and commits by recording it on the digest's entry in one atomic step; a second
+//! insertion of the same digest finds the record and removes its own file. The record leaves the
+//! entry when the entry leaves the table, at the last handle's drop or at a walk, or when a CAS
+//! expiration is recorded for the blob, and the interner hands it to this store's collector,
+//! which unlinks the file. Nothing coordinates in memory beyond that, and nothing reads the
+//! directory: what the table does not record is not in the stash.
 
 use std::collections::hash_map::RandomState;
 use std::fs::File;
@@ -48,10 +50,12 @@ use buck2_fs::fs_util::Linked;
 use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 use jiff::Timestamp;
-use tokio::sync::watch;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 use tokio::time::MissedTickBehavior;
 
 use crate::execute::blocking::BlockingExecutor;
@@ -87,35 +91,20 @@ pub struct FileToLink {
     pub dest: AbsNormPathBuf,
 }
 
-/// Why a walk runs, which decides what it may drop.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Walk {
-    /// The refresher's cadence: refresh what is held and expiring, drop everything nothing holds.
-    Scheduled,
-    /// The stash's sake, after a clean or when the stash has grown: collect the stash and leave
-    /// the CAS's cache of confirmed digests alone.
-    ForStash,
-}
-
-/// What one [`BlobStore::walk`] found and did.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct WalkStats {
-    pub sweep: SweepStats,
-    /// Stash entries kept, and their bytes.
-    pub kept: u64,
-    pub kept_bytes: u64,
-    /// Stash entries whose files were unlinked, and their bytes.
-    pub removed: u64,
-    pub removed_bytes: u64,
+/// What the interner hands the collector: a record whose entry no longer carries it; or, for
+/// tests, a request to be told once everything handed over before it is unlinked.
+enum Collect {
+    Orphan(FileDigest, StashRecord),
+    Flush(oneshot::Sender<()>),
 }
 
 /// The stash as the snapshot reports it.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct BlobStoreStats {
-    /// Entries and bytes the table records, as counted by the last walk and kept up with since.
+    /// Files in the stash and their bytes, as insertions and the collector keep count.
     pub entries: u64,
     pub bytes: u64,
-    /// What walks have unlinked since this process started.
+    /// What the collector has unlinked since this process started.
     pub removed_bytes: u64,
     /// Insertions whose IO ran; among them, the ones that found the digest recorded by then and
     /// gave their file up.
@@ -144,15 +133,12 @@ enum BlobStoreError {
 pub struct BlobStore {
     #[allocative(skip)]
     interner: &'static DigestInterner,
-    /// The directory, once a materializer has one.
-    stash: OnceLock<AttachedStash>,
+    /// The directory, once the daemon has given the store one.
+    stash: OnceLock<Arc<AttachedStash>>,
     /// The CAS side of the walk, once the daemon has an RE connection to refresh through.
     #[allocative(skip)]
     refresh: OnceLock<TtlRefresher>,
-    counters: Counters,
-    /// Whether a load of the stash directory is under way, for lookups to wait out.
-    #[allocative(skip)]
-    loading: watch::Sender<bool>,
+    counters: Arc<Counters>,
 }
 
 #[derive(Allocative)]
@@ -160,6 +146,9 @@ struct AttachedStash {
     stash: Stash,
     #[allocative(skip)]
     blocking: Arc<dyn BlockingExecutor>,
+    /// The collector's inbox: the records the interner hands over, to be unlinked.
+    #[allocative(skip)]
+    collector: mpsc::UnboundedSender<Collect>,
 }
 
 #[derive(Default, Allocative)]
@@ -170,6 +159,29 @@ struct Counters {
     insertions: AtomicU64,
     duplicates: AtomicU64,
     served: AtomicU64,
+}
+
+impl Counters {
+    fn recorded(&self, bytes: u64) {
+        self.entries.fetch_add(1, Ordering::Relaxed);
+        self.bytes.fetch_add(bytes, Ordering::Relaxed);
+    }
+
+    /// A record gone, its file unlinked or found gone.
+    fn forgotten(&self, bytes: u64) {
+        saturating_sub(&self.entries, 1);
+        saturating_sub(&self.bytes, bytes);
+    }
+
+    fn unlinked(&self, bytes: u64) {
+        self.removed_bytes.fetch_add(bytes, Ordering::Relaxed);
+    }
+}
+
+fn saturating_sub(counter: &AtomicU64, n: u64) {
+    let _ignored = counter.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+        Some(v.saturating_sub(n))
+    });
 }
 
 static GLOBAL: OnceLock<BlobStore> = OnceLock::new();
@@ -185,34 +197,43 @@ impl BlobStore {
             interner,
             stash: OnceLock::new(),
             refresh: OnceLock::new(),
-            counters: Counters::default(),
-            loading: watch::channel(false).0,
+            counters: Arc::new(Counters::default()),
         }
     }
 
-    /// Waits out a load of the stash directory that is under way: until it is done, the table
-    /// does not know what the directory holds, and a lookup would take a blob it holds for a
-    /// miss. Returns at once when no load is running.
-    pub async fn loaded(&self) {
-        let mut loading = self.loading.subscribe();
-        // The current value counts, so nothing is missed between the check and the wait.
-        let _ignored = loading.wait_for(|loading| !*loading).await;
-    }
-
-    /// Gives the store its directory. Returns whether it took it: the store has one directory,
-    /// and a second materializer in the process shares the first's.
+    /// Gives the store its directory and starts it empty: what a previous daemon left there is
+    /// moved aside and removed in the background, since nothing refers to it any more
+    /// (plan-blobstore.md §2). Returns whether the store took the directory: the store has one,
+    /// and a second materializer in the process shares the first's. Must be called from within
+    /// a tokio runtime, which the collector's task then lives on.
     pub fn attach_stash(
         &self,
         root: AbsNormPathBuf,
         config: CasDigestConfig,
         blocking: Arc<dyn BlockingExecutor>,
     ) -> bool {
-        self.stash
-            .set(AttachedStash {
-                stash: Stash::new(root, config),
-                blocking,
-            })
-            .is_ok()
+        if self.stash.get().is_some() {
+            return false;
+        }
+        discard_stash(&root, blocking.dupe());
+        let (sender, receiver) = mpsc::unbounded_channel();
+        let attached = Arc::new(AttachedStash {
+            stash: Stash::new(root, config),
+            blocking,
+            collector: sender,
+        });
+        if self.stash.set(attached.dupe()).is_err() {
+            return false;
+        }
+        let inbox = attached.collector.clone();
+        self.interner.add_stash_collector(
+            attached.stash.id,
+            Box::new(move |digest, record| {
+                let _ignored = inbox.send(Collect::Orphan(digest.dupe(), record));
+            }),
+        );
+        tokio::spawn(collect(receiver, attached, self.counters.dupe()));
+        true
     }
 
     /// Starts the walk on `frequency`, refreshing through `refresher`, and returns the counters
@@ -233,35 +254,12 @@ impl BlobStore {
             ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
             loop {
                 ticker.tick().await;
-                if let Err(e) = self.walk(Walk::Scheduled).await {
+                if let Err(e) = self.walk().await {
                     tracing::info!("BlobStore walk failed: {:#}", e);
                 }
             }
         });
         counters
-    }
-
-    /// Reads the stash directory into the table and walks it for the stash's sake, on a task of
-    /// its own: what a daemon does once, after its materializer's roots hold their digests, so
-    /// that the first walk keeps what they hold. Nothing happens without a stash.
-    pub fn spawn_load_and_walk(&'static self) {
-        if self.stash.get().is_none() {
-            return;
-        }
-        self.loading.send_replace(true);
-        tokio::spawn(async move {
-            match self.load_stash().await {
-                Ok(loaded) => tracing::debug!("Loaded {loaded} stash entries"),
-                Err(e) => {
-                    let _ignored =
-                        buck2_core::soft_error!("blob_store_load_failed", e, quiet: true);
-                }
-            }
-            self.loading.send_replace(false);
-            if let Err(e) = self.walk(Walk::ForStash).await {
-                let _ignored = buck2_core::soft_error!("blob_store_walk_failed", e, quiet: true);
-            }
-        });
     }
 
     pub fn stats(&self) -> BlobStoreStats {
@@ -272,6 +270,18 @@ impl BlobStore {
             insertions: self.counters.insertions.load(Ordering::Relaxed),
             duplicates: self.counters.duplicates.load(Ordering::Relaxed),
             served: self.counters.served.load(Ordering::Relaxed),
+        }
+    }
+
+    /// Waits until every record handed to the collector so far is unlinked. For tests; the
+    /// daemon never waits for the collector.
+    pub async fn flush_collector(&self) {
+        let Some(attached) = self.stash.get() else {
+            return;
+        };
+        let (done, flushed) = oneshot::channel();
+        if attached.collector.send(Collect::Flush(done)).is_ok() {
+            let _ignored = flushed.await;
         }
     }
 
@@ -288,51 +298,15 @@ impl BlobStore {
     fn attached(&self) -> buck2_error::Result<&AttachedStash> {
         self.stash
             .get()
+            .map(|attached| &**attached)
             .ok_or_else(|| BlobStoreError::NoStash.into())
     }
 
-    /// Reads the directory into the table: every file becomes its digest's recorded entry,
-    /// pinned there until a walk finds nothing holding it. A digest recorded already, by an
-    /// insertion or an earlier file of the load, keeps its record and the later file goes. For
-    /// the start of a daemon, after the materializer's roots hold their digests and before the
-    /// first walk; safe against insertions, which the daemon may be making meanwhile.
-    pub async fn load_stash(&self) -> buck2_error::Result<u64> {
-        let attached = self.attached()?;
-        let stash = &attached.stash;
-        let (interner, counters) = (self.interner, &self.counters);
-        attached
-            .blocking
-            .execute_io_inline(move || {
-                let mut loaded = 0u64;
-                for (digest, record) in stash.load()? {
-                    let size = digest.size();
-                    // Into this store's table, which is the global one everywhere but in tests.
-                    let handle = interner.intern(digest, 0);
-                    if handle.register_stash(record) {
-                        loaded += 1;
-                        counters.entries.fetch_add(1, Ordering::Relaxed);
-                        counters.bytes.fetch_add(size, Ordering::Relaxed);
-                    } else if handle.stash() != Some(record) {
-                        // A duplicate, left by a start that did not get this far; the next
-                        // load gets another try at it.
-                        if let Err(e) = stash.unlink(handle.data(), record) {
-                            tracing::info!(
-                                "Could not remove a duplicate stash file of {}: {e:#}",
-                                handle.data()
-                            );
-                        }
-                    }
-                }
-                Ok(loaded)
-            })
-            .await
-    }
-
     /// Puts the files in the stash as the content of their digests. A digest the stash holds
-    /// already is left alone. Returns once every file is in.
+    /// already, or the CAS is known to, is left alone. Returns once every file is in.
     pub async fn insert_files(&self, files: Vec<FileToInsert>) -> buck2_error::Result<()> {
         let attached = self.attached()?;
-        let (stash, counters) = (&attached.stash, &self.counters);
+        let (stash, counters) = (&attached.stash, &*self.counters);
         attached
             .blocking
             .execute_io_inline(move || {
@@ -358,7 +332,7 @@ impl BlobStore {
         generate: impl FnOnce() -> buck2_error::Result<Vec<(Vec<u8>, bool)>> + Send,
     ) -> buck2_error::Result<Vec<(TrackedFileDigest, bool)>> {
         let attached = self.attached()?;
-        let (stash, counters) = (&attached.stash, &self.counters);
+        let (stash, counters) = (&attached.stash, &*self.counters);
         let config = stash.config;
         attached
             .blocking
@@ -382,7 +356,7 @@ impl BlobStore {
         executable: bool,
     ) -> buck2_error::Result<()> {
         let attached = self.attached()?;
-        let (stash, counters, digest) = (&attached.stash, &self.counters, digest.dupe());
+        let (stash, counters, digest) = (&attached.stash, &*self.counters, digest.dupe());
         attached
             .blocking
             .execute_io_inline(move || {
@@ -393,7 +367,8 @@ impl BlobStore {
 
     /// The whole of an insertion: the file under a name of its own, then the record on the
     /// entry, which is the commit. Whoever finds a record there by then holds a duplicate and
-    /// removes it; nothing else ever has to agree with anything.
+    /// removes it; nothing else ever has to agree with anything. A blob the CAS is known to hold
+    /// is not inserted: the CAS serves it, and the stash holds what the CAS does not.
     fn insert_one(
         stash: &Stash,
         counters: &Counters,
@@ -401,14 +376,13 @@ impl BlobStore {
         executable: bool,
         source: Source,
     ) -> buck2_error::Result<()> {
-        if digest.stash().is_some() {
+        if digest.stash().is_some() || in_cas(digest) {
             return Ok(());
         }
         let record = stash.insert(digest.data(), executable, source)?;
         counters.insertions.fetch_add(1, Ordering::Relaxed);
         if digest.register_stash(record) {
-            counters.entries.fetch_add(1, Ordering::Relaxed);
-            counters.bytes.fetch_add(digest.size(), Ordering::Relaxed);
+            counters.recorded(digest.size());
         } else {
             counters.duplicates.fetch_add(1, Ordering::Relaxed);
             stash.unlink(digest.data(), record)?;
@@ -416,15 +390,14 @@ impl BlobStore {
         Ok(())
     }
 
-    /// Puts each digest's blob at its destination, with the executable bit as asked: a hardlink
-    /// of the stash's file where the filesystem allows one and the mode agrees, else a clone.
-    /// One answer per file, `false` where the stash does not hold the blob.
+    /// Puts each digest's blob at its destination, with the executable bit as asked: a clone of
+    /// the stash's file where the filesystem has them, else a hardlink when the mode agrees, else
+    /// a copy. One answer per file, `false` where the stash does not hold the blob.
     pub async fn materialize(&self, files: Vec<FileToLink>) -> buck2_error::Result<Vec<bool>> {
         let Some(attached) = self.stash.get() else {
             return Ok(vec![false; files.len()]);
         };
-        self.loaded().await;
-        let (stash, counters) = (&attached.stash, &self.counters);
+        let (stash, counters) = (&attached.stash, &*self.counters);
         attached
             .blocking
             .execute_io_inline(move || {
@@ -442,7 +415,9 @@ impl BlobStore {
                             Ok(false) => {
                                 // The file is gone from under the record, which only something
                                 // outside buck2 does; the record goes too, and the CAS is asked.
-                                file.digest.clear_stash(record);
+                                if file.digest.clear_stash(record) {
+                                    counters.forgotten(file.digest.size());
+                                }
                                 Ok(false)
                             }
                             Err(e) => {
@@ -467,70 +442,92 @@ impl BlobStore {
             .await
     }
 
-    /// One walk over the table. For every entry: referenced and CAS-confirmed and expiring soon,
-    /// a handle for the refresher; unreferenced with a stash record, dropped and its file
-    /// unlinked; unreferenced without one, dropped on a scheduled walk and kept on one for the
-    /// stash's sake, since its recorded expiration is the CAS's cache. The refresh only runs on
-    /// a scheduled walk.
-    pub async fn walk(&self, walk: Walk) -> buck2_error::Result<WalkStats> {
-        let deadline = TtlRefresher::deadline(Timestamp::now());
-        let refreshing = walk == Walk::Scheduled && self.refresh.get().is_some();
-        let collecting = self.stash.get().is_some();
+    /// One walk over the table. For every entry: referenced, CAS-confirmed and expiring soon, a
+    /// handle for the refresher; referenced with a stash record although the CAS holds the
+    /// blob, the record goes to the collector; unreferenced, dropped, and its record with it,
+    /// which is the backstop for a last drop the interner's inexact check missed. The refresh
+    /// only runs once the daemon has an RE connection to refresh through.
+    pub async fn walk(&self) -> buck2_error::Result<SweepStats> {
+        let now = Timestamp::now();
+        let deadline = TtlRefresher::deadline(now);
+        let now = now.as_second();
+        let refreshing = self.refresh.get().is_some();
         let interner = self.interner;
         // One walk over the whole table under its shard locks: synchronous work that would stall
         // a runtime worker for as long as the table is large.
-        let (sweep, candidates, mut stats, to_unlink) = tokio::task::spawn_blocking(move || {
-            let mut stats = WalkStats::default();
-            let mut to_unlink: Vec<(FileDigest, StashRecord)> = Vec::new();
-            let (sweep, candidates) = interner.sweep(|entry| {
-                if entry.referenced {
-                    if let Some(_record) = entry.stash {
-                        stats.kept += 1;
-                        stats.kept_bytes += entry.data.size();
-                    }
-                    if refreshing && entry.expires_secs > 0 && entry.expires_secs < deadline {
-                        Verdict::Handle
-                    } else {
-                        Verdict::Keep
-                    }
-                } else {
-                    match (entry.stash, walk) {
-                        (Some(record), _) if collecting => {
-                            to_unlink.push((entry.data.dupe(), record));
-                            Verdict::Drop
-                        }
-                        (Some(_), _) => {
-                            stats.kept += 1;
-                            stats.kept_bytes += entry.data.size();
-                            Verdict::Keep
-                        }
-                        (None, Walk::Scheduled) => Verdict::Drop,
-                        (None, Walk::ForStash) => Verdict::Keep,
-                    }
+        let (sweep, handles) = tokio::task::spawn_blocking(move || {
+            interner.sweep(|entry| {
+                if !entry.referenced {
+                    return Verdict::Drop;
                 }
-            });
-            (sweep, candidates, stats, to_unlink)
+                let in_cas = entry.expires_secs > now;
+                let evict = in_cas && entry.stash.is_some();
+                let refresh = refreshing && entry.expires_secs > 0 && entry.expires_secs < deadline;
+                if evict || refresh {
+                    Verdict::Handle
+                } else {
+                    Verdict::Keep
+                }
+            })
         })
         .await
         .map_err(|e| internal_error!("The BlobStore walk did not complete: {e}"))?;
-        stats.sweep = sweep;
+        let mut candidates = Vec::new();
+        for handle in handles {
+            let expires = handle.expires().map_or(0, |expires| expires.as_second());
+            if handle.stash().is_some() && expires > now {
+                self.interner.evict_stash(&handle);
+            }
+            if refreshing && expires > 0 && expires < deadline {
+                candidates.push(handle);
+            }
+        }
+        if refreshing {
+            self.refresh
+                .get()
+                .expect("refreshing")
+                .pass(sweep, candidates)
+                .await?;
+        }
+        Ok(sweep)
+    }
+}
 
-        if !to_unlink.is_empty() {
-            let attached = self.attached()?;
-            let stash = &attached.stash;
-            let (removed, removed_bytes) = attached
+/// Whether the CAS is known to hold the blob right now.
+fn in_cas(digest: &TrackedFileDigest) -> bool {
+    matches!(digest.expires(), Ok(expires) if expires > Timestamp::now())
+}
+
+/// The collector: unlinks the files of the records the interner hands over, in batches on the
+/// blocking executor, for as long as the store lives.
+async fn collect(
+    mut inbox: mpsc::UnboundedReceiver<Collect>,
+    attached: Arc<AttachedStash>,
+    counters: Arc<Counters>,
+) {
+    let mut batch = Vec::new();
+    while inbox.recv_many(&mut batch, 1024).await > 0 {
+        let mut orphans = Vec::new();
+        let mut flushes = Vec::new();
+        for item in batch.drain(..) {
+            match item {
+                Collect::Orphan(digest, record) => orphans.push((digest, record)),
+                Collect::Flush(done) => flushes.push(done),
+            }
+        }
+        if !orphans.is_empty() {
+            let (stash, counters) = (&attached.stash, &*counters);
+            let unlinked = attached
                 .blocking
                 .execute_io_inline(move || {
-                    let mut removed = 0u64;
-                    let mut removed_bytes = 0u64;
-                    for (digest, record) in to_unlink {
+                    for (digest, record) in orphans {
                         match stash.unlink(&digest, record) {
-                            Ok(()) => {
-                                removed += 1;
-                                removed_bytes += digest.size();
+                            Ok(unlinked) => {
+                                counters.forgotten(digest.size());
+                                if unlinked {
+                                    counters.unlinked(digest.size());
+                                }
                             }
-                            // The entry is gone from the table either way; the file stays for
-                            // the next start's load to find and try again.
                             Err(e) => {
                                 let _ignored = buck2_core::soft_error!(
                                     "blob_store_unlink_failed",
@@ -540,28 +537,67 @@ impl BlobStore {
                             }
                         }
                     }
-                    Ok((removed, removed_bytes))
+                    Ok(())
                 })
-                .await?;
-            stats.removed = removed;
-            stats.removed_bytes = removed_bytes;
+                .await;
+            if let Err(e) = unlinked {
+                let _ignored = buck2_core::soft_error!("blob_store_unlink_failed", e, quiet: true);
+            }
         }
-        self.counters.entries.store(stats.kept, Ordering::Relaxed);
-        self.counters
-            .bytes
-            .store(stats.kept_bytes, Ordering::Relaxed);
-        self.counters
-            .removed_bytes
-            .fetch_add(stats.removed_bytes, Ordering::Relaxed);
+        for done in flushes {
+            let _ignored = done.send(());
+        }
+    }
+}
 
-        if refreshing {
-            self.refresh
-                .get()
-                .expect("refreshing")
-                .pass(sweep, candidates)
-                .await?;
+/// The directory next to a stash that its previous contents are moved into, to be removed.
+const TRASH: &str = "stash.trash";
+
+/// Moves what is at `root`, the stash a previous daemon left, aside and removes it in the
+/// background: nothing refers to it any more (plan-blobstore.md §2). For the daemon that goes on
+/// to attach the directory and for one that runs without a stash alike; a start that dies before
+/// the removal is done leaves the rest for the next. A failure is reported and costs disk, not
+/// the build. Must be called from within a tokio runtime.
+pub fn discard_stash(root: &AbsNormPath, blocking: Arc<dyn BlockingExecutor>) {
+    let Some(parent) = root.parent() else {
+        return;
+    };
+    let trash = parent.join(ForwardRelativePath::unchecked_new(TRASH));
+    let moved = (|| -> buck2_error::Result<bool> {
+        if fs_util::try_exists(root)? {
+            fs_util::create_dir_all(&trash)?;
+            let aside = trash.join(ForwardRelativePathBuf::unchecked_new(format!(
+                "{:x}",
+                RandomState::new().hash_one(0u64)
+            )));
+            fs_util::rename(root, &aside)?;
+            return Ok(true);
         }
-        Ok(stats)
+        fs_util::try_exists(&trash)
+    })();
+    match moved {
+        Ok(false) => {}
+        Ok(true) => {
+            tokio::spawn(async move {
+                let removed = blocking
+                    .execute_io_inline(move || fs_util::remove_all(&trash))
+                    .await;
+                if let Err(e) = removed {
+                    let _ignored = buck2_core::soft_error!(
+                        "blob_store_stash_removal_failed",
+                        e.context("Removing a previous daemon's stash"),
+                        quiet: true
+                    );
+                }
+            });
+        }
+        Err(e) => {
+            let _ignored = buck2_core::soft_error!(
+                "blob_store_stash_removal_failed",
+                e.context("Discarding a previous daemon's stash"),
+                quiet: true
+            );
+        }
     }
 }
 
@@ -576,51 +612,39 @@ enum Source {
 /// The directory: CASd's layout, `<algo>/<h0h1>/<h2h3>/<rest>.<size>[_non_exec].<nonce>`, so
 /// that no directory grows large and so that the store can follow CASd if it changes its mind.
 /// Every insertion writes a file of its own, named by a nonce, so that no two insertions and no
-/// insertion and removal ever touch one name; the mode is in the name so that the load can tell
-/// it without a stat. A file is written as a temporary and renamed into place, so that a name
-/// without the temporary suffix is a complete file, and it is never modified after that. There
-/// is no index: the table records which file holds a digest.
+/// insertion and removal ever touch one name; the mode is in the name because a hardlink shares
+/// it. A file is never modified once written, and nothing reads a name the table does not
+/// record, so a file is in the stash exactly from its record on; a crash before that leaves a
+/// file the next daemon's start discards (`discard_stash`).
 #[derive(Allocative)]
 struct Stash {
     root: AbsNormPathBuf,
     #[allocative(skip)]
     config: CasDigestConfig,
-    /// This process's id, the upper half of every nonce it makes, so that no two processes that
-    /// ever wrote to the directory agree on a name, and so that a load knows this process's
-    /// temporaries from the dead's.
-    pid: u64,
-    /// The lower half of the next nonce, started at random so that a later process given the
-    /// same id does not retrace this one's names.
+    /// This stash's id, the upper half of every nonce it makes, by which the interner tells its
+    /// records from another stash's in the same table (tests have several).
+    id: u32,
+    /// The lower half of the next nonce, started at random.
     next_nonce: AtomicU64,
 }
 
 const NON_EXECUTABLE: &str = "_non_exec";
-const TEMPORARY: &str = ".tmp";
 
 impl Stash {
     fn new(root: AbsNormPathBuf, config: CasDigestConfig) -> Self {
         Self {
             root,
             config,
-            pid: std::process::id() as u64 & 0x3fff_ffff,
+            id: (RandomState::new().hash_one(1u64) as u32 & 0x3fff_fffe) + 1,
             next_nonce: AtomicU64::new(RandomState::new().hash_one(0u64)),
         }
     }
 
-    /// A nonce no insertion by any process has used: nonzero and below 2^62, as the record wants.
+    /// A nonce no insertion by this stash has used: nonzero and below 2^62, as the record wants,
+    /// with the stash's id in its upper half.
     fn nonce(&self) -> u64 {
-        loop {
-            let low = self.next_nonce.fetch_add(1, Ordering::Relaxed) as u32;
-            let nonce = (self.pid << 32) | u64::from(low);
-            if nonce != 0 {
-                return nonce;
-            }
-        }
-    }
-
-    /// Whether this process made the record's nonce.
-    fn owns(&self, record: StashRecord) -> bool {
-        record.nonce >> 32 == self.pid
+        let low = self.next_nonce.fetch_add(1, Ordering::Relaxed) as u32;
+        (u64::from(self.id) << 32) | u64::from(low)
     }
 
     fn file(&self, digest: &FileDigest, record: StashRecord) -> AbsNormPathBuf {
@@ -642,36 +666,31 @@ impl Stash {
             .parent()
             .internal_error("an entry has a leaf directory")?;
         fs_util::create_dir_all(leaf)?;
-        let temporary = AbsNormPathBuf::new(file.as_path().with_extension(format!(
-            "{}{TEMPORARY}",
-            file.extension().and_then(|e| e.to_str()).unwrap_or("")
-        )))?;
         let made_a_file = match source {
             Source::Path {
                 path,
                 origin: Origin::BuckOut,
-            } => fs_util::reflink_or_hardlink_or_copy(&path, &temporary)? != Linked::Hardlinked,
+            } => fs_util::reflink_or_hardlink_or_copy(&path, &file)? != Linked::Hardlinked,
             Source::Path {
                 path,
                 origin: Origin::Source,
             } => {
-                fs_util::reflink_or_copy(&path, &temporary)?;
-                if let Err(e) = self.verify(&temporary, digest) {
-                    let _ignored = fs_util::remove_file(&temporary);
+                fs_util::reflink_or_copy(&path, &file)?;
+                if let Err(e) = self.verify(&file, digest) {
+                    let _ignored = fs_util::remove_file(&file);
                     return Err(e);
                 }
                 true
             }
             Source::Bytes(content) => {
-                fs_util::write(&temporary, content)?;
+                fs_util::write(&file, content)?;
                 true
             }
         };
         // A hardlink is the source's inode, mode included; the other legs made a new file.
         if made_a_file {
-            fs_util::set_executable(&temporary, executable)?;
+            fs_util::set_executable(&file, executable)?;
         }
-        fs_util::rename(&temporary, &file)?;
         Ok(record)
     }
 
@@ -703,78 +722,14 @@ impl Stash {
         Ok(true)
     }
 
-    fn unlink(&self, digest: &FileDigest, record: StashRecord) -> buck2_error::Result<()> {
-        fs_util::remove_file(self.file(digest, record))
-    }
-
-    /// Every complete file, a digest's duplicates included: which of them a digest is recorded
-    /// under is the table's to settle. Temporaries of other processes are removed, since those
-    /// processes are gone or never finished; this process's are insertions under way.
-    fn load(&self) -> buck2_error::Result<Vec<(FileDigest, StashRecord)>> {
-        let mut entries = Vec::new();
-        for (leaf, algorithm, prefix) in self.leaves()? {
-            let Some(names) = fs_util::read_dir_if_exists(&leaf)? else {
-                continue;
-            };
-            for name in names {
-                let name = name.buck_error_context("Reading a stash directory")?;
-                let name = name.file_name();
-                let Some(name) = name.to_str() else {
-                    continue;
-                };
-                match parse_file_name(&algorithm, &prefix, name) {
-                    Parsed::Entry(digest, record) => entries.push((digest, record)),
-                    Parsed::Temporary(record) if !self.owns(record) => {
-                        let path =
-                            leaf.join(ForwardRelativePathBuf::unchecked_new(name.to_owned()));
-                        // The next load gets another try.
-                        if let Err(e) = fs_util::remove_file(&path) {
-                            tracing::info!("Could not remove the stash temporary {path}: {e:#}");
-                        }
-                    }
-                    Parsed::Temporary(_) | Parsed::Other => {}
-                }
-            }
+    /// Removes the recorded file; `Ok(false)` when it is not there.
+    fn unlink(&self, digest: &FileDigest, record: StashRecord) -> buck2_error::Result<bool> {
+        let file = self.file(digest, record);
+        if !fs_util::try_exists(&file)? {
+            return Ok(false);
         }
-        Ok(entries)
-    }
-
-    /// The leaf directories: `<algo>/<h0h1>/<h2h3>`, with the algorithm and the four hex
-    /// characters each one stands for.
-    fn leaves(&self) -> buck2_error::Result<Vec<(AbsNormPathBuf, String, String)>> {
-        let mut leaves = Vec::new();
-        let Some(algorithms) = fs_util::read_dir_if_exists(&self.root)? else {
-            return Ok(leaves);
-        };
-        for algorithm in algorithms {
-            let algorithm = algorithm.buck_error_context("Reading the stash")?;
-            let Some(algorithm_name) = directory_name(&algorithm) else {
-                continue;
-            };
-            let algorithm_dir = self.root.join(ForwardRelativePathBuf::unchecked_new(
-                algorithm_name.clone(),
-            ));
-            for first in fs_util::read_dir(&algorithm_dir)? {
-                let first = first.buck_error_context("Reading the stash")?;
-                let Some(first_name) = directory_name(&first) else {
-                    continue;
-                };
-                let first_dir =
-                    algorithm_dir.join(ForwardRelativePathBuf::unchecked_new(first_name.clone()));
-                for second in fs_util::read_dir(&first_dir)? {
-                    let second = second.buck_error_context("Reading the stash")?;
-                    let Some(second_name) = directory_name(&second) else {
-                        continue;
-                    };
-                    leaves.push((
-                        first_dir.join(ForwardRelativePathBuf::unchecked_new(second_name.clone())),
-                        algorithm_name.clone(),
-                        format!("{first_name}{second_name}"),
-                    ));
-                }
-            }
-        }
-        Ok(leaves)
+        fs_util::remove_file(&file)?;
+        Ok(true)
     }
 
     fn verify(&self, path: &AbsNormPath, expected: &FileDigest) -> buck2_error::Result<()> {
@@ -821,64 +776,6 @@ fn file_name(digest: &FileDigest, record: StashRecord) -> ForwardRelativePathBuf
         },
         record.nonce,
     ))
-}
-
-enum Parsed {
-    Entry(FileDigest, StashRecord),
-    /// An insertion's file before its rename, by the record it was to get.
-    Temporary(StashRecord),
-    Other,
-}
-
-/// What a leaf file's name stands for, given its algorithm directory and the four hex characters
-/// of the directories above it.
-fn parse_file_name(algorithm: &str, prefix: &str, name: &str) -> Parsed {
-    if let Some(name) = name.strip_suffix(TEMPORARY) {
-        return match parse_file_name(algorithm, prefix, name) {
-            Parsed::Entry(_, record) => Parsed::Temporary(record),
-            Parsed::Temporary(_) | Parsed::Other => Parsed::Other,
-        };
-    }
-    let Some((name, nonce)) = name.rsplit_once('.') else {
-        return Parsed::Other;
-    };
-    let Ok(nonce) = u64::from_str_radix(nonce, 16) else {
-        return Parsed::Other;
-    };
-    let (name, executable) = match name.strip_suffix(NON_EXECUTABLE) {
-        Some(name) => (name, false),
-        None => (name, true),
-    };
-    let Some((rest, size)) = name.rsplit_once('.') else {
-        return Parsed::Other;
-    };
-    let Ok(size) = size.parse::<u64>() else {
-        return Parsed::Other;
-    };
-    let hex = format!("{prefix}{rest}");
-    let raw = match algorithm {
-        "sha1" => RawDigest::parse_sha1(hex.as_bytes()),
-        "sha256" => RawDigest::parse_sha256(hex.as_bytes()),
-        "blake3" => RawDigest::parse_blake3(hex.as_bytes()),
-        "keyed_blake3" => RawDigest::parse_blake3_keyed(hex.as_bytes()),
-        _ => return Parsed::Other,
-    };
-    match raw {
-        Ok(raw) if nonce != 0 && nonce < 1 << 62 => Parsed::Entry(
-            FileDigest::new(raw, size),
-            StashRecord { nonce, executable },
-        ),
-        _ => Parsed::Other,
-    }
-}
-
-/// The name of a directory entry that is a directory, which is the only kind the levels above
-/// the leaves hold; anything else there is not the store's and is left alone.
-fn directory_name(entry: &std::fs::DirEntry) -> Option<String> {
-    if !entry.file_type().ok()?.is_dir() {
-        return None;
-    }
-    entry.file_name().to_str().map(str::to_owned)
 }
 
 #[cfg(test)]
@@ -975,7 +872,7 @@ mod tests {
             .map(|entries| {
                 entries
                     .map(|e| e.unwrap().file_name().to_str().unwrap().to_owned())
-                    .filter(|name| name.starts_with(&hex[4..]) && !name.ends_with(TEMPORARY))
+                    .filter(|name| name.starts_with(&hex[4..]))
                     .collect()
             })
             .unwrap_or_default();
@@ -984,7 +881,7 @@ mod tests {
     }
 
     #[test]
-    fn test_file_names_round_trip_in_casd_s_layout() {
+    fn test_file_names_follow_casd_s_layout() {
         let digest = FileDigest::new(
             RawDigest::parse_sha1(b"6bf21a57b4cd6e4d4b2577b7597849edb04b12f2").unwrap(),
             7,
@@ -1005,22 +902,6 @@ mod tests {
             file_name(&digest, exec).as_str(),
             "sha1/6b/f2/1a57b4cd6e4d4b2577b7597849edb04b12f2.7.ab"
         );
-        assert!(matches!(
-            parse_file_name("sha1", "6bf2", "1a57b4cd6e4d4b2577b7597849edb04b12f2.7_non_exec.ab"),
-            Parsed::Entry(d, r) if d == digest && r == record
-        ));
-        assert!(matches!(
-            parse_file_name(
-                "sha1",
-                "6bf2",
-                "1a57b4cd6e4d4b2577b7597849edb04b12f2.7.ab.tmp"
-            ),
-            Parsed::Temporary(r) if r == exec
-        ));
-        assert!(matches!(
-            parse_file_name("sha1", "6bf2", "1a57b4cd6e4d4b2577b7597849edb04b12f2.7"),
-            Parsed::Other
-        ));
     }
 
     #[tokio::test]
@@ -1117,121 +998,173 @@ mod tests {
         Ok(())
     }
 
+    /// The walk drops what nothing holds, and the records of the entries it drops go to the
+    /// collector; a record the CAS makes unnecessary goes too, at the confirmation or, if it
+    /// slipped in after it, at the walk.
     #[tokio::test]
-    async fn test_a_walk_collects_what_nothing_holds_and_keeps_the_rest() -> buck2_error::Result<()>
+    async fn test_a_walk_drops_what_nothing_holds_and_what_the_cas_has() -> buck2_error::Result<()>
     {
         let temp = ProjectRootTemp::new()?;
         let (store, table) = store(temp.path());
         let held = table.intern(digest(b"held content"), 0);
         let dropped = table.intern(digest(b"dropped content"), 0);
+        let confirmed = table.intern(digest(b"confirmed content"), 0);
         store
             .insert_bytes(b"held content".to_vec(), &held, false)
             .await?;
         store
             .insert_bytes(b"dropped content".to_vec(), &dropped, true)
             .await?;
+        store
+            .insert_bytes(b"confirmed content".to_vec(), &confirmed, false)
+            .await?;
+        assert_eq!((store.stats().entries, store.stats().bytes), (3, 44));
+        // Handles of a private table drop through the global interner, which does not know them,
+        // so this entry is the walk's to drop, as one the drop-side check missed would be.
         let dropped_data = dropped.data().dupe();
         drop(dropped);
-        // An unreferenced CAS-confirmed entry: the stash's walk leaves it, the scheduled one not.
-        let confirmed = digest(b"confirmed");
-        drop(table.intern(
-            confirmed.dupe(),
-            (Timestamp::now() + SignedDuration::from_hours(4)).as_second(),
-        ));
+        // The CAS turns out to hold the third, as a presence check would tell this table.
+        let in_four_hours = (Timestamp::now() + SignedDuration::from_hours(4)).as_second();
+        drop(table.intern(confirmed.data().dupe(), in_four_hours));
+        store.flush_collector().await;
+        assert_eq!(confirmed.stash(), None);
+        assert_eq!(files_of(&store, confirmed.data()), Vec::<String>::new());
+        // A record that arrives after the confirmation, which an insertion racing it can leave.
+        let stash = &store.stash.get().unwrap().stash;
+        let late = stash.insert(
+            confirmed.data(),
+            false,
+            Source::Bytes(b"confirmed content".to_vec()),
+        )?;
+        assert!(confirmed.register_stash(late));
+        store.counters.recorded(confirmed.size());
 
-        let stats = store.walk(Walk::ForStash).await?;
-        assert_eq!(
-            (
-                stats.kept,
-                stats.kept_bytes,
-                stats.removed,
-                stats.removed_bytes
-            ),
-            (1, 12, 1, 15)
-        );
-        assert_eq!(files_of(&store, held.data()).len(), 1);
-        assert_eq!(files_of(&store, &dropped_data), Vec::<String>::new());
+        let sweep = store.walk().await?;
+        store.flush_collector().await;
+        assert_eq!(sweep.swept, 1);
         assert!(table.peek(&dropped_data).is_none());
-        assert!(
-            table.peek(&confirmed).is_some(),
-            "the CAS's cache is not the stash's to drop"
-        );
+        assert_eq!(files_of(&store, &dropped_data), Vec::<String>::new());
+        assert_eq!(confirmed.stash(), None);
+        assert_eq!(files_of(&store, confirmed.data()), Vec::<String>::new());
+        assert_eq!(files_of(&store, held.data()).len(), 1);
         assert_eq!((store.stats().entries, store.stats().bytes), (1, 12));
-
-        let stats = store.walk(Walk::Scheduled).await?;
-        assert!(table.peek(&confirmed).is_none());
-        assert_eq!(stats.removed, 0);
-
-        drop(held);
-        let stats = store.walk(Walk::ForStash).await?;
-        assert_eq!(stats.removed, 1);
-        assert_eq!((store.stats().entries, store.stats().bytes), (0, 0));
+        assert_eq!(store.stats().removed_bytes, 15 + 17 + 17);
         Ok(())
     }
 
+    /// Attaching starts the stash empty: a previous daemon's files are moved aside, since nothing
+    /// refers to them any more, and removed in the background.
     #[tokio::test]
-    async fn test_the_load_records_what_the_directory_holds_once() -> buck2_error::Result<()> {
+    async fn test_attaching_discards_what_a_previous_daemon_left() -> buck2_error::Result<()> {
         let temp = ProjectRootTemp::new()?;
         let (first, table) = store(temp.path());
-        let digest = table.intern(digest(b"kept across"), 0);
+        let left = table.intern(digest(b"left behind"), 0);
         first
-            .insert_bytes(b"kept across".to_vec(), &digest, true)
+            .insert_bytes(b"left behind".to_vec(), &left, true)
             .await?;
-        // A duplicate from a race, and two temporaries: one of a process that is gone, one of
-        // an insertion this process has under way.
-        let stash = &first.stash.get().unwrap().stash;
-        stash.insert(digest.data(), true, Source::Bytes(b"kept across".to_vec()))?;
-        let foreign = StashRecord {
-            nonce: (0x1234 << 32) | 1,
-            executable: true,
-        };
-        let ours = StashRecord {
-            nonce: stash.nonce(),
-            executable: true,
-        };
-        let dead = temporary_of(&stash.file(digest.data(), foreign))?;
-        let live = temporary_of(&stash.file(digest.data(), ours))?;
-        fs_util::write(&dead, b"")?;
-        fs_util::write(&live, b"")?;
-        assert_eq!(files_of(&first, digest.data()).len(), 2);
+        let root = temp
+            .path()
+            .root()
+            .join(ForwardRelativePath::unchecked_new("stash"));
+        let file = first
+            .stash
+            .get()
+            .unwrap()
+            .stash
+            .file(left.data(), left.stash().unwrap());
+        assert!(fs_util::try_exists(&file)?);
 
-        // A new process, as far as the table goes: nothing recorded, the directory as it was
-        // left. The process id is still this one's, so the live temporary is kept.
+        // A new daemon as far as the directory goes: the same root, a table recording nothing.
         let (second, table) = store(temp.path());
-        assert_eq!(second.load_stash().await?, 1);
-        assert_eq!(files_of(&second, digest.data()).len(), 1);
-        assert!(!fs_util::try_exists(&dead)?);
-        assert!(fs_util::try_exists(&live)?);
-        let entry = table.peek(digest.data()).expect("loaded and pinned");
-        assert!(!entry.referenced);
-        assert!(entry.stash.is_some());
-
-        // Held again by something, it comes out of the stash.
-        let digest = table.intern(digest.data().dupe(), 0);
+        assert!(!fs_util::try_exists(&file)?);
+        assert!(!fs_util::try_exists(&root)?);
+        let left = table.intern(left.data().dupe(), 0);
         let dest = scratch(temp.path(), "dest");
-        assert!(materialize_one(&second, &digest, true, &dest).await?);
-        assert_eq!(fs_util::read_to_string(&dest)?, "kept across");
-
-        // A load that runs after an insertion recorded the very file it finds leaves it alone,
-        // and removes an older file of the digest that a start never got to record.
-        let recorded = digest.stash().expect("recorded by the load");
-        let stash = &second.stash.get().unwrap().stash;
-        let orphan = StashRecord {
-            nonce: (0x1234 << 32) | 2,
-            executable: true,
-        };
-        fs_util::write(&stash.file(digest.data(), orphan), b"kept across")?;
-        assert_eq!(files_of(&second, digest.data()).len(), 2);
-        assert_eq!(second.load_stash().await?, 0);
-        assert_eq!(files_of(&second, digest.data()).len(), 1);
-        assert_eq!(digest.stash(), Some(recorded));
-        assert!(fs_util::try_exists(&stash.file(digest.data(), recorded))?);
+        assert!(!materialize_one(&second, &left, true, &dest).await?);
+        assert_eq!((second.stats().entries, second.stats().bytes), (0, 0));
         Ok(())
     }
 
-    /// The name an insertion writes under before its rename.
-    fn temporary_of(file: &AbsNormPath) -> buck2_error::Result<AbsNormPathBuf> {
-        AbsNormPathBuf::new(std::path::PathBuf::from(format!("{file}{TEMPORARY}")))
+    /// A store over the process's table, whose handles' drops reach the table, with a stash
+    /// under the project root. The content such a test uses is its own, so that nothing else
+    /// in the binary holds the digests.
+    fn store_over_global(fs: &ProjectRoot) -> BlobStore {
+        let store = BlobStore::new(file_digest_interner());
+        assert!(store.attach_stash(
+            fs.root().join(ForwardRelativePath::unchecked_new("stash")),
+            config(),
+            Arc::new(DummyBlockingExecutor { fs: fs.dupe() }),
+        ));
+        store
+    }
+
+    /// The last handle takes the stash's file with it.
+    #[tokio::test]
+    async fn test_the_last_handle_takes_the_stash_file_with_it() -> buck2_error::Result<()> {
+        let temp = ProjectRootTemp::new()?;
+        let store = store_over_global(temp.path());
+        let content = b"blob_store test: held until its last handle drops";
+        let handle = TrackedFileDigest::from_content(content, config());
+        store.insert_bytes(content.to_vec(), &handle, false).await?;
+        let file = store
+            .stash
+            .get()
+            .unwrap()
+            .stash
+            .file(handle.data(), handle.stash().unwrap());
+        assert!(fs_util::try_exists(&file)?);
+
+        // A second handle keeps it.
+        let again = TrackedFileDigest::from_content(content, config());
+        drop(handle);
+        store.flush_collector().await;
+        assert!(fs_util::try_exists(&file)?);
+        assert!(again.stash().is_some());
+
+        drop(again);
+        store.flush_collector().await;
+        assert!(!fs_util::try_exists(&file)?);
+        assert_eq!((store.stats().entries, store.stats().bytes), (0, 0));
+        assert_eq!(store.stats().removed_bytes, content.len() as u64);
+        Ok(())
+    }
+
+    /// A blob the CAS is known to hold is not inserted, and one the CAS turns out to hold leaves.
+    #[tokio::test]
+    async fn test_what_the_cas_holds_is_not_the_stash_s() -> buck2_error::Result<()> {
+        let temp = ProjectRootTemp::new()?;
+        let store = store_over_global(temp.path());
+        let in_four_hours = Timestamp::now() + SignedDuration::from_hours(4);
+
+        let known_content = b"blob_store test: in the CAS already";
+        let known = TrackedFileDigest::new_expires(
+            FileDigest::from_content(known_content, config()),
+            in_four_hours,
+            config(),
+        );
+        store
+            .insert_bytes(known_content.to_vec(), &known, false)
+            .await?;
+        assert_eq!(known.stash(), None);
+        assert_eq!(store.stats().insertions, 0);
+
+        let later_content = b"blob_store test: in the CAS later";
+        let later = TrackedFileDigest::from_content(later_content, config());
+        store
+            .insert_bytes(later_content.to_vec(), &later, false)
+            .await?;
+        let file = store
+            .stash
+            .get()
+            .unwrap()
+            .stash
+            .file(later.data(), later.stash().unwrap());
+        later.update_expires(in_four_hours);
+        store.flush_collector().await;
+        assert_eq!(later.stash(), None);
+        assert!(!fs_util::try_exists(&file)?);
+        assert_eq!((store.stats().entries, store.stats().bytes), (0, 0));
+        Ok(())
     }
 
     #[tokio::test]
@@ -1252,19 +1185,20 @@ mod tests {
     }
 
     #[test]
-    fn test_nonces_are_this_process_s_and_never_repeat() {
+    fn test_nonces_carry_the_stash_s_id_and_never_repeat() {
         let stash = Stash::new(AbsNormPathBuf::new(std::env::temp_dir()).unwrap(), config());
         let (a, b) = (stash.nonce(), stash.nonce());
         assert_ne!(a, b);
         assert!(a != 0 && a < 1 << 62);
-        assert!(stash.owns(StashRecord {
-            nonce: a,
-            executable: false
-        }));
-        assert!(!stash.owns(StashRecord {
-            nonce: (0x1234 << 32) | 1,
-            executable: false
-        }));
+        assert_ne!(stash.id, 0);
+        assert_eq!(
+            StashRecord {
+                nonce: a,
+                executable: false
+            }
+            .stash_id(),
+            stash.id
+        );
     }
 
     // The refresh side of the walk, with a CAS that answers as the test says.
@@ -1379,7 +1313,7 @@ mod tests {
         let gone_handle = table.intern(gone.dupe(), in_ten_minutes);
         assert_eq!(table.stats().entries, 5);
 
-        store.walk(Walk::Scheduled).await.unwrap();
+        store.walk().await.unwrap();
 
         let mut expected = vec![soon.dupe(), gone.dupe()];
         expected.sort();
@@ -1423,7 +1357,7 @@ mod tests {
         let before = (now + SignedDuration::from_mins(10)).as_second();
         let handle = table.intern(data.dupe(), before);
 
-        assert!(store.walk(Walk::Scheduled).await.is_err());
+        assert!(store.walk().await.is_err());
         assert_eq!(stub.asked(), vec![data]);
         assert_eq!(handle.expires().unwrap().as_second(), before);
 
@@ -1453,7 +1387,7 @@ mod tests {
         let _failing_handle = table.intern(failing.dupe(), before);
         let fine_handle = table.intern(fine.dupe(), before);
 
-        let result = store.walk(Walk::Scheduled).await;
+        let result = store.walk().await;
         assert!(result.is_err());
         assert!(
             format!("{:#}", result.unwrap_err()).contains("1 of 2 presence checks failed"),

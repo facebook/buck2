@@ -26,9 +26,6 @@
 //! after an upload that a presence check has confirmed.
 
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use buck2_common::file_ops::metadata::FileType;
@@ -47,7 +44,6 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::blob_store::BlobStore;
-use buck2_execute::blob_store::Walk;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
@@ -126,16 +122,9 @@ pub(crate) struct Cleaner<T> {
     gate: Arc<BackgroundCleanupGate>,
     /// The liveliness of the run in progress. Dropping it interrupts the run between paths.
     running: Mutex<Option<LivelinessGuard>>,
+    /// Where a tracked file's CAS expiration is looked up, the tree holding plain digests.
     store: &'static BlobStore,
-    /// The store's bytes at which an insertion starts the next walk, and whether one it started
-    /// is still running.
-    store_sweep_at: AtomicU64,
-    store_walk_running: AtomicBool,
 }
-
-/// The store's bytes above which an insertion starts a sweep, so that what churn strands between
-/// scheduled cleans is bounded (plan-blobstore.md §6, OQ-GC-PROMPTNESS).
-const STORE_SWEEP_THRESHOLD_BYTES: u64 = 8 << 30;
 
 impl<T: IoHandler> Cleaner<T> {
     pub(crate) fn new(
@@ -162,47 +151,7 @@ impl<T: IoHandler> Cleaner<T> {
             gate: Arc::new(BackgroundCleanupGate::default()),
             running: Mutex::new(None),
             store,
-            store_sweep_at: AtomicU64::new(STORE_SWEEP_THRESHOLD_BYTES),
-            store_walk_running: AtomicBool::new(false),
         })
-    }
-
-    /// A walk of the store for the stash's sake: what nothing holds goes (plan-blobstore.md §6).
-    /// Runs after every clean and when an insertion takes the stash past the next sweep point,
-    /// which every walk sets to twice what the store held after it, no lower than
-    /// `STORE_SWEEP_THRESHOLD_BYTES`, so that a store that is mostly held does not walk on
-    /// every report. The daemon runs the first walk, after the load.
-    pub(crate) async fn walk_store(&self) {
-        match self.store.walk(Walk::ForStash).await {
-            Ok(stats) => tracing::debug!(
-                "Walked the store for the stash: kept {} entries ({} bytes), removed {} ({} bytes)",
-                stats.kept,
-                stats.kept_bytes,
-                stats.removed,
-                stats.removed_bytes
-            ),
-            Err(e) => {
-                let _ignored = soft_error!("blob_store_walk_failed", e, quiet: true);
-            }
-        }
-        let held = self.store.stats().bytes;
-        self.store_sweep_at.store(
-            STORE_SWEEP_THRESHOLD_BYTES.max(held.saturating_mul(2)),
-            Ordering::Relaxed,
-        );
-    }
-
-    pub(crate) fn sweep_store_if_full(self: &Arc<Self>) {
-        if self.store.stats().bytes < self.store_sweep_at.load(Ordering::Relaxed)
-            || self.store_walk_running.swap(true, Ordering::AcqRel)
-        {
-            return;
-        }
-        let cleaner = self.dupe();
-        tokio::spawn(async move {
-            cleaner.walk_store().await;
-            cleaner.store_walk_running.store(false, Ordering::Release);
-        });
     }
 
     /// Runs the configured clean on the configured schedule, for as long as the materializer
@@ -297,7 +246,6 @@ impl<T: IoHandler> Cleaner<T> {
             let observer = cleaner.begin();
             let result = cleaner.dupe().run_inner(command.clone(), observer).await;
             cleaner.interrupt();
-            cleaner.walk_store().await;
             let trace_id = match command.trigger {
                 Trigger::Scheduled => None,
                 _ => Some(command.dispatcher.trace_id().dupe()),
@@ -878,7 +826,6 @@ struct Rules {
     keep_since_time: Timestamp,
     rematerialization_deadline: Timestamp,
     upload_enabled: bool,
-    /// Where a tracked file's CAS expiration is looked up, the tree holding plain digests.
     store: &'static BlobStore,
 }
 

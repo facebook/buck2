@@ -1372,9 +1372,9 @@ message Snapshot {
   uint64 deferred_materializer_declares_reused = 201;
   uint64 deferred_materializer_final_output_logical_bytes = 202;
   uint64 deferred_materializer_intermediate_only_logical_bytes = 203;
-  // The BlobStore's directory: entries and bytes as the daemon counts them, the
-  // bytes its sweeps have removed and the files it has put at their
-  // destinations since it started.
+  // The BlobStore's stash: the files in it and their bytes, the bytes it has
+  // unlinked and the files it has put at their destinations since the daemon
+  // started.
   uint64 blob_store_entries = 204;
   uint64 blob_store_bytes = 205;
   uint64 blob_store_removed_bytes = 206;

@@ -9,8 +9,8 @@
  */
 
 //! Deduplication of tracked digests by value, so that one blob's digest is one allocation and
-//! one record of where the blob is, however many holders it has: the CAS, until a recorded
-//! expiration, and the stash, under a recorded entry.
+//! one record of where the blob is, however many holders it has: in the CAS until a recorded
+//! expiration, and in the stash under a recorded entry, for as long as a holder remains.
 
 use std::borrow::Borrow;
 use std::fmt;
@@ -33,6 +33,7 @@ use pagable::arc_erase::ArcEraseType;
 use pagable::arc_erase::ArcSerializeOutcome;
 use pagable::arc_erase::StdArcEraseType;
 use pagable::arc_erase::deserialize_arc;
+use parking_lot::RwLock;
 use strong_hash::StrongHash;
 use triomphe::Arc;
 
@@ -61,11 +62,12 @@ pub fn file_digest_interner_stats() -> DigestInternerStats {
 struct TrackedFileDigestInner {
     data: FileDigest,
     /// Seconds since the unix epoch at which the CAS last told us this blob expires; the epoch
-    /// itself means the CAS has never been asked. A positive value is one of the two pins: see
+    /// itself means the CAS has never been asked. A positive value pins the entry: see
     /// [`DigestInterner`].
     expires: AtomicI64,
     /// The stash entry holding this blob, as [`StashRecord`] packs it; zero when there is none.
-    /// The other pin. Signed only because that is what pages know how to carry.
+    /// No pin: it leaves with the entry, or sooner, and is the stash's to collect then. Signed
+    /// only because that is what pages know how to carry.
     stash: AtomicI64,
 }
 
@@ -83,10 +85,14 @@ impl TrackedFileDigestInner {
         self.expires.load(Ordering::Relaxed) > 0
     }
 
-    /// Whether the entry stays past its last handle: it does while something records where the
-    /// blob is.
+    /// Whether the entry stays past its last handle: it does while a CAS expiration is recorded.
     fn is_pinned(&self) -> bool {
-        self.has_expiry() || self.stash.load(Ordering::Relaxed) != 0
+        self.has_expiry()
+    }
+
+    /// Takes the stash record off the entry, if there is one: for the stash's collector.
+    fn take_stash(&self) -> Option<StashRecord> {
+        StashRecord::unpack(self.stash.swap(0, Ordering::AcqRel))
     }
 
     /// Extends the recorded expiration to `expires` if that is later. Returns whether the entry
@@ -132,12 +138,17 @@ impl TrackedFileDigestInner {
 /// digest's entry, so that recording it is one atomic step: the step that commits an insertion.
 #[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
 pub struct StashRecord {
-    /// Never zero, and below 2^62.
+    /// Never zero, and below 2^62. The upper half is the id of the stash that made it, by which
+    /// the stash's collector knows its own records.
     pub nonce: u64,
     pub executable: bool,
 }
 
 impl StashRecord {
+    pub fn stash_id(self) -> u32 {
+        (self.nonce >> 32) as u32
+    }
+
     fn pack(self) -> i64 {
         debug_assert!(self.nonce != 0 && self.nonce < 1 << 62);
         ((self.nonce << 1) | self.executable as u64) as i64
@@ -367,11 +378,12 @@ impl TrackedFileDigest {
     /// digest. Reports that the blob is alive only ever extend the recorded expiration; a report
     /// that it has already expired replaces it.
     pub fn update_expires(&self, time: jiff::Timestamp) {
-        if self
-            .inner
-            .record_expires(time.as_second(), jiff::Timestamp::now().as_second())
-        {
+        let now = jiff::Timestamp::now().as_second();
+        if self.inner.record_expires(time.as_second(), now) {
             FILE_DIGEST_INTERNER.pinned.fetch_add(1, Ordering::Relaxed);
+        }
+        if time.as_second() > now {
+            FILE_DIGEST_INTERNER.evict_stash_of(&self.inner);
         }
     }
 
@@ -382,8 +394,10 @@ impl TrackedFileDigest {
 
     /// Records that `record` holds this blob, for every holder of the digest, unless an entry is
     /// recorded already, in which case the caller's is a duplicate. Returns whether it was
-    /// recorded. A recorded entry pins the digest's table entry past its last handle, until a
-    /// sweep drops it, which is how the stash's collection works off the table.
+    /// recorded. The record lives at most as long as the table's entry: when the last handle
+    /// goes, or the CAS turns out to hold the blob, the record is handed to the stash's collector
+    /// ([`DigestInterner::add_stash_collector`]), which is how the stash holds what live values
+    /// hold and nothing else.
     pub fn register_stash(&self, record: StashRecord) -> bool {
         self.inner
             .stash
@@ -404,15 +418,16 @@ impl TrackedFileDigest {
 /// Deduplicates [`TrackedFileDigest`]s by value: every holder of a digest shares one allocation
 /// and one record of where the blob is.
 ///
-/// An entry stays for as long as any handle refers to it. An entry that records where its blob
-/// is stays past its last handle as well, and is *pinned*: with a CAS expiration recorded, the
-/// next construction of that digest knows the blob is in the CAS without asking, and the case
-/// that pays is an action's input tree, dropped right after its upload, whose files the next
-/// action uploads too; with a stash entry recorded, the table is what knows the stash holds the
-/// blob, and a sweep that drops the entry is what hands the file to the stash's collection.
-/// Nothing but a [`sweep`](Self::sweep) releases a pinned entry. Smarter retention is possible,
-/// but the table is a small fraction of the daemon's memory, so this is deliberately the
-/// simplest policy with that property.
+/// An entry stays for as long as any handle refers to it. An entry with a CAS expiration
+/// recorded stays past its last handle as well, and is *pinned*: the next construction of that
+/// digest knows the blob is in the CAS without asking, and the case that pays is an action's
+/// input tree, dropped right after its upload, whose files the next action uploads too. Nothing
+/// but a [`sweep`](Self::sweep) releases a pinned entry. Smarter retention is possible, but the
+/// table is a small fraction of the daemon's memory, so this is deliberately the simplest policy
+/// with that property. A recorded stash entry does not pin: it leaves with the entry, at the
+/// last handle's drop or at a sweep, or sooner, when a CAS expiration is recorded for the blob,
+/// and goes to the stash's collector each time, so that the stash holds exactly what live values
+/// hold and the CAS does not (plan-blobstore.md §6).
 #[derive(Allocative)]
 pub struct DigestInterner {
     /// Dropping a handle takes its shard's write lock, so never construct or drop a
@@ -431,7 +446,14 @@ pub struct DigestInterner {
     paged: AtomicU64,
     hits: AtomicU64,
     misses: AtomicU64,
+    /// Who takes a stash record once its entry no longer carries it, by the stash id in the
+    /// record's nonce. One per stash; the daemon has one.
+    #[allocative(skip)]
+    stash_collectors: RwLock<Vec<(u32, StashCollector)>>,
 }
+
+/// What a stash registers to be handed its records: see [`DigestInterner::add_stash_collector`].
+pub type StashCollector = Box<dyn Fn(&FileDigest, StashRecord) + Send + Sync>;
 
 /// A table entry. Hashes and compares as the digest it holds, so lookups take a `FileDigest`.
 #[derive(Allocative)]
@@ -531,6 +553,35 @@ impl DigestInterner {
             paged: AtomicU64::new(0),
             hits: AtomicU64::new(0),
             misses: AtomicU64::new(0),
+            stash_collectors: RwLock::new(Vec::new()),
+        }
+    }
+
+    /// Registers who takes the records of stash `id` once their entries no longer carry them: at
+    /// the last handle's drop, at a sweep that drops the entry, or when a CAS expiration is
+    /// recorded for the blob, which the stash then need not hold. The collector runs on
+    /// whichever thread did that, with no lock of the table held, and must not block.
+    pub fn add_stash_collector(&self, id: u32, collector: StashCollector) {
+        self.stash_collectors.write().push((id, collector));
+    }
+
+    /// Hands the stash record of `handle`'s entry to its collector, if there is one: for a blob
+    /// the CAS turns out to hold.
+    pub fn evict_stash(&self, handle: &TrackedFileDigest) {
+        self.evict_stash_of(&handle.inner);
+    }
+
+    fn evict_stash_of(&self, inner: &TrackedFileDigestInner) {
+        if let Some(record) = inner.take_stash() {
+            self.collect_stash(&inner.data, record);
+        }
+    }
+
+    fn collect_stash(&self, data: &FileDigest, record: StashRecord) {
+        for (id, collector) in self.stash_collectors.read().iter() {
+            if *id == record.stash_id() {
+                collector(data, record);
+            }
         }
     }
 
@@ -559,7 +610,7 @@ impl DigestInterner {
     /// pinned entry's last drop and the next sweep is deliberate: it is the window in which a
     /// recorded expiration keeps answering for a blob that a later construction asks about again,
     /// which is what makes an RE input tree that is dropped right after its upload still pay off
-    /// for the next action, and the window in which the stash's collection has not run yet.
+    /// for the next action. A dropped entry's stash record goes to the stash's collector.
     ///
     /// `decide` runs under a shard's write lock and sees entries as they are at that moment, so
     /// it must not construct or drop a `TrackedFileDigest`, which takes that same lock. The
@@ -573,6 +624,7 @@ impl DigestInterner {
         let mut stats = SweepStats::default();
         let mut pinned_swept = 0u64;
         let mut picked = Vec::new();
+        let mut orphaned = Vec::new();
         self.entries.retain(|entry, paged| {
             stats.visited += 1;
             let view = DigestEntry::of(&entry.0, *paged);
@@ -581,6 +633,9 @@ impl DigestInterner {
                     stats.swept += 1;
                     if entry.0.has_expiry() {
                         pinned_swept += 1;
+                    }
+                    if let Some(record) = entry.0.take_stash() {
+                        orphaned.push((view.data, record));
                     }
                     false
                 }
@@ -593,6 +648,9 @@ impl DigestInterner {
         });
         if pinned_swept > 0 {
             self.pinned.fetch_sub(pinned_swept, Ordering::Relaxed);
+        }
+        for (data, record) in orphaned {
+            self.collect_stash(&data, record);
         }
         let handles = picked
             .into_iter()
@@ -642,6 +700,13 @@ impl DigestInterner {
         if inner.extend_expires(expires) {
             self.pinned.fetch_add(1, Ordering::Relaxed);
         }
+        // A blob the CAS holds is the CAS's to serve: the stash lets go of it.
+        if expires > 0
+            && inner.stash.load(Ordering::Relaxed) != 0
+            && expires > jiff::Timestamp::now().as_second()
+        {
+            self.evict_stash_of(&inner);
+        }
         TrackedFileDigest { inner }
     }
 
@@ -663,7 +728,7 @@ impl DigestInterner {
     }
 
     /// Called for every handle drop. Removes the entry when this handle is the last one and
-    /// the entry is not pinned.
+    /// the entry is not pinned, and hands its stash record, if any, to the stash's collector.
     ///
     /// "Last one" is read off the `Arc`'s count, which cannot be done exactly: two threads
     /// dropping the last two handles of one digest at the same time can both read a count of
@@ -686,12 +751,17 @@ impl DigestInterner {
         // longer be the table's entry for it (a previous drop removed it and a later intern
         // inserted a fresh one). Deciding under the lock keeps every live handle pointing at
         // an entry the table still holds.
-        self.entries.remove_if(&inner.data, |entry, paged| {
+        let removed = self.entries.remove_if(&inner.data, |entry, paged| {
             Arc::ptr_eq(&entry.0, inner)
                 && Arc::count(&entry.0) == 2
                 && !entry.0.is_pinned()
                 && !*paged
         });
+        if let Some((entry, _)) = removed
+            && let Some(record) = entry.0.take_stash()
+        {
+            self.collect_stash(&entry.0.data, record);
+        }
     }
 }
 

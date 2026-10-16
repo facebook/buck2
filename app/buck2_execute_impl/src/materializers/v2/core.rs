@@ -518,7 +518,6 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
                 quiet: true
             );
         }
-        self.cleaner.sweep_store_if_full();
     }
 
     /// The roots behind a write lease this materializer handed out.
@@ -723,7 +722,6 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
             })
             .collect();
         self.store.insert_files(files).await?;
-        self.cleaner.sweep_store_if_full();
         Ok(())
     }
 
@@ -753,7 +751,6 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
                     .collect())
             })
             .await?;
-        self.cleaner.sweep_store_if_full();
         Ok(written
             .into_iter()
             .map(|(digest, is_executable)| {
@@ -1292,20 +1289,12 @@ fn files_to_insert(
     entry: &ArtifactMetadata,
     origin: Origin,
 ) -> Vec<FileToInsert> {
-    let now = Timestamp::now();
     let mut files = Vec::new();
     let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
     while let Some((path, entry)) = walk.next() {
         let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry else {
             continue;
         };
-        // Content the CAS is known to hold is the CAS's to serve again (plan-blobstore.md §3):
-        // a remote output declared existing after a paranoid download, say.
-        if origin == Origin::BuckOut
-            && matches!(file.digest.expires(), Ok(expires) if expires > now)
-        {
-            continue;
-        }
         files.push(FileToInsert {
             path: fs.resolve(root.join(path.get())),
             digest: file.digest.dupe(),

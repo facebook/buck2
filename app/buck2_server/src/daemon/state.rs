@@ -86,8 +86,6 @@ use buck2_file_watcher::dep_files::DepFileCache;
 use buck2_file_watcher::dep_files::create_dep_file_cache;
 use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_fs::cwd::WorkingDirectory;
-use buck2_fs::error::IoResultExt;
-use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -611,32 +609,17 @@ impl TenantState {
             .resolve(paths.buck_out_dir())
             .join(ForwardRelativePath::unchecked_new("stash"));
         if disk_state_core {
-            // The daemon has one stash. It lives under this repo's buck-out until it has a
-            // host-level home (plan-blobstore.md §2); a second repo in the process would share
-            // it.
+            // The daemon has one stash, started empty. It lives under this repo's buck-out until
+            // it has a home of the daemon's own (plan-blobstore.md §2); a second repo in the
+            // process would share it.
             BlobStore::global().attach_stash(
                 stash,
                 digest_config.cas_digest_config(),
                 blocking_executor.dupe(),
             );
         } else {
-            // A stash is sound only while the disk-state core governs every link into it,
-            // unsharing an output before an action rewrites it in place; under the deferred
-            // core such a write would reach every path sharing the blob. What a disk-state
-            // daemon left is removed rather than kept for a later one to trust.
-            let blocking = blocking_executor.dupe();
-            tokio::spawn(async move {
-                let removed = blocking
-                    .execute_io_inline(move || {
-                        fs_util::remove_all(&stash)
-                            .categorize_internal()
-                            .map_err(buck2_error::Error::from)
-                    })
-                    .await;
-                if let Err(e) = removed {
-                    let _ignored = soft_error!("blob_store_stash_removal_failed", e, quiet: true);
-                }
-            });
+            // Nothing refers to what a previous daemon left, whichever core it ran.
+            buck2_execute::blob_store::discard_stash(&stash, blocking_executor.dupe());
         }
         let materializer = RepoState::create_materializer(
             implementation,
@@ -650,12 +633,6 @@ impl TenantState {
             materializer_state,
             daemon_dispatcher,
         )?;
-        if disk_state_core {
-            // The materializer's roots hold their digests now, so what the stash holds for them
-            // survives the walk that follows the load.
-            BlobStore::global().spawn_load_and_walk();
-        }
-
         tracing::info!("Creating tenting ACL provider...");
         let tenting_acl_provider = create_tenting_acl_provider(fb, paths.project_root());
 
@@ -1363,8 +1340,8 @@ impl DaemonState {
                 .await?;
 
             // One walk over the process-wide digest interner, on the first tenant's RE
-            // connection and cadence: the BlobStore's, which refreshes CAS TTLs and collects
-            // the stash, if the daemon attached one.
+            // connection and cadence: the BlobStore's, which refreshes CAS TTLs and drops what
+            // nothing holds.
             let standalone_ttl_refresh = BlobStore::global().start_refresh(
                 TtlRefresher::new(Arc::new(ReChecker::new(
                     tenant.repo.re_client_manager.dupe(),

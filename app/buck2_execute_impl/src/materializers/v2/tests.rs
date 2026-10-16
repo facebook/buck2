@@ -931,11 +931,13 @@ async fn test_a_published_output_enters_the_store() -> buck2_error::Result<()> {
         let dest = path("buck-out/v2/gen/content/def/out");
         let lease = dm.prepare_outputs(vec![src.clone()]).await?;
         fs.write_file(&src, "published here", false)?;
-        dm.publish(&lease, src, dest, file("published here"))
-            .await?;
+        // Held as the action's value holds it; the store keeps nothing past the last holder.
+        let published = file("published here");
+        dm.publish(&lease, src, dest, published.dupe()).await?;
         drop(lease);
         let copy = fs.resolve(path("buck-out/v2/gen/copy"));
         assert!(in_store(&dm, b"published here", &copy).await?);
+        drop(published);
         abort(dm);
         Ok(())
     })
@@ -1359,11 +1361,14 @@ async fn test_a_reported_output_enters_the_store() -> buck2_error::Result<()> {
         let on_disk = temp.path().resolve(&out);
         std::fs::create_dir_all(on_disk.parent().unwrap())?;
         std::fs::write(&on_disk, b"built here")?;
-        drop(report(&dm, &out, file("built here")).await?);
+        // Held as the action's value holds it; the store keeps nothing past the last holder.
+        let built = file("built here");
+        drop(report(&dm, &out, built.dupe()).await?);
 
         let copy = temp.path().resolve(path("buck-out/v2/gen/copy"));
         assert!(in_store(&dm, b"built here", &copy).await?);
         assert_eq!(std::fs::read_to_string(&copy)?, "built here");
+        drop(built);
 
         drop(report(&dm, &path("buck-out/v2/gen/missing"), file("never written")).await?);
         let nowhere = temp.path().resolve(path("buck-out/v2/gen/nowhere"));
@@ -1374,10 +1379,10 @@ async fn test_a_reported_output_enters_the_store() -> buck2_error::Result<()> {
     .await
 }
 
-/// A clean ends with a sweep of the store: what a live value holds stays, the rest goes. The
-/// tree holds nothing (`entry.rs`), so a tracked root is no holder.
+/// What a live value holds stays in the store; what nothing holds leaves as its last handle
+/// drops. The tree holds nothing (`entry.rs`), so a tracked root is no holder.
 #[tokio::test]
-async fn test_a_clean_sweeps_what_nothing_holds_from_the_store() -> buck2_error::Result<()> {
+async fn test_what_nothing_holds_leaves_the_store() -> buck2_error::Result<()> {
     ignore_stack_overflow_checks_for_future(async {
         let temp = ProjectRootTemp::new()?;
         let (dm, _io) = make(temp.path(), None, None);
@@ -1393,8 +1398,7 @@ async fn test_a_clean_sweeps_what_nothing_holds_from_the_store() -> buck2_error:
             .insert_bytes(b"orphan".to_vec(), &orphan, false)
             .await?;
         drop(orphan);
-
-        dm.clean_stale_artifacts(clean_unused()).await?;
+        dm.store().flush_collector().await;
 
         let dest = temp.path().resolve(path("buck-out/v2/gen/dest"));
         assert!(in_store(&dm, b"held by a root", &dest).await?);
