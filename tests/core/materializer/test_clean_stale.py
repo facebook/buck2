@@ -79,10 +79,12 @@ async def test_artifact_access_time(buck: Buck) -> None:
     result = await buck.build(target)
     assert result.get_build_report().output_for_target(target).exists()
 
+    # The deferred core lists an entry on disk as `materialized`, the disk-state core as
+    # `tracked`; both carry the access time the same way.
     async def audit_materialized() -> list[str]:
         return list(
             filter(
-                lambda x: "\tmaterialized" in x,
+                lambda x: "\tmaterialized" in x or "\ttracked" in x,
                 (await buck.audit("deferred-materializer", "list"))
                 .stdout.strip()
                 .splitlines(),
@@ -90,7 +92,7 @@ async def test_artifact_access_time(buck: Buck) -> None:
         )
 
     def parse_entry_ts(entry: str) -> datetime:
-        match = re.search("\tmaterialized \\(ts=([^ ,]*)", entry)
+        match = re.search("\t(?:materialized|tracked) \\(ts=([^ ,]*)", entry)
         assert match
         timestamp = datetime.strptime(match.group(1), "%Y-%m-%dT%H:%M:%SZ").replace(
             tzinfo=UTC
@@ -196,7 +198,9 @@ async def test_clean_stale_buck_out_empty(buck: Buck) -> None:
     assert "Nothing to clean" in output.stderr
 
 
-@buck_test()
+# The `consume_*` targets copy local action outputs, which the disk-state core materializes only
+# once it has the BlobStore.
+@buck_test(skip_for_materializer=["v2"])
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 @env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "0")
 async def test_clean_stale_actions(buck: Buck) -> None:
@@ -517,7 +521,7 @@ async def test_clean_stale_cli_adaptive_min_ttl_protects_recent(buck: Buck) -> N
     assert output.exists()
 
 
-@buck_test(skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
 async def test_adaptive_unmaterializes_active_remote_intermediate(
     buck: Buck,
 ) -> None:
@@ -541,7 +545,7 @@ async def test_adaptive_unmaterializes_active_remote_intermediate(
     )
 
 
-@buck_test(skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
 async def test_adaptive_unmaterializes_active_write_intermediate(
     buck: Buck,
 ) -> None:
@@ -570,7 +574,7 @@ async def test_adaptive_unmaterializes_active_write_intermediate(
     )
 
 
-@buck_test(skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
 async def test_adaptive_unmaterialization_fails_for_modified_local_intermediate(
     buck: Buck,
 ) -> None:
@@ -598,7 +602,7 @@ async def test_adaptive_unmaterialization_fails_for_modified_local_intermediate(
     assert artifact.read_text(encoding="utf-8") == "EDITED"
 
 
-@buck_test(skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
 async def test_adaptive_unmaterializes_active_local_copy_intermediate(
     buck: Buck,
 ) -> None:
@@ -623,7 +627,7 @@ async def test_adaptive_unmaterializes_active_local_copy_intermediate(
     )
 
 
-@buck_test(skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
 async def test_adaptive_unmaterializes_active_local_action_intermediate(
     buck: Buck,
 ) -> None:
@@ -647,7 +651,7 @@ async def test_adaptive_unmaterializes_active_local_action_intermediate(
     )
 
 
-@buck_test(skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
 async def test_adaptive_does_not_unmaterialize_active_final_output(buck: Buck) -> None:
     configure_active_unmaterialization(buck, enabled=True)
     result = await buck.build("root//:remote_write")
@@ -660,7 +664,7 @@ async def test_adaptive_does_not_unmaterialize_active_final_output(buck: Buck) -
     )
 
 
-@buck_test(skip_for_os=["windows"])
+@buck_test(skip_for_os=["windows"], skip_for_materializer=["v2"])
 async def test_adaptive_does_not_unmaterialize_when_disabled(buck: Buck) -> None:
     configure_active_unmaterialization(buck, enabled=False)
     result = await buck.build("root//:consume_remote", "--no-remote-cache")

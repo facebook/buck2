@@ -666,6 +666,9 @@ def buck_test(
     data_dir: Optional[str] = "",
     # Accepted values are specified in SKIPPABLE_PLATFORMS
     skip_for_os: List[str] = [],  # noqa: B006 value is read-only
+    # Materializer implementations (`buck2.materializer` values) the test does not apply to,
+    # for tests that assert on one implementation's own state or output. See `buck2_core_tests`.
+    skip_for_materializer: List[str] = [],  # noqa: B006 value is read-only
     allow_soft_errors: bool = False,
     extra_buck_config: Optional[Dict[str, Dict[str, str]]] = None,
     skip_final_kill: bool = False,
@@ -690,6 +693,9 @@ def buck_test(
             copy, or the working directory relative to the cwd.
         skip_for_os:
             List of OS to skip the test on.
+        skip_for_materializer:
+            Materializer implementations to skip the test on, when the test target runs as a
+            variant against another implementation than the default.
         allow_soft_errors:
             Like it says in the arg name. The default is to hard error.
         extra_buck_config:
@@ -723,6 +729,8 @@ def buck_test(
         if p not in SKIPPABLE_PLATFORMS:
             raise Exception(f"skip_for_os must specifiy one of {SKIPPABLE_PLATFORMS}")
     if platform.system().lower() in skip_for_os:
+        return _make_passing_test_for_skipped_platform
+    if os.environ.get("BUCK2_TEST_MATERIALIZER") in skip_for_materializer:
         return _make_passing_test_for_skipped_platform
 
     if data_dir is not None and inplace:
