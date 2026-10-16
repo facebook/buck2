@@ -42,7 +42,6 @@ load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
 load("@prelude//decls:cython_rules.bzl", "cython_rules")
 load("@prelude//decls:erlang_rules.bzl", "erlang_rules")
 load("@prelude//decls:go_rules.bzl", "go_rules")
-load("@prelude//decls:haskell_rules.bzl", "haskell_rules")
 load("@prelude//decls:java_rules.bzl", "java_rules")
 load("@prelude//decls:js_rules.bzl", "js_rules")
 load("@prelude//decls:kotlin_rules.bzl", "kotlin_rules")
@@ -63,11 +62,7 @@ load("@prelude//go:go_stdlib.bzl", "go_stdlib_impl")
 load("@prelude//go:go_test.bzl", "go_test_impl")
 load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "coverage_mode_attr")
 load("@prelude//go_bootstrap:go_bootstrap.bzl", "go_bootstrap_binary_impl")
-load("@prelude//haskell:haskell.bzl", "haskell_binary_impl", "haskell_library_impl", "haskell_prebuilt_library_impl")
-load("@prelude//haskell:haskell_ghci.bzl", "haskell_ghci_impl")
-load("@prelude//haskell:haskell_haddock.bzl", "haskell_haddock_impl")
-load("@prelude//haskell:haskell_ide.bzl", "haskell_ide_impl")
-load("@prelude//haskell:library_info.bzl", "HaskellLibraryProvider")
+load("@prelude//haskell:rules.bzl", _haskell_rules = "rules")
 load("@prelude//http_archive:http_archive.bzl", "http_archive_impl")
 load("@prelude//java:java.bzl", _java_implemented_rules = "implemented_rules")
 load("@prelude//js:js.bzl", _js_extra_attributes = "extra_attributes", _js_implemented_rules = "implemented_rules")
@@ -129,7 +124,7 @@ categorized_rule_decl_records = {
     _ERLANG_RULES_KEY: erlang_rules,
     _GIT_RULES_KEY: _git_rules,
     _GO_RULES_KEY: go_rules,
-    _HASKELL_RULES_KEY: haskell_rules,
+    _HASKELL_RULES_KEY: _haskell_rules,
     _APPLE_RULES_KEY: apple_rules,
     _JAVA_RULES_KEY: java_rules,
     _JS_RULES_KEY: js_rules,
@@ -197,13 +192,6 @@ extra_implemented_rules = struct(
     go_library = go_library_impl,
     go_test = go_test_impl,
     go_stdlib = go_stdlib_impl,
-    # haskell
-    haskell_library = haskell_library_impl,
-    haskell_binary = haskell_binary_impl,
-    haskell_ghci = haskell_ghci_impl,
-    haskell_haddock = haskell_haddock_impl,
-    haskell_ide = haskell_ide_impl,
-    haskell_prebuilt_library = haskell_prebuilt_library_impl,
     # python
     prebuilt_python_library = prebuilt_python_library_impl,
     python_binary = python_binary_impl,
@@ -422,35 +410,6 @@ _go_extra_attributes = {
     },
 }
 
-_haskell_extra_attributes = {
-    "haskell_binary": {
-        "auto_link_groups": attrs.bool(default = False),
-        "link_group_map": LINK_GROUP_MAP_ATTR,
-        "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_haskell_toolchain": toolchains_common.haskell(),
-    },
-    "haskell_ghci": {
-        "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_haskell_toolchain": toolchains_common.haskell(),
-    },
-    "haskell_haddock": {
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_haskell_toolchain": toolchains_common.haskell(),
-    },
-    "haskell_ide": {
-        "include_projects": attrs.list(attrs.dep(), default = []),
-        "_haskell_toolchain": toolchains_common.haskell(),
-    },
-    "haskell_library": {
-        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
-        "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_haskell_toolchain": toolchains_common.haskell(),
-    },
-}
-
 _python_extra_attributes = {
     # python bootstrap
     "python_bootstrap_binary": {
@@ -532,7 +491,6 @@ categorized_extra_attributes = {
     _CXX_RULES_KEY: cxx_extra_attributes,
     _CYTHON_RULES_KEY: _cython_extra_attributes,
     _GO_RULES_KEY: _go_extra_attributes,
-    _HASKELL_RULES_KEY: _haskell_extra_attributes,
     _APPLE_RULES_KEY: _apple_extra_attributes,
     _JAVA_RULES_KEY: {},
     _JS_RULES_KEY: _js_extra_attributes,

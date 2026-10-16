@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
@@ -17,6 +18,8 @@ load(
     "@prelude//cxx:link_types.bzl",
     "link_options",
 )
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load(
     "@prelude//haskell:compile.bzl",
     "PackagesInfo",
@@ -739,3 +742,42 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(default_outputs = [root_output_dir]),
         RunInfo(args = run),
     ]
+
+haskell_ghci = prelude_rule(
+    name = "haskell_ghci",
+    impl = haskell_ghci_impl,
+    docs = """
+        A `haskell_ghci()` rule produces a deployable script that
+        launches a GHCi session with the given sources and dependencies
+        preloaded. Building the rule compiles all dependent libraries
+        (including any C++ shared libraries that GHCi needs to load);
+        running the produced script enters the session ready for
+        `:reload`-driven development.
+    """,
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "compiler_flags": attrs.list(attrs.string(), default = []),
+            "deps": attrs.list(attrs.dep(), default = []),
+            "deps_query": attrs.option(attrs.query(), default = None),
+            "enable_profiling": attrs.bool(default = False),
+            "extra_script_templates": attrs.list(attrs.source(), default = []),
+            "ghci_bin_dep": attrs.option(attrs.dep(), default = None),
+            "ghci_init": attrs.option(attrs.source(), default = None),
+            "linker_flags": attrs.list(attrs.arg(), default = []),
+            "platform": attrs.option(attrs.string(), default = None),
+            "preload_deps": attrs.set(attrs.dep(), sorted = True, default = []),
+            "srcs": attrs.named_set(attrs.source(), sorted = True, default = []),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
+            "_cxx_toolchain": toolchains_common.cxx(),
+            "_haskell_toolchain": toolchains_common.haskell(),
+        }
+    ),
+)

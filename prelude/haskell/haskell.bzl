@@ -9,6 +9,7 @@
 # Implementation of the Haskell build rules.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//cxx:archive.bzl", "make_archive")
 load(
     "@prelude//cxx:cxx.bzl",
@@ -40,6 +41,7 @@ load(
     "get_transitive_deps_matching_labels",
     "is_link_group_shlib",
 )
+load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load(
     "@prelude//cxx:linker.bzl",
     "LINKERS",
@@ -53,6 +55,9 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:native_common.bzl", "native_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load(
     "@prelude//haskell:compile.bzl",
     "CompileResultInfo",
@@ -146,6 +151,7 @@ load(
 )
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
+load(":attrs.bzl", "haskell_common")
 
 HaskellIndexingTSet = transitive_set()
 
@@ -1152,3 +1158,187 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         providers.append(HaskellIndexInfo(info = indexing_tsets))
 
     return providers
+
+haskell_binary = prelude_rule(
+    name = "haskell_binary",
+    impl = haskell_binary_impl,
+    docs = """
+        A `haskell_binary()` rule represents a groups of Haskell sources
+        and deps which build an executable.
+    """,
+    examples = """
+        ```
+        haskell_binary(
+          name = 'foo',
+          srcs = [
+            'Foo.hs',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "main": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                The main module serving as the entry point into the binary. If not specified,
+                 the compiler default is used.
+            """,
+            ),
+        }
+        | native_common.link_group_deps()
+        | native_common.link_group_public_deps_label()
+        | native_common.link_style()
+        | haskell_common.srcs_arg()
+        | haskell_common.compiler_flags_arg()
+        | haskell_common.deps_arg()
+        | {
+            "deps_query": attrs.option(attrs.query(), default = None),
+            "enable_profiling": attrs.bool(default = False),
+            "ghci_platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
+            "ghci_preload_deps": attrs.set(attrs.dep(), sorted = True, default = []),
+            "link_deps_query_whole": attrs.bool(default = False),
+            "linker_flags": attrs.list(attrs.arg(), default = []),
+            "platform": attrs.option(attrs.string(), default = None),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "auto_link_groups": attrs.bool(default = False),
+            "link_group_map": LINK_GROUP_MAP_ATTR,
+            "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
+            "_cxx_toolchain": toolchains_common.cxx(),
+            "_haskell_toolchain": toolchains_common.haskell(),
+        }
+    ),
+)
+
+haskell_library = prelude_rule(
+    name = "haskell_library",
+    impl = haskell_library_impl,
+    docs = """
+        A `haskell_library()` rule is used to identity a group of
+        Haskell sources.
+    """,
+    examples = """
+        ```
+        haskell_library(
+          name = 'fileutil',
+          srcs = [
+            'FileUtil.hs',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        haskell_common.srcs_arg()
+        | haskell_common.compiler_flags_arg()
+        | haskell_common.deps_arg()
+        | native_common.link_whole(link_whole_type = attrs.bool(default = False))
+        | native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage.values(), default = "any"))
+        | {
+            "enable_profiling": attrs.bool(default = False),
+            "ghci_platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
+            "ghci_preload_deps": attrs.set(attrs.dep(), sorted = True, default = []),
+            "haddock_flags": attrs.list(attrs.arg(), default = []),
+            "linker_flags": attrs.list(attrs.arg(), default = []),
+            "platform": attrs.option(attrs.string(), default = None),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "template_deps": attrs.list(attrs.exec_dep(providers = [HaskellLibraryProvider]), default = []),
+            "_cxx_toolchain": toolchains_common.cxx(),
+            "_haskell_toolchain": toolchains_common.haskell(),
+        }
+    ),
+)
+
+haskell_prebuilt_library = prelude_rule(
+    name = "haskell_prebuilt_library",
+    impl = haskell_prebuilt_library_impl,
+    docs = """
+        A `prebuilt_haskell_library()` rule is used to identify Haskell
+        prebuilt libraries and their associated interface files.
+    """,
+    examples = """
+        ```
+        prebuilt_haskell_library(
+          name = 'file',
+          static_interfaces = [
+            'interfaces',
+          ],
+          shared_interfaces = [
+            'interfaces_dyn',
+          ],
+          static_libs = [
+            'libFileUtil.a',
+          ],
+          shared_libs = {
+            'libFileUtil.so': 'libFileUtil.so',
+          },
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
+                Other `prebuilt_haskell_library()` rules from which this library
+                 imports modules.
+            """,
+            ),
+            "static_libs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
+                The libraries to use when building a statically linked top-level target.
+            """,
+            ),
+            "shared_libs": attrs.dict(
+                key = attrs.string(),
+                value = attrs.source(),
+                sorted = False,
+                default = {},
+                doc = """
+                A map of shared library names to shared library paths to use when building a
+                 dynamically linked top-level target.
+            """,
+            ),
+            "exported_compiler_flags": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
+                Compiler flags used by dependent rules when compiling with this library.
+            """,
+            ),
+        }
+        | haskell_common.exported_linker_flags_arg()
+        | {
+            "cxx_header_dirs": attrs.list(attrs.source(), default = []),
+            "db": attrs.source(),
+            "enable_profiling": attrs.bool(default = False),
+            "exported_post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+            "id": attrs.string(default = ""),
+            "import_dirs": attrs.list(attrs.source(), default = []),
+            "pic_profiled_static_libs": attrs.list(attrs.source(), default = []),
+            "pic_static_libs": attrs.list(attrs.source(), default = []),
+            "profiled_static_libs": attrs.list(attrs.source(), default = []),
+            "version": attrs.string(default = ""),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)
