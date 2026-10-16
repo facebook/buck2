@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "CxxSourceType", "buck")
 load(":attr_selection.bzl", "cxx_by_language_ext")
 
 CxxFlags = record(
@@ -111,3 +113,45 @@ def cxx_flags_linker_flags(actions: AnalysisActions, flag_deps: list[Dependency]
     if flags == None:
         return []
     return [flags.project_as_args("linker_flags", ordering = "postorder")]
+
+cxx_flags = prelude_rule(
+    name = "cxx_flags",
+    impl = cxx_flags_impl,
+    docs = """
+        A `cxx_flags()` target holds flags that C++ targets pull in through their
+        `flags` attribute. Its `deps` can reference other `cxx_flags`
+        targets; nested flags apply before the including target's flags, and all
+        shared flags apply before the consuming C++ target's own flags.
+
+        Consumers share a compiler argsfile for the transitive flag set.
+
+        Write-to-file macros (`$(@...)`) are unsupported in all flag attributes.
+    """,
+    examples = """
+        ```
+        cxx_flags(
+          name = "common_warnings",
+          compiler_flags = ["-Wall", "-Wextra"],
+        )
+
+        cxx_library(
+          name = "lib",
+          srcs = ["lib.cpp"],
+          flags = [":common_warnings"],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        {
+            "compiler_flags": attrs.list(attrs.arg(), default = []),
+            "deps": attrs.list(attrs.dep(providers = [CxxFlagsInfo]), default = []),
+            "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
+            "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
+            "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+            "preprocessor_flags": attrs.list(attrs.arg(), default = []),
+        }
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)

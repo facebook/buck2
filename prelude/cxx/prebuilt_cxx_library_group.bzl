@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "cxx_common")
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "LinkerType",
@@ -18,6 +20,8 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -426,3 +430,144 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(DefaultInfo(default_outputs = outputs[static_output_style], sub_targets = sub_targets))
 
     return providers
+
+prebuilt_cxx_library_group = prelude_rule(
+    name = "prebuilt_cxx_library_group",
+    impl = prebuilt_cxx_library_group_impl,
+    docs = """
+        A `prebuilt_cxx_library_group()` rule represents a group of native libraries which should
+        be handled together in a single rule, perhaps using special link-line construction.
+    """,
+    examples = """
+        A prebuilt library group wrapping two libraries that must be linked together.
+
+        ```
+        prebuilt_cxx_library_group(
+          name = 'util',
+          static_link = [
+            '-Wl,--start-group',
+            '$(lib 0)',
+            '$(lib 1)',
+            '-Wl,--end-group',
+          ],
+          static_libs = [
+            'lib/liba.a',
+            'lib/libb.a',
+          ],
+          static_pic_link = [
+            '-Wl,--start-group',
+            '$(lib 0)',
+            '$(lib 1)',
+            '-Wl,--end-group',
+          ],
+          static_libs = [
+            'lib/liba_pic.a',
+            'lib/libb_pic.a',
+          ],
+          shared_link = [
+            '$(rel-lib liba.so)',
+            '$(rel-lib libb.so)',
+          ],
+          shared_libs = {
+            'liba.so': 'lib/liba.so',
+          },
+          provided_shared_libs = {
+            'libb.so': 'lib/libb.so',
+          },
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        cxx_common.exported_preprocessor_flags_arg(exported_preprocessor_flags_type = attrs.list(attrs.string(), default = []))
+        | {
+            "provided_shared_libs": attrs.dict(
+                key = attrs.string(),
+                value = attrs.source(),
+                sorted = False,
+                default = {},
+                doc = """
+                The map of system-provided shared library names to paths used when using the shared link style.
+                 The `shared_link` parameter should refer to these libs using their library name.
+            """,
+            ),
+            "shared_libs": attrs.dict(
+                key = attrs.string(),
+                value = attrs.source(),
+                sorted = False,
+                default = {},
+                doc = """
+                The map of shared library names to paths used when using the shared link style.
+                 The `shared_link` parameter should refer to these libs using their library
+                 name.
+            """,
+            ),
+            "shared_link": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
+                The arguments to use when linking this library group using the shared link style.
+                 The actual paths to libraries should be listed in the `shared_libs`
+                 parameter, and referenced via the `$(lib [name])` macro (or the
+                 `$(rel-lib [name])` macro, when the shared library should be linked
+                 using the `-L[dir] -l[name]` style) in these args.
+            """,
+            ),
+            "static_libs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
+                The paths to the libraries used when using the static link style.
+                 The `static_link` parameter should refer to these libs using their index
+                 number.
+            """,
+            ),
+            "static_link": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
+                The arguments to use when linking this library group using the static link style.
+                 The actual paths to libraries should be listed in the `static_libs` parameter,
+                 and referenced via the `$(lib [index])` macro in these args.
+            """,
+            ),
+            "static_pic_libs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
+                The paths to the libraries used when using the static link style.
+                 The `static_pic_link` parameter should refer to these libs using their
+                 index number.
+            """,
+            ),
+            "static_pic_link": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
+                The arguments to use when linking this library group using the static-pic link style.
+                 The actual paths to libraries should be listed in the `static_pic_libs`
+                 parameter, and referenced via the `$(lib [index])` macro in
+                 these args.
+            """,
+            ),
+        }
+        | cxx_common.exported_deps_arg()
+        | cxx_common.version_arg()
+        | cxx_common.supported_platforms_regex_arg()
+        | {
+            "deps": attrs.list(attrs.dep(), default = []),
+            "import_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
+            "include_dirs": attrs.list(attrs.source(allow_directory = True), default = []),
+            "include_in_android_merge_map_output": attrs.bool(default = True),
+            "supports_shared_library_interface": attrs.bool(default = True),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
+            "_cxx_toolchain": toolchains_common.cxx(),
+        }
+    ),
+)

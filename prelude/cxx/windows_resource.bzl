@@ -6,10 +6,14 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "cxx_common")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps")
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_merge_cpreprocessors", "cxx_private_preprocessor_info")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//linking:link_groups.bzl", "EMPTY_LINK_GROUP_LIB_INFO")
 load("@prelude//linking:link_info.bzl", "LibOutputStyle", "LinkInfo", "LinkInfos", "ObjectsLinkable", "create_merged_link_info")
 load("@prelude//linking:linkable_graph.bzl", "create_linkable_graph")
@@ -103,3 +107,56 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
     return providers
+
+windows_resource = prelude_rule(
+    name = "windows_resource",
+    impl = windows_resource_impl,
+    docs = """
+        A `windows_resource()` rule specifies a set of Window's Resource File (.rc) that
+        are compiled into object files.
+
+        The files are compiled into .res files using rc.exe and then compiled into object files
+        using cvtres.exe.
+        They are not part of cxx_library because Microsoft's linker ignores the resources
+        unless they are specified as an object file, meaning including them in a possibly static
+        library is unintuitive.
+    """,
+    examples = """
+        ```
+        # A rule that includes a single .rc file and compiles it into an object file.
+        windows_resource(
+          name = "resources",
+          srcs = [
+            "resources.rc",
+          ],
+        )
+
+        # A rule that links against the above windows_resource rule.
+        cxx_binary(
+          name = "app",
+          srcs = [
+            "main.cpp",
+          ],
+          deps = [
+            ":resources"
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        cxx_common.srcs_arg()
+        | cxx_common.headers_arg()
+        | cxx_common.header_namespace_arg()
+        | cxx_common.raw_headers_arg()
+        | cxx_common.include_directories_arg()
+        | {
+            "deps": attrs.list(attrs.dep(), default = []),
+        }
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "_cxx_toolchain": toolchains_common.cxx(),
+        }
+    ),
+)

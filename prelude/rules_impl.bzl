@@ -21,23 +21,15 @@ load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 load("@prelude//csharp:rules.bzl", _dotnet_rules = "rules")
-load("@prelude//cxx:attrs.bzl", "cxx_library_extra_attrs")
-load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
-load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
-load("@prelude//cxx:cxx_flags.bzl", "cxx_flags_impl")
-load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_extra_attributes", "cxx_toolchain_impl")
+load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR", "cxx_library_extra_attrs")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
-load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
-load("@prelude//cxx:transformation_spec.bzl", "TransformationKind", "transformation_spec_impl")
-load("@prelude//cxx:windows_resource.bzl", "windows_resource_impl")
-load("@prelude//decls:common.bzl", "IncludeType", "buck")
+load("@prelude//cxx:rules.bzl", _cxx_rules = "rules")
+load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:core_rules.bzl", "core_rules")
-load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
 load("@prelude//decls:cython_rules.bzl", "cython_rules")
 load("@prelude//decls:python_rules.bzl", "python_rules")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
 load("@prelude//decls:rust_rules.bzl", "rust_rules")
-load("@prelude//decls:third_party_common.bzl", "third_party_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//decls:uncategorized_rules.bzl", "uncategorized_rules")
 load("@prelude//erlang:rules.bzl", _erlang_rules = "rules")
@@ -50,7 +42,6 @@ load("@prelude//js:rules.bzl", _js_rules = "rules")
 load("@prelude//js:worker_tool.bzl", "worker_tool")
 load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", _julia_implemented_rules = "implemented_rules")
 load("@prelude//kotlin:rules.bzl", _kotlin_rules = "rules")
-load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//lua:rules.bzl", _lua_rules = "rules")
 load("@prelude//matlab:matlab.bzl", _matlab_extra_attributes = "extra_attributes", _matlab_implemented_rules = "implemented_rules")
 load("@prelude//nodejs:rules.bzl", _nodejs_rules = "rules")
@@ -66,7 +57,6 @@ load("@prelude//python/cython:cython_library.bzl", "cython_library_impl")
 load("@prelude//python/cython:cython_static_extension.bzl", "cython_static_extension_impl")
 load("@prelude//python/cython:cython_toolchain.bzl", "cython_toolchain_impl")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
-load("@prelude//third-party:providers.bzl", "ThirdPartyBuildInfo")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
 
@@ -97,7 +87,7 @@ _MATLAB_RULES_KEY = "matlab"
 categorized_rule_decl_records = {
     _ANDROID_RULES_KEY: _android_rules,
     _CORE_RULES_KEY: core_rules,
-    _CXX_RULES_KEY: cxx_rules,
+    _CXX_RULES_KEY: _cxx_rules,
     _CYTHON_RULES_KEY: cython_rules,
     _DOTNET_RULES_KEY: _dotnet_rules,
     _ERLANG_RULES_KEY: _erlang_rules,
@@ -145,25 +135,12 @@ extra_implemented_rules = struct(
     toolchain_alias = alias_impl,
     versioned_alias = versioned_alias_impl,
     worker_tool = worker_tool,
-    # c++
-    cxx_binary = cxx_binary_impl,
-    cxx_flags = cxx_flags_impl,
-    cxx_test = cxx_test_impl,
-    cxx_toolchain = cxx_toolchain_impl,
-    cxx_genrule = genrule_impl,
-    cxx_library = cxx_library_impl,
-    cxx_precompiled_header = cxx_precompiled_header_impl,
+    # python
     cxx_python_extension = cxx_python_extension_impl,
-    prebuilt_cxx_library = prebuilt_cxx_library_impl,
-    prebuilt_cxx_library_group = prebuilt_cxx_library_group_impl,
-    windows_resource = windows_resource_impl,
-    transformation_spec = transformation_spec_impl,
     # cython
     cython_library = cython_library_impl,
     cython_static_extension = cython_static_extension_impl,
     cython_toolchain = cython_toolchain_impl,
-    # C++ / LLVM
-    llvm_link_bitcode = llvm_link_bitcode_impl,
     # python
     prebuilt_python_library = prebuilt_python_library_impl,
     python_binary = python_binary_impl,
@@ -201,78 +178,6 @@ def _python_runtime_bundle_attrs():
         | buck.labels_arg()
         | buck.contacts_arg()
     )
-
-cxx_extra_attributes = {
-    "cxx_binary": {
-        "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "_generated_build_info_data": attrs.option(attrs.source(), default = None),
-        "_generated_build_info_enabled": attrs.bool(default = False),
-        "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
-        "_generated_build_info_spec": BUILD_INFO_ATTR,
-    },
-    "cxx_genrule": genrule_attributes()
-    | {
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-    },
-    "cxx_library": cxx_library_extra_attrs(),
-    "cxx_precompiled_header": cxx_library_extra_attrs(),
-    "cxx_test": re_test_common.test_args()
-    | {
-        "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "_generated_build_info_data": attrs.option(attrs.source(), default = None),
-        "_generated_build_info_enabled": attrs.bool(default = False),
-        "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
-        "_generated_build_info_spec": BUILD_INFO_ATTR,
-    },
-    "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
-    "llvm_link_bitcode": {
-        "_cxx_toolchain": toolchains_common.cxx(),
-    },
-    "prebuilt_cxx_library": (
-        {
-            "exported_header_style": attrs.enum(IncludeType, default = "system"),
-            "header_dirs": attrs.option(attrs.list(attrs.source(allow_directory = True)), default = None),
-            "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-            "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-            "preferred_linkage": attrs.enum(
-                Linkage.values(),
-                default = "any",
-                doc = """
-Determines what linkage is used when the library is depended on by another target. To
-control how the dependencies of this library are linked, use `link_style` instead.
-""",
-            ),
-            "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-            "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-            "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
-            "stub": attrs.bool(default = False),
-            "supports_lto": attrs.bool(default = False),
-            "supports_python_dlopen": attrs.bool(default = True),
-            "third_party_build": attrs.option(attrs.dep(providers = [ThirdPartyBuildInfo]), default = None),
-            "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
-            "_cxx_toolchain": toolchains_common.cxx(),
-            "_target_os_type": buck.target_os_type_arg(),
-        }
-        | third_party_common.create_third_party_build_root_attrs()
-    ),
-    "prebuilt_cxx_library_group": {
-        "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
-        "_cxx_toolchain": toolchains_common.cxx(),
-    },
-    "transformation_spec": {
-        "transformations": attrs.list(
-            attrs.tuple(
-                attrs.one_of(attrs.dep(), attrs.string()),
-                attrs.enum(TransformationKind.values()),
-            ),
-            default = [],
-        ),
-    },
-    "windows_resource": {
-        "_cxx_toolchain": toolchains_common.cxx(),
-    },
-}
 
 _python_extra_attributes = {
     # python bootstrap
@@ -351,7 +256,6 @@ _cython_extra_attributes = {
 
 categorized_extra_attributes = {
     _CORE_RULES_KEY: _core_extra_attributes,
-    _CXX_RULES_KEY: cxx_extra_attributes,
     _CYTHON_RULES_KEY: _cython_extra_attributes,
     _APPLE_RULES_KEY: _apple_extra_attributes,
     _JAVA_RULES_KEY: {},
