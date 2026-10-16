@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//bxl:lazy.bxl", "catch_resolve_lazy_dict")
 load("@prelude//go:cgo_builder.bzl", "project_go_and_c_files")
 load("@prelude//go:go_list.bzl", "GoListOut", "parse_go_list_out")
 load("@prelude//go:packages.bzl", "GoPackageInfo")
@@ -67,18 +68,21 @@ def _driver(ctx):
     go_kind = _go_kind(ctx.cli_args.need_tests)
     go_root_targets = ctx.uquery().kind(go_kind, requested_targets)
 
+    root_queries = {
+        str(target.label): ctx.lazy.cquery().eval("kind('{}', deps({}, 2147483647, target_deps()))".format(go_kind, target.label)) for target in go_root_targets
+    }
     errors = []
     all_go_targets = bxl.ctarget_set()
-    for utarget, cquery_result in _cquery(ctx, "kind('{}', deps(%s, 2147483647, target_deps()))".format(go_kind), go_root_targets):
+    for root_id, cquery_result in catch_resolve_lazy_dict(ctx, root_queries).items():
         if cquery_result.is_ok():
             all_go_targets += cquery_result.unwrap()
         else:
-            errors.append({"Errors": [PackageError(Msg = cquery_result.unwrap_err().message)], "ID": str(utarget.label)})
+            errors.append({"Errors": [PackageError(Msg = cquery_result.unwrap_err().message)], "ID": root_id})
 
     # using dict to get rid of duplicated targets with different configurations
     unique_go_targets = {_target_id(t): t.unwrap_forward() for t in all_go_targets}
 
-    analysis_results = _analysis(ctx, unique_go_targets.values())
+    analysis_results = catch_resolve_lazy_dict(ctx, {id: ctx.lazy.analysis(target) for id, target in unique_go_targets.items()})
 
     go_list_artifacts = []
     artifacts_to_ensure = []
@@ -112,7 +116,7 @@ def _driver(ctx):
         if load_mode.need_compiled_go_files:
             artifacts_to_ensure.append(go_package_info.cgo_gen_dir)
 
-    build_results = _build_artifacts(ctx, go_list_artifacts + artifacts_to_ensure)
+    build_results = catch_resolve_lazy_dict(ctx, {artifact: ctx.lazy.build_artifact(artifact) for artifact in go_list_artifacts + artifacts_to_ensure})
 
     # Materialize the only artifacts we were able to build to avoid script execution failure
     ctx.output.ensure_multiple([a for a in artifacts_to_ensure if build_results[a].is_ok()])
@@ -256,19 +260,6 @@ def _imports(go_list_out: GoListOut, import_table: dict[str, str]) -> dict[str, 
 
 def _target_id(target: bxl.ConfiguredTargetNode) -> str:
     return str(target.label.raw_target())
-
-def _build_artifacts(ctx: bxl.Context, artifacts: list[Artifact]) -> dict[Artifact, bxl.Result]:
-    artifacts = list(set(artifacts))
-    results = ctx.lazy.join_all([ctx.lazy.build_artifact(a).catch() for a in artifacts]).resolve()
-    return {k: v for k, v in zip(artifacts, results)}
-
-def _analysis(ctx: bxl.Context, targets: list[bxl.ConfiguredTargetNode]) -> dict[str, bxl.Result]:
-    results = ctx.lazy.join_all([ctx.lazy.analysis(t).catch() for t in targets]).resolve()
-    return {_target_id(k): v for k, v in zip(targets, results)}
-
-def _cquery(ctx: bxl.Context, query: str, targets: bxl.UnconfiguredTargetSet) -> list[(bxl.UnconfiguredTargetNode, bxl.Result)]:
-    results = ctx.lazy.join_all([ctx.lazy.cquery().eval(query % str(t.label)).catch() for t in targets]).resolve()
-    return zip(targets, results)
 
 def _to_protocol_error(error: bxl.Error, expected_target: bxl.ConfiguredTargetNode) -> PackageError:
     msg = error.message
