@@ -637,6 +637,9 @@ pub struct DaemonStartupConfig {
     pub source_digest_algorithm: Option<String>,
     pub paranoid: bool,
     pub materializations: Option<String>,
+    /// Which materializer implementation the daemon runs (`buck2.materializer`); `None` is the
+    /// deferred one.
+    pub materializer: Option<String>,
     pub http: HttpConfig,
     pub resource_control: ResourceControlConfig,
     pub log_download_method: LogDownloadMethod,
@@ -729,6 +732,12 @@ impl DaemonStartupConfig {
                     property: "materializations",
                 })
                 .map(ToOwned::to_owned),
+            materializer: config
+                .get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "materializer",
+                })
+                .map(ToOwned::to_owned),
             http: HttpConfig::from_config(config)?,
             resource_control: ResourceControlConfig::from_config(config)?,
             log_download_method,
@@ -806,6 +815,7 @@ impl DaemonStartupConfig {
             source_digest_algorithm: None,
             paranoid: false,
             materializations: None,
+            materializer: None,
             http: HttpConfig::default(),
             resource_control: ResourceControlConfig::testing_default(),
             log_download_method: if cfg!(fbcode_build) {

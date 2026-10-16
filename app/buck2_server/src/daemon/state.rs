@@ -75,6 +75,8 @@ use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::deferred::TtlRefreshConfiguration;
 use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
+use buck2_execute_impl::materializers::v2::core as disk_state;
+use buck2_execute_impl::materializers::v2::core::DiskStateMaterializer;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_execute_impl::sqlite::dep_file_state_db::PersistedDepFileStore;
 use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
@@ -587,6 +589,7 @@ impl TenantState {
             EventDispatcher::null()
         };
         let materializer = RepoState::create_materializer(
+            init_ctx.daemon_startup_config.materializer.as_deref(),
             io.project_root().dupe(),
             digest_config,
             paths.buck_out_dir(),
@@ -790,6 +793,7 @@ impl TenantState {
 
 impl RepoState {
     fn create_materializer(
+        implementation: Option<&str>,
         fs: ProjectRoot,
         digest_config: DigestConfig,
         buck_out_path: ProjectRelativePathBuf,
@@ -800,17 +804,34 @@ impl RepoState {
         materializer_state: Option<MaterializerState>,
         daemon_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Arc<dyn Materializer>> {
-        Ok(Arc::new(DeferredMaterializer::new(
-            fs,
-            digest_config,
-            buck_out_path,
-            re_client_manager,
-            blocking_executor,
-            deferred_materializer_configs,
-            materializer_db,
-            materializer_state,
-            daemon_dispatcher,
-        )?))
+        match implementation {
+            None | Some("deferred") => Ok(Arc::new(DeferredMaterializer::new(
+                fs,
+                digest_config,
+                buck_out_path,
+                re_client_manager,
+                blocking_executor,
+                deferred_materializer_configs,
+                materializer_db,
+                materializer_state,
+                daemon_dispatcher,
+            )?)),
+            Some(disk_state::CONFIG_VALUE) => Ok(Arc::new(DiskStateMaterializer::new(
+                fs,
+                digest_config,
+                buck_out_path,
+                re_client_manager,
+                blocking_executor,
+                deferred_materializer_configs,
+                materializer_db,
+                materializer_state,
+            )?)),
+            Some(other) => Err(buck2_error::buck2_error!(
+                ErrorTag::Input,
+                "Unknown `buck2.materializer` value `{other}`; expected `deferred` or `{}`",
+                disk_state::CONFIG_VALUE
+            )),
+        }
     }
 }
 

@@ -1,0 +1,765 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is dual-licensed under either the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree or the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree. You may select, at your option, one of the
+ * above-listed licenses.
+ */
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use buck2_common::file_ops::metadata::FileMetadata;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project::ProjectRootTemp;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::directory::ActionDirectoryBuilder;
+use buck2_execute::directory::INTERNER;
+use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
+use buck2_execute::materialize::materializer::DeclareArtifactPayload;
+use buck2_execute::materialize::materializer::DeclareMatchOutcome;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
+use buck2_execute::materialize::materializer::MaterializeRequest;
+use buck2_execute::materialize::materializer::MaterializeResponse;
+use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::materialize::materializer::WriteLease;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::BuckMutMap;
+use buck2_hash::IntentionallyStdHashMap;
+use buck2_util::threads::ignore_stack_overflow_checks_for_future;
+use dupe::Dupe;
+use tokio::time::sleep;
+use tokio::time::timeout;
+
+use crate::materializers::deferred::AccessTimesUpdates;
+use crate::materializers::deferred::DeferredMaterializerConfigs;
+use crate::materializers::deferred::TtlRefreshConfiguration;
+use crate::materializers::deferred::clean_stale::CleanStaleConfig;
+use crate::materializers::deferred::tests::state_machine::Op;
+use crate::materializers::deferred::tests::state_machine::StubIoHandler;
+use crate::materializers::v2::core::DiskStateMaterializer;
+use crate::sqlite::materializer_db::MaterializerStateSqliteDb;
+use crate::sqlite::materializer_db::testing_materializer_state_sqlite_db;
+
+fn path(s: &str) -> ProjectRelativePathBuf {
+    ProjectRelativePathBuf::unchecked_new(s.to_owned())
+}
+
+fn file(content: &str) -> ArtifactValue {
+    ArtifactValue::file(FileMetadata {
+        digest: TrackedFileDigest::from_content(
+            content.as_bytes(),
+            DigestConfig::testing_default().cas_digest_config(),
+        ),
+        is_executable: false,
+    })
+}
+
+/// An exhaustive directory of `(relative path, content)` files.
+fn dir(files: &[(&str, &str)]) -> ArtifactValue {
+    let mut builder = ActionDirectoryBuilder::empty_exhaustive();
+    for (p, content) in files {
+        builder
+            .insert(
+                ForwardRelativePath::unchecked_new(p),
+                file(content).entry().dupe().map_dir(|d| d.into_builder()),
+            )
+            .unwrap();
+    }
+    builder.mark_uniformly_exhaustive();
+    ArtifactValue::dir(
+        builder
+            .fingerprint(DigestConfig::testing_default().as_directory_serializer())
+            .shared(&*INTERNER),
+    )
+}
+
+/// `value`, with a dep region: `dep_path` holding `dep`, under a non-exhaustive scaffold from the
+/// project root, which is how symlink targets travel with a value.
+fn with_dep(value: &ArtifactValue, dep_path: &str, dep: &ArtifactValue) -> ArtifactValue {
+    let mut deps = ActionDirectoryBuilder::empty_non_exhaustive();
+    deps.insert(
+        ForwardRelativePath::unchecked_new(dep_path),
+        dep.entry().dupe().map_dir(|d| d.into_builder()),
+    )
+    .unwrap();
+    let deps = deps
+        .fingerprint(DigestConfig::testing_default().as_directory_serializer())
+        .shared(&*INTERNER);
+    ArtifactValue::new(value.entry().dupe(), Some(deps))
+}
+
+fn configs() -> DeferredMaterializerConfigs {
+    DeferredMaterializerConfigs {
+        materialize_final_artifacts: true,
+        defer_write_actions: false,
+        ttl_refresh: TtlRefreshConfiguration {
+            frequency: std::time::Duration::default(),
+            min_ttl: jiff::SignedDuration::ZERO,
+            enabled: false,
+        },
+        update_access_times: AccessTimesUpdates::Disabled,
+        verbose_materializer_log: false,
+        clean_stale_config: CleanStaleConfig::default(),
+    }
+}
+
+fn make(
+    fs: &ProjectRoot,
+    db: Option<MaterializerStateSqliteDb>,
+    state: Option<crate::sqlite::materializer_db::MaterializerState>,
+) -> (
+    Arc<DiskStateMaterializer<StubIoHandler>>,
+    Arc<StubIoHandler>,
+) {
+    make_with_io(fs, StubIoHandler::new(fs.dupe()), db, state)
+}
+
+/// A materializer whose downloads of the given paths take the given time.
+fn make_slow(
+    fs: &ProjectRoot,
+    slow: &[(&ProjectRelativePathBuf, Duration)],
+) -> (
+    Arc<DiskStateMaterializer<StubIoHandler>>,
+    Arc<StubIoHandler>,
+) {
+    let mut config = BuckMutMap::default();
+    for (path, duration) in slow {
+        config.insert((*path).clone(), *duration);
+    }
+    make_with_io(
+        fs,
+        StubIoHandler::new(fs.dupe()).with_materialization_config(config),
+        None,
+        None,
+    )
+}
+
+fn make_with_io(
+    fs: &ProjectRoot,
+    io: StubIoHandler,
+    db: Option<MaterializerStateSqliteDb>,
+    state: Option<crate::sqlite::materializer_db::MaterializerState>,
+) -> (
+    Arc<DiskStateMaterializer<StubIoHandler>>,
+    Arc<StubIoHandler>,
+) {
+    let io = Arc::new(io);
+    let dm = DiskStateMaterializer::new_with_io(
+        io.dupe(),
+        Arc::new(DummyBlockingExecutor { fs: fs.dupe() }),
+        configs(),
+        db,
+        state,
+    )
+    .unwrap();
+    (Arc::new(dm), io)
+}
+
+fn abort(dm: Arc<DiskStateMaterializer<StubIoHandler>>) {
+    Arc::into_inner(dm)
+        .expect("every clone of the materializer is gone by the end of a test")
+        .abort();
+}
+
+fn versions() -> IntentionallyStdHashMap<String, String> {
+    IntentionallyStdHashMap::from([("version".to_owned(), "0".to_owned())])
+}
+
+fn metadata() -> IntentionallyStdHashMap<String, String> {
+    IntentionallyStdHashMap::new()
+}
+
+fn request(artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>) -> MaterializeRequest {
+    MaterializeRequest {
+        artifacts,
+        outputs: Vec::new(),
+        purpose: MaterializationPurpose::IntermediateOnly,
+        re_use_case: RemoteExecutorUseCase::buck2_default(),
+    }
+}
+
+/// Materializes and drops the lease at once.
+async fn materialize_ok(
+    dm: &DiskStateMaterializer<StubIoHandler>,
+    artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+) -> buck2_error::Result<()> {
+    drop(materialize_held(dm, artifacts).await?);
+    Ok(())
+}
+
+/// Materializes and returns the response, whose lease the caller holds.
+async fn materialize_held(
+    dm: &DiskStateMaterializer<StubIoHandler>,
+    artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+) -> buck2_error::Result<MaterializeResponse> {
+    let mut response = dm.materialize(request(artifacts)).await?;
+    for result in std::mem::take(&mut response.results) {
+        result?;
+    }
+    Ok(response)
+}
+
+/// Reports `value` at `path` as a producer would, and returns its lease.
+async fn report(
+    dm: &DiskStateMaterializer<StubIoHandler>,
+    path: &ProjectRelativePathBuf,
+    value: ArtifactValue,
+) -> buck2_error::Result<WriteLease> {
+    let lease = dm.prepare_outputs(vec![path.clone()]).await?;
+    dm.declare_existing(
+        &lease,
+        vec![DeclareArtifactPayload {
+            path: path.clone(),
+            artifact: value,
+        }],
+    )
+    .await?;
+    Ok(lease)
+}
+
+fn sorted(mut log: Vec<(Op, ProjectRelativePathBuf)>) -> Vec<(Op, ProjectRelativePathBuf)> {
+    log.sort_by(|a, b| a.1.cmp(&b.1));
+    log
+}
+
+const SLOW: Duration = Duration::from_millis(300);
+const A_BIT: Duration = Duration::from_millis(50);
+
+#[tokio::test]
+async fn test_materialize_downloads_once_and_then_matches() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let p = path("buck-out/v2/gen/out");
+
+        materialize_ok(&dm, vec![(p.clone(), file("A"))]).await?;
+        assert_eq!(io.take_log(), vec![(Op::Materialize, p.clone())]);
+
+        // The same content again is already there; other content is not.
+        materialize_ok(&dm, vec![(p.clone(), file("A"))]).await?;
+        assert_eq!(io.take_log(), vec![]);
+        assert!(dm.has_artifact_at(p.clone()).await?);
+        assert!(matches!(
+            dm.declare_match(vec![(p.clone(), file("A"))]).await?,
+            DeclareMatchOutcome::Match
+        ));
+        assert!(matches!(
+            dm.declare_match(vec![(p.clone(), file("B"))]).await?,
+            DeclareMatchOutcome::NotMatch
+        ));
+        materialize_ok(&dm, vec![(p.clone(), file("B"))]).await?;
+        assert_eq!(io.take_log(), vec![(Op::Materialize, p.clone())]);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_reported_content_is_not_fetched() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let p = path("buck-out/v2/gen/out");
+
+        drop(report(&dm, &p, file("A")).await?);
+        materialize_ok(&dm, vec![(p.clone(), file("A"))]).await?;
+        assert_eq!(io.take_log(), vec![]);
+
+        // Preparing the path for a new output forgets it.
+        drop(dm.prepare_outputs(vec![p.clone()]).await?);
+        assert!(!dm.has_artifact_at(p.clone()).await?);
+        materialize_ok(&dm, vec![(p.clone(), file("A"))]).await?;
+        assert_eq!(io.take_log(), vec![(Op::Materialize, p.clone())]);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_a_report_outside_the_lease_is_refused() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, _io) = make(temp.path(), None, None);
+        let (a, b) = (path("buck-out/v2/gen/a"), path("buck-out/v2/gen/b"));
+
+        let lease = dm.prepare_outputs(vec![a.clone()]).await?;
+        let err = dm
+            .declare_existing(
+                &lease,
+                vec![DeclareArtifactPayload {
+                    path: b.clone(),
+                    artifact: file("B"),
+                }],
+            )
+            .await
+            .expect_err("`b` is not under the lease");
+        assert!(format!("{err:#}").contains("outside the write roots"));
+        // A lease this materializer did not grant is refused too.
+        let err = dm
+            .declare_existing(
+                &WriteLease::noop(),
+                vec![DeclareArtifactPayload {
+                    path: a.clone(),
+                    artifact: file("A"),
+                }],
+            )
+            .await
+            .expect_err("a no-op lease grants nothing");
+        assert!(format!("{err:#}").contains("did not grant"));
+        assert!(!dm.has_artifact_at(a).await?);
+        assert!(!dm.has_artifact_at(b).await?);
+        drop(lease);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_a_path_inside_a_tracked_directory() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let d = path("buck-out/v2/gen/d");
+
+        drop(report(&dm, &d, dir(&[("a", "A"), ("b", "B")])).await?);
+        // A projection with the directory's own content is free.
+        materialize_ok(
+            &dm,
+            vec![(d.join(ForwardRelativePath::unchecked_new("a")), file("A"))],
+        )
+        .await?;
+        assert_eq!(io.take_log(), vec![]);
+        assert!(
+            dm.has_artifact_at(d.join(ForwardRelativePath::unchecked_new("b")))
+                .await?
+        );
+        assert_eq!(
+            dm.get_artifact_entries_for_materialized_paths(
+                vec![d.join(ForwardRelativePath::unchecked_new("a"))],
+                false
+            )
+            .await?
+            .len(),
+            1
+        );
+
+        // Other content at one file inside it writes that file and keeps the rest tracked.
+        let a = d.join(ForwardRelativePath::unchecked_new("a"));
+        materialize_ok(&dm, vec![(a.clone(), file("A2"))]).await?;
+        assert_eq!(io.take_log(), vec![(Op::Materialize, a.clone())]);
+        assert!(
+            dm.has_artifact_at(d.join(ForwardRelativePath::unchecked_new("b")))
+                .await?
+        );
+        assert!(matches!(
+            dm.declare_match(vec![(a.clone(), file("A2"))]).await?,
+            DeclareMatchOutcome::Match
+        ));
+        assert!(matches!(
+            dm.declare_match(vec![(d.clone(), dir(&[("a", "A"), ("b", "B")]))])
+                .await?,
+            DeclareMatchOutcome::NotMatch
+        ));
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_a_directory_around_a_read_held_file_does_not_wait_for_it() -> buck2_error::Result<()>
+{
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let d = path("buck-out/v2/gen/d");
+        let b = d.join(ForwardRelativePath::unchecked_new("b"));
+
+        // One action reads the projection `d/b` and keeps reading it.
+        let reading = materialize_held(&dm, vec![(b.clone(), file("B"))]).await?;
+        assert_eq!(io.take_log(), vec![(Op::Materialize, b.clone())]);
+
+        // Another wants all of `d`, of which `b` is already there: it goes ahead without waiting
+        // for the reader, and afterwards `d` is tracked whole.
+        let whole = dir(&[("a", "A"), ("b", "B")]);
+        timeout(SLOW, materialize_ok(&dm, vec![(d.clone(), whole.dupe())]))
+            .await
+            .expect("the write on `d` excludes `d/b` and waits for nobody")?;
+        assert_eq!(io.take_log(), vec![(Op::Materialize, d.clone())]);
+        assert!(matches!(
+            dm.declare_match(vec![(d.clone(), whole)]).await?,
+            DeclareMatchOutcome::Match
+        ));
+        drop(reading);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_dep_regions_are_roots_of_their_own() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let p = path("buck-out/v2/gen/link");
+        let target = path("buck-out/v2/gen/target");
+
+        let value = with_dep(&file("L"), "buck-out/v2/gen/target", &file("T"));
+        materialize_ok(&dm, vec![(p.clone(), value.dupe())]).await?;
+        assert_eq!(
+            sorted(io.take_log()),
+            vec![
+                (Op::Materialize, p.clone()),
+                (Op::Materialize, target.clone())
+            ]
+        );
+        assert!(dm.has_artifact_at(target.clone()).await?);
+
+        // A dep outside buck-out is not the materializer's to write.
+        let value = with_dep(&file("L2"), "source/file", &file("S"));
+        materialize_ok(&dm, vec![(p.clone(), value)]).await?;
+        assert_eq!(io.take_log(), vec![(Op::Materialize, p.clone())]);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_each_pair_gets_its_own_result() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let (good, bad) = (path("buck-out/v2/gen/good"), path("buck-out/v2/gen/bad"));
+        io.set_fail_on(vec![bad.clone()]);
+
+        let response = dm
+            .materialize(request(vec![
+                (good.clone(), file("G")),
+                (bad.clone(), file("B")),
+            ]))
+            .await?;
+        assert!(response.results[0].is_ok());
+        assert!(response.results[1].is_err());
+        assert!(dm.has_artifact_at(good).await?);
+        assert!(!dm.has_artifact_at(bad.clone()).await?);
+        drop(response);
+
+        // The failed root was released with the response; the next request writes it itself.
+        io.set_fail_on(vec![]);
+        materialize_ok(&dm, vec![(bad.clone(), file("B"))]).await?;
+        assert!(dm.has_artifact_at(bad).await?);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_a_second_request_waits_for_the_writer_and_then_shares() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let p = path("buck-out/v2/gen/out");
+        let (dm, io) = make_slow(temp.path(), &[(&p, SLOW)]);
+
+        let first = tokio::spawn({
+            let dm = dm.dupe();
+            let p = p.clone();
+            async move { materialize_held(&dm, vec![(p, file("A"))]).await }
+        });
+        sleep(A_BIT).await;
+        let second = materialize_held(&dm, vec![(p.clone(), file("A"))]).await?;
+        let first = first.await.unwrap()?;
+        // One download, shared: the second was granted read once the first had reported.
+        assert_eq!(io.take_log(), vec![(Op::Materialize, p.clone())]);
+        drop((first, second));
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_a_root_waiting_for_a_writer_holds_up_no_other_root() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (p, q) = (path("buck-out/v2/gen/p"), path("buck-out/v2/gen/q"));
+        let (dm, io) = make_slow(temp.path(), &[(&p, SLOW)]);
+
+        let first = tokio::spawn({
+            let dm = dm.dupe();
+            let p = p.clone();
+            async move { materialize_held(&dm, vec![(p, file("P"))]).await }
+        });
+        sleep(A_BIT).await;
+        // `p` is being written by the first request; `q` is not on disk. The second request
+        // waits for `p` but downloads `q` in the meantime.
+        let second = tokio::spawn({
+            let dm = dm.dupe();
+            let (p, q) = (p.clone(), q.clone());
+            async move { materialize_held(&dm, vec![(p, file("P")), (q, file("Q"))]).await }
+        });
+        sleep(A_BIT).await;
+        assert!(!second.is_finished(), "`p` is still being written");
+        assert_eq!(io.take_log(), vec![(Op::Materialize, q.clone())]);
+        let first = first.await.unwrap()?;
+        let second = second.await.unwrap()?;
+        assert_eq!(
+            io.take_log(),
+            vec![(Op::Materialize, p.clone())],
+            "`p` was shared, not downloaded again"
+        );
+        drop((first, second));
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_a_prepared_output_blocks_readers_until_it_is_reported() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let p = path("buck-out/v2/gen/out");
+
+        let lease = dm.prepare_outputs(vec![p.clone()]).await?;
+        let reader = tokio::spawn({
+            let dm = dm.dupe();
+            let p = p.clone();
+            async move { materialize_held(&dm, vec![(p, file("A"))]).await }
+        });
+        sleep(A_BIT).await;
+        assert!(!reader.is_finished(), "the producer still holds `out`");
+
+        // Once the producer has reported, the reader finds the content there and shares it,
+        // while the producer still holds its lease.
+        dm.declare_existing(
+            &lease,
+            vec![DeclareArtifactPayload {
+                path: p.clone(),
+                artifact: file("A"),
+            }],
+        )
+        .await?;
+        let held = timeout(SLOW, reader)
+            .await
+            .expect("reported content is readable at once")
+            .unwrap()?;
+        assert_eq!(io.take_log(), vec![], "nothing was downloaded");
+        drop((held, lease));
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_a_dropped_request_hands_its_download_to_the_next() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let p = path("buck-out/v2/gen/out");
+        let (dm, io) = make_slow(temp.path(), &[(&p, SLOW)]);
+
+        let first = tokio::spawn({
+            let dm = dm.dupe();
+            let p = p.clone();
+            async move { materialize_held(&dm, vec![(p, file("A"))]).await }
+        });
+        sleep(A_BIT).await;
+        let second = tokio::spawn({
+            let dm = dm.dupe();
+            let p = p.clone();
+            async move { materialize_held(&dm, vec![(p, file("A"))]).await }
+        });
+        sleep(A_BIT).await;
+        // The first requester goes away while its download runs and someone waits for the same
+        // content: the download is handed over, not restarted.
+        first.abort();
+        let second = second.await.unwrap()?;
+        assert_eq!(io.take_log(), vec![(Op::Materialize, p.clone())]);
+        assert!(dm.has_artifact_at(p).await?);
+        drop(second);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_a_dropped_request_with_no_one_waiting_parks_its_download() -> buck2_error::Result<()>
+{
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let p = path("buck-out/v2/gen/out");
+        let (dm, io) = make_slow(temp.path(), &[(&p, SLOW)]);
+
+        let first = tokio::spawn({
+            let dm = dm.dupe();
+            let p = p.clone();
+            async move { materialize_held(&dm, vec![(p, file("A"))]).await }
+        });
+        sleep(A_BIT).await;
+        first.abort();
+        sleep(A_BIT).await;
+        // Nobody wanted it, so it was cancelled and parked; the next request drains it and,
+        // since it cannot have been adopted, writes the content itself.
+        materialize_ok(&dm, vec![(p.clone(), file("A"))]).await?;
+        assert_eq!(
+            io.take_log(),
+            vec![(Op::Materialize, p.clone()), (Op::Materialize, p.clone())]
+        );
+        assert!(dm.has_artifact_at(p).await?);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_a_request_holds_its_outputs_for_writing() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, _io) = make(temp.path(), None, None);
+        let (input, output) = (path("buck-out/v2/gen/in"), path("buck-out/v2/gen/out"));
+        drop(report(&dm, &output, file("old")).await?);
+
+        let response = dm
+            .materialize(MaterializeRequest {
+                artifacts: vec![(input.clone(), file("I"))],
+                outputs: vec![output.clone()],
+                purpose: MaterializationPurpose::IntermediateOnly,
+                re_use_case: RemoteExecutorUseCase::buck2_default(),
+            })
+            .await?;
+        assert!(response.results[0].is_ok());
+        assert!(!dm.has_artifact_at(output.clone()).await?, "untracked");
+        // Another producer of the same output waits for this one.
+        assert!(
+            timeout(A_BIT, dm.prepare_outputs(vec![output.clone()]))
+                .await
+                .is_err()
+        );
+        let (read, outputs) = response.into_leases()?;
+        let outputs = outputs.expect("the request had outputs");
+        dm.declare_existing(
+            &outputs,
+            vec![DeclareArtifactPayload {
+                path: output.clone(),
+                artifact: file("new"),
+            }],
+        )
+        .await?;
+        drop((read, outputs));
+        drop(
+            timeout(SLOW, dm.prepare_outputs(vec![output]))
+                .await
+                .unwrap()?,
+        );
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_publish_moves_the_content_and_tracks_it() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path().dupe();
+        let (dm, io) = make(&fs, None, None);
+        let src = path("buck-out/v2/gen/__action__/out");
+        let dest = path("buck-out/v2/gen/content/abc/out");
+
+        let lease = dm.prepare_outputs(vec![src.clone()]).await?;
+        fs.write_file(&src, "X", false)?;
+        dm.publish(&lease, src.clone(), dest.clone(), file("X"))
+            .await?;
+        drop(lease);
+        assert!(!fs.resolve(&src).exists());
+        assert_eq!(std::fs::read_to_string(fs.resolve(&dest))?, "X");
+        assert!(dm.has_artifact_at(dest.clone()).await?);
+
+        // The same content published again is redundant: the source goes, the destination stays.
+        let lease = dm.prepare_outputs(vec![src.clone()]).await?;
+        fs.write_file(&src, "X", false)?;
+        dm.publish(&lease, src.clone(), dest.clone(), file("X"))
+            .await?;
+        drop(lease);
+        assert!(!fs.resolve(&src).exists());
+        assert_eq!(std::fs::read_to_string(fs.resolve(&dest))?, "X");
+        assert_eq!(io.take_log(), vec![]);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_paths_without_values_are_refused() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, _io) = make(temp.path(), None, None);
+        let err = match dm.materialize_many(vec![path("buck-out/v2/gen/out")]).await {
+            Ok(_) => panic!("paths without values must be refused"),
+            Err(e) => e,
+        };
+        assert!(format!("{err:#}").contains("without their values"));
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_tracked_state_survives_a_restart() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path().dupe();
+        let (db, _) = testing_materializer_state_sqlite_db(&fs, versions(), metadata(), None)?;
+        let (dm, io) = make(&fs, Some(db), None);
+        let (p, d) = (path("buck-out/v2/gen/out"), path("buck-out/v2/gen/d"));
+        materialize_ok(
+            &dm,
+            vec![
+                (p.clone(), file("A")),
+                (d.clone(), dir(&[("a", "A"), ("b", "B")])),
+            ],
+        )
+        .await?;
+        io.take_log();
+        // Expanding a directory rewrites its rows too.
+        let a = d.join(ForwardRelativePath::unchecked_new("a"));
+        materialize_ok(&dm, vec![(a.clone(), file("A2"))]).await?;
+        io.take_log();
+        abort(dm);
+
+        let (db, state) = testing_materializer_state_sqlite_db(&fs, versions(), metadata(), None)?;
+        let state = state?;
+        let (dm, io) = make(&fs, Some(db), Some(state));
+        materialize_ok(
+            &dm,
+            vec![
+                (p.clone(), file("A")),
+                (a.clone(), file("A2")),
+                (d.join(ForwardRelativePath::unchecked_new("b")), file("B")),
+            ],
+        )
+        .await?;
+        assert_eq!(io.take_log(), vec![], "everything came back from sqlite");
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
