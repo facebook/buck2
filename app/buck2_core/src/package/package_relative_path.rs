@@ -15,6 +15,7 @@ use std::path::PathBuf;
 
 use allocative::Allocative;
 use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::fmt::quoted_display;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathIter;
@@ -30,8 +31,6 @@ use pagable::PagableSerialize;
 use ref_cast::RefCast;
 use serde::Deserialize;
 use serde::Serialize;
-
-use crate::package::quoted_display;
 
 /// A 'PackageRelativePath' is a normalized, platform-agnostic path relative to
 /// the base directory of the 'Package'.
