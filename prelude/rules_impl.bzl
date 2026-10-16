@@ -42,7 +42,6 @@ load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
 load("@prelude//decls:cython_rules.bzl", "cython_rules")
 load("@prelude//decls:erlang_rules.bzl", "erlang_rules")
 load("@prelude//decls:java_rules.bzl", "java_rules")
-load("@prelude//decls:js_rules.bzl", "js_rules")
 load("@prelude//decls:kotlin_rules.bzl", "kotlin_rules")
 load("@prelude//decls:python_rules.bzl", "python_rules")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
@@ -56,7 +55,7 @@ load("@prelude//go:rules.bzl", _go_rules = "rules")
 load("@prelude//haskell:rules.bzl", _haskell_rules = "rules")
 load("@prelude//http_archive:http_archive.bzl", "http_archive_impl")
 load("@prelude//java:java.bzl", _java_implemented_rules = "implemented_rules")
-load("@prelude//js:js.bzl", _js_extra_attributes = "extra_attributes", _js_implemented_rules = "implemented_rules")
+load("@prelude//js:rules.bzl", _js_rules = "rules")
 load("@prelude//js:worker_tool.bzl", "worker_tool")
 load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", _julia_implemented_rules = "implemented_rules")
 load("@prelude//kotlin:kotlin.bzl", _kotlin_implemented_rules = "implemented_rules")
@@ -118,7 +117,7 @@ categorized_rule_decl_records = {
     _HASKELL_RULES_KEY: _haskell_rules,
     _APPLE_RULES_KEY: apple_rules,
     _JAVA_RULES_KEY: java_rules,
-    _JS_RULES_KEY: js_rules,
+    _JS_RULES_KEY: _js_rules,
     _KOTLIN_RULES_KEY: kotlin_rules,
     _LUA_RULES_KEY: _lua_rules,
     _NODEJS_RULES_KEY: _nodejs_rules,
@@ -193,7 +192,6 @@ extra_implemented_rules = struct(
         _config_implemented_rules,
         _erlang_implemented_rules,
         _java_implemented_rules,
-        _js_implemented_rules,
         _julia_implemented_rules,
         _kotlin_implemented_rules,
         _matlab_implemented_rules,
@@ -417,7 +415,6 @@ categorized_extra_attributes = {
     _CYTHON_RULES_KEY: _cython_extra_attributes,
     _APPLE_RULES_KEY: _apple_extra_attributes,
     _JAVA_RULES_KEY: {},
-    _JS_RULES_KEY: _js_extra_attributes,
     _JULIA_RULES_KEY: _julia_extra_attributes,
     _KOTLIN_RULES_KEY: {},
     _MATLAB_RULES_KEY: _matlab_extra_attributes,

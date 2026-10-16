@@ -10,12 +10,14 @@ load("@prelude//:cache_mode.bzl", "CacheModeInfo")
 load("@prelude//:genrule_local_labels.bzl", "resolved_genrule_labels_require_local")
 load("@prelude//:genrule_prefer_local_labels.bzl", "resolved_genrule_labels_prefer_local")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info")
 load("@prelude//js:js_providers.bzl", "JsBundleInfo")
 load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "get_apple_resource_providers_for_js_bundle", "get_bundle_name")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
+load(":attrs.bzl", "js_bundle_genrule_attrs")
 
 _GENRULE_OUT_DIR = "out"
 
@@ -314,3 +316,15 @@ def js_bundle_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     return [default_info_out, js_bundle_out] + _get_extra_providers(ctx, ctx.attrs.skip_resources, ctx.attrs.js_bundle, js_bundle_out)
+
+js_bundle_genrule = prelude_rule(
+    name = "js_bundle_genrule",
+    impl = js_bundle_genrule_impl,
+    docs = """
+        `js_bundle_genrule` is a genrule that acts on a `js_bundle` and provides a bunch of
+        additional environment variables for the genrule to use.
+    """,
+    examples = None,
+    further = None,
+    attrs = js_bundle_genrule_attrs(),
+)

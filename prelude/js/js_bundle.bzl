@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "RESOURCE_PRIORITY_NORMAL", "merge_android_packageable_info")
 load("@prelude//android:android_resource.bzl", "JAVA_PACKAGE_FILENAME", "aapt2_compile", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
@@ -13,6 +14,7 @@ load("@prelude//js:js_providers.bzl", "JsBundleInfo", "JsLibraryInfo", "get_tran
 load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "get_apple_resource_providers_for_js_bundle", "get_bundle_name", "get_flavors", "run_worker_commands")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "map_idx")
+load(":attrs.bzl", "js_bundle_attrs")
 
 def _build_dependencies_file(
     ctx: AnalysisContext, transform_profile: str, flavors: list[str], transitive_js_library_outputs: TransitiveSetArgsProjection
@@ -204,3 +206,16 @@ def js_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(default_outputs = default_outputs, sub_targets = sub_targets),
     ] + extra_unnamed_output_providers
+
+js_bundle = prelude_rule(
+    name = "js_bundle",
+    impl = js_bundle_impl,
+    docs = """
+        A `js_bundle()` rule builds a JavaScript bundle from one or more entry points,
+        pulling in `js_library()` dependencies and invoking a worker tool to perform
+        the bundling.
+    """,
+    examples = None,
+    further = None,
+    attrs = js_bundle_attrs(),
+)
