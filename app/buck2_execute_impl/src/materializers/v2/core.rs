@@ -53,6 +53,8 @@ use std::time::Instant;
 use allocative::Allocative;
 use allocative::FlameGraphBuilder;
 use async_trait::async_trait;
+use buck2_common::file_ops::metadata::FileMetadata;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -62,7 +64,6 @@ use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::BuckErrorContext;
-use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher;
@@ -126,7 +127,6 @@ use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationMethod;
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_entry;
-use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::v2::clean_stale::Cleaner;
@@ -462,41 +462,6 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         Ok(Roots(guards))
     }
 
-    /// Copies one source from outside buck-out to its place in a copy's destination and tracks
-    /// it there.
-    async fn copy_in(
-        &self,
-        granted: oneshot::Receiver<Granted>,
-        src: CopiedArtifact,
-    ) -> buck2_error::Result<()> {
-        let entry = src.dest_entry.clone().map_dir(|dir| dir.shared(&*INTERNER));
-        let Granted { mut held, .. } = granted.await.map_err(|_| stopped())?;
-        held.settle_except(None).await;
-        held.tasks.push(Task::spawn(
-            src.dest.clone(),
-            entry.dupe(),
-            copy_task(
-                self.io.dupe(),
-                self.blocking_executor.dupe(),
-                src,
-                entry.dupe(),
-                get_dispatcher(),
-            ),
-        ));
-        match finished(held.finish().await) {
-            Ok(()) => {
-                self.report(
-                    held.guard(),
-                    entry,
-                    ArtifactClassification::IntermediateOnly,
-                )
-                .await
-            }
-            Err(SharedMaterializingError::Error(e)) => Err(e),
-            Err(SharedMaterializingError::NotFound(e)) => Err(e.into()),
-        }
-    }
-
     #[cfg(test)]
     pub(crate) fn store(&self) -> &'static BlobStore {
         self.store
@@ -693,11 +658,10 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
 
     /// A copy of buck-out content is nothing to this core: the destination's value names the
     /// same digests as the source's, and whoever needs the destination on disk materializes it
-    /// from them, today from the CAS and later from the BlobStore (plan-new-core.md §2e). Until
-    /// the store exists, a copy of content that is only on this disk fails to materialize. A
-    /// source outside buck-out, a source file, is not known to be in the CAS and has no store to
-    /// go into yet, so that part of the destination is copied in now and tracked, as a write is
-    /// written now.
+    /// from them, out of the store or the CAS. A source outside buck-out, a source file, is not
+    /// known to be in the CAS, so its content enters the store, checked against the digest the
+    /// value claims, and the destination is materialized from there when asked
+    /// (plan-blobstore.md §3).
     async fn declare_copy_impl(
         &self,
         _path: ProjectRelativePathBuf,
@@ -712,21 +676,14 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         if from_outside.is_empty() {
             return Ok(());
         }
-        let (answers, withdraw) = self.acquire(
-            from_outside
-                .iter()
-                .map(|src| (src.dest.clone(), Want::Write))
-                .collect(),
-        )?;
-        let results = join_all(
-            answers
-                .into_iter()
-                .zip(from_outside)
-                .map(|(answer, src)| self.copy_in(answer, src)),
-        )
-        .await;
-        withdraw.disarm();
-        results.into_iter().collect()
+        let files = from_outside
+            .into_iter()
+            .flat_map(|src| {
+                let entry = src.dest_entry.map_dir(|dir| dir.shared(&*INTERNER));
+                files_to_insert(self.io.fs(), &src.src, &entry, Origin::Source)
+            })
+            .collect();
+        self.store.insert_files(files).await
     }
 
     /// Nothing to record: content in the CAS is reached through `materialize`, which carries the
@@ -739,28 +696,32 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         Ok(())
     }
 
-    /// Eager: the content is written now and tracked. Deferring writes into memory is a property
-    /// of the old core; here a write is disk state like any other.
+    /// Into the store, not onto disk: the output path is materialized from the store when
+    /// something asks for it, as a probe hit's is from the CAS (plan-blobstore.md §3).
     async fn declare_write<'a>(
         &self,
         generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> buck2_error::Result<Vec<ArtifactValue>> {
         let requests = generate()?;
-        let paths: Vec<ProjectRelativePathBuf> = requests.iter().map(|r| r.path.clone()).collect();
-        let roots = self.take_all_for_writing(paths.clone()).await?;
-        let values = self
-            .io
-            .immediate_write(Box::new(move || Ok(requests)))
-            .await?;
-        for (path, value) in paths.iter().zip(&values) {
-            let guard = roots.at(path).internal_error("every path was taken")?;
-            self.report(
-                guard,
-                value.entry().dupe(),
-                ArtifactClassification::IntermediateOnly,
-            )
-            .await?;
-        }
+        let config = self.io.digest_config().cas_digest_config();
+        let values: Vec<ArtifactValue> = requests
+            .iter()
+            .map(|request| {
+                ArtifactValue::file(FileMetadata {
+                    digest: TrackedFileDigest::from_content(&request.content, config),
+                    is_executable: request.is_executable,
+                })
+            })
+            .collect();
+        let inserted = join_all(requests.into_iter().zip(&values).map(|(request, value)| {
+            let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = value.entry() else {
+                unreachable!("a write's value is a file");
+            };
+            self.store
+                .insert_bytes(request.content, &file.digest, file.is_executable)
+        }))
+        .await;
+        inserted.into_iter().collect::<buck2_error::Result<()>>()?;
         Ok(values)
     }
 
@@ -1296,41 +1257,6 @@ fn started(
             "A materialization task was cancelled before it started"
         ))
     })
-}
-
-/// The IO of a copy from outside buck-out: the destination is cleared and the source copied in.
-fn copy_task<T: IoHandler>(
-    io: Arc<T>,
-    blocking_executor: Arc<dyn BlockingExecutor>,
-    src: CopiedArtifact,
-    entry: ArtifactMetadata,
-    dispatcher: EventDispatcher,
-) -> impl for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, Result<(), SharedMaterializingError>>
-+ Send {
-    move |cancellations| {
-        async move {
-            let _running = started(cancellations)?;
-            let fs = io.fs().dupe();
-            let clean = src.dest.clone();
-            blocking_executor
-                .execute_io_inline(move || cleanup_path(&fs, &clean))
-                .await
-                .map_err(SharedMaterializingError::Error)?;
-            io.materialize_entry(
-                src.dest.clone(),
-                Arc::new(ArtifactMaterializationMethod::LocalCopy(
-                    FileTree::new(),
-                    vec![src],
-                )),
-                entry,
-                dispatcher,
-                cancellations,
-            )
-            .await
-            .map_err(shared)
-        }
-        .boxed()
-    }
 }
 
 fn shared(e: MaterializeEntryError) -> SharedMaterializingError {

@@ -16,6 +16,7 @@ use buck2_common::cas_digest::file_digest_interner;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -40,6 +41,7 @@ use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::MaterializeResponse;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteLease;
+use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutMap;
@@ -75,6 +77,16 @@ fn file(content: &str) -> ArtifactValue {
             DigestConfig::testing_default().cas_digest_config(),
         ),
         is_executable: false,
+    })
+}
+
+fn file_exec(content: &str) -> ArtifactValue {
+    ArtifactValue::file(FileMetadata {
+        digest: TrackedFileDigest::from_content(
+            content.as_bytes(),
+            DigestConfig::testing_default().cas_digest_config(),
+        ),
+        is_executable: true,
     })
 }
 
@@ -1055,14 +1067,17 @@ async fn test_a_copy_of_buck_out_content_is_nothing_to_the_core() -> buck2_error
     .await
 }
 
-/// A source file is not in buck-out and not known to be in the CAS, so its part of the
-/// destination is copied in now and tracked there; the part from buck-out is left to whoever
-/// materializes the destination.
+/// A source file is not in buck-out and not known to be in the CAS, so its content enters the
+/// store, checked against the value's digest; the destination is left to whoever materializes it.
 #[tokio::test]
-async fn test_a_copy_from_outside_buck_out_is_made_now() -> buck2_error::Result<()> {
+async fn test_a_copy_from_outside_buck_out_enters_the_store() -> buck2_error::Result<()> {
     ignore_stack_overflow_checks_for_future(async {
         let temp = ProjectRootTemp::new()?;
         let (dm, io) = make(temp.path(), None, None);
+        let src = path("src/b.txt");
+        let on_disk = temp.path().resolve(&src);
+        std::fs::create_dir_all(on_disk.parent().unwrap())?;
+        std::fs::write(&on_disk, b"B")?;
         let dest = path("buck-out/v2/gen/copy");
         let (a, b) = (
             dest.join(ForwardRelativePath::unchecked_new("a")),
@@ -1078,14 +1093,70 @@ async fn test_a_copy_from_outside_buck_out_is_made_now() -> buck2_error::Result<
                     leaf(&file("A")),
                     None,
                 ),
-                CopiedArtifact::new(path("src/b.txt"), b.clone(), leaf(&file("B")), None),
+                CopiedArtifact::new(src.clone(), b.clone(), leaf(&file("B")), None),
             ],
         )
         .await?;
-        assert_eq!(io.take_log(), vec![(Op::Materialize, b.clone())]);
-        assert!(dm.has_artifact_at(b).await?);
-        assert!(!dm.has_artifact_at(a).await?);
-        assert!(!dm.has_artifact_at(dest).await?);
+        assert_eq!(io.take_log(), vec![]);
+        assert!(!dm.has_artifact_at(b).await?);
+        assert!(!dm.has_artifact_at(dest.clone()).await?);
+        let out = temp.path().resolve(path("buck-out/v2/gen/out"));
+        assert!(in_store(&dm, b"B", &out).await?);
+
+        // A source without the content the value claims is refused, unless the store has that
+        // content already, in which case the file no longer matters.
+        std::fs::write(&on_disk, b"changed")?;
+        dm.declare_copy_impl(
+            dest.clone(),
+            file("B"),
+            vec![CopiedArtifact::new(
+                src.clone(),
+                dest.clone(),
+                leaf(&file("B")),
+                None,
+            )],
+        )
+        .await?;
+        assert!(
+            dm.declare_copy_impl(
+                dest.clone(),
+                file("claimed"),
+                vec![CopiedArtifact::new(src, dest, leaf(&file("claimed")), None)],
+            )
+            .await
+            .is_err()
+        );
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// A write goes into the store and nowhere else until something asks for its path.
+#[tokio::test]
+async fn test_a_write_goes_into_the_store() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let p = path("buck-out/v2/gen/written");
+        let request_path = p.clone();
+        let values = dm
+            .declare_write(Box::new(move || {
+                Ok(vec![WriteRequest {
+                    path: request_path,
+                    content: b"written".to_vec(),
+                    is_executable: true,
+                    path_kind: BuckOutPathKind::Configuration,
+                }])
+            }))
+            .await?;
+        assert_eq!(values, vec![file_exec("written")]);
+        assert_eq!(io.take_log(), vec![]);
+        assert!(!temp.path().resolve(&p).exists());
+
+        materialize_ok(&dm, vec![(p.clone(), file_exec("written"))]).await?;
+        assert_eq!(io.take_log(), vec![]);
+        assert_eq!(std::fs::read_to_string(temp.path().resolve(&p))?, "written");
         abort(dm);
         Ok(())
     })
