@@ -7,11 +7,16 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load(
     "@prelude//cxx:preprocessor.bzl",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:cxx_common.bzl", "cxx_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
+load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "coverage_mode_attr", "go_library_transition")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -40,6 +45,7 @@ load(
     "from_named_set",
     "map_idx",
 )
+load(":attrs.bzl", "go_common")
 load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo")
 load(":coverage.bzl", "GoCoverageMode")
@@ -148,3 +154,60 @@ def _combine_package(ctx: AnalysisContext, pkg_import_path: str, a_file: Artifac
     ctx.actions.run(pack_cmd, env = env, category = "go_pack", identifier = identifier, allow_cache_upload = go_toolchain.allow_cache_upload)
 
     return pkg_file
+
+go_library = prelude_rule(
+    name = "go_library",
+    impl = go_library_impl,
+    docs = """
+        A go\\_library() rule builds a native library from the supplied set of Go source files
+         and dependencies.
+    """,
+    examples = """
+        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
+
+        ```
+        go_library(
+          name='greeting',
+          srcs=[
+            'greeting.go',
+          ],
+          deps=[
+            ':join',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        go_common.srcs_arg()
+        | go_common.package_name_arg()
+        | go_common.deps_arg()
+        | go_common.compiler_flags_arg()
+        | go_common.assembler_flags_arg()
+        | go_common.embed_srcs_arg()
+        | go_common.package_root_arg()
+        | go_common.override_cgo_enabled_arg()
+        | cxx_common.headers_arg()
+        | cxx_common.header_namespace_arg()
+        | go_common.cxx_preprocessor_flags_arg()
+        | go_common.cxx_compiler_flags_arg()
+        | go_common.external_linker_flags_arg()
+        | go_common.link_style_arg()
+        | go_common.coverage_enabled_arg()
+        | go_common.generate_exported_header()
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "_build_tags": build_tags_attr,
+            "_cgo_enabled": cgo_enabled_attr,
+            "_coverage_mode": coverage_mode_attr,
+            "_cxx_toolchain": toolchains_common.cxx(),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
+            "_go_toolchain": toolchains_common.go(),
+        }
+    ),
+    cfg = go_library_transition,
+)

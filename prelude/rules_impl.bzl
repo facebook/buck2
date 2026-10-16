@@ -41,7 +41,6 @@ load("@prelude//decls:core_rules.bzl", "core_rules")
 load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
 load("@prelude//decls:cython_rules.bzl", "cython_rules")
 load("@prelude//decls:erlang_rules.bzl", "erlang_rules")
-load("@prelude//decls:go_rules.bzl", "go_rules")
 load("@prelude//decls:java_rules.bzl", "java_rules")
 load("@prelude//decls:js_rules.bzl", "js_rules")
 load("@prelude//decls:kotlin_rules.bzl", "kotlin_rules")
@@ -54,14 +53,7 @@ load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//decls:uncategorized_rules.bzl", "uncategorized_rules")
 load("@prelude//erlang:erlang.bzl", _erlang_implemented_rules = "implemented_rules")
 load("@prelude//git:rules.bzl", _git_rules = "rules")
-load("@prelude//go:coverage.bzl", "GoCoverageMode")
-load("@prelude//go:go_binary.bzl", "go_binary_impl")
-load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
-load("@prelude//go:go_library.bzl", "go_library_impl")
-load("@prelude//go:go_stdlib.bzl", "go_stdlib_impl")
-load("@prelude//go:go_test.bzl", "go_test_impl")
-load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "coverage_mode_attr")
-load("@prelude//go_bootstrap:go_bootstrap.bzl", "go_bootstrap_binary_impl")
+load("@prelude//go:rules.bzl", _go_rules = "rules")
 load("@prelude//haskell:rules.bzl", _haskell_rules = "rules")
 load("@prelude//http_archive:http_archive.bzl", "http_archive_impl")
 load("@prelude//java:java.bzl", _java_implemented_rules = "implemented_rules")
@@ -123,7 +115,7 @@ categorized_rule_decl_records = {
     _DOTNET_RULES_KEY: _dotnet_rules,
     _ERLANG_RULES_KEY: erlang_rules,
     _GIT_RULES_KEY: _git_rules,
-    _GO_RULES_KEY: go_rules,
+    _GO_RULES_KEY: _go_rules,
     _HASKELL_RULES_KEY: _haskell_rules,
     _APPLE_RULES_KEY: apple_rules,
     _JAVA_RULES_KEY: java_rules,
@@ -185,13 +177,6 @@ extra_implemented_rules = struct(
     cython_toolchain = cython_toolchain_impl,
     # C++ / LLVM
     llvm_link_bitcode = llvm_link_bitcode_impl,
-    # go
-    go_binary = go_binary_impl,
-    go_bootstrap_binary = go_bootstrap_binary_impl,
-    go_exported_library = go_exported_library_impl,
-    go_library = go_library_impl,
-    go_test = go_test_impl,
-    go_stdlib = go_stdlib_impl,
     # python
     prebuilt_python_library = prebuilt_python_library_impl,
     python_binary = python_binary_impl,
@@ -352,64 +337,6 @@ control how the dependencies of this library are linked, use `link_style` instea
     },
 }
 
-_go_extra_attributes = {
-    "go_binary": {
-        "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),
-        "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
-        "_build_info": BUILD_INFO_ATTR,
-        "_build_tags": build_tags_attr,
-        "_cgo_enabled": cgo_enabled_attr,
-        "_coverage_mode": coverage_mode_attr,
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
-        "_go_toolchain": toolchains_common.go(),
-    },
-    "go_bootstrap_binary": {
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_go_bootstrap_toolchain": toolchains_common.go_bootstrap(),
-    },
-    "go_exported_library": {
-        "_build_info": BUILD_INFO_ATTR,
-        "_build_tags": build_tags_attr,
-        "_cgo_enabled": cgo_enabled_attr,
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
-        "_go_toolchain": toolchains_common.go(),
-    },
-    "go_library": {
-        "_build_tags": build_tags_attr,
-        "_cgo_enabled": cgo_enabled_attr,
-        "_coverage_mode": coverage_mode_attr,
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
-        "_go_toolchain": toolchains_common.go(),
-    },
-    "go_stdlib": {
-        "_build_tags": build_tags_attr,
-        "_cgo_enabled": cgo_enabled_attr,
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_go_toolchain": toolchains_common.go(),
-    },
-    "go_test": {
-        "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),
-        "resources": attrs.list(attrs.source(allow_directory = True), default = []),
-        "_build_info": BUILD_INFO_ATTR,
-        "_build_tags": build_tags_attr,
-        "_cgo_enabled": cgo_enabled_attr,
-        "_coverage_mode": coverage_mode_attr,
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
-        "_go_toolchain": toolchains_common.go(),
-        "_list_tests": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:list_tests")),
-        "_testmaingen": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:testmaingen")),
-    },
-}
-
 _python_extra_attributes = {
     # python bootstrap
     "python_bootstrap_binary": {
@@ -490,7 +417,6 @@ categorized_extra_attributes = {
     _CORE_RULES_KEY: _core_extra_attributes,
     _CXX_RULES_KEY: cxx_extra_attributes,
     _CYTHON_RULES_KEY: _cython_extra_attributes,
-    _GO_RULES_KEY: _go_extra_attributes,
     _APPLE_RULES_KEY: _apple_extra_attributes,
     _JAVA_RULES_KEY: {},
     _JS_RULES_KEY: _js_extra_attributes,

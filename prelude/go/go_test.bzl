@@ -6,6 +6,14 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:cxx_common.bzl", "cxx_common")
+load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
+load("@prelude//decls:re_test_common.bzl", "re_test_common")
+load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
+load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "coverage_mode_attr", "go_test_transition")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -21,6 +29,7 @@ load(
     "map_val",
     "value_or",
 )
+load(":attrs.bzl", "BuildMode", "go_common")
 load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoTestInfo")
 load(":coverage.bzl", "GoCoverageMode")
@@ -194,3 +203,164 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
         tests_pkg_info,
     ]
+
+go_test = prelude_rule(
+    name = "go_test",
+    impl = go_test_impl,
+    docs = """
+        A `go_test()` rule builds a native binary from the
+         specified Go source and resource files—and a generated main file. It's
+         similar to the `go test` command.
+
+         If your test requires static files you should specify these in
+         the **resources** argument. If you do not specify these
+         files, they won't be available when your test runs.
+    """,
+    examples = """
+        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
+
+        ```
+        go_library(
+          name='greeting',
+          srcs=[
+            'greeting.go',
+          ],
+          deps=[
+            ':join',
+          ],
+        )
+
+        go_test(
+          name='greeting-test',
+          srcs=[
+            'greeting_ext_test.go',
+          ],
+          deps=[
+            ':greeting'
+          ],
+        )
+
+        go_test(
+          name='greeting-internal-test',
+          package_name='greeting',
+          srcs=[
+            'greeting.go',
+            'greeting_test.go',
+          ],
+          deps=[
+            ':join',
+          ],
+        )
+
+        # Or
+
+        go_test(
+          name='greeting-better-internal-test',
+          srcs=['greeting_test.go'],
+          target_under_test=':greeting',
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        buck.inject_test_env_arg()
+        | go_common.srcs_arg()
+        | {
+            "package_name": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                Sets the full name of the test package being compiled. This defaults to the path from the buck
+                 root with "\\_test" appended. (e.g. given a ./.buckconfig, a rule in ./a/b/BUCK defaults to package "a/b\\_test")
+
+                 Note: if you want to test packages internally (i.e. same package name), use the `target_under_test`
+                 parameter instead of setting `package_name` to include the tested source files.
+            """,
+            ),
+            "target_under_test": attrs.option(
+                attrs.dep(),
+                default = None,
+                doc = """
+                Specify the target_under_test that this internal test is testing. This will copy the `srcs`,
+                 `package_name` and `deps` from the target specified so you don't have
+                 to duplicate them.
+            """,
+            ),
+        }
+        | go_common.deps_arg()
+        | go_common.link_style_arg()
+        | go_common.coverage_enabled_arg()
+        | go_common.link_mode_arg()
+        | {
+            "build_mode": attrs.option(
+                attrs.enum(BuildMode),
+                doc = """
+                Determines the build mode (equivalent of `-buildmode`). Can be
+                 one of the following values: `exe`, `pie`.`
+            """,
+                default = None,
+            ),
+        }
+        | go_common.compiler_flags_arg()
+        | go_common.assembler_flags_arg()
+        | go_common.linker_flags_arg()
+        | go_common.external_linker_flags_arg()
+        | go_common.embed_srcs_arg()
+        | go_common.package_root_arg()
+        | go_common.cgo_enabled_arg()
+        | go_common.build_tags_arg()
+        | cxx_common.headers_arg()
+        | cxx_common.header_namespace_arg()
+        | go_common.cxx_preprocessor_flags_arg()
+        | go_common.cxx_compiler_flags_arg()
+        | buck.test_label_arg()
+        | buck.test_rule_timeout_ms()
+        | {
+            "env": attrs.dict(
+                key = attrs.string(),
+                value = attrs.arg(),
+                sorted = False,
+                default = {},
+                doc = """
+                A map of environment variables and values to set when running the test.
+            """,
+            ),
+        }
+        | buck.run_test_separately_arg(
+            run_test_separately_type = attrs.bool(
+                default = False,
+                doc = """
+            If set to True, the test(s) in this rule are run separately from
+             all other tests. This is useful for integration tests which
+             access a physical device or other limited resource. If unset,
+             the test(s) in this rule run in parallel with all other tests.
+        """,
+            )
+        )
+        | {
+            "platform": attrs.option(attrs.string(), default = None),
+            "runner": attrs.option(attrs.dep(), default = None),
+            "specs": attrs.option(attrs.arg(json = True), default = None),
+        }
+        | buck.licenses_arg()
+        | buck.contacts_arg()
+        | re_test_common.test_args()
+        | test_common.attributes()
+        | {
+            "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),
+            "resources": attrs.list(attrs.source(allow_directory = True), default = []),
+            "_build_info": BUILD_INFO_ATTR,
+            "_build_tags": build_tags_attr,
+            "_cgo_enabled": cgo_enabled_attr,
+            "_coverage_mode": coverage_mode_attr,
+            "_cxx_toolchain": toolchains_common.cxx(),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
+            "_go_toolchain": toolchains_common.go(),
+            "_list_tests": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:list_tests")),
+            "_testmaingen": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:testmaingen")),
+        }
+    ),
+    cfg = go_test_transition,
+)

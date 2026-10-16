@@ -7,7 +7,13 @@
 # above-listed licenses.
 
 load("@prelude//:artifacts.bzl", "single_artifact")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:cxx_common.bzl", "cxx_common")
+load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//dist:dist_info.bzl", "DistInfo")
+load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "coverage_mode_attr", "go_binary_transition")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -18,6 +24,7 @@ load(
     "map_val",
     "value_or",
 )
+load(":attrs.bzl", "BuildMode", "go_common")
 load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoTestInfo")
 load(":coverage.bzl", "GoCoverageMode")
@@ -97,3 +104,95 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
         pkg_info,
     ]
+
+go_binary = prelude_rule(
+    name = "go_binary",
+    impl = go_binary_impl,
+    docs = """
+        A go\\_binary() rule builds a native executable from the supplied set of Go source files
+         and dependencies. The files supplied are expected to be in the main package, implicitly.
+    """,
+    examples = """
+        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
+
+        ```
+        go_binary(
+          name='greet',
+          srcs=[
+            'main.go',
+          ],
+          deps=[
+            ':greeting',
+          ],
+        )
+
+        go_library(
+          name='greeting',
+          srcs=[
+            'greeting.go',
+          ],
+          deps=[
+            ':join',
+          ],
+        )
+
+        go_library(
+          name='join',
+          srcs=[
+            'join.go',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        go_common.package_name_arg()
+        | go_common.srcs_arg()
+        | go_common.deps_arg()
+        | go_common.link_style_arg()
+        | go_common.link_mode_arg()
+        | go_common.compiler_flags_arg()
+        | go_common.assembler_flags_arg()
+        | go_common.linker_flags_arg()
+        | go_common.external_linker_flags_arg()
+        | go_common.embed_srcs_arg()
+        | {
+            "build_mode": attrs.option(
+                attrs.enum(BuildMode),
+                doc = """
+                Determines the build mode (equivalent of `-buildmode`). Can be
+                 one of the following values: `exe`, `pie`.`
+            """,
+                default = None,
+            ),
+        }
+        | go_common.package_root_arg()
+        | go_common.cgo_enabled_arg()
+        | go_common.build_tags_arg()
+        | go_common.coverage_enabled_arg()
+        | cxx_common.headers_arg()
+        | cxx_common.header_namespace_arg()
+        | go_common.cxx_preprocessor_flags_arg()
+        | go_common.cxx_compiler_flags_arg()
+        | {
+            "platform": attrs.option(attrs.string(), default = None),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),
+            "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
+            "_build_info": BUILD_INFO_ATTR,
+            "_build_tags": build_tags_attr,
+            "_cgo_enabled": cgo_enabled_attr,
+            "_coverage_mode": coverage_mode_attr,
+            "_cxx_toolchain": toolchains_common.cxx(),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
+            "_go_toolchain": toolchains_common.go(),
+        }
+    ),
+    cfg = go_binary_transition,
+)

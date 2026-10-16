@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:linker.bzl", "get_default_shared_library_name")
 load(
@@ -13,6 +14,11 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:cxx_common.bzl", "cxx_common")
+load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
+load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "go_exported_library_transition")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -50,6 +56,7 @@ load(
     "map_val",
     "value_or",
 )
+load(":attrs.bzl", "BuildMode", "go_common")
 load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoTestInfo")
 load(":link.bzl", "GoBuildMode", "link")
@@ -186,3 +193,107 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         cxx_merge_cpreprocessors(ctx.actions, own_exported_preprocessors, cxx_inherited_preprocessor_infos(ctx.attrs.deps)),
         pkg_info,
     ]
+
+go_exported_library = prelude_rule(
+    name = "go_exported_library",
+    impl = go_exported_library_impl,
+    docs = """
+        A go\\_exported\\_library() rule builds a C library from the supplied set of Go source files
+         and dependencies. This is done via `-buildmode` flag and "//export" annotations in the code.
+    """,
+    examples = """
+        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
+
+        ```
+        go_exported_library(
+            name = "shared",
+            srcs = ["main.go"],
+            build_mode = "c_shared",
+            compiler_flags = ["-shared"],
+            deps = [":example"],
+        )
+
+        go_library(
+            name = "example",
+            package_name = "cgo",
+            srcs = [
+                "export-to-c.go",  # file with //export annotations
+            ],
+            compiler_flags = [],
+            headers = [],
+        )
+
+        cxx_genrule(
+            name = "cgo_exported_headers",
+            out = "includes",
+            cmd = (
+                "mkdir -p $OUT && " +
+                "cat `dirname $(location :shared)`/includes/*.h > $OUT/_cgo_export.h"
+            ),
+        )
+
+        prebuilt_cxx_library(
+            name = "cxx_so_with_header",
+            header_dirs = [":cgo_exported_headers"],
+            shared_lib = ":shared",
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        go_common.package_name_arg()
+        | go_common.srcs_arg()
+        | go_common.deps_arg()
+        | {
+            "build_mode": attrs.option(
+                attrs.enum(BuildMode),
+                doc = """
+                Determines the build mode (equivalent of `-buildmode`). Can be
+                 one of the following values: `c_archive`, `c_shared`.`
+            """,
+                default = None,
+            ),
+        }
+        | cxx_common.headers_arg()
+        | cxx_common.header_namespace_arg()
+        | go_common.cxx_preprocessor_flags_arg()
+        | go_common.cxx_compiler_flags_arg()
+        | go_common.link_style_arg()
+        | go_common.link_mode_arg()
+        | go_common.compiler_flags_arg()
+        | go_common.assembler_flags_arg()
+        | go_common.linker_flags_arg()
+        | go_common.external_linker_flags_arg()
+        | go_common.package_root_arg()
+        | go_common.cgo_enabled_arg()
+        | go_common.build_tags_arg()
+        | go_common.generate_exported_header()
+        | go_common.coverage_enabled_arg()
+        | go_common.embed_srcs_arg()
+        | {
+            "platform": attrs.option(attrs.string(), default = None),
+            "resources": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
+                Static files to be symlinked into the working directory of the test. You can access these in your
+                 by opening the files as relative paths, e.g. `ioutil.ReadFile("testdata/input")`.
+            """,
+            ),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "_build_info": BUILD_INFO_ATTR,
+            "_build_tags": build_tags_attr,
+            "_cgo_enabled": cgo_enabled_attr,
+            "_cxx_toolchain": toolchains_common.cxx(),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
+            "_go_toolchain": toolchains_common.go(),
+        }
+    ),
+    cfg = go_exported_library_transition,
+)
