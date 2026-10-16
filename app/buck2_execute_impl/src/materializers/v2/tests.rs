@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::file_digest_interner;
+use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -28,6 +29,7 @@ use buck2_execute::blob_store::FileToLink;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryEntry;
+use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionImmutableDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
@@ -1338,6 +1340,86 @@ async fn test_content_the_store_has_is_linked_rather_than_downloaded() -> buck2_
             )?,
             "from the store"
         );
+        assert!(
+            !temp
+                .path()
+                .resolve(d.join(ForwardRelativePath::unchecked_new("b")))
+                .exists()
+        );
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// Content tracked at another path is copied from there before the CAS is asked, when the stash
+/// does not have it: content the CAS holds, say, which the stash lets go of.
+#[tokio::test]
+async fn test_content_tracked_elsewhere_is_copied_rather_than_downloaded() -> buck2_error::Result<()>
+{
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let config = CasDigestConfig::testing_default();
+        // In the CAS as far as the digest knows, so that the report puts nothing in the stash.
+        let digest = TrackedFileDigest::new_expires(
+            FileDigest::from_content(b"on disk already", config),
+            Timestamp::now() + SignedDuration::from_hours(4),
+            config,
+        );
+        let value = ArtifactValue::file(FileMetadata {
+            digest: digest.dupe(),
+            is_executable: false,
+        });
+        let first = path("buck-out/v2/gen/first");
+        let on_disk = temp.path().resolve(&first);
+        std::fs::create_dir_all(on_disk.parent().unwrap())?;
+        std::fs::write(&on_disk, b"on disk already")?;
+        drop(report(&dm, &first, value.dupe()).await?);
+        let nowhere = temp.path().resolve(path("buck-out/v2/gen/nowhere"));
+        assert!(!in_store(&dm, b"on disk already", &nowhere).await?);
+
+        // A file root: copied from the first, nothing from the CAS.
+        let second = path("buck-out/v2/gen/second");
+        materialize_ok(&dm, vec![(second.clone(), value.dupe())]).await?;
+        assert_eq!(io.take_log(), vec![]);
+        assert_eq!(
+            std::fs::read_to_string(temp.path().resolve(&second))?,
+            "on disk already"
+        );
+        assert!(dm.has_artifact_at(second.clone()).await?);
+
+        // Inside a directory: the copy, with the mode asked for; the rest is the CAS's.
+        let d = path("buck-out/v2/gen/dir");
+        let mut builder = ActionDirectoryBuilder::empty_exhaustive();
+        builder.insert(
+            ForwardRelativePath::unchecked_new("a"),
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
+                digest: digest.dupe(),
+                is_executable: true,
+            })),
+        )?;
+        builder.insert(
+            ForwardRelativePath::unchecked_new("b"),
+            file("not").entry().dupe().map_dir(|d| d.into_builder()),
+        )?;
+        builder.mark_uniformly_exhaustive();
+        let with_both = ArtifactValue::dir(
+            builder
+                .fingerprint(DigestConfig::testing_default().as_directory_serializer())
+                .shared(&*INTERNER),
+        );
+        materialize_ok(&dm, vec![(d.clone(), with_both)]).await?;
+        assert_eq!(io.take_log(), vec![(Op::Materialize, d.clone())]);
+        let a = temp
+            .path()
+            .resolve(d.join(ForwardRelativePath::unchecked_new("a")));
+        assert_eq!(std::fs::read_to_string(&a)?, "on disk already");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert!(std::fs::metadata(&a)?.permissions().mode() & 0o111 != 0);
+        }
         assert!(
             !temp
                 .path()

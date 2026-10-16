@@ -114,3 +114,24 @@ async def test_copy_of_a_source_file_the_cas_has_is_not_made(buck: Buck) -> None
     # ...until something needs the file, which then comes out of the CAS.
     await buck.build(target, *configs)
     assert output.read_text() == content
+
+
+@buck_test(write_invocation_record=True, skip_for_materializer=["deferred"])
+async def test_content_already_on_disk_is_copied_rather_than_downloaded(
+    buck: Buck,
+) -> None:
+    content = random_string()
+    configs = ["-c", f"test.content={content}"]
+
+    # An RE action on the write's output puts the content in the CAS, and the upload puts the
+    # output on disk; the stash lets go of content the CAS holds.
+    await buck.build("//:consume", "--remote-only", "--no-remote-cache", *configs)
+
+    # The second write of the same content is a probe hit, so nothing is written, and its output
+    # is a copy of the first's rather than a download.
+    target = "//:write_again"
+    res = await buck.build(target, *configs)
+    output = res.get_build_report().output_for_target(target)
+    assert output.read_text() == content
+    snapshot = res.invocation_record()["last_snapshot"]
+    assert int(snapshot.get("disk_state_materializer_copied_from_disk", 0)) >= 1

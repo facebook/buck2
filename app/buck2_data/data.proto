@@ -1379,6 +1379,10 @@ message Snapshot {
   uint64 blob_store_bytes = 205;
   uint64 blob_store_removed_bytes = 206;
   uint64 blob_store_served_files = 207;
+  // Files the disk-state materializer put on disk by copying a tracked path
+  // holding the same content, rather than downloading, since the daemon
+  // started.
+  uint64 disk_state_materializer_copied_from_disk = 208;
 
   optional UnixSystemStats unix_system_stats = 300;
 

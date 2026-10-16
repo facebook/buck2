@@ -54,7 +54,9 @@ use std::time::Instant;
 use allocative::Allocative;
 use allocative::FlameGraphBuilder;
 use async_trait::async_trait;
+use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileMetadata;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -134,6 +136,7 @@ use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::v2::clean_stale::Cleaner;
 use crate::materializers::v2::entry::DiskEntry;
+use crate::materializers::v2::index::DigestIndex;
 use crate::materializers::v2::task::Outcome;
 use crate::materializers::v2::task::Task;
 use crate::materializers::v2::tree::DiskTree;
@@ -168,6 +171,9 @@ pub struct DiskStateMaterializer<T: IoHandler + Allocative + 'static = DefaultIo
     /// The BlobStore (plan-blobstore.md), whose stash the daemon attached: what it holds of a
     /// root is linked out of it before the CAS is asked for the rest.
     store: &'static BlobStore,
+    /// Which tracked paths hold which file digests, the processor's to keep and the download
+    /// tasks' to read (`index.rs`).
+    index: Arc<DigestIndex>,
     #[allocative(skip)]
     blocking_executor: Arc<dyn BlockingExecutor>,
     materialize_final_artifacts: bool,
@@ -230,6 +236,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         };
 
         let mut tree = DiskTree::new();
+        let index = Arc::new(DigestIndex::default());
         let mut entries_from_sqlite = 0;
         let mut refused = Vec::new();
         for entry in sqlite_state.into_iter().flatten() {
@@ -241,6 +248,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             };
             if tree.load(entry.path.clone(), tracked.dupe()) {
                 shared.add(&tracked);
+                index.added(&entry.path, &tracked.entry);
                 entries_from_sqlite += 1;
             } else {
                 refused.push(entry.path);
@@ -266,6 +274,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         let processor = Processor {
             sender: sender.dupe(),
             tree,
+            index: index.dupe(),
             sqlite_db,
             touched: (!matches!(configs.update_access_times, AccessTimesUpdates::Disabled))
                 .then(BuckMutSet::default),
@@ -293,6 +302,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             thread: Some(thread),
             io,
             store,
+            index,
             blocking_executor,
             materialize_final_artifacts: configs.materialize_final_artifacts,
             next_request: AtomicU64::new(0),
@@ -442,6 +452,8 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
                     self.io.dupe(),
                     self.blocking_executor.dupe(),
                     self.store,
+                    self.index.dupe(),
+                    self.sender.dupe(),
                     root.path.clone(),
                     root.entry.dupe(),
                     exclusions,
@@ -914,6 +926,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         self.on_processor(|processor| {
             let mut graph = FlameGraphBuilder::default();
             graph.visit_root(&processor.tree);
+            graph.visit_root(&*processor.index);
             graph.finish()
         })
         .await
@@ -1010,6 +1023,8 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         snapshot.blob_store_bytes = store.bytes;
         snapshot.blob_store_removed_bytes = store.removed_bytes;
         snapshot.blob_store_served_files = store.served;
+        snapshot.disk_state_materializer_copied_from_disk =
+            self.shared.copied_from_disk.load(Ordering::Relaxed);
     }
 
     async fn get_artifact_entries_for_materialized_paths(
@@ -1191,11 +1206,15 @@ impl RequestPlan {
 }
 
 /// The IO of a content root this request has to write: whatever is there and not wanted goes,
-/// entry by entry where something under the root is excluded, and the rest is downloaded.
+/// entry by entry where something under the root is excluded, and the rest is put there, file by
+/// file from the stash, then from a tracked path holding the same content, then from the CAS
+/// (plan-blobstore.md §5).
 fn download_task<T: IoHandler>(
     io: Arc<T>,
     blocking_executor: Arc<dyn BlockingExecutor>,
     store: &'static BlobStore,
+    index: Arc<DigestIndex>,
+    sender: Sender,
     root: ProjectRelativePathBuf,
     entry: ArtifactMetadata,
     exclusions: Vec<ProjectRelativePathBuf>,
@@ -1217,23 +1236,97 @@ fn download_task<T: IoHandler>(
                 .execute_io_inline(move || prune(&fs, &prune_root, &prune_entry, &prune_exclusions))
                 .await
                 .map_err(SharedMaterializingError::Error)?;
-            // What the store has is linked in; a file root it served is done, and a directory's
-            // structure and remaining files are the CAS's.
-            let (paths, files) = files_to_link(io.fs(), &root, &entry, &exclusions);
-            let served = store
-                .materialize(files)
-                .await
-                .map_err(SharedMaterializingError::Error)?;
-            let from_store: Vec<ProjectRelativePathBuf> = paths
-                .into_iter()
-                .zip(served)
-                .filter_map(|(path, served)| served.then_some(path))
+
+            let mut served: Vec<ProjectRelativePathBuf> = Vec::new();
+            let (stashed, mut rest): (Vec<WantedFile>, Vec<WantedFile>) =
+                wanted_files(&root, &entry, &exclusions)
+                    .into_iter()
+                    .partition(|wanted| wanted.digest.stash().is_some());
+            if !stashed.is_empty() {
+                let answers = store
+                    .materialize(
+                        stashed
+                            .iter()
+                            .map(|wanted| FileToLink {
+                                digest: wanted.digest.dupe(),
+                                executable: wanted.executable,
+                                dest: io.fs().resolve(&wanted.path),
+                            })
+                            .collect(),
+                    )
+                    .await
+                    .map_err(SharedMaterializingError::Error)?;
+                for (wanted, answered) in stashed.into_iter().zip(answers) {
+                    if answered {
+                        served.push(wanted.path);
+                    } else {
+                        rest.push(wanted);
+                    }
+                }
+            }
+            // Only what the index has a path for is worth a round trip to the processor: a
+            // path holding the content, held for reading for the length of the copy. A hold
+            // that never waits cannot close a cycle with the write lease this task runs under
+            // (plan-new-core.md §2b).
+            let indexed: Vec<WantedFile> = rest
+                .extract_if(.., |wanted| index.holds(wanted.digest.data()))
                 .collect();
-            if matches!(entry, DirectoryEntry::Leaf(_)) && !from_store.is_empty() {
+            if !indexed.is_empty() {
+                let sources = sender
+                    .hold_sources(
+                        indexed
+                            .iter()
+                            .map(|wanted| wanted.digest.data().dupe())
+                            .collect(),
+                    )
+                    .await
+                    .map_err(SharedMaterializingError::Error)?;
+                let copies: Vec<(WantedFile, ProjectRelativePathBuf, RootGuard)> = indexed
+                    .into_iter()
+                    .zip(sources)
+                    .filter_map(|(wanted, source)| {
+                        source.map(|(path, guard)| (wanted, path, guard))
+                    })
+                    .collect();
+                if !copies.is_empty() {
+                    let fs = io.fs().dupe();
+                    let copied = blocking_executor
+                        .execute_io_inline(move || {
+                            let mut copied = Vec::new();
+                            for (wanted, source, guard) in copies {
+                                match copy_from_disk(&fs, &source, &wanted.path, wanted.executable)
+                                {
+                                    Ok(()) => copied.push(wanted.path),
+                                    // A miss: the CAS is asked.
+                                    Err(e) => {
+                                        let _ignored = buck2_core::soft_error!(
+                                            "disk_state_materializer_copy_failed",
+                                            e.context(format!(
+                                                "Copying `{source}` to `{}`",
+                                                wanted.path
+                                            )),
+                                            quiet: true
+                                        );
+                                    }
+                                }
+                                drop(guard);
+                            }
+                            Ok(copied)
+                        })
+                        .await
+                        .map_err(SharedMaterializingError::Error)?;
+                    sender
+                        .shared
+                        .copied_from_disk
+                        .fetch_add(copied.len() as u64, Ordering::Relaxed);
+                    served.extend(copied);
+                }
+            }
+            if matches!(entry, DirectoryEntry::Leaf(_)) && !served.is_empty() {
                 return Ok(());
             }
             let mut exclusions = exclusions;
-            exclusions.extend(from_store);
+            exclusions.extend(served);
             let delta = delta_entry(&entry, &root, &exclusions, io.digest_config())
                 .map_err(SharedMaterializingError::Error)?;
             io.materialize_entry(
@@ -1251,15 +1344,19 @@ fn download_task<T: IoHandler>(
     }
 }
 
-/// The files of `entry` under `root` that are not excluded, as the paths they go to and as the
-/// store wants them asked for.
-fn files_to_link(
-    fs: &ProjectRoot,
+/// A file a root needs on disk.
+struct WantedFile {
+    path: ProjectRelativePathBuf,
+    digest: TrackedFileDigest,
+    executable: bool,
+}
+
+/// The files of `entry` under `root` that are not excluded.
+fn wanted_files(
     root: &ProjectRelativePath,
     entry: &ArtifactMetadata,
     exclusions: &[ProjectRelativePathBuf],
-) -> (Vec<ProjectRelativePathBuf>, Vec<FileToLink>) {
-    let mut paths = Vec::new();
+) -> Vec<WantedFile> {
     let mut files = Vec::new();
     let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
     while let Some((path, entry)) = walk.next() {
@@ -1267,19 +1364,40 @@ fn files_to_link(
             continue;
         };
         let path = root.join(path.get());
-        if exclusions.iter().any(|excluded| path.starts_with(excluded))
-            || file.digest.stash().is_none()
-        {
+        if exclusions.iter().any(|excluded| path.starts_with(excluded)) {
             continue;
         }
-        files.push(FileToLink {
+        files.push(WantedFile {
+            path,
             digest: file.digest.dupe(),
             executable: file.is_executable,
-            dest: fs.resolve(&path),
         });
-        paths.push(path);
     }
-    (paths, files)
+    files
+}
+
+/// Puts a copy of the tracked file at `source` at `dest`, with the mode asked for: a clone where
+/// the filesystem has them, never a hardlink, so that nothing later written in place at one path
+/// reaches the other. Leaves nothing behind on failure.
+fn copy_from_disk(
+    fs: &ProjectRoot,
+    source: &ProjectRelativePath,
+    dest: &ProjectRelativePath,
+    executable: bool,
+) -> buck2_error::Result<()> {
+    let (source, dest) = (fs.resolve(source), fs.resolve(dest));
+    let copied = (|| {
+        if let Some(parent) = dest.parent() {
+            fs_util::create_dir_all(parent)?;
+        }
+        fs_util::reflink_or_copy(&source, &dest).categorize_internal()?;
+        fs_util::set_executable(&dest, executable).categorize_internal()?;
+        buck2_error::Ok(())
+    })();
+    if copied.is_err() {
+        let _ignored = fs_util::remove_all(&dest);
+    }
+    copied
 }
 
 /// The files of `entry`, on disk under `root`, as the store wants them for insertion.
@@ -1628,6 +1746,12 @@ enum Command {
         requests: Vec<(ProjectRelativePathBuf, Option<Timestamp>)>,
         reply: oneshot::Sender<Vec<Option<RootGuard>>>,
     },
+    /// For each digest, a tracked path holding a file of it, held for reading, where the index
+    /// has one that is free; never waiting.
+    HoldSources {
+        digests: Vec<FileDigest>,
+        reply: oneshot::Sender<Vec<Option<(ProjectRelativePathBuf, RootGuard)>>>,
+    },
     /// Anything that needs the state and no IO.
     Sync(Box<dyn FnOnce(&mut Processor) + Send>),
     #[cfg(test)]
@@ -1641,6 +1765,8 @@ pub(crate) struct Shared {
     queued: AtomicUsize,
     final_output_bytes: AtomicU64,
     intermediate_only_bytes: AtomicU64,
+    /// Files put on disk by a copy from a tracked path rather than a download, since the start.
+    copied_from_disk: AtomicU64,
 }
 
 impl Shared {
@@ -1761,12 +1887,25 @@ impl Sender {
         self.send(Command::HoldForReading { requests, reply })?;
         answer.await.map_err(|_| stopped())
     }
+
+    /// For each digest, a tracked path holding a file of it, held for reading, where there is
+    /// one that is free; never waiting.
+    async fn hold_sources(
+        &self,
+        digests: Vec<FileDigest>,
+    ) -> buck2_error::Result<Vec<Option<(ProjectRelativePathBuf, RootGuard)>>> {
+        let (reply, answer) = oneshot::channel();
+        self.send(Command::HoldSources { digests, reply })?;
+        answer.await.map_err(|_| stopped())
+    }
 }
 
 /// The owner of the tree. Lives on its own thread; see the module doc.
 pub(crate) struct Processor {
     sender: Sender,
     pub(crate) tree: DiskTree<oneshot::Sender<Granted>>,
+    /// Which tracked paths hold which file digests, kept in step with the tree.
+    index: Arc<DigestIndex>,
     sqlite_db: Option<MaterializerStateSqliteDb>,
     /// Roots whose access time changed in memory and not yet in sqlite; `None` when access
     /// times are not persisted (`buck2.update_access_times = disabled`).
@@ -1875,6 +2014,30 @@ impl Processor {
                 self.persist(change);
                 let _ignored = reply.send(held);
             }
+            Command::HoldSources { digests, reply } => {
+                let mut change = TreeChange::default();
+                let held: Vec<Option<(ProjectRelativePathBuf, RootGuard)>> = digests
+                    .into_iter()
+                    .map(|digest| {
+                        let candidates = self.index.holders(&digest);
+                        candidates.into_iter().find_map(|path| {
+                            let (hold, one) = self.tree.hold_for_reading(path.clone(), None)?;
+                            change.extend(one);
+                            Some((
+                                path,
+                                RootGuard {
+                                    sender: self.sender.dupe(),
+                                    path: hold.path().to_buf(),
+                                    hold: Mutex::new(Some(Hold::Read(hold))),
+                                },
+                            ))
+                        })
+                    })
+                    .collect();
+                self.account(&change);
+                self.persist(change);
+                let _ignored = reply.send(held);
+            }
             Command::Sync(f) => f(self),
             #[cfg(test)]
             Command::Abort => return false,
@@ -1918,14 +2081,15 @@ impl Processor {
         }
     }
 
-    /// Keeps the shared totals in step with the tracked roots.
-    fn account(&self, change: &TreeChange) {
+    /// Keeps the shared totals and the index in step with the tracked roots.
+    fn account(&mut self, change: &TreeChange) {
         for (_, tracked) in &change.removed {
             self.shared.remove(tracked);
         }
         for (_, tracked) in &change.added {
             self.shared.add(tracked);
         }
+        self.index.apply(change);
     }
 
     /// The entry tracked at `path`: the root's when `path` is a root, the directory's entry at the
@@ -2030,7 +2194,6 @@ impl Processor {
 #[cfg(test)]
 mod tests {
     use buck2_common::file_ops::metadata::FileMetadata;
-    use buck2_common::file_ops::metadata::TrackedFileDigest;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::directory::ActionDirectoryBuilder;
     use buck2_execute::directory::ActionDirectoryMember;
