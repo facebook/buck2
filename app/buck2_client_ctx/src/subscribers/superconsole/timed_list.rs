@@ -153,7 +153,9 @@ impl Component for TimedListBody<'_> {
 
     fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> buck2_error::Result<Lines> {
         let config = &self.state.config;
-        let max_lines = config.max_lines;
+        // `Component::draw` clips the rows to `dimensions.height` from the bottom, which would
+        // remove the summary row first and then roots without a trace.
+        let max_lines = config.max_lines.min(dimensions.height);
 
         let observer = self.state.simple_console.observer();
 
@@ -509,8 +511,7 @@ mod tests {
         };
 
         // `max_lines` allows every root, but the terminal only has room for the header and two
-        // more lines. The rows are clipped from the bottom: `e3` and the summary row disappear
-        // with no trace, and nothing tells the user that a task is hidden.
+        // more lines: one root and the summary row.
         let timed_list_state = SuperConsoleConfig {
             max_lines: 5,
             ..Default::default()
@@ -530,7 +531,7 @@ mod tests {
         let expected = [
             "────────────────────────────────────────",
             "e1 · speak of the devil             1.0s",
-            "e2 · speak of the devil             1.0s",
+            "<span italic>1/3 running tasks shown</span>",
         ]
         .iter()
         .map(|l| format!("{l}\n"))
