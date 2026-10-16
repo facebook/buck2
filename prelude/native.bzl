@@ -35,10 +35,8 @@ load("@prelude//cxx:cxx_toolchain_macro_layer.bzl", "cxx_toolchain_macro_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", _cxx = "cxx")
 load("@prelude//erlang:erlang.bzl", _erlang_application = "erlang_application", _erlang_tests = "erlang_tests")
 load("@prelude//python:toolchain.bzl", _python = "python")
-load("@prelude//rust:link_info.bzl", "RustLinkInfo")
 load("@prelude//rust:rust_common.bzl", "rust_common_macro_wrapper")
 load("@prelude//rust:rust_library.bzl", "rust_library_macro_wrapper")
-load("@prelude//rust:sources.bzl", "RustSources")
 load("@prelude//rust:with_workspace.bzl", "with_rust_workspace")
 load("@prelude//user:all.bzl", _user_rules = "rules")
 load(
@@ -477,11 +475,5 @@ __shimmed_native__.update(_user_rules)
 # Should come after the rules which are macro overridden
 __shimmed_native__.update(__extra_rules__)
 __shimmed_native__.update({"cxx": _cxx, "python": _python})
-__shimmed_native__.update({
-    "__internal_autodeps_hacks__": struct(
-        rust_link_info = RustLinkInfo,
-        rust_sources = RustSources,
-    ),
-})
 
 native = struct(**__shimmed_native__)
