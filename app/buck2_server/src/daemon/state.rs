@@ -22,7 +22,6 @@ use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmFamily;
-use buck2_common::cas_digest::file_digest_interner;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::init::SystemWarningConfig;
@@ -57,6 +56,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
 use buck2_events::sink::tee::TeeSink;
 use buck2_events::source::ChannelEventSource;
+use buck2_execute::blob_store::BlobStore;
 use buck2_execute::dep_file_state::DepFileStore;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -68,7 +68,7 @@ use buck2_execute::re::invocation_re_settings::invocation_re_use_case;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_execute::re::ttl_refresh::ReChecker;
 use buck2_execute::re::ttl_refresh::StandaloneTtlRefreshCounters;
-use buck2_execute::re::ttl_refresh::StandaloneTtlRefresher;
+use buck2_execute::re::ttl_refresh::TtlRefresher;
 use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_execute_impl::materializers::deferred::AccessTimesUpdates;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
@@ -1306,17 +1306,16 @@ impl DaemonState {
                 )
                 .await?;
 
-            // One refresher for the process-wide digest interner, on the first tenant's RE
-            // connection and cadence.
-            let standalone_ttl_refresh = StandaloneTtlRefresher::new(
-                file_digest_interner(),
-                Arc::new(ReChecker::new(
+            // One walk over the process-wide digest interner, on the first tenant's RE
+            // connection and cadence: the BlobStore's, which refreshes CAS TTLs and collects
+            // the stash, if a materializer attached one.
+            let standalone_ttl_refresh = BlobStore::global().start_refresh(
+                TtlRefresher::new(Arc::new(ReChecker::new(
                     tenant.repo.re_client_manager.dupe(),
                     invocation_re_use_case(root_config)?,
-                )),
+                ))),
                 tenant.repo.ttl_refresh_frequency,
-            )
-            .spawn();
+            );
 
             let package_visibility_default_intersection = tenant_state_factory
                 .init_ctx
