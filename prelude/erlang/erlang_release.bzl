@@ -7,7 +7,9 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as type
+load(":attrs.bzl", "erlang_rule_attributes")
 load(":erlang_application.bzl", "StartDependencySet", "StartSpec", "build_apps_start_dependencies")
 load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "ErlAppDependencies", "flatten_dependencies")
@@ -558,3 +560,62 @@ def _validate_include_erts(config: ReleaseConfig) -> None:
             "include_erts = True requires the toolchain `%s` to set erts_toolchain_info, there is no ERTS nor OTP applications to take from it otherwise: %s"
             % (config.toolchain.name, str(config.label))
         )
+
+erlang_release = prelude_rule(
+    name = "erlang_release",
+    impl = erlang_release_impl,
+    docs = """
+        The `erlang_release` target builds OTP releases. Please refer to the
+        [OTP documentation](https://www.erlang.org/doc/design_principles/release_structure.html) for more details about
+        releases.
+
+        The `erlang_release` target does by default (without overlays) package:
+        - applications that are required to start the release
+        - release resource file `<relname>.rel` (see [rel(4)](https://www.erlang.org/doc/man/rel.html))
+        - boot script `start.script` (see [rel(4)](https://www.erlang.org/doc/man/script.html))
+        - binary boot script `start.boot`
+        - `bin/release_variables`
+
+        The `release_variables` file contains release name, version, and erts version in shell syntax, e.g.
+        ```
+        ERTS_VSN="12.1.2"
+        REL_NAME="rel1"
+        REL_VSN="1.0.0"
+        ```
+
+        The target name doubles as the default release name. If the `release_name` attribute is used, the release name will be
+        sources from there instead.
+    """,
+    examples = """
+        ```
+        erlang_release(
+            name = "world",
+            version = "1.0.0",
+            applications = [
+                "//apps//app_a:app_a",
+                "//apps//app_b:app_b",
+            ],
+            overlays = {
+                "releases/1.0.0": [
+                    ":sys.config.src",
+                ],
+                "bin": [
+                    ":start.sh",
+                ],
+            },
+        )
+
+        export_file(
+            name = "sys.config.src",
+            src = "sys.config",
+        )
+
+        export_file(
+            name = "start.sh",
+            src = "start.sh",
+        )
+        ```
+    """,
+    further = None,
+    attrs = erlang_rule_attributes["erlang_release"],
+)

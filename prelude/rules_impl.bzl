@@ -40,7 +40,6 @@ load("@prelude//decls:common.bzl", "IncludeType", "buck")
 load("@prelude//decls:core_rules.bzl", "core_rules")
 load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
 load("@prelude//decls:cython_rules.bzl", "cython_rules")
-load("@prelude//decls:erlang_rules.bzl", "erlang_rules")
 load("@prelude//decls:java_rules.bzl", "java_rules")
 load("@prelude//decls:kotlin_rules.bzl", "kotlin_rules")
 load("@prelude//decls:python_rules.bzl", "python_rules")
@@ -49,7 +48,7 @@ load("@prelude//decls:rust_rules.bzl", "rust_rules")
 load("@prelude//decls:third_party_common.bzl", "third_party_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//decls:uncategorized_rules.bzl", "uncategorized_rules")
-load("@prelude//erlang:erlang.bzl", _erlang_implemented_rules = "implemented_rules")
+load("@prelude//erlang:rules.bzl", _erlang_rules = "rules")
 load("@prelude//git:rules.bzl", _git_rules = "rules")
 load("@prelude//go:rules.bzl", _go_rules = "rules")
 load("@prelude//haskell:rules.bzl", _haskell_rules = "rules")
@@ -111,7 +110,7 @@ categorized_rule_decl_records = {
     _CXX_RULES_KEY: cxx_rules,
     _CYTHON_RULES_KEY: cython_rules,
     _DOTNET_RULES_KEY: _dotnet_rules,
-    _ERLANG_RULES_KEY: erlang_rules,
+    _ERLANG_RULES_KEY: _erlang_rules,
     _GIT_RULES_KEY: _git_rules,
     _GO_RULES_KEY: _go_rules,
     _HASKELL_RULES_KEY: _haskell_rules,
@@ -190,7 +189,6 @@ extra_implemented_rules = struct(
         _android_implemented_rules,
         _apple_implemented_rules,
         _config_implemented_rules,
-        _erlang_implemented_rules,
         _java_implemented_rules,
         _julia_implemented_rules,
         _kotlin_implemented_rules,
