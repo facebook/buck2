@@ -336,7 +336,10 @@ def buck2_e2e_test(
         previous_env["BUCK2_CHANNEL"] = "previous"
         buck_e2e_test(name = name + "_with_reverted_buck2", env = previous_env, executable = "buck2", skip_for_os = skip_for_os, deps = deps, **kwargs)
 
-def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}, allow_bundled_cells = False):
+# Materializer implementations other than the default, by their `buck2.materializer` value.
+OTHER_MATERIALIZERS = ["v2"]
+
+def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}, allow_bundled_cells = False, materializer_variants = []):
     """
     A little wrapper that generates `buck2_e2e_test`s for core tests.
 
@@ -347,6 +350,9 @@ def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}, allow_bundled_ce
     allow_bundled_cells:
         Lets fixtures use bundled external cells other than the nano prelude, which the test
         harness otherwise rejects. Only for tests of the external cells machinery itself.
+    materializer_variants:
+        Test targets to also generate as `<target>_<materializer>` for every other
+        materializer implementation, so that a suite runs against each core.
     """
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX
@@ -398,10 +404,24 @@ def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}, allow_bundled_ce
             attrs["deps"].extend(IMPLICIT_DEPS)
 
             buck2_e2e_test(name = target, **attrs)
+            if target in materializer_variants:
+                for materializer in OTHER_MATERIALIZERS:
+                    variant_attrs = dict(attrs)
+                    variant_attrs["env"] = dict(attrs.get("env") or {})
+                    variant_attrs["env"]["BUCK2_TEST_MATERIALIZER"] = materializer
+                    if data_dir:
+                        # The data filegroup already exists for the main target.
+                        variant_attrs["data_dir"] = None
+                        variant_attrs["env"]["TEST_REPO_DATA"] = "$(location :{d})/{d}".format(d = data_dir)
+                        variant_attrs.setdefault("require_nano_prelude", True)
+                    buck2_e2e_test(name = target + "_" + materializer, **variant_attrs)
             continue
         fail("Expected all directory entries to look like `test_*_data` or `test_*.py`, not {}".format(item))
 
     # Check that all target attrs actually correspond to a target
     for t in target_extra_attrs.keys():
+        if t not in generated_targets:
+            fail("No such target {}".format(t))
+    for t in materializer_variants:
         if t not in generated_targets:
             fail("No such target {}".format(t))

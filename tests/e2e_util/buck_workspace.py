@@ -228,6 +228,12 @@ async def buck_fixture(  # noqa C901 : "too complex"
 
             buck_cwd = project_dir
 
+        # A target variant can run its suite against another materializer implementation;
+        # see `buck2_core_tests`.
+        materializer = os.environ.get("BUCK2_TEST_MATERIALIZER")
+        if materializer:
+            extra_config_lines.append(f"[buck2]\nmaterializer = {materializer}\n")
+
         for section, config in marker.extra_buck_config.items():
             extra_config_lines.append(f"[{section}]\n")
             for key, value in config.items():

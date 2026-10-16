@@ -57,13 +57,13 @@ async def test_restarted_daemon_materializes_symlink_and_its_target(buck: Buck) 
     report = result.get_build_report()
     link_dir = report.output_for_target("root//:dir_to_artifact")
     target = report.output_for_target("root//:remote_text")
-    assert not link_dir.exists()
     assert not target.exists()
 
     await buck.kill()
 
-    # Neither end of the symlink is on disk, so the restarted daemon has to put
-    # both there before the consumer can read through it.
+    # The symlink's target is not on disk (nor, depending on the materializer,
+    # the symlink), so the restarted daemon has to put it there before the
+    # consumer can read through the link.
     assert await read_through(buck, "root//:check_dir_to_artifact") == "TEXT"
     assert (link_dir / "link").read_text().strip() == "TEXT"
     assert target.exists()
