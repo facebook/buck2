@@ -104,11 +104,14 @@ def _flatten(categorized: dict[str, dict[str, typing.Any]]) -> dict[str, typing.
             flat[name] = value
     return flat
 
+def _check_names(specs: dict[str, typing.Any]):
+    for name, spec in specs.items():
+        if spec.name != name:
+            fail("Rule `{}` is registered under the name `{}`".format(spec.name, name))
+
 _rule_specs = _flatten(_categorized_rule_specs)
 
-for _name, _spec in _rule_specs.items():
-    if _spec.name != _name:
-        fail("Rule `{}` is registered under the name `{}`".format(_spec.name, _name))
+_check_names(_rule_specs)
 
 def _unimplemented(name, ctx):
     fail("Unimplemented rule type `{}` for target `{}`.".format(name, ctx.label))
