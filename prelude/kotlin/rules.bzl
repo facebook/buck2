@@ -6,10 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":kotlin_library.bzl", "kotlin_library_impl")
-load(":kotlin_test.bzl", "kotlin_test_impl")
+load(":kotlin_library.bzl", "kotlin_library")
+load(":kotlin_test.bzl", "kotlin_test")
 
-implemented_rules = {
-    "kotlin_library": kotlin_library_impl,
-    "kotlin_test": kotlin_test_impl,
+rules = {
+    "kotlin_library": kotlin_library,
+    "kotlin_test": kotlin_test,
 }

@@ -6,9 +6,14 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
-load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
+load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs", "validation_common")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "get_validation_deps_outputs")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
+load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
+load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load(
     "@prelude//java:java_library.bzl",
     "build_java_library",
@@ -50,6 +55,7 @@ load(
     "get_default_info",
     "get_java_version_attributes",
 )
+load("@prelude//jvm:attrs.bzl", "dex_min_sdk_version", "jvm_common")
 load("@prelude//jvm:nullsafe.bzl", "get_nullsafe_info")
 load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
@@ -61,6 +67,7 @@ load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load("@prelude//utils:utils.bzl", "map_idx")
+load(":attrs.bzl", "no_x_jdk_release_arg")
 
 _JAVA_OR_KOTLIN_FILE_EXTENSION = [".java", ".kt"]
 
@@ -881,3 +888,139 @@ def _typecheck_subtarget(
     return extra_sub_targets | {
         "typecheck": [DefaultInfo(default_output = report)],
     }
+
+kotlin_library = prelude_rule(
+    name = "kotlin_library",
+    impl = kotlin_library_impl,
+    docs = """
+        A `kotlin_library()` rule is used to define a set of Kotlin
+        files that can be compiled together. The main output of a
+         `kotlin_library()` rule is a single JAR file containing all
+        of the compiled class files, as well as the static files specified in
+        the `resources` argument.
+    """,
+    examples = """
+        ```
+        # A rule that compiles a single .kt file.
+        kotlin_library(
+          name = 'JsonUtil',
+          srcs = ['JsonUtil.kt'],
+          deps = [
+            '//third_party/guava:guava',
+            '//third_party/jackson:jackson',
+          ],
+        )
+
+        # A rule that compiles all of the .kt files under the directory in
+        # which the rule is defined using glob(). It also excludes an
+        # individual file that may have additional dependencies, so it is
+        # compiled by a separate rule.
+        kotlin_library(
+          name = 'messenger',
+          srcs = glob(['**/*.kt'], excludes = ['MessengerModule.kt']),
+          deps = [
+            '//src/com/facebook/base:base',
+            '//third_party/guava:guava',
+          ],
+        )
+
+        kotlin_library(
+          name = 'MessengerModule',
+          srcs = ['MessengerModule.kt'],
+          deps = [
+            '//src/com/facebook/base:base',
+            '//src/com/google/inject:inject',
+            '//third_party/guava:guava',
+            '//third_party/jsr-330:jsr-330',
+          ],
+        )
+
+        # A rule that builds a library with both relative and
+        # fully-qualified deps.
+        kotlin_library(
+          name = 'testutil',
+          srcs = glob(['tests/**/*.kt'], excludes = 'tests/**/*Test.kt'),
+          deps = [
+            ':lib-fb4a',
+            '//java/com/facebook/base:base',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "srcs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
+                The set of `.kt`, `.java` or `.kts` files to compile for this rule.
+                 If any of the files in this list end in `.src.zip`,
+                 then the entries in the ZIP file that end in `.java` or `.kt` will be
+                 included as ordinary inputs to compilation.
+            """,
+            ),
+        }
+        | jvm_common.resources_arg()
+        | {
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
+                Rules (usually other `kotlin_library` rules) that are used to
+                 generate the classpath required to compile this `kotlin_library`.
+            """,
+            ),
+            "extra_kotlinc_arguments": attrs.list(
+                attrs.arg(anon_target_compatible = True),
+                default = [],
+                doc = """
+                List of additional arguments to pass into the Kotlin compiler.
+            """,
+            ),
+            "friend_paths": jvm_common.friend_paths_attr(),
+        }
+        | jvm_common.annotation_processors()
+        | jvm_common.remove_classes_arg()
+        | jvm_common.exported_deps()
+        | jvm_common.provided_deps()
+        | jvm_common.exported_provided_deps()
+        | jvm_common.kotlin_compiler_plugins()
+        | jvm_common.incremental()
+        | jvm_common.plugins()
+        | jvm_common.javac()
+        | jvm_common.classic_java_content_based_paths()
+        | buck.labels_arg()
+        | jvm_common.abi_generation_mode()
+        | {
+            "extra_arguments": attrs.list(attrs.string(), default = []),
+            "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
+            "java_version": attrs.option(attrs.string(), default = None),
+            "jdk_release": attrs.option(attrs.string(), default = None),
+            "keep_synthetics_in_class_abi": attrs.option(attrs.bool(), default = None),
+            "manifest_file": attrs.option(attrs.source(), default = None),
+            "maven_coords": attrs.option(attrs.string(), default = None),
+            "proguard_config": attrs.option(attrs.source(), default = None),
+            "required_for_source_only_abi": attrs.bool(default = False),
+            "resources_root": attrs.option(attrs.string(), default = None),
+            "runtime_deps": attrs.list(attrs.dep(), default = []),
+            "source": attrs.option(attrs.string(), default = None),
+            "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
+            "target": attrs.option(attrs.string(), default = None),
+            VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
+            "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+            "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
+            "_dex_toolchain": toolchains_common.dex(),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_is_building_android_binary": is_building_android_binary_attr(),
+            "_java_toolchain": toolchains_common.java(),
+            "_kotlin_toolchain": toolchains_common.kotlin(),
+        }
+        | no_x_jdk_release_arg()
+        | buck.licenses_arg()
+        | buck.contacts_arg()
+        | jvm_common.plugins()
+        | validation_common.attrs_validators_arg()
+    ),
+)
