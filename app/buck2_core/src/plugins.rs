@@ -206,7 +206,7 @@ impl PluginKindSet {
             PluginKindSetUnpacked::All
         } else {
             // SAFETY: Instances of this type are only created by `pack`
-            PluginKindSetUnpacked::Interned(unsafe { Intern::from_ptr(self.0 as *const _) })
+            PluginKindSetUnpacked::Interned(unsafe { Intern::from_ptr(self.0.cast()) })
         }
     }
 
@@ -214,9 +214,7 @@ impl PluginKindSet {
         match unpacked {
             PluginKindSetUnpacked::None => PluginKindSet(std::ptr::null::<()>()),
             PluginKindSetUnpacked::All => PluginKindSet(std::ptr::dangling::<()>()),
-            PluginKindSetUnpacked::Interned(i) => {
-                PluginKindSet(i.deref_static() as *const _ as *const ())
-            }
+            PluginKindSetUnpacked::Interned(i) => PluginKindSet(i.as_ptr().cast()),
         }
     }
 }
