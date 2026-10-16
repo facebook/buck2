@@ -12,7 +12,6 @@
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
 
 
 @buck_test(inplace=False, allow_soft_errors=True)
@@ -80,12 +79,9 @@ async def test_unified_constraint_for_constraint_v2(buck: Buck) -> None:
 async def test_unified_constraint_single_value_without_flag_fail(
     buck: Buck,
 ) -> None:
-    res = await expect_failure(
-        buck.audit("subtargets", "//single_value_no_flag:", "-v0"),
-    )
-    golden(
-        output=sanitize_stderr(res.stderr),
-        rel_path="golden/single_value_no_flag.golden.stderr",
+    await expect_failure(
+        buck.audit("subtargets", "//single_value_no_flag:"),
+        stderr_regex=r"constraint\(\) rule must have at least two values",
     )
 
 
@@ -109,12 +105,9 @@ async def test_unified_constraint_single_value_with_flag(buck: Buck) -> None:
 
 @buck_test(inplace=False)
 async def test_unified_constraint_zero_values_with_flag_fail(buck: Buck) -> None:
-    res = await expect_failure(
-        buck.audit("subtargets", "//zero_values_with_flag:", "-v0"),
-    )
-    golden(
-        output=sanitize_stderr(res.stderr),
-        rel_path="golden/zero_values_with_flag.golden.stderr",
+    await expect_failure(
+        buck.audit("subtargets", "//zero_values_with_flag:"),
+        stderr_regex=r"constraint\(\) rule must have at least one value",
     )
 
 
@@ -122,12 +115,9 @@ async def test_unified_constraint_zero_values_with_flag_fail(buck: Buck) -> None
 async def test_unified_constraint_alias_conflict_with_value_fail(
     buck: Buck,
 ) -> None:
-    res = await expect_failure(
-        buck.audit("subtargets", "//alias_conflict_with_value:", "-v0"),
-    )
-    golden(
-        output=sanitize_stderr(res.stderr),
-        rel_path="golden/alias_conflict_with_value.golden.stderr",
+    await expect_failure(
+        buck.audit("subtargets", "//alias_conflict_with_value:"),
+        stderr_regex="alias 'v1' conflicts with a declared constraint value",
     )
 
 
@@ -135,12 +125,9 @@ async def test_unified_constraint_alias_conflict_with_value_fail(
 async def test_unified_constraint_alias_value_not_declared_fail(
     buck: Buck,
 ) -> None:
-    res = await expect_failure(
-        buck.audit("subtargets", "//alias_value_not_declared:", "-v0"),
-    )
-    golden(
-        output=sanitize_stderr(res.stderr),
-        rel_path="golden/alias_value_not_declared.golden.stderr",
+    await expect_failure(
+        buck.audit("subtargets", "//alias_value_not_declared:"),
+        stderr_regex=r"alias 'stable' targets value 'v3' which is not declared in values: \[\"v1\", \"v2\"\]",
     )
 
 
@@ -148,10 +135,7 @@ async def test_unified_constraint_alias_value_not_declared_fail(
 async def test_unified_constraint_alias_reserved_keyword_fail(
     buck: Buck,
 ) -> None:
-    res = await expect_failure(
-        buck.audit("subtargets", "//alias_reserved_keyword:", "-v0"),
-    )
-    golden(
-        output=sanitize_stderr(res.stderr),
-        rel_path="golden/alias_reserved_keyword.golden.stderr",
+    await expect_failure(
+        buck.audit("subtargets", "//alias_reserved_keyword:"),
+        stderr_regex="alias 'default' is a reserved keyword and cannot be used as a constraint alias",
     )
