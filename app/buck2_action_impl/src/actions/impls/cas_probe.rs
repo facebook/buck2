@@ -79,7 +79,12 @@ pub(crate) async fn declare_if_in_cas(
     if !enabled(ctx) {
         return Ok(false);
     }
-    let Some((info, in_cas)) = probe(ctx, file_digests(value)).await else {
+    let digests = file_digests(value);
+    if digests.is_empty() {
+        // All structure, which is the caller's to make either way.
+        return Ok(false);
+    }
+    let Some((info, in_cas)) = probe(ctx, digests).await else {
         return Ok(false);
     };
     if !in_cas.iter().all(|&in_cas| in_cas) {

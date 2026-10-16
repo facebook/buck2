@@ -22,7 +22,9 @@
 //! a fresh insertion since that one uses a new name. What the store asks of its callers is what
 //! the interner already asks: whoever needs a blob holds a `TrackedFileDigest` for it.
 
+use std::collections::hash_map::RandomState;
 use std::fs::File;
+use std::hash::BuildHasher;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicU64;
@@ -47,7 +49,6 @@ use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckMutMap;
 use dupe::Dupe;
 use jiff::Timestamp;
 use tokio::time::MissedTickBehavior;
@@ -119,18 +120,22 @@ pub struct BlobStoreStats {
     /// gave their file up.
     pub insertions: u64,
     pub duplicates: u64,
+    /// Files put at their destinations out of the stash since this process started.
+    pub served: u64,
 }
 
 #[derive(buck2_error::Error, Debug)]
-#[buck2(tag = Tier0)]
 enum BlobStoreError {
+    /// A source file whose content is not what the build was told: the user's doing.
     #[error("`{path}` has digest {found}, not the {expected} it was inserted as")]
+    #[buck2(tag = Input)]
     ContentChanged {
         path: AbsNormPathBuf,
         expected: FileDigest,
         found: FileDigest,
     },
     #[error("The BlobStore has no stash to put content in")]
+    #[buck2(tag = Tier0)]
     NoStash,
 }
 
@@ -160,6 +165,7 @@ struct Counters {
     removed_bytes: AtomicU64,
     insertions: AtomicU64,
     duplicates: AtomicU64,
+    served: AtomicU64,
 }
 
 static GLOBAL: OnceLock<BlobStore> = OnceLock::new();
@@ -249,6 +255,7 @@ impl BlobStore {
             removed_bytes: self.counters.removed_bytes.load(Ordering::Relaxed),
             insertions: self.counters.insertions.load(Ordering::Relaxed),
             duplicates: self.counters.duplicates.load(Ordering::Relaxed),
+            served: self.counters.served.load(Ordering::Relaxed),
         }
     }
 
@@ -259,9 +266,10 @@ impl BlobStore {
     }
 
     /// Reads the directory into the table: every file becomes its digest's recorded entry,
-    /// pinned there until a walk finds nothing holding it. Duplicates of one digest beyond the
-    /// first, and temporaries, are removed. For the start of a daemon, after the materializer's
-    /// roots hold their digests and before the first walk.
+    /// pinned there until a walk finds nothing holding it. A digest recorded already, by an
+    /// insertion or an earlier file of the load, keeps its record and the later file goes. For
+    /// the start of a daemon, after the materializer's roots hold their digests and before the
+    /// first walk; safe against insertions, which the daemon may be making meanwhile.
     pub async fn load_stash(&self) -> buck2_error::Result<u64> {
         let attached = self.attached()?;
         let stash = &attached.stash;
@@ -279,9 +287,14 @@ impl BlobStore {
                         counters.entries.fetch_add(1, Ordering::Relaxed);
                         counters.bytes.fetch_add(size, Ordering::Relaxed);
                     } else if handle.stash() != Some(record) {
-                        // Recorded already under another file, by an insertion that got in
-                        // before the load: this one is a duplicate.
-                        stash.unlink(handle.data(), record)?;
+                        // A duplicate, left by a start that did not get this far; the next
+                        // load gets another try at it.
+                        if let Err(e) = stash.unlink(handle.data(), record) {
+                            tracing::info!(
+                                "Could not remove a duplicate stash file of {}: {e:#}",
+                                handle.data()
+                            );
+                        }
                     }
                 }
                 Ok(loaded)
@@ -358,7 +371,7 @@ impl BlobStore {
         let Some(attached) = self.stash.get() else {
             return Ok(vec![false; files.len()]);
         };
-        let stash = &attached.stash;
+        let (stash, counters) = (&attached.stash, &self.counters);
         attached
             .blocking
             .execute_io_inline(move || {
@@ -368,13 +381,33 @@ impl BlobStore {
                         let Some(record) = file.digest.stash() else {
                             return Ok(false);
                         };
-                        if stash.link(file.digest.data(), record, file.executable, &file.dest)? {
-                            return Ok(true);
+                        match stash.link(file.digest.data(), record, file.executable, &file.dest) {
+                            Ok(true) => {
+                                counters.served.fetch_add(1, Ordering::Relaxed);
+                                Ok(true)
+                            }
+                            Ok(false) => {
+                                // The file is gone from under the record, which only something
+                                // outside buck2 does; the record goes too, and the CAS is asked.
+                                file.digest.clear_stash(record);
+                                Ok(false)
+                            }
+                            Err(e) => {
+                                // A miss, as the plan has it (plan-blobstore.md §5): the CAS is
+                                // asked, which a half-made destination would be in the way of.
+                                let _ignored = buck2_core::soft_error!(
+                                    "blob_store_link_failed",
+                                    e.context(format!(
+                                        "Putting {} out of the stash at {}",
+                                        file.digest.data(),
+                                        file.dest
+                                    )),
+                                    quiet: true
+                                );
+                                let _ignored = fs_util::remove_all(&file.dest);
+                                Ok(false)
+                            }
                         }
-                        // The file is gone from under the record, which only something outside
-                        // buck2 does; the record goes too, and the CAS is asked.
-                        file.digest.clear_stash(record);
-                        Ok(false)
                     })
                     .collect()
             })
@@ -499,8 +532,12 @@ struct Stash {
     root: AbsNormPathBuf,
     #[allocative(skip)]
     config: CasDigestConfig,
-    /// The next nonce: this process's id above a counter, so that no two processes that ever
-    /// wrote to the directory agree on a name.
+    /// This process's id, the upper half of every nonce it makes, so that no two processes that
+    /// ever wrote to the directory agree on a name, and so that a load knows this process's
+    /// temporaries from the dead's.
+    pid: u64,
+    /// The lower half of the next nonce, started at random so that a later process given the
+    /// same id does not retrace this one's names.
     next_nonce: AtomicU64,
 }
 
@@ -512,8 +549,25 @@ impl Stash {
         Self {
             root,
             config,
-            next_nonce: AtomicU64::new(((std::process::id() as u64 & 0x3fff_ffff) << 32) | 1),
+            pid: std::process::id() as u64 & 0x3fff_ffff,
+            next_nonce: AtomicU64::new(RandomState::new().hash_one(0u64)),
         }
+    }
+
+    /// A nonce no insertion by any process has used: nonzero and below 2^62, as the record wants.
+    fn nonce(&self) -> u64 {
+        loop {
+            let low = self.next_nonce.fetch_add(1, Ordering::Relaxed) as u32;
+            let nonce = (self.pid << 32) | u64::from(low);
+            if nonce != 0 {
+                return nonce;
+            }
+        }
+    }
+
+    /// Whether this process made the record's nonce.
+    fn owns(&self, record: StashRecord) -> bool {
+        record.nonce >> 32 == self.pid
     }
 
     fn file(&self, digest: &FileDigest, record: StashRecord) -> AbsNormPathBuf {
@@ -527,7 +581,7 @@ impl Stash {
         source: Source,
     ) -> buck2_error::Result<StashRecord> {
         let record = StashRecord {
-            nonce: self.next_nonce.fetch_add(1, Ordering::Relaxed),
+            nonce: self.nonce(),
             executable,
         };
         let file = self.file(digest, record);
@@ -596,10 +650,11 @@ impl Stash {
         fs_util::remove_file(self.file(digest, record))
     }
 
-    /// Every complete file, one per digest: the first found of a digest is kept, the rest and
-    /// the temporaries are removed.
+    /// Every complete file, a digest's duplicates included: which of them a digest is recorded
+    /// under is the table's to settle. Temporaries of other processes are removed, since those
+    /// processes are gone or never finished; this process's are insertions under way.
     fn load(&self) -> buck2_error::Result<Vec<(FileDigest, StashRecord)>> {
-        let mut seen: BuckMutMap<FileDigest, StashRecord> = BuckMutMap::default();
+        let mut entries = Vec::new();
         for (leaf, algorithm, prefix) in self.leaves()? {
             let Some(names) = fs_util::read_dir_if_exists(&leaf)? else {
                 continue;
@@ -610,17 +665,21 @@ impl Stash {
                 let Some(name) = name.to_str() else {
                     continue;
                 };
-                let path = leaf.join(ForwardRelativePathBuf::unchecked_new(name.to_owned()));
                 match parse_file_name(&algorithm, &prefix, name) {
-                    Parsed::Entry(digest, record) if !seen.contains_key(&digest) => {
-                        seen.insert(digest, record);
+                    Parsed::Entry(digest, record) => entries.push((digest, record)),
+                    Parsed::Temporary(record) if !self.owns(record) => {
+                        let path =
+                            leaf.join(ForwardRelativePathBuf::unchecked_new(name.to_owned()));
+                        // The next load gets another try.
+                        if let Err(e) = fs_util::remove_file(&path) {
+                            tracing::info!("Could not remove the stash temporary {path}: {e:#}");
+                        }
                     }
-                    Parsed::Entry(..) | Parsed::Temporary => fs_util::remove_file(&path)?,
-                    Parsed::Other => {}
+                    Parsed::Temporary(_) | Parsed::Other => {}
                 }
             }
         }
-        Ok(seen.into_iter().collect())
+        Ok(entries)
     }
 
     /// The leaf directories: `<algo>/<h0h1>/<h2h3>`, with the algorithm and the four hex
@@ -709,15 +768,19 @@ fn file_name(digest: &FileDigest, record: StashRecord) -> ForwardRelativePathBuf
 
 enum Parsed {
     Entry(FileDigest, StashRecord),
-    Temporary,
+    /// An insertion's file before its rename, by the record it was to get.
+    Temporary(StashRecord),
     Other,
 }
 
 /// What a leaf file's name stands for, given its algorithm directory and the four hex characters
 /// of the directories above it.
 fn parse_file_name(algorithm: &str, prefix: &str, name: &str) -> Parsed {
-    if name.ends_with(TEMPORARY) {
-        return Parsed::Temporary;
+    if let Some(name) = name.strip_suffix(TEMPORARY) {
+        return match parse_file_name(algorithm, prefix, name) {
+            Parsed::Entry(_, record) => Parsed::Temporary(record),
+            Parsed::Temporary(_) | Parsed::Other => Parsed::Other,
+        };
     }
     let Some((name, nonce)) = name.rsplit_once('.') else {
         return Parsed::Other;
@@ -855,7 +918,7 @@ mod tests {
             .map(|entries| {
                 entries
                     .map(|e| e.unwrap().file_name().to_str().unwrap().to_owned())
-                    .filter(|name| name.starts_with(&hex[4..]))
+                    .filter(|name| name.starts_with(&hex[4..]) && !name.ends_with(TEMPORARY))
                     .collect()
             })
             .unwrap_or_default();
@@ -895,7 +958,7 @@ mod tests {
                 "6bf2",
                 "1a57b4cd6e4d4b2577b7597849edb04b12f2.7.ab.tmp"
             ),
-            Parsed::Temporary
+            Parsed::Temporary(r) if r == exec
         ));
         assert!(matches!(
             parse_file_name("sha1", "6bf2", "1a57b4cd6e4d4b2577b7597849edb04b12f2.7"),
@@ -1057,23 +1120,31 @@ mod tests {
         first
             .insert_bytes(b"kept across".to_vec(), &digest, true)
             .await?;
-        // A duplicate from a race and a temporary from a crash, side by side.
+        // A duplicate from a race, and two temporaries: one of a process that is gone, one of
+        // an insertion this process has under way.
         let stash = &first.stash.get().unwrap().stash;
-        let duplicate =
-            stash.insert(digest.data(), true, Source::Bytes(b"kept across".to_vec()))?;
-        let leaf = stash.file(digest.data(), duplicate);
-        let leaf = leaf.parent().unwrap();
-        let temporary = leaf.join(ForwardRelativePathBuf::unchecked_new(
-            "x.1.ab.tmp".to_owned(),
-        ));
-        fs_util::write(&temporary, b"")?;
+        stash.insert(digest.data(), true, Source::Bytes(b"kept across".to_vec()))?;
+        let foreign = StashRecord {
+            nonce: (0x1234 << 32) | 1,
+            executable: true,
+        };
+        let ours = StashRecord {
+            nonce: stash.nonce(),
+            executable: true,
+        };
+        let dead = temporary_of(&stash.file(digest.data(), foreign))?;
+        let live = temporary_of(&stash.file(digest.data(), ours))?;
+        fs_util::write(&dead, b"")?;
+        fs_util::write(&live, b"")?;
         assert_eq!(files_of(&first, digest.data()).len(), 2);
 
-        // A new process: a new table, nothing recorded, the directory as it was left.
+        // A new process, as far as the table goes: nothing recorded, the directory as it was
+        // left. The process id is still this one's, so the live temporary is kept.
         let (second, table) = store(temp.path());
         assert_eq!(second.load_stash().await?, 1);
         assert_eq!(files_of(&second, digest.data()).len(), 1);
-        assert!(!fs_util::try_exists(&temporary)?);
+        assert!(!fs_util::try_exists(&dead)?);
+        assert!(fs_util::try_exists(&live)?);
         let entry = table.peek(digest.data()).expect("loaded and pinned");
         assert!(!entry.referenced);
         assert!(entry.stash.is_some());
@@ -1084,11 +1155,59 @@ mod tests {
         assert!(materialize_one(&second, &digest, true, &dest).await?);
         assert_eq!(fs_util::read_to_string(&dest)?, "kept across");
 
-        // A load that runs after an insertion recorded the very file it finds leaves it alone.
+        // A load that runs after an insertion recorded the very file it finds leaves it alone,
+        // and removes an older file of the digest that a start never got to record.
+        let recorded = digest.stash().expect("recorded by the load");
+        let stash = &second.stash.get().unwrap().stash;
+        let orphan = StashRecord {
+            nonce: (0x1234 << 32) | 2,
+            executable: true,
+        };
+        fs_util::write(&stash.file(digest.data(), orphan), b"kept across")?;
+        assert_eq!(files_of(&second, digest.data()).len(), 2);
         assert_eq!(second.load_stash().await?, 0);
         assert_eq!(files_of(&second, digest.data()).len(), 1);
+        assert_eq!(digest.stash(), Some(recorded));
+        assert!(fs_util::try_exists(&stash.file(digest.data(), recorded))?);
+        Ok(())
+    }
+
+    /// The name an insertion writes under before its rename.
+    fn temporary_of(file: &AbsNormPath) -> buck2_error::Result<AbsNormPathBuf> {
+        AbsNormPathBuf::new(std::path::PathBuf::from(format!("{file}{TEMPORARY}")))
+    }
+
+    #[tokio::test]
+    async fn test_a_link_that_fails_is_a_miss_that_keeps_the_record() -> buck2_error::Result<()> {
+        let temp = ProjectRootTemp::new()?;
+        let (store, table) = store(temp.path());
+        let digest = table.intern(digest(b"stuck"), 0);
+        store
+            .insert_bytes(b"stuck".to_vec(), &digest, false)
+            .await?;
+        // Nothing can be made under a file.
+        let blocker = scratch(temp.path(), "blocker");
+        fs_util::write(&blocker, b"")?;
+        let dest = blocker.join(ForwardRelativePath::unchecked_new("dest"));
+        assert!(!materialize_one(&store, &digest, false, &dest).await?);
         assert!(digest.stash().is_some());
         Ok(())
+    }
+
+    #[test]
+    fn test_nonces_are_this_process_s_and_never_repeat() {
+        let stash = Stash::new(AbsNormPathBuf::new(std::env::temp_dir()).unwrap(), config());
+        let (a, b) = (stash.nonce(), stash.nonce());
+        assert_ne!(a, b);
+        assert!(a != 0 && a < 1 << 62);
+        assert!(stash.owns(StashRecord {
+            nonce: a,
+            executable: false
+        }));
+        assert!(!stash.owns(StashRecord {
+            nonce: (0x1234 << 32) | 1,
+            executable: false
+        }));
     }
 
     // The refresh side of the walk, with a CAS that answers as the test says.

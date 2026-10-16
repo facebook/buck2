@@ -806,28 +806,25 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
                 fs_util::rename(&src_abs, &dest_abs).categorize_internal()
             })
             .await?;
+        let root = Root { path: dest, entry };
+        self.stash(&root).await;
         self.report(
             held.guard(),
-            entry,
+            root.entry,
             ArtifactClassification::IntermediateOnly,
         )
         .await
     }
 
+    /// Paths without values: `ensure_materialized`'s, for the previous outputs of an incremental
+    /// action. A root this core tracks is on disk, which is all the caller asks of it; one it
+    /// does not track it has no value to make, and the action starts from what is there, which
+    /// may be less than the deferred core would have given it (the plan's OQ-VALUE-STORE).
     async fn materialize_many(
         &self,
-        artifact_paths: Vec<ProjectRelativePathBuf>,
+        _artifact_paths: Vec<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<BoxStream<'static, Result<(), MaterializationError>>> {
-        // The one caller left without values is `materialize_build_outputs`; see the plan's
-        // OQ-VALUE-STORE.
-        Err(internal_error!(
-            "The disk-state materializer cannot materialize paths without their values: {}",
-            artifact_paths
-                .iter()
-                .map(|p| format!("`{p}`"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ))
+        Ok(futures::stream::empty().boxed())
     }
 
     async fn get_materialized_file_paths(
@@ -971,6 +968,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         snapshot.blob_store_entries = store.entries;
         snapshot.blob_store_bytes = store.bytes;
         snapshot.blob_store_removed_bytes = store.removed_bytes;
+        snapshot.blob_store_served_files = store.served;
     }
 
     async fn get_artifact_entries_for_materialized_paths(
@@ -1210,7 +1208,9 @@ fn files_to_link(
             continue;
         };
         let path = root.join(path.get());
-        if exclusions.iter().any(|excluded| path.starts_with(excluded)) {
+        if exclusions.iter().any(|excluded| path.starts_with(excluded))
+            || file.digest.stash().is_none()
+        {
             continue;
         }
         files.push(FileToLink {
@@ -1230,12 +1230,20 @@ fn files_to_insert(
     entry: &ArtifactMetadata,
     origin: Origin,
 ) -> Vec<FileToInsert> {
+    let now = Timestamp::now();
     let mut files = Vec::new();
     let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
     while let Some((path, entry)) = walk.next() {
         let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry else {
             continue;
         };
+        // Content the CAS is known to hold is the CAS's to serve again (plan-blobstore.md §3):
+        // a remote output declared existing after a paranoid download, say.
+        if origin == Origin::BuckOut
+            && matches!(file.digest.expires(), Ok(expires) if expires > now)
+        {
+            continue;
+        }
         files.push(FileToInsert {
             path: fs.resolve(root.join(path.get())),
             digest: file.digest.dupe(),

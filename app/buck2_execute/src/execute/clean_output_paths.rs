@@ -146,6 +146,8 @@ fn unshare(path: &AbsNormPath) -> buck2_error::Result<()> {
         let unshared = parent.join(ForwardRelativePathBuf::unchecked_new(format!(
             "{name}.unshare"
         )));
+        // What a run interrupted between the clone and the rename left.
+        fs_util::remove_all(&unshared).categorize_internal()?;
         fs_util::reflink_or_copy(path, &unshared).categorize_internal()?;
         fs_util::set_permissions(&unshared, metadata.permissions()).categorize_internal()?;
         fs_util::rename(&unshared, path).categorize_internal()?;

@@ -821,21 +821,44 @@ async fn test_publish_moves_the_content_and_tracks_it() -> buck2_error::Result<(
 }
 
 #[tokio::test]
-async fn test_paths_without_values_are_refused() -> buck2_error::Result<()> {
+async fn test_a_published_output_enters_the_store() -> buck2_error::Result<()> {
     ignore_stack_overflow_checks_for_future(async {
         let temp = ProjectRootTemp::new()?;
-        let (dm, _io) = make(temp.path(), None, None);
-        let err = match dm.materialize_many(vec![path("buck-out/v2/gen/out")]).await {
-            Ok(_) => panic!("paths without values must be refused"),
-            Err(e) => e,
-        };
-        assert!(format!("{err:#}").contains("without their values"));
+        let fs = temp.path().dupe();
+        let (dm, _io) = make(&fs, None, None);
+        let src = path("buck-out/v2/gen/__action__/out");
+        let dest = path("buck-out/v2/gen/content/def/out");
+        let lease = dm.prepare_outputs(vec![src.clone()]).await?;
+        fs.write_file(&src, "published here", false)?;
+        dm.publish(&lease, src, dest, file("published here"))
+            .await?;
+        drop(lease);
+        let copy = fs.resolve(path("buck-out/v2/gen/copy"));
+        assert!(in_store(&dm, b"published here", &copy).await?);
         abort(dm);
         Ok(())
     })
     .await
 }
 
+#[tokio::test]
+async fn test_ensuring_paths_without_values_asks_nothing() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let tracked = path("buck-out/v2/gen/incremental/out");
+        drop(report(&dm, &tracked, file("previous")).await?);
+        dm.ensure_materialized(
+            vec![tracked, path("buck-out/v2/gen/incremental/never")],
+            MaterializationPurpose::IntermediateOnly,
+        )
+        .await?;
+        assert_eq!(io.take_log(), vec![]);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
 #[tokio::test]
 async fn test_tracked_state_survives_a_restart() -> buck2_error::Result<()> {
     ignore_stack_overflow_checks_for_future(async {
