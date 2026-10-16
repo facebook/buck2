@@ -108,7 +108,6 @@ use sequence_trie::SequenceTrie;
 use crate::cells::alias::CellAlias;
 use crate::cells::alias::NonEmptyCellAlias;
 use crate::cells::cell_path::CellPath;
-use crate::cells::cell_path::CellPathRef;
 use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::cells::nested::NestedCells;
@@ -361,16 +360,13 @@ impl CellResolver {
     /// );
     ///
     /// assert_eq!(
-    ///     cells.resolve_path(cell_path.as_ref())?,
+    ///     cells.resolve_path(cell_path)?,
     ///     ProjectRelativePathBuf::unchecked_new("my/cell/some/path".into()),
     /// );
     ///
     /// # buck2_error::Ok(())
     /// ```
-    pub fn resolve_path(
-        &self,
-        cell_path: CellPathRef,
-    ) -> buck2_error::Result<ProjectRelativePathBuf> {
+    pub fn resolve_path(&self, cell_path: CellPath) -> buck2_error::Result<ProjectRelativePathBuf> {
         Ok(self.get(cell_path.cell())?.path().join(cell_path.path()))
     }
 

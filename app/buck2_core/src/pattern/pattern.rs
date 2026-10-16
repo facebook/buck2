@@ -28,8 +28,6 @@ use strong_hash::StrongHash;
 use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
 use crate::cells::cell_path::CellPath;
-use crate::cells::cell_path::CellPathCow;
-use crate::cells::cell_path::CellPathRef;
 use crate::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
@@ -269,7 +267,7 @@ impl ParsedPattern<TargetPatternExtra> {
             }
             ParsedPattern::Package(pkg) => target_pkg.as_cell_path() == pkg.as_cell_path(),
             ParsedPattern::Recursive(cell_path) => {
-                target_pkg.as_cell_path().starts_with(cell_path.as_ref())
+                target_pkg.as_cell_path().starts_with(*cell_path)
             }
         }
     }
@@ -359,7 +357,7 @@ impl<T: PatternType> ParsedPattern<T> {
     /// generally preferred elsewhere.
     pub fn parse_relaxed(
         target_alias_resolver: &dyn TargetAliasResolver,
-        relative_dir: CellPathRef,
+        relative_dir: CellPath,
         pattern: &str,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
@@ -369,9 +367,7 @@ impl<T: PatternType> ParsedPattern<T> {
             cell_alias_resolver,
             TargetParsingOptions {
                 relative: TargetParsingRel::AllowRelative(
-                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
-                        relative_dir.to_owned(),
-                    ),
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(relative_dir),
                     Some(target_alias_resolver),
                 ),
                 infer_target: InferTargetNames::Yes,
@@ -495,7 +491,7 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
 
     pub fn parse_relaxed(
         target_alias_resolver: &dyn TargetAliasResolver,
-        relative_dir: CellPathRef,
+        relative_dir: CellPath,
         pattern: &str,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
@@ -505,9 +501,7 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
             cell_alias_resolver,
             TargetParsingOptions {
                 relative: TargetParsingRel::AllowRelative(
-                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
-                        relative_dir.to_owned(),
-                    ),
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(relative_dir),
                     Some(target_alias_resolver),
                 ),
                 infer_target: InferTargetNames::Yes,
@@ -1014,7 +1008,7 @@ pub enum TargetParsingRel<'a> {
         Option<&'a dyn TargetAliasResolver>,
     ),
     /// Allows relative patterns, but only if they're like `:foo`, not `bar:foo`
-    AllowLimitedRelative(CellPathRef<'a>),
+    AllowLimitedRelative(CellPath),
     /// Require the pattern to be absolute.
     ///
     /// Still allows reference to the self-cell (`//foo:bar`)
@@ -1046,7 +1040,7 @@ impl<'a> TargetParsingRel<'a> {
                 // just relative target). This is a bit of a wonky  definition of "is_absolute" but we rely on
                 // it.
                 if path.as_str().is_empty() {
-                    Ok(dir.to_owned())
+                    Ok(*dir)
                 } else {
                     Err(TargetPatternParseError::AbsoluteRequired.into())
                 }
@@ -1133,29 +1127,25 @@ where
 
     let path = if let Some(cell_alias) = cell_alias {
         let cell = cell_alias_resolver.resolve(cell_alias)?;
-        CellPathCow::Borrowed(CellPathRef::new(
+        CellPath::new(
             cell,
             CellRelativePath::new(<&ForwardRelativePath>::try_from(pattern.package_path())?),
-        ))
+        )
     } else {
         let package_path = pattern.package_path();
-        CellPathCow::Owned(relative.join_relative(package_path)?)
+        relative.join_relative(package_path)?
     };
 
     let modifiers = pattern.modifiers().clone();
 
     let parsed_pattern = match pattern {
-        PatternData::Recursive { .. } => ParsedPattern::Recursive(path.into_owned()),
+        PatternData::Recursive { .. } => ParsedPattern::Recursive(path),
         PatternData::AllTargetsInPackage { .. } => {
-            ParsedPattern::Package(PackageLabel::from_cell_path(path.as_ref())?)
+            ParsedPattern::Package(PackageLabel::from_cell_path(path)?)
         }
         PatternData::TargetInPackage {
             target_name, extra, ..
-        } => ParsedPattern::Target(
-            PackageLabel::from_cell_path(path.as_ref())?,
-            target_name,
-            extra,
-        ),
+        } => ParsedPattern::Target(PackageLabel::from_cell_path(path)?, target_name, extra),
     };
 
     Ok(ParsedPatternWithModifiers {
@@ -1613,7 +1603,7 @@ mod tests {
             mk_target("root", "package/path", "path"),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "//package/path",
                 &resolver(),
                 &alias_resolver(),
@@ -1623,7 +1613,7 @@ mod tests {
             mk_target("root", "package/path", "path"),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "path",
                 &resolver(),
                 &alias_resolver(),
@@ -1633,7 +1623,7 @@ mod tests {
             mk_providers("root", "package/path", "path", Some(&["provider"])),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "path[provider]",
                 &resolver(),
                 &alias_resolver(),
@@ -1648,7 +1638,7 @@ mod tests {
             ),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "path/subpath[provider]",
                 &resolver(),
                 &alias_resolver(),
@@ -1658,7 +1648,7 @@ mod tests {
             mk_target("root", "package/path/subpath", "subpath"),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "path/subpath",
                 &resolver(),
                 &alias_resolver(),
@@ -1668,7 +1658,7 @@ mod tests {
             mk_target("root", "package/path", "path"),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "//package/path/",
                 &resolver(),
                 &alias_resolver(),
@@ -1678,7 +1668,7 @@ mod tests {
             mk_target("root", "package/path", "target"),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "//package/path/:target",
                 &resolver(),
                 &alias_resolver(),
@@ -1690,7 +1680,7 @@ mod tests {
             mk_target("root", "package", "foo"),
             ParsedPattern::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "/:foo",
                 &resolver(),
                 &alias_resolver(),
@@ -1701,7 +1691,7 @@ mod tests {
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "/",
                 &resolver(),
                 &alias_resolver(),
@@ -1724,7 +1714,7 @@ mod tests {
             mk_target("root", "other", "target"),
             ParsedPattern::parse_not_relaxed(
                 "//other:target",
-                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
+                TargetParsingRel::AllowLimitedRelative(package),
                 &resolver(),
                 &alias_resolver(),
                 InferTargetNames::No,
@@ -1734,7 +1724,7 @@ mod tests {
             mk_target("root", "package/path", "target"),
             ParsedPattern::parse_not_relaxed(
                 ":target",
-                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
+                TargetParsingRel::AllowLimitedRelative(package),
                 &resolver(),
                 &alias_resolver(),
                 InferTargetNames::No,
@@ -1769,7 +1759,7 @@ mod tests {
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "foo/bar",
-                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
+                TargetParsingRel::AllowLimitedRelative(package),
                 &resolver(),
                 &alias_resolver(),
                 InferTargetNames::Yes,
@@ -1784,7 +1774,7 @@ mod tests {
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "foo/bar",
-                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
+                TargetParsingRel::AllowLimitedRelative(package),
                 &resolver(),
                 &alias_resolver(),
                 InferTargetNames::No,
@@ -1799,7 +1789,7 @@ mod tests {
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "foo/bar:bar",
-                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
+                TargetParsingRel::AllowLimitedRelative(package),
                 &resolver(),
                 &alias_resolver(),
                 InferTargetNames::No,
@@ -1840,19 +1830,13 @@ mod tests {
 
         assert_eq!(
             mk_target("cell1", "foo/bar", "target"),
-            ParsedPattern::parse_relaxed(
-                &config,
-                package.as_ref(),
-                "foo",
-                &resolver(),
-                &alias_resolver(),
-            )?
+            ParsedPattern::parse_relaxed(&config, package, "foo", &resolver(), &alias_resolver(),)?
         );
 
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &config,
-                package.as_ref(),
+                package,
                 "invalid/alias",
                 &resolver(),
                 &alias_resolver(),
@@ -1867,7 +1851,7 @@ mod tests {
         assert_matches!(
             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &config,
-                package.as_ref(),
+                package,
                 "badalias",
                 &resolver(),
                 &alias_resolver(),
@@ -1946,7 +1930,7 @@ mod tests {
             mk_providers("cell1", "foo/bar", "target", Some(&["qux"])),
             ParsedPattern::parse_relaxed(
                 &config,
-                package.as_ref(),
+                package,
                 "foo[qux]",
                 &resolver(),
                 &alias_resolver(),
@@ -2363,7 +2347,7 @@ mod tests {
         fails(
             ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "root//package?/target?modifier",
                 &resolver,
                 &alias_resolver,
@@ -2376,7 +2360,7 @@ mod tests {
         // Test target pattern with modifiers
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &NoAliases,
-            package.as_ref(),
+            package,
             "root//package/path:target?modifier1+modifier2",
             &resolver,
             &alias_resolver,
@@ -2394,7 +2378,7 @@ mod tests {
         // Test package pattern with modifiers
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &NoAliases,
-            package.as_ref(),
+            package,
             "root//package/path:?modifier",
             &resolver,
             &alias_resolver,
@@ -2412,7 +2396,7 @@ mod tests {
         // Test recursive pattern with modifiers
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &NoAliases,
-            package.as_ref(),
+            package,
             "root//package/path/...?modifier1+modifier2+modifier3",
             &resolver,
             &alias_resolver,
@@ -2434,7 +2418,7 @@ mod tests {
         // Test relative pattern with modifiers
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &NoAliases,
-            package.as_ref(),
+            package,
             "path:target?modifier",
             &resolver,
             &alias_resolver,
@@ -2452,7 +2436,7 @@ mod tests {
         // Test ambiguous pattern with modifiers
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &NoAliases,
-            package.as_ref(),
+            package,
             "root//package/path?modifier",
             &resolver,
             &alias_resolver,
@@ -2470,7 +2454,7 @@ mod tests {
         // Test pattern with trailing slash and modifiers
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &NoAliases,
-            package.as_ref(),
+            package,
             "root//package/path/?modifier",
             &resolver,
             &alias_resolver,
@@ -2490,7 +2474,7 @@ mod tests {
 
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &alias_config,
-            package.as_ref(),
+            package,
             "foo_target?modifier1+modifier2",
             &resolver,
             &alias_resolver,
@@ -2521,7 +2505,7 @@ mod tests {
 
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &NoAliases,
-            package.as_ref(),
+            package,
             "path:target?root//modifier:x",
             &resolver,
             &alias_resolver,
@@ -2537,7 +2521,7 @@ mod tests {
 
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &NoAliases,
-            package.as_ref(),
+            package,
             ":target?cell1//modifier:x+cell1//modifier:y",
             &resolver,
             &alias_resolver,
@@ -2557,7 +2541,7 @@ mod tests {
         // An explicit cell on the pattern and on the modifier still splits at the right `//`.
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
             &NoAliases,
-            package.as_ref(),
+            package,
             "cell1//path:target?root//modifier:x",
             &resolver,
             &alias_resolver,
@@ -2599,7 +2583,7 @@ mod tests {
         fails(
             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &NoAliases,
-                CellPath::testing_new("root//package").as_ref(),
+                CellPath::testing_new("root//package"),
                 "root//package/path:target?modifier",
                 &resolver(),
                 &alias_resolver(),
@@ -2618,7 +2602,7 @@ mod tests {
         fails(
             ParsedPatternWithModifiers::<ConfiguredProvidersPatternExtra>::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "//package/path:target?modifier (<foo>)",
                 &resolver,
                 &alias_resolver,
@@ -2630,7 +2614,7 @@ mod tests {
         let pattern_parts =
             ParsedPatternWithModifiers::<ConfiguredProvidersPatternExtra>::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "//package/path:target?modifier",
                 &resolver,
                 &alias_resolver,
@@ -2645,7 +2629,7 @@ mod tests {
         let pattern_parts =
             ParsedPatternWithModifiers::<ConfiguredProvidersPatternExtra>::parse_relaxed(
                 &NoAliases,
-                package.as_ref(),
+                package,
                 "//package/path:target?modifier (<unbound>)",
                 &resolver,
                 &alias_resolver,

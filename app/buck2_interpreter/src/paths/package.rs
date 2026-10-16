@@ -11,7 +11,6 @@
 use allocative::Allocative;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_fs::paths::file_name::FileName;
 use pagable::Pagable;
@@ -51,24 +50,22 @@ impl PackageFilePath {
     }
 
     /// Files which could be `PACKAGE` files.
-    pub fn for_dir(path: CellPathRef<'_>) -> impl Iterator<Item = PackageFilePath> + '_ {
+    pub fn for_dir(path: CellPath) -> impl Iterator<Item = PackageFilePath> {
         Self::package_file_names().map(move |name| PackageFilePath {
             path: path.join(name),
         })
     }
 
-    pub fn package_file_for_dir(path: CellPathRef) -> PackageFilePath {
+    pub fn package_file_for_dir(path: CellPath) -> PackageFilePath {
         PackageFilePath {
             path: path.join(FileName::unchecked_new("PACKAGE")),
         }
     }
 
-    pub fn from_file_path(path: CellPathRef) -> Option<PackageFilePath> {
+    pub fn from_file_path(path: CellPath) -> Option<PackageFilePath> {
         for file_name in Self::package_file_names() {
             if path.ends_with(file_name.as_ref()) {
-                return Some(PackageFilePath {
-                    path: path.to_owned(),
-                });
+                return Some(PackageFilePath { path });
             }
         }
         None
@@ -83,7 +80,7 @@ impl PackageFilePath {
     }
 
     /// Directory containing this `PACKAGE` file.
-    pub fn dir(&self) -> CellPathRef<'_> {
+    pub fn dir(&self) -> CellPath {
         self.path
             .parent()
             .expect("constructor verifies that path is not root")

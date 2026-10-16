@@ -202,8 +202,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         &mut self,
         starlark_path: StarlarkPath<'_>,
     ) -> buck2_error::Result<ParseResult> {
-        let result =
-            DiceFileComputations::read_file(self.ctx, starlark_path.path().as_ref().as_ref()).await;
+        let result = DiceFileComputations::read_file(self.ctx, *starlark_path.path()).await;
         let content = match starlark_path {
             StarlarkPath::BuildFile(file) => {
                 result.with_package_context_information(file.path().path().to_string())
@@ -290,7 +289,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         starlark_file: StarlarkModulePath<'_>,
     ) -> buck2_error::Result<LoadedModule> {
         let path = starlark_file.path();
-        let contents = DiceFileComputations::read_file(self.ctx, path.as_ref())
+        let contents = DiceFileComputations::read_file(self.ctx, *path)
             .await
             .with_package_context_information(path.path().to_string())?;
 
@@ -319,7 +318,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         starlark_file: StarlarkModulePath<'_>,
     ) -> buck2_error::Result<LoadedModule> {
         let path = starlark_file.path();
-        let contents = DiceFileComputations::read_file(self.ctx, path.as_ref())
+        let contents = DiceFileComputations::read_file(self.ctx, *path)
             .await
             .with_package_context_information(path.path().to_string())?;
 
@@ -393,7 +392,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             }
             Some(parent) => {
                 let parent_cell = cell_resolver.get_cell_path(parent);
-                self.eval_package_file(PackageLabel::from_cell_path(parent_cell.as_ref())?)
+                self.eval_package_file(PackageLabel::from_cell_path(parent_cell)?)
                     .await
             }
         }
@@ -435,7 +434,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 for package_file_path in PackageFilePath::for_dir(self.0.as_cell_path()) {
                     if DiceFileComputations::exists_matching_exact_case(
                         ctx,
-                        package_file_path.path().as_ref(),
+                        *package_file_path.path(),
                     )
                     .await?
                     {

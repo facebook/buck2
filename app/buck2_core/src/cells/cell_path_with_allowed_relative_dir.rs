@@ -45,9 +45,9 @@ pub struct CellPathWithAllowedRelativeDir {
 
 impl CellPathWithAllowedRelativeDir {
     pub fn new(current_dir: CellPath, allowed_relative_dir: Option<CellPath>) -> Self {
-        if let Some(ref allowed_relative_dir_value) = allowed_relative_dir {
+        if let Some(allowed_relative_dir_value) = allowed_relative_dir {
             assert!(
-                current_dir.starts_with(allowed_relative_dir_value.as_ref()),
+                current_dir.starts_with(allowed_relative_dir_value),
                 "current_dir: `{current_dir}` must be a subpath of allowed_relative_dir: `{allowed_relative_dir_value}`",
             );
         }

@@ -97,7 +97,7 @@ impl<'d> HasAllowRelativePaths<'d> for DiceComputations<'d> {
                     .filter_map(|dir| {
                         parse_cell_path(dir.trim(), cell_alias_resolver)
                             .map(|allow_dir| {
-                                if self.cell_path.starts_with(allow_dir.as_ref()) {
+                                if self.cell_path.starts_with(allow_dir) {
                                     Some(allow_dir)
                                 } else {
                                     None
@@ -119,8 +119,8 @@ impl<'d> HasAllowRelativePaths<'d> for DiceComputations<'d> {
                 if let Some(allowed_relative_dir) = allowed_relative_dir {
                     validate_no_symlinks_between_current_dir_and_allowed_dir(
                         ctx,
-                        &self.cell_path,
-                        allowed_relative_dir,
+                        self.cell_path,
+                        *allowed_relative_dir,
                     )
                     .await?;
                 }
@@ -152,12 +152,12 @@ impl<'d> HasAllowRelativePaths<'d> for DiceComputations<'d> {
 
 async fn validate_no_symlinks_between_current_dir_and_allowed_dir(
     ctx: &mut DiceComputations<'_>,
-    current_dir: &CellPath,
-    allowed_dir: &CellPath,
+    current_dir: CellPath,
+    allowed_dir: CellPath,
 ) -> buck2_error::Result<()> {
     // For all the paths between current_dir and allowed_dir, inclusive
     // check that there are no symlinks
-    let mut current_dir = current_dir.as_ref();
+    let mut current_dir = current_dir;
     loop {
         if let RawPathMetadata::Symlink { at, to: _ } =
             DiceFileComputations::read_path_metadata(ctx, current_dir)
@@ -171,7 +171,7 @@ async fn validate_no_symlinks_between_current_dir_and_allowed_dir(
             )
             .into());
         }
-        if current_dir == allowed_dir.as_ref() {
+        if current_dir == allowed_dir {
             break;
         }
         current_dir = current_dir

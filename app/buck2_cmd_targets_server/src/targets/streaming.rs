@@ -214,7 +214,7 @@ pub(crate) async fn targets_streaming(
                     None => match cell_resolver.resolve_path(x.as_cell_path())?.parent() {
                         None => None,
                         Some(parent) => Some(PackageLabel::from_cell_path(
-                            cell_resolver.get_cell_path(parent).as_ref(),
+                            cell_resolver.get_cell_path(parent),
                         )?),
                     },
                 };

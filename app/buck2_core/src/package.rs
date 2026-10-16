@@ -61,7 +61,6 @@ use static_interner::interner;
 use strong_hash::StrongHash;
 
 use crate::cells::cell_path::CellPath;
-use crate::cells::cell_path::CellPathRef;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 use crate::pattern::pattern::Modifiers;
@@ -107,21 +106,19 @@ pub struct PackageLabelWithModifiers {
 struct PackageLabelData(CellPath);
 
 #[derive(Hash, Eq, PartialEq)]
-struct PackageLabelDataRef<'a> {
-    path: CellPathRef<'a>,
+struct PackageLabelDataRef {
+    path: CellPath,
 }
 
-impl<'a> From<PackageLabelDataRef<'a>> for PackageLabelData {
-    fn from(package_data: PackageLabelDataRef<'a>) -> Self {
-        PackageLabelData(package_data.path.to_owned())
+impl From<PackageLabelDataRef> for PackageLabelData {
+    fn from(package_data: PackageLabelDataRef) -> Self {
+        PackageLabelData(package_data.path)
     }
 }
 
 impl PackageLabelData {
-    fn as_ref(&self) -> PackageLabelDataRef<'_> {
-        PackageLabelDataRef {
-            path: self.0.as_ref(),
-        }
+    fn as_ref(&self) -> PackageLabelDataRef {
+        PackageLabelDataRef { path: self.0 }
     }
 }
 
@@ -132,7 +129,7 @@ impl Hash for PackageLabelData {
     }
 }
 
-impl Equivalent<PackageLabelData> for PackageLabelDataRef<'_> {
+impl Equivalent<PackageLabelData> for PackageLabelDataRef {
     fn equivalent(&self, key: &PackageLabelData) -> bool {
         self == &key.as_ref()
     }
@@ -143,11 +140,11 @@ interner!(INTERNER, BuckHasher, PackageLabelData);
 impl PackageLabel {
     #[inline]
     pub fn new(cell: CellName, path: &CellRelativePath) -> buck2_error::Result<Self> {
-        PackageLabel::from_cell_path(CellPathRef::new(cell, path))
+        PackageLabel::from_cell_path(CellPath::new(cell, path))
     }
 
     #[inline]
-    pub fn from_cell_path(path: CellPathRef) -> buck2_error::Result<Self> {
+    pub fn from_cell_path(path: CellPath) -> buck2_error::Result<Self> {
         Ok(PackageLabel(INTERNER.intern(PackageLabelDataRef { path })))
     }
 
@@ -167,15 +164,15 @@ impl PackageLabel {
     }
 
     #[inline]
-    pub fn as_cell_path(&self) -> CellPathRef<'_> {
-        self.0.0.as_ref()
+    pub fn as_cell_path(&self) -> CellPath {
+        self.0.0
     }
 
     pub fn join(&self, path: &ForwardRelativePath) -> buck2_error::Result<Self> {
         if path.is_empty() {
             Ok(self.dupe())
         } else {
-            PackageLabel::from_cell_path(self.as_cell_path().join(path).as_ref())
+            PackageLabel::from_cell_path(self.as_cell_path().join(path))
         }
     }
 

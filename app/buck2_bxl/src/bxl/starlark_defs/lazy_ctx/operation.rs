@@ -14,7 +14,7 @@ use allocative::Allocative;
 use async_recursion::async_recursion;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
@@ -171,7 +171,7 @@ impl LazyOperation {
                 // Parse the target pattern
                 let parsed_pattern = ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                     core_data.target_alias_resolver(),
-                    CellPathRef::new(core_data.cell_name(), CellRelativePath::empty()),
+                    CellPath::new(core_data.cell_name(), CellRelativePath::empty()),
                     pattern,
                     core_data.cell_resolver(),
                     core_data.cell_alias_resolver(),

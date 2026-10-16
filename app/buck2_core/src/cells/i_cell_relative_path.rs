@@ -98,6 +98,12 @@ impl ICellRelativePath {
     pub fn is_empty(self) -> bool {
         self.path.is_empty()
     }
+
+    /// Returns the parent path, allocation-free (no re-interning).
+    #[inline]
+    pub fn parent(self) -> Option<ICellRelativePath> {
+        self.path.parent().map(ICellRelativePath::from)
+    }
 }
 
 impl Deref for ICellRelativePath {

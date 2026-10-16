@@ -290,21 +290,15 @@ async fn dir_artifact_value(
             ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
-            let files = &DiceFileComputations::read_dir(ctx, self.0.as_ref().as_ref())
-                .await?
-                .included;
+            let files = &DiceFileComputations::read_dir(ctx, *self.0).await?.included;
 
             let entry_values = ctx
                 .try_compute_join(files.iter(), async |ctx, x| {
                     // TODO(scottcao): This current creates a `DirArtifactValueKey` for each subdir of a source directory.
                     // Instead, this should be 1 key for the entire top-level directory since there's almost
                     // no chance of getting cache hit with a sub-directory.
-                    let value = path_artifact_value(
-                        ctx,
-                        Arc::new(self.0.as_ref().join(&x.file_name)),
-                        None,
-                    )
-                    .await?;
+                    let value =
+                        path_artifact_value(ctx, Arc::new(self.0.join(&x.file_name)), None).await?;
                     buck2_error::Ok((x.file_name.clone(), value))
                 })
                 .await?;
@@ -380,8 +374,7 @@ async fn path_artifact_value(
     cell_path: Arc<CellPath>,
     label: Option<PackageLabel>,
 ) -> buck2_error::Result<ArtifactValue> {
-    let raw = match DiceFileComputations::read_path_metadata(ctx, cell_path.as_ref().as_ref()).await
-    {
+    let raw = match DiceFileComputations::read_path_metadata(ctx, *cell_path).await {
         Ok(raw) => Ok(raw),
         Err(e) => {
             if let Some(label) = label {
@@ -440,7 +433,7 @@ async fn path_artifact_value(
             let dont_read_through_symlink = use_correct_source_symlink_reading && at == cell_path;
             if dont_read_through_symlink {
                 let artifact_fs = ctx.get_artifact_fs().await?;
-                let target_path = artifact_fs.resolve_cell_path((*target).as_ref())?;
+                let target_path = artifact_fs.resolve_cell_path(*target)?;
                 let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
                 insert_artifact(&mut builder, target_path, &target_artifact_value)?;
                 let deps = builder

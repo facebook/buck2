@@ -210,8 +210,7 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
             return self.io_ops.read_file_lines_if_exists(path).await;
         };
         let path = self.cell_resolver.get_cell_path(path);
-        let Some(data) = DiceFileComputations::read_file_if_exists(self.ctx, path.as_ref()).await?
-        else {
+        let Some(data) = DiceFileComputations::read_file_if_exists(self.ctx, path).await? else {
             return Ok(None);
         };
         let lines = data.lines().map(ToOwned::to_owned).collect::<Vec<_>>();
@@ -226,12 +225,12 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
 
         // This trait expects some slightly non-standard behavior wrt errors, so make sure
         // to match what the `DefaultConfigParserFileOps` do
-        match DiceFileComputations::read_path_metadata_if_exists(self.ctx, path.as_ref()).await? {
+        match DiceFileComputations::read_path_metadata_if_exists(self.ctx, path).await? {
             Some(RawPathMetadata::Directory) => {}
             Some(_) | None => return Ok(Vec::new()),
         }
 
-        let out = DiceFileComputations::read_dir_include_ignores(self.ctx, path.as_ref())
+        let out = DiceFileComputations::read_dir_include_ignores(self.ctx, path)
             .await?
             .included
             .iter()

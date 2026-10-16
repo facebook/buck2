@@ -10,7 +10,6 @@
 
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
@@ -40,8 +39,8 @@ impl CellRoot {
         Self(CellPath::empty(name))
     }
 
-    pub fn cell_path(&self) -> CellPathRef<'_> {
-        self.0.as_ref()
+    pub fn cell_path(&self) -> CellPath {
+        self.0
     }
 }
 

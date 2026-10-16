@@ -11,7 +11,6 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -139,17 +138,15 @@ impl Key for CellPackageBoundaryExceptionsKey {
 
 #[async_trait]
 pub trait HasPackageBoundaryExceptions {
-    async fn has_package_boundary_exception(
-        &mut self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<bool>;
+    async fn has_package_boundary_exception(&mut self, path: CellPath)
+    -> buck2_error::Result<bool>;
 }
 
 #[async_trait]
 impl HasPackageBoundaryExceptions for DiceComputations<'_> {
     async fn has_package_boundary_exception(
         &mut self,
-        path: CellPathRef<'async_trait>,
+        path: CellPath,
     ) -> buck2_error::Result<bool> {
         #[derive(
             Hash, Eq, PartialEq, Clone, Display, Debug, RefCast, Allocative, Pagable
@@ -195,7 +192,7 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
         }
 
         Ok(*self
-            .compute(&PackageBoundaryExceptionKey(path.to_owned()))
+            .compute(&PackageBoundaryExceptionKey(path))
             .await?
             .as_ref()
             .duped_err()?)

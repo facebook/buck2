@@ -22,7 +22,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkCellPath {
     }
 
     fn add_to_command_line(&self, fmt: &mut CommandLineBuilder<'v, '_>) -> buck2_error::Result<()> {
-        fmt.push_cell_path(self.0.as_ref())?;
+        fmt.push_cell_path(self.0)?;
         Ok(())
     }
 

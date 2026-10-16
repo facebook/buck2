@@ -366,7 +366,7 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
 
         let mut buildfiles = vec![];
         for path in paths.iter() {
-            let package_label = resolver.get_enclosing_package(path.as_ref()).await?;
+            let package_label = resolver.get_enclosing_package(*path).await?;
             let listing = resolver.resolve(package_label.dupe()).await?;
 
             // the listing's buildfile is relative to the package (the BUCK/TARGETS file).
@@ -404,7 +404,7 @@ pub(crate) async fn validate_owner_paths(
     paths: &FileSet,
 ) -> buck2_error::Result<()> {
     for path in paths.iter() {
-        if let Err(error) = DiceFileComputations::read_path_metadata(ctx, path.as_ref())
+        if let Err(error) = DiceFileComputations::read_path_metadata(ctx, *path)
             .await
             .without_package_context_information()
         {

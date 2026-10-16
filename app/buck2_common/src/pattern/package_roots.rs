@@ -93,16 +93,12 @@ pub async fn collect_package_roots<E>(
 
     let list_dir = |path: CellPath| async move {
         let _permit = semaphore.acquire().await.unwrap();
-        let listing = file_ops.read_dir(path.as_ref()).await;
+        let listing = file_ops.read_dir(path).await;
         (path, listing)
     };
 
     for path in paths {
-        match file_ops
-            .is_ignored(path.as_ref())
-            .await
-            .map(|v| v.is_ignored())
-        {
+        match file_ops.is_ignored(path).await.map(|v| v.is_ignored()) {
             Ok(true) => {
                 // TODO(cjhopman): Ignoring this matches buck1 behavior, but we'd like this to be an error.
             }
@@ -137,7 +133,7 @@ pub async fn collect_package_roots<E>(
         };
 
         if find_buildfile(&buildfile_candidates, &listing).is_some() {
-            collector(PackageLabel::from_cell_path(path.as_ref()))?;
+            collector(PackageLabel::from_cell_path(path))?;
         }
 
         // The rev() call isn't necessary, it ends up causing us to slightly prefer running

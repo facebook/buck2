@@ -18,7 +18,6 @@ use strong_hash::StrongHash;
 
 use crate::cells::build_file_cell::BuildFileCell;
 use crate::cells::cell_path::CellPath;
-use crate::cells::cell_path::CellPathRef;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 
@@ -127,7 +126,7 @@ impl ImportPath {
     }
 
     /// Parent directory of the import path.
-    pub fn path_parent(&self) -> CellPathRef<'_> {
+    pub fn path_parent(&self) -> CellPath {
         self.path
             .parent()
             .expect("constructor verified path has parent")

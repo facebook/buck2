@@ -11,7 +11,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use dice::LinearRecomputeDiceComputations;
@@ -24,23 +24,16 @@ use crate::ignores::file_ignores::FileIgnoreResult;
 
 #[async_trait]
 pub trait FileOps: Send + Sync {
-    async fn read_file_if_exists(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<Option<String>>;
+    async fn read_file_if_exists(&self, path: CellPath) -> buck2_error::Result<Option<String>>;
 
     /// Return the list of file outputs, sorted.
-    async fn read_dir(&self, path: CellPathRef<'async_trait>)
-    -> buck2_error::Result<ReadDirOutput>;
+    async fn read_dir(&self, path: CellPath) -> buck2_error::Result<ReadDirOutput>;
 
-    async fn is_ignored(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<FileIgnoreResult>;
+    async fn is_ignored(&self, path: CellPath) -> buck2_error::Result<FileIgnoreResult>;
 
     async fn read_path_metadata_if_exists(
         &self,
-        path: CellPathRef<'async_trait>,
+        path: CellPath,
     ) -> buck2_error::Result<Option<RawPathMetadata>>;
 
     async fn buildfiles<'a>(&self, cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>>;
@@ -53,17 +46,11 @@ pub struct DiceFileOps<'c, 'd>(pub LinearRecomputeDiceComputations<'c, 'd>);
 
 #[async_trait]
 impl FileOps for DiceFileOps<'_, '_> {
-    async fn read_file_if_exists(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<Option<String>> {
+    async fn read_file_if_exists(&self, path: CellPath) -> buck2_error::Result<Option<String>> {
         DiceFileComputations::read_file_if_exists(&mut self.0.get(), path).await
     }
 
-    async fn read_dir(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<ReadDirOutput> {
+    async fn read_dir(&self, path: CellPath) -> buck2_error::Result<ReadDirOutput> {
         DiceFileComputations::read_dir(&mut self.0.get(), path)
             .await
             .map(Dupe::dupe)
@@ -71,15 +58,12 @@ impl FileOps for DiceFileOps<'_, '_> {
 
     async fn read_path_metadata_if_exists(
         &self,
-        path: CellPathRef<'async_trait>,
+        path: CellPath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
         DiceFileComputations::read_path_metadata_if_exists(&mut self.0.get(), path).await
     }
 
-    async fn is_ignored(
-        &self,
-        path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<FileIgnoreResult> {
+    async fn is_ignored(&self, path: CellPath) -> buck2_error::Result<FileIgnoreResult> {
         DiceFileComputations::is_ignored(&mut self.0.get(), path).await
     }
 

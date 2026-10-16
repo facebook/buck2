@@ -188,9 +188,9 @@ fn enforce_intersection(
 fn exemption_within_subtree(pattern: &PackagePattern, declaring_dir: &CellPath) -> bool {
     let entry_dir = match pattern {
         PackagePattern::Package(label) => label.as_cell_path(),
-        PackagePattern::Recursive(path) => path.as_ref(),
+        PackagePattern::Recursive(path) => *path,
     };
-    entry_dir.starts_with(declaring_dir.as_ref())
+    entry_dir.starts_with(*declaring_dir)
 }
 
 /// Whether a recursive exemption covers the declaring `PACKAGE`'s own directory,
@@ -198,7 +198,7 @@ fn exemption_within_subtree(pattern: &PackagePattern, declaring_dir: &CellPath) 
 fn exemption_covers_declaring_dir(pattern: &PackagePattern, declaring_dir: &CellPath) -> bool {
     match pattern {
         PackagePattern::Package(_) => false,
-        PackagePattern::Recursive(path) => declaring_dir.as_ref().starts_with(path.as_ref()),
+        PackagePattern::Recursive(path) => declaring_dir.starts_with(*path),
     }
 }
 

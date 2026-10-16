@@ -286,7 +286,7 @@ impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
     ) -> buck2_error::Result<Vec<PackageLabel>> {
         let cell_root = CellPath::empty(path.cell());
         Ok(DicePackageListingResolver(&mut self.ctx.get())
-            .get_enclosing_packages(path.as_ref(), cell_root.as_ref())
+            .get_enclosing_packages(*path, cell_root)
             .await?
             .into_iter()
             .collect())

@@ -24,7 +24,7 @@ use buck2_common::settings::parser::parse_settings;
 use buck2_core::buck2_env;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
@@ -189,7 +189,7 @@ impl<'a> ImmediateConfigContext<'a> {
 
     pub(crate) fn resolve_project_path(
         &self,
-        path: CellPathRef,
+        path: CellPath,
     ) -> buck2_error::Result<AbsNormPathBuf> {
         let data = self.data()?;
         Ok(data

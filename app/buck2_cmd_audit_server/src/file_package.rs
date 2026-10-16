@@ -86,7 +86,7 @@ async fn audit_build_package(
         let val = match cells.get_cell_path_from_abs_path(&abs_path, project_root) {
             Ok(cell_path) => {
                 match DicePackageListingResolver(ctx)
-                    .get_enclosing_package(cell_path.as_ref())
+                    .get_enclosing_package(cell_path)
                     .await
                 {
                     Ok(package) => Package::Package(package.to_string()),

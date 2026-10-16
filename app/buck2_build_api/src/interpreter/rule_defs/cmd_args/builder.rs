@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_dyn::ArtifactDyn;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::project::ProjectRoot;
@@ -347,7 +347,7 @@ impl<'v, 'a> CommandLineBuilder<'v, 'a> {
         self.write_project_path(p)
     }
 
-    pub fn push_cell_path(&mut self, path: CellPathRef) -> buck2_error::Result<()> {
+    pub fn push_cell_path(&mut self, path: CellPath) -> buck2_error::Result<()> {
         self.write_project_path(self.fs.fs().resolve_cell_path(path)?)
     }
 
