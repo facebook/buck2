@@ -114,7 +114,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
             .read_path_metadata_if_exists(project_path)
             .await
             .with_buck_error_context(|| format!("Error accessing metadata for path `{path}`"))?;
-        Ok(res.map(|meta| meta.map(|path| Arc::new(self.get_cell_path(&path)))))
+        Ok(res.map(|meta| meta.map(|path| self.get_cell_path(&path))))
     }
 
     async fn exists_matching_exact_case(

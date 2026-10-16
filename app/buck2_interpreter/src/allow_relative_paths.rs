@@ -167,7 +167,7 @@ async fn validate_no_symlinks_between_current_dir_and_allowed_dir(
             return Err(RelativePathParseError::SymlinkFound(
                 current_dir.to_string(),
                 allowed_dir.to_string(),
-                at.as_ref().to_string(),
+                at.to_string(),
             )
             .into());
         }

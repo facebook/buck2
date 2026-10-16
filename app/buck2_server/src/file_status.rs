@@ -212,7 +212,7 @@ async fn check_file_status(
                 to: dice_to,
             },
         ) => {
-            let dice_at = cell_resolver.resolve_path(**dice_at)?;
+            let dice_at = cell_resolver.resolve_path(*dice_at)?;
             result.report("symlink component location", path, fs_at, &dice_at)?;
 
             result.report(
@@ -227,7 +227,7 @@ async fn check_file_status(
                     RawSymlink::Relative(fs_rel, fs_raw_rel),
                     RawSymlink::Relative(dice_rel, dice_raw_rel),
                 ) => {
-                    let dice_rel = cell_resolver.resolve_path(**dice_rel)?;
+                    let dice_rel = cell_resolver.resolve_path(*dice_rel)?;
                     result.report("relative symlink destination", path, fs_rel, &dice_rel)?;
                     result.report(
                         "relative symlink destination raw",

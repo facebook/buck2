@@ -141,7 +141,7 @@ async fn try_exists(ctx: &mut DiceComputations<'_>, path: CellPath) -> buck2_err
     match DiceFileComputations::read_path_metadata_if_exists(ctx, path).await? {
         Some(path) => match PathMetadataOrRedirection::from(path) {
             PathMetadataOrRedirection::PathMetadata(_) => Ok(true),
-            PathMetadataOrRedirection::Redirection(r, _) => try_exists(ctx, *r).await,
+            PathMetadataOrRedirection::Redirection(r, _) => try_exists(ctx, r).await,
         },
         None => Ok(false),
     }

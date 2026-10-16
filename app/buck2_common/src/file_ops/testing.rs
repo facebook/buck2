@@ -207,7 +207,7 @@ impl FileOps for TestFileOps {
                     Ok(RawPathMetadata::File(metadata.to_owned()))
                 }
                 TestFileOpsEntry::ExternalSymlink(sym) => Ok(RawPathMetadata::Symlink {
-                    at: Arc::new(path),
+                    at: path,
                     to: RawSymlink::External(sym.dupe()),
                 }),
                 _ => Err(buck2_error::buck2_error!(

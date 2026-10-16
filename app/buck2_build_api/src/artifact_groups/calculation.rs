@@ -9,7 +9,6 @@
  */
 
 use std::iter::zip;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use async_recursion::async_recursion;
@@ -182,7 +181,7 @@ fn ensure_source_artifact_staged<'a>(
         Ok(EnsureArtifactGroupReady::Single(
             path_artifact_value(
                 dice,
-                Arc::new(source.get_path().to_cell_path()),
+                source.get_path().to_cell_path(),
                 Some(source.get_path().package()),
             )
             .await?,
@@ -268,7 +267,7 @@ size_assert::words_of_async_fn_future!(ensure_source_artifact_staged, (_, _), 2)
 
 async fn dir_artifact_value(
     ctx: &mut DiceComputations<'_>,
-    cell_path: Arc<CellPath>,
+    cell_path: CellPath,
 ) -> buck2_error::Result<ArtifactValue> {
     // We kept running into this performance footgun where a large directory is declared as a source
     // on a toolchain, and then every `BuildKey` using that toolchain ends up taking a DICE edge on
@@ -276,10 +275,12 @@ async fn dir_artifact_value(
     // `DirArtifactValueKey` is an intermediate DICE key to prevent that -  every `BuildKey` using
     // that directory now only depends on one `DirArtifactValueKey`, and that `DirArtifactValueKey`
     // depends on the `PathMetadataKey` of every member of the directory.
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[derive(
+        Clone, Dupe, Copy, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable
+    )]
     #[display("dir_artifact_value({})", _0)]
     #[pagable_typetag(dice::DiceKeyDyn)]
-    struct DirArtifactValueKey(Arc<CellPath>);
+    struct DirArtifactValueKey(CellPath);
 
     #[async_trait]
     impl Key for DirArtifactValueKey {
@@ -290,15 +291,14 @@ async fn dir_artifact_value(
             ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
-            let files = &DiceFileComputations::read_dir(ctx, *self.0).await?.included;
+            let files = &DiceFileComputations::read_dir(ctx, self.0).await?.included;
 
             let entry_values = ctx
                 .try_compute_join(files.iter(), async |ctx, x| {
                     // TODO(scottcao): This current creates a `DirArtifactValueKey` for each subdir of a source directory.
                     // Instead, this should be 1 key for the entire top-level directory since there's almost
                     // no chance of getting cache hit with a sub-directory.
-                    let value =
-                        path_artifact_value(ctx, Arc::new(self.0.join(&x.file_name)), None).await?;
+                    let value = path_artifact_value(ctx, self.0.join(&x.file_name), None).await?;
                     buck2_error::Ok((x.file_name.clone(), value))
                 })
                 .await?;
@@ -371,10 +371,10 @@ async fn dir_artifact_value(
 #[async_recursion]
 async fn path_artifact_value(
     ctx: &mut DiceComputations<'_>,
-    cell_path: Arc<CellPath>,
+    cell_path: CellPath,
     label: Option<PackageLabel>,
 ) -> buck2_error::Result<ArtifactValue> {
-    let raw = match DiceFileComputations::read_path_metadata(ctx, *cell_path).await {
+    let raw = match DiceFileComputations::read_path_metadata(ctx, cell_path).await {
         Ok(raw) => Ok(raw),
         Err(e) => {
             if let Some(label) = label {
@@ -433,7 +433,7 @@ async fn path_artifact_value(
             let dont_read_through_symlink = use_correct_source_symlink_reading && at == cell_path;
             if dont_read_through_symlink {
                 let artifact_fs = ctx.get_artifact_fs().await?;
-                let target_path = artifact_fs.resolve_cell_path(*target)?;
+                let target_path = artifact_fs.resolve_cell_path(target)?;
                 let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
                 insert_artifact(&mut builder, target_path, &target_artifact_value)?;
                 let deps = builder

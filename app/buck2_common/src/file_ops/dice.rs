@@ -411,11 +411,8 @@ impl Key for PathMetadataKey {
             .read_path_metadata_if_exists(ctx, self.0.path())
             .await?;
 
-        if let Some(RawPathMetadata::Symlink { ref at, to: _ }) = res {
-            ctx.compute(&ReadFileKey(**at))
-                .await?
-                .as_ref()
-                .duped_err()?;
+        if let Some(RawPathMetadata::Symlink { at, to: _ }) = res {
+            ctx.compute(&ReadFileKey(at)).await?.as_ref().duped_err()?;
         }
 
         Ok(res)

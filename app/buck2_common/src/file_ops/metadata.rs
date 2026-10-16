@@ -260,7 +260,7 @@ pub enum PathMetadata {
 }
 
 #[derive(Debug, PartialEq, Dupe, Eq, Clone, Allocative, VariantName, Pagable)]
-pub enum RawPathMetadata<T = Arc<CellPath>> {
+pub enum RawPathMetadata<T = CellPath> {
     Symlink { at: T, to: RawSymlink<T> },
     File(FileMetadata),
     Directory,
@@ -316,7 +316,7 @@ pub enum RawSymlink<T> {
 
 /// Stores the relevant metadata for a path.
 #[derive(Debug, Dupe, PartialEq, Eq, Clone)]
-pub enum PathMetadataOrRedirection<T = Arc<CellPath>> {
+pub enum PathMetadataOrRedirection<T = CellPath> {
     PathMetadata(PathMetadata),
     Redirection(T, Arc<Symlink>),
 }

@@ -60,8 +60,6 @@ use itertools::Itertools;
 use ref_cast::RefCast;
 use tracing::warn;
 
-type ArcCellPath = Arc<CellPath>;
-
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
 enum QueryLiteralResolutionError {
@@ -73,7 +71,7 @@ enum QueryLiteralResolutionError {
 #[buck2(tag = Tier0)]
 enum RBuildFilesError {
     #[error("no parent found for the file `{0}`")]
-    ParentDoesNotExist(ArcCellPath),
+    ParentDoesNotExist(CellPath),
     #[error("internal error: no buildfile names found for the cell `{0}`")]
     CellMissingBuildFileNames(CellName),
 }
@@ -449,7 +447,7 @@ pub(crate) async fn rbuildfiles(
     argset: &FileSet,
     delegate: &dyn UqueryDelegate,
 ) -> buck2_error::Result<FileSet> {
-    let universe_paths: Vec<ArcCellPath> = universe.iter().map(|file| Arc::new(*file)).collect();
+    let universe_paths: Vec<CellPath> = universe.iter().copied().collect();
     // step 1: split the build files and bzl files
     let (buildfiles, bzlfiles) = split_universe_files(&universe_paths, delegate).await?;
 
@@ -567,8 +565,8 @@ pub(crate) async fn rbuildfiles(
     // finally, since we didn't check the top level imports of buildfiles,
     // we do this right now
     for file in buildfiles {
-        if argset.iter().contains(&*file) {
-            output_files.insert(FileNode(*file));
+        if argset.iter().contains(&file) {
+            output_files.insert(FileNode(file));
         } else {
             let imports = top_level_import_by_build_file
                 .get(&file)
@@ -576,7 +574,7 @@ pub(crate) async fn rbuildfiles(
 
             for import in imports.iter() {
                 if output_files.iter().contains(&FileNode(*import.path())) {
-                    output_files.insert(FileNode(*file));
+                    output_files.insert(FileNode(file));
                     break;
                 }
             }
@@ -587,11 +585,11 @@ pub(crate) async fn rbuildfiles(
 }
 
 async fn split_universe_files(
-    universe: &[ArcCellPath],
+    universe: &[CellPath],
     delegate: &dyn UqueryDelegate,
-) -> buck2_error::Result<(Vec<ArcCellPath>, Vec<ArcCellPath>)> {
-    let mut buildfiles = Vec::<ArcCellPath>::new();
-    let mut bzlfiles = Vec::<ArcCellPath>::new();
+) -> buck2_error::Result<(Vec<CellPath>, Vec<CellPath>)> {
+    let mut buildfiles = Vec::<CellPath>::new();
+    let mut bzlfiles = Vec::<CellPath>::new();
     let buildfile_names_by_cell = delegate.get_buildfile_names_by_cell().await?;
     for file in universe {
         let buildfile_names_for_file =
@@ -609,26 +607,26 @@ async fn split_universe_files(
                 .map(<FileNameBuf as AsRef<FileName>>::as_ref)
                 .contains(&name)
             {
-                buildfiles.push(file.dupe());
+                buildfiles.push(*file);
             }
         } else {
             // TODO: right now we assume non-buildfiles are bzl's - we might want to handle error cases later.
-            bzlfiles.push(file.dupe());
+            bzlfiles.push(*file);
         }
     }
     Ok((buildfiles, bzlfiles))
 }
 
 async fn top_level_imports_by_build_file(
-    buildfiles: &[ArcCellPath],
-    bzlfiles: &[ArcCellPath],
+    buildfiles: &[CellPath],
+    bzlfiles: &[CellPath],
     delegate: &dyn UqueryDelegate,
-) -> buck2_error::Result<BuckMutMap<ArcCellPath, Vec<ImportPath>>> {
-    let mut top_level_import_by_build_file = BuckMutMap::<ArcCellPath, Vec<ImportPath>>::default();
+) -> buck2_error::Result<BuckMutMap<CellPath, Vec<ImportPath>>> {
+    let mut top_level_import_by_build_file = BuckMutMap::<CellPath, Vec<ImportPath>>::default();
 
     for file in bzlfiles {
-        let imports = vec![ImportPath::new_same_cell(*file.as_ref())?];
-        top_level_import_by_build_file.insert(file.dupe(), imports);
+        let imports = vec![ImportPath::new_same_cell(*file)?];
+        top_level_import_by_build_file.insert(*file, imports);
     }
 
     let mut buildfile_futs: FuturesUnordered<_> = buildfiles
@@ -636,23 +634,20 @@ async fn top_level_imports_by_build_file(
         .map(|file| async move {
             if let Some(parent) = file.parent() {
                 match PackageLabel::from_cell_path(parent) {
-                    Ok(label) => (
-                        file.dupe(),
-                        delegate.ctx().get_interpreter_results(label).await,
-                    ),
-                    Err(e) => (file.dupe(), Err(e)),
+                    Ok(label) => (*file, delegate.ctx().get_interpreter_results(label).await),
+                    Err(e) => (*file, Err(e)),
                 }
             } else {
                 (
-                    file.dupe(),
-                    Err(RBuildFilesError::ParentDoesNotExist(file.dupe()).into()),
+                    *file,
+                    Err(RBuildFilesError::ParentDoesNotExist(*file).into()),
                 )
             }
         })
         .collect();
 
     while let Some((file, eval_result)) = tokio::task::unconstrained(buildfile_futs.next()).await {
-        top_level_import_by_build_file.insert(file.dupe(), eval_result?.imports().to_owned());
+        top_level_import_by_build_file.insert(file, eval_result?.imports().to_owned());
     }
 
     Ok(top_level_import_by_build_file)
