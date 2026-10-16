@@ -476,6 +476,71 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_remaining_clipped_by_height() -> buck2_error::Result<()> {
+        let tick = Tick::now();
+
+        let mut state = BuckEventSpanTracker::new();
+        for name in ["e1", "e2", "e3"] {
+            let e = BuckEvent::new(
+                fake_time(&tick, 1),
+                TraceId::new(),
+                Some(SpanId::next()),
+                None,
+                buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
+                    data: Some(buck2_data::span_start_event::Data::Fake(FakeStart {
+                        caramba: name.to_owned(),
+                    })),
+                }),
+            );
+            state.start_at(&Arc::new(e)).unwrap();
+        }
+
+        let time_speed = fake_timekeeper(tick);
+        let action_stats = ActionStats {
+            local_actions: 0,
+            remote_actions: 0,
+            cached_actions: 1,
+            fallback_actions: 0,
+            remote_dep_file_cached_actions: 0,
+            remote_served_from_cache_actions: 0,
+            remote_deduplicated_actions: 0,
+            excess_cache_misses: 0,
+        };
+
+        // `max_lines` allows every root, but the terminal only has room for the header and two
+        // more lines. The rows are clipped from the bottom: `e3` and the summary row disappear
+        // with no trace, and nothing tells the user that a task is hidden.
+        let timed_list_state = SuperConsoleConfig {
+            max_lines: 5,
+            ..Default::default()
+        };
+
+        let output = TimedList::new(
+            &CUTOFFS,
+            &super_console_state_for_test(state, action_stats, time_speed, timed_list_state),
+        )
+        .draw(
+            Dimensions {
+                width: 40,
+                height: 3,
+            },
+            DrawMode::Normal,
+        )?;
+        let expected = [
+            "────────────────────────────────────────",
+            "e1 · speak of the devil             1.0s",
+            "e2 · speak of the devil             1.0s",
+        ]
+        .iter()
+        .map(|l| format!("{l}\n"))
+        .join("");
+
+        pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
+
+        Ok(())
+    }
+
     #[tokio::test]
     async fn test_remaining_with_pending() -> buck2_error::Result<()> {
         let tick = Tick::now();
