@@ -23,7 +23,7 @@ def _caller_cfg_transition_impl(platform, refs):
 _caller_cfg_transition = transition(
     impl = _caller_cfg_transition_impl,
     refs = {
-        "cfg_value": "fbcode//buck2/tests/e2e/test_prelude:clone_rule_cfg_value",
+        "cfg_value": "fbcode//buck2/tests/e2e/test_prelude:clone_rule_cfg_setting[value]",
     },
 )
 
