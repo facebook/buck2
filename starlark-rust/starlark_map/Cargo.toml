@@ -159,3 +159,6 @@ unused_imports = { level = "warn" }
 unused_macros = { level = "warn" }
 unused_must_use = { level = "warn", priority = -2 }
 unused_variables = { level = "warn" }
+
+[lints.rustdoc]
+private_intra_doc_links = { level = "allow" }
