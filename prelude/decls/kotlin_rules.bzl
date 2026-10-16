@@ -12,11 +12,12 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//decls:test_common.bzl", "test_common")
-load(":common.bzl", "TestType", "buck", "prelude_rule")
+load(":common.bzl", "TestType", "buck")
 load(":java_rules.bzl", "dex_min_sdk_version")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")

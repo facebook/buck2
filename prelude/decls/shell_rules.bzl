@@ -6,9 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
-load(":common.bzl", "buck", "prelude_rule")
+load(":common.bzl", "buck")
 load(":re_test_common.bzl", "re_test_common")
 
 sh_binary = prelude_rule(

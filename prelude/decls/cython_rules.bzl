@@ -6,7 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//decls:common.bzl", "buck", "prelude_rule")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:cxx_rules.bzl", "cxx_rules")
 load("@prelude//decls:python_common.bzl", "python_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")

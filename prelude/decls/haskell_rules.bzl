@@ -11,8 +11,9 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//linking:types.bzl", "Linkage")
-load(":common.bzl", "LinkableDepType", "buck", "prelude_rule")
+load(":common.bzl", "LinkableDepType", "buck")
 load(":haskell_common.bzl", "haskell_common")
 load(":native_common.bzl", "native_common")
 

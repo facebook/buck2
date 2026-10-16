@@ -12,6 +12,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_info_plist.bzl", "MergeOperations", "RestrictedMergeOperations", "UpdateOperations", "apple_info_plist_impl")
@@ -56,7 +57,7 @@ load("@prelude//apple/validation:required_reasons_tools.bzl", "RequiredReasonsTo
 load("@prelude//cxx:groups_types.bzl", "GroupFilterInfo", "Traversal")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
-load("@prelude//decls:common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck", "prelude_rule")
+load("@prelude//decls:common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck")
 load("@prelude//decls:cxx_common.bzl", "cxx_common")
 load("@prelude//decls:native_common.bzl", "native_common")
 load("@prelude//decls:test_common.bzl", "test_common")

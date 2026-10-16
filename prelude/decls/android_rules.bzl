@@ -13,6 +13,7 @@
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//:genrule.bzl", "genrule_attributes")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load(
     "@prelude//:validation_deps.bzl",
     "VALIDATION_DEPS_ATTR_NAME",
@@ -24,7 +25,7 @@ load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 load(":android_common.bzl", "android_common")
-load(":common.bzl", "TestType", "buck", "prelude_rule")
+load(":common.bzl", "TestType", "buck")
 load(":core_rules.bzl", "TargetCpuType")
 load(":genrule_common.bzl", "genrule_common")
 load(":java_rules.bzl", "dex_min_sdk_version")

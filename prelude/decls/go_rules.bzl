@@ -11,6 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//decls:test_common.bzl", "test_common")
 load(
     "@prelude//go/transitions:defs.bzl",
@@ -20,7 +21,7 @@ load(
     "go_stdlib_transition",
     "go_test_transition",
 )
-load(":common.bzl", "buck", "prelude_rule")
+load(":common.bzl", "buck")
 load(":cxx_common.bzl", "cxx_common")
 load(":go_common.bzl", "go_common")
 load(":re_test_common.bzl", "re_test_common")

@@ -11,7 +11,8 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load(":common.bzl", "buck", "prelude_rule")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load(":common.bzl", "buck")
 
 NdkCxxRuntime = ["system", "gabixx", "stlport", "gnustl", "libcxx"]
 

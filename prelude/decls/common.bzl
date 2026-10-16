@@ -16,20 +16,6 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", _RuntimeDependencyHandling = "Runt
 def validate_uri(_s):
     return True
 
-prelude_rule = record(
-    name = field(str),
-    docs = field([str, None], None),
-    examples = field([str, None], None),
-    further = field([str, None], None),
-    attrs = field(dict[str, Attr]),
-    impl = field([typing.Callable, None], None),
-    uses_plugins = field([list[plugins.PluginKind], None], None),
-    supports_incoming_transition = field([bool, None], None),
-    is_toolchain_rule = field([bool, None], None),
-    # TODO(mgd): should be `transition | None`, but `transition` does not work as type.
-    cfg = field(typing.Any | None, None),
-)
-
 AbiGenerationMode = ["class", "source", "source_only", "none"]
 
 CxxRuntimeType = ["dynamic", "static"]

@@ -6,7 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":common.bzl", "buck", "prelude_rule")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load(":common.bzl", "buck")
 
 git_fetch = prelude_rule(
     name = "git_fetch",

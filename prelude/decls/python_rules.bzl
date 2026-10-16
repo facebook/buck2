@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
@@ -20,7 +21,7 @@ load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//python:python_runtime_bundle.bzl", "PythonRuntimeBundleInfo")
 load("@prelude//python:toolchain.bzl", "NativeLinkStrategy")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
-load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck", "prelude_rule")
+load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck")
 load(":cxx_common.bzl", "cxx_common")
 load(":native_common.bzl", "native_common")
 load(":python_common.bzl", "python_common")

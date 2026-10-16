@@ -7,10 +7,10 @@
 # above-listed licenses.
 
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 # Combine the attributes we generate, we the custom implementations we have.
 load("@prelude//:rules_impl.bzl", "categorized_extra_attributes", "categorized_rule_decl_records", "extra_implemented_rules", "toolchain_rule_names")
 load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
-load("@prelude//decls:common.bzl", "prelude_rule")
 
 def _unimplemented(name, ctx):
     fail("Unimplemented rule type `{}` for target `{}`.".format(name, ctx.label))

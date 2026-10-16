@@ -11,9 +11,10 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//cfg/exec_platform:marker.bzl", "get_exec_platform_marker")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
-load(":common.bzl", "OnDuplicateEntry", "buck", "prelude_rule", "validate_uri")
+load(":common.bzl", "OnDuplicateEntry", "buck", "validate_uri")
 load(":genrule_common.bzl", "genrule_common")
 load(":remote_common.bzl", "remote_common")
 

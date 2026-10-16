@@ -12,6 +12,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:cxx_flags.bzl", "CxxFlagsInfo")
@@ -26,7 +27,7 @@ load("@prelude//linking:execution_preference.bzl", "link_execution_preference_at
 load("@prelude//linking:link_info.bzl", "ArchiveContentsType", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
-load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck", "prelude_rule")
+load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck")
 load(":cxx_common.bzl", "cxx_common")
 load(":genrule_common.bzl", "genrule_common")
 load(":native_common.bzl", "native_common")
