@@ -46,10 +46,13 @@ pub(crate) fn slice_swap_shift<T>(slice: &mut [T], a: usize, b: usize) {
     assert!(a < b);
     assert!(b < slice.len());
 
+    // One pointer for every access: a `slice.as_ptr()` taken next to `slice.as_mut_ptr()` is
+    // invalidated by the latter's reborrow before `ptr::copy` reads through it.
+    let ptr = slice.as_mut_ptr();
     unsafe {
-        let tmp = ptr::read(slice.as_mut_ptr().add(b));
-        ptr::copy(slice.as_ptr().add(a), slice.as_mut_ptr().add(a + 1), b - a);
-        ptr::write(slice.as_mut_ptr().add(a), tmp);
+        let tmp = ptr::read(ptr.add(b));
+        ptr::copy(ptr.add(a), ptr.add(a + 1), b - a);
+        ptr::write(ptr.add(a), tmp);
     }
 }
 
