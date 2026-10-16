@@ -8,7 +8,8 @@
 
 def _impl(ctx: bxl.Context):
     target = ctx.configured_targets("fbcode//buck2/tests/e2e/test_prelude:clone_rule_cfg_fixture")
-    expected = "fbcode//buck2/tests/e2e/test_prelude:clone_rule_cfg_value"
+    # `clone_rule_cfg_value` is an alias; the constraint value itself lives on the unified constraint.
+    expected = "fbcode//buck2/tests/e2e/test_prelude:clone_rule_cfg_setting[value]"
     for configured_target in ctx.cquery().deps(target, 1):
         constraint_values = [str(value.label) for value in configured_target.configuration_info().constraints.values()]
         if expected in constraint_values:
