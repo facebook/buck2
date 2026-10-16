@@ -820,6 +820,76 @@ async fn test_publish_moves_the_content_and_tracks_it() -> buck2_error::Result<(
     .await
 }
 
+/// A materializer over a sqlite db, persisting access times as `updates` says.
+fn make_persisting(
+    fs: &ProjectRoot,
+    updates: AccessTimesUpdates,
+) -> buck2_error::Result<Arc<DiskStateMaterializer<StubIoHandler>>> {
+    let (db, _) = testing_materializer_state_sqlite_db(fs, versions(), metadata(), None)?;
+    let mut configs = configs();
+    configs.update_access_times = updates;
+    let (dm, _io) = make_with_configs(fs, StubIoHandler::new(fs.dupe()), Some(db), None, configs);
+    Ok(dm)
+}
+
+/// A read of a tracked root bumps its access time, which waits for a flush to sqlite.
+#[tokio::test]
+async fn test_a_read_buffers_an_access_time_bump() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let dm = make_persisting(temp.path(), AccessTimesUpdates::Partial)?;
+        let p = path("buck-out/v2/gen/read");
+        drop(report(&dm, &p, file("read")).await?);
+        assert_eq!(dm.pending_access_times().await?, 0);
+        materialize_ok(&dm, vec![(p.clone(), file("read"))]).await?;
+        assert_eq!(dm.pending_access_times().await?, 1);
+        dm.flush_all_access_times().await?;
+        assert_eq!(dm.pending_access_times().await?, 0);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test(start_paused = true)]
+async fn test_access_times_are_flushed_on_the_period() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let dm = make_persisting(temp.path(), AccessTimesUpdates::Full)?;
+        let p = path("buck-out/v2/gen/read");
+        drop(report(&dm, &p, file("read")).await?);
+        materialize_ok(&dm, vec![(p.clone(), file("read"))]).await?;
+        // Paused time passes as the test waits; the flush comes on its period.
+        let mut pending = usize::MAX;
+        for _ in 0..30 {
+            pending = dm.pending_access_times().await?;
+            if pending == 0 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+        assert_eq!(pending, 0);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_access_times_are_not_kept_when_disabled() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let dm = make_persisting(temp.path(), AccessTimesUpdates::Disabled)?;
+        let p = path("buck-out/v2/gen/read");
+        drop(report(&dm, &p, file("read")).await?);
+        materialize_ok(&dm, vec![(p.clone(), file("read"))]).await?;
+        assert_eq!(dm.pending_access_times().await?, 0);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
 #[tokio::test]
 async fn test_a_published_output_enters_the_store() -> buck2_error::Result<()> {
     ignore_stack_overflow_checks_for_future(async {

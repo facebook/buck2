@@ -48,6 +48,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
@@ -118,6 +119,7 @@ use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
+use crate::materializers::deferred::AccessTimesUpdates;
 use crate::materializers::deferred::DeferredMaterializerConfigs;
 use crate::materializers::deferred::MaterializeEntryError;
 use crate::materializers::deferred::MaterializerSizeStats;
@@ -147,6 +149,9 @@ use crate::sqlite::materializer_db::MaterializerStateSqliteDb;
 
 /// The value of `buck2.materializer` that selects this implementation.
 pub const CONFIG_VALUE: &str = "v2";
+
+/// How often buffered access-time bumps reach sqlite under `AccessTimesUpdates::Full`.
+const ACCESS_TIMES_FLUSH_PERIOD: Duration = Duration::from_secs(5);
 
 /// The materializer that tracks disk state only. `T` is the IO it runs through; the daemon uses
 /// `DefaultIoHandler`, tests stub it.
@@ -239,11 +244,15 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             sender: sender.dupe(),
             tree,
             sqlite_db,
-            touched: BuckMutSet::default(),
+            touched: (!matches!(configs.update_access_times, AccessTimesUpdates::Disabled))
+                .then(BuckMutSet::default),
             shared: shared.dupe(),
         };
         let thread = thread_spawn("buck2-dsm", move || processor.run(rx))
             .buck_error_context("Cannot start materializer thread")?;
+        if matches!(configs.update_access_times, AccessTimesUpdates::Full) {
+            sender.start_access_times_flush(ACCESS_TIMES_FLUSH_PERIOD);
+        }
 
         let cleaner = Cleaner::new(
             io.dupe(),
@@ -457,6 +466,13 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
     #[cfg(test)]
     pub(crate) fn store(&self) -> &'static BlobStore {
         self.store
+    }
+
+    /// How many access-time bumps wait for a flush to sqlite.
+    #[cfg(test)]
+    pub(crate) async fn pending_access_times(&self) -> buck2_error::Result<usize> {
+        self.on_processor(|processor| processor.pending_access_times())
+            .await
     }
 
     /// Puts a reported root's files into the store: content this daemon produced, not known to
@@ -1629,7 +1645,47 @@ pub(crate) struct Sender {
 
 impl Dupe for Sender {}
 
+/// A `Sender` that does not keep the processor running: it upgrades while a `Sender` exists.
+struct WeakSender {
+    tx: mpsc::WeakUnboundedSender<Command>,
+    shared: Arc<Shared>,
+}
+
+impl WeakSender {
+    fn upgrade(&self) -> Option<Sender> {
+        Some(Sender {
+            tx: self.tx.upgrade()?,
+            shared: self.shared.dupe(),
+        })
+    }
+}
+
 impl Sender {
+    /// Flushes the processor's buffered access times to sqlite every `period`, for as long as
+    /// the processor runs. Must be called from within a tokio runtime.
+    fn start_access_times_flush(&self, period: Duration) {
+        let weak = WeakSender {
+            tx: self.tx.downgrade(),
+            shared: self.shared.dupe(),
+        };
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(period);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticker.tick().await;
+                let Some(sender) = weak.upgrade() else {
+                    return;
+                };
+                let flush = Command::Sync(Box::new(|processor| {
+                    processor.flush_access_times_or_abandon()
+                }));
+                if sender.send(flush).is_err() {
+                    return;
+                }
+            }
+        });
+    }
+
     fn send(&self, command: Command) -> buck2_error::Result<()> {
         self.shared.queued.fetch_add(1, Ordering::Relaxed);
         self.tx.send(command).map_err(|_| {
@@ -1677,8 +1733,9 @@ pub(crate) struct Processor {
     sender: Sender,
     pub(crate) tree: DiskTree<oneshot::Sender<Granted>>,
     sqlite_db: Option<MaterializerStateSqliteDb>,
-    /// Roots whose access time changed in memory and not yet in sqlite.
-    touched: BuckMutSet<ProjectRelativePathBuf>,
+    /// Roots whose access time changed in memory and not yet in sqlite; `None` when access
+    /// times are not persisted (`buck2.update_access_times = disabled`).
+    touched: Option<BuckMutSet<ProjectRelativePathBuf>>,
     shared: Arc<Shared>,
 }
 
@@ -1840,14 +1897,14 @@ impl Processor {
     /// row the next daemon would trust for content that is gone is a wrong build. So a failure
     /// to follow ends the mirroring, and the rows go as far as they can be made to.
     fn persist(&mut self, change: TreeChange) {
-        let Some(db) = &mut self.sqlite_db else {
-            return;
-        };
         let TreeChange {
             removed,
             added,
             touched,
         } = change;
+        let Some(db) = &mut self.sqlite_db else {
+            return;
+        };
         let table = db.materializer_state_table();
         let result = (|| {
             if !removed.is_empty() {
@@ -1865,29 +1922,42 @@ impl Processor {
         })();
         match result {
             Ok(()) => {
-                self.touched.extend(touched);
-                for (path, _) in &added {
-                    self.touched.remove(path);
+                if let Some(pending) = &mut self.touched {
+                    pending.extend(touched);
+                    for (path, _) in &added {
+                        pending.remove(path);
+                    }
                 }
             }
-            Err(e) => {
-                let _ignored = buck2_core::soft_error!(
-                    "disk_state_materializer_persist",
-                    e.context("Mirroring tracked state into sqlite; the mirror is abandoned"),
-                    quiet: true
-                );
-                let all: Vec<ProjectRelativePathBuf> =
-                    self.tree.iter().into_iter().map(|(path, _)| path).collect();
-                let _ignored = table.delete(all);
-                self.sqlite_db = None;
-                self.touched.clear();
-            }
+            Err(e) => self.abandon_mirror(e.context("Mirroring tracked state into sqlite")),
+        }
+    }
+
+    /// Ends the mirroring after a failure: the rows go as far as they can be made to, so that
+    /// no later start trusts them.
+    fn abandon_mirror(&mut self, e: buck2_error::Error) {
+        let _ignored = buck2_core::soft_error!(
+            "disk_state_materializer_persist",
+            e.context("the mirror is abandoned"),
+            quiet: true
+        );
+        if let Some(db) = &mut self.sqlite_db {
+            let all: Vec<ProjectRelativePathBuf> =
+                self.tree.iter().into_iter().map(|(path, _)| path).collect();
+            let _ignored = db.materializer_state_table().delete(all);
+        }
+        self.sqlite_db = None;
+        if let Some(pending) = &mut self.touched {
+            pending.clear();
         }
     }
 
     /// Writes buffered access-time bumps to sqlite; returns how many.
     fn flush_access_times(&mut self) -> buck2_error::Result<usize> {
-        let touched = std::mem::take(&mut self.touched);
+        let Some(pending) = &mut self.touched else {
+            return Ok(0);
+        };
+        let touched = std::mem::take(pending);
         let n = touched.len();
         if let Some(db) = &mut self.sqlite_db
             && n > 0
@@ -1896,6 +1966,19 @@ impl Processor {
                 .update_access_times(touched.iter().collect())?;
         }
         Ok(n)
+    }
+
+    /// The periodic flush: a failure ends the mirroring, as a failed insertion does.
+    fn flush_access_times_or_abandon(&mut self) {
+        if let Err(e) = self.flush_access_times() {
+            self.abandon_mirror(e.context("Writing access times into sqlite"));
+        }
+    }
+
+    /// How many access-time bumps wait for a flush.
+    #[cfg(test)]
+    pub(crate) fn pending_access_times(&self) -> usize {
+        self.touched.as_ref().map_or(0, |pending| pending.len())
     }
 }
 
