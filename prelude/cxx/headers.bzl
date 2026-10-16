@@ -499,7 +499,7 @@ def _mk_hmap(
     header_args = cmd_args()
     for n, (path, subpath) in headers.items():
         header_args.add(n)
-        header_args.add(cmd_args(path, format = "{}/" + subpath) if subpath else cmd_args(path, format = "{}"))
+        header_args.add(cmd_args(path, format = "{}/" + subpath) if subpath else path)
 
     hmap_args_file = actions.write(
         output.basename + ".cxx_hmap_argsfile",
