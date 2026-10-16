@@ -23,14 +23,20 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_query::__derive_refs::indexmap::IndexMap;
 use buck2_util::future::try_join_all;
 use dupe::Dupe;
 use itertools::Itertools;
 use tracing::info;
 
-type UnhashedOutputLinks =
-    IndexMap<ProjectRelativePathBuf, IndexMap<ProjectRelativePathBuf, ArtifactValue>>;
+/// For each unhashed path, the hashed paths that claim it, each with the artifact's value and the
+/// path of that value under the hashed path: empty when the artifact is the whole of what is
+/// there, the projection's path when it is a part of it.
+type UnhashedOutputLinks = IndexMap<
+    ProjectRelativePathBuf,
+    IndexMap<ProjectRelativePathBuf, (ArtifactValue, ForwardRelativePathBuf)>,
+>;
 
 fn unhashed_output_links(
     provider_artifacts: Vec<ProviderArtifacts>,
@@ -43,7 +49,7 @@ fn unhashed_output_links(
         }
 
         if let Ok((artifact, value)) = provider_artifact.values.iter().exactly_one()
-            && let (BaseArtifactKind::Build(build), _projected_path) = artifact.as_parts()
+            && let (BaseArtifactKind::Build(build), projected_path) = artifact.as_parts()
             && let Some(unhashed_path) = artifact_fs.retrieve_unhashed_location(build.get_path())
         {
             let path = artifact_fs.resolve_build(
@@ -58,7 +64,7 @@ fn unhashed_output_links(
             unhashed_to_hashed
                 .entry(unhashed_path)
                 .or_default()
-                .insert(path, value.clone());
+                .insert(path, (value.clone(), projected_path.to_buf()));
         }
     }
     Ok(unhashed_to_hashed)
@@ -97,13 +103,18 @@ async fn create_unhashed_outputs_via_materializer_impl(
     let mut declarations = Vec::new();
 
     for (unhashed, hashed_set) in unhashed_to_hashed {
-        if let Ok((hashed, _)) = hashed_set.iter().exactly_one() {
+        if let Ok((hashed, (value, projected_path))) = hashed_set.iter().exactly_one() {
             let mut builder = ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
-            builder.add_symlinked(
-                &ArtifactValue::dir(digest_config.empty_directory()),
-                hashed.clone(),
-                &unhashed,
-            )?;
+            // The symlink's target goes into the value as a dep, with what is there: a
+            // materializer that materializes the symlink by its value must see the output as it
+            // is, not a stand-in. A projection knows only its part of the output, which is the
+            // dep it carries, at the part's own path under the hashed path.
+            if projected_path.is_empty() {
+                builder.add_symlinked(value, hashed.clone(), &unhashed)?;
+            } else {
+                builder.add_symlink(hashed, &unhashed)?;
+                builder.add_input_value(hashed.join(projected_path), value)?;
+            }
             let symlink_value = builder.build(&unhashed)?;
             declarations.push((unhashed, symlink_value));
         } else {

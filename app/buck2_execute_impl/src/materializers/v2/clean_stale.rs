@@ -159,7 +159,9 @@ impl<T: IoHandler> Cleaner<T> {
             sender,
             shared,
             config: configs.clean_stale_config.clone(),
-            rematerialization_ttl: configs.ttl_refresh.rematerialization_ttl(),
+            // The daemon-wide walk refreshes CAS TTLs under this core whatever
+            // `buck2.ttl_refresh_enabled` says of the deferred core's own refresher.
+            rematerialization_ttl: SignedDuration::try_from(configs.ttl_refresh.frequency).ok(),
             root_abs_path: default_root_abs_path(),
             daemon_dispatcher,
             started: Timestamp::now(),
@@ -345,7 +347,8 @@ impl<T: IoHandler> Cleaner<T> {
             Ok(roots) => {
                 let mut index = DiskTree::<()>::new();
                 for (path, tracked) in roots {
-                    index.load(path, tracked);
+                    let loaded = index.load(path, tracked);
+                    debug_assert!(loaded, "the processor's roots do not nest");
                 }
                 index
             }

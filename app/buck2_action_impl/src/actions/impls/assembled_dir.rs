@@ -338,7 +338,9 @@ impl Action for AssembledDirAction {
             };
         }
 
-        let value = builder.build(temp_output.as_ref())?;
+        // The action defines the whole of the output directory, which is what lets the
+        // materializer clear what a previous run left under it.
+        let value = builder.build_exhaustive(temp_output.as_ref())?;
         let actual_output = ctx.fs().resolve_build(
             self.output().get_path(),
             if self.output().get_path().is_content_based_path() {

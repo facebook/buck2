@@ -440,11 +440,26 @@ async fn declare_all_source_artifacts(
         });
     }
 
+    let paths: Vec<ProjectRelativePathBuf> = requests.iter().map(|r| r.path.clone()).collect();
     let materializer = ctx.per_transaction_data().get_materializer();
-    materializer
+    let values = materializer
         .declare_write(Box::new(move || Ok(requests)))
-        .await
-        .map(|_| ())
+        .await?;
+    // Sources are read off disk by everything that reads sources, so the cell's files go there
+    // now rather than when something asks the materializer for them.
+    let re_use_case = invocation_re_use_case(ctx);
+    let response = materializer
+        .materialize(MaterializeRequest {
+            artifacts: paths.into_iter().zip(values).collect(),
+            outputs: Vec::new(),
+            purpose: MaterializationPurpose::IntermediateOnly,
+            re_use_case,
+        })
+        .await?;
+    for result in response.results {
+        result?;
+    }
+    Ok(())
 }
 
 pub(crate) async fn get_file_ops_delegate(

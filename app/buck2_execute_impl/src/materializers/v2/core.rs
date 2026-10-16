@@ -67,7 +67,10 @@ use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_events::dispatch::maybe_proxy_current_span;
+use buck2_events::dispatch::with_dispatcher_async;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::blob_store::BlobStore;
 use buck2_execute::blob_store::FileToInsert;
@@ -215,7 +218,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         store: &'static BlobStore,
         blocking_executor: Arc<dyn BlockingExecutor>,
         configs: DeferredMaterializerConfigs,
-        sqlite_db: Option<MaterializerStateSqliteDb>,
+        mut sqlite_db: Option<MaterializerStateSqliteDb>,
         sqlite_state: Option<MaterializerState>,
         daemon_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Self> {
@@ -228,6 +231,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
 
         let mut tree = DiskTree::new();
         let mut entries_from_sqlite = 0;
+        let mut refused = Vec::new();
         for entry in sqlite_state.into_iter().flatten() {
             // Rows are trusted, as they were before; what they say is on disk is tracked as such.
             let tracked = Tracked {
@@ -235,9 +239,28 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
                 last_access_time: entry.last_access_time,
                 classification: entry.classification,
             };
-            shared.add(&tracked);
-            tree.load(entry.path, tracked);
-            entries_from_sqlite += 1;
+            if tree.load(entry.path.clone(), tracked.dupe()) {
+                shared.add(&tracked);
+                entries_from_sqlite += 1;
+            } else {
+                refused.push(entry.path);
+            }
+        }
+        if !refused.is_empty() {
+            // Rows that nest come from a table neither core wrote; they are dropped rather than
+            // crash every start, and the paths they named are materialized again when asked.
+            let _ignored = buck2_core::soft_error!(
+                "disk_state_materializer_nested_rows",
+                internal_error!(
+                    "{} rows of the materializer state nest with others and are dropped, the first: `{}`",
+                    refused.len(),
+                    refused[0]
+                ),
+                quiet: true
+            );
+            if let Some(db) = &mut sqlite_db {
+                let _ignored = db.materializer_state_table().delete(refused);
+            }
         }
 
         let processor = Processor {
@@ -264,6 +287,45 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             store,
         );
         cleaner.start_schedule();
+
+        // Roots loaded from sqlite whose content is nowhere but on disk, rows a deferred daemon
+        // wrote say, enter the store once its directory is loaded, so that a later holder of their
+        // digests is served rather than sent to a CAS that never had them.
+        {
+            let (sender, io) = (sender.dupe(), io.dupe());
+            tokio::spawn(async move {
+                store.loaded().await;
+                let Ok(roots) = sender.on_processor(|processor| processor.tree.iter()) else {
+                    return;
+                };
+                let Ok(roots) = roots.await else {
+                    return;
+                };
+                for chunk in roots.chunks(256) {
+                    let mut files = Vec::new();
+                    for (path, tracked) in chunk {
+                        files.extend(files_to_insert(
+                            io.fs(),
+                            path,
+                            &tracked.entry,
+                            Origin::BuckOut,
+                        ));
+                    }
+                    files.retain(|file| file.digest.stash().is_none());
+                    if files.is_empty() {
+                        continue;
+                    }
+                    if let Err(e) = store.insert_files(files).await {
+                        let _ignored = buck2_core::soft_error!(
+                            "blob_store_insert_failed",
+                            e.context("Putting the roots loaded from sqlite into the store"),
+                            quiet: true
+                        );
+                        return;
+                    }
+                }
+            });
+        }
 
         Ok(Self {
             sender,
@@ -393,6 +455,13 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             exclusions,
         } = granted.await.map_err(|_| failed(stopped()))?;
         if !held.guard().holds_for_writing() {
+            // What is there already counts as a final output from here on, if it was not one.
+            if classification == ArtifactClassification::FinalOutput {
+                let path = root.path.clone();
+                let _ignored = self
+                    .on_processor(move |processor| processor.promote(&path))
+                    .await;
+            }
             return Ok(held.into_guard());
         }
         // A download of this very content that an earlier holder left running is taken over.
@@ -609,7 +678,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
             MaterializationPurpose::FinalOutput { .. } => ArtifactClassification::FinalOutput,
             MaterializationPurpose::IntermediateOnly => ArtifactClassification::IntermediateOnly,
         };
-        let info = Arc::new(CasDownloadInfo::new_declared(re_use_case));
+        let info = Arc::new(CasDownloadInfo::new_tracked(re_use_case));
         let dispatcher = get_dispatcher();
 
         // One request for the inputs and the outputs, then one future per root.
@@ -1165,8 +1234,12 @@ fn download_task<T: IoHandler>(
     dispatcher: EventDispatcher,
 ) -> impl for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, Result<(), SharedMaterializingError>>
 + Send {
+    // The requester's span is the materialization span's parent, as under the deferred core;
+    // the task runs under the requester's dispatcher with that span proxied in.
+    let parent_span = current_span();
     move |cancellations| {
-        async move {
+        let scope = dispatcher.dupe();
+        let download = async move {
             let _running = started(cancellations)?;
             let fs = io.fs().dupe();
             let (prune_root, prune_entry, prune_exclusions) =
@@ -1203,8 +1276,9 @@ fn download_task<T: IoHandler>(
             )
             .await
             .map_err(shared)
-        }
-        .boxed()
+        };
+        maybe_proxy_current_span(parent_span, move || with_dispatcher_async(scope, download))
+            .boxed()
     }
 }
 
@@ -1845,6 +1919,16 @@ impl Processor {
             Command::Abort => return false,
         }
         true
+    }
+
+    /// Makes the root at `path` a final output, which clean-stale keeps longer; sqlite follows.
+    fn promote(&mut self, path: &ProjectRelativePath) {
+        if let Some(change) = self.tree.promote(path, ArtifactClassification::FinalOutput) {
+            self.apply(Effects {
+                grants: Vec::new(),
+                change,
+            });
+        }
     }
 
     /// Mirrors what an operation changed and hands its grants to their requesters.

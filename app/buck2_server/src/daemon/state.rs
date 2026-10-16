@@ -425,6 +425,8 @@ impl TenantState {
         let cache_dir_path = paths.cache_dir_path();
         let valid_cache_dirs = paths.valid_cache_dirs();
 
+        let implementation = init_ctx.daemon_startup_config.materializer.as_deref();
+        let disk_state_core = implementation == Some(disk_state::CONFIG_VALUE);
         let deferred_materializer_configs = {
             let defer_write_actions = root_config
                 .parse::<RolloutPercentage>(BuckconfigKeyRef {
@@ -472,7 +474,10 @@ impl TenantState {
                 .unwrap_or(false);
 
             let mut clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
-            clean_stale_config.suppress_unmaterialize_without_ttl_refresh(ttl_refresh_enabled);
+            // The disk-state core's TTLs are refreshed by the daemon-wide walk whatever the knob
+            // says of the deferred core's own refresher.
+            clean_stale_config
+                .suppress_unmaterialize_without_ttl_refresh(ttl_refresh_enabled || disk_state_core);
 
             DeferredMaterializerConfigs {
                 materialize_final_artifacts: matches!(
@@ -490,8 +495,6 @@ impl TenantState {
                 clean_stale_config,
             }
         };
-        let implementation = init_ctx.daemon_startup_config.materializer.as_deref();
-        let disk_state_core = implementation == Some(disk_state::CONFIG_VALUE);
         let materializer_defers_writes =
             disk_state_core || deferred_materializer_configs.defer_write_actions;
         let ttl_refresh_frequency = deferred_materializer_configs.ttl_refresh.frequency;

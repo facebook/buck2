@@ -556,21 +556,41 @@ impl<R> DiskTree<R> {
         }
     }
 
+    /// Gives the root at `path` `classification`, as a removal and an addition so that whatever
+    /// mirrors the tree follows; nothing when `path` is not a root or is so classified already.
+    pub(crate) fn promote(
+        &mut self,
+        path: &ProjectRelativePath,
+        classification: ArtifactClassification,
+    ) -> Option<TreeChange> {
+        let tracked = self.root.get_mut(path.iter())?.tracked.as_mut()?;
+        if tracked.classification == classification {
+            return None;
+        }
+        let before = tracked.dupe();
+        tracked.classification = classification;
+        let after = tracked.dupe();
+        let mut change = TreeChange::default();
+        change.removed(path.to_buf(), before);
+        change.added.push((path.to_buf(), after));
+        Some(change)
+    }
+
     /// Makes `path` a tracked root holding `node`, in a tree that holds no lease: what sqlite
-    /// remembered from before a restart. Roots do not nest.
-    pub(crate) fn load(&mut self, path: ProjectRelativePathBuf, node: Tracked) {
+    /// remembered from before a restart. Roots do not nest: a row that would nest with one loaded
+    /// before it is refused, which is what a damaged table looks like.
+    #[must_use = "a refused row is not tracked"]
+    pub(crate) fn load(&mut self, path: ProjectRelativePathBuf, node: Tracked) -> bool {
         match self.lookup(&path) {
             Lookup::Untracked => {}
-            Lookup::Exact(_) | Lookup::Inside { .. } | Lookup::UnderLeaf { .. } => {
-                panic!("tracked roots nest: `{path}` is loaded under or over another root")
-            }
+            Lookup::Exact(_) | Lookup::Inside { .. } | Lookup::UnderLeaf { .. } => return false,
         }
         let slot = self.root.get_or_insert(path.iter());
-        assert!(
-            slot.children.is_empty(),
-            "tracked roots nest: `{path}` is loaded over other roots"
-        );
+        if !slot.children.is_empty() {
+            return false;
+        }
         slot.tracked = Some(node);
+        true
     }
 
     /// Forgets whatever is tracked at or below `path`, except the roots in `keep`. Tracked
@@ -1301,6 +1321,7 @@ impl<R> DiskTree<R> {
 }
 
 #[cfg(test)]
+#[allow(unused_must_use)] // setups load roots that cannot nest
 mod tests {
     use buck2_common::file_ops::metadata::FileMetadata;
     use buck2_common::file_ops::metadata::TrackedFileDigest;
@@ -1602,11 +1623,14 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "tracked roots nest")]
     fn test_loading_nested_roots_is_refused() {
         let mut tree = Tree::new();
-        tree.load(path("d"), tracked(dir(&[("a", "A")])));
-        tree.load(path("d/a"), tracked(file("A")));
+        assert!(tree.load(path("d"), tracked(dir(&[("a", "A")]))));
+        assert!(!tree.load(path("d/a"), tracked(file("A"))));
+        assert!(!tree.load(path("d"), tracked(file("A"))));
+        assert!(tree.load(path("e"), tracked(file("E"))));
+        assert!(!tree.load(path("e/f"), tracked(file("F"))));
+        assert_eq!(roots(&tree), vec!["d", "e"]);
     }
 
     #[test]

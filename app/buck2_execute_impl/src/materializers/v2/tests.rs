@@ -56,6 +56,7 @@ use tokio::time::timeout;
 use crate::materializers::deferred::AccessTimesUpdates;
 use crate::materializers::deferred::DeferredMaterializerConfigs;
 use crate::materializers::deferred::TtlRefreshConfiguration;
+use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
 use crate::materializers::deferred::clean_stale::LowDiskCleanConfig;
 use crate::materializers::deferred::clean_stale::LowDiskCleanMode;
@@ -885,6 +886,70 @@ async fn test_access_times_are_not_kept_when_disabled() -> buck2_error::Result<(
         materialize_ok(&dm, vec![(p.clone(), file("read"))]).await?;
         assert_eq!(dm.pending_access_times().await?, 0);
         abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// A root loaded from sqlite whose content is only on disk, a deferred daemon's row say, enters
+/// the store at start, so that its digest is served rather than asked of the CAS.
+#[tokio::test]
+async fn test_roots_loaded_from_sqlite_enter_the_store() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path().dupe();
+        let p = path("buck-out/v2/gen/from_before");
+        {
+            let (db, _) = testing_materializer_state_sqlite_db(&fs, versions(), metadata(), None)?;
+            let (dm, _io) = make(&fs, Some(db), None);
+            drop(report(&dm, &p, file("only on disk")).await?);
+            fs.write_file(&p, "only on disk", false)?;
+            abort(dm);
+        }
+        // Not in this store's stash: a new store, as a daemon flipped from the deferred core has.
+        let (db, state) = testing_materializer_state_sqlite_db(&fs, versions(), metadata(), None)?;
+        let (dm, _io) = make(&fs, Some(db), Some(state?));
+        let out = fs.resolve(&path("buck-out/v2/gen/out"));
+        let mut served = false;
+        for _ in 0..100 {
+            served = in_store(&dm, b"only on disk", &out).await?;
+            if served {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        assert!(served);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// A final-output materialization of a root tracked as an intermediate makes it a final output,
+/// which a restart sees.
+#[tokio::test]
+async fn test_a_final_output_materialization_promotes_a_tracked_root() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path().dupe();
+        let (db, _) = testing_materializer_state_sqlite_db(&fs, versions(), metadata(), None)?;
+        let (dm, _io) = make(&fs, Some(db), None);
+        let p = path("buck-out/v2/gen/promoted");
+        drop(report(&dm, &p, file("promoted")).await?);
+        let mut final_output = request(vec![(p.clone(), file("promoted"))]);
+        final_output.purpose = MaterializationPurpose::FinalOutput { required: true };
+        let mut response = dm.materialize(final_output).await?;
+        for result in std::mem::take(&mut response.results) {
+            result?;
+        }
+        drop(response);
+        abort(dm);
+        let (_, state) = testing_materializer_state_sqlite_db(&fs, versions(), metadata(), None)?;
+        let entry = state?
+            .into_iter()
+            .find(|entry| entry.path == p)
+            .expect("the root is persisted");
+        assert_eq!(entry.classification, ArtifactClassification::FinalOutput);
         Ok(())
     })
     .await

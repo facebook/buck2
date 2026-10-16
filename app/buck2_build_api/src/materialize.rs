@@ -21,7 +21,6 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
-use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::execute::blobs::ActionBlobs;
@@ -102,7 +101,8 @@ async fn materialize_artifact_group(
         let mut materialize_futs = Vec::new();
 
         for (artifact, value) in values.iter() {
-            if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
+            let (base, projected_path) = artifact.as_parts();
+            if let BaseArtifactKind::Build(artifact) = base {
                 if !queue_tracker.insert(artifact.dupe()) {
                     // We've already requested this artifact, no use requesting it again.
                     continue;
@@ -111,6 +111,7 @@ async fn materialize_artifact_group(
                 let fut = {
                     let waiting_data = waiting_data.clone();
                     let artifact = artifact.dupe();
+                    let projected_path = projected_path.to_buf();
                     let value = value.dupe();
                     let shared_data = shared_data.dupe();
                     let artifact_group = artifact_group.dupe();
@@ -124,7 +125,10 @@ async fn materialize_artifact_group(
                         // A content-based output lives at its content path; the configuration
                         // path users know is a symlink to it, which nobody but this code
                         // declares. The request then names the symlink, whose deps reach the
-                        // content path, exactly the path that was ensured before.
+                        // content path with the output's own value: a materializer that puts a
+                        // symlink's deps on disk by their values puts the output there, not a
+                        // stand-in for it. A projection knows only its part of the output, which
+                        // is the dep it carries, at the part's own path under the content path.
                         let artifacts = if artifact.get_path().is_content_based_path() {
                             let content_based_path = artifact_fs.resolve_build(
                                 artifact.get_path(),
@@ -132,12 +136,20 @@ async fn materialize_artifact_group(
                             )?;
                             let mut builder =
                                 ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
-                            builder.add_symlinked(
-                                // The materializer doesn't care about the `src_value`.
-                                &ArtifactValue::dir(digest_config.empty_directory()),
-                                content_based_path,
-                                &configuration_hash_path,
-                            )?;
+                            if projected_path.is_empty() {
+                                builder.add_symlinked(
+                                    &value,
+                                    content_based_path,
+                                    &configuration_hash_path,
+                                )?;
+                            } else {
+                                builder
+                                    .add_symlink(&content_based_path, &configuration_hash_path)?;
+                                builder.add_input_value(
+                                    content_based_path.join(&projected_path),
+                                    &value,
+                                )?;
+                            }
                             let symlink_value = builder.build(&configuration_hash_path)?;
 
                             materializer

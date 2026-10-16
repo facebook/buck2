@@ -51,6 +51,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 use jiff::Timestamp;
+use tokio::sync::watch;
 use tokio::time::MissedTickBehavior;
 
 use crate::execute::blocking::BlockingExecutor;
@@ -149,6 +150,9 @@ pub struct BlobStore {
     #[allocative(skip)]
     refresh: OnceLock<TtlRefresher>,
     counters: Counters,
+    /// Whether a load of the stash directory is under way, for lookups to wait out.
+    #[allocative(skip)]
+    loading: watch::Sender<bool>,
 }
 
 #[derive(Allocative)]
@@ -182,7 +186,17 @@ impl BlobStore {
             stash: OnceLock::new(),
             refresh: OnceLock::new(),
             counters: Counters::default(),
+            loading: watch::channel(false).0,
         }
+    }
+
+    /// Waits out a load of the stash directory that is under way: until it is done, the table
+    /// does not know what the directory holds, and a lookup would take a blob it holds for a
+    /// miss. Returns at once when no load is running.
+    pub async fn loaded(&self) {
+        let mut loading = self.loading.subscribe();
+        // The current value counts, so nothing is missed between the check and the wait.
+        let _ignored = loading.wait_for(|loading| !*loading).await;
     }
 
     /// Gives the store its directory. Returns whether it took it: the store has one directory,
@@ -234,6 +248,7 @@ impl BlobStore {
         if self.stash.get().is_none() {
             return;
         }
+        self.loading.send_replace(true);
         tokio::spawn(async move {
             match self.load_stash().await {
                 Ok(loaded) => tracing::debug!("Loaded {loaded} stash entries"),
@@ -242,6 +257,7 @@ impl BlobStore {
                         buck2_core::soft_error!("blob_store_load_failed", e, quiet: true);
                 }
             }
+            self.loading.send_replace(false);
             if let Err(e) = self.walk(Walk::ForStash).await {
                 let _ignored = buck2_core::soft_error!("blob_store_walk_failed", e, quiet: true);
             }
@@ -371,6 +387,7 @@ impl BlobStore {
         let Some(attached) = self.stash.get() else {
             return Ok(vec![false; files.len()]);
         };
+        self.loaded().await;
         let (stash, counters) = (&attached.stash, &self.counters);
         attached
             .blocking
@@ -622,9 +639,10 @@ impl Stash {
         Ok(record)
     }
 
-    /// Puts the recorded file's content at `dest`: a hardlink when the mode agrees and the
-    /// filesystem allows another link, else a clone with the mode set. `Ok(false)` when the file
-    /// is not there.
+    /// Puts the recorded file's content at `dest`: a clone where the filesystem has them, so that
+    /// a write to the file in place cannot reach the stash; else a hardlink when the mode agrees
+    /// and the filesystem allows another link; else a copy. `Ok(false)` when the file is not
+    /// there.
     fn link(
         &self,
         digest: &FileDigest,
@@ -639,7 +657,10 @@ impl Stash {
         if let Some(parent) = dest.parent() {
             fs_util::create_dir_all(parent)?;
         }
-        if record.executable != executable || fs_util::hard_link(&file, dest).is_err() {
+        if record.executable == executable {
+            fs_util::reflink_or_hardlink_or_copy(&file, dest)?;
+        } else {
+            // A clone or a copy has its own mode; a hardlink would share the file's.
             fs_util::reflink_or_copy(&file, dest)?;
             fs_util::set_executable(dest, executable)?;
         }

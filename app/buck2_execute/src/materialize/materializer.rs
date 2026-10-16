@@ -617,6 +617,11 @@ pub enum CasDownloadInfoOrigin {
     /// later miss is therefore a CAS failure rather than a wrong user-supplied digest.
     Probed,
 
+    /// A value the disk-state materializer was handed to put on disk, whose digests' invariant
+    /// (plan-new-core.md) puts the content in the CAS or in the store; how it got there is not
+    /// carried along. A miss is therefore a CAS failure, as for a probed blob.
+    Tracked,
+
     /// Uploaded directly by the client.
     Uploaded,
 
@@ -672,6 +677,9 @@ impl fmt::Display for CasDownloadInfoOrigin {
             Self::Probed => {
                 write!(f, "probed")?;
             }
+            Self::Tracked => {
+                write!(f, "tracked")?;
+            }
             Self::Uploaded => {
                 write!(f, "uploaded by client")?;
             }
@@ -694,7 +702,7 @@ impl CasDownloadInfoOrigin {
     pub fn guaranteed_by_action_cache(&self) -> bool {
         match self {
             Self::Execution(execution) => execution.action_age() < execution.ttl,
-            Self::Declared | Self::Probed | Self::Uploaded | Self::TestArtifact => {
+            Self::Declared | Self::Probed | Self::Tracked | Self::Uploaded | Self::TestArtifact => {
                 // These origins do not carry an action cache result.
                 false
             }
@@ -759,6 +767,13 @@ impl CasDownloadInfo {
         }
     }
 
+    pub fn new_tracked(re_use_case: RemoteExecutorUseCase) -> Self {
+        Self {
+            origin: CasDownloadInfoOrigin::Tracked,
+            re_use_case,
+        }
+    }
+
     pub fn new_uploaded(re_use_case: RemoteExecutorUseCase) -> Self {
         Self {
             origin: CasDownloadInfoOrigin::Uploaded,
@@ -795,6 +810,7 @@ impl CasDownloadInfo {
             CasDownloadInfoOrigin::Execution(execution) => Some(execution.action_age()),
             CasDownloadInfoOrigin::Declared
             | CasDownloadInfoOrigin::Probed
+            | CasDownloadInfoOrigin::Tracked
             | CasDownloadInfoOrigin::Uploaded
             | CasDownloadInfoOrigin::TestArtifact => None,
         }
@@ -805,6 +821,7 @@ impl CasDownloadInfo {
             CasDownloadInfoOrigin::Execution(execution) => Some(&execution.action_digest),
             CasDownloadInfoOrigin::Declared
             | CasDownloadInfoOrigin::Probed
+            | CasDownloadInfoOrigin::Tracked
             | CasDownloadInfoOrigin::Uploaded
             | CasDownloadInfoOrigin::TestArtifact => None,
         }
