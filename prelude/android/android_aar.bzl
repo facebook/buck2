@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//android:android_binary.bzl", "get_build_config_java_libraries")
 load("@prelude//android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
 load("@prelude//android:android_binary_resources_rules.bzl", "get_cxx_resources", "get_manifest")
@@ -18,14 +19,19 @@ load(
 )
 load("@prelude//android:android_resource.bzl", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@prelude//android:configuration.bzl", "get_deps_by_platform")
-load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
+load("@prelude//android:configuration.bzl", "CPU_TRANSITION_ATTRS", "cpu_split_transition", "get_deps_by_platform")
+load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CPU_FILTER_FOR_PRIMARY_PLATFORM")
 load("@prelude//android:util.bzl", "create_enhancement_context")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:core_rules.bzl", "TargetCpuType")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//jvm:attrs.bzl", "jvm_common")
 load("@prelude//target_stats:target_stats.bzl", "target_stats_aggregate_providers_and_subtargets")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:utils.bzl", "flatten")
+load(":attrs.bzl", "DISABLE_STRIPPING", "GatoradePhase", "JvmLanguage")
 
 def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     deps_by_platform = get_deps_by_platform(ctx)
@@ -201,3 +207,169 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets.update(target_stats_subtargets)
 
     return [DefaultInfo(default_outputs = [aar], sub_targets = enhancement_ctx.get_sub_targets() | sub_targets)] + target_stats_providers
+
+android_aar = prelude_rule(
+    name = "android_aar",
+    impl = android_aar_impl,
+    docs = """
+        An `android_aar()` rule is used to generate an Android AAR.
+
+        See the [official Android documentation](https://developer.android.com/studio/projects/android-library#aar-contents) for details about the `.aar` format.
+    """,
+    examples = """
+        ```
+        android_resource(
+          name = 'res',
+          res = 'res',
+          assets = 'assets',
+          package = 'com.example',
+        )
+
+        android_library(
+          name = 'lib',
+          srcs = glob(['**/*.java']),
+        )
+
+        android_aar(
+          name = 'app',
+          manifest_skeleton = 'AndroidManifestSkeleton.xml',
+          deps = [
+            ':res',
+            ':lib',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "manifest_skeleton": attrs.source(
+                doc = """
+                The skeleton manifest file used to generate the final `AndroidManifest.xml` . May either be a file or an `android_manifest()` target.
+            """,
+            ),
+            "build_config_values": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
+                See the documentation on the values argument for `android_build_config()`.
+            """,
+            ),
+            "include_build_config_class": attrs.bool(
+                default = False,
+                doc = """
+                Whether to include the `BuildConfig` class files in the final .aar file. Needs
+                 to be set to `True` if any build\\_config\\_values are specified.
+                 This is normally only needed if the build tool that is consuming the .aar file does not generate
+                 `BuildConfig` classes.
+                 Note: the AAR format does not specify a way to pass defaults that should be injected into
+                 the final `BuildConfig` class, therefore that information might need to be replicated
+                 manually in the build that's consuming the .aar file.
+            """,
+            ),
+            "deps": attrs.list(
+                attrs.split_transition_dep(cfg = cpu_split_transition),
+                default = [],
+                doc = """
+                List of build targets whose corresponding compiled Java code,
+                 Android resources, and native libraries will be included in the AAR along with their transitive
+                 dependencies. For compile time deps which should not be included in the final AAR,
+                 use `provided_deps` instead.
+                 * `android_library()` Will be included in the final `classes.jar`* `android_resource()` Will be included in the final `R.txt`,
+                 `res/` and `assets/`* `android_build_config()` Will be included in the final `classes.jar`
+                 if `include_build_config_class` is True
+                 * `groovy_library()` Will be included in the final `classes.jar`* `java_library()` Will be included in the final `classes.jar`* `prebuilt_jar()` Will be included in the final `classes.jar`* `prebuilt_native_library()` Will be included in the final `jni/` or
+                 `assets/` if `is_asset` is True
+            """,
+            ),
+            "remove_classes": attrs.list(
+                attrs.regex(),
+                default = [],
+                doc = """
+                List of classes to remove from the output aar. It removes classes from the target's own sources,
+                 and its dependencies.
+            """,
+            ),
+            "build_config_values_file": attrs.option(attrs.source(), default = None),
+            "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = ALL_CPU_FILTERS),
+            "enable_relinker": attrs.bool(default = False),
+            "excluded_java_deps": attrs.list(attrs.dep(), default = []),
+            "extra_arguments": attrs.list(attrs.string(), default = []),
+            "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+            "extra_relinker_outputs": attrs.list(attrs.string(), default = []),
+            "preinline_ir_sonames": attrs.list(attrs.string(), default = []),
+            # @oss-disable[end= ]: "gatorade_extra_args": attrs.list(attrs.arg(), default = [], doc = "Extra Gatorade cross-library step arguments"),
+            # @oss-disable[end= ]: "gatorade_phases": attrs.set(attrs.enum(GatoradePhase), default = []),
+            "hardcode_permissions_for_deterministic_output": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
+                If set to true, Buck hardcodes the permissions in order to ensures that all files have the same
+                permissions regardless of the platform on which the zip was generated.
+            """,
+            ),
+            "java_version": attrs.option(attrs.string(), default = None),
+            "language": attrs.option(attrs.enum(JvmLanguage), default = None),
+            "manifest": attrs.option(attrs.source(), default = None),
+            "manifest_entries": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
+            "manifest_file": attrs.option(attrs.source(), default = None),
+            "maven_coords": attrs.option(attrs.string(), default = None),
+            "min_sdk_version": attrs.option(attrs.int(), default = None),
+            "native_library_bolt_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
+            "native_library_merge_code_generator": attrs.option(attrs.exec_dep(), default = None),
+            "native_library_merge_glue": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
+            "native_library_merge_linker_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
+            "native_library_merge_linker_args_all": attrs.list(attrs.arg(), default = [], doc = "Extra linker arguments passed to all merged libraries."),
+            "native_library_merge_map": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.regex()), sorted = False), default = None),
+            "native_library_merge_non_asset_libs": attrs.bool(default = False),
+            "native_library_merge_sequence": attrs.option(
+                attrs.list(
+                    attrs.one_of(
+                        attrs.tuple(attrs.string(), attrs.list(attrs.regex())),
+                        attrs.list(attrs.tuple(attrs.string(), attrs.list(attrs.regex()))),
+                    ),
+                ),
+                default = None,
+            ),
+            "native_library_merge_sequence_blocklist": attrs.option(attrs.list(attrs.regex()), default = None),
+            "package_asset_libraries": attrs.bool(default = True),
+            "package_resources": attrs.bool(default = True),
+            "proguard_config": attrs.option(attrs.source(), default = None),
+            "relinker_extra_args": attrs.dict(
+                key = attrs.string(),
+                value = attrs.list(attrs.arg()),
+                sorted = False,
+                default = {},
+                doc = "Per-library extra linker arguments passed when relinking, mapping sonames to lists of arguments.",
+            ),
+            "relinker_extra_args_all": attrs.list(attrs.arg(), default = [], doc = "Extra arguments passed when relinking all libraries."),
+            "relinker_extra_deps": attrs.list(
+                attrs.split_transition_dep(cfg = cpu_split_transition),
+                default = [],
+                doc = "Deps statically linked to every native lib by the relinker.",
+            ),
+            "relinker_whitelist": attrs.list(attrs.regex(), default = []),
+            "required_for_source_only_abi": attrs.bool(default = False),
+            "resources": attrs.list(attrs.source(), default = []),
+            "resources_root": attrs.option(attrs.string(), default = None),
+            "runtime_deps": attrs.list(attrs.dep(), default = []),
+            "source": attrs.option(attrs.string(), default = None),
+            "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
+            "srcs": attrs.list(attrs.source(), default = []),
+            "strip_libraries": attrs.default_only(attrs.bool(default = not DISABLE_STRIPPING)),
+            "target": attrs.option(attrs.string(), default = None),
+            "_android_toolchain": toolchains_common.android(),
+            "_cxx_toolchain": attrs.split_transition_dep(cfg = cpu_split_transition, default = "toolchains//:android-hack"),
+            "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
+            "_java_toolchain": toolchains_common.java_for_android(),
+        }
+        | CPU_TRANSITION_ATTRS
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    )
+    | jvm_common.abi_generation_mode()
+    | jvm_common.annotation_processors()
+    | jvm_common.plugins(),
+)

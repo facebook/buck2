@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
 load(
@@ -27,8 +28,10 @@ load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//target_stats:target_stats.bzl", "target_stats_aggregate_providers_and_subtargets")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:utils.bzl", "flatten")
+load(":attrs.bzl", "ANDROID_BINARY_ATTRS")
 
 def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = False)
@@ -333,3 +336,15 @@ def get_install_config(apex_mode: bool) -> dict[str, typing.Any]:
         install_config["adb_executable"] = adb_executable
 
     return install_config
+
+android_binary = prelude_rule(
+    name = "android_binary",
+    impl = android_apk_impl,
+    docs = """
+        An `android_binary()` rule is used to generate an Android APK.
+    """,
+    examples = None,
+    further = None,
+    attrs = ANDROID_BINARY_ATTRS,
+    cfg = constraint_overrides.transition,
+)

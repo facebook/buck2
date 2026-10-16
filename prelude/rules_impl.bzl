@@ -16,9 +16,9 @@ load("@prelude//:remote_file.bzl", "remote_file_impl")
 load("@prelude//:sh_binary.bzl", "sh_binary")
 load("@prelude//:sh_test.bzl", "sh_test")
 load("@prelude//:test_suite.bzl", "test_suite_impl")
-load("@prelude//android:android.bzl", _android_implemented_rules = "implemented_rules")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//android:native_build_commands.bzl", "EMIT_NATIVE_BUILD_COMMANDS")
+load("@prelude//android:rules.bzl", _android_rules = "rules")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
@@ -35,7 +35,6 @@ load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
 load("@prelude//cxx:transformation_spec.bzl", "TransformationKind", "transformation_spec_impl")
 load("@prelude//cxx:windows_resource.bzl", "windows_resource_impl")
-load("@prelude//decls:android_rules.bzl", "android_rules")
 load("@prelude//decls:common.bzl", "IncludeType", "buck")
 load("@prelude//decls:core_rules.bzl", "core_rules")
 load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
@@ -103,7 +102,7 @@ _JULIA_RULES_KEY = "julia"
 _MATLAB_RULES_KEY = "matlab"
 
 categorized_rule_decl_records = {
-    _ANDROID_RULES_KEY: android_rules,
+    _ANDROID_RULES_KEY: _android_rules,
     _CORE_RULES_KEY: core_rules,
     _CXX_RULES_KEY: cxx_rules,
     _CYTHON_RULES_KEY: cython_rules,
@@ -184,7 +183,6 @@ extra_implemented_rules = struct(
     python_bootstrap_library = python_bootstrap_library_impl,
     # merged **kwargs
     **_merge_dictionaries([
-        _android_implemented_rules,
         _apple_implemented_rules,
         _config_implemented_rules,
         _julia_implemented_rules,
@@ -403,7 +401,6 @@ _cython_extra_attributes = {
 }
 
 categorized_extra_attributes = {
-    _ANDROID_RULES_KEY: {},
     _CORE_RULES_KEY: _core_extra_attributes,
     _CXX_RULES_KEY: cxx_extra_attributes,
     _CYTHON_RULES_KEY: _cython_extra_attributes,

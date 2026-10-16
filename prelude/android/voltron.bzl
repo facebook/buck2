@@ -6,8 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//android:android_providers.bzl", "AndroidPackageableInfo", "merge_android_packageable_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//java:java_providers.bzl", "get_all_java_packaging_deps")
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -341,3 +345,45 @@ def get_apk_module_graph_info(ctx: AnalysisContext, apk_module_graph_file: Artif
         calculated_deps_function = calculated_deps_function,
         get_deps_debug_data = get_deps_debug_data,
     )
+
+android_app_modularity = prelude_rule(
+    name = "android_app_modularity",
+    impl = android_app_modularity_impl,
+    docs = """
+        An `android_app_modularity()` rule is used to determine the modular
+        structure of an Android app. It defines how application modules are
+        configured and which dependencies belong to each module, enabling
+        dynamic delivery and on-demand loading of app features.
+    """,
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "application_module_blocklist": attrs.option(attrs.list(attrs.dep()), default = None, doc = ""),
+            "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.dep()), sorted = False, default = {}, doc = ""),
+            "application_module_dependencies": attrs.option(
+                attrs.dict(key = attrs.string(), value = attrs.list(attrs.string()), sorted = False),
+                default = None,
+                doc = "",
+            ),
+            "deps": attrs.list(attrs.dep(), default = [], doc = ""),
+            "no_dx": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """List of dependency targets whose Java code should be excluded from the DEX files in the final APK. \
+The classes from these targets will not be dexed, but their other resources will still be included. \
+This might be useful to resolve duplicate class errors when multiple dependencies provide the same class. \
+See [this document](https://www.internalfb.com/intern/staticdocs/confucius/docs/notes/dev/projects/android/resolving_duplicate_classes_with_no_dx/) \
+for how to resolve duplicate classes using this attribute.""",
+            ),
+            "should_include_classes": attrs.bool(default = True, doc = ""),
+            "should_include_libraries": attrs.bool(default = False, doc = ""),
+            "_android_toolchain": toolchains_common.android(),
+            "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)

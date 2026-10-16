@@ -6,6 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//java:java_providers.bzl", "derive_compiling_deps_wrapper", "get_global_code_info", "get_java_packaging_info")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:argfile.bzl", "argfile")
@@ -19,6 +23,7 @@ load(
     "merge_android_packageable_info",
 )
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
+load(":attrs.bzl", "android_common")
 load(":r_dot_java.bzl", "get_dummy_r_dot_java")
 
 JAVA_PACKAGE_FILENAME = "java_package.txt"
@@ -197,3 +202,142 @@ def _get_dep_symbols(deps: list[Dependency]) -> list[Artifact]:
             dep_symbols += [resource_info.text_symbols for resource_info in exported_android_resource_info.resource_infos if resource_info.text_symbols]
 
     return dedupe(dep_symbols)
+
+android_resource = prelude_rule(
+    name = "android_resource",
+    impl = android_resource_impl,
+    docs = """
+        An `android_resource()` rule is used to bundle Android resources
+        that are traditionally stored in `res` and `assets` directories.
+
+        The output of an `android_resource()` is an `R.txt` file
+        generated via `aapt --output-text-symbols`.
+    """,
+    examples = """
+        Most of the time, an `android_resource` rule defines only `name`, `res`, and `package`. By convention,
+        such simple rules are often named `res`:
+
+        ```
+        android_resource(
+          name = 'res',
+          res = subdir_glob([('res', '**')]),
+          package = 'com.example',
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "res": attrs.option(
+                attrs.one_of(attrs.source(), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)),
+                default = None,
+                doc = """
+                A dictionary mapping relative resource paths to either
+                 the resource files or the build targets that generate them.
+                 The `subdir_glob` function
+                 can be used to generate dictionaries based on a directory structure of files checked
+                 into the repository. Alternatively, this can be a path to a directory containing
+                 Android resources, although this option is deprecated and might be removed in the future.
+            """,
+            ),
+            "unused_resource_dep_validation_has_non_xml_resources": attrs.option(attrs.bool(), default = None),
+            "package": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                Java package for the `R.java` file that will be generated for these
+                 resources.
+            """,
+            ),
+            "assets": attrs.option(
+                attrs.one_of(attrs.source(), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)),
+                default = None,
+                doc = """
+                A dictionary mapping relative asset paths to either
+                 the asset files or the build targets that generate them.
+                 The `subdir_glob` function
+                 can be used to generate dictionaries based on a directory structure of files checked
+                 into the repository. Alternatively, this can be a path to a directory containing
+                 Android assets, although this option is deprecated and might be removed in the future.
+            """,
+            ),
+            "project_res": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = """
+                A directory containing resources to be used for project generation.
+                 If not provided, defaults to whatever the build uses.
+            """,
+            ),
+            "project_assets": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = """
+                A directory containing assets to be used for project generation.
+                 If not provided, defaults to whatever the build uses.
+            """,
+            ),
+        }
+        | android_common.manifest_arg()
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "allowlisted_locales": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
+            "assets": attrs.option(
+                attrs.one_of(attrs.source(allow_directory = True), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)),
+                default = None,
+                doc = """
+                A dictionary mapping relative asset paths to either
+                 the asset files or the build targets that generate them.
+                 The `subdir_glob` function
+                 can be used to generate dictionaries based on a directory structure of files checked
+                 into the repository. Alternatively, this can be a path to a directory containing
+                 Android assets, although this option is deprecated and might be removed in the future.
+            """,
+            ),
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
+                Other `android_resource` rules to include via `-S` when
+                 running `aapt`.
+            """,
+            ),
+            "has_whitelisted_strings": attrs.bool(default = False),
+            "project_assets": attrs.option(
+                attrs.source(allow_directory = True),
+                default = None,
+                doc = """
+                A directory containing assets to be used for project generation.
+                 If not provided, defaults to whatever the build uses.
+            """,
+            ),
+            "project_res": attrs.option(
+                attrs.source(allow_directory = True),
+                default = None,
+                doc = """
+                A directory containing resources to be used for project generation.
+                 If not provided, defaults to whatever the build uses.
+            """,
+            ),
+            "res": attrs.option(
+                attrs.one_of(attrs.source(allow_directory = True), attrs.dict(key = attrs.string(), value = attrs.source(), sorted = True)),
+                default = None,
+                doc = """
+                A dictionary mapping relative resource paths to either
+                 the resource files or the build targets that generate them.
+                 The `subdir_glob` function
+                 can be used to generate dictionaries based on a directory structure of files checked
+                 into the repository. Alternatively, this can be a path to a directory containing
+                 Android resources, although this option is deprecated and might be removed in the future.
+            """,
+            ),
+            "_android_toolchain": toolchains_common.android(),
+            "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+            "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
+            "_java_toolchain": toolchains_common.java_for_android(),
+        }
+    ),
+)

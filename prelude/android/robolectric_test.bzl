@@ -6,15 +6,23 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
 load("@prelude//android:android_library.bzl", "android_target_stats", "build_android_library", "optional_jars")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
+load("@prelude//decls:common.bzl", "TestType", "buck")
+load("@prelude//decls:re_test_common.bzl", "re_test_common")
+load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo")
 load("@prelude//java:java_test.bzl", "build_junit_test")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//jvm:attrs.bzl", "jvm_common")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//utils:expect.bzl", "expect")
+load(":attrs.bzl", "JvmLanguage", "android_common")
 
 def _target_build_file_path(target):
     cell = "" if target.cell in ["", "fbsource"] else target.cell + "/"
@@ -156,3 +164,107 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.extend(target_stats_providers)
 
     return providers
+
+robolectric_test = prelude_rule(
+    name = "robolectric_test",
+    impl = robolectric_test_impl,
+    docs = """
+        A `robolectric_test()` rule is used to define a set of
+         `.java` files that contain tests to run via JUnit
+        with Robolectric test runner. It extends from `java_test()` rule.
+    """,
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        buck.inject_test_env_arg()
+        | {
+            "android_optional_jars": attrs.option(attrs.list(attrs.dep()), default = None),
+            "compiled_resource_apks": attrs.list(attrs.source(), default = []),
+            "cxx_library_allowlist": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
+                List of cxx_library targets to build, if use_cxx_libraries is true.
+                This can be useful if some dependencies are Android-only and won't build for the test host platform.
+            """,
+            ),
+            "deps": attrs.list(attrs.dep(), default = []),
+            "discover_all_test_classes": attrs.bool(default = False),
+            "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
+            "exported_deps": attrs.list(attrs.dep(), default = []),
+            "exported_provided_deps": attrs.list(attrs.dep(), default = []),
+            "extra_arguments": attrs.list(attrs.string(), default = []),
+            "extra_kotlinc_arguments": attrs.list(
+                attrs.arg(anon_target_compatible = True),
+                default = [],
+                doc = """
+                List of additional arguments to pass into the Kotlin compiler.
+            """,
+            ),
+            "friend_paths": jvm_common.friend_paths_attr(),
+            "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
+            "java": attrs.option(attrs.dep(), default = None),
+            "java_agents": attrs.list(attrs.source(), default = []),
+            "java_version": attrs.option(attrs.string(), default = None),
+            "language": attrs.option(attrs.enum(JvmLanguage), default = None),
+            "locales_for_binary_resources": attrs.list(attrs.string(), default = []),
+            "manifest_entries": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
+            "manifest_file": attrs.option(attrs.source(), default = None),
+            "manifest_skeleton": attrs.option(attrs.source(), default = None),
+            "maven_coords": attrs.option(attrs.string(), default = None),
+            "preferred_density_for_binary_resources": attrs.option(attrs.string(), default = None),
+            "proguard_config": attrs.option(attrs.source(), default = None),
+            "provided_deps": attrs.list(attrs.dep(), default = []),
+            "provided_deps_query": attrs.option(attrs.query(), default = None),
+            "remove_classes": attrs.list(attrs.regex(), default = []),
+            "required_for_source_only_abi": attrs.bool(default = False),
+            "resource_stable_ids": attrs.option(attrs.source(), default = None),
+            "resources": attrs.list(attrs.source(), default = []),
+            "resources_root": attrs.option(attrs.string(), default = None),
+            "robolectric_runtime_dependencies": attrs.list(attrs.source(), default = []),
+            "robolectric_runtime_dependency": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = """
+                Robolectric only runs in offline mode with buck. Specify the relative
+                 directory containing all the jars Robolectric uses at runtime.
+            """,
+            ),
+            "run_test_separately": attrs.bool(default = False),
+            "runtime_deps": attrs.list(attrs.dep(), default = []),
+            "source": attrs.option(attrs.string(), default = None),
+            "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
+            "srcs": attrs.list(attrs.source(), default = []),
+            "supports_test_execution_caching": attrs.bool(default = False),
+            "target": attrs.option(attrs.string(), default = None),
+            "test_case_timeout_ms": attrs.option(attrs.int(), default = None),
+            "test_class_names_file": attrs.option(attrs.source(), default = None),
+            "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
+            "test_type": attrs.option(attrs.enum(TestType), default = None),
+            "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
+            "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
+            "vm_args": attrs.list(attrs.arg(), default = []),
+            "_android_toolchain": toolchains_common.android(),
+            "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
+            "_java_test_toolchain": toolchains_common.java_test(),
+            "_java_toolchain": toolchains_common.java_for_host_test(),
+            "_kotlin_toolchain": toolchains_common.kotlin(),
+        }
+        | android_common.manifest_arg()
+        | android_common.patches_system_module_arg()
+        | jvm_common.abi_generation_mode()
+        | jvm_common.annotation_processors()
+        | jvm_common.incremental()
+        | jvm_common.plugins()
+        | jvm_common.kotlin_compiler_plugins()
+        | jvm_common.classic_java_content_based_paths()
+        | re_test_common.test_args()
+        | test_common.attributes()
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)

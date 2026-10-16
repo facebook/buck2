@@ -6,8 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//android:android_providers.bzl", "AndroidApkExopackageInfo", "AndroidApkInfo", "AndroidInstrumentationApkInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:java_providers.bzl", "JavaPackagingInfo", "get_all_java_packaging_deps_tset")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
@@ -24,7 +28,9 @@ load("@prelude//target_stats:target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//tests:test_listing.bzl", "TestListingInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
+load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 load("@prelude//utils:expect.bzl", "expect")
+load(":attrs.bzl", "META_INTERNAL_EXTRA_PARAMS", "RE_CAPS", "RE_USE_CASE")
 
 ANDROID_EMULATOR_ABI_LABEL_PREFIX = "tpx-re-config::"
 DEFAULT_ANDROID_SUBPLATFORM = "android-30"
@@ -358,3 +364,103 @@ def _validate_executor_override_re_config(re_caps: dict[str, str], re_use_case: 
             re_caps["platform"],
             ", ".join(SUPPORTED_PLATFORMS),
         )
+
+android_instrumentation_test = prelude_rule(
+    name = "android_instrumentation_test",
+    impl = android_instrumentation_test_impl,
+    docs = """
+        An `android_instrumentation_test()` rule is used to define
+         apks that should be used to run Android instrumentation tests.
+    """,
+    examples = """
+        Here is an example of an `android_instrumentation_test()`
+         rule that tests an `android_binary()`.
+
+        ```
+        android_binary(
+          name = 'messenger',
+          manifest = 'AndroidManifest.xml',
+          keystore = '//keystores:prod',
+          package_type = 'release',
+          proguard_config = 'proguard.cfg',
+          deps = [
+            ...
+          ],
+        )
+
+        android_instrumentation_apk(
+          name = 'messenger_test',
+          manifest = 'AndroidInstrumentationManifest.xml',
+          apk = ':messenger',
+          deps = [
+            ...
+          ],
+        )
+
+        android_instrumentation_test(
+          name = 'messenger_instrumentation_test',
+          apk = ':messenger_test',
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        buck.inject_test_env_arg()
+        | {
+            "apk": attrs.dep(
+                doc = """
+                The APK containing the tests. Can be an `android_binary()`,
+                 an `apk_genrule()` or an `android_instrumentation_apk()`.
+            """,
+            ),
+        }
+        | buck.test_label_arg()
+        | buck.test_rule_timeout_ms()
+        | buck.licenses_arg()
+        | buck.contacts_arg()
+        | {
+            "clear_package_data": attrs.bool(
+                default = False,
+                doc = """
+                Runs `pm clear` on the app and test packages before the test run if set to True.
+            """,
+            ),
+            "collect_tombstones": attrs.bool(
+                default = False,
+                doc = """
+                Checks whether the test generated any tombstones, and downloads them from the emulator if true.
+            """,
+            ),
+            "disable_animations": attrs.bool(
+                default = False,
+                doc = """
+                Disables animations on the emulator if set to True.
+            """,
+            ),
+            "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
+            "extra_instrumentation_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.arg()), default = None),
+            "instrumentation_test_listener": attrs.option(attrs.exec_dep(), default = None),
+            "instrumentation_test_listener_class": attrs.option(attrs.string(), default = None),
+            "is_self_instrumenting": attrs.bool(default = False),
+            "log_extractors": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
+            "meta_internal_extra_params": META_INTERNAL_EXTRA_PARAMS,
+            "re_caps": RE_CAPS,
+            "re_use_case": RE_USE_CASE,
+            "record_video": attrs.bool(default = False, doc = "Record video of test run and collect it as TRA"),
+            "_android_emulators": attrs.option(
+                attrs.transition_dep(cfg = clear_platform_transition, providers = [LocalResourceInfo]),
+                default = None,
+                doc = """
+                If provided, local resource of "android_emulators" type will be required to run this test locally and this target will be used to manage it. If omitted, local resource of "android_emulators" type will be ignored even if requested by the test runner.
+            """,
+            ),
+            "_android_toolchain": toolchains_common.android(),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_java_test_toolchain": toolchains_common.java_for_host_test(),
+            "_java_toolchain": toolchains_common.java_for_android(),
+            "_test_srcs": attrs.list(attrs.source(allow_directory = True), default = []),
+        }
+        | test_common.attributes()
+    ),
+)
