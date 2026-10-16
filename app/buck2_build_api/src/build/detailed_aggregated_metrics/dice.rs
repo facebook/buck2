@@ -21,6 +21,7 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::span_async_simple;
 use buck2_hash::BuckMutSet;
 use dice::DiceComputations;
+use dice::DiceData;
 use dice::DiceDataBuilder;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -190,6 +191,12 @@ pub trait SetDetailedAggregatedMetricsHandle {
 }
 
 impl SetDetailedAggregatedMetricsHandle for DiceDataBuilder {
+    fn set_detailed_aggregated_metrics_handle(&mut self, handle: DetailedAggregatedMetricsHandle) {
+        self.set(handle);
+    }
+}
+
+impl SetDetailedAggregatedMetricsHandle for DiceData {
     fn set_detailed_aggregated_metrics_handle(&mut self, handle: DetailedAggregatedMetricsHandle) {
         self.set(handle);
     }

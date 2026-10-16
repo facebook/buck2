@@ -100,6 +100,15 @@ pub struct DiceDataBuilder {
     cycle_check_interval: Duration,
 }
 
+impl From<DiceData> for DiceDataBuilder {
+    fn from(data: DiceData) -> Self {
+        Self {
+            data,
+            ..Self::new()
+        }
+    }
+}
+
 impl DiceDataBuilder {
     pub(crate) fn new() -> Self {
         Self {

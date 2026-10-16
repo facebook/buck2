@@ -144,6 +144,12 @@ impl SetInvalidationTrackingConfig for DiceDataBuilder {
     }
 }
 
+impl SetInvalidationTrackingConfig for DiceData {
+    fn set_invalidation_tracking_config(&mut self, enabled: bool) {
+        self.set(InvalidationTrackingConfig { enabled });
+    }
+}
+
 impl GetInvalidationTrackingConfig for DiceComputations<'_> {
     fn get_invalidation_tracking_config(&self) -> InvalidationTrackingConfig {
         *self

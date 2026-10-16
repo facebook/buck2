@@ -28,6 +28,8 @@ use buck2_execute::digest_config::SetDigestConfig;
 use dice::BranchId;
 use dice::DetectCycles;
 use dice::Dice;
+use dice::DiceData;
+use dice::DiceDataBuilder;
 use dice::DiceStorage;
 use dice::EvictionPolicy;
 use dice::PagableStorageBackend;
@@ -38,8 +40,48 @@ use crate::actions::execute::dice_data::SetInvalidationTrackingConfig;
 use crate::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsHandle;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsHandle;
 
-/// Utility to configure the dice globals.
-/// One place to not forget to initialize something in all places.
+/// Repository inputs attached to a DICE root.
+pub struct DiceRootConfiguration<'a> {
+    pub io: Arc<dyn IoProvider>,
+    pub digest_config: DigestConfig,
+    pub root_config: Option<&'a LegacyBuckConfig>,
+    pub tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
+    pub buck_settings: BuckSettings,
+}
+
+/// Construct the immutable data associated with one repository root tree.
+pub fn configure_dice_data_for_buck(
+    configuration: DiceRootConfiguration<'_>,
+) -> buck2_error::Result<DiceData> {
+    let DiceRootConfiguration {
+        io,
+        digest_config,
+        root_config,
+        tenting_acl_provider,
+        buck_settings,
+    } = configuration;
+    let mut data = DiceData::new();
+    data.set_io_provider(io);
+    data.set_digest_config(digest_config);
+    data.set_buck_settings(buck_settings);
+    data.set_tenting_acl_provider(tenting_acl_provider);
+    let invalidation_tracking_enabled = match root_config {
+        Some(c) => c
+            .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "invalidation_tracking_enabled",
+            })?
+            .is_some_and(|v| v.roll()),
+        None => false,
+    };
+    data.set_invalidation_tracking_config(invalidation_tracking_enabled);
+
+    // Empty handle; a command enables the tracker lazily if it needs one.
+    data.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::new());
+    Ok(data)
+}
+
+/// Configure engine-global DICE facilities around one initial root's data.
 pub async fn configure_dice_for_buck(
     io: Arc<dyn IoProvider>,
     digest_config: DigestConfig,
@@ -56,24 +98,14 @@ pub async fn configure_dice_for_buck(
     eviction_policy: EvictionPolicy,
     defer_field_reads: bool,
 ) -> buck2_error::Result<(Arc<Dice>, BranchId)> {
-    let mut dice = Dice::builder();
-    dice.set_io_provider(io);
-    dice.set_digest_config(digest_config);
-    dice.set_buck_settings(buck_settings);
-    dice.set_tenting_acl_provider(tenting_acl_provider);
-    let invalidation_tracking_enabled = match root_config {
-        Some(c) => c
-            .parse::<RolloutPercentage>(BuckconfigKeyRef {
-                section: "buck2",
-                property: "invalidation_tracking_enabled",
-            })?
-            .is_some_and(|v| v.roll()),
-        None => false,
-    };
-    dice.set_invalidation_tracking_config(invalidation_tracking_enabled);
-
-    // Empty handle; a command enables the tracker lazily if it needs one.
-    dice.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::new());
+    let data = configure_dice_data_for_buck(DiceRootConfiguration {
+        io,
+        digest_config,
+        root_config,
+        tenting_acl_provider,
+        buck_settings,
+    })?;
+    let mut dice = DiceDataBuilder::from(data);
 
     // Opt-in pagable storage, enabling `Dice::page_out()` to serialize node
     // values to disk (backend chosen by `pagable_storage_backend`) via `buck2
