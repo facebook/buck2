@@ -11,6 +11,8 @@
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Debug;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::CellAliasResolver;
@@ -29,6 +31,7 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
+use buck2_hash::BuckHasher;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
@@ -252,21 +255,39 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
     }
 
     fn intern_list(&self, value: Vec<CoercedAttr>) -> ArcSlice<CoercedAttr> {
-        self.list_interner.intern(value)
+        let hash = {
+            let mut hasher = BuckHasher::default();
+            value.len().hash(&mut hasher);
+            for value in &value {
+                value.hash_for_interning(&mut hasher);
+            }
+            hasher.finish()
+        };
+        self.list_interner.intern_hashed(value, hash)
     }
 
     fn intern_dict(
         &self,
         value: Vec<(CoercedAttr, CoercedAttr)>,
     ) -> ArcSlice<(CoercedAttr, CoercedAttr)> {
-        self.dict_interner.intern(value)
+        let hash = {
+            let mut hasher = BuckHasher::default();
+            value.len().hash(&mut hasher);
+            for (key, value) in &value {
+                key.hash_for_interning(&mut hasher);
+                value.hash_for_interning(&mut hasher);
+            }
+            hasher.finish()
+        };
+        self.dict_interner.intern_hashed(value, hash)
     }
 
-    fn intern_select(
+    fn intern_select_hashed(
         &self,
         value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
+        hash: u64,
     ) -> ArcSlice<(ConfigurationSettingKey, CoercedAttr)> {
-        self.select_interner.intern(value)
+        self.select_interner.intern_hashed(value, hash)
     }
 
     fn coerce_path(&self, value: &str, allow_directory: bool) -> buck2_error::Result<CoercedPath> {

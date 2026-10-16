@@ -21,6 +21,7 @@ use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 
 use super::coerced_attr::CoercedAttr;
+use super::coerced_attr::CoercedSelector;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::configuration::resolved::ConfigurationSettingKey;
 
@@ -59,6 +60,19 @@ pub trait AttrCoercionContext {
     fn intern_select(
         &self,
         value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
+        default: Option<CoercedAttr>,
+    ) -> buck2_error::Result<CoercedSelector> {
+        let hash = CoercedSelector::entries_hash_for_interning(&value);
+        let entries = self.intern_select_hashed(value, hash);
+        CoercedSelector::new_with_entries_hash(entries, default, hash)
+    }
+
+    /// Returns canonical entries structurally equal to `value`, using `hash` only for lookup.
+    #[doc(hidden)]
+    fn intern_select_hashed(
+        &self,
+        value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
+        hash: u64,
     ) -> ArcSlice<(ConfigurationSettingKey, CoercedAttr)>;
 
     // Reuse previously allocated dicts if possible.

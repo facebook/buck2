@@ -11,7 +11,10 @@
 use core::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
+use std::hash::Hasher;
+use std::mem;
 use std::ops::Deref;
+use std::ptr;
 
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
@@ -27,6 +30,7 @@ use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
+use buck2_hash::BuckHasher;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
@@ -92,10 +96,29 @@ impl fmt::Display for CoercedSelectorKeyRef<'_> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, Pagable)]
+#[derive(Debug, Clone, Allocative, Pagable)]
 pub struct CoercedSelector {
     pub(crate) entries: ArcSlice<(ConfigurationSettingKey, CoercedAttr)>,
     pub(crate) default: Option<CoercedAttr>,
+    /// Package-local interning fingerprint, never used for semantic or target hashing.
+    intern_hash: u64,
+}
+
+size_assert::words_of_type!(CoercedSelector, 6);
+
+impl PartialEq for CoercedSelector {
+    fn eq(&self, other: &Self) -> bool {
+        self.entries == other.entries && self.default == other.default
+    }
+}
+
+impl Eq for CoercedSelector {}
+
+impl Hash for CoercedSelector {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entries.hash(state);
+        self.default.hash(state);
+    }
 }
 
 impl AttrDisplayWithContext for CoercedSelector {
@@ -133,12 +156,49 @@ impl AttrSerializeWithContext for CoercedSelector {
 }
 
 impl CoercedSelector {
+    pub(crate) fn entries_hash_for_interning(
+        entries: &[(ConfigurationSettingKey, CoercedAttr)],
+    ) -> u64 {
+        let mut hasher = BuckHasher::default();
+        entries.len().hash(&mut hasher);
+        for (key, value) in entries {
+            key.hash(&mut hasher);
+            value.hash_for_interning(&mut hasher);
+        }
+        hasher.finish()
+    }
+
     pub fn new(
         entries: ArcSlice<(ConfigurationSettingKey, CoercedAttr)>,
         default: Option<CoercedAttr>,
     ) -> buck2_error::Result<CoercedSelector> {
+        let entries_hash = Self::entries_hash_for_interning(&entries);
+        Self::new_with_entries_hash(entries, default, entries_hash)
+    }
+
+    pub(crate) fn new_with_entries_hash(
+        entries: ArcSlice<(ConfigurationSettingKey, CoercedAttr)>,
+        default: Option<CoercedAttr>,
+        entries_hash: u64,
+    ) -> buck2_error::Result<CoercedSelector> {
         Self::check_all_keys_unique(&entries)?;
-        Ok(CoercedSelector { entries, default })
+        let intern_hash = {
+            let mut hasher = BuckHasher::default();
+            entries_hash.hash(&mut hasher);
+            match &default {
+                Some(value) => {
+                    true.hash(&mut hasher);
+                    value.hash_for_interning(&mut hasher);
+                }
+                None => false.hash(&mut hasher),
+            }
+            hasher.finish()
+        };
+        Ok(CoercedSelector {
+            entries,
+            default,
+            intern_hash,
+        })
     }
 
     fn check_all_keys_unique(
@@ -419,6 +479,40 @@ impl AttrSerializeWithContext for CoercedAttr {
 }
 
 impl CoercedAttr {
+    /// Hashes for package-local interning using child allocation identities and cached selectors.
+    /// Equal children from distinct allocations can have different interning hashes.
+    #[doc(hidden)]
+    pub fn hash_for_interning<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Selector(selector) => {
+                mem::discriminant(self).hash(state);
+                selector.intern_hash.hash(state)
+            }
+            // Concat allocations are not interned.
+            Self::Concat(values) => {
+                mem::discriminant(self).hash(state);
+                values.len().hash(state);
+                for value in values.iter() {
+                    value.hash_for_interning(state);
+                }
+            }
+            Self::List(ListLiteral(values)) | Self::Tuple(TupleLiteral(values)) => {
+                mem::discriminant(self).hash(state);
+                ptr::hash(&values[..] as *const [_], state)
+            }
+            Self::Dict(values) => {
+                mem::discriminant(self).hash(state);
+                ptr::hash(&values[..] as *const [_], state)
+            }
+            Self::OneOf(value, index) => {
+                mem::discriminant(self).hash(state);
+                value.hash_for_interning(state);
+                index.hash(state);
+            }
+            value => value.hash(state),
+        }
+    }
+
     /// Converts the coerced attr to a serde_json Value. This is generally just used for debugging or introspective
     /// things, a lot of the types will be dropped without special handling. For example, an artifact will just end
     /// up as the stringified version of its coerced value (i.e. while `//a:b` might represent some list of targets,
@@ -479,7 +573,12 @@ impl CoercedAttr {
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> buck2_error::Result<()> {
         match CoercedAttrWithType::pack(self, t)? {
-            CoercedAttrWithType::Selector(CoercedSelector { entries, default }, t) => {
+            CoercedAttrWithType::Selector(
+                CoercedSelector {
+                    entries, default, ..
+                },
+                t,
+            ) => {
                 for (condition, value) in entries.iter() {
                     traversal.configuration_dep(&condition.0, ConfigurationDepKind::SelectKey)?;
                     value.traverse(t, pkg, traversal)?;
@@ -692,7 +791,9 @@ impl CoercedAttr {
         select: &'a CoercedSelector,
         attr_name: Option<&str>,
     ) -> buck2_error::Result<&'a CoercedAttr> {
-        let CoercedSelector { entries, default } = select;
+        let CoercedSelector {
+            entries, default, ..
+        } = select;
         let matched_cfg_keys = ctx.matched_cfg_keys();
         let resolved_entries: Vec<_> = entries
             .iter()

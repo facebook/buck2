@@ -19,9 +19,11 @@ use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::plugins::PluginKindSet;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
+use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::hacks::value_to_string;
@@ -29,6 +31,8 @@ use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::Dupe;
 use indoc::indoc;
 use starlark::values::Heap;
+use starlark::values::dict::AllocDict;
+use starlark::values::list::AllocList;
 
 #[test]
 fn string_works() -> buck2_error::Result<()> {
@@ -212,6 +216,23 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
         assert!(enum_invalid1.is_err());
         assert!(enum_invalid2.is_err());
 
+        Ok(())
+    })
+}
+
+#[test]
+fn any_nested_dict_is_interned() -> buck2_error::Result<()> {
+    Heap::temp(|heap| {
+        let ctx = coercion_ctx();
+        let attr = AttrType::any();
+        let value = heap.alloc(AllocList([AllocDict([("key", 1)])]));
+        let first = attr.coerce(AttrIsConfigurable::Yes, &ctx, value)?;
+        let second = attr.coerce(AttrIsConfigurable::Yes, &ctx, value)?;
+        assert_eq!(first, second);
+        let (CoercedAttr::List(first), CoercedAttr::List(second)) = (first, second) else {
+            panic!("expected coerced lists");
+        };
+        assert_eq!(first.as_ptr(), second.as_ptr());
         Ok(())
     })
 }

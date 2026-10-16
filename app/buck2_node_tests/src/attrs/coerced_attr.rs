@@ -9,12 +9,17 @@
  */
 
 use std::collections::BTreeMap;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::constraints::ConstraintKey;
 use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
+use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
+use buck2_node::attrs::attr_type::tuple::TupleLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedConcat;
 use buck2_node::attrs::coerced_attr::CoercedSelector;
@@ -23,6 +28,18 @@ use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
+
+fn hash(value: &impl Hash) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn interner_hash(value: &CoercedAttr) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    value.hash_for_interning(&mut hasher);
+    hasher.finish()
+}
 
 #[test]
 fn selector_equals_accounts_for_ordering() {
@@ -38,7 +55,7 @@ fn selector_equals_accounts_for_ordering() {
                     CoercedAttr::Bool(BoolLiteral(false)),
                 ),
             ]),
-            None,
+            Some(CoercedAttr::Bool(BoolLiteral(false))),
         )
         .unwrap(),
     ));
@@ -54,12 +71,20 @@ fn selector_equals_accounts_for_ordering() {
                     CoercedAttr::Bool(BoolLiteral(false)),
                 ),
             ]),
-            None,
+            Some(CoercedAttr::Bool(BoolLiteral(false))),
         )
         .unwrap(),
     ));
 
     assert!(s1 == s2);
+    assert_eq!(hash(&s1), hash(&s2));
+    assert_eq!(interner_hash(&s1), interner_hash(&s2));
+    let nested_s1 = CoercedAttr::List(ListLiteral(ArcSlice::new([s1.clone()])));
+    let nested_s2 = CoercedAttr::List(ListLiteral(ArcSlice::new([s2])));
+    assert_ne!(interner_hash(&nested_s1), interner_hash(&nested_s2));
+    assert_eq!(interner_hash(&nested_s1), interner_hash(&nested_s1.clone()));
+    assert_eq!(hash(&nested_s1), hash(&nested_s2));
+    assert_eq!(nested_s1, nested_s2);
 
     let s2 = CoercedAttr::Selector(Box::new(
         CoercedSelector::new(
@@ -73,12 +98,20 @@ fn selector_equals_accounts_for_ordering() {
                     CoercedAttr::Bool(BoolLiteral(true)),
                 ),
             ]),
-            None,
+            Some(CoercedAttr::Bool(BoolLiteral(false))),
         )
         .unwrap(),
     ));
 
     assert!(s1 != s2);
+}
+
+#[test]
+fn interner_hash_distinguishes_variants() {
+    let values = ArcSlice::new([CoercedAttr::None]);
+    let list = CoercedAttr::List(ListLiteral(values.dupe()));
+    let tuple = CoercedAttr::Tuple(TupleLiteral(values));
+    assert_ne!(interner_hash(&list), interner_hash(&tuple));
 }
 
 #[test]

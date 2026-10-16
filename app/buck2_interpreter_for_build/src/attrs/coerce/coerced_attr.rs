@@ -17,7 +17,6 @@ use buck2_interpreter::types::select_incompatible::StarlarkSelectIncompatible;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedConcat;
-use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
@@ -129,10 +128,9 @@ impl CoercedAttrExr for CoercedAttr {
 
                         assert_eq!(entries.capacity(), entries.len());
 
-                        Ok(CoercedAttr::Selector(Box::new(CoercedSelector::new(
-                            ctx.intern_select(entries),
-                            default,
-                        )?)))
+                        Ok(CoercedAttr::Selector(Box::new(
+                            ctx.intern_select(entries, default)?,
+                        )))
                     } else {
                         Err(SelectError::ValueNotDict(v.get().to_repr()).into())
                     }

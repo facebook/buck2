@@ -11,6 +11,7 @@
 use buck2_core::soft_error;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
+use buck2_node::attrs::attr_type::dict::DictLiteral;
 use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::attr_type::tuple::TupleLiteral;
@@ -42,11 +43,13 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> buck2_error::Resul
     } else if let Some(x) = i64::unpack_value(value)? {
         Ok(CoercedAttr::Int(x))
     } else if let Some(x) = DictRef::from_value(value) {
-        Ok(CoercedAttr::Dict(
-            x.iter()
-                .map(|(k, v)| Ok((to_literal(k, ctx)?, to_literal(v, ctx)?)))
-                .collect::<buck2_error::Result<_>>()?,
-        ))
+        Ok(CoercedAttr::Dict(DictLiteral(
+            ctx.intern_dict(
+                x.iter()
+                    .map(|(k, v)| Ok((to_literal(k, ctx)?, to_literal(v, ctx)?)))
+                    .collect::<buck2_error::Result<Vec<_>>>()?,
+            ),
+        )))
     } else if let Some(x) = TupleRef::from_value(value) {
         Ok(CoercedAttr::Tuple(TupleLiteral(
             ctx.intern_list(

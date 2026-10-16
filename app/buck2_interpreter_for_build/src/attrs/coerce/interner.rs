@@ -10,12 +10,8 @@
 
 use std::borrow::Borrow;
 use std::cell::RefCell;
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::marker;
 use std::sync::Arc;
 
-use buck2_hash::BuckHasher;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
@@ -25,26 +21,22 @@ use hashbrown::HashTable;
 /// Things specific about this interner:
 /// - Requires interned values to be Dupe, so that you can intern both Arc<...> and specific Arc types like ArcStr.
 /// - Interner is not static, so it's not required to take up memory for the entire duration of the program.
-pub(crate) struct AttrCoercionInterner<T: Dupe + Hash + Eq, H = BuckHasher> {
+pub(crate) struct AttrCoercionInterner<T: Dupe + Eq> {
     cache: RefCell<HashTable<(u64, T)>>,
-    _marker: marker::PhantomData<H>,
 }
 
-impl<T: Dupe + Hash + Eq, H: Hasher + Default> AttrCoercionInterner<T, H> {
+impl<T: Dupe + Eq> AttrCoercionInterner<T> {
     pub(crate) fn new() -> Self {
         Self {
             cache: RefCell::new(HashTable::new()),
-            _marker: marker::PhantomData,
         }
     }
 
-    pub(crate) fn intern<S: Hash + Equiv<T> + Into<T>>(&self, internable: S) -> T {
-        fn compute_hash<T: Hash, H: Hasher + Default>(t: T, mut hasher: H) -> u64 {
-            t.hash(&mut hasher);
-            hasher.finish()
-        }
-
-        let hash = compute_hash(&internable, H::default());
+    /// Interns `internable` using a caller-computed bucket hash.
+    ///
+    /// Equivalent inputs must use the same hash. Collisions are allowed and are resolved with
+    /// [`Equiv`].
+    pub(crate) fn intern_hashed<S: Equiv<T> + Into<T>>(&self, internable: S, hash: u64) -> T {
         let mut cache = self.cache.borrow_mut();
 
         if let Some((_h, v)) = cache.find(hash, |(_h, v)| internable.equivalent(v)) {
@@ -96,14 +88,14 @@ mod tests {
         let interner: AttrCoercionInterner<Arc<String>> = AttrCoercionInterner::new();
         let mut interned_strings = Vec::new();
         for i in 0..100000 {
-            let interned = interner.intern(i.to_string());
+            let interned = interner.intern_hashed(i.to_string(), (i / 2) as u64);
             assert_eq!(i.to_string().as_str(), interned.as_str());
             interned_strings.push(interned);
         }
 
-        for s in interned_strings {
-            let interned = interner.intern(s.as_ref().clone());
-            assert_eq!(s, interned);
+        for (i, s) in interned_strings.into_iter().enumerate() {
+            let interned = interner.intern_hashed(s.as_ref().clone(), (i / 2) as u64);
+            assert!(Arc::ptr_eq(&s, &interned));
         }
     }
 }
