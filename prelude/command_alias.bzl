@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "PlatformExePlatform", "buck")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup", "ScriptLanguage")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused: Used as a type
 
@@ -260,3 +262,191 @@ def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: Ru
     trampoline_args.add("ARGS=(")
     trampoline_args.add(cmd_args(base.args, args, quote = "shell"))
     trampoline_args.add(")")
+
+# `command_alias` is the trampoline-writing helper above, hence the suffix.
+command_alias_rule = prelude_rule(
+    name = "command_alias",
+    impl = command_alias_impl,
+    docs = """
+        The `command_alias` rule enables you to wrap build
+         rules that create binaries and to pre-apply command-line
+         arguments and environment variables.
+
+         Example uses include running a command written in a scripting
+         language with a specific interpreter, and transparently wrapping
+         sub-commands of a binary.
+
+         You can reference a `command_alias` target in
+         the `cmd` parameter of a `genrule()` by
+         using the `exe` macro:
+
+        ```
+        $(exe //path/to:target)
+        ```
+    """,
+    examples = """
+        ```
+        # Combining an interpreter and a script
+
+        cxx_binary(
+            name = "node-js",
+            srcs = [
+                # ...
+            ],
+            headers = [
+                # ...
+            ],
+        )
+
+        export_file(
+            name = "scripts"
+        )
+
+        command_alias(
+            name = "server",
+            exe = ":node-js",
+            args = [
+                "$(location :scripts)/start-server.js",
+            ],
+        )
+        ```
+
+        ```
+        # Exposing sub commands
+
+        export_file(
+            name = "yarn",
+            src = "yarn.sh",
+        )
+
+        command_alias(
+            name = "add",
+            exe = ":yarn",
+            args = ["add"],
+        )
+
+        command_alias(
+            name = "install",
+            exe = ":yarn",
+            args = ["install"],
+        )
+
+        command_alias(
+            name = "run",
+            exe = ":yarn",
+            args = ["run"],
+        )
+        ```
+
+        ```
+        # Platform specific commands
+
+        export_file(
+            name = "node-windows",
+            src = "windows/node.exe",
+        )
+
+        export_file(
+            name = "node-linux",
+            src = "linux/node",
+        )
+
+        export_file(
+            name = "node-macos",
+            src = "macos/node",
+        )
+
+        command_alias(
+            name = "node",
+            platform_exe = {
+                "windows": ":node-windows",
+                "linux": ":node-linux",
+                "macos": ":node-macos",
+            },
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            # Match `dep` before `source` so that we can support extracting the
+            # `RunInfo` provider of it, if one exists.
+            "exe": attrs.option(
+                attrs.one_of(attrs.dep(), attrs.source()),
+                default = None,
+                doc = """
+                A `build target` for a rule that outputs
+                 an executable, such as an `sh_binary()`,
+                 or an executable source file.
+            """,
+            ),
+            "platform_exe": attrs.dict(
+                key = attrs.enum(PlatformExePlatform),
+                value = attrs.dep(),
+                sorted = False,
+                default = {},
+                doc = """
+                A mapping from platforms to `build target`.
+                 enables you to override `exe` per host platform.
+
+                If present, `exe` will be used as a fallback on host platforms that are not
+                 specified in `platform_exe`.
+
+                It is possible to omit `exe` when providing `platform_exe`.
+                 In that case, the build will fail if the command is invoked on a platform not specified in
+                 the mapping.
+
+                Valid platforms are all values of the [`Platform` enum](https://dev.buck.build/javadoc/com/facebook/buck/util/environment/Platform.html) :
+
+                * `FREEBSD`
+                * `LINUX`
+                * `MACOS`
+                * `WINDOWS`
+            """,
+            ),
+            "args": attrs.list(
+                attrs.arg(),
+                default = [],
+                doc = """
+                A string of arguments that is passed to the executable specified by
+                 `exe` at startup. These arguments support a subset of
+                 Buck's `string parameter macros`
+                . Only the
+                 `$(location ...)` and `$(exe ...)` macros are supported currently.
+            """,
+            ),
+            "env": attrs.dict(
+                key = attrs.string(),
+                value = attrs.arg(),
+                sorted = False,
+                default = {},
+                doc = """
+                A map of environment variables that will be passed to the executable represented
+                 by `exe` on startup. Environment variables support the same macros as arguments.
+            """,
+            ),
+            "executable_name": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                If provided, use this name for the trampoline script (with an extension added if
+                 required by the platform).
+            """,
+            ),
+            "resources": attrs.list(attrs.source(), default = []),
+            "run_using_single_arg": attrs.bool(
+                default = False,
+                doc = """
+                Ensure that the command alias can be run as a single argument (instead of
+                $(exe) or RunInfo potentially expanding to multiple arguments).
+            """,
+            ),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_target_os_type": buck.target_os_type_arg(),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)

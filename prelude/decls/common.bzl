@@ -52,7 +52,11 @@ LinkableDepType = ["static", "static_pic", "shared"]
 
 OnDuplicateEntry = ["fail", "overwrite", "append"]
 
+PlatformExePlatform = ["linux", "macos", "windows"]
+
 RawHeadersAsHeadersMode = ["enabled", "disabled"]
+
+TargetCpuType = ["arm", "armv7", "arm64", "arm64e", "x86", "x86_64", "mips", "riscv64"]
 
 TestType = ["junit", "junit5", "testng"]
 
@@ -199,6 +203,31 @@ def _inject_test_env_arg():
         "_inject_test_env": attrs.default_only(attrs.dep(default = "prelude//test/tools:inject_test_env")),
     }
 
+def _has_content_based_path_attr():
+    return {
+        "has_content_based_path": attrs.bool(
+            default = select({
+                "DEFAULT": False,
+                # @oss-disable[end= ]: "config//os/constraints:android": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
+            })
+        ),
+    }
+
+def _optional_has_content_based_path_attr():
+    return {
+        "has_content_based_path": attrs.option(
+            attrs.bool(),
+            default = select({
+                "DEFAULT": None,
+                # @oss-disable[end= ]: "config//os/constraints:android": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
+            }),
+        ),
+    }
+
 def _licenses_arg():
     return {
         "licenses": attrs.list(
@@ -244,4 +273,6 @@ buck = struct(
     inject_test_env_arg = _inject_test_env_arg,
     licenses_arg = _licenses_arg,
     contacts_arg = _contacts_arg,
+    has_content_based_path_attr = _has_content_based_path_attr,
+    optional_has_content_based_path_attr = _optional_has_content_based_path_attr,
 )

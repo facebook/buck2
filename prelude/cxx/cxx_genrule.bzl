@@ -9,7 +9,6 @@
 load("@prelude//:genrule.bzl", "genrule_attributes", "genrule_impl")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//decls:common.bzl", "buck")
-load("@prelude//decls:core_rules.bzl", "core_args")
 load("@prelude//decls:genrule_common.bzl", "genrule_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 
@@ -217,7 +216,7 @@ cxx_genrule = prelude_rule(
         | buck.licenses_arg()
         | buck.labels_arg()
         | buck.contacts_arg()
-        | core_args.optional_has_content_based_path_attr()
+        | buck.optional_has_content_based_path_attr()
         | genrule_attributes()
         | {
             "_cxx_toolchain": toolchains_common.cxx(),

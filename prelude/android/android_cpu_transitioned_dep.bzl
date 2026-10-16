@@ -14,7 +14,7 @@ that run in the binary's parent (arch-agnostic) configuration.
 """
 
 load("@prelude//android:configuration.bzl", "CPU_TRANSITION_ATTRS", "cpu_transition")
-load("@prelude//decls:core_rules.bzl", "TargetCpuType")
+load("@prelude//decls:common.bzl", "TargetCpuType")
 
 def _android_cpu_transitioned_dep_impl(ctx: AnalysisContext) -> list[Provider]:
     return ctx.attrs.dep.providers

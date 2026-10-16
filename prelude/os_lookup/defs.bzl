@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//decls:core_rules.bzl", "PlatformExePlatform", "TargetCpuType")
+load("@prelude//decls:common.bzl", "PlatformExePlatform", "TargetCpuType")
 
 Os = enum("fat_mac_linux", "freebsd", "unknown", *PlatformExePlatform)
 

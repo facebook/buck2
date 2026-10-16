@@ -8,8 +8,7 @@
 
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME")
 load("@prelude//android:configuration.bzl", "CPU_TRANSITION_ATTRS", "cpu_split_transition", "cpu_transition")
-load("@prelude//decls:common.bzl", "buck")
-load("@prelude//decls:core_rules.bzl", "TargetCpuType")
+load("@prelude//decls:common.bzl", "TargetCpuType", "buck")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 

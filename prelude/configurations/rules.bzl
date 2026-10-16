@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cfg/exec_platform:marker.bzl", "get_exec_platform_marker")
 load("@prelude//cfg/modifier:constraint_modifier_info.bzl", "make_constraint_modifier_info")
 load("@prelude//cfg/modifier:types.bzl", "ConditionalModifierInfo")
 load(":util.bzl", "util")
@@ -194,19 +196,277 @@ def platform_impl(ctx):
 def configuration_alias_impl(ctx: AnalysisContext) -> list[Provider]:
     return ctx.attrs.actual.providers
 
-# TODO(cjhopman): Update the attributes for these ruletypes to declare the types of providers that they expect in their references.
-extra_attributes = {
-    "platform": {
-        "constraint_values": attrs.list(attrs.dep(providers = [ConstraintValueInfo]), default = []),
-    },
-}
+config_setting = prelude_rule(
+    name = "config_setting",
+    impl = config_setting_impl,
+    is_configuration_rule = True,
+    docs = """
+        `config_setting()` accepts a list of `constraint_values` and a list of values
+        (buckconfig keys + expected values) and matches if all of those match.
 
-implemented_rules = {
-    "config_setting": config_setting_impl,
-    "configuration_alias": configuration_alias_impl,
-    "constraint": constraint_impl,
-    "constraint_setting": constraint_setting_impl,
-    "constraint_value": constraint_value_impl,
-    "exec_platform_marker_constraint": constraint_impl,
-    "platform": platform_impl,
+        This is implemented as forming a single `ConfigurationInfo` from the union of the
+        referenced values and the config keys.
+    """,
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "constraint_values": attrs.list(attrs.configuration_label(), default = []),
+            "values": attrs.dict(
+                key = attrs.string(),
+                value = attrs.string(),
+                sorted = False,
+                default = {},
+                doc = """
+                    Buckconfig key -> expected value, evaluated from the target's cell (like `read_config`).
+                    A given `section.key` may appear in either `values` or `root_values`, but not both.
+                """,
+            ),
+            "root_values": attrs.dict(
+                key = attrs.string(),
+                value = attrs.string(),
+                sorted = False,
+                default = {},
+                doc = """
+                    Buckconfig key -> expected value, evaluated from the root cell (like `read_root_config`).
+                    A given `section.key` may appear in either `values` or `root_values`, but not both.
+                """,
+            ),
+        }
+    ),
+)
+
+configuration_alias = prelude_rule(
+    name = "configuration_alias",
+    impl = configuration_alias_impl,
+    is_configuration_rule = True,
+    docs = """
+        `configuration_alias()` acts like `alias()` but for configuration targets.
+
+        The `configuration_alias` itself is a configuration rule and the `actual` attribute
+        is expected to be a target defined by a configuration rule (such as `constraint`,
+        `constraint_setting`, `constraint_value`, `config_setting`, or `platform`).
+
+        Unlike regular `alias()`, `configuration_alias()` can be used wherever configuration
+        targets are expected, such as in `select()` keys or `platform.constraint_values`.
+
+        This rule is particularly useful for creating backwards-compatible aliases to constraint
+        values defined using the unified `constraint()` rule, where values are referenced via
+        subtargets (e.g., `:os[linux]`).
+    """,
+    examples = """
+        ```
+        # Define a constraint with multiple values using the unified constraint rule
+        constraint(
+            name = "os",
+            values = ["linux", "macos", "windows", "none"],
+            default = "none",
+        )
+
+        configuration_alias(
+            name = "linux",
+            actual = ":os[linux]",
+        )
+
+        configuration_alias(
+            name = "macos",
+            actual = ":os[macos]",
+        )
+
+        # The alias can be used in platform definitions
+        platform(
+            name = "linux_platform",
+            constraint_values = [
+                ":linux",  # Using the alias instead of :os[linux]
+            ],
+        )
+
+        # The alias can be used in select() expressions
+        genrule(
+            name = "my_rule",
+            cmd = select({
+                ":linux": "echo linux",
+                ":macos": "echo macos",
+                ":os[none]": "echo other",  # Can also use subtarget directly
+            }),
+            out = "out.txt",
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "actual": attrs.dep(
+                pulls_and_pushes_plugins = plugins.All,
+                doc = """
+                The target to alias. This should be a target defined by a configuration rule
+                such as `constraint`, `constraint_setting`, `constraint_value`, `config_setting`,
+                or `platform`.
+            """,
+            ),
+        }
+    ),
+)
+
+constraint = prelude_rule(
+    name = "constraint",
+    impl = constraint_impl,
+    is_configuration_rule = True,
+    docs = """
+        Unified constraint rule that defines both a constraint setting and its possible values.
+        Values are exposed as subtargets, e.g., `cfg//:os[linux]`.
+    """,
+    examples = """
+        ```
+        constraint(
+            name = "os",
+            values = ["linux", "macos", "windows"],
+            default = "linux",
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "values": attrs.list(
+                attrs.string(),
+                doc = "List of value names.",
+            ),
+            "default": attrs.string(
+                doc = "Default value (must be one of the `values`).",
+            ),
+            "allow_trivial_constraint": attrs.bool(
+                default = False,
+                doc = """
+                    If True, allow this constraint to declare only one value.
+                    Intended for constraints that have just a default value most of the time and may
+                    temporarily gain additional values (e.g., versioned packages that pick up an extra
+                    value during an upgrade and drop it once the upgrade lands).
+                    Default is False, which requires at least two values.
+                """,
+            ),
+            "aliases": attrs.dict(
+                attrs.string(),
+                attrs.string(),
+                default = {},
+                doc = """
+                    Optional mapping of alias name -> declared value. Each alias becomes an additional
+                    subtarget that resolves to the same providers as the underlying value, letting users
+                    refer to a constraint value by a stable shorthand (e.g. `:version[1.4]`) that maps to
+                    a brittle underlying value (e.g. `1.4.5.xxx.67890`). Alias names must not collide with
+                    declared values or reserved keywords, and alias values must appear in `values`.
+                """,
+            ),
+            "execution_modifier": attrs.bool(default = False),
+            # Dependency on the exec platform marker constraint.
+            # Modifiers with execution_modifier=False will be wrapped in a conditional modifier
+            # that skips them on exec platforms.
+            "_exec_platform_marker": attrs.dep(providers = [ConfigurationInfo], default = get_exec_platform_marker()),
+        }
+    ),
+)
+
+constraint_setting = prelude_rule(
+    name = "constraint_setting",
+    impl = constraint_setting_impl,
+    is_configuration_rule = True,
+    docs = "Declares the existence of a constraint, whose values are defined using `constraint_value()`. Consider using the newer `constraint()` instead.",
+    examples = None,
+    further = None,
+    attrs = (
+        {
+            "execution_modifier": attrs.bool(default = False),
+        }
+    ),
+)
+
+constraint_value = prelude_rule(
+    name = "constraint_value",
+    impl = constraint_value_impl,
+    is_configuration_rule = True,
+    docs = "Declares a specific value of a `constraint_setting`. Consider using the newer `constraint()` instead.",
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "constraint_setting": attrs.configuration_label(
+                doc = "The constraint setting this value is attached to.",
+            ),
+            # Dependency on the exec platform marker constraint.
+            # Modifiers with execution_modifier=False will be wrapped in a conditional modifier
+            # that skips them on exec platforms.
+            "_exec_platform_marker": attrs.dep(providers = [ConfigurationInfo], default = get_exec_platform_marker()),
+        }
+    ),
+)
+
+exec_platform_marker_constraint = prelude_rule(
+    name = "exec_platform_marker_constraint",
+    impl = constraint_impl,
+    is_configuration_rule = True,
+    docs = """
+        Special constraint rule for defining execution platform markers.
+        This rule has the same semantics as `constraint()` but exists to avoid
+        circular dependency issues when other constraint/constraint_value rules
+        need to depend on the exec platform marker.
+        Should only be defined once in a repo.
+    """,
+    examples = """
+        exec_platform_marker_constraint(
+            name = "is_exec_platform",
+            values = ["true", "false"],
+            default = "false",
+        )
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "values": attrs.list(
+                attrs.string(),
+                doc = "List of value names.",
+            ),
+            "default": attrs.string(
+                doc = "Default value (must be one of the `values`).",
+            ),
+            "allow_trivial_constraint": attrs.bool(default = False),
+            "aliases": attrs.dict(attrs.string(), attrs.string(), default = {}),
+        }
+    ),
+)
+
+platform = prelude_rule(
+    name = "platform",
+    impl = platform_impl,
+    is_configuration_rule = True,
+    docs = "Declares a platform, which is a build configuration composed of constraint values.",
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "deps": attrs.list(
+                attrs.configuration_label(),
+                default = [],
+                doc = "List of other platform target dependencies. The constraints from these platforms will be part of this platform (unless overridden)",
+            ),
+        }
+        | {
+            "constraint_values": attrs.list(attrs.dep(providers = [ConstraintValueInfo]), default = []),
+        }
+    ),
+)
+
+rules = {
+    "config_setting": config_setting,
+    "configuration_alias": configuration_alias,
+    "constraint": constraint,
+    "constraint_setting": constraint_setting,
+    "constraint_value": constraint_value,
+    "exec_platform_marker_constraint": exec_platform_marker_constraint,
+    "platform": platform,
 }
