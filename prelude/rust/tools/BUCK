@@ -156,3 +156,13 @@ prelude.python_library(
     ],
     typing = True,
 )
+
+prelude.python_test(
+    name = "test_failure_filter",
+    srcs = [
+        "failure_filter_action.py",
+        "rustc_action.py",
+        "tests/test_failure_filter.py",
+    ],
+    base_module = "",
+)
