@@ -133,6 +133,7 @@ use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_ent
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::v2::clean_stale::Cleaner;
+use crate::materializers::v2::entry::DiskEntry;
 use crate::materializers::v2::task::Outcome;
 use crate::materializers::v2::task::Task;
 use crate::materializers::v2::tree::DiskTree;
@@ -234,7 +235,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         for entry in sqlite_state.into_iter().flatten() {
             // Rows are trusted, as they were before; what they say is on disk is tracked as such.
             let tracked = Tracked {
-                entry: entry.metadata,
+                entry: DiskEntry::from_action(&entry.metadata),
                 last_access_time: entry.last_access_time,
                 classification: entry.classification,
             };
@@ -286,45 +287,6 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             store,
         );
         cleaner.start_schedule();
-
-        // Roots loaded from sqlite whose content is nowhere but on disk, rows a deferred daemon
-        // wrote say, enter the store once its directory is loaded, so that a later holder of their
-        // digests is served rather than sent to a CAS that never had them.
-        {
-            let (sender, io) = (sender.dupe(), io.dupe());
-            tokio::spawn(async move {
-                store.loaded().await;
-                let Ok(roots) = sender.on_processor(|processor| processor.tree.iter()) else {
-                    return;
-                };
-                let Ok(roots) = roots.await else {
-                    return;
-                };
-                for chunk in roots.chunks(256) {
-                    let mut files = Vec::new();
-                    for (path, tracked) in chunk {
-                        files.extend(files_to_insert(
-                            io.fs(),
-                            path,
-                            &tracked.entry,
-                            Origin::BuckOut,
-                        ));
-                    }
-                    files.retain(|file| file.digest.stash().is_none());
-                    if files.is_empty() {
-                        continue;
-                    }
-                    if let Err(e) = store.insert_files(files).await {
-                        let _ignored = buck2_core::soft_error!(
-                            "blob_store_insert_failed",
-                            e.context("Putting the roots loaded from sqlite into the store"),
-                            quiet: true
-                        );
-                        return;
-                    }
-                }
-            });
-        }
 
         Ok(Self {
             sender,
@@ -417,7 +379,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         self.sender.send(Command::Report {
             hold,
             node: Tracked {
-                entry,
+                entry: DiskEntry::from_action(&entry),
                 last_access_time: Timestamp::now(),
                 classification,
             },
@@ -1065,19 +1027,32 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
             )>,
         >,
     > {
-        self.on_processor(move |processor| {
-            paths
-                .into_iter()
-                .map(|path| match processor.tree.lookup(&path) {
-                    Lookup::Exact(tracked) => Some((path, tracked.entry.dupe())),
-                    Lookup::Inside { root, .. } if fetch_root_artifact_entries_for_subpaths => {
-                        Some((path, root.entry.dupe()))
-                    }
-                    Lookup::Inside { .. } | Lookup::UnderLeaf { .. } | Lookup::Untracked => None,
-                })
-                .collect()
-        })
-        .await
+        let digest_config = self.io.digest_config();
+        let found: Vec<Option<(ProjectRelativePathBuf, DiskEntry)>> = self
+            .on_processor(move |processor| {
+                paths
+                    .into_iter()
+                    .map(|path| match processor.tree.lookup(&path) {
+                        Lookup::Exact(tracked) => Some((path, tracked.entry.dupe())),
+                        Lookup::Inside { root, .. } if fetch_root_artifact_entries_for_subpaths => {
+                            Some((path, root.entry.dupe()))
+                        }
+                        Lookup::Inside { .. } | Lookup::UnderLeaf { .. } | Lookup::Untracked => {
+                            None
+                        }
+                    })
+                    .collect()
+            })
+            .await?;
+        // The caller gets a value's entry, digests tracked, of what the tree holds plain.
+        found
+            .into_iter()
+            .map(|found| {
+                found
+                    .map(|(path, entry)| Ok((path, entry.to_action(digest_config)?)))
+                    .transpose()
+            })
+            .collect()
     }
 }
 
@@ -1966,7 +1941,7 @@ impl Processor {
 
     /// The entry tracked at `path`: the root's when `path` is a root, the directory's entry at the
     /// remaining path when it is inside a tracked directory.
-    fn tracked_entry(&self, path: &ProjectRelativePath) -> Option<ArtifactMetadata> {
+    fn tracked_entry(&self, path: &ProjectRelativePath) -> Option<DiskEntry> {
         match self.tree.lookup(path) {
             Lookup::Exact(tracked) => Some(tracked.entry.dupe()),
             Lookup::Inside { entry, .. } => entry,
@@ -1992,7 +1967,7 @@ impl Processor {
                 table.delete(removed.into_iter().map(|(path, _)| path).collect())?;
             }
             for (path, tracked) in &added {
-                table.insert(
+                table.insert_disk_entry(
                     path,
                     &tracked.entry,
                     tracked.last_access_time,

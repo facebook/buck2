@@ -61,14 +61,14 @@ use jiff::Timestamp;
 
 use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
-use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_entry;
-use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
+use crate::materializers::v2::entry::DiskEntry;
 use crate::materializers::v2::task::Task;
 
-/// One tracked root.
+/// One tracked root. Its entry holds plain digests (`entry.rs`): the tree keeps nothing alive in
+/// the interner.
 #[derive(Clone, Allocative)]
 pub(crate) struct Tracked {
-    pub(crate) entry: ArtifactMetadata,
+    pub(crate) entry: DiskEntry,
     #[allocative(skip)]
     pub(crate) last_access_time: Timestamp,
     pub(crate) classification: ArtifactClassification,
@@ -78,7 +78,7 @@ impl Dupe for Tracked {}
 
 impl Tracked {
     pub(crate) fn size(&self) -> u64 {
-        artifact_metadata_size(&self.entry)
+        self.entry.size()
     }
 }
 
@@ -100,7 +100,7 @@ pub(crate) enum Lookup<'a> {
     /// path, `None` when it holds nothing there.
     Inside {
         root: &'a Tracked,
-        entry: Option<ArtifactMetadata>,
+        entry: Option<DiskEntry>,
     },
     /// A tracked file or symlink lies strictly above the path, so nothing can be at the path.
     UnderLeaf {
@@ -525,11 +525,11 @@ impl<R> DiskTree<R> {
                     return Lookup::Exact(root);
                 }
                 return match &root.entry {
-                    DirectoryEntry::Dir(dir) => Lookup::Inside {
+                    DiskEntry::Dir(_) => Lookup::Inside {
                         root,
-                        entry: find_in(dir, remaining),
+                        entry: root.entry.find(remaining),
                     },
-                    DirectoryEntry::Leaf(_) => Lookup::UnderLeaf { root },
+                    _ => Lookup::UnderLeaf { root },
                 };
             }
             let Some(name) = components.next() else {
@@ -545,11 +545,11 @@ impl<R> DiskTree<R> {
     /// Whether `entry` is what is tracked at `path`, as a root or inside one.
     pub(crate) fn matches(&self, path: &ProjectRelativePath, entry: &ArtifactMetadata) -> bool {
         match self.lookup(path) {
-            Lookup::Exact(tracked) => artifact_metadata_matches_entry(&tracked.entry, entry),
+            Lookup::Exact(tracked) => tracked.entry.matches(entry),
             Lookup::Inside {
                 entry: Some(inside),
                 ..
-            } => artifact_metadata_matches_entry(&inside, entry),
+            } => inside.matches(entry),
             Lookup::Inside { entry: None, .. } | Lookup::UnderLeaf { .. } | Lookup::Untracked => {
                 false
             }
@@ -691,7 +691,7 @@ impl<R> DiskTree<R> {
                 .expect("the root was just found");
             node.tracked = None;
             change.removed(root_path.clone(), root.dupe());
-            if let DirectoryEntry::Dir(dir) = &root.entry {
+            if let DiskEntry::Dir(dir) = &root.entry {
                 for (name, entry) in dir.entries() {
                     let child_path = root_path.join(name);
                     let child = Tracked {
@@ -841,11 +841,10 @@ impl<R> DiskTree<R> {
             let below = root
                 .strip_prefix(path)
                 .expect("a root below the path starts with it");
-            let agrees = match &node.entry {
-                DirectoryEntry::Dir(dir) => find_in(dir, below)
-                    .is_some_and(|wanted| artifact_metadata_matches_entry(&tracked.entry, &wanted)),
-                DirectoryEntry::Leaf(_) => false,
-            };
+            let agrees = node
+                .entry
+                .find(below)
+                .is_some_and(|wanted| tracked.entry.same_content(&wanted));
             if !agrees {
                 return Err((hold, Disagreement { root }));
             }
@@ -1010,7 +1009,7 @@ impl<R> DiskTree<R> {
                     return None;
                 }
                 let wanted = find_in(dir, below)?;
-                artifact_metadata_matches_entry(&tracked.entry, &wanted).then_some(root)
+                tracked.entry.matches(&wanted).then_some(root)
             })
             .collect()
     }
@@ -1332,6 +1331,7 @@ mod tests {
     use futures::FutureExt;
 
     use super::*;
+    use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_entry;
 
     /// The reply handle in these tests is a label the test picks for the request.
     type Tree = DiskTree<u32>;
@@ -1371,7 +1371,7 @@ mod tests {
 
     fn tracked(entry: ArtifactMetadata) -> Tracked {
         Tracked {
-            entry,
+            entry: DiskEntry::from_action(&entry),
             last_access_time: Timestamp::UNIX_EPOCH,
             classification: ArtifactClassification::IntermediateOnly,
         }

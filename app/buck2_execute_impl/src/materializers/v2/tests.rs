@@ -891,40 +891,6 @@ async fn test_access_times_are_not_kept_when_disabled() -> buck2_error::Result<(
     .await
 }
 
-/// A root loaded from sqlite whose content is only on disk, a deferred daemon's row say, enters
-/// the store at start, so that its digest is served rather than asked of the CAS.
-#[tokio::test]
-async fn test_roots_loaded_from_sqlite_enter_the_store() -> buck2_error::Result<()> {
-    ignore_stack_overflow_checks_for_future(async {
-        let temp = ProjectRootTemp::new()?;
-        let fs = temp.path().dupe();
-        let p = path("buck-out/v2/gen/from_before");
-        {
-            let (db, _) = testing_materializer_state_sqlite_db(&fs, versions(), metadata(), None)?;
-            let (dm, _io) = make(&fs, Some(db), None);
-            drop(report(&dm, &p, file("only on disk")).await?);
-            fs.write_file(&p, "only on disk", false)?;
-            abort(dm);
-        }
-        // Not in this store's stash: a new store, as a daemon flipped from the deferred core has.
-        let (db, state) = testing_materializer_state_sqlite_db(&fs, versions(), metadata(), None)?;
-        let (dm, _io) = make(&fs, Some(db), Some(state?));
-        let out = fs.resolve(&path("buck-out/v2/gen/out"));
-        let mut served = false;
-        for _ in 0..100 {
-            served = in_store(&dm, b"only on disk", &out).await?;
-            if served {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
-        assert!(served);
-        abort(dm);
-        Ok(())
-    })
-    .await
-}
-
 /// A final-output materialization of a root tracked as an intermediate makes it a final output,
 /// which a restart sees.
 #[tokio::test]
@@ -1408,7 +1374,8 @@ async fn test_a_reported_output_enters_the_store() -> buck2_error::Result<()> {
     .await
 }
 
-/// A clean ends with a sweep of the store: what a tracked root holds stays, the rest goes.
+/// A clean ends with a sweep of the store: what a live value holds stays, the rest goes. The
+/// tree holds nothing (`entry.rs`), so a tracked root is no holder.
 #[tokio::test]
 async fn test_a_clean_sweeps_what_nothing_holds_from_the_store() -> buck2_error::Result<()> {
     ignore_stack_overflow_checks_for_future(async {
@@ -1418,7 +1385,8 @@ async fn test_a_clean_sweeps_what_nothing_holds_from_the_store() -> buck2_error:
         let on_disk = temp.path().resolve(&out);
         std::fs::create_dir_all(on_disk.parent().unwrap())?;
         std::fs::write(&on_disk, b"held by a root")?;
-        drop(report(&dm, &out, file("held by a root")).await?);
+        let held = file("held by a root");
+        drop(report(&dm, &out, held.dupe()).await?);
         // Inserted and then held by nothing, as a value DICE has dropped.
         let orphan = TrackedFileDigest::from_content(b"orphan", CasDigestConfig::testing_default());
         dm.store()
@@ -1432,6 +1400,7 @@ async fn test_a_clean_sweeps_what_nothing_holds_from_the_store() -> buck2_error:
         assert!(in_store(&dm, b"held by a root", &dest).await?);
         let nowhere = temp.path().resolve(path("buck-out/v2/gen/nowhere"));
         assert!(!in_store(&dm, b"orphan", &nowhere).await?);
+        drop(held);
         abort(dm);
         Ok(())
     })

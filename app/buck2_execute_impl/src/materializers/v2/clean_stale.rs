@@ -42,17 +42,12 @@ use buck2_data::CleanStaleResultKind;
 use buck2_data::CleanStaleStats;
 use buck2_data::clean_stale_result::AdaptiveOutcome;
 use buck2_data::clean_stale_result::Trigger;
-use buck2_directory::directory::directory::Directory;
-use buck2_directory::directory::directory_iterator::DirectoryIterator;
-use buck2_directory::directory::entry::DirectoryEntry;
-use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::ErrorTag;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::blob_store::BlobStore;
 use buck2_execute::blob_store::Walk;
-use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
@@ -74,11 +69,9 @@ use parking_lot::Mutex;
 use crate::materializers::deferred::BackgroundCleanupGate;
 use crate::materializers::deferred::DeferredMaterializerConfigs;
 use crate::materializers::deferred::artifact_tree::ArtifactClassification;
-use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
 use crate::materializers::deferred::artifact_tree::UnmaterializationEligibility;
 use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibilityReason;
 use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibleArtifact;
-use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
 use crate::materializers::deferred::clean_stale::CleanFailure;
 use crate::materializers::deferred::clean_stale::CleanFailurePhase;
 use crate::materializers::deferred::clean_stale::CleanOutcome;
@@ -105,6 +98,7 @@ use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::v2::core::Granted;
 use crate::materializers::v2::core::Sender;
 use crate::materializers::v2::core::Shared;
+use crate::materializers::v2::entry::DiskEntry;
 use crate::materializers::v2::tree::DiskTree;
 use crate::materializers::v2::tree::Expect;
 use crate::materializers::v2::tree::Lookup;
@@ -406,6 +400,7 @@ impl<T: IoHandler> Cleaner<T> {
             keep_since_time: command.keep_since_time,
             rematerialization_deadline: rematerialization_deadline(self.rematerialization_ttl),
             upload_enabled: command.unmaterialize_upload.is_some(),
+            store: self.store,
         };
         let mut found = Vec::new();
         if command.tracked_only {
@@ -671,9 +666,18 @@ impl<T: IoHandler> Cleaner<T> {
         if !observer.is_alive_sync() {
             return (CleanPathOutcome::Interrupted(size), CleanupOrigin::Uploaded);
         }
+        let action_entry = match entry.to_action(self.io.digest_config()) {
+            Ok(action_entry) => action_entry,
+            Err(error) => {
+                return (
+                    CleanPathOutcome::UploadFailed { size, error },
+                    CleanupOrigin::Uploaded,
+                );
+            }
+        };
         if let Err(error) = self
             .io
-            .upload_materialized_artifact(path.clone(), entry.dupe(), info.dupe())
+            .upload_materialized_artifact(path.clone(), action_entry, info.dupe())
             .await
         {
             tracing::warn!(path = %path, "Failed to upload artifact before unmaterialization: {error:#}");
@@ -714,10 +718,10 @@ impl<T: IoHandler> Cleaner<T> {
     /// the refresher to keep alive; an upload only counts once this says yes.
     async fn confirm_in_cas(
         self: Arc<Self>,
-        entry: ArtifactMetadata,
+        entry: DiskEntry,
         info: Arc<CasDownloadInfo>,
     ) -> buck2_error::Result<()> {
-        let digests = files_of(&entry);
+        let digests = entry.tracked_digests(self.io.digest_config().cas_digest_config());
         if digests.is_empty() {
             return Ok(());
         }
@@ -803,7 +807,7 @@ fn plan(
                 let Lookup::Exact(tracked) = index.lookup(&path) else {
                     continue;
                 };
-                match backing(&tracked.entry, rules.rematerialization_deadline) {
+                match rules.backing(&tracked.entry) {
                     Backing::Cas => plan.takes.push(Take {
                         path,
                         expect: Expect::Tracked {
@@ -847,18 +851,6 @@ fn plan(
     plan
 }
 
-/// The digests of the files in `entry`.
-fn files_of(entry: &ArtifactMetadata) -> Vec<buck2_common::file_ops::metadata::TrackedFileDigest> {
-    let mut digests = Vec::new();
-    let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
-    while let Some((_, entry)) = walk.next() {
-        if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry {
-            digests.push(file.digest.dupe());
-        }
-    }
-    digests
-}
-
 /// The outcome of an unmaterialization called off because the root was used in the meantime.
 fn state_changed(size: u64) -> (CleanPathOutcome, CleanupOrigin) {
     (
@@ -875,7 +867,7 @@ struct Upload {
     path: ProjectRelativePathBuf,
     size: u64,
     last_access_time: Timestamp,
-    entry: ArtifactMetadata,
+    entry: DiskEntry,
     info: Arc<CasDownloadInfo>,
 }
 
@@ -886,6 +878,8 @@ struct Rules {
     keep_since_time: Timestamp,
     rematerialization_deadline: Timestamp,
     upload_enabled: bool,
+    /// Where a tracked file's CAS expiration is looked up, the tree holding plain digests.
+    store: &'static BlobStore,
 }
 
 impl Rules {
@@ -916,7 +910,7 @@ impl Rules {
                     UnmaterializationIneligibilityReason::FinalOutput,
                 )
             } else {
-                match backing(&tracked.entry, self.rematerialization_deadline) {
+                match self.backing(&tracked.entry) {
                     Backing::Cas => UnmaterializationEligibility::Eligible,
                     Backing::Expiring => UnmaterializationEligibility::Ineligible(
                         UnmaterializationIneligibilityReason::RemoteTtlTooShort,
@@ -949,21 +943,24 @@ enum Backing {
     LocalOnly,
 }
 
-fn backing(entry: &ArtifactMetadata, deadline: Timestamp) -> Backing {
-    let mut backing = Backing::Cas;
-    let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
-    while let Some((_, entry)) = walk.next() {
-        if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry {
-            let expires = file.digest.expires().unwrap_or(Timestamp::UNIX_EPOCH);
-            if expires <= Timestamp::UNIX_EPOCH {
-                return Backing::LocalOnly;
-            }
-            if expires < deadline {
+impl Rules {
+    /// Where `entry`'s content can come back from, by what the CAS has said about each file.
+    fn backing(&self, entry: &DiskEntry) -> Backing {
+        let mut backing = Backing::Cas;
+        let mut local_only = false;
+        entry.files(&mut |_, file| match self.store.cas_expiry(&file.digest) {
+            None => local_only = true,
+            Some(expires) if expires < self.rematerialization_deadline => {
                 backing = Backing::Expiring;
             }
+            Some(_) => {}
+        });
+        if local_only {
+            Backing::LocalOnly
+        } else {
+            backing
         }
     }
-    backing
 }
 
 /// What the scan counts, apart from the paths it finds.
@@ -1102,7 +1099,7 @@ impl<T: IoHandler> Scan<T> {
                     }
                 }
                 Lookup::Exact(tracked) => {
-                    let is_dir = matches!(tracked.entry, DirectoryEntry::Dir(_));
+                    let is_dir = matches!(tracked.entry, DiskEntry::Dir(_));
                     if is_dir != file_type.is_dir() {
                         // What is on disk is not what the tree says, which is not clean stale's
                         // to fix.
@@ -1111,7 +1108,7 @@ impl<T: IoHandler> Scan<T> {
                         continue;
                     }
                     let tracked = tracked.dupe();
-                    let size = artifact_metadata_size(&tracked.entry);
+                    let size = tracked.entry.size();
                     found.push(self.rules.classify(path, &tracked, size, true));
                 }
                 Lookup::Inside { .. } | Lookup::UnderLeaf { .. } => {

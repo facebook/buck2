@@ -13,6 +13,7 @@
 
 pub(crate) mod clean_stale;
 pub mod core;
+pub(crate) mod entry;
 pub(crate) mod task;
 pub(crate) mod tree;
 

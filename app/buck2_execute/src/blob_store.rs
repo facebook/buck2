@@ -275,6 +275,16 @@ impl BlobStore {
         }
     }
 
+    /// When the CAS last said it holds `digest`, if it ever did: the table's record, whether or
+    /// not anything holds the digest now.
+    pub fn cas_expiry(&self, digest: &FileDigest) -> Option<Timestamp> {
+        let entry = self.interner.peek(digest)?;
+        if entry.expires_secs <= 0 {
+            return None;
+        }
+        Timestamp::from_second(entry.expires_secs).ok()
+    }
+
     fn attached(&self) -> buck2_error::Result<&AttachedStash> {
         self.stash
             .get()
