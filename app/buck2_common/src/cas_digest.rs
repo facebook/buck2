@@ -34,7 +34,9 @@ use strong_hash::StrongHash;
 
 pub use crate::cas_digest::interner::DigestInterner;
 pub use crate::cas_digest::interner::DigestInternerStats;
+pub use crate::cas_digest::interner::StashRecord;
 pub use crate::cas_digest::interner::TrackedFileDigest;
+pub use crate::cas_digest::interner::Verdict;
 pub use crate::cas_digest::interner::file_digest_interner;
 pub use crate::cas_digest::interner::file_digest_interner_stats;
 

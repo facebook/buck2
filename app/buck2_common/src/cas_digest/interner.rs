@@ -9,7 +9,8 @@
  */
 
 //! Deduplication of tracked digests by value, so that one blob's digest is one allocation and
-//! one recorded CAS expiration however many holders it has.
+//! one record of where the blob is, however many holders it has: the CAS, until a recorded
+//! expiration, and the stash, under a recorded entry.
 
 use std::borrow::Borrow;
 use std::fmt;
@@ -60,9 +61,12 @@ pub fn file_digest_interner_stats() -> DigestInternerStats {
 struct TrackedFileDigestInner {
     data: FileDigest,
     /// Seconds since the unix epoch at which the CAS last told us this blob expires; the epoch
-    /// itself means the CAS has never been asked. Which also makes it the pin: see
+    /// itself means the CAS has never been asked. A positive value is one of the two pins: see
     /// [`DigestInterner`].
     expires: AtomicI64,
+    /// The stash entry holding this blob, as [`StashRecord`] packs it; zero when there is none.
+    /// The other pin. Signed only because that is what pages know how to carry.
+    stash: AtomicI64,
 }
 
 impl TrackedFileDigestInner {
@@ -70,12 +74,19 @@ impl TrackedFileDigestInner {
         Self {
             data,
             expires: AtomicI64::new(expires),
+            stash: AtomicI64::new(0),
         }
     }
 
     /// A recorded expiration is always positive; a non-positive value records nothing.
-    fn is_pinned(&self) -> bool {
+    fn has_expiry(&self) -> bool {
         self.expires.load(Ordering::Relaxed) > 0
+    }
+
+    /// Whether the entry stays past its last handle: it does while something records where the
+    /// blob is.
+    fn is_pinned(&self) -> bool {
+        self.has_expiry() || self.stash.load(Ordering::Relaxed) != 0
     }
 
     /// Extends the recorded expiration to `expires` if that is later. Returns whether the entry
@@ -113,6 +124,30 @@ impl TrackedFileDigestInner {
         }
         let previous = self.expires.swap(expires, Ordering::Relaxed);
         previous <= 0
+    }
+}
+
+/// Where in the stash a blob is: the nonce its file's name carries, unique among every insertion
+/// the stash has ever made, and the mode the file was stored with. Packed into one word on the
+/// digest's entry, so that recording it is one atomic step: the step that commits an insertion.
+#[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Hash)]
+pub struct StashRecord {
+    /// Never zero, and below 2^62.
+    pub nonce: u64,
+    pub executable: bool,
+}
+
+impl StashRecord {
+    fn pack(self) -> i64 {
+        debug_assert!(self.nonce != 0 && self.nonce < 1 << 62);
+        ((self.nonce << 1) | self.executable as u64) as i64
+    }
+
+    fn unpack(word: i64) -> Option<Self> {
+        (word != 0).then_some(Self {
+            nonce: (word as u64) >> 1,
+            executable: word & 1 == 1,
+        })
     }
 }
 
@@ -339,19 +374,45 @@ impl TrackedFileDigest {
             FILE_DIGEST_INTERNER.pinned.fetch_add(1, Ordering::Relaxed);
         }
     }
+
+    /// The stash entry holding this blob, if one is recorded.
+    pub fn stash(&self) -> Option<StashRecord> {
+        StashRecord::unpack(self.inner.stash.load(Ordering::Relaxed))
+    }
+
+    /// Records that `record` holds this blob, for every holder of the digest, unless an entry is
+    /// recorded already, in which case the caller's is a duplicate. Returns whether it was
+    /// recorded. A recorded entry pins the digest's table entry past its last handle, until a
+    /// sweep drops it, which is how the stash's collection works off the table.
+    pub fn register_stash(&self, record: StashRecord) -> bool {
+        self.inner
+            .stash
+            .compare_exchange(0, record.pack(), Ordering::AcqRel, Ordering::Relaxed)
+            .is_ok()
+    }
+
+    /// Forgets `record`, if it is the one recorded: for a stash entry found gone. Returns
+    /// whether it was.
+    pub fn clear_stash(&self, record: StashRecord) -> bool {
+        self.inner
+            .stash
+            .compare_exchange(record.pack(), 0, Ordering::AcqRel, Ordering::Relaxed)
+            .is_ok()
+    }
 }
 
 /// Deduplicates [`TrackedFileDigest`]s by value: every holder of a digest shares one allocation
-/// and one recorded CAS expiration.
+/// and one record of where the blob is.
 ///
-/// An entry stays for as long as any handle refers to it. An entry the CAS has confirmed, which
-/// is one with an expiration recorded, stays past its last handle as well: the recorded
-/// expiration is what lets the next construction of that digest know the blob is in the CAS
-/// without asking, and the case that pays is an action's input tree, dropped right after its
-/// upload, whose files the next action uploads too. Such an entry is *pinned*, and nothing but
-/// a [`sweep`](Self::sweep) releases it. Smarter retention is possible, but the table is a
-/// small fraction of the daemon's memory, so this is deliberately the simplest policy with that
-/// property.
+/// An entry stays for as long as any handle refers to it. An entry that records where its blob
+/// is stays past its last handle as well, and is *pinned*: with a CAS expiration recorded, the
+/// next construction of that digest knows the blob is in the CAS without asking, and the case
+/// that pays is an action's input tree, dropped right after its upload, whose files the next
+/// action uploads too; with a stash entry recorded, the table is what knows the stash holds the
+/// blob, and a sweep that drops the entry is what hands the file to the stash's collection.
+/// Nothing but a [`sweep`](Self::sweep) releases a pinned entry. Smarter retention is possible,
+/// but the table is a small fraction of the daemon's memory, so this is deliberately the
+/// simplest policy with that property.
 #[derive(Allocative)]
 pub struct DigestInterner {
     /// Dropping a handle takes its shard's write lock, so never construct or drop a
@@ -416,8 +477,19 @@ pub struct DigestInternerStats {
 pub struct SweepStats {
     /// Entries the sweep looked at.
     pub visited: u64,
-    /// Entries it removed, because nothing but the table held them.
+    /// Entries it removed: ones nothing but the table held, whose verdict was to drop them.
     pub swept: u64,
+}
+
+/// What a sweep does with one entry, decided by the caller for each.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Verdict {
+    Keep,
+    /// Remove the entry from the table. Honored only for an entry nothing holds: one with
+    /// handles has to stay, so that they keep pointing at the table's entry.
+    Drop,
+    /// Keep the entry and hand the caller a handle to it, once the sweep is over.
+    Handle,
 }
 
 /// One table entry as it was the moment [`DigestInterner::sweep`] or [`DigestInterner::peek`]
@@ -428,16 +500,19 @@ pub struct DigestEntry {
     /// Seconds since the unix epoch at which the CAS last said the blob expires; zero when it was
     /// never asked.
     pub expires_secs: i64,
-    /// Whether any handle, as opposed to only the table, refers to the entry.
+    /// The stash entry recorded for the blob, if any.
+    pub stash: Option<StashRecord>,
+    /// Whether anything but the table refers to the entry: a handle, or a row on disk.
     pub referenced: bool,
 }
 
 impl DigestEntry {
-    fn of(inner: &Arc<TrackedFileDigestInner>) -> Self {
+    fn of(inner: &Arc<TrackedFileDigestInner>, paged: bool) -> Self {
         Self {
             data: inner.data.dupe(),
             expires_secs: inner.expires.load(Ordering::Relaxed),
-            referenced: Arc::count(inner) > 1,
+            stash: StashRecord::unpack(inner.stash.load(Ordering::Relaxed)),
+            referenced: Arc::count(inner) > 1 || paged,
         }
     }
 }
@@ -475,42 +550,46 @@ impl DigestInterner {
         }
     }
 
-    /// One walk over the table: removes every entry that nothing but the table holds, pinned or
-    /// not, and hands out handles for the surviving entries `pick` selects.
+    /// One walk over the table, with a verdict from `decide` for every entry: dropped, kept, or
+    /// kept with a handle handed to the caller afterwards.
     ///
     /// Together with `Self::dropped` the removal is the whole lifetime story of an entry: an
-    /// unpinned entry normally leaves with its last handle, a pinned one stays until the next
-    /// sweep, and either kind that the drop-side check missed is caught here. The time between a
+    /// unpinned entry normally leaves with its last handle, a pinned one stays until a sweep drops
+    /// it, and either kind that the drop-side check missed is caught here. The time between a
     /// pinned entry's last drop and the next sweep is deliberate: it is the window in which a
     /// recorded expiration keeps answering for a blob that a later construction asks about again,
     /// which is what makes an RE input tree that is dropped right after its upload still pay off
-    /// for the next action.
+    /// for the next action, and the window in which the stash's collection has not run yet.
     ///
-    /// `pick` runs under a shard's write lock and sees entries as they are at that moment, so it
-    /// must not construct or drop a `TrackedFileDigest`, which takes that same lock. The handles
-    /// are made only after every lock is gone, which is what makes it safe to hold or drop them
-    /// freely afterwards. A sweep holds each shard's write lock while it visits that shard, so it
-    /// is meant to run rarely (the TTL refresher's cadence), not per build.
+    /// `decide` runs under a shard's write lock and sees entries as they are at that moment, so
+    /// it must not construct or drop a `TrackedFileDigest`, which takes that same lock. The
+    /// handles are made only after every lock is gone, which is what makes it safe to hold or
+    /// drop them freely afterwards. A sweep holds each shard's write lock while it visits that
+    /// shard, so it is meant to run rarely, not per build.
     pub fn sweep(
         &self,
-        mut pick: impl FnMut(&DigestEntry) -> bool,
+        mut decide: impl FnMut(&DigestEntry) -> Verdict,
     ) -> (SweepStats, Vec<TrackedFileDigest>) {
         let mut stats = SweepStats::default();
         let mut pinned_swept = 0u64;
         let mut picked = Vec::new();
         self.entries.retain(|entry, paged| {
             stats.visited += 1;
-            if Arc::count(&entry.0) == 1 && !*paged {
-                stats.swept += 1;
-                if entry.0.is_pinned() {
-                    pinned_swept += 1;
+            let view = DigestEntry::of(&entry.0, *paged);
+            match decide(&view) {
+                Verdict::Drop if !view.referenced => {
+                    stats.swept += 1;
+                    if entry.0.has_expiry() {
+                        pinned_swept += 1;
+                    }
+                    false
                 }
-                return false;
+                Verdict::Drop | Verdict::Keep => true,
+                Verdict::Handle => {
+                    picked.push(entry.0.clone());
+                    true
+                }
             }
-            if pick(&DigestEntry::of(&entry.0)) {
-                picked.push(entry.0.clone());
-            }
-            true
         });
         if pinned_swept > 0 {
             self.pinned.fetch_sub(pinned_swept, Ordering::Relaxed);
@@ -527,7 +606,7 @@ impl DigestInterner {
     pub fn peek(&self, data: &FileDigest) -> Option<DigestEntry> {
         self.entries
             .get(data)
-            .map(|entry| DigestEntry::of(&entry.key().0))
+            .map(|entry| DigestEntry::of(&entry.key().0, *entry.value()))
     }
 
     /// Handles for this table's kind come into existence through [`TrackedFileDigest`]'s
@@ -632,6 +711,15 @@ mod tests {
 
     fn interner() -> &'static DigestInterner {
         file_digest_interner()
+    }
+
+    /// The verdict of a sweep that only collects: drop what nothing holds, keep the rest.
+    fn drop_unreferenced(entry: &DigestEntry) -> Verdict {
+        if entry.referenced {
+            Verdict::Keep
+        } else {
+            Verdict::Drop
+        }
     }
 
     #[test]
@@ -873,7 +961,7 @@ mod tests {
         assert_eq!(table.stats().pinned, 2);
 
         assert_eq!(
-            table.sweep(|_| false).0,
+            table.sweep(drop_unreferenced).0,
             SweepStats {
                 visited: 4,
                 swept: 2
@@ -887,7 +975,7 @@ mod tests {
         assert_eq!(table.stats().pinned, 1);
 
         assert_eq!(
-            table.sweep(|_| false).0,
+            table.sweep(drop_unreferenced).0,
             SweepStats {
                 visited: 2,
                 swept: 0
@@ -905,13 +993,13 @@ mod tests {
         let _other = table.intern(other.dupe(), 0);
 
         let (stats, picked) = table.sweep(|entry| {
-            assert!(
-                entry.referenced,
-                "unreferenced entries are swept before `pick` sees them"
-            );
-            entry.data == data && {
+            if !entry.referenced {
+                Verdict::Drop
+            } else if entry.data == data {
                 assert_eq!(entry.expires_secs, expiry.as_second());
-                true
+                Verdict::Handle
+            } else {
+                Verdict::Keep
             }
         });
         assert_eq!(
@@ -967,13 +1055,13 @@ mod tests {
             }
             s.spawn(|| {
                 for _ in 0..200 {
-                    table.sweep(|_| false);
+                    table.sweep(drop_unreferenced);
                 }
             });
         });
 
         // Every handle is gone, so one more sweep empties the table.
-        table.sweep(|_| false);
+        table.sweep(drop_unreferenced);
         assert_eq!(table.stats().entries, 0);
     }
 
@@ -990,17 +1078,58 @@ mod tests {
 
         // Swept as far as handles go, but the page still holds it, so its expiration is still
         // there to be refreshed and to answer the next construction.
-        assert_eq!(table.sweep(|_| false).0.swept, 0);
+        assert_eq!(table.sweep(drop_unreferenced).0.swept, 0);
         let entry = table.peek(&data).expect("the page holds it");
-        assert!(!entry.referenced);
+        assert!(entry.referenced, "the page counts as a holder");
         assert_eq!(entry.expires_secs, expiry.as_second());
 
         // Nothing undoes it: the row stays on disk, and a second page-out of the same digest
         // counts once.
         table.page_out(&data);
         assert_eq!(table.stats().paged, 1);
-        assert_eq!(table.sweep(|_| false).0.swept, 0);
+        assert_eq!(table.sweep(drop_unreferenced).0.swept, 0);
         assert!(table.get(&data).is_some());
+    }
+
+    #[test]
+    fn test_a_stash_record_pins_the_entry_until_a_sweep_drops_it() {
+        let table = DigestInterner::new();
+        let data = digest_of(b"test_a_stash_record_pins_the_entry_until_a_sweep_drops_it");
+        let record = StashRecord {
+            nonce: 0x1234,
+            executable: true,
+        };
+        let handle = table.intern(data.dupe(), 0);
+        assert_eq!(handle.stash(), None);
+        assert!(handle.register_stash(record));
+        // A second record is a duplicate: the first stays.
+        let duplicate = StashRecord {
+            nonce: 0x5678,
+            executable: false,
+        };
+        assert!(!handle.register_stash(duplicate));
+        assert_eq!(handle.stash(), Some(record));
+        assert!(!handle.clear_stash(duplicate));
+
+        // Pinned: the entry outlives its last handle, and a sweep sees the record.
+        drop(handle);
+        let entry = table.peek(&data).expect("pinned by the stash record");
+        assert!(!entry.referenced);
+        assert_eq!(entry.stash, Some(record));
+        assert_eq!(table.sweep(|_| Verdict::Keep).0.swept, 0);
+        assert!(table.peek(&data).is_some());
+        assert_eq!(table.sweep(drop_unreferenced).0.swept, 1);
+        assert!(table.peek(&data).is_none());
+
+        // Clearing the record unpins: the next last drop removes the entry. Drops go through the
+        // global table, so this part runs there.
+        let data = digest_of(b"test_a_stash_record_pins_the_entry_until_a_sweep_drops_it, cleared");
+        let handle = TrackedFileDigest::new(data.dupe(), testing::sha1());
+        assert!(handle.register_stash(record));
+        assert!(handle.clear_stash(record));
+        assert_eq!(handle.stash(), None);
+        drop(handle);
+        assert!(interner().peek(&data).is_none());
     }
 
     #[test]

@@ -21,6 +21,7 @@ use std::time::Instant;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::cas_digest::DigestInterner;
+use buck2_common::cas_digest::Verdict;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_error::BuckErrorContext;
@@ -215,7 +216,15 @@ impl StandaloneTtlRefresher {
         // cannot be told apart from files here and are refreshed too; that only saves a later
         // re-upload.
         let (swept, candidates) = tokio::task::spawn_blocking(move || {
-            interner.sweep(|entry| entry.expires_secs > 0 && entry.expires_secs < deadline)
+            interner.sweep(|entry| {
+                if !entry.referenced {
+                    Verdict::Drop
+                } else if entry.expires_secs > 0 && entry.expires_secs < deadline {
+                    Verdict::Handle
+                } else {
+                    Verdict::Keep
+                }
+            })
         })
         .await
         .map_err(|e| internal_error!("Interner sweep did not complete: {e}"))?;
