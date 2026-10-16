@@ -1036,22 +1036,6 @@ pub enum TargetParsingRel<'a> {
 }
 
 impl<'a> TargetParsingRel<'a> {
-    fn dir(&self) -> Option<CellPathRef<'a>> {
-        match self {
-            TargetParsingRel::AllowRelative(dir, _) => Some(dir.current_dir().as_ref()),
-            TargetParsingRel::AllowLimitedRelative(dir) => Some(*dir),
-            TargetParsingRel::RequireAbsolute(_) => None,
-        }
-    }
-
-    fn allow_full_relative(&self) -> bool {
-        match self {
-            TargetParsingRel::AllowRelative(_, _) => true,
-            TargetParsingRel::AllowLimitedRelative(_) => false,
-            TargetParsingRel::RequireAbsolute(_) => false,
-        }
-    }
-
     fn target_alias_resolver(&self) -> Option<&dyn TargetAliasResolver> {
         match self {
             TargetParsingRel::AllowRelative(_, r) => *r,
@@ -1072,7 +1056,14 @@ impl<'a> TargetParsingRel<'a> {
         match self {
             TargetParsingRel::AllowRelative(dir, _) => Ok(dir.join_normalized(path)?),
             TargetParsingRel::AllowLimitedRelative(dir) => {
-                Ok(dir.join(<&ForwardRelativePath>::try_from(path)?))
+                // This allows things of the form `//foo` (having a cell alias) or `:bar` (no cell, no package,
+                // just relative target). This is a bit of a wonky  definition of "is_absolute" but we rely on
+                // it.
+                if path.as_str().is_empty() {
+                    Ok(dir.to_owned())
+                } else {
+                    Err(TargetPatternParseError::AbsoluteRequired.into())
+                }
             }
             TargetParsingRel::RequireAbsolute(_) => Err(buck2_error::Error::from(
                 TargetPatternParseError::AbsoluteRequired,
@@ -1154,32 +1145,15 @@ where
         InferTargetNames::No => pattern.reject_ambiguity()?,
     };
 
-    // This allows things of the form `//foo` (having a cell alias) or `:bar` (no cell, no package,
-    // just relative target). This is a bit of a wonky  definition of "is_absolute" but we rely on
-    // it.
-    let is_absolute_or_adjacent = cell_alias.is_some() || pattern.is_adjacent_target();
-    if !relative.allow_full_relative() && !is_absolute_or_adjacent {
-        return Err(TargetPatternParseError::AbsoluteRequired.into());
-    }
-
-    // Prohibit parsing `:foo` as `root//:foo`.
-    if relative.dir().is_none() && cell_alias.is_none() {
-        return Err(TargetPatternParseError::AbsoluteRequired.into());
-    }
-
-    // We ask for the cell, but if the pattern is relative we might not use it
-    let cell = cell_alias_resolver.resolve(cell_alias.unwrap_or_default())?;
-
-    let package_path = pattern.package_path();
-
-    let path = match relative.dir() {
-        Some(_) if cell_alias.is_none() => {
-            CellPathCow::Owned(relative.join_relative(package_path)?)
-        }
-        _ => CellPathCow::Borrowed(CellPathRef::new(
+    let path = if let Some(cell_alias) = cell_alias {
+        let cell = cell_alias_resolver.resolve(cell_alias)?;
+        CellPathCow::Borrowed(CellPathRef::new(
             cell,
-            CellRelativePath::new(<&ForwardRelativePath>::try_from(package_path)?),
-        )),
+            CellRelativePath::new(<&ForwardRelativePath>::try_from(pattern.package_path())?),
+        ))
+    } else {
+        let package_path = pattern.package_path();
+        CellPathCow::Owned(relative.join_relative(package_path)?)
     };
 
     let modifiers = pattern.modifiers().clone();
