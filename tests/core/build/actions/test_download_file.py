@@ -396,12 +396,13 @@ async def test_content_the_cas_holds_needs_no_url(buck: Buck) -> None:
         assert server.count("GET", "/file") == 1
 
         # A new daemon and a URL nothing answers on: the declaration names content the CAS
-        # holds, so a remote consumer and a local one both get it without the URL.
+        # holds, so a remote consumer and a local one both get it without the URL. Not under
+        # `--no-remote-cache`, which forgoes the CAS's copy too.
         await buck.kill()
         broken = configs(
             "http://localhost:1/file", sha1=sha1_hex(content), size=len(content)
         )
-        await buck.build("//:copy", "--remote-only", "--no-remote-cache", *broken)
+        await buck.build("//:copy", "--remote-only", *broken)
         assert (
             await build_and_read(buck, "//:copy_again", "--local-only", *broken)
             == content
@@ -461,3 +462,21 @@ async def test_a_wrong_size_is_a_miss_in_the_cas(buck: Buck) -> None:
             stderr_regex=f"Downloaded size \\({len(content)}\\) does not match expected size \\({len(content) + 1}\\)",
         )
         assert server.count("GET", "/file") == 2
+
+
+@buck_test(data_dir="download", write_invocation_record=True)
+async def test_no_remote_cache_downloads_without_asking_the_cas(buck: Buck) -> None:
+    content = random_string().encode()
+    async with StaticHttpServer({"/file": content}) as server:
+        declared = configs(server.url("/file"), sha1=sha1_hex(content))
+        await buck.build("//:copy", "--remote-only", "--no-remote-cache", *declared)
+        assert server.count("GET", "/file") == 1
+
+        # The CAS holds the content now, but the flag forgoes it: the cache may not even be
+        # up yet when the build that starts it runs.
+        res = await buck.build("//:download_again", "--no-remote-cache", *declared)
+        output = res.get_build_report().output_for_target("//:download_again")
+        assert output.read_bytes() == content
+        assert server.count("GET", "/file") == 2
+    snapshot = res.invocation_record()["last_snapshot"]
+    assert int(snapshot.get("re_presence_check_rpcs", 0)) == 0
