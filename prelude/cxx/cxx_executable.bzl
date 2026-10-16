@@ -112,6 +112,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//linking:stamp_build_info.bzl", "PRE_STAMPED_SUFFIX", "cxx_stamp_build_info")
+load("@prelude//linking:types.bzl", "LinkPreference")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(
     "@prelude//utils:build_graph_pattern.bzl",
@@ -168,11 +169,7 @@ load(
     ":cxx_link_utility.bzl",
     "executable_shared_lib_arguments",
 )
-load(
-    ":cxx_types.bzl",
-    "CxxRuleConstructorParams",
-    "LinkPreference",
-)
+load(":cxx_types.bzl", "CxxRuleConstructorParams")
 load(":diagnostics.bzl", "check_sub_target")
 load(":gcno.bzl", "GcnoFilesInfo")
 load(":groups.bzl", "get_dedupped_roots_from_groups")

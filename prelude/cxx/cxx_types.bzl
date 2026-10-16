@@ -32,6 +32,7 @@ load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",
 )
+load("@prelude//linking:types.bzl", "LinkPreference")
 load(":argsfiles.bzl", "CompileArgsfiles")
 load(
     ":compile_types.bzl",
@@ -63,8 +64,6 @@ load(
     ":xcode.bzl",
     "cxx_populate_xcode_attributes",
 )
-
-LinkPreference = enum("default", "full", "incremental")
 
 CxxLibraryInfo = provider(
     fields = dict(

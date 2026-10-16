@@ -12,7 +12,6 @@ load("@prelude//android:native_build_commands.bzl", "EMIT_NATIVE_BUILD_COMMANDS"
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:cxx_flags.bzl", "CxxFlagsInfo")
-load("@prelude//cxx:cxx_types.bzl", "LinkPreference")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load(
@@ -31,7 +30,7 @@ load("@prelude//decls:third_party_common.bzl", "third_party_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "ArchiveContentsType", "LinkOrdering")
-load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//linking:types.bzl", "LinkPreference", "Linkage")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 
 def _srcs_arg():

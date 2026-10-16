@@ -88,7 +88,7 @@ load(
     "to_soname",
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
-load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//linking:types.bzl", "LinkPreference", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//python:manifest.bzl", "create_manifest_for_entries")
 load("@prelude//target_stats:target_stats.bzl", "CycleMode", "target_stats_providers_and_subtargets")
@@ -133,14 +133,7 @@ load(
     "cxx_platform_supported",
     "cxx_use_shlib_intfs_mode",
 )
-load(
-    ":cxx_types.bzl",
-    "CxxRuleConstructorParams",
-    "CxxRuleProviderParams",
-    "CxxRuleSubTargetParams",
-    "LinkPreference",
-    "xcode_data_enabled",
-)
+load(":cxx_types.bzl", "CxxRuleConstructorParams", "CxxRuleProviderParams", "CxxRuleSubTargetParams", "xcode_data_enabled")
 load(":gcno.bzl", "GcnoFilesInfo")
 load(
     ":groups_types.bzl",
