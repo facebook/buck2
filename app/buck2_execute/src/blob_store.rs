@@ -338,6 +338,32 @@ impl BlobStore {
             .await
     }
 
+    /// Puts the files `generate` produces in the stash, each under the digest of its bytes, and
+    /// returns those digests with the executable bits, in order. `generate` runs once the IO
+    /// can, so that nothing waits for a permit with content in hand: in a cold build thousands
+    /// of writes wait at once, and their content was most of the daemon's peak memory
+    /// (RESULTS.md, 2026-10-13).
+    pub async fn insert_generated(
+        &self,
+        generate: impl FnOnce() -> buck2_error::Result<Vec<(Vec<u8>, bool)>> + Send,
+    ) -> buck2_error::Result<Vec<(TrackedFileDigest, bool)>> {
+        let attached = self.attached()?;
+        let (stash, counters) = (&attached.stash, &self.counters);
+        let config = stash.config;
+        attached
+            .blocking
+            .execute_io_inline(move || {
+                let mut written = Vec::new();
+                for (content, executable) in generate()? {
+                    let digest = TrackedFileDigest::from_content(&content, config);
+                    Self::insert_one(stash, counters, &digest, executable, Source::Bytes(content))?;
+                    written.push((digest, executable));
+                }
+                Ok(written)
+            })
+            .await
+    }
+
     /// Puts `content` in the stash as the content of `digest`, which it must hash to.
     pub async fn insert_bytes(
         &self,

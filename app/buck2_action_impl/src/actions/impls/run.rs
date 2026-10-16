@@ -1107,7 +1107,7 @@ impl RunAction {
                 Box::new(|| {
                     Ok(vec![WriteRequest {
                         path: project_rel_path.clone(),
-                        content: data.0.0,
+                        content: data.0.0.clone(),
                         is_executable: false,
                         path_kind: path.path_resolution_method(),
                     }])

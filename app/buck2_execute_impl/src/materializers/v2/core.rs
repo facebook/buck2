@@ -55,7 +55,6 @@ use allocative::Allocative;
 use allocative::FlameGraphBuilder;
 use async_trait::async_trait;
 use buck2_common::file_ops::metadata::FileMetadata;
-use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -777,33 +776,31 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
     }
 
     /// Into the store, not onto disk: the output path is materialized from the store when
-    /// something asks for it, as a probe hit's is from the CAS (plan-blobstore.md §3).
+    /// something asks for it, as a probe hit's is from the CAS (plan-blobstore.md §3). The
+    /// content is generated inside the store's IO, so that a write waiting its turn holds none.
     async fn declare_write<'a>(
         &self,
         generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> buck2_error::Result<Vec<ArtifactValue>> {
-        let requests = generate()?;
-        let config = self.io.digest_config().cas_digest_config();
-        let values: Vec<ArtifactValue> = requests
-            .iter()
-            .map(|request| {
+        let written = self
+            .store
+            .insert_generated(move || {
+                Ok(generate()?
+                    .into_iter()
+                    .map(|request| (request.content, request.is_executable))
+                    .collect())
+            })
+            .await?;
+        self.cleaner.sweep_store_if_full();
+        Ok(written
+            .into_iter()
+            .map(|(digest, is_executable)| {
                 ArtifactValue::file(FileMetadata {
-                    digest: TrackedFileDigest::from_content(&request.content, config),
-                    is_executable: request.is_executable,
+                    digest,
+                    is_executable,
                 })
             })
-            .collect();
-        let inserted = join_all(requests.into_iter().zip(&values).map(|(request, value)| {
-            let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = value.entry() else {
-                unreachable!("a write's value is a file");
-            };
-            self.store
-                .insert_bytes(request.content, &file.digest, file.is_executable)
-        }))
-        .await;
-        inserted.into_iter().collect::<buck2_error::Result<()>>()?;
-        self.cleaner.sweep_store_if_full();
-        Ok(values)
+            .collect())
     }
 
     async fn declare_match(
