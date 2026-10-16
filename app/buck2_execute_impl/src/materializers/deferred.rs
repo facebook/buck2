@@ -147,8 +147,11 @@ pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     background_cleanup_gate: Arc<BackgroundCleanupGate>,
 }
 
+/// Keeps background cleaning and the commands it would get in the way of apart: cleaning starts
+/// only while nobody holds a prevention, and a prevention taken while cleaning runs waits for it
+/// to stop.
 #[derive(Default)]
-pub(super) struct BackgroundCleanupGate {
+pub(crate) struct BackgroundCleanupGate {
     state: Mutex<BackgroundCleanupGateState>,
     cleanup_finished: Notify,
 }
@@ -159,12 +162,12 @@ struct BackgroundCleanupGateState {
     cleanup_running: bool,
 }
 
-struct BackgroundCleanupPreventionGuard {
+pub(crate) struct BackgroundCleanupPreventionGuard {
     gate: Arc<BackgroundCleanupGate>,
 }
 
 impl BackgroundCleanupPreventionGuard {
-    async fn wait_for_cleanup(&self) {
+    pub(crate) async fn wait_for_cleanup(&self) {
         loop {
             let notified = self.gate.cleanup_finished.notified();
             tokio::pin!(notified);
@@ -183,7 +186,7 @@ impl Drop for BackgroundCleanupPreventionGuard {
     }
 }
 
-pub(super) struct BackgroundCleanupRunGuard {
+pub(crate) struct BackgroundCleanupRunGuard {
     gate: Arc<BackgroundCleanupGate>,
 }
 
@@ -195,12 +198,12 @@ impl Drop for BackgroundCleanupRunGuard {
 }
 
 impl BackgroundCleanupGate {
-    fn register_prevention(self: &Arc<Self>) -> BackgroundCleanupPreventionGuard {
+    pub(crate) fn register_prevention(self: &Arc<Self>) -> BackgroundCleanupPreventionGuard {
         self.state.lock().prevention_guards += 1;
         BackgroundCleanupPreventionGuard { gate: self.dupe() }
     }
 
-    pub(super) fn try_start_cleanup(self: &Arc<Self>) -> Option<BackgroundCleanupRunGuard> {
+    pub(crate) fn try_start_cleanup(self: &Arc<Self>) -> Option<BackgroundCleanupRunGuard> {
         let mut state = self.state.lock();
         if state.prevention_guards != 0 || state.cleanup_running {
             return None;
@@ -279,7 +282,9 @@ pub struct TtlRefreshConfiguration {
 }
 
 impl TtlRefreshConfiguration {
-    fn rematerialization_ttl(&self) -> Option<SignedDuration> {
+    /// How long a CAS copy has to last for an artifact to count as re-fetchable: the refresher
+    /// extends it within that time. `None` without a refresher.
+    pub(crate) fn rematerialization_ttl(&self) -> Option<SignedDuration> {
         if self.enabled {
             SignedDuration::try_from(self.frequency).ok()
         } else {

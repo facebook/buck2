@@ -18,7 +18,6 @@ use buck2_core::buck2_env;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
-use buck2_data::clean_stale_result::PolicyMode;
 use buck2_data::clean_stale_result::Trigger;
 use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
@@ -36,8 +35,6 @@ use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
-use buck2_fs::fs_util::disk_space_stats;
-use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_hash::BuckMutSet;
 use buck2_util::threads::check_stack_overflow;
@@ -88,13 +85,11 @@ use crate::materializers::deferred::artifact_tree::ProcessingFuture;
 use crate::materializers::deferred::artifact_tree::Version;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_entry;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
-use crate::materializers::deferred::clean_stale::AdaptiveLowDiskParams;
 use crate::materializers::deferred::clean_stale::CleanFailure;
 use crate::materializers::deferred::clean_stale::CleanResult;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
-use crate::materializers::deferred::clean_stale::LowDiskCleanConfig;
-use crate::materializers::deferred::clean_stale::LowDiskCleanMode;
+use crate::materializers::deferred::clean_stale::default_root_abs_path;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
@@ -438,7 +433,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let ttl_refresh_history = Vec::new();
         let ttl_refresh_instance = None;
         let version_tracker = VersionTracker::new();
-        let root_abs_path = AbsPath::new("/").ok().map(|p| Arc::new(p.to_owned()));
+        let root_abs_path = default_root_abs_path();
         Self {
             io,
             sqlite_db,
@@ -474,56 +469,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         rt.spawn(with_dispatcher_async(dispatcher, f))
     }
 
-    fn resolve_clean_stale_params(
-        &self,
-        low_disk: Option<&LowDiskCleanConfig>,
-        default_ttl: std::time::Duration,
-    ) -> (std::time::Duration, Option<AdaptiveLowDiskParams>) {
-        let Some(cfg) = low_disk else {
-            return (default_ttl, None);
-        };
-
-        match &cfg.mode {
-            LowDiskCleanMode::Adaptive {
-                min_ttl,
-                delete_intermediate_within_min_ttl,
-                unmaterialize_active,
-                unmaterialization_threshold_percent,
-            } => (
-                default_ttl,
-                Some(AdaptiveLowDiskParams {
-                    threshold_percent: cfg.threshold_percent,
-                    // Clamping to MIN keeps everything protected, which is the safe direction
-                    // for something that deletes artifacts.
-                    min_access_time: Timestamp::now()
-                        .checked_sub(*min_ttl)
-                        .unwrap_or(Timestamp::MIN),
-                    delete_intermediate_within_min_ttl: *delete_intermediate_within_min_ttl,
-                    unmaterialize_active: *unmaterialize_active,
-                    unmaterialization_threshold_percent: *unmaterialization_threshold_percent,
-                }),
-            ),
-            LowDiskCleanMode::Fixed(duration) => {
-                let Some(root_abs_path) = self.root_abs_path.as_ref() else {
-                    return (default_ttl, None);
-                };
-                let disk_stats = match disk_space_stats(&**root_abs_path) {
-                    Ok(stats) => stats,
-                    Err(e) => {
-                        let _unused = soft_error!("disk_space_stats", e);
-                        return (default_ttl, None);
-                    }
-                };
-                let free_pct = disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0;
-                if free_pct > cfg.threshold_percent {
-                    (default_ttl, None)
-                } else {
-                    (*duration, None)
-                }
-            }
-        }
-    }
-
     pub(super) fn configured_clean_stale_command(
         &self,
         dispatcher: EventDispatcher,
@@ -531,26 +476,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         tracked_only: bool,
         trigger: Trigger,
     ) -> CleanStaleArtifactsCommand {
-        let config = &self.clean_stale_config;
-        let (artifact_ttl, adaptive_low_disk) =
-            self.resolve_clean_stale_params(config.low_disk.as_ref(), config.artifact_ttl);
-        CleanStaleArtifactsCommand {
-            keep_since_time: Timestamp::now()
-                .checked_sub(artifact_ttl)
-                .unwrap_or(Timestamp::MIN),
-            dry_run: dry_run || config.dry_run,
-            tracked_only,
+        CleanStaleArtifactsCommand::configured(
+            &self.clean_stale_config,
+            self.root_abs_path.dupe(),
             dispatcher,
-            adaptive_low_disk,
-            unmaterialize_upload: config.unmaterialize_upload.clone(),
-            root_abs_path: self.root_abs_path.dupe(),
+            dry_run,
+            tracked_only,
             trigger,
-            policy_mode: match config.low_disk.as_ref().map(|config| &config.mode) {
-                None => PolicyMode::ConfiguredTtl,
-                Some(LowDiskCleanMode::Fixed(_)) => PolicyMode::ConfiguredFixedTtl,
-                Some(LowDiskCleanMode::Adaptive { .. }) => PolicyMode::ConfiguredAdaptive,
-            },
-        }
+        )
     }
 
     pub(super) fn spawn<F>(&self, dispatcher: &EventDispatcher, f: F) -> JoinHandle<F::Output>

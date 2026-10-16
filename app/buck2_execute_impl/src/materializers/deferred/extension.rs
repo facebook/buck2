@@ -20,8 +20,6 @@ use allocative::FlameGraphBuilder;
 use allocative::Visitor;
 use allocative::ident_key;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_data::clean_stale_result::PolicyMode;
-use buck2_data::clean_stale_result::Trigger;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher;
@@ -32,7 +30,6 @@ use buck2_execute::materialize::materializer::MaterializerEntry;
 use buck2_execute::materialize::materializer::MaterializerIterItem;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
-use buck2_fs::paths::abs_path::AbsPath;
 use derivative::Derivative;
 use dupe::Dupe;
 use futures::stream::BoxStream;
@@ -446,36 +443,17 @@ impl<T: IoHandler> DeferredMaterializerAccessor<T> {
                 adaptive_low_disk_threshold,
                 adaptive_min_ttl,
                 adaptive_unmaterialize_active,
-            } => {
-                let adaptive_low_disk = adaptive_low_disk_threshold.map(|threshold_percent| {
-                    let min_ttl = adaptive_min_ttl
-                        .unwrap_or_else(|| std::time::Duration::from_secs(12 * 60 * 60));
-                    crate::materializers::deferred::clean_stale::AdaptiveLowDiskParams {
-                        threshold_percent,
-                        unmaterialization_threshold_percent: threshold_percent,
-                        min_access_time: Timestamp::now()
-                            .checked_sub(min_ttl)
-                            .unwrap_or(Timestamp::MIN),
-                        delete_intermediate_within_min_ttl: true,
-                        unmaterialize_active: adaptive_unmaterialize_active,
-                    }
-                });
-                CleanStaleArtifactsExtensionCommandKind::Explicit(CleanStaleArtifactsCommand {
+            } => CleanStaleArtifactsExtensionCommandKind::Explicit(
+                CleanStaleArtifactsCommand::explicit(
                     keep_since_time,
-                    dry_run: args.dry_run,
-                    tracked_only: args.tracked_only,
+                    args.dry_run,
+                    args.tracked_only,
+                    adaptive_low_disk_threshold,
+                    adaptive_min_ttl,
+                    adaptive_unmaterialize_active,
                     dispatcher,
-                    adaptive_low_disk,
-                    unmaterialize_upload: None,
-                    root_abs_path: AbsPath::new("/").ok().map(|p| Arc::new(p.to_owned())),
-                    trigger: Trigger::ManualExplicit,
-                    policy_mode: if adaptive_low_disk_threshold.is_some() {
-                        PolicyMode::ExplicitAdaptive
-                    } else {
-                        PolicyMode::ExplicitTtl
-                    },
-                })
-            }
+                ),
+            ),
         };
         let (sender, recv) = oneshot::channel();
         self.command_sender.send(MaterializerCommand::Extension(
