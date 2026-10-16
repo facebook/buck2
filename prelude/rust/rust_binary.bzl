@@ -416,7 +416,7 @@ def _rust_binary_common(
         link_group_preferred_linkage = {}
         labels_to_links_map = {}
         targets_consumed_by_link_groups = {}
-        filtered_targets = []
+        filtered_targets = set()
 
     native_link_args = get_inherited_link_args(
         ctx,

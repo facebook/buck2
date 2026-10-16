@@ -734,17 +734,17 @@ def get_filtered_links(labels_to_links_map: dict[Label, LinkGroupLinkInfo], publ
             infos.append(info)
     return infos
 
-def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo]):
+def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo]) -> set[TargetLabel]:
     # labels_to_links_map will include entries for shared link group libraries
     # as well as libraries being statically linked into this link unit.
-    statically_linked_targets = []
+    statically_linked_targets = set()
     for label, info in labels_to_links_map.items():
         if info.output_style != LibOutputStyle("shared_lib"):
-            statically_linked_targets.append(label.raw_target())
+            statically_linked_targets.add(label.raw_target())
 
     return statically_linked_targets
 
-def get_link_group_map_json(ctx: AnalysisContext, targets: list[TargetLabel]) -> DefaultInfo:
+def get_link_group_map_json(ctx: AnalysisContext, targets: set[TargetLabel]) -> DefaultInfo:
     json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets), pretty = True, has_content_based_path = False)
     return DefaultInfo(default_output = json_map)
 
