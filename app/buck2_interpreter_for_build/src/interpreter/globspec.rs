@@ -407,6 +407,28 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_glob_large_listing_letter_case() {
+        // Patterns match case-insensitively, but a large package is first narrowed to the
+        // files that start with the literal prefix byte for byte, so the result depends on
+        // the number of files in the package.
+        assert_eq!(vec!["a"], resolve_for_test(&["A*"], &["a"]));
+        let files = large_listing("a");
+        let files: Vec<&str> = files.iter().map(String::as_str).collect();
+        assert_eq!(Vec::<String>::new(), resolve_for_test(&["A*"], &files));
+
+        assert_eq!(
+            vec!["SRC/foo"],
+            resolve_for_test(&["src/**/*"], &["SRC/foo"])
+        );
+        let files = large_listing("SRC/foo");
+        let files: Vec<&str> = files.iter().map(String::as_str).collect();
+        assert_eq!(
+            Vec::<String>::new(),
+            resolve_for_test(&["src/**/*"], &files)
+        );
+    }
+
+    #[test]
     fn test_glob_prefix() {
         assert_eq!("a/", longest_common_glob_prefix(&["a/1", "a/2"]));
         assert_eq!("", longest_common_glob_prefix(&["a/1", "b/1"]));
