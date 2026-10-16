@@ -9,67 +9,38 @@
 # The rules the prelude provides, as `rule` objects. `native.bzl` exposes them as
 # `native.<name>`, and they can also be loaded from this module by name.
 #
-# See `prelude_rule.bzl` for how rules are declared. This file only collects the
-# per-language registries and turns the declarations into rules.
+# See `prelude_rule.bzl` for how rules are declared and why the `rule` objects
+# are created in the per-language registries rather than here.
 
-load("@prelude//:alias.bzl", "alias", "configured_alias", "toolchain_alias", "versioned_alias")
-load("@prelude//:command_alias.bzl", "command_alias_rule")
-load("@prelude//:export_file.bzl", "export_file")
-load("@prelude//:filegroup.bzl", "filegroup")
-load("@prelude//:genrule.bzl", "genrule")
-load("@prelude//:http_file.bzl", "http_file")
-load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
-load("@prelude//:remote_file.bzl", "remote_file")
-load("@prelude//:sh_binary.bzl", "sh_binary")
-load("@prelude//:sh_test.bzl", "sh_test")
-load("@prelude//:test_suite.bzl", "test_suite")
-load("@prelude//android:ndk_toolchain.bzl", "ndk_toolchain")
-load("@prelude//android:rules.bzl", _android_rules = "rules")
-load("@prelude//apple:rules.bzl", _apple_rules = "rules")
-load("@prelude//configurations:rules.bzl", _configuration_rules = "rules")
-load("@prelude//csharp:rules.bzl", _dotnet_rules = "rules")
-load("@prelude//cxx:rules.bzl", _cxx_rules = "rules")
-load("@prelude//erlang:rules.bzl", _erlang_rules = "rules")
-load("@prelude//git:rules.bzl", _git_rules = "rules")
-load("@prelude//go:rules.bzl", _go_rules = "rules")
-load("@prelude//haskell:rules.bzl", _haskell_rules = "rules")
-load("@prelude//http_archive:http_archive.bzl", "http_archive")
-load("@prelude//java:rules.bzl", _java_rules = "rules")
-load("@prelude//js:rules.bzl", _js_rules = "rules")
-load("@prelude//js:worker_tool.bzl", "worker_tool")
-load("@prelude//julia:rules.bzl", _julia_rules = "rules")
-load("@prelude//kotlin:rules.bzl", _kotlin_rules = "rules")
-load("@prelude//lua:rules.bzl", _lua_rules = "rules")
-load("@prelude//matlab:rules.bzl", _matlab_rules = "rules")
-load("@prelude//nodejs:rules.bzl", _nodejs_rules = "rules")
-load("@prelude//ocaml:rules.bzl", _ocaml_rules = "rules")
-load("@prelude//python:rules.bzl", _python_rules = "rules")
-load("@prelude//python/cython:rules.bzl", _cython_rules = "rules")
-load("@prelude//rust:rules.bzl", _rust_rules = "rules")
-load("@prelude//zip_file:zip_file.bzl", "zip_file")
+load("@prelude//:core_rules.bzl", _core_rules = "rules", _core_specs = "specs", _shell_rules = "shell_rules", _shell_specs = "shell_specs")
+load("@prelude//:prelude_rule.bzl", "make_rule")
+load("@prelude//android:rules.bzl", _android_rules = "rules", _android_specs = "specs")
+load("@prelude//apple:rules.bzl", _apple_rules = "rules", _apple_specs = "specs")
+load("@prelude//configurations:rules.bzl", _configuration_rules = "rules", _configuration_specs = "specs")
+load("@prelude//csharp:rules.bzl", _dotnet_rules = "rules", _dotnet_specs = "specs")
+load("@prelude//cxx:rules.bzl", _cxx_rules = "rules", _cxx_specs = "specs")
+load("@prelude//erlang:rules.bzl", _erlang_rules = "rules", _erlang_specs = "specs")
+load("@prelude//git:rules.bzl", _git_rules = "rules", _git_specs = "specs")
+load("@prelude//go:rules.bzl", _go_rules = "rules", _go_specs = "specs")
+load("@prelude//haskell:rules.bzl", _haskell_rules = "rules", _haskell_specs = "specs")
+load("@prelude//java:rules.bzl", _java_rules = "rules", _java_specs = "specs")
+load("@prelude//js:rules.bzl", _js_rules = "rules", _js_specs = "specs")
+load("@prelude//julia:rules.bzl", _julia_rules = "rules", _julia_specs = "specs")
+load("@prelude//kotlin:rules.bzl", _kotlin_rules = "rules", _kotlin_specs = "specs")
+load("@prelude//lua:rules.bzl", _lua_rules = "rules", _lua_specs = "specs")
+load("@prelude//matlab:rules.bzl", _matlab_rules = "rules", _matlab_specs = "specs")
+load("@prelude//nodejs:rules.bzl", _nodejs_rules = "rules", _nodejs_specs = "specs")
+load("@prelude//ocaml:rules.bzl", _ocaml_rules = "rules", _ocaml_specs = "specs")
+load("@prelude//python:rules.bzl", _python_rules = "rules", _python_specs = "specs")
+load("@prelude//python/cython:rules.bzl", _cython_rules = "rules", _cython_specs = "specs")
+load("@prelude//rust:rules.bzl", _rust_rules = "rules", _rust_specs = "specs")
 
-# Rule declarations grouped by the category they are documented under.
-_categorized_rule_specs = {
+# Rules grouped by the category they are documented under.
+categorized_rules = {
     ".NET": _dotnet_rules,
     "android": _android_rules,
     "apple": _apple_rules,
-    "core": {
-        "alias": alias,
-        "command_alias": command_alias_rule,
-        "configured_alias": configured_alias,
-        "export_file": export_file,
-        "filegroup": filegroup,
-        "genrule": genrule,
-        "http_archive": http_archive,
-        "http_file": http_file,
-        "remote_file": remote_file,
-        "test_suite": test_suite,
-        "toolchain_alias": toolchain_alias,
-        "versioned_alias": versioned_alias,
-        "worker_tool": worker_tool,
-        "zip_file": zip_file,
-    }
-    | _configuration_rules,
+    "core": _core_rules | _configuration_rules,
     "cxx": _cxx_rules,
     "cython": _cython_rules,
     "erlang": _erlang_rules,
@@ -86,13 +57,31 @@ _categorized_rule_specs = {
     "ocaml": _ocaml_rules,
     "python": _python_rules,
     "rust": _rust_rules,
-    "shell": {
-        "sh_binary": sh_binary,
-        "sh_test": sh_test,
-    },
-    "uncategorized": {
-        "ndk_toolchain": ndk_toolchain,
-    },
+    "shell": _shell_rules,
+}
+
+_categorized_rule_specs = {
+    ".NET": _dotnet_specs,
+    "android": _android_specs,
+    "apple": _apple_specs,
+    "core": _core_specs | _configuration_specs,
+    "cxx": _cxx_specs,
+    "cython": _cython_specs,
+    "erlang": _erlang_specs,
+    "git": _git_specs,
+    "go": _go_specs,
+    "haskell": _haskell_specs,
+    "java": _java_specs,
+    "js": _js_specs,
+    "julia": _julia_specs,
+    "kotlin": _kotlin_specs,
+    "lua": _lua_specs,
+    "matlab": _matlab_specs,
+    "nodejs": _nodejs_specs,
+    "ocaml": _ocaml_specs,
+    "python": _python_specs,
+    "rust": _rust_specs,
+    "shell": _shell_specs,
 }
 
 def _flatten(categorized: dict[str, dict[str, typing.Any]]) -> dict[str, typing.Any]:
@@ -104,85 +93,9 @@ def _flatten(categorized: dict[str, dict[str, typing.Any]]) -> dict[str, typing.
             flat[name] = value
     return flat
 
-_rule_specs = _flatten(_categorized_rule_specs)
-
-for _name, _spec in _rule_specs.items():
-    if _spec.name != _name:
-        fail("Rule `{}` is registered under the name `{}`".format(_spec.name, _name))
-
-def _unimplemented(name, ctx):
-    fail("Unimplemented rule type `{}` for target `{}`.".format(name, ctx.label))
-
-def _unimplemented_impl(name):
-    # We could use a lambda here, but then it means every single parse evaluates a lambda.
-    # Lambda's have tricky semantics, so using partial lets us test Starlark prototypes with
-    # some features disabled.
-    return partial(_unimplemented, name)
-
-def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(), impl_override: [typing.Callable, None] = None, **kwargs):
-    name = rule_spec.name
-    attributes = rule_spec.attrs
-
-    # We want native code-containing rules to be marked incompatible with fat
-    # platforms. Getting the ones that use cxx/apple toolchains is a little
-    # overly broad as it includes things like python that don't themselves have
-    # native code but need the toolchains if they depend on native code and in
-    # that case incompatibility is transitive and they'll get it.
-    fat_platform_compatible = True
-    if name not in ("python_library", "python_binary", "python_test"):
-        for toolchain_attr in ("_apple_toolchain", "_cxx_toolchain", "_go_toolchain"):
-            if toolchain_attr in attributes:
-                fat_platform_compatible = False
-
-    # Fat platforms is an idea specific to our toolchains, so doesn't apply to
-    # open source. Ideally this restriction would be done at the toolchain level.
-    if not is_full_meta_repo():
-        fat_platform_compatible = True
-
-    attributes = dict(attributes)
-    attributes.update(extra_attrs)
-    if not fat_platform_compatible:
-        # copy so we don't try change the passed in object
-        attributes["_cxx_toolchain_target_configuration"] = attrs.dep(default = "prelude//platforms:fat_platform_incompatible")
-
-    cfg = rule_spec.cfg
-
-    if cfg != None:
-        # Allow clone_rule callers to set their own cfg, if it exists
-        kwargs.setdefault("cfg", cfg)
-
-    if rule_spec.docs:
-        doc = rule_spec.docs
-
-        # This is awkward. When generating documentation, we'll strip leading whitespace
-        # like it's a python docstring. For that to work here, we need the "Examples:" line
-        # to match the other lines for leading whitespace. We've just hardcoded this to
-        # be what its expected to be in prelude.
-        # TODO(cjhopman): Figure out something better here.
-        if rule_spec.examples:
-            # NOTE: DocString needs 'Examples:' to render the sections properly, that code should be updated along with this
-            doc += "\n{}Examples:\n{}".format(" " * 8, rule_spec.examples)
-        if rule_spec.further:
-            doc += "\n{}Additional notes:\n{}".format(" " * 8, rule_spec.further)
-
-        kwargs["doc"] = doc
-
-    impl = rule_spec.impl
-    if not impl:
-        impl = _unimplemented_impl(name)
-    if impl_override != None:
-        impl = impl_override
-    if rule_spec.uses_plugins != None:
-        kwargs["uses_plugins"] = rule_spec.uses_plugins
-    if rule_spec.supports_incoming_transition != None:
-        kwargs["supports_incoming_transition"] = rule_spec.supports_incoming_transition
-
-    kwargs.setdefault("is_configuration_rule", rule_spec.is_configuration_rule)
-    kwargs.setdefault("is_toolchain_rule", rule_spec.is_toolchain_rule)
-    return rule(impl = impl, attrs = attributes, **kwargs)
-
-categorized_rules = {category: {name: _mk_rule(spec) for name, spec in specs.items()} for category, specs in _categorized_rule_specs.items()}
 rules = _flatten(categorized_rules)
+
+_rule_specs = _flatten(_categorized_rule_specs)
 
 # The rules are accessed by doing module.name, so we have to put them on the correct module.
 load_symbols(rules)
@@ -191,4 +104,4 @@ load_symbols(rules)
 def clone_rule(rule: str, extra_attrs: dict[str, typing.Any] = dict(), impl_override = None, **kwargs):
     if not rule in _rule_specs:
         fail("Tried clone rule {} which does not exist".format(rule))
-    return _mk_rule(_rule_specs[rule], extra_attrs, impl_override, **kwargs)
+    return make_rule(_rule_specs[rule], extra_attrs, impl_override, **kwargs)

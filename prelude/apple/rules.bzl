@@ -6,10 +6,15 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "make_rules")
 load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:meta_only_rules.bzl", "meta_only_apple_rules")
 
-_rules = {name: getattr(apple_rules, name) for name in dir(apple_rules)}
+_specs = {name: getattr(apple_rules, name) for name in dir(apple_rules)}
 
-# @oss-disable[end= ]: rules = _rules | meta_only_apple_rules()
-rules = _rules # @oss-enable
+# @oss-disable[end= ]: specs = _specs | meta_only_apple_rules()
+specs = _specs # @oss-enable
+
+rules = make_rules(specs)
+
+load_symbols(rules)

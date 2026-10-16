@@ -6,10 +6,15 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":kotlin_library.bzl", "kotlin_library")
-load(":kotlin_test.bzl", "kotlin_test")
+load("@prelude//:prelude_rule.bzl", "make_rules")
+load(":kotlin_library.bzl", kotlin_library_spec = "kotlin_library")
+load(":kotlin_test.bzl", kotlin_test_spec = "kotlin_test")
 
-rules = {
-    "kotlin_library": kotlin_library,
-    "kotlin_test": kotlin_test,
+specs = {
+    "kotlin_library": kotlin_library_spec,
+    "kotlin_test": kotlin_test_spec,
 }
+
+rules = make_rules(specs)
+
+load_symbols(rules)
