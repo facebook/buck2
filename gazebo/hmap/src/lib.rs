@@ -15,10 +15,13 @@
 //! Compatibility formats preserve the output of the existing clangd converter
 //! and LLVM's Python hmaptool, including their non-ASCII hashing behavior.
 
-use std::collections::HashMap;
+use std::borrow::Cow;
+use std::collections::hash_map::RandomState;
+use std::hash::BuildHasher;
 use std::io::Write;
 use std::str::Utf8Error;
 
+use hashbrown::HashTable;
 use thiserror::Error;
 
 mod compat;
@@ -165,6 +168,30 @@ pub struct HeaderMap {
     strings: Vec<u8>,
     num_entries: u32,
     max_value_length: u32,
+}
+
+/// The borrowed strings for one header-map entry.
+#[derive(Clone, Copy, Debug)]
+pub struct Mapping<'a> {
+    /// The name used to look up the header.
+    pub key: &'a str,
+    /// The first part of the destination path.
+    pub prefix: &'a str,
+    /// The remaining part of the destination path.
+    pub suffix: &'a str,
+}
+
+impl<'a> Mapping<'a> {
+    /// Joins the destination parts. Borrows when either part is empty.
+    pub fn value(self) -> Cow<'a, str> {
+        if self.prefix.is_empty() {
+            Cow::Borrowed(self.suffix)
+        } else if self.suffix.is_empty() {
+            Cow::Borrowed(self.prefix)
+        } else {
+            Cow::Owned([self.prefix, self.suffix].concat())
+        }
+    }
 }
 
 impl HeaderMap {
@@ -314,19 +341,19 @@ impl HeaderMap {
         Ok(result)
     }
 
-    /// Returns the mappings in bucket order. Compatibility output with invalid
-    /// UTF-8 offsets returns an error.
-    pub fn mappings(&self) -> Result<Vec<(String, String)>, HeaderMapError> {
+    /// Iterates over borrowed mappings in bucket order without allocating.
+    /// Compatibility output with invalid UTF-8 offsets yields an error.
+    pub fn mappings(&self) -> impl Iterator<Item = Result<Mapping<'_>, HeaderMapError>> {
         self.buckets
             .iter()
             .filter(|bucket| bucket[0] != 0)
             .map(|bucket| {
-                Ok((
-                    self.string_at(bucket[0])?.to_owned(),
-                    [self.string_at(bucket[1])?, self.string_at(bucket[2])?].concat(),
-                ))
+                Ok(Mapping {
+                    key: self.string_at(bucket[0])?,
+                    prefix: self.string_at(bucket[1])?,
+                    suffix: self.string_at(bucket[2])?,
+                })
             })
-            .collect()
     }
 
     /// Writes the header map in the selected byte order. Does not flush the writer.
@@ -353,7 +380,8 @@ impl HeaderMap {
 
     /// Returns the encoded file without using the filesystem.
     pub fn to_bytes(&self, byte_order: ByteOrder) -> Vec<u8> {
-        let mut bytes = Vec::new();
+        let mut bytes =
+            Vec::with_capacity(HEADER_SIZE + self.buckets.len() * BUCKET_SIZE + self.strings.len());
         self.write_to(&mut bytes, byte_order)
             .expect("writing to a Vec cannot fail");
         bytes
@@ -405,9 +433,24 @@ fn hash_key(key: &str, format: WriteFormat) -> Result<u32, HeaderMapError> {
     }
 }
 
+struct InternedString {
+    byte_offset: u32,
+    length: u32,
+    encoded_offset: u32,
+}
+
+impl InternedString {
+    fn bytes<'a>(&self, table: &'a [u8]) -> &'a [u8] {
+        let start = self.byte_offset as usize;
+        &table[start..start + self.length as usize]
+    }
+}
+
 struct StringTable {
     bytes: Vec<u8>,
-    offsets: HashMap<String, u32>,
+    // Index the existing bytes instead of keeping a second copy of each string.
+    offsets: HashTable<InternedString>,
+    hash_builder: RandomState,
     character_length: usize,
     format: WriteFormat,
 }
@@ -416,7 +459,8 @@ impl StringTable {
     fn new(format: WriteFormat) -> Self {
         Self {
             bytes: vec![0],
-            offsets: HashMap::new(),
+            offsets: HashTable::new(),
+            hash_builder: RandomState::new(),
             character_length: 1,
             format,
         }
@@ -426,19 +470,24 @@ impl StringTable {
         if value.contains('\0') {
             return Err(HeaderMapError::NulByte);
         }
-        if !matches!(self.format, WriteFormat::LegacyClangd)
-            && let Some(offset) = self.offsets.get(value)
+        let hash = (!matches!(self.format, WriteFormat::LegacyClangd))
+            .then(|| self.hash_builder.hash_one(value.as_bytes()));
+        if let Some(hash) = hash
+            && let Some(entry) = self
+                .offsets
+                .find(hash, |entry| entry.bytes(&self.bytes) == value.as_bytes())
         {
-            return Ok(*offset);
+            return Ok(entry.encoded_offset);
         }
         let length = match self.format {
             WriteFormat::PythonHmaptool(_) => self.character_length,
             _ => self.bytes.len(),
         };
         let offset = u32::try_from(length).map_err(|_| HeaderMapError::TooLarge)?;
+        let byte_offset = self.bytes.len();
         self.bytes.extend_from_slice(value.as_bytes());
         self.bytes.push(0);
-        if !matches!(self.format, WriteFormat::LegacyClangd) {
+        if let Some(hash) = hash {
             if matches!(self.format, WriteFormat::PythonHmaptool(_)) {
                 self.character_length = self
                     .character_length
@@ -446,7 +495,16 @@ impl StringTable {
                     .and_then(|length| length.checked_add(1))
                     .ok_or(HeaderMapError::TooLarge)?;
             }
-            self.offsets.insert(value.to_owned(), offset);
+            let entry = InternedString {
+                byte_offset: u32::try_from(byte_offset).map_err(|_| HeaderMapError::TooLarge)?,
+                length: u32::try_from(value.len()).map_err(|_| HeaderMapError::TooLarge)?,
+                encoded_offset: offset,
+            };
+            let bytes = &self.bytes;
+            let hash_builder = &self.hash_builder;
+            self.offsets.insert_unique(hash, entry, |entry| {
+                hash_builder.hash_one(entry.bytes(bytes))
+            });
         }
         Ok(offset)
     }

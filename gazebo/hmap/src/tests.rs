@@ -16,6 +16,45 @@ fn encode(mappings: &[(&str, &str)], format: WriteFormat) -> HeaderMap {
     HeaderMap::from_mappings(mappings.iter().copied(), format).expect("header map should encode")
 }
 
+fn owned_mappings(map: &HeaderMap) -> Vec<(String, String)> {
+    map.mappings()
+        .map(|entry| {
+            let entry = entry.unwrap();
+            (entry.key.to_owned(), entry.value().into_owned())
+        })
+        .collect()
+}
+
+#[test]
+fn mapping_views_borrow_strings_and_only_join_nonempty_parts() {
+    for (value, prefix, suffix, borrowed) in [
+        ("", "", "", true),
+        ("header.h", "", "header.h", true),
+        ("dir/", "dir/", "", true),
+        ("dir/header.h", "dir/", "header.h", false),
+    ] {
+        let map = encode(&[("include.h", value)], WriteFormat::default());
+        let entry = map.mappings().next().unwrap().unwrap();
+        assert_eq!(entry.key, "include.h");
+        assert_eq!((entry.prefix, entry.suffix), (prefix, suffix));
+        let joined = entry.value();
+        assert_eq!(joined, value);
+        assert_eq!(matches!(joined, Cow::Borrowed(_)), borrowed);
+    }
+}
+
+#[test]
+fn mapping_iteration_reports_invalid_utf8_offsets() {
+    let map = encode(
+        &[("雪", "header.h")],
+        WriteFormat::PythonHmaptool(PathStyle::Unix),
+    );
+    assert!(matches!(
+        map.mappings().next(),
+        Some(Err(HeaderMapError::InvalidUtf8(_)))
+    ));
+}
+
 #[test]
 fn empty_map_has_an_empty_bucket_and_reserved_string() {
     let map = encode(&[], WriteFormat::default());
@@ -27,8 +66,8 @@ fn empty_map_has_an_empty_bucket_and_reserved_string() {
         HeaderMap::from_bytes(&bytes)
             .unwrap()
             .mappings()
-            .unwrap()
-            .is_empty()
+            .next()
+            .is_none()
     );
 }
 
@@ -51,9 +90,7 @@ fn round_trip_both_byte_orders_and_unicode() {
         for order in [ByteOrder::Little, ByteOrder::Big] {
             let bytes = map.to_bytes(order);
             let decoded = HeaderMap::from_bytes(&bytes).unwrap();
-            let actual = decoded
-                .mappings()
-                .unwrap()
+            let actual = owned_mappings(&decoded)
                 .into_iter()
                 .collect::<BTreeMap<_, _>>();
             let expected = mappings
@@ -112,7 +149,7 @@ fn compatibility_formats_keep_their_string_layout() {
     );
     assert_eq!(
         vec![(mappings[0].0.to_owned(), mappings[0].1.to_owned())],
-        legacy.mappings().unwrap()
+        owned_mappings(&legacy)
     );
     assert_eq!(
         ('ä' as u32) * 13,

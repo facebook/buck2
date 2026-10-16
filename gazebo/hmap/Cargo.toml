@@ -9,6 +9,7 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
+hashbrown.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
