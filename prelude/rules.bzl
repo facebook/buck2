@@ -97,9 +97,13 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
 def _categorized_decls():
     grouped_decls = {}
     for group_name, decl_set in categorized_rule_decl_records.items():
-        group_rules = {}
-        for rule in dir(decl_set):
-            group_rules[rule] = getattr(decl_set, rule)
+        if isinstance(decl_set, dict):
+            group_rules = dict(decl_set)
+        else:
+            # TODO: Remove once all rule declarations have been moved out of `decls/`
+            group_rules = {}
+            for rule in dir(decl_set):
+                group_rules[rule] = getattr(decl_set, rule)
         grouped_decls[group_name] = group_rules
     return grouped_decls
 

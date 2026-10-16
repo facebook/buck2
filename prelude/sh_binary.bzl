@@ -7,6 +7,8 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 
 def _derive_link(artifact):
@@ -146,3 +148,96 @@ def sh_binary_impl(ctx):
             args = cmd_args(script, hidden = resources_dir),
         ),
     ]
+
+sh_binary = prelude_rule(
+    name = "sh_binary",
+    impl = sh_binary_impl,
+    docs = """
+        An `sh_binary()` is used to execute a shell script.
+    """,
+    examples = """
+        This sh\\_binary() just cats a sample data file back at the user.
+
+        ```
+        # $REPO/BUCK
+        sh_binary(
+            name = "script",
+            main = "script.sh",
+            resources = [
+                "data.dat",
+            ],
+        )
+        ```
+
+        ```
+        # Sample data file with data we need at runtime
+        $ echo "I'm a datafile" > data.dat
+
+        # Create a simple script that prints out the resource
+        $ cat > script.sh
+        #!/bin/sh
+        cat $BUCK_DEFAULT_RUNTIME_RESOURCES/data.dat
+
+        # Make sure the script is executable
+        $ chmod u+x script.sh
+
+        # Run the script, and see that it prints out the resource we provided
+        $ buck run //:script
+        Jobs completed: 4. Time elapsed: 0.2s.
+        BUILD SUCCEEDED
+        I'm a datafile
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "main": attrs.source(
+                doc = """
+                Either the path to the script (relative to the build file), or a `build target`.
+                 This file must be executable in order to be run.
+            """
+            ),
+            "resources": attrs.list(
+                attrs.source(allow_directory = True),
+                default = [],
+                doc = """
+                A list of files or build rules that this rule requires in order to run. These could be things such as
+                 random data files.
+
+                 When the script runs, the `$BUCK_DEFAULT_RUNTIME_RESOURCES`
+                 environment variable specifies the directory that contains these resources.
+                 This directory's location is determined entirely by Buck; the script should
+                 not assume the directory's location.
+
+                 The resources are also made available in a tree structure that mirrors
+                 their locations in the source and `buck-out` trees. The
+                 environment variable `$BUCK_PROJECT_ROOT` specifies a directory
+                 that contains all the resources, laid out in their locations relative to
+                 the original buck project root.
+            """,
+            ),
+            "append_script_extension": attrs.bool(
+                default = True,
+                doc = """
+                By default, sh_binary ensures that the script has an appropriate extension (e.g. `.sh` or `.bat`),
+                  appending one itself if necessary. Setting this to False prevents that behavior and makes the caller
+                  responsible for ensuring an existing appropriate extension.
+            """,
+            ),
+            "copy_resources": attrs.bool(
+                default = False,
+                doc = """
+                By default, sh_binary attempts to use symbolic links for the resources. This can be changed so,
+                that copies are made instead.
+            """,
+            ),
+            "deps": attrs.list(attrs.dep(), default = []),
+            "_target_os_type": buck.target_os_type_arg(),
+            "has_content_based_path": attrs.bool(default = True),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+)

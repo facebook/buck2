@@ -13,8 +13,8 @@ load("@prelude//:filegroup.bzl", "filegroup_impl")
 load("@prelude//:genrule.bzl", "genrule_attributes", "genrule_impl")
 load("@prelude//:http_file.bzl", "http_file_impl")
 load("@prelude//:remote_file.bzl", "remote_file_impl")
-load("@prelude//:sh_binary.bzl", "sh_binary_impl")
-load("@prelude//:sh_test.bzl", "sh_test_impl")
+load("@prelude//:sh_binary.bzl", "sh_binary")
+load("@prelude//:sh_test.bzl", "sh_test")
 load("@prelude//:test_suite.bzl", "test_suite_impl")
 load("@prelude//android:android.bzl", _android_implemented_rules = "implemented_rules")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
@@ -42,7 +42,6 @@ load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
 load("@prelude//decls:cython_rules.bzl", "cython_rules")
 load("@prelude//decls:dotnet_rules.bzl", "dotnet_rules")
 load("@prelude//decls:erlang_rules.bzl", "erlang_rules")
-load("@prelude//decls:git_rules.bzl", "git_rules")
 load("@prelude//decls:go_rules.bzl", "go_rules")
 load("@prelude//decls:haskell_rules.bzl", "haskell_rules")
 load("@prelude//decls:java_rules.bzl", "java_rules")
@@ -54,12 +53,11 @@ load("@prelude//decls:ocaml_rules.bzl", "ocaml_rules")
 load("@prelude//decls:python_rules.bzl", "python_rules")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
 load("@prelude//decls:rust_rules.bzl", "rust_rules")
-load("@prelude//decls:shell_rules.bzl", "shell_rules")
 load("@prelude//decls:third_party_common.bzl", "third_party_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//decls:uncategorized_rules.bzl", "uncategorized_rules")
 load("@prelude//erlang:erlang.bzl", _erlang_implemented_rules = "implemented_rules")
-load("@prelude//git:git_fetch.bzl", "git_fetch_impl")
+load("@prelude//git:rules.bzl", _git_rules = "rules")
 load("@prelude//go:coverage.bzl", "GoCoverageMode")
 load("@prelude//go:go_binary.bzl", "go_binary_impl")
 load("@prelude//go:go_exported_library.bzl", "go_exported_library_impl")
@@ -135,7 +133,7 @@ categorized_rule_decl_records = {
     _CYTHON_RULES_KEY: cython_rules,
     _DOTNET_RULES_KEY: dotnet_rules,
     _ERLANG_RULES_KEY: erlang_rules,
-    _GIT_RULES_KEY: git_rules,
+    _GIT_RULES_KEY: _git_rules,
     _GO_RULES_KEY: go_rules,
     _HASKELL_RULES_KEY: haskell_rules,
     _APPLE_RULES_KEY: apple_rules,
@@ -147,7 +145,10 @@ categorized_rule_decl_records = {
     _OCAML_RULES_KEY: ocaml_rules,
     _PYTHON_RULES_KEY: python_rules,
     _RUST_RULES_KEY: rust_rules,
-    _SHELL_RULES_KEY: shell_rules,
+    _SHELL_RULES_KEY: {
+        "sh_binary": sh_binary,
+        "sh_test": sh_test,
+    },
     _UNCATEGORIZED_RULES_KEY: uncategorized_rules,
 }
 
@@ -172,8 +173,6 @@ extra_implemented_rules = struct(
     http_archive = http_archive_impl,
     http_file = http_file_impl,
     remote_file = remote_file_impl,
-    sh_binary = sh_binary_impl,
-    sh_test = sh_test_impl,
     test_suite = test_suite_impl,
     toolchain_alias = alias_impl,
     versioned_alias = versioned_alias_impl,
@@ -200,8 +199,6 @@ extra_implemented_rules = struct(
     cython_toolchain = cython_toolchain_impl,
     # C++ / LLVM
     llvm_link_bitcode = llvm_link_bitcode_impl,
-    # git
-    git_fetch = git_fetch_impl,
     # go
     go_binary = go_binary_impl,
     go_bootstrap_binary = go_bootstrap_binary_impl,
@@ -543,10 +540,6 @@ _core_extra_attributes = (
     | _config_extra_attributes
 )
 
-_shell_extra_attributes = {
-    "sh_test": constraint_overrides.attributes,
-}
-
 _uncategorized_extra_attributes = {
     "ndk_toolchain": {
         "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo, CxxPlatformInfo]),
@@ -576,7 +569,6 @@ categorized_extra_attributes = {
     _OCAML_RULES_KEY: _ocaml_extra_attributes,
     _PYTHON_RULES_KEY: _python_extra_attributes,
     _RUST_RULES_KEY: _rust_extra_attributes,
-    _SHELL_RULES_KEY: _shell_extra_attributes,
     _UNCATEGORIZED_RULES_KEY: _uncategorized_extra_attributes,
 }
 
