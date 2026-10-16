@@ -6,6 +6,7 @@ buck2_core_tests(
     materializer_variants = [
         "test_clean_stale",
         "test_clean_stale_bxl",
+        "test_materializer",
         "test_granularity",
         "test_projections",
         "test_symlink_deps",
