@@ -8,10 +8,10 @@
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR", "cxx_binary_base_attrs", "cxx_common", "cxx_library_base_attrs")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
-load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:third_party_common.bzl", "third_party_common")
@@ -22,7 +22,6 @@ load("@prelude//python:python_runtime_bundle.bzl", "PythonRuntimeBundleInfo")
 load("@prelude//python:toolchain.bzl", "NativeLinkStrategy")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck")
-load(":cxx_common.bzl", "cxx_common")
 load(":native_common.bzl", "native_common")
 load(":python_common.bzl", "python_common")
 
@@ -243,7 +242,7 @@ cxx_python_extension = prelude_rule(
         # This isn't the ideal way to reuse it (we'd rather cxx_library was split it multiple reusable parts),
         # but it's the pragmatic way of getting it working for now.
         # @unsorted-dict-items
-        {k: attrs.default_only(v) for k, v in cxx_rules.cxx_library.attrs.items()}
+        {k: attrs.default_only(v) for k, v in cxx_library_base_attrs().items()}
         | buck.labels_arg()
         | python_common.base_module_arg()
         | cxx_common.srcs_arg()
@@ -454,7 +453,7 @@ python_binary = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        {k: attrs.default_only(v) for k, v in cxx_rules.cxx_binary.attrs.items()}
+        {k: attrs.default_only(v) for k, v in cxx_binary_base_attrs().items()}
         | buck.labels_arg()
         | {
             "base_module": attrs.option(
@@ -625,7 +624,7 @@ python_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        {k: attrs.default_only(v) for k, v in cxx_rules.cxx_binary.attrs.items()}
+        {k: attrs.default_only(v) for k, v in cxx_binary_base_attrs().items()}
         | buck.inject_test_env_arg()
         | python_common.srcs_arg()
         | python_common.resources_arg()

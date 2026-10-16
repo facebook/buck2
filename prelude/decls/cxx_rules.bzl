@@ -11,75 +11,29 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
-load("@prelude//apple:apple_common.bzl", "apple_common")
-load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
+load(
+    "@prelude//cxx:attrs.bzl",
+    "cxx_binary_and_test_attrs",
+    "cxx_binary_base_attrs",
+    "cxx_common",
+    "cxx_library_base_attrs",
+    "cxx_precompiled_header_attrs",
+    _BUILD_INFO_ATTR = "BUILD_INFO_ATTR",
+)
 load("@prelude//cxx:cxx_flags.bzl", "CxxFlagsInfo")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CXX_COMPILER_TYPES")
-load("@prelude//cxx:cxx_types.bzl", "LinkPreference")
-load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:core_rules.bzl", "core_args")
 load("@prelude//decls:test_common.bzl", "test_common")
-load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
-load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
-load("@prelude//linking:link_info.bzl", "ArchiveContentsType", "LinkOrdering", "LinkStyle")
+load("@prelude//linking:link_info.bzl", "ArchiveContentsType", "LinkStyle")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck")
-load(":cxx_common.bzl", "cxx_common")
 load(":genrule_common.bzl", "genrule_common")
 load(":native_common.bzl", "native_common")
 
-BUILD_INFO_ATTR = attrs.dict(
-    key = attrs.string(),
-    value = attrs.option(attrs.any()),
-    sorted = False,
-    default = {},
-    doc = "Build info that is passed along here will be late-stamped into a fb_build_info section on the output binary",
-)
-
-def _cxx_binary_and_test_attrs():
-    ret = (
-        {
-            "anonymous_link_groups": attrs.bool(default = False),
-            "auto_link_groups": attrs.bool(default = False),
-            # Linker flags that only apply to the executable link, used for link
-            # strategies (e.g. link groups) which may link shared libraries from
-            # top-level binary context.
-            "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-            "bolt_flags": attrs.list(attrs.arg(), default = []),
-            "bolt_profile": attrs.option(attrs.source(), default = None),
-            # These flags will only be used to instrument a target
-            # when coverage for that target is enabled by a header
-            # selected for coverage either in the target or in one
-            # of the target's dependencies.
-            "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
-            # Optional clang_profile_list target for selective coverage instrumentation via -fprofile-list.
-            "coverage_profile_list": attrs.option(attrs.dep(), default = None),
-            "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
-            "enable_distributed_thinlto": attrs.bool(default = False),
-            "exported_needs_coverage_instrumentation": attrs.bool(default = False),
-            "extra_dwp_flags": attrs.list(attrs.string(), default = []),
-            "link_execution_preference": link_execution_preference_attr(),
-            "link_group_map": LINK_GROUP_MAP_ATTR,
-            "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
-            "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-            "link_preference": attrs.enum(LinkPreference.values(), default = "default"),
-            "link_whole": attrs.default_only(attrs.bool(default = False)),
-            "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-            "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
-            "separate_debug_info": attrs.bool(default = False),
-            "_build_info": BUILD_INFO_ATTR,
-            "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
-            "_cxx_toolchain": toolchains_common.cxx(),
-        }
-        | cxx_common.flags_arg()
-        | validation_common.attrs_validators_arg()
-    )
-    ret.update(constraint_overrides.attributes)
-    return ret
+BUILD_INFO_ATTR = _BUILD_INFO_ATTR
 
 ArchiverProviderType = ["bsd", "gnu", "llvm", "windows", "windows_clang"]
 
@@ -131,60 +85,7 @@ cxx_binary = prelude_rule(
         ```
     """,
     further = None,
-    attrs = (
-        # @unsorted-dict-items
-        cxx_common.srcs_arg()
-        | cxx_common.headers_arg()
-        | cxx_common.header_namespace_arg()
-        | cxx_common.preprocessor_flags_arg()
-        | cxx_common.compiler_flags_arg()
-        | cxx_common.linker_extra_outputs_arg()
-        | cxx_common.linker_flags_arg()
-        | cxx_common.precompiled_header_arg()
-        | cxx_common.default_deps_arg()
-        | native_common.link_style()
-        | native_common.link_group_deps()
-        | native_common.link_group_public_deps_label()
-        | native_common.transformation_spec_arg()
-        | buck.deps_query_arg()
-        | cxx_common.raw_headers_arg()
-        | cxx_common.include_directories_arg()
-        | cxx_common.raw_headers_as_headers_mode_arg()
-        | cxx_common.runtime_dependency_handling_arg()
-        | cxx_common.use_fbcc_rust_wrapper_arg()
-        | cxx_common.use_content_based_paths_arg()
-        | {
-            "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
-            "default_platform": attrs.option(attrs.string(), default = None),
-            "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
-            "deps": attrs.list(attrs.dep(), default = []),
-            "devirt_enabled": attrs.bool(default = False),
-            "executable_name": attrs.option(attrs.string(), default = None),
-            "fat_lto": attrs.bool(default = False),
-            "focused_list_target": attrs.option(attrs.dep(), default = None),
-            "frameworks": attrs.list(attrs.string(), default = []),
-            "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "libraries": attrs.list(attrs.string(), default = []),
-            "link_deps_query_whole": attrs.bool(default = False),
-            "link_group": attrs.option(attrs.string(), default = None),
-            "link_group_map": LINK_GROUP_MAP_ATTR,
-            "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-            "prefer_stripped_objects": attrs.bool(default = False),
-            "prefix_header": attrs.option(attrs.source(), default = None),
-            "resources": attrs.named_set(attrs.source(), sorted = True, default = []),
-            "thin_lto": attrs.bool(default = False),
-            "use_header_units": attrs.one_of(attrs.bool(), attrs.enum(["stub"]), default = False),
-            "version_universe": attrs.option(attrs.string(), default = None),
-            "weak_framework_names": attrs.list(attrs.string(), default = []),
-        }
-        | buck.allow_cache_upload_arg()
-        | buck.licenses_arg()
-        | buck.labels_arg()
-        | buck.contacts_arg()
-        | _cxx_binary_and_test_attrs()
-    ),
+    attrs = cxx_binary_base_attrs(),
     # @oss-disable[end= ]: cfg = constraint_overrides.transition,
     supports_incoming_transition = True, # @oss-enable
 )
@@ -396,158 +297,6 @@ cxx_genrule = prelude_rule(
     ),
 )
 
-library_attrs = (
-    # @unsorted-dict-items
-    cxx_common.srcs_arg()
-    | cxx_common.flags_arg()
-    | cxx_common.headers_arg()
-    | cxx_common.exported_headers_arg()
-    | cxx_common.exported_header_style_arg()
-    | cxx_common.header_namespace_arg()
-    | cxx_common.preprocessor_flags_arg()
-    | cxx_common.lang_preprocessor_flags_arg()
-    | cxx_common.exported_preprocessor_flags_arg(exported_preprocessor_flags_type = attrs.list(attrs.arg(), default = []))
-    | cxx_common.exported_lang_preprocessor_flags_arg()
-    | cxx_common.compiler_flags_arg()
-    | cxx_common.lang_compiler_flags_arg()
-    | cxx_common.linker_extra_outputs_arg()
-    | cxx_common.linker_flags_arg()
-    | cxx_common.local_linker_flags_arg()
-    | cxx_common.exported_linker_flags_arg()
-    | cxx_common.exported_post_linker_flags_arg()
-    | native_common.link_style()
-    | native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None))
-    | native_common.soname()
-    | cxx_common.raw_headers_arg()
-    | cxx_common.supports_stripping()
-    | cxx_common.raw_headers_as_headers_mode_arg()
-    | cxx_common.include_directories_arg()
-    | cxx_common.public_include_directories_arg()
-    | cxx_common.public_system_include_directories_arg()
-    | {
-        "deffile": attrs.option(
-            attrs.source(),
-            default = None,
-            doc = """
-            Specifies the *.def file used on windows to modify a dll's exports in place of explicit `__declspec(dllexport)` declarations.
-              The default is to not use a defile.
-        """,
-        ),
-        "used_by_wrap_script": attrs.bool(
-            default = False,
-            doc = """
-            When using an exopackage
-              Android, if this parameter is set to `True`, then the library is
-              included in the primary APK even if native libraries would otherwise not be
-              placed in it. This is intended for native libraries that are used by a
-              [wrap.sh](https://developer.android.com/ndk/guides/wrap-script)
-              script, which must be placed in the primary APK. Only one of
-              `can_be_asset` and `used_by_wrap_script` can be set
-              for a rule.
-        """,
-        ),
-    }
-    | cxx_common.supported_platforms_regex_arg()
-    | cxx_common.force_static(force_static_type = attrs.option(attrs.bool(), default = None))
-    | native_common.preferred_linkage(preferred_linkage_type = attrs.option(attrs.enum(Linkage.values()), default = None))
-    | cxx_common.reexport_all_header_dependencies_arg()
-    | cxx_common.exported_deps_arg()
-    | cxx_common.precompiled_header_arg()
-    | apple_common.extra_xcode_sources()
-    | apple_common.extra_xcode_files()
-    | apple_common.uses_explicit_modules_arg()
-    | apple_common.meta_apple_library_validation_enabled_arg()
-    | cxx_common.version_arg()
-    | cxx_common.use_fbcc_rust_wrapper_arg()
-    | cxx_common.use_content_based_paths_arg()
-    | cxx_common.expect_eligible_for_dedupe_arg()
-    | validation_common.attrs_validators_arg()
-    | {
-        "archive_allow_cache_upload": attrs.bool(default = False),
-        "archive_contents": attrs.option(attrs.enum(ArchiveContentsType.values()), default = None),
-        "bridging_header": attrs.option(attrs.source(), default = None),
-        "can_be_asset": attrs.option(attrs.bool(), default = None),
-        "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
-        "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-        "default_platform": attrs.option(attrs.string(), default = None),
-        "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
-        "deps": attrs.list(attrs.dep(), default = []),
-        "devirt_enabled": attrs.bool(default = False),
-        "diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
-        "executable_name": attrs.option(attrs.string(), default = None),
-        "export_header_unit": attrs.option(
-            attrs.enum(["include", "preload"]),
-            default = None,
-            doc = """
-            If not None, export a C++20 header unit visible to dependants (including
-            recursively) with use_header_units set to True.
-
-            "include": replace includes of each file in exported_headers or
-                raw_headers with an import of the precompiled header unit; files
-                that do not include any of those headers do not load the header
-                unit.
-
-            "preload": automatically load the precompiled header unit in any
-                dependant that uses header units.
-        """,
-        ),
-        "export_header_unit_filter": attrs.list(
-            attrs.string(),
-            default = [],
-            doc = """
-            A list of regexes. Each regex should match a set of headers in
-            exported_headers or raw_headers to be precompiled together into one
-            C++20 header unit.
-
-            When used with export_header_unit="include", this allows different
-            subsets of headers to be loaded only by files that use them. Each group
-            should only depend on headers in previous groups.
-
-            If a header is not matched by any group, it is not precompiled and will
-            be included textually. If no filter is specified, the rule excludes
-            inline headers based on a name heuristics (e.g. "-inl.h").
-        """,
-        ),
-        "extra_dwp_flags": attrs.list(attrs.string(), default = []),
-        "fat_lto": attrs.bool(default = False),
-        "focused_list_target": attrs.option(attrs.dep(), default = None),
-        "frameworks": attrs.list(attrs.string(), default = []),
-        "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-        "include_in_android_merge_map_output": attrs.bool(default = True),
-        "libraries": attrs.list(attrs.string(), default = []),
-        "link_group": attrs.option(attrs.string(), default = None),
-        "link_group_map": LINK_GROUP_MAP_ATTR,
-        "module_name": attrs.option(attrs.string(), default = None),
-        "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-        "prefix_header": attrs.option(attrs.source(), default = None),
-        "resources": attrs.named_set(attrs.source(), sorted = True, default = []),
-        "sdk_modules": attrs.list(attrs.string(), default = []),
-        "static_library_basename": attrs.option(attrs.string(), default = None),
-        "supports_merged_linking": attrs.option(attrs.bool(), default = None),
-        "thin_lto": attrs.bool(default = False),
-        "use_archive": attrs.option(attrs.bool(), default = None),
-        "use_header_units": attrs.one_of(
-            attrs.bool(),
-            attrs.enum(["stub"]),
-            default = False,
-            doc = """
-            If True, makes any header unit exported by a dependency (including
-            recursively) through export_header_unit available to the compiler. If
-            false, the compilation ignores header units, regardless of what is
-            exported by dependencies. If "stub", uses stub header units instead
-            of full PCM files.
-        """,
-        ),
-        "uses_cxx_explicit_modules": attrs.bool(default = False),
-        "version_universe": attrs.option(attrs.string(), default = None),
-        "weak_framework_names": attrs.list(attrs.string(), default = []),
-    }
-    | buck.allow_cache_upload_arg()
-    | buck.licenses_arg()
-    | buck.labels_arg()
-    | buck.contacts_arg()
-)
-
 cxx_library = prelude_rule(
     name = "cxx_library",
     docs = """
@@ -619,7 +368,7 @@ cxx_library = prelude_rule(
         ```
     """,
     further = None,
-    attrs = library_attrs | cxx_common.default_deps_arg("exported_deps"),
+    attrs = cxx_library_base_attrs(),
 )
 
 cxx_precompiled_header = prelude_rule(
@@ -724,45 +473,7 @@ cxx_precompiled_header = prelude_rule(
         structure definitions, ABI incompatibility, and so on (catastrophe, in other words).
     """,
     further = None,
-    attrs = (
-        cxx_common.use_fbcc_rust_wrapper_arg()
-        | {
-            "compile_pch_file": attrs.bool(
-                default = False,
-                doc = """
-                Whether to compile the precompiled header file or use legacy mode.
-            """,
-            ),
-            "deps": attrs.list(
-                attrs.dep(),
-                default = [],
-                doc = """
-                Dependency rules which export headers used by the header specified in `src`.
-            """,
-            ),
-            "pch_clanguage": attrs.option(
-                attrs.string(),
-                default = None,
-                doc = """
-                The c-language extension to use for the precompiled header. Eg. .c, .cpp, .m, .mm, etc.
-            """,
-            ),
-            "src": attrs.source(
-                doc = """
-                The path to the header file that should be precompiled.
-                 Only one header file can be specified. But of course this header could include
-                 any number of other headers. The included headers could belong to -- that is,
-                 be `exported_headers` from -- another rule, in which case, the rule would
-                 have to be added to `deps` as usual.
-            """
-            ),
-            "version_universe": attrs.option(attrs.string(), default = None),
-        }
-        | library_attrs
-        | buck.licenses_arg()
-        | buck.labels_arg()
-        | buck.contacts_arg()
-    ),
+    attrs = cxx_precompiled_header_attrs(),
 )
 
 cxx_flags = prelude_rule(
@@ -999,7 +710,7 @@ cxx_test = prelude_rule(
         | buck.labels_arg()
         | buck.contacts_arg()
         | test_common.attributes()
-        | _cxx_binary_and_test_attrs()
+        | cxx_binary_and_test_attrs()
     ),
     # @oss-disable[end= ]: cfg = constraint_overrides.transition,
     supports_incoming_transition = True, # @oss-enable

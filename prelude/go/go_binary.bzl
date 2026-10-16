@@ -8,9 +8,8 @@
 
 load("@prelude//:artifacts.bzl", "single_artifact")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR", "cxx_common")
 load("@prelude//decls:common.bzl", "buck")
-load("@prelude//decls:cxx_common.bzl", "cxx_common")
-load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//dist:dist_info.bzl", "DistInfo")
 load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "coverage_mode_attr", "go_binary_transition")

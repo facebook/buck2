@@ -6,12 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR")
 load(
     "@prelude//cxx:link_groups_types.bzl",
     "LINK_GROUP_MAP_ATTR",
 )
 load("@prelude//cxx:transformation_spec.bzl", "TransformationResultProvider")
-load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
 load("@prelude//python:internal_tools.bzl", "PythonInternalToolsInfo")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
 load("@prelude//python/linking:native.bzl", "process_native_linking")

@@ -7,8 +7,8 @@
 # above-listed licenses.
 
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR", "cxx_common")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
-load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:third_party_common.bzl", "third_party_common")
 load("@prelude//linking:types.bzl", "Linkage")
@@ -18,7 +18,6 @@ load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
 load("@prelude//rust:rust_library.bzl", "rust_library_impl")
 load("@prelude//rust/rust-analyzer:provider.bzl", "RustAnalyzerTargetKind")
 load(":common.bzl", "RuntimeDependencyHandling", "buck")
-load(":cxx_common.bzl", "cxx_common")
 load(":native_common.bzl", "native_common")
 load(":re_test_common.bzl", "re_test_common")
 load(":rust_common.bzl", "rust_common", "rust_target_dep")

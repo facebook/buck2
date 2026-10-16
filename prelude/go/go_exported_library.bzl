@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR", "cxx_common")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:linker.bzl", "get_default_shared_library_name")
 load(
@@ -15,8 +16,6 @@ load(
     "cxx_merge_cpreprocessors",
 )
 load("@prelude//decls:common.bzl", "buck")
-load("@prelude//decls:cxx_common.bzl", "cxx_common")
-load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "go_exported_library_transition")
 load(

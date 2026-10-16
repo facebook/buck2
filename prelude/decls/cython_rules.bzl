@@ -7,8 +7,8 @@
 # above-listed licenses.
 
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "cxx_library_base_attrs")
 load("@prelude//decls:common.bzl", "buck")
-load("@prelude//decls:cxx_rules.bzl", "cxx_rules")
 load("@prelude//decls:python_common.bzl", "python_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 
@@ -25,7 +25,7 @@ cython_library = prelude_rule(
         # can access required attributes like supported_platforms_regex, preferred_linkage, etc.
         # This mirrors how cxx_python_extension inherits these attrs.
         # @unsorted-dict-items
-        {k: attrs.default_only(v) for k, v in cxx_rules.cxx_library.attrs.items()}
+        {k: attrs.default_only(v) for k, v in cxx_library_base_attrs().items()}
         | python_common.base_module_arg()
         | buck.labels_arg()
         | buck.contacts_arg()
@@ -245,7 +245,7 @@ cython_static_extension = prelude_rule(
         # Inherit all cxx_library attrs as default_only so cxx_library_parameterized
         # can access required attributes like supported_platforms_regex, preferred_linkage, etc.
         # @unsorted-dict-items
-        {k: attrs.default_only(v) for k, v in cxx_rules.cxx_library.attrs.items()}
+        {k: attrs.default_only(v) for k, v in cxx_library_base_attrs().items()}
         | python_common.base_module_arg()
         | {
             "compiler_flags": attrs.list(

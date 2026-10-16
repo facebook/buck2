@@ -7,8 +7,8 @@
 # above-listed licenses.
 
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "cxx_common")
 load("@prelude//decls:common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck")
-load("@prelude//decls:cxx_common.bzl", "cxx_common")
 load(":attrs.bzl", "lua_common")
 
 def cxx_lua_extension_impl(_ctx: AnalysisContext) -> list[Provider]:

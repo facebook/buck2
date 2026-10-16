@@ -8,13 +8,13 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "cxx_common")
 load(
     "@prelude//cxx:preprocessor.bzl",
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
 load("@prelude//decls:common.bzl", "buck")
-load("@prelude//decls:cxx_common.bzl", "cxx_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//go/transitions:defs.bzl", "build_tags_attr", "cgo_enabled_attr", "coverage_mode_attr", "go_library_transition")
 load(

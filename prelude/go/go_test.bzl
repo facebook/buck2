@@ -7,9 +7,8 @@
 # above-listed licenses.
 
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR", "cxx_common")
 load("@prelude//decls:common.bzl", "buck")
-load("@prelude//decls:cxx_common.bzl", "cxx_common")
-load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")

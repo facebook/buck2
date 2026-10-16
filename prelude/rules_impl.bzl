@@ -16,22 +16,17 @@ load("@prelude//:remote_file.bzl", "remote_file_impl")
 load("@prelude//:sh_binary.bzl", "sh_binary")
 load("@prelude//:sh_test.bzl", "sh_test")
 load("@prelude//:test_suite.bzl", "test_suite_impl")
-load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
-load("@prelude//android:native_build_commands.bzl", "EMIT_NATIVE_BUILD_COMMANDS")
 load("@prelude//android:rules.bzl", _android_rules = "rules")
-load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 load("@prelude//csharp:rules.bzl", _dotnet_rules = "rules")
+load("@prelude//cxx:attrs.bzl", "cxx_library_extra_attrs")
 load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
-load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
 load("@prelude//cxx:cxx_flags.bzl", "cxx_flags_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_extra_attributes", "cxx_toolchain_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
-load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
-load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//cxx:prebuilt_cxx_library_group.bzl", "prebuilt_cxx_library_group_impl")
 load("@prelude//cxx:transformation_spec.bzl", "TransformationKind", "transformation_spec_impl")
 load("@prelude//cxx:windows_resource.bzl", "windows_resource_impl")
@@ -55,8 +50,6 @@ load("@prelude//js:rules.bzl", _js_rules = "rules")
 load("@prelude//js:worker_tool.bzl", "worker_tool")
 load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", _julia_implemented_rules = "implemented_rules")
 load("@prelude//kotlin:rules.bzl", _kotlin_rules = "rules")
-load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
-load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//lua:rules.bzl", _lua_rules = "rules")
 load("@prelude//matlab:matlab.bzl", _matlab_extra_attributes = "extra_attributes", _matlab_implemented_rules = "implemented_rules")
@@ -209,50 +202,6 @@ def _python_runtime_bundle_attrs():
         | buck.contacts_arg()
     )
 
-_cxx_extra_library_attrs = (
-    {
-        "auto_link_groups": attrs.bool(default = False),
-        # These flags will only be used to instrument a target
-        # when coverage for that target is enabled by `exported_needs_coverage_instrumentation`
-        # or by any of the target's dependencies.
-        "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
-        # Optional clang_profile_list target for selective coverage instrumentation via -fprofile-list.
-        "coverage_profile_list": attrs.option(attrs.dep(), default = None),
-        "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
-        "deps_query": attrs.option(attrs.query(), default = None),
-        "exported_needs_coverage_instrumentation": attrs.bool(default = False),
-        "extra_dwp_flags": attrs.list(attrs.string(), default = []),
-        "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
-        "link_deps_query_whole": attrs.bool(default = False),
-        "link_execution_preference": link_execution_preference_attr(),
-        "link_group_map": LINK_GROUP_MAP_ATTR,
-        "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-        "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "prefer_stripped_objects": attrs.bool(default = False),
-        "preferred_linkage": attrs.enum(
-            Linkage.values(),
-            default = "any",
-            doc = """
-Determines what linkage is used when the library is depended on by another target. To
-control how the dependencies of this library are linked, use `link_style` instead.
-""",
-        ),
-        "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
-        "separate_debug_info": attrs.bool(default = False),
-        "stub": attrs.bool(default = False),
-        "supports_header_symlink_subtarget": attrs.bool(default = False),
-        "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
-        "supports_shlib_interfaces": attrs.bool(default = True),
-        "third_party_project": attrs.option(attrs.string(), default = None),
-        "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
-        "_cxx_toolchain": toolchains_common.cxx(),
-        "_emit_native_build_commands": attrs.default_only(attrs.bool(default = EMIT_NATIVE_BUILD_COMMANDS)),
-        "_is_building_android_binary": is_building_android_binary_attr(),
-    }
-    | apple_common.extra_xcode_sources()
-    | third_party_common.create_third_party_build_root_attrs()
-)
-
 cxx_extra_attributes = {
     "cxx_binary": {
         "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
@@ -266,8 +215,8 @@ cxx_extra_attributes = {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
     },
-    "cxx_library": _cxx_extra_library_attrs,
-    "cxx_precompiled_header": _cxx_extra_library_attrs,
+    "cxx_library": cxx_library_extra_attrs(),
+    "cxx_precompiled_header": cxx_library_extra_attrs(),
     "cxx_test": re_test_common.test_args()
     | {
         "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
@@ -396,8 +345,8 @@ _uncategorized_extra_attributes = {
 }
 
 _cython_extra_attributes = {
-    "cython_library": _cxx_extra_library_attrs,
-    "cython_static_extension": _cxx_extra_library_attrs,
+    "cython_library": cxx_library_extra_attrs(),
+    "cython_static_extension": cxx_library_extra_attrs(),
 }
 
 categorized_extra_attributes = {
