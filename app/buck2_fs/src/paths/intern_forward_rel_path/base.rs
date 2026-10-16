@@ -43,9 +43,14 @@ use crate::paths::forward_rel_path::ForwardRelativePath;
 /// long is interned as a copy; that case is not worth being clever about.
 #[derive(Copy, Clone, Dupe)]
 #[repr(transparent)]
-pub struct IForwardRelativePath(PackedPtr<&'static u8>);
+pub struct IForwardRelativePath(PackedPtr<NonNull<u8>>);
 
 mini_vec::size_assert::words_of_type!(IForwardRelativePath, 1);
+
+// SAFETY: A handle points at bytes that are never written or freed (type invariant), so it is a
+// `&'static [u8]` in all but name.
+unsafe impl Send for IForwardRelativePath {}
+unsafe impl Sync for IForwardRelativePath {}
 
 /// The longest path stored with its length in the handle.
 pub(super) const MAX_INLINE_LEN: usize = 254;
@@ -169,8 +174,7 @@ impl IForwardRelativePath {
     #[inline]
     pub(super) unsafe fn inline(ptr: NonNull<u8>, len: usize) -> Self {
         debug_assert!(len <= MAX_INLINE_LEN);
-        // SAFETY: Per the caller, the pointee lives forever.
-        Self(PackedPtr::new(unsafe { ptr.as_ref() }, len as u8))
+        Self(PackedPtr::new(ptr, len as u8))
     }
 
     /// A handle to the path stored behind `header`.
@@ -182,11 +186,7 @@ impl IForwardRelativePath {
     /// again.
     #[inline]
     pub(super) unsafe fn long(header: NonNull<LongHeader>) -> Self {
-        // SAFETY: Per the caller, the pointee lives forever.
-        Self(PackedPtr::new(
-            unsafe { header.cast::<u8>().as_ref() },
-            LONG,
-        ))
+        Self(PackedPtr::new(header.cast::<u8>(), LONG))
     }
 
     /// The handle as a single non-zero word, for the interner's table.
@@ -206,7 +206,7 @@ impl IForwardRelativePath {
     #[inline]
     fn parts(self) -> (*const u8, usize) {
         let (ptr, extra) = self.0.into_parts();
-        let ptr: *const u8 = ptr;
+        let ptr: *const u8 = ptr.as_ptr();
         if extra == LONG {
             // SAFETY: A `LONG` handle points at a `LongHeader` (type invariant), which was
             // allocated with the header's alignment and is followed by its `len` bytes.
