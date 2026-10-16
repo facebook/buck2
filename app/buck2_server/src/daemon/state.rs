@@ -825,6 +825,7 @@ impl RepoState {
                 deferred_materializer_configs,
                 materializer_db,
                 materializer_state,
+                daemon_dispatcher,
             )?)),
             Some(other) => Err(buck2_error::buck2_error!(
                 ErrorTag::Input,

@@ -41,6 +41,8 @@ use buck2_events::metadata;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
+use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
+use buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy;
 use buck2_fs::fs_util;
 use buck2_fs::fs_util::disk_space_stats;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -200,6 +202,41 @@ impl CleanStaleArtifactsCommand {
             } else {
                 PolicyMode::ExplicitTtl
             },
+        }
+    }
+}
+
+impl CleanStaleArtifactsCommand {
+    /// The run the `Materializer` trait's arguments ask for.
+    pub(crate) fn from_args(
+        args: CleanStaleArtifactsArgs,
+        config: &CleanStaleConfig,
+        root_abs_path: Option<Arc<AbsPathBuf>>,
+        dispatcher: EventDispatcher,
+    ) -> Self {
+        match args.policy {
+            CleanStaleArtifactsPolicy::Configured => Self::configured(
+                config,
+                root_abs_path,
+                dispatcher,
+                args.dry_run,
+                args.tracked_only,
+                Trigger::ManualConfigured,
+            ),
+            CleanStaleArtifactsPolicy::Explicit {
+                keep_since_time,
+                adaptive_low_disk_threshold,
+                adaptive_min_ttl,
+                adaptive_unmaterialize_active,
+            } => Self::explicit(
+                keep_since_time,
+                args.dry_run,
+                args.tracked_only,
+                adaptive_low_disk_threshold,
+                adaptive_min_ttl,
+                adaptive_unmaterialize_active,
+                dispatcher,
+            ),
         }
     }
 }

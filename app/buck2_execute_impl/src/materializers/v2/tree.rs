@@ -47,6 +47,7 @@
 use std::collections::VecDeque;
 use std::fmt;
 
+use allocative::Allocative;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
@@ -65,9 +66,10 @@ use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
 use crate::materializers::v2::task::Task;
 
 /// One tracked root.
-#[derive(Clone)]
+#[derive(Clone, Allocative)]
 pub(crate) struct Tracked {
     pub(crate) entry: ArtifactMetadata,
+    #[allocative(skip)]
     pub(crate) last_access_time: Timestamp,
     pub(crate) classification: ArtifactClassification,
 }
@@ -107,14 +109,14 @@ pub(crate) enum Lookup<'a> {
     Untracked,
 }
 
-/// What an operation did to the tracked roots, for the caller to mirror into sqlite: `removed`
-/// are root paths that are no longer roots (replaced, untracked, or expanded), `added` the roots
-/// that now exist and did not before or changed, `touched` the roots whose access time was
-/// bumped. `removed` and `added` each name a path at most once; a path in both was replaced, and
-/// the removal comes first.
+/// What an operation did to the tracked roots, for the caller to mirror into sqlite and to keep
+/// its totals by: `removed` are roots that no longer are (replaced, untracked, or expanded), as
+/// they were, `added` the roots that now exist and did not before or changed, `touched` the roots
+/// whose access time was bumped. `removed` and `added` each name a path at most once; a path in
+/// both was replaced, and the removal comes first.
 #[derive(Default, Debug)]
 pub(crate) struct TreeChange {
-    pub(crate) removed: Vec<ProjectRelativePathBuf>,
+    pub(crate) removed: Vec<(ProjectRelativePathBuf, Tracked)>,
     pub(crate) added: Vec<(ProjectRelativePathBuf, Tracked)>,
     pub(crate) touched: Vec<ProjectRelativePathBuf>,
 }
@@ -122,17 +124,17 @@ pub(crate) struct TreeChange {
 impl TreeChange {
     /// Appends a later change to this one.
     pub(crate) fn extend(&mut self, later: TreeChange) {
-        for path in later.removed {
-            self.removed(path);
+        for (path, tracked) in later.removed {
+            self.removed(path, tracked);
         }
         self.added.extend(later.added);
         self.touched.extend(later.touched);
     }
 
     /// Records that `path` stopped being a root, including when this same change made it one.
-    fn removed(&mut self, path: ProjectRelativePathBuf) {
+    fn removed(&mut self, path: ProjectRelativePathBuf, tracked: Tracked) {
         self.added.retain(|(added, _)| *added != path);
-        self.removed.push(path);
+        self.removed.push((path, tracked));
     }
 }
 
@@ -194,6 +196,14 @@ impl Hold {
             Hold::Write(hold) => hold.path(),
         }
     }
+}
+
+/// What a cleaner expects to find at a path it is about to take, from its scan. The take is
+/// refused when the tree says otherwise: the path has been used or changed since.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Expect {
+    Untracked,
+    Tracked { last_access_time: Timestamp },
 }
 
 /// A root as granted.
@@ -291,6 +301,8 @@ struct Below {
     tasks: u32,
 }
 
+#[derive(Allocative)]
+#[allocative(bound = "")]
 struct Node<R> {
     children: BuckMutMap<FileNameBuf, Node<R>>,
     /// A tracked root ends here. Nothing below is tracked, a tracked directory's contents being
@@ -298,14 +310,18 @@ struct Node<R> {
     /// paths inside the root.
     tracked: Option<Tracked>,
     /// The lease at exactly this path.
+    #[allocative(skip)]
     lease: Option<LeaseState>,
     /// Requests for exactly this path, in arrival order.
+    #[allocative(skip)]
     waiting: VecDeque<Waiter<R>>,
     /// A task whose root is this path and whose holder released it: handed over uncancelled to a
     /// writer of the root granted in the same step, cancelled otherwise, and kept until a writer
     /// over the path takes it to wait for its end. At most one, since a writer over the path
     /// takes every task around it before it starts its own.
+    #[allocative(skip)]
     task: Option<Task>,
+    #[allocative(skip)]
     below: Below,
 }
 
@@ -380,8 +396,8 @@ impl<R> Node<R> {
     /// Forgets every tracked root at or below the node, pruning nodes that become empty, and
     /// reports the removed roots with their paths relative to `at`.
     fn untrack_below(&mut self, at: &ProjectRelativePath, change: &mut TreeChange) {
-        if self.tracked.take().is_some() {
-            change.removed(at.to_buf());
+        if let Some(tracked) = self.tracked.take() {
+            change.removed(at.to_buf(), tracked);
         }
         self.children.retain(|name, child| {
             child.untrack_below(&at.join(name), change);
@@ -482,6 +498,8 @@ impl<R> Node<R> {
     }
 }
 
+#[derive(Allocative)]
+#[allocative(bound = "")]
 pub(crate) struct DiskTree<R> {
     root: Node<R>,
     next_ticket: u64,
@@ -652,7 +670,7 @@ impl<R> DiskTree<R> {
                 .get_mut(root_path.iter())
                 .expect("the root was just found");
             node.tracked = None;
-            change.removed(root_path.clone());
+            change.removed(root_path.clone(), root.dupe());
             if let DirectoryEntry::Dir(dir) = &root.entry {
                 for (name, entry) in dir.entries() {
                     let child_path = root_path.join(name);
@@ -821,6 +839,82 @@ impl<R> DiskTree<R> {
         self.downgrade_lease(&path);
         self.grant_waiting(&path, &mut effects);
         Ok((ReadHold(path), effects))
+    }
+
+    /// Takes `path` for writing on behalf of the cleaner, if it is as `expect` says and nothing
+    /// held or waiting conflicts. Never waits, and never jumps ahead of a waiting request, so the
+    /// cleaner is no party to any wait. The grant untracks the root, as any write does.
+    pub(crate) fn take_for_cleaning(
+        &mut self,
+        path: ProjectRelativePathBuf,
+        expect: Expect,
+    ) -> Option<(Grant, TreeChange)> {
+        let as_expected = match (self.lookup(&path), expect) {
+            (Lookup::Untracked, Expect::Untracked) => !self.contains_roots_below(&path),
+            (Lookup::Exact(tracked), Expect::Tracked { last_access_time }) => {
+                tracked.last_access_time == last_access_time
+            }
+            _ => false,
+        };
+        if !as_expected {
+            return None;
+        }
+        let root = Root {
+            path,
+            mode: Mode::Write,
+            exclusions: Vec::new(),
+        };
+        if !self.grantable(&root, self.next_ticket) {
+            return None;
+        }
+        let mut change = TreeChange::default();
+        let grant = self.grant(root, &mut change);
+        Some((grant, change))
+    }
+
+    /// Holds `path` for reading if content is tracked there and nothing held or waiting
+    /// conflicts; never waits. With `as_of`, the root must be tracked with exactly that access
+    /// time, and the hold does not count as a use: the access time stays, so that the cleaner can
+    /// tell afterwards whether anyone else used it. Without, any tracked content will do, at a
+    /// root or inside one, and the hold is a use like any read.
+    pub(crate) fn hold_for_reading(
+        &mut self,
+        path: ProjectRelativePathBuf,
+        as_of: Option<Timestamp>,
+    ) -> Option<(ReadHold, TreeChange)> {
+        match (self.lookup(&path), as_of) {
+            (Lookup::Exact(tracked), Some(at)) if tracked.last_access_time == at => {}
+            (Lookup::Exact(_), None) | (Lookup::Inside { entry: Some(_), .. }, None) => {}
+            _ => return None,
+        }
+        let root = Root {
+            path,
+            mode: Mode::Read,
+            exclusions: Vec::new(),
+        };
+        if !self.grantable(&root, self.next_ticket) {
+            return None;
+        }
+        self.insert_lease(&root.path, Mode::Read);
+        let mut change = TreeChange::default();
+        if as_of.is_none()
+            && let Some(touched) = self.touch(&root.path, Timestamp::now())
+        {
+            change.touched.push(touched);
+        }
+        Some((ReadHold(root.path), change))
+    }
+
+    /// Whether any root is tracked at or below `path`.
+    pub(crate) fn contains_roots_below(&self, path: &ProjectRelativePath) -> bool {
+        fn any_tracked<R>(node: &Node<R>) -> bool {
+            node.tracked.is_some() || node.children.values().any(any_tracked)
+        }
+        match self.lookup(path) {
+            Lookup::Exact(_) => true,
+            Lookup::Inside { .. } | Lookup::UnderLeaf { .. } => false,
+            Lookup::Untracked => self.root.get(path.iter()).is_some_and(any_tracked),
+        }
     }
 
     /// Withdraws a waiting request at `path`. Nothing happens if it is not waiting there: never
@@ -1288,6 +1382,16 @@ mod tests {
         )
     }
 
+    fn removed(change: &TreeChange) -> Vec<String> {
+        paths(
+            &change
+                .removed
+                .iter()
+                .map(|(p, _)| p.clone())
+                .collect::<Vec<_>>(),
+        )
+    }
+
     /// A content want for the file that `present` puts at `p`: its own path.
     fn read(p: &str) -> Want {
         Want::Content(file(p))
@@ -1512,7 +1616,7 @@ mod tests {
             .load(path("d"), tracked(dir(&[("a", "A"), ("b", "B")])));
         let effects = h.tree.acquire(path("d/a"), Want::Write, RequestId(0), 0);
         // `d/a` is added by the expansion and untracked in the same change.
-        assert_eq!(paths(&effects.change.removed), vec!["d", "d/a"]);
+        assert_eq!(removed(&effects.change), vec!["d", "d/a"]);
         assert_eq!(added(&effects.change), vec!["d/b"]);
         assert_eq!(roots(&h.tree), vec!["d/b"]);
         assert!(h.tree.matches(&path("d/b"), &file("B")));
@@ -1550,7 +1654,7 @@ mod tests {
         // A file where a directory has to go: whoever writes below it clears it from disk, so
         // the grant forgets it, and the report puts the new root in place.
         let effects = h.tree.acquire(path("a/b"), Want::Write, RequestId(0), 0);
-        assert_eq!(paths(&effects.change.removed), vec!["a"]);
+        assert_eq!(removed(&effects.change), vec!["a"]);
         assert_eq!(roots(&h.tree), vec!["b"]);
         h.woken(effects);
         h.report(0, file("AB"));
@@ -1844,6 +1948,112 @@ mod tests {
         h.release(2);
         h.release(0);
         assert_eq!(h.release(1), vec![3]);
+        h.finish();
+    }
+
+    #[test]
+    fn test_the_cleaner_takes_only_what_it_saw_and_nobody_uses() {
+        let t0 = Timestamp::UNIX_EPOCH;
+        let mut h = Harness::with(&[("d/a", "A"), ("d/b", "B"), ("e", "E")]);
+        // A root as the scan saw it, unheld: taken, and untracked by the take.
+        let (grant, change) = h
+            .tree
+            .take_for_cleaning(
+                path("d/a"),
+                Expect::Tracked {
+                    last_access_time: t0,
+                },
+            )
+            .expect("free and as expected");
+        assert!(matches!(grant.hold, Hold::Write(_)));
+        assert_eq!(removed(&change), vec!["d/a"]);
+        assert_eq!(roots(&h.tree), vec!["d/b", "e"]);
+        h.holds.insert(0, grant.hold);
+        // A root someone read since the scan has another access time: refused.
+        h.granted(1, "d/b", Want::Content(file("B")));
+        h.release(1);
+        assert!(
+            h.tree
+                .take_for_cleaning(
+                    path("d/b"),
+                    Expect::Tracked {
+                        last_access_time: t0,
+                    },
+                )
+                .is_none()
+        );
+        // A root somebody holds is refused; an untracked path with roots below is not
+        // untracked; an untracked path with nothing below is taken; a waiting writer above is
+        // ahead of the cleaner.
+        h.granted(2, "e", Want::Content(file("E")));
+        assert!(
+            h.tree
+                .take_for_cleaning(
+                    path("e"),
+                    Expect::Tracked {
+                        last_access_time: t0,
+                    },
+                )
+                .is_none()
+        );
+        assert!(
+            h.tree
+                .take_for_cleaning(path("d"), Expect::Untracked)
+                .is_none()
+        );
+        let (grant, _) = h
+            .tree
+            .take_for_cleaning(path("x/y"), Expect::Untracked)
+            .expect("nothing there");
+        h.holds.insert(3, grant.hold);
+        h.queued(4, "x", Want::Write);
+        assert!(
+            h.tree
+                .take_for_cleaning(path("x/z"), Expect::Untracked)
+                .is_none()
+        );
+        h.release(3);
+        h.finish();
+    }
+
+    #[test]
+    fn test_the_cleaner_reads_without_touching() {
+        let t0 = Timestamp::UNIX_EPOCH;
+        let mut h = Harness::with(&[("p", "P")]);
+        let (hold, change) = h
+            .tree
+            .hold_for_reading(path("p"), Some(t0))
+            .expect("free and as expected");
+        assert!(change.touched.is_empty());
+        // Readers share it and touch it; a writer waits for it.
+        assert_eq!(h.granted(0, "p", Want::Content(file("P"))).mode, Mode::Read);
+        h.queued(1, "p", Want::Write);
+        let Lookup::Exact(root) = h.tree.lookup(&path("p")) else {
+            panic!()
+        };
+        assert_ne!(root.last_access_time, t0, "the reader touched it");
+        h.release(0);
+        let effects = h.tree.release_read(hold);
+        assert_eq!(h.woken(effects), vec![1]);
+        assert!(
+            h.tree
+                .hold_for_reading(path("p"), Some(Timestamp::UNIX_EPOCH))
+                .is_none(),
+            "held for writing"
+        );
+        h.finish();
+        // Without an expectation, any tracked content will do, inside a directory included, and
+        // the hold is a use.
+        let mut h = Harness::new();
+        h.tree.load(path("d"), tracked(dir(&[("a", "A")])));
+        let (hold, change) = h
+            .tree
+            .hold_for_reading(path("d/a"), None)
+            .expect("tracked inside `d`");
+        assert_eq!(paths(&change.touched), vec!["d"]);
+        assert!(h.tree.hold_for_reading(path("d/x"), None).is_none());
+        assert!(h.tree.hold_for_reading(path("e"), None).is_none());
+        h.tree.release_read(hold);
         h.finish();
     }
 

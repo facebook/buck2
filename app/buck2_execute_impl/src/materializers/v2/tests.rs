@@ -17,11 +17,14 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
+use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
+use buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
@@ -34,6 +37,8 @@ use buck2_hash::BuckMutMap;
 use buck2_hash::IntentionallyStdHashMap;
 use buck2_util::threads::ignore_stack_overflow_checks_for_future;
 use dupe::Dupe;
+use jiff::SignedDuration;
+use jiff::Timestamp;
 use tokio::time::sleep;
 use tokio::time::timeout;
 
@@ -41,6 +46,9 @@ use crate::materializers::deferred::AccessTimesUpdates;
 use crate::materializers::deferred::DeferredMaterializerConfigs;
 use crate::materializers::deferred::TtlRefreshConfiguration;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
+use crate::materializers::deferred::clean_stale::LowDiskCleanConfig;
+use crate::materializers::deferred::clean_stale::LowDiskCleanMode;
+use crate::materializers::deferred::clean_stale::UnmaterializationUploadConfig;
 use crate::materializers::deferred::tests::state_machine::Op;
 use crate::materializers::deferred::tests::state_machine::StubIoHandler;
 use crate::materializers::v2::core::DiskStateMaterializer;
@@ -150,16 +158,64 @@ fn make_with_io(
     Arc<DiskStateMaterializer<StubIoHandler>>,
     Arc<StubIoHandler>,
 ) {
+    make_with_configs(fs, io, db, state, configs())
+}
+
+fn make_with_configs(
+    fs: &ProjectRoot,
+    io: StubIoHandler,
+    db: Option<MaterializerStateSqliteDb>,
+    state: Option<crate::sqlite::materializer_db::MaterializerState>,
+    configs: DeferredMaterializerConfigs,
+) -> (
+    Arc<DiskStateMaterializer<StubIoHandler>>,
+    Arc<StubIoHandler>,
+) {
     let io = Arc::new(io);
     let dm = DiskStateMaterializer::new_with_io(
         io.dupe(),
         Arc::new(DummyBlockingExecutor { fs: fs.dupe() }),
-        configs(),
+        configs,
         db,
         state,
+        EventDispatcher::null(),
     )
     .unwrap();
     (Arc::new(dm), io)
+}
+
+/// Clean-stale arguments under which everything this daemon has not used is stale.
+fn clean_unused() -> CleanStaleArtifactsArgs {
+    CleanStaleArtifactsArgs {
+        policy: CleanStaleArtifactsPolicy::Explicit {
+            keep_since_time: Timestamp::now() + SignedDuration::from_secs(3600),
+            adaptive_low_disk_threshold: None,
+            adaptive_min_ttl: None,
+            adaptive_unmaterialize_active: false,
+        },
+        dry_run: false,
+        tracked_only: false,
+    }
+}
+
+/// A materializer that loaded `roots` from a previous instance's sqlite state, with the content
+/// on disk: what a daemon finds after a restart. Nothing loaded counts as used by this instance.
+async fn restarted_with(
+    fs: &ProjectRoot,
+    roots: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+) -> buck2_error::Result<(
+    Arc<DiskStateMaterializer<StubIoHandler>>,
+    Arc<StubIoHandler>,
+)> {
+    let (db, _) = testing_materializer_state_sqlite_db(fs, versions(), metadata(), None)?;
+    let (dm, _io) = make(fs, Some(db), None);
+    for (path, value) in &roots {
+        drop(report(&dm, path, value.dupe()).await?);
+        fs.write_file(path, path.as_str(), false)?;
+    }
+    abort(dm);
+    let (db, state) = testing_materializer_state_sqlite_db(fs, versions(), metadata(), None)?;
+    Ok(make(fs, Some(db), Some(state?)))
 }
 
 fn abort(dm: Arc<DiskStateMaterializer<StubIoHandler>>) {
@@ -758,6 +814,158 @@ async fn test_tracked_state_survives_a_restart() -> buck2_error::Result<()> {
         )
         .await?;
         assert_eq!(io.take_log(), vec![], "everything came back from sqlite");
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_clean_stale_deletes_what_this_daemon_has_not_used() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path().dupe();
+        let (p, d) = (path("buck-out/v2/gen/p"), path("buck-out/v2/gen/d"));
+        let (dm, _io) =
+            restarted_with(&fs, vec![(p.clone(), file("P")), (d.clone(), file("D"))]).await?;
+        fs.write_file(path("buck-out/v2/gen/junk"), "J", false)?;
+        // Using `p` makes it this daemon's; `d` is only what a previous one left.
+        materialize_ok(&dm, vec![(p.clone(), file("P"))]).await?;
+
+        let stats = dm
+            .clean_stale_artifacts(clean_unused())
+            .await?
+            .stats
+            .expect("stats");
+        assert_eq!(
+            (
+                stats.stale_artifact_count,
+                stats.retained_artifact_count,
+                stats.untracked_artifact_count,
+                stats.cleaned_artifact_count,
+            ),
+            (1, 1, 1, 2)
+        );
+        assert!(dm.has_artifact_at(p).await?);
+        assert!(!dm.has_artifact_at(d).await?);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_clean_stale_leaves_what_someone_holds() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path().dupe();
+        let (dm, _io) = make(&fs, None, None);
+        // An output being produced is untracked on disk and held for writing.
+        let out = path("buck-out/v2/gen/out");
+        let lease = dm.prepare_outputs(vec![out.clone()]).await?;
+        fs.write_file(&out, "half", false)?;
+
+        let stats = dm
+            .clean_stale_artifacts(clean_unused())
+            .await?
+            .stats
+            .expect("stats");
+        assert_eq!(
+            (stats.untracked_artifact_count, stats.cleaned_artifact_count),
+            (1, 0)
+        );
+        drop(lease);
+        let stats = dm
+            .clean_stale_artifacts(clean_unused())
+            .await?
+            .stats
+            .expect("stats");
+        assert_eq!(
+            (stats.untracked_artifact_count, stats.cleaned_artifact_count),
+            (1, 1)
+        );
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_clean_stale_dry_run_deletes_nothing() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path().dupe();
+        let d = path("buck-out/v2/gen/d");
+        let (dm, _io) = restarted_with(&fs, vec![(d.clone(), file("D"))]).await?;
+        let stats = dm
+            .clean_stale_artifacts(CleanStaleArtifactsArgs {
+                dry_run: true,
+                ..clean_unused()
+            })
+            .await?
+            .stats
+            .expect("stats");
+        assert_eq!(
+            (stats.stale_artifact_count, stats.cleaned_artifact_count),
+            (1, 0)
+        );
+        assert!(dm.has_artifact_at(d).await?);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+// The low-disk policy looks at `/` (`default_root_abs_path`), which Windows has not.
+#[cfg(unix)]
+#[tokio::test]
+async fn test_an_active_root_stays_when_its_upload_fails() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path().dupe();
+        // The configured low-disk policy at a threshold nothing is above: every retained root
+        // is promoted, and active intermediates are unmaterialized, uploaded first when the CAS
+        // is not known to hold them. The stub cannot upload.
+        let mut configs = configs();
+        configs.ttl_refresh.enabled = true;
+        configs.ttl_refresh.frequency = Duration::from_secs(3600);
+        configs.clean_stale_config = CleanStaleConfig {
+            low_disk: Some(LowDiskCleanConfig {
+                threshold_percent: 100.0,
+                mode: LowDiskCleanMode::Adaptive {
+                    min_ttl: Duration::ZERO,
+                    delete_intermediate_within_min_ttl: true,
+                    unmaterialize_active: true,
+                    unmaterialization_threshold_percent: 100.0,
+                },
+            }),
+            unmaterialize_upload: Some(UnmaterializationUploadConfig {
+                re_use_case: RemoteExecutorUseCase::buck2_default(),
+                max_bytes: 1 << 30,
+            }),
+            ..CleanStaleConfig::default()
+        };
+        let (dm, _io) = make_with_configs(&fs, StubIoHandler::new(fs.dupe()), None, None, configs);
+        let p = path("buck-out/v2/gen/p");
+        drop(report(&dm, &p, file("P")).await?);
+        fs.write_file(&p, "P", false)?;
+
+        let stats = dm
+            .clean_stale_artifacts(CleanStaleArtifactsArgs {
+                policy: CleanStaleArtifactsPolicy::Configured,
+                dry_run: false,
+                tracked_only: false,
+            })
+            .await?
+            .stats
+            .expect("stats");
+        // Promoted by the policy, so counted as selected rather than as active retained.
+        assert_eq!(stats.retained_artifact_count, 1);
+        assert_eq!(stats.adaptive_unmaterialization_selected_artifact_count, 1);
+        assert_eq!(stats.unmaterialization_upload_attempted_artifact_count, 1);
+        assert_eq!(stats.unmaterialization_upload_failed_artifact_count, 1);
+        assert_eq!(stats.cleaned_artifact_count, 0);
+        assert!(dm.has_artifact_at(p).await?, "still tracked, still there");
         abort(dm);
         Ok(())
     })

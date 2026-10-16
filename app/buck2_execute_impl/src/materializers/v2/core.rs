@@ -46,9 +46,12 @@
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 use allocative::Allocative;
+use allocative::FlameGraphBuilder;
 use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -102,9 +105,11 @@ use jiff::Timestamp;
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::materializers::deferred::DeferredMaterializerConfigs;
 use crate::materializers::deferred::MaterializeEntryError;
+use crate::materializers::deferred::MaterializerSizeStats;
 use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationMethod;
@@ -113,10 +118,12 @@ use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_ent
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
+use crate::materializers::v2::clean_stale::Cleaner;
 use crate::materializers::v2::task::Outcome;
 use crate::materializers::v2::task::Task;
 use crate::materializers::v2::tree::DiskTree;
 use crate::materializers::v2::tree::Effects;
+use crate::materializers::v2::tree::Expect;
 use crate::materializers::v2::tree::Hold;
 use crate::materializers::v2::tree::Lookup;
 use crate::materializers::v2::tree::ReadHold;
@@ -145,6 +152,11 @@ pub struct DiskStateMaterializer<T: IoHandler + Allocative + 'static = DefaultIo
     materialize_final_artifacts: bool,
     #[allocative(skip)]
     next_request: AtomicU64,
+    #[allocative(skip)]
+    shared: Arc<Shared>,
+    #[allocative(skip)]
+    cleaner: Arc<Cleaner<T>>,
+    entries_from_sqlite: u64,
 }
 
 impl DiskStateMaterializer<DefaultIoHandler> {
@@ -157,6 +169,7 @@ impl DiskStateMaterializer<DefaultIoHandler> {
         configs: DeferredMaterializerConfigs,
         sqlite_db: Option<MaterializerStateSqliteDb>,
         sqlite_state: Option<MaterializerState>,
+        daemon_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Self> {
         Self::new_with_io(
             Arc::new(DefaultIoHandler::new(
@@ -170,6 +183,7 @@ impl DiskStateMaterializer<DefaultIoHandler> {
             configs,
             sqlite_db,
             sqlite_state,
+            daemon_dispatcher,
         )
     }
 }
@@ -183,21 +197,27 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         configs: DeferredMaterializerConfigs,
         sqlite_db: Option<MaterializerStateSqliteDb>,
         sqlite_state: Option<MaterializerState>,
+        daemon_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Self> {
+        let shared = Arc::new(Shared::default());
         let (tx, rx) = mpsc::unbounded_channel();
-        let sender = Sender(tx);
+        let sender = Sender {
+            tx,
+            shared: shared.dupe(),
+        };
 
         let mut tree = DiskTree::new();
+        let mut entries_from_sqlite = 0;
         for entry in sqlite_state.into_iter().flatten() {
             // Rows are trusted, as they were before; what they say is on disk is tracked as such.
-            tree.load(
-                entry.path,
-                Tracked {
-                    entry: entry.metadata,
-                    last_access_time: entry.last_access_time,
-                    classification: entry.classification,
-                },
-            );
+            let tracked = Tracked {
+                entry: entry.metadata,
+                last_access_time: entry.last_access_time,
+                classification: entry.classification,
+            };
+            shared.add(&tracked);
+            tree.load(entry.path, tracked);
+            entries_from_sqlite += 1;
         }
 
         let processor = Processor {
@@ -205,9 +225,20 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             tree,
             sqlite_db,
             touched: BuckMutSet::default(),
+            shared: shared.dupe(),
         };
         let thread = thread_spawn("buck2-dsm", move || processor.run(rx))
             .buck_error_context("Cannot start materializer thread")?;
+
+        let cleaner = Cleaner::new(
+            io.dupe(),
+            blocking_executor.dupe(),
+            sender.dupe(),
+            shared.dupe(),
+            &configs,
+            daemon_dispatcher,
+        );
+        cleaner.start_schedule();
 
         Ok(Self {
             sender,
@@ -216,6 +247,9 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             blocking_executor,
             materialize_final_artifacts: configs.materialize_final_artifacts,
             next_request: AtomicU64::new(0),
+            shared,
+            cleaner,
+            entries_from_sqlite,
         })
     }
 
@@ -224,10 +258,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         &self,
         f: impl FnOnce(&mut Processor) -> R + Send + 'static,
     ) -> buck2_error::Result<R> {
-        let (reply, answer) = oneshot::channel();
-        self.sender.send(Command::Sync(Box::new(move |processor| {
-            let _ignored = reply.send(f(processor));
-        })))?;
+        let answer = self.sender.on_processor(f)?;
         answer.await.map_err(|_| stopped())
     }
 
@@ -473,8 +504,7 @@ fn duplicate(error: &MaterializationError) -> MaterializationError {
 #[async_trait]
 impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
     async fn prevent_background_cleanup(&self) -> MaterializerBackgroundCleanupGuard {
-        // Nothing runs in the background yet.
-        MaterializerBackgroundCleanupGuard::new(())
+        self.cleaner.prevent().await
     }
 
     async fn declare_existing(
@@ -796,17 +826,41 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
     }
 
     async fn allocative(&self) -> buck2_error::Result<allocative::FlameGraphOutput> {
-        Err(internal_error!(
-            "The disk-state materializer does not report allocations yet"
-        ))
+        self.on_processor(|processor| {
+            let mut graph = FlameGraphBuilder::default();
+            graph.visit_root(&processor.tree);
+            graph.finish()
+        })
+        .await
     }
 
+    /// Every tracked root that is not on disk, by a stat of each, off the processor.
     fn fsck(
         &self,
     ) -> buck2_error::Result<BoxStream<'static, (ProjectRelativePathBuf, buck2_error::Error)>> {
-        Err(internal_error!(
-            "The disk-state materializer does not support fsck yet"
-        ))
+        let (found, stream) = mpsc::unbounded_channel();
+        let (reply, roots) = oneshot::channel();
+        self.sender.send(Command::Sync(Box::new(move |processor| {
+            let _ignored = reply.send(processor.tree.iter());
+        })))?;
+        let fs = self.io.fs().dupe();
+        let blocking_executor = self.blocking_executor.dupe();
+        tokio::spawn(async move {
+            let Ok(roots) = roots.await else {
+                return;
+            };
+            let _ignored = blocking_executor
+                .execute_io_inline(move || {
+                    for (path, _) in roots {
+                        if let Err(e) = fs_util::symlink_metadata(fs.resolve(&path)) {
+                            let _ignored = found.send((path, e.categorize_internal()));
+                        }
+                    }
+                    Ok(())
+                })
+                .await;
+        });
+        Ok(UnboundedReceiverStream::new(stream).boxed())
     }
 
     /// TTLs are the standalone refresher's, not this core's.
@@ -823,23 +877,28 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
 
     async fn clean_stale_artifacts(
         &self,
-        _args: CleanStaleArtifactsArgs,
+        args: CleanStaleArtifactsArgs,
     ) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse> {
-        Err(internal_error!(
-            "The disk-state materializer does not support `clean --stale` yet"
-        ))
+        self.cleaner.clean_stale(args).await
     }
 
     async fn clean_scratch(&self) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse> {
-        Err(internal_error!(
-            "The disk-state materializer does not support cleaning scratch yet"
-        ))
+        self.cleaner.clean_scratch().await
     }
 
-    async fn test_iter(&self, _count: usize) -> buck2_error::Result<String> {
-        Err(internal_error!(
-            "The disk-state materializer does not support `test_iter`"
-        ))
+    async fn test_iter(&self, count: usize) -> buck2_error::Result<String> {
+        self.on_processor(move |processor| {
+            let start = Instant::now();
+            let mut roots = 0;
+            for _ in 0..count {
+                roots = processor.tree.iter().len();
+            }
+            format!(
+                "Elapsed for iter() over {roots} roots ({count} times): {:?}",
+                Instant::now() - start
+            )
+        })
+        .await
     }
 
     async fn flush_all_access_times(&self) -> buck2_error::Result<String> {
@@ -849,9 +908,19 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         Ok(format!("Flushed access times of {flushed} roots"))
     }
 
-    fn log_materializer_state(&self, _events: &EventDispatcher) {}
+    fn log_materializer_state(&self, events: &EventDispatcher) {
+        events.instant_event(buck2_data::MaterializerStateInfo {
+            num_entries_from_sqlite: self.entries_from_sqlite,
+        });
+    }
 
-    fn add_snapshot_stats(&self, _snapshot: &mut buck2_data::Snapshot) {}
+    fn add_snapshot_stats(&self, snapshot: &mut buck2_data::Snapshot) {
+        snapshot.deferred_materializer_queue_size =
+            self.shared.queued.load(Ordering::Relaxed) as u64;
+        let sizes = self.shared.sizes();
+        snapshot.deferred_materializer_final_output_logical_bytes = sizes.final_output;
+        snapshot.deferred_materializer_intermediate_only_logical_bytes = sizes.intermediate_only;
+    }
 
     async fn get_artifact_entries_for_materialized_paths(
         &self,
@@ -900,7 +969,8 @@ impl std::fmt::Display for TrackedDisplay {
         write!(
             f,
             "tracked (ts={}, size={})",
-            self.last_access_time, self.size
+            self.last_access_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            self.size
         )
     }
 }
@@ -1288,20 +1358,20 @@ impl Drop for Roots {
 /// A granted root while its holder works on it: the guard, and the tasks running under the root
 /// that the holder has to see to their end. Dropping it hands the tasks back with the root, so
 /// that a holder dropped mid-way leaves nothing running under nobody's lease.
-struct Held {
+pub(crate) struct Held {
     /// Taken by `into_guard`, so that the drop after it sends nothing.
     guard: Option<RootGuard>,
-    tasks: Vec<Task>,
+    pub(crate) tasks: Vec<Task>,
 }
 
 impl Held {
-    fn guard(&self) -> &RootGuard {
+    pub(crate) fn guard(&self) -> &RootGuard {
         self.guard.as_ref().expect("taken only by `into_guard`")
     }
 
     /// Cancels every task but the one at `keep`, and waits for them to end. The kept task, if
     /// any, is the only one left afterwards.
-    async fn settle_except(&mut self, keep: Option<usize>) {
+    pub(crate) async fn settle_except(&mut self, keep: Option<usize>) {
         if let Some(keep) = keep {
             self.tasks.swap(0, keep);
         }
@@ -1347,10 +1417,10 @@ impl Drop for Held {
 }
 
 /// The processor's answer to one want of a request.
-struct Granted {
-    held: Held,
+pub(crate) struct Granted {
+    pub(crate) held: Held,
     /// For a write: the tracked roots below it that the holder must leave alone.
-    exclusions: Vec<ProjectRelativePathBuf>,
+    pub(crate) exclusions: Vec<ProjectRelativePathBuf>,
 }
 
 /// Withdraws whatever of a request is still queued if its requester stops waiting for it.
@@ -1402,37 +1472,127 @@ enum Command {
         id: RequestId,
         paths: Vec<ProjectRelativePathBuf>,
     },
+    /// From the cleaner: each path taken for writing if it is as expected and free, in one
+    /// step (see `DiskTree::take_for_cleaning`).
+    TakeForCleaning {
+        requests: Vec<(ProjectRelativePathBuf, Expect)>,
+        reply: oneshot::Sender<Vec<Option<Granted>>>,
+    },
+    /// Each path held for reading if content is tracked there and free, never waiting (see
+    /// `DiskTree::hold_for_reading`).
+    HoldForReading {
+        requests: Vec<(ProjectRelativePathBuf, Option<Timestamp>)>,
+        reply: oneshot::Sender<Vec<Option<RootGuard>>>,
+    },
     /// Anything that needs the state and no IO.
     Sync(Box<dyn FnOnce(&mut Processor) + Send>),
     #[cfg(test)]
     Abort,
 }
 
+/// What the requesters read without asking the processor: the queue's depth, and the tracked
+/// bytes by classification, kept by the processor as roots come and go.
+#[derive(Default)]
+pub(crate) struct Shared {
+    queued: AtomicUsize,
+    final_output_bytes: AtomicU64,
+    intermediate_only_bytes: AtomicU64,
+}
+
+impl Shared {
+    pub(crate) fn sizes(&self) -> MaterializerSizeStats {
+        MaterializerSizeStats {
+            final_output: self.final_output_bytes.load(Ordering::Relaxed),
+            intermediate_only: self.intermediate_only_bytes.load(Ordering::Relaxed),
+        }
+    }
+
+    fn bytes_of(&self, classification: ArtifactClassification) -> &AtomicU64 {
+        match classification {
+            ArtifactClassification::FinalOutput => &self.final_output_bytes,
+            ArtifactClassification::IntermediateOnly => &self.intermediate_only_bytes,
+        }
+    }
+
+    fn add(&self, tracked: &Tracked) {
+        self.bytes_of(tracked.classification)
+            .fetch_add(tracked.size(), Ordering::Relaxed);
+    }
+
+    fn remove(&self, tracked: &Tracked) {
+        let _ignored = self.bytes_of(tracked.classification).fetch_update(
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+            |current| Some(current.saturating_sub(tracked.size())),
+        );
+    }
+}
+
 #[derive(Clone)]
-struct Sender(mpsc::UnboundedSender<Command>);
+pub(crate) struct Sender {
+    tx: mpsc::UnboundedSender<Command>,
+    shared: Arc<Shared>,
+}
 
 impl Dupe for Sender {}
 
 impl Sender {
     fn send(&self, command: Command) -> buck2_error::Result<()> {
-        self.0
-            .send(command)
-            .map_err(|_| internal_error!("The materializer has stopped"))
+        self.shared.queued.fetch_add(1, Ordering::Relaxed);
+        self.tx.send(command).map_err(|_| {
+            self.shared.queued.fetch_sub(1, Ordering::Relaxed);
+            internal_error!("The materializer has stopped")
+        })
+    }
+
+    /// Runs `f` on the processor thread with its state; what it returns arrives on the channel.
+    /// Synchronous, so that the closure's type stays out of the caller's future.
+    pub(crate) fn on_processor<R: Send + 'static>(
+        &self,
+        f: impl FnOnce(&mut Processor) -> R + Send + 'static,
+    ) -> buck2_error::Result<oneshot::Receiver<R>> {
+        let (reply, answer) = oneshot::channel();
+        self.send(Command::Sync(Box::new(move |processor| {
+            let _ignored = reply.send(f(processor));
+        })))?;
+        Ok(answer)
+    }
+
+    /// Takes each path for writing on the cleaner's behalf, where it is as expected and free.
+    pub(crate) async fn take_for_cleaning(
+        &self,
+        requests: Vec<(ProjectRelativePathBuf, Expect)>,
+    ) -> buck2_error::Result<Vec<Option<Granted>>> {
+        let (reply, answer) = oneshot::channel();
+        self.send(Command::TakeForCleaning { requests, reply })?;
+        answer.await.map_err(|_| stopped())
+    }
+
+    /// Holds each path for reading where content is tracked there and free, never waiting.
+    pub(crate) async fn hold_for_reading(
+        &self,
+        requests: Vec<(ProjectRelativePathBuf, Option<Timestamp>)>,
+    ) -> buck2_error::Result<Vec<Option<RootGuard>>> {
+        let (reply, answer) = oneshot::channel();
+        self.send(Command::HoldForReading { requests, reply })?;
+        answer.await.map_err(|_| stopped())
     }
 }
 
 /// The owner of the tree. Lives on its own thread; see the module doc.
-struct Processor {
+pub(crate) struct Processor {
     sender: Sender,
-    tree: DiskTree<oneshot::Sender<Granted>>,
+    pub(crate) tree: DiskTree<oneshot::Sender<Granted>>,
     sqlite_db: Option<MaterializerStateSqliteDb>,
     /// Roots whose access time changed in memory and not yet in sqlite.
     touched: BuckMutSet<ProjectRelativePathBuf>,
+    shared: Arc<Shared>,
 }
 
 impl Processor {
     fn run(mut self, mut commands: mpsc::UnboundedReceiver<Command>) {
         while let Some(command) = commands.blocking_recv() {
+            self.shared.queued.fetch_sub(1, Ordering::Relaxed);
             if !self.handle(command) {
                 return;
             }
@@ -1497,6 +1657,39 @@ impl Processor {
                 }
                 self.apply(effects);
             }
+            Command::TakeForCleaning { requests, reply } => {
+                let mut change = TreeChange::default();
+                let taken: Vec<Option<Granted>> = requests
+                    .into_iter()
+                    .map(|(path, expect)| {
+                        let (grant, one) = self.tree.take_for_cleaning(path, expect)?;
+                        change.extend(one);
+                        Some(self.granted(grant))
+                    })
+                    .collect();
+                self.account(&change);
+                self.persist(change);
+                // A cleaner gone already drops the grants, whose guards release the roots.
+                let _ignored = reply.send(taken);
+            }
+            Command::HoldForReading { requests, reply } => {
+                let mut change = TreeChange::default();
+                let held: Vec<Option<RootGuard>> = requests
+                    .into_iter()
+                    .map(|(path, as_of)| {
+                        let (hold, one) = self.tree.hold_for_reading(path, as_of)?;
+                        change.extend(one);
+                        Some(RootGuard {
+                            sender: self.sender.dupe(),
+                            path: hold.path().to_buf(),
+                            hold: Mutex::new(Some(Hold::Read(hold))),
+                        })
+                    })
+                    .collect();
+                self.account(&change);
+                self.persist(change);
+                let _ignored = reply.send(held);
+            }
             Command::Sync(f) => f(self),
             #[cfg(test)]
             Command::Abort => return false,
@@ -1506,22 +1699,37 @@ impl Processor {
 
     /// Mirrors what an operation changed and hands its grants to their requesters.
     fn apply(&mut self, effects: Effects<oneshot::Sender<Granted>>) {
+        self.account(&effects.change);
         self.persist(effects.change);
         for (reply, grant) in effects.grants {
-            let granted = Granted {
-                held: Held {
-                    guard: Some(RootGuard {
-                        sender: self.sender.dupe(),
-                        path: grant.hold.path().to_buf(),
-                        hold: Mutex::new(Some(grant.hold)),
-                    }),
-                    tasks: grant.tasks,
-                },
-                exclusions: grant.exclusions,
-            };
             // A requester gone already drops the grant, whose guard releases the root through
             // this same channel.
-            let _ignored = reply.send(granted);
+            let _ignored = reply.send(self.granted(grant));
+        }
+    }
+
+    /// A grant as the requester gets it.
+    fn granted(&self, grant: crate::materializers::v2::tree::Grant) -> Granted {
+        Granted {
+            held: Held {
+                guard: Some(RootGuard {
+                    sender: self.sender.dupe(),
+                    path: grant.hold.path().to_buf(),
+                    hold: Mutex::new(Some(grant.hold)),
+                }),
+                tasks: grant.tasks,
+            },
+            exclusions: grant.exclusions,
+        }
+    }
+
+    /// Keeps the shared totals in step with the tracked roots.
+    fn account(&self, change: &TreeChange) {
+        for (_, tracked) in &change.removed {
+            self.shared.remove(tracked);
+        }
+        for (_, tracked) in &change.added {
+            self.shared.add(tracked);
         }
     }
 
@@ -1550,7 +1758,7 @@ impl Processor {
         let table = db.materializer_state_table();
         let result = (|| {
             if !removed.is_empty() {
-                table.delete(removed)?;
+                table.delete(removed.into_iter().map(|(path, _)| path).collect())?;
             }
             for (path, tracked) in &added {
                 table.insert(

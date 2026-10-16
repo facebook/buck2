@@ -11,6 +11,7 @@
 //! The materializer implementation that tracks disk state only: its state is what is on disk,
 //! its synchronization is path leases, and content it does not hold locally comes from the CAS.
 
+pub(crate) mod clean_stale;
 pub mod core;
 pub(crate) mod task;
 pub(crate) mod tree;

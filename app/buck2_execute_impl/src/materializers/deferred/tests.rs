@@ -437,13 +437,17 @@ pub(crate) mod state_machine {
             unimplemented!()
         }
 
+        /// The stub has no CAS to upload to; a caller sees the failure it would see offline.
         async fn upload_materialized_artifact(
             self: &Arc<Self>,
-            _path: ProjectRelativePathBuf,
+            path: ProjectRelativePathBuf,
             _entry: ActionDirectoryEntry<ActionSharedDirectory>,
             _info: Arc<CasDownloadInfo>,
         ) -> buck2_error::Result<()> {
-            unimplemented!()
+            Err(buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "The IO stub cannot upload `{path}`"
+            ))
         }
 
         fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir> {
