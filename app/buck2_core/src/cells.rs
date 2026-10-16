@@ -82,6 +82,7 @@ pub mod cell_path;
 pub mod cell_path_with_allowed_relative_dir;
 pub mod cell_root_path;
 pub mod external;
+pub mod i_cell_relative_path;
 pub mod instance;
 pub mod name;
 pub mod nested;
