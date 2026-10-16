@@ -104,11 +104,9 @@ impl ImportPath {
         filename: &str,
         build_file_cell: &str,
     ) -> Self {
-        let cell_path = CellPath::new(
-            CellName::testing_new(cell),
-            CellRelativePath::unchecked_new(cell_relative_path)
-                .join(FileName::unchecked_new(filename)),
-        );
+        let path = CellRelativePath::unchecked_new(cell_relative_path)
+            .join(FileName::unchecked_new(filename));
+        let cell_path = CellPath::new(CellName::testing_new(cell), &path);
         Self::new_with_build_file_cells(
             cell_path,
             BuildFileCell::new(CellName::testing_new(build_file_cell)),

@@ -236,7 +236,7 @@ fn get_cell_path<'v>(
         } else {
             (cell_relative_path.to_buf(), None)
         };
-        let cell_path = CellPath::new(cell_name, cell_relative_path);
+        let cell_path = CellPath::new(cell_name, &cell_relative_path);
 
         let buck_out_path_data = BuckOutPathData {
             cell_path,
@@ -251,7 +251,7 @@ fn get_cell_path<'v>(
 
     if is_test {
         let buck_out_path_data = BuckOutPathData {
-            cell_path: CellPath::new(cell_name, cell_relative_path.to_buf()),
+            cell_path: CellPath::new(cell_name, &cell_relative_path),
             config_hash,
             content_hash,
             anon_hash: None,

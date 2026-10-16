@@ -341,8 +341,7 @@ impl std::fmt::Display for GatherPackageListingError {
                 let corrected = {
                     match package.strip_prefix(path.as_ref()) {
                         Ok(fixed) => {
-                            CellPath::new(*cell_name, CellRelativePath::new(fixed).to_owned())
-                                .to_string()
+                            CellPath::new(*cell_name, CellRelativePath::new(fixed)).to_string()
                         }
                         _ => format!("{cell_name}//"),
                     }

@@ -15,7 +15,7 @@ use strong_hash::StrongHash;
 use crate::cells::build_file_cell::BuildFileCell;
 use crate::cells::cell_path::CellPath;
 use crate::cells::name::CellName;
-use crate::cells::paths::CellRelativePathBuf;
+use crate::cells::paths::CellRelativePath;
 
 /// Path of a `bxl` file for `bxl` commands
 #[derive(
@@ -60,7 +60,7 @@ impl BxlFilePath {
     pub fn testing_new(cell: &str, cell_relative_path: &str) -> Self {
         let path = CellPath::new(
             CellName::testing_new(cell),
-            CellRelativePathBuf::try_from(cell_relative_path.to_owned()).unwrap(),
+            CellRelativePath::from_path(cell_relative_path).unwrap(),
         );
         Self::unverified_new(path)
     }

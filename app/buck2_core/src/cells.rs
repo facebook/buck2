@@ -112,6 +112,7 @@ use crate::cells::cell_path::CellPathRef;
 use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::cells::nested::NestedCells;
+use crate::cells::paths::CellRelativePath;
 use crate::fs::project::ProjectRoot;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
@@ -316,7 +317,7 @@ impl CellResolver {
         let relative = path
             .strip_prefix(instance.path().as_project_relative_path())
             .unwrap();
-        CellPath::new(cell, relative.to_owned().into())
+        CellPath::new(cell, CellRelativePath::new(relative))
     }
 
     pub fn get_cell_path_from_abs_path(
@@ -344,7 +345,7 @@ impl CellResolver {
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::cell_root_path::CellRootPathBuf;
     /// use buck2_core::cells::name::CellName;
-    /// use buck2_core::cells::paths::CellRelativePathBuf;
+    /// use buck2_core::cells::paths::CellRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     ///
@@ -356,7 +357,7 @@ impl CellResolver {
     ///
     /// let cell_path = CellPath::new(
     ///     CellName::testing_new("mycell"),
-    ///     CellRelativePathBuf::unchecked_new("some/path".to_owned()),
+    ///     CellRelativePath::unchecked_new("some/path"),
     /// );
     ///
     /// assert_eq!(

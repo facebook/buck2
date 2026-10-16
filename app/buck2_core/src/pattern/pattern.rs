@@ -2520,7 +2520,7 @@ mod tests {
         let alias_resolver = alias_resolver();
         let package = CellPath::new(
             CellName::testing_new("root"),
-            CellRelativePath::unchecked_new("package").to_owned(),
+            CellRelativePath::unchecked_new("package"),
         );
 
         let pattern_parts = ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(

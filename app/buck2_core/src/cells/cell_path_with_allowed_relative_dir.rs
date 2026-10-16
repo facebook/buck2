@@ -16,6 +16,7 @@ use buck2_fs::paths::relative_path::RelativePath;
 use pagable::Pagable;
 
 use crate::cells::cell_path::CellPath;
+use crate::cells::paths::CellRelativePath;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
@@ -126,7 +127,10 @@ impl CellPathWithAllowedRelativeDir {
                 }
             }
         }
-        Ok(CellPath::new(self.current_dir.cell(), resolved_path.into()))
+        Ok(CellPath::new(
+            self.current_dir.cell(),
+            CellRelativePath::new(&resolved_path),
+        ))
     }
 
     pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> CellPath {
@@ -154,10 +158,8 @@ mod tests {
     use crate::cells::paths::CellRelativePath;
 
     fn path(cell: &str, dir: &str, filename: &str) -> CellPath {
-        CellPath::new(
-            CellName::testing_new(cell),
-            CellRelativePath::unchecked_new(dir).join(FileName::unchecked_new(filename)),
-        )
+        let path = CellRelativePath::unchecked_new(dir).join(FileName::unchecked_new(filename));
+        CellPath::new(CellName::testing_new(cell), &path)
     }
 
     #[test]

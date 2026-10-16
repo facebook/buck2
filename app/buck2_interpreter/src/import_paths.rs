@@ -60,7 +60,7 @@ impl ImplicitImportPaths {
                     Some(cell_path) => cell_path,
                     None => {
                         let path = CellRelativePathBuf::try_from(i.to_string())?;
-                        CellPath::new(cell_alias_resolver.resolve_self(), path)
+                        CellPath::new(cell_alias_resolver.resolve_self(), &path)
                     }
                 };
 

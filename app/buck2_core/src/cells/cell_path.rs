@@ -17,7 +17,6 @@ use strong_hash::StrongHash;
 
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
-use crate::cells::paths::CellRelativePathBuf;
 
 #[derive(buck2_error::Error, Debug)]
 #[error("attempted to strip prefix of two CellPath with different cell names `{0}` and `{1}`")]
@@ -47,10 +46,10 @@ pub struct CellPath {
 
 impl CellPath {
     #[inline]
-    pub fn new(cell: CellName, path: CellRelativePathBuf) -> Self {
+    pub fn new(cell: CellName, path: &CellRelativePath) -> Self {
         CellPath {
             cell,
-            path: path.into_box(),
+            path: path.to_box(),
         }
     }
 
@@ -78,18 +77,18 @@ impl CellPath {
     /// ```
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::name::CellName;
-    /// use buck2_core::cells::paths::CellRelativePathBuf;
+    /// use buck2_core::cells::paths::CellRelativePath;
     /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
     /// let path = CellPath::new(
     ///     CellName::testing_new("cell"),
-    ///     CellRelativePathBuf::unchecked_new("foo/bar".into()),
+    ///     CellRelativePath::unchecked_new("foo/bar"),
     /// );
     /// let other = ForwardRelativePath::new("baz")?;
     /// assert_eq!(
     ///     CellPath::new(
     ///         CellName::testing_new("cell"),
-    ///         CellRelativePathBuf::unchecked_new("foo/bar/baz".into())
+    ///         CellRelativePath::unchecked_new("foo/bar/baz")
     ///     ),
     ///     path.join(other)
     /// );
@@ -106,16 +105,16 @@ impl CellPath {
     /// ```
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::name::CellName;
-    /// use buck2_core::cells::paths::CellRelativePathBuf;
+    /// use buck2_core::cells::paths::CellRelativePath;
     ///
     /// assert_eq!(
     ///     Some(CellPath::new(
     ///         CellName::testing_new("cell"),
-    ///         CellRelativePathBuf::unchecked_new("foo".into())
+    ///         CellRelativePath::unchecked_new("foo")
     ///     )),
     ///     CellPath::new(
     ///         CellName::testing_new("cell"),
-    ///         CellRelativePathBuf::unchecked_new("foo/bar".into())
+    ///         CellRelativePath::unchecked_new("foo/bar")
     ///     )
     ///     .parent()
     ///     .map(|p| p.to_owned()),
@@ -171,19 +170,19 @@ impl CellPath {
     /// ```
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::name::CellName;
-    /// use buck2_core::cells::paths::CellRelativePathBuf;
+    /// use buck2_core::cells::paths::CellRelativePath;
     /// use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     ///
     /// let path = CellPath::new(
     ///     CellName::testing_new("cell"),
-    ///     CellRelativePathBuf::unchecked_new("test/haha/foo.txt".into()),
+    ///     CellRelativePath::unchecked_new("test/haha/foo.txt"),
     /// );
     ///
     /// assert_eq!(
     ///     path.strip_prefix(
     ///         CellPath::new(
     ///             CellName::testing_new("cell"),
-    ///             CellRelativePathBuf::unchecked_new("test".into()),
+    ///             CellRelativePath::unchecked_new("test"),
     ///         )
     ///         .as_ref()
     ///     )?,
@@ -193,7 +192,7 @@ impl CellPath {
     ///     path.strip_prefix(
     ///         CellPath::new(
     ///             CellName::testing_new("cell"),
-    ///             CellRelativePathBuf::unchecked_new("asdf".into()),
+    ///             CellRelativePath::unchecked_new("asdf"),
     ///         )
     ///         .as_ref()
     ///     )
@@ -204,7 +203,7 @@ impl CellPath {
     ///     path.strip_prefix(
     ///         CellPath::new(
     ///             CellName::testing_new("another"),
-    ///             CellRelativePathBuf::unchecked_new("test".into()),
+    ///             CellRelativePath::unchecked_new("test"),
     ///         )
     ///         .as_ref()
     ///     )
@@ -229,17 +228,17 @@ impl CellPath {
     ///
     /// use buck2_core::cells::cell_path::CellPath;
     /// use buck2_core::cells::name::CellName;
-    /// use buck2_core::cells::paths::CellRelativePathBuf;
+    /// use buck2_core::cells::paths::CellRelativePath;
     ///
     /// assert!(
     ///     CellPath::new(
     ///         CellName::testing_new("cell"),
-    ///         CellRelativePathBuf::unchecked_new("foo/bar".into())
+    ///         CellRelativePath::unchecked_new("foo/bar")
     ///     )
     ///     .starts_with(
     ///         CellPath::new(
     ///             CellName::testing_new("cell"),
-    ///             CellRelativePathBuf::unchecked_new("foo".into())
+    ///             CellRelativePath::unchecked_new("foo")
     ///         )
     ///         .as_ref()
     ///     ),
@@ -266,7 +265,7 @@ impl CellPath {
         let (cell_name, relative_path) = path.split_once("//").unwrap();
         CellPath::new(
             CellName::testing_new(cell_name),
-            CellRelativePathBuf::testing_new(relative_path),
+            CellRelativePath::testing_new(relative_path),
         )
     }
 

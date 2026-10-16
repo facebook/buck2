@@ -51,7 +51,7 @@ pub fn maybe_parse_cell_path(
     let cell_relative = ForwardRelativePath::new(cell_relative)?;
     let cell_relative = CellRelativePath::new(cell_relative);
 
-    Ok(Some(CellPath::new(cell, cell_relative.to_buf())))
+    Ok(Some(CellPath::new(cell, cell_relative)))
 }
 
 /// Parse a `cell//path` string into a `PackageLabel`.

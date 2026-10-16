@@ -250,7 +250,7 @@ impl FileOpsDelegate for TestCellFileOps {
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<String>> {
-        let cell_path = CellPath::new(self.0, path.to_owned());
+        let cell_path = CellPath::new(self.0, path);
         FileOps::read_file_if_exists(&self.1, cell_path.as_ref()).await
     }
 
@@ -260,7 +260,7 @@ impl FileOpsDelegate for TestCellFileOps {
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Arc<[RawDirEntry]>> {
-        let path = CellPath::new(self.0, path.to_owned());
+        let path = CellPath::new(self.0, path);
         let simple_entries = FileOps::read_dir(&self.1, path.as_ref()).await?.included;
         Ok(simple_entries
             .iter()
@@ -276,7 +276,7 @@ impl FileOpsDelegate for TestCellFileOps {
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        let path = CellPath::new(self.0, path.to_owned());
+        let path = CellPath::new(self.0, path);
         FileOps::read_path_metadata_if_exists(&self.1, path.as_ref()).await
     }
 

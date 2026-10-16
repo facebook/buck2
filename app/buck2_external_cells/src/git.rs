@@ -382,7 +382,10 @@ impl FileOpsDelegate for GitFileOpsDelegate {
         };
         Ok(Some(metadata.try_map(
             |path| match path.strip_prefix_opt(self.get_base_path()) {
-                Some(path) => Ok(Arc::new(CellPath::new(self.cell, path.to_owned().into()))),
+                Some(path) => Ok(Arc::new(CellPath::new(
+                    self.cell,
+                    CellRelativePath::new(path),
+                ))),
                 None => Err(internal_error!(
                     "Non-cell internal symlink at `{}` in cell `{}`",
                     path,

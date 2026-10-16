@@ -12,6 +12,7 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::cells::paths::CellRelativePath;
 use derive_more::Display;
 use pagable::Pagable;
 use serde::Serialize;
@@ -89,7 +90,7 @@ fn cell_path_methods(builder: &mut MethodsBuilder) {
             .path()
             .as_forward_relative_path()
             .join_normalized(arg)?;
-        let p = CellPath::new(this.0.cell(), p.into());
+        let p = CellPath::new(this.0.cell(), CellRelativePath::new(&p));
         Ok(StarlarkCellPath(p))
     }
 }
