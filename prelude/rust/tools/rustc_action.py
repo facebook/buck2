@@ -584,9 +584,16 @@ async def main() -> int:  # noqa: C901
         # files which were *actuallyq* created. We use the short paths as the
         # logical filename rather than the actual full path, since that won't
         # mean much to a downstream action.
+        # An output at its path is only this run's when rustc succeeded: an action that keeps
+        # its outputs (incremental compiles) starts with the previous run's, and a filtered
+        # failure leaves a placeholder behind.
         build_status = {
             "status": res,
-            "files": [short for short, path in required_output if Path(path).exists()],
+            "files": [
+                short
+                for short, path in required_output
+                if res == 0 and Path(path).exists()
+            ],
         }
         args.failure_filter.write(
             json.dumps(build_status, separators=(",", ":")).encode() + b"\n"

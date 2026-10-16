@@ -103,29 +103,30 @@ class FailureFilterTest(unittest.TestCase):
     def build_status(self) -> dict:
         return json.loads(self.status.read_text())
 
-    def test_check_reuses_the_previous_rmeta_after_a_failed_compile(self) -> None:
+    def test_check_fails_after_a_failed_compile_despite_a_previous_rmeta(self) -> None:
         self.assertEqual(self.compile(diags=[], write=True, exit_code=0), 0)
         self.assertEqual(self.check(), (0, "fresh-rmeta"))
 
         # The source now has a type error: rustc fails and writes nothing.
         self.assertEqual(self.compile(diags=[ERROR_DIAG], write=False, exit_code=1), 0)
-        self.assertEqual(self.build_status(), {"status": 1, "files": [SHORT]})
-        # `[check]` succeeds and hands out the previous run's rmeta.
-        self.assertEqual(self.check(), (0, "fresh-rmeta"))
+        self.assertEqual(self.build_status(), {"status": 1, "files": []})
+        self.assertEqual(self.check(), (1, None))
 
-    def test_check_succeeds_on_a_placeholder_from_a_failed_compile(self) -> None:
+    def test_check_fails_on_a_placeholder_from_a_failed_compile(self) -> None:
         self.assertEqual(self.compile(diags=[ERROR_DIAG], write=False, exit_code=1), 0)
-        self.assertEqual(self.check()[0], 1)
+        self.assertEqual(self.check(), (1, None))
 
-        # The second failure finds the empty placeholder the first one left behind.
         self.assertEqual(self.compile(diags=[ERROR_DIAG], write=False, exit_code=1), 0)
-        self.assertEqual(self.check(), (0, ""))
+        self.assertEqual(self.check(), (1, None))
 
-    def test_check_succeeds_on_a_silent_unused_dependency_error(self) -> None:
-        # `#![deny(unused_crate_dependencies)]` with `--json=unused-externs-silent`: rustc exits 0
-        # and `rustc_action` raises the status to 1, but the rmeta was written.
+    def test_check_fails_on_a_silent_unused_dependency_error(self) -> None:
         self.assertEqual(
             self.compile(diags=[DENY_UNUSED_DIAG], write=True, exit_code=0), 0
         )
-        self.assertEqual(self.build_status(), {"status": 1, "files": [SHORT]})
+        self.assertEqual(self.build_status(), {"status": 1, "files": []})
+        self.assertEqual(self.check(), (1, None))
+
+    def test_check_succeeds_after_a_successful_compile(self) -> None:
+        self.assertEqual(self.compile(diags=[], write=True, exit_code=0), 0)
+        self.assertEqual(self.build_status(), {"status": 0, "files": [SHORT]})
         self.assertEqual(self.check(), (0, "fresh-rmeta"))
