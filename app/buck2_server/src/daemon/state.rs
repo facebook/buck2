@@ -86,6 +86,8 @@ use buck2_file_watcher::dep_files::DepFileCache;
 use buck2_file_watcher::dep_files::create_dep_file_cache;
 use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_fs::cwd::WorkingDirectory;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -253,12 +255,13 @@ pub struct RepoState {
     /// (`buck2.clean_scratch_on_idle`). The sweep runs through this repo's `materializer`.
     pub(crate) clean_scratch_on_idle: bool,
 
-    /// Whether this repo's `materializer` holds write actions' content in memory until
-    /// something needs the file (`buck2.defer_write_actions`).
+    /// Whether this repo's `materializer` keeps a write action's content off its output path
+    /// until something needs the file: the deferred core's when `buck2.defer_write_actions`
+    /// says so, the disk-state core's always, since its writes go to the BlobStore.
     pub(crate) materializer_defers_writes: bool,
 
     /// How often this repo's `materializer` refreshes TTLs (`buck2.ttl_refresh_frequency_seconds`).
-    /// The daemon-wide refresher over the digest interner runs at the first repo's.
+    /// The daemon-wide walk over the digest interner runs at the first repo's.
     pub(crate) ttl_refresh_frequency: Duration,
 
     /// Resource-pressure thresholds for automatic idle page-out, selected for this tenant's
@@ -487,7 +490,10 @@ impl TenantState {
                 clean_stale_config,
             }
         };
-        let materializer_defers_writes = deferred_materializer_configs.defer_write_actions;
+        let implementation = init_ctx.daemon_startup_config.materializer.as_deref();
+        let disk_state_core = implementation == Some(disk_state::CONFIG_VALUE);
+        let materializer_defers_writes =
+            disk_state_core || deferred_materializer_configs.defer_write_actions;
         let ttl_refresh_frequency = deferred_materializer_configs.ttl_refresh.frequency;
 
         let use_eden_thrift_read = root_config
@@ -589,19 +595,37 @@ impl TenantState {
         } else {
             EventDispatcher::null()
         };
-        let implementation = init_ctx.daemon_startup_config.materializer.as_deref();
-        if implementation == Some(disk_state::CONFIG_VALUE) {
+        let stash = io
+            .project_root()
+            .resolve(paths.buck_out_dir())
+            .join(ForwardRelativePath::unchecked_new("stash"));
+        if disk_state_core {
             // The daemon has one stash. It lives under this repo's buck-out until it has a
             // host-level home (plan-blobstore.md §2); a second repo in the process would share
-            // it. The deferred core never asks the store for anything, so nothing is attached
-            // for it.
+            // it.
             BlobStore::global().attach_stash(
-                io.project_root()
-                    .resolve(paths.buck_out_dir())
-                    .join(ForwardRelativePath::unchecked_new("stash")),
+                stash,
                 digest_config.cas_digest_config(),
                 blocking_executor.dupe(),
             );
+        } else {
+            // A stash is sound only while the disk-state core governs every link into it,
+            // unsharing an output before an action rewrites it in place; under the deferred
+            // core such a write would reach every path sharing the blob. What a disk-state
+            // daemon left is removed rather than kept for a later one to trust.
+            let blocking = blocking_executor.dupe();
+            tokio::spawn(async move {
+                let removed = blocking
+                    .execute_io_inline(move || {
+                        fs_util::remove_all(&stash)
+                            .categorize_internal()
+                            .map_err(buck2_error::Error::from)
+                    })
+                    .await;
+                if let Err(e) = removed {
+                    let _ignored = soft_error!("blob_store_stash_removal_failed", e, quiet: true);
+                }
+            });
         }
         let materializer = RepoState::create_materializer(
             implementation,
@@ -615,7 +639,7 @@ impl TenantState {
             materializer_state,
             daemon_dispatcher,
         )?;
-        if implementation == Some(disk_state::CONFIG_VALUE) {
+        if disk_state_core {
             // The materializer's roots hold their digests now, so what the stash holds for them
             // survives the walk that follows the load.
             BlobStore::global().spawn_load_and_walk();
@@ -1328,7 +1352,7 @@ impl DaemonState {
 
             // One walk over the process-wide digest interner, on the first tenant's RE
             // connection and cadence: the BlobStore's, which refreshes CAS TTLs and collects
-            // the stash, if a materializer attached one.
+            // the stash, if the daemon attached one.
             let standalone_ttl_refresh = BlobStore::global().start_refresh(
                 TtlRefresher::new(Arc::new(ReChecker::new(
                     tenant.repo.re_client_manager.dupe(),
