@@ -50,9 +50,9 @@ use crate::stats::FileWatcherStats;
 fn ignore_event_kind(event_kind: EventKind) -> bool {
     match event_kind {
         EventKind::Access(_) => true,
-        EventKind::Modify(ModifyKind::Metadata(MetadataKind::Ownership))
-        | EventKind::Modify(ModifyKind::Metadata(MetadataKind::Permissions)) => false,
-        EventKind::Modify(ModifyKind::Metadata(_)) => true,
+        // Only the access time can change without anything buck2 reads changing. `chmod` arrives
+        // as `Metadata(Any)` from every notify backend, never as `Permissions`.
+        EventKind::Modify(ModifyKind::Metadata(MetadataKind::AccessTime)) => true,
         _ => false,
     }
 }
@@ -443,14 +443,20 @@ mod tests {
 
     /// `chmod` arrives from every notify backend as `Modify(Metadata(Any))` (inotify
     /// `IN_ATTRIB`, FSEvents `INODE_META_MOD`, kqueue `NOTE_ATTRIB`); no backend emits
-    /// `Permissions`. The filter drops it, so the executable bit of an input stays stale.
+    /// `Permissions`. Only access events and access-time changes can be dropped.
     #[test]
-    fn test_metadata_any_is_ignored() {
-        assert!(ignore_event_kind(EventKind::Modify(ModifyKind::Metadata(
+    fn test_metadata_any_is_not_ignored() {
+        assert!(!ignore_event_kind(EventKind::Modify(ModifyKind::Metadata(
             MetadataKind::Any
         ))));
         assert!(!ignore_event_kind(EventKind::Modify(ModifyKind::Metadata(
             MetadataKind::Permissions
         ))));
+        assert!(ignore_event_kind(EventKind::Modify(ModifyKind::Metadata(
+            MetadataKind::AccessTime
+        ))));
+        assert!(ignore_event_kind(EventKind::Access(
+            notify::event::AccessKind::Read
+        )));
     }
 }
