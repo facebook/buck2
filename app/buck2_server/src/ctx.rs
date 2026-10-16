@@ -943,12 +943,13 @@ impl DiceCommandUpdater<'_, '_> {
         }
 
         // A write whose content the CAS already has is declared as a CAS download, so its bytes
-        // then exist nowhere but the CAS. That only pays if the materializer would not have put
-        // them at the output path right away: the deferred core keeping them in memory, the
-        // disk-state core in the BlobStore; a hit would trade a write for a download otherwise.
-        // A copy from a source file follows the same decision: the same question about content
-        // produced here, and its source stays where it is either way. The disk-state core asks
-        // for the probe itself (`materializer_probes_writes`); the knob is the deferred core's.
+        // then exist nowhere but the CAS, and a copy from a source file follows the same
+        // decision: the same question about content produced here, and its source stays where
+        // it is either way. Under the deferred core that pays only when the content would not
+        // have gone to the output path right away (`defer_write_actions`); a hit trades a write
+        // for a download otherwise, and the knob decides. The disk-state core asks for the probe
+        // itself (`materializer_probes_writes`): it writes to the path at once, and most of a
+        // cold build's writes are never read from disk.
         let repo = self.cmd_ctx.base_context.repo();
         run_action_knobs.write_cas_probe = repo.materializer_probes_writes
             || (root_config

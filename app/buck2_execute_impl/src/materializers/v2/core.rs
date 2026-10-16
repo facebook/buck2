@@ -55,7 +55,6 @@ use allocative::Allocative;
 use allocative::FlameGraphBuilder;
 use async_trait::async_trait;
 use buck2_common::file_ops::metadata::FileDigest;
-use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -66,6 +65,7 @@ use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::current_span;
@@ -117,6 +117,7 @@ use futures::FutureExt;
 use futures::StreamExt;
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
+use itertools::Itertools;
 use jiff::Timestamp;
 use parking_lot::Mutex;
 use tokio::sync::mpsc;
@@ -134,6 +135,7 @@ use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_entry;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
+use crate::materializers::immediate;
 use crate::materializers::v2::clean_stale::Cleaner;
 use crate::materializers::v2::entry::DiskEntry;
 use crate::materializers::v2::index::DigestIndex;
@@ -777,31 +779,39 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         Ok(())
     }
 
-    /// Into the store, not onto disk: the output path is materialized from the store when
-    /// something asks for it, as a probe hit's is from the CAS (plan-blobstore.md §3). The
-    /// content is generated inside the store's IO, so that a write waiting its turn holds none.
+    /// Onto disk and tracked, as a local action's output is when it is reported: a write whose
+    /// content the CAS already holds does not get here under the probe this core asks for
+    /// (`materializer_probes_writes`), and the rest is disk state like any other.
     async fn declare_write<'a>(
         &self,
         generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> buck2_error::Result<Vec<ArtifactValue>> {
-        let written = self
-            .store
-            .insert_generated(move || {
-                Ok(generate()?
-                    .into_iter()
-                    .map(|request| (request.content, request.is_executable))
-                    .collect())
-            })
-            .await?;
-        Ok(written
-            .into_iter()
-            .map(|(digest, is_executable)| {
-                ArtifactValue::file(FileMetadata {
-                    digest,
-                    is_executable,
-                })
-            })
-            .collect())
+        let requests = generate()?;
+        let paths: Vec<ProjectRelativePathBuf> = requests
+            .iter()
+            .map(|request| request.path.clone())
+            .collect();
+        let roots = self.take_all_for_writing(paths.clone()).await?;
+        let values = immediate::write_to_disk(
+            self.io.fs(),
+            self.blocking_executor.as_ref(),
+            self.io.digest_config(),
+            Box::new(move || Ok(requests)),
+        )
+        .await?;
+        for (path, value) in paths.into_iter().zip_eq(&values) {
+            let guard = roots
+                .at(&path)
+                .internal_error("a written path is one of its lease's roots")?;
+            let root = Root {
+                path,
+                entry: value.entry().dupe(),
+            };
+            self.stash(&root).await;
+            self.report(guard, root.entry, ArtifactClassification::IntermediateOnly)
+                .await?;
+        }
+        Ok(values)
     }
 
     /// A match is a use of the matched roots, as a read is: what a dep-file hit goes on relying

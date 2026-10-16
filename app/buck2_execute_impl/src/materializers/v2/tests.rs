@@ -1378,9 +1378,10 @@ async fn test_a_copy_from_outside_buck_out_enters_the_store() -> buck2_error::Re
     .await
 }
 
-/// A write goes into the store and nowhere else until something asks for its path.
+/// A write goes to disk and is tracked, as a local action's output is, and the store holds its
+/// content as it holds theirs.
 #[tokio::test]
-async fn test_a_write_goes_into_the_store() -> buck2_error::Result<()> {
+async fn test_a_write_goes_to_disk_and_is_tracked() -> buck2_error::Result<()> {
     ignore_stack_overflow_checks_for_future(async {
         let temp = ProjectRootTemp::new()?;
         let (dm, io) = make(temp.path(), None, None);
@@ -1398,8 +1399,17 @@ async fn test_a_write_goes_into_the_store() -> buck2_error::Result<()> {
             .await?;
         assert_eq!(values, vec![file_exec("written")]);
         assert_eq!(io.take_log(), vec![]);
-        assert!(!temp.path().resolve(&p).exists());
+        assert_eq!(std::fs::read_to_string(temp.path().resolve(&p))?, "written");
+        assert!(dm.has_artifact_at(p.clone()).await?);
+        let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = values[0].entry() else {
+            panic!("a write's value is a file");
+        };
+        assert!(
+            file.digest.stash().is_some(),
+            "the store holds what the CAS is not known to"
+        );
 
+        // Asked for again, the path is found tracked as wanted: nothing is written or fetched.
         materialize_ok(&dm, vec![(p.clone(), file_exec("written"))]).await?;
         assert_eq!(io.take_log(), vec![]);
         assert_eq!(std::fs::read_to_string(temp.path().resolve(&p))?, "written");

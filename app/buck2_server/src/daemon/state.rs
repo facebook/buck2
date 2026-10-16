@@ -255,14 +255,14 @@ pub struct RepoState {
 
     /// Whether this repo's `materializer` keeps a write action's content off its output path
     /// until something needs the file: the deferred core's when `buck2.defer_write_actions`
-    /// says so, the disk-state core's always, since its writes go to the BlobStore.
+    /// says so. The disk-state core writes to the path at once.
     pub(crate) materializer_defers_writes: bool,
 
     /// Whether this repo's `materializer` wants every write and source copy probed against the
     /// CAS before its content is produced, whatever `buck2.write_cas_probe` says: the disk-state
-    /// core's, which otherwise writes into its store what the CAS already holds, 98% of a cold
-    /// adfinder build's writes (RESULTS.md, 2026-10-13). One switch for the core and its probe
-    /// keeps a rollout from meeting the two in every combination.
+    /// core's, which otherwise writes to disk what the CAS already holds, 98% of a cold adfinder
+    /// build's writes (RESULTS.md, 2026-10-13). One switch for the core and its probe keeps a
+    /// rollout from meeting the two in every combination.
     pub(crate) materializer_probes_writes: bool,
 
     /// How often this repo's `materializer` refreshes TTLs (`buck2.ttl_refresh_frequency_seconds`).
@@ -501,7 +501,7 @@ impl TenantState {
             }
         };
         let materializer_defers_writes =
-            disk_state_core || deferred_materializer_configs.defer_write_actions;
+            !disk_state_core && deferred_materializer_configs.defer_write_actions;
         let materializer_probes_writes = disk_state_core;
         let ttl_refresh_frequency = deferred_materializer_configs.ttl_refresh.frequency;
 
