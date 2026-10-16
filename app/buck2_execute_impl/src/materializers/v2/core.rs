@@ -882,13 +882,18 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
 
     async fn get_materialized_file_paths(
         &self,
-        paths: Vec<ProjectRelativePathBuf>,
+        files: Vec<(ProjectRelativePathBuf, FileDigest)>,
     ) -> buck2_error::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>>
     {
         self.on_processor(move |processor| {
-            paths
+            files
                 .into_iter()
-                .map(|path| match processor.tracked_entry(&path) {
+                .map(|(path, digest)| match processor.tracked_entry(&path) {
+                    // Tracked with other content: what an earlier build of the same action put
+                    // there, say. The caller materializes the content it wants first.
+                    Some(DiskEntry::File(file)) if file.digest != digest => {
+                        Err(ArtifactNotMaterializedReason::RequiresMaterialization { path })
+                    }
                     Some(_) => Ok(path),
                     None => Err(ArtifactNotMaterializedReason::RequiresMaterialization { path }),
                 })

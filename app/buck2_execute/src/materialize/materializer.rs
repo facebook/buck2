@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_common::file_ops::metadata::FileDigest;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -423,22 +424,19 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
             .await?)
     }
 
-    /// Given a `file_path` whose contents we are interested in, *tries* to
-    /// find a materialized path with the same contents. It returns [`None`] if
-    /// the path leads to a file that needs to be fetched from the CAS.
-    ///
-    /// If none of the declared artifacts contains `file_path`, the
-    /// materializer can't tell whether that's because it was materialized by
-    /// an external source, or because it doesn't exist. Since this usually
-    /// means the path is a source file (not an output), for simplicity the
-    /// materializer returns `Some(file_path)`, not [`None`].
+    /// For each file an upload is about to read, given as the path it is wanted at and the
+    /// digest it is wanted with: a path holding that content, or why there is none yet.
+    /// `RequiresMaterialization` asks the caller to materialize the file at the path first, which
+    /// is also the answer for a path that holds other content than asked for;
+    /// `RequiresCasDownload` says the content is the CAS's and was never put on disk. A path the
+    /// materializer knows nothing about is returned as is, since that is usually a source file.
     ///
     /// TODO(rafaelc): analyze if we can get rid of this method without making
     /// Buck2 significantly slower, after we stop deferring local copies of
     /// artifacts that are already on disk.
     async fn get_materialized_file_paths(
         &self,
-        file_paths: Vec<ProjectRelativePathBuf>,
+        files: Vec<(ProjectRelativePathBuf, FileDigest)>,
     ) -> buck2_error::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>>;
 
     fn iterate(&self) -> buck2_error::Result<BoxStream<'static, MaterializerIterItem>>;

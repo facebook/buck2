@@ -181,7 +181,8 @@ impl Uploader {
                             upload_blobs.push(directory_to_blob(d));
                         }
                         DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
-                            upload_file_paths.push(dir_path.join(path.get()));
+                            upload_file_paths
+                                .push((dir_path.join(path.get()), f.digest.data().dupe()));
                             upload_file_digests.push(digest.to_re());
                             upload_file_metadata.push(f.dupe());
                         }

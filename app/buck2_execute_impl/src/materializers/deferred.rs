@@ -31,6 +31,7 @@ use artifact_tree::ArtifactMaterializationMethod;
 use artifact_tree::ArtifactMaterializationStage;
 use artifact_tree::ProcessingFuture;
 use async_trait::async_trait;
+use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::liveliness_observer::LivelinessGuard;
@@ -744,9 +745,12 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
     async fn get_materialized_file_paths(
         &self,
-        paths: Vec<ProjectRelativePathBuf>,
+        files: Vec<(ProjectRelativePathBuf, FileDigest)>,
     ) -> buck2_error::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>>
     {
+        // This core answers from what was declared at the path, which is the content the caller
+        // asks for or newer; the digest is not needed to tell.
+        let paths: Vec<ProjectRelativePathBuf> = files.into_iter().map(|(path, _)| path).collect();
         if paths.is_empty() {
             return Ok(Vec::new());
         }
