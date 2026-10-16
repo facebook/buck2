@@ -440,4 +440,17 @@ mod tests {
         assert!(!stats.fresh_instance);
         assert!(stats.incomplete_events_reason.is_none());
     }
+
+    /// `chmod` arrives from every notify backend as `Modify(Metadata(Any))` (inotify
+    /// `IN_ATTRIB`, FSEvents `INODE_META_MOD`, kqueue `NOTE_ATTRIB`); no backend emits
+    /// `Permissions`. The filter drops it, so the executable bit of an input stays stale.
+    #[test]
+    fn test_metadata_any_is_ignored() {
+        assert!(ignore_event_kind(EventKind::Modify(ModifyKind::Metadata(
+            MetadataKind::Any
+        ))));
+        assert!(!ignore_event_kind(EventKind::Modify(ModifyKind::Metadata(
+            MetadataKind::Permissions
+        ))));
+    }
 }
