@@ -6,6 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
+load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java:proguard.bzl", "get_proguard_output")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info", "get_classpath_subtargets")
@@ -16,6 +21,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     ":java_providers.bzl",
@@ -305,3 +311,138 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         create_template_info(ctx, packaging_info, first_order_libs),
         class_to_src_map,
     ]
+
+java_binary = prelude_rule(
+    name = "java_binary",
+    impl = java_binary_impl,
+    docs = """
+        A `java_binary()` rule is used to create a JAR file of the
+        compiled .class files and resources of the `java_library()`
+         rules on which it depends.
+    """,
+    examples = None,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "base_dep": attrs.option(
+                attrs.dep(),
+                default = None,
+                doc = """
+                Rule (normally of type `java_library`) that should be
+                 compiled and used as a base JAR to receive all dependencies through an append operation.
+            """,
+            ),
+            "build_manifest": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = """
+                MANIFEST containing stamped build attributes, that should be merged into the main jar manifest
+            """,
+            ),
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
+                Rules (normally of type `java_library`) that should be
+                 compiled and whose `.class` files and resources should be
+                 included in the generated JAR file.
+            """,
+            ),
+            "main_class": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                If provided, this will be the value specified as the
+                 `Main-Class` attribute of the `META-INF/MANIFEST.MF`
+                 file in the generated JAR file. Also, when this rule is used as
+                 an executable in a `genrule()`,
+                 `main_class` will indicate the class whose `main()` method will be invoked to process the command-line arguments. This
+                 is consistent with the expected usage of `java -jar
+                 *<name.jar>* *<args>*`.
+            """,
+            ),
+            "manifest_file": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = """
+                If provided, this manifest will be used when generating the JAR
+                 file. If combined with `main_class`, the specified manifest
+                 file will be used but the `main_class` will override the main
+                 class in the manifest.
+            """,
+            ),
+            "java_args_for_run_info": attrs.list(attrs.string(), default = []),
+            "meta_inf_directory": attrs.option(
+                attrs.source(allow_directory = True),
+                default = None,
+                doc = """
+                Note: This has beta support currently.
+                 If provided, the contents in this directory will end up in the
+                 `META-INF` directory inside the generated JAR file.
+            """,
+            ),
+            "blocklist": attrs.list(
+                attrs.regex(),
+                default = [],
+                doc = """
+                A list of patterns that identify files to exclude from the final generated JAR
+                 file. Example:
+
+                ```
+                java_binary(
+                  name = 'example',
+                  blocklist = [
+                    # Excludes com.example.A and com.example.Alligator,
+                    # as well as their inner classes and any non-class files that happen to match
+                    # the pattern
+                    'com.example.A',
+
+                    # Excludes all files from org/slf4j/**/*.
+                    'org.slf4j',
+                  ],
+                  deps = [
+                    ':example1',
+                    ':third-party-stuff',
+                  ],
+                )
+                ```
+            """,
+            ),
+            "concat_deps": attrs.bool(default = False, doc = "Use zip concatenation instead of repacking all dependency jars, which is faster"),
+            "default_cxx_platform": attrs.option(attrs.string(), default = None),
+            "generate_wrapper": attrs.bool(
+                default = False,
+                doc = """
+                Produce a shell script that runs the classes from a classpath file instead of
+                packing them into a fat jar. With native libraries the output is still a fat
+                jar, since a script has nowhere to put them.
+            """,
+            ),
+            "do_not_create_inner_jar": attrs.bool(
+                default = False,
+                doc = """
+                With native libraries, place them in a `nativelibs/` directory of the fat jar
+                and load them from resources, instead of nesting the classes in an `inner.jar`
+                behind a launcher main class. Entries then pass through `blocklist`. Cannot be
+                combined with `generate_wrapper`.
+            """,
+            ),
+            "incremental_target_prefix": attrs.option(attrs.string(), default = None),
+            "java_version": attrs.option(attrs.string(), default = None, doc = "Expected java version used at compile time"),
+            "java_runtime": attrs.option(attrs.string(), default = None, doc = "Expected java version used at runtime"),
+            "proguard_config": attrs.option(attrs.source(), default = None),
+            "proguard_jvm_args": attrs.list(attrs.string(), default = []),
+            "proguard_library_jars": attrs.list(attrs.source(), default = []),
+            "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_is_building_android_binary": is_building_android_binary_attr(),
+            "_java_toolchain": toolchains_common.java(),
+        }
+        | constraint_overrides.attributes
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    ),
+    cfg = constraint_overrides.transition,
+)

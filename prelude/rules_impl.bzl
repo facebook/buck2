@@ -40,7 +40,6 @@ load("@prelude//decls:common.bzl", "IncludeType", "buck")
 load("@prelude//decls:core_rules.bzl", "core_rules")
 load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
 load("@prelude//decls:cython_rules.bzl", "cython_rules")
-load("@prelude//decls:java_rules.bzl", "java_rules")
 load("@prelude//decls:kotlin_rules.bzl", "kotlin_rules")
 load("@prelude//decls:python_rules.bzl", "python_rules")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
@@ -53,7 +52,7 @@ load("@prelude//git:rules.bzl", _git_rules = "rules")
 load("@prelude//go:rules.bzl", _go_rules = "rules")
 load("@prelude//haskell:rules.bzl", _haskell_rules = "rules")
 load("@prelude//http_archive:http_archive.bzl", "http_archive_impl")
-load("@prelude//java:java.bzl", _java_implemented_rules = "implemented_rules")
+load("@prelude//java:rules.bzl", _java_rules = "rules")
 load("@prelude//js:rules.bzl", _js_rules = "rules")
 load("@prelude//js:worker_tool.bzl", "worker_tool")
 load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", _julia_implemented_rules = "implemented_rules")
@@ -115,7 +114,7 @@ categorized_rule_decl_records = {
     _GO_RULES_KEY: _go_rules,
     _HASKELL_RULES_KEY: _haskell_rules,
     _APPLE_RULES_KEY: apple_rules,
-    _JAVA_RULES_KEY: java_rules,
+    _JAVA_RULES_KEY: _java_rules,
     _JS_RULES_KEY: _js_rules,
     _KOTLIN_RULES_KEY: kotlin_rules,
     _LUA_RULES_KEY: _lua_rules,
@@ -189,7 +188,6 @@ extra_implemented_rules = struct(
         _android_implemented_rules,
         _apple_implemented_rules,
         _config_implemented_rules,
-        _java_implemented_rules,
         _julia_implemented_rules,
         _kotlin_implemented_rules,
         _matlab_implemented_rules,
