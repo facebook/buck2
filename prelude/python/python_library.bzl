@@ -11,8 +11,9 @@ load(
     "ArtifactOutputs",  # @unused Used as a type
     "unpack_artifact_map",
 )
-load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
+load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs", "validation_common")
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load(
     "@prelude//:resources.bzl",
     "gather_resources",
@@ -24,6 +25,9 @@ load(
     "get_excluded",
     "get_roots",
 )
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:third_party_common.bzl", "third_party_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkedObject",  # @unused Used as a type
@@ -35,6 +39,7 @@ load(
     "create_linkable_graph_node",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
+load("@prelude//python:attrs.bzl", "create_manifest_for_source_dir_attr", "python_common", "typing_arg")
 load(
     "@prelude//python/linking:native_python_util.bzl",
     "merge_cxx_extension_info",
@@ -550,3 +555,78 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         providers.append(ValidationInfo(validations = attr_validation_specs))
 
     return providers
+
+python_library = prelude_rule(
+    name = "python_library",
+    impl = python_library_impl,
+    docs = """
+        A `python_library()` rule is used to group together Python
+        source files and resources to be passed together in as a `dep` of other rules.
+    """,
+    examples = """
+        Include Python source files and resource files.
+
+        ```
+        # BUCK
+
+        # A rule that includes a single Python file.
+        python_library(
+          name = 'fileutil',
+          srcs = ['fileutil.py'],
+          deps = [
+            '//third_party/python-magic:python-magic',
+          ],
+        )
+
+        # A rule that uses glob() to include all Python source files in the
+        # directory in which the rule is defined. The rule also specifies a
+        # resource file that gets packaged with the source file.
+        python_library(
+          name = 'testutil',
+          srcs = glob(['testutil/**/*.py']),
+          resources = [
+            'testdata.dat',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        buck.labels_arg()
+        | python_common.srcs_arg()
+        | python_common.resources_arg()
+        | python_common.base_module_arg()
+        | python_common.deps_arg()
+        | python_common.exclude_deps_from_merged_linking_arg()
+        | third_party_common.create_third_party_build_root_attrs()
+        | {
+            "ignore_compile_errors": attrs.bool(default = False),
+            "lazy_imports_analyzer": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "resources": attrs.named_set(
+                attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)),
+                sorted = True,
+                default = [],
+                doc = """
+                Static files to be packaged along with the Python sources.
+                 These resources can be accessed at runtime using
+                 the [importlib.resources](https://docs.python.org/3/library/importlib.resources.html) module
+                 from the Python standard library.
+            """,
+            ),
+            "type_stubs": attrs.named_set(attrs.source(), sorted = True, default = []),
+            "use_lifeguard_incremental": attrs.bool(default = False),
+            "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
+            "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
+            "zip_safe": attrs.option(attrs.bool(), default = None),
+            "_create_manifest_for_source_dir": create_manifest_for_source_dir_attr(),
+            "_cxx_toolchain": toolchains_common.cxx(),
+            "_python_internal_tools": python_common.internal_tools_arg(),
+            "_python_toolchain": toolchains_common.python(),
+        }
+        | buck.licenses_arg()
+        | buck.contacts_arg()
+        | typing_arg()
+        | validation_common.attrs_validators_arg()
+    ),
+)

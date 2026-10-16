@@ -7,6 +7,8 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//cxx:attrs.bzl", "cxx_common", "cxx_library_base_attrs")
 load(
     "@prelude//cxx:cuda.bzl",
     "CudaCompileStyle",
@@ -31,25 +33,23 @@ load(
     "CxxRuleSubTargetParams",
 )
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
-load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
+load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "cxx_get_regular_cxx_headers_layout")
 load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_dumpbin_providers", "get_pdb_providers")
 load(
     "@prelude//cxx:omnibus.bzl",
     "create_linkable_root",
     "get_roots",
 )
+load("@prelude//decls:common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck")
+load("@prelude//decls:native_common.bzl", "native_common")
+load("@prelude//decls:third_party_common.bzl", "third_party_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
 )
 load(
-    "@prelude//linking:link_info.bzl",
-    "LibOutputStyle",
-    "LinkInfo",
-    "LinkInfos",
-    "LinkableFlavor",
-    "create_merged_link_info",
-    "wrap_link_infos",
+    "@prelude//linking:link_info.bzl", "LibOutputStyle", "LinkInfo", "LinkInfos", "LinkOrdering", "LinkableFlavor", "create_merged_link_info", "wrap_link_infos"
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -68,6 +68,7 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
+load("@prelude//python:attrs.bzl", "python_common")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
 load(
     "@prelude//python/linking:native_python_util.bzl",
@@ -397,3 +398,129 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     return providers
+
+cxx_python_extension = prelude_rule(
+    name = "cxx_python_extension",
+    impl = cxx_python_extension_impl,
+    docs = """
+        A `cxx_python_extension()` rule is a variant of a C/C++ library which is built as a Python module. As such,
+        it has a module name formed by the `base_module` parameter and the rule name.
+    """,
+    examples = """
+        ```
+        # A rule that builds a Python extension from a single .cpp file.
+        cxx_python_extension(
+          name = 'mymodule',
+          base_module = 'foo.bar',
+          srcs = [
+            'mymodule.cpp',
+          ],
+        )
+
+        # A library rule which has a single source importing the above extension.
+        python_library(
+          name = 'utils',
+          srcs = [
+            'utils.py',
+          ],
+          deps = [
+            ':mymodule',
+          ],
+        )
+        ```
+
+        ```
+        ## The `utils.py` source, wrapped by the `utils` rule above.
+
+        ## Import the C/C++ extension build above.
+        from foo.bar import mymodule
+
+        ...
+        ```
+    """,
+    further = None,
+    attrs = (
+        # cxx_python_extension is a subset of cxx_library, plus a base_module.
+        # So we can reuse cxx_library, we augment it with the additional attributes it defines.
+        # This isn't the ideal way to reuse it (we'd rather cxx_library was split it multiple reusable parts),
+        # but it's the pragmatic way of getting it working for now.
+        # @unsorted-dict-items
+        {k: attrs.default_only(v) for k, v in cxx_library_base_attrs().items()}
+        | buck.labels_arg()
+        | python_common.base_module_arg()
+        | cxx_common.srcs_arg()
+        | cxx_common.deps_arg()
+        | cxx_common.headers_arg()
+        | cxx_common.header_namespace_arg()
+        | cxx_common.preprocessor_flags_arg()
+        | cxx_common.compiler_flags_arg()
+        | {
+            "link_style": attrs.option(
+                attrs.enum(LinkableDepType),
+                default = None,
+                doc = """
+                Determines whether to build and link this rule's dependencies statically or dynamically.
+                 Can be either `static`, `static_pic` or `shared`.
+                 Note: since shared libraries re-export its dependencies, depending on multiple shared libraries
+                 which themselves have overlapping static dependencies may cause problems if they init using global state.
+            """,
+            ),
+        }
+        | cxx_common.linker_extra_outputs_arg()
+        | cxx_common.linker_flags_arg()
+        | cxx_common.local_linker_flags_arg()
+        | cxx_common.supports_stripping()
+        | cxx_common.default_deps_arg()
+        | native_common.transformation_spec_arg()
+        | third_party_common.create_third_party_build_root_attrs()
+        | {
+            "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
+            "default_platform": attrs.option(attrs.string(), default = None),
+            "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
+            "executable_name": attrs.option(attrs.string(), default = None),
+            "frameworks": attrs.list(attrs.string(), default = []),
+            "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
+            "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
+            "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
+            "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
+            "libraries": attrs.list(attrs.string(), default = []),
+            "module_name": attrs.option(attrs.string(), default = None),
+            "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+            "precompiled_header": attrs.option(attrs.source(), default = None),
+            "prefix_header": attrs.option(attrs.source(), default = None),
+            "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
+            "type_stub": attrs.option(attrs.source(), default = None),
+        }
+        | {
+            "allow_embedding": attrs.bool(default = True),
+            "allow_suffixing": attrs.bool(default = True),
+            # Copied from cxx_library.
+            "auto_link_groups": attrs.bool(default = False),
+            # These flags will only be used to instrument a target
+            # when coverage for that target is enabled by `exported_needs_coverage_instrumentation`
+            # or by any of the target's dependencies.
+            "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
+            # Optional clang_profile_list target for selective coverage instrumentation via -fprofile-list.
+            "coverage_profile_list": attrs.option(attrs.dep(), default = None),
+            "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
+            "exported_needs_coverage_instrumentation": attrs.bool(default = False),
+            "extra_dwp_flags": attrs.list(attrs.string(), default = []),
+            "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
+            "link_whole": attrs.default_only(attrs.bool(default = True)),
+            "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
+            "preferred_linkage": attrs.default_only(attrs.string(default = "any")),
+            "separate_debug_info": attrs.bool(default = False),
+            "suffix_all": attrs.bool(default = True),
+            "suffix_exclude_rtti": attrs.bool(default = False),
+            "support_shlib_interfaces": attrs.bool(default = True),
+            "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
+            "_cxx_toolchain": toolchains_common.cxx(),
+            # Copied from python_library.
+            "_python_internal_tools": python_common.internal_tools_arg(),
+            "_python_toolchain": toolchains_common.python(),
+            "_target_os_type": buck.target_os_type_arg(),
+        }
+        | buck.licenses_arg()
+        | buck.contacts_arg()
+    ),
+)

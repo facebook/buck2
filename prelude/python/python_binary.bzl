@@ -11,15 +11,20 @@ load(
     "ArtifactGroupInfo",
     "ArtifactOutputs",  # @unused Used as a type
 )
-load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
+load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs", "validation_common")
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//:resources.bzl", "gather_resources")
+load("@prelude//cxx:attrs.bzl", "cxx_binary_base_attrs")
 load("@prelude//cxx:cxx_context.bzl", "get_opt_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_is_gnu",
 )
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
+load("@prelude//decls:common.bzl", "LinkableDepType", "buck")
+load("@prelude//decls:native_common.bzl", "native_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",  # @unused Used as a type
@@ -36,6 +41,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
+load("@prelude//python:attrs.bzl", "python_common", "python_executable_attrs", "typing_arg")
 load("@prelude//python:compute_providers.bzl", "ExecutableType", "compute_providers")
 load("@prelude//python:python.bzl", "python_attr_preload_deps")
 load(
@@ -48,6 +54,7 @@ load(
 load("@prelude//python/linking:native.bzl", "process_native_linking")
 load("@prelude//python/linking:native_python_util.bzl", "compute_link_strategy", "merge_native_deps")
 load("@prelude//python/linking:omnibus.bzl", "process_omnibus_linking")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":compile.bzl", "compile_manifests")
 load(
@@ -729,3 +736,109 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider] | Promise:
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, toolchain_allow_cache_upload),
         executable_type = ExecutableType("binary"),
     )
+
+def _package_python_binary_remotely():
+    return select({
+        "DEFAULT": False,
+        "config//os/constraints:android": True,
+    })
+
+python_binary = prelude_rule(
+    name = "python_binary",
+    impl = python_binary_impl,
+    docs = """
+        A `python_binary()` rule is used to build an executable Python package
+        that includes Python sources and resources from all transitive
+        dependencies.
+    """,
+    examples = """
+        Build an executable from the Python files in the BUCK directory.
+
+        ```
+        # BUCK
+
+        python_binary(
+          name = 'tailer',
+          main_module = 'tailer',
+          deps = [
+            ':tailerutils',
+          ],
+        )
+
+        python_library(
+          name = 'tailerutils',
+          # The main module, tailer.py, is specified here.
+          # (Separated out from the glob pattern for clarity.)
+          srcs = glob(['tailer.py', '*.py']),
+        )
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {k: attrs.default_only(v) for k, v in cxx_binary_base_attrs().items()}
+        | buck.labels_arg()
+        | {
+            "base_module": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                The package in which the main module should reside in its final
+                 location in the binary. If unset, Buck uses the project-relative directory
+                 that contains the BUCK file.
+            """,
+            ),
+            "main": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = """
+                The Python file which serves as the entry point for the binary.
+                 The interpreter initiates execution of the binary with the code in this file.
+            """,
+            ),
+            "main_module": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                The python module that should be the entry point of the binary. This should be
+                 a module name within a `python_library` that this binary depends on. Note that
+                 module names take `base_module` of the library into account.
+                 This property is mutually exclusive with `main`, and should be preferred to `main`, which is deprecated.
+            """,
+            ),
+        }
+        | python_common.deps_arg()
+        | python_common.version_selections_arg()
+        | python_common.preload_deps_arg()
+        | python_common.package_style_arg()
+        | python_common.linker_flags_arg()
+        | python_common.deduplicate_merged_link_roots()
+        | python_common.executable_deps_arg()
+        | native_common.link_group_deps()
+        | native_common.transformation_spec_arg()
+        | native_common.link_group_public_deps_label()
+        | {
+            "build_args": attrs.list(attrs.arg(), default = []),
+            "compile": attrs.option(attrs.bool(), default = None),
+            "dummy_omnibus": attrs.option(attrs.dep(), default = None),
+            "extension": attrs.option(attrs.string(), default = None),
+            "prefer_stripped_native_objects": attrs.bool(default = False),
+            "repl_main": attrs.option(attrs.string(), default = None),
+            "repl_only_deps": attrs.list(attrs.dep(), default = []),
+            "zip_safe": attrs.option(attrs.bool(), default = None),
+        }
+        | buck.licenses_arg()
+        | buck.contacts_arg()
+        | buck.allow_cache_upload_arg()
+        | typing_arg()
+        | python_executable_attrs()
+        | {
+            "link_style": attrs.enum(LinkableDepType, default = "static"),
+            "_package_remotely": attrs.bool(default = _package_python_binary_remotely()),
+            "_python_internal_tools": python_common.internal_tools_arg(),
+            "_python_toolchain": toolchains_common.python(),
+        }
+        | validation_common.attrs_validators_arg()
+    ),
+    cfg = constraint_overrides.python_transition,
+)

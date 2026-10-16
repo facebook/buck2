@@ -6,6 +6,9 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//utils:utils.bzl", "flatten")
 load(":toolchain.bzl", _PythonBootstrapToolchainInfo = "PythonBootstrapToolchainInfo")
 
@@ -69,3 +72,49 @@ def python_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(default_output = main_artifact, other_outputs = [run_tree]),
         RunInfo(args = run_args),
     ]
+
+python_bootstrap_binary = prelude_rule(
+    name = "python_bootstrap_binary",
+    impl = python_bootstrap_binary_impl,
+    docs = """
+        A `python_bootstrap_binary()` rule declares a Python binary intended
+        to be used in scripts that bootstrap other aspects of the Buck2
+        prelude. Python bootstrap binaries do not use the Python toolchain
+        and, as such, are highly restricted in what they can and can't do.
+        In particular, bootstrap binaries can only depend on
+        `python_bootstrap_library()` rules and the entry point must consist
+        of a single source file.
+    """,
+    examples = None,
+    further = None,
+    attrs = {
+        "copy_deps": attrs.bool(default = True),
+        "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
+        "has_content_based_path": attrs.bool(default = False),
+        "main": attrs.source(),
+        "_python_bootstrap_toolchain": toolchains_common.python_bootstrap(),
+    }
+    | buck.labels_arg()
+    | buck.contacts_arg(),
+)
+
+python_bootstrap_library = prelude_rule(
+    name = "python_bootstrap_library",
+    impl = python_bootstrap_library_impl,
+    docs = """
+        A `python_bootstrap_library()` rule groups together Python sources
+        that may be consumed by `python_bootstrap_binary()` targets or by
+        other `python_bootstrap_library()` rules. Bootstrap libraries do
+        not use the Python toolchain and may only be depended on by other
+        bootstrap libraries or bootstrap binaries.
+    """,
+    examples = None,
+    further = None,
+    attrs = {
+        "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
+        "has_content_based_path": attrs.bool(default = False),
+        "srcs": attrs.list(attrs.source()),
+    }
+    | buck.labels_arg()
+    | buck.contacts_arg(),
+)

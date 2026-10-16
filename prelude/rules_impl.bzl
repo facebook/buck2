@@ -21,16 +21,11 @@ load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 load("@prelude//csharp:rules.bzl", _dotnet_rules = "rules")
-load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR", "cxx_library_extra_attrs")
+load("@prelude//cxx:attrs.bzl", "BUILD_INFO_ATTR")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//cxx:rules.bzl", _cxx_rules = "rules")
-load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:core_rules.bzl", "core_rules")
-load("@prelude//decls:cython_rules.bzl", "cython_rules")
-load("@prelude//decls:python_rules.bzl", "python_rules")
-load("@prelude//decls:re_test_common.bzl", "re_test_common")
 load("@prelude//decls:rust_rules.bzl", "rust_rules")
-load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//decls:uncategorized_rules.bzl", "uncategorized_rules")
 load("@prelude//erlang:rules.bzl", _erlang_rules = "rules")
 load("@prelude//git:rules.bzl", _git_rules = "rules")
@@ -46,17 +41,8 @@ load("@prelude//lua:rules.bzl", _lua_rules = "rules")
 load("@prelude//matlab:matlab.bzl", _matlab_extra_attributes = "extra_attributes", _matlab_implemented_rules = "implemented_rules")
 load("@prelude//nodejs:rules.bzl", _nodejs_rules = "rules")
 load("@prelude//ocaml:rules.bzl", _ocaml_rules = "rules")
-load("@prelude//python:cxx_python_extension.bzl", "cxx_python_extension_impl")
-load("@prelude//python:prebuilt_python_library.bzl", "prebuilt_python_library_impl")
-load("@prelude//python:python_binary.bzl", "python_binary_impl")
-load("@prelude//python:python_library.bzl", "python_library_impl")
-load("@prelude//python:python_needed_coverage_test.bzl", "python_needed_coverage_test_impl")
-load("@prelude//python:python_runtime_bundle.bzl", "python_runtime_bundle_impl")
-load("@prelude//python:python_test.bzl", "python_test_impl")
-load("@prelude//python/cython:cython_library.bzl", "cython_library_impl")
-load("@prelude//python/cython:cython_static_extension.bzl", "cython_static_extension_impl")
-load("@prelude//python/cython:cython_toolchain.bzl", "cython_toolchain_impl")
-load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
+load("@prelude//python:rules.bzl", _python_rules = "rules")
+load("@prelude//python/cython:rules.bzl", _cython_rules = "rules")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
 
@@ -88,7 +74,7 @@ categorized_rule_decl_records = {
     _ANDROID_RULES_KEY: _android_rules,
     _CORE_RULES_KEY: core_rules,
     _CXX_RULES_KEY: _cxx_rules,
-    _CYTHON_RULES_KEY: cython_rules,
+    _CYTHON_RULES_KEY: _cython_rules,
     _DOTNET_RULES_KEY: _dotnet_rules,
     _ERLANG_RULES_KEY: _erlang_rules,
     _GIT_RULES_KEY: _git_rules,
@@ -101,7 +87,7 @@ categorized_rule_decl_records = {
     _LUA_RULES_KEY: _lua_rules,
     _NODEJS_RULES_KEY: _nodejs_rules,
     _OCAML_RULES_KEY: _ocaml_rules,
-    _PYTHON_RULES_KEY: python_rules,
+    _PYTHON_RULES_KEY: _python_rules,
     _RUST_RULES_KEY: rust_rules,
     _SHELL_RULES_KEY: {
         "sh_binary": sh_binary,
@@ -135,22 +121,6 @@ extra_implemented_rules = struct(
     toolchain_alias = alias_impl,
     versioned_alias = versioned_alias_impl,
     worker_tool = worker_tool,
-    # python
-    cxx_python_extension = cxx_python_extension_impl,
-    # cython
-    cython_library = cython_library_impl,
-    cython_static_extension = cython_static_extension_impl,
-    cython_toolchain = cython_toolchain_impl,
-    # python
-    prebuilt_python_library = prebuilt_python_library_impl,
-    python_binary = python_binary_impl,
-    python_library = python_library_impl,
-    python_runtime_bundle = python_runtime_bundle_impl,
-    python_test = python_test_impl,
-    python_needed_coverage_test = python_needed_coverage_test_impl,
-    # python bootstrap
-    python_bootstrap_binary = python_bootstrap_binary_impl,
-    python_bootstrap_library = python_bootstrap_library_impl,
     # merged **kwargs
     **_merge_dictionaries([
         _apple_implemented_rules,
@@ -160,54 +130,6 @@ extra_implemented_rules = struct(
         _zip_file_implemented_rules,
     ]),
 )
-
-def _python_runtime_bundle_attrs():
-    return (
-        {
-            "include": attrs.string(doc = "Header files required for linking python extensions"),
-            "install_root": attrs.dep(doc = "The filegroup containing the runtime artifacts, all the paths are relative to this location"),
-            "libpython": attrs.option(
-                attrs.string(doc = "libpyhon.so required at runtime for the python executable and native extensions."),
-                default = None,
-            ),
-            "py_bin": attrs.string(doc = "The runtime executable"),
-            "py_version": attrs.string(doc = "The version of python this represents"),
-            "shared_libs": attrs.list(attrs.dep(), default = [], doc = "Additional shared libraries required by this runtime"),
-            "stdlib": attrs.string(doc = "The python standard library"),
-        }
-        | buck.labels_arg()
-        | buck.contacts_arg()
-    )
-
-_python_extra_attributes = {
-    # python bootstrap
-    "python_bootstrap_binary": {
-        "copy_deps": attrs.bool(default = True),
-        "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
-        "has_content_based_path": attrs.bool(default = False),
-        "main": attrs.source(),
-        "_python_bootstrap_toolchain": toolchains_common.python_bootstrap(),
-    }
-    | buck.labels_arg()
-    | buck.contacts_arg(),
-    "python_bootstrap_library": {
-        "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
-        "has_content_based_path": attrs.bool(default = False),
-        "srcs": attrs.list(attrs.source()),
-    }
-    | buck.labels_arg()
-    | buck.contacts_arg(),
-    "python_needed_coverage_test": dict(
-        contacts = attrs.list(attrs.string(), default = []),
-        env = attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
-        labels = attrs.list(attrs.string(), default = []),
-        needed_coverage = attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
-        supports_test_execution_caching = attrs.bool(default = False),
-        test = attrs.dep(providers = [ExternalRunnerTestInfo]),
-        **(re_test_common.test_args() | buck.inject_test_env_arg()),
-    ),
-    "python_runtime_bundle": _python_runtime_bundle_attrs(),
-}
 
 _rust_extra_attributes = {
     "rust_binary": {
@@ -249,21 +171,14 @@ _uncategorized_extra_attributes = {
     },
 }
 
-_cython_extra_attributes = {
-    "cython_library": cxx_library_extra_attrs(),
-    "cython_static_extension": cxx_library_extra_attrs(),
-}
-
 categorized_extra_attributes = {
     _CORE_RULES_KEY: _core_extra_attributes,
-    _CYTHON_RULES_KEY: _cython_extra_attributes,
     _APPLE_RULES_KEY: _apple_extra_attributes,
     _JAVA_RULES_KEY: {},
     _JULIA_RULES_KEY: _julia_extra_attributes,
     _KOTLIN_RULES_KEY: {},
     _MATLAB_RULES_KEY: _matlab_extra_attributes,
     _NODEJS_RULES_KEY: {},
-    _PYTHON_RULES_KEY: _python_extra_attributes,
     _RUST_RULES_KEY: _rust_extra_attributes,
     _UNCATEGORIZED_RULES_KEY: _uncategorized_extra_attributes,
 }

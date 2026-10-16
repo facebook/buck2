@@ -6,6 +6,9 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:re_test_common.bzl", "re_test_common")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
     "@prelude//tests:re_utils.bzl",
@@ -61,3 +64,26 @@ def python_needed_coverage_test_impl(ctx: AnalysisContext) -> list[Provider]:
     ) + [
         DefaultInfo(),
     ]
+
+python_needed_coverage_test = prelude_rule(
+    name = "python_needed_coverage_test",
+    impl = python_needed_coverage_test_impl,
+    docs = """
+        A `python_needed_coverage_test()` rule wraps an existing
+        `python_test()` target so that it runs as a coverage-collecting
+        bundle and is checked against per-module coverage thresholds. It is
+        used to enforce that specific modules covered by the wrapped test
+        meet a minimum coverage ratio at test time.
+    """,
+    examples = None,
+    further = None,
+    attrs = dict(
+        contacts = attrs.list(attrs.string(), default = []),
+        env = attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
+        labels = attrs.list(attrs.string(), default = []),
+        needed_coverage = attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
+        supports_test_execution_caching = attrs.bool(default = False),
+        test = attrs.dep(providers = [ExternalRunnerTestInfo]),
+        **(re_test_common.test_args() | buck.inject_test_env_arg()),
+    ),
+)
