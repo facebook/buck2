@@ -50,6 +50,7 @@
 
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
@@ -96,6 +97,14 @@ load(
 )
 load("@prelude//utils:graph_utils.bzl", "depth_first_traversal", "post_order_traversal")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx")
+load(
+    ":attrs.bzl",
+    "ocaml_binary_attributes",
+    "ocaml_library_attributes",
+    "ocaml_object_attributes",
+    "ocaml_shared_attributes",
+    "prebuilt_ocaml_library_attributes",
+)
 load(":makefile.bzl", "parse_makefile")
 load(
     ":ocaml_toolchain_types.bzl",
@@ -1112,3 +1121,113 @@ def prebuilt_ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)),
         _get_linkable_graph(ctx, Linkage("any")),
     ]
+
+ocaml_binary = prelude_rule(
+    name = "ocaml_binary",
+    impl = ocaml_binary_impl,
+    docs = """
+        A ocaml\\_binary() rule builds both native and bytecode executables from the supplied set of OCaml and C source files
+         and dependencies.
+
+         Note: Buck is currently tested with 4.X OCaml series.
+    """,
+    examples = """
+        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/ocaml/testdata/).
+
+        ```
+        ocaml_binary(
+          name='greet',
+          srcs=[
+            'main.ml',
+            'lex.mll',
+            'parser.mly',
+            'hashtable.c',
+          ],
+          deps=[
+            ':greeting',
+            ':bridge',
+          ],
+        )
+
+        ocaml_library(
+          name='greeting',
+          srcs=[
+            'greeting.ml',
+          ],
+          deps=[
+            ':join',
+          ],
+        )
+
+        ocaml_library(
+          name='join',
+          srcs=[
+            'join.ml',
+          ],
+        )
+
+        cxx_library(
+          name='bridge',
+          srcs=[
+            'bridge.c',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = ocaml_binary_attributes(),
+)
+
+ocaml_library = prelude_rule(
+    name = "ocaml_library",
+    impl = ocaml_library_impl,
+    docs = """
+        A ocaml\\_library() rule builds a native and a bytecode libraries from the
+         supplied set of OCaml source files and dependencies.
+
+         Note: Buck is currently tested with 4.X OCaml series.
+    """,
+    examples = """
+        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/ocaml/testdata/).
+
+        ```
+        ocaml_library(
+          name='greeting',
+          srcs=[
+            'greeting.ml',
+          ],
+          deps=[
+            ':join',
+          ],
+        )
+        ```
+    """,
+    further = None,
+    attrs = ocaml_library_attributes(),
+)
+
+prebuilt_ocaml_library = prelude_rule(
+    name = "prebuilt_ocaml_library",
+    impl = prebuilt_ocaml_library_impl,
+    docs = """
+        A `prebuilt_ocaml_library()` rule wraps a precompiled OCaml library
+        (bytecode and/or native) along with any companion C libraries so it
+        can be consumed as a dependency by `ocaml_binary()` and
+        `ocaml_library()` rules.
+    """,
+    examples = None,
+    further = None,
+    attrs = prebuilt_ocaml_library_attributes(),
+)
+
+ocaml_object = prelude_rule(
+    name = "ocaml_object",
+    impl = ocaml_object_impl,
+    attrs = ocaml_object_attributes(),
+)
+
+ocaml_shared = prelude_rule(
+    name = "ocaml_shared",
+    impl = ocaml_shared_impl,
+    attrs = ocaml_shared_attributes(),
+)

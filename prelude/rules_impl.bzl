@@ -23,7 +23,7 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
-load("@prelude//csharp:csharp.bzl", "csharp_library_impl", "prebuilt_dotnet_library_impl")
+load("@prelude//csharp:rules.bzl", _dotnet_rules = "rules")
 load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
@@ -40,7 +40,6 @@ load("@prelude//decls:common.bzl", "IncludeType", "buck")
 load("@prelude//decls:core_rules.bzl", "core_rules")
 load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
 load("@prelude//decls:cython_rules.bzl", "cython_rules")
-load("@prelude//decls:dotnet_rules.bzl", "dotnet_rules")
 load("@prelude//decls:erlang_rules.bzl", "erlang_rules")
 load("@prelude//decls:go_rules.bzl", "go_rules")
 load("@prelude//decls:haskell_rules.bzl", "haskell_rules")
@@ -49,7 +48,6 @@ load("@prelude//decls:js_rules.bzl", "js_rules")
 load("@prelude//decls:kotlin_rules.bzl", "kotlin_rules")
 load("@prelude//decls:lua_rules.bzl", "lua_rules")
 load("@prelude//decls:nodejs_rules.bzl", "nodejs_rules")
-load("@prelude//decls:ocaml_rules.bzl", "ocaml_rules")
 load("@prelude//decls:python_rules.bzl", "python_rules")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
 load("@prelude//decls:rust_rules.bzl", "rust_rules")
@@ -85,8 +83,7 @@ load("@prelude//lua:lua_binary.bzl", "lua_binary_impl")
 load("@prelude//lua:lua_library.bzl", "lua_library_impl")
 load("@prelude//matlab:matlab.bzl", _matlab_extra_attributes = "extra_attributes", _matlab_implemented_rules = "implemented_rules")
 load("@prelude//nodejs:nodejs.bzl", _nodejs_implemented_rules = "implemented_rules")
-load("@prelude//ocaml:attrs.bzl", _ocaml_extra_attributes = "ocaml_extra_attributes")
-load("@prelude//ocaml:ocaml.bzl", "ocaml_binary_impl", "ocaml_library_impl", "ocaml_object_impl", "ocaml_shared_impl", "prebuilt_ocaml_library_impl")
+load("@prelude//ocaml:rules.bzl", _ocaml_rules = "rules")
 load("@prelude//python:cxx_python_extension.bzl", "cxx_python_extension_impl")
 load("@prelude//python:prebuilt_python_library.bzl", "prebuilt_python_library_impl")
 load("@prelude//python:python_binary.bzl", "python_binary_impl")
@@ -131,7 +128,7 @@ categorized_rule_decl_records = {
     _CORE_RULES_KEY: core_rules,
     _CXX_RULES_KEY: cxx_rules,
     _CYTHON_RULES_KEY: cython_rules,
-    _DOTNET_RULES_KEY: dotnet_rules,
+    _DOTNET_RULES_KEY: _dotnet_rules,
     _ERLANG_RULES_KEY: erlang_rules,
     _GIT_RULES_KEY: _git_rules,
     _GO_RULES_KEY: go_rules,
@@ -142,7 +139,7 @@ categorized_rule_decl_records = {
     _KOTLIN_RULES_KEY: kotlin_rules,
     _LUA_RULES_KEY: lua_rules,
     _NODEJS_RULES_KEY: nodejs_rules,
-    _OCAML_RULES_KEY: ocaml_rules,
+    _OCAML_RULES_KEY: _ocaml_rules,
     _PYTHON_RULES_KEY: python_rules,
     _RUST_RULES_KEY: rust_rules,
     _SHELL_RULES_KEY: {
@@ -177,9 +174,6 @@ extra_implemented_rules = struct(
     toolchain_alias = alias_impl,
     versioned_alias = versioned_alias_impl,
     worker_tool = worker_tool,
-    # c#
-    csharp_library = csharp_library_impl,
-    prebuilt_dotnet_library = prebuilt_dotnet_library_impl,
     # c++
     cxx_binary = cxx_binary_impl,
     cxx_flags = cxx_flags_impl,
@@ -217,12 +211,6 @@ extra_implemented_rules = struct(
     cxx_lua_extension = cxx_lua_extension_impl,
     lua_binary = lua_binary_impl,
     lua_library = lua_library_impl,
-    # ocaml
-    ocaml_binary = ocaml_binary_impl,
-    ocaml_object = ocaml_object_impl,
-    ocaml_shared = ocaml_shared_impl,
-    ocaml_library = ocaml_library_impl,
-    prebuilt_ocaml_library = prebuilt_ocaml_library_impl,
     # python
     prebuilt_python_library = prebuilt_python_library_impl,
     python_binary = python_binary_impl,
@@ -266,12 +254,6 @@ def _python_runtime_bundle_attrs():
         | buck.labels_arg()
         | buck.contacts_arg()
     )
-
-_dotnet_extra_attributes = {
-    "csharp_library": {
-        "_csharp_toolchain": toolchains_common.csharp(),
-    },
-}
 
 _cxx_extra_library_attrs = (
     {
@@ -556,7 +538,6 @@ categorized_extra_attributes = {
     _CORE_RULES_KEY: _core_extra_attributes,
     _CXX_RULES_KEY: cxx_extra_attributes,
     _CYTHON_RULES_KEY: _cython_extra_attributes,
-    _DOTNET_RULES_KEY: _dotnet_extra_attributes,
     _GO_RULES_KEY: _go_extra_attributes,
     _HASKELL_RULES_KEY: _haskell_extra_attributes,
     _APPLE_RULES_KEY: _apple_extra_attributes,
@@ -566,7 +547,6 @@ categorized_extra_attributes = {
     _KOTLIN_RULES_KEY: {},
     _MATLAB_RULES_KEY: _matlab_extra_attributes,
     _NODEJS_RULES_KEY: {},
-    _OCAML_RULES_KEY: _ocaml_extra_attributes,
     _PYTHON_RULES_KEY: _python_extra_attributes,
     _RUST_RULES_KEY: _rust_extra_attributes,
     _UNCATEGORIZED_RULES_KEY: _uncategorized_extra_attributes,
