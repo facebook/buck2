@@ -116,9 +116,14 @@ pub fn display_precise_pattern<'a, T: PatternType>(
 }
 
 /// Extract provider name from a target pattern.
-pub(crate) fn split_providers_name(s: &str) -> buck2_error::Result<(&str, ProvidersName)> {
+///
+/// `full_pattern` is the pattern `s` was cut from, for error messages.
+pub(crate) fn split_providers_name<'a>(
+    s: &'a str,
+    full_pattern: &str,
+) -> buck2_error::Result<(&'a str, ProvidersName)> {
     if let Some((t, flavors)) = split1_opt_ascii(s, AsciiChar::new('#')) {
-        let name = map_flavors(flavors, s)?;
+        let name = map_flavors(flavors, full_pattern)?;
         Ok((t, name))
     } else if let Some((t, p)) = split1_opt_ascii(s, AsciiChar::new('[')) {
         let mut names = Vec::new();
@@ -768,6 +773,8 @@ fn lex_provider_pattern(
         ));
     }
 
+    let full_pattern = pattern;
+
     // Modifiers may be cell-qualified, so they come off before the cell alias is split at `//`.
     let (pattern, modifiers) = match split1_opt_ascii(pattern, AsciiChar::new('?')) {
         Some((pattern, modifiers)) => (pattern, Modifiers::parse(modifiers)),
@@ -786,7 +793,7 @@ fn lex_provider_pattern(
         }
         .into(),
         Some((package, target)) => {
-            let (target, providers) = split_providers_name(target)?;
+            let (target, providers) = split_providers_name(target, full_pattern)?;
             let target_name = TargetName::new(target)?;
             let extra = ProvidersPatternExtra { providers };
             PatternData::TargetInPackage {
@@ -811,7 +818,7 @@ fn lex_provider_pattern(
                 }
                 .into()
             } else if !pattern.is_empty() {
-                let (pattern, providers) = split_providers_name(pattern)?;
+                let (pattern, providers) = split_providers_name(pattern, full_pattern)?;
                 PatternDataOrAmbiguous::Ambiguous {
                     pattern,
                     strip_package_trailing_slash,
