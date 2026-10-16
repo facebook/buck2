@@ -32,7 +32,6 @@ use strong_hash::StrongHash;
 
 use crate::arc_str::base::ArcStrBase;
 use crate::arc_str::base::ArcStrBaseInner;
-use crate::arc_str::base::ArcStrBaseInnerConst;
 use crate::arc_str::base::ArcStrLenStrategy;
 use crate::size_assert;
 
@@ -54,7 +53,7 @@ unsafe impl ArcStrLenStrategy for ThinArcStrProperties {
     }
 
     #[inline]
-    fn inner_empty() -> &'static ArcStrBaseInnerConst<Self> {
+    fn inner_empty() -> &'static ArcStrBaseInner<Self> {
         &INNER_EMPTY
     }
 }
@@ -122,7 +121,7 @@ impl<'de> PagableDeserialize<'de> for ThinArcStr {
 size_assert::words_of_type!(ThinArcStr, 1);
 size_assert::words_of_type!(Option<ThinArcStr>, 1);
 
-static INNER_EMPTY: ArcStrBaseInnerConst<ThinArcStrProperties> = ArcStrBaseInner::EMPTY;
+static INNER_EMPTY: ArcStrBaseInner<ThinArcStrProperties> = ArcStrBaseInner::empty();
 
 impl ThinArcStr {
     #[inline]

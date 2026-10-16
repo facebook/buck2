@@ -33,7 +33,6 @@ use strong_hash::StrongHash;
 
 use crate::arc_str::base::ArcStrBase;
 use crate::arc_str::base::ArcStrBaseInner;
-use crate::arc_str::base::ArcStrBaseInnerConst;
 use crate::arc_str::base::ArcStrLenStrategy;
 use crate::size_assert;
 
@@ -50,7 +49,7 @@ unsafe impl ArcStrLenStrategy for ArcStrProperties {
     }
 
     #[inline]
-    fn inner_empty() -> &'static ArcStrBaseInnerConst<Self> {
+    fn inner_empty() -> &'static ArcStrBaseInner<Self> {
         &INNER_EMPTY
     }
 
@@ -71,7 +70,7 @@ pub struct ArcStr {
 size_assert::same_size!(ArcStr, Arc<str>);
 size_assert::same_size!(Option<ArcStr>, Arc<str>);
 
-static INNER_EMPTY: ArcStrBaseInnerConst<ArcStrProperties> = ArcStrBaseInner::EMPTY;
+static INNER_EMPTY: ArcStrBaseInner<ArcStrProperties> = ArcStrBaseInner::empty();
 
 impl ArcStr {
     #[inline]
