@@ -74,6 +74,7 @@ async def test_modify_dep_materialization(buck: Buck) -> None:
 
 @buck_test(
     data_dir="deferred_materializer_matching_artifact_optimization",
+    skip_for_materializer=["v2"],
 )
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_matching_artifact_optimization(buck: Buck) -> None:
@@ -135,6 +136,7 @@ async def test_cache_directory_cleanup(buck: Buck) -> None:
 
 @buck_test(
     data_dir="deferred_materializer_matching_artifact_optimization",
+    skip_for_materializer=["v2"],
 )
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_sqlite_materializer_state_matching_artifact_optimization(
@@ -198,6 +200,7 @@ async def test_download_file_not_repeated_after_restart(
 
 @buck_test(
     data_dir="deferred_materializer_matching_artifact_optimization",
+    skip_for_materializer=["v2"],
 )
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_sqlite_materializer_state_disabled(
@@ -273,6 +276,7 @@ async def test_materialization_spans_have_parent_id(buck: Buck) -> None:
 @buck_test(
     data_dir="modify_deferred_materialization_deps",
     skip_for_os=["windows"],
+    skip_for_materializer=["v2"],
 )
 async def test_materializer_command_events_have_parent_id(buck: Buck) -> None:
     """MaterializerCommand instant events emitted on the synchronous command

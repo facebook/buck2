@@ -730,7 +730,8 @@ def buck_test(
             raise Exception(f"skip_for_os must specifiy one of {SKIPPABLE_PLATFORMS}")
     if platform.system().lower() in skip_for_os:
         return _make_passing_test_for_skipped_platform
-    if os.environ.get("BUCK2_TEST_MATERIALIZER") in skip_for_materializer:
+    # Without a variant's environment a test runs against the daemon's default implementation.
+    if os.environ.get("BUCK2_TEST_MATERIALIZER", "deferred") in skip_for_materializer:
         return _make_passing_test_for_skipped_platform
 
     if data_dir is not None and inplace:

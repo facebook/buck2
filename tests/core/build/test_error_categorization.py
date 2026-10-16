@@ -460,7 +460,9 @@ async def test_download_failure(buck: Buck) -> None:
     )
 
 
-@buck_test(write_invocation_record=True)
+# The disk-state core downloads tracked values, whose misses are the CAS's failure; a digest the
+# user got wrong is caught by `cas_artifact`'s presence check at action time instead.
+@buck_test(write_invocation_record=True, skip_for_materializer=["v2"])
 async def test_declared_artifact_download_failure(buck: Buck) -> None:
     res = await expect_failure(
         buck.build(

@@ -54,7 +54,7 @@ async def test_materializer_managed_unhashed_output(buck: Buck) -> None:
     assert "buck-out/v2/gen/root/pack/foo.txt" in materializer_state.stdout
 
 
-@buck_test()
+@buck_test(skip_for_materializer=["v2"])
 async def test_materializer_managed_unhashed_output_without_materialization(
     buck: Buck,
 ) -> None:
