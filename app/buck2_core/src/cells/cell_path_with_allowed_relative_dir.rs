@@ -9,14 +9,13 @@
  */
 
 use allocative::Allocative;
+use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::relative_path::Component;
 use buck2_fs::paths::relative_path::RelativePath;
-use buck2_fs::paths::relative_path::RelativePathBuf;
 use pagable::Pagable;
 
 use crate::cells::cell_path::CellPath;
-use crate::cells::paths::CellRelativePathBuf;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
@@ -82,14 +81,18 @@ impl CellPathWithAllowedRelativeDir {
             );
         }
 
-        let mut resolved_path = RelativePathBuf::from(self.current_dir.path().to_string());
-        let mut num_allowed_parents =
-            RelativePath::unchecked_new(&self.current_dir.path().to_string())
-                .components()
-                .count()
-                - RelativePath::unchecked_new(&allowed_relative_dir.path().to_string())
-                    .components()
-                    .count();
+        let mut resolved_path = self
+            .current_dir
+            .path()
+            .as_forward_relative_path()
+            .to_owned();
+        let mut num_allowed_parents = self
+            .current_dir
+            .path()
+            .strip_prefix(allowed_relative_dir.path())
+            .expect("Checked at construction time")
+            .iter()
+            .count();
         let mut components = path.components();
         while let Some(c) = components.next() {
             match c {
@@ -110,7 +113,7 @@ impl CellPathWithAllowedRelativeDir {
                     resolved_path.pop();
                 }
                 Component::Normal(file_name) => {
-                    resolved_path.push(file_name);
+                    resolved_path.push(FileName::new(file_name)?);
                     let remaining = components.as_relative_path();
                     let Ok(remaining) = <&ForwardRelativePath>::try_from(remaining) else {
                         return Err(RelativeImportParseError::NonLeadingParentDirRelativeImport(
@@ -118,18 +121,12 @@ impl CellPathWithAllowedRelativeDir {
                         )
                         .into());
                     };
-                    if !remaining.is_empty() {
-                        // If we join an empty ForwardRelativePath, it will add an unwanted trailing slash
-                        resolved_path = resolved_path.join(remaining);
-                    }
+                    resolved_path.extend(remaining);
                     break;
                 }
             }
         }
-        Ok(CellPath::new(
-            self.current_dir.cell(),
-            CellRelativePathBuf::try_from(resolved_path)?,
-        ))
+        Ok(CellPath::new(self.current_dir.cell(), resolved_path.into()))
     }
 
     pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> CellPath {
