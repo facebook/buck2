@@ -16,14 +16,13 @@ load("@prelude//:remote_file.bzl", "remote_file_impl")
 load("@prelude//:sh_binary.bzl", "sh_binary")
 load("@prelude//:sh_test.bzl", "sh_test")
 load("@prelude//:test_suite.bzl", "test_suite_impl")
+load("@prelude//android:ndk_toolchain.bzl", "ndk_toolchain")
 load("@prelude//android:rules.bzl", _android_rules = "rules")
 load("@prelude//apple:rules.bzl", _apple_rules = "rules")
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 load("@prelude//csharp:rules.bzl", _dotnet_rules = "rules")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load("@prelude//cxx:rules.bzl", _cxx_rules = "rules")
 load("@prelude//decls:core_rules.bzl", "core_rules")
-load("@prelude//decls:uncategorized_rules.bzl", "uncategorized_rules")
 load("@prelude//erlang:rules.bzl", _erlang_rules = "rules")
 load("@prelude//git:rules.bzl", _git_rules = "rules")
 load("@prelude//go:rules.bzl", _go_rules = "rules")
@@ -93,7 +92,9 @@ categorized_rule_decl_records = {
         "sh_binary": sh_binary,
         "sh_test": sh_test,
     },
-    _UNCATEGORIZED_RULES_KEY: uncategorized_rules,
+    _UNCATEGORIZED_RULES_KEY: {
+        "ndk_toolchain": ndk_toolchain,
+    },
 }
 
 def _merge_dictionaries(dicts):
@@ -143,16 +144,9 @@ _core_extra_attributes = (
     | _config_extra_attributes
 )
 
-_uncategorized_extra_attributes = {
-    "ndk_toolchain": {
-        "cxx_toolchain": attrs.toolchain_dep(providers = [CxxToolchainInfo, CxxPlatformInfo]),
-    },
-}
-
 categorized_extra_attributes = {
     _CORE_RULES_KEY: _core_extra_attributes,
     _JAVA_RULES_KEY: {},
     _KOTLIN_RULES_KEY: {},
     _NODEJS_RULES_KEY: {},
-    _UNCATEGORIZED_RULES_KEY: _uncategorized_extra_attributes,
 }
