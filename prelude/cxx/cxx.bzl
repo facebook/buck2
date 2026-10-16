@@ -1694,7 +1694,14 @@ prebuilt_cxx_library = prelude_rule(
         | buck.contacts_arg()
         | {
             "exported_header_style": attrs.enum(IncludeType, default = "system"),
-            "header_dirs": attrs.option(attrs.list(attrs.source(allow_directory = True)), default = None),
+            "header_dirs": attrs.option(
+                attrs.list(attrs.source(allow_directory = True)),
+                default = None,
+                doc = """
+                A directory that headers can be included from. These directories are added
+                 to the include path using `-isystem`.
+            """,
+            ),
             "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "preferred_linkage": attrs.enum(

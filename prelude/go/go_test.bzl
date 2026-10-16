@@ -347,8 +347,22 @@ go_test = prelude_rule(
         | re_test_common.test_args()
         | test_common.attributes()
         | {
-            "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),
-            "resources": attrs.list(attrs.source(allow_directory = True), default = []),
+            "coverage_mode": attrs.option(
+                attrs.enum(GoCoverageMode.values()),
+                default = None,
+                doc = """
+                Test coverage functionality will be included in the executable.
+            """,
+            ),
+            "resources": attrs.list(
+                attrs.source(allow_directory = True),
+                default = [],
+                doc = """
+                Static files that are symlinked into the working directory of the
+                 test. You can access these files in your test by opening them using
+                 relative paths, such as `ioutil.ReadFile("testdata/input")`.
+            """,
+            ),
             "_build_info": BUILD_INFO_ATTR,
             "_build_tags": build_tags_attr,
             "_cgo_enabled": cgo_enabled_attr,

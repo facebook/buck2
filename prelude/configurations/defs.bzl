@@ -456,7 +456,11 @@ platform = prelude_rule(
             ),
         }
         | {
-            "constraint_values": attrs.list(attrs.dep(providers = [ConstraintValueInfo]), default = []),
+            "constraint_values": attrs.list(
+                attrs.dep(providers = [ConstraintValueInfo]),
+                default = [],
+                doc = "List of constraint values that are set for this platform.",
+            ),
         }
     ),
 )

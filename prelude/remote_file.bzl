@@ -9,6 +9,7 @@
 load("@prelude//:http_file.bzl", "http_file_shared")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//decls:common.bzl", "buck", "validate_uri")
+load("@prelude//decls:remote_common.bzl", "remote_common")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 
@@ -203,9 +204,17 @@ remote_file = prelude_rule(
         | buck.labels_arg()
         | buck.contacts_arg()
         | {
-            "sha1": attrs.option(attrs.string(), default = None),
-            "sha256": attrs.option(attrs.string(), default = None),
+            "sha1": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                The [`SHA-1`](//wikipedia.org/wiki/SHA-1) hash of the downloaded artifact.
+                 Buck verifies this is correct and fails the fetch command if it doesn't match in order to
+                 guarantee repeatable builds.
+            """,
+            ),
             "_unzip_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//zip_file/tools:unzip")),
         }
+        | remote_common.sha256_arg()
     ),
 )

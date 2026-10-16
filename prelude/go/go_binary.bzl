@@ -181,8 +181,23 @@ go_binary = prelude_rule(
         | buck.labels_arg()
         | buck.contacts_arg()
         | {
-            "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),
-            "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
+            "coverage_mode": attrs.option(
+                attrs.enum(GoCoverageMode.values()),
+                default = None,
+                doc = """
+                Coverage instrumentation mode for the binary. When set, the binary is built with
+                coverage instrumentation. Set GOCOVERDIR to a directory path when running the binary
+                to collect coverage data.
+            """,
+            ),
+            "resources": attrs.list(
+                attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)),
+                default = [],
+                doc = """
+                Static files to be symlinked into the working directory of the binary. You can access these
+                 by opening the files as relative paths, e.g. `ioutil.ReadFile("testdata/input")`.
+            """,
+            ),
             "_build_info": BUILD_INFO_ATTR,
             "_build_tags": build_tags_attr,
             "_cgo_enabled": cgo_enabled_attr,
