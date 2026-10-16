@@ -25,6 +25,7 @@ load(
     "ErlangAppOrTestInfo",
     "ErlangDependencyInfo",
     "code_path_args",
+    _StartType = "StartType",
 )
 load(":erlang_shell.bzl", "erlang_shell")
 load(
@@ -37,11 +38,10 @@ load(
     "app_name",
 )
 
+# Also loadable from here, for users outside the prelude.
+StartType = _StartType
+
 StartDependencySet = transitive_set()
-
-StartTypeValues = ["permanent", "transient", "temporary", "load", "none"]
-
-StartType = enum(*StartTypeValues)
 
 StartSpec = record(
     name = field(str),

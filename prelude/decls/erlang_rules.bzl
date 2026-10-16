@@ -7,8 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
-load("@prelude//erlang:erlang_application.bzl", "StartTypeValues")
-load("@prelude//erlang:erlang_info.bzl", "ErlangAppIncludeInfo", "ErlangAppInfo", "ErlangAppOrTestInfo")
+load("@prelude//erlang:erlang_info.bzl", "ErlangAppIncludeInfo", "ErlangAppInfo", "ErlangAppOrTestInfo", "StartTypeValues")
 load(":common.bzl", "buck")
 load(":re_test_common.bzl", "re_test_common")
 load(":test_common.bzl", "test_common")

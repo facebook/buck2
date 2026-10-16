@@ -8,20 +8,10 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as type
-load(
-    ":erlang_application.bzl",
-    "StartDependencySet",
-    "StartSpec",
-    "StartType",
-    "build_apps_start_dependencies",
-)
+load(":erlang_application.bzl", "StartDependencySet", "StartSpec", "build_apps_start_dependencies")
 load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "ErlAppDependencies", "flatten_dependencies")
-load(
-    ":erlang_info.bzl",
-    "ErlangAppInfo",
-    "ErlangReleaseInfo",
-)
+load(":erlang_info.bzl", "ErlangAppInfo", "ErlangReleaseInfo", "StartType")
 load(
     ":erlang_toolchain.bzl",
     "Toolchain",  # @unused Used as type

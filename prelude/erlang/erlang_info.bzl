@@ -9,6 +9,10 @@
 # This file contains the specification for all the providers the Erlang
 # integration uses.
 
+StartTypeValues = ["permanent", "transient", "temporary", "load", "none"]
+
+StartType = enum(*StartTypeValues)
+
 CodePathEntry = record(
     dir = field(Artifact),
     # application directories contribute `<dir>/ebin`, test output directories contribute `<dir>`
