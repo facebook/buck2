@@ -637,22 +637,6 @@ export_file = prelude_rule(
     cfg = constraint_overrides.transition,
 )
 
-external_test_runner = prelude_rule(
-    name = "external_test_runner",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "binary": attrs.dep(),
-        }
-        | buck.licenses_arg()
-        | buck.labels_arg()
-        | buck.contacts_arg()
-    ),
-)
-
 filegroup = prelude_rule(
     name = "filegroup",
     docs = """
@@ -1729,7 +1713,6 @@ core_rules = struct(
     constraint_value = constraint_value,
     exec_platform_marker_constraint = exec_platform_marker_constraint,
     export_file = export_file,
-    external_test_runner = external_test_runner,
     filegroup = filegroup,
     genrule = genrule,
     http_archive = http_archive,

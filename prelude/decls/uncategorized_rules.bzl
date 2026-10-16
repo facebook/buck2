@@ -16,22 +16,6 @@ load(":common.bzl", "buck")
 
 NdkCxxRuntime = ["system", "gabixx", "stlport", "gnustl", "libcxx"]
 
-legacy_toolchain = prelude_rule(
-    name = "legacy_toolchain",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "toolchain_name": attrs.string(default = ""),
-        }
-        | buck.licenses_arg()
-        | buck.labels_arg()
-        | buck.contacts_arg()
-    ),
-)
-
 ndk_toolchain = prelude_rule(
     name = "ndk_toolchain",
     docs = "",
@@ -53,6 +37,5 @@ ndk_toolchain = prelude_rule(
 )
 
 uncategorized_rules = struct(
-    legacy_toolchain = legacy_toolchain,
     ndk_toolchain = ndk_toolchain,
 )

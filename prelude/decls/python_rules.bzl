@@ -704,23 +704,6 @@ python_test = prelude_rule(
     cfg = constraint_overrides.python_transition,
 )
 
-python_test_runner = prelude_rule(
-    name = "python_test_runner",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        buck.labels_arg()
-        | {
-            "main_module": attrs.string(default = ""),
-            "src": attrs.source(),
-        }
-        | buck.licenses_arg()
-        | buck.contacts_arg()
-    ),
-)
-
 python_bootstrap_binary = prelude_rule(
     name = "python_bootstrap_binary",
     docs = """
@@ -789,5 +772,4 @@ python_rules = struct(
     python_needed_coverage_test = python_needed_coverage_test,
     python_runtime_bundle = python_runtime_bundle,
     python_test = python_test,
-    python_test_runner = python_test_runner,
 )
