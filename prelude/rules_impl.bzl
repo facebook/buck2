@@ -33,10 +33,10 @@ load("@prelude//http_archive:http_archive.bzl", "http_archive_impl")
 load("@prelude//java:rules.bzl", _java_rules = "rules")
 load("@prelude//js:rules.bzl", _js_rules = "rules")
 load("@prelude//js:worker_tool.bzl", "worker_tool")
-load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", _julia_implemented_rules = "implemented_rules")
+load("@prelude//julia:rules.bzl", _julia_rules = "rules")
 load("@prelude//kotlin:rules.bzl", _kotlin_rules = "rules")
 load("@prelude//lua:rules.bzl", _lua_rules = "rules")
-load("@prelude//matlab:matlab.bzl", _matlab_extra_attributes = "extra_attributes", _matlab_implemented_rules = "implemented_rules")
+load("@prelude//matlab:rules.bzl", _matlab_rules = "rules")
 load("@prelude//nodejs:rules.bzl", _nodejs_rules = "rules")
 load("@prelude//ocaml:rules.bzl", _ocaml_rules = "rules")
 load("@prelude//python:rules.bzl", _python_rules = "rules")
@@ -82,8 +82,10 @@ categorized_rule_decl_records = {
     _APPLE_RULES_KEY: apple_rules,
     _JAVA_RULES_KEY: _java_rules,
     _JS_RULES_KEY: _js_rules,
+    _JULIA_RULES_KEY: _julia_rules,
     _KOTLIN_RULES_KEY: _kotlin_rules,
     _LUA_RULES_KEY: _lua_rules,
+    _MATLAB_RULES_KEY: _matlab_rules,
     _NODEJS_RULES_KEY: _nodejs_rules,
     _OCAML_RULES_KEY: _ocaml_rules,
     _PYTHON_RULES_KEY: _python_rules,
@@ -124,8 +126,6 @@ extra_implemented_rules = struct(
     **_merge_dictionaries([
         _apple_implemented_rules,
         _config_implemented_rules,
-        _julia_implemented_rules,
-        _matlab_implemented_rules,
         _zip_file_implemented_rules,
     ]),
 )
@@ -155,9 +155,7 @@ categorized_extra_attributes = {
     _CORE_RULES_KEY: _core_extra_attributes,
     _APPLE_RULES_KEY: _apple_extra_attributes,
     _JAVA_RULES_KEY: {},
-    _JULIA_RULES_KEY: _julia_extra_attributes,
     _KOTLIN_RULES_KEY: {},
-    _MATLAB_RULES_KEY: _matlab_extra_attributes,
     _NODEJS_RULES_KEY: {},
     _UNCATEGORIZED_RULES_KEY: _uncategorized_extra_attributes,
 }

@@ -6,16 +6,13 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":matlab_program.bzl", "matlab_program_impl")
-load(":matlab_toolchain.bzl", "matlab_toolchain")
+load(":julia_binary.bzl", "julia_binary")
+load(":julia_library.bzl", "julia_jll_library", "julia_library")
+load(":julia_test.bzl", "julia_test")
 
-implemented_rules = {
-    "matlab_program": matlab_program_impl,
-}
-
-extra_attributes = {
-    "matlab_program": {
-        "main": attrs.source(),
-        "_matlab_toolchain": matlab_toolchain(),
-    },
+rules = {
+    "julia_binary": julia_binary,
+    "julia_jll_library": julia_jll_library,
+    "julia_library": julia_library,
+    "julia_test": julia_test,
 }
