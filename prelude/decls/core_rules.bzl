@@ -255,6 +255,7 @@ command_alias = prelude_rule(
 
 config_setting = prelude_rule(
     name = "config_setting",
+    is_configuration_rule = True,
     docs = """
         `config_setting()` accepts a list of `constraint_values` and a list of values
         (buckconfig keys + expected values) and matches if all of those match.
@@ -294,6 +295,7 @@ config_setting = prelude_rule(
 
 configuration_alias = prelude_rule(
     name = "configuration_alias",
+    is_configuration_rule = True,
     docs = """
         `configuration_alias()` acts like `alias()` but for configuration targets.
 
@@ -394,6 +396,7 @@ configured_alias = prelude_rule(
 
 constraint_setting = prelude_rule(
     name = "constraint_setting",
+    is_configuration_rule = True,
     docs = "Declares the existence of a constraint, whose values are defined using `constraint_value()`. Consider using the newer `constraint()` instead.",
     examples = None,
     further = None,
@@ -406,6 +409,7 @@ constraint_setting = prelude_rule(
 
 constraint_value = prelude_rule(
     name = "constraint_value",
+    is_configuration_rule = True,
     docs = "Declares a specific value of a `constraint_setting`. Consider using the newer `constraint()` instead.",
     examples = None,
     further = None,
@@ -425,6 +429,7 @@ constraint_value = prelude_rule(
 
 constraint = prelude_rule(
     name = "constraint",
+    is_configuration_rule = True,
     docs = """
         Unified constraint rule that defines both a constraint setting and its possible values.
         Values are exposed as subtargets, e.g., `cfg//:os[linux]`.
@@ -482,6 +487,7 @@ constraint = prelude_rule(
 
 exec_platform_marker_constraint = prelude_rule(
     name = "exec_platform_marker_constraint",
+    is_configuration_rule = True,
     docs = """
         Special constraint rule for defining execution platform markers.
         This rule has the same semantics as `constraint()` but exists to avoid
@@ -1086,6 +1092,7 @@ http_file = prelude_rule(
 
 platform = prelude_rule(
     name = "platform",
+    is_configuration_rule = True,
     docs = "Declares a platform, which is a build configuration composed of constraint values.",
     examples = None,
     further = None,

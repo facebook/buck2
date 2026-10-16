@@ -21,6 +21,7 @@ prelude_rule = record(
     uses_plugins = field([list[plugins.PluginKind], None], None),
     supports_incoming_transition = field([bool, None], None),
     is_toolchain_rule = field([bool, None], None),
+    is_configuration_rule = field(bool, False),
     # TODO(mgd): should be `transition | None`, but `transition` does not work as type.
     cfg = field(typing.Any | None, None),
 )
