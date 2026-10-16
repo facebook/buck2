@@ -130,8 +130,7 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
 
                 let implicit_import_paths = ctx.import_paths_for_cell(self.1).await?;
 
-                let dirs_allowing_relative_paths =
-                    ctx.dirs_allowing_relative_paths(self.0.clone()).await?;
+                let dirs_allowing_relative_paths = ctx.dirs_allowing_relative_paths(self.0).await?;
 
                 let cell_info = InterpreterCellInfo::new(
                     self.1,

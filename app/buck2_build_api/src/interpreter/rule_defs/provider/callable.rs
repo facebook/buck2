@@ -517,7 +517,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable<'v> {
         // First export wins
         self.callable.get_or_try_init(|| {
             let provider_id = Arc::new(ProviderId {
-                path: Some(self.path.clone()),
+                path: Some(self.path),
                 name: variable_name.to_owned(),
             });
             let ty_provider_type_instance_id =

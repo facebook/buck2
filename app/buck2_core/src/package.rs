@@ -163,7 +163,7 @@ impl PackageLabel {
 
     #[inline]
     pub fn to_cell_path(&self) -> CellPath {
-        self.0.0.clone()
+        self.0.0
     }
 
     #[inline]

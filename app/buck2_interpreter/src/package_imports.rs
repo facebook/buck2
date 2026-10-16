@@ -88,8 +88,7 @@ impl PackageImplicitImports {
                     .ok_or_else(|| PackageImportsError::MissingColons(import_spec.to_owned()))?;
                 let relative_import_option = RelativeImports::Allow {
                     current_dir_with_allowed_relative: &CellPathWithAllowedRelativeDir::new(
-                        root_path.clone(),
-                        None,
+                        root_path, None,
                     ),
                 };
                 let import_path =

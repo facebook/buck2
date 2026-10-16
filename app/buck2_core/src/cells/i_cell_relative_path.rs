@@ -19,6 +19,7 @@ use pagable::Pagable;
 use ref_cast::RefCast;
 use serde::Deserialize;
 use serde::Serialize;
+use strong_hash::StrongHash;
 
 use crate::cells::paths::CellRelativePath;
 
@@ -33,6 +34,7 @@ use crate::cells::paths::CellRelativePath;
     PartialEq,
     Eq,
     Hash,
+    StrongHash,
     PartialOrd,
     Ord,
     Allocative,

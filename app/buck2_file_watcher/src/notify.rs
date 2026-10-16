@@ -175,7 +175,7 @@ impl NotifyFileData {
                         );
                     }
                     CreateKind::Any | CreateKind::Other => {
-                        changed.file_added_or_removed(cell_path.clone());
+                        changed.file_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str.clone(),
                             FileWatcherEventType::Create,
@@ -199,7 +199,7 @@ impl NotifyFileData {
                         );
                     }
                     ModifyKind::Name(_) | ModifyKind::Any | ModifyKind::Other => {
-                        changed.file_added_or_removed(cell_path.clone());
+                        changed.file_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str.clone(),
                             FileWatcherEventType::Create,
@@ -241,7 +241,7 @@ impl NotifyFileData {
                         );
                     }
                     RemoveKind::Any | RemoveKind::Other => {
-                        changed.file_added_or_removed(cell_path.clone());
+                        changed.file_added_or_removed(cell_path);
                         stats.add(
                             cell_path_str.clone(),
                             FileWatcherEventType::Delete,

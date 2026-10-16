@@ -126,7 +126,7 @@ impl<'d> HasAllowRelativePaths<'d> for DiceComputations<'d> {
                 }
 
                 Ok(Arc::new(CellPathWithAllowedRelativeDir::new(
-                    self.cell_path.clone(),
+                    self.cell_path,
                     allowed_relative_dir.cloned(),
                 )))
             }

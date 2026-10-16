@@ -1517,9 +1517,7 @@ mod tests {
             ParsedPattern::<T>::parse_not_relaxed(
                 "...",
                 TargetParsingRel::AllowRelative(
-                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
-                        package.clone()
-                    ),
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(package),
                     Some(&NoAliases),
                 ),
                 &resolver(),
@@ -1597,7 +1595,7 @@ mod tests {
             ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "path",
                 TargetParsingRel::AllowRelative(
-                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(package.clone()),
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(package),
                     Some(&NoAliases),
                 ),
                 &resolver(),
@@ -2311,7 +2309,7 @@ mod tests {
                 "../sibling:target",
                 TargetParsingRel::AllowRelative(
                     &CellPathWithAllowedRelativeDir::new(
-                        package.clone(),
+                        package,
                         Some(CellPath::testing_new("root//package"))
                     ),
                     Some(&NoAliases),
@@ -2326,9 +2324,7 @@ mod tests {
             ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "../sibling:target",
                 TargetParsingRel::AllowRelative(
-                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
-                        package.clone(),
-                    ),
+                    &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(package),
                     Some(&NoAliases),
                 ),
                 &resolver(),
@@ -2343,7 +2339,7 @@ mod tests {
                 "../../not_allowed:target",
                 TargetParsingRel::AllowRelative(
                     &CellPathWithAllowedRelativeDir::new(
-                        package.clone(),
+                        package,
                         Some(CellPath::testing_new("root//package")),
                     ),
                     Some(&NoAliases),

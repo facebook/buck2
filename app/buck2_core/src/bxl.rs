@@ -44,7 +44,7 @@ struct BxlPathError(CellPath);
 
 impl BxlFilePath {
     pub fn new(path: CellPath) -> buck2_error::Result<Self> {
-        let err = || BxlPathError(path.clone());
+        let err = || BxlPathError(path);
 
         if path.path().file_name().ok_or_else(err)?.extension() != Some("bxl") {
             return Err(err().into());

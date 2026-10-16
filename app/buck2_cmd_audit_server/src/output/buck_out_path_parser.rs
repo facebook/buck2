@@ -361,7 +361,7 @@ impl BuckOutPathParser {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, "tmp")?;
                         let target_label =
-                            get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
+                            get_target_label(&mut iter, buck_out_path_data.cell_path)?;
 
                         let common_attrs = BuckOutPathTypeCommon {
                             config_hash: buck_out_path_data.config_hash,
@@ -394,7 +394,7 @@ impl BuckOutPathParser {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let target_label =
-                            get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
+                            get_target_label(&mut iter, buck_out_path_data.cell_path)?;
                         if let Some(potential_config_hash) = iter.peek() {
                             if is_hash(potential_config_hash.as_str()) {
                                 iter.next();
@@ -419,7 +419,7 @@ impl BuckOutPathParser {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let target_label =
-                            get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
+                            get_target_label(&mut iter, buck_out_path_data.cell_path)?;
                         let common_attrs = BuckOutPathTypeCommon {
                             config_hash: buck_out_path_data.config_hash,
                             content_hash: buck_out_path_data.content_hash,

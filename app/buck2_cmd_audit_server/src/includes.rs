@@ -161,7 +161,7 @@ async fn load_and_collect_includes(
 ) -> buck2_error::Result<Vec<ImportPath>> {
     let parent = path
         .parent()
-        .ok_or_else(|| AuditIncludesError::InvalidPath(path.clone()))?;
+        .ok_or_else(|| AuditIncludesError::InvalidPath(*path))?;
     let package = PackageLabel::from_cell_path(parent)?;
     let load_result = ctx.get_interpreter_results(package).await?;
 
@@ -172,11 +172,9 @@ async fn load_and_collect_includes(
             .file_name()
             .expect("checked that this has a parent above")
     {
-        return Err(AuditIncludesError::WrongBuildfilePath(
-            path.clone(),
-            buildfile_name.to_owned(),
-        )
-        .into());
+        return Err(
+            AuditIncludesError::WrongBuildfilePath(*path, buildfile_name.to_owned()).into(),
+        );
     }
 
     get_transitive_includes(ctx, load_result).await

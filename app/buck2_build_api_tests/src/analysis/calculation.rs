@@ -210,7 +210,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
             .providers()
             .unwrap()
             .value()
-            .get_provider_raw(&ProviderId::testing_new(bzlfile.path().clone(), "FooInfo"))
+            .get_provider_raw(&ProviderId::testing_new(*bzlfile.path(), "FooInfo"))
             .unwrap()
             .is_some(),
         true
@@ -504,7 +504,7 @@ foo_binary(
                     .providers()
                     .unwrap()
                     .value()
-                    .get_provider_raw(&ProviderId::testing_new(bzlfile.path().clone(), "FooInfo"))
+                    .get_provider_raw(&ProviderId::testing_new(*bzlfile.path(), "FooInfo"))
                     .unwrap()
                     .is_some(),
                 "{case} must actually run analysis, not vacuously succeed"

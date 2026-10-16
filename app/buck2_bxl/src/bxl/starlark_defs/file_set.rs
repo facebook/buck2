@@ -125,7 +125,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
         Ok(self
             .0
             .iter()
-            .map(|cell_path| heap.alloc(StarlarkFileNode(cell_path.clone())))
+            .map(|cell_path| heap.alloc(StarlarkFileNode(*cell_path)))
             .collect())
     }
 

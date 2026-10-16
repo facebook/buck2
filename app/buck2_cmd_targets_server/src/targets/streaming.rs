@@ -227,7 +227,7 @@ pub(crate) async fn targets_streaming(
     let mut todo = mem::take(&mut *imported.lock().unwrap());
     let mut seen_imported = BuckMutSet::default();
     while let Some(path) = todo.pop() {
-        if seen_imported.insert(path.path().clone()) {
+        if seen_imported.insert(*path.path()) {
             // If these lead to an error, that's surpsing (we had a working module with it loaded)
             // so we should always propagate the error here (even with keep_going)
             if needs_separator {

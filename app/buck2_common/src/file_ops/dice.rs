@@ -193,7 +193,7 @@ impl FileChangeTracker {
         for p in self.paths_to_dirty.clone() {
             if let Some(dir) = p.0.parent() {
                 if self.maybe_modified_dirs.contains(&dir.to_owned()) {
-                    self.entry_added_or_removed(p.0.clone());
+                    self.entry_added_or_removed(p.0);
                 }
             }
         }
@@ -207,9 +207,9 @@ impl FileChangeTracker {
     }
 
     fn entry_added_or_removed(&mut self, path: CellPath) {
-        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
+        self.paths_to_dirty.insert(PathMetadataKey(path));
         self.exists_matching_exact_case_to_dirty
-            .insert(ExistsMatchingExactCaseKey(path.clone()));
+            .insert(ExistsMatchingExactCaseKey(path));
         let parent = path.parent();
         if let Some(parent) = parent {
             // The above can be None (validly!) if we have a cell we either create or delete.
@@ -222,7 +222,7 @@ impl FileChangeTracker {
 
     fn insert_dir_keys(&mut self, path: CellPath) {
         self.dirs_to_dirty.insert(ReadDirKey {
-            path: path.clone(),
+            path,
             check_ignores: CheckIgnores::No,
         });
         self.dirs_to_dirty.insert(ReadDirKey {
@@ -232,7 +232,7 @@ impl FileChangeTracker {
     }
 
     pub fn file_added_or_removed(&mut self, path: CellPath) {
-        self.file_contents_changed(path.clone());
+        self.file_contents_changed(path);
         self.entry_added_or_removed(path);
     }
 
@@ -241,9 +241,8 @@ impl FileChangeTracker {
     }
 
     pub fn file_contents_changed(&mut self, path: CellPath) {
-        self.files_to_dirty
-            .insert(ReadFileKey(Arc::new(path.clone())));
-        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
+        self.files_to_dirty.insert(ReadFileKey(Arc::new(path)));
+        self.paths_to_dirty.insert(PathMetadataKey(path));
     }
 
     /// Normally, buck does not need the file watcher to tell it that a directory's entries have

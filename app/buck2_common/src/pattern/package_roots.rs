@@ -107,7 +107,7 @@ pub async fn collect_package_roots<E>(
                 // TODO(cjhopman): Ignoring this matches buck1 behavior, but we'd like this to be an error.
             }
             Ok(false) => {
-                if seen.insert(path.clone()) {
+                if seen.insert(path) {
                     queue.push(list_dir(path));
                 }
             }
@@ -146,7 +146,7 @@ pub async fn collect_package_roots<E>(
         for entry in listing.iter().rev() {
             if entry.file_type.is_dir() {
                 let child = path.join(&entry.file_name);
-                if seen.insert(child.clone()) {
+                if seen.insert(child) {
                     queue.push(list_dir(child));
                 }
             }

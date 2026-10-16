@@ -156,7 +156,7 @@ async fn resolve_target_patterns_impl<P: PatternType>(
                 resolved.add_package(package.dupe(), Modifiers::new(None));
             }
             ParsedPattern::Recursive(cell_path) => {
-                let roots = find_package_roots(cell_path.clone(), file_ops)
+                let roots = find_package_roots(*cell_path, file_ops)
                     .await
                     .buck_error_context("Error resolving recursive target pattern.")?;
                 for package in roots {
@@ -188,7 +188,7 @@ async fn resolve_target_patterns_with_modifiers_impl<P: PatternType>(
                 resolved.add_package(package.dupe(), pattern.modifiers.clone());
             }
             ParsedPattern::Recursive(cell_path) => {
-                let roots = find_package_roots(cell_path.clone(), file_ops)
+                let roots = find_package_roots(*cell_path, file_ops)
                     .await
                     .buck_error_context("Error resolving recursive target pattern.")?;
                 for package in roots {

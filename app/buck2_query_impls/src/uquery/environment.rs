@@ -438,7 +438,7 @@ pub(crate) async fn allbuildfiles<T: QueryTarget>(
 
     let mut new_paths = BuckIndexSet::<FileNode>::default();
     for load in &loads {
-        new_paths.insert(FileNode(load.path().clone()));
+        new_paths.insert(FileNode(*load.path()));
     }
 
     Ok(FileSet::new(paths).union(&FileSet::new(new_paths)))
@@ -449,8 +449,7 @@ pub(crate) async fn rbuildfiles(
     argset: &FileSet,
     delegate: &dyn UqueryDelegate,
 ) -> buck2_error::Result<FileSet> {
-    let universe_paths: Vec<ArcCellPath> =
-        universe.iter().map(|file| Arc::new(file.clone())).collect();
+    let universe_paths: Vec<ArcCellPath> = universe.iter().map(|file| Arc::new(*file)).collect();
     // step 1: split the build files and bzl files
     let (buildfiles, bzlfiles) = split_universe_files(&universe_paths, delegate).await?;
 
@@ -562,25 +561,22 @@ pub(crate) async fn rbuildfiles(
 
     let mut output_files = BuckIndexSet::<FileNode>::default();
     for file in &output_paths {
-        output_files.insert(FileNode(file.path().clone()));
+        output_files.insert(FileNode(*file.path()));
     }
 
     // finally, since we didn't check the top level imports of buildfiles,
     // we do this right now
     for file in buildfiles {
         if argset.iter().contains(&*file) {
-            output_files.insert(FileNode((*file).clone()));
+            output_files.insert(FileNode(*file));
         } else {
             let imports = top_level_import_by_build_file
                 .get(&file)
                 .expect("should have stored a universe file's input");
 
             for import in imports.iter() {
-                if output_files
-                    .iter()
-                    .contains(&FileNode(import.path().clone()))
-                {
-                    output_files.insert(FileNode((*file).clone()));
+                if output_files.iter().contains(&FileNode(*import.path())) {
+                    output_files.insert(FileNode(*file));
                     break;
                 }
             }
@@ -631,7 +627,7 @@ async fn top_level_imports_by_build_file(
     let mut top_level_import_by_build_file = BuckMutMap::<ArcCellPath, Vec<ImportPath>>::default();
 
     for file in bzlfiles {
-        let imports = vec![ImportPath::new_same_cell(file.as_ref().clone())?];
+        let imports = vec![ImportPath::new_same_cell(*file.as_ref())?];
         top_level_import_by_build_file.insert(file.dupe(), imports);
     }
 

@@ -144,9 +144,7 @@ impl LiteralParser {
         ParsedPattern::parse_not_relaxed(
             value,
             TargetParsingRel::AllowRelative(
-                &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
-                    self.working_dir.clone(),
-                ),
+                &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(self.working_dir),
                 Some(&self.target_alias_resolver),
             ),
             &self.cell_resolver,
@@ -162,9 +160,7 @@ impl LiteralParser {
         ParsedPatternWithModifiers::parse_not_relaxed(
             value,
             TargetParsingRel::AllowRelative(
-                &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
-                    self.working_dir.clone(),
-                ),
+                &CellPathWithAllowedRelativeDir::backwards_relative_not_supported(self.working_dir),
                 Some(&self.target_alias_resolver),
             ),
             &self.cell_resolver,

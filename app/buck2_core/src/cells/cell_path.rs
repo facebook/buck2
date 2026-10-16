@@ -15,6 +15,7 @@ use dupe::Dupe;
 use pagable::Pagable;
 use strong_hash::StrongHash;
 
+use crate::cells::i_cell_relative_path::ICellRelativePath;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
 
@@ -26,6 +27,7 @@ struct StripPrefixError(CellName, CellName);
 /// Represents a resolvable path corresponding to some path that is relative to the cell
 /// corresponding to the 'CellName'.
 #[derive(
+    Copy,
     Clone,
     Debug,
     derive_more::Display,
@@ -41,7 +43,7 @@ struct StripPrefixError(CellName, CellName);
 #[display("{}", self.as_ref())]
 pub struct CellPath {
     cell: CellName,
-    path: Box<CellRelativePath>,
+    path: ICellRelativePath,
 }
 
 impl CellPath {
@@ -49,7 +51,7 @@ impl CellPath {
     pub fn new(cell: CellName, path: &CellRelativePath) -> Self {
         CellPath {
             cell,
-            path: path.to_box(),
+            path: ICellRelativePath::intern_directly(path),
         }
     }
 
@@ -58,7 +60,7 @@ impl CellPath {
     pub fn empty(cell: CellName) -> Self {
         CellPath {
             cell,
-            path: CellRelativePath::empty().to_box(),
+            path: ICellRelativePath::empty(),
         }
     }
 
@@ -256,11 +258,6 @@ impl CellPath {
         self.as_ref().ends_with(suffix)
     }
 
-    #[inline]
-    pub fn into_parts(self) -> (CellName, Box<CellRelativePath>) {
-        (self.cell, self.path)
-    }
-
     pub fn testing_new(path: &str) -> CellPath {
         let (cell_name, relative_path) = path.split_once("//").unwrap();
         CellPath::new(
@@ -312,10 +309,7 @@ impl<'a> CellPathRef<'a> {
 
     #[inline]
     pub fn to_owned(&self) -> CellPath {
-        CellPath {
-            cell: self.cell,
-            path: self.path.to_box(),
-        }
+        CellPath::new(self.cell, self.path)
     }
 
     #[inline]
@@ -352,7 +346,10 @@ impl<'a> CellPathRef<'a> {
     pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> CellPath {
         CellPath {
             cell: self.cell,
-            path: self.path.join(path).into_box(),
+            path: ICellRelativePath::intern_concat_directly([
+                self.path.as_forward_relative_path(),
+                path.as_ref(),
+            ]),
         }
     }
 

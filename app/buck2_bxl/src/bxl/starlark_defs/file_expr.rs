@@ -106,7 +106,7 @@ impl<'a> FileExpr<'a> {
                 }
             }
             FileExpr::SourceArtifact(val) => Ok(val.artifact.get_path().to_cell_path()),
-            FileExpr::StarlarkFileNode(val) => Ok(val.0.clone()),
+            FileExpr::StarlarkFileNode(val) => Ok(val.0),
         }
     }
 }
