@@ -119,11 +119,11 @@ mod tests {
             NestedCells {
                 paths: vec![
                     (
-                        CellRelativePathBuf::try_from("cell_a".to_owned()).unwrap(),
+                        CellRelativePathBuf::testing_new("cell_a"),
                         CellName::testing_new("a")
                     ),
                     (
-                        CellRelativePathBuf::try_from("cell_x/cell_y".to_owned()).unwrap(),
+                        CellRelativePathBuf::testing_new("cell_x/cell_y"),
                         CellName::testing_new("xy")
                     )
                 ]

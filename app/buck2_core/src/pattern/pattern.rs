@@ -1293,7 +1293,6 @@ mod tests {
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePath;
-    use crate::cells::paths::CellRelativePathBuf;
     use crate::configuration::bound_label::BoundConfigurationLabel;
     use crate::configuration::builtin::BuiltinPlatform;
     use crate::configuration::hash::ConfigurationHash;
@@ -1322,11 +1321,8 @@ mod tests {
         ParsedPattern::Package(PackageLabel::testing_new(cell, path))
     }
 
-    fn mk_recursive<P: PatternType>(cell: &str, path: &str) -> ParsedPattern<P> {
-        ParsedPattern::Recursive(CellPath::new(
-            CellName::testing_new(cell),
-            CellRelativePathBuf::unchecked_new(path.to_owned()),
-        ))
+    fn mk_recursive<P: PatternType>(package: &str) -> ParsedPattern<P> {
+        ParsedPattern::Recursive(CellPath::testing_new(package))
     }
 
     fn mk_target(cell: &str, path: &str, target: &str) -> ParsedPattern<TargetPatternExtra> {
@@ -1459,10 +1455,7 @@ mod tests {
     #[test_case(PhantomData::< ConfiguredTargetPatternExtra >; "parsing ConfiguredTargetPatternExtra")]
     #[test_case(PhantomData::< ConfiguredProvidersPatternExtra >; "parsing ConfiguredProvidersPatternExtra")]
     fn parse_absolute_pattern<T: PatternType>(_: PhantomData<T>) {
-        let package = CellPath::new(
-            CellName::testing_new("root"),
-            CellRelativePath::unchecked_new("package/path").to_owned(),
-        );
+        let package = CellPath::testing_new("root//package/path");
 
         assert_eq!(
             mk_package::<T>("root", "package/path"),
@@ -1524,7 +1517,7 @@ mod tests {
             .unwrap()
         );
         assert_eq!(
-            mk_recursive::<T>("root", "package/path"),
+            mk_recursive::<T>("root//package/path"),
             ParsedPattern::<T>::parse_precise(
                 "//package/path/...",
                 CellName::testing_new("root"),
@@ -1534,7 +1527,7 @@ mod tests {
             .unwrap()
         );
         assert_eq!(
-            mk_recursive::<T>("root", "package/path"),
+            mk_recursive::<T>("root//package/path"),
             ParsedPattern::<T>::parse_not_relaxed(
                 "...",
                 TargetParsingRel::AllowRelative(
@@ -1550,7 +1543,7 @@ mod tests {
             .unwrap()
         );
         assert_eq!(
-            mk_recursive::<T>("root", "package/path/foo"),
+            mk_recursive::<T>("root//package/path/foo"),
             ParsedPattern::<T>::parse_not_relaxed(
                 "foo/...",
                 TargetParsingRel::AllowRelative(
@@ -1567,10 +1560,7 @@ mod tests {
 
     #[test]
     fn parse_relative_pattern() -> buck2_error::Result<()> {
-        let package = CellPath::new(
-            CellName::testing_new("root"),
-            CellRelativePath::unchecked_new("package/path").to_owned(),
-        );
+        let package = CellPath::testing_new("root//package/path");
 
         assert_eq!(
             mk_target("root", "package/path", "target"),
@@ -1599,10 +1589,7 @@ mod tests {
 
     #[test]
     fn test_relaxed() -> buck2_error::Result<()> {
-        let package = CellPath::new(
-            CellName::testing_new("root"),
-            CellRelativePath::unchecked_new("package").to_owned(),
-        );
+        let package = CellPath::testing_new("root//package");
 
         assert_eq!(
             mk_target("root", "package/path", "path"),
@@ -1747,10 +1734,7 @@ mod tests {
 
     #[test]
     fn test_parsed_opt_absolute() -> buck2_error::Result<()> {
-        let package = CellPath::new(
-            CellName::testing_new("root"),
-            CellRelativePath::unchecked_new("package/path").to_owned(),
-        );
+        let package = CellPath::testing_new("root//package/path");
 
         assert_eq!(
             mk_target("root", "other", "target"),
@@ -1862,10 +1846,7 @@ mod tests {
 
     #[test]
     fn test_aliases() -> buck2_error::Result<()> {
-        let package = CellPath::new(
-            CellName::testing_new("root"),
-            CellRelativePath::unchecked_new("package").to_owned(),
-        );
+        let package = CellPath::testing_new("root//package");
 
         let config = aliases(&[
             ("foo", "cell1//foo/bar:target"),
@@ -1973,10 +1954,7 @@ mod tests {
 
     #[test]
     fn parse_providers_pattern_with_alias() -> buck2_error::Result<()> {
-        let package = CellPath::new(
-            CellName::testing_new("root"),
-            CellRelativePath::unchecked_new("package").to_owned(),
-        );
+        let package = CellPath::testing_new("root//package");
 
         let config = aliases(&[("foo", "cell1//foo/bar:target")]);
 
@@ -2339,10 +2317,7 @@ mod tests {
 
     #[test]
     fn test_relative_pattern_with_parent() -> buck2_error::Result<()> {
-        let package = CellPath::new(
-            CellName::testing_new("root"),
-            CellRelativePath::unchecked_new("package/path").to_owned(),
-        );
+        let package = CellPath::testing_new("root//package/path");
 
         assert_eq!(
             mk_target("root", "package/sibling", "target"),
@@ -2401,10 +2376,7 @@ mod tests {
     fn test_parsed_pattern_with_modifiers_relaxed() -> buck2_error::Result<()> {
         let resolver = resolver();
         let alias_resolver = alias_resolver();
-        let package = CellPath::new(
-            CellName::testing_new("root"),
-            CellRelativePath::unchecked_new("package").to_owned(),
-        );
+        let package = CellPath::testing_new("root//package");
 
         fails(
             ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
@@ -2466,7 +2438,7 @@ mod tests {
 
         assert_eq!(
             pattern_parts.parsed_pattern,
-            mk_recursive("root", "package/path")
+            mk_recursive("root//package/path")
         );
         assert_eq!(
             pattern_parts.modifiers,
@@ -2645,11 +2617,7 @@ mod tests {
         fails(
             ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                 &NoAliases,
-                CellPath::new(
-                    CellName::testing_new("root"),
-                    CellRelativePath::unchecked_new("package").to_owned(),
-                )
-                .as_ref(),
+                CellPath::testing_new("root//package").as_ref(),
                 "root//package/path:target?modifier",
                 &resolver(),
                 &alias_resolver(),
@@ -2662,10 +2630,7 @@ mod tests {
     fn test_configured_parsed_pattern_with_modifiers() -> buck2_error::Result<()> {
         let resolver = resolver();
         let alias_resolver = alias_resolver();
-        let package = CellPath::new(
-            CellName::testing_new("root"),
-            CellRelativePath::unchecked_new("package").to_owned(),
-        );
+        let package = CellPath::testing_new("root//package");
 
         // Test that it fails when there are modifiers and configuration predicate is not Any or Builtin
         fails(

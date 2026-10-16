@@ -60,7 +60,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
@@ -466,10 +465,7 @@ async fn test_ensure_artifact_source_artifact() -> buck2_error::Result<()> {
     buck2_certs::certs::maybe_setup_cryptography();
     let digest_config = DigestConfig::testing_default();
 
-    let path = CellPath::new(
-        CellName::testing_new("cell"),
-        CellRelativePathBuf::unchecked_new("pkg/src.cpp".to_owned()),
-    );
+    let path = CellPath::testing_new("cell//pkg/src.cpp");
     let source_artifact = create_test_source_artifact("cell//pkg", "src.cpp");
     let metadata = FileMetadata {
         digest: TrackedFileDigest::from_content(b"content", digest_config.cas_digest_config()),
@@ -515,10 +511,7 @@ async fn test_ensure_artifact_source_artifact() -> buck2_error::Result<()> {
 #[tokio::test]
 async fn test_ensure_artifact_external_symlink() -> buck2_error::Result<()> {
     buck2_certs::certs::maybe_setup_cryptography();
-    let path = CellPath::new(
-        CellName::testing_new("cell"),
-        CellRelativePathBuf::unchecked_new("proj/to_gvfs/include".to_owned()),
-    );
+    let path = CellPath::testing_new("cell//proj/to_gvfs/include");
     let source_artifact = create_test_source_artifact("cell//proj/to_gvfs", "include");
     let symlink = Arc::new(
         ExternalSymlink::new(

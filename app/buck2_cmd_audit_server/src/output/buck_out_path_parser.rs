@@ -523,10 +523,7 @@ mod tests {
         .unwrap();
         let expected_target_label =
             TargetLabel::new(pkg, TargetNameRef::new("target_name").unwrap());
-        let expected_cell_path = CellPath::new(
-            CellName::testing_new("bar"),
-            CellRelativePath::unchecked_new("path/to/target").to_owned(),
-        );
+        let expected_cell_path = CellPath::testing_new("bar//path/to/target");
 
         (
             parser,
@@ -828,10 +825,7 @@ mod tests {
         let test_path =
             format!("buck-out/v2/test/bar/{expected_config_hash}/path/to/target/test/output");
 
-        let expected_test_cell_path = CellPath::new(
-            CellName::testing_new("bar"),
-            CellRelativePath::unchecked_new("path/to/target/test/output").to_owned(),
-        );
+        let expected_test_cell_path = CellPath::testing_new("bar//path/to/target/test/output");
 
         let res = buck_out_parser.parse(&test_path)?;
 
@@ -937,10 +931,7 @@ mod tests {
                 bxl_function_label,
                 common_attrs,
             } => {
-                let path = CellPath::new(
-                    CellName::testing_new("bar"),
-                    CellRelativePath::unchecked_new("path/to/function.bxl").to_owned(),
-                );
+                let path = CellPath::testing_new("bar//path/to/function.bxl");
 
                 let bxl_path = BxlFilePath::new(path)?;
                 let expected_bxl_function_label = BxlFunctionLabel {
@@ -977,10 +968,7 @@ mod tests {
                 bxl_function_label,
                 common_attrs,
             } => {
-                let path = CellPath::new(
-                    CellName::testing_new("bar"),
-                    CellRelativePath::unchecked_new("path/to/function.bxl").to_owned(),
-                );
+                let path = CellPath::testing_new("bar//path/to/function.bxl");
 
                 let bxl_path = BxlFilePath::new(path)?;
                 let expected_bxl_function_label = BxlFunctionLabel {

@@ -38,7 +38,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
@@ -148,10 +147,7 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
         ),
     ]);
 
-    let foo = CellPath::new(
-        CellName::testing_new("root"),
-        CellRelativePathBuf::unchecked_new("foo/foo".to_owned()),
-    );
+    let foo = CellPath::testing_new("root//foo/foo");
 
     let foo_artifact = Artifact::from(SourceArtifact::new(SourcePath::testing_new(
         "root//foo",
@@ -168,10 +164,7 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
         "bar",
     )));
 
-    let bar = CellPath::new(
-        CellName::testing_new("root"),
-        CellRelativePathBuf::unchecked_new("bar/bar".to_owned()),
-    );
+    let bar = CellPath::testing_new("root//bar/bar");
 
     let bar_meta = FileMetadata {
         digest: TrackedFileDigest::from_content(b"bar", digest_config.cas_digest_config()),

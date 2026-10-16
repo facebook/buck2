@@ -183,17 +183,14 @@ mod tests {
         CellAliasResolver::new(CellName::testing_new("root"), m).expect("valid resolver")
     }
 
-    fn path(cell: &str, dir: &str, filename: &str) -> CellPath {
-        CellPath::new(
-            CellName::testing_new(cell),
-            CellRelativePath::unchecked_new(dir).join(FileName::unchecked_new(filename)),
-        )
+    fn path(path: &str) -> CellPath {
+        CellPath::testing_new(path)
     }
 
     #[test]
     fn root_package() -> buck2_error::Result<()> {
         assert_eq!(
-            path("root", "package/path", "import.bzl"),
+            path("root//package/path/import.bzl"),
             parse_import(
                 &resolver(),
                 RelativeImports::Allow {
@@ -211,7 +208,7 @@ mod tests {
     #[test]
     fn cell_package() -> buck2_error::Result<()> {
         assert_eq!(
-            path("cell1", "package/path", "import.bzl"),
+            path("cell1//package/path/import.bzl"),
             parse_import(
                 &resolver(),
                 RelativeImports::Allow {
@@ -229,7 +226,7 @@ mod tests {
     #[test]
     fn package_relative() -> buck2_error::Result<()> {
         assert_eq!(
-            path("cell1", "package/path", "import.bzl"),
+            path("cell1//package/path/import.bzl"),
             parse_import(
                 &resolver(),
                 RelativeImports::Allow {
@@ -258,7 +255,7 @@ mod tests {
                 },
                 &import
             )?,
-            path("root", "package/path", "import.bzl")
+            path("root//package/path/import.bzl")
         );
         Ok(())
     }
@@ -311,7 +308,7 @@ mod tests {
     #[test]
     fn file_relative_import_given_relative_paths_allowed() -> buck2_error::Result<()> {
         assert_eq!(
-            path("cell1", "package/path", "bar.bzl"),
+            path("cell1//package/path/bar.bzl"),
             parse_import(
                 &resolver(),
                 RelativeImports::Allow {
@@ -324,7 +321,7 @@ mod tests {
             )?
         );
         assert_eq!(
-            path("cell1", "package/path", "foo/bar.bzl"),
+            path("cell1//package/path/foo/bar.bzl"),
             parse_import(
                 &resolver(),
                 RelativeImports::Allow {
@@ -373,7 +370,7 @@ mod tests {
         }
         // A well-formed relative import still resolves under the allowed dir.
         assert_eq!(
-            path("cell1", "package", "sibling.bzl"),
+            path("cell1//package/sibling.bzl"),
             parse_import(
                 &resolver(),
                 RelativeImports::Allow {
@@ -400,7 +397,7 @@ mod tests {
                 },
                 importee
             )?,
-            path("cell1", "package/path/foo", "bar.bzl")
+            path("cell1//package/path/foo/bar.bzl")
         );
         Ok(())
     }
@@ -408,7 +405,7 @@ mod tests {
     #[test]
     fn regular_import_given_relative_paths_allowed() -> buck2_error::Result<()> {
         assert_eq!(
-            path("cell1", "package/path", "import.bzl"),
+            path("cell1//package/path/import.bzl"),
             parse_import(
                 &resolver(),
                 RelativeImports::Allow {
@@ -426,7 +423,7 @@ mod tests {
     #[test]
     fn allows_non_at_symbols() -> buck2_error::Result<()> {
         assert_eq!(
-            path("cell1", "package/path", "import.bzl"),
+            path("cell1//package/path/import.bzl"),
             parse_import_with_config(
                 &resolver(),
                 "cell1//package/path:import.bzl",

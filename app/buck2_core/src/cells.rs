@@ -466,7 +466,6 @@ impl CellResolver {
 #[cfg(test)]
 mod tests {
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-    use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
     use super::*;
     use crate::cells::cell_root_path::CellRootPath;
@@ -525,18 +524,12 @@ mod tests {
 
         assert_eq!(
             cells.get_cell_path(cell1_path),
-            CellPath::new(
-                CellName::testing_new("cell1"),
-                ForwardRelativePathBuf::unchecked_new("".to_owned()).into()
-            )
+            CellPath::testing_new("cell1//")
         );
 
         assert_eq!(
             cells.get_cell_path(cell2_path),
-            CellPath::new(
-                CellName::testing_new("cell2"),
-                ForwardRelativePathBuf::unchecked_new("".to_owned()).into()
-            )
+            CellPath::testing_new("cell2//")
         );
 
         assert_eq!(
@@ -545,10 +538,7 @@ mod tests {
                     .as_project_relative_path()
                     .join(ForwardRelativePath::new("fake/cell3")?)
             ),
-            CellPath::new(
-                CellName::testing_new("cell2"),
-                ForwardRelativePathBuf::unchecked_new("fake/cell3".to_owned()).into()
-            )
+            CellPath::testing_new("cell2//fake/cell3")
         );
 
         Ok(())
