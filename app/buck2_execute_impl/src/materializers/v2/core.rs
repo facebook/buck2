@@ -245,6 +245,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
                 entry: DiskEntry::from_action(&entry.metadata),
                 last_access_time: entry.last_access_time,
                 classification: entry.classification,
+                verified: false,
             };
             if tree.load(entry.path.clone(), tracked.dupe()) {
                 shared.add(&tracked);
@@ -392,6 +393,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
                 entry: DiskEntry::from_action(&entry),
                 last_access_time: Timestamp::now(),
                 classification,
+                verified: true,
             },
             reply,
         })?;
@@ -421,10 +423,38 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             path: root.path.clone(),
             source,
         };
+        let mut granted = granted.await.map_err(|_| failed(stopped()))?;
+        if !granted.held.guard().holds_for_writing() && !granted.verified {
+            // A root loaded from sqlite is trusted for its content, not for still being there
+            // as the rows say (plan-new-core.md §5): its first reader checks kind and size against
+            // disk. One that fails is forgotten and put there again like any untracked path.
+            let (fs, path, entry) = (self.io.fs().dupe(), root.path.clone(), root.entry.dupe());
+            let as_tracked = self
+                .blocking_executor
+                .execute_io_inline(move || on_disk_as(&fs, &path, &entry))
+                .await
+                .map_err(failed)?;
+            let path = root.path.clone();
+            if as_tracked {
+                self.on_processor(move |processor| processor.mark_verified(&path))
+                    .await
+                    .map_err(failed)?;
+            } else {
+                self.on_processor(move |processor| processor.untrack(&path))
+                    .await
+                    .map_err(failed)?;
+                drop(granted);
+                granted = self
+                    .acquire_one(root.path.clone(), Want::Content(root.entry.dupe()))
+                    .await
+                    .map_err(failed)?;
+            }
+        }
         let Granted {
             mut held,
             exclusions,
-        } = granted.await.map_err(|_| failed(stopped()))?;
+            ..
+        } = granted;
         if !held.guard().holds_for_writing() {
             // What is there already counts as a final output from here on, if it was not one.
             if classification == ArtifactClassification::FinalOutput {
@@ -835,6 +865,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         let Granted {
             mut held,
             exclusions,
+            ..
         } = self
             .acquire_one(dest.clone(), Want::Content(entry.dupe()))
             .await?;
@@ -1460,6 +1491,43 @@ fn shared(e: MaterializeEntryError) -> SharedMaterializingError {
     }
 }
 
+/// Whether what is at `root` is `entry` as far as a stat can tell: the kind of every node and the
+/// size of every file. Content is not read; a root loaded from sqlite is trusted for that.
+fn on_disk_as(
+    fs: &ProjectRoot,
+    root: &ProjectRelativePath,
+    entry: &ArtifactMetadata,
+) -> buck2_error::Result<bool> {
+    let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
+    while let Some((path, entry)) = walk.next() {
+        let abs = fs.resolve(root.join(path.get()));
+        let metadata = match fs_util::symlink_metadata(&abs) {
+            Ok(metadata) => metadata,
+            // Not there, or a file where a directory was on the way to it.
+            Err(e)
+                if matches!(
+                    e.io_error_kind(),
+                    Some(std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory)
+                ) =>
+            {
+                return Ok(false);
+            }
+            Err(e) => return Err(e.categorize_internal()),
+        };
+        let as_entry = match entry {
+            DirectoryEntry::Dir(_) => metadata.is_dir(),
+            DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => {
+                metadata.is_file() && metadata.len() == file.digest.size()
+            }
+            DirectoryEntry::Leaf(_) => metadata.is_symlink(),
+        };
+        if !as_entry {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 /// Removes what is at `root` and not in `entry`, leaving the excluded paths untouched. Without
 /// exclusions the root is simply cleared, which is also what makes room for it when a parent is
 /// a file.
@@ -1698,6 +1766,8 @@ impl Drop for Held {
 /// The processor's answer to one want of a request.
 pub(crate) struct Granted {
     pub(crate) held: Held,
+    /// For a read: whether this daemon has seen the content on disk; see `Grant::verified`.
+    pub(crate) verified: bool,
     /// For a write: the tracked roots below it that the holder must leave alone.
     pub(crate) exclusions: Vec<ProjectRelativePathBuf>,
 }
@@ -2014,45 +2084,26 @@ impl Processor {
                 let _ignored = reply.send(taken);
             }
             Command::HoldForReading { requests, reply } => {
-                let mut change = TreeChange::default();
                 let held: Vec<Option<RootGuard>> = requests
                     .into_iter()
                     .map(|(path, as_of)| {
-                        let (hold, one) = self.tree.hold_for_reading(path, as_of)?;
-                        change.extend(one);
-                        Some(RootGuard {
-                            sender: self.sender.dupe(),
-                            path: hold.path().to_buf(),
-                            hold: Mutex::new(Some(Hold::Read(hold))),
-                        })
+                        let hold = self.tree.hold_for_reading(path, as_of)?;
+                        Some(self.read_guard(hold))
                     })
                     .collect();
-                self.account(&change);
-                self.persist(change);
                 let _ignored = reply.send(held);
             }
             Command::HoldSources { digests, reply } => {
-                let mut change = TreeChange::default();
                 let held: Vec<Option<(ProjectRelativePathBuf, RootGuard)>> = digests
                     .into_iter()
                     .map(|digest| {
                         let candidates = self.index.holders(&digest);
                         candidates.into_iter().find_map(|path| {
-                            let (hold, one) = self.tree.hold_for_reading(path.clone(), None)?;
-                            change.extend(one);
-                            Some((
-                                path,
-                                RootGuard {
-                                    sender: self.sender.dupe(),
-                                    path: hold.path().to_buf(),
-                                    hold: Mutex::new(Some(Hold::Read(hold))),
-                                },
-                            ))
+                            let hold = self.tree.hold_for_reading(path.clone(), None)?;
+                            Some((path, self.read_guard(hold)))
                         })
                     })
                     .collect();
-                self.account(&change);
-                self.persist(change);
                 let _ignored = reply.send(held);
             }
             Command::Sync(f) => f(self),
@@ -2060,6 +2111,30 @@ impl Processor {
             Command::Abort => return false,
         }
         true
+    }
+
+    /// A guard for a read hold the tree handed out.
+    fn read_guard(&self, hold: ReadHold) -> RootGuard {
+        RootGuard {
+            sender: self.sender.dupe(),
+            path: hold.path().to_buf(),
+            hold: Mutex::new(Some(Hold::Read(hold))),
+        }
+    }
+
+    /// Records that a reader found the root at `path` on disk as tracked.
+    fn mark_verified(&mut self, path: &ProjectRelativePath) {
+        self.tree.mark_verified(path);
+    }
+
+    /// Forgets the root at or above `path`, found not to be on disk as the rows said; sqlite
+    /// follows, so that no later start trusts the rows either.
+    fn untrack(&mut self, path: &ProjectRelativePath) {
+        let change = self.tree.untrack_containing(path);
+        self.apply(Effects {
+            grants: Vec::new(),
+            change,
+        });
     }
 
     /// Makes the root at `path` a final output, which clean-stale keeps longer; sqlite follows.
@@ -2094,6 +2169,7 @@ impl Processor {
                 }),
                 tasks: grant.tasks,
             },
+            verified: grant.verified,
             exclusions: grant.exclusions,
         }
     }

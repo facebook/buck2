@@ -991,6 +991,12 @@ async fn test_tracked_state_survives_a_restart() -> buck2_error::Result<()> {
         materialize_ok(&dm, vec![(a.clone(), file("A2"))]).await?;
         io.take_log();
         abort(dm);
+        // The stub downloads nothing; what the rows say is on disk has to be there for the next
+        // daemon's check of them.
+        let b = d.join(ForwardRelativePath::unchecked_new("b"));
+        fs.write_file(&p, "A", false)?;
+        fs.write_file(&a, "A2", false)?;
+        fs.write_file(&b, "B", false)?;
 
         let (db, state) = testing_materializer_state_sqlite_db(&fs, versions(), metadata(), None)?;
         let state = state?;
@@ -1000,11 +1006,72 @@ async fn test_tracked_state_survives_a_restart() -> buck2_error::Result<()> {
             vec![
                 (p.clone(), file("A")),
                 (a.clone(), file("A2")),
-                (d.join(ForwardRelativePath::unchecked_new("b")), file("B")),
+                (b, file("B")),
             ],
         )
         .await?;
         assert_eq!(io.take_log(), vec![], "everything came back from sqlite");
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// A root loaded from sqlite is checked against disk, kind and size, the first time it is read:
+/// one that is not there as the rows said is forgotten and put there again, and its rows with it.
+#[tokio::test]
+async fn test_a_loaded_root_not_on_disk_as_tracked_is_put_there_again() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path().dupe();
+        let (db, _) = testing_materializer_state_sqlite_db(&fs, versions(), metadata(), None)?;
+        let (dm, io) = make(&fs, Some(db), None);
+        let (gone, changed, d) = (
+            path("buck-out/v2/gen/gone"),
+            path("buck-out/v2/gen/changed"),
+            path("buck-out/v2/gen/dir"),
+        );
+        materialize_ok(
+            &dm,
+            vec![
+                (gone.clone(), file("A")),
+                (changed.clone(), file("A")),
+                (d.clone(), dir(&[("a", "A"), ("b", "B")])),
+            ],
+        )
+        .await?;
+        io.take_log();
+        abort(dm);
+        // What the rows say is there, then: one file gone, one of another size, one directory
+        // with a directory where a file was.
+        fs.write_file(&changed, "longer", false)?;
+        fs.write_file(d.join(ForwardRelativePath::unchecked_new("a")), "A", false)?;
+        std::fs::create_dir_all(fs.resolve(d.join(ForwardRelativePath::unchecked_new("b"))))?;
+
+        let (db, state) = testing_materializer_state_sqlite_db(&fs, versions(), metadata(), None)?;
+        let (dm, io) = make(&fs, Some(db), Some(state?));
+        materialize_ok(
+            &dm,
+            vec![
+                (gone.clone(), file("A")),
+                (changed.clone(), file("A")),
+                (d.clone(), dir(&[("a", "A"), ("b", "B")])),
+            ],
+        )
+        .await?;
+        let mut log = io.take_log();
+        log.sort_by(|a, b| a.1.cmp(&b.1));
+        assert_eq!(
+            log,
+            vec![
+                (Op::Materialize, changed.clone()),
+                (Op::Materialize, d.clone()),
+                (Op::Materialize, gone.clone()),
+            ]
+        );
+        // Seen on disk now, as this daemon put it there: the next read checks nothing.
+        materialize_ok(&dm, vec![(gone.clone(), file("A"))]).await?;
+        assert_eq!(io.take_log(), vec![]);
         abort(dm);
         Ok(())
     })
