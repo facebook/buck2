@@ -11,6 +11,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use buck2_common::cas_digest::CasDigestConfig;
+use buck2_common::cas_digest::file_digest_interner;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -20,6 +22,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::blob_store::BlobStore;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryEntry;
@@ -176,8 +179,20 @@ fn make_with_configs(
     Arc<StubIoHandler>,
 ) {
     let io = Arc::new(io);
+    // A store of this materializer's own, over the process's table as in the daemon, with its
+    // stash under this test's buck-out.
+    let store: &'static BlobStore = Box::leak(Box::new(BlobStore::new(file_digest_interner())));
+    assert!(
+        store.attach_stash(
+            fs.root()
+                .join(ForwardRelativePath::unchecked_new("buck-out/v2/stash")),
+            CasDigestConfig::testing_default(),
+            Arc::new(DummyBlockingExecutor { fs: fs.dupe() }),
+        )
+    );
     let dm = DiskStateMaterializer::new_with_io(
         io.dupe(),
+        store,
         Arc::new(DummyBlockingExecutor { fs: fs.dupe() }),
         configs,
         db,
@@ -1052,6 +1067,57 @@ async fn test_a_copy_from_outside_buck_out_is_made_now() -> buck2_error::Result<
         assert!(dm.has_artifact_at(b).await?);
         assert!(!dm.has_artifact_at(a).await?);
         assert!(!dm.has_artifact_at(dest).await?);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// What the store has is linked out of it; only the rest is asked of the CAS.
+#[tokio::test]
+async fn test_content_the_store_has_is_linked_rather_than_downloaded() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, io) = make(temp.path(), None, None);
+        let content = b"from the store";
+        // Held, as a value in a build would hold it: the store keeps what something holds.
+        let held = TrackedFileDigest::from_content(content, CasDigestConfig::testing_default());
+        dm.store()
+            .insert_bytes(content.to_vec(), &held, false)
+            .await?;
+
+        // A file root the store serves needs nothing from the CAS.
+        let p = path("buck-out/v2/gen/whole");
+        materialize_ok(&dm, vec![(p.clone(), file("from the store"))]).await?;
+        assert_eq!(io.take_log(), vec![]);
+        assert_eq!(
+            std::fs::read_to_string(temp.path().resolve(&p))?,
+            "from the store"
+        );
+        assert!(dm.has_artifact_at(p).await?);
+
+        // A directory with one file the store has and one it lacks: the served file is linked,
+        // and the structure and the other file are the CAS's.
+        let d = path("buck-out/v2/gen/dir");
+        materialize_ok(
+            &dm,
+            vec![(d.clone(), dir(&[("a", "from the store"), ("b", "not")]))],
+        )
+        .await?;
+        assert_eq!(io.take_log(), vec![(Op::Materialize, d.clone())]);
+        assert_eq!(
+            std::fs::read_to_string(
+                temp.path()
+                    .resolve(d.join(ForwardRelativePath::unchecked_new("a")))
+            )?,
+            "from the store"
+        );
+        assert!(
+            !temp
+                .path()
+                .resolve(d.join(ForwardRelativePath::unchecked_new("b")))
+                .exists()
+        );
         abort(dm);
         Ok(())
     })

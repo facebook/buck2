@@ -56,15 +56,22 @@ use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_directory::directory::directory::Directory;
+use buck2_directory::directory::directory_iterator::DirectoryIterator;
+use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::blob_store::BlobStore;
+use buck2_execute::blob_store::FileToLink;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryEntry;
+use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -91,6 +98,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutSet;
 use buck2_util::future::join_all;
 use buck2_util::threads::thread_spawn;
@@ -147,6 +155,9 @@ pub struct DiskStateMaterializer<T: IoHandler + Allocative + 'static = DefaultIo
     #[allocative(skip)]
     thread: Option<std::thread::JoinHandle<()>>,
     io: Arc<T>,
+    /// The BlobStore (plan-blobstore.md), with this materializer's stash attached: what it holds
+    /// of a root is linked out of it before the CAS is asked for the rest.
+    store: &'static BlobStore,
     #[allocative(skip)]
     blocking_executor: Arc<dyn BlockingExecutor>,
     materialize_final_artifacts: bool,
@@ -171,6 +182,14 @@ impl DiskStateMaterializer<DefaultIoHandler> {
         sqlite_state: Option<MaterializerState>,
         daemon_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Self> {
+        let store = BlobStore::global();
+        // A second materializer in the process shares the first's stash.
+        store.attach_stash(
+            fs.resolve(&buck_out_path)
+                .join(ForwardRelativePath::unchecked_new("stash")),
+            digest_config.cas_digest_config(),
+            blocking_executor.dupe(),
+        );
         Self::new_with_io(
             Arc::new(DefaultIoHandler::new(
                 fs,
@@ -179,6 +198,7 @@ impl DiskStateMaterializer<DefaultIoHandler> {
                 re_client_manager,
                 blocking_executor.dupe(),
             )),
+            store,
             blocking_executor,
             configs,
             sqlite_db,
@@ -193,6 +213,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
     /// is where the tasks that do IO run.
     pub(crate) fn new_with_io(
         io: Arc<T>,
+        store: &'static BlobStore,
         blocking_executor: Arc<dyn BlockingExecutor>,
         configs: DeferredMaterializerConfigs,
         sqlite_db: Option<MaterializerStateSqliteDb>,
@@ -244,6 +265,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             sender,
             thread: Some(thread),
             io,
+            store,
             blocking_executor,
             materialize_final_artifacts: configs.materialize_final_artifacts,
             next_request: AtomicU64::new(0),
@@ -385,6 +407,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
                 download_task(
                     self.io.dupe(),
                     self.blocking_executor.dupe(),
+                    self.store,
                     root.path.clone(),
                     root.entry.dupe(),
                     exclusions,
@@ -469,6 +492,11 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             Err(SharedMaterializingError::Error(e)) => Err(e),
             Err(SharedMaterializingError::NotFound(e)) => Err(e.into()),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn store(&self) -> &'static BlobStore {
+        self.store
     }
 
     /// The roots behind a write lease this materializer handed out.
@@ -1128,6 +1156,7 @@ impl RequestPlan {
 fn download_task<T: IoHandler>(
     io: Arc<T>,
     blocking_executor: Arc<dyn BlockingExecutor>,
+    store: &'static BlobStore,
     root: ProjectRelativePathBuf,
     entry: ArtifactMetadata,
     exclusions: Vec<ProjectRelativePathBuf>,
@@ -1145,6 +1174,23 @@ fn download_task<T: IoHandler>(
                 .execute_io_inline(move || prune(&fs, &prune_root, &prune_entry, &prune_exclusions))
                 .await
                 .map_err(SharedMaterializingError::Error)?;
+            // What the store has is linked in; a file root it served is done, and a directory's
+            // structure and remaining files are the CAS's.
+            let (paths, files) = files_to_link(io.fs(), &root, &entry, &exclusions);
+            let served = store
+                .materialize(files)
+                .await
+                .map_err(SharedMaterializingError::Error)?;
+            let from_store: Vec<ProjectRelativePathBuf> = paths
+                .into_iter()
+                .zip(served)
+                .filter_map(|(path, served)| served.then_some(path))
+                .collect();
+            if matches!(entry, DirectoryEntry::Leaf(_)) && !from_store.is_empty() {
+                return Ok(());
+            }
+            let mut exclusions = exclusions;
+            exclusions.extend(from_store);
             let delta = delta_entry(&entry, &root, &exclusions, io.digest_config())
                 .map_err(SharedMaterializingError::Error)?;
             io.materialize_entry(
@@ -1159,6 +1205,35 @@ fn download_task<T: IoHandler>(
         }
         .boxed()
     }
+}
+
+/// The files of `entry` under `root` that are not excluded, as the paths they go to and as the
+/// store wants them asked for.
+fn files_to_link(
+    fs: &ProjectRoot,
+    root: &ProjectRelativePath,
+    entry: &ArtifactMetadata,
+    exclusions: &[ProjectRelativePathBuf],
+) -> (Vec<ProjectRelativePathBuf>, Vec<FileToLink>) {
+    let mut paths = Vec::new();
+    let mut files = Vec::new();
+    let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
+    while let Some((path, entry)) = walk.next() {
+        let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry else {
+            continue;
+        };
+        let path = root.join(path.get());
+        if exclusions.iter().any(|excluded| path.starts_with(excluded)) {
+            continue;
+        }
+        files.push(FileToLink {
+            digest: file.digest.dupe(),
+            executable: file.is_executable,
+            dest: fs.resolve(&path),
+        });
+        paths.push(path);
+    }
+    (paths, files)
 }
 
 /// Marks a task as started: from here on it runs to its end whatever cancellation asks, so that
