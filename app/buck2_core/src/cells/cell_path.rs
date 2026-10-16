@@ -54,6 +54,15 @@ impl CellPath {
         }
     }
 
+    /// A `CellPath` at the root of the given cell (empty relative path).
+    #[inline]
+    pub fn empty(cell: CellName) -> Self {
+        CellPath {
+            cell,
+            path: CellRelativePath::empty().to_box(),
+        }
+    }
+
     #[inline]
     pub fn cell(&self) -> CellName {
         self.cell

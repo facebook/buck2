@@ -18,7 +18,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
@@ -153,9 +152,8 @@ impl BuildAttrCoercionContext {
             cell_alias_resolver,
             None,
             false,
-            CellPathWithAllowedRelativeDir::backwards_relative_not_supported(CellPath::new(
+            CellPathWithAllowedRelativeDir::backwards_relative_not_supported(CellPath::empty(
                 cell_name,
-                CellRelativePathBuf::unchecked_new("".into()),
             )),
             infer_target_names,
         )

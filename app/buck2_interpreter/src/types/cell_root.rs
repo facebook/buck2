@@ -12,7 +12,6 @@ use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePathBuf;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -38,10 +37,7 @@ pub struct CellRoot(#[starlark_pagable(pagable)] CellPath);
 
 impl CellRoot {
     pub fn new(name: CellName) -> Self {
-        Self(CellPath::new(
-            name,
-            CellRelativePathBuf::unchecked_new("".to_owned()),
-        ))
+        Self(CellPath::empty(name))
     }
 
     pub fn cell_path(&self) -> CellPathRef<'_> {

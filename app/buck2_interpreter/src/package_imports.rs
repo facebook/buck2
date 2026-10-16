@@ -77,10 +77,7 @@ impl PackageImplicitImports {
     ) -> buck2_error::Result<Self> {
         let mut mappings = OrderedMap::new();
         if let Some(value) = encoded_mappings {
-            let root_path = CellPath::new(
-                cell_name.name(),
-                CellRelativePathBuf::unchecked_new("".to_owned()),
-            );
+            let root_path = CellPath::empty(cell_name.name());
             for item in value.split(',') {
                 let (dir, import_spec) = item
                     .trim()

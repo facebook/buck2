@@ -26,7 +26,6 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -289,7 +288,7 @@ impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
         &self,
         path: &CellPath,
     ) -> buck2_error::Result<Vec<PackageLabel>> {
-        let cell_root = CellPath::new(path.cell(), CellRelativePath::empty().to_buf());
+        let cell_root = CellPath::empty(path.cell());
         Ok(DicePackageListingResolver(&mut self.ctx.get())
             .get_enclosing_packages(path.as_ref(), cell_root.as_ref())
             .await?
