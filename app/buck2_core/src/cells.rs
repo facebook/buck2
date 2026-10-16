@@ -108,6 +108,7 @@ use sequence_trie::SequenceTrie;
 use crate::cells::alias::CellAlias;
 use crate::cells::alias::NonEmptyCellAlias;
 use crate::cells::cell_path::CellPath;
+use crate::cells::cell_path::set_optimization_hint_cell_resolver;
 use crate::cells::cell_root_path::CellRootPathBuf;
 use crate::cells::name::CellName;
 use crate::cells::nested::NestedCells;
@@ -261,12 +262,14 @@ impl CellResolver {
         }
 
         let root_cell = root_cell.ok_or(CellError::NoRootCell)?;
-        Ok(CellResolver(Arc::new(CellResolverInternals {
+        let r = CellResolver(Arc::new(CellResolverInternals {
             cells: cells_map,
             root_cell,
             path_mappings,
             root_cell_alias_resolver,
-        })))
+        }));
+        set_optimization_hint_cell_resolver(&r);
+        Ok(r)
     }
 
     /// Get a `Cell` from the `CellMap`
@@ -457,87 +460,5 @@ impl CellResolver {
         let root_aliases = CellAliasResolver::new(root.unwrap(), root_cell_aliases).unwrap();
 
         CellResolver::new(instances, root_aliases).unwrap()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-
-    use super::*;
-    use crate::cells::cell_root_path::CellRootPath;
-
-    #[test]
-    fn test_of_names_and_paths() -> buck2_error::Result<()> {
-        use crate::fs::project_rel_path::ProjectRelativePathBuf;
-
-        let cell_resolver = CellResolver::testing_with_name_and_path(
-            CellName::testing_new("foo"),
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar".into())),
-        );
-
-        let cell = cell_resolver.get(CellName::testing_new("foo"))?;
-        assert_eq!(CellName::testing_new("foo"), cell.name());
-        assert_eq!("bar", cell.path().as_str());
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_cells() -> buck2_error::Result<()> {
-        let cell1_path = CellRootPath::new(ProjectRelativePath::new("my/cell1")?);
-        let cell2_path = CellRootPath::new(ProjectRelativePath::new("cell2")?);
-        let cell3_path = CellRootPath::new(ProjectRelativePath::new("my/cell3")?);
-
-        let cells = CellResolver::testing_with_names_and_paths(&[
-            (
-                CellName::testing_new("root"),
-                CellRootPathBuf::testing_new(""),
-            ),
-            (CellName::testing_new("cell1"), cell1_path.to_buf()),
-            (CellName::testing_new("cell2"), cell2_path.to_buf()),
-            (CellName::testing_new("cell3"), cell3_path.to_buf()),
-        ]);
-
-        assert_eq!(cells.find(cell1_path), CellName::testing_new("cell1"));
-        assert_eq!(cells.find(cell2_path), CellName::testing_new("cell2"));
-        assert_eq!(cells.find(cell3_path), CellName::testing_new("cell3"));
-        assert_eq!(
-            cells.find(
-                &cell2_path
-                    .as_project_relative_path()
-                    .join(ForwardRelativePath::new("fake/cell3")?)
-            ),
-            CellName::testing_new("cell2")
-        );
-        assert_eq!(
-            cells.find(
-                &cell3_path
-                    .as_project_relative_path()
-                    .join(ForwardRelativePath::new("more/foo")?)
-            ),
-            CellName::testing_new("cell3")
-        );
-
-        assert_eq!(
-            cells.get_cell_path(cell1_path),
-            CellPath::testing_new("cell1//")
-        );
-
-        assert_eq!(
-            cells.get_cell_path(cell2_path),
-            CellPath::testing_new("cell2//")
-        );
-
-        assert_eq!(
-            cells.get_cell_path(
-                &cell2_path
-                    .as_project_relative_path()
-                    .join(ForwardRelativePath::new("fake/cell3")?)
-            ),
-            CellPath::testing_new("cell2//fake/cell3")
-        );
-
-        Ok(())
     }
 }

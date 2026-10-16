@@ -74,6 +74,22 @@ impl ICellRelativePath {
         }
     }
 
+    /// See `IForwardRelativePath::intern_concat_with_tails`.
+    pub fn intern_concat_with_tails<'a, I, const N: usize>(
+        parts: I,
+        tail_skips: [usize; N],
+    ) -> Option<(ICellRelativePath, [ICellRelativePath; N])>
+    where
+        I: IntoIterator<Item = &'a ForwardRelativePath>,
+        I::IntoIter: Clone,
+    {
+        let (parent, tails) = IForwardRelativePath::intern_concat_with_tails(parts, tail_skips)?;
+        Some((
+            ICellRelativePath::from(parent),
+            tails.map(ICellRelativePath::from),
+        ))
+    }
+
     #[inline]
     pub fn as_str(self) -> &'static str {
         self.path.as_str()
