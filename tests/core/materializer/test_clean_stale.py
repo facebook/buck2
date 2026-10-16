@@ -198,9 +198,7 @@ async def test_clean_stale_buck_out_empty(buck: Buck) -> None:
     assert "Nothing to clean" in output.stderr
 
 
-# The `consume_*` targets copy local action outputs, which the disk-state core materializes only
-# once it has the BlobStore.
-@buck_test(skip_for_materializer=["v2"])
+@buck_test()
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 @env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "0")
 async def test_clean_stale_actions(buck: Buck) -> None:

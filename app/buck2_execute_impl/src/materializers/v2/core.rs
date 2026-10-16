@@ -261,8 +261,10 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             shared.dupe(),
             &configs,
             daemon_dispatcher,
+            store,
         );
         cleaner.start_schedule();
+        cleaner.spawn_store_load();
 
         Ok(Self {
             sender,
@@ -480,6 +482,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
                 quiet: true
             );
         }
+        self.cleaner.sweep_store_if_full();
     }
 
     /// The roots behind a write lease this materializer handed out.
@@ -683,7 +686,9 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
                 files_to_insert(self.io.fs(), &src.src, &entry, Origin::Source)
             })
             .collect();
-        self.store.insert_files(files).await
+        self.store.insert_files(files).await?;
+        self.cleaner.sweep_store_if_full();
+        Ok(())
     }
 
     /// Nothing to record: content in the CAS is reached through `materialize`, which carries the
@@ -722,6 +727,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         }))
         .await;
         inserted.into_iter().collect::<buck2_error::Result<()>>()?;
+        self.cleaner.sweep_store_if_full();
         Ok(values)
     }
 
@@ -971,6 +977,10 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         let sizes = self.shared.sizes();
         snapshot.deferred_materializer_final_output_logical_bytes = sizes.final_output;
         snapshot.deferred_materializer_intermediate_only_logical_bytes = sizes.intermediate_only;
+        let store = self.store.stats();
+        snapshot.blob_store_entries = store.entries;
+        snapshot.blob_store_bytes = store.bytes;
+        snapshot.blob_store_removed_bytes = store.removed_bytes;
     }
 
     async fn get_artifact_entries_for_materialized_paths(

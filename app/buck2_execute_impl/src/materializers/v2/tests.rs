@@ -1077,15 +1077,20 @@ async fn test_a_copy_from_outside_buck_out_enters_the_store() -> buck2_error::Re
         let src = path("src/b.txt");
         let on_disk = temp.path().resolve(&src);
         std::fs::create_dir_all(on_disk.parent().unwrap())?;
-        std::fs::write(&on_disk, b"B")?;
+        std::fs::write(&on_disk, b"copied from a source")?;
         let dest = path("buck-out/v2/gen/copy");
         let (a, b) = (
             dest.join(ForwardRelativePath::unchecked_new("a")),
             dest.join(ForwardRelativePath::unchecked_new("b")),
         );
+        // Held as the copy's value would be held; a walk takes what nothing holds.
+        let _held = TrackedFileDigest::from_content(
+            b"copied from a source",
+            CasDigestConfig::testing_default(),
+        );
         dm.declare_copy_impl(
             dest.clone(),
-            dir(&[("a", "A"), ("b", "B")]),
+            dir(&[("a", "A"), ("b", "copied from a source")]),
             vec![
                 CopiedArtifact::new(
                     path("buck-out/v2/gen/built"),
@@ -1093,7 +1098,12 @@ async fn test_a_copy_from_outside_buck_out_enters_the_store() -> buck2_error::Re
                     leaf(&file("A")),
                     None,
                 ),
-                CopiedArtifact::new(src.clone(), b.clone(), leaf(&file("B")), None),
+                CopiedArtifact::new(
+                    src.clone(),
+                    b.clone(),
+                    leaf(&file("copied from a source")),
+                    None,
+                ),
             ],
         )
         .await?;
@@ -1101,18 +1111,18 @@ async fn test_a_copy_from_outside_buck_out_enters_the_store() -> buck2_error::Re
         assert!(!dm.has_artifact_at(b).await?);
         assert!(!dm.has_artifact_at(dest.clone()).await?);
         let out = temp.path().resolve(path("buck-out/v2/gen/out"));
-        assert!(in_store(&dm, b"B", &out).await?);
+        assert!(in_store(&dm, b"copied from a source", &out).await?);
 
         // A source without the content the value claims is refused, unless the store has that
         // content already, in which case the file no longer matters.
         std::fs::write(&on_disk, b"changed")?;
         dm.declare_copy_impl(
             dest.clone(),
-            file("B"),
+            file("copied from a source"),
             vec![CopiedArtifact::new(
                 src.clone(),
                 dest.clone(),
-                leaf(&file("B")),
+                leaf(&file("copied from a source")),
                 None,
             )],
         )
@@ -1234,6 +1244,36 @@ async fn test_a_reported_output_enters_the_store() -> buck2_error::Result<()> {
         drop(report(&dm, &path("buck-out/v2/gen/missing"), file("never written")).await?);
         let nowhere = temp.path().resolve(path("buck-out/v2/gen/nowhere"));
         assert!(!in_store(&dm, b"never written", &nowhere).await?);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// A clean ends with a sweep of the store: what a tracked root holds stays, the rest goes.
+#[tokio::test]
+async fn test_a_clean_sweeps_what_nothing_holds_from_the_store() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let (dm, _io) = make(temp.path(), None, None);
+        let out = path("buck-out/v2/gen/out");
+        let on_disk = temp.path().resolve(&out);
+        std::fs::create_dir_all(on_disk.parent().unwrap())?;
+        std::fs::write(&on_disk, b"held by a root")?;
+        drop(report(&dm, &out, file("held by a root")).await?);
+        // Inserted and then held by nothing, as a value DICE has dropped.
+        let orphan = TrackedFileDigest::from_content(b"orphan", CasDigestConfig::testing_default());
+        dm.store()
+            .insert_bytes(b"orphan".to_vec(), &orphan, false)
+            .await?;
+        drop(orphan);
+
+        dm.clean_stale_artifacts(clean_unused()).await?;
+
+        let dest = temp.path().resolve(path("buck-out/v2/gen/dest"));
+        assert!(in_store(&dm, b"held by a root", &dest).await?);
+        let nowhere = temp.path().resolve(path("buck-out/v2/gen/nowhere"));
+        assert!(!in_store(&dm, b"orphan", &nowhere).await?);
         abort(dm);
         Ok(())
     })

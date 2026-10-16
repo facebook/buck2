@@ -47,6 +47,8 @@ use buck2_error::ErrorTag;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_execute::blob_store::BlobStore;
+use buck2_execute::blob_store::Walk;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
@@ -127,7 +129,12 @@ pub(crate) struct Cleaner<T> {
     gate: Arc<BackgroundCleanupGate>,
     /// The liveliness of the run in progress. Dropping it interrupts the run between paths.
     running: Mutex<Option<LivelinessGuard>>,
+    store: &'static BlobStore,
 }
+
+/// The store's bytes above which an insertion starts a sweep, so that what churn strands between
+/// scheduled cleans is bounded (plan-blobstore.md §6, OQ-GC-PROMPTNESS).
+const STORE_SWEEP_THRESHOLD_BYTES: u64 = 8 << 30;
 
 impl<T: IoHandler> Cleaner<T> {
     pub(crate) fn new(
@@ -137,6 +144,7 @@ impl<T: IoHandler> Cleaner<T> {
         shared: Arc<Shared>,
         configs: &DeferredMaterializerConfigs,
         daemon_dispatcher: EventDispatcher,
+        store: &'static BlobStore,
     ) -> Arc<Self> {
         Arc::new(Self {
             io,
@@ -150,7 +158,48 @@ impl<T: IoHandler> Cleaner<T> {
             started: Timestamp::now(),
             gate: Arc::new(BackgroundCleanupGate::default()),
             running: Mutex::new(None),
+            store,
         })
+    }
+
+    /// A walk of the store for the stash's sake: what nothing holds goes (plan-blobstore.md §6).
+    /// Runs after every clean, once at start after the directory is loaded, and when an
+    /// insertion takes the stash over `STORE_SWEEP_THRESHOLD_BYTES`.
+    pub(crate) async fn walk_store(&self) {
+        match self.store.walk(Walk::ForStash).await {
+            Ok(stats) => tracing::debug!(
+                "Walked the store for the stash: kept {} entries ({} bytes), removed {} ({} bytes)",
+                stats.kept,
+                stats.kept_bytes,
+                stats.removed,
+                stats.removed_bytes
+            ),
+            Err(e) => {
+                let _ignored = soft_error!("blob_store_walk_failed", e, quiet: true);
+            }
+        }
+    }
+
+    /// Reads the stash directory into the table and walks it: what a daemon does once, after
+    /// the materializer's roots hold their digests, so that the first walk sees them.
+    pub(crate) fn spawn_store_load(self: &Arc<Self>) {
+        let cleaner = self.dupe();
+        tokio::spawn(async move {
+            match cleaner.store.load_stash().await {
+                Ok(loaded) => tracing::debug!("Loaded {loaded} stash entries"),
+                Err(e) => {
+                    let _ignored = soft_error!("blob_store_load_failed", e, quiet: true);
+                }
+            }
+            cleaner.walk_store().await;
+        });
+    }
+
+    pub(crate) fn sweep_store_if_full(self: &Arc<Self>) {
+        if self.store.stats().bytes > STORE_SWEEP_THRESHOLD_BYTES {
+            let cleaner = self.dupe();
+            tokio::spawn(async move { cleaner.walk_store().await });
+        }
     }
 
     /// Runs the configured clean on the configured schedule, for as long as the materializer
@@ -245,6 +294,7 @@ impl<T: IoHandler> Cleaner<T> {
             let observer = cleaner.begin();
             let result = cleaner.dupe().run_inner(command.clone(), observer).await;
             cleaner.interrupt();
+            cleaner.walk_store().await;
             let trace_id = match command.trigger {
                 Trigger::Scheduled => None,
                 _ => Some(command.dispatcher.trace_id().dupe()),
