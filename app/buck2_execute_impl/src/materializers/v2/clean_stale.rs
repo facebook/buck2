@@ -163,8 +163,8 @@ impl<T: IoHandler> Cleaner<T> {
     }
 
     /// A walk of the store for the stash's sake: what nothing holds goes (plan-blobstore.md §6).
-    /// Runs after every clean, once at start after the directory is loaded, and when an
-    /// insertion takes the stash over `STORE_SWEEP_THRESHOLD_BYTES`.
+    /// Runs after every clean and when an insertion takes the stash over
+    /// `STORE_SWEEP_THRESHOLD_BYTES`; the daemon runs the first one, after the load.
     pub(crate) async fn walk_store(&self) {
         match self.store.walk(Walk::ForStash).await {
             Ok(stats) => tracing::debug!(
@@ -178,21 +178,6 @@ impl<T: IoHandler> Cleaner<T> {
                 let _ignored = soft_error!("blob_store_walk_failed", e, quiet: true);
             }
         }
-    }
-
-    /// Reads the stash directory into the table and walks it: what a daemon does once, after
-    /// the materializer's roots hold their digests, so that the first walk sees them.
-    pub(crate) fn spawn_store_load(self: &Arc<Self>) {
-        let cleaner = self.dupe();
-        tokio::spawn(async move {
-            match cleaner.store.load_stash().await {
-                Ok(loaded) => tracing::debug!("Loaded {loaded} stash entries"),
-                Err(e) => {
-                    let _ignored = soft_error!("blob_store_load_failed", e, quiet: true);
-                }
-            }
-            cleaner.walk_store().await;
-        });
     }
 
     pub(crate) fn sweep_store_if_full(self: &Arc<Self>) {

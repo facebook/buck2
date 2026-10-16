@@ -88,6 +88,7 @@ use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_fs::cwd::WorkingDirectory;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::StdBuckHashMap;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
@@ -588,8 +589,22 @@ impl TenantState {
         } else {
             EventDispatcher::null()
         };
+        let implementation = init_ctx.daemon_startup_config.materializer.as_deref();
+        if implementation == Some(disk_state::CONFIG_VALUE) {
+            // The daemon has one stash. It lives under this repo's buck-out until it has a
+            // host-level home (plan-blobstore.md §2); a second repo in the process would share
+            // it. The deferred core never asks the store for anything, so nothing is attached
+            // for it.
+            BlobStore::global().attach_stash(
+                io.project_root()
+                    .resolve(paths.buck_out_dir())
+                    .join(ForwardRelativePath::unchecked_new("stash")),
+                digest_config.cas_digest_config(),
+                blocking_executor.dupe(),
+            );
+        }
         let materializer = RepoState::create_materializer(
-            init_ctx.daemon_startup_config.materializer.as_deref(),
+            implementation,
             io.project_root().dupe(),
             digest_config,
             paths.buck_out_dir(),
@@ -600,6 +615,11 @@ impl TenantState {
             materializer_state,
             daemon_dispatcher,
         )?;
+        if implementation == Some(disk_state::CONFIG_VALUE) {
+            // The materializer's roots hold their digests now, so what the stash holds for them
+            // survives the walk that follows the load.
+            BlobStore::global().spawn_load_and_walk();
+        }
 
         tracing::info!("Creating tenting ACL provider...");
         let tenting_acl_provider = create_tenting_acl_provider(fb, paths.project_root());

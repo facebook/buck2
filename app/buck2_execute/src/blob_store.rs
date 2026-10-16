@@ -221,6 +221,27 @@ impl BlobStore {
         counters
     }
 
+    /// Reads the stash directory into the table and walks it for the stash's sake, on a task of
+    /// its own: what a daemon does once, after its materializer's roots hold their digests, so
+    /// that the first walk keeps what they hold. Nothing happens without a stash.
+    pub fn spawn_load_and_walk(&'static self) {
+        if self.stash.get().is_none() {
+            return;
+        }
+        tokio::spawn(async move {
+            match self.load_stash().await {
+                Ok(loaded) => tracing::debug!("Loaded {loaded} stash entries"),
+                Err(e) => {
+                    let _ignored =
+                        buck2_core::soft_error!("blob_store_load_failed", e, quiet: true);
+                }
+            }
+            if let Err(e) = self.walk(Walk::ForStash).await {
+                let _ignored = buck2_core::soft_error!("blob_store_walk_failed", e, quiet: true);
+            }
+        });
+    }
+
     pub fn stats(&self) -> BlobStoreStats {
         BlobStoreStats {
             entries: self.counters.entries.load(Ordering::Relaxed),

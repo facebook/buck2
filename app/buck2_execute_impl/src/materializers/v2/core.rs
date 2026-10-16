@@ -102,7 +102,6 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileName;
-use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutSet;
 use buck2_util::future::join_all;
 use buck2_util::threads::thread_spawn;
@@ -158,8 +157,8 @@ pub struct DiskStateMaterializer<T: IoHandler + Allocative + 'static = DefaultIo
     #[allocative(skip)]
     thread: Option<std::thread::JoinHandle<()>>,
     io: Arc<T>,
-    /// The BlobStore (plan-blobstore.md), with this materializer's stash attached: what it holds
-    /// of a root is linked out of it before the CAS is asked for the rest.
+    /// The BlobStore (plan-blobstore.md), whose stash the daemon attached: what it holds of a
+    /// root is linked out of it before the CAS is asked for the rest.
     store: &'static BlobStore,
     #[allocative(skip)]
     blocking_executor: Arc<dyn BlockingExecutor>,
@@ -185,14 +184,6 @@ impl DiskStateMaterializer<DefaultIoHandler> {
         sqlite_state: Option<MaterializerState>,
         daemon_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Self> {
-        let store = BlobStore::global();
-        // A second materializer in the process shares the first's stash.
-        store.attach_stash(
-            fs.resolve(&buck_out_path)
-                .join(ForwardRelativePath::unchecked_new("stash")),
-            digest_config.cas_digest_config(),
-            blocking_executor.dupe(),
-        );
         Self::new_with_io(
             Arc::new(DefaultIoHandler::new(
                 fs,
@@ -201,7 +192,7 @@ impl DiskStateMaterializer<DefaultIoHandler> {
                 re_client_manager,
                 blocking_executor.dupe(),
             )),
-            store,
+            BlobStore::global(),
             blocking_executor,
             configs,
             sqlite_db,
@@ -264,7 +255,6 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             store,
         );
         cleaner.start_schedule();
-        cleaner.spawn_store_load();
 
         Ok(Self {
             sender,
