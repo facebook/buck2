@@ -78,7 +78,8 @@ impl GlobPattern {
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub(crate) struct GlobSpec {
-    common_prefix: String,
+    /// Byte prefixes that cover every file the patterns can match; empty means no narrowing.
+    narrowing_prefixes: Vec<String>,
     exact_matches: BuckMutSet<String>,
     patterns: Vec<GlobPattern>,
     excludes: Vec<GlobPattern>,
@@ -116,6 +117,39 @@ fn longest_common_glob_prefix<P: AsRef<str>>(patterns: &[P]) -> &str {
     }
 }
 
+/// Every ASCII-case variant of the common prefix, since `matches` compares ASCII letters
+/// case-insensitively but `files_with_prefix` compares bytes. The prefix is cut after
+/// `MAX_CASED_LETTERS` letters to bound the number of variants; a shorter prefix only narrows less.
+fn narrowing_prefixes(common_prefix: &str) -> Vec<String> {
+    const MAX_CASED_LETTERS: usize = 4;
+    let mut variants = vec![String::new()];
+    let mut letters = 0;
+    for c in common_prefix.chars() {
+        if c.is_ascii_alphabetic() {
+            if letters == MAX_CASED_LETTERS {
+                break;
+            }
+            letters += 1;
+            variants = variants
+                .into_iter()
+                .flat_map(|variant| {
+                    let mut lower = variant.clone();
+                    lower.push(c.to_ascii_lowercase());
+                    let mut upper = variant;
+                    upper.push(c.to_ascii_uppercase());
+                    [lower, upper]
+                })
+                .collect();
+        } else {
+            for variant in &mut variants {
+                variant.push(c);
+            }
+        }
+    }
+    variants.retain(|variant| !variant.is_empty());
+    variants
+}
+
 impl GlobSpec {
     const BINARY_SEARCH_CUTOFF: usize = 100;
     pub(crate) fn new<P: AsRef<str>, Q: AsRef<str>>(
@@ -148,7 +182,7 @@ impl GlobSpec {
             glob_excludes.push(GlobPattern::new(pattern)?);
         }
         Ok(Self {
-            common_prefix: longest_common_glob_prefix(patterns).to_owned(),
+            narrowing_prefixes: narrowing_prefixes(longest_common_glob_prefix(patterns)),
             exact_matches,
             patterns: glob_patterns,
             excludes: glob_excludes,
@@ -178,9 +212,18 @@ impl GlobSpec {
         &'a self,
         spec: &'a PackageFileListing,
     ) -> Box<dyn Iterator<Item = &'a PackageRelativePath> + 'a> {
-        if spec.files().len() >= Self::BINARY_SEARCH_CUTOFF && !self.common_prefix.is_empty() {
+        if spec.files().len() >= Self::BINARY_SEARCH_CUTOFF && !self.narrowing_prefixes.is_empty() {
+            let mut candidates: Vec<_> = self
+                .narrowing_prefixes
+                .iter()
+                .flat_map(|prefix| spec.files_with_prefix(prefix))
+                .collect();
+            // The variants are distinct byte prefixes of one length, so their ranges are
+            // disjoint; sorting restores the listing order.
+            candidates.sort_unstable_by(|a, b| a.as_str().cmp(b.as_str()));
             return Box::new(
-                spec.files_with_prefix(&self.common_prefix)
+                candidates
+                    .into_iter()
                     .filter(move |v| self.matches(v.as_str()))
                     .map(|p| &**p),
             );
@@ -408,13 +451,11 @@ mod tests {
 
     #[test]
     fn test_resolve_glob_large_listing_letter_case() {
-        // Patterns match case-insensitively, but a large package is first narrowed to the
-        // files that start with the literal prefix byte for byte, so the result depends on
-        // the number of files in the package.
+        // Patterns match case-insensitively whatever the size of the package.
         assert_eq!(vec!["a"], resolve_for_test(&["A*"], &["a"]));
         let files = large_listing("a");
         let files: Vec<&str> = files.iter().map(String::as_str).collect();
-        assert_eq!(Vec::<String>::new(), resolve_for_test(&["A*"], &files));
+        assert_eq!(vec!["a"], resolve_for_test(&["A*"], &files));
 
         assert_eq!(
             vec!["SRC/foo"],
@@ -422,10 +463,29 @@ mod tests {
         );
         let files = large_listing("SRC/foo");
         let files: Vec<&str> = files.iter().map(String::as_str).collect();
+        assert_eq!(vec!["SRC/foo"], resolve_for_test(&["src/**/*"], &files));
+
+        // Results keep the listing order across the narrowed ranges.
+        let mut files = large_listing("abc/1");
+        files.push("ABC/2".to_owned());
+        files.push("aBc/3".to_owned());
+        let files: Vec<&str> = files.iter().map(String::as_str).collect();
         assert_eq!(
-            Vec::<String>::new(),
-            resolve_for_test(&["src/**/*"], &files)
+            vec!["ABC/2", "aBc/3", "abc/1"],
+            resolve_for_test(&["abc/*"], &files)
         );
+    }
+
+    #[test]
+    fn test_narrowing_prefixes() {
+        assert_eq!(Vec::<String>::new(), narrowing_prefixes(""));
+        assert_eq!(vec!["1/"], narrowing_prefixes("1/"));
+        assert_eq!(vec!["s/", "S/"], narrowing_prefixes("s/"));
+        assert_eq!(vec!["sr", "sR", "Sr", "SR"], narrowing_prefixes("sr"));
+        // Cut after four letters: 16 variants of `abcd`, and `e/` is dropped.
+        let prefixes = narrowing_prefixes("abcde/");
+        assert_eq!(16, prefixes.len());
+        assert!(prefixes.iter().all(|p| p.eq_ignore_ascii_case("abcd")));
     }
 
     #[test]
