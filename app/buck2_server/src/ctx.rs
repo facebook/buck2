@@ -469,6 +469,7 @@ impl<'a> ServerCommandContext<'a> {
             default_allow_cache_upload: false,
             action_paths_interner: None,
             write_cas_probe: false,
+            upload_downloads_to_cas: false,
         };
 
         let concurrency = self
@@ -954,6 +955,14 @@ impl DiceCommandUpdater<'_, '_> {
             .unwrap_or_else(RolloutPercentage::never)
             .roll()
             && self.cmd_ctx.base_context.repo().materializer_defers_writes;
+
+        run_action_knobs.upload_downloads_to_cas = root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "upload_downloads_to_cas",
+            })?
+            .unwrap_or(true)
+            && !self.skip_cache_write;
 
         let output_trees_download_semaphore_size = root_config.parse::<u32>(BuckconfigKeyRef {
             section: "buck2",
