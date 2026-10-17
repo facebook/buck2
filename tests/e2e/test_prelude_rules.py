@@ -31,3 +31,14 @@ async def test_extensionkit_extensions_destination(buck: Buck) -> None:
         "macosx_app_extensionkit": "Contents/Extensions",
         "maccatalyst_app_extensionkit": "Contents/Extensions",
     }
+
+
+# prelude/cxx/headers.bzl `_infer_include_prefix_from_paths`
+@buck_test(inplace=False)
+async def test_include_prefix_from_a_partial_file_name(buck: Buck) -> None:
+    # `config/linux-config.h` ends with the characters `config.h`, so the prefix
+    # `config/linux-` is inferred although no header lives under that path.
+    assert await _values(buck, "headers") == {
+        "renamed_header_prefix": "third-party/foo/config/linux-",
+        "subdir_header_prefix": "third-party/foo/config",
+    }
