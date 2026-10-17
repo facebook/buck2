@@ -1118,6 +1118,8 @@ mod stopped_eval_tests {
     use std::sync::Arc;
     use std::sync::Condvar;
     use std::sync::Mutex;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
     use std::time::Duration;
 
     use buck2_core::fs::project::ProjectRootTemp;
@@ -1171,11 +1173,17 @@ mod stopped_eval_tests {
     }
 
     static GATE_STALE: Gate = Gate::new();
+    static GATE_EARLY: Gate = Gate::new();
 
     #[starlark_module]
     fn gate_functions(builder: &mut GlobalsBuilder) {
         fn wait_gate_stale() -> starlark::Result<NoneType> {
             GATE_STALE.wait();
+            Ok(NoneType)
+        }
+
+        fn wait_gate_early() -> starlark::Result<NoneType> {
+            GATE_EARLY.wait();
             Ok(NoneType)
         }
     }
@@ -1328,5 +1336,81 @@ mod stopped_eval_tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn snapshot_stops_listing_an_eval_after_continue() {
         assert_eq!(stopped_evals_after_continue().await, vec![0]);
+    }
+
+    /// Sends `continue` and then `threads` while the evaluation is running (held in a native
+    /// call before its breakpoint). Returns the responses answered while it ran, as (command,
+    /// success), and whether the evaluation finished although the client never continued it
+    /// after its stop.
+    async fn continue_while_running() -> (Vec<(String, bool)>, bool) {
+        let content = "def f():\n    wait_gate_early()\n    y = 2\n    return y\nf()\n";
+        let Setup {
+            root: _root,
+            server,
+            mut to_client,
+            source: _source,
+            handle,
+        } = setup(content, 3).await;
+        let mut controller = server.start_eval(&handle, "test eval").await.unwrap();
+        let eval_finished = Arc::new(AtomicBool::new(false));
+        let finished = eval_finished.dupe();
+        let srv = server.dupe();
+        let client = std::thread::spawn(move || {
+            let tid = loop {
+                match to_client.blocking_recv().unwrap() {
+                    ToClientMessage::Event(ev) if ev.event == "thread" => {
+                        break ev.body.unwrap()["threadId"].as_i64().unwrap();
+                    }
+                    _ => {}
+                }
+            };
+            // Give the evaluation time to reach the native call; it is running, not stopped.
+            std::thread::sleep(Duration::from_millis(200));
+            srv.send_request(request(2, "continue", serde_json::json!({"threadId": tid})))
+                .unwrap();
+            srv.send_request(request(3, "threads", serde_json::json!({})))
+                .unwrap();
+            let mut answered_while_running = Vec::new();
+            let start = std::time::Instant::now();
+            while std::time::Instant::now() - start < Duration::from_secs(2) {
+                match to_client.try_recv() {
+                    Ok(ToClientMessage::Response(r)) => {
+                        answered_while_running.push((r.command, r.success))
+                    }
+                    Ok(_) => {}
+                    Err(_) => std::thread::sleep(Duration::from_millis(20)),
+                }
+            }
+            GATE_EARLY.release();
+            // The client does not continue after the stop; see whether the evaluation ends anyway.
+            let start = std::time::Instant::now();
+            let mut finished_without_continue = false;
+            while std::time::Instant::now() - start < Duration::from_secs(2) {
+                let _ignored = to_client.try_recv();
+                if finished.load(Ordering::SeqCst) {
+                    finished_without_continue = true;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            if !finished.load(Ordering::SeqCst) {
+                srv.send_request(request(4, "continue", serde_json::json!({"threadId": tid})))
+                    .unwrap();
+            }
+            (answered_while_running, finished_without_continue)
+        });
+        tokio::task::block_in_place(|| run_eval(&mut controller, content));
+        eval_finished.store(true, Ordering::SeqCst);
+        drop(controller);
+        client.join().unwrap()
+    }
+
+    /// A `continue` for a running evaluation is injected into it and blocks the single-threaded
+    /// server state until the evaluation next stops: nothing is answered meanwhile, and the
+    /// evaluation then consumes the stale `continue` and runs through its breakpoint.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn continue_for_a_running_eval_blocks_the_server_and_skips_its_breakpoint() {
+        let (answered, finished_without_continue) = continue_while_running().await;
+        assert!(answered.is_empty(), "{answered:?}");
+        assert!(finished_without_continue);
     }
 }
