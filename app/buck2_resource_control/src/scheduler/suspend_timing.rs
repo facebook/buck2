@@ -64,6 +64,7 @@ impl SuspendTiming for SpreadHalfSuspendTiming {
             }
             None => 0,
         };
+        let suspends_to_issue = suspends_to_issue.min(candidates.len());
         if suspends_to_issue > 0 {
             self.last_suspend_or_decrease_time = Some(now);
         }
@@ -89,14 +90,13 @@ mod tests {
         ]
     }
 
-    /// With no candidates the timing still asks for one suspend; the scheduler never checks that the
-    /// answer is bounded by the number of candidates.
+    /// With no candidates nothing can be suspended, so no suspend is requested.
     #[test]
     fn test_no_candidates() {
         let mut timing = SpreadHalfSuspendTiming::new();
         let now = Instant::now();
         timing.on_enter_decrease_mode(now);
-        assert_eq!(timing.suspends_to_issue(now, now, &[]), 1);
+        assert_eq!(timing.suspends_to_issue(now, now, &[]), 0);
     }
 
     #[test]
