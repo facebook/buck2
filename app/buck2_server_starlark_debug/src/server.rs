@@ -926,10 +926,20 @@ impl ServerState {
         self.current_hooks.clear();
     }
 
+    /// The requests that act on an evaluation are only valid while it is stopped. Injecting one
+    /// into a running evaluation blocks this state until the evaluation next stops, and the
+    /// evaluation then consumes the stale command and runs through its breakpoint.
     fn hook_id_by_pseudo_thread(&self, thread_id: i64) -> buck2_error::Result<HookId> {
         let thread_id = thread_id as u32;
         for (hook_id, hook_state) in &self.current_hooks {
             if hook_state.pseudo_thread_id == thread_id {
+                if hook_state.stopped_at.is_none() {
+                    return Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Thread `{}` is not stopped",
+                        thread_id
+                    ));
+                }
                 return Ok(*hook_id);
             }
         }
@@ -1404,13 +1414,15 @@ mod stopped_eval_tests {
         client.join().unwrap()
     }
 
-    /// A `continue` for a running evaluation is injected into it and blocks the single-threaded
-    /// server state until the evaluation next stops: nothing is answered meanwhile, and the
-    /// evaluation then consumes the stale `continue` and runs through its breakpoint.
+    /// A `continue` for a running evaluation is refused, the server keeps answering, and the
+    /// evaluation waits at its breakpoint for the client.
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn continue_for_a_running_eval_blocks_the_server_and_skips_its_breakpoint() {
+    async fn continue_for_a_running_eval_is_refused() {
         let (answered, finished_without_continue) = continue_while_running().await;
-        assert!(answered.is_empty(), "{answered:?}");
-        assert!(finished_without_continue);
+        assert_eq!(
+            answered,
+            vec![("continue".to_owned(), false), ("threads".to_owned(), true)]
+        );
+        assert!(!finished_without_continue);
     }
 }
