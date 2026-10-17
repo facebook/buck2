@@ -55,3 +55,9 @@ buck2_e2e_test(
     srcs = ["test_git_fetch.py"],
     data_dir = "test_git_fetch_data",
 )
+
+buck2_e2e_test(
+    name = "test_prelude_rules",
+    srcs = ["test_prelude_rules.py"],
+    data_dir = "test_prelude_rules_data",
+)
