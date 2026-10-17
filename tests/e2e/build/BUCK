@@ -1,5 +1,6 @@
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 load("@fbsource//tools/build_defs:testpilot_defs.bzl", "tpx_labels")
+load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 
 oncall("build_infra")
 
@@ -56,6 +57,21 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_action_digest",
     srcs = ["test_action_digest.py"],
+    # Version-bump diffs rewrite these files; the test must run on them so
+    # the candidate is compared against the outgoing version before it ships.
+    ci_srcs = [
+        "tools/buck2-versions/previous",
+        "tools/buck2-versions/stable",
+    ],
+    # A digest change turns every action in the graph into a cache miss, so
+    # the first run after one is slow by nature. On diffs a TPX timeout is a
+    # non-blocking warning, so the budget has to be large enough for the test
+    # to reach its own verdict.
+    labels = [tpx_labels.long_running]
+    + ci.labels(
+        ci.for_schedules([ci.diff, ci.land], [ci.linux(ci.opt())]),
+        ci.for_schedules([ci.land], [ci.mac(ci.aarch64(ci.opt()))]),
+    ),
     # This test is currently broken on Windows due to rustc_link non-determinism
     # https://fb.workplace.com/groups/346627374465346/permalink/511477684646980/
     skip_for_os = [
