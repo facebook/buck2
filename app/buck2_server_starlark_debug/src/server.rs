@@ -588,10 +588,11 @@ impl DebugServer for ServerState {
         &mut self,
         x: ContinueArguments,
     ) -> buck2_error::Result<dap::ContinueResponseBody> {
-        let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
+        let hook = self.find_hook_by_pseudo_thread_mut(x.thread_id)?;
         hook.adapter
             .continue_()
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
+        hook.stopped_at = None;
 
         Ok(dap::ContinueResponseBody {
             all_threads_continued: Some(false),
@@ -599,26 +600,29 @@ impl DebugServer for ServerState {
     }
 
     fn next(&mut self, x: dap::NextArguments) -> buck2_error::Result<()> {
-        let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
+        let hook = self.find_hook_by_pseudo_thread_mut(x.thread_id)?;
         hook.adapter
             .step(StepKind::Over)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
+        hook.stopped_at = None;
         Ok(())
     }
 
     fn step_in(&mut self, x: dap::StepInArguments) -> buck2_error::Result<()> {
-        let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
+        let hook = self.find_hook_by_pseudo_thread_mut(x.thread_id)?;
         hook.adapter
             .step(StepKind::Into)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
+        hook.stopped_at = None;
         Ok(())
     }
 
     fn step_out(&mut self, x: dap::StepOutArguments) -> buck2_error::Result<()> {
-        let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
+        let hook = self.find_hook_by_pseudo_thread_mut(x.thread_id)?;
         hook.adapter
             .step(StepKind::Out)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
+        hook.stopped_at = None;
         Ok(())
     }
 
@@ -922,17 +926,34 @@ impl ServerState {
         self.current_hooks.clear();
     }
 
-    fn find_hook_by_pseudo_thread(&self, thread_id: i64) -> buck2_error::Result<&HookState> {
+    fn hook_id_by_pseudo_thread(&self, thread_id: i64) -> buck2_error::Result<HookId> {
         let thread_id = thread_id as u32;
-        for hook_state in self.current_hooks.values() {
+        for (hook_id, hook_state) in &self.current_hooks {
             if hook_state.pseudo_thread_id == thread_id {
-                return Ok(hook_state);
+                return Ok(*hook_id);
             }
         }
         Err(buck2_error::buck2_error!(
             buck2_error::ErrorTag::StarlarkServer,
             "can't find evaluator thread"
         ))
+    }
+
+    fn find_hook_by_pseudo_thread(&self, thread_id: i64) -> buck2_error::Result<&HookState> {
+        let hook_id = self.hook_id_by_pseudo_thread(thread_id)?;
+        self.current_hooks
+            .get(&hook_id)
+            .ok_or_else(|| internal_error!("hook `{}` was just found", hook_id))
+    }
+
+    fn find_hook_by_pseudo_thread_mut(
+        &mut self,
+        thread_id: i64,
+    ) -> buck2_error::Result<&mut HookState> {
+        let hook_id = self.hook_id_by_pseudo_thread(thread_id)?;
+        self.current_hooks
+            .get_mut(&hook_id)
+            .ok_or_else(|| internal_error!("hook `{}` was just found", hook_id))
     }
 
     fn get_ast(&self, source: &ProjectRelativePath) -> buck2_error::Result<AstModule> {
@@ -1303,10 +1324,9 @@ mod stopped_eval_tests {
         snapshots
     }
 
-    /// `stopped_at` is set when an evaluation stops and never cleared, so after `continue` the
-    /// snapshots still list the running evaluation as stopped.
+    /// After `continue` the snapshots no longer list the evaluation as stopped.
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-    async fn snapshot_lists_a_continued_eval_as_stopped() {
-        assert_eq!(stopped_evals_after_continue().await, vec![1]);
+    async fn snapshot_stops_listing_an_eval_after_continue() {
+        assert_eq!(stopped_evals_after_continue().await, vec![0]);
     }
 }
