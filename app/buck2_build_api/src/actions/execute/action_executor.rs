@@ -593,6 +593,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
         self.executor.invocation_re_settings.may_probe_cas
     }
 
+    fn skip_cache_read(&self) -> bool {
+        self.executor.invocation_re_settings.skip_cache_read
+    }
+
     fn re_platform(&self) -> &remote_execution::Platform {
         self.executor.command_executor.re_platform()
     }
