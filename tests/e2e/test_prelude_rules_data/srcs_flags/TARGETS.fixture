@@ -1,0 +1,10 @@
+load("//:defs.bzl", "srcs_with_flags")
+
+# `str(["-DMODE=Aa"])` and `str(["-DMODE=BB"])` have the same Starlark `hash()`.
+srcs_with_flags(
+    name = "colliding_flag_sets",
+    srcs = [
+        ("a.cpp", ["-DMODE=Aa"]),
+        ("a.cpp", ["-DMODE=BB"]),
+    ],
+)
