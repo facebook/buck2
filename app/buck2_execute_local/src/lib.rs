@@ -623,11 +623,13 @@ mod tests {
 
         let cmd = background_command(&bin);
         let cmd = ProcessCommand::new(cmd, None).await?;
+        // Sibling tests fork concurrently and hold the inherited write handle
+        // until they exec, so dropping ours does not clear ETXTBSY by itself.
         let mut process_group = spawn_retry_txt_busy(cmd, {
             let mut file = Some(file);
             move || {
                 file.take();
-                futures::future::ready(())
+                tokio::time::sleep(Duration::from_millis(10))
             }
         })
         .await?;
