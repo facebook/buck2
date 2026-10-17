@@ -135,10 +135,13 @@ def buck_e2e_test(
     if not "conftest.py" in resources.values():
         resources["fbcode//buck2/tests/e2e_util:conftest.py"] = "conftest.py"
 
+    ci_removals = []
     if "darwin" in skip_for_os:
-        labels += ci.remove_labels(ci.mac(ci.aarch64(ci.opt())))
+        ci_removals.append(ci.remove(ci.mac(ci.aarch64(ci.opt()))))
     if "windows" in skip_for_os:
-        labels += ci.remove_labels(ci.windows(ci.opt()))
+        ci_removals.append(ci.remove(ci.windows(ci.opt())))
+    if ci_removals:
+        labels = _remove_ci_labels(labels, ci_removals)
 
     kwargs = {"visibility": visibility} if visibility != None else {}
     python_pytest(
@@ -201,6 +204,20 @@ def buck_e2e_test(
             # tools/build_defs/fbcode_macros/build_defs/lib/python_common.bzl).
             default_target_platform = platform_utils.get_cxx_platform_for_current_buildfile().target_platform,
         )
+
+def _remove_ci_labels(labels, removals):
+    """Apply CI removals without discarding CI labels the caller set.
+
+    Only the last `ci:overwrite` group on a target counts, so the caller's CI
+    labels must live in the same group as the removals.
+    """
+    ci_labels = [label for label in labels if label.startswith("ci:")]
+    other_labels = [label for label in labels if not label.startswith("ci:")]
+    if "ci:overwrite" in ci_labels:
+        for remove in removals:
+            ci_labels = remove(ci_labels)
+        return other_labels + ci_labels
+    return other_labels + ci.labels(*(ci_labels + removals))
 
 def buck2_e2e_test(
     name,
