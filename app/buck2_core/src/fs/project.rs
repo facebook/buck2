@@ -416,10 +416,8 @@ impl ProjectRoot {
 
     /// Copy from one path to another. This works for both files and directories.
     ///
-    /// This copy works by:
-    ///  - Copying directories recursively
-    ///  - Re-writing relative symlinks. That is, a link to `foo/bar` might end up
-    ///    as `../../../other/foo/bar` in the destination. Absolute symlinks are not changed.
+    /// Directories are copied recursively and symlinks keep their targets, so a tree whose
+    /// relative links stay inside it is copied as a self-contained tree.
     // TODO(nga): refactor this to global function.
     pub fn copy(
         &self,
@@ -515,18 +513,9 @@ impl ProjectRoot {
         upward_traversal
     }
 
-    /// Creates symbolic link `dest` which points at the same location as symlink `src`.
+    /// Creates symbolic link `dest` with the same target as symlink `src`.
     fn copy_symlink(src: &AbsNormPathBuf, dest: &AbsNormPathBuf) -> buck2_error::Result<()> {
-        let mut target = fs_util::read_link(src).categorize_internal()?;
-        if target.is_relative() {
-            // Grab the absolute path, then re-relativize the path to the destination
-            let relative_target = RelativePathBuf::from_system_path(target.as_path())?;
-            let absolute_target = relative_target.normalize().to_path(
-                src.parent()
-                    .expect("a path with a parent in symlink target"),
-            );
-            target = Self::find_relative_path(&AbsNormPathBuf::try_from(absolute_target)?, dest);
-        }
+        let target = fs_util::read_link(src).categorize_internal()?;
         fs_util::symlink(target, dest).categorize_internal()
     }
 
@@ -641,26 +630,20 @@ mod tests {
             fs.path.resolve(dir2).as_ref() as &Path,
             fs_util::read_link(fs.path.resolve(expected_link_dir2))?.as_path(),
         );
-        // Make sure out/dir1/link_dir3 links to the relative path to dir1/dir2/dir3
+        // out/dir1/link_dir3 keeps its target, which now names the copy's dir2/dir3
         let link_dir3_target = fs_util::read_link(fs.path.resolve(expected_link_dir3))?;
         if cfg!(unix) {
-            assert_eq!(
-                Path::new("../../dir1/dir2/dir3"),
-                link_dir3_target.as_path(),
-            );
+            assert_eq!(Path::new("dir2/dir3"), link_dir3_target.as_path());
         } else {
             // In Windows we use absolute path
             assert_eq!(fs.path.resolve(dir3).as_path(), link_dir3_target.as_path());
         }
 
-        // Make sure we can read through; that the relative path actually works
+        // A relative link reads through to the copy's file, not the source's
         fs_util::write(fs.path.resolve(file3), "file3 new contents")?;
         let link_file3_target = fs_util::read_link(fs.path.resolve(expected_link_file3))?;
         if cfg!(unix) {
-            assert_eq!(
-                Path::new("../../dir1/dir2/dir3/file3"),
-                link_file3_target.as_path(),
-            );
+            assert_eq!(Path::new("dir2/dir3/file3"), link_file3_target.as_path());
         } else {
             // In Windows we use absolute path
             assert_eq!(
@@ -668,10 +651,13 @@ mod tests {
                 link_file3_target.as_path()
             );
         }
-        assert_eq!(
-            "file3 new contents",
-            fs_util::read_to_string(fs.path.resolve(expected_link_file3))?
-        );
+        let through_link_file3 = fs_util::read_to_string(fs.path.resolve(expected_link_file3))?;
+        if cfg!(unix) {
+            assert_eq!("file3 contents", through_link_file3);
+        } else {
+            // In Windows the link is absolute and still names the source
+            assert_eq!("file3 new contents", through_link_file3);
+        }
 
         assert_eq!(
             "file1 contents",
@@ -977,12 +963,10 @@ mod tests {
         );
     }
 
-    /// `expand-external-cell` copies a materialized git checkout into the repository with
-    /// `copy`, which re-targets the checkout's relative links to their source. The expanded
-    /// cell then points back into buck-out and dangles after `buck2 clean`.
+    /// A copied tree keeps its relative links, so an expanded external cell is self-contained.
     #[cfg(unix)]
     #[test]
-    fn copy_points_a_relative_symlink_back_at_the_source() -> buck2_error::Result<()> {
+    fn copy_keeps_a_relative_symlink_inside_the_copy() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
         // What `git reset --hard` leaves for a repository with `b` and a relative link `a -> b`.
         let checkout = ProjectRelativePath::new("buck-out/v2/external_cells/git/0123abcd")?;
@@ -999,15 +983,12 @@ mod tests {
             .copy(checkout, ProjectRelativePath::new("libfoo")?)?;
 
         let link = fs_util::read_link(fs.path.resolve(ProjectRelativePath::new("libfoo/a")?))?;
-        assert_eq!(
-            link,
-            PathBuf::from("../buck-out/v2/external_cells/git/0123abcd/b")
-        );
+        assert_eq!(link, PathBuf::from("b"));
 
         fs_util::remove_dir_all(fs.path.resolve(ProjectRelativePath::new("buck-out")?))?;
-        assert!(
-            fs_util::read_to_string(fs.path.resolve(ProjectRelativePath::new("libfoo/a")?))
-                .is_err()
+        assert_eq!(
+            "content of b",
+            fs_util::read_to_string(fs.path.resolve(ProjectRelativePath::new("libfoo/a")?))?
         );
         Ok(())
     }
