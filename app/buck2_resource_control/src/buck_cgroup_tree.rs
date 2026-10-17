@@ -334,6 +334,16 @@ mod tests {
     use crate::cgroup::Cgroup;
     use crate::path::CgroupPath;
 
+    /// A percentage of an ancestor limit is computed as `base * percent / 100`, which overflows `u64` for an
+    /// ancestor limit of about 1.85e17 bytes or more: a panic with overflow checks, a wrapped
+    /// value without them.
+    #[test]
+    #[cfg_attr(debug_assertions, should_panic(expected = "overflow"))]
+    fn test_resolve_memory_restriction_value_large_ancestor() {
+        let r = resolve_memory_restriction_value("50%", Some(1_000_000_000_000_000_000)).unwrap();
+        assert_eq!(r, Some(131_065_118_525_808_967));
+    }
+
     #[test]
     fn test_cgroup_info_parse() {
         let cgroup = "\
