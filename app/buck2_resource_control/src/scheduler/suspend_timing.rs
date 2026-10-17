@@ -78,6 +78,7 @@ impl SuspendTiming for SpreadHalfSuspendTiming {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
+    use std::time::Instant;
 
     use super::*;
 
@@ -86,6 +87,16 @@ mod tests {
             SuspendCandidate { memory_current: 1 },
             SuspendCandidate { memory_current: 2 },
         ]
+    }
+
+    /// With no candidates the timing still asks for one suspend; the scheduler never checks that the
+    /// answer is bounded by the number of candidates.
+    #[test]
+    fn test_no_candidates() {
+        let mut timing = SpreadHalfSuspendTiming::new();
+        let now = Instant::now();
+        timing.on_enter_decrease_mode(now);
+        assert_eq!(timing.suspends_to_issue(now, now, &[]), 1);
     }
 
     #[test]
