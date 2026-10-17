@@ -976,4 +976,39 @@ mod tests {
                 .unwrap()
         );
     }
+
+    /// `expand-external-cell` copies a materialized git checkout into the repository with
+    /// `copy`, which re-targets the checkout's relative links to their source. The expanded
+    /// cell then points back into buck-out and dangles after `buck2 clean`.
+    #[cfg(unix)]
+    #[test]
+    fn copy_points_a_relative_symlink_back_at_the_source() -> buck2_error::Result<()> {
+        let fs = ProjectRootTemp::new()?;
+        // What `git reset --hard` leaves for a repository with `b` and a relative link `a -> b`.
+        let checkout = ProjectRelativePath::new("buck-out/v2/external_cells/git/0123abcd")?;
+        fs.path.write_file(
+            ProjectRelativePath::new("buck-out/v2/external_cells/git/0123abcd/b")?,
+            "content of b",
+            false,
+        )?;
+        fs.path.soft_link_raw(
+            "b",
+            ProjectRelativePath::new("buck-out/v2/external_cells/git/0123abcd/a")?,
+        )?;
+        fs.path
+            .copy(checkout, ProjectRelativePath::new("libfoo")?)?;
+
+        let link = fs_util::read_link(fs.path.resolve(ProjectRelativePath::new("libfoo/a")?))?;
+        assert_eq!(
+            link,
+            PathBuf::from("../buck-out/v2/external_cells/git/0123abcd/b")
+        );
+
+        fs_util::remove_dir_all(fs.path.resolve(ProjectRelativePath::new("buck-out")?))?;
+        assert!(
+            fs_util::read_to_string(fs.path.resolve(ProjectRelativePath::new("libfoo/a")?))
+                .is_err()
+        );
+        Ok(())
+    }
 }
