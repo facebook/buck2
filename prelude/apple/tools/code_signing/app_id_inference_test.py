@@ -12,11 +12,8 @@ from .app_id import AppId
 
 
 class TestAppIdInference(unittest.TestCase):
-    def test_unprefixed_first_keychain_group_raises(self) -> None:
-        # Only the first keychain access group is read, whatever it looks like.
-        with self.assertRaisesRegex(
-            RuntimeError, "Malformed app ID string: 'com.apple.token'"
-        ):
+    def test_team_comes_from_the_first_prefixed_keychain_group(self) -> None:
+        self.assertEqual(
             AppId.infer_from_entitlements(
                 {
                     "keychain-access-groups": [
@@ -24,4 +21,13 @@ class TestAppIdInference(unittest.TestCase):
                         "ABCDE12345.com.example.app",
                     ]
                 }
+            ),
+            AppId("ABCDE12345", "com.example.app"),
+        )
+        # A list without any prefixed group still fails on its first entry.
+        with self.assertRaisesRegex(
+            RuntimeError, "Malformed app ID string: 'com.apple.token'"
+        ):
+            AppId.infer_from_entitlements(
+                {"keychain-access-groups": ["com.apple.token"]}
             )
