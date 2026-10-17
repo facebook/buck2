@@ -260,10 +260,12 @@ load(
     "cxx_merge_cpreprocessors",
     "cxx_private_preprocessor_info",
 )
-load(
-    ":shared_library_interface.bzl",
-    "shared_library_interface",
-)
+
+# Interface modes in which the library's own link action yields the interface.
+_INTERFACE_FROM_LIBRARY_LINK_MODES = [
+    ShlibInterfacesMode("stub_from_linker_invocation"),
+    ShlibInterfacesMode("stub_from_library"),
+]
 
 # A possible output of a `cxx_library`. This could be an archive or a shared library. Generally for an archive
 # it represents just the sources of the library target itself, while a shared library will bundle multiple libraries
@@ -2460,7 +2462,7 @@ def _shared_library(
             extra_linker_outputs_factory = impl_params.extra_linker_outputs_factory,
             extra_linker_outputs_flags_factory = impl_params.extra_linker_outputs_flags_factory,
             extra_distributed_thin_lto_opt_outputs_merger = impl_params.extra_distributed_thin_lto_opt_outputs_merger,
-            produce_shared_library_interface = effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_linker_invocation"),
+            produce_shared_library_interface = effective_shlib_interfaces_mode in _INTERFACE_FROM_LIBRARY_LINK_MODES,
             has_hip_device_debug = has_hip_device_debug,
         ),
         name = soname if impl_params.use_soname else None,
@@ -2468,16 +2470,10 @@ def _shared_library(
     )
     exported_shlib = link_result.linked_object.output
 
-    if effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_linker_invocation"):
+    if effective_shlib_interfaces_mode in _INTERFACE_FROM_LIBRARY_LINK_MODES:
+        # Linking rdeps against the interface prevents relinking them when
+        # changes do not affect the library's symbols.
         exported_shlib = link_result.shared_library_interface
-    elif effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_library"):
-        # Generate a library interface from the linked library output.
-        # This will prevent relinking rdeps when changes do not affect
-        # the library symbols.
-        exported_shlib = shared_library_interface(
-            ctx = ctx,
-            shared_lib = exported_shlib,
-        )
     elif effective_shlib_interfaces_mode == ShlibInterfacesMode("defined_only"):
         link_info = LinkInfo(
             pre_flags = link_info.pre_flags,
@@ -2505,15 +2501,12 @@ def _shared_library(
                 links = [LinkArgs(infos = [link_info])],
                 identifier = flavored_output(soname + "-interface", separator = "_"),
                 link_execution_preference = link_execution_preference,
-                strip = impl_params.strip_executable,
                 error_handler = impl_params.error_handler,
+                produce_shared_library_interface = True,
             ),
             name = soname,
         )
-        exported_shlib = shared_library_interface(
-            ctx = ctx,
-            shared_lib = intf_link_result.linked_object.output,
-        )
+        exported_shlib = intf_link_result.shared_library_interface
 
     # Link against import library on Windows.
     if link_result.linked_object.import_library:

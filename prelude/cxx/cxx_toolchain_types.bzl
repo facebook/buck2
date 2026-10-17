@@ -215,6 +215,7 @@ CxxInternalTools = provider(
         make_comp_db = RunInfo,
         remap_cwd = RunInfo,
         serialized_diagnostics_to_json_wrapper = RunInfo,
+        shlib_interface_link_wrapper = RunInfo,
         stderr_to_file = RunInfo,
         stub_header_unit = RunInfo,
     )

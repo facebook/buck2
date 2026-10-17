@@ -852,7 +852,7 @@ def cxx_darwin_dist_link(
     if linker_map:
         link_outputs.append(linker_map.as_output())
 
-    if opts.produce_shared_library_interface:
+    if shared_library_interface != None:
         generate_shared_library_interface(
             ctx = ctx,
             identifier = opts.identifier,
