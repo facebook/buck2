@@ -426,11 +426,15 @@ def _infer_include_prefix(srcs: dict[str, Artifact], header_namespace: [str, Non
         package,
     )
 
+def _ends_with_path(path: str, suffix: str) -> bool:
+    # Whole path components only: `config/linux-config.h` does not end with `config.h`.
+    return path == suffix or path.endswith("/" + suffix)
+
 def _infer_include_prefix_from_paths(srcs_paths: dict[str, str], header_namespace: [str, None], package: [str, None] = None) -> [str, None]:
     if header_namespace != "":
         return None
     for key, short in srcs_paths.items():
-        if short.endswith(key):
+        if _ends_with_path(short, key):
             if len(short) > len(key):
                 prefix = paths.normalize(short[: len(short) - len(key)])
                 return paths.join(package, prefix) if package else prefix
@@ -441,7 +445,7 @@ def _infer_include_prefix_from_paths(srcs_paths: dict[str, str], header_namespac
             continue
         if package:
             full_path = paths.join(package, short)
-            if full_path.endswith(key):
+            if _ends_with_path(full_path, key):
                 if len(full_path) > len(key):
                     return paths.normalize(full_path[: len(full_path) - len(key)])
                 # full_path == key means the key already encodes the

@@ -35,10 +35,8 @@ async def test_extensionkit_extensions_destination(buck: Buck) -> None:
 
 # prelude/cxx/headers.bzl `_infer_include_prefix_from_paths`
 @buck_test(inplace=False)
-async def test_include_prefix_from_a_partial_file_name(buck: Buck) -> None:
-    # `config/linux-config.h` ends with the characters `config.h`, so the prefix
-    # `config/linux-` is inferred although no header lives under that path.
+async def test_include_prefix_needs_a_whole_path_suffix(buck: Buck) -> None:
     assert await _values(buck, "headers") == {
-        "renamed_header_prefix": "third-party/foo/config/linux-",
+        "renamed_header_prefix": "None",
         "subdir_header_prefix": "third-party/foo/config",
     }
