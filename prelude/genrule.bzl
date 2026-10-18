@@ -36,11 +36,7 @@ _BUILD_ROOT_LABELS = set([
     "haskell_hsc",
     "cql_cxx_genrule",
     "clang-module",
-    "cuda_build_root",
     "bundle_pch_genrule",  # Compiles C++, and so need to run from build root
-    "lpm_package",
-    "haskell_dll",
-    "fnlc_build",
     "udf_sql",
     "redex_genrule",  # T148016945
     "pxl",  # T151533831
