@@ -9,6 +9,7 @@
  */
 
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
+use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::daemon::client::connect::buckd_startup_timeout;
 use buck2_client_ctx::daemon::client::kill::kill_command_impl;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
@@ -33,8 +34,8 @@ pub fn start_in_process_daemon(
         // connects kills it, right before starting its own. For a command that never connects
         // to a daemon `--no-buckd` is a no-op.
         //
-        // Killing the daemon adds a few extra prints to stderr for killing the daemon, but
-        // that should be OK given that --no-buckd should only be used for testing purposes.
+        // With no daemon recorded there is nothing to replace, and `kill` would only report
+        // that on every invocation.
         let daemon_dir = paths.daemon_dir()?;
         tokio::task::block_in_place(|| {
             handle.block_on(async {
@@ -44,6 +45,12 @@ pub fn start_in_process_daemon(
                 )
                 .await?;
 
+                if matches!(
+                    BuckdProcessInfo::load_if_exists(lifecycle_lock.daemon_dir()),
+                    Ok(None)
+                ) {
+                    return Ok(());
+                }
                 kill_command_impl(&lifecycle_lock, "A command with `--no-buckd` is invoked").await
             })
         })?;
