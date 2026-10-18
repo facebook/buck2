@@ -953,7 +953,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                 if v < 0 {
                     None
                 } else {
-                    Some((v + 1) as usize)
+                    Some(v as usize + 1)
                 }
             }
         };
@@ -1057,7 +1057,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
                 if v < 0 {
                     None
                 } else {
-                    Some((v + 1) as usize)
+                    Some(v as usize + 1)
                 }
             }
         };
@@ -1357,6 +1357,15 @@ mod tests {
         assert::fail(r#""abc".rsplit("", 1)"#, "Empty separator");
         assert::fail(r#""".split("")"#, "Empty separator");
         assert::eq(r#""a,b".split(",")"#, r#"["a", "b"]"#);
+    }
+
+    /// `maxsplit` is one less than the number of parts, so `i32::MAX` must not overflow.
+    #[test]
+    fn test_split_max_maxsplit() {
+        assert::eq(r#""a b c".split(None, 2147483647)"#, r#"["a", "b", "c"]"#);
+        assert::eq(r#""a b c".rsplit(None, 2147483647)"#, r#"["a", "b", "c"]"#);
+        assert::eq(r#""a,b,c".split(",", 2147483647)"#, r#"["a", "b", "c"]"#);
+        assert::eq(r#""a,b,c".rsplit(",", 2147483647)"#, r#"["a", "b", "c"]"#);
     }
 
     /// `istitle`, `isupper` and `islower` are defined over cased characters: a letter with no
