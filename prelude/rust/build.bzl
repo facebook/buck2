@@ -56,6 +56,7 @@ load(
 load(
     "@prelude//linking:execution_preference.bzl",
     "LinkExecutionPreference",
+    "get_link_execution_preference",
 )
 load(
     "@prelude//linking:link_info.bzl",
@@ -2467,10 +2468,9 @@ def rust_link_binary(
         LinkArgs(infos = [LinkInfo(external_debug_info = external_debug_info)]),
     ]
 
-    if link_cxx_binary_locally(ctx, compile_ctx.cxx_toolchain_info):
+    link_execution_preference = get_link_execution_preference(ctx, [])
+    if link_execution_preference == LinkExecutionPreference("any") and link_cxx_binary_locally(ctx, compile_ctx.cxx_toolchain_info):
         link_execution_preference = LinkExecutionPreference("local")
-    else:
-        link_execution_preference = LinkExecutionPreference("any")
 
     return cxx_link_into(
         ctx = ctx,

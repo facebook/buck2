@@ -11,6 +11,7 @@ load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:common.bzl", "RuntimeDependencyHandling", "buck")
 load("@prelude//decls:native_common.bzl", "native_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
+load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//rust:clippy_configuration.bzl", "ClippyConfiguration")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust:sources.bzl", "mapped_srcs_arg", "srcs_arg", "srcs_filegroup_arg")
@@ -329,6 +330,7 @@ RUST_EXECUTABLE_ATTRIBUTES = {
     # when their target is itself content-based -- config-based resources and
     # the (deliberately config-based) shlib tree remain rewrite-in-place.
     "has_content_based_path": attrs.bool(default = False),
+    "link_execution_preference": link_execution_preference_attr(),
     # Required by the rules but not supported, since Rust is auto-link groups only
     "link_group": attrs.default_only(attrs.option(attrs.string(), default = None)),
     "link_group_map": LINK_GROUP_MAP_ATTR,
