@@ -28,6 +28,7 @@ use starlark_syntax::codemap::Span;
 
 use crate::typing::Ty;
 use crate::typing::TyBasic;
+use crate::typing::TypingBinOp;
 use crate::typing::TypingOracleCtx;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
@@ -60,6 +61,13 @@ pub struct TyUserIndex {
     pub(crate) index: Ty,
     /// Type of result.
     pub(crate) result: Ty,
+}
+
+impl TyUserIndex {
+    /// Indexing with a value of type `index` yields a value of type `result`.
+    pub fn new(index: Ty, result: Ty) -> TyUserIndex {
+        TyUserIndex { index, result }
+    }
 }
 
 /// Fields of the struct.
@@ -256,6 +264,15 @@ impl TyCustomImpl for TyUser {
         }
     }
 
+    fn bin_op(
+        &self,
+        bin_op: TypingBinOp,
+        rhs: &TyBasic,
+        _ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
+        Ok(self.base.bin_op(bin_op, rhs)?)
+    }
+
     fn as_callable(&self) -> Option<TyCallable> {
         if self.base.is_callable() {
             Some(TyCallable::any())
@@ -416,6 +433,43 @@ mod tests {
         }
     }
 
+    /// Value whose static type is a `TyUser`, and whose base only supports `+`.
+    #[derive(
+        Debug,
+        derive_more::Display,
+        ProvidesStaticType,
+        Allocative,
+        NoSerialize,
+        StarlarkPagable
+    )]
+    #[display("coin")]
+    struct Coin;
+
+    impl<'v> AllocValue<'v> for Coin {
+        fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
+            heap.alloc_simple(self)
+        }
+    }
+
+    #[starlark_value(type = "coin")]
+    impl<'v> StarlarkValue<'v> for Coin {
+        fn get_type_starlark_repr() -> Ty {
+            Ty::custom(
+                TyUser::new(
+                    "Coin".to_owned(),
+                    TyStarlarkValue::new::<Coin>(),
+                    TypeInstanceId::for_test(&"coin"),
+                    TyUserParams::default(),
+                )
+                .unwrap(),
+            )
+        }
+
+        fn add(&self, _other: Value<'v>, _heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
+            unreachable!("only typechecked in tests")
+        }
+    }
+
     #[starlark_module]
     #[starlark_types(AbstractPlant as Plant)]
     fn globals(globals: &mut GlobalsBuilder) {
@@ -449,6 +503,10 @@ mod tests {
         }
 
         fn mk_fruit() -> anyhow::Result<Fruit> {
+            panic!("not needed in test")
+        }
+
+        fn mk_coin() -> anyhow::Result<Coin> {
             panic!("not needed in test")
         }
     }
@@ -487,6 +545,25 @@ def test():
     # They should intersect.
     takes_pear(mk_fruit())
 "#,
+        );
+    }
+
+    #[test]
+    fn test_ty_user_bin_op_uses_base() {
+        let mut a = Assert::new();
+        a.globals_add(globals);
+        a.pass(
+            r#"
+def test():
+    mk_coin() + mk_coin()
+"#,
+        );
+        a.fail(
+            r#"
+def test():
+    mk_coin() - mk_coin()
+"#,
+            "Binary operator `-` is not available on the types `Coin` and `Coin`",
         );
     }
 }
