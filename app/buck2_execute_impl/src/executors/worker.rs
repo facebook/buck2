@@ -532,6 +532,8 @@ impl WorkerClient {
                 waiters.insert(id, tx);
                 stream.send(req)?;
                 tokio::select! {
+                    // A real answer beats a stream that closed right after it.
+                    biased;
                     response = rx => {
                         // `response` is a proto3 message field, so a worker can leave it out.
                         response?.response.ok_or_else(|| {
@@ -1199,5 +1201,92 @@ mod worker_handle_tests {
         assert_eq!(timeout_seen_by_worker(1500).await, 2);
         assert_eq!(timeout_seen_by_worker(500).await, 1);
         assert_eq!(timeout_seen_by_worker(2000).await, 2);
+    }
+
+    fn test_handle(client: WorkerClient) -> (WorkerHandle, LivelinessGuard) {
+        let (child_exited_observer, child_alive_guard) = LivelinessGuard::create();
+        let (_, handle_guard) = LivelinessGuard::create();
+        let path = |name: &str| {
+            AbsNormPathBuf::from(format!("/tmp/buck2_worker_test/{name}")).expect("absolute path")
+        };
+        let h = WorkerHandle::new(
+            client,
+            child_exited_observer,
+            StdRedirectPaths {
+                stdout: path("stdout"),
+                stderr: path("stderr"),
+            },
+            handle_guard,
+        );
+        (h, child_alive_guard)
+    }
+
+    /// A streaming worker that answers each request and then ends its response stream, as when
+    /// the worker process exits right after writing its last answer.
+    struct AnswerThenCloseWorker;
+
+    #[tonic::async_trait]
+    impl WorkerStreaming for AnswerThenCloseWorker {
+        type ExecuteStreamStream = ResponseStream;
+
+        async fn execute_stream(
+            &self,
+            req: Request<tonic::Streaming<ExecuteCommandStream>>,
+        ) -> Result<Response<Self::ExecuteStreamStream>, Status> {
+            let mut inbound = req.into_inner();
+            let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+            tokio::spawn(async move {
+                if let Some(Ok(cmd)) = inbound.next().await {
+                    let _unused = tx.send(Ok(ExecuteResponseStream {
+                        response: Some(ExecuteResponse {
+                            exit_code: 7,
+                            stderr: "answer".to_owned(),
+                            timed_out_after_s: None,
+                        }),
+                        id: cmd.id,
+                    }));
+                }
+                // Returning drops `tx`: the response stream ends right after the answer.
+            });
+            Ok(Response::new(Box::pin(
+                tokio_stream::wrappers::UnboundedReceiverStream::new(rx),
+            )))
+        }
+    }
+
+    /// Runs 40 commands against workers that answer and then close, and counts how many answers
+    /// came back and how many were reported as a closed stream.
+    async fn answered_and_lost() -> (usize, usize) {
+        let mut answered = 0;
+        let mut lost = 0;
+        for _ in 0..40 {
+            let (channel, _server) = start_streaming_server(AnswerThenCloseWorker).await;
+            let client = WorkerClient::stream(channel).await.unwrap();
+            let (h, _child_alive) = test_handle(client);
+            let (observer, _alive) = LivelinessGuard::create();
+            let r = h.exec_cmd(&[], vec![], None, observer.as_ref()).await;
+            match r.status {
+                GatherOutputStatus::Finished { exit_code: 7, .. } => {
+                    assert_eq!(r.stderr, b"answer");
+                    answered += 1;
+                }
+                GatherOutputStatus::SpawnFailed(msg) => {
+                    assert!(
+                        msg.contains("Stream closed while waiting for response"),
+                        "{msg}"
+                    );
+                    lost += 1;
+                }
+                other => panic!("unexpected {other:?}"),
+            }
+        }
+        (answered, lost)
+    }
+
+    /// An answer that arrives together with the end of the stream is returned.
+    #[tokio::test(flavor = "current_thread")]
+    async fn test_streaming_answer_kept_when_stream_closes_right_after() {
+        let (answered, lost) = answered_and_lost().await;
+        assert_eq!((answered, lost), (40, 0));
     }
 }
