@@ -6,8 +6,13 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":matlab_program.bzl", "matlab_program")
+load("@prelude//:prelude_rule.bzl", "make_rules")
+load(":matlab_program.bzl", matlab_program_spec = "matlab_program")
 
-rules = {
-    "matlab_program": matlab_program,
+specs = {
+    "matlab_program": matlab_program_spec,
 }
+
+rules = make_rules(specs)
+
+load_symbols(rules)

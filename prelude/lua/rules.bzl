@@ -6,12 +6,17 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":cxx_lua_extension.bzl", "cxx_lua_extension")
-load(":lua_binary.bzl", "lua_binary")
-load(":lua_library.bzl", "lua_library")
+load("@prelude//:prelude_rule.bzl", "make_rules")
+load(":cxx_lua_extension.bzl", cxx_lua_extension_spec = "cxx_lua_extension")
+load(":lua_binary.bzl", lua_binary_spec = "lua_binary")
+load(":lua_library.bzl", lua_library_spec = "lua_library")
 
-rules = {
-    "cxx_lua_extension": cxx_lua_extension,
-    "lua_binary": lua_binary,
-    "lua_library": lua_library,
+specs = {
+    "cxx_lua_extension": cxx_lua_extension_spec,
+    "lua_binary": lua_binary_spec,
+    "lua_library": lua_library_spec,
 }
+
+rules = make_rules(specs)
+
+load_symbols(rules)

@@ -6,12 +6,24 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":ocaml.bzl", "ocaml_binary", "ocaml_library", "ocaml_object", "ocaml_shared", "prebuilt_ocaml_library")
+load("@prelude//:prelude_rule.bzl", "make_rules")
+load(
+    ":ocaml.bzl",
+    ocaml_binary_spec = "ocaml_binary",
+    ocaml_library_spec = "ocaml_library",
+    ocaml_object_spec = "ocaml_object",
+    ocaml_shared_spec = "ocaml_shared",
+    prebuilt_ocaml_library_spec = "prebuilt_ocaml_library",
+)
 
-rules = {
-    "ocaml_binary": ocaml_binary,
-    "ocaml_library": ocaml_library,
-    "ocaml_object": ocaml_object,
-    "ocaml_shared": ocaml_shared,
-    "prebuilt_ocaml_library": prebuilt_ocaml_library,
+specs = {
+    "ocaml_binary": ocaml_binary_spec,
+    "ocaml_library": ocaml_library_spec,
+    "ocaml_object": ocaml_object_spec,
+    "ocaml_shared": ocaml_shared_spec,
+    "prebuilt_ocaml_library": prebuilt_ocaml_library_spec,
 }
+
+rules = make_rules(specs)
+
+load_symbols(rules)

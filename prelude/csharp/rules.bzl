@@ -6,9 +6,14 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":csharp.bzl", "csharp_library", "prebuilt_dotnet_library")
+load("@prelude//:prelude_rule.bzl", "make_rules")
+load(":csharp.bzl", csharp_library_spec = "csharp_library", prebuilt_dotnet_library_spec = "prebuilt_dotnet_library")
 
-rules = {
-    "csharp_library": csharp_library,
-    "prebuilt_dotnet_library": prebuilt_dotnet_library,
+specs = {
+    "csharp_library": csharp_library_spec,
+    "prebuilt_dotnet_library": prebuilt_dotnet_library_spec,
 }
+
+rules = make_rules(specs)
+
+load_symbols(rules)

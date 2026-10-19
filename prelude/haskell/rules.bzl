@@ -6,16 +6,21 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":haskell.bzl", "haskell_binary", "haskell_library", "haskell_prebuilt_library")
-load(":haskell_ghci.bzl", "haskell_ghci")
-load(":haskell_haddock.bzl", "haskell_haddock")
-load(":haskell_ide.bzl", "haskell_ide")
+load("@prelude//:prelude_rule.bzl", "make_rules")
+load(":haskell.bzl", haskell_binary_spec = "haskell_binary", haskell_library_spec = "haskell_library", haskell_prebuilt_library_spec = "haskell_prebuilt_library")
+load(":haskell_ghci.bzl", haskell_ghci_spec = "haskell_ghci")
+load(":haskell_haddock.bzl", haskell_haddock_spec = "haskell_haddock")
+load(":haskell_ide.bzl", haskell_ide_spec = "haskell_ide")
 
-rules = {
-    "haskell_binary": haskell_binary,
-    "haskell_ghci": haskell_ghci,
-    "haskell_haddock": haskell_haddock,
-    "haskell_ide": haskell_ide,
-    "haskell_library": haskell_library,
-    "haskell_prebuilt_library": haskell_prebuilt_library,
+specs = {
+    "haskell_binary": haskell_binary_spec,
+    "haskell_ghci": haskell_ghci_spec,
+    "haskell_haddock": haskell_haddock_spec,
+    "haskell_ide": haskell_ide_spec,
+    "haskell_library": haskell_library_spec,
+    "haskell_prebuilt_library": haskell_prebuilt_library_spec,
 }
+
+rules = make_rules(specs)
+
+load_symbols(rules)
