@@ -50,6 +50,15 @@ impl AgentContext {
             .any(|entry| entry.key == AgentContextKeys::KEY_ADVICE_ACK && entry.value == advice_id)
     }
 
+    /// Later CLI entries can replace a reason supplied by a wrapper.
+    pub fn reason(&self) -> Option<&str> {
+        self.entries
+            .iter()
+            .rev()
+            .find(|entry| entry.key == "reason")
+            .map(|entry| entry.value.as_str())
+    }
+
     pub(crate) fn to_proto(&self) -> Vec<buck2_data::AgentContextEntry> {
         self.entries
             .iter()

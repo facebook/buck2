@@ -1126,6 +1126,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "buck2_agent_interactive"
+version = "0.1.0"
+
+[[package]]
 name = "buck2_analysis"
 version = "0.1.0"
 dependencies = [
@@ -1527,6 +1531,7 @@ dependencies = [
  "assert_matches",
  "async-recursion",
  "async-trait",
+ "buck2_agent_interactive",
  "buck2_cli_proto",
  "buck2_client_ctx",
  "buck2_common",
