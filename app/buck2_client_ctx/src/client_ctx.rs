@@ -21,6 +21,7 @@ use buck2_common::argv::Argv;
 use buck2_common::init::LogDownloadMethod;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
+use buck2_common::settings::BuckSettings;
 use buck2_core::error::buck2_hard_error_env;
 use buck2_core::error::buck2_show_soft_errors_env;
 use buck2_error::BuckErrorContext;
@@ -144,6 +145,12 @@ impl<'a> ClientCommandContext<'a> {
             InvocationPathsResult::OutsideOfRepo(_) => Ok(None), // commands like log don't need a root but still need to create an invocation record
             InvocationPathsResult::OtherError(e) => Err(e.dupe()),
         }
+    }
+
+    /// Loads settings for the invocation's repository without parsing its build configuration.
+    pub fn buck_settings(&self) -> buck2_error::Result<&BuckSettings> {
+        self.immediate_config
+            .buck_settings(self.paths()?.project_root())
     }
 
     pub fn with_runtime<Fut, F>(self, func: F) -> <Fut as Future>::Output
