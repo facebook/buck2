@@ -6,21 +6,16 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:platform_exe.bzl", "resolve_platform_exe")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//decls:common.bzl", "PlatformExePlatform", "buck")
-load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup", "ScriptLanguage")
+load("@prelude//os_lookup:defs.bzl", "OsLookup", "ScriptLanguage")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused: Used as a type
 
 def command_alias_impl(ctx: AnalysisContext):
     target_os = ctx.attrs._target_os_type[OsLookup]
 
-    if target_os.os == Os("fat_mac_linux") and len(ctx.attrs.platform_exe) > 0:
-        base = {
-            "Darwin": _get_os_base(ctx, Os("macos")),
-            "Linux": _get_os_base(ctx, Os("linux")),
-        }
-    else:
-        base = _get_os_base(ctx, target_os.os)
+    base = resolve_platform_exe(ctx.attrs.exe, ctx.attrs.platform_exe, target_os)
 
     output = command_alias(
         actions = ctx.actions,
@@ -57,25 +52,6 @@ def command_alias_impl(ctx: AnalysisContext):
     )
 
     return [default_info, run_info_with_resources]
-
-def _get_os_base(ctx: AnalysisContext, os: Os) -> RunInfo:
-    exe = ctx.attrs.platform_exe.get(os.value)
-    if exe == None:
-        exe = ctx.attrs.exe
-
-    if exe == None:
-        return RunInfo()
-
-    if isinstance(exe, Artifact):
-        return RunInfo(args = cmd_args(exe))
-
-    run_info = exe.get(RunInfo)
-    if run_info == None:
-        run_info = RunInfo(
-            args = exe[DefaultInfo].default_outputs,
-        )
-
-    return run_info
 
 CommandAliasOutput = record(
     # A batch or sh script representing the command alias

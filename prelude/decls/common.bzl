@@ -11,6 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:platform_exe_constants.bzl", "SUPPORTED_OSES")
 load("@prelude//cxx:cxx_toolchain_types.bzl", _RuntimeDependencyHandling = "RuntimeDependencyHandling")
 
 def validate_uri(_s):
@@ -52,7 +53,7 @@ LinkableDepType = ["static", "static_pic", "shared"]
 
 OnDuplicateEntry = ["fail", "overwrite", "append"]
 
-PlatformExePlatform = ["linux", "macos", "windows"]
+PlatformExePlatform = SUPPORTED_OSES
 
 RawHeadersAsHeadersMode = ["enabled", "disabled"]
 
