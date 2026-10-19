@@ -330,6 +330,11 @@ post_end_per_suite(
         State1 = add_result(?END_PER_SUITE, skipped, Desc, State0),
         {Error, clear_suite(State1)}
     end);
+%% Workaround OTP bug (https://github.com/erlang/otp/issues/11647):
+%% `test_server:process_return_val1` does not treat a `{fail, Reason}` return from
+%% `end_per_suite` as a failure (and an earlier CTH's `post_end_per_suite` returning
+%% `{fail, Reason}` does not update `Config`), so `Config` has no `{tc_status, ...}`
+%% entry. Match `{fail, Reason}` in `Return` explicitly.
 post_end_per_suite(
     Suite,
     _Config,
@@ -341,21 +346,21 @@ post_end_per_suite(
         State1 = add_result(?END_PER_SUITE, fail_outcome(Reason), Desc, State0),
         {Error, clear_suite(State1)}
     end);
-post_end_per_suite(
-    Suite,
-    _Config,
-    {error, Reason} = Error,
-    HookState
-) ->
-    on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0) ->
-        Desc = fmt_init_or_end(Suite, end_per_suite, Reason, ~"FAILED"),
-        State1 = add_result(?END_PER_SUITE, fail_outcome(Reason), Desc, State0),
-        {Error, clear_suite(State1)}
-    end);
-post_end_per_suite(_Suite, _Config, Return, HookState) ->
+post_end_per_suite(Suite, Config, Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State0) ->
-        %% clean TC state
-        State1 = add_result(?END_PER_SUITE, passed, ~"", State0),
+        State1 =
+            case lists:keyfind(tc_status, 1, Config) of
+                {tc_status, Status} when Status =/= ok ->
+                    Reason =
+                        case Status of
+                            {failed, Reason0} -> Reason0;
+                            _ -> Status
+                        end,
+                    Desc = fmt_init_or_end(Suite, end_per_suite, Reason, ~"FAILED"),
+                    add_result(?END_PER_SUITE, fail_outcome(Reason), Desc, State0);
+                _ ->
+                    add_result(?END_PER_SUITE, passed, ~"", State0)
+            end,
         {Return, clear_suite(State1)}
     end).
 
@@ -460,6 +465,11 @@ post_end_per_group(
         State1 = add_result(?END_PER_GROUP, skipped, Desc, State0),
         {Error, State1#state{groups = tl(Groups)}}
     end);
+%% Workaround OTP bug (https://github.com/erlang/otp/issues/11647):
+%% `test_server:process_return_val1` does not treat a `{fail, Reason}` return from
+%% `end_per_group` as a failure (and an earlier CTH's `post_end_per_group` returning
+%% `{fail, Reason}` does not update `Config`), so `Config` has no `{tc_status, ...}`
+%% entry. Match `{fail, Reason}` in `Return` explicitly.
 post_end_per_group(
     Suite,
     _Group,
@@ -472,21 +482,21 @@ post_end_per_group(
         State1 = add_result(?END_PER_GROUP, fail_outcome(Reason), Desc, State0),
         {Error, State1#state{groups = tl(Groups)}}
     end);
-post_end_per_group(
-    Suite,
-    _Group,
-    _Config,
-    {error, Reason} = Error,
-    HookState
-) ->
-    on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State0 = #state{groups = Groups}) ->
-        Desc = fmt_init_or_end(Suite, end_per_group, Reason, ~"FAILED"),
-        State1 = add_result(?END_PER_GROUP, fail_outcome(Reason), Desc, State0),
-        {Error, State1#state{groups = tl(Groups)}}
-    end);
-post_end_per_group(_Suite, _Group, _Config, Return, HookState) ->
+post_end_per_group(Suite, _Group, Config, Return, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Return, fun(State0 = #state{groups = Groups}) ->
-        State1 = add_result(?END_PER_GROUP, passed, ~"", State0),
+        State1 =
+            case lists:keyfind(tc_status, 1, Config) of
+                {tc_status, Status} when Status =/= ok ->
+                    Reason =
+                        case Status of
+                            {failed, Reason0} -> Reason0;
+                            _ -> Status
+                        end,
+                    Desc = fmt_init_or_end(Suite, end_per_group, Reason, ~"FAILED"),
+                    add_result(?END_PER_GROUP, fail_outcome(Reason), Desc, State0);
+                _ ->
+                    add_result(?END_PER_GROUP, passed, ~"", State0)
+            end,
         {Return, State1#state{groups = tl(Groups)}}
     end).
 
