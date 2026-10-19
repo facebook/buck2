@@ -15,6 +15,7 @@ is defined in erlang_escript.bzl
 usage:
   escript_builder.escript escript_build_spec.term
 """.
+-compile(warn_missing_spec_all).
 
 -export([main/1]).
 
