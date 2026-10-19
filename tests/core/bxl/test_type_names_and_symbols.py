@@ -15,3 +15,8 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 @buck_test()
 async def test_cquery_ctx(buck: Buck) -> None:
     await buck.bxl("//bxl/check_type_names_and_symbols.bxl:cquery_ctx")
+
+
+@buck_test()
+async def test_target_set(buck: Buck) -> None:
+    await buck.bxl("//bxl/check_type_names_and_symbols.bxl:target_set")

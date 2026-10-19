@@ -22,3 +22,20 @@ cquery_ctx = bxl_main(
     impl = _check_cquery_context,
     cli_args = {},
 )
+
+def _all_nodes(targets: bxl.ConfiguredTargetSet) -> list[bxl.ConfiguredTargetNode]:
+    return [t for t in targets + targets]
+
+def _check_target_set(_ctx: bxl.Context):
+    configured = bxl.ctarget_set()
+    _assert_eq(type(configured), "target_set")
+    _assert_eq(str(bxl.ConfiguredTargetSet), "bxl.TargetSet[bxl.ConfiguredTargetNode]")
+    _assert_eq(str(bxl.UnconfiguredTargetSet), "bxl.TargetSet[bxl.UnconfiguredTargetNode]")
+    _assert_eq(isinstance(configured, bxl.ConfiguredTargetSet), True)
+    _assert_eq(isinstance(bxl.utarget_set(), bxl.ConfiguredTargetSet), False)
+    _assert_eq(_all_nodes(configured), [])
+
+target_set = bxl_main(
+    impl = _check_target_set,
+    cli_args = {},
+)

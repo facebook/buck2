@@ -22,3 +22,41 @@ async def test_not_bxl(buck: Buck) -> None:
         )
     )
     assert "Expected type `int` but got `str`" in result.stderr
+
+
+@buck_test()
+async def test_target_set_element_type(buck: Buck) -> None:
+    result = await expect_failure(
+        buck.bxl(
+            "//:target_set_element.bxl:main",
+        )
+    )
+    assert (
+        "Expected type `bxl.UnconfiguredTargetNode` but got `bxl.ConfiguredTargetNode`"
+        in result.stderr
+    )
+
+
+@buck_test()
+async def test_target_set_query_args_type(buck: Buck) -> None:
+    result = await expect_failure(
+        buck.bxl(
+            "//:target_set_query_args.bxl:main",
+        )
+    )
+    assert "bxl.TargetSet[bxl.UnconfiguredTargetNode]" in result.stderr
+    assert "bxl.TargetSet[bxl.ConfiguredTargetNode]" in result.stderr
+
+
+@buck_test()
+async def test_target_set_mixed_kinds(buck: Buck) -> None:
+    result = await expect_failure(
+        buck.bxl(
+            "//:target_set_mixed_kinds.bxl:main",
+        )
+    )
+    assert (
+        "Binary operator `+` is not available on the types "
+        "`bxl.TargetSet[bxl.ConfiguredTargetNode]` and `bxl.TargetSet[bxl.UnconfiguredTargetNode]`"
+        in result.stderr
+    )
