@@ -119,19 +119,31 @@ def command_alias(
     )
 
 def _command_alias_write_trampoline_unix(
-    actions: AnalysisActions, path: str, base: RunInfo | dict[str, RunInfo], args: cmd_args, env: dict[str, ArgLike], has_content_based_path: bool
+    actions: AnalysisActions,
+    path: str,
+    base: RunInfo | dict[str, RunInfo],
+    args: cmd_args,
+    env: dict[str, ArgLike],
+    has_content_based_path: bool,
 ) -> (Artifact, cmd_args):
     trampoline_args = cmd_args()
     trampoline_args.add("#!/usr/bin/env bash")
     trampoline_args.add("set -euo pipefail")
 
     if isinstance(base, dict):
-        trampoline_args.add('case "$(uname)" in')
+        os_cases = []
         for uname, run_info in base.items():
-            trampoline_args.add("    {})".format(uname))
-            _add_args_declaration_to_trampoline_args(trampoline_args, run_info, args)
-            trampoline_args.add("        ;;")
-        trampoline_args.add("esac")
+            os_command = cmd_args()
+            _add_args_declaration_to_trampoline_args(os_command, run_info, args)
+            os_cases.append(_trampoline_case(uname, os_command))
+        trampoline_args.add(
+            cmd_args(
+                cmd_args(os_cases, delimiter = "\n"),
+                format = """case "$(uname)" in
+{}
+esac""",
+            )
+        )
     else:
         _add_args_declaration_to_trampoline_args(trampoline_args, base, args)
 
@@ -233,6 +245,14 @@ def _command_alias_write_trampoline_windows(
     )
 
     return trampoline, trampoline_args
+
+def _trampoline_case(pattern: str, command: cmd_args) -> cmd_args:
+    return cmd_args(
+        cmd_args(command, delimiter = "\n"),
+        format = """    {pattern})
+{{}}
+        ;;""".format(pattern = pattern),
+    )
 
 def _add_args_declaration_to_trampoline_args(trampoline_args: cmd_args, base: RunInfo, args: cmd_args):
     trampoline_args.add("ARGS=(")
