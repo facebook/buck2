@@ -167,7 +167,7 @@ impl<'v, 'fm> Compiler<'v, '_, '_, '_, 'fm> {
             }
             TypeExprUnpackP::Path(path) => self.eval_path(path),
             TypeExprUnpackP::Index(a, i) => {
-                let a = self.eval_ident_in_type_expr(a)?;
+                let a = self.eval_path(a.node)?;
                 let i = self.eval_expr_as_type(*i)?;
                 a.get_ref()
                     .at(i.to_inner(), self.eval.heap())
