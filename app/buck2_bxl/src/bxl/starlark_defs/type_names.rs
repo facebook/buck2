@@ -14,6 +14,7 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
 use super::nodes::action::StarlarkActionQueryNode;
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
@@ -43,7 +44,10 @@ use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::result::StarlarkError;
 use crate::bxl::starlark_defs::result::StarlarkResult;
 use crate::bxl::starlark_defs::target_universe::StarlarkTargetUniverse;
+use crate::bxl::starlark_defs::targetset::CONFIGURED_TARGET_SET_TYPE;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
+use crate::bxl::starlark_defs::targetset::StarlarkTargetSetType;
+use crate::bxl::starlark_defs::targetset::UNCONFIGURED_TARGET_SET_TYPE;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
 use crate::bxl::starlark_defs::visibility_intersection::StarlarkVisibilityIntersectionLayer;
 
@@ -67,8 +71,6 @@ use crate::bxl::starlark_defs::visibility_intersection::StarlarkVisibilityInters
     StarlarkConfiguredTargetNode as ConfiguredTargetNode,
     StarlarkLazyAttrs<'_> as LazyAttrs,
     StarlarkLazyResolvedAttrs<'_> as LazyResolvedAttrs,
-    StarlarkTargetSet<TargetNode> as UnconfiguredTargetSet,
-    StarlarkTargetSet<ConfiguredTargetNode> as ConfiguredTargetSet,
     StarlarkConfiguredAttr as ConfiguredAttr,
     StarlarkTargetUniverse<'_> as TargetUniverse,
     StarlarkOutputStream as OutputStream,
@@ -82,4 +84,10 @@ use crate::bxl::starlark_defs::visibility_intersection::StarlarkVisibilityInters
     StarlarkProvidersArtifactIterable<'_> as BuiltArtifactsIterable,
     StarlarkVisibilityIntersectionLayer as VisibilityIntersectionLayer
 )]
-pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuilder) {}
+pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuilder) {
+    const UnconfiguredTargetSet: StarlarkValueAsType<StarlarkTargetSet<TargetNode>> =
+        UNCONFIGURED_TARGET_SET_TYPE;
+    const ConfiguredTargetSet: StarlarkValueAsType<StarlarkTargetSet<ConfiguredTargetNode>> =
+        CONFIGURED_TARGET_SET_TYPE;
+    const TargetSet: StarlarkTargetSetType = StarlarkTargetSetType;
+}

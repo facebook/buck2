@@ -27,6 +27,7 @@ use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 use starlark::any::IsStaticType;
 use starlark::any::ProvidesStaticType;
+use starlark::docs::DocItem;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::pagable::StarlarkDeserialize;
@@ -34,6 +35,7 @@ use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
 use starlark::starlark_module;
+use starlark::starlark_simple_value;
 use starlark::typing::HasTyVTable;
 use starlark::typing::Ty;
 use starlark::typing::TyBasic;
@@ -47,12 +49,14 @@ use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
+use starlark::values::typing::TypeCompiled;
 use starlark::values::typing::TypeInstanceId;
 
 use crate::bxl::starlark_defs::alloc_node::AllocNode;
@@ -321,13 +325,92 @@ where
     }
 }
 
+// Values of `bxl.TargetSet[...]` and the `bxl.*TargetSet` globals. Frozen modules can hold these,
+// and pagable serialization can only refer to statics registered by this macro.
+starlark::declare_starlark_value_as_type!(pub(crate) UNCONFIGURED_TARGET_SET_TYPE, StarlarkTargetSet<TargetNode>);
+starlark::declare_starlark_value_as_type!(pub(crate) CONFIGURED_TARGET_SET_TYPE, StarlarkTargetSet<ConfiguredTargetNode>);
+starlark::declare_starlark_value_as_type!(pub(crate) ACTION_QUERY_TARGET_SET_TYPE, StarlarkTargetSet<ActionQueryNode>);
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum TargetSetTypeError {
+    #[error(
+        "`bxl.TargetSet` expects one of [`bxl.UnconfiguredTargetNode`, `bxl.ConfiguredTargetNode`, `bxl.ActionQueryNode`], got `{0}`"
+    )]
+    UnsupportedNodeType(Ty),
+}
+
+/// The value of `bxl.TargetSet`. As a type it matches a target set of any node kind;
+/// `bxl.TargetSet[<node type>]` is the type of target sets of that kind.
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
+)]
+#[display("bxl.TargetSet")]
+pub(crate) struct StarlarkTargetSetType;
+
+starlark_simple_value!(StarlarkTargetSetType);
+
+impl StarlarkTargetSetType {
+    /// Type of a target set of any node kind.
+    fn any_kind_ty() -> Ty {
+        Ty::unions(vec![
+            TargetNode::target_set_ty(),
+            ConfiguredTargetNode::target_set_ty(),
+            ActionQueryNode::target_set_ty(),
+        ])
+    }
+}
+
+#[starlark_value(type = "bxl.TargetSet")]
+impl<'v> StarlarkValue<'v> for StarlarkTargetSetType {
+    fn eval_type(&self) -> Option<Ty> {
+        Some(Self::any_kind_ty())
+    }
+
+    fn at(&self, index: Value<'v>, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
+        let node_ty = TypeCompiled::new(index, heap)?;
+        let node_ty = node_ty.as_ty();
+        if *node_ty == TargetNode::starlark_ty() {
+            Ok(heap.alloc(UNCONFIGURED_TARGET_SET_TYPE))
+        } else if *node_ty == ConfiguredTargetNode::starlark_ty() {
+            Ok(heap.alloc(CONFIGURED_TARGET_SET_TYPE))
+        } else if *node_ty == ActionQueryNode::starlark_ty() {
+            Ok(heap.alloc(ACTION_QUERY_TARGET_SET_TYPE))
+        } else {
+            Err(
+                buck2_error::Error::from(TargetSetTypeError::UnsupportedNodeType(node_ty.dupe()))
+                    .into(),
+            )
+        }
+    }
+
+    fn documentation(&self) -> DocItem {
+        // All node kinds share one methods table, so its docs describe every target set.
+        DocItem::Type(
+            STARLARK_TARGET_SET_METHODS
+                .methods()
+                .documentation(Self::any_kind_ty()),
+        )
+    }
+}
+
 /// A set-like object for managing buck2 target nodes.
 ///
 /// It can be obtained from several functions in [`bxl.Context`](../Context) and
 /// [`bxl.UqueryContext`](../UqueryContext)/[`bxl.CqueryContext`](../CqueryContext)/[`bxl.AqueryContext`](../AqueryContext),
 /// among other places.
 ///
-/// It can be either [`ConfiguredTargetSet`](../ConfiguredTargetSet) or [`UnconfiguredTargetSet`](../UnconfiguredTargetSet) which respectively contain either [`ConfiguredTargetNode`](../ConfiguredTargetNode) or [`UnconfiguredTargetNode`](../UnconfiguredTargetNode).
+/// The node kind is part of the type, written `bxl.TargetSet[<node type>]`:
+/// * `bxl.TargetSet[bxl.ConfiguredTargetNode]`, also available as [`bxl.ConfiguredTargetSet`](../ConfiguredTargetSet), contains [`ConfiguredTargetNode`](../ConfiguredTargetNode)s
+/// * `bxl.TargetSet[bxl.UnconfiguredTargetNode]`, also available as [`bxl.UnconfiguredTargetSet`](../UnconfiguredTargetSet), contains [`UnconfiguredTargetNode`](../UnconfiguredTargetNode)s
+/// * `bxl.TargetSet[bxl.ActionQueryNode]` contains [`ActionQueryNode`](../ActionQueryNode)s
+///
+/// `bxl.TargetSet` on its own matches a target set of any kind. `type()` returns `"target_set"` for all of them.
 ///
 /// It provides common set operations for target nodes.
 /// It supports iteration, indexing, addition (union), subtraction (difference), equality comparison, and intersection operations.
