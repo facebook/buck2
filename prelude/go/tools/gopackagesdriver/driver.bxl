@@ -102,7 +102,7 @@ def _driver(ctx):
             go_package_info = go_package_info,
         )
 
-        if target.rule_type == "prelude//rules.bzl:go_library":
+        if target.rule_type.rsplit(":", 1)[-1] == "go_library":
             import_table[go_package_info.pkg_import_path] = _target_id(target)
 
         go_list_artifacts.append(go_package_info.go_list_out)

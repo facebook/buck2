@@ -32,15 +32,15 @@ _CATCH_ALL_STUB_CONTENT = "from typing import Any\n\ndef __getattr__(name: str) 
 
 _MANIFESTLESS_RULE_TYPES = set([
     "forward",
-    "prelude//rules.bzl:command_alias",
-    "prelude//rules.bzl:export_file",
-    "prelude//rules.bzl:filegroup",
+    "command_alias",
+    "export_file",
+    "filegroup",
 ])
 
 def _rule_has_no_manifest(rule_type: str) -> bool:
     """Whether a rule contributes no manifest beyond targets already in its dependency graph."""
     return (
-        rule_type in _MANIFESTLESS_RULE_TYPES
+        rule_type.rsplit(":", 1)[-1] in _MANIFESTLESS_RULE_TYPES
         or rule_type.endswith(":target_group")
         or rule_type.endswith("_fbcode_configured_alias_transition")
         or rule_type.endswith(":rust_proc_macro_alias")
@@ -464,13 +464,13 @@ def _main(ctx: bxl.Context) -> None:
         entries[str(x.label.raw_target())] = entry
 
         if (
-            x.rule_type == "prelude//rules.bzl:alias"
+            x.rule_type.endswith(":alias")
             or x.rule_type.endswith("_fbcode_configured_alias")
             or x.rule_type.endswith(":build_mode_alias")
             or x.rule_type.endswith(":_sanitizer_alias")
         ):
             _handle_alias(entry, attrs, x)
-        elif x.rule_type == "prelude//rules.bzl:cxx_python_extension":
+        elif x.rule_type.endswith(":cxx_python_extension"):
             _handle_python_extension(entry, attrs, fs, x, known_targets)
         elif "genrule" in x.rule_type:
             _handle_genrule(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, genrule_to_insert, extra_filetypes)
