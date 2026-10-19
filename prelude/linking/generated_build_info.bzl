@@ -169,7 +169,7 @@ def _generate_build_info_data(
         )
         if manifest_entries != None:
             command.add("--output-manifest-entries", manifest_entries.as_output())
-        command.add(cmd_args(hidden = invalidation_inputs))
+        command.add(cmd_args(hidden = invalidation_inputs, experimental_salt_hidden = True))
         ctx.actions.run(
             command,
             category = "generate_build_info_json",
