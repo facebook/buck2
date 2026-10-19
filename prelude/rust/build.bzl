@@ -2022,6 +2022,8 @@ def _rustc_invoke(
         compile_cmd.add(cmd_args(build_status.as_output(), format = "--failure-filter={}"))
         for out in required_outputs:
             compile_cmd.add("--required-output", out.short_path, out.as_output())
+        if common_args.emit == Emit("expand"):
+            compile_cmd.add("--keep-outputs-on-error")
 
     if strip_dwo_members != None:
         compile_cmd.add(strip_dwo_members)

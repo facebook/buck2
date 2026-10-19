@@ -121,6 +121,7 @@ class Args(NamedTuple):
     buck_target: Optional[str]
     failure_filter: Optional[IO[bytes]]
     required_output: Optional[list[tuple[str, str]]]
+    keep_outputs_on_error: bool
     echo: Optional[IO[bytes]]
     strip_dwo_members: Optional[str]
     archiver: Optional[list[str]]
@@ -190,6 +191,12 @@ def arg_parse(argv: Optional[list[str]] = None) -> Args:
         metavar=("SHORT", "PATH"),
         help="Required output path we expect rustc to generate "
         "(and filled with a placeholder on a filtered failure)",
+    )
+    parser.add_argument(
+        "--keep-outputs-on-error",
+        action="store_true",
+        help="Count the required outputs rustc writes even when it reports errors "
+        "(an expansion is usable even if the expanded crate does not compile)",
     )
     parser.add_argument(
         "--echo",
@@ -518,6 +525,11 @@ async def main() -> int:  # noqa: C901
     if program_args is not None:
         prog_tail_argv = ["--", *program_args]
 
+    if args.failure_filter and args.keep_outputs_on_error:
+        for _short, path in args.required_output or []:
+            if Path(path).exists():
+                Path(path).unlink()
+
     with tempfile.NamedTemporaryFile(
         mode="wb",
         prefix="rustc-args-",
@@ -586,13 +598,13 @@ async def main() -> int:  # noqa: C901
         # mean much to a downstream action.
         # An output at its path is only this run's when rustc succeeded: an action that keeps
         # its outputs (incremental compiles) starts with the previous run's, and a filtered
-        # failure leaves a placeholder behind.
+        # failure leaves a placeholder behind. `--keep-outputs-on-error` deletes them first.
         build_status = {
             "status": res,
             "files": [
                 short
                 for short, path in required_output
-                if res == 0 and Path(path).exists()
+                if (res == 0 or args.keep_outputs_on_error) and Path(path).exists()
             ],
         }
         args.failure_filter.write(

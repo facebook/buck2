@@ -56,7 +56,14 @@ class FailureFilterTest(unittest.TestCase):
         self.out.parent.mkdir()
         self.status = self.tmp / "build_status.json"
 
-    def compile(self, *, diags: list, write: bool, exit_code: int) -> int:
+    def compile(
+        self,
+        *,
+        diags: list,
+        write: bool,
+        exit_code: int,
+        keep_outputs_on_error: bool = False,
+    ) -> int:
         """One `rustc_action` run. The output path is kept between runs, as it is for an
         incremental compile whose action does not clean its outputs."""
         args = [
@@ -71,6 +78,7 @@ class FailureFilterTest(unittest.TestCase):
             "--required-output",
             SHORT,
             str(self.out),
+            *(["--keep-outputs-on-error"] if keep_outputs_on_error else []),
             sys.executable,
             "-c",
             FAKE_RUSTC,
@@ -130,3 +138,31 @@ class FailureFilterTest(unittest.TestCase):
         self.assertEqual(self.compile(diags=[], write=True, exit_code=0), 0)
         self.assertEqual(self.build_status(), {"status": 0, "files": [SHORT]})
         self.assertEqual(self.check(), (0, "fresh-rmeta"))
+
+    def test_expand_succeeds_on_the_expansion_of_a_crate_with_errors(self) -> None:
+        # `-Zunpretty=expanded` writes the expansion, then reports the expanded code's errors.
+        self.assertEqual(
+            self.compile(
+                diags=[ERROR_DIAG], write=True, exit_code=1, keep_outputs_on_error=True
+            ),
+            0,
+        )
+        self.assertEqual(self.build_status(), {"status": 1, "files": [SHORT]})
+        self.assertEqual(self.check(), (0, "fresh-rmeta"))
+
+    def test_expand_fails_on_a_previous_expansion_after_a_failed_compile(self) -> None:
+        self.assertEqual(
+            self.compile(diags=[], write=True, exit_code=0, keep_outputs_on_error=True),
+            0,
+        )
+        self.assertEqual(self.check(), (0, "fresh-rmeta"))
+
+        # The source now fails to parse: rustc fails and writes nothing.
+        self.assertEqual(
+            self.compile(
+                diags=[ERROR_DIAG], write=False, exit_code=1, keep_outputs_on_error=True
+            ),
+            0,
+        )
+        self.assertEqual(self.build_status(), {"status": 1, "files": []})
+        self.assertEqual(self.check(), (1, None))
