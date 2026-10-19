@@ -465,8 +465,15 @@ def _get_prefix_map_replacement(
         return None
 
     cell = value_or(header_dir.owner.cell, ".")
+    return _prefix_map_replacement(
+        cell = cell,
+        cell_prefix = cxx_toolchain_info.cell_to_path_prefix_map.get(cell, ""),
+        package = header_dir.owner.package,
+        header_namespace = header_namespace,
+        include_prefix = include_prefix,
+    )
 
-    cell_prefix = cxx_toolchain_info.cell_to_path_prefix_map.get(cell, "")
+def _prefix_map_replacement(cell: str, cell_prefix: str, package: str, header_namespace: [str, None], include_prefix: [str, None]) -> str:
     prefix_target = cell_prefix
     if header_namespace == "":
         if include_prefix != None:
@@ -476,10 +483,8 @@ def _get_prefix_map_replacement(
             # the package path (e.g. via subdir_glob prefix).
             if include_prefix:
                 prefix_target = paths.join(prefix_target, include_prefix) if prefix_target else include_prefix
-        else:
-            package = header_dir.owner.package
-            if package:
-                prefix_target = paths.join(prefix_target, package) if prefix_target else package
+        elif package:
+            prefix_target = paths.join(prefix_target, package) if prefix_target else package
     return prefix_target if prefix_target else cell
 
 def _mk_hmap(
@@ -547,4 +552,5 @@ def add_headers_dep_files(
 
 headers_for_tests = struct(
     infer_include_prefix = _infer_include_prefix_from_paths,
+    prefix_map_replacement = _prefix_map_replacement,
 )

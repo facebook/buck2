@@ -7,28 +7,20 @@
 # above-listed licenses.
 
 load("@prelude//:asserts.bzl", "asserts")
-load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:headers.bzl", "headers_for_tests")
 
 _infer = headers_for_tests.infer_include_prefix
 
 def _coverage_replacement(srcs_paths, header_namespace, package, cell_prefix):
-    """Simulate the full coverage prefix-map flow:
-    _infer_include_prefix → _get_prefix_map_replacement → replacement string.
-
-    This mirrors the logic in _get_prefix_map_replacement for the gnu-linker
-    path, using string inputs instead of CxxToolchainInfo/Artifact types.
-    """
-    include_prefix = _infer(srcs_paths, header_namespace, package)
-    prefix_target = cell_prefix
-    if header_namespace == "":
-        if include_prefix != None:
-            if include_prefix:
-                prefix_target = paths.join(prefix_target, include_prefix) if prefix_target else include_prefix
-        else:
-            if package:
-                prefix_target = paths.join(prefix_target, package) if prefix_target else package
-    return prefix_target if prefix_target else "."
+    """The prefix-map replacement for a header tree:
+    _infer_include_prefix → _get_prefix_map_replacement."""
+    return headers_for_tests.prefix_map_replacement(
+        cell = "CELL",
+        cell_prefix = cell_prefix,
+        package = package,
+        header_namespace = header_namespace,
+        include_prefix = _infer(srcs_paths, header_namespace, package),
+    )
 
 def test_infer_include_prefix():
     # ── Paths unchanged by D106137297 ────────────────────────────────
