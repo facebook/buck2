@@ -9,8 +9,6 @@
  */
 
 use buck2_agent_interactive::Advice;
-use buck2_agent_interactive::Decision;
-use buck2_agent_interactive::Invocation;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
@@ -56,7 +54,9 @@ impl BuckSubcommand for KillallCommand {
         ctx: ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        check_agent_advice(&ctx, events_ctx).await?;
+        events_ctx
+            .handle_agent_advice(ctx.trace_id.dupe(), ctx.agent_advice(Advice::Killall)?)
+            .await?;
         let project_root = self
             .repo
             .then(|| {
@@ -87,51 +87,5 @@ impl BuckSubcommand for KillallCommand {
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
         &self.event_log_opts
-    }
-}
-
-async fn check_agent_advice(
-    ctx: &ClientCommandContext<'_>,
-    events_ctx: &mut EventsCtx,
-) -> buck2_error::Result<()> {
-    let agent = ctx.agent_context();
-    if !agent.is_direct_call() {
-        return Ok(());
-    }
-
-    // BuckSettings requires a repository, but killall must remain usable outside one.
-    if ctx.maybe_paths()?.is_none() {
-        return Ok(());
-    }
-
-    // killall must remain usable without loading build configuration or starting a daemon.
-    let settings = ctx.buck_settings()?;
-    let advice = Advice::Killall;
-    let decision = advice.evaluate(
-        &Invocation {
-            enabled: settings.agent_interactive.enabled(),
-            direct_call: agent.is_direct_call(),
-            reason: agent.reason(),
-        },
-        agent.is_advice_acknowledged(advice.id()),
-    );
-    if let Some(tag) = decision.tag() {
-        events_ctx
-            .instant_event(
-                ctx.trace_id.dupe(),
-                buck2_data::TagEvent {
-                    tags: vec![tag.to_owned()],
-                },
-            )
-            .await?;
-    }
-    match decision {
-        Decision::Inactive | Decision::Acknowledged(_) => Ok(()),
-        Decision::Block(advice) => Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::AgentAdviceBlocked,
-            "Buck advice [{}]\n{}",
-            advice.id(),
-            advice.message(),
-        )),
     }
 }

@@ -17,6 +17,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
 
+use buck2_agent_interactive::Advice;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
@@ -209,7 +210,7 @@ impl BuckSubcommand for InnerCleanCommand {
         self,
         _matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
-        _events_ctx: &mut buck2_client_ctx::events_ctx::EventsCtx,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let paths = ctx.paths()?;
         let buck_out_dir = paths.buck_out_path();
@@ -230,6 +231,10 @@ impl BuckSubcommand for InnerCleanCommand {
             .await
             .into();
         }
+
+        events_ctx
+            .handle_agent_advice(ctx.trace_id.dupe(), ctx.agent_advice(Advice::Clean)?)
+            .await?;
 
         // Kill the daemon and make sure a new daemon does not spin up while we're performing clean up operations
         // This will ensure we have exclusive access to the directories in question
@@ -269,7 +274,7 @@ async fn clean(
     lifecycle_lock: Option<&BuckdLifecycleLock>,
     background: bool,
 ) -> buck2_error::Result<()> {
-    let paths_to_clean = if background {
+    let paths_to_clean = if background && lifecycle_lock.is_some() {
         let trash_uuid = Uuid::new_v4();
         let trash_target = trash_dir.as_abs_path().join(trash_uuid.to_string());
 

@@ -21,6 +21,7 @@ pub struct Invocation<'a> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Advice {
     Killall,
+    Clean,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -35,6 +36,7 @@ impl Advice {
     pub fn id(self) -> &'static str {
         match self {
             Self::Killall => "killall",
+            Self::Clean => "clean",
         }
     }
 
@@ -56,6 +58,16 @@ impl Advice {
 
     pub fn message(self) -> &'static str {
         match self {
+            Self::Clean => {
+                "No build state or outputs have been removed.\n\n\
+                 `buck2 clean` stops the daemon and removes reusable build state and outputs, \
+                 making subsequent builds more expensive. Buck tracks input changes automatically; \
+                 retry the build or test without cleaning first. Use `buck2 clean --dry-run` \
+                 to inspect the affected paths, or `buck2 clean --stale` to reclaim stale outputs.\n\n\
+                 If a full clean is necessary, retry with `--agent-context advice_ack=clean` \
+                 and `--agent-context reason=\"<why build state must be cleared>\"`. \
+                 This guard does not require user confirmation."
+            }
             Self::Killall => {
                 "No processes have been killed.\n\n\
                  `buck2 killall` discards reusable daemon state and can interrupt other work. \
@@ -77,6 +89,8 @@ impl Decision {
             Self::Inactive => None,
             Self::Acknowledged(Advice::Killall) => Some("agent_interactive.killall.ack"),
             Self::Block(Advice::Killall) => Some("agent_interactive.killall.block"),
+            Self::Acknowledged(Advice::Clean) => Some("agent_interactive.clean.ack"),
+            Self::Block(Advice::Clean) => Some("agent_interactive.clean.block"),
         }
     }
 }
@@ -87,40 +101,38 @@ mod tests {
 
     #[test]
     fn only_enabled_direct_calls_are_guarded() {
-        for (enabled, direct_call) in [(false, false), (false, true), (true, false)] {
-            let invocation = Invocation {
-                enabled,
-                direct_call,
-                reason: None,
-            };
-            assert_eq!(
-                Advice::Killall.evaluate(&invocation, false),
-                Decision::Inactive
-            );
+        for advice in [Advice::Killall, Advice::Clean] {
+            for (enabled, direct_call) in [(false, false), (false, true), (true, false)] {
+                let invocation = Invocation {
+                    enabled,
+                    direct_call,
+                    reason: None,
+                };
+                assert_eq!(advice.evaluate(&invocation, false), Decision::Inactive);
+            }
         }
     }
 
     #[test]
     fn proceeding_requires_acknowledgement_and_reason() {
-        for (reason, expected) in [
-            (None, Decision::Block(Advice::Killall)),
-            (Some(""), Decision::Block(Advice::Killall)),
-            (Some(" \n\t"), Decision::Block(Advice::Killall)),
-            (
-                Some("Several daemons are unresponsive"),
-                Decision::Acknowledged(Advice::Killall),
-            ),
-        ] {
-            let invocation = Invocation {
-                enabled: true,
-                direct_call: true,
-                reason,
-            };
-            assert_eq!(
-                Advice::Killall.evaluate(&invocation, false),
-                Decision::Block(Advice::Killall)
-            );
-            assert_eq!(Advice::Killall.evaluate(&invocation, true), expected);
+        for advice in [Advice::Killall, Advice::Clean] {
+            for (reason, expected) in [
+                (None, Decision::Block(advice)),
+                (Some(""), Decision::Block(advice)),
+                (Some(" \n\t"), Decision::Block(advice)),
+                (
+                    Some("Several daemons are unresponsive"),
+                    Decision::Acknowledged(advice),
+                ),
+            ] {
+                let invocation = Invocation {
+                    enabled: true,
+                    direct_call: true,
+                    reason,
+                };
+                assert_eq!(advice.evaluate(&invocation, false), Decision::Block(advice));
+                assert_eq!(advice.evaluate(&invocation, true), expected);
+            }
         }
     }
 }

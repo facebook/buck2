@@ -11,6 +11,9 @@
 use std::future::Future;
 use std::time::SystemTime;
 
+use buck2_agent_interactive::Advice;
+use buck2_agent_interactive::Decision;
+use buck2_agent_interactive::Invocation;
 use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::TenantIdentity;
 use buck2_cli_proto::client_context::ExitWhen as GrpcExitWhen;
@@ -151,6 +154,23 @@ impl<'a> ClientCommandContext<'a> {
     pub fn buck_settings(&self) -> buck2_error::Result<&BuckSettings> {
         self.immediate_config
             .buck_settings(self.paths()?.project_root())
+    }
+
+    /// Evaluates repository-scoped advice without loading build configuration.
+    /// Callers apply the decision only when the guarded operation will actually run.
+    pub fn agent_advice(&self, advice: Advice) -> buck2_error::Result<Decision> {
+        let agent = self.agent_context();
+        if !agent.is_direct_call() || self.maybe_paths()?.is_none() {
+            return Ok(Decision::Inactive);
+        }
+        Ok(advice.evaluate(
+            &Invocation {
+                enabled: self.buck_settings()?.agent_interactive.enabled(),
+                direct_call: agent.is_direct_call(),
+                reason: agent.reason(),
+            },
+            agent.is_advice_acknowledged(advice.id()),
+        ))
     }
 
     pub fn with_runtime<Fut, F>(self, func: F) -> <Fut as Future>::Output

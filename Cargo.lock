@@ -1579,6 +1579,7 @@ dependencies = [
  "async-trait",
  "blake3",
  "buck2_action_parallelism",
+ "buck2_agent_interactive",
  "buck2_build_info",
  "buck2_cli_proto",
  "buck2_common",
