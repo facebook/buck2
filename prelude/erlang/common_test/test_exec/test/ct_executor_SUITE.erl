@@ -10,6 +10,7 @@
 -export([all/0]).
 
 -export([
+    test_ct_run_exit_code/1,
     test_preload_app_file_atoms/1,
     test_split_args/1
 ]).
@@ -19,9 +20,15 @@
 
 all() ->
     [
+        test_ct_run_exit_code,
         test_split_args,
         test_preload_app_file_atoms
     ].
+
+test_ct_run_exit_code(_Config) ->
+    ?assertEqual(0, ct_executor:ct_run_exit_code({1, 2, {3, 4}})),
+    ?assertEqual(2, ct_executor:ct_run_exit_code(self())),
+    ?assertEqual(2, ct_executor:ct_run_exit_code({error, test_failure})).
 
 test_split_args(_Config) ->
     ?assertEqual(
