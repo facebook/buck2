@@ -7,8 +7,9 @@
 # above-listed licenses.
 
 load("@prelude//:platform_exe.bzl", "resolve_platform_exe")
+load("@prelude//:platform_exe_constants.bzl", "SUPPORTED_ARCHS", "SUPPORTED_OSES")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
-load("@prelude//decls:common.bzl", "PlatformExePlatform", "buck")
+load("@prelude//decls:common.bzl", "buck")
 load("@prelude//os_lookup:defs.bzl", "OsLookup", "ScriptLanguage")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused: Used as a type
 
@@ -76,7 +77,7 @@ def command_alias(
     target_os: OsLookup,
     # Either the `RunInfo` to use, or in the case of a fat platform, the choice of `RunInfo`
     # depending on `uname`
-    base: RunInfo | dict[str, RunInfo],
+    base: RunInfo | dict[str, RunInfo | dict[str, RunInfo]],
     args: cmd_args,
     env: dict[str, ArgLike],
     labels: list[str],
@@ -121,7 +122,7 @@ def command_alias(
 def _command_alias_write_trampoline_unix(
     actions: AnalysisActions,
     path: str,
-    base: RunInfo | dict[str, RunInfo],
+    base: RunInfo | dict[str, RunInfo | dict[str, RunInfo]],
     args: cmd_args,
     env: dict[str, ArgLike],
     has_content_based_path: bool,
@@ -134,13 +135,33 @@ def _command_alias_write_trampoline_unix(
         os_cases = []
         for uname, run_info in base.items():
             os_command = cmd_args()
-            _add_args_declaration_to_trampoline_args(os_command, run_info, args)
+            if isinstance(run_info, dict):
+                arch_cases = []
+                for arch, arch_run_info in run_info.items():
+                    # Direct callers can supply maps that bypass resolve_platform_exe.
+                    if arch not in SUPPORTED_ARCHS:
+                        fail("Unsupported command_alias runtime arch: {}; expected {}".format(arch, SUPPORTED_ARCHS))
+                    arch_command = cmd_args()
+                    _add_args_declaration_to_trampoline_args(arch_command, arch_run_info, args)
+                    arch_cases.append(_trampoline_case("arm64|aarch64" if arch == "arm64" else arch, arch_command))
+                os_command.add(
+                    cmd_args(
+                        cmd_args(arch_cases, delimiter = "\n"),
+                        format = """case "$(uname -m)" in
+{}
+    *) echo "Unsupported architecture for command_alias: $(uname -m)" >&2; exit 1 ;;
+esac""",
+                    )
+                )
+            else:
+                _add_args_declaration_to_trampoline_args(os_command, run_info, args)
             os_cases.append(_trampoline_case(uname, os_command))
         trampoline_args.add(
             cmd_args(
                 cmd_args(os_cases, delimiter = "\n"),
                 format = """case "$(uname)" in
 {}
+    *) echo "Unsupported operating system for command_alias: $(uname)" >&2; exit 1 ;;
 esac""",
             )
         )
@@ -378,27 +399,36 @@ command_alias_rule = prelude_rule(
             """,
             ),
             "platform_exe": attrs.dict(
-                key = attrs.enum(PlatformExePlatform),
-                value = attrs.dep(),
+                key = attrs.enum(SUPPORTED_OSES),
+                value = attrs.one_of(
+                    attrs.dep(),
+                    attrs.dict(key = attrs.enum(SUPPORTED_ARCHS), value = attrs.dep(), sorted = False),
+                ),
                 sorted = False,
                 default = {},
                 doc = """
-                A mapping from platforms to `build target`.
-                 enables you to override `exe` per host platform.
+                A mapping from OS names (`linux`, `macos`, `windows`) to executable
+                 dependencies or arch maps, for example:
+                 `{"linux": {"x86_64": ":tool-x86", "arm64": ":tool-arm"}, "macos": ":universal"}`.
 
-                If present, `exe` will be used as a fallback on host platforms that are not
-                 specified in `platform_exe`.
+                Arch maps support `x86_64` and `arm64`. Thin configurations select the
+                 target arch. Fat linux configurations require both Linux branches
+                 and dispatch at runtime using `uname -m` (`aarch64` is treated as `arm64`).
 
-                It is possible to omit `exe` when providing `platform_exe`.
-                 In that case, the build will fail if the command is invoked on a platform not specified in
-                 the mapping.
+                Fat mac/linux configurations dispatch only the OS at runtime. Arch maps
+                 for both OSes select the same configured target arch, which must be
+                 `x86_64` or `arm64`. For hosts with different architectures, use flat
+                 entries supplying a suitable portable executable for each OS.
 
-                Valid platforms are all values of the [`Platform` enum](https://dev.buck.build/javadoc/com/facebook/buck/util/environment/Platform.html) :
+                Each mapped target must already build or supply an executable for the
+                 named architecture. Adding an `arm64` key does not make Buck compile
+                 that target for ARM. Buck may configure mapped dependencies even when
+                 they are not selected. All arch maps must be nonempty and use supported
+                 keys, including maps for unselected OSes.
 
-                * `FREEBSD`
-                * `LINUX`
-                * `MACOS`
-                * `WINDOWS`
+                `exe` is an optional fallback for omitted OS entries, not missing arch
+                 entries. Without it, an omitted OS is an error if any entry is an arch
+                 map. With only flat entries, `args` supplies the command for an omitted OS.
             """,
             ),
             "args": attrs.list(

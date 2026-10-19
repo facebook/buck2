@@ -8,7 +8,7 @@
 
 load("@prelude//decls:common.bzl", "PlatformExePlatform", "TargetCpuType")
 
-Os = enum("fat_mac_linux", "freebsd", "unknown", *PlatformExePlatform)
+Os = enum("fat_mac_linux", "fat_linux", "freebsd", "unknown", *PlatformExePlatform)
 
 ScriptLanguage = enum(
     "sh",  # Unix shell script

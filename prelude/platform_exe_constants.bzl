@@ -8,4 +8,5 @@
 
 """Supported keys for platform_exe mappings."""
 
+SUPPORTED_ARCHS = ["x86_64", "arm64"]
 SUPPORTED_OSES = ["linux", "macos", "windows"]
