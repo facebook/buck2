@@ -268,21 +268,20 @@ def _compute_cxx_extension_info(ctx, deps) -> (CxxExtensionLinkInfo, CxxExtensio
 def _cxx_exe_allow_cache_upload(ctx) -> bool:
     return hasattr(ctx.attrs, "exe_allow_cache_upload") and bool(ctx.attrs.exe_allow_cache_upload)
 
-def _python_source_build_info_invalidation_inputs(ctx, deps, sources):
-    """
-    Return all Python sources packaged into the binary, but only when full
-    build info is enabled. These are consumed solely as hidden inputs to the
-    build-info generator; they must not become native link inputs.
-    """
+def _python_build_info_invalidation_inputs(ctx, deps, sources):
+    """Return packaged Python sources and extension DSOs in full mode."""
     if not getattr(ctx.attrs, "_generated_build_info_enabled", False) or ctx.attrs._generated_build_info_mode != "full":
         return []
 
     manifest_sets = [dep[PythonLibraryInfo].manifests for dep in deps if PythonLibraryInfo in dep]
-    # Deliberately project sources, not extension artifacts. The latter makes
-    # native Python build-info generation eagerly build every transitive
-    # extension DSO (the behavior removed in D121806144).
-    transitive_sources = [ctx.actions.tset(PythonLibraryManifestsTSet, children = manifest_sets).project_as_args("source_artifacts")] if manifest_sets else []
-    return sources + transitive_sources
+    if not manifest_sets:
+        return sources
+
+    manifests = ctx.actions.tset(PythonLibraryManifestsTSet, children = manifest_sets)
+    return sources + [
+        manifests.project_as_args("source_artifacts"),
+        manifests.project_as_args("extension_artifacts"),
+    ]
 
 def _compute_cxx_executable_info(
     ctx,
@@ -430,7 +429,7 @@ def process_native_linking(
     extra_artifacts = {}
 
     extension_info, extension_info_reduced = _compute_cxx_extension_info(ctx, deps)
-    generated_build_info_invalidation_inputs = _python_source_build_info_invalidation_inputs(
+    generated_build_info_invalidation_inputs = _python_build_info_invalidation_inputs(
         ctx,
         generated_build_info_invalidation_deps,
         generated_build_info_invalidation_sources,
