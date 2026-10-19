@@ -64,6 +64,7 @@ load(
     "generate_xcode_data",
 )
 load("@prelude//linking:add_elf_sections.bzl", "PRE_ADD_ELF_SECTIONS_SUFFIX", "get_elf_sections")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:generated_build_info.bzl",
     "compile_generated_build_info",
@@ -481,7 +482,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         # We cannot support deriving link execution preference off the included links, as we've already
         # lost the information on what is in the link.
         # TODO(T152860998): Derive link_execution_preference based upon the included links
-        link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, [], impl_params.force_full_hybrid_if_capable)
+        link_execution_preference = (
+            LinkExecutionPreference("remote")
+            if impl_params.force_remote_link_if_capable
+            else get_resolved_cxx_binary_link_execution_preference(ctx, [], impl_params.force_full_hybrid_if_capable)
+        )
 
         dep_links = apple_build_link_args_with_deduped_flags(
             ctx,
@@ -672,7 +677,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         filtered_links = get_filtered_links(labels_to_links.map, set(public_nodes))
         filtered_targets = get_filtered_targets(labels_to_links.map)
 
-        link_execution_preference = get_resolved_cxx_binary_link_execution_preference(ctx, labels_to_links.map.keys(), impl_params.force_full_hybrid_if_capable)
+        link_execution_preference = (
+            LinkExecutionPreference("remote")
+            if impl_params.force_remote_link_if_capable
+            else get_resolved_cxx_binary_link_execution_preference(ctx, labels_to_links.map.keys(), impl_params.force_full_hybrid_if_capable)
+        )
 
         # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
         # for the resolved nodes in the graph.

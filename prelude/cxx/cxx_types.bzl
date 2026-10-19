@@ -209,6 +209,7 @@ CxxRuleConstructorParams = record(
     # Define which providers to generate.
     generate_providers = field(CxxRuleProviderParams, CxxRuleProviderParams()),
     force_full_hybrid_if_capable = field(bool, False),
+    force_remote_link_if_capable = field(bool, False),
     # Whether shared libs for executables should generate a shared lib link tree.
     exe_shared_libs_link_tree = field(bool, True),
     extra_link_deps = field(list[LinkableProviders], []),

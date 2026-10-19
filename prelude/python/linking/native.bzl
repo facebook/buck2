@@ -371,7 +371,7 @@ def _compute_cxx_executable_info(
         extra_preprocessors_info = inherited_preprocessor_info,
         extra_link_deps = link_deps,
         exe_shared_libs_link_tree = False,
-        force_full_hybrid_if_capable = True,
+        force_remote_link_if_capable = True,
         # Darwin requires inputs ordering for binary size and historical reasons, the ordering functions do not support stripped objects yet.
         prefer_stripped_objects = linker_info.type != LinkerType("darwin") and ctx.attrs.prefer_stripped_native_objects,
         link_group_info = link_group_info,
