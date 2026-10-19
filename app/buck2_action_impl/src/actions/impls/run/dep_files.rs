@@ -2725,11 +2725,11 @@ impl<'v> CommandLineArtifactVisitor<'v> for DepFilesCommandLineVisitor<'_> {
         for tag in tags {
             // NOTE: We have validated tags earlier, so we know that if a tag does not point to
             // a dep file here, it's safe to ignore it. We also know that we'll have exactly 1
-            // dep file per tag.
+            // dep file per tag, but one output may carry several dep-file tags: record it for
+            // each of them so that every label has its dep file.
             if let Some((_label, output)) = self.tagged_outputs.get_mut(tag) {
                 // NOTE: analysis has been done so we know inputs are bound now.
-                *output = Some(artifact);
-                return;
+                *output = Some(artifact.dupe());
             }
         }
     }
@@ -3042,5 +3042,36 @@ mod tests {
         let state = dep_file_state_with(outputs_with(plain), digest_config);
         assert!(state.to_stored()?.is_some());
         Ok(())
+    }
+
+    /// Analysis accepts one output tagged with two dep-file tags (each tag then has exactly one
+    /// output). `visit_frozen_output` records the output for every matching tag, so both labels
+    /// get their dep file.
+    #[test]
+    fn output_tagged_with_two_dep_file_tags_is_recorded_for_both() {
+        let tag1 = ArtifactTag::testing_new();
+        let tag2 = ArtifactTag::testing_new();
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
+        let out = Artifact::from(BuildArtifact::testing_new(
+            target,
+            "dep_file",
+            ActionIndex::new(0),
+        ));
+        let dep_files = RunActionDepFiles {
+            labels: OrderedMap::from_iter([
+                (tag1.dupe(), Arc::from("l1")),
+                (tag2.dupe(), Arc::from("l2")),
+            ]),
+        };
+        let mut visitor = DepFilesCommandLineVisitor::new(&dep_files);
+        visitor.visit_frozen_output(out.dupe(), vec![&tag1, &tag2]);
+
+        assert_eq!(visitor.inputs.tagged.len(), 2);
+        assert_eq!(
+            visitor.tagged_outputs.get(&tag1).unwrap().1,
+            Some(out.dupe())
+        );
+        assert_eq!(visitor.tagged_outputs.get(&tag2).unwrap().1, Some(out));
     }
 }
