@@ -6,11 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:command_alias.bzl", "command_alias")
+load("@prelude//:command_alias.bzl", "CommandAliasOutput", "command_alias")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused: Used as a type
 load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 load(":nodejs_package.bzl", "get_bundled_node", "package_standalone")
 load(
@@ -24,12 +25,29 @@ load(
 )
 load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
 
-def build_nodejs_command(ctx: AnalysisContext, bundled_node: (str, Artifact) | None = None) -> struct:
+NodejsEntry = record(
+    # The file's short path, or the `library`'s `entry_point`.
+    name = field(str),
+    path = field(Artifact | cmd_args),
+)
+
+def stage_nodejs_entries(
+    ctx: AnalysisContext, mains: list[Artifact], mains_attr: str = "`main`", staged_attrs: str = "`main`/`srcs`", bundled_node: (str, Artifact) | None = None
+) -> struct:
+    """Stages the files a target runs beside the `node_modules` merged from `deps` and `library`.
+
+    `mains` are the files to run without `library`; `mains_attr` names them in errors, and
+    `staged_attrs` names them together with `srcs` in staging conflicts. Returns:
+    - `runtime`: the staged directory, or `None` when `mains` run in place.
+    - `entries`: a `NodejsEntry` per main, or for the `library`'s `entry_point`.
+    - `hidden`: the inputs of an in-place run.
+    - `env`: the environment to run with.
+    """
     tree_infos = [get_nodejs_tree_info(dep, consumer_label = ctx.label) for dep in ctx.attrs.node_modules]
     lib_info = None
     if ctx.attrs.library != None:
-        if ctx.attrs.main != None:
-            fail("{}: `main` cannot be combined with `library`; use `entry_point`".format(ctx.label))
+        if mains:
+            fail("{}: {} cannot be combined with `library`; use `entry_point`".format(ctx.label, mains_attr))
         if ctx.attrs.srcs:
             fail("{}: `srcs` cannot be combined with `library`".format(ctx.label))
         if ctx.attrs.entry_point == None:
@@ -39,27 +57,33 @@ def build_nodejs_command(ctx: AnalysisContext, bundled_node: (str, Artifact) | N
     else:
         if ctx.attrs.entry_point != None:
             fail("{}: `entry_point` requires `library`".format(ctx.label))
-        if ctx.attrs.main == None:
-            fail("{}: `main` is required without `library`".format(ctx.label))
+        if not mains:
+            fail("{}: {} is required without `library`".format(ctx.label, mains_attr))
+    mains_by_path = {}
+    for main in mains:
+        existing = mains_by_path.get(main.short_path)
+        if existing != None and existing != main:
+            fail("{}: {} entries '{}' and '{}' both have the short path '{}'".format(ctx.label, mains_attr, existing, main, main.short_path))
+        mains_by_path[main.short_path] = main
+    mains = mains_by_path.values()
     dep_infos = ([lib_info] if lib_info != None else []) + get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label)
     runtime = None
-    entry = None
     if dep_infos or bundled_node:
         staged = {}
         if lib_info == None:
-            # Stage the entrypoint beside the merged `node_modules` so Node's own resolution finds the deps.
-            for src in [ctx.attrs.main] + ctx.attrs.srcs:
+            staged.update(mains_by_path)
+            for src in ctx.attrs.srcs:
                 existing = staged.get(src.short_path)
                 if existing != None and existing != src:
-                    fail("{}: `main`/`srcs` entries '{}' and '{}' both stage to '{}'".format(ctx.label, existing, src, src.short_path))
+                    fail("{}: {} entries '{}' and '{}' both stage to '{}'".format(ctx.label, staged_attrs, existing, src, src.short_path))
                 staged[src.short_path] = src
         name = "_node_modules_"
         if bundled_node:
             node_name, node_dist = bundled_node
             if node_name in staged:
                 fail(
-                    "{}: `main`/`srcs` entry '{}' and the bundled Node binary '{}' both stage to '{}'".format(
-                        ctx.label, staged[node_name], node_dist, node_name
+                    "{}: {} entry '{}' and the bundled Node binary '{}' both stage to '{}'".format(
+                        ctx.label, staged_attrs, staged[node_name], node_dist, node_name
                     )
                 )
             staged[node_name] = node_dist
@@ -81,10 +105,20 @@ def build_nodejs_command(ctx: AnalysisContext, bundled_node: (str, Artifact) | N
             root_files = staged,
             for_runtime = True,
         )
-        if lib_info != None:
-            entry = cmd_args(runtime, format = "{}/node_modules/" + lib_info.dir_name + "/" + ctx.attrs.entry_point)
-        else:
-            entry = cmd_args(runtime, format = "{}/" + ctx.attrs.main.short_path)
+
+    hidden = []
+    if lib_info != None:
+        entries = [
+            NodejsEntry(
+                name = ctx.attrs.entry_point,
+                path = cmd_args(runtime, format = "{}/node_modules/" + lib_info.dir_name + "/" + ctx.attrs.entry_point),
+            )
+        ]
+    elif runtime != None:
+        entries = [NodejsEntry(name = main.short_path, path = cmd_args(runtime, format = "{}/" + main.short_path)) for main in mains]
+    else:
+        entries = [NodejsEntry(name = main.short_path, path = main) for main in mains]
+        hidden = ctx.attrs.srcs
 
     is_windows = ctx.attrs._target_os_type[OsLookup].os == Os("windows")
     env = dict(ctx.attrs.env)
@@ -98,27 +132,25 @@ def build_nodejs_command(ctx: AnalysisContext, bundled_node: (str, Artifact) | N
         parts = [env["NODE_PATH"]] + node_path_entries if "NODE_PATH" in env else node_path_entries
         env["NODE_PATH"] = cmd_args(parts, delimiter = delimiter)
 
-    node = ctx.attrs._nodejs_toolchain[NodejsToolchainInfo].node
-    args = cmd_args()
-    args.add(ctx.attrs.node_args)
-    if entry != None:
-        args.add(entry)
-    else:
-        args.add(ctx.attrs.main)
-        if ctx.attrs.srcs:
-            args.add(cmd_args(hidden = ctx.attrs.srcs))
-    args.add(ctx.attrs.args)
+    return struct(runtime = runtime, entries = entries, hidden = hidden, env = env)
 
-    output = command_alias(
+def nodejs_command(ctx: AnalysisContext, args: cmd_args, env: dict[str, ArgLike]) -> CommandAliasOutput:
+    """Runs the toolchain's Node with `args` and `env`, through a trampoline script for the target platform."""
+    return command_alias(
         actions = ctx.actions,
         path = None,
         target_os = ctx.attrs._target_os_type[OsLookup],
-        base = node,
+        base = ctx.attrs._nodejs_toolchain[NodejsToolchainInfo].node,
         args = args,
         env = env,
         labels = ctx.attrs.labels,
     )
-    return struct(merged = runtime, output = output, env = env)
+
+def build_nodejs_command(ctx: AnalysisContext, bundled_node: (str, Artifact) | None = None) -> struct:
+    """Runs `main`, or the `library`'s `entry_point`, with `node_args` and `args`."""
+    staged = stage_nodejs_entries(ctx, [ctx.attrs.main] if ctx.attrs.main != None else [], bundled_node = bundled_node)
+    args = cmd_args(ctx.attrs.node_args, staged.entries[0].path, ctx.attrs.args, hidden = staged.hidden)
+    return struct(merged = staged.runtime, output = nodejs_command(ctx, args, staged.env), env = staged.env)
 
 def nodejs_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     bundled_node = None

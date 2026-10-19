@@ -18,3 +18,9 @@ python_test(
     ],
     base_module = "",
 )
+
+export_file(
+    name = "nodejs_test_adapter.cjs",
+    src = "nodejs_test_adapter.cjs",
+    visibility = ["PUBLIC"],
+)
