@@ -248,14 +248,6 @@ impl AValueHeapEntry {
         }
     }
 
-    #[inline]
-    pub(crate) unsafe fn value_header_unchecked(&self) -> &AValueHeader {
-        unsafe {
-            debug_assert!(self.is_value());
-            &self.header
-        }
-    }
-
     pub(crate) fn forward(&self) -> Option<&AValueForward> {
         match self.state() {
             AValueHeapEntryState::Value(_) | AValueHeapEntryState::Reservation(_) => None,
@@ -356,11 +348,6 @@ impl<'a> AValueHeaderPtr<'a> {
             ptr,
             _marker: PhantomData,
         }
-    }
-
-    #[inline]
-    pub(crate) fn as_ptr(self) -> NonNull<AValueHeader> {
-        self.ptr
     }
 
     /// The header, for reading.

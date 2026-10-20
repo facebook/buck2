@@ -428,26 +428,10 @@ impl<'p> Pointer<'p> {
         }
     }
 
-    /// Unpack pointer when it is known to be not an integer.
-    #[inline]
-    pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p AValueHeapEntry {
-        unsafe { self.ptr.unpack_ptr_no_int_unchecked() }
-    }
-
     /// Unpack integer when it is known to be not a pointer.
     #[inline]
     pub(crate) unsafe fn unpack_pointer_i32_unchecked(self) -> &'static PointerI32 {
         unsafe { self.ptr.unpack_pointer_i32_unchecked() }
-    }
-
-    /// Unpack pointer when it is known to be frozen, not an integer, not a string.
-    #[inline]
-    pub(crate) unsafe fn unpack_ptr_no_int_no_str_unchecked(self) -> &'p AValueHeapEntry {
-        unsafe {
-            debug_assert!(self.ptr.tags() == PointerTags::OtherFrozen);
-            // No tags are set, so the pointer is the header's as is.
-            self.ptr.0.cast::<AValueHeapEntry>().as_ref()
-        }
     }
 
     #[inline]
