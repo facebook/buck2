@@ -500,6 +500,10 @@ fn page_out_preserves_concrete_then_dyn_arc_view() -> anyhow::Result<()> {
 /// Parallel deserialization of values sharing the same `Arc` must not
 /// fetch the arc's data more than once from storage.
 #[tokio::test(flavor = "multi_thread")]
+#[cfg_attr(
+    all(miri, not(target_os = "linux")),
+    ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+)]
 async fn deserialize_arc_does_not_duplicate() -> anyhow::Result<()> {
     let mem = InMemoryPagableStorage::new();
     let storage = Arc::new(CountingStorage::new(mem.handle()));
@@ -799,6 +803,10 @@ fn lazily_bound_arc_is_keyed_before_it_is_visible() {
 /// Parallel `page_out_item` calls sharing the same `finished` map must
 /// not serialize the same arc more than once.
 #[tokio::test(flavor = "multi_thread")]
+#[cfg_attr(
+    all(miri, not(target_os = "linux")),
+    ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+)]
 async fn page_out_does_not_duplicate_arc_serialization() -> anyhow::Result<()> {
     let mem = InMemoryPagableStorage::new();
     let storage = Arc::new(CountingStorage::new(mem.handle()));
@@ -1115,6 +1123,10 @@ fn a_failed_page_in_leaves_the_key_to_the_next_caller() {
 }
 
 #[test]
+#[cfg_attr(
+    all(miri, windows),
+    ignore = "parking_lot finds `WaitOnAddress` through `GetModuleHandleA`, which Miri lets only std call"
+)]
 fn concurrent_page_ins_of_one_key_deserialize_once() -> anyhow::Result<()> {
     let mem = InMemoryPagableStorage::new();
     let storage = Arc::new(CountingStorage::new(mem.handle()));
@@ -1168,6 +1180,10 @@ fn concurrent_page_ins_of_one_key_deserialize_once() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[cfg_attr(
+    all(miri, not(target_os = "linux")),
+    ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+)]
 async fn page_in_reuses_pagable_arc_identity_without_pinning_it() -> anyhow::Result<()> {
     let mem = InMemoryPagableStorage::new();
     let storage = Arc::new(CountingStorage::new(mem.handle()));
@@ -1207,6 +1223,10 @@ async fn page_in_reuses_pagable_arc_identity_without_pinning_it() -> anyhow::Res
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[cfg_attr(
+    all(miri, not(target_os = "linux")),
+    ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+)]
 async fn page_in_of_pinned_pagable_arc_does_not_pin_it_through_the_cache() -> anyhow::Result<()> {
     let mem = InMemoryPagableStorage::new();
     let storage = Arc::new(CountingStorage::new(mem.handle()));

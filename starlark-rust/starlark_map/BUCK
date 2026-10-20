@@ -45,6 +45,7 @@ rust_library(
         "fbsource//third-party/rust:rustc-hash",
         "fbsource//third-party/rust:serde_json",
     ],
+    unittests_miri = True,
     deps = [
         "fbsource//third-party/rust:equivalent",
         "fbsource//third-party/rust:hashbrown",

@@ -205,6 +205,10 @@ mod inner {
         }
 
         #[tokio::test]
+        #[cfg_attr(
+            all(miri, not(target_os = "linux")),
+            ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+        )]
         async fn test_pagable_arc_refcounts() -> anyhow::Result<()> {
             let storage =
                 PagableStorageHandle::new(std::sync::Arc::new(EmptyPagableStorage::new()));
@@ -240,6 +244,10 @@ mod inner {
         }
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        #[cfg_attr(
+            all(miri, not(target_os = "linux")),
+            ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+        )]
         async fn test_pagable_arc_paging() -> anyhow::Result<()> {
             let mut backing_storage = InMemoryPagableStorage::new();
             let storage = PagableStorageHandle::new(backing_storage.handle());
@@ -269,6 +277,10 @@ mod inner {
         }
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        #[cfg_attr(
+            all(miri, not(target_os = "linux")),
+            ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+        )]
         async fn test_pagable_arc_shared_arc() -> anyhow::Result<()> {
             let mut backing_storage = InMemoryPagableStorage::new();
             let storage = PagableStorageHandle::new(backing_storage.handle());
@@ -316,6 +328,10 @@ mod inner {
         }
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        #[cfg_attr(
+            all(miri, not(target_os = "linux")),
+            ignore = "tokio's IO driver is epoll, kqueue or IOCP by OS, and Miri models only epoll"
+        )]
         async fn test_pagable_arc() -> anyhow::Result<()> {
             let mut backing_storage = InMemoryPagableStorage::new();
             let storage = PagableStorageHandle::new(backing_storage.handle());

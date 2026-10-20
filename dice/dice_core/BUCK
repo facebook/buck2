@@ -8,6 +8,7 @@ rust_library(
         ["src/**/*.rs"],
     ),
     crate_root = "src/lib.rs",
+    unittests_miri = True,
     deps = [
         "fbsource//third-party/rust:arc-swap",
         "fbsource//third-party/rust:smallvec",

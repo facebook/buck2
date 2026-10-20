@@ -14,6 +14,7 @@ rust_library(
     rustc_flags = [
         "--cfg=rust_nightly",
     ],
+    unittests_miri = True,
     deps = [
         "//buck2/allocative/allocative:allocative",
         "//buck2/gazebo/dupe:dupe",

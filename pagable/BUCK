@@ -40,6 +40,7 @@ rust_library(
         "DEFAULT": ["tokio"],
         # @oss-disable[end= ]: "ovr_config//runtime/constraints:wasm": [],
     }),
+    unittests_miri = True,
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
