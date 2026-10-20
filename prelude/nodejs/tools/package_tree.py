@@ -6,22 +6,36 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-"""Assemble and merge package trees for the prelude's Node.js rules.
+"""Assemble, merge, archive and compress package trees for the prelude's Node.js rules.
 
 package_tree.py flat-package --emit DIR [--package-json FILE] --out DIR
 package_tree.py merge --deps DIR --prebuilt DIR --out DIR
 package_tree.py launchers --spec FILE --out DIR
+package_tree.py archive --src DIR --format FORMAT --out FILE [--root ROOT] [--executables FILE]
+    [--sha256 FILE]
+package_tree.py compress --src FILE --out OUT [--sha256 FILE] --zstd ZSTD...
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
+import gzip
+import hashlib
+import itertools
 import json
 import os
+import posixpath
 import re
 import shutil
+import stat
+import subprocess
 import sys
+import tarfile
+import zipfile
+from collections.abc import Collection, Iterator, Sequence
 from pathlib import Path
+from typing import BinaryIO, NamedTuple
 
 
 def _copy_entry(entry: os.DirEntry[str], target: Path, keep_symlinks: bool) -> None:
@@ -191,16 +205,19 @@ def _check_value(value: object, what: str) -> str:
     return value
 
 
+def _is_portable_name(name: str) -> bool:
+    return not (
+        name in ("", ".", "..")
+        or name[-1] in ". "
+        or any(c in '\t<>:"\\|?*' for c in name)
+        or _WINDOWS_DEVICE.fullmatch(name)
+    )
+
+
 def _check_path(value: object, what: str) -> str:
     path = _check_value(value, what)
-    for name in path.split("/"):
-        if (
-            name in ("", ".", "..")
-            or name[-1] in ". "
-            or any(c in '\t<>:"\\|?*' for c in name)
-            or _WINDOWS_DEVICE.fullmatch(name)
-        ):
-            raise ValueError(f"{what} {path!r} is not a portable relative path")
+    if not all(map(_is_portable_name, path.split("/"))):
+        raise ValueError(f"{what} {path!r} is not a portable relative path")
     return path
 
 
@@ -441,11 +458,263 @@ def write_launchers(spec: object, out: Path) -> None:
         path.chmod(mode)
 
 
+ARCHIVE_FORMATS = ("zip", "tar", "tar.gz")
+
+ARCHIVE_HELP = """\
+Write the contents of DIR to FILE as a FORMAT archive, under ROOT in the archive (by default, at
+its top), and FILE's SHA-256 in hex, with a newline, to the --sha256 file.
+
+Entries are in depth-first order, sorted by name within each directory. Directories are 0755, tar
+symlinks 0777, and files 0755 if their owner can execute them or the --executables file lists them,
+else 0644. Windows has no execute bits, so there only listed files are 0755. Each nonblank line of
+the --executables file, less surrounding whitespace, is the `/`-separated path of a file in DIR that
+neither is nor goes through a symlink.
+
+zip entries are Unix entries dated 1985-02-01 00:00:00, with files deflated at level 9. tar entries
+are PAX, dated 1985-10-26T08:15:00Z, with uid and gid 0 and no owner names. tar.gz is gzip at level
+9 with no name or mtime. So the archive depends only on ROOT, the --executables file, the names,
+contents, execute bits and symlinks in DIR, and the Python that writes it, including, for zip and
+tar.gz, its zlib. If writing fails, FILE and the --sha256 file are removed.
+
+A symlink must be relative, with `..` only at the start of its target, and resolve to a file or
+directory in DIR without passing outside it. tar stores symlinks; zip stores what they point to,
+and fails on a symlink to a directory that contains it.
+"""
+
+COMPRESS_HELP = """\
+Compress FILE to OUT by running `ZSTD... -o OUT FILE`, and write OUT's SHA-256 in hex, with a
+newline, to the --sha256 file. ZSTD is the rest of the command line, so --zstd comes last. If ZSTD
+or writing the --sha256 file fails, OUT and the --sha256 file are removed.
+"""
+
+# 1985-10-26T08:15:00Z, the mtime npm gives every entry of a package tarball.
+_TAR_MTIME = 499162500
+# The DOS time that Buck's Java zip tool gives every entry.
+_ZIP_DATE_TIME = (1985, 2, 1, 0, 0, 0)
+_DEFLATE_LEVEL = 9
+_DIR_MODE = stat.S_IFDIR | 0o755
+
+
+class _Entry(NamedTuple):
+    name: str
+    mode: int
+    # The file to copy, the target of a symlink, or "" for a directory.
+    source: str
+
+
+def _check_symlink(
+    path: str, name: str, location: str, real_root: str
+) -> tuple[str, str]:
+    """Checks the symlink `path`, whose path in `real_root` without symlinks is `location`.
+
+    Returns its target and the path in `real_root` without symlinks of what it resolves to.
+    """
+    target = os.readlink(path).replace(os.sep, "/")
+    if target.startswith("/") or os.path.splitdrive(target)[0]:
+        raise ValueError(f"symlink {name} -> {target} is absolute")
+    try:
+        os.stat(path)
+    except OSError as e:
+        raise ValueError(
+            f"symlink {name} -> {target} does not resolve: {e.strerror}"
+        ) from e
+    real = os.path.realpath(path)
+    inside = os.path.join(real_root, "")
+    if real != real_root and not real.startswith(inside):
+        raise ValueError(f"symlink {name} -> {target} resolves outside the directory")
+    # Extracted, the target resolves from the symlink's place under another root, so its path
+    # must stay in the directory: its leading `..`s may not climb above it, and no `..` may
+    # follow a name, since after a symlink `..` climbs from where the symlink points.
+    parts = [part for part in target.split("/") if part not in ("", ".")]
+    names = list(itertools.dropwhile(lambda part: part == "..", parts))
+    if ".." in names:
+        raise ValueError(f"symlink {name} -> {target} has `..` after a name")
+    if len(parts) - len(names) > location.count("/"):
+        raise ValueError(f"symlink {name} -> {target} passes outside the directory")
+    return target, real[len(inside) :].replace(os.sep, "/")
+
+
+def _archive_entries(
+    src: Path, root: str, follow_symlinks: bool, executables: Collection[str]
+) -> list[_Entry]:
+    if root and not (
+        root.isprintable() and all(map(_is_portable_name, root.split("/")))
+    ):
+        raise ValueError(f"root {root!r} is not a portable relative path")
+    parts = root.split("/") if root else []
+    entries = [
+        _Entry("/".join(parts[: i + 1]), _DIR_MODE, "") for i in range(len(parts))
+    ]
+    prefix = "".join(part + "/" for part in parts)
+    real_root = os.path.realpath(src)
+    listed = frozenset(executables)
+    files = set()
+
+    # `locations` are the paths in `src`, without symlinks, of `directory` and of the directories
+    # the walk went through to reach it.
+    def walk(directory: str, rel: str, locations: tuple[str, ...]) -> None:
+        for entry in sorted(os.scandir(directory), key=lambda e: e.name):
+            name = rel + entry.name
+            location = posixpath.join(locations[-1], entry.name)
+            st = entry.stat(follow_symlinks=False)
+            if stat.S_ISLNK(st.st_mode):
+                target, location = _check_symlink(entry.path, name, location, real_root)
+                if not follow_symlinks:
+                    entries.append(_Entry(prefix + name, stat.S_IFLNK | 0o777, target))
+                    continue
+                if location in locations:
+                    raise ValueError(
+                        f"symlink {name} -> {target} points to a directory that contains it"
+                    )
+                st = os.stat(entry.path)
+            if stat.S_ISDIR(st.st_mode):
+                entries.append(_Entry(prefix + name, _DIR_MODE, ""))
+                walk(entry.path, name + "/", (*locations, location))
+            elif stat.S_ISREG(st.st_mode):
+                files.add(location)
+                # Windows has no execute bits, though `os.stat` makes some up from file names.
+                executable = location in listed or (
+                    sys.platform != "win32" and st.st_mode & stat.S_IXUSR
+                )
+                mode = 0o755 if executable else 0o644
+                entries.append(_Entry(prefix + name, stat.S_IFREG | mode, entry.path))
+            else:
+                raise ValueError(f"{name} is not a file, directory or symlink")
+
+    walk(os.fspath(src), "", ("",))
+    unknown = sorted(listed - files)
+    if unknown:
+        raise ValueError(
+            f"executable {unknown[0]} names no file in the directory without following symlinks"
+        )
+    return entries
+
+
+def _write_zip(entries: list[_Entry], out: Path) -> None:
+    with zipfile.ZipFile(out, "w") as archive:
+        for entry in entries:
+            is_dir = stat.S_ISDIR(entry.mode)
+            info = zipfile.ZipInfo(
+                entry.name + "/" if is_dir else entry.name, _ZIP_DATE_TIME
+            )
+            # Unix, so that unzip and the like apply the modes in external_attr.
+            info.create_system = 3
+            # 0x10 is the MS-DOS directory attribute.
+            info.external_attr = entry.mode << 16 | (0x10 if is_dir else 0)
+            if is_dir:
+                archive.writestr(info, b"")
+            else:
+                # `writestr` needs the whole file, but before Python 3.13 it is the only public
+                # way to give a `ZipInfo` a compression level.
+                with open(entry.source, "rb") as f:
+                    archive.writestr(
+                        info,
+                        f.read(),
+                        compress_type=zipfile.ZIP_DEFLATED,
+                        compresslevel=_DEFLATE_LEVEL,
+                    )
+
+
+def _write_tar(entries: list[_Entry], fileobj: BinaryIO) -> None:
+    with tarfile.open(
+        fileobj=fileobj, mode="w", format=tarfile.PAX_FORMAT, encoding="utf-8"
+    ) as archive:
+        for entry in entries:
+            # uid and gid default to 0, and uname and gname to "".
+            info = tarfile.TarInfo(entry.name)
+            info.mode = stat.S_IMODE(entry.mode)
+            info.mtime = _TAR_MTIME
+            if stat.S_ISDIR(entry.mode):
+                info.type = tarfile.DIRTYPE
+                archive.addfile(info)
+            elif stat.S_ISLNK(entry.mode):
+                info.type = tarfile.SYMTYPE
+                info.linkname = entry.source
+                archive.addfile(info)
+            else:
+                with open(entry.source, "rb") as f:
+                    info.size = os.fstat(f.fileno()).st_size
+                    archive.addfile(info, f)
+
+
+def _write_sha256(path: Path, out: Path) -> None:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            digest.update(block)
+    out.write_bytes(digest.hexdigest().encode("ascii") + b"\n")
+
+
+@contextlib.contextmanager
+def _removed_on_failure(*paths: Path | None) -> Iterator[None]:
+    try:
+        yield
+    except BaseException:
+        for path in paths:
+            if path is not None:
+                path.unlink(missing_ok=True)
+        raise
+
+
+def write_archive(
+    src: Path,
+    archive_format: str,
+    out: Path,
+    root: str = "",
+    executables: Collection[str] = (),
+    sha256: Path | None = None,
+) -> None:
+    """Write `src` to `out` as an `archive_format` archive; see `ARCHIVE_HELP`."""
+    if archive_format not in ARCHIVE_FORMATS:
+        raise ValueError(f"unknown archive format {archive_format!r}")
+    entries = _archive_entries(
+        src, root, follow_symlinks=archive_format == "zip", executables=executables
+    )
+    with _removed_on_failure(out, sha256):
+        if archive_format == "zip":
+            _write_zip(entries, out)
+        else:
+            with open(out, "wb") as f:
+                if archive_format == "tar":
+                    _write_tar(entries, f)
+                else:
+                    # The empty filename keeps the output's name out of the gzip header.
+                    with gzip.GzipFile(
+                        filename="",
+                        mode="wb",
+                        compresslevel=_DEFLATE_LEVEL,
+                        fileobj=f,
+                        mtime=0,
+                    ) as gz:
+                        _write_tar(entries, gz)
+        if sha256 is not None:
+            _write_sha256(out, sha256)
+
+
+def compress(
+    src: Path, out: Path, zstd: Sequence[str], sha256: Path | None = None
+) -> None:
+    """Compress `src` to `out` with the zstd command `zstd`; see `COMPRESS_HELP`."""
+    if not zstd:
+        raise ValueError("no zstd command")
+    with _removed_on_failure(out, sha256):
+        subprocess.run([*zstd, "-o", os.fspath(out), os.fspath(src)], check=True)
+        if sha256 is not None:
+            _write_sha256(out, sha256)
+
+
 def _path(arg: str) -> Path:
     # `node_modules` trees routinely exceed MAX_PATH on Windows.
     if sys.platform == "win32":
         return Path("\\\\?\\" + os.path.abspath(arg))
     return Path(arg)
+
+
+def _read_executables(path: Path | None) -> list[str]:
+    if path is None:
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return [line.strip() for line in lines if line.strip()]
 
 
 def main() -> int:
@@ -466,6 +735,26 @@ def main() -> int:
     )
     launchers.add_argument("--spec", type=_path, required=True, metavar="FILE")
     launchers.add_argument("--out", type=_path, required=True, metavar="DIR")
+    archive = commands.add_parser(
+        "archive",
+        description=ARCHIVE_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    archive.add_argument("--src", type=_path, required=True, metavar="DIR")
+    archive.add_argument("--format", choices=ARCHIVE_FORMATS, required=True)
+    archive.add_argument("--out", type=_path, required=True, metavar="FILE")
+    archive.add_argument("--root", default="")
+    archive.add_argument("--executables", type=_path, metavar="FILE")
+    archive.add_argument("--sha256", type=_path, metavar="FILE")
+    compressed = commands.add_parser(
+        "compress",
+        description=COMPRESS_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    compressed.add_argument("--src", type=_path, required=True, metavar="FILE")
+    compressed.add_argument("--out", type=_path, required=True, metavar="OUT")
+    compressed.add_argument("--sha256", type=_path, metavar="FILE")
+    compressed.add_argument("--zstd", nargs=argparse.REMAINDER, required=True)
     args = parser.parse_args()
 
     if args.command == "flat-package":
@@ -476,6 +765,27 @@ def main() -> int:
             write_launchers(json.loads(args.spec.read_text(encoding="utf-8")), args.out)
         except (OSError, ValueError) as e:
             print(f"launchers: {e}", file=sys.stderr)
+            return 1
+        return 0
+    if args.command == "archive":
+        try:
+            write_archive(
+                args.src,
+                args.format,
+                args.out,
+                args.root,
+                _read_executables(args.executables),
+                args.sha256,
+            )
+        except (ValueError, OSError) as e:
+            print(f"archive: {e}", file=sys.stderr)
+            return 1
+        return 0
+    if args.command == "compress":
+        try:
+            compress(args.src, args.out, args.zstd, args.sha256)
+        except (ValueError, OSError, subprocess.CalledProcessError) as e:
+            print(f"compress: {e}", file=sys.stderr)
             return 1
         return 0
     clashes = merge(args.deps, args.prebuilt, args.out)
