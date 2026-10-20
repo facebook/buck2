@@ -1,0 +1,29 @@
+name: Format
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch: # allows manual triggering
+
+permissions:
+  contents: read
+
+jobs:
+  # `fmt.py --check` formats Rust and Starlark exactly as Meta's internal
+  # `arc f` does (see the docstring of fmt.py), so a pull request that passes
+  # here needs no Rust or Starlark reformatting when it is imported. It is fast
+  # and independent of the build, so it is its own workflow rather than a step
+  # of "Build and test".
+  format:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    # The toolchain of rust-toolchain.toml builds `tools/starlark_fmt`; the
+    # pinned nightly rustfmt is installed by fmt.py itself through rustup.
+    - uses: ./.github/actions/setup_rust_toolchain
+    - uses: Swatinem/rust-cache@v2
+      with:
+        prefix-key: buck2-format
+    - name: Check formatting
+      run: python3 fmt.py --check

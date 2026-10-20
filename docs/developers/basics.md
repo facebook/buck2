@@ -27,6 +27,9 @@ arc lint -a
 arc f
 ```
 
+In open source, `python3 fmt.py` formats Rust and Starlark exactly as `arc f` does, and the
+"Format" GitHub check enforces it; `python3 fmt.py --check` only reports.
+
 Buck2 has standard Rust unittests and integration tests at `tests/core`.
 
 ```bash
