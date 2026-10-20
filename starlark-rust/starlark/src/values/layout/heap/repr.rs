@@ -16,9 +16,12 @@
  */
 
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::mem;
 use std::mem::ManuallyDrop;
+use std::ops::Deref;
 use std::ptr;
+use std::ptr::NonNull;
 use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::Ordering;
 
@@ -30,6 +33,7 @@ use crate::values::Value;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::arena::HeapKind;
+use crate::values::layout::pointer::TAG_UNFROZEN;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
@@ -74,40 +78,47 @@ pub(crate) struct AValueRepr<T> {
 /// regardless of whether it points to frozen or unfrozen value.
 /// User of this struct must set this bit explicitly if needed.
 #[derive(Copy, Clone, Dupe, PartialEq, Eq)]
-pub(crate) struct ForwardPtr(usize);
+pub(crate) struct ForwardPtr(NonNull<()>);
 
 impl ForwardPtr {
-    pub(crate) fn new(ptr: usize) -> ForwardPtr {
-        debug_assert_eq!(ptr & HEAP_ENTRY_TAG_MASK, 0);
+    pub(crate) fn new(ptr: NonNull<()>) -> ForwardPtr {
+        debug_assert_eq!(ptr.addr().get() & HEAP_ENTRY_TAG_MASK, 0);
         ForwardPtr(ptr)
     }
 
     /// Whether this is the address of `entry`.
     pub(crate) fn points_to(self, entry: &AValueHeapEntry) -> bool {
-        self.0 == entry as *const AValueHeapEntry as usize
+        ptr::addr_eq(self.0.as_ptr(), entry)
     }
 
     /// Create a forward pointer to a frozen value. This is used during heap freeze.
     pub(crate) fn new_frozen(value: Value) -> ForwardPtr {
         debug_assert!(value.is_frozen());
-        ForwardPtr::new(value.0.raw().ptr_value())
+        ForwardPtr::new(value.0.raw().ptr())
     }
 
     /// Create a forward pointer to an unfrozen value. This is used during heap GC.
     pub(crate) fn new_unfrozen(value: Value) -> ForwardPtr {
         debug_assert!(!value.is_frozen());
-        ForwardPtr::new(value.0.raw().ptr_value() & !1)
+        let ptr = value
+            .0
+            .raw()
+            .ptr()
+            .as_ptr()
+            .map_addr(|addr| addr & !TAG_UNFROZEN);
+        // SAFETY: clearing a tag bit of a value's pointer leaves it non-null.
+        ForwardPtr::new(unsafe { NonNull::new_unchecked(ptr) })
     }
 
     /// It's caller responsibility to ensure that forward pointer points to a frozen value in the
     /// heap of `'v`.
     pub(crate) unsafe fn unpack_frozen_value<'v>(self) -> Value<'v> {
-        unsafe { Value::new_frozen_ptr_usize_with_str_tag(self.0) }
+        unsafe { Value::new_frozen_ptr_with_str_tag(self.0) }
     }
 
     /// It's caller responsibility to ensure that forward pointer points to an unfrozen value.
     pub(crate) unsafe fn unpack_unfrozen_value<'v>(self) -> Value<'v> {
-        unsafe { Value::new_ptr_usize_with_str_tag(self.0) }
+        unsafe { Value::new_ptr_with_str_tag(self.0) }
     }
 
     pub(crate) unsafe fn unpack_value<'v>(self, heap_kind: HeapKind) -> Value<'v> {
@@ -125,7 +136,7 @@ impl ForwardPtr {
 #[derive(Debug)]
 pub(crate) struct AValueForward {
     /// Moved object pointer with lowest bit set.
-    forward_ptr: usize,
+    forward_ptr: *mut (),
     /// Size of `AValueRepr<T>` including extra.
     object_size: ValueAllocSize,
 }
@@ -144,17 +155,18 @@ impl AValueForward {
     }
 
     pub(crate) fn new(forward_ptr: ForwardPtr, object_size: ValueAllocSize) -> AValueForward {
-        debug_assert_eq!(forward_ptr.0 & HEAP_ENTRY_TAG_MASK, 0);
         Self {
-            forward_ptr: forward_ptr.0 | FORWARD_TAG,
+            forward_ptr: forward_ptr.0.as_ptr().map_addr(|addr| addr | FORWARD_TAG),
             object_size,
         }
     }
 
     /// Unpack forward pointer.
     pub(crate) fn forward_ptr(&self) -> ForwardPtr {
-        debug_assert_eq!(self.forward_ptr & HEAP_ENTRY_TAG_MASK, FORWARD_TAG);
-        ForwardPtr(self.forward_ptr & !FORWARD_TAG)
+        debug_assert_eq!(self.forward_ptr.addr() & HEAP_ENTRY_TAG_MASK, FORWARD_TAG);
+        let ptr = self.forward_ptr.map_addr(|addr| addr & !FORWARD_TAG);
+        // SAFETY: `new` tagged a non-null pointer.
+        ForwardPtr(unsafe { NonNull::new_unchecked(ptr) })
     }
 }
 
@@ -169,7 +181,8 @@ pub(crate) union AValueHeapEntry {
     // We intentionally do not implement `Copy` for these types
     // to avoid accidentally copying them.
     header: ManuallyDrop<AValueHeader>,
-    flags: usize,
+    /// A reservation's size and tag, as a pointer without provenance.
+    reservation: *const (),
 }
 
 const _: () = assert!(mem::size_of::<AValueHeapEntry>() == mem::size_of::<AValueHeader>());
@@ -181,13 +194,13 @@ const _: () =
 impl AValueHeapEntry {
     #[inline]
     fn raw_word(&self) -> usize {
-        // SAFETY: Every variant of this union is a single pointer-sized word:
-        // `header` is `&'static AValueVTable` (a non-null pointer with the same
-        // size and layout as `usize`) and `flags` is `usize` itself. Reading
-        // the word as an integer only discards provenance, which tag inspection
-        // does not need; pointer variants are re-read through a typed pointer
-        // in `state()`.
-        unsafe { self.flags }
+        // SAFETY: Every variant of this union is a single pointer: `header` is
+        // `&'static AValueVTable`, `reservation` a pointer without provenance,
+        // and a forward's first word (`AValueForward`, written over the entry)
+        // its tagged destination. Reading any of them as an untyped pointer is
+        // fine, and the tag inspection here only wants the address; the
+        // variants are re-read through their own type in `state()`.
+        unsafe { self.reservation }.addr()
     }
 
     #[inline]
@@ -196,7 +209,7 @@ impl AValueHeapEntry {
     }
 
     #[inline]
-    fn is_value(&self) -> bool {
+    pub(crate) fn is_value(&self) -> bool {
         self.tag() == 0
     }
 
@@ -208,7 +221,7 @@ impl AValueHeapEntry {
         // reads an untyped heap word.
         debug_assert_eq!(alloc_size & HEAP_ENTRY_TAG_MASK, 0);
         AValueHeapEntry {
-            flags: alloc_size | RESERVATION_TAG,
+            reservation: ptr::without_provenance(alloc_size | RESERVATION_TAG),
         }
     }
 
@@ -277,7 +290,7 @@ pub(crate) enum AValueHeapEntryState<'a> {
 /// claimed slot whose value is not there is named rather than treated as a
 /// value with the sentinel vtable.
 pub(crate) enum WalkState<'a> {
-    Value(&'a AValueHeader),
+    Value(AValueHeaderPtr<'a>),
     /// A slot claimed for deserialization and not written. Only its payload
     /// address is known here; the header word must not be read again.
     Uninitialized {
@@ -308,9 +321,11 @@ impl AValueHeapEntry {
                     payload: StarlarkValueRawPtr::new_header_ptr(entry.cast()).ptr,
                 }
             }
-            // SAFETY: the word is a live value's vtable, and the store that
-            // published it happened before this load.
-            0 => WalkState::Value(unsafe { &*entry.cast::<AValueHeader>() }),
+            // SAFETY: the word is a live value's vtable, the store that published it
+            // happened before this load, and `entry` is the walk's pointer over the chunk.
+            0 => WalkState::Value(unsafe {
+                AValueHeaderPtr::new(NonNull::new_unchecked(entry.cast_mut().cast()))
+            }),
             // SAFETY: as in `state`.
             FORWARD_TAG => WalkState::Forward(unsafe { &*entry.cast::<AValueForward>() }),
             RESERVATION_TAG => WalkState::Reservation(ValueAllocSize::new(AlignedSize::new_bytes(
@@ -318,6 +333,97 @@ impl AValueHeapEntry {
             ))),
             _ => panic!("invalid heap entry tag"),
         }
+    }
+}
+
+/// A live value's header, by a pointer whose provenance covers the whole value. That is what a
+/// `Value` is made from and what a payload is reached through: a `&AValueHeader` covers the
+/// header's bytes alone, and only for reading, which is what it is good for (the vtable).
+#[derive(Copy, Clone)]
+pub(crate) struct AValueHeaderPtr<'a> {
+    ptr: NonNull<AValueHeader>,
+    _marker: PhantomData<&'a AValueHeader>,
+}
+
+impl<'a> AValueHeaderPtr<'a> {
+    /// # Safety
+    ///
+    /// `ptr` points at the header of a live value, with provenance over the whole value, for
+    /// `'a`.
+    #[inline]
+    pub(crate) unsafe fn new(ptr: NonNull<AValueHeader>) -> Self {
+        AValueHeaderPtr {
+            ptr,
+            _marker: PhantomData,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn as_ptr(self) -> NonNull<AValueHeader> {
+        self.ptr
+    }
+
+    /// The header, for reading.
+    #[inline]
+    pub(crate) fn header(self) -> &'a AValueHeader {
+        // SAFETY: `new`'s contract.
+        unsafe { self.ptr.as_ref() }
+    }
+
+    #[inline]
+    pub(crate) fn payload_ptr(self) -> StarlarkValueRawPtr {
+        StarlarkValueRawPtr::new_header_ptr(self.ptr.as_ptr())
+    }
+
+    #[inline]
+    pub(crate) fn unpack(self) -> AValueDyn<'a> {
+        // A reservation or forward word is not a vtable, so dispatching through it in release
+        // builds is undefined behavior. Reaching one here requires holding a value from a heap
+        // whose freeze or GC is in progress or was abandoned; consuming APIs (`Module::freeze`)
+        // make that unreachable from safe code.
+        debug_assert!(
+            // SAFETY: a heap entry is one word, which the header is.
+            unsafe { self.ptr.cast::<AValueHeapEntry>().as_ref() }.is_value(),
+            "value is not a live heap entry; value cannot be unpacked during GC or freeze"
+        );
+        // SAFETY: `new`'s contract.
+        unsafe { AValueDyn::new(self.payload_ptr(), self.header().0) }
+    }
+
+    /// # Safety
+    ///
+    /// The value is a `T`.
+    #[inline]
+    pub(crate) unsafe fn payload<T: StarlarkValue<'a>>(self) -> &'a T {
+        unsafe {
+            debug_assert_eq!(
+                self.header().0.static_type_of_value.get(),
+                T::static_type_id()
+            );
+            &*self.payload_ptr().value_ptr::<T>()
+        }
+    }
+
+    /// # Safety
+    ///
+    /// The value lives in a heap of the given kind that `'a` reaches.
+    #[inline]
+    pub(crate) unsafe fn unpack_value(self, heap_kind: HeapKind) -> Value<'a> {
+        unsafe {
+            match heap_kind {
+                HeapKind::Unfrozen => Value::new_ptr_query_is_str(self.ptr),
+                HeapKind::Frozen => Value::new_frozen_ptr(self.ptr, self.header().0.is_str),
+            }
+        }
+    }
+}
+
+impl Deref for AValueHeaderPtr<'_> {
+    type Target = AValueHeader;
+
+    #[inline]
+    fn deref(&self) -> &AValueHeader {
+        self.header()
     }
 }
 
@@ -346,41 +452,21 @@ impl AValueHeader {
         AValueHeader(AValueVTable::new::<T>())
     }
 
+    /// The payload's address, by a pointer with this reference's provenance, which covers the
+    /// header alone. For reading; writing to a value goes through [`AValueHeaderPtr`].
     #[inline]
     pub(crate) fn payload_ptr(&self) -> StarlarkValueRawPtr {
         StarlarkValueRawPtr::new_header(self)
     }
 
-    pub(crate) unsafe fn payload<'v, T: StarlarkValue<'v>>(&self) -> &T {
-        unsafe {
-            debug_assert_eq!(self.0.static_type_of_value.get(), T::static_type_id());
-            &*self.payload_ptr().value_ptr::<T>()
-        }
-    }
-
-    pub(crate) unsafe fn unpack_value<'v>(&'v self, heap_kind: HeapKind) -> Value<'v> {
-        match heap_kind {
-            HeapKind::Unfrozen => Value::new_ptr_query_is_str(self),
-            HeapKind::Frozen => Value::new_frozen_ptr(self, self.0.is_str),
-        }
-    }
-
+    /// The value, by a pointer with this reference's provenance, which covers the header alone.
+    /// For reading (its size, say); writing to a value goes through [`AValueHeaderPtr`].
     pub(crate) fn unpack<'v>(&'v self) -> AValueDyn<'v> {
-        unsafe {
-            // TODO: this assertion does not belong here.
-            //   Instead, `Value` should be a `Pointer<AValueHeapEntry>`
-            //   instead of `Pointer<AValueHeader>`,
-            //   and assertion should be where we unpack the pointer.
-            // A reservation or forward word is not a vtable, so dispatching
-            // through it in release builds is undefined behavior. Reaching one
-            // here requires holding a value from a heap whose freeze or GC is
-            // in progress or was abandoned; consuming APIs (`Module::freeze`)
-            // make that unreachable from safe code.
-            debug_assert!(
-                (*(self as *const AValueHeader as *const AValueHeapEntry)).is_value(),
-                "value is not a live heap entry; value cannot be unpacked during GC or freeze"
-            );
-        }
+        // See `AValueHeaderPtr::unpack`.
+        debug_assert!(
+            self.as_heap_entry().is_value(),
+            "value is not a live heap entry; value cannot be unpacked during GC or freeze"
+        );
         unsafe { AValueDyn::new(self.payload_ptr(), self.0) }
     }
 
@@ -450,8 +536,8 @@ impl<T> AValueRepr<T> {
     }
 
     pub(crate) fn from_payload_ptr_mut(payload_ptr: *mut T) -> *mut AValueRepr<T> {
-        let payload_ptr = payload_ptr as usize;
-        let header_ptr = payload_ptr - Self::offset_of_payload();
-        header_ptr as *mut AValueRepr<T>
+        payload_ptr
+            .wrapping_byte_sub(Self::offset_of_payload())
+            .cast::<AValueRepr<T>>()
     }
 }

@@ -94,7 +94,7 @@ const TAG_LEN_2: usize = TAGS_NEVER_VALUE[1];
 #[repr(transparent)]
 pub(super) struct AllocatedThinBoxSlice<T> {
     /// Tagged pointer to the first element, `ThinBoxSliceLayout.data`.
-    ptr: usize,
+    ptr: *mut (),
     phantom: PhantomData<T>,
 }
 
@@ -129,7 +129,7 @@ impl<T> AllocatedThinBoxSlice<T> {
     #[inline]
     pub(super) const fn empty() -> AllocatedThinBoxSlice<T> {
         AllocatedThinBoxSlice {
-            ptr: TAG_HEADER,
+            ptr: ptr::without_provenance_mut(TAG_HEADER),
             phantom: PhantomData,
         }
     }
@@ -144,7 +144,7 @@ impl<T> AllocatedThinBoxSlice<T> {
 
     /// The word, which nothing frees unless the handle is rebuilt from it.
     #[inline]
-    pub(super) const fn into_inner(self) -> usize {
+    pub(super) const fn into_inner(self) -> *mut () {
         self.ptr
     }
 
@@ -176,12 +176,12 @@ impl<T> AllocatedThinBoxSlice<T> {
 
     #[inline]
     fn tag(&self) -> usize {
-        self.ptr & TAG_MASK
+        self.ptr.addr() & TAG_MASK
     }
 
     #[inline]
     fn as_ptr(&self) -> *mut T {
-        (self.ptr & !TAG_MASK) as *mut T
+        self.ptr.map_addr(|addr| addr & !TAG_MASK).cast()
     }
 
     #[inline]
@@ -234,16 +234,18 @@ impl<T> AllocatedThinBoxSlice<T> {
                 if alloc.is_null() {
                     alloc::handle_alloc_error(layout);
                 }
-                let data_ptr = if tag == TAG_HEADER {
+                let data_ptr: *mut () = if tag == TAG_HEADER {
                     let alloc = alloc as *mut ThinBoxSliceLayout<T>;
                     (*alloc).header.len = len;
-                    alloc.byte_offset(ThinBoxSliceLayout::<T>::offset_of_data()) as usize
+                    alloc
+                        .byte_offset(ThinBoxSliceLayout::<T>::offset_of_data())
+                        .cast()
                 } else {
-                    alloc as usize
+                    alloc.cast()
                 };
-                debug_assert!(data_ptr & TAG_MASK == 0);
+                debug_assert!(data_ptr.addr() & TAG_MASK == 0);
                 AllocatedThinBoxSlice {
-                    ptr: data_ptr | tag,
+                    ptr: data_ptr.map_addr(|addr| addr | tag),
                     phantom: PhantomData,
                 }
             }
@@ -451,7 +453,7 @@ mod tests {
     fn test_words_are_tagged() {
         for i in 0..8 {
             let thin = AllocatedThinBoxSlice::from_iter((0..i).map(|j| j.to_string()));
-            let word = thin.ptr;
+            let word = thin.ptr.addr();
             assert!(AllocatedThinBoxSlice::<String>::is_word(word), "len {i}");
             assert_eq!(word & !TAG_MASK == 0, i == 0, "len {i}");
             thin.run_drop();

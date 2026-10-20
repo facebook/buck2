@@ -22,6 +22,7 @@ use std::fmt::Display;
 use std::hash::Hasher;
 use std::mem;
 use std::ptr;
+use std::ptr::NonNull;
 
 use allocative::Allocative;
 use num_bigint::BigInt;
@@ -34,7 +35,6 @@ use starlark_map::StarlarkHasher;
 
 use crate as starlark;
 use crate::any::AnyLifetime;
-use crate::cast;
 use crate::private::Private;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
@@ -93,16 +93,18 @@ impl PointerI32 {
     ) -> &'static PointerI32 {
         unsafe {
             debug_assert!(raw_pointer.is_int());
-            // UB if the pointer isn't aligned, or it is zero.
-            // Alignment is 1, so that's not an issue.
-            // And the pointer is not zero because it has `TAG_INT` bit set.
-            cast::usize_to_ptr(raw_pointer.ptr_value())
+            // SAFETY: a zero-sized type of alignment 1 has a valid place at every non-null
+            // address, and the pointer is not null because the `TAG_INT` bit is set. The
+            // address encodes the integer; the reference never reads memory.
+            raw_pointer.ptr().cast::<PointerI32>().as_ref()
         }
     }
 
     #[inline]
     pub(crate) fn get(&self) -> InlineInt {
-        unsafe { RawPointer::new_unchecked(self as *const Self as usize).unpack_int_unchecked() }
+        // SAFETY: a `PointerI32` only ever comes from `from_raw_pointer_unchecked`, so its
+        // address encodes an integer.
+        unsafe { RawPointer(NonNull::from(self).cast()).unpack_int_unchecked() }
     }
 
     /// A static is immortal, so it is usable at every brand; `&'static self` is the proof.

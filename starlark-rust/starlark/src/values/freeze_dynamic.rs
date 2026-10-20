@@ -280,7 +280,8 @@ impl<'fv> FreezeSlot<'fv> {
     /// Target for the source's forwarding record. The destination holds no
     /// value until the slot is published.
     fn forward_ptr(&self) -> ForwardPtr {
-        ForwardPtr::new(self.pointer as usize)
+        // SAFETY: a slot is never reserved at null.
+        ForwardPtr::new(unsafe { NonNull::new_unchecked(self.pointer) }.cast())
     }
 
     /// The size the reservation was made with.
@@ -379,7 +380,7 @@ impl<'fv> FreezeSlot<'fv> {
         // SAFETY: The header was written just above and lives as long as its frozen
         // heap, and `A` is not a string (checked above), so the pointer carries no
         // string tag.
-        unsafe { Value::new_frozen_ptr(&*header, false) }
+        unsafe { Value::new_frozen_ptr(NonNull::new_unchecked(header), false) }
     }
 }
 

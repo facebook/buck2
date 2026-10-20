@@ -25,6 +25,7 @@ use std::fmt::Formatter;
 use std::marker;
 use std::mem;
 use std::ops::Deref;
+use std::ptr::NonNull;
 use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::Ordering;
 
@@ -187,20 +188,27 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
         ValueTyped(value, marker::PhantomData)
     }
 
+    /// # Safety
+    ///
+    /// As for [`Value::new_repr`].
     #[inline]
-    pub(crate) fn new_repr<A: AValue<'v, StarlarkValue = T>>(
-        repr: &'v AValueRepr<AValueImpl<'v, A>>,
+    pub(crate) unsafe fn new_repr<A: AValue<'v, StarlarkValue = T>>(
+        repr: NonNull<AValueRepr<AValueImpl<'v, A>>>,
     ) -> ValueTyped<'v, T> {
-        ValueTyped(Value::new_repr(repr), marker::PhantomData)
+        ValueTyped(unsafe { Value::new_repr(repr) }, marker::PhantomData)
     }
 
     /// A value allocated in a frozen heap: the pointer carries the frozen tag.
+    ///
+    /// # Safety
+    ///
+    /// As for [`Value::new_frozen_ptr`].
     #[inline]
-    pub(crate) fn new_frozen_repr<A: AValue<'v, StarlarkValue = T>>(
-        repr: &'v AValueRepr<AValueImpl<'v, A>>,
+    pub(crate) unsafe fn new_frozen_repr<A: AValue<'v, StarlarkValue = T>>(
+        repr: NonNull<AValueRepr<AValueImpl<'v, A>>>,
     ) -> ValueTyped<'v, T> {
         ValueTyped(
-            Value::new_frozen_ptr(&repr.header, A::IS_STR),
+            unsafe { Value::new_frozen_ptr(repr.cast(), A::IS_STR) },
             marker::PhantomData,
         )
     }
@@ -224,14 +232,10 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
     pub(crate) fn new_static_repr<A: AValue<'static, StarlarkValue = T>>(
         repr: &'static AValueRepr<AValueImpl<'static, A>>,
     ) -> ValueTyped<'v, T> {
-        // The value is reached by casting the tagged integer inside `Value` back to a pointer, so
-        // the provenance of the whole object must be exposed: the header alone, which the cast
-        // below goes through, is not large enough (`StarlarkStrNRepr::erase` does the same for
-        // the string statics).
-        let _ = std::ptr::from_ref(repr).expose_provenance();
         // Statics carry the frozen tag, like every value not allocated in an unfrozen heap.
+        // SAFETY: a static is immortal, and the reference covers the whole object.
         ValueTyped(
-            Value::new_frozen_ptr(&repr.header, A::IS_STR),
+            unsafe { Value::new_frozen_ptr(NonNull::from(repr).cast(), A::IS_STR) },
             marker::PhantomData,
         )
     }

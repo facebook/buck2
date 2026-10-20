@@ -45,13 +45,7 @@ impl<'v> ValueNotSpecial<'v> {
     #[inline]
     fn get_ref(self) -> AValueDyn<'v> {
         // SAFETY: we checked in constructor that it is a frozen value which is not a str or i32.
-        unsafe {
-            self.0
-                .0
-                .unpack_ptr_no_int_no_str_unchecked()
-                .value_header_unchecked()
-                .unpack()
-        }
+        unsafe { self.0.0.value_header_ptr_unchecked().unpack() }
     }
 
     #[inline]

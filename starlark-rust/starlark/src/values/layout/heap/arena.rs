@@ -68,6 +68,7 @@ use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
+use crate::values::layout::heap::repr::AValueHeaderPtr;
 use crate::values::layout::heap::repr::AValueHeapEntry;
 #[cfg(debug_assertions)]
 use crate::values::layout::heap::repr::AValueHeapEntryState;
@@ -132,12 +133,43 @@ pub(crate) struct ArenaOffset {
     pub(crate) offset: u32,
 }
 
+/// A chunk's base pointer, for the serializer to build value pointers from, so that those carry
+/// the chunk's provenance rather than being conjured from an address.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct ChunkBase(NonNull<u8>);
+
+// SAFETY: An address as far as its users are concerned: what it points at is reached only
+// through the heap that owns the chunk.
+unsafe impl Send for ChunkBase {}
+unsafe impl Sync for ChunkBase {}
+
+impl Allocative for ChunkBase {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
+        visitor.visit_simple_sized::<Self>();
+    }
+}
+
+impl ChunkBase {
+    fn new(ptr: *mut u8) -> ChunkBase {
+        ChunkBase(NonNull::new(ptr).expect("an allocated chunk is not at null"))
+    }
+
+    pub(crate) fn addr(self) -> usize {
+        self.0.addr().get()
+    }
+
+    /// The pointer `offset` bytes into the chunk.
+    pub(crate) fn add(self, offset: usize) -> *const u8 {
+        self.0.as_ptr().wrapping_add(offset).cast_const()
+    }
+}
+
 /// Per-chunk record returned by [`Arena::build_chunk_index`]. One entry
 /// per allocated chunk in serialization order (drop bump, then non-drop).
 #[derive(Debug)]
 pub(crate) struct ChunkInfo {
-    /// Chunk's base address.
-    pub(crate) base: usize,
+    /// Chunk's base.
+    pub(crate) base: ChunkBase,
     /// Chunk size in bytes.
     pub(crate) size: u32,
     /// Cumulative count of values in earlier chunks (this heap's
@@ -191,7 +223,7 @@ pub(crate) struct Arena<A: ArenaAllocator> {
 /// value access, a walk can meet a claimed slot whose value is not there, so
 /// that is a kind of its own rather than a value with a panicking vtable.
 pub(crate) enum ArenaEntry<'a> {
-    Value(&'a AValueHeader),
+    Value(AValueHeaderPtr<'a>),
     /// A claimed slot this walk cannot expose: its payload is unwritten, or
     /// its construction dependencies are pending or failed. Treat both the
     /// payload and header as opaque.
@@ -253,9 +285,9 @@ impl<'a> ArenaEntry<'a> {
     }
 
     /// The header of an initialized payload, filtered by the walk's mode.
-    fn value_header(&self) -> Option<&'a AValueHeader> {
+    fn value_header(&self) -> Option<AValueHeaderPtr<'a>> {
         match self {
-            ArenaEntry::Value(header) => Some(header),
+            ArenaEntry::Value(header) => Some(*header),
             ArenaEntry::Uninitialized { .. }
             | ArenaEntry::Forward(_)
             | ArenaEntry::Reservation(_) => None,
@@ -274,7 +306,8 @@ impl<'v, T: AValue<'v>> Reservation<'v, T> {
     /// Target for the source's forwarding record. The destination holds no
     /// value until [`Reservation::fill`] publishes one.
     pub(crate) fn forward_ptr(&self) -> ForwardPtr {
-        ForwardPtr::new(self.pointer as usize)
+        // SAFETY: the arena never hands out a null reservation.
+        ForwardPtr::new(unsafe { NonNull::new_unchecked(self.pointer) }.cast())
     }
 
     /// Publishes the value and returns its now-valid header.
@@ -335,8 +368,9 @@ impl<'fh, T: AValue<'fh>> FrozenReservation<'fh, T> {
     pub(crate) fn fill(self, x: T::StarlarkValue) -> Value<'fh> {
         let header = self.0.fill(x);
         // SAFETY: `fill` published the value header on the frozen heap this
-        // reservation was branded from, and reservations are never strings.
-        unsafe { Value::new_frozen_ptr(&*header.as_ptr(), false) }
+        // reservation was branded from, by the allocation's pointer, and
+        // reservations are never strings.
+        unsafe { Value::new_frozen_ptr(header, false) }
     }
 }
 
@@ -352,8 +386,9 @@ impl<'v, T: AValue<'v>> ValueReservation<'v, T> {
 
     pub(crate) fn fill(self, x: T::StarlarkValue) -> Value<'v> {
         let header = self.0.fill(x);
-        // SAFETY: `fill` published the value header, and reservations are never strings.
-        unsafe { Value::new_ptr(&*header.as_ptr(), false) }
+        // SAFETY: `fill` published the value header, by the allocation's pointer, and
+        // reservations are never strings.
+        unsafe { Value::new_ptr(header, false) }
     }
 }
 
@@ -480,7 +515,6 @@ impl<A: ArenaAllocator> Arena<A> {
 
         let size = T::alloc_size_for_extra_len(extra_len);
         let p = bump.alloc(size).as_ptr();
-        let _ = p.expose_provenance();
         unsafe {
             let repr = p as *mut MaybeUninit<AValueRepr<_>>;
             let extra = slice::from_raw_parts_mut(
@@ -521,12 +555,13 @@ impl<A: ArenaAllocator> Arena<A> {
     pub(crate) fn alloc<'v, 'v2, T: AValue<'v2, ExtraElem = ()>>(
         &'v self,
         x: AValueImpl<'v2, T>,
-    ) -> &'v AValueRepr<AValueImpl<'v2, T>> {
+    ) -> NonNull<AValueRepr<AValueImpl<'v2, T>>> {
         debug_assert!(T::extra_len(&x.1) == 0);
         let bump = self.bump_for_type::<T>();
         let arena_uninit = Self::alloc_uninit::<T>(bump, 0);
         arena_uninit.debug_assert_extra_is_empty();
-        unsafe { &mut *arena_uninit.write_no_extra(x.1) }
+        // SAFETY: the arena never allocates at null.
+        unsafe { NonNull::new_unchecked(arena_uninit.write_no_extra(x.1)) }
     }
 
     /// Allocate a type `T` plus `extra` bytes.
@@ -663,7 +698,6 @@ impl<A: ArenaAllocator> Arena<A> {
         let total_bytes = total_bytes.get();
         let size = ValueAllocSize::new(AlignedSize::new_bytes(total_bytes as usize));
         let block = bump.alloc(size);
-        let _ = block.as_ptr().expose_provenance();
         let cursor = match A::CHUNK_ALLOCATION_DIRECTION {
             ChunkAllocationDirection::Up => block.as_ptr(),
             ChunkAllocationDirection::Down => unsafe { block.as_ptr().add(total_bytes as usize) },
@@ -678,7 +712,7 @@ impl<A: ArenaAllocator> Arena<A> {
         let mut headers = Vec::new();
         self.for_each_bump_ordered(bump, |kind| {
             if let Some(header) = kind.value_header() {
-                headers.push(header);
+                headers.push(header.header());
             }
         });
         headers
@@ -731,7 +765,8 @@ impl<A: ArenaAllocator> Arena<A> {
             // allocation order so `values_before` is monotonic.
             let chunks_rev: Vec<_> = unsafe { bump.iter_allocated_chunks_rev() }.collect();
             for chunk in chunks_rev.into_iter().rev() {
-                let base = chunk.as_ptr() as usize;
+                let base_ptr = ChunkBase::new(chunk.as_ptr().cast::<u8>() as *mut u8);
+                let base = base_ptr.addr();
                 let size = chunk.len() as u32;
                 // A claimed slot is a value's address whether or not the value arrived.
                 let mut payload_offsets: Vec<u32> =
@@ -749,7 +784,7 @@ impl<A: ArenaAllocator> Arena<A> {
                 payload_offsets.sort_unstable();
                 let count = payload_offsets.len() as u32;
                 entries.push(ChunkInfo {
-                    base,
+                    base: base_ptr,
                     size,
                     values_before: *values_before,
                     payload_offsets,
@@ -824,7 +859,10 @@ impl<A: ArenaAllocator> Arena<A> {
 
     /// Iterate over the live values in the drop bump in any order; a claimed
     /// slot with no value is skipped.
-    pub(crate) fn for_each_drop_unordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueHeader)) {
+    pub(crate) fn for_each_drop_unordered<'a>(
+        &'a mut self,
+        mut f: impl FnMut(AValueHeaderPtr<'a>),
+    ) {
         let sizes = self.deserialization_state.get().map(Arc::as_ref);
         let _claims_held = sizes.map(HeapDeserializationState::hold_claims);
         // SAFETY: the claim hold excludes restored-heap allocation throughout
@@ -1048,7 +1086,7 @@ mod tests {
             ArenaVisitEvent::EnterBump => {}
             ArenaVisitEvent::Entry(kind) => {
                 if let Some(i) = kind.value_header() {
-                    assert_eq!(to_repr(i), format!("{:?}", j.to_string()));
+                    assert_eq!(to_repr(&i), format!("{:?}", j.to_string()));
                     j += 1;
                 }
             }
@@ -1086,8 +1124,8 @@ mod tests {
         });
         assert_eq!(reservations, 1);
         assert_eq!(res.len(), 2);
-        assert_eq!(to_repr(res[0]), "\"test\"");
-        assert_eq!(to_repr(res[1]), "\"hello\"");
+        assert_eq!(to_repr(&res[0]), "\"test\"");
+        assert_eq!(to_repr(&res[1]), "\"hello\"");
     }
 
     #[test]
