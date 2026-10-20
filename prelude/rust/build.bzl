@@ -720,6 +720,7 @@ def rust_compile(
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
         lints,
+        getattr(ctx.attrs, "clippy_flags", []) if emit == Emit("clippy") else [],
         # Report unused --extern crates in the notification stream.
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         common_args.args,

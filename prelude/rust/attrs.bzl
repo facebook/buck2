@@ -263,6 +263,11 @@ def rust_common_attributes(is_binary: bool):
         | buck.contacts_arg()
         | {
             "clippy_configuration": attrs.option(attrs.dep(providers = [ClippyConfiguration]), default = None),
+            "clippy_flags": attrs.list(
+                attrs.arg(),
+                default = [],
+                doc = "Flags passed to clippy but not `rustc`, ahead of `rustc_flags` so those can override them.",
+            ),
             "coverage": attrs.bool(default = False),
             "default_platform": attrs.option(attrs.string(), default = None),
             "flagged_deps": attrs.list(attrs.tuple(rust_target_dep(is_binary), attrs.list(attrs.string())), default = []),
