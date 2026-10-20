@@ -235,3 +235,10 @@ prelude.python_test(
     base_module = "",
     resources = ["compile.py"],
 )
+
+prelude.python_test(
+    name = "create_link_tree_test",
+    srcs = ["tests/create_link_tree_test.py"],
+    base_module = "",
+    resources = ["create_link_tree.py"],
+)
