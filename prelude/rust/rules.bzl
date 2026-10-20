@@ -7,12 +7,14 @@
 # above-listed licenses.
 
 load("@prelude//:prelude_rule.bzl", "make_rules")
+load("@prelude//python:rust_python_extension.bzl", rust_python_extension_spec = "rust_python_extension")
 load(":rust_binary.bzl", rust_binary_spec = "rust_binary", rust_test_spec = "rust_test")
 load(":rust_library.bzl", rust_library_spec = "rust_library")
 
 specs = {
     "rust_binary": rust_binary_spec,
     "rust_library": rust_library_spec,
+    "rust_python_extension": rust_python_extension_spec,
     "rust_test": rust_test_spec,
 }
 

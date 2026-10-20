@@ -12,7 +12,7 @@ def _check_targets_impl(ctx: bxl.Context) -> list[bxl.EnsuredArtifact]:
     uquery_owners = ctx.uquery().owner(ctx.cli_args.file)
     target_universe = ctx.target_universe(uquery_owners)
     owners = ctx.cquery().owner(ctx.cli_args.file, target_universe.target_set())
-    nodes = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", owners)
+    nodes = ctx.cquery().kind("^(rust_binary|rust_library|rust_python_extension|rust_test)$", owners)
 
     if len(nodes) == 0:
         return []

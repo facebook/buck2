@@ -2285,7 +2285,16 @@ def get_inherited_link_args(
 
     return inherited_link_args
 
-def rust_link_shared(ctx: AnalysisContext, compile_ctx: CompileContext, dep_link_style: LinkStrategy, static_lib: LinkInfo) -> LinkedObject:
+def rust_link_shared(
+    ctx: AnalysisContext,
+    compile_ctx: CompileContext,
+    dep_link_style: LinkStrategy,
+    static_lib: LinkInfo,
+    # Defaults to `shared/<soname>`, carrying the soname as `DT_SONAME`.
+    # A Python extension is loaded by file path and has no soname.
+    output: str | None = None,
+    set_soname: bool = True,
+) -> LinkedObject:
     inherited_link_args = get_inherited_link_args(
         ctx,
         compile_ctx,
@@ -2320,7 +2329,7 @@ def rust_link_shared(ctx: AnalysisContext, compile_ctx: CompileContext, dep_link
 
     return cxx_link_shared_library(
         ctx = ctx,
-        output = "shared/" + compile_ctx.soname,
+        output = output or "shared/" + compile_ctx.soname,
         opts = link_options(
             links = link_args,
             link_execution_preference = LinkExecutionPreference("any"),
@@ -2328,7 +2337,7 @@ def rust_link_shared(ctx: AnalysisContext, compile_ctx: CompileContext, dep_link
             # `rust_library` has no `allow_cache_upload` attribute
             allow_cache_upload = None,
         ),
-        name = compile_ctx.soname,
+        name = compile_ctx.soname if set_soname else None,
     ).linked_object
 
 def rust_link_binary(
