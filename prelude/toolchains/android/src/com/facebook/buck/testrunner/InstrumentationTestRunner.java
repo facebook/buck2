@@ -105,6 +105,10 @@ public class InstrumentationTestRunner extends DeviceRunner {
   /** Env var to enable proactive target-level timeout stack traces. */
   static final String PROACTIVE_TIMEOUT_ENABLED_ENV = "ANDROID_PROACTIVE_TIMEOUT_ENABLED";
 
+  /** Env var set by TPX for Wearables runs that should report the executed OS fingerprint. */
+  static final String TEST_RESULT_OS_METADATA_ENABLED_ENV =
+      "ANDROID_TEST_RESULT_OS_METADATA_ENABLED";
+
   /** Env var to set the timeout multiplier for long-running tests. */
   static final String PER_TEST_TIMEOUT_MULTIPLIER_ENV = "ANDROID_PER_TEST_TIMEOUT_MULTIPLIER";
 
@@ -1070,7 +1074,10 @@ public class InstrumentationTestRunner extends DeviceRunner {
       if (testResultsOutputSender.isPresent()) {
         InstrumentationTpxStandardOutputTestListener tpxListener =
             new InstrumentationTpxStandardOutputTestListener(
-                testResultsOutputSender.get(), androidDevice, adbUtils);
+                testResultsOutputSender.get(),
+                androidDevice,
+                adbUtils,
+                "true".equals(System.getenv(TEST_RESULT_OS_METADATA_ENABLED_ENV)));
         listeners.add(tpxListener);
         resultListener = tpxListener;
       }
