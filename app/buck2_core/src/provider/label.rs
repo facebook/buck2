@@ -414,6 +414,7 @@ mod tests {
 
     use crate::configuration::data::ConfigurationData;
     use crate::configuration::data::ConfigurationDataData;
+    use crate::configuration::data::ExecPlatformMarking;
     use crate::provider::label::ConfiguredProvidersLabel;
     use crate::provider::label::ProviderName;
     use crate::provider::label::ProvidersLabel;
@@ -433,7 +434,7 @@ mod tests {
         let exec = ConfigurationData::from_platform(
             "<exec>".to_owned(),
             ConfigurationDataData::empty(),
-            false,
+            ExecPlatformMarking::Unmarked,
         )
         .unwrap();
         (

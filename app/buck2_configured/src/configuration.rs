@@ -19,6 +19,7 @@ use buck2_configuration_providers::configuration_info::ConfigurationInfo;
 use buck2_configuration_providers::platform_info::PlatformInfo;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::configuration::data::ExecPlatformMarking;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
@@ -171,7 +172,7 @@ async fn compute_platform_configuration_no_label_check(
         .provider_collection()
         .builtin_provider::<PlatformInfo>()?
         .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?
-        .to_configuration(false)
+        .to_configuration(ExecPlatformMarking::Unmarked)
 }
 
 /// Basically, evaluate `platform()` rule.

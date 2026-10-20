@@ -970,6 +970,7 @@ mod tests {
     use buck2_core::configuration::constraints::ConstraintKey;
     use buck2_core::configuration::constraints::ConstraintValue;
     use buck2_core::configuration::data::ConfigurationDataData;
+    use buck2_core::configuration::data::ExecPlatformMarking;
 
     use super::*;
     use crate::attrs::attr_type::arg::MacroBase;
@@ -1205,7 +1206,7 @@ mod tests {
             let cfg = ConfigurationData::from_platform(
                 "cell//cfg:platform".to_owned(),
                 ConfigurationDataData::new(constraints.clone()),
-                false,
+                ExecPlatformMarking::Unmarked,
             )
             .expect("valid platform configuration");
             let matched_keys = MatchedConfigurationSettingKeys::new(

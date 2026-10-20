@@ -16,6 +16,7 @@ use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::data::ConfigurationDataData;
+use buck2_core::configuration::data::ExecPlatformMarking;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
@@ -84,7 +85,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationDataData {
                 constraints: BTreeMap::new(),
             },
-            false,
+            ExecPlatformMarking::Unmarked,
         )
         .unwrap(),
         MatchedConfigurationSettingKeys::new(UnorderedMap::from_iter([

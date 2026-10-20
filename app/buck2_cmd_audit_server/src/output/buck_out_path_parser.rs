@@ -488,6 +488,7 @@ mod tests {
     use buck2_core::cells::paths::CellRelativePath;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::configuration::data::ConfigurationDataData;
+    use buck2_core::configuration::data::ExecPlatformMarking;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::package::PackageLabel;
     use buck2_core::target::label::label::TargetLabel;
@@ -511,7 +512,7 @@ mod tests {
             ConfigurationDataData {
                 constraints: BTreeMap::new(),
             },
-            false,
+            ExecPlatformMarking::Unmarked,
         )
         .unwrap();
         let config_hash = configuration.output_hash().to_string();
