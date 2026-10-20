@@ -2538,7 +2538,6 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_data::CleanStaleStats;
     use buck2_data::clean_stale_result::AdaptiveOutcome;
-    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use jiff::Timestamp;
 
     use crate::materializers::deferred::artifact_tree::ArtifactClassification;
@@ -2553,7 +2552,6 @@ mod tests {
     use crate::materializers::deferred::clean_stale::TrackedState;
     use crate::materializers::deferred::clean_stale::apply_adaptive_low_disk;
     use crate::materializers::deferred::clean_stale::duration_from_config_hours;
-    use crate::materializers::deferred::clean_stale::get_size;
     use crate::materializers::deferred::clean_stale::percentage_from_config;
     use crate::materializers::deferred::clean_stale::unmaterialization_threshold_from_config;
 
@@ -3138,6 +3136,10 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn get_size_does_not_follow_symlinks() {
+        use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+
+        use crate::materializers::deferred::clean_stale::get_size;
+
         let outside = tempfile::tempdir().unwrap();
         std::fs::write(outside.path().join("big"), vec![0u8; 4096]).unwrap();
 
