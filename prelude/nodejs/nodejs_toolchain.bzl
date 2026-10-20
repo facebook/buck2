@@ -6,9 +6,14 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load(":nodejs_providers.bzl", "NodejsTreeInfo")
+
 NodejsToolchainInfo = provider(
     doc = "Node.js toolchain.",
     fields = {
+        # `node_modules` tree holding `jest`, for tests with `framework = "jest"`
+        # and no `test_runner`, which fail when this is `None`.
+        "jest": provider_field([Artifact, None], default = None),
         "node": provider_field(RunInfo),
         # Node binary bundled into `standalone` packages, which fail when this is `None`.
         "node_dist": provider_field([Artifact, None], default = None),
@@ -29,6 +34,7 @@ def _nodejs_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         NodejsToolchainInfo(
+            jest = ctx.attrs.jest[NodejsTreeInfo].node_modules if ctx.attrs.jest != None else None,
             node = ctx.attrs.node[RunInfo],
             tsc = ctx.attrs.tsc[RunInfo] if ctx.attrs.tsc != None else None,
             node_dist = node_dist,
@@ -38,6 +44,7 @@ def _nodejs_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
 nodejs_toolchain = rule(
     impl = _nodejs_toolchain_impl,
     attrs = {
+        "jest": attrs.option(attrs.dep(providers = [NodejsTreeInfo]), default = None),
         "node": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "node_dist": attrs.option(attrs.dep(providers = [DefaultInfo]), default = None),
         "tsc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),

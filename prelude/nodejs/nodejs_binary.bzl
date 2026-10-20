@@ -32,23 +32,34 @@ NodejsEntry = record(
 )
 
 def stage_nodejs_entries(
-    ctx: AnalysisContext, mains: list[Artifact], mains_attr: str = "`main`", staged_attrs: str = "`main`/`srcs`", bundled_node: (str, Artifact) | None = None
+    ctx: AnalysisContext,
+    mains: list[Artifact],
+    *,
+    mains_attr: str = "`main`",
+    staged_attrs: str = "`main`/`srcs`",
+    srcs: list[Artifact] | None = None,
+    stage: bool = False,
+    bundled_node: (str, Artifact) | None = None,
 ) -> struct:
-    """Stages the files a target runs beside the `node_modules` merged from `deps` and `library`.
+    """Stages the files a target runs, beside any `node_modules` merged from `deps` and `library`.
 
     `mains` are the files to run without `library`; `mains_attr` names them in errors, and
-    `staged_attrs` names them together with `srcs` in staging conflicts. Returns:
+    `staged_attrs` names them together with `srcs` in staging conflicts. `srcs`
+    (default: the `srcs` attribute) are staged with `mains`, even without a merged
+    `node_modules` when `stage` is set. Returns:
     - `runtime`: the staged directory, or `None` when `mains` run in place.
     - `entries`: a `NodejsEntry` per main, or for the `library`'s `entry_point`.
     - `hidden`: the inputs of an in-place run.
     - `env`: the environment to run with.
     """
+    if srcs == None:
+        srcs = ctx.attrs.srcs
     tree_infos = [get_nodejs_tree_info(dep, consumer_label = ctx.label) for dep in ctx.attrs.node_modules]
     lib_info = None
     if ctx.attrs.library != None:
         if mains:
             fail("{}: {} cannot be combined with `library`; use `entry_point`".format(ctx.label, mains_attr))
-        if ctx.attrs.srcs:
+        if srcs:
             fail("{}: `srcs` cannot be combined with `library`".format(ctx.label))
         if ctx.attrs.entry_point == None:
             fail("{}: `library` requires `entry_point`".format(ctx.label))
@@ -68,11 +79,11 @@ def stage_nodejs_entries(
     mains = mains_by_path.values()
     dep_infos = ([lib_info] if lib_info != None else []) + get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label)
     runtime = None
-    if dep_infos or bundled_node:
+    if dep_infos or bundled_node or stage:
         staged = {}
         if lib_info == None:
             staged.update(mains_by_path)
-            for src in ctx.attrs.srcs:
+            for src in srcs:
                 existing = staged.get(src.short_path)
                 if existing != None and existing != src:
                     fail("{}: {} entries '{}' and '{}' both stage to '{}'".format(ctx.label, staged_attrs, existing, src, src.short_path))
@@ -118,7 +129,7 @@ def stage_nodejs_entries(
         entries = [NodejsEntry(name = main.short_path, path = cmd_args(runtime, format = "{}/" + main.short_path)) for main in mains]
     else:
         entries = [NodejsEntry(name = main.short_path, path = main) for main in mains]
-        hidden = ctx.attrs.srcs
+        hidden = srcs
 
     is_windows = ctx.attrs._target_os_type[OsLookup].os == Os("windows")
     env = dict(ctx.attrs.env)

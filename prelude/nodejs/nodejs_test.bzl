@@ -14,6 +14,8 @@ load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//tests:re_utils.bzl", "get_re_executors_from_props")
 load(":nodejs_binary.bzl", "build_nodejs_command", "nodejs_command", "stage_nodejs_entries")
+load(":nodejs_providers.bzl", "get_nodejs_tree_info")
+load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
 
 # TPX reads per-test results from `TEST_RESULTS_OUTPUT_FILE` without copying the run's output into each.
 _PER_TEST_RESULT_LABELS = ["tpx:supports-test-result-output-spec", "tpx:bundled-tests-have-per-test-details"]
@@ -47,10 +49,27 @@ def _node_test_files(ctx: AnalysisContext) -> list[Artifact]:
         )
     return test_files
 
+def _jest_install(ctx: AnalysisContext) -> Artifact:
+    if ctx.attrs.test_runner != None:
+        return get_nodejs_tree_info(ctx.attrs.test_runner, consumer_label = ctx.label, attr = "test_runner").node_modules
+    jest = ctx.attrs._nodejs_toolchain[NodejsToolchainInfo].jest
+    if jest == None:
+        fail('{}: framework = "jest" requires `jest` on the nodejs toolchain, or `test_runner`'.format(ctx.label))
+    return jest
+
 def _framework_command(ctx: AnalysisContext) -> struct:
+    jest = None
+    if ctx.attrs.framework == "jest":
+        if ctx.attrs.library != None:
+            fail(
+                '{}: `library` cannot be combined with framework = "jest", which ignores test files under `node_modules`, where `library` stages `entry_point`; list the test files in `srcs` and the library in `deps`'.format(
+                    ctx.label
+                )
+            )
+        jest = _jest_install(ctx)
     if ctx.attrs.main != None:
         fail('{}: `main` requires framework = "none"; list the test files in `srcs`'.format(ctx.label))
-    if ctx.attrs.args:
+    if ctx.attrs.args and jest == None:
         fail(
             '{}: `args` cannot be combined with framework = "{}", which takes no script arguments; use framework = "none" to pass `args` to `main`'.format(
                 ctx.label, ctx.attrs.framework
@@ -59,15 +78,37 @@ def _framework_command(ctx: AnalysisContext) -> struct:
     for reserved in ("LIST_COMMAND", "TEST_COMMAND"):
         if reserved in ctx.attrs.env:
             fail('{}: `env` cannot set `{}` with framework = "{}", which uses it to list and run tests'.format(ctx.label, reserved, ctx.attrs.framework))
-    staged = stage_nodejs_entries(ctx, _node_test_files(ctx), mains_attr = "`srcs`", staged_attrs = "`srcs`")
+    if jest != None:
+        if ctx.attrs.config != None:
+            for src in ctx.attrs.srcs:
+                if src.short_path == ctx.attrs.config.short_path and src != ctx.attrs.config:
+                    fail("{}: `config` '{}' and `srcs` entry '{}' both stage to '{}'".format(ctx.label, ctx.attrs.config, src, src.short_path))
+        mains = ctx.attrs.srcs
+        srcs = ctx.attrs.srcs + ([ctx.attrs.config] if ctx.attrs.config != None else [])
+    else:
+        mains = _node_test_files(ctx)
+        srcs = None
+
+    # Jest looks for tests and modules under a root directory, so its files are always staged.
+    staged = stage_nodejs_entries(ctx, mains, mains_attr = "`srcs`", staged_attrs = "`srcs`", srcs = srcs, stage = jest != None)
     args = cmd_args(ctx.attrs._test_adapter, "--framework", ctx.attrs.framework, hidden = staged.hidden)
     for arg in ctx.attrs.node_args:
         args.add("--node-arg", arg)
+    if jest != None:
+        args.add("--jest", jest, "--root", staged.runtime)
+        if ctx.attrs.config != None:
+            args.add("--config", cmd_args(staged.runtime, format = "{}/" + ctx.attrs.config.short_path))
+        for arg in ctx.attrs.args:
+            args.add("--arg", arg)
     for entry in staged.entries:
         args.add("--test-file", entry.name, entry.path)
     return struct(merged = staged.runtime, output = nodejs_command(ctx, args, staged.env), env = staged.env)
 
 def nodejs_test_impl(ctx: AnalysisContext) -> list[Provider]:
+    if ctx.attrs.framework != "jest":
+        for attr in ("config", "test_runner"):
+            if getattr(ctx.attrs, attr) != None:
+                fail('{}: `{}` requires framework = "jest"'.format(ctx.label, attr))
     if ctx.attrs.framework == "none":
         command = build_nodejs_command(ctx)
         test_type = "custom"
@@ -110,59 +151,73 @@ nodejs_test = prelude_rule(
     custom loaders. `framework` decides what runs and what is reported.
 
     `"node"` (the default) runs each test file with Node's built-in test
-    runner, `node:test` (Node 20 or later), in a process of its own. The
+    runner, `node:test` (Node 20 or later), in a process of its own. Its
     test files are the `srcs` that `node --test` with no arguments would
     run: short paths matching `**/*.test.<ext>`, `**/*-test.<ext>`,
     `**/*_test.<ext>`, `**/test-*.<ext>`, `**/test.<ext>` or
     `**/test/**/*.<ext>` outside `node_modules`, where `<ext>` is `js`,
     `mjs` or `cjs`, or `ts`, `mts` or `cts` unless `node_args` turns off
-    type stripping (`--no-strip-types` or `--no-experimental-strip-types`). TypeScript test files need a Node
-    that strips types by default (22.18 or later), or
-    `--experimental-strip-types` in `node_args` (22.6 or later). The
-    other `srcs` are helpers, declared as inputs but not run. It fails if no `srcs` entry is a test file. With
-    `library`, the test file is the `entry_point`. `main` and `args` cannot
-    be set, and `node_args` are passed to each test file's Node process.
-    When several test files run at once, each line they print is prefixed
-    with `[<test file>] `.
+    type stripping (`--no-strip-types` or `--no-experimental-strip-types`).
+    TypeScript needs Node 22.18+, or 22.6+ with `--experimental-strip-types`.
+    With `library`, the test file is the `entry_point`. `args` cannot be
+    set. Test files running at once prefix each line they print with
+    `[<test file>] `.
 
-    Each test file gets a result named by its short path (by the
-    `entry_point` for `library`), and each test that finishes gets one
-    named `<test file> > <describe> > ... > <test>`. A `describe` block
-    gets one only when it is skipped or fails on its own, and a test that
-    fails only because a subtest failed gets none. Test names should
-    be unique among siblings, which otherwise share one result name. A test
-    file fails if any of its tests fails, if its process exits non-zero, or
-    if its results are incomplete: the process exited before node:test
-    reported the end of the run (as it does for a file that defines no
-    tests), or node:test's events could not be read in full. The failure
-    names any tests that started but never finished.
+    `"jest"` runs the test files with Jest from `test_runner` (a
+    `nodejs_node_modules` target), or the nodejs toolchain's `jest`. Its
+    test files are the `srcs` that the Jest config selects, as
+    `jest --listTests` reports them; `library` cannot be set. `config`, a
+    Jest config file, is staged at its short path, and Jest's `rootDir`
+    defaults to the config file's directory; without it, `rootDir` is the
+    staged directory. `args` are passed to Jest, except the watch modes,
+    the flags the adapter sets (`--ci`, `--watchman`, `--config`,
+    `--json`, `--outputFile`, `--listTests`, `--runTestsByPath`,
+    `--testNamePattern`) and the flags that change which test files run
+    (`--onlyChanged`, `--onlyFailures`, `--changedSince`,
+    `--changedFilesWithAncestor`, `--lastCommit`, `--findRelatedTests`,
+    `--shard`), which fail the test.
+
+    The other `srcs` are helpers, not run, and `main` cannot be set.
+    Without `library`, the test fails if no `srcs` entry is a test file: at
+    analysis with `"node"`, when listing or running with `"jest"`.
+    `node_args` go to the Node processes running the test files. Each test
+    file gets a result named by its short path (by the `entry_point` for
+    `library`), and each test that finishes gets one named
+    `<test file> > <describe> > ... > <test>`. With `"node"`, a
+    `describe` block gets one only when it is skipped or fails on its own,
+    and a test that fails only because a subtest failed gets none.
+    Same-named sibling tests share a result name. A test file
+    fails if any of its tests fails. With `"jest"`, it also fails if it
+    fails to load or Jest reports no result for it. With `"node"`, it also
+    fails if its process exits non-zero or before node:test reports the
+    end of the run, or its events cannot be read in full, naming tests
+    that never finished. With `"jest"`, an unsuccessful Jest run with no
+    failed test file, as for a missed coverage threshold, is a run
+    failure.
 
     The test is an external runner test of type `js_test`. `LIST_COMMAND`
     writes one JSON line `{"testcase": <test file>}` per test file to the
-    file named by an appended `--output <file>`. `TEST_COMMAND` runs the
-    test files and tests named by appended `--filter <name>` arguments
+    file named by an appended `--output <file>`. `TEST_COMMAND` runs
+    the test files and tests named by appended `--filter <name>` arguments
     (every test file without one) and, when `TEST_RESULTS_OUTPUT_FILE` is
-    set, writes the results there in the test result output spec. A filter
+    set, writes results there in the test result output spec. A filter
     names a test file, a `describe` block (every test in it) or a test, and
-    fails if it matches no test. Filtering below a test file needs Node 22
-    or later and cannot select a subtest of a `test()`. Run on its own, for
-    example by `buck2 run`, the test runs every test file (or those
-    `--filter` arguments name), writes no results, and exits non-zero if
-    anything failed.
+    fails if it matches no test. With `"jest"`, a filter below a test file
+    ignores case. With `"node"`, filtering below a test file
+    needs Node 22 or later and cannot select a subtest of a `test()`. Run
+    on its own, as by `buck2 run`, the test writes no results and exits non-zero
+    on failure.
 
     `"none"` runs `main`, or the `library`'s `entry_point`, with `args` and
-    `node_args`, and the exit code is the only result. `srcs` are helpers.
+    `node_args`; its exit code is the only result. `srcs` are helpers.
 
-    When `deps` or `library` is set, builds a directory holding a merged
-    `node_modules` from transitive deps, and runs from it so Node's own
-    resolution finds the deps. With `deps`, it stages `srcs`, and `main`
-    for `"none"`, beside `node_modules` (each at its short path; distinct files staging
-    to the same path fail) and runs the staged files; with
-    `library`, it runs the `entry_point` from inside the library's package
-    under `node_modules`. The default output is that directory. Without
-    them, the test files run at their original paths, files they import
-    via relative paths must be listed in `srcs` to be declared as build
-    inputs, and there is no default output.
+    When `deps` or `library` is set, or with `"jest"`, the test runs from
+    a directory, its default output. With `deps` or `library`, it holds a
+    merged `node_modules` from transitive deps. Without `library`, `srcs`
+    and `main` are staged there at their short paths, which must not
+    collide; with `library`, the `entry_point` runs in the library's
+    package under `node_modules`. Otherwise, the test files run in place,
+    and files they import relatively must be in `srcs` to be build inputs.
 
     Deps must be loadable as regular `node_modules` packages: each
     package's `package.json` governs whether it is CommonJS or an ES
@@ -182,7 +237,9 @@ nodejs_test = prelude_rule(
         {
             "main": attrs.option(attrs.source(), default = None),
             "srcs": attrs.list(attrs.source(), default = []),
-            "framework": attrs.enum(["node", "none"], default = "node"),
+            "framework": attrs.enum(["node", "jest", "none"], default = "node"),
+            "config": attrs.option(attrs.source(allow_directory = False), default = None),
+            "test_runner": attrs.option(attrs.dep(), default = None),
             "args": attrs.list(attrs.arg(), default = []),
             "node_args": attrs.list(attrs.string(), default = []),
             "env": attrs.dict(attrs.string(), attrs.arg(), default = {}),

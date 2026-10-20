@@ -61,11 +61,11 @@ def get_nodejs_library_info(library, consumer_label):
         )
     return library[NodejsLibraryInfo]
 
-def get_nodejs_tree_info(node_modules: Dependency, consumer_label) -> NodejsTreeInfo:
+def get_nodejs_tree_info(node_modules: Dependency, consumer_label, attr: str = "node_modules") -> NodejsTreeInfo:
     if NodejsTreeInfo not in node_modules:
         fail(
-            "target {} has `node_modules` `{}` which does not provide `NodejsTreeInfo`; `node_modules` must be a `nodejs_node_modules` target".format(
-                consumer_label, node_modules.label
+            "target {} has `{}` `{}` which does not provide `NodejsTreeInfo`; `{}` must be a `nodejs_node_modules` target".format(
+                consumer_label, attr, node_modules.label, attr
             )
         )
     return node_modules[NodejsTreeInfo]

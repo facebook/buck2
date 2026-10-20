@@ -31,6 +31,61 @@ const SKIP = 2;
 const RUN_FAILURE_FATAL = 2;
 // How much output a failed result keeps; all of it is still printed.
 const MAX_OUTPUT_BYTES = 64 * 1024;
+const JEST_RESERVED_FLAGS = [
+  '--changedFilesWithAncestor',
+  '--changed-files-with-ancestor',
+  '--changedSince',
+  '--changed-since',
+  '--ci',
+  '--config',
+  '--findRelatedTests',
+  '--find-related-tests',
+  '--json',
+  '--lastCommit',
+  '--last-commit',
+  '--outputFile',
+  '--output-file',
+  '--listTests',
+  '--list-tests',
+  '--onlyChanged',
+  '--only-changed',
+  '--onlyFailures',
+  '--only-failures',
+  '--runTestsByPath',
+  '--run-tests-by-path',
+  '--shard',
+  '--testNamePattern',
+  '--test-name-pattern',
+  '--watch',
+  '--watchAll',
+  '--watch-all',
+  '--watchman',
+];
+const JEST_RESERVED_SHORT_FLAGS = 'cfot';
+
+// Splits a group of short flags the way Jest's parser, yargs-parser, does: each
+// character is a flag until one is followed by `=`, a non-word character or a
+// number, which is its value.
+function hasReservedShortFlag(arg) {
+  for (let j = 1; j < arg.length; j++) {
+    if (JEST_RESERVED_SHORT_FLAGS.includes(arg[j])) {
+      return true;
+    }
+    const rest = arg.slice(j + 1);
+    if (/^\W/.test(rest) || /^-?\d+(\.\d*)?(e-?\d+)?$/.test(rest)) {
+      return false;
+    }
+  }
+  return false;
+}
+
+function isReservedJestArg(arg) {
+  if (!arg.startsWith('--')) {
+    return arg.startsWith('-') && hasReservedShortFlag(arg);
+  }
+  const flag = arg.split('=')[0].replace(/^--no-/, '--');
+  return JEST_RESERVED_FLAGS.includes(flag);
+}
 
 // Reported by its message alone, without a stack.
 class AdapterError extends Error {}
@@ -43,6 +98,10 @@ function parseArgs(argv) {
     list: false,
     output: undefined,
     nodeArgs: [],
+    jest: undefined,
+    config: undefined,
+    root: undefined,
+    args: [],
     writeTestResults: false,
   };
   let i = 0;
@@ -73,6 +132,18 @@ function parseArgs(argv) {
       case '--node-arg':
         options.nodeArgs.push(value(arg));
         break;
+      case '--jest':
+        options.jest = value(arg);
+        break;
+      case '--config':
+        options.config = value(arg);
+        break;
+      case '--root':
+        options.root = value(arg);
+        break;
+      case '--arg':
+        options.args.push(value(arg));
+        break;
       case '--write-test-results':
         options.writeTestResults = true;
         break;
@@ -80,7 +151,17 @@ function parseArgs(argv) {
         throw new AdapterError(`unexpected argument '${arg}'`);
     }
   }
-  if (options.framework !== 'node') {
+  if (options.framework === 'jest') {
+    if (options.jest === undefined || options.root === undefined) {
+      throw new AdapterError('--framework jest requires --jest and --root');
+    }
+    const reserved = options.args.find(isReservedJestArg);
+    if (reserved !== undefined) {
+      throw new AdapterError(
+        `Jest argument '${reserved}' is set by the test adapter or changes which test files run, and cannot be passed in \`args\``,
+      );
+    }
+  } else if (options.framework !== 'node') {
     throw new AdapterError(`unsupported --framework '${options.framework}'`);
   }
   return options;
@@ -146,8 +227,8 @@ function selectRuns(files, filters) {
     });
 }
 
-// node:test matches a name pattern against a test's name prefixed with its
-// ancestors' names, separated by spaces. A separator in `filter` can also be
+// node:test and Jest match a name pattern against a test's name prefixed with
+// its ancestors' names, separated by spaces. A separator in `filter` can also be
 // part of a name, so the pattern accepts either.
 function fullNamePattern(file, filter) {
   return filter
@@ -157,15 +238,16 @@ function fullNamePattern(file, filter) {
     .join(`(?:${SEPARATOR}| )`);
 }
 
-function namePattern(file, filter) {
-  return `^${fullNamePattern(file, filter)}$`;
+// Jest matches only tests, so `descendants` also accepts the tests inside the
+// describe block `filter` names.
+function namePattern(file, filter, descendants = false) {
+  return `^${fullNamePattern(file, filter)}${descendants ? '(?: .*)?' : ''}$`;
 }
 
-// Selects the results of what `namePattern` runs: the tests and suites it
-// matches and everything inside them.
-function resultNameRegExp(file, filter) {
+function resultNameRegExp(file, filter, flags) {
   return new RegExp(
     `^${escapeRegExp(file.name + SEPARATOR)}${fullNamePattern(file, filter)}(?:${SEPARATOR}|$)`,
+    flags,
   );
 }
 
@@ -173,12 +255,17 @@ function printNote(message) {
   process.stderr.write(`nodejs_test: ${message}\n`);
 }
 
-function filterResults(file, tests, suites, whole, filters, ended, endedTime) {
+function filterResults(
+  file,
+  tests,
+  suites,
+  {whole, filters, ended, endedTime, flags = ''},
+) {
   if (filters.length === 0) {
     return tests;
   }
   const patterns = new Map(
-    filters.map(filter => [filter, resultNameRegExp(file, filter)]),
+    filters.map(filter => [filter, resultNameRegExp(file, filter, flags)]),
   );
   const selects = (filter, name) => patterns.get(filter).test(name);
   const selected = whole
@@ -209,14 +296,17 @@ function filterResults(file, tests, suites, whole, filters, ended, endedTime) {
 const children = new Set();
 
 // Re-raising the signal ends this process without running `finally` blocks,
-// so the handler removes `workDir` itself.
-function killChildrenOnSignal(workDir) {
+// so the handler removes the work directory itself.
+function killChildrenOnSignal(getWorkDir) {
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.once(signal, () => {
       for (const child of children) {
         child.kill(signal);
       }
-      fs.rmSync(workDir, {recursive: true, force: true});
+      const workDir = getWorkDir();
+      if (workDir !== undefined) {
+        fs.rmSync(workDir, {recursive: true, force: true});
+      }
       process.kill(process.pid, signal);
     });
   }
@@ -244,7 +334,7 @@ function linePrefixer(stream, prefix) {
   };
 }
 
-function spawnNode(nodeArgs, args, prefix) {
+function spawnNode(nodeArgs, args, {prefix, onStdout} = {}) {
   const started = Date.now();
   return new Promise(resolve => {
     const output = [];
@@ -260,7 +350,10 @@ function spawnNode(nodeArgs, args, prefix) {
       prefix === undefined
         ? {write: chunk => stream.write(chunk), end: () => {}}
         : linePrefixer(stream, prefix);
-    const stdout = passThrough(process.stdout);
+    const stdout =
+      onStdout === undefined
+        ? passThrough(process.stdout)
+        : {write: onStdout, end: () => {}};
     const stderr = passThrough(process.stderr);
     let settled = false;
     const outcome = fields => {
@@ -475,7 +568,7 @@ async function runNodeTestFile(options, run, eventsFile, prefix) {
       filter => `--test-name-pattern=${namePattern(run.file, filter)}`,
     ),
     run.file.path,
-  ], prefix);
+  ], {prefix});
   const endedTime = Date.now();
   let events = [];
   let malformed = 0;
@@ -486,15 +579,12 @@ async function runNodeTestFile(options, run, eventsFile, prefix) {
     readError = error;
   }
   const report = nodeTestReport(run.file, events, endedTime);
-  const tests = filterResults(
-    run.file,
-    report.tests,
-    report.suites,
-    run.whole,
-    run.filters,
-    report.ended,
+  const tests = filterResults(run.file, report.tests, report.suites, {
+    whole: run.whole,
+    filters: run.filters,
+    ended: report.ended,
     endedTime,
-  );
+  });
   const failed = tests.some(test => test.status === FAIL);
   const crashed = outcome.error !== undefined || outcome.code !== 0;
   const notes = report.unfinished.map(name => `did not finish: ${name}`);
@@ -562,7 +652,320 @@ async function runNodeTests(options, runs, workDir) {
     }
   };
   await Promise.all(Array.from({length: parallelism}, worker));
-  return resultsByRun.flat();
+  return {results: resultsByRun.flat(), runFailures: []};
+}
+
+function jestArgs(options) {
+  return [
+    path.join(options.jest, 'jest', 'bin', 'jest.js'),
+    '--ci',
+    '--watchman=false',
+    '--config',
+    options.config ?? JSON.stringify({rootDir: options.root}),
+    ...options.args,
+  ];
+}
+
+function pathKeys(file) {
+  const keys = [path.resolve(file)];
+  try {
+    keys.push(fs.realpathSync(file));
+  } catch {
+    // A path that does not exist has no real path.
+  }
+  return keys;
+}
+
+function fileFinder(files) {
+  const filesByKey = new Map();
+  for (const file of files) {
+    for (const key of pathKeys(file.path)) {
+      if (!filesByKey.has(key)) {
+        filesByKey.set(key, file);
+      }
+    }
+  }
+  return reportedPath =>
+    pathKeys(reportedPath)
+      .map(key => filesByKey.get(key))
+      .find(file => file !== undefined);
+}
+
+async function jestTestFiles(options) {
+  const stdout = [];
+  const outcome = await spawnNode(
+    options.nodeArgs,
+    [
+      ...jestArgs(options),
+      '--listTests',
+      '--json',
+      '--runTestsByPath',
+      ...options.files.map(file => file.path),
+    ],
+    {
+      onStdout: chunk => {
+        stdout.push(chunk);
+        process.stderr.write(chunk);
+      },
+    },
+  );
+  if (outcome.error !== undefined || outcome.code !== 0) {
+    throw new AdapterError(processDetails('jest --listTests', outcome, true));
+  }
+  const listed = Buffer.concat(stdout)
+    .toString()
+    .split('\n')
+    .reverse()
+    .map(line => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return undefined;
+      }
+    })
+    .find(Array.isArray);
+  if (listed === undefined) {
+    throw new AdapterError(
+      `jest --listTests printed no test list\n${processDetails('jest --listTests', outcome, false)}`,
+    );
+  }
+  const findFile = fileFinder(options.files);
+  const selected = new Set(listed.map(findFile));
+  const files = options.files.filter(file => selected.has(file));
+  if (files.length === 0) {
+    throw new AdapterError(
+      `Jest selects none of ${options.files.map(file => `'${file.name}'`).join(', ')}: check \`testMatch\`, \`testRegex\` and \`testPathIgnorePatterns\` in the Jest config`,
+    );
+  }
+  return files;
+}
+
+function isStringArray(value) {
+  return Array.isArray(value) && value.every(item => typeof item === 'string');
+}
+
+function isJestSuite(suite) {
+  return (
+    typeof suite?.name === 'string' &&
+    typeof suite.status === 'string' &&
+    typeof suite.startTime === 'number' &&
+    typeof suite.endTime === 'number' &&
+    typeof suite.message === 'string' &&
+    Array.isArray(suite.assertionResults) &&
+    suite.assertionResults.every(
+      test =>
+        typeof test?.title === 'string' &&
+        typeof test.status === 'string' &&
+        isStringArray(test.ancestorTitles) &&
+        isStringArray(test.failureMessages) &&
+        (test.duration == null || typeof test.duration === 'number'),
+    )
+  );
+}
+
+function readJestReport(reportFile) {
+  const report = JSON.parse(fs.readFileSync(reportFile, 'utf8'));
+  if (
+    typeof report?.success !== 'boolean' ||
+    !Array.isArray(report.testResults)
+  ) {
+    throw new Error('it is not a Jest `--json` report');
+  }
+  return report;
+}
+
+function jestTestResults(file, suite, endedTime) {
+  return suite.assertionResults.map(test => {
+    const result = {
+      name: [file.name, ...test.ancestorTitles, test.title].join(SEPARATOR),
+      duration: Math.round(test.duration ?? 0),
+      endedTime,
+    };
+    if (test.status === 'passed') {
+      result.status = PASS;
+    } else if (test.status === 'failed') {
+      result.status = FAIL;
+      result.message = test.failureMessages.join('\n');
+    } else {
+      result.status = SKIP;
+    }
+    return result;
+  });
+}
+
+async function runJestGroup(options, group, reportFile) {
+  const files = group.runs.map(run => run.file);
+  const patterns = group.runs.flatMap(run =>
+    run.whole ? [] : run.filters.map(filter => namePattern(run.file, filter, true)),
+  );
+  const outcome = await spawnNode(options.nodeArgs, [
+    ...jestArgs(options),
+    '--json',
+    `--outputFile=${reportFile}`,
+    ...(patterns.length > 0 ? ['--testNamePattern', patterns.join('|')] : []),
+    '--runTestsByPath',
+    ...files.map(file => file.path),
+  ]);
+  const endedTime = Date.now();
+  let report;
+  let readError;
+  try {
+    report = readJestReport(reportFile);
+  } catch (error) {
+    readError = error;
+  }
+  const findFile = fileFinder(files);
+  const results = [];
+  const suites = new Map();
+  const unselectedFailed = [];
+  let malformed = 0;
+  for (const suite of report?.testResults ?? []) {
+    if (!isJestSuite(suite)) {
+      malformed++;
+      continue;
+    }
+    const file = findFile(suite.name);
+    if (file === undefined) {
+      if (suite.status === 'failed') {
+        unselectedFailed.push(suite.name);
+      }
+      continue;
+    }
+    // A file in several Jest projects is reported once for each.
+    const merged = suites.get(file);
+    suites.set(
+      file,
+      merged === undefined
+        ? suite
+        : {
+            status:
+              merged.status === 'failed' || suite.status === 'failed'
+                ? 'failed'
+                : suite.status,
+            message: [merged.message, suite.message]
+              .filter(message => message !== '')
+              .join('\n'),
+            startTime: Math.min(merged.startTime, suite.startTime),
+            endTime: Math.max(merged.endTime, suite.endTime),
+            assertionResults: [
+              ...merged.assertionResults,
+              ...suite.assertionResults,
+            ],
+          },
+    );
+  }
+  for (const [file, suite] of suites) {
+    const run = group.runs.find(candidate => candidate.file === file);
+    // Jest reports the tests a name pattern deselects as skipped, and a file
+    // that failed to run as failed with no tests. Its name pattern can also
+    // select tests the filters do not name, whose failures are left out.
+    const suiteTestFailed = suite.assertionResults.some(
+      test => test.status === 'failed',
+    );
+    const tests = filterResults(
+      file,
+      jestTestResults(file, suite, endedTime),
+      [],
+      {
+        whole: run.whole,
+        filters: run.filters,
+        ended: suite.status !== 'failed' || suite.assertionResults.length > 0,
+        endedTime,
+        // Jest compiles `--testNamePattern` case-insensitively.
+        flags: 'i',
+      },
+    );
+    results.push(
+      ...tests,
+      testFileResult(
+        file,
+        tests,
+        suite.status === 'failed' && !suiteTestFailed
+          ? suite.message
+          : undefined,
+        suite.endTime > suite.startTime ? suite.endTime - suite.startTime : 0,
+        endedTime,
+      ),
+    );
+  }
+  const notes = ['Jest reported no result for this file'];
+  if (readError !== undefined) {
+    notes.push(`could not read Jest's report: ${readError.message}`);
+  }
+  if (malformed > 0) {
+    notes.push(`could not read ${malformed} test file entries in Jest's report`);
+  }
+  for (const file of files) {
+    if (!suites.has(file)) {
+      for (const note of notes) {
+        printNote(`${file.name}: ${note}`);
+      }
+      const details = processDetails('jest', outcome, true, notes);
+      results.push(testFileResult(file, [], details, 0, endedTime));
+    }
+  }
+  const runFailures = [];
+  // Jest exits with code 0 after a successful report. A report can be
+  // unsuccessful with no failed file, as for a missed coverage threshold.
+  // Without a report every file has already failed with the process details.
+  if (
+    report !== undefined &&
+    (outcome.error !== undefined ||
+      outcome.signal !== null ||
+      (report.success && outcome.code !== 0) ||
+      unselectedFailed.length > 0 ||
+      (!report.success &&
+        ![...suites.values()].some(suite => suite.status === 'failed')))
+  ) {
+    runFailures.push(
+      processDetails(
+        'jest',
+        outcome,
+        true,
+        unselectedFailed.map(
+          name => `Jest ran ${name}, which is not a test file of this run, and it failed`,
+        ),
+      ),
+    );
+  }
+  return {results, runFailures};
+}
+
+async function runJestTests(options, runs, workDir) {
+  // Jest applies a test name pattern to every file it runs, so only the files
+  // run whole share a run. Each run already uses a worker per core but one, so
+  // the runs go one at a time.
+  const groups = [];
+  const whole = runs.filter(run => run.whole);
+  if (whole.length > 0) {
+    groups.push({runs: whole});
+  }
+  for (const run of runs) {
+    if (!run.whole) {
+      groups.push({runs: [run]});
+    }
+  }
+  const results = [];
+  const runFailures = [];
+  for (const [index, group] of groups.entries()) {
+    try {
+      const outcome = await runJestGroup(
+        options,
+        group,
+        path.join(workDir, `jest-${index}.json`),
+      );
+      results.push(...outcome.results);
+      runFailures.push(...outcome.runFailures);
+    } catch (error) {
+      const details = `the adapter failed during the Jest run that included this file: ${error?.stack ?? error}`;
+      for (const {file} of group.runs) {
+        printNote(`${file.name}: ${details}`);
+        results.push(testFileResult(file, [], details, 0, Date.now()));
+      }
+      runFailures.push(details);
+    }
+  }
+  return {results, runFailures};
 }
 
 function writeTestResults(events) {
@@ -599,22 +1002,35 @@ function runFailureEvent(details) {
 
 async function main(argv) {
   const options = parseArgs(argv);
+  let workDir;
+  killChildrenOnSignal(() => workDir);
+  if (options.framework === 'jest') {
+    options.files = await jestTestFiles(options);
+  }
   if (options.list) {
     writeListing(options.files, options.output);
     return {code: 0};
   }
   const runs = selectRuns(options.files, options.filters);
-  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nodejs_test-'));
-  killChildrenOnSignal(workDir);
-  let results;
+  workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nodejs_test-'));
+  let outcome;
   try {
-    results = await runNodeTests(options, runs, workDir);
+    outcome =
+      options.framework === 'jest'
+        ? await runJestTests(options, runs, workDir)
+        : await runNodeTests(options, runs, workDir);
   } finally {
     fs.rmSync(workDir, {recursive: true, force: true});
   }
+  const {results, runFailures} = outcome;
   return {
-    code: results.some(result => result.status === FAIL) ? 1 : 0,
-    events: options.writeTestResults ? results.flatMap(resultEvents) : undefined,
+    code:
+      runFailures.length > 0 || results.some(result => result.status === FAIL)
+        ? 1
+        : 0,
+    events: options.writeTestResults
+      ? [...results.flatMap(resultEvents), ...runFailures.map(runFailureEvent)]
+      : undefined,
   };
 }
 
