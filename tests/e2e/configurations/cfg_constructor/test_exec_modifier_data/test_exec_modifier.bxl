@@ -369,7 +369,69 @@ def _test_buckconfig_backed_modifiers_not_applied_to_exec_deps(ctx: bxl.Context)
         "buckconfig_backed:none",
     )
 
-def _main(ctx: bxl.Context):
+# ============================================================================
+# Tests for exec marker preservation across transitions
+# ============================================================================
+
+def _test_exec_marker_preserved_across_single_transition(ctx: bxl.Context):
+    """Marker-dependent transitions stay idempotent for exec and target deps."""
+    ctx.output.stream("\n=== Testing exec marker preserved across single transition ===")
+
+    for target, expected_marker, expected_compiler in [
+        ("//:binary_with_single_transition_exec_dep", "is_exec:true", "compiler:clang"),
+        ("//:binary_with_single_transition_target_dep", "is_exec:false", "compiler:gcc"),
+    ]:
+        node = ctx.configured_targets(target, modifiers = ["root//cfg:compiler[gcc]"])
+        universe = ctx.target_universe(node)
+        tools = list(universe.lookup("root//:tool_with_single_transition"))
+        _assert_eq(len(tools), 1)
+        _assert_eq(tools[0].get_attr("is_exec"), expected_marker)
+        deps = list(universe.lookup("root//:inner_dep_for_transition"))
+        _assert_eq(len(deps), 1, "Should find exactly one inner_dep_for_transition")
+        _assert_eq(deps[0].get_attr("is_exec"), expected_marker)
+        _assert_eq(
+            deps[0].get_attr("labels"),
+            ["build_mode:none", expected_compiler, "os:none", "cpu:none"],
+        )
+
+def _test_exec_marker_preserved_across_split_transition(ctx: bxl.Context):
+    """
+    Test that the exec platform marker (is_exec_platform[true]) is preserved
+    across a split transition on an exec dep.
+
+    inner_dep_for_transition goes through a split transition producing two configs.
+    Both split outputs should have the marker.
+    """
+    ctx.output.stream("\n=== Testing exec marker preserved across split transition ===")
+
+    node = ctx.configured_targets("//:binary_with_split_transition_exec_dep")
+    universe = ctx.target_universe(node)
+
+    # The inner dep went through a split transition. All split outputs should
+    # have the exec marker preserved.
+    deps = list(universe.lookup("root//:inner_dep_for_transition"))
+    _assert_eq(len(deps), 2, "Should find exactly two split transition deps")
+
+    for dep in deps:
+        is_exec = dep.get_attr("is_exec")
+        _assert_eq(
+            is_exec,
+            "is_exec:true",
+            "Exec marker should be preserved across split transition",
+        )
+
+def _test_target_constraint_does_not_become_internal_marker(ctx: bxl.Context):
+    node = ctx.configured_targets("//:binary_with_marker_constraint_target_dep")
+    universe = ctx.target_universe(node)
+    tools = list(universe.lookup("root//:tool_with_split_transition"))
+    _assert_eq(len(tools), 1)
+    _assert_eq(tools[0].get_attr("is_exec"), "is_exec:true")
+    deps = list(universe.lookup("root//:inner_dep_for_transition"))
+    _assert_eq(len(deps), 2)
+    for dep in deps:
+        _assert_eq(dep.get_attr("is_exec"), "is_exec:false")
+
+def _test_modifiers(ctx: bxl.Context):
     ctx.output.stream("Testing exec modifiers and toolchain dependencies...\n")
 
     _test_binary_target(ctx)
@@ -388,9 +450,58 @@ def _main(ctx: bxl.Context):
     # Buckconfig-backed modifiers test
     _test_buckconfig_backed_modifiers_not_applied_to_exec_deps(ctx)
 
-    ctx.output.stream("\n✅ All tests passed!")
+def _preserved_marker(ctx: bxl.Context):
+    _test_exec_marker_preserved_across_single_transition(ctx)
+    _test_exec_marker_preserved_across_split_transition(ctx)
+    _test_target_constraint_does_not_become_internal_marker(ctx)
+
+def _test_legacy_marker(ctx: bxl.Context, expected_tool_marker: str):
+    node = ctx.configured_targets("//:binary_with_split_transition_exec_dep")
+    universe = ctx.target_universe(node)
+    tools = list(universe.lookup("root//:tool_with_split_transition"))
+    _assert_eq(len(tools), 1)
+    _assert_eq(tools[0].get_attr("is_exec"), expected_tool_marker)
+    deps = list(universe.lookup("root//:inner_dep_for_transition"))
+    _assert_eq(len(deps), 2)
+    for dep in deps:
+        _assert_eq(dep.get_attr("is_exec"), "is_exec:false")
+
+def _legacy_marker(ctx: bxl.Context):
+    _test_legacy_marker(ctx, "is_exec:true")
+
+def _legacy_constructor_marker(ctx: bxl.Context):
+    _test_legacy_marker(ctx, "is_exec:false")
+
+def _main(ctx: bxl.Context):
+    _test_modifiers(ctx)
+    _preserved_marker(ctx)
+
+def _legacy(ctx: bxl.Context):
+    _test_modifiers(ctx)
+    _legacy_marker(ctx)
+    _test_target_constraint_does_not_become_internal_marker(ctx)
 
 main = bxl_main(
     impl = _main,
+    cli_args = {},
+)
+
+legacy = bxl_main(
+    impl = _legacy,
+    cli_args = {},
+)
+
+legacy_marker = bxl_main(
+    impl = _legacy_marker,
+    cli_args = {},
+)
+
+legacy_constructor_marker = bxl_main(
+    impl = _legacy_constructor_marker,
+    cli_args = {},
+)
+
+preserved_marker = bxl_main(
+    impl = _preserved_marker,
     cli_args = {},
 )
