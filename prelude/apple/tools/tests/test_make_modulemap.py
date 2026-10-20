@@ -21,12 +21,12 @@ class SubmodulesTest(unittest.TestCase):
         _write_submodules(f, "Foo", {"Foo/" + h: "Foo/" + h for h in headers}, False)
         return f.getvalue()
 
-    def test_keyword_headers_collide_with_their_renamed_siblings(self) -> None:
+    def test_keyword_headers_get_distinct_names(self) -> None:
         modulemap = self._modulemap(
             ["module.h", "module_.h", "private.h", "private/impl.h"]
         )
 
-        # The keyword suffix is added after the collision check, so `module.h` and `module_.h`
-        # both render as `module_`, and clang rejects the map with "redefinition of module".
-        self.assertEqual(modulemap.count("module module_ {"), 2)
-        self.assertEqual(modulemap.count("module private_ {"), 2)
+        self.assertEqual(modulemap.count("module module_ {"), 1)
+        self.assertEqual(modulemap.count("module module__ {"), 1)
+        self.assertEqual(modulemap.count("module private_ {"), 1)
+        self.assertEqual(modulemap.count("module private__ {"), 1)
