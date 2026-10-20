@@ -14,6 +14,7 @@ python_test(
     name = "test_package_tree",
     srcs = [
         "package_tree.py",
+        "tests/test_launchers.py",
         "tests/test_package_tree.py",
     ],
     base_module = "",
