@@ -166,8 +166,5 @@ rust_unittest(
     autocargo = {"ignore_rule": True},
     crate_root = "tests/miri.rs",
     miri = True,
-    # A `Value` is a tagged integer word that `expose_provenance` keeps dereferenceable, so
-    # starlark is not strict-provenance clean the way the rest of the tree is.
-    miri_flags = ["-Zmiri-permissive-provenance"],
     deps = [":starlark"],
 )
