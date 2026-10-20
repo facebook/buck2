@@ -23,8 +23,9 @@ rust_library(
     },
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
+        "fbsource//third-party/rust:httptest",
         "fbsource//third-party/rust:prost-types",
-        "fbsource//third-party/rust:tempfile",
+        "//buck2/app/buck2_certs:buck2_certs",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
@@ -54,6 +55,7 @@ rust_library(
         "fbsource//third-party/rust:slog",
         "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:sorted_vector_map",
+        "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
