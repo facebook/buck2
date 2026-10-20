@@ -313,13 +313,21 @@ def buck2_e2e_test(
         compiled_env["BUCK2_HARD_ERROR"] = "true"
         compiled_env["BUCK2_TPX"] = "$BUCK2_BINARY_DIR/buck2-tpx"
 
+        # The coverage wrapper maps profiles only against the test's own executable and
+        # `LLVM_COVERAGE_ADDITIONAL_OBJECT_PATHS`. Each branch lists the binaries the test runs;
+        # without them, their coverage is dropped and coverage-based test selection does not
+        # link these tests to buck2 or tpx sources.
         if use_compiled_buck2_client_and_tpx:
+            compiled_env["LLVM_COVERAGE_ADDITIONAL_OBJECT_PATHS"] = ";".join(
+                ["$(location fbcode//buck2:symlinked_buck2_and_tpx)/" + binary for binary in ["buck2", "buck2-daemon", "buck2-tpx"]]
+            )
             base_exe = "$(location fbcode//buck2:symlinked_buck2_and_tpx)/buck2"
             exe = select({
                 "DEFAULT": base_exe,
                 "ovr_config//os:windows": base_exe + ".exe",
             })
         else:
+            compiled_env["LLVM_COVERAGE_ADDITIONAL_OBJECT_PATHS"] = "$(location fbcode//buck2:buck2)"
             exe = "$(location fbcode//buck2:buck2)"
 
         buck_e2e_test(
