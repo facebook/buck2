@@ -37,6 +37,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
+use std::ptr::NonNull;
 use std::sync::Arc;
 use std::sync::Condvar;
 use std::sync::Mutex;
@@ -240,12 +241,18 @@ impl Pending {
 }
 
 struct ActiveRead {
+    /// The field's address, which is its key in the registry.
     field: usize,
-    pending: usize,
+    pending: NonNull<Pending>,
     graph: Arc<StarlarkDeserWaitGraph>,
     done: Mutex<bool>,
     changed: Condvar,
 }
+
+// SAFETY: `pending` is a record the field owns; it is read only under the registry lock, which
+// also serializes its being freed, and the other fields are `Send` and `Sync` on their own.
+unsafe impl Send for ActiveRead {}
+unsafe impl Sync for ActiveRead {}
 
 fn active_reads() -> MutexGuard<'static, HashMap<usize, Arc<ActiveRead>>> {
     static READS: OnceLock<Mutex<HashMap<usize, Arc<ActiveRead>>>> = OnceLock::new();
@@ -299,7 +306,7 @@ struct PendingClaim<'a, T: DeferredWord> {
 }
 
 impl<T: DeferredWord> PendingClaim<'_, T> {
-    fn finish(&mut self, word: usize) {
+    fn finish(&mut self, word: *mut ()) {
         let mut reads = active_reads();
         self.graph_claim.take();
         self.field.word.store(word, Ordering::Release);
@@ -317,8 +324,8 @@ impl<T: DeferredWord> PendingClaim<'_, T> {
                 .expect("claim owns its pending record")
                 .resolve::<T>()?
         };
-        // SAFETY: DeferredWord guarantees the size/alignment of a word.
-        let word = unsafe { ptr::from_ref(&value).cast::<usize>().read() };
+        // SAFETY: `DeferredWord` guarantees a one-pointer representation.
+        let word = unsafe { ptr::from_ref(&value).cast::<*mut ()>().read() };
         mem::forget(value);
         let pending = self.pending.take();
         self.finish(word);
@@ -330,7 +337,8 @@ impl<T: DeferredWord> PendingClaim<'_, T> {
 impl<T: DeferredWord> Drop for PendingClaim<'_, T> {
     fn drop(&mut self) {
         if let Some(pending) = self.pending.take() {
-            self.finish(Box::into_raw(pending) as usize | TAG_DEFERRED);
+            let pending = Box::into_raw(pending).cast::<()>();
+            self.finish(pending.map_addr(|addr| addr | TAG_DEFERRED));
         }
     }
 }
@@ -352,7 +360,7 @@ pub(super) fn resolve<T: DeferredWord>(field: &Deferred<T>) -> crate::Result<()>
             State::Pending(pending) => {
                 // SAFETY: every claim/publication holds `reads`, so the box
                 // cannot be removed while inspecting it here.
-                let storage = unsafe { &*pending }
+                let storage = unsafe { pending.as_ref() }
                     .storage
                     .upgrade()
                     .ok_or_else(|| deferred_error("deferred field storage has been closed"))?;
@@ -362,7 +370,7 @@ pub(super) fn resolve<T: DeferredWord>(field: &Deferred<T>) -> crate::Result<()>
                 let address = ptr::from_ref(field) as usize;
                 let active = Arc::new(ActiveRead {
                     field: address,
-                    pending: pending as usize,
+                    pending,
                     graph,
                     done: Mutex::new(false),
                     changed: Condvar::new(),
@@ -371,12 +379,14 @@ pub(super) fn resolve<T: DeferredWord>(field: &Deferred<T>) -> crate::Result<()>
                     .graph
                     .claim(DeserWaitKey::Field(address), std::thread::current().id());
                 reads.insert(address, active.clone());
-                field.word.store(RESOLVING, Ordering::Release);
+                field
+                    .word
+                    .store(ptr::without_provenance_mut(RESOLVING), Ordering::Release);
                 // SAFETY: the registry lock and state transition transfer the
                 // field's unique box to this claim. Metadata readers use the lock.
                 let claim = PendingClaim {
                     field,
-                    pending: Some(unsafe { Box::from_raw(pending) }),
+                    pending: Some(unsafe { Box::from_raw(pending.as_ptr()) }),
                     active,
                     graph_claim: Some(graph_claim),
                 };
@@ -397,7 +407,7 @@ pub(super) fn prefetch_many<'a, T: DeferredWord + 'a>(
     fields: impl IntoIterator<Item = &'a Deferred<T>>,
 ) -> crate::Result<()> {
     let mut storage: Option<PagableStorageHandle> = None;
-    let mut addresses: Vec<usize> = Vec::new();
+    let mut fields_to_load: Vec<FieldPtr> = Vec::new();
     for field in fields {
         let unread = with_pending(field, |pending| {
             pending
@@ -407,37 +417,44 @@ pub(super) fn prefetch_many<'a, T: DeferredWord + 'a>(
         });
         let Some(handle) = unread else { continue };
         storage.get_or_insert(handle?);
-        addresses.push(ptr::from_ref(field) as usize);
+        fields_to_load.push(FieldPtr(NonNull::from(field).cast()));
     }
     let Some(storage) = storage else {
         return Ok(());
     };
-    addresses.sort_unstable();
-    addresses.dedup();
+    fields_to_load.sort_unstable_by_key(|field| field.0.addr());
+    fields_to_load.dedup_by_key(|field| field.0.addr());
     // A function pointer names no lifetime, so the loads can be `'static`
     // although `T` is not.
-    let resolve_at: unsafe fn(usize) -> crate::Result<()> = resolve_at::<T>;
-    let loads = addresses
+    let resolve_at: unsafe fn(FieldPtr) -> crate::Result<()> = resolve_at::<T>;
+    let loads = fields_to_load
         .into_iter()
-        .map(|address| {
+        .map(|field| {
             Box::new(move || {
-                // SAFETY: `address` came from a borrow of the field that the
+                // SAFETY: `field` came from a borrow of the field that the
                 // caller of `prefetch_many` holds until `load_many` returns,
                 // and `load_many` returns only after this load has.
-                unsafe { resolve_at(address) }.map_err(crate::Error::into_anyhow)
+                unsafe { resolve_at(field) }.map_err(crate::Error::into_anyhow)
             }) as Box<dyn FnOnce() -> pagable::Result<()> + Send>
         })
         .collect();
     storage.load_many(loads).map_err(crate::Error::new_other)
 }
 
-/// Resolves the field at `address`.
+/// A `Deferred<T>` with `T` erased, for a load to carry to the blocking pool.
+#[derive(Copy, Clone)]
+struct FieldPtr(NonNull<()>);
+
+// SAFETY: Only `resolve_at` uses the pointer, under the contract `prefetch_many` states.
+unsafe impl Send for FieldPtr {}
+
+/// Resolves the field `field` points at.
 ///
 /// # Safety
-/// `address` must point to a live `Deferred<T>` for the duration of the call.
-unsafe fn resolve_at<T: DeferredWord>(address: usize) -> crate::Result<()> {
+/// `field` must point to a live `Deferred<T>` for the duration of the call.
+unsafe fn resolve_at<T: DeferredWord>(field: FieldPtr) -> crate::Result<()> {
     // SAFETY: the caller's contract.
-    resolve(unsafe { &*(address as *const Deferred<T>) })
+    resolve(unsafe { field.0.cast::<Deferred<T>>().as_ref() })
 }
 
 pub(super) fn with_pending<T: DeferredWord, R>(
@@ -452,10 +469,10 @@ pub(super) fn with_pending<T: DeferredWord, R>(
             reads
                 .get(&(ptr::from_ref(field) as usize))
                 .expect("resolving fields have an active ticket")
-                .pending as *const Pending as *mut Pending
+                .pending
         }
     };
     // SAFETY: the field borrow excludes Drop, and the registry lock excludes
     // a resolver publishing and freeing this immutable pending record.
-    Some(f(unsafe { &*pending }))
+    Some(f(unsafe { pending.as_ref() }))
 }

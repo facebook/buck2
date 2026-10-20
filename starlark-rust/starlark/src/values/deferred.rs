@@ -32,7 +32,8 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::mem;
 use std::ptr;
-use std::sync::atomic::AtomicUsize;
+use std::ptr::NonNull;
+use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
@@ -158,8 +159,9 @@ mod private {
 ///
 /// # Safety
 ///
-/// `Self` has the size and alignment of one word and never
-/// carries `TAG_DEFERRED` in its low bits, so a `&Self` may be formed over a
+/// `Self` is one pointer: it has the size and alignment of one, its bits are a
+/// pointer's (so that storing it as one keeps its provenance), and it never
+/// carries `TAG_DEFERRED` in its low bits. So a `&Self` may be formed over a
 /// word holding a valid `Self`, and the tag alone tells a value from an unread
 /// field.
 pub unsafe trait DeferredWord: Sized + private::Sealed {
@@ -296,7 +298,7 @@ fn deferred_error(message: &str) -> crate::Error {
     crate::Error::new_kind(crate::ErrorKind::DeferredRead(anyhow::anyhow!("{message}")))
 }
 
-/// The word of a field whose pointers one thread is resolving right now.
+/// The address of the word of a field whose pointers one thread is resolving right now.
 const RESOLVING: usize = TAG_DEFERRED;
 
 /// A one-word field whose value can be materialized on demand.
@@ -319,12 +321,12 @@ const RESOLVING: usize = TAG_DEFERRED;
 pub struct Deferred<T: DeferredWord> {
     /// A valid `T`; or `TAG_DEFERRED | Box<Pending>` (pending); or
     /// `TAG_DEFERRED` alone (resolving). Accessed atomically until resolved,
-    /// plainly after. Zero is a resident `None` for an optional value.
+    /// plainly after. Null is a resident `None` for an optional value.
     ///
     /// Atomic so that shared readers and any future writer meet through the
     /// atomic memory model; a word holding a value is never written again, so a
     /// reference into it taken after an acquire load reads settled bits.
-    word: AtomicUsize,
+    word: AtomicPtr<()>,
     _marker: PhantomData<T>,
 }
 
@@ -335,7 +337,7 @@ unsafe impl<T: DeferredWord + Sync> Sync for Deferred<T> {}
 
 enum State {
     Resolved,
-    Pending(*mut Pending),
+    Pending(NonNull<Pending>),
     Resolving,
 }
 
@@ -352,12 +354,12 @@ impl<T: DeferredWord> Deferred<T> {
 
     /// Constructs a field with an already available value.
     pub fn new(value: T) -> Self {
-        let word = ptr::from_ref(&value).cast::<usize>();
-        // SAFETY: `DeferredWord` promises a one-word representation.
+        let word = ptr::from_ref(&value).cast::<*mut ()>();
+        // SAFETY: `DeferredWord` promises a one-pointer representation.
         let word = unsafe { word.read() };
         mem::forget(value);
         debug_assert!(
-            word & TAG_MASK != TAG_DEFERRED,
+            word.addr() & TAG_MASK != TAG_DEFERRED,
             "a `DeferredWord` is never tagged deferred"
         );
         Self::from_word(word)
@@ -368,25 +370,28 @@ impl<T: DeferredWord> Deferred<T> {
     /// erased storage paired with that owner and exposed only through branded access.
     #[cfg(fbcode_build)]
     unsafe fn pending(pending: Box<Pending>) -> Self {
-        let address = Box::into_raw(pending) as usize;
-        debug_assert!(address & TAG_MASK == 0);
-        Self::from_word(address | TAG_DEFERRED)
+        let pending = Box::into_raw(pending).cast::<()>();
+        debug_assert!(pending.addr() & TAG_MASK == 0);
+        Self::from_word(pending.map_addr(|addr| addr | TAG_DEFERRED))
     }
 
-    fn from_word(word: usize) -> Self {
+    fn from_word(word: *mut ()) -> Self {
         Self {
-            word: AtomicUsize::new(word),
+            word: AtomicPtr::new(word),
             _marker: PhantomData,
         }
     }
 
-    fn state_of(word: usize) -> State {
-        if word & TAG_MASK != TAG_DEFERRED {
+    fn state_of(word: *mut ()) -> State {
+        let addr = word.addr();
+        if addr & TAG_MASK != TAG_DEFERRED {
             State::Resolved
-        } else if word == RESOLVING {
+        } else if addr == RESOLVING {
             State::Resolving
         } else {
-            State::Pending((word & !TAG_MASK) as *mut Pending)
+            let pending = word.map_addr(|addr| addr & !TAG_MASK).cast::<Pending>();
+            // SAFETY: a pending word is a box's address under the tag.
+            State::Pending(unsafe { NonNull::new_unchecked(pending) })
         }
     }
 
@@ -529,7 +534,7 @@ impl<T: DeferredWord> Drop for Deferred<T> {
                 ptr::drop_in_place(ptr::from_mut(self.word.get_mut()).cast::<T>())
             },
             // SAFETY: an unread field still owns its record.
-            State::Pending(pending) => drop(unsafe { Box::from_raw(pending) }),
+            State::Pending(pending) => drop(unsafe { Box::from_raw(pending.as_ptr()) }),
             // A resolver holds `&self`, so the field cannot be dropped while resolving.
             State::Resolving => unreachable!("a deferred field dropped while being resolved"),
         }
