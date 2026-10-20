@@ -16,4 +16,15 @@ This directory contains tests for buck2. Primary constituents:
 
 `core` and `prelude` tests are visible in open source but not executed there.
 
+## Writing a test
+
+A test module is a `BuckTestCase` subclass (`e2e_util/buck_workspace.py`); each test is an
+`async def test_*(self, buck: Buck)` method decorated with `@buck_test(...)`, which runs it with a
+`Buck` on a fresh daemon (and a `tmp_path: Path` if the method takes one). `@parametrize(...)`
+runs a method once per set of arguments, as pytest's did. The test targets are `python_unittest`s:
+`buck2 test <target> -- --regex <name>` runs one test.
+
+A module still written for pytest is converted with
+`buck2 run fbcode//buck2/tests/tools/pytest_to_unittest:pytest_to_unittest -- <files>`.
+
 Some of these directories have their own `README.md` files.

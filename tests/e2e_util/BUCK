@@ -54,6 +54,16 @@ export_file(
     visibility = ["PUBLIC"],
 )
 
+python_unittest(
+    name = "test_buck_workspace",
+    srcs = ["tests/test_buck_workspace.py"],
+    network_access = network_access_utils.none(),
+    deps = [
+        "//buck2/tests/e2e_util:utilities",
+        "//buck2/tests/e2e_util/api:api",
+    ],
+)
+
 export_file(name = "test_bxl_template.py")
 
 export_file(name = "test_bxl_check_dependencies_template.py")

@@ -9,18 +9,22 @@
 
 # pyre-strict
 
+import asyncio
 import contextlib
 import functools
 import hashlib
 import inspect
+import itertools
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import unittest
 from collections import namedtuple
 from pathlib import Path
 from typing import (
@@ -33,6 +37,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Sequence,
 )
 
 import __manifest__
@@ -67,8 +72,15 @@ def _is_core_test() -> bool:
 @contextlib.asynccontextmanager
 async def buck_fixture(  # noqa C901 : "too complex"
     marker: BuckTestMarker,
+    test_id: Optional[str] = None,
 ) -> AsyncGenerator[Buck, None]:
-    """Returns a Buck for testing"""
+    """
+    Returns a Buck for testing.
+
+    `test_id` names the test case; an inplace test's isolation prefix is derived from it, so
+    it must differ between the test cases of one target. It defaults to pytest's
+    `PYTEST_CURRENT_TEST`.
+    """
 
     is_windows = platform.system() == "Windows"
     test_executable = os.environ["TEST_EXECUTABLE"]
@@ -178,9 +190,9 @@ async def buck_fixture(  # noqa C901 : "too complex"
 
         if marker.inplace:
             # We need a unique isolated prefix per test case.
-            current_test = (
-                __manifest__.fbmake["build_rule"] + os.environ["PYTEST_CURRENT_TEST"]
-            )
+            if test_id is None:
+                test_id = os.environ["PYTEST_CURRENT_TEST"]
+            current_test = __manifest__.fbmake["build_rule"] + test_id
             isolation_prefix = hashlib.sha256(current_test.encode("utf-8")).hexdigest()[
                 :40
             ]
@@ -316,12 +328,21 @@ async def _get_common_dir() -> Path:
     return common_dir
 
 
+def _buck_argument(args: Sequence[Any], kwargs: Dict[str, Any]) -> Buck:
+    """The `Buck` a decorated test was called with: the first argument of a test function,
+    the one after `self` of a test method."""
+    for arg in itertools.chain(args, kwargs.values()):
+        if isinstance(arg, Buck):
+            return arg
+    raise TypeError("test was called without a `Buck`")
+
+
 def nobuckd(fn: Callable[..., Any]) -> Callable[..., Any]:
     """Disables buck daemon"""
 
-    def wrapped(fn: Callable[..., Any], buck: Buck, *args: Any, **kwargs: Any) -> Any:
-        buck.set_buckd(True)
-        return fn(buck, *args, **kwargs)
+    def wrapped(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        _buck_argument(args, kwargs).set_buckd(True)
+        return fn(*args, **kwargs)
 
     return decorator(wrapped, fn)
 
@@ -661,6 +682,221 @@ def _make_passing_test_for_skipped_platform(
     return always_pass
 
 
+_FIXTURE_PARAMETERS = ("self", "buck", "tmp_path")
+
+
+def _is_test_method(fn: Callable[..., Any]) -> bool:
+    return next(iter(inspect.signature(fn).parameters), None) == "self"
+
+
+def _passing_test_method(fn: Callable[..., Any]) -> Callable[..., Any]:
+    @functools.wraps(fn)
+    def always_pass(self: unittest.TestCase, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    return always_pass
+
+
+def _buck_test_method(
+    marker: BuckTestMarker, fn: Callable[..., Any]
+) -> Callable[..., Any]:
+    """
+    `fn` as a test method of a `BuckTestCase`: it runs with a `Buck` for its `buck` parameter
+    and a fresh directory for `tmp_path`, whichever of the two it has (a test without `buck`
+    starts no daemon). Any further parameters are the test's `parametrize` arguments.
+    """
+    parameters = list(inspect.signature(fn).parameters)
+    wants_buck = "buck" in parameters
+    wants_tmp_path = "tmp_path" in parameters
+    positional = [p for p in parameters if p not in _FIXTURE_PARAMETERS]
+    if not (wants_buck or wants_tmp_path or inspect.iscoroutinefunction(fn)):
+        # Nothing to supply: a plain method, which a plain `unittest.TestCase` can hold.
+        return fn
+
+    @functools.wraps(fn)
+    async def test(self: "BuckTestCase", *args: Any, **kwargs: Any) -> None:
+        kwargs.update(zip(positional, args))
+        async with contextlib.AsyncExitStack() as stack:
+            if wants_buck:
+                kwargs["buck"] = await stack.enter_async_context(
+                    buck_fixture(marker, test_id=self.id())
+                )
+            if wants_tmp_path:
+                kwargs["tmp_path"] = Path(
+                    stack.enter_context(
+                        tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+                    )
+                )
+            result = fn(self, **kwargs)
+            if inspect.isawaitable(result):
+                await result
+
+    return test
+
+
+class BuckTestCase(unittest.IsolatedAsyncioTestCase):
+    """
+    The base class of a buck e2e test module. Each test is an `async def test_*(self, buck:
+    Buck, ...)` method decorated with `buck_test()`, which supplies the `buck` (and, when the
+    method takes one, a `tmp_path: Path`). `parametrize()` runs a method once per set of
+    arguments.
+    """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        _expand_parametrized_tests(cls)
+
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        # The debug mode `IsolatedAsyncioTestCase` enables logs a warning for every await of a
+        # buck command that takes longer than 100ms.
+        asyncio.get_running_loop().set_debug(False)
+
+
+class param:
+    """One set of `parametrize()` arguments with a name of its own, like `pytest.param`."""
+
+    __slots__ = ("values", "id")
+
+    def __init__(self, *values: Any, id: Optional[str] = None) -> None:
+        self.values = values
+        self.id = id
+
+
+_PARAMETRIZE_ATTR = "_buck_parametrize"
+
+
+def parametrize(
+    argnames: str | Sequence[str],
+    argvalues: Iterable[Any],
+    ids: Optional[Iterable[Optional[str]] | Callable[[Any], Optional[str]]] = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """
+    Runs the decorated test method once per entry of `argvalues`, as its own test case. It
+    takes what `pytest.mark.parametrize` takes: `argnames` is a comma-separated string or a
+    sequence of the parameters to bind, each entry of `argvalues` their values (a single value
+    for a single parameter), `ids` names the cases. Stacked `parametrize` decorators run the
+    product of their entries.
+
+    The test cases are named after the test and the case: `test_foo` with the id `linux` is
+    `test_foo_linux`. An empty `argvalues` leaves one case that skips.
+    """
+    names = (
+        [n.strip() for n in argnames.split(",")]
+        if isinstance(argnames, str)
+        else list(argnames)
+    )
+    ids_list = list(ids) if ids is not None and not callable(ids) else None
+    cases = []
+    for index, entry in enumerate(argvalues):
+        if isinstance(entry, param):
+            values, case_id = entry.values, entry.id
+        else:
+            values, case_id = (entry if len(names) > 1 else (entry,)), None
+        if len(values) != len(names):
+            raise ValueError(
+                f"parametrize: {len(names)} names {names} but {len(values)} values {values!r}"
+            )
+        if case_id is None and ids_list is not None:
+            case_id = ids_list[index]
+        if case_id is None and callable(ids):
+            case_id = "-".join(
+                ids(v) or _default_id(n, v, index) for n, v in zip(names, values)
+            )
+        if case_id is None:
+            case_id = "-".join(_default_id(n, v, index) for n, v in zip(names, values))
+        cases.append((case_id, dict(zip(names, values))))
+
+    def decorate(fn: Callable[..., Any]) -> Callable[..., Any]:
+        # Decorators apply innermost first, so the innermost `parametrize` leads the ids and
+        # varies slowest, as it did under pytest.
+        setattr(fn, _PARAMETRIZE_ATTR, getattr(fn, _PARAMETRIZE_ATTR, []) + [cases])
+        return fn
+
+    return decorate
+
+
+def _default_id(name: str, value: Any, index: int) -> str:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return str(value)
+    name_attr = getattr(value, "name", None)
+    if isinstance(name_attr, str):
+        return name_attr
+    return f"{name}{index}"
+
+
+def _expand_parametrized_tests(cls: type) -> None:
+    for name, fn in list(vars(cls).items()):
+        stacked = getattr(fn, _PARAMETRIZE_ATTR, None)
+        if stacked is None:
+            continue
+        delattr(cls, name)
+        if not all(stacked):
+            setattr(cls, name, _skipping_test_case(fn, name, "empty parameter set"))
+            continue
+        for combination in itertools.product(*stacked):
+            case_id = "-".join(case_id for case_id, _ in combination)
+            kwargs = {}
+            for _, values in combination:
+                kwargs.update(values)
+            case_name = _unique_test_name(cls, f"{name}_{_safe_name(case_id)}")
+            setattr(cls, case_name, _bind_test_case(fn, case_name, kwargs))
+
+
+def _safe_name(case_id: str) -> str:
+    return re.sub(r"_+", "_", re.sub(r"\W", "_", case_id)).strip("_") or "case"
+
+
+def _unique_test_name(cls: type, name: str) -> str:
+    candidate, n = name, 1
+    while candidate in vars(cls):
+        n += 1
+        candidate = f"{name}_{n}"
+    return candidate
+
+
+def _bind_test_case(
+    fn: Callable[..., Any], name: str, kwargs: Dict[str, Any]
+) -> Callable[..., Any]:
+    if inspect.iscoroutinefunction(fn):
+
+        @functools.wraps(fn)
+        async def case(self: Any) -> None:
+            await fn(self, **kwargs)
+
+    else:
+
+        @functools.wraps(fn)
+        def case(self: Any) -> None:
+            result = fn(self, **kwargs)
+            if inspect.isawaitable(result):
+                # A sync wrapper around an async test would otherwise pass without running it.
+                raise TypeError(
+                    f"{name} returned {result!r} instead of running: make it async"
+                )
+
+    return _as_test_case(case, fn, name)
+
+
+def _skipping_test_case(
+    fn: Callable[..., Any], name: str, reason: str
+) -> Callable[..., Any]:
+    @functools.wraps(fn)
+    def case(self: unittest.TestCase) -> None:
+        self.skipTest(reason)
+
+    return _as_test_case(case, fn, name)
+
+
+def _as_test_case(
+    case: Callable[..., Any], fn: Callable[..., Any], name: str
+) -> Callable[..., Any]:
+    case.__name__ = name
+    case.__qualname__ = f"{fn.__qualname__.rsplit('.', 1)[0]}.{name}"
+    case.__dict__.pop(_PARAMETRIZE_ATTR, None)
+    return case
+
+
 def buck_test(
     inplace: bool | None = None,
     data_dir: Optional[str] = "",
@@ -728,29 +964,41 @@ def buck_test(
     for p in skip_for_os:
         if p not in SKIPPABLE_PLATFORMS:
             raise Exception(f"skip_for_os must specifiy one of {SKIPPABLE_PLATFORMS}")
-    if platform.system().lower() in skip_for_os:
-        return _make_passing_test_for_skipped_platform
     # Without a variant's environment a test runs against the daemon's default implementation.
-    if os.environ.get("BUCK2_TEST_MATERIALIZER", "deferred") in skip_for_materializer:
-        return _make_passing_test_for_skipped_platform
+    skipped = (
+        platform.system().lower() in skip_for_os
+        or os.environ.get("BUCK2_TEST_MATERIALIZER", "deferred")
+        in skip_for_materializer
+    )
 
     if data_dir is not None and inplace:
         raise Exception(
             "`data_dir` is not an allowed parameter for an `inplace=True`test"
         )
 
-    return pytest.mark.buck_test(
-        BuckTestMarker(
-            inplace=inplace,
-            data_dir=data_dir,
-            allow_soft_errors=allow_soft_errors,
-            extra_buck_config=extra_buck_config or {},
-            skip_final_kill=skip_final_kill,
-            setup_eden=setup_eden,
-            disable_daemon_cgroup=disable_daemon_cgroup,
-            write_invocation_record=write_invocation_record,
-        )
+    marker = BuckTestMarker(
+        inplace=inplace,
+        data_dir=data_dir,
+        allow_soft_errors=allow_soft_errors,
+        extra_buck_config=extra_buck_config or {},
+        skip_final_kill=skip_final_kill,
+        setup_eden=setup_eden,
+        disable_daemon_cgroup=disable_daemon_cgroup,
+        write_invocation_record=write_invocation_record,
     )
+
+    def decorate(fn: Callable[..., Any]) -> Callable[..., Any]:
+        if _is_test_method(fn):
+            test = (
+                _passing_test_method(fn) if skipped else _buck_test_method(marker, fn)
+            )
+            test.buck_test_marker = marker  # pyrefly: ignore [missing-attribute]
+            return test
+        if skipped:
+            return _make_passing_test_for_skipped_platform(fn)
+        return pytest.mark.buck_test(marker)(fn)
+
+    return decorate
 
 
 def env(key: str, value: str) -> Callable[..., Any]:
@@ -760,11 +1008,9 @@ def env(key: str, value: str) -> Callable[..., Any]:
     """
 
     def inner_decorator(fn: BuckTestFn) -> Callable[..., Any]:
-        async def wrapped(
-            fn: BuckTestFn, buck: Buck, *args: Any, **kwargs: Any
-        ) -> None:
-            buck.set_env(key, value)
-            return await fn(buck, *args, **kwargs)
+        async def wrapped(fn: BuckTestFn, *args: Any, **kwargs: Any) -> None:
+            _buck_argument(args, kwargs).set_env(key, value)
+            return await fn(*args, **kwargs)
 
         return decorator(wrapped, fn)
 
@@ -778,11 +1024,9 @@ def windows_cmd_option(key: WindowsCmdOption, value: bool) -> Callable[..., Any]
     """
 
     def inner_decorator(fn: BuckTestFn) -> Callable[..., Any]:
-        async def wrapped(
-            fn: BuckTestFn, buck: Buck, *args: Any, **kwargs: Any
-        ) -> None:
-            buck.set_windows_cmd_option(key, value)
-            return await fn(buck, *args, **kwargs)
+        async def wrapped(fn: BuckTestFn, *args: Any, **kwargs: Any) -> None:
+            _buck_argument(args, kwargs).set_windows_cmd_option(key, value)
+            return await fn(*args, **kwargs)
 
         return decorator(wrapped, fn)
 

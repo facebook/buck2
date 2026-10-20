@@ -8,6 +8,7 @@
 
 
 import json
+import math
 import random
 import re
 import string
@@ -19,6 +20,37 @@ from pathlib import Path
 import psutil
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import InvocationRecord
+
+
+class approx:
+    """
+    Compares equal to a number within `abs` of `expected`, or within a relative tolerance of
+    `rel` (one in a million unless given), so that a float measured by buck2 can sit inside an
+    equality assertion over a larger structure, like `pytest.approx`.
+    """
+
+    def __init__(
+        self,
+        expected: float,
+        *,
+        abs: typing.Optional[float] = None,  # noqa: A002 the name `pytest.approx` has
+        rel: typing.Optional[float] = None,
+    ) -> None:
+        self.expected = expected
+        self.abs = abs
+        self.rel = rel
+
+    def __eq__(self, actual: object) -> bool:
+        if not isinstance(actual, (int, float)):
+            return False
+        if self.abs is None and self.rel is None:
+            return math.isclose(actual, self.expected, rel_tol=1e-6, abs_tol=1e-12)
+        return math.isclose(
+            actual, self.expected, rel_tol=self.rel or 0.0, abs_tol=self.abs or 0.0
+        )
+
+    def __repr__(self) -> str:
+        return f"approx({self.expected!r}, abs={self.abs!r}, rel={self.rel!r})"
 
 
 def daemon_is_alive(pid: int) -> bool:
