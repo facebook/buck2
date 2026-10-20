@@ -10,49 +10,56 @@
 
 //! Utilities for interacting with the jemalloc heap used by buck2.
 //!
-//! In order to make use of jemalloc's heap dump or profiling utilities, you must set the MALLOC_CONF environment
-//! variable to a suitable value prior to launching the daemon, such as:
+//! In order to make use of jemalloc's heap dump or profiling utilities, you must set jemalloc's
+//! configuration environment variable to a suitable value prior to launching the daemon, such as:
 //!  `export MALLOC_CONF=prof:true,prof_final:false,prof_prefix:/tmp/jeprof`
 //! This turns on the profiler (`prof:true`), tells the profile to not take heap dump on process exit,
 //! (`prof_final:false`), and write dumps to `/tmp/jeprof` if a file argument isn't given to `mallctl`
 //! (`prof_prefix:/tmp/jeprof`).
+//!
+//! Note: on macOS the env variable is named `JE_MALLOC_CONF`.
 
 #[cfg(fbcode_build)]
 mod imp {
     use std::env;
+    use std::ffi::CString;
 
+    use allocator_stats::MALLOC_CONF_ENV;
     use buck2_error::conversion::from_any_with_tag;
 
     /// Output the current state of the heap to the filename specified.
     /// Intended to be used for debugging purposes.
-    /// Requires MALLOC_CONF=prof:true to be set in environment variables
-    /// when run, though must be built without MALLOC_CONF=prof:true.
+    /// Requires `prof:true` in [`MALLOC_CONF_ENV`] to be set in environment
+    /// variables when run, though must be built without it.
     pub fn write_heap_to_file(filename: &str) -> buck2_error::Result<()> {
-        if !memory::is_using_jemalloc() {
+        // `has_jemalloc` works correctly on macOS too
+        if !allocator_stats::has_jemalloc() {
             return Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Input,
                 "not using jemalloc; are you building with @//mode/dev or @//mode/dbgo?"
             ));
         }
 
-        let prof_enabled: bool = memory::mallctl_read("opt.prof")
+        let prof_enabled = allocator_stats::mallctl_read::<bool>(c"opt.prof")
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
         if !prof_enabled {
-            if env::var_os("MALLOC_CONF").is_some() {
+            if env::var_os(MALLOC_CONF_ENV).is_some() {
                 return Err(buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Input,
-                    "the environment variable MALLOC_CONF is set, but profiling is not enabled. MALLOC_CONF must contain prof:true to enable the profiler"
+                    "the environment variable {MALLOC_CONF_ENV} is set, but profiling is not enabled. {MALLOC_CONF_ENV} must contain prof:true to enable the profiler"
                 ));
             }
 
             return Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Input,
-                "profiling is not enabled for this process; you must set the environment variable MALLOC_CONF to contain at least prof:true in order to profile"
+                "profiling is not enabled for this process; you must set the environment variable {MALLOC_CONF_ENV} to contain at least prof:true in order to profile"
             ));
         }
 
+        let path = CString::new(filename)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Input))?;
         eprintln!("dumping heap to: {filename:?}");
-        memory::mallctl_write("prof.dump", filename)
+        allocator_stats::mallctl_write(c"prof.dump", path.as_c_str())
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
         Ok(())
     }
