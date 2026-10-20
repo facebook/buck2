@@ -123,6 +123,7 @@ impl Snapshot {
 /// Byte-granular, immune to LLVM elision (asks the allocator directly),
 /// and counts everything that goes through `malloc` (which is everything
 /// dice does).
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn read_heap_allocated_bytes() -> isize {
     let mut epoch: u64 = 1;
     let mut sz_epoch: usize = std::mem::size_of::<u64>();
@@ -163,6 +164,15 @@ fn read_heap_allocated_bytes() -> isize {
     allocated as isize
 }
 
+/// There is no jemalloc on Windows. The Buck target is Linux-only, but cargo
+/// has no way to leave a `[[bin]]` out on one OS, so the workspace builds this
+/// binary there too; the metric reads as the broken-metric sentinel.
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn read_heap_allocated_bytes() -> isize {
+    -1
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 unsafe extern "C" {
     // tikv_jemallocator uses a `_rjem_` prefix for its functions if prefixing is enabled:
     // <https://docs.rs/crate/tikv-jemalloc-sys/0.7.1+5.3.1-0-g81034ce1f1373e37dc865038e1bc8eeecf559ce8/source/src/lib.rs#143>
