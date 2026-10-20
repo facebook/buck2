@@ -250,6 +250,12 @@ async def test_no_buckd_is_a_noop_for_a_client_only_command(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_no_buckd_without_daemon_is_quiet(buck: Buck) -> None:
+    result = await buck.audit("cell", "--no-buckd")
+    assert "no buckd server running" not in result.stderr
+
+
+@buck_test()
 async def test_buck_out_is_cache_dir(buck: Buck) -> None:
     await buck.targets(":")  # Start a daemon
     root = await buck.root()

@@ -52,6 +52,7 @@ impl BuckSubcommand for KillCommand {
         buck2_client_ctx::daemon::client::kill::kill_command_impl(
             &lifecycle_lock,
             "`buck kill` was invoked",
+            false,
         )
         .await
         .into()

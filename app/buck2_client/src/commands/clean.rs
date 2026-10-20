@@ -244,7 +244,7 @@ impl BuckSubcommand for InnerCleanCommand {
         )
         .await?;
 
-        kill_command_impl(&lifecycle_lock, "`buck2 clean` was invoked").await?;
+        kill_command_impl(&lifecycle_lock, "`buck2 clean` was invoked", false).await?;
 
         clean(
             buck_out_dir,
