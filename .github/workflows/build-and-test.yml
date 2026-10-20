@@ -9,35 +9,68 @@ on:
 permissions:
   contents: read
 
+# A pull request's superseded run is cancelled; on `main` the run in flight
+# finishes so that every push still gets a verdict (see build-with-buck2.yml).
+concurrency:
+  group: build-and-test-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Clippy and rustdoc check the crates; the tests build them. The two share no
+  # artifacts, so they run as separate jobs for wall time.
+  #
   # Runner labels are repository (owner) specific, so the Meta larger runners
   # (4-core-ubuntu, windows-8-core) don't exist on forks and jobs requesting
   # them would sit queued forever waiting for a runner that isn't available.
   # Fall back to the standard GitHub-hosted runners there.
-  linux-build-and-test:
-    runs-on: ${{ github.repository_owner == 'facebook' && '4-core-ubuntu' || 'ubuntu-latest' }}
+  lint:
+    name: lint (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            runs-on: ${{ github.repository_owner == 'facebook' && '4-core-ubuntu' || 'ubuntu-latest' }}
+          - name: macos
+            runs-on: macos-14
+          - name: windows
+            runs-on: ${{ github.repository_owner == 'facebook' && 'windows-8-core' || 'windows-latest' }}
+    runs-on: ${{ matrix.runs-on }}
     steps:
     - uses: actions/checkout@v6
-    - uses: ./.github/actions/setup_linux_env
-    - uses: ./.github/actions/build_debug
-    - uses: ./.github/actions/run_test_py
-  macos-build-and-test:
-    # Pinned to macos-14: on the macos-15 runner image `latest-stable` selects an
-    # Xcode/SDK that mis-targets the deployment SDK and breaks the `cargo build`
-    # step (actions/runner-images#12758). macos-14 resolves to a known-good Xcode 16.x.
-    runs-on: macos-14
-    steps:
-    - uses: maxim-lobanov/setup-xcode@v1.6.0
+    - uses: ./.github/actions/setup_cargo_env
       with:
-        xcode-version: latest-stable
-    - uses: actions/checkout@v6
-    - uses: ./.github/actions/setup_macos_env
-    - uses: ./.github/actions/build_debug
-    - uses: ./.github/actions/run_test_py
-  windows-build-and-test:
-    runs-on: ${{ github.repository_owner == 'facebook' && 'windows-8-core' || 'windows-latest' }}
+        components: clippy
+    - uses: Swatinem/rust-cache@v2
+      with:
+        prefix-key: buck2-lint
+        cache-on-failure: true
+    - name: Run clippy
+      run: python3 test.py --ci --git --lint-only
+      shell: bash
+    - name: Run rustdoc
+      run: python3 test.py --ci --git --rustdoc-only
+      shell: bash
+  test:
+    name: test (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            runs-on: ${{ github.repository_owner == 'facebook' && '4-core-ubuntu' || 'ubuntu-latest' }}
+          - name: macos
+            runs-on: macos-14
+          - name: windows
+            runs-on: ${{ github.repository_owner == 'facebook' && 'windows-8-core' || 'windows-latest' }}
+    runs-on: ${{ matrix.runs-on }}
     steps:
     - uses: actions/checkout@v6
-    - uses: ./.github/actions/setup_windows_env
-    - uses: ./.github/actions/build_debug
-    - uses: ./.github/actions/run_test_py
+    - uses: ./.github/actions/setup_cargo_env
+    - uses: Swatinem/rust-cache@v2
+      with:
+        prefix-key: buck2-test
+        cache-on-failure: true
+    - name: Run the tests
+      run: python3 test.py --ci --git --test-only
+      shell: bash
