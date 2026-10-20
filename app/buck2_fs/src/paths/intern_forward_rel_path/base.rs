@@ -11,7 +11,6 @@
 //! The `IForwardRelativePath` handle, its encoding, and the core API that every invariant in this
 //! module depends on.
 
-use std::num::NonZero;
 use std::ptr::NonNull;
 use std::slice;
 
@@ -189,17 +188,18 @@ impl IForwardRelativePath {
         Self(PackedPtr::new(header.cast::<u8>(), LONG))
     }
 
-    /// The handle as a single non-zero word, for the interner's table.
-    pub(super) fn to_word(self) -> NonZero<usize> {
-        self.0.to_packed_word()
+    /// The handle as a single pointer, for the interner's table. Not for dereferencing: the
+    /// metadata sits in its high bits.
+    pub(super) fn to_ptr(self) -> NonNull<()> {
+        self.0.to_packed_ptr().cast()
     }
 
     /// # Safety
     ///
-    /// `word` must have been produced by `to_word`.
-    pub(super) unsafe fn from_word(word: NonZero<usize>) -> Self {
-        // SAFETY: `to_word` only ever packs handles, and what they point at lives forever.
-        Self(unsafe { PackedPtr::from_packed_word(word) })
+    /// `ptr` must have been produced by `to_ptr`.
+    pub(super) unsafe fn from_ptr(ptr: NonNull<()>) -> Self {
+        // SAFETY: `to_ptr` only ever packs handles, and what they point at lives forever.
+        Self(unsafe { PackedPtr::from_packed_ptr(ptr.cast()) })
     }
 
     /// Pointer to and length of the path's bytes.

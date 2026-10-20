@@ -9,7 +9,6 @@
  */
 
 use std::marker::PhantomData;
-use std::num::NonZero;
 use std::ptr::NonNull;
 
 use crate::packed_ptr::ptr_value::PackedStorage;
@@ -157,29 +156,28 @@ where
         ))
     }
 
-    /// The pointer and the metadata byte as the one word the packed representation stores them
-    /// in. Round-trips through [`from_packed_word`](Self::from_packed_word).
+    /// The pointer and the metadata byte as the one pointer the packed representation stores
+    /// them in: the original pointer with the metadata in the high bits of its address, so it
+    /// is not for dereferencing. Round-trips through
+    /// [`from_packed_ptr`](Self::from_packed_ptr).
     ///
     /// Only the packed representation has this. Code that needs its handles to be one word (to
     /// store them in a lock-free table, say) uses it, and thereby does not build with
     /// `mini_vec_no_ptr_packing`; that is the intended way of stating the requirement.
     #[cfg(not(mini_vec_no_ptr_packing))]
-    pub fn to_packed_word(self) -> NonZero<usize> {
-        self.0.0.expose_provenance()
+    pub fn to_packed_ptr(self) -> NonNull<u8> {
+        self.0.0
     }
 
-    /// Recover a `PackedPtr` from [`to_packed_word`](Self::to_packed_word).
+    /// Recover a `PackedPtr` from [`to_packed_ptr`](Self::to_packed_ptr).
     ///
     /// # Safety
     ///
-    /// `word` must have been returned by `to_packed_word` on a `PackedPtr<P>`, and whatever
+    /// `ptr` must have been returned by `to_packed_ptr` on a `PackedPtr<P>`, and whatever
     /// requirements `P` places on its pointee must still hold.
     #[cfg(not(mini_vec_no_ptr_packing))]
-    pub unsafe fn from_packed_word(word: NonZero<usize>) -> Self {
-        Self(PackedStorageRef(
-            NonNull::with_exposed_provenance(word),
-            PhantomData,
-        ))
+    pub unsafe fn from_packed_ptr(ptr: NonNull<u8>) -> Self {
+        Self(PackedStorageRef(ptr, PhantomData))
     }
 }
 

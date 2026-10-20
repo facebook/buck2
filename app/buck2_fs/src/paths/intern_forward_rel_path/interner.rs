@@ -32,7 +32,6 @@
 use std::alloc;
 use std::alloc::Layout;
 use std::hash::Hasher;
-use std::num::NonZero;
 use std::ptr::NonNull;
 use std::slice;
 use std::sync::atomic::AtomicUsize;
@@ -53,42 +52,31 @@ use crate::paths::forward_rel_path::ForwardRelativePath;
 // Table slots
 // ---------------------------------------------------------------------------
 
-/// A table slot: a handle, stored as its packed word.
+/// A table slot: a handle, stored as its packed pointer.
 #[derive(Copy, Clone)]
 struct Slot(IForwardRelativePath);
 
 impl AtomicValue for Slot {
-    type Raw = usize;
     type Ref<'a> = Slot;
 
     #[inline]
-    fn null() -> usize {
-        0
+    fn into_raw(this: Self) -> NonNull<()> {
+        this.0.to_ptr()
     }
 
     #[inline]
-    fn is_null(this: usize) -> bool {
-        this == 0
+    unsafe fn from_raw(raw: NonNull<()>) -> Self {
+        // SAFETY: The table only ever hands back pointers produced by `into_raw`.
+        Slot(unsafe { IForwardRelativePath::from_ptr(raw) })
     }
 
     #[inline]
-    fn into_raw(this: Self) -> usize {
-        this.0.to_word().get()
-    }
-
-    #[inline]
-    unsafe fn from_raw(raw: usize) -> Self {
-        // SAFETY: The table only ever hands back non-null words produced by `into_raw`.
-        Slot(unsafe { IForwardRelativePath::from_word(NonZero::new_unchecked(raw)) })
-    }
-
-    #[inline]
-    unsafe fn deref<'a>(raw: usize) -> Slot
+    unsafe fn deref<'a>(raw: NonNull<()>) -> Slot
     where
         Self: 'a,
     {
         // SAFETY: See `from_raw`.
-        Slot(unsafe { IForwardRelativePath::from_word(NonZero::new_unchecked(raw)) })
+        Slot(unsafe { IForwardRelativePath::from_ptr(raw) })
     }
 }
 

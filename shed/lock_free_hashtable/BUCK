@@ -13,7 +13,6 @@ rust_library(
                     # The published crate wants none of allocative's own
                     # features, nor the ones fbsource enables on the others.
                     "allocative": {"features": [], "optional": True, "workspace": False},
-                    "bytemuck": {"features": [], "workspace": False},
                     "parking_lot": {"features": [], "workspace": False},
                 },
             },
@@ -30,7 +29,7 @@ rust_library(
                 # Gives the explicit path dependency above its version, which
                 # publishing requires.
                 "publish": True,
-                "version": "0.1.4",
+                "version": "0.2.0",
             },
         },
     },
@@ -38,8 +37,6 @@ rust_library(
     features = ["allocative"],
     unittests_miri = True,
     deps = [
-        "fbsource//third-party/rust:atomic",
-        "fbsource//third-party/rust:bytemuck",
         "fbsource//third-party/rust:parking_lot",
         "//buck2/allocative/allocative:allocative",
     ],

@@ -7177,11 +7177,9 @@ dependencies = [
 
 [[package]]
 name = "lock_free_hashtable"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "allocative",
- "atomic",
- "bytemuck",
  "num_cpus",
  "parking_lot 0.12.5",
 ]

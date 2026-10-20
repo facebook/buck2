@@ -239,33 +239,18 @@ impl Allocative for OwnedTargetLabel {
 /// freed), but an escaped candidate would compare unequal to the canonical
 /// entry under pointer equality.
 impl AtomicValue for OwnedTargetLabel {
-    type Raw = usize; // *const ()
     type Ref<'a> = TargetLabel;
 
-    fn null() -> Self::Raw {
-        0
+    fn into_raw(this: Self) -> NonNull<()> {
+        this.0.cast()
     }
 
-    fn is_null(this: Self::Raw) -> bool {
-        this == 0
+    unsafe fn from_raw(raw: NonNull<()>) -> Self {
+        OwnedTargetLabel(raw.cast())
     }
 
-    fn into_raw(this: Self) -> Self::Raw {
-        (this.0.as_ptr() as *const ()).expose_provenance()
-    }
-
-    unsafe fn from_raw(raw: Self::Raw) -> Self {
-        // SAFETY: `raw` came from `into_raw` and is non-null.
-        OwnedTargetLabel(unsafe {
-            NonNull::new_unchecked(ptr::with_exposed_provenance_mut::<LabelData>(raw))
-        })
-    }
-
-    unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
-        // SAFETY: `raw` came from `into_raw` and is non-null.
-        TargetLabel(unsafe {
-            NonNull::new_unchecked(ptr::with_exposed_provenance_mut::<LabelData>(raw))
-        })
+    unsafe fn deref<'a>(raw: NonNull<()>) -> Self::Ref<'a> {
+        TargetLabel(raw.cast())
     }
 }
 
