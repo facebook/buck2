@@ -9,6 +9,7 @@
  */
 
 use std::fmt::Display;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::package::PackageLabel;
@@ -58,7 +59,7 @@ type SelectDictKey<'v> = Either<StarlarkProvidersLabel, StringValue<'v>>;
 )]
 pub struct StarlarkSelectDict {
     #[starlark_pagable(pagable)]
-    selector: CoercedSelector,
+    selector: Arc<CoercedSelector>,
     #[starlark_pagable(pagable)]
     pkg: PackageLabel,
 }
@@ -95,7 +96,7 @@ enum SelectDictKeyArg<'v> {
 }
 
 impl StarlarkSelectDict {
-    pub fn new(selector: CoercedSelector, pkg: PackageLabel) -> Self {
+    pub fn new(selector: Arc<CoercedSelector>, pkg: PackageLabel) -> Self {
         Self { selector, pkg }
     }
 

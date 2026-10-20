@@ -218,7 +218,7 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::Metadata(data) => heap.alloc(data.to_value()),
             CoercedAttr::TargetModifiers(data) => heap.alloc(data.to_value()),
             CoercedAttr::Selector(selector) => {
-                let select_dict = StarlarkSelectDict::new(selector.as_ref().clone(), pkg.dupe());
+                let select_dict = StarlarkSelectDict::new(selector.dupe(), pkg.dupe());
                 heap.alloc(select_dict)
             }
             CoercedAttr::SelectFail(message) => {
