@@ -128,9 +128,7 @@ impl CoercedAttrExr for CoercedAttr {
 
                         assert_eq!(entries.capacity(), entries.len());
 
-                        Ok(CoercedAttr::Selector(Box::new(
-                            ctx.intern_select(entries, default)?,
-                        )))
+                        Ok(CoercedAttr::Selector(ctx.intern_select(entries, default)?))
                     } else {
                         Err(SelectError::ValueNotDict(v.get().to_repr()).into())
                     }

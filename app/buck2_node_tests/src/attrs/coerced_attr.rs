@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::sync::Arc;
 
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::constraints::ConstraintKey;
@@ -43,7 +44,7 @@ fn interner_hash(value: &CoercedAttr) -> u64 {
 
 #[test]
 fn selector_equals_accounts_for_ordering() {
-    let s1 = CoercedAttr::Selector(Box::new(
+    let s1 = CoercedAttr::Selector(Arc::new(
         CoercedSelector::new(
             ArcSlice::new([
                 (
@@ -59,7 +60,7 @@ fn selector_equals_accounts_for_ordering() {
         )
         .unwrap(),
     ));
-    let s2 = CoercedAttr::Selector(Box::new(
+    let s2 = CoercedAttr::Selector(Arc::new(
         CoercedSelector::new(
             ArcSlice::new([
                 (
@@ -86,7 +87,7 @@ fn selector_equals_accounts_for_ordering() {
     assert_eq!(hash(&nested_s1), hash(&nested_s2));
     assert_eq!(nested_s1, nested_s2);
 
-    let s2 = CoercedAttr::Selector(Box::new(
+    let s2 = CoercedAttr::Selector(Arc::new(
         CoercedSelector::new(
             ArcSlice::new([
                 (
@@ -306,7 +307,7 @@ fn test_to_json_concat() {
 fn test_to_json_selector() {
     assert_eq!(
         r#"{"__type":"selector","entries":{"DEFAULT":"ddd","config//:a":true,"config//:b":10}}"#,
-        CoercedAttr::Selector(Box::new(
+        CoercedAttr::Selector(Arc::new(
             CoercedSelector::new(
                 ArcSlice::new([
                     (

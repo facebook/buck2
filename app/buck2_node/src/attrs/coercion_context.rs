@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
+
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::NonDefaultProvidersName;
@@ -61,10 +63,18 @@ pub trait AttrCoercionContext {
         &self,
         value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
         default: Option<CoercedAttr>,
-    ) -> buck2_error::Result<CoercedSelector> {
+    ) -> buck2_error::Result<Arc<CoercedSelector>> {
         let hash = CoercedSelector::entries_hash_for_interning(&value);
         let entries = self.intern_select_hashed(value, hash);
-        CoercedSelector::new_with_entries_hash(entries, default, hash)
+        let selector = CoercedSelector::new_with_entries_hash(entries, default, hash)?;
+        Ok(self.intern_selector(selector))
+    }
+
+    /// Returns an owner with the same ordered entries and default. Contexts may override this
+    /// to reuse an equal selector; the default implementation allocates a fresh owner.
+    #[doc(hidden)]
+    fn intern_selector(&self, value: CoercedSelector) -> Arc<CoercedSelector> {
+        Arc::new(value)
     }
 
     /// Returns canonical entries structurally equal to `value`, using `hash` only for lookup.

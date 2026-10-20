@@ -15,6 +15,7 @@ use std::hash::Hasher;
 use std::mem;
 use std::ops::Deref;
 use std::ptr;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
@@ -156,6 +157,12 @@ impl AttrSerializeWithContext for CoercedSelector {
 }
 
 impl CoercedSelector {
+    /// Package-local lookup fingerprint; semantic equality must still be checked.
+    #[doc(hidden)]
+    pub fn hash_for_interning(&self) -> u64 {
+        self.intern_hash
+    }
+
     pub(crate) fn entries_hash_for_interning(
         entries: &[(ConfigurationSettingKey, CoercedAttr)],
     ) -> u64 {
@@ -377,7 +384,7 @@ impl AttrSerializeWithContext for CoercedConcat {
 /// during coercion and not ever use the ::Concat case.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, Pagable)]
 pub enum CoercedAttr {
-    Selector(Box<CoercedSelector>),
+    Selector(Arc<CoercedSelector>),
     SelectFail(ArcStr),
     SelectIncompatible(ArcStr),
     Concat(CoercedConcat),

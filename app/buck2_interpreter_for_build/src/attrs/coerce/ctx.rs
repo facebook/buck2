@@ -13,6 +13,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::sync::Arc;
 
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::CellAliasResolver;
@@ -33,6 +34,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_hash::BuckHasher;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -107,6 +109,8 @@ pub struct BuildAttrCoercionContext {
     // than select values
     dict_interner: AttrCoercionInterner<ArcSlice<(CoercedAttr, CoercedAttr)>>,
     select_interner: AttrCoercionInterner<ArcSlice<(ConfigurationSettingKey, CoercedAttr)>>,
+    // Entry slices alone do not share the default or the selector wrapper.
+    selector_interner: AttrCoercionInterner<Arc<CoercedSelector>>,
 }
 
 impl Debug for BuildAttrCoercionContext {
@@ -140,6 +144,7 @@ impl BuildAttrCoercionContext {
             list_interner: AttrCoercionInterner::new(),
             dict_interner: AttrCoercionInterner::new(),
             select_interner: AttrCoercionInterner::new(),
+            selector_interner: AttrCoercionInterner::new(),
         }
     }
 
@@ -290,6 +295,11 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         self.select_interner.intern_hashed(value, hash)
     }
 
+    fn intern_selector(&self, value: CoercedSelector) -> Arc<CoercedSelector> {
+        let hash = value.hash_for_interning();
+        self.selector_interner.intern_hashed(value, hash)
+    }
+
     fn coerce_path(&self, value: &str, allow_directory: bool) -> buck2_error::Result<CoercedPath> {
         let path = <&PackageRelativePath>::try_from(value)?;
         let (package, listing) = self.require_enclosing_package(value)?;
@@ -353,6 +363,99 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
             .get()?
             .visit_literals(visitor, expr)
             .map_err(|e| QueryError::convert_error(e, query))?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use buck2_node::attrs::coerced_attr::CoercedAttr;
+    use buck2_node::attrs::coercion_context::AttrCoercionContext;
+    use buck2_node::configuration::resolved::ConfigurationSettingKey;
+    use pagable::PagableDeserialize;
+    use pagable::PagableSerialize;
+    use pagable::testing::TestingDeserializer;
+    use pagable::testing::TestingSerializer;
+
+    use crate::attrs::coerce::testing::coercion_ctx;
+
+    #[test]
+    fn selector_interning_preserves_defaults_and_ownership() -> buck2_error::Result<()> {
+        let ctx = coercion_ctx();
+        let entries = || {
+            vec![(
+                ConfigurationSettingKey::testing_parse("cell1//pkg:setting"),
+                CoercedAttr::Int(1),
+            )]
+        };
+        let first = ctx.intern_select(entries(), Some(CoercedAttr::Int(2)))?;
+        let same = ctx.intern_select(entries(), Some(CoercedAttr::Int(2)))?;
+        assert!(Arc::ptr_eq(&first, &same));
+
+        let different = ctx.intern_select(entries(), Some(CoercedAttr::Int(3)))?;
+        assert_ne!(first, different);
+        let absent = ctx.intern_select(entries(), None)?;
+        let explicit_none = ctx.intern_select(entries(), Some(CoercedAttr::None))?;
+        assert_ne!(absent, explicit_none);
+
+        let nested = ctx.intern_select(entries(), Some(CoercedAttr::Selector(first.clone())))?;
+        let same_nested = ctx.intern_select(entries(), Some(CoercedAttr::Selector(same)))?;
+        assert!(Arc::ptr_eq(&nested, &same_nested));
+
+        let attr = CoercedAttr::Selector(first.clone());
+        let CoercedAttr::Selector(cloned) = attr.clone() else {
+            unreachable!()
+        };
+        assert!(Arc::ptr_eq(&first, &cloned));
+        drop(ctx);
+        assert_eq!(first.all_entries().count(), 2);
+        assert_eq!(attr, CoercedAttr::Selector(cloned));
+        Ok(())
+    }
+
+    #[test]
+    fn shared_selectors_survive_paging_roundtrip() -> buck2_error::Result<()> {
+        let ctx = coercion_ctx();
+        let entries = || {
+            vec![(
+                ConfigurationSettingKey::testing_parse("cell1//pkg:setting"),
+                CoercedAttr::Int(1),
+            )]
+        };
+        let selector = ctx.intern_select(entries(), Some(CoercedAttr::Int(2)))?;
+        let attrs = vec![
+            CoercedAttr::Selector(selector.clone()),
+            CoercedAttr::Selector(selector.clone()),
+            CoercedAttr::Selector(ctx.intern_select(entries(), None)?),
+            CoercedAttr::Selector(ctx.intern_select(entries(), Some(CoercedAttr::None))?),
+            CoercedAttr::Selector(
+                ctx.intern_select(entries(), Some(CoercedAttr::Selector(selector)))?,
+            ),
+        ];
+        drop(ctx);
+
+        let mut serializer = TestingSerializer::new();
+        attrs.pagable_serialize(&mut serializer).unwrap();
+        let bytes = serializer.finish();
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored = Vec::<CoercedAttr>::pagable_deserialize(&mut deserializer).unwrap();
+        assert_eq!(attrs, restored);
+        let (CoercedAttr::Selector(first), CoercedAttr::Selector(second)) =
+            (&restored[0], &restored[1])
+        else {
+            panic!("expected selectors");
+        };
+        assert!(Arc::ptr_eq(first, second));
+        assert_ne!(restored[2], restored[3]);
+        let CoercedAttr::Selector(nested) = &restored[4] else {
+            panic!("expected nested selector");
+        };
+        let (_, CoercedAttr::Selector(child)) = nested.all_entries().last().unwrap() else {
+            panic!("expected selector default");
+        };
+        assert!(Arc::ptr_eq(first, child));
         Ok(())
     }
 }

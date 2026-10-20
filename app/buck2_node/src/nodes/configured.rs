@@ -1179,7 +1179,7 @@ mod tests {
             vec![(
                 "value",
                 Attribute::new(None, "", AttrType::string()).expect("valid string attribute"),
-                CoercedAttr::Selector(Box::new(
+                CoercedAttr::Selector(Arc::new(
                     CoercedSelector::new(
                         branches
                             .iter()
