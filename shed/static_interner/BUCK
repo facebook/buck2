@@ -40,9 +40,6 @@ rust_library(
         "dupe",
         "strong_hash",
     ],
-    # Interned values are stored as plain integers in lock-free tables, so the leak checker
-    # cannot see that they are still reachable.
-    test_miri_flags = ["-Zmiri-ignore-leaks"],
     unittests_miri = True,
     deps = [
         "fbsource//third-party/rust:equivalent",

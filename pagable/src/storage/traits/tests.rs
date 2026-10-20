@@ -1124,8 +1124,8 @@ fn a_failed_page_in_leaves_the_key_to_the_next_caller() {
 
 #[test]
 #[cfg_attr(
-    all(miri, windows),
-    ignore = "parking_lot finds `WaitOnAddress` through `GetModuleHandleA`, which Miri lets only std call"
+    miri,
+    ignore = "parks threads, and `parking_lot_core`'s wait queue casts integers to pointers"
 )]
 fn concurrent_page_ins_of_one_key_deserialize_once() -> anyhow::Result<()> {
     let mem = InMemoryPagableStorage::new();

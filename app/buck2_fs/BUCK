@@ -21,8 +21,7 @@ rust_library(
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:tempfile",
     ],
-    # Interned values are stored as plain integers in lock-free tables, so the leak checker
-    # cannot see that they are still reachable.
+    # `BumpArena` never frees anything by design, and its unit tests create arenas of their own.
     test_miri_flags = ["-Zmiri-ignore-leaks"],
     unittests_miri = True,
     deps = [
