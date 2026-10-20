@@ -18,10 +18,12 @@
 // https://github.com/rust-lang/rust-clippy/issues/11142
 #![allow(clippy::needless_borrow)]
 
+use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use either::Either;
 use num_bigint::BigInt;
+use serde_json::value::RawValue;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
@@ -207,6 +209,61 @@ impl<'fv> AllocFrozenValue<'fv> for serde_json::Value {
     }
 }
 
+/// Nesting `serde_json` allows when it decodes to `serde_json::Value`. Splitting a value into
+/// `RawValue`s does not count nesting, so `decode_raw` counts it itself.
+const DECODE_RECURSION_LIMIT: usize = 128;
+
+/// Decode a JSON value keeping every integer exact.
+///
+/// `serde_json::Number` has no integer form wider than 64 bits, so decoding through
+/// `serde_json::Value` turns a longer integer into the nearest float. Instead `serde_json`
+/// validates the value and splits off its elements as `RawValue`s, and each number is parsed
+/// from its own text here.
+fn decode_raw<'v>(
+    raw: &RawValue,
+    heap: Heap<'v>,
+    remaining_depth: usize,
+) -> anyhow::Result<Value<'v>> {
+    let text = raw.get();
+    let nested = || {
+        if remaining_depth > 1 {
+            Ok(remaining_depth - 1)
+        } else {
+            Err(anyhow::anyhow!("recursion limit exceeded"))
+        }
+    };
+    match text.as_bytes().first() {
+        Some(b'[') => {
+            let remaining_depth = nested()?;
+            let items = serde_json::from_str::<Vec<&RawValue>>(text)?
+                .into_iter()
+                .map(|item| decode_raw(item, heap, remaining_depth))
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            Ok(heap.alloc(items))
+        }
+        Some(b'{') => {
+            let remaining_depth = nested()?;
+            let members = serde_json::from_str::<BTreeMap<String, &RawValue>>(text)?
+                .into_iter()
+                .map(|(key, member)| Ok((key, decode_raw(member, heap, remaining_depth)?)))
+                .collect::<anyhow::Result<Vec<_>>>()?;
+            Ok(heap.alloc(AllocDict(members)))
+        }
+        Some(b'"') => Ok(heap.alloc(serde_json::from_str::<String>(text)?)),
+        // A number is an integer unless it has a fraction or an exponent.
+        Some(b'-' | b'0'..=b'9') => {
+            if text.bytes().any(|c| matches!(c, b'.' | b'e' | b'E')) {
+                Ok(heap.alloc(serde_json::from_str::<f64>(text)?))
+            } else if let Ok(i) = i32::from_str(text) {
+                Ok(heap.alloc(i))
+            } else {
+                Ok(heap.alloc(StarlarkInt::from(BigInt::from_str(text)?)))
+            }
+        }
+        _ => Ok(heap.alloc(serde_json::from_str::<serde_json::Value>(text)?)),
+    }
+}
+
 pub(crate) fn json(globals: &mut GlobalsBuilder) {
     #[starlark_module]
     fn json_members(globals: &mut GlobalsBuilder) {
@@ -218,7 +275,11 @@ pub(crate) fn json(globals: &mut GlobalsBuilder) {
             #[starlark(require = pos)] x: &str,
             heap: Heap<'v>,
         ) -> anyhow::Result<Value<'v>> {
-            Ok(heap.alloc(serde_json::from_str::<serde_json::Value>(x)?))
+            decode_raw(
+                serde_json::from_str::<&RawValue>(x)?,
+                heap,
+                DECODE_RECURSION_LIMIT,
+            )
         }
     }
 
@@ -285,6 +346,61 @@ mod tests {
         a.eq(
             "123456789123456789123456789",
             "json.decode('123456789123456789123456789')",
+        );
+    }
+
+    #[test]
+    fn test_json_decode_int_exact() {
+        let a = Assert::new();
+
+        // Checked through `str` and `type`: an int compares equal to the float it rounds to,
+        // so `==` would accept a rounded decode.
+        a.eq("'int'", "type(json.decode('18446744073709551616'))");
+        a.eq(
+            "'18446744073709551616'",
+            "str(json.decode('18446744073709551616'))",
+        );
+        a.eq(
+            "'-9223372036854775809'",
+            "str(json.decode('-9223372036854775809'))",
+        );
+        a.eq(
+            "'123456789123456789123456789'",
+            "str(json.decode('123456789123456789123456789'))",
+        );
+        a.eq(
+            "'{\"a\": [123456789123456789123456789]}'",
+            "str(json.decode('{\"a\": [123456789123456789123456789]}'))",
+        );
+        a.eq(
+            "'{\"a\": [123456789123456789123456789]}'",
+            "str(json.decode(' { \"a\" :\\n\\t[ 123456789123456789123456789 ] } '))",
+        );
+
+        // Numbers with a fraction or an exponent are still floats, and ints of every size
+        // are still ints.
+        a.eq("'float'", "type(json.decode('1e3'))");
+        a.eq("'float'", "type(json.decode('1.0'))");
+        a.eq(
+            "'1.8446744073709552e+19'",
+            "str(json.decode('1.8446744073709552e19'))",
+        );
+        a.eq("'int'", "type(json.decode('0'))");
+        a.eq("'0'", "str(json.decode('-0'))");
+        a.eq("'int'", "type(json.decode('9223372036854775807'))");
+
+        // Invalid or out-of-range numbers are still rejected.
+        a.fail("json.decode('1e999')", "number out of range");
+        a.fail("json.decode('01')", "invalid number");
+        a.fail("json.decode('[1,]')", "expected value");
+        a.fail("json.decode('[' * 200 + ']' * 200)", "recursion limit");
+        a.fail(
+            "json.decode('{\"a\":' * 200 + '0' + '}' * 200)",
+            "recursion limit",
+        );
+        a.eq(
+            "'[' * 50 + '0' + ']' * 50",
+            "str(json.decode('[' * 50 + '0' + ']' * 50))",
         );
     }
 
