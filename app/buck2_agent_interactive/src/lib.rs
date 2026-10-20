@@ -22,9 +22,10 @@ pub struct Invocation<'a> {
 pub enum Advice {
     Killall,
     Clean,
+    NewIsolationDir,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Decision {
     Inactive,
     Acknowledged(Advice),
@@ -37,6 +38,7 @@ impl Advice {
         match self {
             Self::Killall => "killall",
             Self::Clean => "clean",
+            Self::NewIsolationDir => "new_isolation_dir",
         }
     }
 
@@ -68,6 +70,17 @@ impl Advice {
                  and `--agent-context reason=\"<why build state must be cleared>\"`. \
                  This guard does not require user confirmation."
             }
+            Self::NewIsolationDir => {
+                "No daemon has been started for this isolation directory.\n\n\
+                 A new isolation directory starts a separate daemon, consumes additional memory, \
+                 and loses reuse of existing build state. Prefer the default isolation directory \
+                 or reuse the isolation directory already used for this work. Check both \
+                 `--isolation-dir` and `BUCK_ISOLATION_DIR` when choosing the directory.\n\n\
+                 If a new isolation directory is necessary, retry with \
+                 `--agent-context advice_ack=new_isolation_dir` and \
+                 `--agent-context reason=\"<why separate daemon state is needed>\"`. \
+                 This guard does not require user confirmation."
+            }
             Self::Killall => {
                 "No processes have been killed.\n\n\
                  `buck2 killall` discards reusable daemon state and can interrupt other work. \
@@ -91,6 +104,12 @@ impl Decision {
             Self::Block(Advice::Killall) => Some("agent_interactive.killall.block"),
             Self::Acknowledged(Advice::Clean) => Some("agent_interactive.clean.ack"),
             Self::Block(Advice::Clean) => Some("agent_interactive.clean.block"),
+            Self::Acknowledged(Advice::NewIsolationDir) => {
+                Some("agent_interactive.new_isolation_dir.ack")
+            }
+            Self::Block(Advice::NewIsolationDir) => {
+                Some("agent_interactive.new_isolation_dir.block")
+            }
         }
     }
 }
@@ -101,7 +120,7 @@ mod tests {
 
     #[test]
     fn only_enabled_direct_calls_are_guarded() {
-        for advice in [Advice::Killall, Advice::Clean] {
+        for advice in [Advice::Killall, Advice::Clean, Advice::NewIsolationDir] {
             for (enabled, direct_call) in [(false, false), (false, true), (true, false)] {
                 let invocation = Invocation {
                     enabled,
@@ -115,7 +134,7 @@ mod tests {
 
     #[test]
     fn proceeding_requires_acknowledgement_and_reason() {
-        for advice in [Advice::Killall, Advice::Clean] {
+        for advice in [Advice::Killall, Advice::Clean, Advice::NewIsolationDir] {
             for (reason, expected) in [
                 (None, Decision::Block(advice)),
                 (Some(""), Decision::Block(advice)),

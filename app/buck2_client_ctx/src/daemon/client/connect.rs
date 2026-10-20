@@ -21,6 +21,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::time::Instant;
 
+use buck2_agent_interactive::Decision;
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_cli_proto::daemon_api_client::DaemonApiClient;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
@@ -44,6 +45,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_resource_control::spawn_daemon::create_daemon_spawn_command;
 use buck2_util::truncate::truncate;
+use buck2_wrapper_common::invocation_id::TraceId;
 use buck2_wrapper_common::kill::process_exists;
 use buck2_wrapper_common::pid::Pid;
 use dupe::Dupe;
@@ -252,6 +254,8 @@ pub enum BuckdConnectOptions {
 pub struct BuckdConnectDaemonOptions {
     pub(crate) constraints: DaemonConstraintsRequest,
     pub(crate) daemon_startup_mode: DaemonStartupMode,
+    pub(crate) new_isolation_dir_advice: Decision,
+    pub(crate) trace_id: TraceId,
     /// Start the daemon by asking the installed Buck wrapper to re-exec it
     /// outside of the AI sandbox.
     ///
@@ -696,6 +700,10 @@ impl BootstrapBuckdClient {
             };
 
             if let Err(e) = res {
+                // Advice is an intentional rejection, not a failed daemon startup.
+                if e.has_tag(ErrorTag::AgentAdviceBlocked) {
+                    return Err(e);
+                }
                 Err(daemon_connect_error(e, paths)
                     .await
                     .tag([ErrorTag::DaemonConnect]))
@@ -761,7 +769,9 @@ pub async fn connect_buckd(
     match BootstrapBuckdClient::connect(paths, options, events_ctx).await {
         Ok(client) => Ok(client.to_connector()),
         Err(e) => {
-            events_ctx.handle_daemon_connection_failure();
+            if !e.has_tag(ErrorTag::AgentAdviceBlocked) {
+                events_ctx.handle_daemon_connection_failure();
+            }
             Err(e)
         }
     }
@@ -924,11 +934,19 @@ async fn establish_connection_inner(
                 }
             }
             Ok(None) => {
+                // Check under the lifecycle lock after retrying the connection: another
+                // invocation may have initialized this isolation directory while we waited.
+                events_ctx
+                    .handle_agent_advice(options.trace_id.dupe(), options.new_isolation_dir_advice)
+                    .await?;
                 events_ctx.eprintln("Starting new buck2 daemon...").await?;
 
                 buck2_data::DaemonWasStartedReason::NoBuckdInfo
             }
             Err(e) => {
+                events_ctx
+                    .handle_agent_advice(options.trace_id.dupe(), options.new_isolation_dir_advice)
+                    .await?;
                 events_ctx
                     .eprintln(&format!(
                         "Could not load buckd.info: {e}, starting new buck2 daemon..."
