@@ -101,7 +101,7 @@ See the example for a Go distribution supporting two execution platforms:
 linux/amd64 and darwin/arm64.
 
 ```
-third-party/go/1.25.1
+third-party/go-toolchain/1.27.2
 ├── api
 ├── bin
 │   ├── darwin_arm64
