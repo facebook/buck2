@@ -9,6 +9,7 @@
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
+load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
     "@prelude//tests:re_utils.bzl",
@@ -82,6 +83,7 @@ python_needed_coverage_test = prelude_rule(
         env = attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         labels = attrs.list(attrs.string(), default = []),
         needed_coverage = attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
+        network_access = test_common.attributes()["network_access"],
         supports_test_execution_caching = attrs.bool(default = False),
         test = attrs.dep(providers = [ExternalRunnerTestInfo]),
         **(re_test_common.test_args() | buck.inject_test_env_arg()),
