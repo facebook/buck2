@@ -670,3 +670,24 @@ async def test_incremental_action_db_disabled(
     buck: Buck,
 ) -> None:
     await basic_incremental_action_local_only_helper(buck, use_content_based_path=True)
+
+
+# BXL invocations with different arguments have different action owners, but the same BXL function
+# label. Each invocation must get its own incremental state. Otherwise the second invocation starts
+# from the output of the first.
+@buck_test(
+    extra_buck_config={
+        "build": {"execution_platforms": "root//:local_execution_platforms"}
+    },
+)
+async def test_bxl_incremental_state_keyed_by_arguments(
+    buck: Buck,
+) -> None:
+    async def run(name: str) -> str:
+        result = await buck.bxl(
+            "root//incremental.bxl:incremental", "--", "--name", name
+        )
+        return (buck.cwd / result.stdout.strip()).read_text()
+
+    assert await run("a") == "foo"
+    assert await run("b") == "foo"
