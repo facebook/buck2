@@ -32,6 +32,11 @@ impl<T: Dupe + Eq> AttrCoercionInterner<T> {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn len(&self) -> usize {
+        self.cache.borrow().len()
+    }
+
     /// Interns `internable` using a caller-computed bucket hash.
     ///
     /// Equivalent inputs must use the same hash. Collisions are allowed and are resolved with

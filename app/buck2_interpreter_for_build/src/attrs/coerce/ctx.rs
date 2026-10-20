@@ -371,15 +371,28 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
 mod tests {
     use std::sync::Arc;
 
+    use buck2_core::cells::CellResolver;
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    use buck2_core::cells::name::CellName;
+    use buck2_core::pattern::pattern::InferTargetNames;
+    use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::coercion_context::AttrCoercionContext;
+    use buck2_node::attrs::configurable::AttrIsConfigurable;
     use buck2_node::configuration::resolved::ConfigurationSettingKey;
+    use dupe::Dupe;
     use pagable::PagableDeserialize;
     use pagable::PagableSerialize;
     use pagable::testing::TestingDeserializer;
     use pagable::testing::TestingSerializer;
+    use starlark::environment::GlobalsBuilder;
+    use starlark::environment::Module;
 
+    use super::BuildAttrCoercionContext;
+    use crate::attrs::coerce::attr_type::AttrTypeExt;
     use crate::attrs::coerce::testing::coercion_ctx;
+    use crate::attrs::coerce::testing::to_value;
+    use crate::interpreter::selector::register_select;
 
     #[test]
     fn selector_interning_preserves_defaults_and_ownership() -> buck2_error::Result<()> {
@@ -457,5 +470,91 @@ mod tests {
         };
         assert!(Arc::ptr_eq(first, child));
         Ok(())
+    }
+
+    fn concat_context() -> BuildAttrCoercionContext {
+        let cell_name = CellName::testing_new("root");
+        let cells =
+            CellResolver::testing_with_name_and_path(cell_name, CellRootPathBuf::testing_new(""));
+        let aliases = cells.root_cell_cell_alias_resolver().dupe();
+        BuildAttrCoercionContext::new_no_package(cells, cell_name, aliases, InferTargetNames::No)
+    }
+
+    #[test]
+    fn test_concat_interns_only_final_sequence() -> buck2_error::Result<()> {
+        // ast-grep-ignore: rust/buck2-no-starlark-module
+        Module::with_temp_heap(|env| {
+            let ctx = concat_context();
+            let globals = GlobalsBuilder::standard().with(register_select).build();
+            let attr = AttrType::string();
+            let operands: Vec<_> = (0..64)
+                .map(|i| format!("select({{\"DEFAULT\": \"{i}\"}})"))
+                .collect();
+            let left = operands.join(" + ");
+            let right = operands.iter().rev().fold(String::new(), |sum, value| {
+                if sum.is_empty() {
+                    value.clone()
+                } else {
+                    format!("{value} + ({sum})")
+                }
+            });
+            let coerce = |expression: &str| {
+                attr.coerce(
+                    AttrIsConfigurable::Yes,
+                    &ctx,
+                    to_value(&env, &globals, expression),
+                )
+            };
+            let left = coerce(&left)?;
+            let right = coerce(&right)?;
+            assert_eq!(left, right);
+            let (CoercedAttr::Concat(left), CoercedAttr::Concat(right)) = (&left, &right) else {
+                panic!("sum must remain a concat");
+            };
+            assert_eq!(64, left.len());
+            assert_eq!(left.as_ptr(), right.as_ptr());
+            assert_eq!(
+                1,
+                ctx.list_interner.len(),
+                "intermediate concat prefixes must not be retained"
+            );
+            assert_eq!(64, ctx.selector_interner.len());
+            let reversed = operands.into_iter().rev().collect::<Vec<_>>().join(" + ");
+            let reversed = coerce(&reversed)?;
+            assert_ne!(CoercedAttr::Concat(left.clone()), reversed);
+            assert_eq!(2, ctx.list_interner.len());
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn test_concat_preserves_first_coercion_error() {
+        // ast-grep-ignore: rust/buck2-no-starlark-module
+        Module::with_temp_heap(|env| {
+            let ctx = concat_context();
+            let globals = GlobalsBuilder::standard().with(register_select).build();
+            let attr = AttrType::string();
+            let error = |expression: &str| {
+                format!(
+                    "{:#}",
+                    attr.coerce(
+                        AttrIsConfigurable::Yes,
+                        &ctx,
+                        to_value(&env, &globals, expression),
+                    )
+                    .unwrap_err()
+                )
+            };
+            let first = r#"select({"DEFAULT": 1})"#;
+            let second = r#"select({"DEFAULT": 2})"#;
+            assert_eq!(
+                error(first),
+                error(&format!("{first} + ({second} + {first})"))
+            );
+            assert_eq!(
+                error(second),
+                error(&format!("({second} + {first}) + {second}"))
+            );
+        });
     }
 }

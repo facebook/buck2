@@ -324,7 +324,7 @@ impl CoercedSelector {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, Pagable)]
-pub struct CoercedConcat(pub Box<[CoercedAttr]>);
+pub struct CoercedConcat(pub ArcSlice<CoercedAttr>);
 
 impl Deref for CoercedConcat {
     type Target = [CoercedAttr];
@@ -495,7 +495,6 @@ impl CoercedAttr {
                 mem::discriminant(self).hash(state);
                 selector.intern_hash.hash(state)
             }
-            // Concat allocations are not interned.
             Self::Concat(values) => {
                 mem::discriminant(self).hash(state);
                 values.len().hash(state);
@@ -1067,10 +1066,17 @@ impl CoercedAttr {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
 
+    use buck2_util::arc_str::ArcSlice;
     use dupe::Dupe;
+    use pagable::PagableDeserialize;
+    use pagable::PagableSerialize;
+    use pagable::testing::TestingDeserializer;
+    use pagable::testing::TestingSerializer;
 
     use crate::attrs::coerced_attr::CoercedAttr;
+    use crate::attrs::coerced_attr::CoercedConcat;
     use crate::attrs::coerced_attr::CoercedSelector;
     use crate::configuration::resolved::ConfigurationSettingKey;
 
@@ -1109,5 +1115,42 @@ mod tests {
         assert!(CoercedSelector::check_all_keys_unique(&long).is_ok());
         long[10].0 = long[0].0.dupe();
         assert!(CoercedSelector::check_all_keys_unique(&long).is_err());
+    }
+
+    #[test]
+    fn test_selector_concat_sharing_survives_paging() -> buck2_error::Result<()> {
+        let selector = Arc::new(CoercedSelector::new(
+            ArcSlice::default(),
+            Some(CoercedAttr::None),
+        )?);
+        let concat = CoercedConcat(ArcSlice::new([
+            CoercedAttr::Selector(selector.dupe()),
+            CoercedAttr::Selector(selector),
+        ]));
+        let value = vec![
+            CoercedAttr::Concat(concat.clone()),
+            CoercedAttr::Concat(concat),
+        ];
+        let mut serializer = TestingSerializer::new();
+        value
+            .pagable_serialize(&mut serializer)
+            .expect("selector and concat serialization should succeed");
+        let bytes = serializer.finish();
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored = Vec::<CoercedAttr>::pagable_deserialize(&mut deserializer)
+            .expect("selector and concat deserialization should succeed");
+        assert_eq!(value, restored);
+        for values in [&value, &restored] {
+            let [CoercedAttr::Concat(first), CoercedAttr::Concat(second)] = values.as_slice()
+            else {
+                panic!("concat values must survive serialization");
+            };
+            assert_eq!(first.as_ptr(), second.as_ptr());
+            let [CoercedAttr::Selector(first), CoercedAttr::Selector(second)] = &**first else {
+                panic!("nested selectors must survive serialization");
+            };
+            assert!(Arc::ptr_eq(first, second));
+        }
+        Ok(())
     }
 }

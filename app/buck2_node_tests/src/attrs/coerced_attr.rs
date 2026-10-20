@@ -291,7 +291,7 @@ fn test_select_refines_bug() {
 fn test_to_json_concat() {
     assert_eq!(
         r#"{"__type":"concat","items":["a","b","c","d"]}"#,
-        CoercedAttr::Concat(CoercedConcat(Box::new([
+        CoercedAttr::Concat(CoercedConcat(ArcSlice::new([
             CoercedAttr::String(StringLiteral(ArcStr::from("a"))),
             CoercedAttr::String(StringLiteral(ArcStr::from("b"))),
             CoercedAttr::String(StringLiteral(ArcStr::from("c"))),

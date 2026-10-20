@@ -141,19 +141,27 @@ impl CoercedAttrExr for CoercedAttr {
                         )
                         .into());
                     }
-                    let l = CoercedAttr::coerce(attr, configurable, ctx, l, None)?;
-                    let mut l = match l {
-                        CoercedAttr::Concat(l) => l.0.into_vec(),
-                        l => vec![l],
-                    };
-                    match CoercedAttr::coerce(attr, configurable, ctx, r, None)? {
-                        CoercedAttr::Concat(r) => {
-                            l.extend(r.0.into_vec());
+                    // Intern only the complete sum: retaining every growing prefix
+                    // in the package interner would require quadratic memory.
+                    let mut pending = vec![r, l];
+                    let mut items = Vec::new();
+                    while let Some(value) = pending.pop() {
+                        if let Some(selector) = StarlarkSelector::from_value(value)
+                            && let StarlarkSelector::Sum(l, r) = *selector
+                        {
+                            pending.push(r);
+                            pending.push(l);
+                        } else {
+                            match CoercedAttr::coerce(attr, configurable, ctx, value, None)? {
+                                CoercedAttr::Concat(concat) => {
+                                    items.extend(concat.iter().cloned());
+                                }
+                                item => items.push(item),
+                            }
                         }
-                        r => l.push(r),
-                    };
+                    }
 
-                    Ok(CoercedAttr::Concat(CoercedConcat(l.into_boxed_slice())))
+                    Ok(CoercedAttr::Concat(CoercedConcat(ctx.intern_list(items))))
                 }
             }
         } else {
