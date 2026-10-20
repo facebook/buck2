@@ -1883,15 +1883,14 @@ mod tests {
         fs_util::write(&src, b"content")?;
         let linked = fs_util::reflink_or_hardlink_or_copy(&src, &dest)?;
         assert_eq!(fs_util::read_to_string(&dest)?, "content");
-        // Which leg ran is the filesystem's business; only a hardlink shares the inode.
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::MetadataExt;
-            let same_inode = fs_util::metadata(&src)?.ino() == fs_util::metadata(&dest)?.ino();
-            assert_eq!(same_inode, linked == fs_util::Linked::Hardlinked);
-        }
         assert_matches!(fs_util::reflink_or_hardlink_or_copy(&src, &dest), Err(..));
         assert_eq!(fs_util::read_to_string(&dest)?, "content");
+
+        // Which leg ran is the filesystem's business; only a hardlink lets a write via one path
+        // show up via the other.
+        fs_util::write(&src, b"modified")?;
+        let shared = fs_util::read_to_string(&dest)? == "modified";
+        assert_eq!(shared, linked == fs_util::Linked::Hardlinked, "{linked:?}");
 
         Ok(())
     }

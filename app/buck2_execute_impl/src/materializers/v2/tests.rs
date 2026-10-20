@@ -60,9 +60,6 @@ use crate::materializers::deferred::DeferredMaterializerConfigs;
 use crate::materializers::deferred::TtlRefreshConfiguration;
 use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
-use crate::materializers::deferred::clean_stale::LowDiskCleanConfig;
-use crate::materializers::deferred::clean_stale::LowDiskCleanMode;
-use crate::materializers::deferred::clean_stale::UnmaterializationUploadConfig;
 use crate::materializers::deferred::tests::state_machine::Op;
 use crate::materializers::deferred::tests::state_machine::StubIoHandler;
 use crate::materializers::v2::core::DiskStateMaterializer;
@@ -1214,6 +1211,10 @@ async fn test_clean_stale_dry_run_deletes_nothing() -> buck2_error::Result<()> {
 #[cfg(unix)]
 #[tokio::test]
 async fn test_an_active_root_stays_when_its_upload_fails() -> buck2_error::Result<()> {
+    use crate::materializers::deferred::clean_stale::LowDiskCleanConfig;
+    use crate::materializers::deferred::clean_stale::LowDiskCleanMode;
+    use crate::materializers::deferred::clean_stale::UnmaterializationUploadConfig;
+
     ignore_stack_overflow_checks_for_future(async {
         let temp = ProjectRootTemp::new()?;
         let fs = temp.path().dupe();
