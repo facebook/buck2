@@ -1696,39 +1696,42 @@ pub(crate) async fn scratch_sweep<T: IoHandler>(
 /// skipped (and counted in `stats`) rather than treated as
 /// errors, so the result may undercount.
 pub fn get_size(path: &AbsNormPath, stats: &mut CleanStaleStats) -> buck2_error::Result<u64> {
-    let mut result = 0;
-    if path.is_dir() {
-        let read_dir = match fs_util::read_dir(path) {
-            Ok(read_dir) => read_dir,
-            Err(e) if e.io_error_kind() == Some(ErrorKind::PermissionDenied) => {
-                tracing::warn!("Skipping unreadable directory when computing size: {e:#?}");
-                stats.record_scan_unreadable();
-                return Ok(0);
-            }
-            Err(e) => return Err(e.categorize_tagged(ErrorTag::CleanStale)),
-        };
-        for entry in read_dir {
-            let entry = match entry {
-                Ok(entry) => entry,
-                Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-                    tracing::warn!("Skipping unreadable entry when computing size: {e:#}");
-                    stats.record_scan_unreadable();
-                    continue;
-                }
-                Err(e) => return Err(e.into()),
-            };
-            result += get_size(&entry.path(), stats)?;
+    // We check the type with `symlink_metadata` because `Path::is_dir` follows symlinks.
+    // With `Path::is_dir`, a symlink in buck-out to a host directory such as `/run` makes
+    // the walk read files outside buck-out.
+    let metadata = match path.symlink_metadata() {
+        Ok(metadata) => metadata,
+        Err(e) if e.kind() == ErrorKind::PermissionDenied => {
+            tracing::warn!("Skipping unstatable entry when computing size: {e:#}");
+            stats.record_scan_unreadable();
+            return Ok(0);
         }
-    } else {
-        result = match path.symlink_metadata() {
-            Ok(metadata) => metadata.len(),
+        Err(e) => return Err(e.into()),
+    };
+    if !metadata.is_dir() {
+        return Ok(metadata.len());
+    }
+    let read_dir = match fs_util::read_dir(path) {
+        Ok(read_dir) => read_dir,
+        Err(e) if e.io_error_kind() == Some(ErrorKind::PermissionDenied) => {
+            tracing::warn!("Skipping unreadable directory when computing size: {e:#?}");
+            stats.record_scan_unreadable();
+            return Ok(0);
+        }
+        Err(e) => return Err(e.categorize_tagged(ErrorTag::CleanStale)),
+    };
+    let mut result = 0;
+    for entry in read_dir {
+        let entry = match entry {
+            Ok(entry) => entry,
             Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-                tracing::warn!("Skipping unstatable entry when computing size: {e:#}");
+                tracing::warn!("Skipping unreadable entry when computing size: {e:#}");
                 stats.record_scan_unreadable();
-                0
+                continue;
             }
             Err(e) => return Err(e.into()),
         };
+        result += get_size(&entry.path(), stats)?;
     }
     Ok(result)
 }
@@ -2535,6 +2538,7 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_data::CleanStaleStats;
     use buck2_data::clean_stale_result::AdaptiveOutcome;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use jiff::Timestamp;
 
     use crate::materializers::deferred::artifact_tree::ArtifactClassification;
@@ -2549,6 +2553,7 @@ mod tests {
     use crate::materializers::deferred::clean_stale::TrackedState;
     use crate::materializers::deferred::clean_stale::apply_adaptive_low_disk;
     use crate::materializers::deferred::clean_stale::duration_from_config_hours;
+    use crate::materializers::deferred::clean_stale::get_size;
     use crate::materializers::deferred::clean_stale::percentage_from_config;
     use crate::materializers::deferred::clean_stale::unmaterialization_threshold_from_config;
 
@@ -3128,5 +3133,26 @@ mod tests {
             (2, 30, 1, 20, 0, 0, 1, 20),
             "runtime outcomes must not change adaptive selection counters",
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn get_size_does_not_follow_symlinks() {
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("big"), vec![0u8; 4096]).unwrap();
+
+        let buck_out = tempfile::tempdir().unwrap();
+        let dir = buck_out.path().join("dir");
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(dir.join("file"), b"abc").unwrap();
+        std::os::unix::fs::symlink(outside.path(), dir.join("link")).unwrap();
+        let link_len = std::fs::symlink_metadata(dir.join("link")).unwrap().len();
+
+        let mut stats = CleanStaleStats::default();
+        let link = AbsNormPathBuf::new(dir.join("link")).unwrap();
+        assert_eq!(get_size(&link, &mut stats).unwrap(), link_len);
+        let dir = AbsNormPathBuf::new(dir).unwrap();
+        assert_eq!(get_size(&dir, &mut stats).unwrap(), 3 + link_len);
+        assert_eq!(stats.scan_unreadable_count, 0);
     }
 }
