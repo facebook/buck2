@@ -33,6 +33,7 @@ use crate::internal_version::InternalVersionCommand;
 use crate::log_perf::LogPerfCommand;
 use crate::paranoid::ParanoidCommand;
 use crate::persist_event_logs::PersistEventLogsCommand;
+use crate::recent_alloc_dump::RecentAllocDumpCommand;
 use crate::set_log_filter::SetLogFilterCommand;
 use crate::thread_dump::ThreadDumpCommand;
 use crate::trace_io::TraceIoCommand;
@@ -55,6 +56,7 @@ mod internal_version;
 mod log_perf;
 mod paranoid;
 mod persist_event_logs;
+mod recent_alloc_dump;
 mod set_log_filter;
 mod thread_dump;
 mod trace_io;
@@ -66,6 +68,9 @@ pub enum DebugCommand {
     /// Deliberately crashes the Buck daemon, for testing purposes.
     Crash(CrashCommand),
     HeapDump(HeapDumpCommand),
+    /// Dumps jemalloc's recent-allocations ring (individual allocations with
+    /// sizes, alloc/free stacks, and lifetimes) to a JSON file.
+    RecentAllocDump(RecentAllocDumpCommand),
     /// Dumps allocator stat
     AllocatorStats(AllocatorStatsCommand),
     /// Dump the DICE graph to a file and saves it to disk.
@@ -118,6 +123,7 @@ impl DebugCommand {
             DebugCommand::DiceDump(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::Crash(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::HeapDump(cmd) => ctx.exec(cmd, matches, events_ctx),
+            DebugCommand::RecentAllocDump(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::AllocatorStats(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::InternalVersion(cmd) => cmd.exec(matches, ctx),
             DebugCommand::ChromeTrace(cmd) => ctx.exec(cmd, matches, events_ctx),

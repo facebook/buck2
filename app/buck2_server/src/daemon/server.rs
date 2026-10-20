@@ -1606,6 +1606,34 @@ impl DaemonApi for BuckdServer {
         Ok(Response::new(UnstableHeapDumpResponse {}))
     }
 
+    async fn unstable_recent_alloc_dump(
+        &self,
+        req: Request<UnstableRecentAllocDumpRequest>,
+    ) -> Result<Response<UnstableRecentAllocDumpResponse>, Status> {
+        self.check_if_accepting_requests()?;
+        let req = req.into_inner();
+
+        // Producing the dump and streaming it to disk are blocking; run them off
+        // the async runtime so a large dump can't stall the daemon.
+        tokio::task::spawn_blocking(move || {
+            memory::write_recent_alloc_to_file(&req.destination_path)
+        })
+        .await
+        .map_err(|e| Status::internal(format!("recent alloc dump task failed: {e}")))?
+        .map_err(|e| {
+            // `Input`-tagged errors are unmet preconditions (jemalloc isn't the
+            // allocator, or profiling / the recent-alloc ring isn't enabled);
+            // anything else (mallctl or file-IO failure) is an internal error.
+            let msg = format!("failed to dump recent allocations: {e:#}");
+            if e.has_tag(buck2_error::ErrorTag::Input) {
+                Status::failed_precondition(msg)
+            } else {
+                Status::internal(msg)
+            }
+        })?;
+        Ok(Response::new(UnstableRecentAllocDumpResponse {}))
+    }
+
     async fn unstable_flush_pgo_profile(
         &self,
         _req: Request<UnstableFlushPgoProfileRequest>,

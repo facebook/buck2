@@ -23,9 +23,14 @@
 mod imp {
     use std::env;
     use std::ffi::CString;
+    use std::io::BufWriter;
+    use std::io::IntoInnerError;
+    use std::path::Path;
 
     use allocator_stats::MALLOC_CONF_ENV;
+    use buck2_error::BuckErrorContext;
     use buck2_error::conversion::from_any_with_tag;
+    use tempfile::NamedTempFile;
 
     /// Output the current state of the heap to the filename specified.
     /// Intended to be used for debugging purposes.
@@ -61,6 +66,67 @@ mod imp {
         eprintln!("dumping heap to: {filename:?}");
         allocator_stats::mallctl_write(c"prof.dump", path.as_c_str())
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
+        Ok(())
+    }
+
+    /// Dump jemalloc's recent-allocations ring (`experimental.prof_recent`) to a
+    /// file as JSON. Unlike the heap dump, each entry records an individual
+    /// (sampled) allocation with its size, alloc/free stacks, and timestamps, so
+    /// it can be sliced by size class and lifetime. Requires the daemon to have
+    /// been started with `prof:true,prof_recent_alloc_max:N` in [`MALLOC_CONF_ENV`];
+    /// with the default of 0 the ring is empty, -1 unlimited.
+    pub fn write_recent_alloc_to_file(filename: &str) -> buck2_error::Result<()> {
+        if !allocator_stats::has_jemalloc() {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "not using jemalloc; are you building with @//mode/dev or @//mode/dbgo?"
+            ));
+        }
+
+        let prof_enabled = allocator_stats::mallctl_read::<bool>(c"opt.prof")
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
+        if !prof_enabled {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "profiling is not enabled for this process; restart the daemon with the environment variable {MALLOC_CONF_ENV} set to at least `prof:true,prof_recent_alloc_max:1000000`"
+            ));
+        }
+
+        // `opt.prof` being on is necessary but not sufficient: the recent-alloc
+        // ring is separately sized by `prof_recent_alloc_max`, which defaults to
+        // 0 (records nothing). Without this check a daemon started with just
+        // `prof:true` would silently produce an empty dump that looks like a
+        // success. A value of -1 means unlimited, so only 0 is disabled.
+        let ring_max =
+            allocator_stats::mallctl_read::<isize>(c"experimental.prof_recent.alloc_max")
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
+        if ring_max == 0 {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "the recent-allocation ring is disabled (`prof_recent_alloc_max` is 0); restart the daemon with the environment variable {MALLOC_CONF_ENV} set to at least `prof:true,prof_recent_alloc_max:1000000`"
+            ));
+        }
+
+        eprintln!("dumping recent allocations to: {filename:?}");
+        // Dump into a temporary file next to the destination and only move it into place once it
+        // is complete, so that a failed dump never leaves a truncated file at `filename`.
+        // A bare filename's parent is `Some("")`, which `NamedTempFile::new_in` rejects.
+        let dir = Path::new(filename)
+            .parent()
+            .filter(|dir| !dir.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
+        let mut file =
+            BufWriter::new(NamedTempFile::new_in(dir).with_buck_error_context(|| {
+                format!("creating a temporary file next to `{filename}`")
+            })?);
+        allocator_stats::recent_alloc_dump(&mut file)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
+        file.into_inner()
+            .map_err(IntoInnerError::into_error)
+            .with_buck_error_context(|| format!("writing `{filename}`"))?
+            .persist(filename)
+            .map_err(|e| e.error)
+            .with_buck_error_context(|| format!("writing `{filename}`"))?;
         Ok(())
     }
 
@@ -116,6 +182,13 @@ mod imp {
         ))
     }
 
+    pub fn write_recent_alloc_to_file(_filename: &str) -> buck2_error::Result<()> {
+        Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Unimplemented,
+            "not implemented: recent-alloc dump for Cargo builds"
+        ))
+    }
+
     pub fn allocator_stats(_: &str) -> buck2_error::Result<String> {
         Err(buck2_error::buck2_error!(
             buck2_error::ErrorTag::Unimplemented,
@@ -146,3 +219,4 @@ pub use imp::has_jemalloc_stats;
 pub use imp::is_using_jemalloc;
 pub use imp::purge_jemalloc;
 pub use imp::write_heap_to_file;
+pub use imp::write_recent_alloc_to_file;

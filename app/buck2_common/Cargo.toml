@@ -59,6 +59,7 @@ starlark_map.workspace = true
 static_interner.workspace = true
 strong_hash.workspace = true
 strsim.workspace = true
+tempfile.workspace = true
 tokio.workspace = true
 toml.workspace = true
 tonic.workspace = true
@@ -69,7 +70,6 @@ variant_name.workspace = true
 [dev-dependencies]
 assert_matches.workspace = true
 indoc.workspace = true
-tempfile.workspace = true
 test-case.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]

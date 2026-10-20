@@ -39,7 +39,6 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:indoc",
-        "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:test-case",
     ],
     deps = [
@@ -72,6 +71,7 @@ rust_library(
         "fbsource//third-party/rust:sha2",
         "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:strsim",
+        "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:toml",
         "fbsource//third-party/rust:tonic",

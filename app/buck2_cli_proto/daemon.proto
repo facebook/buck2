@@ -836,6 +836,14 @@ message UnstableHeapDumpRequest {
 
 message UnstableHeapDumpResponse {}
 
+message UnstableRecentAllocDumpRequest {
+  // The path to write the recent-allocations JSON dump to. If relative, it is
+  // made absolute relative to the working directory of the daemon.
+  string destination_path = 1;
+}
+
+message UnstableRecentAllocDumpResponse {}
+
 message UnstableFlushPgoProfileRequest {}
 
 message UnstableFlushPgoProfileResponse {
@@ -1107,6 +1115,10 @@ service DaemonApi {
   // Requests the daemon to perform a heap dump and save the dump to a file.
   rpc Unstable_HeapDump(UnstableHeapDumpRequest)
       returns (UnstableHeapDumpResponse);
+
+  // Requests the daemon to dump jemalloc's recent-allocations ring to a file.
+  rpc Unstable_RecentAllocDump(UnstableRecentAllocDumpRequest)
+      returns (UnstableRecentAllocDumpResponse);
 
   // Flushes PGO profile data to disk. Only useful when the daemon was built
   // with -Cprofile-generate.
