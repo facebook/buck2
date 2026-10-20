@@ -35,6 +35,35 @@ NodejsTreeInfo = provider(
     },
 )
 
+NodejsRuntimeKind = enum(
+    # A Node.js binary for the target platform.
+    "native",
+    # One file, such as a DotSlash file, that runs Node.js on every platform.
+    "pointer",
+    # Nothing to bundle: Node.js comes from the host.
+    "host",
+)
+
+NodejsRuntimeInfo = provider(
+    doc = "A Node.js runtime that an app runs on or ships with.",
+    fields = {
+        "env": provider_field(dict[str, str], default = {}),
+        # Runs this runtime in place, for example a wrapper that adds flags.
+        "exe": provider_field(RunInfo | None, default = None),
+        # Staged next to `node`, keyed by their path relative to it.
+        "files": provider_field(dict[str, Artifact], default = {}),
+        "kind": provider_field(NodejsRuntimeKind),
+        # `None` for a host runtime, and for a native runtime with no binary for the target platform.
+        "node": provider_field(Artifact | None, default = None),
+        "node_args": provider_field(list[str], default = []),
+        # Where the executable to run sits on POSIX: where `node` is staged.
+        "posix_exe": provider_field(str, default = "node"),
+        "version": provider_field(str | None, default = None),
+        # Where the executable to run sits on Windows: where a native `node` is staged, or a pointer runtime's key of `files`.
+        "windows_exe": provider_field(str, default = "node.exe"),
+    },
+)
+
 def is_relative_slash_path(path: str) -> bool:
     segments = path.split("/")
     return not (path.startswith("/") or "\\" in path or "" in segments or "." in segments or ".." in segments)
