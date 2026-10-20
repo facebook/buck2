@@ -870,9 +870,9 @@ impl ForwardRelativePathBuf {
         path
     }
 
-    /// Pushes a `RelativePath` to the existing buffer, normalizing it.
-    /// Note that this does not visit the filesystem to resolve `..`s. Instead, it cancels out the
-    /// components directly, similar to `join_normalized`.
+    /// Pushes a `RelativePath` to the existing buffer, normalizing it: the in-place form of
+    /// `join_normalized`. Note that this does not visit the filesystem to resolve `..`s. Instead,
+    /// it cancels out the components directly. On error, `self` is left unchanged.
     ///
     /// ```
     /// use buck2_fs::paths::RelativePath;
@@ -921,86 +921,7 @@ impl ForwardRelativePathBuf {
     /// # buck2_error::Ok(())
     /// ```
     pub fn push_normalized<P: AsRef<RelativePath>>(&mut self, path: P) -> buck2_error::Result<()> {
-        let buf = &mut self.0;
-        let mut insert_idx = buf.len();
-        let bytes = path.as_ref().as_str().as_bytes();
-
-        let mut i = 0;
-        let mut j = i;
-        while j < bytes.len() {
-            assert!(i <= bytes.len());
-            j = i;
-            while j != bytes.len() {
-                if bytes[j] == b'/' {
-                    break;
-                }
-                j += 1;
-            }
-            if i == j {
-                // Double slashes or trailing slash.
-                unreachable!("not a relative path");
-            } else if j == i + 1 && bytes[i] == b'.' {
-                // Current directory. Skip this segment and do nothing
-            } else if j == i + 2 && bytes[i] == b'.' && bytes[i + 1] == b'.' {
-                // Parent directory. Move the insert index
-
-                if insert_idx == 0 {
-                    // if we are already at 0, then we cannot move towards the parent without
-                    // having this path still be forward pointing
-                    return Err(ForwardRelativePathError::RelativizationError(
-                        path.as_ref().to_string(),
-                    )
-                    .into());
-                }
-
-                let mut buf_i = insert_idx;
-                let buf_bytes = buf.as_bytes();
-                // note we don't bother checking when buf_i is 0, because that would imply our
-                // current forward relative path starts with '/', which would imply that it's not
-                // relative, which is unreachable code.
-                while buf_i > 0 {
-                    buf_i -= 1;
-
-                    if buf_bytes[buf_i] == b'/' {
-                        break;
-                    }
-                }
-                // we got here because we either found a '/', or we got to the beginning of the
-                // current path, but starting with something in it, which means that we are now
-                // at the beginning segment, so insert_idx can be the beginning
-                insert_idx = buf_i;
-            } else {
-                // just a path segment to add
-
-                // first add the '/' since our path representation does not have ending slashes
-                if insert_idx < buf.len() {
-                    buf.replace_range(insert_idx..=insert_idx, "/");
-                } else {
-                    buf.push('/');
-                }
-
-                let seg_to_add = unsafe {
-                    // safe because this is the buf from a `RelativePath`, which enforces `utf8`
-
-                    // also `j` rather than `j+1` to exclude the ending `/`,
-                    // or not run out of bounds if `j = bytes.len()`
-                    std::str::from_utf8_unchecked(&bytes[i..j])
-                };
-                if insert_idx + 1 < buf.len() {
-                    buf.replace_range(insert_idx + 1.., seg_to_add);
-                } else {
-                    buf.push_str(seg_to_add);
-                }
-
-                insert_idx = buf.len();
-            }
-            i = j + 1;
-        }
-
-        if insert_idx < buf.len() {
-            buf.replace_range(insert_idx.., "");
-        }
-
+        *self = self.join_normalized(path)?;
         Ok(())
     }
 
@@ -1054,8 +975,6 @@ enum ForwardRelativePathError {
     PathNotRelative(String),
     #[error("Path is not UTF-8: `{0}`")]
     PathNotUtf8(String),
-    #[error("relativizing path `{0}` results would result in a non-forward relative path")]
-    RelativizationError(String),
     #[error("`{0}` does not start with `{1}`")]
     StripPrefix(String, String),
     #[error("`{0}` does not end with `{1}`")]
@@ -1333,6 +1252,7 @@ mod tests {
     use crate::paths::forward_rel_path::FileName;
     use crate::paths::forward_rel_path::ForwardRelativePath;
     use crate::paths::forward_rel_path::ForwardRelativePathBuf;
+    use crate::paths::relative_path::RelativePath;
 
     #[test]
     fn forward_path_is_comparable() -> buck2_error::Result<()> {
@@ -1519,6 +1439,33 @@ mod tests {
             ForwardRelativePath::new("foo").unwrap().split_last(),
         );
         assert_eq!(None, ForwardRelativePath::new("").unwrap().split_last());
+    }
+
+    #[test]
+    fn test_push_normalized_at_start() -> buck2_error::Result<()> {
+        // A segment added at the start of the buffer, on an empty buffer or after `..` removed the
+        // first component, must not get a leading `/`.
+        let mut path = ForwardRelativePathBuf::unchecked_new("".to_owned());
+        path.push_normalized(RelativePath::unchecked_new("a"))?;
+        assert_eq!("a", path.as_str());
+
+        let mut path = ForwardRelativePathBuf::unchecked_new("foo".to_owned());
+        path.push_normalized(RelativePath::unchecked_new("../bar"))?;
+        assert_eq!("bar", path.as_str());
+
+        let mut path = ForwardRelativePathBuf::unchecked_new("a/b".to_owned());
+        path.push_normalized(RelativePath::unchecked_new("../../a"))?;
+        assert_eq!("a", path.as_str());
+
+        // An error leaves the buffer unchanged.
+        let mut path = ForwardRelativePathBuf::unchecked_new("a".to_owned());
+        assert!(
+            path.push_normalized(RelativePath::unchecked_new("b/../../.."))
+                .is_err()
+        );
+        assert_eq!("a", path.as_str());
+
+        Ok(())
     }
 
     #[test]
