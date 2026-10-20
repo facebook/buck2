@@ -1671,6 +1671,27 @@ impl DaemonApi for BuckdServer {
         }
     }
 
+    async fn unstable_list_tenants(
+        &self,
+        _req: Request<UnstableListTenantsRequest>,
+    ) -> Result<Response<UnstableListTenantsResponse>, Status> {
+        self.check_if_accepting_requests()?;
+        let tenants = self
+            .0
+            .daemon_state
+            .data()
+            .tenants()
+            .into_iter()
+            .map(|tenant| UnstableTenantInfo {
+                project_root: tenant.key.project_root().display().to_string(),
+                isolation: tenant.key.isolation().as_str().to_owned(),
+                generation: tenant.generation,
+                initialized: tenant.initialized,
+            })
+            .collect();
+        Ok(Response::new(UnstableListTenantsResponse { tenants }))
+    }
+
     async fn unstable_dice_dump(
         &self,
         req: Request<UnstableDiceDumpRequest>,

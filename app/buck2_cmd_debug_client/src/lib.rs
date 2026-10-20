@@ -35,6 +35,7 @@ use crate::paranoid::ParanoidCommand;
 use crate::persist_event_logs::PersistEventLogsCommand;
 use crate::recent_alloc_dump::RecentAllocDumpCommand;
 use crate::set_log_filter::SetLogFilterCommand;
+use crate::tenants::TenantsCommand;
 use crate::thread_dump::ThreadDumpCommand;
 use crate::trace_io::TraceIoCommand;
 use crate::upload_re_logs::UploadReLogsCommand;
@@ -58,6 +59,7 @@ mod paranoid;
 mod persist_event_logs;
 mod recent_alloc_dump;
 mod set_log_filter;
+mod tenants;
 mod thread_dump;
 mod trace_io;
 mod upload_re_logs;
@@ -106,6 +108,8 @@ pub enum DebugCommand {
     /// targets.
     AnonTargets(AnonTargetsCommand),
     ThreadDump(ThreadDumpCommand),
+    /// List tenants currently registered in the daemon.
+    Tenants(TenantsCommand),
     /// Control DICE node value page-out / page-in.
     #[clap(subcommand)]
     Hydration(HydrationCommand),
@@ -142,6 +146,7 @@ impl DebugCommand {
             DebugCommand::Eval(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::AnonTargets(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::ThreadDump(cmd) => cmd.exec(matches, ctx),
+            DebugCommand::Tenants(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::Hydration(cmd) => ctx.exec(cmd, matches, events_ctx),
         }
     }

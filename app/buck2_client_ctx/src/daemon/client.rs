@@ -656,6 +656,11 @@ impl FlushingBuckdClient<'_> {
         UnstableAllocatorStatsResponse
     );
     debug_method!(
+        unstable_list_tenants,
+        UnstableListTenantsRequest,
+        UnstableListTenantsResponse
+    );
+    debug_method!(
         unstable_dice_dump,
         UnstableDiceDumpRequest,
         UnstableDiceDumpResponse

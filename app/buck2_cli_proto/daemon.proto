@@ -864,6 +864,19 @@ message UnstableAllocatorStatsResponse {
   string response = 1;
 }
 
+message UnstableListTenantsRequest {}
+
+message UnstableTenantInfo {
+  string project_root = 1;
+  string isolation = 2;
+  uint64 generation = 3;
+  bool initialized = 4;
+}
+
+message UnstableListTenantsResponse {
+  repeated UnstableTenantInfo tenants = 1;
+}
+
 message UnstableDiceDumpRequest {
   enum DiceDumpFormat {
     TSV = 0;
@@ -1128,6 +1141,8 @@ service DaemonApi {
   // Requests allocator stats from the daemon.
   rpc Unstable_AllocatorStats(UnstableAllocatorStatsRequest)
       returns (UnstableAllocatorStatsResponse);
+  rpc Unstable_ListTenants(UnstableListTenantsRequest)
+      returns (UnstableListTenantsResponse);
 
   /// Requests the daemon dump the DICE graph to a directory.
   rpc Unstable_DiceDump(UnstableDiceDumpRequest)

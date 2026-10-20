@@ -13,6 +13,8 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -881,10 +883,13 @@ struct TenantStateRegistry {
     #[allocative(skip)]
     initial_state: Arc<TenantState>,
     tenants: StdMutex<StdBuckHashMap<TenantKey, Arc<TenantStateSlot<TenantState>>>>,
+    #[allocative(skip)]
+    next_generation: AtomicU64,
 }
 
 struct TenantStateSlot<T: Allocative> {
     spec: TenantSpec,
+    generation: u64,
     state: OnceCell<Arc<T>>,
 }
 
@@ -892,6 +897,7 @@ impl<T: Allocative> Allocative for TenantStateSlot<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         visitor.visit_field(allocative::Key::new("spec"), &self.spec);
+        visitor.visit_field(allocative::Key::new("generation"), &self.generation);
         if let Some(state) = self.state.get() {
             visitor.visit_field(allocative::Key::new("state"), state);
         }
@@ -900,9 +906,10 @@ impl<T: Allocative> Allocative for TenantStateSlot<T> {
 }
 
 impl<T: Allocative> TenantStateSlot<T> {
-    fn new(spec: TenantSpec) -> Self {
+    fn new(spec: TenantSpec, generation: u64) -> Self {
         Self {
             spec,
+            generation,
             state: OnceCell::new(),
         }
     }
@@ -928,6 +935,7 @@ impl TenantStateRegistry {
             initial_tenant: initial_key,
             initial_state: initial_tenant.dupe(),
             tenants: StdMutex::new(StdBuckHashMap::default()),
+            next_generation: AtomicU64::new(1),
         };
         registry
             .get_or_create(spec, || async { Ok(initial_tenant) })
@@ -953,7 +961,10 @@ impl TenantStateRegistry {
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
             tenants
                 .entry(key.clone())
-                .or_insert_with(|| Arc::new(TenantStateSlot::new(spec)))
+                .or_insert_with(|| {
+                    let generation = self.next_generation.fetch_add(1, Ordering::Relaxed);
+                    Arc::new(TenantStateSlot::new(spec, generation))
+                })
                 .clone()
         };
         if entry.spec != requested_spec {
@@ -1001,6 +1012,35 @@ impl TenantStateRegistry {
             .count();
         (initialized_tenant_count == 1).then(|| self.initial_state.dupe())
     }
+
+    fn list(&self) -> Vec<TenantStateInfo> {
+        let tenants = self
+            .tenants
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut result: Vec<_> = tenants
+            .values()
+            .map(|entry| TenantStateInfo {
+                key: entry.spec.key().clone(),
+                generation: entry.generation,
+                initialized: entry.is_initialized(),
+            })
+            .collect();
+        result.sort_by(|a, b| {
+            a.key
+                .project_root()
+                .as_os_str()
+                .cmp(b.key.project_root().as_os_str())
+                .then_with(|| a.key.isolation().as_str().cmp(b.key.isolation().as_str()))
+        });
+        result
+    }
+}
+
+pub struct TenantStateInfo {
+    pub key: TenantKey,
+    pub generation: u64,
+    pub initialized: bool,
 }
 
 fn tenant_paths_from_client_context(
@@ -1158,6 +1198,10 @@ impl DaemonStateData {
     /// The initial tenant for daemon-scoped operations whose protocol has no tenant identity.
     pub fn initial_tenant(&self) -> Arc<TenantState> {
         self.tenants.initial_tenant()
+    }
+
+    pub fn tenants(&self) -> Vec<TenantStateInfo> {
+        self.tenants.list()
     }
 
     pub fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> buck2_error::Result<()> {
@@ -1665,7 +1709,7 @@ mod tests {
 
     #[tokio::test]
     async fn tenant_entry_initializes_once() -> buck2_error::Result<()> {
-        let entry = TenantStateSlot::<usize>::new(tenant_spec());
+        let entry = TenantStateSlot::<usize>::new(tenant_spec(), 1);
         let init_count = AtomicUsize::new(0);
         let first = entry.get_or_try_init(|| async {
             init_count.fetch_add(1, Ordering::Relaxed);
@@ -1687,7 +1731,7 @@ mod tests {
 
     #[tokio::test]
     async fn tenant_entry_retries_failed_initialization() -> buck2_error::Result<()> {
-        let entry = TenantStateSlot::<usize>::new(tenant_spec());
+        let entry = TenantStateSlot::<usize>::new(tenant_spec(), 1);
         let first = entry
             .get_or_try_init(|| async {
                 Err(buck2_error!(
