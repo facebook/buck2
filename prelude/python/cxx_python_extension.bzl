@@ -53,6 +53,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",  # @unused Used as a type
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
@@ -64,6 +65,7 @@ load(
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
     "merge_shared_libraries",
 )
 load("@prelude//linking:types.bzl", "Linkage")
@@ -178,7 +180,6 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
     extension_artifacts = {}
     python_module_names = {}
-    unembeddable_extensions = {}
 
     link_infos = libraries.link_infos
 
@@ -222,13 +223,10 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
 
         python_module_names[base_module.replace("/", ".") + module_name] = pyinit_symbol
 
-    # Add a dummy shared link info to avoid marking this node as preferred
-    # linkage being "static", which has a special meaning for various link
-    # strategies
+    # A shared placeholder keeps this node eligible for all native link strategies.
     link_infos[LibOutputStyle("shared_lib")] = LinkInfos(default = LinkInfo())
-
-    # Create linkable providers for the extension.
     link_deps = linkables(cxx_deps)
+    python_dep_libraries, shared_deps = gather_dep_libraries(ctx.attrs.deps, resolve_versioned_deps = False)
     linkable_providers = LinkableProviders(
         link_group_lib_info = merge_link_group_lib_info(deps = cxx_deps),
         linkable_graph = create_linkable_graph(
@@ -266,31 +264,85 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
             deps = cxx_deps,
         ),
     )
+    omnibus_graph = create_linkable_graph(
+        ctx,
+        node = create_linkable_graph_node(
+            ctx,
+            roots = get_roots([dep for dep in ctx.attrs.deps if PythonLibraryInfo in dep]),
+        ),
+        deps = ctx.attrs.deps,
+    )
 
+    providers.extend(cxx_library_info.providers)
+    providers.extend(
+        python_extension_providers(
+            ctx = ctx,
+            extension = extension,
+            shared_output = shared_output,
+            linkable_providers = linkable_providers,
+            omnibus_graph = omnibus_graph,
+            extension_shared_libraries = shared_deps,
+            extension_deps = cxx_deps,
+            raw_deps = ctx.attrs.deps,
+            python_dep_libraries = python_dep_libraries,
+            soname = name,
+            base_module = base_module,
+            base_module_attr = ctx.attrs.base_module,
+            module_name = module_name,
+            type_stub = ctx.attrs.type_stub,
+            embeddable = embeddable,
+            extension_artifacts = extension_artifacts,
+            python_module_names = python_module_names,
+            sub_targets = sub_targets,
+        )
+    )
+    return providers
+
+def python_extension_providers(
+    *,
+    ctx: AnalysisContext,
+    extension,
+    shared_output,
+    linkable_providers: LinkableProviders,
+    omnibus_graph: LinkableGraph,
+    extension_shared_libraries: list[SharedLibraryInfo],
+    extension_deps: list[Dependency],
+    raw_deps: list[Dependency],
+    python_dep_libraries: list[PythonLibraryInfo],
+    soname: str,
+    base_module: str,
+    base_module_attr,
+    module_name: str,
+    type_stub,
+    embeddable: bool,
+    extension_artifacts: dict,
+    python_module_names: dict,
+    sub_targets: dict,
+) -> list[Provider]:
+    providers = []
+    unembeddable_extensions = {}
     if not embeddable:
-        unembeddable_extensions[base_module + name] = linkable_providers
-        linkable_providers = None
+        unembeddable_extensions[base_module + soname] = linkable_providers
 
     providers.append(
         merge_cxx_extension_info(
             actions = ctx.actions,
-            deps = cxx_deps,
-            linkable_providers = linkable_providers,
+            deps = extension_deps,
+            linkable_providers = linkable_providers if embeddable else None,
             artifacts = extension_artifacts,
             python_module_names = python_module_names,
             unembeddable_extensions = unembeddable_extensions,
         )
     )
-    providers.extend(cxx_library_info.providers)
 
     # If a type stub was specified, create a manifest for export.
     src_types = None
     src_type_manifest = None
-    if ctx.attrs.type_stub != None:
+    if type_stub != None:
         src_types = qualify_srcs(
             ctx.label,
-            ctx.attrs.base_module,
-            {module_name + ".pyi": ctx.attrs.type_stub},
+            base_module_attr,
+            {module_name + ".pyi": type_stub},
         )
         src_type_manifest = create_manifest_for_source_map(
             ctx,
@@ -298,13 +350,9 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
             src_types,
         )
 
-    # Export library info.
-    raw_deps = ctx.attrs.deps
-
-    deps, shared_deps = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)
     providers.append(gather_versioned_dependencies(raw_deps))
 
-    # We dont process anything for cxx_extensions, we just add an empty set
+    # We dont process anything for python extensions, we just add an empty set.
     native_deps = ctx.actions.tset(
         NativeDepsInfoTSet,
         value = NativeDepsInfo(native_deps = {}),
@@ -313,9 +361,9 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
-        extensions = qualify_srcs(ctx.label, ctx.attrs.base_module, {name: extension}),
-        deps = deps,
-        extension_shared_libraries = shared_deps,
+        extensions = qualify_srcs(ctx.label, base_module_attr, {soname: extension}),
+        deps = python_dep_libraries,
+        extension_shared_libraries = extension_shared_libraries,
         src_types = src_type_manifest,
         native_deps = native_deps,
         is_native_dep = True,
@@ -334,27 +382,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         )
     )
 
-    # Omnibus providers
-
-    # Handle the case where C++ Python extensions depend on other C++ Python
-    # extensions, which should also be treated as roots.
-    roots = get_roots([
-        dep
-        for dep in raw_deps
-        # We only want to handle C++ Python extension deps, but not other native
-        # linkable deps like C++ libraries.
-        if PythonLibraryInfo in dep
-    ])
-
-    linkable_graph = create_linkable_graph(
-        ctx,
-        node = create_linkable_graph_node(
-            ctx,
-            roots = roots,
-        ),
-        deps = raw_deps,
-    )
-    providers.append(linkable_graph)
+    providers.append(omnibus_graph)
 
     # Allow third-party-build rules to depend on Python rules.
     tp_prefix = prefix_from_label(ctx.label)
@@ -365,7 +393,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
                 prefix = tp_prefix,
                 root = create_third_party_build_root(
                     ctx = ctx,
-                    paths = [(paths.join("lib/python", base_module + name), extension.output)],
+                    paths = [(paths.join("lib/python", base_module + soname), extension.output)],
                 ),
                 manifest = ctx.actions.write_json(
                     "third_party_build_manifest.json",
