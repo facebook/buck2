@@ -41,6 +41,10 @@ mod tests {
     static TEST_GLOBAL_ROOT: TestGlobalRoot = TestGlobalRoot { x: 17 };
 
     #[test]
+    #[cfg_attr(
+        miri,
+        ignore = "`#[root]` registers from a global constructor, which does not run under Miri"
+    )]
     fn test_derive() {
         let mut fg = FlameGraphBuilder::default();
         fg.visit_global_roots();

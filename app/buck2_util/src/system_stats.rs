@@ -73,7 +73,8 @@ pub fn system_memory_stats() -> u64 {
     system.total_memory()
 }
 
-#[cfg(test)]
+// `sysinfo` calls `sysconf`s that Miri does not implement.
+#[cfg(all(test, not(miri)))]
 mod tests {
     use super::system_memory_stats;
 

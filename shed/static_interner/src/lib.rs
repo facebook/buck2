@@ -420,8 +420,9 @@ mod tests {
     // Make sure things work with reallocation.
     #[test]
     fn test_resize() {
+        let n = if cfg!(miri) { 2000 } else { 100000 };
         let mut interned_strings = Vec::new();
-        for i in 0..100000 {
+        for i in 0..n {
             let s = i.to_string();
             let interned = STRING_INTERNER.intern(s.clone());
             assert_eq!(&s, &*interned.0);

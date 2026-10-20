@@ -97,7 +97,8 @@ impl CollectedCount {
     }
 }
 
-#[cfg(test)]
+// `perf_event_open` and the inline assembly of the test workload are beyond Miri.
+#[cfg(all(test, not(miri)))]
 mod tests {
     use std::env;
 

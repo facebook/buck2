@@ -210,6 +210,10 @@ fn deleting_a_parent_leaves_each_child_its_own_copy_of_a_shared_claim() {
 }
 
 #[test]
+#[cfg_attr(
+    all(miri, panic = "abort"),
+    ignore = "with panic=abort the panic kills the in-process Miri harness"
+)]
 #[should_panic(expected = "has been deleted")]
 fn deleting_a_branch_twice_panics() {
     let mut s = State::new();
@@ -220,6 +224,10 @@ fn deleting_a_branch_twice_panics() {
 }
 
 #[test]
+#[cfg_attr(
+    all(miri, panic = "abort"),
+    ignore = "with panic=abort the panic kills the in-process Miri harness"
+)]
 #[should_panic(expected = "has been deleted")]
 fn committing_to_a_deleted_branch_panics() {
     let mut s = State::new();
@@ -230,6 +238,10 @@ fn committing_to_a_deleted_branch_panics() {
 }
 
 #[test]
+#[cfg_attr(
+    all(miri, panic = "abort"),
+    ignore = "with panic=abort the panic kills the in-process Miri harness"
+)]
 #[should_panic(expected = "has been deleted")]
 fn forking_from_a_deleted_branch_panics() {
     let mut s = State::new();
@@ -240,6 +252,10 @@ fn forking_from_a_deleted_branch_panics() {
 }
 
 #[test]
+#[cfg_attr(
+    all(miri, panic = "abort"),
+    ignore = "with panic=abort the panic kills the in-process Miri harness"
+)]
 #[should_panic(expected = "has been deleted")]
 fn looking_up_at_a_deleted_branch_panics() {
     let mut s = State::new();

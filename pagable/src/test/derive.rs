@@ -293,6 +293,10 @@ mod inner {
         }
 
         #[test]
+        #[cfg_attr(
+            all(miri, panic = "abort"),
+            ignore = "with panic=abort the panic kills the in-process Miri harness"
+        )]
         #[should_panic]
         fn test_panic_on_serialize() {
             let t = TestPanic(());
@@ -301,6 +305,10 @@ mod inner {
         }
 
         #[test]
+        #[cfg_attr(
+            all(miri, panic = "abort"),
+            ignore = "with panic=abort the panic kills the in-process Miri harness"
+        )]
         #[should_panic]
         fn test_panic_on_deserialize() {
             let mut deserializer = TestingDeserializer::new(&[]);

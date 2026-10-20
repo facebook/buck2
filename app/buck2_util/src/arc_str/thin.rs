@@ -263,7 +263,8 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
+    // Re-runs the test binary as a subprocess, which Miri cannot.
+    #[cfg(all(unix, not(miri)))]
     mod allocation_failure {
         use std::alloc::GlobalAlloc;
         use std::alloc::Layout;

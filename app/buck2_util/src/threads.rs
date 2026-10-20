@@ -195,7 +195,8 @@ pub async fn ignore_stack_overflow_checks_for_future<F: Future>(f: F) -> F::Outp
     IgnoreStackOverflowChecksForFuture { f }.await
 }
 
-#[cfg(test)]
+// Overflowing the stack and catching it is signal handling, which Miri does not model.
+#[cfg(all(test, not(miri)))]
 pub(crate) mod tests {
     use std::hint;
 

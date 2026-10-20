@@ -307,18 +307,30 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        all(miri, panic = "abort"),
+        ignore = "with panic=abort the panic kills the in-process Miri harness"
+    )]
     #[should_panic]
     fn test_non_ascii_char_is_rejected() {
         let _ = AsciiChar::new(std::hint::black_box('\u{a9}'));
     }
 
     #[test]
+    #[cfg_attr(
+        all(miri, panic = "abort"),
+        ignore = "with panic=abort the panic kills the in-process Miri harness"
+    )]
     #[should_panic]
     fn test_non_ascii_str_is_rejected() {
         let _ = AsciiStr::new(std::hint::black_box("\u{e9}"));
     }
 
     #[test]
+    #[cfg_attr(
+        all(miri, panic = "abort"),
+        ignore = "with panic=abort the panic kills the in-process Miri harness"
+    )]
     #[should_panic]
     fn test_non_ascii_str2_is_rejected() {
         let _ = AsciiStr2::new(std::hint::black_box("\u{e9}"));

@@ -407,27 +407,29 @@ mod tests {
 
     #[test]
     fn test_million() {
+        let n = if cfg!(miri) { 1000 } else { 1000000 };
         let t = LockFreeRawTable::new();
-        for i in 0..1000000 {
+        for i in 0..n {
             t.insert(hash(i), Box::new(i), |a, b| a == b, hash_fn);
         }
 
-        for i in 0..1000000 {
+        for i in 0..n {
             let v = t.lookup(hash(i), |a| a == &i).unwrap();
             assert_eq!(&i, v);
         }
 
-        assert_eq!(1000000, t.iter().count());
+        assert_eq!(n as usize, t.iter().count());
     }
 
     #[test]
     fn test_u32() {
+        let n = if cfg!(miri) { 500 } else { 10000 };
         let t = LockFreeRawTable::new();
-        for i in 1..10000 {
+        for i in 1..n {
             t.insert(hash(i), NonZeroU32::new(i).unwrap(), |a, b| a == b, hash);
         }
 
-        for i in 1..10000 {
+        for i in 1..n {
             let v = t.lookup(hash(i), |a| a.get() == i).unwrap();
             assert_eq!(NonZeroU32::new(i).unwrap(), v);
         }

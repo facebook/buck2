@@ -1222,7 +1222,8 @@ pub mod uncategorized {
     }
 }
 
-#[cfg(test)]
+// Exercises the real filesystem, which Miri's isolation has none of.
+#[cfg(all(test, not(miri)))]
 mod tests {
     use std::fs;
     use std::fs::File;

@@ -549,7 +549,8 @@ use buck2_fs::paths::abs_path::AbsPathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
-#[cfg(test)]
+// Exercises the real filesystem, which Miri's isolation has none of.
+#[cfg(all(test, not(miri)))]
 mod tests {
     use std::path::Path;
     use std::path::PathBuf;
