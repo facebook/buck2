@@ -22,7 +22,7 @@ prelude.go_library(
 prelude.go_test(
     name = "driver_test",
     srcs = glob(["*_test.go"]),
-    # @oss-disable[end= ]: env = {"GO_TEST2JSON_TOOL": "$(exe_target fbsource//third-party/go:test2json)"},
+    # @oss-disable[end= ]: env = {"GO_TEST2JSON_TOOL": "$(exe_target fbsource//third-party/go-toolchain:test2json)"},
     target_under_test = ":driver",
     visibility = ["PUBLIC"],
 )
