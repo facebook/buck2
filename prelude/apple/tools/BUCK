@@ -148,3 +148,12 @@ python_library(
     ],
     typing = True,
 )
+
+python_test(
+    name = "make_swift_interface_test",
+    srcs = [
+        "make_swift_interface.py",
+        "make_swift_interface_test.py",
+    ],
+    base_module = "",
+)
