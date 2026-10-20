@@ -280,11 +280,10 @@ def prepare_headers(
     )
     prefix_map_flag = "-ffile-prefix-map"
     if header_mode == HeaderMode("symlink_tree_only"):
-        include_prefix = _infer_include_prefix(srcs, header_namespace, package = symlink_dir.owner.package)
-        replacement = _get_prefix_map_replacement(cxx_toolchain_info, symlink_dir, header_namespace, include_prefix)
+        replacement = _get_prefix_map_replacement(cxx_toolchain_info, symlink_dir, srcs, header_namespace)
         file_prefix_args = None
         if replacement != None:
-            file_prefix_args = cmd_args(cmd_args(symlink_dir, format = prefix_map_flag + "={}=" + replacement))
+            file_prefix_args = cmd_args(cmd_args(symlink_dir, format = prefix_map_flag + "={}="), replacement, delimiter = "")
         return Headers(
             include_path = cmd_args(symlink_dir),
             symlink_tree = symlink_dir,
@@ -293,13 +292,12 @@ def prepare_headers(
     if header_mode == HeaderMode("symlink_tree_with_header_map"):
         headers = {h: (symlink_dir, h) for h in srcs}
         hmap = _mk_hmap(actions, cxx_toolchain_info, output_name, headers, allow_cache_upload, uses_content_based_paths)
-        include_prefix = _infer_include_prefix(srcs, header_namespace, package = symlink_dir.owner.package)
-        replacement = _get_prefix_map_replacement(cxx_toolchain_info, symlink_dir, header_namespace, include_prefix)
+        replacement = _get_prefix_map_replacement(cxx_toolchain_info, symlink_dir, srcs, header_namespace)
         file_prefix_args = None
         coverage_prefix_args = None
         if replacement != None:
-            file_prefix_args = cmd_args(cmd_args(symlink_dir, format = prefix_map_flag + "={}=" + replacement))
-            coverage_prefix_args = cmd_args(cmd_args(symlink_dir, format = "-fcoverage-prefix-map={}=" + replacement))
+            file_prefix_args = cmd_args(cmd_args(symlink_dir, format = prefix_map_flag + "={}="), replacement, delimiter = "")
+            coverage_prefix_args = cmd_args(cmd_args(symlink_dir, format = "-fcoverage-prefix-map={}="), replacement, delimiter = "")
         return Headers(
             include_path = cmd_args(hmap, hidden = symlink_dir),
             header_map = hmap,
@@ -456,22 +454,65 @@ def _infer_include_prefix_from_paths(srcs_paths: dict[str, str], header_namespac
     return None
 
 def _get_prefix_map_replacement(
-    cxx_toolchain_info: CxxToolchainInfo, header_dir: Artifact, header_namespace: [str, None] = None, include_prefix: [str, None] = None
-) -> [str, None]:
+    cxx_toolchain_info: CxxToolchainInfo, header_dir: Artifact, srcs: dict[str, Artifact], header_namespace: [str, None]
+) -> [cmd_args, None]:
     """Compute the replacement path for prefix-map flags."""
 
     # NOTE(@christylee): Do we need to enable debug-prefix-map for darwin and windows?
     if cxx_toolchain_info.linker_info.type != LinkerType("gnu"):
         return None
 
+    package = header_dir.owner.package
+    source_root = None
+    if read_root_config("cxx", "header_prefix_map_source_root", "false") == "true":
+        source_root = _common_source_root({k: (v.short_path if v.is_source else None) for k, v in srcs.items()}, package)
+    if source_root != None:
+        # Rendered from a header's source artifact, so that it includes the
+        # cell's location in the repo. Single-component paths render with a
+        # leading "./".
+        tree_path, parents = source_root
+        return cmd_args(srcs[tree_path], parent = parents, ignore_artifacts = True, replace_regex = ("^\\./", ""))
+
     cell = value_or(header_dir.owner.cell, ".")
-    return _prefix_map_replacement(
-        cell = cell,
-        cell_prefix = cxx_toolchain_info.cell_to_path_prefix_map.get(cell, ""),
-        package = header_dir.owner.package,
-        header_namespace = header_namespace,
-        include_prefix = include_prefix,
+    return cmd_args(
+        _prefix_map_replacement(
+            cell = cell,
+            cell_prefix = cxx_toolchain_info.cell_to_path_prefix_map.get(cell, ""),
+            package = package,
+            header_namespace = header_namespace,
+            include_prefix = _infer_include_prefix(srcs, header_namespace, package = package),
+        )
     )
+
+def _common_source_root(srcs_paths: dict[str, [str, None]], package: str) -> [(str, int), None]:
+    """
+    The source directory that every source header in a symlink tree sits at
+    under the same relative path as in the tree, if there is one.
+
+    `srcs_paths` maps each path in the tree to the header's package-relative
+    source path, or to None for generated headers. Returns `(tree_path,
+    parents)`: the directory is `parents` levels above the source of the header
+    at `tree_path`. Returns None when headers disagree, there are no source
+    headers, or the directory would be the cell root (the empty path in the
+    repo's root cell).
+    """
+    root = None
+    example = None
+    for tree_path, short_path in srcs_paths.items():
+        if short_path == None:
+            continue
+        cell_path = paths.join(package, short_path)
+        if len(cell_path) <= len(tree_path) + 1 or not cell_path.endswith("/" + tree_path):
+            return None
+        candidate = cell_path[: len(cell_path) - len(tree_path) - 1]
+        if root == None:
+            root = candidate
+            example = tree_path
+        elif candidate != root:
+            return None
+    if example == None:
+        return None
+    return (example, example.count("/") + 1)
 
 def _prefix_map_replacement(cell: str, cell_prefix: str, package: str, header_namespace: [str, None], include_prefix: [str, None]) -> str:
     prefix_target = cell_prefix
@@ -551,6 +592,7 @@ def add_headers_dep_files(
     return cmd
 
 headers_for_tests = struct(
+    common_source_root = _common_source_root,
     infer_include_prefix = _infer_include_prefix_from_paths,
     prefix_map_replacement = _prefix_map_replacement,
 )
