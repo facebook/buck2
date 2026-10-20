@@ -40,6 +40,86 @@ use crate::actions::execute::dice_data::SetInvalidationTrackingConfig;
 use crate::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsHandle;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsHandle;
 
+/// Configuration which is fixed for the lifetime of a DICE engine.
+///
+/// Every repository root attached to a shared engine must resolve to the same
+/// values. Root-specific inputs belong in [`DiceData`] instead.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DiceEngineConfiguration {
+    dice_state_path: Option<PathBuf>,
+    pagable_storage_backend: PagableStorageBackend,
+    page_out_policy: PageOutPolicy,
+    eviction_policy: EvictionPolicy,
+    defer_field_reads: bool,
+}
+
+/// Inputs used to resolve the settings shared by every root in an engine.
+pub struct DiceEngineConfigurationInputs<'a> {
+    pub dice_state_path: Option<&'a Path>,
+    pub pagable_storage_backend: PagableStorageBackend,
+    pub page_out_policy: PageOutPolicy,
+    pub eviction_policy: EvictionPolicy,
+    pub defer_field_reads: bool,
+}
+
+impl DiceEngineConfiguration {
+    /// Resolve configuration and environment overrides before opening an engine.
+    pub fn resolve(inputs: DiceEngineConfigurationInputs<'_>) -> buck2_error::Result<Self> {
+        let DiceEngineConfigurationInputs {
+            dice_state_path,
+            pagable_storage_backend,
+            page_out_policy,
+            eviction_policy,
+            defer_field_reads,
+        } = inputs;
+        let dice_state_path = match std::env::var_os("BUCK2_DICE_DB_PATH") {
+            Some(path) => Some(PathBuf::from(path)),
+            None => dice_state_path.map(Path::to_path_buf),
+        };
+        // Backend overrides and deferred reads apply only when paging is enabled.
+        let (pagable_storage_backend, defer_field_reads) = if dice_state_path.is_some() {
+            (
+                pagable_storage_backend.with_env_override().map_err(|e| {
+                    buck2_error::conversion::from_any_with_tag(
+                        e,
+                        buck2_error::ErrorTag::Environment,
+                    )
+                })?,
+                defer_field_reads,
+            )
+        } else {
+            (PagableStorageBackend::default(), false)
+        };
+
+        Ok(Self {
+            page_out_policy: if dice_state_path.is_some() {
+                page_out_policy
+            } else {
+                PageOutPolicy::default()
+            },
+            eviction_policy: if dice_state_path.is_some() {
+                eviction_policy
+            } else {
+                EvictionPolicy::default()
+            },
+            dice_state_path,
+            pagable_storage_backend,
+            defer_field_reads,
+        })
+    }
+
+    /// Reject a root whose settings would change an already-running engine.
+    pub fn ensure_compatible(&self, other: &Self) -> buck2_error::Result<()> {
+        if self != other {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "repository root requested DICE engine configuration {other:?}, but the daemon is already using {self:?}"
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Repository inputs attached to a DICE root.
 pub struct DiceRootConfiguration<'a> {
     pub io: Arc<dyn IoProvider>,
@@ -98,6 +178,14 @@ pub async fn configure_dice_for_buck(
     eviction_policy: EvictionPolicy,
     defer_field_reads: bool,
 ) -> buck2_error::Result<(Arc<Dice>, BranchId)> {
+    let engine_config = DiceEngineConfiguration::resolve(DiceEngineConfigurationInputs {
+        dice_state_path,
+        pagable_storage_backend,
+        page_out_policy,
+        eviction_policy,
+        defer_field_reads,
+    })?;
+
     let data = configure_dice_data_for_buck(DiceRootConfiguration {
         io,
         digest_config,
@@ -113,20 +201,14 @@ pub async fn configure_dice_for_buck(
     // `buck2_hydration.enable_paging` is set (its value is the default path,
     // under buck-out). The `BUCK2_DICE_DB_PATH` override (used by benchmarks)
     // takes precedence and picks the path.
-    let db_path: Option<PathBuf> = match std::env::var_os("BUCK2_DICE_DB_PATH") {
-        Some(path) => Some(PathBuf::from(path)),
-        None => dice_state_path.map(Path::to_path_buf),
-    };
-    if let Some(path) = db_path {
-        let backend = pagable_storage_backend.with_env_override().map_err(|e| {
-            buck2_error::conversion::from_any_with_tag(e, buck2_error::ErrorTag::Environment)
-        })?;
-        let mut storage = DiceStorage::open(&path, backend).map_err(|e| {
-            buck2_error::conversion::from_any_with_tag(e, buck2_error::ErrorTag::Environment)
-        })?;
-        storage.set_page_out_policy(page_out_policy);
-        storage.set_eviction_policy(eviction_policy);
-        if defer_field_reads {
+    if let Some(path) = &engine_config.dice_state_path {
+        let mut storage =
+            DiceStorage::open(path, engine_config.pagable_storage_backend).map_err(|e| {
+                buck2_error::conversion::from_any_with_tag(e, buck2_error::ErrorTag::Environment)
+            })?;
+        storage.set_page_out_policy(engine_config.page_out_policy);
+        storage.set_eviction_policy(engine_config.eviction_policy);
+        if engine_config.defer_field_reads {
             storage
                 .storage_context()
                 .get_or_init(|| DeferredFieldReadsEnabled);
@@ -142,4 +224,57 @@ pub async fn configure_dice_for_buck(
     dice_ctx.commit().await;
 
     Ok((dice, root))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config() -> DiceEngineConfiguration {
+        DiceEngineConfiguration {
+            dice_state_path: Some(PathBuf::from("dice-state")),
+            pagable_storage_backend: PagableStorageBackend::Sqlite,
+            page_out_policy: PageOutPolicy::default(),
+            eviction_policy: EvictionPolicy::default(),
+            defer_field_reads: false,
+        }
+    }
+
+    #[test]
+    fn engine_configuration_compatibility() {
+        let expected = config();
+        expected.ensure_compatible(&config()).unwrap();
+
+        let mut different_path = config();
+        different_path.dice_state_path = Some(PathBuf::from("other-dice-state"));
+        assert!(expected.ensure_compatible(&different_path).is_err());
+
+        let mut different_backend = config();
+        different_backend.pagable_storage_backend = PagableStorageBackend::Sled;
+        assert!(expected.ensure_compatible(&different_backend).is_err());
+
+        let mut different_page_out_policy = config();
+        different_page_out_policy.page_out_policy = PageOutPolicy::OncePerKey;
+        assert!(
+            expected
+                .ensure_compatible(&different_page_out_policy)
+                .is_err()
+        );
+
+        let mut different_eviction_policy = config();
+        different_eviction_policy.eviction_policy = EvictionPolicy::OnIdle;
+        assert!(
+            expected
+                .ensure_compatible(&different_eviction_policy)
+                .is_err()
+        );
+
+        let mut different_deferred_reads = config();
+        different_deferred_reads.defer_field_reads = true;
+        assert!(
+            expected
+                .ensure_compatible(&different_deferred_reads)
+                .is_err()
+        );
+    }
 }
