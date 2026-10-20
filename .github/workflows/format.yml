@@ -25,5 +25,6 @@ jobs:
     - uses: Swatinem/rust-cache@v2
       with:
         prefix-key: buck2-format
+        save-if: ${{ github.ref == 'refs/heads/main' }}
     - name: Check formatting
       run: python3 fmt.py --check

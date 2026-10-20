@@ -45,6 +45,7 @@ jobs:
       with:
         prefix-key: buck2-lint
         cache-on-failure: true
+        save-if: ${{ github.ref == 'refs/heads/main' }}
     - name: Run clippy
       run: python3 test.py --ci --git --lint-only
       shell: bash
@@ -71,6 +72,7 @@ jobs:
       with:
         prefix-key: buck2-test
         cache-on-failure: true
+        save-if: ${{ github.ref == 'refs/heads/main' }}
     - name: Run the tests
       run: python3 test.py --ci --git --test-only
       shell: bash
