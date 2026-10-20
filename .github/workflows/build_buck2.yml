@@ -81,10 +81,9 @@ jobs:
         with:
           toolchain: ${{ steps.read_rust_toolchain.outputs.value }}
           targets: ${{ matrix.target.triple }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: buck2-upload
-          key: ${{ matrix.target.triple }}
+      # No rust-cache here: the repository's Actions cache holds 10 GB, and
+      # the nine release targets' dependency caches alone outgrow it, evicting
+      # the caches the pull-request workflows depend on.
       - uses: actions-rs/install@v0.1
         if: matrix.target.cross
         with:
