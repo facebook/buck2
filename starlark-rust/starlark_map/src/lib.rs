@@ -21,12 +21,7 @@
 #![allow(clippy::missing_safety_doc)]
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
-#![cfg_attr(rust_nightly, feature(core_intrinsics))]
-#![cfg_attr(rust_nightly, feature(portable_simd))]
-#![cfg_attr(rust_nightly, feature(cfg_version))]
-#![cfg_attr(rust_nightly, allow(internal_features))]
 
-mod iter;
 pub mod ordered_map;
 pub mod ordered_set;
 pub mod small_map;
@@ -34,11 +29,8 @@ pub mod small_set;
 pub mod sorted_map;
 pub mod sorted_set;
 pub mod sorted_vec;
-pub(crate) mod sorting;
 pub mod unordered_map;
 pub mod unordered_set;
-pub mod vec2;
-pub(crate) mod vec_map;
 
 pub use equivalent::Equivalent;
 // The hashing layer lives in `mini_map` now; these are the names starlark has always used for it.
