@@ -223,6 +223,17 @@ public class D8Utils {
                   if (threadCount.isPresent()) {
                     opt.threadCount = threadCount.getAsInt();
                   }
+                  // Verbose synthetic names: keep backport-with-forwarding helpers in a distinct
+                  // namespace so they do not collide with lambda $N ordinals across separate dex
+                  // invocations (fb4a ARFU NoSuchMethodError).
+                  try {
+                    Object desugarSpecificOptions = opt.desugarSpecificOptions();
+                    desugarSpecificOptions
+                        .getClass()
+                        .getField("enableVerboseSyntheticNames")
+                        .setBoolean(desugarSpecificOptions, true);
+                  } catch (NoSuchFieldException | IllegalAccessException ignored) {
+                  }
                 });
 
     OutputClassDescriptorConsumer outputClassDescriptorConsumer = null;
