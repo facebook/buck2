@@ -44,12 +44,30 @@
 //! let mut set: BuckIndexSet<i32> = BuckIndexSet::default();
 //! set.insert(42);
 //! ```
+//!
+//! For a map that is built once and then kept - in a dice value, in daemon state - use
+//! [`BuckFixedSortedMap`], or [`BuckFixedInsertionMap`] when the order entries were added in
+//! matters:
+//!
+//! ```
+//! use buck2_hash::BuckFixedSortedMap;
+//!
+//! let map: BuckFixedSortedMap<String, i32> = [("b".to_string(), 2), ("a".to_string(), 1)]
+//!     .into_iter()
+//!     .collect();
+//! assert_eq!(map.get("a"), Some(&1));
+//! assert_eq!(map.first(), Some((&"a".to_string(), &1)));
+//! ```
 
 use std::hash::BuildHasher;
 use std::hash::Hasher;
 
 use dupe::Dupe;
 use fxhash::FxHasher64;
+use mini_map::MiniFixedInsertionMap;
+use mini_map::MiniFixedInsertionSet;
+use mini_map::MiniFixedSortedMap;
+use mini_map::MiniFixedSortedSet;
 use mini_map::MiniMutInsertionMap;
 use mini_map::MiniMutInsertionSet;
 
@@ -164,6 +182,42 @@ pub type BuckIndexMap<K, V> = MiniMutInsertionMap<K, V>;
 /// The set counterpart of [`BuckIndexMap`].
 pub type BuckIndexSet<K> = MiniMutInsertionSet<K>;
 
+/// The entry API of [`BuckIndexMap`].
+pub mod index_map {
+    pub use mini_map::mut_insertion_map::Entry;
+    pub use mini_map::mut_insertion_map::OccupiedEntry;
+    pub use mini_map::mut_insertion_map::VacantEntry;
+}
+
+/// A key with its hash, for the `_hashed` lookups and insertions of the maps above: hash once,
+/// use the result against several maps.
+pub use mini_map::Hashed;
+
+/// An immutable map sorted by key: [`MiniFixedSortedMap`].
+///
+/// The default for anything retained: a map that is built once and then only read, such as a
+/// field of a dice value or of daemon state. Its iteration order, `==`, `Hash` and `StrongHash`
+/// depend on its contents alone, whatever order it was built in, which is what a dice cutoff or a
+/// digest needs. Build it by collecting, or from a [`BuckIndexMap`] with `into()`.
+pub type BuckFixedSortedMap<K, V> = MiniFixedSortedMap<K, V>;
+
+/// An immutable set sorted by value: [`MiniFixedSortedSet`].
+///
+/// The set counterpart of [`BuckFixedSortedMap`].
+pub type BuckFixedSortedSet<K> = MiniFixedSortedSet<K>;
+
+/// An immutable map that keeps the order its entries were added in: [`MiniFixedInsertionMap`].
+///
+/// For retained maps whose order means something, such as a schema whose positions index a
+/// parallel array, or a starlark dict. Build it by collecting, or by freezing a [`BuckIndexMap`].
+pub type BuckFixedInsertionMap<K, V> = MiniFixedInsertionMap<K, V>;
+
+/// An immutable set that keeps the order its entries were added in:
+/// [`MiniFixedInsertionSet`].
+///
+/// The set counterpart of [`BuckFixedInsertionMap`].
+pub type BuckFixedInsertionSet<K> = MiniFixedInsertionSet<K>;
+
 /// Creates a [`BuckIndexMap`] from a list of key-value pairs.
 ///
 /// # Example
@@ -228,11 +282,10 @@ pub type BuckDashSet<K, S = BuckHasherBuilder> = dashmap::DashSet<K, S>;
 /// Do not use in new code. A [`HashMap`](std::collections::HashMap) with the standard
 /// library's `RandomState` hasher.
 ///
-/// What is left of this alias marks the retained maps - dice values, daemon state, the
-/// materializer tree - that are waiting on the immutable map type from the retained-maps
-/// plan. Once those are converted this alias goes away. Anywhere else, the map is either
-/// transient, and wants [`BuckMutMap`], or forced to be a concrete `HashMap` by something
-/// outside buck2, and wants [`IntentionallyStdHashMap`].
+/// What is left of this alias marks retained maps - dice values, daemon state, the
+/// materializer tree - that want [`BuckFixedSortedMap`]. Once those are converted this alias goes
+/// away. Anywhere else, the map is either transient, and wants [`BuckMutMap`], or forced to be
+/// a concrete `HashMap` by something outside buck2, and wants [`IntentionallyStdHashMap`].
 pub type StdBuckHashMap<K, V> = std::collections::HashMap<K, V>;
 
 /// A [`HashMap`](std::collections::HashMap) that intentionally uses the standard library's
