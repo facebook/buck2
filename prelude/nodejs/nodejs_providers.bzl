@@ -16,8 +16,11 @@ NodejsLibraryPackage = record(
 
 NodejsLibraryTSet = transitive_set()
 
+# Each value is a list of `NodejsTreeInfo`: the trees one library lists in `node_modules`.
+NodejsTreeTSet = transitive_set()
+
 NodejsLibraryInfo = provider(
-    doc = "A Node.js library: its own package and the packages of its transitive closure. A library with only `deps` stages no package, so its `dir_name`, `package_dir`, `package_name` and `runtime_dir` are `None`. `bins`, `main`, `type` and `version` are the library's attributes; `type` and `version` get the defaults of a synthesized `package.json` only when the rule synthesizes it.",
+    doc = "A Node.js library: its own package and the packages of its transitive closure. A library with only `deps` or `node_modules` stages no package, so its `dir_name`, `package_dir`, `package_name` and `runtime_dir` are `None`. `bins`, `main`, `type` and `version` are the library's attributes; `type` and `version` get the defaults of a synthesized `package.json` only when the rule synthesizes it.",
     fields = {
         "bins": provider_field(dict[str, str], default = {}),
         "dir_name": provider_field(str | None, default = None),
@@ -26,6 +29,7 @@ NodejsLibraryInfo = provider(
         "package_name": provider_field(str | None, default = None),
         "runtime_dir": provider_field(Artifact | None, default = None),
         "transitive_outputs": provider_field(NodejsLibraryTSet),
+        "transitive_trees": provider_field(NodejsTreeTSet | None, default = None),
         "type": provider_field(str | None, default = None),
         "version": provider_field(str | None, default = None),
     },
@@ -34,7 +38,13 @@ NodejsLibraryInfo = provider(
 NodejsTreeInfo = provider(
     doc = "A prebuilt `node_modules` directory tree (for example a yarn install output), usable where third-party packages have no `nodejs_library` target.",
     fields = {
+        # Package names and scopes never composed out of this tree.
+        "exclude": provider_field(list[str], default = []),
+        # JSON listing each top-level and scoped package of `node_modules`, written by `package_tree.py manifest`.
+        "manifest": provider_field(Artifact),
         "node_modules": provider_field(Artifact),
+        # The `nodejs_node_modules` target, which clash errors name.
+        "owner": provider_field(Label),
     },
 )
 
@@ -94,7 +104,7 @@ def get_nodejs_library_info(library, consumer_label):
     info = library[NodejsLibraryInfo]
     if info.package_dir == None:
         fail(
-            "target {} has `library` target `{}`, a `nodejs_library` with only `deps`, which stages no package to run a file from; list it in `deps` instead".format(
+            "target {} has `library` target `{}`, a `nodejs_library` with only `deps` or `node_modules`, which stages no package to run a file from; list it in `deps` instead".format(
                 consumer_label, library.label
             )
         )
@@ -117,20 +127,33 @@ def get_transitive_outputs(actions: AnalysisActions, value: NodejsLibraryPackage
         kwargs["children"] = [info.transitive_outputs for info in deps]
     return actions.tset(NodejsLibraryTSet, **kwargs)
 
+def get_transitive_trees(actions: AnalysisActions, trees: list[NodejsTreeInfo] = [], deps: list[NodejsLibraryInfo] = []) -> NodejsTreeTSet | None:
+    children = [info.transitive_trees for info in deps if info.transitive_trees != None]
+    if not trees and not children:
+        return None
+    kwargs = {"children": children}
+    if trees:
+        kwargs["value"] = trees
+    return actions.tset(NodejsTreeTSet, **kwargs)
+
+def get_trees(transitive_trees: NodejsTreeTSet | None) -> list[NodejsTreeInfo]:
+    """The distinct trees of `transitive_trees`, a library's own before its `deps`' in `deps` order."""
+    if transitive_trees == None:
+        return []
+    trees = {}
+    for value in transitive_trees.traverse():
+        for tree in value:
+            trees.setdefault(tree.owner, tree)
+    return list(trees.values())
+
 def check_relative_path(path: str, error_prefix: str, allow_colon: bool = False) -> list[str]:
     if not is_relative_slash_path(path) or (not allow_colon and ":" in path):
         colon_rule = "" if allow_colon else " no ':' and"
         fail("{} '{}': must be a relative path using '/' separators, with{} no '.' or '..' segments".format(error_prefix, path, colon_rule))
     return path.split("/")
 
-def build_node_modules(
-    actions: AnalysisActions,
-    name: str,
-    transitive_outputs: NodejsLibraryTSet,
-    own_package: NodejsLibraryPackage | None = None,
-    root_files: dict[str, Artifact] | None = None,
-    for_runtime: bool = False,
-) -> Artifact:
+def collect_packages(transitive_outputs: NodejsLibraryTSet, own_package: NodejsLibraryPackage | None = None) -> dict[str, NodejsLibraryPackage]:
+    """The first-party packages of a closure by `dir_name`, failing on duplicate and nested package directories."""
     packages_by_name = {}
     if own_package != None:
         packages_by_name[own_package.dir_name] = own_package
@@ -162,6 +185,17 @@ def build_node_modules(
                         n, packages_by_name[n].label, parent.dir_name, parent.label
                     )
                 )
+    return packages_by_name
+
+def build_node_modules(
+    actions: AnalysisActions,
+    name: str,
+    transitive_outputs: NodejsLibraryTSet,
+    own_package: NodejsLibraryPackage | None = None,
+    root_files: dict[str, Artifact] | None = None,
+    for_runtime: bool = False,
+) -> Artifact:
+    packages_by_name = collect_packages(transitive_outputs, own_package)
     tree = {"node_modules/" + n: packages_by_name[n].runtime_dir if for_runtime else packages_by_name[n].package_dir for n in sorted(packages_by_name)}
     for root_name, root_file in (root_files or {}).items():
         segments = check_relative_path(root_name, "invalid `root_files` path", allow_colon = True)

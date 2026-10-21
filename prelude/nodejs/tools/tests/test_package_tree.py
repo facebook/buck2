@@ -23,7 +23,7 @@ from unittest import mock
 from package_tree import (
     assemble_package,
     main,
-    merge,
+    manifest,
     strip_types,
     validate_package,
     write_validation_result,
@@ -357,124 +357,248 @@ class TestAssemblePackage(unittest.TestCase):
         )
 
 
-class TestMerge(unittest.TestCase):
+class TestManifest(unittest.TestCase):
     def setUp(self) -> None:
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
-        self.deps = self.root / "deps"
-        self.prebuilt = self.root / "prebuilt"
-        self.out = self.root / "out"
+        self.tree = self.root / "node_modules"
 
-    def test_disjoint_trees_merge(self) -> None:
-        _write(self.deps / "a" / "index.js", "a")
-        _write(self.deps / "@scope" / "x" / "index.js", "x")
-        _write(self.prebuilt / "b" / "index.js", "b")
-        _write(self.prebuilt / "@scope" / "y" / "index.js", "y")
-        self.assertEqual(merge(self.deps, self.prebuilt, self.out), [])
-        self.assertEqual(sorted(os.listdir(self.out)), ["@scope", "a", "b"])
-        self.assertEqual(sorted(os.listdir(self.out / "@scope")), ["x", "y"])
-        self.assertEqual((self.out / "@scope" / "y" / "index.js").read_text(), "y")
-
-    def test_package_in_both_trees_collides(self) -> None:
-        _write(self.deps / "a" / "index.js")
-        _write(self.prebuilt / "a" / "index.js")
-        _write(self.prebuilt / "b" / "index.js")
-        self.assertEqual(merge(self.deps, self.prebuilt, self.out), ["a"])
-        self.assertFalse(self.out.exists())
-
-    def test_scoped_package_in_both_trees_collides(self) -> None:
-        _write(self.deps / "@scope" / "x" / "index.js")
-        _write(self.prebuilt / "@scope" / "x" / "index.js")
-        _write(self.prebuilt / "@scope" / "y" / "index.js")
-        self.assertEqual(merge(self.deps, self.prebuilt, self.out), ["@scope/x"])
-
-    def test_scope_against_file_collides(self) -> None:
-        _write(self.deps / "@scope" / "x" / "index.js")
-        _write(self.prebuilt / "@scope")
-        self.assertEqual(merge(self.deps, self.prebuilt, self.out), ["@scope"])
-
-    @unittest.skipIf(sys.platform == "win32", "creating symlinks needs privileges")
-    def test_symlinks_stay_symlinks(self) -> None:
-        _write(self.prebuilt / "pkg" / "cli.js", "cli")
-        (self.prebuilt / ".bin").mkdir()
-        os.symlink("../pkg/cli.js", self.prebuilt / ".bin" / "cli")
-        self.deps.mkdir()
-        self.assertEqual(merge(self.deps, self.prebuilt, self.out), [])
-        link = self.out / ".bin" / "cli"
-        self.assertTrue(link.is_symlink())
-        self.assertEqual(os.readlink(link), "../pkg/cli.js")
-        self.assertEqual(link.read_text(), "cli")
-
-    @unittest.skipIf(sys.platform == "win32", "creating symlinks needs privileges")
-    def test_scope_symlink_against_scope_dir_merges(self) -> None:
-        for linked in ("deps", "prebuilt"):
-            with self.subTest(linked=linked):
-                tmp = tempfile.TemporaryDirectory()
-                self.addCleanup(tmp.cleanup)
-                root = Path(tmp.name)
-                deps, prebuilt, out = root / "deps", root / "prebuilt", root / "out"
-                real, other = (prebuilt, deps) if linked == "deps" else (deps, prebuilt)
-                _write(real / "@scope" / "x" / "index.js", "x")
-                _write(root / "store" / "y" / "index.js", "y")
-                other.mkdir()
-                os.symlink(root / "store", other / "@scope", target_is_directory=True)
-                self.assertEqual(merge(deps, prebuilt, out), [])
-                self.assertFalse((out / "@scope").is_symlink())
-                self.assertEqual(sorted(os.listdir(out / "@scope")), ["x", "y"])
-                self.assertEqual(sorted(os.listdir(root / "store")), ["y"])
-
-    @unittest.skipIf(sys.platform == "win32", "creating symlinks needs privileges")
-    def test_linked_scope_with_linked_packages_merges(self) -> None:
-        _write(self.root / "store" / "pkg" / "index.js", "pkg")
-        _write(self.root / "store" / "scope" / "x" / "index.js", "x")
-        os.symlink(
-            "../../store/pkg",
-            self.root / "store" / "scope" / "pkg",
-            target_is_directory=True,
+    def test_lists_packages_and_scoped_packages(self) -> None:
+        _write(self.tree / "a" / "package.json", json.dumps({"version": "1.0.0"}))
+        _write(
+            self.tree / "@scope" / "x" / "package.json",
+            json.dumps({"version": "2.0.0"}),
         )
-        self.deps.mkdir()
-        os.symlink("../store/scope", self.deps / "@scope", target_is_directory=True)
-        _write(self.prebuilt / "@scope" / "y" / "index.js", "y")
-        for keep_symlinks in (True, False):
-            with self.subTest(keep_symlinks=keep_symlinks):
-                out = self.root / f"out-{keep_symlinks}"
-                self.assertEqual(
-                    merge(self.deps, self.prebuilt, out, keep_symlinks=keep_symlinks),
-                    [],
-                )
-                self.assertFalse((out / "@scope").is_symlink())
-                self.assertEqual(sorted(os.listdir(out / "@scope")), ["pkg", "x", "y"])
-                self.assertEqual((out / "@scope" / "pkg").is_symlink(), keep_symlinks)
-                self.assertEqual(
-                    (out / "@scope" / "pkg" / "index.js").read_text(), "pkg"
-                )
+        _write(self.tree / "@scope" / "y" / "index.js")
+        _write(self.tree / "nometa" / "index.js")
+        _write(self.tree / "stray.txt")
         self.assertEqual(
-            sorted(os.listdir(self.root / "store" / "scope")), ["pkg", "x"]
+            manifest(self.tree),
+            {
+                "packages": [
+                    {"name": "@scope/x", "version": "2.0.0"},
+                    {"name": "@scope/y"},
+                    {"name": "a", "version": "1.0.0"},
+                    {"name": "nometa"},
+                    {"name": "stray.txt", "file": True},
+                ],
+                "ignored": [],
+            },
         )
 
-    @unittest.skipIf(sys.platform == "win32", "creating symlinks needs privileges")
-    def test_symlinks_copied_as_targets(self) -> None:
-        _write(self.prebuilt / "pkg" / "cli.js", "cli")
-        (self.prebuilt / ".bin").mkdir()
-        os.symlink("../pkg/cli.js", self.prebuilt / ".bin" / "cli")
-        self.deps.mkdir()
-        os.symlink("../prebuilt/pkg", self.deps / "lib", target_is_directory=True)
+    def test_records_platform_fields_and_bins(self) -> None:
+        _write(
+            self.tree / "native" / "package.json",
+            json.dumps(
+                {
+                    "version": "1.0.0",
+                    "os": ["linux", "!win32"],
+                    "cpu": ["x64"],
+                    "libc": ["glibc"],
+                    "bin": "cli.js",
+                }
+            ),
+        )
+        _write(
+            self.tree / "@scope" / "tool" / "package.json",
+            json.dumps({"bin": {"tool": "bin/tool.js", "t": "bin/t.js"}}),
+        )
         self.assertEqual(
-            merge(self.deps, self.prebuilt, self.out, keep_symlinks=False), []
+            manifest(self.tree)["packages"],
+            [
+                {
+                    "name": "@scope/tool",
+                    "bin": {"tool": "bin/tool.js", "t": "bin/t.js"},
+                },
+                {
+                    "name": "native",
+                    "version": "1.0.0",
+                    "os": ["linux", "!win32"],
+                    "cpu": ["x64"],
+                    "libc": ["glibc"],
+                    "bin": {"native": "cli.js"},
+                },
+            ],
         )
-        for path in (self.out / ".bin" / "cli", self.out / "lib" / "cli.js"):
-            self.assertFalse(path.is_symlink())
-            self.assertEqual(path.read_text(), "cli")
-        self.assertFalse((self.out / "lib").is_symlink())
+
+    def test_dependency_names_include_optional_and_peer(self) -> None:
+        _write(
+            self.tree / "a" / "package.json",
+            json.dumps(
+                {
+                    "dependencies": {"b": "^1", "@scope/c": "^2"},
+                    "optionalDependencies": {"fsevents": "^2"},
+                    "peerDependencies": {"react": "*", "b": "^1"},
+                    "devDependencies": {"jest": "*"},
+                }
+            ),
+        )
+        self.assertEqual(
+            manifest(self.tree)["packages"],
+            [{"name": "a", "dependencies": ["@scope/c", "b", "fsevents", "react"]}],
+        )
+
+    def test_nested_node_modules_belong_to_their_package(self) -> None:
+        _write(self.tree / "a" / "package.json", json.dumps({"version": "1.0.0"}))
+        _write(
+            self.tree / "a" / "node_modules" / "b" / "package.json",
+            json.dumps({"version": "9.9.9"}),
+        )
+        _write(self.tree / "a" / "node_modules" / "@scope" / "c" / "index.js")
+        self.assertEqual(
+            manifest(self.tree)["packages"], [{"name": "a", "version": "1.0.0"}]
+        )
+
+    def test_dot_entries_are_ignored(self) -> None:
+        _write(self.tree / ".yarn-integrity")
+        _write(self.tree / ".bin" / "cli")
+        _write(self.tree / ".package-lock.json")
+        _write(self.tree / "a" / "index.js")
+        self.assertEqual(
+            manifest(self.tree),
+            {
+                "packages": [{"name": "a"}],
+                "ignored": [".bin", ".package-lock.json", ".yarn-integrity"],
+            },
+        )
+
+    def test_dot_entries_in_a_scope_are_ignored(self) -> None:
+        _write(self.tree / "@scope" / ".cache" / "x")
+        _write(self.tree / "@scope" / "a" / "index.js")
+        self.assertEqual(
+            manifest(self.tree),
+            {"packages": [{"name": "@scope/a"}], "ignored": ["@scope/.cache"]},
+        )
+
+    def test_malformed_package_json_records_an_error(self) -> None:
+        _write(self.tree / "bad" / "package.json", "{not json")
+        _write(self.tree / "good" / "package.json", json.dumps({"version": "1.0.0"}))
+        bad, good = manifest(self.tree)["packages"]
+        self.assertEqual(set(bad), {"name", "error"})
+        self.assertEqual(bad["name"], "bad")
+        self.assertRegex(bad["error"], r"cannot read '.*package\.json'")
+        self.assertEqual(good, {"name": "good", "version": "1.0.0"})
+
+    def test_package_json_that_is_not_an_object_records_an_error(self) -> None:
+        _write(self.tree / "list" / "package.json", "[]")
+        [package] = manifest(self.tree)["packages"]
+        self.assertEqual(set(package), {"name", "error"})
+        self.assertRegex(package["error"], "is not a JSON object")
+
+    def test_unreadable_package_json_records_an_error(self) -> None:
+        (self.tree / "dir" / "package.json").mkdir(parents=True)
+        [package] = manifest(self.tree)["packages"]
+        self.assertEqual(set(package), {"name", "error"})
+        self.assertRegex(package["error"], "cannot read")
+
+    def test_unreadable_scoped_package_leaves_its_siblings_described(self) -> None:
+        (self.tree / "@scope" / "bad" / "package.json").mkdir(parents=True)
+        _write(
+            self.tree / "@scope" / "good" / "package.json",
+            json.dumps({"version": "1.0.0"}),
+        )
+        bad, good = manifest(self.tree)["packages"]
+        self.assertEqual(set(bad), {"name", "error"})
+        self.assertEqual(bad["name"], "@scope/bad")
+        self.assertRegex(bad["error"], "cannot read")
+        self.assertEqual(good, {"name": "@scope/good", "version": "1.0.0"})
+
+    @unittest.skipIf(
+        sys.platform == "win32" or os.geteuid() == 0,
+        "needs POSIX permissions that apply to the current user",
+    )
+    def test_scope_that_cannot_be_listed_records_an_error(self) -> None:
+        _write(self.tree / "@locked" / "a" / "package.json", "{}")
+        _write(self.tree / "good" / "package.json", json.dumps({"version": "1.0.0"}))
+        os.chmod(self.tree / "@locked", 0)
+        self.addCleanup(os.chmod, self.tree / "@locked", 0o755)
+        locked, good = manifest(self.tree)["packages"]
+        self.assertEqual(set(locked), {"name", "error"})
+        self.assertEqual(locked["name"], "@locked")
+        self.assertRegex(locked["error"], "Permission denied")
+        self.assertEqual(good, {"name": "good", "version": "1.0.0"})
+
+    def test_mistyped_fields_are_left_out(self) -> None:
+        _write(
+            self.tree / "odd" / "package.json",
+            json.dumps({"bin": 3, "dependencies": ["x"]}),
+        )
+        self.assertEqual(manifest(self.tree)["packages"], [{"name": "odd"}])
 
     @unittest.skipIf(sys.platform == "win32", "creating symlinks needs privileges")
-    def test_symlink_cycle_copied_as_targets_fails(self) -> None:
-        _write(self.deps / "pkg" / "index.js")
-        os.symlink("..", self.deps / "pkg" / "loop", target_is_directory=True)
-        self.prebuilt.mkdir()
-        with self.assertRaisesRegex(ValueError, "symlink cycle: .*loop"):
-            merge(self.deps, self.prebuilt, self.out, keep_symlinks=False)
+    def test_links_inside_the_tree_record_their_path(self) -> None:
+        _write(self.tree / "real" / "package.json", json.dumps({"version": "1.0.0"}))
+        _write(
+            self.tree / "store" / "x" / "package.json", json.dumps({"version": "2.0.0"})
+        )
+        os.symlink("real", self.tree / "alias", target_is_directory=True)
+        _write(self.tree / "store" / "README")
+        os.symlink("store", self.tree / "@linked", target_is_directory=True)
+        (self.tree / "@scope").mkdir()
+        os.symlink("../real", self.tree / "@scope" / "y", target_is_directory=True)
+        os.symlink("README", self.tree / "store" / "readme_link")
+        os.symlink("store/README", self.tree / "to_file")
+        self.assertEqual(
+            manifest(self.tree)["packages"],
+            [
+                {
+                    "name": "@linked/README",
+                    "link": "store",
+                    "path": "store/README",
+                    "file": True,
+                },
+                {
+                    "name": "@linked/readme_link",
+                    "link": "README",
+                    "path": "store/README",
+                    "file": True,
+                },
+                {
+                    "name": "@linked/x",
+                    "link": "store",
+                    "path": "store/x",
+                    "version": "2.0.0",
+                },
+                {
+                    "name": "@scope/y",
+                    "link": "../real",
+                    "path": "real",
+                    "version": "1.0.0",
+                },
+                {"name": "alias", "link": "real", "path": "real", "version": "1.0.0"},
+                {"name": "real", "version": "1.0.0"},
+                {"name": "store"},
+                {
+                    "name": "to_file",
+                    "link": "store/README",
+                    "path": "store/README",
+                    "file": True,
+                },
+            ],
+        )
+
+    @unittest.skipIf(sys.platform == "win32", "creating symlinks needs privileges")
+    def test_links_outside_the_tree_or_dangling_record_no_path(self) -> None:
+        _write(self.root / "outside" / "package.json", json.dumps({"version": "1.0.0"}))
+        self.tree.mkdir()
+        os.symlink("../outside", self.tree / "out", target_is_directory=True)
+        os.symlink("../outside/package.json", self.tree / "out_file")
+        os.symlink("missing", self.tree / "dangling", target_is_directory=True)
+        os.symlink(".", self.tree / "self", target_is_directory=True)
+        self.assertEqual(
+            manifest(self.tree)["packages"],
+            [
+                {"name": "dangling", "link": "missing"},
+                {"name": "out", "link": "../outside", "outside": True},
+                {
+                    "name": "out_file",
+                    "link": "../outside/package.json",
+                    "outside": True,
+                },
+                {"name": "self", "link": ".", "outside": True},
+            ],
+        )
 
 
 class TestStripTypes(unittest.TestCase):

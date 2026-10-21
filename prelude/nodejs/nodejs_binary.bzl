@@ -216,8 +216,8 @@ nodejs_binary = prelude_rule(
     `NODE_PATH`; with no merged tree, the first is staged as `node_modules`
     instead.
     `library`, when set, runs a file from inside a `nodejs_library`'s staged
-    package instead of `main` (a library with only `deps` stages none and
-    fails here): `entry_point` names the file relative to the
+    package instead of `main` (a library with only `deps` or `node_modules`
+    stages none and fails here): `entry_point` names the file relative to the
     package root (e.g. `"main.js"`; a relative `/`-separated path with
     no `:` and no `.` or `..` segments), and the library's transitive closure
     (plus `deps`) forms the `node_modules`. `main`/`srcs` cannot be combined

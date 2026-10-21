@@ -13,11 +13,14 @@ load(
     ":nodejs_providers.bzl",
     "NodejsLibraryInfo",
     "NodejsLibraryPackage",
+    "NodejsTreeInfo",
     "build_node_modules",
     "check_relative_path",
     "get_nodejs_dep_infos",
     "get_nodejs_tree_info",
     "get_transitive_outputs",
+    "get_transitive_trees",
+    "get_trees",
     "strip_type_declarations",
 )
 load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
@@ -213,21 +216,23 @@ def _validate_package(
     )
     return ValidationInfo(validations = [ValidationSpec(name = "package_json", validation_result = result)])
 
+def _tree_infos(ctx: AnalysisContext) -> list[NodejsTreeInfo]:
+    return [get_nodejs_tree_info(tree, consumer_label = ctx.label) for tree in ctx.attrs.node_modules]
+
 def _aggregator_impl(ctx: AnalysisContext, dep_infos: list[NodejsLibraryInfo]) -> list[Provider]:
-    if not dep_infos:
+    trees = _tree_infos(ctx)
+    if not dep_infos and not trees:
         fail(
-            "nodejs_library {}: has no package content (`srcs`, `resources`, `tsconfig`, `module`, `prebuilt` or `package_json`) and no `deps`".format(
+            "nodejs_library {}: has no package content (`srcs`, `resources`, `tsconfig`, `module`, `prebuilt` or `package_json`), no `deps` and no `node_modules`".format(
                 ctx.label
             )
         )
     for attr in ["package_name", "out", "main", "type", "version", "package_subdir"]:
         if getattr(ctx.attrs, attr) != None:
-            fail("nodejs_library {}: `{}` describes a package, but a library with only `deps` stages none".format(ctx.label, attr))
+            fail("nodejs_library {}: `{}` describes a package, but a library with only `deps` or `node_modules` stages none".format(ctx.label, attr))
     for attr in ["bin", "src_root"]:
         if getattr(ctx.attrs, attr):
-            fail("nodejs_library {}: `{}` describes a package, but a library with only `deps` stages none".format(ctx.label, attr))
-    if ctx.attrs.node_modules != None:
-        fail("nodejs_library {}: `node_modules` requires `tsconfig`: without compilation the tree is unused".format(ctx.label))
+            fail("nodejs_library {}: `{}` describes a package, but a library with only `deps` or `node_modules` stages none".format(ctx.label, attr))
     transitive_outputs = get_transitive_outputs(ctx.actions, deps = dep_infos)
     node_modules = build_node_modules(ctx.actions, "node_modules", transitive_outputs)
     return [
@@ -235,7 +240,10 @@ def _aggregator_impl(ctx: AnalysisContext, dep_infos: list[NodejsLibraryInfo]) -
             default_output = node_modules,
             sub_targets = {"node_modules": [DefaultInfo(default_output = node_modules)]},
         ),
-        NodejsLibraryInfo(transitive_outputs = transitive_outputs),
+        NodejsLibraryInfo(
+            transitive_outputs = transitive_outputs,
+            transitive_trees = get_transitive_trees(ctx.actions, trees, dep_infos),
+        ),
     ]
 
 def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -266,8 +274,8 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
         )
     _check_metadata(ctx.label, ctx.attrs.main, ctx.attrs.bin, ctx.attrs.version)
     if ctx.attrs.module != None:
-        if ctx.attrs.srcs or dep_infos or ctx.attrs.node_modules != None:
-            fail("nodejs_library {}: `module` cannot be combined with `srcs`, `deps` or `node_modules`".format(ctx.label))
+        if ctx.attrs.srcs or dep_infos:
+            fail("nodejs_library {}: `module` cannot be combined with `srcs` or `deps`".format(ctx.label))
         if ctx.attrs.tsconfig != None:
             fail("nodejs_library {}: `module` uses the module's own tsconfig.json; `tsconfig` cannot be combined with `module`".format(ctx.label))
     if prebuilt != None and (ctx.attrs.srcs or ctx.attrs.tsconfig != None or ctx.attrs.module != None):
@@ -314,9 +322,7 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     )
                 )
 
-    node_modules_tree = None
-    if ctx.attrs.node_modules != None:
-        node_modules_tree = get_nodejs_tree_info(ctx.attrs.node_modules, consumer_label = ctx.label).node_modules
+    transitive_trees = get_transitive_trees(ctx.actions, _tree_infos(ctx), dep_infos)
 
     emit = None
     module_dir = None
@@ -344,11 +350,8 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
             package_json = tsc_package_json,
             dep_infos = dep_infos,
             identifier = ctx.attrs.name,
-            package_tree_tool = ctx.attrs._package_tree_tool[RunInfo],
-            node_modules_tree = node_modules_tree,
+            trees = get_trees(transitive_trees),
         )
-    elif node_modules_tree != None:
-        fail("nodejs_library {}: `node_modules` requires `tsconfig`: without compilation the tree is unused".format(ctx.label))
     package_tree_tool = ctx.attrs._package_tree_tool[RunInfo]
     files = {path: entry.artifact for path, entry in staged.items()}
     if prebuilt != None:
@@ -393,6 +396,7 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
             package_name = package_name,
             runtime_dir = runtime_dir,
             transitive_outputs = transitive_outputs,
+            transitive_trees = transitive_trees,
             type = module_type,
             version = version,
         ),
@@ -407,7 +411,8 @@ nodejs_library = prelude_rule(
     The package's content comes from at most one of: uncompiled `srcs`,
     `srcs` with `tsconfig`, `module` or `prebuilt`, each described below.
     `resources` and `package_json` may accompany any of them or stand
-    alone. A library with only `deps` is an aggregate (see the end).
+    alone. A library with only `deps` or `node_modules` is an aggregate
+    (see the end).
     `src_root` (default `""`) is the directory that staged and emitted
     paths are relative to. For `srcs` and a `resources` list it applies to
     each artifact's short path (a source file's path inside its BUCK
@@ -430,8 +435,9 @@ nodejs_library = prelude_rule(
     With `tsconfig`, `srcs` are compiled with the toolchain's `tsc`
     before staging: sources are staged by short path next to the
     `tsconfig`, the `package.json` (whose `"type"` decides the emitted
-    module format) and a `node_modules` (the merged tree of `deps` and the
-    prebuilt `node_modules` tree; so cross-package type imports resolve),
+    module format) and a `node_modules` composed from the packages of the
+    transitive `deps` and the third-party trees (see `node_modules`), so
+    cross-package type imports resolve,
     compiled with `--outDir`, `--rootDir` (`src_root` inside that staging
     directory), `--declaration`, `--noEmit false` and
     `--emitDeclarationOnly false`, into `package_subdir`.
@@ -499,11 +505,17 @@ nodejs_library = prelude_rule(
     not start with `.` or `_`. The unscoped names `node_modules` and
     `favicon.ico` are reserved and rejected, as is `@scope/node_modules`;
     either may be used as the scope.
-    `node_modules`, when set, stages a prebuilt `node_modules` tree (a
-    `nodejs_node_modules` target, e.g. over a yarn install output) for the
-    `tsc` compile, merged with the `deps` tree when both are present, for
-    third-party packages with no `nodejs_library` target. It requires
-    `tsconfig`.
+    `node_modules` lists third-party trees (`nodejs_node_modules` targets,
+    e.g. over a yarn install output), for packages with no `nodejs_library`
+    target. A library's trees are those it lists plus those of its
+    transitive `deps`; listing a tree a dep already brings is allowed. They
+    are forwarded to libraries that depend on this one, whatever its
+    content, but not to a `nodejs_binary` or `nodejs_test`, which lists the
+    trees it runs with itself. The `tsc` compile of `srcs` composes them
+    with the packages of the transitive `deps` into its staged
+    `node_modules`, package by package. A package name two of those
+    sources provide fails the build and names both; `nodejs_node_modules`
+    describes the other packages that fail it and how `exclude` drops them.
     `module`, when set, compiles a whole project directory (a target whose
     single output holds a `tsconfig.json` and its sources) instead of
     compiling `srcs`: `tsc -p` runs on the module's own `tsconfig.json`
@@ -514,16 +526,16 @@ nodejs_library = prelude_rule(
     and the emitted tree is staged as the package's `package_subdir`, mirroring
     source paths (with the defaults, `src/main.ts` emits
     `src/main.js`). It cannot be
-    combined with `srcs`, `deps`, `node_modules` or `tsconfig`;
+    combined with `srcs`, `deps` or `tsconfig`;
     the module tsconfig must not require writes into the tree. Only the
     emitted tree is staged, not the module's own `package.json` (whose
     paths are relative to the module root, not the package) or
     `node_modules`. The package's `package.json` is synthesized or
     `package_json` as for any library, so a module whose `package.json`
     declares `"type": "module"` needs `type = "module"` (the validation
-    above fails otherwise). A
-    `nodejs_binary` running the package must supply that tree through its
-    own `node_modules`.
+    above fails otherwise). A `module` compile does not stage the listed
+    trees: a `nodejs_binary` running the package supplies a tree through
+    its own `node_modules`.
     `out`, when set, stages the package under that directory name inside
     `node_modules` instead of `package_name` (a relative path with `/`
     separators, no `:` and no `.`, `..` or `node_modules` segments), for packages whose
@@ -531,20 +543,19 @@ nodejs_library = prelude_rule(
     The default output is the package's own directory
     (`package_dir`). The `[node_modules]` sub-target is the merged
     `node_modules` tree for this package and its transitive `deps`,
-    laid out by `package_name` (or `out`). A duplicate `package_name` in the
+    laid out by `package_name` (or `out`), without third-party trees. A duplicate `package_name` in the
     transitive closure with a different package output fails the build, as
     does one package directory nested inside another. The `[runtime]`
     sub-target is the package directory without its `.d.ts`, `.d.mts` and
     `.d.cts` files and their maps, with symlinks copied as their targets;
     `nodejs_binary` and `nodejs_test` stage it in their merged tree.
-    A library with `deps` and none of `srcs`, `resources`, `module`,
-    `prebuilt`, `package_json` or `tsconfig` stages no package: its
-    default output, like its `[node_modules]`, is the merged `node_modules`
-    tree of its transitive `deps`, and a library, binary or test that
-    depends on it gets those `deps`. It cannot be a `library` of a
-    `nodejs_binary` or `nodejs_test`, and `package_name`, `out`, `main`,
-    `bin`, `type`, `version`, `package_subdir`, `src_root` and `node_modules`
-    fail on it.""",
+    A library with `deps` or `node_modules` and none of `srcs`,
+    `resources`, `module`, `prebuilt`, `package_json` or `tsconfig` stages
+    no package: its default output, like its `[node_modules]`, is the
+    merged `node_modules` tree of its transitive `deps`. It
+    cannot be a `library` of a `nodejs_binary` or `nodejs_test`, and
+    `package_name`, `out`, `main`, `bin`, `type`, `version`, `package_subdir`
+    and `src_root` fail on it.""",
     examples = None,
     further = None,
     attrs = (
@@ -556,7 +567,7 @@ nodejs_library = prelude_rule(
             "package_json": attrs.option(attrs.source(allow_directory = False), default = None),
             "tsconfig": attrs.option(attrs.source(allow_directory = False), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
-            "node_modules": attrs.option(attrs.dep(), default = None),
+            "node_modules": attrs.list(attrs.dep(), default = []),
             "module": attrs.option(attrs.dep(), default = None),
             "prebuilt": attrs.option(attrs.source(allow_directory = True), default = None),
             "out": attrs.option(attrs.string(), default = None),

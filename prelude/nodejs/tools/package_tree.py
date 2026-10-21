@@ -9,11 +9,11 @@
 """Build package trees for the prelude's Node.js rules.
 
 package_tree.py assemble-package (--emit DIR [--package-subdir PATH] | --prebuilt DIR) --entries FILE [--package-json FILE] --out DIR
-package_tree.py merge --deps DIR --prebuilt DIR --out DIR
 package_tree.py launchers --spec FILE --out DIR
 package_tree.py archive --src DIR --format FORMAT --out FILE [--root ROOT] [--executables FILE]
     [--sha256 FILE]
 package_tree.py compress --src FILE --out OUT [--sha256 FILE] --zstd ZSTD...
+package_tree.py manifest --tree DIR --out FILE
 package_tree.py strip-types --src DIR --out DIR
 package_tree.py validate-package --package DIR --name NAME [--dir-name NAME] [--main PATH] [--bin NAME:PATH]... [--type TYPE] [--version VERSION]
     [--module DIR [--module-src-root PATH]] --out FILE
@@ -48,55 +48,6 @@ from pathlib import Path
 from typing import BinaryIO, NamedTuple
 
 
-def _copy_entry(
-    entry: os.DirEntry[str],
-    target: Path,
-    keep_symlinks: bool,
-    skip_suffixes: tuple[str, ...],
-    ancestors: set[tuple[int, int]],
-) -> None:
-    if keep_symlinks and entry.is_symlink():
-        os.symlink(os.readlink(entry.path), target, target_is_directory=entry.is_dir())
-    elif entry.is_dir():
-        _copy_tree(Path(entry.path), target, keep_symlinks, skip_suffixes, ancestors)
-    elif not entry.name.endswith(skip_suffixes) and not (
-        entry.is_symlink() and os.path.realpath(entry.path).endswith(skip_suffixes)
-    ):
-        shutil.copy(entry.path, target)
-
-
-def _copy_tree(
-    src: Path,
-    dst: Path,
-    keep_symlinks: bool,
-    skip_suffixes: tuple[str, ...],
-    ancestors: set[tuple[int, int]],
-) -> None:
-    key = _enter_dir(src, ancestors)
-    dst.mkdir(parents=True, exist_ok=True)
-    with os.scandir(src) as entries:
-        for entry in entries:
-            _copy_entry(
-                entry, dst / entry.name, keep_symlinks, skip_suffixes, ancestors
-            )
-    ancestors.remove(key)
-
-
-def copy_tree(
-    src: Path,
-    dst: Path,
-    keep_symlinks: bool = True,
-    skip_suffixes: tuple[str, ...] = (),
-) -> None:
-    """Copy the contents of `src` into `dst`, keeping symlinks as symlinks unless `keep_symlinks` is false.
-
-    Files whose names, or whose symlink targets' names, end with one of
-    `skip_suffixes` are left out, except symlinks kept as symlinks. Raises `ValueError` on a symlink cycle, which only
-    matters when symlinks are copied as their targets.
-    """
-    _copy_tree(src, dst, keep_symlinks, skip_suffixes, set())
-
-
 def assemble_package(
     base: Path,
     package_subdir: str,
@@ -112,10 +63,8 @@ def assemble_package(
     failed copy, a symlink cycle in an entry included. Raises `ValueError` on a
     symlink cycle in `base` and `OSError` if `emit` cannot be copied.
     """
-    copy_tree(
-        base,
-        out.joinpath(*package_subdir.split("/")) if package_subdir else out,
-        keep_symlinks=False,
+    _copy_resolved(
+        base, out.joinpath(*package_subdir.split("/")) if package_subdir else out, set()
     )
     errors = []
     for path, src, name in entries:
@@ -217,43 +166,6 @@ def _enter_dir(path: Path, ancestors: set[tuple[int, int]]) -> tuple[int, int]:
         )
     ancestors.add(key)
     return key
-
-
-def merge(
-    deps: Path,
-    prebuilt: Path,
-    out: Path,
-    keep_symlinks: bool = sys.platform != "win32",
-) -> list[str]:
-    """Merge two `node_modules` trees into `out`, or return the entries both define.
-
-    A scope directory present in both trees is merged into one real directory,
-    even when one tree links it, and its packages are compared instead. Nothing is written when any entry collides. Symlinks are
-    copied as their targets on Windows, where a re-created link does not resolve
-    in the consuming action; there a symlink cycle raises `ValueError`.
-    """
-    clashes = []
-    scopes = set()
-    for entry in sorted(os.scandir(prebuilt), key=lambda e: e.name):
-        other = deps / entry.name
-        if entry.name.startswith("@") and entry.is_dir() and other.is_dir():
-            scopes.add(entry.name)
-            clashes += sorted(
-                entry.name + "/" + child.name
-                for child in os.scandir(entry.path)
-                if os.path.lexists(other / child.name)
-            )
-        elif os.path.lexists(other):
-            clashes.append(entry.name)
-    if not clashes:
-        out.mkdir(parents=True, exist_ok=True)
-        for tree in (deps, prebuilt):
-            for entry in os.scandir(tree):
-                if entry.name in scopes:
-                    copy_tree(Path(entry.path), out / entry.name, keep_symlinks)
-                else:
-                    _copy_entry(entry, out / entry.name, keep_symlinks, (), set())
-    return clashes
 
 
 LAUNCHERS_HELP = """\
@@ -877,7 +789,172 @@ def strip_types(src: Path, out: Path) -> None:
     Symlinks are copied as their targets, so declarations behind a linked file
     or directory are stripped too. Raises `ValueError` on a symlink cycle.
     """
-    copy_tree(src, out, keep_symlinks=False, skip_suffixes=_DECLARATION_SUFFIXES)
+    _copy_resolved(src, out, set(), _DECLARATION_SUFFIXES)
+
+
+def _copy_resolved(
+    src: Path,
+    out: Path,
+    ancestors: set[tuple[int, int]],
+    skip_suffixes: tuple[str, ...] = (),
+) -> None:
+    """Copy `src` into `out` with symlinks copied as their targets, leaving out files whose names, or whose symlink targets' names, end with one of `skip_suffixes`."""
+    key = _enter_dir(src, ancestors)
+    out.mkdir(parents=True, exist_ok=True)
+    with os.scandir(src) as entries:
+        for entry in entries:
+            if entry.is_dir():
+                _copy_resolved(
+                    Path(entry.path), out / entry.name, ancestors, skip_suffixes
+                )
+            elif not entry.name.endswith(skip_suffixes) and not (
+                entry.is_symlink()
+                and os.path.realpath(entry.path).endswith(skip_suffixes)
+            ):
+                shutil.copy(entry.path, out / entry.name)
+    ancestors.remove(key)
+
+
+def manifest(tree: Path) -> dict[str, object]:
+    """Describe each top-level and scoped package of the `node_modules` directory `tree`.
+
+    Each package lists its `name` and, from its package.json, `version`, `os`,
+    `cpu`, `libc`, `bin` (a string `bin` becomes an object keyed by the
+    unscoped name) and `dependencies`: the names of its dependencies, optional
+    dependencies and peer dependencies. Nested `node_modules` belong to their
+    package and are not listed. A package reached through a symlink (or in a
+    linked scope) records the link's target as `link` and, when it resolves to
+    a file or directory inside `tree`, its `/`-separated path as `path`, or
+    `outside` when it resolves to `tree` itself or outside it. An entry that is,
+    or resolves inside `tree` to, a file records `file`. Dot-prefixed entries such as
+    `.bin` and `.yarn-integrity`, at the top level or in a scope, are not
+    packages; their names (`@scope/.name` in a scope) are listed under
+    `ignored`. A package without a package.json is described by name only; one
+    that cannot be read, or whose package.json is not a JSON object, is
+    described by name and an `error` saying why. A scope directory that cannot
+    be listed is described the same way under its name.
+    """
+    root = os.path.realpath(tree)
+    packages = []
+    ignored = []
+    for entry in _sorted_entries(tree):
+        if entry.name.startswith("."):
+            ignored.append(entry.name)
+            continue
+        try:
+            scope = _scope_entries(entry)
+        except OSError as e:
+            packages.append({"name": entry.name, "error": str(e)})
+            continue
+        if scope is None:
+            packages.append(_describe_package(root, entry.name, entry, None))
+            continue
+        children, scope_link = scope
+        for child in children:
+            name = f"{entry.name}/{child.name}"
+            if child.name.startswith("."):
+                ignored.append(name)
+            else:
+                packages.append(_describe_package(root, name, child, scope_link))
+    return {"packages": packages, "ignored": ignored}
+
+
+def _scope_entries(
+    entry: os.DirEntry[str],
+) -> tuple[list[os.DirEntry[str]], str | None] | None:
+    """The entries of the scope directory `entry` and the target it links to, or None when `entry` is not a scope."""
+    if not (entry.name.startswith("@") and entry.is_dir()):
+        return None
+    scope_link = _link(entry) if entry.is_symlink() else None
+    return _sorted_entries(Path(entry.path)), scope_link
+
+
+def _sorted_entries(directory: Path) -> list[os.DirEntry[str]]:
+    with os.scandir(directory) as entries:
+        return sorted(entries, key=lambda e: e.name)
+
+
+def _link(entry: os.DirEntry[str]) -> str:
+    return os.readlink(entry.path).replace(os.sep, "/")
+
+
+def _path_inside(root: str, real: str) -> str | None:
+    try:
+        inside = os.path.relpath(real, root).replace(os.sep, "/")
+    except ValueError:  # On another Windows drive.
+        return None
+    if inside in (".", "..") or inside.startswith("../"):
+        return None
+    return inside
+
+
+def _record_location(
+    info: dict[str, object],
+    root: str,
+    entry: os.DirEntry[str],
+    scope_link: str | None,
+) -> bool:
+    """Records where `entry` lives in `info`; whether it is a package directory to read."""
+    link = _link(entry) if entry.is_symlink() else scope_link
+    if link is None:
+        if not entry.is_dir():
+            info["file"] = True
+        return entry.is_dir()
+    info["link"] = link
+    real = os.path.realpath(entry.path)
+    is_file = os.path.isfile(real)
+    if not is_file and not os.path.isdir(real):
+        return False
+    inside = _path_inside(root, real)
+    if inside is None:
+        info["outside"] = True
+        return False
+    info["path"] = inside
+    if is_file:
+        info["file"] = True
+    return not is_file
+
+
+def _describe_package(
+    root: str, name: str, entry: os.DirEntry[str], scope_link: str | None
+) -> dict[str, object]:
+    info: dict[str, object] = {"name": name}
+    try:
+        if not _record_location(info, root, entry, scope_link):
+            return info
+        data = _read_json_object(Path(entry.path) / "package.json")
+    except (OSError, ValueError) as e:
+        info["error"] = str(e)
+        return info
+    for key in ("version", "os", "cpu", "libc"):
+        if key in data:
+            info[key] = data[key]
+    bins = data.get("bin")
+    if isinstance(bins, str):
+        bins = {name.split("/")[-1]: bins}
+    if isinstance(bins, dict) and bins:
+        info["bin"] = bins
+    dependencies = {
+        dependency
+        for key in ("dependencies", "optionalDependencies", "peerDependencies")
+        if isinstance(data.get(key), dict)
+        for dependency in data[key]
+    }
+    if dependencies:
+        info["dependencies"] = sorted(dependencies)
+    return info
+
+
+def _read_json_object(path: Path) -> dict[str, object]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as e:
+        raise ValueError(f"cannot read '{path}': {e}") from e
+    if not isinstance(data, dict):
+        raise ValueError(f"'{path}' is not a JSON object")
+    return data
 
 
 # Node's legacy `main` lookup finds the file at the `main` path plus any of these.
@@ -1292,14 +1369,12 @@ def _run_validate_package(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_merge(args: argparse.Namespace) -> int:
-    clashes = merge(args.deps, args.prebuilt, args.out)
-    for name in clashes:
-        print(
-            f"node_modules entry {name} is in both the deps tree and the prebuilt tree",
-            file=sys.stderr,
-        )
-    return 1 if clashes else 0
+def _run_manifest(args: argparse.Namespace) -> int:
+    args.out.write_text(
+        json.dumps(manifest(args.tree), indent=1, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return 0
 
 
 def _run_launchers(args: argparse.Namespace) -> int:
@@ -1341,11 +1416,10 @@ def _parser() -> argparse.ArgumentParser:
     assemble.add_argument("--package-json", type=_path)
     assemble.add_argument("--out", type=_path, required=True)
     assemble.set_defaults(run=_run_assemble_package, errors=(ValueError, OSError))
-    merged = commands.add_parser("merge")
-    merged.add_argument("--deps", type=_path, required=True)
-    merged.add_argument("--prebuilt", type=_path, required=True)
-    merged.add_argument("--out", type=_path, required=True)
-    merged.set_defaults(run=_run_merge, errors=(ValueError,))
+    described = commands.add_parser("manifest")
+    described.add_argument("--tree", type=_path, required=True)
+    described.add_argument("--out", type=_path, required=True)
+    described.set_defaults(run=_run_manifest, errors=(ValueError, OSError))
     launchers = commands.add_parser(
         "launchers",
         description=LAUNCHERS_HELP,

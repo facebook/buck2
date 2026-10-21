@@ -6,7 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":nodejs_providers.bzl", "build_node_modules", "get_transitive_outputs")
+load(":nodejs_closure.bzl", "compose_node_modules")
+load(":nodejs_providers.bzl", "collect_packages", "get_transitive_outputs")
 
 # Output paths below are short and leave out the target name, which buck-out already
 # includes twice: `tsc` on Windows stops resolving modules once a path passes MAX_PATH.
@@ -24,10 +25,9 @@ def compile_typescript(
     package_json: Artifact,
     dep_infos: list,
     identifier: str,
-    package_tree_tool: RunInfo,
-    node_modules_tree = None,
+    trees: list = [],
 ) -> Artifact:
-    """Compile `srcs` with `tsc` against `dep_infos` and `node_modules_tree`, returning the emitted tree.
+    """Compile `srcs` with `tsc` against `dep_infos` and the third-party `trees`, returning the emitted tree.
 
     JavaScript and JSON sources go to `tsc` like TypeScript ones; the `tsconfig`'s `allowJs` and
     `resolveJsonModule` decide what it does with them.
@@ -49,7 +49,7 @@ def compile_typescript(
             fail("nodejs_library {}: cannot compile declaration file '{}': `tsc` emits nothing for it".format(label, src.short_path))
 
     reserved = ["tsconfig.json", "tsconfig.buck.json", "package.json"]
-    if dep_infos or node_modules_tree != None:
+    if dep_infos or trees:
         reserved.append("node_modules")
 
     stage = {}
@@ -73,23 +73,18 @@ def compile_typescript(
     )
     stage["tsconfig.json"] = tsconfig
     stage["package.json"] = package_json
-    if dep_infos or node_modules_tree != None:
-        if dep_infos:
-            dep_tree = build_node_modules(
-                actions,
-                "ts/d",
-                get_transitive_outputs(actions, deps = dep_infos),
-            )
-            dep_node_modules = dep_tree.project("node_modules")
-            if node_modules_tree != None:
-                dep_node_modules = merge_node_modules(actions, package_tree_tool, dep_node_modules, node_modules_tree, identifier)
-            stage["node_modules"] = dep_node_modules
-        else:
-            # Copy under a real `node_modules` segment (see `merge_node_modules`).
-            stage["node_modules"] = actions.copied_dir(
-                "ts/n",
-                {"node_modules": node_modules_tree},
-            ).project("node_modules")
+    if dep_infos or trees:
+        packages = collect_packages(get_transitive_outputs(actions, deps = dep_infos))
+
+        # Under a real `node_modules` path segment: resolvers realpath-resolve into
+        # the tree and then walk ancestor `node_modules` directories.
+        stage["node_modules"] = compose_node_modules(
+            actions,
+            "ts/m",
+            {n: p.package_dir for n, p in packages.items()},
+            {n: p.label for n, p in packages.items()},
+            trees,
+        ).project("node_modules")
     src_dir = actions.symlinked_dir("ts/s", stage)
 
     out_dir = actions.declare_output("ts/o", dir = True)
@@ -116,32 +111,6 @@ def compile_typescript(
     )
 
     return out_dir
-
-def merge_node_modules(actions: AnalysisActions, package_tree_tool: RunInfo, dep_node_modules: Artifact, prebuilt_tree: Artifact, identifier: str) -> Artifact:
-    """Merge a deps-built `node_modules` tree with a prebuilt tree.
-
-    A package (or scoped package) present in both trees fails the action.
-    On Windows executors symlinks are copied as their targets.
-    The result sits under a real `node_modules` path segment: resolvers realpath-resolve
-    into the tree and then walk ancestor `node_modules` directories, which
-    fails when the tree root itself is mounted as `node_modules`.
-    """
-    merged = actions.declare_output("ts/m/node_modules", dir = True)
-    actions.run(
-        cmd_args(
-            package_tree_tool,
-            "merge",
-            "--deps",
-            dep_node_modules,
-            "--prebuilt",
-            prebuilt_tree,
-            "--out",
-            merged.as_output(),
-        ),
-        category = "tsc_merge_node_modules",
-        identifier = identifier,
-    )
-    return merged
 
 def compile_module_typescript(actions: AnalysisActions, label: Label, tsc: RunInfo | None, module_dir: Artifact, src_root: str, identifier: str) -> Artifact:
     """Compile a whole project directory with the toolchain's `tsc`, returning the emitted tree.
