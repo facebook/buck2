@@ -13,7 +13,7 @@ load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//tests:re_utils.bzl", "get_re_executors_from_props")
-load(":nodejs_binary.bzl", "build_nodejs_command", "nodejs_command", "stage_nodejs_entries")
+load(":nodejs_binary.bzl", "build_nodejs_command", "launcher_outputs", "nodejs_command", "stage_nodejs_entries")
 load(":nodejs_providers.bzl", "get_nodejs_tree_info")
 load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
 
@@ -102,7 +102,7 @@ def _framework_command(ctx: AnalysisContext) -> struct:
             args.add("--arg", arg)
     for entry in staged.entries:
         args.add("--test-file", entry.name, entry.path)
-    return struct(merged = staged.runtime, output = nodejs_command(ctx, args, staged.env), env = staged.env)
+    return struct(dir = staged.dir, merged = staged.runtime, output = nodejs_command(ctx, args, staged.env), env = staged.env)
 
 def nodejs_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.framework != "jest":
@@ -140,9 +140,7 @@ def nodejs_test_impl(ctx: AnalysisContext) -> list[Provider]:
             use_project_relative_paths = use_project_relative_paths or None,
             supports_test_execution_caching = ctx.attrs.supports_test_execution_caching,
         ),
-    ) + [
-        DefaultInfo(default_output = command.merged, other_outputs = list(command.output.output.default_outputs) + list(command.output.output.other_outputs)),
-    ]
+    ) + [launcher_outputs(command)]
 
 nodejs_test = prelude_rule(
     name = "nodejs_test",
@@ -211,25 +209,20 @@ nodejs_test = prelude_rule(
     `"none"` runs `main`, or the `library`'s `entry_point`, with `args` and
     `node_args`; its exit code is the only result. `srcs` are helpers.
 
-    When `deps` or `library` is set, or with `"jest"`, the test runs from
-    a directory, its default output. With `deps` or `library`, it holds a
-    merged `node_modules` from transitive deps. Without `library`, `srcs`
-    and `main` are staged there at their short paths, which must not
-    collide; with `library`, the `entry_point` runs in the library's
-    package under `node_modules`. Otherwise, the test files run in place,
-    and files they import relatively must be in `srcs` to be build inputs.
-
-    Deps must be loadable as regular `node_modules` packages: each
-    package's `package.json` governs whether it is CommonJS or an ES
-    module, and TypeScript must be compiled to JavaScript before it is
-    packaged. The merged tree is also exposed via `NODE_PATH` at runtime,
-    appended to any `NODE_PATH` set in `env`, for CommonJS resolution.
-    Transitive deps' package directories must be unique, as for
-    `nodejs_library`. It runs via a `command_alias` wrapper script for the
-    target platform, which sets `env` (including `NODE_PATH` from `deps`)
-    on Unix and Windows. `node_modules` appends prebuilt trees to
-    `NODE_PATH`. `library`, `entry_point` and `node_modules` follow the same
-    combination rules and `.d.ts` stripping as `nodejs_binary`.""",
+    The `[dir]` sub-target is one directory, built as `nodejs_binary`
+    builds it: a composed `node_modules`, `srcs` and `main` beside it at
+    their short paths, which must not collide, and a root
+    `package.json`. When `library`, `deps` or a third-party tree is
+    involved, or with `"jest"`, the test runs from `[dir]`; with
+    `library`, the `entry_point` runs in the library's package under
+    `node_modules`. Otherwise, the test files run in place, and files they
+    import relatively must be in `srcs` to be build inputs. `NODE_PATH` is
+    never set; one set in `env` is passed through. The default output is
+    the launcher, a `command_alias` wrapper script for the target platform
+    that sets `env` on Unix and Windows. `library`, `entry_point` (and its
+    default) and `node_modules` (unset inherits the trees of `library` and
+    `deps`; a list replaces them; `[]` means none) follow the same rules as
+    `nodejs_binary`, as do package staging and `.d.ts` stripping.""",
     examples = None,
     further = None,
     attrs = (
@@ -246,7 +239,7 @@ nodejs_test = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = []),
             "library": attrs.option(attrs.dep(), default = None),
             "entry_point": attrs.option(attrs.string(), default = None),
-            "node_modules": attrs.list(attrs.dep(), default = []),
+            "node_modules": attrs.option(attrs.list(attrs.dep()), default = None),
             "supports_test_execution_caching": attrs.bool(default = False),
             "_nodejs_toolchain": toolchains_common.nodejs(),
             "_target_os_type": buck.target_os_type_arg(),

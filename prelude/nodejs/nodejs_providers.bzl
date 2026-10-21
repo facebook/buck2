@@ -192,17 +192,9 @@ def build_node_modules(
     name: str,
     transitive_outputs: NodejsLibraryTSet,
     own_package: NodejsLibraryPackage | None = None,
-    root_files: dict[str, Artifact] | None = None,
-    for_runtime: bool = False,
 ) -> Artifact:
     packages_by_name = collect_packages(transitive_outputs, own_package)
-    tree = {"node_modules/" + n: packages_by_name[n].runtime_dir if for_runtime else packages_by_name[n].package_dir for n in sorted(packages_by_name)}
-    for root_name, root_file in (root_files or {}).items():
-        segments = check_relative_path(root_name, "invalid `root_files` path", allow_colon = True)
-        if packages_by_name and segments[0].lower() == "node_modules":
-            fail("root file '{}' collides with the merged `node_modules` tree".format(root_name))
-        tree[root_name] = root_file
-    return actions.copied_dir(name, tree)
+    return actions.copied_dir(name, {"node_modules/" + n: packages_by_name[n].package_dir for n in sorted(packages_by_name)})
 
 def strip_type_declarations(actions: AnalysisActions, package_tree_tool: RunInfo, tree: Artifact, identifier: str) -> Artifact:
     """Copy a package without `.d.ts`/`.d.mts`/`.d.cts` files or their maps, for packages that Node runs.

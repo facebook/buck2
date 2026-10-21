@@ -509,9 +509,10 @@ nodejs_library = prelude_rule(
     e.g. over a yarn install output), for packages with no `nodejs_library`
     target. A library's trees are those it lists plus those of its
     transitive `deps`; listing a tree a dep already brings is allowed. They
-    are forwarded to libraries that depend on this one, whatever its
-    content, but not to a `nodejs_binary` or `nodejs_test`, which lists the
-    trees it runs with itself. The `tsc` compile of `srcs` composes them
+    are forwarded to libraries, binaries and tests that depend on this
+    one, whatever its content (a `nodejs_binary` or `nodejs_test` that
+    sets its own `node_modules` runs with those instead). The `tsc`
+    compile of `srcs` composes them
     with the packages of the transitive `deps` into its staged
     `node_modules`, package by package. A package name two of those
     sources provide fails the build and names both; `nodejs_node_modules`
@@ -534,8 +535,7 @@ nodejs_library = prelude_rule(
     `package_json` as for any library, so a module whose `package.json`
     declares `"type": "module"` needs `type = "module"` (the validation
     above fails otherwise). A `module` compile does not stage the listed
-    trees: a `nodejs_binary` running the package supplies a tree through
-    its own `node_modules`.
+    trees.
     `out`, when set, stages the package under that directory name inside
     `node_modules` instead of `package_name` (a relative path with `/`
     separators, no `:` and no `.`, `..` or `node_modules` segments), for packages whose
@@ -548,7 +548,7 @@ nodejs_library = prelude_rule(
     does one package directory nested inside another. The `[runtime]`
     sub-target is the package directory without its `.d.ts`, `.d.mts` and
     `.d.cts` files and their maps, with symlinks copied as their targets;
-    `nodejs_binary` and `nodejs_test` stage it in their merged tree.
+    `nodejs_binary` and `nodejs_test` stage it in their composed tree.
     A library with `deps` or `node_modules` and none of `srcs`,
     `resources`, `module`, `prebuilt`, `package_json` or `tsconfig` stages
     no package: its default output, like its `[node_modules]`, is the

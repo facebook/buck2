@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":nodejs_providers.bzl", "NodejsTreeInfo")
+load(":nodejs_providers.bzl", "NodejsTreeInfo", "check_relative_path")
 
 def compose_node_modules(
     actions: AnalysisActions,
@@ -14,6 +14,8 @@ def compose_node_modules(
     packages: dict[str, Artifact],
     owners: dict[str, Label],
     trees: list[NodejsTreeInfo],
+    root_files: dict[str, Artifact] = {},
+    root_file_desc: str = "root file '{path}'",
 ) -> Artifact:
     """A directory holding one real `node_modules` of first-party `packages` and third-party `trees`.
 
@@ -21,9 +23,17 @@ def compose_node_modules(
     packages, minus its `exclude`, are projected out of it as its manifest
     lists them; one listed with an `error` fails. A scope directory is projected whole unless another source
     provides packages in it, one of its packages is excluded, one is a
-    symlink, or it holds a dot entry. Dot entries such as `.bin` are never composed.
+    symlink, or it holds a dot entry. Dot entries such as `.bin` are never composed. `root_files` are
+    placed beside `node_modules` at their keys, which cannot be under
+    `node_modules` when anything is composed; `root_file_desc` names the
+    offending file in that error, formatted with `path` and `artifact`.
     """
     srcs = {"node_modules/" + n: packages[n] for n in packages}
+    for root_name, root_file in root_files.items():
+        segments = check_relative_path(root_name, "invalid `root_files` path", allow_colon = True)
+        if (packages or trees) and segments[0].lower() == "node_modules":
+            fail("{} collides with the composed `node_modules` tree".format(root_file_desc.format(path = root_name, artifact = root_file)))
+        srcs[root_name] = root_file
     if not trees:
         return _copy_node_modules(actions, name, name, srcs)
     out = actions.declare_output(name, dir = True)
