@@ -816,12 +816,18 @@ def _typecheck_subtarget(
 
     # D4 plugin detection: any compiler plugin, kapt/ksp processor, or
     # processor dep marks the target (WARN, never error; recorded below).
-    has_plugins = bool(
-        ctx.attrs.kotlin_compiler_plugins
-        or annotation_processor_properties.annotation_processors
+    has_processors = bool(
+        annotation_processor_properties.annotation_processors
         or ksp_annotation_processor_properties.annotation_processors
         or ctx.attrs.annotation_processor_deps
     )
+    has_plugins = bool(ctx.attrs.kotlin_compiler_plugins) or has_processors
+
+    # Of what kotlincd generates, only annotation processor output is compiler
+    # input; compiler plugins run inside kotlinc. Without processors there is
+    # nothing generated to check, and an input on the generated-sources dir
+    # would only make this action wait for kotlincd.
+    checked_generated_sources = generated_sources if has_processors else []
 
     # extra_kotlinc_arguments holds attrs.arg() objects, not strings (compare
     # the str(arg) inspection in get_language_version above). Normalize each
@@ -859,7 +865,7 @@ def _typecheck_subtarget(
     args.add(kt_srcs + zip_srcs + java_srcs)
     args.add(["--output", report.as_output()])
     args.add(["--java-sources-skipped", "0"])
-    for generated in generated_sources:
+    for generated in checked_generated_sources:
         args.add(["--generated", generated])
     if werror:
         args.add("--werror")
@@ -883,7 +889,7 @@ def _typecheck_subtarget(
     args.add("--jdk-required")
     if jdk_base_jar:
         args.add(["--jdk-base", jdk_base_jar])
-    hidden = cmd_args([compiling_classpath, kt_srcs, zip_srcs, java_srcs, generated_sources, classpath_file])
+    hidden = cmd_args([compiling_classpath, kt_srcs, zip_srcs, java_srcs, checked_generated_sources, classpath_file])
     ctx.actions.run(cmd_args(args, hidden = hidden), category = "typecheck")
     return extra_sub_targets | {
         "typecheck": [DefaultInfo(default_output = report)],
