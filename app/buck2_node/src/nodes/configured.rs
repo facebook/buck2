@@ -35,13 +35,13 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckIndexSet;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
 use pagable::Pagable;
 use starlark_map::Hashed;
-use starlark_map::ordered_map::OrderedMap;
 use strong_hash::StrongHash;
 
 use crate::attrs::attr::Attribute;
@@ -210,13 +210,14 @@ struct ConfiguredTargetNodeData {
     label: Hashed<ConfiguredTargetLabel>,
     target_node: TargetNodeOrForward,
     resolved_configuration: MatchedConfigurationSettingKeysWithCfg,
-    resolved_transition_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    resolved_transition_configurations:
+        BuckFixedSortedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     execution_platform_resolution: ExecutionPlatformResolution,
     // all_deps includes regular deps and transitioned deps,
     // and includes exec deps and configuration deps.
     // TODO(cjhopman): Should this be a diff against the node's deps?
     all_deps: ConfiguredTargetNodeDeps,
-    platform_cfgs: OrderedMap<TargetLabel, ConfigurationData>,
+    platform_cfgs: BuckFixedSortedMap<TargetLabel, ConfigurationData>,
     // TODO(JakobDegen): Consider saving some memory by using a more tset like representation of
     // the plugin lists
     plugin_lists: PluginLists,
@@ -253,11 +254,11 @@ impl ConfiguredTargetNode {
                 ConfigurationNoExec::new(name.cfg().dupe()),
                 MatchedConfigurationSettingKeys::empty(),
             ),
-            OrderedMap::new(),
+            BuckFixedSortedMap::new(),
             execution_platform_resolution,
             Vec::new(),
             Vec::new(),
-            OrderedMap::new(),
+            BuckFixedSortedMap::new(),
             PluginLists::new(),
         )
     }
@@ -266,11 +267,11 @@ impl ConfiguredTargetNode {
         name: ConfiguredTargetLabel,
         target_node: TargetNode,
         resolved_configuration: MatchedConfigurationSettingKeysWithCfg,
-        resolved_tr_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+        resolved_tr_configurations: BuckFixedSortedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         execution_platform_resolution: ExecutionPlatformResolution,
         deps: Vec<ConfiguredTargetNode>,
         exec_deps: Vec<ConfiguredTargetNode>,
-        platform_cfgs: OrderedMap<TargetLabel, ConfigurationData>,
+        platform_cfgs: BuckFixedSortedMap<TargetLabel, ConfigurationData>,
         plugin_lists: PluginLists,
     ) -> Self {
         Self(triomphe::Arc::new(Hashed::new(ConfiguredTargetNodeData {
@@ -328,7 +329,7 @@ impl ConfiguredTargetNode {
                     MatchedConfigurationSettingKeys::empty(),
                 ),
                 // We have no attributes to transition, so empty map is fine.
-                resolved_transition_configurations: OrderedMap::new(),
+                resolved_transition_configurations: BuckFixedSortedMap::new(),
                 // Set the execution platform equal to the transitioned node's execution platform
                 // so we can call `buck2 test` on Forward.
                 execution_platform_resolution: transitioned_node
@@ -336,7 +337,7 @@ impl ConfiguredTargetNode {
                     .dupe(),
                 plugin_lists: transitioned_node.plugin_lists().clone(),
                 all_deps: ConfiguredTargetNodeDeps::new(vec![transitioned_node], vec![]),
-                platform_cfgs: OrderedMap::new(),
+                platform_cfgs: BuckFixedSortedMap::new(),
             },
         ))))
     }
@@ -1230,11 +1231,11 @@ mod tests {
                     ConfigurationNoExec::new(cfg),
                     matched_keys,
                 ),
-                OrderedMap::new(),
+                BuckFixedSortedMap::new(),
                 ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
                 Vec::new(),
                 Vec::new(),
-                OrderedMap::new(),
+                BuckFixedSortedMap::new(),
                 PluginLists::new(),
             )
         };

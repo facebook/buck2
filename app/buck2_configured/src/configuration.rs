@@ -24,6 +24,7 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use buck2_node::configuration::calculation::CONFIGURATION_CALCULATION;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
@@ -45,8 +46,6 @@ use dupe::ResultDupedErrExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use ref_cast::RefCast;
-use starlark_map::ordered_map::OrderedMap;
-use starlark_map::unordered_map::UnorderedMap;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -238,11 +237,10 @@ impl Key for MatchedConfigurationSettingKeysKey {
             })
             .await;
 
-        let mut resolved_settings = UnorderedMap::with_capacity(config_nodes.len());
-        for (label, node) in config_nodes {
-            let node = node?;
-            resolved_settings.insert(label, node);
-        }
+        let resolved_settings = config_nodes
+            .into_iter()
+            .map(|(label, node)| Ok((label, node?)))
+            .collect::<buck2_error::Result<BuckFixedSortedMap<_, _>>>()?;
         let resolved_settings = MatchedConfigurationSettingKeys::new(resolved_settings);
         Ok(MatchedConfigurationSettingKeysWithCfg::new(
             ConfigurationNoExec::new(self.target_cfg.dupe()),
@@ -374,17 +372,17 @@ pub(crate) async fn get_platform_configuration(
 pub(crate) async fn compute_platform_cfgs(
     ctx: &mut DiceComputations<'_>,
     node: TargetNodeRef<'_>,
-) -> buck2_error::Result<OrderedMap<TargetLabel, ConfigurationData>> {
-    let mut platform_map = OrderedMap::new();
+) -> buck2_error::Result<BuckFixedSortedMap<TargetLabel, ConfigurationData>> {
+    let mut platform_cfgs = Vec::new();
     for (platform_target, kind) in node.get_configuration_deps_with_kind() {
         if kind == ConfigurationDepKind::ConfiguredDepPlatform {
             let platform_target = platform_target.target();
             let config = get_platform_configuration(ctx, platform_target).await?;
-            platform_map.insert(platform_target.dupe(), config);
+            platform_cfgs.push((platform_target.dupe(), config));
         }
     }
 
-    Ok(platform_map)
+    Ok(platform_cfgs.into_iter().collect())
 }
 
 pub(crate) async fn get_matched_cfg_keys<

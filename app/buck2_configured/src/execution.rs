@@ -40,6 +40,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::spec::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE;
@@ -70,7 +71,6 @@ use futures::future::BoxFuture;
 use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::configuration::compute_platform_cfgs;
 use crate::configuration::get_matched_cfg_keys;
@@ -322,7 +322,7 @@ impl ToolchainExecutionPlatformCompatibilityKey {
         // `Traversal` declared above ignores transitioned dependencies.
         // But we pass `resolved_transitions` here to prevent breakages in the future
         // if something here changes.
-        let resolved_transitions = OrderedMap::new();
+        let resolved_transitions = BuckFixedSortedMap::new();
         let cfg_ctx = unspecified_attr_cfg_ctx(
             self.target.inner(),
             matched_cfg_keys,
@@ -413,7 +413,7 @@ pub(crate) async fn get_execution_platform_toolchain_dep(
         ))
     } else {
         let platform_cfgs = compute_platform_cfgs(ctx, target_node).await?;
-        let resolved_transitions = OrderedMap::new();
+        let resolved_transitions = BuckFixedSortedMap::new();
         let cfg_ctx = unspecified_attr_cfg_ctx(
             target_label.inner(),
             matched_cfg_keys,

@@ -18,7 +18,7 @@ use crate::provider::label::ProvidersLabel;
 
 /// Identifier of transition function.
 #[derive(
-    Debug, Clone, Hash, StrongHash, Eq, PartialEq, Display, Allocative, Pagable
+    Debug, Clone, Hash, StrongHash, Eq, PartialEq, Ord, PartialOrd, Display, Allocative, Pagable
 )]
 pub enum TransitionId {
     #[display("{}#{}", path, name)]

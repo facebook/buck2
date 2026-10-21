@@ -16,9 +16,9 @@ use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_hash::BuckFixedSortedMap;
 use dupe::Dupe;
 use pagable::Pagable;
-use starlark_map::unordered_map::UnorderedMap;
 
 /// Key in `select` or an item in `target_compatible_with`.
 /// Should point to `config_setting` target, or `constraint_value`.
@@ -61,7 +61,7 @@ pub(crate) struct MatchedConfigurationSettingKeysWithCfgData {
 /// attributes against that target's configuration.
 #[derive(Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct MatchedConfigurationSettingKeys {
-    settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
+    settings: BuckFixedSortedMap<ConfigurationSettingKey, ConfigurationNode>,
 }
 
 impl MatchedConfigurationSettingKeysWithCfg {
@@ -83,13 +83,13 @@ impl MatchedConfigurationSettingKeysWithCfg {
 
 impl MatchedConfigurationSettingKeys {
     pub fn new(
-        settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
+        settings: BuckFixedSortedMap<ConfigurationSettingKey, ConfigurationNode>,
     ) -> MatchedConfigurationSettingKeys {
         MatchedConfigurationSettingKeys { settings }
     }
 
     pub fn empty() -> MatchedConfigurationSettingKeys {
-        MatchedConfigurationSettingKeys::new(UnorderedMap::new())
+        MatchedConfigurationSettingKeys::new(BuckFixedSortedMap::new())
     }
 
     pub fn setting_matches(&self, key: &ConfigurationSettingKey) -> Option<&ConfigSettingData> {

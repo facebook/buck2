@@ -11,9 +11,9 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_hash::BuckFixedSortedMap;
 use dupe::Dupe;
 use pagable::Pagable;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::configuration::compatibility::IncompatiblePlatformReason;
 use crate::configuration::compatibility::IncompatiblePlatformReasonCause;
@@ -254,7 +254,7 @@ impl ExecutionPlatformResolutionPartial {
     /// and used for attribute configuration.
     pub fn finalize(
         self,
-        exec_dep_cfgs: OrderedMap<TargetLabel, ConfigurationData>,
+        exec_dep_cfgs: BuckFixedSortedMap<TargetLabel, ConfigurationData>,
     ) -> ExecutionPlatformResolution {
         ExecutionPlatformResolution::Resolved {
             base: self.0,
@@ -284,7 +284,7 @@ pub enum ExecutionPlatformResolution {
         /// This is used when modifiers are applied to exec_deps, which may result
         /// in a different cfg than the default execution platform cfg.
         #[doc(hidden)]
-        exec_dep_cfgs: Arc<OrderedMap<TargetLabel, ConfigurationData>>,
+        exec_dep_cfgs: Arc<BuckFixedSortedMap<TargetLabel, ConfigurationData>>,
     },
 }
 
@@ -304,7 +304,7 @@ impl ExecutionPlatformResolution {
     ) -> Self {
         Self::Resolved {
             base: ExecutionPlatformResolutionBase::new(platform, skipped),
-            exec_dep_cfgs: Arc::new(OrderedMap::new()),
+            exec_dep_cfgs: Arc::new(BuckFixedSortedMap::new()),
         }
     }
 

@@ -23,9 +23,8 @@ use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_hash::BuckFixedSortedMap;
 use dupe::Dupe;
-use starlark_map::ordered_map::OrderedMap;
-use starlark_map::unordered_map::UnorderedMap;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::configuration::resolved::ConfigurationNode;
@@ -62,7 +61,8 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
 
         fn resolved_transitions(
             &self,
-        ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
+        ) -> buck2_error::Result<&BuckFixedSortedMap<Arc<TransitionId>, Arc<TransitionApplied>>>
+        {
             panic!("not used in tests")
         }
 
@@ -88,7 +88,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ExecPlatformMarking::Unmarked,
         )
         .unwrap(),
-        MatchedConfigurationSettingKeys::new(UnorderedMap::from_iter([
+        MatchedConfigurationSettingKeys::new(BuckFixedSortedMap::from_iter([
             (
                 ConfigurationSettingKey::testing_parse("root//other:config"),
                 ConfigurationNode::new(Some(ConfigSettingData {

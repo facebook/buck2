@@ -11,7 +11,10 @@
 use std::collections::BTreeMap;
 
 use allocative::Allocative;
+use buck2_hash::BuckFixedInsertionMap;
 use buck2_hash::BuckHasher;
+use buck2_hash::BuckIndexMap;
+use buck2_hash::index_map::Entry;
 use buck2_util::size_assert;
 use derive_more::Display;
 use dupe::Dupe;
@@ -20,8 +23,6 @@ use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
-use starlark_map::ordered_map::OrderedMap;
-use starlark_map::small_map::Entry;
 use static_interner::Intern;
 use static_interner::interner;
 
@@ -282,29 +283,19 @@ pub enum PluginListElemKind {
     Direct,
 }
 
+/// The plugins a configured target carries, by kind.
+///
+/// Within a kind, plugins are in the order dependency gathering met them; that order is what the
+/// `plugins` attribute and analysis's `ctx.plugins` show.
 // TODO(JakobDegen): Representation with fewer allocations
-#[derive(
-    Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative, Pagable
-)]
-pub struct PluginLists(BTreeMap<PluginKind, OrderedMap<TargetLabel, PluginListElemKind>>);
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash, Allocative, Pagable)]
+pub struct PluginLists(
+    BTreeMap<PluginKind, BuckFixedInsertionMap<TargetLabel, PluginListElemKind>>,
+);
 
 impl PluginLists {
     pub fn new() -> Self {
         Default::default()
-    }
-
-    pub fn insert(&mut self, kind: PluginKind, target: TargetLabel, elem_kind: PluginListElemKind) {
-        match self.0.entry(kind).or_default().entry(target) {
-            Entry::Occupied(mut occupied) => {
-                let current = occupied.get_mut();
-                if *current < elem_kind {
-                    *current = elem_kind;
-                }
-            }
-            Entry::Vacant(vacant) => {
-                vacant.insert(elem_kind);
-            }
-        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&PluginKind, &TargetLabel, &PluginListElemKind)> {
@@ -329,5 +320,34 @@ impl PluginLists {
         kind: &PluginKind,
     ) -> impl Iterator<Item = (&TargetLabel, &PluginListElemKind)> + use<'_> {
         self.0.get(kind).into_iter().flatten()
+    }
+}
+
+/// Accumulates a target's [`PluginLists`] while its dependencies are gathered.
+#[derive(Default)]
+pub struct PluginListsBuilder(BTreeMap<PluginKind, BuckIndexMap<TargetLabel, PluginListElemKind>>);
+
+impl PluginListsBuilder {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Adds a plugin; a plugin already present keeps the stronger of its two membership kinds.
+    pub fn insert(&mut self, kind: PluginKind, target: TargetLabel, elem_kind: PluginListElemKind) {
+        match self.0.entry(kind).or_default().entry(target) {
+            Entry::Occupied(mut occupied) => {
+                let current = occupied.get_mut();
+                if *current < elem_kind {
+                    *current = elem_kind;
+                }
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(elem_kind);
+            }
+        }
+    }
+
+    pub fn freeze(self) -> PluginLists {
+        PluginLists(self.0.into_iter().map(|(k, v)| (k, v.freeze())).collect())
     }
 }

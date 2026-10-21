@@ -2113,6 +2113,7 @@ dependencies = [
  "buck2_configuration_providers",
  "buck2_core",
  "buck2_error",
+ "buck2_hash",
  "buck2_node",
  "buck2_util",
  "derive_more 2.1.1",

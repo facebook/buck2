@@ -71,6 +71,7 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -109,7 +110,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::dict::UnpackDictEntries;
-use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 
 use crate::anon_promises::AnonPromises;
@@ -455,7 +455,7 @@ impl AnonTargetKey {
             ),
             Vec::new(),
         )
-        .finalize(OrderedMap::new());
+        .finalize(BuckFixedSortedMap::new());
 
         span_async(
             buck2_data::AnalysisStart {
