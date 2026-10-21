@@ -472,7 +472,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
                     visitor.set_current_relative_to_path(compute_relative_to_path(
                         p,
                         parents,
-                        fs,
+                        fs.fs(),
                         artifact_path_mapping,
                     )?);
                 }
