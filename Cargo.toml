@@ -14,6 +14,7 @@ wezterm-input-types = { git = "https://github.com/wezterm/wezterm.git", rev = "0
 zbus = { git = "https://github.com/z-galaxy/zbus", rev = "40d8995fa012652c1b1e1e9bd96e54327024be09" }
 zbus_macros = { git = "https://github.com/z-galaxy/zbus", rev = "40d8995fa012652c1b1e1e9bd96e54327024be09" }
 zbus_names = { git = "https://github.com/z-galaxy/zbus", rev = "40d8995fa012652c1b1e1e9bd96e54327024be09" }
+zbus_xml = { git = "https://github.com/z-galaxy/zbus", rev = "40d8995fa012652c1b1e1e9bd96e54327024be09" }
 zvariant = { git = "https://github.com/z-galaxy/zbus", rev = "40d8995fa012652c1b1e1e9bd96e54327024be09" }
 zvariant_derive = { git = "https://github.com/z-galaxy/zbus", rev = "40d8995fa012652c1b1e1e9bd96e54327024be09" }
 zvariant_utils = { git = "https://github.com/z-galaxy/zbus", rev = "40d8995fa012652c1b1e1e9bd96e54327024be09" }
