@@ -128,6 +128,7 @@ use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
+use buck2_execute::materialize::materializer::ReadLease;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute_impl::executors::local::EnvironmentBuilder;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
@@ -462,6 +463,14 @@ impl<'a> BuckTestOrchestrator<'a> {
 
         let test_target = self.session.get(test_target)?;
 
+        // The runner reads a run's outputs out of process, so their lease lives in the session
+        // until the runner comes back to this root; the rerun then takes the root for writing,
+        // which the lease it replaces would block.
+        let output_root = ProjectRelativePathBuf::from(
+            resolve_output_root(&mut self.dice.dupe().ctx(), &test_target, &stage).await?,
+        );
+        self.session.release(&output_root);
+
         let fs = self.dice.ctx().get_artifact_fs().await?;
         let pre_create_dirs = Arc::new(pre_create_dirs);
 
@@ -561,9 +570,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         for result in response.results {
             result.buck_error_context("Error materializing test outputs")?;
         }
-        // The test runner reads these out of process after this returns; there is no scope
-        // here to hold the lease over.
-        drop(response.lease);
+        self.session.hold(output_root, response.lease);
 
         Ok(ExecutionResult2 {
             status,
@@ -1018,6 +1025,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
     }
 
     async fn end_of_test_results(&self, exit_code: i32) -> buck2_error::Result<()> {
+        self.session.release_all();
         self.events.instant_event(EndOfTestResults { exit_code });
         self.results_channel
             .unbounded_send(Ok(ExecutorMessage::ExitCode(exit_code)))
@@ -1036,6 +1044,13 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         required_local_resources: RequiredLocalResources,
     ) -> buck2_error::Result<PrepareForLocalExecutionResult> {
         let test_target = self.session.get(test_target)?;
+
+        // As in `execute2`: the runner reads the inputs out of process, under a lease the
+        // session holds until the runner comes back to this root.
+        let output_root = ProjectRelativePathBuf::from(
+            resolve_output_root(&mut self.dice.dupe().ctx(), &test_target, &stage).await?,
+        );
+        self.session.release(&output_root);
 
         let fs = self.dice.ctx().get_artifact_fs().await?;
 
@@ -1135,9 +1150,8 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         let re_use_case = invocation_re_use_case(&self.dice.ctx());
 
         // This prepares a command that the test runner executes out of process after this
-        // returns; buck2 never sees that process, so neither lease has a scope to cover here
-        // and both go with the result. Tests buck2 runs itself go through the local executor,
-        // which holds its leases across the run.
+        // returns. Tests buck2 runs itself go through the local executor, which holds its leases
+        // across the run.
         let materialized_inputs = materialize_inputs(
             fs,
             materializer,
@@ -1164,6 +1178,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         if let Some(lease) = materialized_inputs.outputs {
             lease.abandon();
         }
+        let mut held = vec![materialized_inputs.lease];
 
         for local_resource_setup_command in setup_commands.iter() {
             let materialized_inputs = materialize_inputs(
@@ -1190,7 +1205,9 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             if let Some(lease) = materialized_inputs.outputs {
                 lease.abandon();
             }
+            held.push(materialized_inputs.lease);
         }
+        self.session.hold(output_root, ReadLease::join(held));
 
         Ok(create_prepare_for_local_execution_result(
             fs,
