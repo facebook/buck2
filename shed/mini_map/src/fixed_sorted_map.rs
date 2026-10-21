@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-//! An immutable map whose entries are sorted by key.
+//! A map whose keys are fixed at construction and sorted.
 
 use std::fmt;
 use std::fmt::Debug;
@@ -30,12 +30,18 @@ use strong_hash::StrongHash;
 use crate::Hashed;
 use crate::MiniFixedInsertionMap;
 use crate::MiniMutInsertionMap;
+use crate::fixed_insertion_map::iter::IntoIter;
+use crate::fixed_insertion_map::iter::IntoIterHashed;
+use crate::fixed_insertion_map::iter::IntoKeys;
+use crate::fixed_insertion_map::iter::IntoValues;
 use crate::fixed_insertion_map::iter::Iter;
 use crate::fixed_insertion_map::iter::IterHashed;
+use crate::fixed_insertion_map::iter::IterMut;
 use crate::fixed_insertion_map::iter::Keys;
 use crate::fixed_insertion_map::iter::Values;
+use crate::fixed_insertion_map::iter::ValuesMut;
 
-/// An immutable map whose entries are sorted by key.
+/// A map whose keys are fixed at construction and sorted.
 ///
 /// A [`MiniFixedInsertionMap`] with one more invariant: the entries are in ascending key order. So
 /// the iteration order, and with it `==`, `Hash`, [`StrongHash`] and the serialized bytes, are
@@ -45,7 +51,8 @@ use crate::fixed_insertion_map::iter::Values;
 /// the map can feed digests that have to survive both.
 ///
 /// Positions are ranks: [`get_index(0)`](Self::get_index) is the smallest key. When a key repeats
-/// during construction the last value wins, as it would for a sequence of inserts.
+/// during construction the last value wins, as it would for a sequence of inserts. Values can be
+/// replaced in place afterwards; keys and their ranks cannot change.
 pub struct MiniFixedSortedMap<K, V>(MiniFixedInsertionMap<K, V>);
 
 impl<K, V> MiniFixedSortedMap<K, V> {
@@ -182,6 +189,54 @@ impl<K, V> MiniFixedSortedMap<K, V> {
         self.0.last()
     }
 
+    /// Look up a key whose hash has already been computed, for writing to its value.
+    #[inline(always)]
+    pub fn get_mut_hashed<Q>(&mut self, key: Hashed<&Q>) -> Option<&mut V>
+    where
+        Q: Equivalent<K> + ?Sized,
+    {
+        self.0.get_mut_hashed(key)
+    }
+
+    /// Look up a key, for writing to its value.
+    #[inline(always)]
+    pub fn get_mut<Q>(&mut self, key: &Q) -> Option<&mut V>
+    where
+        Q: Hash + Equivalent<K> + ?Sized,
+    {
+        self.0.get_mut(key)
+    }
+
+    /// Iterate the entries in key order, with the values writable.
+    #[inline]
+    pub fn iter_mut(&mut self) -> IterMut<'_, K, V> {
+        self.0.iter_mut()
+    }
+
+    /// Iterate the values in key order, writable.
+    #[inline]
+    pub fn values_mut(&mut self) -> ValuesMut<'_, K, V> {
+        self.0.values_mut()
+    }
+
+    /// Consume the map into its entries with their stored hashes, in key order.
+    #[inline]
+    pub fn into_iter_hashed(self) -> IntoIterHashed<K, V> {
+        self.0.into_iter_hashed()
+    }
+
+    /// Consume the map into its keys, in order.
+    #[inline]
+    pub fn into_keys(self) -> IntoKeys<K, V> {
+        self.0.into_keys()
+    }
+
+    /// Consume the map into its values, in key order.
+    #[inline]
+    pub fn into_values(self) -> IntoValues<K, V> {
+        self.0.into_values()
+    }
+
     /// The same entries as a map that merely promises to keep this order.
     #[inline]
     pub fn into_insertion_map(self) -> MiniFixedInsertionMap<K, V> {
@@ -279,6 +334,26 @@ impl<'a, K, V> IntoIterator for &'a MiniFixedSortedMap<K, V> {
     }
 }
 
+impl<'a, K, V> IntoIterator for &'a mut MiniFixedSortedMap<K, V> {
+    type Item = (&'a K, &'a mut V);
+    type IntoIter = IterMut<'a, K, V>;
+
+    #[inline]
+    fn into_iter(self) -> IterMut<'a, K, V> {
+        self.iter_mut()
+    }
+}
+
+impl<K, V> IntoIterator for MiniFixedSortedMap<K, V> {
+    type Item = (K, V);
+    type IntoIter = IntoIter<K, V>;
+
+    #[inline]
+    fn into_iter(self) -> IntoIter<K, V> {
+        self.0.into_iter()
+    }
+}
+
 impl<K: Serialize, V: Serialize> Serialize for MiniFixedSortedMap<K, V> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -357,6 +432,35 @@ mod tests {
 
     /// Sizes on both sides of the index threshold.
     const SIZES: &[u64] = &[0, 1, 2, 3, 16, 32, 33, 64, 100, 1000];
+
+    /// Writing values leaves the keys, their ranks and the canonical order alone; consuming the
+    /// map yields the entries in key order.
+    #[test]
+    fn values_are_writable_and_entries_move_out_in_key_order() {
+        for &n in SIZES {
+            let mut map: MiniFixedSortedMap<u64, u64> =
+                shuffled(n, 11).into_iter().map(|k| (k, 0)).collect();
+            for (k, v) in map.iter_mut() {
+                *v = *k;
+            }
+            for v in map.values_mut() {
+                *v *= 2;
+            }
+            for (k, v) in &mut map {
+                *v += *k;
+            }
+            for k in 0..n {
+                *map.get_mut(&k).unwrap() += 1;
+            }
+            assert_eq!(None, map.get_mut(&n));
+            map.assert_invariants();
+            let expected: MiniFixedSortedMap<u64, u64> = (0..n).map(|k| (k, k * 3 + 1)).collect();
+            assert_eq!(expected, map);
+            assert!(map.clone().into_keys().eq(0..n));
+            assert!(map.clone().into_values().eq((0..n).map(|k| k * 3 + 1)));
+            assert!(map.into_iter().eq((0..n).map(|k| (k, k * 3 + 1))));
+        }
+    }
 
     #[test]
     fn sorted_and_canonical_whatever_the_arrival_order() {

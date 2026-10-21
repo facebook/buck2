@@ -8,7 +8,8 @@
  * above-listed licenses.
  */
 
-//! [`MiniFixedInsertionMap`], an immutable map that iterates in insertion order.
+//! [`MiniFixedInsertionMap`], a map whose keys are fixed at construction and iterate in
+//! insertion order.
 //!
 //! Two layers live here. [`MiniFixedInsertionMap`] owns its allocation and is what most callers
 //! want. Underneath it, [`layout_of`] + [`init`] + [`MiniFixedInsertionMapView`] are the same map
@@ -43,19 +44,32 @@ use crate::hashed::Hashed;
 use crate::insertion_map::layout;
 use crate::insertion_map::layout::Header;
 use crate::insertion_map::raw::Raw;
+use crate::mut_insertion_map::iter::OwnedEntries;
 
 /// The iterators, shared with [`MiniMutInsertionMap`].
 pub mod iter {
+    pub use crate::mut_insertion_map::IntoIter;
+    pub use crate::mut_insertion_map::IntoIterHashed;
+    pub use crate::mut_insertion_map::IntoKeys;
+    pub use crate::mut_insertion_map::IntoValues;
     pub use crate::mut_insertion_map::Iter;
     pub use crate::mut_insertion_map::IterHashed;
+    pub use crate::mut_insertion_map::IterMut;
     pub use crate::mut_insertion_map::Keys;
     pub use crate::mut_insertion_map::Values;
+    pub use crate::mut_insertion_map::ValuesMut;
 }
 
+use crate::fixed_insertion_map::iter::IntoIter;
+use crate::fixed_insertion_map::iter::IntoIterHashed;
+use crate::fixed_insertion_map::iter::IntoKeys;
+use crate::fixed_insertion_map::iter::IntoValues;
 use crate::fixed_insertion_map::iter::Iter;
 use crate::fixed_insertion_map::iter::IterHashed;
+use crate::fixed_insertion_map::iter::IterMut;
 use crate::fixed_insertion_map::iter::Keys;
 use crate::fixed_insertion_map::iter::Values;
+use crate::fixed_insertion_map::iter::ValuesMut;
 
 /// Packed-pointer metadata meaning "the entry count is in the heap header".
 ///
@@ -148,12 +162,14 @@ unsafe fn finish<K, V>(raw: Raw<K, V>, len: usize) {
     }
 }
 
-/// An immutable map that iterates in insertion order.
+/// A map whose keys are fixed at construction and iterate in insertion order.
 ///
 /// The frozen form of [`MiniMutInsertionMap`]: the same entries, order, stored hashes and index,
 /// with the spare capacity gone, in a single allocation behind a one-word handle; an empty map does
-/// not allocate at all. Positions are part of what the type models, so it exposes them:
-/// [`get_index`](Self::get_index) and [`get_index_of`](Self::get_index_of).
+/// not allocate at all. No key can be added, removed or moved afterwards, while values can be
+/// replaced in place through [`get_mut`](Self::get_mut), [`iter_mut`](Self::iter_mut) and
+/// [`values_mut`](Self::values_mut). Positions are part of what the type models, so it exposes
+/// them: [`get_index`](Self::get_index) and [`get_index_of`](Self::get_index_of).
 ///
 /// `==` and `Hash` are order-sensitive, as the name promises.
 #[repr(transparent)]
@@ -360,6 +376,77 @@ impl<K, V> MiniFixedInsertionMap<K, V> {
         self.view().last()
     }
 
+    /// Look up a key whose hash has already been computed, for writing to its value.
+    #[inline(always)]
+    pub fn get_mut_hashed<Q>(&mut self, key: Hashed<&Q>) -> Option<&mut V>
+    where
+        Q: Equivalent<K> + ?Sized,
+    {
+        let view = self.view();
+        let i = view.get_index_of_hashed(key)?;
+        // SAFETY: `i` is the position of an entry, borrowed exclusively through `&mut self`.
+        Some(unsafe { view.raw.arrays().value_mut(i) })
+    }
+
+    /// Look up a key, for writing to its value.
+    #[inline(always)]
+    pub fn get_mut<Q>(&mut self, key: &Q) -> Option<&mut V>
+    where
+        Q: Hash + Equivalent<K> + ?Sized,
+    {
+        self.get_mut_hashed(Hashed::new(key))
+    }
+
+    /// Iterate the entries in insertion order, with the values writable.
+    #[inline]
+    pub fn iter_mut(&mut self) -> IterMut<'_, K, V> {
+        let view = self.view();
+        let arrays = view.raw.arrays();
+        // SAFETY: the arrays hold `len` initialized entries, `&mut self` makes the borrow
+        // exclusive, and keys and values are disjoint regions.
+        unsafe { IterMut::new(arrays.keys(view.len), arrays.values_mut(view.len)) }
+    }
+
+    /// Iterate the values in insertion order, writable.
+    #[inline]
+    pub fn values_mut(&mut self) -> ValuesMut<'_, K, V> {
+        let view = self.view();
+        // SAFETY: as in `iter_mut`.
+        ValuesMut::new(unsafe { view.raw.arrays().values_mut(view.len) })
+    }
+
+    fn into_owned_entries(self) -> OwnedEntries<K, V> {
+        let view = self.view();
+        let (arrays, len) = (view.raw.arrays(), view.len);
+        let block = if len == 0 {
+            None
+        } else {
+            Some((view.raw.base(), view.raw.layout()))
+        };
+        mem::forget(self);
+        // SAFETY: the map held `len` entries in these arrays and is forgotten, so the iterator is
+        // their only owner, and `block` is the allocation they are in.
+        unsafe { OwnedEntries::new(arrays, len, block) }
+    }
+
+    /// Consume the map into its entries with their stored hashes, in insertion order.
+    #[inline]
+    pub fn into_iter_hashed(self) -> IntoIterHashed<K, V> {
+        IntoIterHashed::new(self.into_owned_entries())
+    }
+
+    /// Consume the map into its keys, in insertion order.
+    #[inline]
+    pub fn into_keys(self) -> IntoKeys<K, V> {
+        IntoKeys::new(self.into_owned_entries())
+    }
+
+    /// Consume the map into its values, in insertion order.
+    #[inline]
+    pub fn into_values(self) -> IntoValues<K, V> {
+        IntoValues::new(self.into_owned_entries())
+    }
+
     #[cfg(test)]
     pub(crate) fn assert_invariants(&self) {
         self.view().assert_invariants();
@@ -546,6 +633,26 @@ impl<'a, K, V> IntoIterator for &'a MiniFixedInsertionMap<K, V> {
     #[inline]
     fn into_iter(self) -> Iter<'a, K, V> {
         self.iter()
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a mut MiniFixedInsertionMap<K, V> {
+    type Item = (&'a K, &'a mut V);
+    type IntoIter = IterMut<'a, K, V>;
+
+    #[inline]
+    fn into_iter(self) -> IterMut<'a, K, V> {
+        self.iter_mut()
+    }
+}
+
+impl<K, V> IntoIterator for MiniFixedInsertionMap<K, V> {
+    type Item = (K, V);
+    type IntoIter = IntoIter<K, V>;
+
+    #[inline]
+    fn into_iter(self) -> IntoIter<K, V> {
+        IntoIter::new(self.into_owned_entries())
     }
 }
 
@@ -852,6 +959,7 @@ impl<'a, K, V> MiniFixedInsertionMapView<'a, K, V> {
 #[cfg(test)]
 mod tests {
     use std::alloc;
+    use std::rc::Rc;
 
     use super::*;
 
@@ -862,6 +970,75 @@ mod tests {
 
     fn map_of(n: u32) -> MiniFixedInsertionMap<u32, u32> {
         (0..n).map(|i| (i, i * 10)).collect()
+    }
+
+    /// Values change in place; keys, positions and stored hashes do not.
+    #[test]
+    fn values_are_writable_in_both_regimes() {
+        for n in [0u32, 1, 5, 32, 33, 100] {
+            let mut map = map_of(n);
+            for i in 0..n {
+                *map.get_mut(&i).unwrap() += 1;
+            }
+            assert_eq!(None, map.get_mut(&n));
+            for (k, v) in map.iter_mut() {
+                *v += *k;
+            }
+            for v in map.values_mut() {
+                *v *= 2;
+            }
+            for (k, v) in &mut map {
+                *v -= *k;
+            }
+            map.assert_invariants();
+            let fresh = map_of(n);
+            assert!(map.keys().eq(fresh.keys()));
+            assert!(
+                map.iter_hashed()
+                    .map(|(k, _)| k.hash())
+                    .eq(fresh.iter_hashed().map(|(k, _)| k.hash()))
+            );
+            for i in 0..n {
+                assert_eq!(Some(&((i * 11 + 1) * 2 - i)), map.get(&i), "n={n} i={i}");
+                assert_eq!(Some(i as usize), map.get_index_of(&i));
+            }
+        }
+    }
+
+    /// Owned iteration hands out the entries in order; whatever is not taken is dropped with the
+    /// iterator, and so is the allocation.
+    #[test]
+    fn into_iter_moves_the_entries_out() {
+        for n in [0usize, 1, 5, 32, 33, 100] {
+            let token = Rc::new(());
+            let map: MiniFixedInsertionMap<usize, Rc<()>> =
+                (0..n).map(|i| (i, token.clone())).collect();
+            assert_eq!(n + 1, Rc::strong_count(&token));
+            let mut iter = map.into_iter();
+            assert_eq!(n, iter.len());
+            let taken: Vec<(usize, Rc<()>)> = iter.by_ref().take(n / 2).collect();
+            assert!(taken.iter().map(|(k, _)| *k).eq(0..n / 2));
+            drop(iter);
+            assert_eq!(n / 2 + 1, Rc::strong_count(&token));
+            drop(taken);
+            assert_eq!(1, Rc::strong_count(&token));
+        }
+
+        let fresh = map_of(40);
+        assert!(map_of(40).into_keys().eq(0..40));
+        assert!(map_of(40).into_values().eq((0..40).map(|i| i * 10)));
+        assert!(
+            map_of(40)
+                .into_iter()
+                .rev()
+                .eq(fresh.iter().rev().map(|(k, v)| (*k, *v)))
+        );
+        assert!(
+            map_of(40)
+                .into_iter_hashed()
+                .map(|(k, v)| (k.hash(), *k.key(), v))
+                .eq(fresh.iter_hashed().map(|(k, v)| (k.hash(), **k.key(), *v)))
+        );
     }
 
     #[test]

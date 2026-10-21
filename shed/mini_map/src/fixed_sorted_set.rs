@@ -32,6 +32,8 @@ use crate::MiniFixedInsertionSet;
 use crate::MiniMutInsertionMap;
 use crate::MiniMutInsertionSet;
 use crate::fixed_insertion_map::iter::Keys;
+use crate::mut_insertion_set::IntoIter;
+use crate::mut_insertion_set::IntoIterHashed;
 
 /// An immutable set whose elements are sorted.
 ///
@@ -144,6 +146,12 @@ impl<T> MiniFixedSortedSet<T> {
         self.0.last()
     }
 
+    /// Consume the set into its elements with their stored hashes, in order.
+    #[inline]
+    pub fn into_iter_hashed(self) -> IntoIterHashed<T> {
+        self.0.into_iter_hashed()
+    }
+
     /// The same elements as a set that merely promises to keep this order.
     #[inline]
     pub fn into_insertion_set(self) -> MiniFixedInsertionSet<T> {
@@ -231,6 +239,16 @@ impl<'a, T> IntoIterator for &'a MiniFixedSortedSet<T> {
     }
 }
 
+impl<T> IntoIterator for MiniFixedSortedSet<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl<T: Serialize> Serialize for MiniFixedSortedSet<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -285,6 +303,20 @@ mod tests {
         let mut hasher = DefaultHasher::new();
         value.hash(&mut hasher);
         hasher.finish()
+    }
+
+    #[test]
+    fn into_iter_is_in_order() {
+        for n in [0u64, 1, 32, 33, 100] {
+            let set: MiniFixedSortedSet<u64> = (0..n).rev().collect();
+            assert!(set.clone().into_iter().eq(0..n));
+            assert!(
+                set.clone()
+                    .into_iter_hashed()
+                    .map(|h| (h.hash(), *h.key()))
+                    .eq(set.iter_hashed().map(|h| (h.hash(), **h.key())))
+            );
+        }
     }
 
     #[test]

@@ -32,6 +32,8 @@ use crate::MiniFixedInsertionMap;
 use crate::MiniMutInsertionSet;
 use crate::fixed_insertion_map::MiniFixedInsertionMapView;
 use crate::fixed_insertion_map::iter::Keys;
+use crate::mut_insertion_set::IntoIter;
+use crate::mut_insertion_set::IntoIterHashed;
 
 /// An immutable set that iterates in insertion order.
 ///
@@ -273,6 +275,14 @@ impl<T> MiniFixedInsertionSet<T> {
     pub fn last(&self) -> Option<&T> {
         self.view().last()
     }
+
+    /// Consume the set into its elements with their stored hashes, in insertion order.
+    #[inline]
+    pub fn into_iter_hashed(self) -> IntoIterHashed<T> {
+        IntoIterHashed {
+            iter: self.0.into_iter_hashed(),
+        }
+    }
 }
 
 impl<T> Default for MiniFixedInsertionSet<T> {
@@ -356,6 +366,18 @@ impl<'a, T> IntoIterator for &'a MiniFixedInsertionSet<T> {
     }
 }
 
+impl<T> IntoIterator for MiniFixedInsertionSet<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter {
+            iter: self.0.into_iter(),
+        }
+    }
+}
+
 impl<T: Serialize> Serialize for MiniFixedInsertionSet<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -401,6 +423,20 @@ impl<'de, T: Pagable> PagableDeserialize<'de> for MiniFixedInsertionSet<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn into_iter_keeps_the_order() {
+        for n in [0u32, 1, 32, 33, 100] {
+            let set: MiniFixedInsertionSet<u32> = (0..n).rev().collect();
+            assert!(set.clone().into_iter().eq((0..n).rev()));
+            assert!(
+                set.clone()
+                    .into_iter_hashed()
+                    .map(|h| (h.hash(), *h.key()))
+                    .eq(set.iter_hashed().map(|h| (h.hash(), **h.key())))
+            );
+        }
+    }
 
     #[test]
     fn lookups_and_positions_across_both_regimes() {
