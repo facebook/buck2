@@ -20,12 +20,12 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::InferTargetNames;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use dupe::Dupe;
-use maplit::hashmap;
 use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -46,9 +46,10 @@ pub fn coercion_ctx() -> impl AttrCoercionContext {
 
 pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercionContext {
     let package = PackageLabel::testing();
-    let aliases = hashmap![
-        NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
-    ];
+    let aliases = IntentionallyStdHashMap::from([(
+        NonEmptyCellAlias::new("cell1".to_owned()).unwrap(),
+        CellName::testing_new("cell1"),
+    )]);
 
     let cell_resolver = CellResolver::testing_with_names_and_paths_with_alias(
         &[

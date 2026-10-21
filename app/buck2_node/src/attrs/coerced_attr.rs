@@ -32,6 +32,8 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_hash::BuckHasher;
+use buck2_hash::BuckHasherBuilder;
+use buck2_hash::BuckMutSet;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
@@ -43,7 +45,6 @@ use serde::Serialize;
 use serde::Serializer;
 use serde_json::to_value;
 use smallvec::SmallVec;
-use starlark_map::StarlarkHasherBuilder;
 
 use super::values::TargetModifiersValue;
 use crate::attrs::attr_type::AttrType;
@@ -239,15 +240,8 @@ impl CoercedSelector {
                 }
             }
         } else {
-            // Deliberately keyed with starlark's hasher, not buck2_hash's, so hashes
-            // stay consistent with the starlark_map collections used alongside it.
-            // ast-grep-ignore: rust/buck2-no-std-hashmap
-            let mut visited_keys: std::collections::HashSet<&ConfigurationSettingKey, _> =
-                // ast-grep-ignore: rust/buck2-no-std-hashmap
-                std::collections::HashSet::with_capacity_and_hasher(
-                    entries.len(),
-                    StarlarkHasherBuilder,
-                );
+            let mut visited_keys: BuckMutSet<&ConfigurationSettingKey> =
+                BuckMutSet::with_capacity_and_hasher(entries.len(), BuckHasherBuilder);
             for (k, _) in entries {
                 if !visited_keys.insert(k) {
                     return Err(duplicate_key(k));

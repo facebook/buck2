@@ -163,11 +163,13 @@ impl BuildHasher for BuckHasherBuilder {
 /// The default map for buck2 code: mutable, with no guarantee about iteration order. The
 /// hasher is faster than the standard library's, which is optimized against hash flooding -
 /// not a concern for buck2's internal maps.
+#[allow(clippy::disallowed_types)]
 pub type BuckMutMap<K, V> = std::collections::HashMap<K, V, BuckHasherBuilder>;
 
 /// A [`HashSet`](std::collections::HashSet) using [`BuckHasherBuilder`].
 ///
 /// The set counterpart of [`BuckMutMap`], and the default set for buck2 code.
+#[allow(clippy::disallowed_types)]
 pub type BuckMutSet<K> = std::collections::HashSet<K, BuckHasherBuilder>;
 
 /// A mutable map that iterates in insertion order: [`MiniMutInsertionMap`].
@@ -272,11 +274,13 @@ macro_rules! buck_mut_insertion_set {
 ///
 /// The concurrent map for buck2 code. Construct it with `default()`; `DashMap::new()` exists
 /// only for the standard library's hasher.
+#[allow(clippy::disallowed_types)]
 pub type BuckDashMap<K, V, S = BuckHasherBuilder> = dashmap::DashMap<K, V, S>;
 
 /// A [`DashSet`](dashmap::DashSet) using [`BuckHasherBuilder`].
 ///
 /// The set counterpart of [`BuckDashMap`].
+#[allow(clippy::disallowed_types)]
 pub type BuckDashSet<K, S = BuckHasherBuilder> = dashmap::DashSet<K, S>;
 
 /// Do not use in new code. A [`HashMap`](std::collections::HashMap) with the standard
@@ -287,6 +291,7 @@ pub type BuckDashSet<K, S = BuckHasherBuilder> = dashmap::DashSet<K, S>;
 /// else, a map is either retained, and wants [`BuckFixedSortedMap`], or transient, and wants
 /// [`BuckMutMap`], or forced to be a concrete `HashMap` by something outside buck2, and wants
 /// [`IntentionallyStdHashMap`].
+#[allow(clippy::disallowed_types)]
 pub type StdBuckHashMap<K, V> = std::collections::HashMap<K, V>;
 
 /// A [`HashMap`](std::collections::HashMap) that intentionally uses the standard library's
@@ -295,6 +300,7 @@ pub type StdBuckHashMap<K, V> = std::collections::HashMap<K, V>;
 /// Use this at API boundaries where the concrete type `HashMap<K, V>` is required —
 /// for example, protobuf-generated struct fields, third-party crate APIs, or rusqlite
 /// result collection. In all other cases, prefer [`BuckMutMap`].
+#[allow(clippy::disallowed_types)]
 pub type IntentionallyStdHashMap<K, V> = std::collections::HashMap<K, V>;
 
 /// A [`HashSet`](std::collections::HashSet) that intentionally uses the standard library's
@@ -303,6 +309,7 @@ pub type IntentionallyStdHashMap<K, V> = std::collections::HashMap<K, V>;
 /// Use this at API boundaries where the concrete type `HashSet<K>` is required —
 /// for example, starlark's `ast.lint()` API which expects `&HashSet<String>`.
 /// In all other cases, prefer [`BuckMutSet`].
+#[allow(clippy::disallowed_types)]
 pub type IntentionallyStdHashSet<K> = std::collections::HashSet<K>;
 
 #[cfg(test)]

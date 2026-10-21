@@ -8,6 +8,9 @@
  * above-listed licenses.
  */
 
+// prost represents proto `map` fields as `std::collections::HashMap`.
+#![allow(clippy::disallowed_types)]
+
 use std::borrow::Cow;
 use std::fmt;
 

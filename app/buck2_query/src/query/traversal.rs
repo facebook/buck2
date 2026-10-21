@@ -9,9 +9,10 @@
  */
 
 use async_trait::async_trait;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use futures::StreamExt;
 use futures::stream::FuturesOrdered;
-use starlark_map::StarlarkHasherBuilder;
 
 use crate::query::graph::graph::Graph;
 use crate::query::graph::node::LabeledNode;
@@ -99,10 +100,7 @@ pub async fn async_fast_depth_first_postorder_traversal<
     // mean changing the delegate's for_each_children to return an iterator,
     // but idk.
 
-    // Deliberately keyed with starlark's hasher, not buck2_hash's, so hashes stay
-    // consistent with starlark_map collections used alongside it.
-    // ast-grep-ignore: rust/buck2-no-std-hashmap
-    let mut visited: std::collections::HashSet<T::Key, StarlarkHasherBuilder> = Default::default();
+    let mut visited: BuckMutSet<T::Key> = BuckMutSet::default();
     let mut work: Vec<WorkItem<T>> = root.into_iter().map(|t| WorkItem::Visit(t)).collect();
 
     while let Some(curr) = work.pop() {
@@ -146,10 +144,7 @@ pub async fn async_depth_limited_traversal<
     max_depth: u32,
     allow_partial_graph: bool,
 ) -> buck2_error::Result<()> {
-    // Deliberately keyed with starlark's hasher, not buck2_hash's, so hashes stay
-    // consistent with starlark_map collections used alongside it.
-    // ast-grep-ignore: rust/buck2-no-std-hashmap
-    let mut visited: std::collections::HashMap<_, _, StarlarkHasherBuilder> = Default::default();
+    let mut visited: BuckMutMap<_, _> = BuckMutMap::default();
     let mut push =
         |queue: &mut FuturesOrdered<_>, target: &T::Key, parent: Option<T::Key>, depth: u32| {
             if visited.contains_key(target) {

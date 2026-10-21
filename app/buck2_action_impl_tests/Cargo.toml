@@ -25,7 +25,6 @@ buck2_interpreter_for_build.workspace = true
 ctor.workspace = true
 dupe.workspace = true
 indoc.workspace = true
-maplit.workspace = true
 starlark.workspace = true
 
 [lints]

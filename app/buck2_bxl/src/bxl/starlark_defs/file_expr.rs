@@ -116,7 +116,7 @@ mod tests {
 
     use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::name::CellName;
-    use maplit::hashmap;
+    use buck2_hash::IntentionallyStdHashMap;
 
     use super::*;
 
@@ -124,11 +124,20 @@ mod tests {
     fn test_parse_cell_path_as_file_expr_literal() -> buck2_error::Result<()> {
         let cell1 = CellName::testing_new("cell1");
 
-        let map = hashmap![
-            NonEmptyCellAlias::new("cell1".to_owned()).unwrap() => CellName::testing_new("cell1"),
-            NonEmptyCellAlias::new("cell2".to_owned()).unwrap() => CellName::testing_new("cell2"),
-            NonEmptyCellAlias::new("cell3".to_owned()).unwrap() => CellName::testing_new("cell3"),
-        ];
+        let map = IntentionallyStdHashMap::from([
+            (
+                NonEmptyCellAlias::new("cell1".to_owned()).unwrap(),
+                CellName::testing_new("cell1"),
+            ),
+            (
+                NonEmptyCellAlias::new("cell2".to_owned()).unwrap(),
+                CellName::testing_new("cell2"),
+            ),
+            (
+                NonEmptyCellAlias::new("cell3".to_owned()).unwrap(),
+                CellName::testing_new("cell3"),
+            ),
+        ]);
 
         let cell_alias_resolver = CellAliasResolver::new(cell1, map)?;
 
