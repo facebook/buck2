@@ -112,7 +112,6 @@ use dice::UserComputationData;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use maplit::btreemap;
-use sorted_vector_map::sorted_vector_map;
 
 use crate::actions::testings::SimpleAction;
 
@@ -355,7 +354,7 @@ async fn test_build_action() -> buck2_error::Result<()> {
                 path: build_artifact.get_path().dupe(),
                 output_type: OutputType::File,
             }],
-            env: sorted_vector_map![]
+            env: BuckFixedSortedMap::new()
         }
     );
 
@@ -404,7 +403,7 @@ async fn test_build_artifact() -> buck2_error::Result<()> {
                 path: build_artifact.get_path().dupe(),
                 output_type: OutputType::File,
             }],
-            env: sorted_vector_map![]
+            env: BuckFixedSortedMap::new()
         }
     );
     Ok(())
@@ -454,7 +453,7 @@ async fn test_ensure_artifact_build_artifact() -> buck2_error::Result<()> {
                 path: build_artifact.get_path().dupe(),
                 output_type: OutputType::File,
             }],
-            env: sorted_vector_map![]
+            env: BuckFixedSortedMap::new()
         }
     );
 
@@ -571,7 +570,7 @@ async fn test_command_details_omission() {
             execution_kind: CommandExecutionKind::Local {
                 digest: ActionDigest::empty(digest_config.cas_digest_config()),
                 command: vec![],
-                env: sorted_vector_map![],
+                env: BuckFixedSortedMap::new(),
             },
         },
         timing: CommandExecutionMetadata::empty(TimeSpan::empty_now()),
@@ -602,7 +601,7 @@ async fn test_command_details_omission() {
         execution_kind: CommandExecutionKind::Local {
             digest: ActionDigest::empty(digest_config.cas_digest_config()),
             command: vec![],
-            env: sorted_vector_map![],
+            env: BuckFixedSortedMap::new(),
         },
         missing_materialized_inputs: false,
     };

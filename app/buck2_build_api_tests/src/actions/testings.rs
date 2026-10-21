@@ -28,12 +28,12 @@ use buck2_core::category::CategoryRef;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutInsertionSet;
 use derivative::Derivative;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use sorted_vector_map::sorted_vector_map;
 use starlark::values::OwnedFrozen;
 use starlark::values::Value;
 
@@ -160,7 +160,7 @@ impl Action for SimpleAction {
                 ctx.digest_config(),
                 None,
             )?,
-            sorted_vector_map![],
+            BuckFixedSortedMap::new(),
         );
 
         let prepared_action = ctx.prepare_action(&req, true)?;

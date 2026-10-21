@@ -13,10 +13,10 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_util::time_span::TimeSpan;
 use dice_futures::cancellation::CancellationContext;
-use sorted_vector_map::SortedVectorMap;
 
 use crate::artifact_value::ArtifactValue;
 use crate::execute::action_digest::ActionDigest;
@@ -34,7 +34,7 @@ use crate::execute::result::CommandExecutionResult;
 pub struct DryRunEntry {
     pub args: Vec<String>,
     pub outputs: Vec<CommandExecutionOutput>,
-    pub env: SortedVectorMap<String, String>,
+    pub env: BuckFixedSortedMap<String, String>,
 }
 
 /// Records executed commands into the provided tracker and returns a successful result for all commands.

@@ -137,6 +137,7 @@ use buck2_execute_impl::executors::local::output_paths;
 use buck2_execute_impl::executors::local::prep_scratch_path;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
@@ -185,7 +186,6 @@ use host_sharing::HostSharingRequirements;
 use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use sorted_vector_map::SortedVectorMap;
 
 use crate::command::InternalRunnerConfig;
 use crate::local_resource_api::LocalResourcesSetupResult;
@@ -450,7 +450,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         stage: TestStage,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         timeout: Duration,
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
@@ -761,7 +761,7 @@ impl<'a> BuckTestOrchestrator<'a> {
 struct TestExecutionKey {
     test_target: ConfiguredProvidersLabel,
     cmd: Arc<Vec<ArgValue>>,
-    env: Arc<SortedVectorMap<String, ArgValue>>,
+    env: Arc<BuckFixedSortedMap<String, ArgValue>>,
     executor_override: Option<Arc<ExecutorConfigOverride>>,
     required_local_resources: Arc<RequiredLocalResources>,
     pre_create_dirs: Arc<Vec<DeclaredOutput>>,
@@ -929,7 +929,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         stage: TestStage,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         timeout: Duration,
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
@@ -1031,7 +1031,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         stage: TestStage,
         test_target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
         required_local_resources: RequiredLocalResources,
     ) -> buck2_error::Result<PrepareForLocalExecutionResult> {
@@ -1784,7 +1784,7 @@ impl BuckTestOrchestrator<'_> {
         test_target: &ConfiguredProvidersLabel,
         test_info: &OwnedTestInfo,
         cmd: Cow<'a, [ArgValue]>,
-        env: Cow<'a, SortedVectorMap<String, ArgValue>>,
+        env: Cow<'a, BuckFixedSortedMap<String, ArgValue>>,
         pre_create_dirs: Cow<'a, [DeclaredOutput]>,
         executor_fs: &ExecutorFs<'_>,
         stage: &TestStage,
@@ -1865,7 +1865,7 @@ impl BuckTestOrchestrator<'_> {
         dice: &mut DiceComputations<'_>,
         cwd: ProjectRelativePathBuf,
         cmd: Vec<String>,
-        env: SortedVectorMap<String, String>,
+        env: BuckFixedSortedMap<String, String>,
         ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
         declared_outputs: BuckMutInsertionMap<BuckOutTestPath, OutputCreationBehavior>,
         argsfile_inputs: Vec<CommandExecutionInput>,
@@ -2209,7 +2209,7 @@ struct Execute2RequestExpander<'a> {
     declared_outputs: &'a mut BuckMutInsertionMap<BuckOutTestPath, OutputCreationBehavior>,
     fs: &'a ExecutorFs<'a>,
     cmd: Vec<ExpandableArg>,
-    env: Cow<'a, SortedVectorMap<String, ArgValue>>,
+    env: Cow<'a, BuckFixedSortedMap<String, ArgValue>>,
     digest_config: DigestConfig,
 }
 
@@ -2332,7 +2332,7 @@ impl<'a> Execute2RequestExpander<'a> {
         absolute: bool,
     ) -> buck2_error::Result<(
         Vec<String>,
-        SortedVectorMap<String, String>,
+        BuckFixedSortedMap<String, String>,
         Option<WorkerSpec>,
     )> {
         let Execute2RequestExpander {
@@ -2398,7 +2398,7 @@ impl<'a> Execute2RequestExpander<'a> {
                 fmt.pop_scope();
                 buck2_error::Ok((k.to_owned(), curr_env.finalize()?))
             })
-            .collect::<Result<SortedVectorMap<_, _>, _>>()?;
+            .collect::<Result<BuckFixedSortedMap<_, _>, _>>()?;
 
         let expanded_worker = match test_info.worker() {
             Some(worker) => {
@@ -2407,7 +2407,7 @@ impl<'a> Execute2RequestExpander<'a> {
                 let mut fmt =
                     CommandLineBuilder::new(&mut worker_rendered, &artifact_path_mapping, self.fs);
                 worker_exe.add_to_command_line(&mut fmt)?;
-                let worker_env: buck2_error::Result<SortedVectorMap<_, _>> = worker
+                let worker_env: buck2_error::Result<BuckFixedSortedMap<_, _>> = worker
                     .env()
                     .into_iter()
                     .map(|(k, v)| {
@@ -2482,7 +2482,7 @@ async fn resolve_output_root(
 struct ExpandedTestExecutable {
     cwd: ProjectRelativePathBuf,
     cmd: Vec<String>,
-    env: SortedVectorMap<String, String>,
+    env: BuckFixedSortedMap<String, String>,
     ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
     supports_re: bool,
     declared_outputs: BuckMutInsertionMap<BuckOutTestPath, OutputCreationBehavior>,
@@ -2549,18 +2549,18 @@ fn local_resource_setup_command_prepared_for_local_execution(
 }
 
 struct LossyEnvironment {
-    inner: SortedVectorMap<String, String>,
+    inner: BuckMutInsertionMap<String, String>,
 }
 
 impl LossyEnvironment {
     fn new() -> Self {
         Self {
-            inner: SortedVectorMap::new(),
+            inner: BuckMutInsertionMap::new(),
         }
     }
 
-    fn into_inner(self) -> SortedVectorMap<String, String> {
-        self.inner
+    fn into_inner(self) -> BuckFixedSortedMap<String, String> {
+        self.inner.into()
     }
 }
 
@@ -2584,7 +2584,7 @@ impl EnvironmentBuilder for LossyEnvironment {
     where
         K: AsRef<OsStr>,
     {
-        self.inner.remove(&*key.as_ref().to_string_lossy());
+        self.inner.shift_remove(&*key.as_ref().to_string_lossy());
     }
 }
 
@@ -2805,7 +2805,7 @@ mod tests {
             let kind = CommandExecutionKind::Local {
                 digest: command.prepared_action.digest(),
                 command: vec![],
-                env: SortedVectorMap::new(),
+                env: BuckFixedSortedMap::new(),
             };
             manager.claim().await.failure(
                 kind,
@@ -2878,7 +2878,7 @@ mod tests {
             vec![],
             vec!["false".to_owned()],
             paths,
-            SortedVectorMap::new(),
+            BuckFixedSortedMap::new(),
         );
         let label = ConfiguredProvidersLabel::new(
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new()),

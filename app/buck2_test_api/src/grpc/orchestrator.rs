@@ -26,6 +26,7 @@ use buck2_grpc::ServerHandle;
 use buck2_grpc::make_channel;
 use buck2_grpc::spawn_oneshot;
 use buck2_grpc::to_tonic;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutMap;
 use buck2_test_proto::AttachInfoMessageRequest;
 use buck2_test_proto::Empty;
@@ -44,7 +45,6 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use host_sharing::HostSharingRequirements;
-use sorted_vector_map::SortedVectorMap;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tonic::transport::Channel;
@@ -142,7 +142,7 @@ impl TestOrchestratorClient {
         ui_prints: TestStage,
         target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         timeout: Duration,
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
@@ -272,7 +272,7 @@ impl TestOrchestratorClient {
         stage: TestStage,
         target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
         required_local_resources: RequiredLocalResources,
     ) -> buck2_error::Result<PrepareForLocalExecutionResult> {
@@ -348,7 +348,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         stage: TestStage,
         target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         timeout: Duration,
         host_sharing_requirements: HostSharingRequirements,
         pre_create_dirs: Vec<DeclaredOutput>,
@@ -403,7 +403,7 @@ impl TestOrchestrator for TestOrchestratorClient {
         stage: TestStage,
         target: ConfiguredTargetHandle,
         cmd: Vec<ArgValue>,
-        env: SortedVectorMap<String, ArgValue>,
+        env: BuckFixedSortedMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
         required_local_resources: RequiredLocalResources,
     ) -> buck2_error::Result<PrepareForLocalExecutionResult> {

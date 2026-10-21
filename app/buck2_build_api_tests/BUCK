@@ -14,7 +14,6 @@ rust_unittest(
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:serde_json",
-        "fbsource//third-party/rust:sorted_vector_map",
         "fbsource//third-party/rust:tokio",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_action_impl:buck2_action_impl",

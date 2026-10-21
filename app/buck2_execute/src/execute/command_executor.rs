@@ -28,11 +28,11 @@ use buck2_data::NetworkAccess;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_hash::BuckFixedSortedMap;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use remote_execution as RE;
 use remote_execution::TActionResult2;
-use sorted_vector_map::SortedVectorMap;
 
 use super::cache_uploader::CacheUploadResults;
 use crate::artifact::fs::ExecutorFs;
@@ -272,7 +272,7 @@ fn re_create_action(
     all_args: Vec<String>,
     outputs: &[(ProjectRelativePathBuf, OutputType)],
     working_directory: &ProjectRelativePath,
-    environment: &SortedVectorMap<String, String>,
+    environment: &BuckFixedSortedMap<String, String>,
     input_digest: &TrackedFileDigest,
     timeout: Option<Duration>,
     platform: RE::Platform,

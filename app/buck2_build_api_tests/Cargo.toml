@@ -51,7 +51,6 @@ itertools.workspace = true
 maplit.workspace = true
 pagable.workspace = true
 serde_json.workspace = true
-sorted_vector_map.workspace = true
 starlark.workspace = true
 starlark_map.workspace = true
 tokio.workspace = true

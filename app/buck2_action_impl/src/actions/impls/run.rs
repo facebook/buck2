@@ -98,6 +98,7 @@ use buck2_execute::re::client::induced_cache_misses_configured;
 use buck2_execute::re::client::is_induced_cache_miss;
 use buck2_fs::fs_util;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckFixedSortedSet;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutInsertionSet;
@@ -113,7 +114,6 @@ use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use serde_json::json;
-use sorted_vector_map::SortedVectorMap;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
@@ -706,7 +706,7 @@ impl RunAction {
                 ))?;
             let mut local_worker_visitor = SimpleCommandLineArtifactVisitor::new();
             worker.exe.visit_artifacts(&mut local_worker_visitor)?;
-            let worker_env: buck2_error::Result<SortedVectorMap<_, _>> = worker
+            let worker_env: buck2_error::Result<BuckFixedSortedMap<_, _>> = worker
                 .env
                 .into_iter()
                 .map(|(k, v)| {
@@ -810,7 +810,7 @@ impl RunAction {
                 .exe
                 .visit_artifacts(&mut remote_worker_init_visitor)?;
 
-            let remote_worker_env: buck2_error::Result<SortedVectorMap<_, _>> = remote_worker
+            let remote_worker_env: buck2_error::Result<BuckFixedSortedMap<_, _>> = remote_worker
                 .env
                 .into_iter()
                 .map(|(k, v)| {
@@ -883,7 +883,7 @@ impl RunAction {
         command_line_digest_for_dep_files.push_count();
 
         let env_len = values.env.len();
-        let cli_env: buck2_error::Result<SortedVectorMap<_, _>> = values
+        let cli_env: buck2_error::Result<BuckFixedSortedMap<_, _>> = values
             .env
             .into_iter()
             .map(|(k, v)| {
@@ -1479,7 +1479,7 @@ pub(crate) struct PreparedRunAction {
 impl PreparedRunAction {
     fn into_command_execution_request(self) -> CommandExecutionRequest {
         let Self {
-            expanded: ExpandedCommandLine { exe, args, mut env },
+            expanded: ExpandedCommandLine { exe, args, env },
             extra_env,
             paths,
             worker,
@@ -1487,9 +1487,11 @@ impl PreparedRunAction {
             salt,
         } = self;
 
-        for (k, v) in extra_env {
-            env.insert(k, v);
-        }
+        let env = if extra_env.is_empty() {
+            env
+        } else {
+            env.into_iter().chain(extra_env).collect()
+        };
 
         CommandExecutionRequest::new(exe, args, paths, env)
             .with_worker(worker)

@@ -480,8 +480,8 @@ mod tests {
     use std::time::Instant;
 
     use buck2_common::cas_digest::CasDigest;
+    use buck2_hash::BuckFixedSortedMap;
     use buck2_util::time_span::TimeSpan;
-    use sorted_vector_map::SortedVectorMap;
 
     use super::*;
 
@@ -491,11 +491,7 @@ mod tests {
             execution_kind: CommandExecutionKind::Local {
                 digest: CasDigest::new_blake3([0].repeat(32).as_slice().try_into().unwrap(), 123),
                 command: vec!["fake_buck2".to_owned()],
-                env: {
-                    let mut map = SortedVectorMap::new();
-                    map.insert("FAKE_ENV_VAR".to_owned(), "1".to_owned());
-                    map
-                },
+                env: BuckFixedSortedMap::from_iter([("FAKE_ENV_VAR".to_owned(), "1".to_owned())]),
             },
         };
         let timing = CommandExecutionMetadata {

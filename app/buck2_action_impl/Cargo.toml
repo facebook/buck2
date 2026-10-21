@@ -45,7 +45,6 @@ parking_lot.workspace = true
 remote_execution.workspace = true
 serde_json.workspace = true
 sha1.workspace = true
-sorted_vector_map.workspace = true
 starlark.workspace = true
 starlark_map.workspace = true
 strong_hash.workspace = true

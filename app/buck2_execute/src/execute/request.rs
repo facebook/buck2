@@ -32,6 +32,7 @@ use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::buck2_error;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckFixedSortedSet;
 use buck2_hash::BuckMutInsertionSet;
 use derive_more::Display;
@@ -41,7 +42,6 @@ use itertools::Itertools;
 use pagable::Pagable;
 use prost::Message;
 use remote_execution as RE;
-use sorted_vector_map::SortedVectorMap;
 
 use super::dep_file_digest::DepFileDigest;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
@@ -326,7 +326,7 @@ pub struct WorkerId(pub u64);
 pub struct WorkerSpec {
     pub id: WorkerId,
     pub exe: Vec<String>,
-    pub env: SortedVectorMap<String, String>,
+    pub env: BuckFixedSortedMap<String, String>,
     pub concurrency: Option<usize>,
     pub streaming: bool,
     pub remote_key: Option<TrackedFileDigest>,
@@ -342,7 +342,7 @@ impl WorkerSpec {
 pub struct RemoteWorkerSpec {
     pub id: WorkerId,
     pub init: Vec<String>,
-    pub env: SortedVectorMap<String, String>,
+    pub env: BuckFixedSortedMap<String, String>,
     pub input_paths: CommandExecutionPaths,
     pub concurrency: Option<usize>,
 }
@@ -369,7 +369,7 @@ pub struct CommandExecutionRequest {
     exe: Vec<String>,
     args: Vec<String>,
     paths: CommandExecutionPaths,
-    env: SortedVectorMap<String, String>,
+    env: BuckFixedSortedMap<String, String>,
     timeout: Option<Duration>,
     pub executor_preference: ExecutorPreference,
     host_sharing_requirements: Arc<HostSharingRequirements>,
@@ -437,7 +437,7 @@ impl CommandExecutionRequest {
         exe: Vec<String>,
         args: Vec<String>,
         paths: CommandExecutionPaths,
-        env: SortedVectorMap<String, String>,
+        env: BuckFixedSortedMap<String, String>,
     ) -> Self {
         Self {
             exe,
@@ -595,7 +595,7 @@ impl CommandExecutionRequest {
         self.paths.outputs.iter().map(|output| output.as_ref())
     }
 
-    pub fn env(&self) -> &SortedVectorMap<String, String> {
+    pub fn env(&self) -> &BuckFixedSortedMap<String, String> {
         &self.env
     }
 

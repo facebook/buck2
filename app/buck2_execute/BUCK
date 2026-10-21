@@ -53,7 +53,6 @@ rust_library(
         "fbsource//third-party/rust:sha2",
         "fbsource//third-party/rust:slog",
         "fbsource//third-party/rust:smallvec",
-        "fbsource//third-party/rust:sorted_vector_map",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
