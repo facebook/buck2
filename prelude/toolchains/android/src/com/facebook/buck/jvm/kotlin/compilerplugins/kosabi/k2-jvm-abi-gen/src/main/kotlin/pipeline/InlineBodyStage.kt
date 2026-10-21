@@ -50,9 +50,9 @@ import org.jetbrains.kotlin.psi.KtFile
  * ABI can carry as plain method bodies (see [InlineBodyKeepability]).
  *
  * Callers inline the body they find in the ABI jar. A kept body is converted to IR after the
- * body-skipping conversion, left alone by the IR stripper and generated as real code. Every other
- * body stays the placeholder, as before; see [skipBody]. When no function is kept, every later
- * phase runs exactly as before.
+ * body-skipping conversion, left alone by the IR stripper and generated as real code. Any other
+ * non-private inline body fails the compilation; see [skipBody]. When no function is kept, every
+ * later phase runs exactly as before.
  */
 internal class InlineBodyStage : AbiGenStage {
   override val name = "InlineBodies"
@@ -245,15 +245,15 @@ internal class InlineBodyStage : AbiGenStage {
   }
 
   /**
-   * The one decision for a body that cannot be kept: it stays the placeholder, so its callers would
-   * inline an empty body. The body parity check that every source_only flip runs reports it (as
-   * MISSING on Kotlin 2.2 and DIFFERENT on Kotlin 2.3). Reporting ERROR here instead would fail the
-   * compilation.
+   * The one decision for a body that cannot be kept: an empty body would miscompile every caller,
+   * so the compilation fails.
    */
   private fun skipBody(messageCollector: MessageCollector, name: String, reason: String) {
     messageCollector.report(
-        CompilerMessageSeverity.INFO,
-        "Kosabi inline bodies: the body of inline function `$name` is not kept: $reason",
+        CompilerMessageSeverity.ERROR,
+        "Kosabi inline bodies: the body of inline function `$name` cannot be kept in the " +
+            "source-only ABI: $reason. Its callers would inline an empty body. Remove `inline`, " +
+            "make the function private, or change its body; or set abi_generation_mode = \"class\".",
     )
   }
 }
