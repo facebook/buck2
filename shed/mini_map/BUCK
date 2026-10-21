@@ -6,13 +6,17 @@ rust_library(
     name = "mini_map",
     srcs = glob(["src/**/*.rs"]),
     # `optional` has to be spelled out because autocargo only infers it for a feature named after
-    # the dependency, and `dep:` keeps cargo from auto-creating such a feature here.
+    # the dependency, and `dep:` keeps cargo from auto-creating such a feature here. The published
+    # crate wants none of the features fbsource enables on pagable; its `tokio` one does not build
+    # on wasm.
     autocargo = {
         "cargo_toml_config": {
             "dependencies_override": {
                 "dependencies": {
                     "pagable": {
+                        "features": [],
                         "optional": True,
+                        "workspace": False,
                     },
                 },
             },

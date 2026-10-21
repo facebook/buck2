@@ -10,7 +10,7 @@ license.workspace = true
 [dependencies]
 allocative.workspace = true
 dupe.workspace = true
-pagable.workspace = true
+pagable = { path = "../../pagable" }
 strong_hash.workspace = true
 
 [lints.clippy]

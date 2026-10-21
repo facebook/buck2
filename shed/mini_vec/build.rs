@@ -10,6 +10,15 @@
 
 fn main() {
     rust_nightly();
+    ptr_packing();
+}
+
+fn ptr_packing() {
+    // The packed representation needs 64-bit pointers; see the crate docs.
+    let width = std::env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap();
+    if width != "64" {
+        println!("cargo:rustc-cfg=mini_vec_no_ptr_packing");
+    }
 }
 
 fn rust_nightly() {

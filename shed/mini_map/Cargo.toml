@@ -12,7 +12,7 @@ allocative.workspace = true
 dupe.workspace = true
 equivalent.workspace = true
 mini_vec.workspace = true
-pagable = { workspace = true, optional = true }
+pagable = { path = "../../pagable", optional = true }
 serde.workspace = true
 strong_hash.workspace = true
 

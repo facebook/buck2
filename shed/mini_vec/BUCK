@@ -7,6 +7,13 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     autocargo = {
         "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    # The published crate wants none of the features fbsource
+                    # enables on pagable; its `tokio` one does not build on wasm.
+                    "pagable": {"features": [], "workspace": False},
+                },
+            },
             "extra_check_cfgs": ["cfg(rust_nightly)"],
         },
     },
