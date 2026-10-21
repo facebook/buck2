@@ -13,8 +13,8 @@
 use std::sync::Arc;
 use std::sync::LazyLock;
 
-use starlark_map::ordered_map::OrderedMap;
-use starlark_map::ordered_set::OrderedSet;
+use buck2_hash::BuckFixedInsertionMap;
+use buck2_hash::BuckFixedSortedSet;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::AttrType;
@@ -234,14 +234,17 @@ const ALL_INTERNAL_ATTRS: [OptionalInternalAttribute; 11] = [
 ];
 
 pub fn is_internal_attr(name: &str) -> bool {
-    static ATTRS: LazyLock<OrderedSet<&'static str>> =
-        LazyLock::new(|| OrderedSet::from_iter(ALL_INTERNAL_ATTRS.iter().map(|attr| attr.name)));
+    static ATTRS: LazyLock<BuckFixedSortedSet<&'static str>> =
+        LazyLock::new(|| ALL_INTERNAL_ATTRS.iter().map(|attr| attr.name).collect());
     ATTRS.contains(name)
 }
 
-pub(super) fn common_internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
-    static ATTRS: LazyLock<OrderedMap<&'static str, Attribute>> = LazyLock::new(|| {
-        OrderedMap::from_iter(INTERNAL_ATTRS.iter().map(|attr| (attr.name, (attr.attr)())))
+pub(super) fn common_internal_attrs() -> &'static BuckFixedInsertionMap<&'static str, Attribute> {
+    static ATTRS: LazyLock<BuckFixedInsertionMap<&'static str, Attribute>> = LazyLock::new(|| {
+        INTERNAL_ATTRS
+            .iter()
+            .map(|attr| (attr.name, (attr.attr)()))
+            .collect()
     });
     &ATTRS
 }
@@ -258,11 +261,13 @@ pub fn attr_is_configurable(name: &str) -> AttrIsConfigurable {
 #[cfg(test)]
 mod tests {
     use crate::attrs::spec::internal::INTERNAL_ATTRS;
+    use crate::attrs::spec::internal::common_internal_attrs;
 
     #[test]
     fn verify_attr_ids() {
         for (i, a) in INTERNAL_ATTRS.iter().enumerate() {
             assert_eq!(a.id.0 as usize, i);
+            assert_eq!(common_internal_attrs().get_index_of(a.name), Some(i));
         }
     }
 }

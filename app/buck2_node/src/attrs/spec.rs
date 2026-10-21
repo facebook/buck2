@@ -9,12 +9,13 @@
  */
 
 use allocative::Allocative;
+use buck2_hash::BuckFixedInsertionMap;
+use buck2_hash::BuckIndexMap;
+use buck2_hash::index_map::Entry;
 use buck2_util::exact_size_iter::IterExactSize;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
-use starlark_map::ordered_map::OrderedMap;
-use starlark_map::small_map;
 
 use super::anon_target_attr_validation::AnonRuleAttrValidation;
 use crate::attrs::attr::Attribute;
@@ -51,15 +52,15 @@ impl AttributeId {
     const MAX_INDEX: u16 = u16::MAX;
 }
 
-/// AttributeSpec holds the specification for a rules attributes as defined in the rule() call. This
-/// is split into a mapping of "attribute name" -> "attribute id". The Attributes are stored in a vec
-/// that can then be indexed using the name->id mapping (the id is really just an index into this vec).
+/// AttributeSpec holds the specification for a rules attributes as defined in the rule() call.
+/// Attributes are kept in declaration order, internal attributes first; an attribute's
+/// `AttributeId` is its position.
 ///
 /// For its attribute values, a TargetNode will hold a sorted Vec<(AttributeId, CoercedAttr)> that will have values
 /// only for the values that are explicitly set. Default values need to be looked up through the AttributeSpec.
 #[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative)]
 pub struct AttributeSpec {
-    attributes: OrderedMap<Box<str>, Attribute>,
+    attributes: BuckFixedInsertionMap<Box<str>, Attribute>,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -76,11 +77,13 @@ pub(crate) enum AttributeSpecError {
 }
 
 impl AttributeSpec {
-    fn new(attributes: OrderedMap<Box<str>, Attribute>) -> buck2_error::Result<AttributeSpec> {
+    fn new(attributes: BuckIndexMap<Box<str>, Attribute>) -> buck2_error::Result<AttributeSpec> {
         if attributes.len() > AttributeId::MAX_INDEX as usize {
             return Err(AttributeSpecError::TooManyAttributes(attributes.len()).into());
         }
-        Ok(AttributeSpec { attributes })
+        Ok(AttributeSpec {
+            attributes: attributes.freeze(),
+        })
     }
 
     pub fn from(
@@ -90,18 +93,12 @@ impl AttributeSpec {
     ) -> buck2_error::Result<Self> {
         let internal_attrs = common_internal_attrs();
 
-        // Internal attrs are inserted below in addition to the user-declared
-        // ones; include them in the capacity so the map does not regrow, as it
-        // is retained for the lifetime of the rule definition.
         let num_internal_attrs =
             internal_attrs.len() + usize::from(cfg == &RuleIncomingTransition::FromAttribute);
-        let mut instances: OrderedMap<Box<str>, Attribute> =
-            OrderedMap::with_capacity(attributes.len() + num_internal_attrs);
+        let mut instances: BuckIndexMap<Box<str>, Attribute> =
+            BuckIndexMap::with_capacity(attributes.len() + num_internal_attrs);
         for (name, instance) in internal_attrs {
-            let prev = instances.insert((*name).into(), instance.clone());
-            if prev.is_some() {
-                unreachable!("duplicate internal attr: '{}'", name);
-            }
+            instances.insert((*name).into(), instance.clone());
         }
 
         if cfg == &RuleIncomingTransition::FromAttribute {
@@ -117,16 +114,14 @@ impl AttributeSpec {
             }
 
             if is_internal_attr(&name) {
-                return Err(AttributeSpecError::InternalAttributeRedefined(name.to_owned()).into());
+                return Err(AttributeSpecError::InternalAttributeRedefined(name).into());
             }
-
             match instances.entry(name.into_boxed_str()) {
-                small_map::Entry::Vacant(e) => {
+                Entry::Vacant(e) => {
                     e.insert(instance);
                 }
-                small_map::Entry::Occupied(e) => {
-                    let name: &str = e.key();
-                    return Err(AttributeSpecError::DuplicateAttribute(name.to_owned()).into());
+                Entry::Occupied(e) => {
+                    return Err(AttributeSpecError::DuplicateAttribute(e.key().to_string()).into());
                 }
             }
         }
@@ -279,21 +274,13 @@ impl AttributeSpec {
 }
 
 pub(crate) mod testing {
-
-    use starlark_map::ordered_map::OrderedMap;
-
     use crate::attrs::attr::Attribute;
     use crate::attrs::spec::AttributeSpec;
     use crate::rule::RuleIncomingTransition;
 
     impl AttributeSpec {
-        pub fn testing_new(attributes: OrderedMap<String, Attribute>) -> AttributeSpec {
-            AttributeSpec::from(
-                attributes.into_iter().collect(),
-                false,
-                &RuleIncomingTransition::None,
-            )
-            .unwrap()
+        pub fn testing_new(attributes: Vec<(String, Attribute)>) -> AttributeSpec {
+            AttributeSpec::from(attributes, false, &RuleIncomingTransition::None).unwrap()
         }
     }
 }
