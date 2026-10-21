@@ -13,7 +13,7 @@ load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//tests:re_utils.bzl", "get_re_executors_from_props")
-load(":nodejs_binary.bzl", "build_nodejs_command", "launcher_outputs", "nodejs_command", "stage_nodejs_entries")
+load(":nodejs_binary.bzl", "build_nodejs_command", "launcher_providers", "nodejs_command", "stage_nodejs_entries")
 load(":nodejs_providers.bzl", "get_nodejs_tree_info")
 load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
 
@@ -102,24 +102,24 @@ def _framework_command(ctx: AnalysisContext) -> struct:
             args.add("--arg", arg)
     for entry in staged.entries:
         args.add("--test-file", entry.name, entry.path)
-    return struct(dir = staged.dir, merged = staged.runtime, output = nodejs_command(ctx, args, staged.env), env = staged.env)
+    return struct(dir = staged.dir, merged = staged.runtime, output = nodejs_command(ctx, args, staged.env), env = staged.env, resources = staged.resources)
 
 def nodejs_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.framework != "jest":
         for attr in ("config", "test_runner"):
             if getattr(ctx.attrs, attr) != None:
                 fail('{}: `{}` requires framework = "jest"'.format(ctx.label, attr))
+    command = build_nodejs_command(ctx) if ctx.attrs.framework == "none" else _framework_command(ctx)
+    cmd = cmd_args(command.output.cmd, hidden = command.resources)
     if ctx.attrs.framework == "none":
-        command = build_nodejs_command(ctx)
         test_type = "custom"
         env = command.env
         labels = ctx.attrs.labels
     else:
-        command = _framework_command(ctx)
         test_type = "js_test"
         env = command.env | {
-            "LIST_COMMAND": cmd_args(command.output.cmd, "--list"),
-            "TEST_COMMAND": cmd_args(command.output.cmd, "--write-test-results"),
+            "LIST_COMMAND": cmd_args(cmd, "--list"),
+            "TEST_COMMAND": cmd_args(cmd, "--write-test-results"),
         }
         labels = ctx.attrs.labels + [label for label in _PER_TEST_RESULT_LABELS if label not in ctx.attrs.labels]
 
@@ -130,7 +130,7 @@ def nodejs_test_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         ExternalRunnerTestInfo(
             type = test_type,
-            command = [command.output.cmd],
+            command = [cmd],
             env = env,
             labels = labels,
             contacts = ctx.attrs.contacts,
@@ -140,7 +140,7 @@ def nodejs_test_impl(ctx: AnalysisContext) -> list[Provider]:
             use_project_relative_paths = use_project_relative_paths or None,
             supports_test_execution_caching = ctx.attrs.supports_test_execution_caching,
         ),
-    ) + [launcher_outputs(command)]
+    ) + [launcher_providers(command)[0]]
 
 nodejs_test = prelude_rule(
     name = "nodejs_test",
@@ -209,10 +209,11 @@ nodejs_test = prelude_rule(
     `"none"` runs `main`, or the `library`'s `entry_point`, with `args` and
     `node_args`; its exit code is the only result. `srcs` are helpers.
 
-    The `[dir]` sub-target is one directory, built as `nodejs_binary`
-    builds it: a composed `node_modules`, `srcs` and `main` beside it at
-    their short paths, which must not collide, and a root
-    `package.json`. When `library`, `deps` or a third-party tree is
+    The `[dir]` sub-target, present unless `main` is a directory run with
+    `entry_point`, is one directory, built as `nodejs_binary` builds it:
+    a composed `node_modules`, `srcs` and `main` beside it at their short
+    paths, which must not collide, and a root `package.json`. When
+    `library`, `deps`, a third-party tree or a `resources` dict is
     involved, or with `"jest"`, the test runs from `[dir]`; with
     `library`, the `entry_point` runs in the library's package under
     `node_modules`. Otherwise, the test files run in place, and files they
@@ -222,14 +223,18 @@ nodejs_test = prelude_rule(
     that sets `env` on Unix and Windows. `library`, `entry_point` (and its
     default) and `node_modules` (unset inherits the trees of `library` and
     `deps`; a list replaces them; `[]` means none) follow the same rules as
-    `nodejs_binary`, as do package staging and `.d.ts` stripping.""",
+    `nodejs_binary`, as do package staging and `.d.ts` stripping.
+    `resources`, and with `"none"` a directory `main` with `entry_point`,
+    also follow `nodejs_binary`. `resources` that are not staged are hidden
+    inputs of the test command.""",
     examples = None,
     further = None,
     attrs = (
         # @unsorted-dict-items
         {
-            "main": attrs.option(attrs.source(), default = None),
+            "main": attrs.option(attrs.source(allow_directory = True), default = None),
             "srcs": attrs.list(attrs.source(), default = []),
+            "resources": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
             "framework": attrs.enum(["node", "jest", "none"], default = "node"),
             "config": attrs.option(attrs.source(allow_directory = False), default = None),
             "test_runner": attrs.option(attrs.dep(), default = None),

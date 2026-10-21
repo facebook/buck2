@@ -28,31 +28,20 @@ def command_alias_impl(ctx: AnalysisContext):
         labels = ctx.attrs.labels,
     )
 
-    default_info = DefaultInfo(
-        default_output = output.output.default_outputs[0],
-        other_outputs = list(output.output.other_outputs) + ctx.attrs.resources,
-    )
-
     # FIXME(JakobDegen): We should not accept `platform_exe` as meaning `run_using_single_arg`, but
     # there are things that depend on that
     #
     # FIXME(JakobDegen): It's easy to end up depending on either one of these behaviors. Life would
     # probably be easier if we just always went the `output.cmd` route
-    if (
-        output.maybe_directly_runnable == None
-        or ctx.attrs.run_using_single_arg
-        or ctx.attrs.executable_name != None
-        or (len(ctx.attrs.platform_exe) > 0 and target_os.script == ScriptLanguage("sh"))
-    ):
-        run_info = RunInfo(args = output.cmd)
-    else:
-        run_info = RunInfo(args = output.maybe_directly_runnable)
-
-    run_info_with_resources = RunInfo(
-        args = cmd_args(run_info, hidden = ctx.attrs.resources),
+    return command_alias_providers(
+        output,
+        ctx.attrs.resources,
+        run_with_trampoline = (
+            ctx.attrs.run_using_single_arg
+            or ctx.attrs.executable_name != None
+            or (len(ctx.attrs.platform_exe) > 0 and target_os.script == ScriptLanguage("sh"))
+        ),
     )
-
-    return [default_info, run_info_with_resources]
 
 CommandAliasOutput = record(
     # A batch or sh script representing the command alias
@@ -67,6 +56,30 @@ CommandAliasOutput = record(
     # the case, those args are made available here.
     maybe_directly_runnable = cmd_args | None,
 )
+
+def command_alias_providers(
+    output: CommandAliasOutput, resources: list[Artifact], run_with_trampoline: bool = False, sub_targets: dict[str, list[Provider]] = {}
+) -> list[Provider]:
+    """The `DefaultInfo` and `RunInfo` of a `command_alias` target for `output`.
+
+    The trampoline is the default output. `resources` are other outputs and hidden inputs of
+    `RunInfo`.
+    """
+    default_info = DefaultInfo(
+        default_output = output.output.default_outputs[0],
+        other_outputs = list(output.output.other_outputs) + resources,
+        sub_targets = sub_targets,
+    )
+    if output.maybe_directly_runnable == None or run_with_trampoline:
+        run_info = RunInfo(args = output.cmd)
+    else:
+        run_info = RunInfo(args = output.maybe_directly_runnable)
+
+    run_info_with_resources = RunInfo(
+        args = cmd_args(run_info, hidden = resources),
+    )
+
+    return [default_info, run_info_with_resources]
 
 def command_alias(
     *,

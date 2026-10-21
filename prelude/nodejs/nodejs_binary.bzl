@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:command_alias.bzl", "CommandAliasOutput", "command_alias")
+load("@prelude//:command_alias.bzl", "CommandAliasOutput", "command_alias", "command_alias_providers")
 load("@prelude//:prelude_rule.bzl", "prelude_rule")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
@@ -57,6 +57,45 @@ def _manifest_name(name: str) -> str:
         chars.append(c if c.isalnum() or c in "-._~" else "-")
     return "".join(chars).lstrip("._")[:214] or "app"
 
+_FILE_MAIN_EXTENSIONS = [".js", ".mjs", ".cjs", ".ts", ".mts", ".cts", ".json"]
+
+def _resource_paths(label: Label, resources: dict[str, Artifact] | list[Artifact]) -> dict[str, Artifact]:
+    if not isinstance(resources, dict):
+        by_path = {}
+        for r in resources:
+            existing = by_path.get(r.short_path)
+            if existing != None and existing != r:
+                fail("{}: `resources` entries '{}' and '{}' both stage to '{}'; use a dict to place them".format(label, existing, r, r.short_path))
+            by_path[r.short_path] = r
+        return by_path
+    for path in resources:
+        check_relative_path(path, "{}: invalid `resources` path".format(label))
+    return resources
+
+def _directory_main(ctx: AnalysisContext, mains: list[Artifact], srcs: list[Artifact], bundled_node: (str, Artifact) | None) -> struct:
+    if len(mains) != 1 or mains[0].extension.lower() in _FILE_MAIN_EXTENSIONS:
+        fail("{}: `entry_point` requires `library` or a directory `main`".format(ctx.label))
+    entry_point = ctx.attrs.entry_point
+    check_relative_path(entry_point, "{}: invalid `entry_point`".format(ctx.label))
+    rejected = [
+        ("`srcs`", srcs),
+        ("`deps`", ctx.attrs.deps),
+        ("`node_modules`", ctx.attrs.node_modules),
+        ('package_style = "standalone"', bundled_node),
+        ("a `resources` dict", isinstance(ctx.attrs.resources, dict)),
+    ]
+    for what, present in rejected:
+        if present:
+            fail("{}: {} cannot be combined with a directory `main` and `entry_point`, which run in place without staging".format(ctx.label, what))
+    return struct(
+        dir = None,
+        runtime = None,
+        entries = [NodejsEntry(name = entry_point, path = cmd_args(mains[0], format = "{}/" + entry_point))],
+        hidden = [],
+        resources = list(ctx.attrs.resources),
+        env = dict(ctx.attrs.env),
+    )
+
 def stage_nodejs_entries(
     ctx: AnalysisContext,
     mains: list[Artifact],
@@ -66,18 +105,20 @@ def stage_nodejs_entries(
     srcs: list[Artifact] | None = None,
     stage: bool = False,
     bundled_node: (str, Artifact) | None = None,
+    directory_main: bool = False,
 ) -> struct:
     """Stages the files a target runs beside a `node_modules` of `library`, `deps` and trees.
 
     `mains` are the files to run without `library`; `mains_attr` names them in errors, and
     `staged_attrs` names them together with `srcs` in staging conflicts. `srcs`
-    (default: the `srcs` attribute) are staged with `mains`. The directory is always declared;
-    `mains` run from it when there is a `library`, `deps`, a third-party tree, `bundled_node`
-    or `stage`. Returns:
-    - `dir`: the staged directory.
+    (default: the `srcs` attribute) are staged with `mains`. `mains` run staged when there is a
+    `library`, `deps`, a third-party tree, `bundled_node`, a `resources` dict or `stage`.
+    `directory_main` lets `entry_point` without `library` run inside a directory `main`. Returns:
+    - `dir`: the staged directory, if any.
     - `runtime`: `dir`, or `None` when `mains` run in place.
     - `entries`: a `NodejsEntry` per main, or for the `library`'s entry.
     - `hidden`: the inputs of an in-place run.
+    - `resources`: the `resources` of an in-place run.
     - `env`: the environment to run with.
     """
     if srcs == None:
@@ -93,7 +134,9 @@ def stage_nodejs_entries(
         entry_point = _library_entry(ctx.label, ctx.attrs.entry_point, lib_info)
     else:
         if ctx.attrs.entry_point != None:
-            fail("{}: `entry_point` requires `library`".format(ctx.label))
+            if not directory_main:
+                fail("{}: `entry_point` requires `library`".format(ctx.label))
+            return _directory_main(ctx, mains, srcs, bundled_node)
         if not mains:
             fail("{}: {} is required without `library`".format(ctx.label, mains_attr))
     mains_by_path = {}
@@ -113,12 +156,20 @@ def stage_nodejs_entries(
             if existing != None and existing != src:
                 fail("{}: {} entries '{}' and '{}' both stage to '{}'".format(ctx.label, staged_attrs, existing, src, src.short_path))
             staged[src.short_path] = src
+    resources = _resource_paths(ctx.label, ctx.attrs.resources)
+    for path, resource in resources.items():
+        existing = staged.get(path)
+        if existing != None and existing != resource:
+            fail("{}: `resources` entry '{}' and {} entry '{}' both stage to '{}' in `[dir]`".format(ctx.label, resource, staged_attrs, existing, path))
+        staged[path] = resource
     name = "app"
     if bundled_node:
         node_name, node_dist = bundled_node
         if node_name in staged:
             fail(
-                "{}: {} entry '{}' and the bundled Node binary '{}' both stage to '{}'".format(ctx.label, staged_attrs, staged[node_name], node_dist, node_name)
+                "{}: {}/`resources` entry '{}' and the bundled Node binary '{}' both stage to '{}'".format(
+                    ctx.label, staged_attrs, staged[node_name], node_dist, node_name
+                )
             )
         staged[node_name] = node_dist
         name = "__standalone__/" + ctx.label.name
@@ -133,9 +184,9 @@ def stage_nodejs_entries(
         {n: p.label for n, p in packages.items()},
         tree_infos,
         root_files = staged,
-        root_file_desc = "{}: {} entry '{{artifact}}' at '{{path}}'".format(ctx.label, staged_attrs),
+        root_file_desc = "{}: {}/`resources` entry '{{artifact}}' at '{{path}}'".format(ctx.label, staged_attrs),
     )
-    runtime = staged_dir if dep_infos or tree_infos or bundled_node or stage else None
+    runtime = staged_dir if dep_infos or tree_infos or bundled_node or stage or isinstance(ctx.attrs.resources, dict) else None
 
     hidden = []
     if lib_info != None:
@@ -151,7 +202,14 @@ def stage_nodejs_entries(
         entries = [NodejsEntry(name = main.short_path, path = main) for main in mains]
         hidden = srcs
 
-    return struct(dir = staged_dir, runtime = runtime, entries = entries, hidden = hidden, env = dict(ctx.attrs.env))
+    return struct(
+        dir = staged_dir,
+        runtime = runtime,
+        entries = entries,
+        hidden = hidden,
+        resources = list(ctx.attrs.resources) if runtime == None else [],
+        env = dict(ctx.attrs.env),
+    )
 
 def nodejs_command(ctx: AnalysisContext, args: cmd_args, env: dict[str, ArgLike]) -> CommandAliasOutput:
     """Runs the toolchain's Node with `args` and `env`, through a trampoline script for the target platform."""
@@ -167,43 +225,42 @@ def nodejs_command(ctx: AnalysisContext, args: cmd_args, env: dict[str, ArgLike]
 
 def build_nodejs_command(ctx: AnalysisContext, bundled_node: (str, Artifact) | None = None) -> struct:
     """Runs `main`, or the `library`'s entry, with `node_args` and `args`."""
-    staged = stage_nodejs_entries(ctx, [ctx.attrs.main] if ctx.attrs.main != None else [], bundled_node = bundled_node)
+    staged = stage_nodejs_entries(ctx, [ctx.attrs.main] if ctx.attrs.main != None else [], bundled_node = bundled_node, directory_main = True)
     args = cmd_args(ctx.attrs.node_args, staged.entries[0].path, ctx.attrs.args, hidden = staged.hidden)
-    return struct(dir = staged.dir, merged = staged.runtime, output = nodejs_command(ctx, args, staged.env), env = staged.env)
+    return struct(dir = staged.dir, merged = staged.runtime, output = nodejs_command(ctx, args, staged.env), env = staged.env, resources = staged.resources)
 
-def launcher_outputs(command: struct, default_output: Artifact | None = None) -> DefaultInfo:
-    """The launcher, or `default_output` when set, as the default output, with the staged directory as `[dir]`."""
-    return DefaultInfo(
-        default_output = default_output or command.output.output.default_outputs[0],
-        other_outputs = command.output.output.other_outputs,
-        sub_targets = {"dir": [DefaultInfo(default_output = command.dir)]},
-    )
+def _dir_sub_targets(command: struct) -> dict[str, list[Provider]]:
+    return {"dir": [DefaultInfo(default_output = command.dir)]} if command.dir != None else {}
+
+def launcher_providers(command: struct) -> list[Provider]:
+    """The launcher as the default output, with the staged directory, if any, as `[dir]`, and `RunInfo`, as `command_alias` returns them."""
+    return command_alias_providers(command.output, command.resources, sub_targets = _dir_sub_targets(command))
 
 def nodejs_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     bundled_node = None
     if ctx.attrs.package_style == "standalone":
         bundled_node = get_bundled_node(ctx.label, ctx.attrs._nodejs_toolchain[NodejsToolchainInfo].node_dist, ctx.attrs._target_os_type)
     command = build_nodejs_command(ctx, bundled_node)
-    standalone = None
+    providers = launcher_providers(command)
     if bundled_node:
-        standalone = package_standalone(
-            ctx.actions,
-            ctx.attrs._zip_file_toolchain[ZipFileToolchainInfo].create_zip,
-            command.merged,
-            ctx.label.name,
+        providers[0] = DefaultInfo(
+            default_output = package_standalone(
+                ctx.actions,
+                ctx.attrs._zip_file_toolchain[ZipFileToolchainInfo].create_zip,
+                command.merged,
+                ctx.label.name,
+            ),
+            other_outputs = providers[0].other_outputs,
+            sub_targets = _dir_sub_targets(command),
         )
-    default_info = launcher_outputs(command, standalone)
-    run_args = command.output.maybe_directly_runnable
-    return [
-        default_info,
-        RunInfo(args = run_args if run_args != None else command.output.cmd),
-    ]
+    return providers
 
 nodejs_binary = prelude_rule(
     name = "nodejs_binary",
     impl = nodejs_binary_impl,
     docs = """A runnable Node.js script, executed with the toolchain's
-    Node runtime and no custom loaders. The `[dir]` sub-target is one
+    Node runtime and no custom loaders. The `[dir]` sub-target, present
+    unless `main` is a directory run with `entry_point` (below), is one
     directory holding a `node_modules` composed from the transitive
     `nodejs_library` packages and the packages of the third-party trees,
     `main` and `srcs` beside it at their short paths (distinct files
@@ -214,8 +271,9 @@ nodejs_binary = prelude_rule(
     tools that look for the project root beside `node_modules` (the name
     is lowercased and cut to 214 characters, with characters npm rejects
     replaced by `-`). When
-    `library`, `deps` or a third-party tree is involved, the staged `main`
-    runs from `[dir]`, so Node's own resolution finds every package, for
+    `library`, `deps`, a third-party tree, a `resources` dict or
+    `package_style = "standalone"` is involved, the staged `main` runs
+    from `[dir]`, so Node's own resolution finds every package, for
     `import`, `require`, worker threads and child `node` processes alike.
     Otherwise, `main` runs at its original path and files it imports via
     relative paths must be listed in `srcs` to be declared as build
@@ -223,8 +281,25 @@ nodejs_binary = prelude_rule(
     The default output is the launcher: a `command_alias` trampoline for
     the target platform that runs the toolchain's `node` with `node_args`,
     the entry and `args`, and sets `env`; `$(location)` of the target runs
-    it. `RunInfo` runs the same command, without the trampoline when `env`
-    is empty.
+    it. `DefaultInfo` and `RunInfo` are the providers `command_alias`
+    returns: `RunInfo` runs the same command, without the trampoline when
+    `env` is empty. For an in-place target without `srcs`, the trampoline
+    and `RunInfo` match those of `command_alias(exe = <toolchain node>,
+    args = node_args + [<entry>] + args, env = env, resources = resources)`.
+    `resources` are files and directories the program reads at run time:
+    a list stages each at its short path in `[dir]`, a dict at its key.
+    When `main` runs in place, a list's entries stay at their original
+    paths as hidden inputs, as `command_alias`'s `resources` do; a dict
+    always stages. `[dir]` stages a list even when a file `main` runs in
+    place, so two list entries with the same short path, or an entry at
+    the path of a distinct `main` or `srcs` file, fail either way.
+    `main` may be a directory, such as a `filegroup` or a genrule with
+    `out = "."`. With `entry_point` (and no `library`), node runs
+    `<main>/<entry_point>` in place, with no `[dir]`; a `main` ending in
+    `.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, `.cts` or `.json` is a file and
+    fails. `srcs`, `deps`, `node_modules`, a `resources` dict and
+    `package_style = "standalone"` are rejected. Without `entry_point`, node runs `main` itself, which for
+    a directory means its `package.json` `main` or `index.js`.
     Deps must be loadable as regular `node_modules` packages: each
     package's `package.json` governs whether it is CommonJS or an ES
     module, and TypeScript must be compiled to JavaScript before it is
@@ -248,7 +323,7 @@ nodejs_binary = prelude_rule(
     when it has exactly one, else its `main` attribute; entries set only in
     the library's `package_json` or `prebuilt` manifest are not read, so
     such a library needs `entry_point`. `main`/`srcs` cannot be combined
-    with `library`, and `entry_point` requires it.
+    with `library`, and `entry_point` requires it or a directory `main`.
     `package_style` is `"inplace"` (the default) or `"standalone"`.
     `standalone` always stages, adds the toolchain's `node_dist` binary to
     the staged directory as `node` (`node.exe` on Windows), and replaces
@@ -265,8 +340,9 @@ nodejs_binary = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "main": attrs.option(attrs.source(), default = None),
+            "main": attrs.option(attrs.source(allow_directory = True), default = None),
             "srcs": attrs.list(attrs.source(), default = []),
+            "resources": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
             "args": attrs.list(attrs.arg(), default = []),
             "node_args": attrs.list(attrs.string(), default = []),
             "env": attrs.dict(attrs.string(), attrs.arg(), default = {}),
