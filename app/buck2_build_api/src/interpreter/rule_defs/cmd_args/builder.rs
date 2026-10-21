@@ -39,7 +39,6 @@ use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptionsRef;
 use crate::interpreter::rule_defs::cmd_args::options::OptionsReplacementsRef;
 use crate::interpreter::rule_defs::cmd_args::options::QuoteStyle;
 use crate::interpreter::rule_defs::cmd_args::options::RelativeOrigin;
-use crate::interpreter::rule_defs::cmd_args::options::RelativeOriginArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::shlex_quote::shlex_quote;
 use crate::interpreter::rule_defs::cmd_args::sink::CommandLineSink;
@@ -115,8 +114,28 @@ fn finish_relative_to_path(
             Ok(p)
         }
         RelativeToOption::Artifact(a, parents) => {
-            let mapper = RelativeOriginArtifactPathMapper::new(artifact_path_mapping);
-            let mut p = a.resolve_path(fs, mapper.get(&a))?;
+            // If we have the actual path of the artifact (e.g. because it is an input to the
+            // action), then we use that to resolve the relative path normally.
+            //
+            // Otherwise, we have a trick where we use a unique constant value to resolve the path.
+            // This works because it guarantees that we get enough `..` components to walk past the
+            // content hashes:
+            // - "a/b/hash1/c".relative_to("a/b/hash2/d") => "../../hash1/c"
+            // - "a/b/hash1/c".relative_to("a/b/placeholder/d") => "../../hash1/c" Concretely, that
+            // means that relative origins are not required to be inputs to actions
+            //
+            // FIXME(JakobDegen): Just checking the artifact path mapping here is pretty fragile,
+            // it's very unclear what the conditions are under which things end up in there so there
+            // may be surprise behavior changes. I had tried just doing the `RelativePathResolution`
+            // version unconditionally, but that breaks a bunch of genrules which do
+            // `srcs.project("a").relative_to(srcs)` and expect that to not have any `..`
+            // components. Fixing those genrules might be ok, or doing some other more principled
+            // thing (like omitting `..` components only if the artifact on both sides is the same)
+            // might be ok too
+            let hash = artifact_path_mapping
+                .get(a)
+                .unwrap_or(&ContentBasedPathHash::RelativePathResolution);
+            let mut p = a.resolve_path(fs, Some(hash))?;
             path_popn(&mut p, *parents)?;
             Ok(p)
         }

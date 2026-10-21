@@ -14,8 +14,6 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
-use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
 use buck2_util::size_assert;
@@ -48,7 +46,6 @@ use strong_hash::StrongHash;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifactUnpack;
-use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 
 /// Supported ways of quoting arguments.
@@ -487,38 +484,6 @@ pub(crate) enum RelativeOrigin<'v> {
     CellRoot(&'v CellRoot),
     /// Bit of a useless variant since this is simply the default, but we allow it for consistency.
     ProjectRoot(&'v StarlarkProjectRoot),
-}
-
-// If we have the actual path of the artifact (e.g. because it is an input to the action), then we
-// can use that to resolve the relative path. Otherwise, we use a constant value to resolve the path,
-// which still works, since the "form" of the path is the same, i.e. "<target_package>/<content hash>/<short_name>".
-// E.g.
-// - "a/b/hash1/c".relative_to("a/b/hash2/d") => "../../hash1/c"
-// - "a/b/hash1/c".relative_to("a/b/placeholder/d") => "../../hash1/c"
-pub struct RelativeOriginArtifactPathMapper<'a> {
-    artifact_path_mapping: &'a dyn ArtifactPathMapper,
-    relative_path_resolution: ContentBasedPathHash,
-}
-
-impl<'a> RelativeOriginArtifactPathMapper<'a> {
-    pub(crate) fn new(
-        artifact_path_mapping: &'a dyn ArtifactPathMapper,
-    ) -> RelativeOriginArtifactPathMapper<'a> {
-        RelativeOriginArtifactPathMapper {
-            artifact_path_mapping,
-            relative_path_resolution: ContentBasedPathHash::RelativePathResolution,
-        }
-    }
-}
-
-impl ArtifactPathMapper for RelativeOriginArtifactPathMapper<'_> {
-    fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash> {
-        if let Some(value) = self.artifact_path_mapping.get(artifact) {
-            Some(value)
-        } else {
-            Some(&self.relative_path_resolution)
-        }
-    }
 }
 
 impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
