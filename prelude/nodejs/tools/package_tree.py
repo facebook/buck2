@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-"""Assemble, merge, archive and compress package trees for the prelude's Node.js rules.
+"""Build package trees for the prelude's Node.js rules.
 
 package_tree.py flat-package --emit DIR [--package-json FILE] --out DIR
 package_tree.py merge --deps DIR --prebuilt DIR --out DIR
@@ -14,6 +14,7 @@ package_tree.py launchers --spec FILE --out DIR
 package_tree.py archive --src DIR --format FORMAT --out FILE [--root ROOT] [--executables FILE]
     [--sha256 FILE]
 package_tree.py compress --src FILE --out OUT [--sha256 FILE] --zstd ZSTD...
+package_tree.py strip-types --src DIR --out DIR
 """
 
 from __future__ import annotations
@@ -38,20 +39,59 @@ from pathlib import Path
 from typing import BinaryIO, NamedTuple
 
 
-def _copy_entry(entry: os.DirEntry[str], target: Path, keep_symlinks: bool) -> None:
+def _copy_entry(
+    entry: os.DirEntry[str],
+    target: Path,
+    keep_symlinks: bool,
+    skip_suffixes: tuple[str, ...],
+    ancestors: set[tuple[int, int]],
+) -> None:
     if keep_symlinks and entry.is_symlink():
         os.symlink(os.readlink(entry.path), target, target_is_directory=entry.is_dir())
     elif entry.is_dir():
-        copy_tree(Path(entry.path), target, keep_symlinks)
-    else:
+        _copy_tree(Path(entry.path), target, keep_symlinks, skip_suffixes, ancestors)
+    elif not entry.name.endswith(skip_suffixes) and not (
+        entry.is_symlink() and os.path.realpath(entry.path).endswith(skip_suffixes)
+    ):
         shutil.copy(entry.path, target)
 
 
-def copy_tree(src: Path, dst: Path, keep_symlinks: bool = True) -> None:
-    """Copy the contents of `src` into `dst`, keeping symlinks as symlinks unless `keep_symlinks` is false."""
+def _copy_tree(
+    src: Path,
+    dst: Path,
+    keep_symlinks: bool,
+    skip_suffixes: tuple[str, ...],
+    ancestors: set[tuple[int, int]],
+) -> None:
+    st = os.stat(src)
+    key = (st.st_dev, st.st_ino)
+    if key in ancestors:
+        raise ValueError(
+            f"symlink cycle: {src} resolves to a directory that contains it"
+        )
+    ancestors.add(key)
     dst.mkdir(parents=True, exist_ok=True)
-    for entry in os.scandir(src):
-        _copy_entry(entry, dst / entry.name, keep_symlinks)
+    with os.scandir(src) as entries:
+        for entry in entries:
+            _copy_entry(
+                entry, dst / entry.name, keep_symlinks, skip_suffixes, ancestors
+            )
+    ancestors.remove(key)
+
+
+def copy_tree(
+    src: Path,
+    dst: Path,
+    keep_symlinks: bool = True,
+    skip_suffixes: tuple[str, ...] = (),
+) -> None:
+    """Copy the contents of `src` into `dst`, keeping symlinks as symlinks unless `keep_symlinks` is false.
+
+    Files whose names, or whose symlink targets' names, end with one of
+    `skip_suffixes` are left out, except symlinks kept as symlinks. Raises `ValueError` on a symlink cycle, which only
+    matters when symlinks are copied as their targets.
+    """
+    _copy_tree(src, dst, keep_symlinks, skip_suffixes, set())
 
 
 def flat_package(emit: Path, package_json: Path | None, out: Path) -> None:
@@ -72,7 +112,7 @@ def merge(
     A scope directory present in both trees is merged into one real directory,
     even when one tree links it, and its packages are compared instead. Nothing is written when any entry collides. Symlinks are
     copied as their targets on Windows, where a re-created link does not resolve
-    in the consuming action.
+    in the consuming action; there a symlink cycle raises `ValueError`.
     """
     clashes = []
     scopes = set()
@@ -94,7 +134,7 @@ def merge(
                 if entry.name in scopes:
                     copy_tree(Path(entry.path), out / entry.name, keep_symlinks)
                 else:
-                    _copy_entry(entry, out / entry.name, keep_symlinks)
+                    _copy_entry(entry, out / entry.name, keep_symlinks, (), set())
     return clashes
 
 
@@ -703,6 +743,25 @@ def compress(
             _write_sha256(out, sha256)
 
 
+_DECLARATION_SUFFIXES = (
+    ".d.ts",
+    ".d.mts",
+    ".d.cts",
+    ".d.ts.map",
+    ".d.mts.map",
+    ".d.cts.map",
+)
+
+
+def strip_types(src: Path, out: Path) -> None:
+    """Copy `src` into `out` without TypeScript declarations or their source maps.
+
+    Symlinks are copied as their targets, so declarations behind a linked file
+    or directory are stripped too. Raises `ValueError` on a symlink cycle.
+    """
+    copy_tree(src, out, keep_symlinks=False, skip_suffixes=_DECLARATION_SUFFIXES)
+
+
 def _path(arg: str) -> Path:
     # `node_modules` trees routinely exceed MAX_PATH on Windows.
     if sys.platform == "win32":
@@ -717,17 +776,61 @@ def _read_executables(path: Path | None) -> list[str]:
     return [line.strip() for line in lines if line.strip()]
 
 
-def main() -> int:
+def _run_flat_package(args: argparse.Namespace) -> int:
+    flat_package(args.emit, args.package_json, args.out)
+    return 0
+
+
+def _run_merge(args: argparse.Namespace) -> int:
+    clashes = merge(args.deps, args.prebuilt, args.out)
+    for name in clashes:
+        print(
+            f"node_modules entry {name} is in both the deps tree and the prebuilt tree",
+            file=sys.stderr,
+        )
+    return 1 if clashes else 0
+
+
+def _run_launchers(args: argparse.Namespace) -> int:
+    write_launchers(json.loads(args.spec.read_text(encoding="utf-8")), args.out)
+    return 0
+
+
+def _run_archive(args: argparse.Namespace) -> int:
+    write_archive(
+        args.src,
+        args.format,
+        args.out,
+        args.root,
+        _read_executables(args.executables),
+        args.sha256,
+    )
+    return 0
+
+
+def _run_compress(args: argparse.Namespace) -> int:
+    compress(args.src, args.out, args.zstd, args.sha256)
+    return 0
+
+
+def _run_strip_types(args: argparse.Namespace) -> int:
+    strip_types(args.src, args.out)
+    return 0
+
+
+def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     flat = commands.add_parser("flat-package")
     flat.add_argument("--emit", type=_path, required=True)
     flat.add_argument("--package-json", type=_path)
     flat.add_argument("--out", type=_path, required=True)
+    flat.set_defaults(run=_run_flat_package, errors=(OSError,))
     merged = commands.add_parser("merge")
     merged.add_argument("--deps", type=_path, required=True)
     merged.add_argument("--prebuilt", type=_path, required=True)
     merged.add_argument("--out", type=_path, required=True)
+    merged.set_defaults(run=_run_merge, errors=(ValueError,))
     launchers = commands.add_parser(
         "launchers",
         description=LAUNCHERS_HELP,
@@ -735,6 +838,7 @@ def main() -> int:
     )
     launchers.add_argument("--spec", type=_path, required=True, metavar="FILE")
     launchers.add_argument("--out", type=_path, required=True, metavar="DIR")
+    launchers.set_defaults(run=_run_launchers, errors=(OSError, ValueError))
     archive = commands.add_parser(
         "archive",
         description=ARCHIVE_HELP,
@@ -746,6 +850,7 @@ def main() -> int:
     archive.add_argument("--root", default="")
     archive.add_argument("--executables", type=_path, metavar="FILE")
     archive.add_argument("--sha256", type=_path, metavar="FILE")
+    archive.set_defaults(run=_run_archive, errors=(ValueError, OSError))
     compressed = commands.add_parser(
         "compress",
         description=COMPRESS_HELP,
@@ -755,46 +860,24 @@ def main() -> int:
     compressed.add_argument("--out", type=_path, required=True, metavar="OUT")
     compressed.add_argument("--sha256", type=_path, metavar="FILE")
     compressed.add_argument("--zstd", nargs=argparse.REMAINDER, required=True)
-    args = parser.parse_args()
+    compressed.set_defaults(
+        run=_run_compress,
+        errors=(ValueError, OSError, subprocess.CalledProcessError),
+    )
+    strip = commands.add_parser("strip-types")
+    strip.add_argument("--src", type=_path, required=True)
+    strip.add_argument("--out", type=_path, required=True)
+    strip.set_defaults(run=_run_strip_types, errors=(ValueError, OSError))
+    return parser
 
-    if args.command == "flat-package":
-        flat_package(args.emit, args.package_json, args.out)
-        return 0
-    if args.command == "launchers":
-        try:
-            write_launchers(json.loads(args.spec.read_text(encoding="utf-8")), args.out)
-        except (OSError, ValueError) as e:
-            print(f"launchers: {e}", file=sys.stderr)
-            return 1
-        return 0
-    if args.command == "archive":
-        try:
-            write_archive(
-                args.src,
-                args.format,
-                args.out,
-                args.root,
-                _read_executables(args.executables),
-                args.sha256,
-            )
-        except (ValueError, OSError) as e:
-            print(f"archive: {e}", file=sys.stderr)
-            return 1
-        return 0
-    if args.command == "compress":
-        try:
-            compress(args.src, args.out, args.zstd, args.sha256)
-        except (ValueError, OSError, subprocess.CalledProcessError) as e:
-            print(f"compress: {e}", file=sys.stderr)
-            return 1
-        return 0
-    clashes = merge(args.deps, args.prebuilt, args.out)
-    for name in clashes:
-        print(
-            f"node_modules entry {name} is in both the deps tree and the prebuilt tree",
-            file=sys.stderr,
-        )
-    return 1 if clashes else 0
+
+def main() -> int:
+    args = _parser().parse_args()
+    try:
+        return args.run(args)
+    except args.errors as e:
+        print(f"{args.command}: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

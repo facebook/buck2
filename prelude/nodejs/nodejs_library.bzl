@@ -188,11 +188,12 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 prefix += "/" + segments[i]
         package_dir = ctx.actions.copied_dir("package_dir", srcs_map)
 
+    runtime_dir = strip_type_declarations(ctx.actions, ctx.attrs._package_tree_tool[RunInfo], package_dir, "runtime_dir")
     own_package = NodejsLibraryPackage(
         label = ctx.label,
         package_dir = package_dir,
         package_name = package_name,
-        runtime_dir = strip_type_declarations(ctx.actions, package_dir, "runtime_dir", ctx.attrs._exec_os_type),
+        runtime_dir = runtime_dir,
         dir_name = dir_name,
     )
     transitive_outputs = get_transitive_outputs(ctx.actions, value = own_package, deps = dep_infos)
@@ -201,7 +202,10 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(
             default_output = package_dir,
-            sub_targets = {"node_modules": [DefaultInfo(default_output = node_modules)]},
+            sub_targets = {
+                "node_modules": [DefaultInfo(default_output = node_modules)],
+                "runtime": [DefaultInfo(default_output = runtime_dir)],
+            },
         ),
         NodejsLibraryInfo(
             package_dir = package_dir,
@@ -294,7 +298,10 @@ nodejs_library = prelude_rule(
     `node_modules` tree for this package and its transitive `deps`,
     laid out by `package_name` (or `out`). A duplicate `package_name` in the
     transitive closure with a different package output fails the build, as
-    does one package directory nested inside another.""",
+    does one package directory nested inside another. The `[runtime]`
+    sub-target is the package directory without its `.d.ts`, `.d.mts` and
+    `.d.cts` files and their maps, with symlinks copied as their targets;
+    `nodejs_binary` and `nodejs_test` stage it in their merged tree.""",
     examples = None,
     further = None,
     attrs = (
@@ -311,7 +318,6 @@ nodejs_library = prelude_rule(
             "out": attrs.option(attrs.string(), default = None),
             "src_root": attrs.string(default = ""),
             "package_subdir": attrs.string(default = ""),
-            "_exec_os_type": buck.exec_os_type_arg(),
             "_nodejs_toolchain": toolchains_common.nodejs(),
             "_package_tree_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//nodejs/tools:package_tree")),
         }

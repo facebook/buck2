@@ -225,11 +225,11 @@ nodejs_binary = prelude_rule(
     (`nodejs_node_modules` targets) to `NODE_PATH` alongside any merged
     `deps` tree; they are used as installed, so unlike the merged tree
     they keep their `.d.ts` files.
-    On non-Windows executors, the merged tree stages each `nodejs_library`
-    package without its `.d.ts`/`.d.mts`/`.d.cts` files and their maps,
-    because Node's type stripping refuses declarations under `node_modules`;
-    the stripped copy is built once per library and shared by every consumer.
-    On Windows executors the merged tree keeps them.""",
+    The merged tree stages each `nodejs_library` package without its
+    `.d.ts`/`.d.mts`/`.d.cts` files and their maps (the library's
+    `[runtime]`), because Node's type stripping refuses declarations under
+    `node_modules`; the stripped copy is built once per library and shared
+    by every consumer.""",
     examples = None,
     further = None,
     attrs = (

@@ -6,8 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
-
 NodejsLibraryPackage = record(
     label = field(Label),
     package_dir = field(Artifact),
@@ -160,25 +158,22 @@ def build_node_modules(
         tree[root_name] = root_file
     return actions.copied_dir(name, tree)
 
-def strip_type_declarations(actions: AnalysisActions, tree: Artifact, identifier: str, exec_os_type = None) -> Artifact:
+def strip_type_declarations(actions: AnalysisActions, package_tree_tool: RunInfo, tree: Artifact, identifier: str) -> Artifact:
     """Copy a package without `.d.ts`/`.d.mts`/`.d.cts` files or their maps, for packages that Node runs.
 
     Node's type stripping refuses declarations under `node_modules`, which breaks
     directory scanners like `require-directory`. Symlinks are copied as their
-    targets, so declarations behind a linked file or directory are stripped too;
-    a symlink cycle fails the action. On Windows executors the tree is returned
-    unchanged.
+    targets, so declarations behind a linked file or directory are stripped
+    too; a symlink cycle fails the action.
     """
-    is_windows = exec_os_type != None and exec_os_type[OsLookup].os == Os("windows")
-    if is_windows:
-        return tree
     stripped = actions.declare_output(identifier, dir = True)
     actions.run(
         cmd_args(
-            "/bin/sh",
-            "-c",
-            'mkdir -p "$1" && cp -RL "$0/." "$1" && chmod -R u+w "$1" && find "$1" \\( -name "*.d.ts" -o -name "*.d.[mc]ts" -o -name "*.d.ts.map" -o -name "*.d.[mc]ts.map" \\) -delete',
+            package_tree_tool,
+            "strip-types",
+            "--src",
             tree,
+            "--out",
             stripped.as_output(),
         ),
         category = "strip_type_declarations",
