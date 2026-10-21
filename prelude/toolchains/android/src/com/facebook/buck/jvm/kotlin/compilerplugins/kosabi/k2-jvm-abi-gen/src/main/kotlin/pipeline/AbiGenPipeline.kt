@@ -1187,12 +1187,19 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
  * - Strips private supertypes and converts fake overrides
  * - Stubs method bodies
  */
-internal class IrSanitizerStage(private val repairLog: AbiGenRepairLog) : AbiGenStage {
+internal class IrSanitizerStage(
+    private val repairLog: AbiGenRepairLog,
+    private val inlineBodies: InlineBodyStage,
+) : AbiGenStage {
   override val name = "IrSanitizer"
 
   /** Create the IR generation extension to be registered during FIR-to-IR conversion. */
   fun createExtension(sourceFiles: List<KtFile>): IrGenerationExtension {
-    return NonAbiDeclarationsStrippingIrExtension(sourceFiles, repairLog)
+    return NonAbiDeclarationsStrippingIrExtension(
+        sourceFiles,
+        repairLog,
+        inlineBodies.restoredIrFunctions,
+    )
   }
 }
 
@@ -2342,9 +2349,17 @@ internal class AbiGenPipeline(
     val bytecodeSanitizer: BytecodeSanitizerStage = BytecodeSanitizerStage(),
 ) {
   val firMetadataSanitizer: FirMetadataSanitizerStage = FirMetadataSanitizerStage(repairLog)
-  val irSanitizer: IrSanitizerStage = IrSanitizerStage(repairLog)
+  val inlineBodies: InlineBodyStage = InlineBodyStage()
+  val irSanitizer: IrSanitizerStage = IrSanitizerStage(repairLog, inlineBodies)
   val validator: ValidationStage = ValidationStage(repairLog)
 
   val stages: List<AbiGenStage>
-    get() = listOf(firMetadataSanitizer, composeAbi, irSanitizer, bytecodeSanitizer, validator)
+    get() = listOf(
+        firMetadataSanitizer,
+        composeAbi,
+        inlineBodies,
+        irSanitizer,
+        bytecodeSanitizer,
+        validator,
+    )
 }

@@ -45,6 +45,7 @@ import org.jetbrains.kotlin.psi.KtFile
 internal class NonAbiDeclarationsStrippingIrExtension(
     private val sourceFiles: List<KtFile>,
     private val repairLog: AbiGenRepairLog,
+    private val keptInlineBodies: Set<IrSimpleFunction>,
 ) : IrGenerationExtension {
 
   private fun shouldStripAnnotation(annotation: IrConstructorCall): Boolean {
@@ -216,6 +217,7 @@ internal class NonAbiDeclarationsStrippingIrExtension(
             pluginContext.irBuiltIns,
             pluginContext,
             repairLog,
+            keptInlineBodies,
         ),
         null,
     )
@@ -228,6 +230,7 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
     private val irBuiltins: IrBuiltIns,
     private val pluginContext: IrPluginContext,
     private val repairLog: AbiGenRepairLog,
+    private val keptInlineBodies: Set<IrSimpleFunction>,
 ) : IrElementTransformerVoidCompat() {
 
   override fun visitFile(declaration: IrFile): IrFile {
@@ -645,6 +648,12 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
   }
 
   override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
+    if (declaration in keptInlineBodies) {
+      // Callers inline this body from the ABI: leave it, and the lambdas in it, unchanged.
+      val body = declaration.body
+      declaration.body = null
+      return super.visitSimpleFunction(declaration).also { declaration.body = body }
+    }
     if (!declaration.origin.isSynthetic) {
       if (declaration.parent is IrProperty) {
         // for properties we need to generate a default body
