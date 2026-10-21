@@ -30,7 +30,6 @@ from pathlib import Path
 from typing import (
     Any,
     AsyncGenerator,
-    AsyncIterator,
     Awaitable,
     Callable,
     Dict,
@@ -41,7 +40,6 @@ from typing import (
 )
 
 import __manifest__
-import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.executable import WindowsCmdOption
 from decorator import decorator
@@ -72,14 +70,13 @@ def _is_core_test() -> bool:
 @contextlib.asynccontextmanager
 async def buck_fixture(  # noqa C901 : "too complex"
     marker: BuckTestMarker,
-    test_id: Optional[str] = None,
+    test_id: str,
 ) -> AsyncGenerator[Buck, None]:
     """
     Returns a Buck for testing.
 
-    `test_id` names the test case; an inplace test's isolation prefix is derived from it, so
-    it must differ between the test cases of one target. It defaults to pytest's
-    `PYTEST_CURRENT_TEST`.
+    `test_id` names the test case (`TestCase.id()`); an inplace test's isolation prefix is
+    derived from it, so it must differ between the test cases of one target.
     """
 
     is_windows = platform.system() == "Windows"
@@ -132,8 +129,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
     # Python tests that run Buck, we clear out Python test environment
     # variables so that if we run a Python test via Buck 2, they won't
     # interfere.
-    for var in ["PYTEST_CURRENT_TEST", "TEST_PILOT"]:
-        env.pop(var, None)
+    env.pop("TEST_PILOT", None)
 
     common_dir = await _get_common_dir()
     base_dir = Path(tempfile.mkdtemp(dir=common_dir))
@@ -190,8 +186,6 @@ async def buck_fixture(  # noqa C901 : "too complex"
 
         if marker.inplace:
             # We need a unique isolated prefix per test case.
-            if test_id is None:
-                test_id = os.environ["PYTEST_CURRENT_TEST"]
             current_test = _test_binary_identity() + test_id
             isolation_prefix = hashlib.sha256(current_test.encode("utf-8")).hexdigest()[
                 :40
@@ -288,18 +282,6 @@ async def buck_fixture(  # noqa C901 : "too complex"
             if marker.setup_eden:
                 _cleanup_eden(eden_dir, project_dir, env)
             shutil.rmtree(base_dir, ignore_errors=True)
-
-
-@pytest.fixture(scope="function")
-async def buck(request: pytest.FixtureRequest) -> AsyncIterator[Buck]:
-    marker = request.node.get_closest_marker("buck_test")
-    if marker is None:
-        raise Exception(
-            "Test method must be decorated with @buck_test() to use the buck fixture."
-        )
-    marker = marker.args[0]
-    async with buck_fixture(marker) as buck:
-        yield buck
 
 
 def _test_binary_identity() -> str:
@@ -660,37 +642,6 @@ BuckTestFn = Callable[..., Awaitable[None]]
 SKIPPABLE_PLATFORMS = ["darwin", "linux", "windows"]
 
 
-def _make_passing_test_for_skipped_platform(
-    fn: Callable[..., Any],
-) -> Callable[..., Any]:
-    def always_pass(*args: Any, **kwargs: Any) -> None:
-        pass
-
-    always_pass.__name__ = fn.__name__
-    always_pass.__qualname__ = fn.__qualname__
-    always_pass.__module__ = fn.__module__
-    always_pass.__doc__ = fn.__doc__
-
-    signature = inspect.signature(fn)
-    always_pass.__signature__ = signature.replace(  # pyre-ignore[16]
-        parameters=[
-            parameter
-            for name, parameter in signature.parameters.items()
-            if name != "buck"
-        ],
-    )
-
-    parametrize_marks = [
-        mark
-        for mark in getattr(fn, "pytestmark", [])
-        if getattr(mark, "name", None) == "parametrize"
-    ]
-    if parametrize_marks:
-        always_pass.pytestmark = parametrize_marks  # pyre-ignore[16]
-
-    return always_pass
-
-
 _FIXTURE_PARAMETERS = ("self", "buck", "tmp_path")
 
 
@@ -763,7 +714,7 @@ class BuckTestCase(unittest.IsolatedAsyncioTestCase):
 
 
 class param:
-    """One set of `parametrize()` arguments with a name of its own, like `pytest.param`."""
+    """One set of `parametrize()` arguments with a name of its own."""
 
     __slots__ = ("values", "id")
 
@@ -782,7 +733,7 @@ def parametrize(
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Runs the decorated test method once per entry of `argvalues`, as its own test case. It
-    takes what `pytest.mark.parametrize` takes: `argnames` is a comma-separated string or a
+    takes what pytest's `parametrize` took: `argnames` is a comma-separated string or a
     sequence of the parameters to bind, each entry of `argvalues` their values (a single value
     for a single parameter), `ids` names the cases. Stacked `parametrize` decorators run the
     product of their entries.
@@ -969,7 +920,7 @@ def buck_test(
 
     # Set up arguments to use for the buck fixture.
 
-    # Just ignore the test, calling pytest.skip() is treated as a failure by tpx unfortunately
+    # The test passes without running rather than skipping: a skip is a failure to tpx.
     for p in skip_for_os:
         if p not in SKIPPABLE_PLATFORMS:
             raise Exception(f"skip_for_os must specifiy one of {SKIPPABLE_PLATFORMS}")
@@ -997,15 +948,14 @@ def buck_test(
     )
 
     def decorate(fn: Callable[..., Any]) -> Callable[..., Any]:
-        if _is_test_method(fn):
-            test = (
-                _passing_test_method(fn) if skipped else _buck_test_method(marker, fn)
+        if not _is_test_method(fn):
+            raise TypeError(
+                f"`buck_test` decorates the methods of a `BuckTestCase`, and {fn.__qualname__} "
+                "takes no `self`"
             )
-            test.buck_test_marker = marker  # pyrefly: ignore [missing-attribute]
-            return test
-        if skipped:
-            return _make_passing_test_for_skipped_platform(fn)
-        return pytest.mark.buck_test(marker)(fn)
+        test = _passing_test_method(fn) if skipped else _buck_test_method(marker, fn)
+        test.buck_test_marker = marker  # pyrefly: ignore [missing-attribute]
+        return test
 
     return decorate
 
@@ -1050,9 +1000,9 @@ def is_deployed_buck2() -> bool:
     that buck2 users are not using.
 
     Example of skipping test case with deployed buck2:
-        @pytest.mark.skipif(
+        @unittest.skipIf(
             is_deployed_buck2(),
-            reason="Skip if testing with deployed buck2",
+            "Skip if testing with deployed buck2",
         )
     """
     return os.environ.get("TEST_EXECUTABLE") == "buck2"

@@ -9,7 +9,6 @@
 load("@fbcode//buck2/app:modifier.bzl", "buck2_modifiers")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
-load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
 load("@fbcode_macros//build_defs:python_unittest.bzl", "python_unittest")
 load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 load("@fbsource//tools/target_determinator/macros:ci_hint.bzl", "ci_hint")
@@ -28,10 +27,6 @@ def buck_e2e_test(
     env = None,
     resources = None,
     skip_for_os = (),
-    pytest_config = None,
-    pytest_marks = None,
-    pytest_expr = None,
-    pytest_confcutdir = None,
     serialize_test_cases = None,
     require_nano_prelude = None,
     cfg_modifiers = None,
@@ -41,14 +36,9 @@ def buck_e2e_test(
     heavyweight_threads = "4",
     remote_execution = None,
     visibility = None,
-    use_unittest = True,
 ):
     """
     Custom macro for buck2/buckaemon end-to-end tests.
-
-    use_unittest:
-        Whether the sources are `unittest` test modules (`BuckTestCase` subclasses) rather
-        than pytest modules. pytest is unsupported at Meta; `False` is on its way out.
     """
     srcs = srcs or []
     labels = labels or []
@@ -68,16 +58,6 @@ def buck_e2e_test(
 
     # For autodeps
     read_package_value = getattr(native, "read_package_value", None)
-
-    if not use_unittest:
-        # Flags passed to pytest.
-        # -vv shows full assertion output on failures.
-        # ---tb=native shows python native traceback instead of default pytest traceback with source code.
-        # --no-header disables headers printed after "test session starts" on output
-        # --no-summary disables pytest summary printed after each test run on output, including the
-        # traceback of an error raised while pytest imports a test module or its conftest
-        env.setdefault("PYTEST_ADDOPTS", "-vv --tb=native --no-header --no-summary")
-
     e2e_flavor = read_package_value and read_package_value("buck2_e2e_test.flavor")
     if e2e_flavor == "isolated":
         env["BUCK2_E2E_TEST_FLAVOR"] = "isolated"
@@ -130,19 +110,8 @@ def buck_e2e_test(
         env["NANO_PRELUDE"] = "$(location fbcode//buck2/tests/e2e_util/nano_prelude:nano_prelude)"
 
     deps += ["fbcode//buck2/tests/e2e_util:utilities"]
-    if not use_unittest:
-        deps += [
-            "fbsource//third-party/pypi/pytest:pytest",
-            "fbsource//third-party/pypi/pytest-asyncio:pytest-asyncio",
-        ]
     if use_buck_api:
         deps += ["fbcode//buck2/tests/e2e_util/api:api"]
-    resources = resources or {}
-
-    # Let users of the macro define their own configuration for pytest. This allow for reusing all
-    # the fixture code for tools building e2e tests that also need a working buck environment.
-    if not use_unittest and not "conftest.py" in resources.values():
-        resources["fbcode//buck2/tests/e2e_util:conftest.py"] = "conftest.py"
 
     ci_removals = []
     if "darwin" in skip_for_os:
@@ -153,7 +122,7 @@ def buck_e2e_test(
         labels = _remove_ci_labels(labels, ci_removals)
 
     kwargs = {"visibility": visibility} if visibility != None else {}
-    test_rule_kwargs = dict(
+    python_unittest(
         name = name,
         base_module = base_module,
         srcs = srcs,
@@ -161,31 +130,22 @@ def buck_e2e_test(
         deps = deps,
         env = env,
         emails = contacts,
-        # Forwarded verbatim (python_pytest already accepts it): e2e tests
-        # boot buck2 daemons against the host checkout, so callers under an
-        # RE-by-default PACKAGE (re_test_utils.set_package_default) need the
-        # per-target `remote_execution = False` pin — the narrow form —
-        # instead of a directory-wide PACKAGE opt-out.
+        # Forwarded verbatim: e2e tests boot buck2 daemons against the host
+        # checkout, so callers under an RE-by-default PACKAGE
+        # (re_test_utils.set_package_default) need the per-target
+        # `remote_execution = False` pin — the narrow form — instead of a
+        # directory-wide PACKAGE opt-out.
         remote_execution = remote_execution,
         resources = resources,
         skip_on_mode_mac = "darwin" in skip_for_os,
         skip_on_mode_win = "windows" in skip_for_os,
         modifiers = cfg_modifiers,
         compatible_with = compatible_with,
+        # Static listing reads the test names off the source: it would miss the test cases
+        # `parametrize()` generates and list the method they come from.
+        supports_static_listing = False,
         **kwargs,
     )
-    if use_unittest:
-        for pytest_arg in [pytest_config, pytest_marks, pytest_expr, pytest_confcutdir]:
-            if pytest_arg != None:
-                fail("{}: the `pytest_*` arguments have no `use_unittest` equivalent".format(name))
-        python_unittest(
-            # Static listing reads the test names off the source: it would miss the test cases
-            # `parametrize()` generates and list the method they come from.
-            supports_static_listing = False,
-            **test_rule_kwargs,
-        )
-    else:
-        python_pytest(pytest_config = pytest_config, pytest_marks = pytest_marks, pytest_expr = pytest_expr, pytest_confcutdir = pytest_confcutdir, **test_rule_kwargs)
 
     if e2e_flavor == "buck2_non_isolated":
         # These are buck2's own non-isolated e2e tests. Add a ci hint indicating
@@ -254,10 +214,6 @@ def buck2_e2e_test(
     srcs = (),
     labels = (),
     resources = None,
-    pytest_config = None,
-    pytest_marks = None,
-    pytest_expr = None,
-    pytest_confcutdir = None,
     serialize_test_cases = None,
     require_nano_prelude = None,
     ci_srcs = [],
@@ -266,7 +222,6 @@ def buck2_e2e_test(
     heavyweight_threads = "4",
     remote_execution = None,
     visibility = None,
-    use_unittest = True,
 ):
     """
     Custom macro for buck2 end-to-end tests. All tests are run against buck2 compiled in-repo (compiled buck2).
@@ -303,17 +258,12 @@ def buck2_e2e_test(
         "data_dir": data_dir,
         "heavyweight_threads": heavyweight_threads,
         "labels": labels,
-        "pytest_confcutdir": pytest_confcutdir,
-        "pytest_config": pytest_config,
-        "pytest_expr": pytest_expr,
-        "pytest_marks": pytest_marks,
         "remote_execution": remote_execution,
         "require_nano_prelude": require_nano_prelude,
         "resources": resources,
         "serialize_test_cases": serialize_test_cases,
         "srcs": srcs,
         "use_buck_api": use_buck_api,
-        "use_unittest": use_unittest,
         "visibility": visibility,
     }
 
