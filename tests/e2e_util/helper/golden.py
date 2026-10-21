@@ -174,12 +174,13 @@ def sanitize_hashes(s: str) -> str:
 
 # C++ libraries linked into buck2 (and the tools it spawns) can emit glog-format
 # lines such as `I0623 15:40:41.926481 128942 Hash.cpp:327] tiHash seed: ...ull`
-# to stderr during process init. Their timestamps, PIDs, and source locations
+# to stderr during process init, with any of glog's or folly logging's severity
+# prefixes (`V`, `I`, `W`, `E`, `C`, `F`). Their timestamps, PIDs, and source locations
 # vary between runs, so they leak non-deterministically into captured stderr and
 # must be dropped before comparing against goldens. The marker may be indented
 # (e.g. when nested inside an embedded daemon stderr block), so we match it
 # anywhere in the line.
-_GLOG_LINE_RE = re.compile(r".*[WIEF]\d{4} \d{2}:\d{2}:\d{2}\.\d{6}.*\n?")
+_GLOG_LINE_RE = re.compile(r".*[VIWECF]\d{4} \d{2}:\d{2}:\d{2}\.\d{6}.*\n?")
 # The buck2 client's own `tracing` output goes to stderr too, as lines such as
 # `2026-10-15T02:15:11.181159Z  WARN buck2_client_ctx::events_ctx: Finalizing
 # 'event log' took 1.38s`, possibly wrapped in ANSI color escapes. Which of
