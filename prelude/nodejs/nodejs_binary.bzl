@@ -208,14 +208,16 @@ nodejs_binary = prelude_rule(
     as `<name>/node <name>/<main>`;
     `args`, `node_args`, `env`, `NODE_PATH` and any flags or env the
     toolchain's `node` wrapper adds are not applied there.
-    With `library`, the entry is `<name>/node_modules/<package_name>/<entry_point>`.
+    With `library`, the entry is `<name>/node_modules/<dir>/<entry_point>`,
+    where `<dir>` is the library's `out`, or its `package_name` when `out`
+    is unset.
     The tree at index `<i>` of the `node_modules` attribute is staged as
     `node_modules_tree_<i>`, which whoever runs the package must put on
     `NODE_PATH`; with no merged tree, the first is staged as `node_modules`
     instead.
     `library`, when set, runs a file from inside a `nodejs_library`'s staged
     package instead of `main`: `entry_point` names the file relative to the
-    package root (e.g. `"dist/main.js"`; a relative `/`-separated path with
+    package root (e.g. `"main.js"`; a relative `/`-separated path with
     no `:` and no `.` or `..` segments), and the library's transitive closure
     (plus `deps`) forms the `node_modules`. `main`/`srcs` cannot be combined
     with `library`; `entry_point` is required with it, and required to be

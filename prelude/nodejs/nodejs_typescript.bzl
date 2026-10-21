@@ -19,6 +19,7 @@ def compile_typescript(
     label: Label,
     tsc: RunInfo | None,
     srcs: list[Artifact],
+    src_root: str,
     tsconfig: Artifact,
     package_json: Artifact | None,
     dep_infos: list,
@@ -28,6 +29,7 @@ def compile_typescript(
 ) -> Artifact:
     """Compile TypeScript `srcs` with `tsc` against `dep_infos` and `node_modules_tree`, returning the emitted tree.
 
+    Emitted paths are source paths relative to `src_root`, which every source must be under.
     `package_json` is staged beside the sources so its `"type"` decides the emitted module format.
     """
     if tsc == None:
@@ -43,18 +45,6 @@ def compile_typescript(
             )
         if src.short_path.endswith(_DECLARATION_EXTENSIONS):
             fail("nodejs_library {}: cannot compile declaration file '{}': `tsc` emits nothing for it".format(label, src.short_path))
-    common_dir = None
-    for src in srcs:
-        parts = src.short_path.split("/")[:-1]
-        if common_dir == None:
-            common_dir = parts
-        else:
-            shared = 0
-            for a, b in zip(common_dir, parts):
-                if a != b:
-                    break
-                shared += 1
-            common_dir = common_dir[:shared]
 
     reserved = ["tsconfig.json", "tsconfig.buck.json"]
     if package_json != None:
@@ -112,7 +102,7 @@ def compile_typescript(
         "--outDir",
         out_dir.as_output(),
         "--rootDir",
-        cmd_args(src_dir, format = "{}/" + "/".join(common_dir)) if common_dir else src_dir,
+        cmd_args(src_dir, format = "{}/" + src_root) if src_root else src_dir,
         "--declaration",
         "--noEmit",
         "false",
@@ -128,7 +118,7 @@ def compile_typescript(
 
     return out_dir
 
-def assemble_flat_package(actions: AnalysisActions, package_tree_tool: RunInfo, emit_dir: Artifact, package_json: Artifact | None, identifier: str) -> Artifact:
+def assemble_flat_package(actions: AnalysisActions, package_tree_tool: RunInfo, emit: Artifact, package_json: Artifact | None, identifier: str) -> Artifact:
     """Assemble a package directory with the compile output and `package_json` at its root."""
     package_dir = actions.declare_output("ts/p", dir = True)
     actions.run(
@@ -136,7 +126,7 @@ def assemble_flat_package(actions: AnalysisActions, package_tree_tool: RunInfo, 
             package_tree_tool,
             "flat-package",
             "--emit",
-            emit_dir,
+            emit,
             cmd_args("--package-json", package_json) if package_json != None else [],
             "--out",
             package_dir.as_output(),
@@ -172,13 +162,13 @@ def merge_node_modules(actions: AnalysisActions, package_tree_tool: RunInfo, dep
     )
     return merged
 
-def compile_module_typescript(actions: AnalysisActions, label: Label, tsc: RunInfo | None, module_dir: Artifact, identifier: str) -> Artifact:
+def compile_module_typescript(actions: AnalysisActions, label: Label, tsc: RunInfo | None, module_dir: Artifact, src_root: str, identifier: str) -> Artifact:
     """Compile a whole project directory with the toolchain's `tsc`, returning the emitted tree.
 
-    Emitted paths mirror source paths from the module root, so `src/main.ts`
-    emits `src/main.js` even when the `tsconfig` sets `rootDir: "src"`. The
-    module tsconfig must not require writes into the tree (no incremental or
-    composite state).
+    Emitted paths mirror source paths from `src_root` inside the module, so with
+    an empty `src_root`, `src/main.ts` emits `src/main.js` even when the
+    `tsconfig` sets `rootDir: "src"`. The module tsconfig must not require
+    writes into the tree (no incremental or composite state).
     """
     if tsc == None:
         fail("nodejs_library {}: typescript compilation requires `tsc` on the nodejs toolchain".format(label))
@@ -192,7 +182,7 @@ def compile_module_typescript(actions: AnalysisActions, label: Label, tsc: RunIn
         "--outDir",
         out_dir.as_output(),
         "--rootDir",
-        module_dir,
+        cmd_args(module_dir, format = "{}/" + src_root) if src_root else module_dir,
         "--declaration",
         "--noEmit",
         "false",
