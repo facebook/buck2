@@ -946,36 +946,27 @@ impl LocalExecutor {
         let mut to_publish = vec![];
         let mut mapped_outputs = BuckMutInsertionMap::with_capacity(entries.len());
 
+        // Test outputs are reported like build outputs: the test orchestrator asks the
+        // materializer for them by value before it hands them to the test runner.
         for (output, output_path) in entries {
             let value = extract_artifact_value(&builder, &output_path, digest_config)?;
             if let Some(value) = value {
-                match output {
-                    CommandExecutionOutput::BuildArtifact { .. } => {
-                        if output.as_ref().has_content_based_path() {
-                            // A content-based output is produced at a placeholder path, since
-                            // its real path is only known once the content is hashed, and is
-                            // published to that path now. The placeholder is scratch shared by
-                            // every configuration of this action; `HostSharingRequirements`
-                            // keeps their runs from overlapping there, and this run still holds
-                            // that permit.
-                            let content_path = output
-                                .as_ref()
-                                .resolve(&self.artifact_fs, Some(&value.content_based_path_hash()))?
-                                .into_path();
-                            to_publish.push((output_path, content_path, value.dupe()));
-                        } else {
-                            to_declare.push(DeclareArtifactPayload {
-                                path: output_path,
-                                artifact: value.dupe(),
-                            });
-                        }
-                    }
-                    CommandExecutionOutput::TestPath { .. } => {
-                        // Don't declare those as we don't currently have any form of GC so this
-                        // would take up space for nothing, and most importantly, we will never
-                        // need them to be in materializer state for e.g. matching as nothing
-                        // should depend on them.
-                    }
+                if output.as_ref().has_content_based_path() {
+                    // A content-based output is produced at a placeholder path, since its real
+                    // path is only known once the content is hashed, and is published to that
+                    // path now. The placeholder is scratch shared by every configuration of this
+                    // action; `HostSharingRequirements` keeps their runs from overlapping there,
+                    // and this run still holds that permit.
+                    let content_path = output
+                        .as_ref()
+                        .resolve(&self.artifact_fs, Some(&value.content_based_path_hash()))?
+                        .into_path();
+                    to_publish.push((output_path, content_path, value.dupe()));
+                } else {
+                    to_declare.push(DeclareArtifactPayload {
+                        path: output_path,
+                        artifact: value.dupe(),
+                    });
                 }
 
                 mapped_outputs.insert(output, value);
