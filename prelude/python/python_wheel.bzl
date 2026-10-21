@@ -53,6 +53,7 @@ load(
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//python:python_wheel_toolchain.bzl", "PythonWheelToolchainInfo")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
+load("@prelude//python:transitions.bzl", "python_transitions")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:expect.bzl", "expect")
 load(
@@ -579,7 +580,7 @@ python_wheel = rule(
         _create_link_tree = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:create_link_tree")),
         _cxx_toolchain = toolchains_common.cxx(),
         _python_toolchain = toolchains_common.python(),
-        opt_by_default_enabled = attrs.bool(default = False),
     )
+    | python_transitions.attrs()
     | constraint_overrides.attributes,
 )
