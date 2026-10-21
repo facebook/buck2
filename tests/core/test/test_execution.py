@@ -8,7 +8,10 @@
 
 # pyre-strict
 
+import os
+
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import random_string, read_what_ran
 
@@ -210,3 +213,26 @@ class ExecutionTest(BuckTestCase):
         assert second_test_runs[0]["reproducer"]["executor"] == "Re", (
             "Expected test to run remotely, not be cached!"
         )
+
+    @buck_test()
+    async def test_outputs_of_a_local_run_are_on_disk(self, buck: Buck) -> None:
+        # The test runner reads a test's outputs out of process, so after a local run Buck asks
+        # the materializer for them by value; the only copy of what the test wrote is the one on
+        # disk.
+        run = buck.test(
+            "-c",
+            "test.local_enabled=true",
+            "-c",
+            "test.remote_enabled=false",
+            "//:writes_output",
+        )
+        if os.environ.get("BUCK2_TEST_MATERIALIZER") == "v2":
+            # The disk-state core goes to the CAS for what only the test's own run put on disk.
+            await expect_failure(run, stderr_regex="Error materializing test outputs")
+            return
+        await run
+        written = sorted(
+            p.read_text()
+            for p in (buck.cwd / "buck-out" / "v2" / "test").rglob("written_by_test")
+        )
+        assert written == ["list", "run"]
