@@ -251,21 +251,28 @@ impl BuckOutTestPath {
 
 #[derive(Clone, Dupe, PartialEq, Eq, Allocative, Pagable)]
 pub struct BuckOutPathResolver {
-    buck_out_v2: Arc<ProjectRelativePathBuf>,
+    buck_out_v2: Arc<BuckOutRoot>,
 }
+
+/// The buck-out root, on its own cache line: the resolver is duped for every action executor
+/// while the root is read for every artifact path, and the `Arc` counts the dupes bump must
+/// not sit in the line those reads need.
+#[derive(PartialEq, Eq, Allocative, Pagable)]
+#[repr(align(128))]
+struct BuckOutRoot(ProjectRelativePathBuf);
 
 impl BuckOutPathResolver {
     /// creates a 'BuckOutPathResolver' that will resolve outputs to the provided buck-out root.
     /// If not set, buck_out defaults to "buck-out/v2"
     pub fn new(buck_out_v2: ProjectRelativePathBuf) -> Self {
         BuckOutPathResolver {
-            buck_out_v2: Arc::new(buck_out_v2),
+            buck_out_v2: Arc::new(BuckOutRoot(buck_out_v2)),
         }
     }
 
     /// Returns the buck-out root.
     pub fn root(&self) -> &ProjectRelativePath {
-        &self.buck_out_v2
+        &self.buck_out_v2.0
     }
 
     /// Resolves a 'BuckOutPath' into a 'ProjectRelativePath' based on the base
@@ -331,7 +338,7 @@ impl BuckOutPathResolver {
         origin: ExternalCellOrigin,
     ) -> ProjectRelativePathBuf {
         ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
-            self.buck_out_v2.as_forward_relative_path(),
+            self.buck_out_v2.0.as_forward_relative_path(),
             ForwardRelativePath::new("external_cells").unwrap(),
             match origin {
                 ExternalCellOrigin::Bundled(_) => ForwardRelativePath::new("bundled").unwrap(),
@@ -445,7 +452,7 @@ impl BuckOutPathResolver {
         content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         owner.make_hashed_path(
-            &self.buck_out_v2,
+            &self.buck_out_v2.0,
             prefix,
             action_key,
             path,
@@ -461,7 +468,7 @@ impl BuckOutPathResolver {
     pub fn unhashed_gen(&self, path: &BuildArtifactPath) -> Option<ProjectRelativePathBuf> {
         Some(ProjectRelativePathBuf::from(
             ForwardRelativePathBuf::concat([
-                self.buck_out_v2.as_forward_relative_path(),
+                self.buck_out_v2.0.as_forward_relative_path(),
                 ForwardRelativePath::unchecked_new("gen"),
                 &*path.0.owner.owner().make_unhashed_path()?,
                 path.path(),

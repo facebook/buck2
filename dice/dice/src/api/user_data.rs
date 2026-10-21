@@ -20,7 +20,11 @@ use crate::api::events::DiceEvent;
 use crate::api::events::DiceEventListener;
 
 /// Includes all user related computation-specific data.
+///
+/// Lives in an `Arc` that every spawned computation dupes, so the alignment keeps the `Arc`'s
+/// counts off the cache line of the data every computation reads.
 #[derive(Allocative)]
+#[repr(align(128))]
 pub struct UserComputationData {
     /// The DiceData provides a spot for users to attach whatever extra things they want.
     ///
