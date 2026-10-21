@@ -47,6 +47,10 @@ use buck2_event_observer::span_tracker::EventTimestamp;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_subscription_proto::SubscriptionRequest;
 use futures::StreamExt;
+use superconsole::Line;
+use superconsole::Lines;
+use superconsole::Span;
+use superconsole::style::Stylize;
 use tokio::pin;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
@@ -342,6 +346,7 @@ async fn snoop_one(
     live: &LiveCommands,
 ) -> buck2_error::Result<SnoopOutcome> {
     let log_dir = ctx.paths()?.log_dir();
+    let isolation = ctx.paths()?.isolation.clone();
 
     let (writer_state_tx, writer_state_rx) = watch::channel(WriterState::Unknown);
     let (invocation, events) = log_path
@@ -355,24 +360,37 @@ async fn snoop_one(
 
     // The header slot is too cramped for the command line (it shares a row with the
     // action stats), so show it as a banner line inside the canvas: switching
-    // invocations then replaces it instead of accumulating scrollback.
-    let invocation_desc = format!(
-        "{}: {}",
-        invocation.trace_id,
-        invocation.display_command_line()
-    );
-    let banner = format!("Snooping {}", invocation_desc);
+    // invocations then replaces it instead of accumulating scrollback. The banner is
+    // styled (reverse-video chip + dimmed trace id) so the snoop chrome is visually
+    // distinct from the snooped command's own superconsole output.
+    let display_args = invocation.display_args();
+    let invocation_desc = format!("{}: {}", invocation.trace_id, display_args);
+    let banner = Lines(vec![Line::from_iter([
+        Span::new_styled_lossy(format!(" SNOOP {isolation} ").bold().reverse()),
+        Span::padding(1),
+        Span::new_styled_lossy(invocation.trace_id.to_string().dim()),
+        Span::sanitized(format!(": {display_args}")),
+    ])]);
 
     let header = match running_logs(&log_dir, live)? {
         Some(running) => match running.iter().position(|l| l.path() == log_path.path()) {
-            Some(i) => format!("(snoop {}/{} running)", i + 1, running.len()),
-            None => format!("(snoop finished, {} running)", running.len()),
+            Some(i) => format!(
+                "(snoop [{}] {}/{} running)",
+                isolation,
+                i + 1,
+                running.len()
+            ),
+            None => format!(
+                "(snoop [{}] finished, {} running)",
+                isolation,
+                running.len()
+            ),
         },
         None => {
             let logs = get_local_logs(&log_dir)?;
             match logs.iter().position(|l| l.path() == log_path.path()) {
-                Some(i) => format!("(snoop {}/{})", i + 1, logs.len()),
-                None => "(snoop)".to_owned(),
+                Some(i) => format!("(snoop [{}] {}/{})", isolation, i + 1, logs.len()),
+                None => format!("(snoop [{}])", isolation),
             }
         }
     };
@@ -392,7 +410,7 @@ async fn snoop_one(
     );
 
     let mut superconsole_config = console_opts.superconsole_config();
-    superconsole_config.banner = Some(banner.clone());
+    superconsole_config.banner = Some(banner);
     // File-change notifications describe the snooped command's own state; emitted
     // above the canvas they would pile up as scrollback across switches.
     superconsole_config.hide_file_watcher_events = true;
@@ -411,7 +429,7 @@ async fn snoop_one(
     // Without a superconsole there is no canvas to carry the banner; print it the
     // ordinary way instead.
     if !used_superconsole {
-        buck2_client_ctx::eprintln!("{}", banner)?;
+        buck2_client_ctx::eprintln!("Snooping [{}] {}", isolation, invocation_desc)?;
     }
 
     let mut events_ctx = EventsCtx::new(None, vec![console]);

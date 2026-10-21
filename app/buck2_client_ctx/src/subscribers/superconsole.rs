@@ -411,10 +411,11 @@ pub struct SuperConsoleConfig {
     /// Two lines for root events with single child event.
     pub two_lines: bool,
     pub max_lines: usize,
-    /// Extra line(s) rendered at the very top of the canvas, e.g. `buck2 log snoop`'s
-    /// `Snooping <trace>: <argv>` banner. Part of the canvas so that erasing or
-    /// redrawing the console replaces it too.
-    pub banner: Option<String>,
+    /// Extra styled line(s) rendered at the very top of the canvas, e.g. `buck2 log
+    /// snoop`'s `Snooping <trace>: <argv>` banner. Part of the canvas so that erasing
+    /// or redrawing the console replaces it too. Callers are responsible for
+    /// sanitizing the content (e.g. via `Span::sanitized`).
+    pub banner: Option<Lines>,
     /// Do not emit "File changed:" notifications above the canvas. Used by viewers
     /// like `buck2 log snoop` where they would pile up as scrollback across
     /// invocation switches.
@@ -513,8 +514,7 @@ impl Component for BuckRootComponent<'_> {
         let mut draw = DrawVertical::new(dimensions);
 
         if let Some(banner) = &self.state.config.banner {
-            let lines = Lines(banner.lines().map(Line::sanitized).collect());
-            draw.draw(&StaticLinesAdapter(&lines), mode)?;
+            draw.draw(&StaticLinesAdapter(banner), mode)?;
         }
 
         // Render games overlay above normal build output when active.
@@ -1930,6 +1930,50 @@ mod tests {
         console
             .handle_command_result(&buck2_cli_proto::CommandResult { result: None })
             .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_banner_rendered() -> buck2_error::Result<()> {
+        let trace_id = TraceId::new();
+        let tick = Tick::now();
+
+        let config = SuperConsoleConfig {
+            banner: Some(Lines(vec![Line::from_iter([Span::new_styled_lossy(
+                " SNOOP v2 ".to_owned().bold().reverse(),
+            )])])),
+            ..Default::default()
+        };
+        let mut console = StatefulSuperConsole::new(
+            "build",
+            trace_id.dupe(),
+            test_console(),
+            Verbosity::default(),
+            true,
+            Timekeeper::new(
+                Box::new(RealtimeClock),
+                EventTimestamp(SystemTime::now().into()),
+            ),
+            config,
+            None,
+        )?;
+
+        console.tick(&tick).await?;
+
+        let frame = match &mut console {
+            StatefulSuperConsole::Running(c) => c
+                .super_console
+                .test_output_mut()
+                .frames
+                .pop()
+                .internal_error("No frame was emitted")?,
+            StatefulSuperConsole::Finalized(_) => {
+                panic!("Console was downgraded");
+            }
+        };
+
+        assert_frame_contains(&frame, "SNOOP v2");
 
         Ok(())
     }
