@@ -33,6 +33,7 @@ use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_hash::BuckFixedInsertionMap;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -66,7 +67,6 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableChecked;
 use starlark::values::typing::StarlarkCallableParamSpec;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl::eval::LIMITED_EXECUTOR;
 use crate::bxl::key::BxlKey;
@@ -248,7 +248,7 @@ async fn eval_bxl_for_anon_target_inner(
     };
     let bxl_key = BxlKey::new(
         bxl_spec,
-        Arc::new(OrderedMap::new()),
+        Arc::new(BuckFixedInsertionMap::new()),
         false,
         global_cfg_options,
     );

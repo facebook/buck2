@@ -19,8 +19,8 @@ use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedR
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::package::PackageLabel;
+use buck2_hash::BuckFixedSortedMap;
 use pagable::Pagable;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::parse_import::RelativeImports;
 use crate::parse_import::parse_import;
@@ -38,7 +38,7 @@ enum PackageImportsError {
 pub struct ImplicitImport {
     import: ImportPath,
     // Oddly buckv1 allows renaming symbols for these imports.
-    symbols: OrderedMap<String, String>,
+    symbols: BuckFixedSortedMap<String, String>,
 }
 
 impl ImplicitImport {
@@ -60,7 +60,7 @@ pub struct PackageImplicitImports {
     /// It would probably be a little nicer if this were a sequence_trie, but
     /// that doesn't support Borrow in the same way normal maps do, so in it's
     /// current state it's unclear if it would be better.
-    mappings: OrderedMap<CellRelativePathBuf, Arc<ImplicitImport>>,
+    mappings: BuckFixedSortedMap<CellRelativePathBuf, Arc<ImplicitImport>>,
 }
 
 impl PackageImplicitImports {
@@ -75,7 +75,7 @@ impl PackageImplicitImports {
         cell_alias_resolver: CellAliasResolver,
         encoded_mappings: Option<&str>,
     ) -> buck2_error::Result<Self> {
-        let mut mappings = OrderedMap::new();
+        let mut mappings = Vec::new();
         if let Some(value) = encoded_mappings {
             let root_path = CellPath::empty(cell_name.name());
             for item in value.split(',') {
@@ -96,25 +96,26 @@ impl PackageImplicitImports {
                 // Package implicit imports are only going to be used for a top-level module in
                 // the same cell, so we can set that early.
                 let import_path = ImportPath::new_with_build_file_cells(import_path, cell_name)?;
-                let mut symbols = OrderedMap::new();
-                for spec in symbol_specs.split("::") {
-                    let (alias, symbol) = match spec.split_once('=') {
-                        Some(v) => v,
-                        None => (spec, spec),
-                    };
-                    symbols.insert(alias.to_owned(), symbol.to_owned());
-                }
+                let symbols = symbol_specs
+                    .split("::")
+                    .map(|spec| {
+                        let (alias, symbol) = spec.split_once('=').unwrap_or((spec, spec));
+                        (alias.to_owned(), symbol.to_owned())
+                    })
+                    .collect();
 
-                mappings.insert(
+                mappings.push((
                     CellRelativePathBuf::try_from(dir.to_owned())?,
                     Arc::new(ImplicitImport {
                         import: import_path,
                         symbols,
                     }),
-                );
+                ));
             }
         }
-        Ok(Self { mappings })
+        Ok(Self {
+            mappings: mappings.into_iter().collect(),
+        })
     }
 
     pub fn get(&self, package: PackageLabel) -> Option<&Arc<ImplicitImport>> {

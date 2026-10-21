@@ -44,6 +44,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
+use buck2_hash::BuckFixedInsertionMap;
 use buck2_hash::IntentionallyStdHashMap;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
@@ -71,7 +72,6 @@ use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use indoc::indoc;
 use itertools::Itertools;
-use starlark_map::ordered_map::OrderedMap;
 
 #[tokio::test]
 async fn test_analysis_calculation() -> buck2_error::Result<()> {
@@ -139,7 +139,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
                 "#
         ),
         LoadedModules {
-            map: OrderedMap::from_iter([(
+            map: BuckFixedInsertionMap::from_iter([(
                 OwnedStarlarkModulePath::LoadFile(bzlfile.clone()),
                 module.dupe(),
             )]),
@@ -282,7 +282,7 @@ async fn test_audit_downgrades_only_default_layers() -> buck2_error::Result<()> 
         )?;
 
     let loaded_modules = LoadedModules {
-        map: OrderedMap::from_iter([(
+        map: BuckFixedInsertionMap::from_iter([(
             OwnedStarlarkModulePath::LoadFile(bzlfile.clone()),
             module.dupe(),
         )]),

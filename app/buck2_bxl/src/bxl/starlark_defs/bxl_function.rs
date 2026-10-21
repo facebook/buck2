@@ -18,6 +18,8 @@ use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_core::bxl::BxlFilePath;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_hash::BuckFixedInsertionMap;
+use buck2_hash::BuckIndexMap;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use cli_args::CliArgs;
 use derive_more::Display;
@@ -43,7 +45,6 @@ use starlark::values::ValueTyped;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::starlark_value;
 use starlark::values::typing::StarlarkCallable;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl::eval::CliResolutionCtx;
 use crate::bxl::starlark_defs::cli_args;
@@ -262,8 +263,8 @@ impl<'a> BxlCliSpec<'a> {
         &self,
         clap: clap::ArgMatches,
         ctx: &CliResolutionCtx<'_>,
-    ) -> buck2_error::Result<OrderedMap<String, CliArgValue>> {
-        let mut res = OrderedMap::with_capacity(self.cli_args.len());
+    ) -> buck2_error::Result<BuckFixedInsertionMap<String, CliArgValue>> {
+        let mut res = BuckIndexMap::with_capacity(self.cli_args.len());
 
         for (arg, cli) in self.cli_args.iter() {
             let snake_case_args = arg.replace('-', "_");
@@ -280,7 +281,7 @@ impl<'a> BxlCliSpec<'a> {
             );
         }
 
-        Ok(res)
+        Ok(res.freeze())
     }
 }
 

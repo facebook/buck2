@@ -44,6 +44,7 @@ use buck2_data::BxlEnsureArtifactsStart;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_hash::BuckFixedInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::ParseImportOptions;
@@ -63,7 +64,6 @@ use dupe::IterDupedExt;
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use itertools::Itertools;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl;
 use crate::bxl::calculation::eval_bxl;
@@ -265,7 +265,7 @@ impl BxlServerCommand {
         &self,
         ctx: &BxlCommandContext<'_>,
         dice_ctx: &DiceTransaction,
-        bxl_args: Arc<OrderedMap<String, CliArgValue>>,
+        bxl_args: Arc<BuckFixedInsertionMap<String, CliArgValue>>,
     ) -> bxl::eval::Result<Arc<BxlResult>> {
         let bxl_key = BxlKey::new(
             ctx.bxl_label.clone(),

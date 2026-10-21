@@ -33,6 +33,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_hash::BuckFixedInsertionMap;
 use buck2_hash::BuckIndexSet;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
@@ -67,7 +68,6 @@ use starlark::values::list::ListRef;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
-use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use variant_name::VariantName;
 
@@ -188,8 +188,6 @@ impl CliArgs {
     Eq,
     PartialEq,
     Hash,
-    Ord,
-    PartialOrd,
     Allocative,
     Serialize,
     strong_hash::StrongHash,
@@ -208,7 +206,7 @@ pub(crate) enum JsonCliArgValueData {
         "{}",
         _0.iter().map(|(k, v)| format!("(k={k},v={v})")).join(",")
     )]
-    Object(OrderedMap<String, JsonCliArgValueData>),
+    Object(BuckFixedInsertionMap<String, JsonCliArgValueData>),
 }
 
 impl JsonCliArgValueData {
@@ -233,13 +231,11 @@ impl JsonCliArgValueData {
                 }
                 JsonCliArgValueData::List(vec)
             }
-            serde_json::Value::Object(mp) => {
-                let mut res = OrderedMap::new();
-                for (k, v) in mp.into_iter() {
-                    res.insert(k.clone(), Self::from_serde_value(v));
-                }
-                JsonCliArgValueData::Object(res)
-            }
+            serde_json::Value::Object(mp) => JsonCliArgValueData::Object(
+                mp.iter()
+                    .map(|(k, v)| (k.clone(), Self::from_serde_value(v)))
+                    .collect(),
+            ),
         }
     }
 
@@ -273,8 +269,6 @@ impl JsonCliArgValueData {
     Eq,
     Clone,
     Hash,
-    Ord,
-    PartialOrd,
     Allocative,
     strong_hash::StrongHash,
     Pagable
@@ -1309,6 +1303,7 @@ mod tests {
     use buck2_core::provider::label::testing::ProvidersLabelTestExt;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_core::target::label::label::TargetLabel;
+    use buck2_hash::BuckIndexMap;
     use buck2_hash::BuckIndexSet;
     use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
     use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
@@ -1316,7 +1311,6 @@ mod tests {
     use num_bigint::BigInt;
     use starlark::values::Heap;
     use starlark::values::Value;
-    use starlark_map::ordered_map::OrderedMap;
 
     use crate::bxl::starlark_defs::cli_args::CliArgType;
     use crate::bxl::starlark_defs::cli_args::CliArgValue;
@@ -1339,7 +1333,7 @@ mod tests {
 
     #[test]
     fn print_cli_arg_json() -> buck2_error::Result<()> {
-        let mut args = OrderedMap::new();
+        let mut args = BuckIndexMap::new();
         args.insert("my_bool".to_owned(), JsonCliArgValueData::Bool(true));
         args.insert(
             "my_string".to_owned(),
@@ -1356,10 +1350,10 @@ mod tests {
 
         args.insert(
             "nested".to_owned(),
-            JsonCliArgValueData::Object(args.clone()),
+            JsonCliArgValueData::Object(args.clone().freeze()),
         );
 
-        let printed = format!("{}", JsonCliArgValueData::Object(args));
+        let printed = format!("{}", JsonCliArgValueData::Object(args.freeze()));
         assert_eq!(
             printed,
             "(k=my_bool,v=true),(k=my_string,v=test),(k=my_array,v=a,b,c),(k=nested,v=(k=my_bool,v=true),(k=my_string,v=test),(k=my_array,v=a,b,c))"

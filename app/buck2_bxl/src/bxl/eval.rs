@@ -34,6 +34,7 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_hash::BuckFixedInsertionMap;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::LoadedModule;
@@ -55,7 +56,6 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::structs::AllocStruct;
 use starlark::values::structs::StructRef;
-use starlark_map::ordered_map::OrderedMap;
 use tokio::sync::Semaphore;
 
 use crate::bxl::key::BxlKey;
@@ -395,7 +395,7 @@ pub(crate) struct CliResolutionCtx<'d> {
 }
 
 pub(crate) enum BxlResolvedCliArgs {
-    Resolved(OrderedMap<String, CliArgValue>),
+    Resolved(BuckFixedInsertionMap<String, CliArgValue>),
     Help,
 }
 
