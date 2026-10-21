@@ -760,11 +760,10 @@ pub(crate) mod state_machine {
             let artifact = ArtifactValue::file(io.digest_config().empty_file());
             let (dm, _daemon_dispatcher_events) = make_materializer(io, None).await;
 
-            dm.declare_existing(
-                &WriteLease::noop(),
-                vec![DeclareArtifactPayload { path, artifact }],
-            )
-            .await?;
+            let lease = dm.as_dyn().prepare_outputs(vec![path.clone()]).await?;
+            dm.as_dyn()
+                .declare_existing(&lease, vec![DeclareArtifactPayload { path, artifact }])
+                .await?;
 
             let source = dm.allocative().await?.flamegraph().write();
             assert!(
@@ -1242,17 +1241,20 @@ pub(crate) mod state_machine {
             });
             let (mut dm, _events) = make_materializer(io, None).await;
             dm.materialize_final_artifacts = false;
-            dm.declare_existing(
-                &WriteLease::noop(),
-                vec![DeclareArtifactPayload {
-                    path: path.clone(),
-                    artifact: value.dupe(),
-                }],
-            )
-            .await?;
+            let lease = dm.as_dyn().prepare_outputs(vec![path.clone()]).await?;
+            dm.as_dyn()
+                .declare_existing(
+                    &lease,
+                    vec![DeclareArtifactPayload {
+                        path: path.clone(),
+                        artifact: value.dupe(),
+                    }],
+                )
+                .await?;
             assert!(dm.has_artifact_at(path.clone()).await?);
 
             let response = dm
+                .as_dyn()
                 .materialize(request(
                     vec![(path.clone(), value.dupe())],
                     MaterializationPurpose::FinalOutput { required: false },
@@ -1277,6 +1279,7 @@ pub(crate) mod state_machine {
 
             dm.materialize_final_artifacts = true;
             let response = dm
+                .as_dyn()
                 .materialize(request(
                     vec![(path, value)],
                     MaterializationPurpose::FinalOutput { required: true },
@@ -2490,14 +2493,16 @@ pub(crate) mod state_machine {
 
             let existing = make_path("foo/existing");
             let existing_value = file_value(digest_config, b"existing");
-            dm.declare_existing(
-                &WriteLease::noop(),
-                vec![DeclareArtifactPayload {
-                    path: existing.clone(),
-                    artifact: existing_value.dupe(),
-                }],
-            )
-            .await?;
+            let lease = dm.as_dyn().prepare_outputs(vec![existing.clone()]).await?;
+            dm.as_dyn()
+                .declare_existing(
+                    &lease,
+                    vec![DeclareArtifactPayload {
+                        path: existing.clone(),
+                        artifact: existing_value.dupe(),
+                    }],
+                )
+                .await?;
 
             let remote = make_path("foo/remote");
             let remote_value = file_value(digest_config, b"remote");
@@ -2518,6 +2523,7 @@ pub(crate) mod state_machine {
             let undeclared = make_path("foo/undeclared");
 
             let response = dm
+                .as_dyn()
                 .materialize(request(
                     vec![
                         (remote.clone(), remote_value),
@@ -2550,17 +2556,19 @@ pub(crate) mod state_machine {
 
             let path = make_path("foo/output");
             io.fs().write_file(&path, "previous", false)?;
-            dm.declare_existing(
-                &WriteLease::noop(),
-                vec![DeclareArtifactPayload {
-                    path: path.clone(),
-                    artifact: file_value(digest_config, b"previous"),
-                }],
-            )
-            .await?;
+            let lease = dm.as_dyn().prepare_outputs(vec![path.clone()]).await?;
+            dm.as_dyn()
+                .declare_existing(
+                    &lease,
+                    vec![DeclareArtifactPayload {
+                        path: path.clone(),
+                        artifact: file_value(digest_config, b"previous"),
+                    }],
+                )
+                .await?;
             assert!(dm.has_artifact_at(path.clone()).await?);
 
-            let _lease = dm.prepare_outputs(vec![path.clone()]).await?;
+            let _lease = dm.as_dyn().prepare_outputs(vec![path.clone()]).await?;
             assert!(!dm.has_artifact_at(path.clone()).await?);
             assert!(
                 io.fs().resolve(&path).exists(),
@@ -2582,13 +2590,15 @@ pub(crate) mod state_machine {
 
             let src = make_path("foo/placeholder");
             let dest = make_path("foo/content");
-            dm.publish(
-                &WriteLease::noop(),
-                src.clone(),
-                dest.clone(),
-                file_value(digest_config, b"published"),
-            )
-            .await?;
+            let lease = dm.as_dyn().prepare_outputs(vec![src.clone()]).await?;
+            dm.as_dyn()
+                .publish(
+                    &lease,
+                    src.clone(),
+                    dest.clone(),
+                    file_value(digest_config, b"published"),
+                )
+                .await?;
 
             // `dest` is on disk before `publish` returns, and `src` stays tracked because it is
             // what `dest` copies from.
@@ -2629,6 +2639,7 @@ pub(crate) mod state_machine {
                 .await?;
 
             let response = dm
+                .as_dyn()
                 .materialize(request(
                     vec![(path.clone(), value.dupe())],
                     MaterializationPurpose::FinalOutput { required: false },
@@ -2637,6 +2648,7 @@ pub(crate) mod state_machine {
             assert_eq!(response.results.len(), 1);
 
             let response = dm
+                .as_dyn()
                 .materialize(request(
                     vec![(path.clone(), value)],
                     MaterializationPurpose::FinalOutput { required: true },
@@ -2653,5 +2665,16 @@ pub(crate) mod state_machine {
             Ok(())
         })
         .await
+    }
+
+    /// The public API of the materializer under test, which lives on the trait object.
+    trait AsDyn {
+        fn as_dyn(&self) -> &dyn Materializer;
+    }
+
+    impl AsDyn for DeferredMaterializerAccessor<StubIoHandler> {
+        fn as_dyn(&self) -> &dyn Materializer {
+            self
+        }
     }
 }

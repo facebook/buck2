@@ -1157,6 +1157,13 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             self.cancellations,
         )
         .await?;
+        // FIXME(materializer): The runner writes the outputs after this returns, so nothing
+        // here can report them: what it writes is untracked content under buck-out that no
+        // core serves, keeps or cleans. Closing that needs the runner to report what it wrote,
+        // or buck2 to collect it once the runner is done with the command.
+        if let Some(lease) = materialized_inputs.outputs {
+            lease.abandon();
+        }
 
         for local_resource_setup_command in setup_commands.iter() {
             let materialized_inputs = materialize_inputs(
@@ -1179,6 +1186,10 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
                 self.cancellations,
             )
             .await?;
+            // FIXME(materializer): As for the test command above.
+            if let Some(lease) = materialized_inputs.outputs {
+                lease.abandon();
+            }
         }
 
         Ok(create_prepare_for_local_execution_result(

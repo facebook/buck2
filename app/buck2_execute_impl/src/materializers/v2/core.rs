@@ -635,7 +635,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         self.cleaner.prevent().await
     }
 
-    async fn declare_existing(
+    async fn declare_existing_impl(
         &self,
         lease: &WriteLease,
         artifacts: Vec<DeclareArtifactPayload>,
@@ -661,7 +661,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         Ok(())
     }
 
-    async fn materialize(
+    async fn materialize_impl(
         &self,
         request: MaterializeRequest,
     ) -> buck2_error::Result<MaterializeResponse> {
@@ -845,7 +845,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
             .await
     }
 
-    async fn prepare_outputs(
+    async fn prepare_outputs_impl(
         &self,
         paths: Vec<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<WriteLease> {
@@ -862,7 +862,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
             .await
     }
 
-    async fn publish(
+    async fn publish_impl(
         &self,
         lease: &WriteLease,
         src: ProjectRelativePathBuf,
