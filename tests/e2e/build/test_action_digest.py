@@ -13,7 +13,11 @@ import typing
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test, get_mode_from_platform
+from buck2.tests.e2e_util.buck_workspace import (
+    buck_test,
+    BuckTestCase,
+    get_mode_from_platform,
+)
 from buck2.tests.e2e_util.helper.utils import read_what_ran
 
 
@@ -23,45 +27,6 @@ from buck2.tests.e2e_util.helper.utils import read_what_ran
 # fails on its own clock rather than letting TPX time it out, because on diffs
 # a TPX timeout is reported as a warning instead of a failure.
 _BUILD_DEADLINE_S = 20 * 60
-
-
-# If this test fails, it means that a change that modifies action digest was made.
-# Background in this post:
-# https://fb.workplace.com/groups/buck2eng/permalink/3452581371706005/
-# Changes should instead be deployed by:
-#   1: Create a new buck2 flag and hide the changes behind it (Ex. D59503359)
-#   2: Wait for bvb that contains #1 to land. To be safe, wait for a second to land
-#      as well so you're guaranteed that the first bump can no longer be
-#      fast-reverted.
-#   3: Activate the flag via .buckconfig (Ex. D59648609)
-#       3.1: Fix/followup on any CI failures caused by cache invalidation
-#   4: Observe for a couple of days to ensure that there are no issues
-#   5. Remove the code associated with the config flag but NOT the config itself,
-#      this way this test wouldn't need to be changed at all (Ex. D59864942)
-#   6: Wait for bvb that contains #5 to land. Optionally wait for a second as above.
-#   7: Remove the config flag (Ex. D59988979)
-#
-# Three buck2 binaries are compared pairwise: the one compiled from this
-# checkout, the deployed `stable` channel, and the deployed `previous`
-# channel. On a version-bump diff `stable` is the candidate and `previous`
-# is the version it replaces, so the stable/previous pair is the gate that
-# keeps a digest change out of production even when trunk already contains it.
-@buck_test(inplace=True)
-async def test_action_digest(buck: Buck) -> None:
-    compiled_digests = await _build_and_collect_digests(buck, "compiled buck2")
-
-    buck.path_to_executable = Path("buck2")
-    deployed_digests = await _build_and_collect_digests(buck, "deployed buck2")
-
-    buck.set_env("BUCK2_CHANNEL", "previous")
-    previous_digests = await _build_and_collect_digests(buck, "previous buck2")
-
-    _assert_same_digests(
-        "compiled buck2", compiled_digests, "deployed buck2", deployed_digests
-    )
-    _assert_same_digests(
-        "deployed buck2", deployed_digests, "previous buck2", previous_digests
-    )
 
 
 async def _build_and_collect_digests(buck: Buck, arm_name: str) -> dict[str, list[str]]:
@@ -123,3 +88,43 @@ def _format_digests(
     return "".join(
         f"  {digest}  {'; '.join(digests[digest])}\n" for digest in sorted(selected)
     )
+
+
+class ActionDigestTest(BuckTestCase):
+    # If this test fails, it means that a change that modifies action digest was made.
+    # Background in this post:
+    # https://fb.workplace.com/groups/buck2eng/permalink/3452581371706005/
+    # Changes should instead be deployed by:
+    #   1: Create a new buck2 flag and hide the changes behind it (Ex. D59503359)
+    #   2: Wait for bvb that contains #1 to land. To be safe, wait for a second to land
+    #      as well so you're guaranteed that the first bump can no longer be
+    #      fast-reverted.
+    #   3: Activate the flag via .buckconfig (Ex. D59648609)
+    #       3.1: Fix/followup on any CI failures caused by cache invalidation
+    #   4: Observe for a couple of days to ensure that there are no issues
+    #   5. Remove the code associated with the config flag but NOT the config itself,
+    #      this way this test wouldn't need to be changed at all (Ex. D59864942)
+    #   6: Wait for bvb that contains #5 to land. Optionally wait for a second as above.
+    #   7: Remove the config flag (Ex. D59988979)
+    #
+    # Three buck2 binaries are compared pairwise: the one compiled from this
+    # checkout, the deployed `stable` channel, and the deployed `previous`
+    # channel. On a version-bump diff `stable` is the candidate and `previous`
+    # is the version it replaces, so the stable/previous pair is the gate that
+    # keeps a digest change out of production even when trunk already contains it.
+    @buck_test(inplace=True)
+    async def test_action_digest(self, buck: Buck) -> None:
+        compiled_digests = await _build_and_collect_digests(buck, "compiled buck2")
+
+        buck.path_to_executable = Path("buck2")
+        deployed_digests = await _build_and_collect_digests(buck, "deployed buck2")
+
+        buck.set_env("BUCK2_CHANNEL", "previous")
+        previous_digests = await _build_and_collect_digests(buck, "previous buck2")
+
+        _assert_same_digests(
+            "compiled buck2", compiled_digests, "deployed buck2", deployed_digests
+        )
+        _assert_same_digests(
+            "deployed buck2", deployed_digests, "previous buck2", previous_digests
+        )

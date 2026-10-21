@@ -10,11 +10,12 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(inplace=True)
-async def test_lsp_starts_fbsource(buck: Buck) -> None:
-    async with await buck.lsp() as lsp:
-        # Will fail if the initialize response is not received
-        await lsp.init_connection()
+class LspFbsourceTest(BuckTestCase):
+    @buck_test(inplace=True)
+    async def test_lsp_starts_fbsource(self, buck: Buck) -> None:
+        async with await buck.lsp() as lsp:
+            # Will fail if the initialize response is not received
+            await lsp.init_connection()

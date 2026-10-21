@@ -41,7 +41,7 @@ def buck_e2e_test(
     heavyweight_threads = "4",
     remote_execution = None,
     visibility = None,
-    use_unittest = False,
+    use_unittest = None,
 ):
     """
     Custom macro for buck2/buckaemon end-to-end tests.
@@ -49,7 +49,7 @@ def buck_e2e_test(
     use_unittest:
         Whether the sources are `unittest` test modules (`BuckTestCase` subclasses) rather
         than pytest modules. pytest is unsupported at Meta; this is the way every test is
-        moving.
+        moving. Unset, the `buck2_e2e_test.use_unittest` package value decides.
     """
     srcs = srcs or []
     labels = labels or []
@@ -67,6 +67,11 @@ def buck_e2e_test(
     # Having it enabled has significant negative impact on Starlark evaluation performance.
     env["RUST_LIB_BACKTRACE"] = "0"
 
+    # For autodeps
+    read_package_value = getattr(native, "read_package_value", None)
+    if use_unittest == None:
+        use_unittest = bool(read_package_value and read_package_value("buck2_e2e_test.use_unittest"))
+
     if not use_unittest:
         # Flags passed to pytest.
         # -vv shows full assertion output on failures.
@@ -76,8 +81,6 @@ def buck_e2e_test(
         # traceback of an error raised while pytest imports a test module or its conftest
         env.setdefault("PYTEST_ADDOPTS", "-vv --tb=native --no-header --no-summary")
 
-    # For autodeps
-    read_package_value = getattr(native, "read_package_value", None)
     e2e_flavor = read_package_value and read_package_value("buck2_e2e_test.flavor")
     if e2e_flavor == "isolated":
         env["BUCK2_E2E_TEST_FLAVOR"] = "isolated"
@@ -266,7 +269,7 @@ def buck2_e2e_test(
     heavyweight_threads = "4",
     remote_execution = None,
     visibility = None,
-    use_unittest = False,
+    use_unittest = None,
 ):
     """
     Custom macro for buck2 end-to-end tests. All tests are run against buck2 compiled in-repo (compiled buck2).
@@ -447,7 +450,7 @@ def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}, allow_bundled_ce
             attrs["deps"] = list(attrs.get("deps") or [])
             attrs["deps"].extend(IMPLICIT_DEPS)
 
-            buck2_e2e_test(name = target, use_unittest = True, **attrs)
+            buck2_e2e_test(name = target, **attrs)
             if target in materializer_variants:
                 for materializer in OTHER_MATERIALIZERS:
                     variant_attrs = dict(attrs)

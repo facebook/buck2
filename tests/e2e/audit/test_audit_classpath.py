@@ -15,35 +15,38 @@ from typing import Iterable, Set
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def _classpath_jars(classpaths: Iterable[str]) -> Set[str]:
     return {Path(p).name for p in classpaths}
 
 
-@buck_test(inplace=True, skip_for_os=["windows"])
-async def test_audit_classpath(buck: Buck) -> None:
-    await expect_failure(
-        buck.audit("classpath", "fbsource//fbandroid/buck2/tests/good/classpath:top"),
-        stderr_regex=r"Using `audit classpath` is no longer supported. Use the `\[classpath\]` or `\[classpath_targets\]` sub-targets instead.",
-    )
+class AuditClasspathTest(BuckTestCase):
+    @buck_test(inplace=True, skip_for_os=["windows"])
+    async def test_audit_classpath(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.audit(
+                "classpath", "fbsource//fbandroid/buck2/tests/good/classpath:top"
+            ),
+            stderr_regex=r"Using `audit classpath` is no longer supported. Use the `\[classpath\]` or `\[classpath_targets\]` sub-targets instead.",
+        )
 
+    @buck_test(inplace=True, skip_for_os=["windows"])
+    async def test_audit_classpath_binary(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.audit(
+                "classpath", "fbsource//fbandroid/buck2/tests/good/classpath:apk"
+            ),
+            stderr_regex=r"Using `audit classpath` is no longer supported. Use the `\[classpath\]` or `\[classpath_targets\]` sub-targets instead.",
+        )
 
-@buck_test(inplace=True, skip_for_os=["windows"])
-async def test_audit_classpath_binary(buck: Buck) -> None:
-    await expect_failure(
-        buck.audit("classpath", "fbsource//fbandroid/buck2/tests/good/classpath:apk"),
-        stderr_regex=r"Using `audit classpath` is no longer supported. Use the `\[classpath\]` or `\[classpath_targets\]` sub-targets instead.",
-    )
+    @buck_test(inplace=True, skip_for_os=["windows"])
+    async def test_audit_classpath_json(self, buck: Buck) -> None:
+        top = "fbsource//fbandroid/buck2/tests/good/classpath:top"
+        direct_dep = "fbsource//fbandroid/buck2/tests/good/classpath:direct_dep"
 
-
-@buck_test(inplace=True, skip_for_os=["windows"])
-async def test_audit_classpath_json(buck: Buck) -> None:
-    top = "fbsource//fbandroid/buck2/tests/good/classpath:top"
-    direct_dep = "fbsource//fbandroid/buck2/tests/good/classpath:direct_dep"
-
-    await expect_failure(
-        buck.audit("classpath", top, direct_dep, "--json"),
-        stderr_regex=r"Using `audit classpath` is no longer supported. Use the `\[classpath\]` or `\[classpath_targets\]` sub-targets instead.",
-    )
+        await expect_failure(
+            buck.audit("classpath", top, direct_dep, "--json"),
+            stderr_regex=r"Using `audit classpath` is no longer supported. Use the `\[classpath\]` or `\[classpath_targets\]` sub-targets instead.",
+        )

@@ -11,23 +11,24 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(inplace=True)
-async def test_what_failed(buck: Buck) -> None:
-    pkg = "fbcode//buck2/tests/targets/rules/genrule/bad"
-    bad = "my_genrule_bad_with_dep"
-    good = "stub"
+class WhatFailedTest(BuckTestCase):
+    @buck_test(inplace=True)
+    async def test_what_failed(self, buck: Buck) -> None:
+        pkg = "fbcode//buck2/tests/targets/rules/genrule/bad"
+        bad = "my_genrule_bad_with_dep"
+        good = "stub"
 
-    await expect_failure(buck.build(f"{pkg}:{bad}"))
-    out = await buck.log("what-failed")
+        await expect_failure(buck.build(f"{pkg}:{bad}"))
+        out = await buck.log("what-failed")
 
-    # Only the failed command should be in what-failed.
-    assert f"{pkg}:{bad}" in out.stdout
-    assert f"{pkg}:{good}" not in out.stdout
+        # Only the failed command should be in what-failed.
+        assert f"{pkg}:{bad}" in out.stdout
+        assert f"{pkg}:{good}" not in out.stdout
 
-    # Even though both commands are here.
-    out = await buck.log("what-ran")
-    assert f"{pkg}:{bad}" in out.stdout
-    assert f"{pkg}:{good}" in out.stdout
+        # Even though both commands are here.
+        out = await buck.log("what-ran")
+        assert f"{pkg}:{bad}" in out.stdout
+        assert f"{pkg}:{good}" in out.stdout

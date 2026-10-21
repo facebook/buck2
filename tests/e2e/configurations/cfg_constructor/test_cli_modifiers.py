@@ -10,7 +10,7 @@
 from buck2.tests.e2e.configurations.cfg_constructor.modifiers_util import get_cfg
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 DATA_DIR = (
     "fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_cli_modifiers_data"
@@ -21,33 +21,31 @@ CONSTRAINT_B = f"{DATA_DIR}:B_1"
 BUCK_TEST_MARKER = buck_test(inplace=True)
 
 
-@BUCK_TEST_MARKER
-async def test_one_cli_modifier(buck: Buck) -> None:
-    # -m A
-    assert CONSTRAINT_A in await get_cfg(buck, TARGET, "--modifier", CONSTRAINT_A)
+class CliModifiersTest(BuckTestCase):
+    @BUCK_TEST_MARKER
+    async def test_one_cli_modifier(self, buck: Buck) -> None:
+        # -m A
+        assert CONSTRAINT_A in await get_cfg(buck, TARGET, "--modifier", CONSTRAINT_A)
 
+    @BUCK_TEST_MARKER
+    async def test_two_cli_modifier(self, buck: Buck) -> None:
+        # -m A,B
+        result = await get_cfg(
+            buck, TARGET, "--modifier", CONSTRAINT_A, "--modifier", CONSTRAINT_B
+        )
+        assert CONSTRAINT_A in result
+        assert CONSTRAINT_B in result
 
-@BUCK_TEST_MARKER
-async def test_two_cli_modifier(buck: Buck) -> None:
-    # -m A,B
-    result = await get_cfg(
-        buck, TARGET, "--modifier", CONSTRAINT_A, "--modifier", CONSTRAINT_B
-    )
-    assert CONSTRAINT_A in result
-    assert CONSTRAINT_B in result
+    @BUCK_TEST_MARKER
+    async def test_cli_modifiers_bad_input(self, buck: Buck) -> None:
+        # -m A B (error)
+        await expect_failure(
+            buck.cquery(f"deps({TARGET})", "--modifier", CONSTRAINT_A, CONSTRAINT_B),
+            stderr_regex=f"got args `{CONSTRAINT_B}`",
+        )
 
-
-@BUCK_TEST_MARKER
-async def test_cli_modifiers_bad_input(buck: Buck) -> None:
-    # -m A B (error)
-    await expect_failure(
-        buck.cquery(f"deps({TARGET})", "--modifier", CONSTRAINT_A, CONSTRAINT_B),
-        stderr_regex=f"got args `{CONSTRAINT_B}`",
-    )
-
-
-@BUCK_TEST_MARKER
-async def test_cli_modifier_alias(buck: Buck) -> None:
-    assert "ovr_config//os/constraints:os[linux]" in await get_cfg(
-        buck, TARGET, "--modifier", "linux"
-    )
+    @BUCK_TEST_MARKER
+    async def test_cli_modifier_alias(self, buck: Buck) -> None:
+        assert "ovr_config//os/constraints:os[linux]" in await get_cfg(
+            buck, TARGET, "--modifier", "linux"
+        )

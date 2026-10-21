@@ -10,35 +10,33 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_lazy_unconfigured_target(buck: Buck) -> None:
-    await buck.bxl(
-        "//bxl/lazy_unconfigured_target_node.bxl:lazy_unconfigured_target_node_resolve",
-    )
+class BxlLazyUnconfiguredTargetNodeTest(BuckTestCase):
+    @buck_test(inplace=False, data_dir="bxl/simple")
+    async def test_lazy_unconfigured_target(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//bxl/lazy_unconfigured_target_node.bxl:lazy_unconfigured_target_node_resolve",
+        )
 
+    @buck_test(inplace=False, data_dir="bxl/simple")
+    async def test_lazy_unconfigured_target_error(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.bxl(
+                "//bxl/lazy_unconfigured_target_node.bxl:lazy_unconfigured_target_node_resolve_error"
+            ),
+            stderr_regex="error: Unknown target `not_exist` from package `root//bin`.",
+        )
 
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_lazy_unconfigured_target_error(buck: Buck) -> None:
-    await expect_failure(
-        buck.bxl(
-            "//bxl/lazy_unconfigured_target_node.bxl:lazy_unconfigured_target_node_resolve_error"
-        ),
-        stderr_regex="error: Unknown target `not_exist` from package `root//bin`.",
-    )
+    @buck_test(inplace=False, data_dir="bxl/simple")
+    async def test_lazy_unconfigured_target_catch_error(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//bxl/lazy_unconfigured_target_node.bxl:lazy_unconfigured_target_node_resolve_catch_error",
+        )
 
-
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_lazy_unconfigured_target_catch_error(buck: Buck) -> None:
-    await buck.bxl(
-        "//bxl/lazy_unconfigured_target_node.bxl:lazy_unconfigured_target_node_resolve_catch_error",
-    )
-
-
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_lazy_unconfigured_target_node_pattern(buck: Buck) -> None:
-    await buck.bxl(
-        "//bxl/lazy_unconfigured_target_node.bxl:lazy_unconfigured_target_node_pattern",
-    )
+    @buck_test(inplace=False, data_dir="bxl/simple")
+    async def test_lazy_unconfigured_target_node_pattern(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//bxl/lazy_unconfigured_target_node.bxl:lazy_unconfigured_target_node_pattern",
+        )

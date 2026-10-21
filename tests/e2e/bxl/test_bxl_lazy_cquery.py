@@ -9,20 +9,20 @@
 # pyre-strict
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_cquery_eval(buck: Buck) -> None:
-    result = await buck.bxl(
-        "//bxl:lazy_cquery.bxl:eval_query_test",
-    )
+class BxlLazyCqueryTest(BuckTestCase):
+    @buck_test(inplace=False, data_dir="bxl/simple")
+    async def test_cquery_eval(self, buck: Buck) -> None:
+        result = await buck.bxl(
+            "//bxl:lazy_cquery.bxl:eval_query_test",
+        )
 
-    assert "TARGETS.fixture" in result.stdout
+        assert "TARGETS.fixture" in result.stdout
 
-
-@buck_test(inplace=False, data_dir="bxl/simple")
-async def test_eval_query_catch_error(buck: Buck) -> None:
-    await buck.bxl(
-        "//bxl:lazy_cquery.bxl:eval_query_catch_error_test",
-    )
+    @buck_test(inplace=False, data_dir="bxl/simple")
+    async def test_eval_query_catch_error(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//bxl:lazy_cquery.bxl:eval_query_catch_error_test",
+        )

@@ -15,7 +15,7 @@ load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 # tools/build_defs/check_dependencies_test.bzl that passes additional arguments for meta specific allowlist.
 
 def _check_dependencies_test(name, target, contacts, env, labels: list[str], deps, compatible_with = None, **kwargs):
-    # pytest derives the test module name from `base_module`; leaving it to the calling
+    # The test module's name comes from `base_module`; leaving it to the calling
     # package lets it collide with a stdlib module (e.g. a package named `cmd`).
     kwargs.setdefault("base_module", "buck2.tests.e2e_util")
     buck2_e2e_test(
@@ -29,6 +29,7 @@ def _check_dependencies_test(name, target, contacts, env, labels: list[str], dep
         test_with_deployed_buck2 = True,
         skip_deployed_buck2_version_dep = True,
         use_buck_api = False,
+        use_unittest = True,
         # In order for target determinator to trigger this test when the `target` specified has changed, we need to introduce a dep on `target`.
         # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
         # This adds a dep on `target` in a select arm that is never satisfied. This will work for TD because TD only looks at deps on unconfigured
