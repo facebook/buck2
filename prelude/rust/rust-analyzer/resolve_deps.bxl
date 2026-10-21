@@ -381,7 +381,7 @@ def _short_version(version: str) -> str:
         return "{}.{}".format(major, minor)
     return version
 
-def _resolve_vendor_rust_libraries(ctx: bxl.Context, targets: bxl.UnconfiguredTargetSet) -> bxl.UnconfiguredTargetSet:
+def _resolve_vendor_rust_libraries(ctx: bxl.Context, targets: bxl.TargetSet[bxl.UnconfiguredTargetNode]) -> bxl.TargetSet[bxl.UnconfiguredTargetNode]:
     """Rust files in third-party/rust/vendor/ are owned by rust_filegroup targets,
     but a rust_filegroup is just a set of files, without any information about
     the crate.
