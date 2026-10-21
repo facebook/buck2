@@ -662,12 +662,14 @@ pub fn read_link<P: AsRef<AbsPath>>(path: P) -> Result<PathBuf, IoError> {
         .map_err(|e| IoError::new_with_path("read_link", path, e))
 }
 
+/// Renames `from` to `to`, replacing a file there. A read-only file is replaced on Windows too,
+/// which `std::fs::rename` refuses.
 pub fn rename<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> Result<(), IoError> {
     let _guard = IoCounterKey::Rename.guard();
     let from_ref = from.as_ref();
     let to_ref = to.as_ref();
     with_retries(|| {
-        fs::rename(
+        rename_impl(
             from_ref.as_maybe_relativized(),
             to_ref.as_maybe_relativized(),
         )
@@ -682,6 +684,37 @@ pub fn rename<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> Result<()
             .check_eden(from_ref)
             .check_eden(to_ref)
     })
+}
+
+#[cfg(unix)]
+fn rename_impl(from: &Path, to: &Path) -> io::Result<()> {
+    fs::rename(from, to)
+}
+
+#[cfg(windows)]
+#[allow(clippy::permissions_set_readonly_false)]
+fn rename_impl(from: &Path, to: &Path) -> io::Result<()> {
+    use std::io::ErrorKind;
+
+    match fs::rename(from, to) {
+        // The files the disk-state materializer tracks are read-only under
+        // `buck2.readonly_outputs`, and a write action's output is published by renaming a temp
+        // file over the previous one. Unix needs only the directory for that; Windows wants the
+        // attribute cleared first, as `remove_file_impl` does to delete such a file.
+        Err(e) if e.kind() == ErrorKind::PermissionDenied => {
+            let Ok(metadata) = fs::symlink_metadata(to) else {
+                return Err(e);
+            };
+            let mut perms = metadata.permissions();
+            if !metadata.is_file() || !perms.readonly() {
+                return Err(e);
+            }
+            perms.set_readonly(false);
+            fs::set_permissions(to, perms)?;
+            fs::rename(from, to)
+        }
+        r => r,
+    }
 }
 
 pub fn write<P: AsRef<AbsPath>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(), IoError> {
@@ -1869,6 +1902,22 @@ mod tests {
         assert!(!fs_util::metadata(&path)?.permissions().readonly());
         fs_util::write(&path, b"again")?;
         assert_eq!(fs_util::read_to_string(&path)?, "again");
+        Ok(())
+    }
+
+    #[test]
+    fn test_rename_replaces_a_read_only_file() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let from = root.join("from");
+        let to = root.join("to");
+        fs_util::write(&from, b"new")?;
+        fs_util::write(&to, b"old")?;
+        fs_util::set_writable(&to, false)?;
+
+        fs_util::rename(&from, &to)?;
+        assert_eq!(fs_util::read_to_string(&to)?, "new");
+        assert!(!from.exists());
         Ok(())
     }
 
