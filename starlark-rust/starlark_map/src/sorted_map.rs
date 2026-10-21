@@ -20,6 +20,7 @@
 use std::hash::Hash;
 
 use allocative::Allocative;
+use mini_map::MiniMutInsertionMap;
 #[cfg(feature = "pagable_dep")]
 use pagable::Pagable;
 use serde::Deserialize;
@@ -155,6 +156,13 @@ impl<K: Ord + Hash, V> From<SmallMap<K, V>> for SortedMap<K, V> {
     fn from(map: SmallMap<K, V>) -> SortedMap<K, V> {
         // `OrderedMap: From<SmallMap>` is trivial, so this does not do any extra work
         SortedMap::from(OrderedMap::from(map))
+    }
+}
+
+impl<K: Ord + Hash, V> From<MiniMutInsertionMap<K, V>> for SortedMap<K, V> {
+    #[inline]
+    fn from(map: MiniMutInsertionMap<K, V>) -> SortedMap<K, V> {
+        SortedMap::from(SmallMap::from(map))
     }
 }
 

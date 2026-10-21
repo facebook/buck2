@@ -20,6 +20,7 @@
 use std::hash::Hash;
 
 use allocative::Allocative;
+use mini_map::MiniMutInsertionSet;
 #[cfg(feature = "pagable_dep")]
 use pagable::Pagable;
 use serde::Deserialize;
@@ -147,6 +148,16 @@ where
     #[inline]
     fn from(inner: SmallSet<T>) -> SortedSet<T> {
         SortedSet::from(OrderedSet::from(inner))
+    }
+}
+
+impl<T> From<MiniMutInsertionSet<T>> for SortedSet<T>
+where
+    T: Eq + Ord + Hash,
+{
+    #[inline]
+    fn from(inner: MiniMutInsertionSet<T>) -> SortedSet<T> {
+        SortedSet::from(SmallSet::from(inner))
     }
 }
 
