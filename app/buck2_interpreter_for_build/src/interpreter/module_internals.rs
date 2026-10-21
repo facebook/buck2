@@ -24,6 +24,7 @@ use buck2_events::dispatch::console_message;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
+use buck2_node::nodes::targets_map::TargetsMapBuilder;
 use buck2_node::nodes::targets_map::TargetsMapRecordError;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::oncall::Oncall;
@@ -265,7 +266,7 @@ impl ModuleInternals {
 
 // Records the targets declared when evaluating a build file.
 struct TargetsRecorder {
-    targets: TargetsMap,
+    targets: TargetsMapBuilder,
 }
 
 impl Debug for TargetsRecorder {
@@ -277,7 +278,7 @@ impl Debug for TargetsRecorder {
 impl TargetsRecorder {
     fn new() -> Self {
         Self {
-            targets: TargetsMap::new(),
+            targets: TargetsMapBuilder::new(),
         }
     }
 
@@ -286,6 +287,6 @@ impl TargetsRecorder {
     }
 
     fn take(self) -> TargetsMap {
-        self.targets
+        self.targets.build()
     }
 }

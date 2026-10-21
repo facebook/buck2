@@ -15,11 +15,11 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
+use buck2_hash::BuckFixedInsertionSet;
+use buck2_hash::BuckIndexSet;
 use buck2_util::indent::indent;
 use dupe::Dupe;
 use pagable::Pagable;
-use starlark_map::ordered_set;
-use starlark_map::ordered_set::OrderedSet;
 
 use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::unconfigured::TargetNodeRef;
@@ -72,19 +72,14 @@ impl Borrow<TargetNameRef> for NameIndexed {
 }
 
 /// Map of target -> details of those targets within a build file.
+///
+/// Iterates in declaration order.
 #[derive(Debug, Clone, Allocative, Pagable)]
 pub struct TargetsMap {
-    map: OrderedSet<NameIndexed>,
+    map: BuckFixedInsertionSet<NameIndexed>,
 }
 
 impl TargetsMap {
-    #[inline]
-    pub fn new() -> TargetsMap {
-        TargetsMap {
-            map: OrderedSet::new(),
-        }
-    }
-
     #[inline]
     pub fn get<'a>(&'a self, name: &TargetNameRef) -> Option<TargetNodeRef<'a>> {
         self.map.get(name).map(|NameIndexed(n)| n.as_ref())
@@ -121,18 +116,42 @@ impl TargetsMap {
     pub fn values(&self) -> impl ExactSizeIterator<Item = TargetNodeRef<'_>> {
         self.iter().map(|(_, v)| v)
     }
+}
+
+/// Collects the targets a build file declares, in declaration order, into a [`TargetsMap`].
+#[derive(Debug, Default)]
+pub struct TargetsMapBuilder {
+    map: BuckIndexSet<NameIndexed>,
+}
+
+impl TargetsMapBuilder {
+    #[inline]
+    pub fn new() -> TargetsMapBuilder {
+        TargetsMapBuilder::default()
+    }
+
+    #[inline]
+    pub fn contains_key(&self, name: &TargetNameRef) -> bool {
+        self.map.contains(name)
+    }
 
     #[inline]
     pub fn record(&mut self, target_node: TargetNode) -> Result<(), TargetsMapRecordError> {
-        match self.map.try_insert(NameIndexed(target_node)) {
-            Err(ordered_set::OccupiedError {
-                value: NameIndexed(target_node),
-                occupied,
-            }) => Err(TargetsMapRecordError::RegisteredTargetTwice(
-                target_node.label().dupe(),
-                occupied.0.call_stack(),
-            )),
-            Ok(()) => Ok(()),
+        let label = target_node.label().dupe();
+        if self.map.insert(NameIndexed(target_node)) {
+            return Ok(());
+        }
+        let NameIndexed(first) = self.map.get(label.name()).unwrap();
+        Err(TargetsMapRecordError::RegisteredTargetTwice(
+            label,
+            first.call_stack(),
+        ))
+    }
+
+    #[inline]
+    pub fn build(self) -> TargetsMap {
+        TargetsMap {
+            map: self.map.freeze(),
         }
     }
 }
@@ -140,10 +159,10 @@ impl TargetsMap {
 /// For tests.
 impl FromIterator<TargetNode> for TargetsMap {
     fn from_iter<T: IntoIterator<Item = TargetNode>>(iter: T) -> Self {
-        let mut map = TargetsMap::new();
+        let mut builder = TargetsMapBuilder::new();
         for target_node in iter {
-            map.record(target_node).unwrap();
+            builder.record(target_node).unwrap();
         }
-        map
+        builder.build()
     }
 }
