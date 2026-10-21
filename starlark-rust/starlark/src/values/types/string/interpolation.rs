@@ -321,23 +321,23 @@ pub(crate) fn percent(format: &str, value: Value) -> crate::Result<String> {
                 }
             }
             Some(PercentSFormat::Exp) => {
-                let v = NumRef::unpack_param(next_value()?)?.as_float();
+                let v = NumRef::unpack_param(next_value()?)?.as_finite_float()?;
                 float::write_scientific(&mut res, v, 'e', false).unwrap()
             }
             Some(PercentSFormat::ExpUpper) => {
-                let v = NumRef::unpack_param(next_value()?)?.as_float();
+                let v = NumRef::unpack_param(next_value()?)?.as_finite_float()?;
                 float::write_scientific(&mut res, v, 'E', false).unwrap()
             }
             Some(PercentSFormat::Float) => {
-                let v = NumRef::unpack_param(next_value()?)?.as_float();
+                let v = NumRef::unpack_param(next_value()?)?.as_finite_float()?;
                 float::write_decimal(&mut res, v).unwrap()
             }
             Some(PercentSFormat::FloatCompact) => {
-                let v = NumRef::unpack_param(next_value()?)?.as_float();
+                let v = NumRef::unpack_param(next_value()?)?.as_finite_float()?;
                 float::write_compact(&mut res, v, 'e').unwrap()
             }
             Some(PercentSFormat::FloatCompactUpper) => {
-                let v = NumRef::unpack_param(next_value()?)?.as_float();
+                let v = NumRef::unpack_param(next_value()?)?.as_finite_float()?;
                 float::write_compact(&mut res, v, 'E').unwrap()
             }
         }

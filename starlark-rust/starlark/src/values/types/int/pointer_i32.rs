@@ -169,20 +169,26 @@ impl<'v> StarlarkValue<'v> for PointerI32 {
         Ok(heap.alloc(-StarlarkIntRef::Small(self.get())))
     }
     fn add(&self, other: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
-        Some(Ok(heap.alloc(
-            NumRef::Int(StarlarkIntRef::Small(self.get())) + other.unpack_num()?,
-        )))
+        Some(
+            (NumRef::Int(StarlarkIntRef::Small(self.get())) + other.unpack_num()?)
+                .map(|x| heap.alloc(x))
+                .map_err(Into::into),
+        )
     }
     fn sub(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
-            Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Small(self.get())) - other)),
+            Some(other) => {
+                Ok(heap.alloc((NumRef::Int(StarlarkIntRef::Small(self.get())) - other)?))
+            }
             None => ValueError::unsupported_with(self, "-", other),
         }
     }
     fn mul(&self, other: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
-        Some(Ok(heap.alloc(
-            NumRef::Int(StarlarkIntRef::Small(self.get())) * other.unpack_num()?,
-        )))
+        Some(
+            (NumRef::Int(StarlarkIntRef::Small(self.get())) * other.unpack_num()?)
+                .map(|x| heap.alloc(x))
+                .map_err(Into::into),
+        )
     }
     fn div(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
