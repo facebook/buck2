@@ -3341,6 +3341,35 @@ message ActionConcurrencyPercentile {
   uint64 concurrency = 2;
 }
 
+// See `Caller` in buck2_client_ctx/src/agent_detection.rs.
+enum CallerKind {
+  CALLER_KIND_UNKNOWN = 0;
+  CALLER_KIND_AGENT = 1;
+  CALLER_KIND_COMMAND_SHELL = 2;
+  CALLER_KIND_OTHER = 3;
+}
+
+enum AgentDetectionStopReason {
+  AGENT_DETECTION_STOP_REASON_UNSPECIFIED = 0;
+  AGENT_DETECTION_STOP_REASON_AGENT = 1;
+  AGENT_DETECTION_STOP_REASON_OTHER = 2;
+  AGENT_DETECTION_STOP_REASON_UNKNOWN = 3;
+  AGENT_DETECTION_STOP_REASON_NO_PARENT = 4;
+  AGENT_DETECTION_STOP_REASON_CLIENT_UNAVAILABLE = 5;
+  AGENT_DETECTION_STOP_REASON_PARENT_UNAVAILABLE = 6;
+  AGENT_DETECTION_STOP_REASON_NEWER_PARENT = 7;
+  AGENT_DETECTION_STOP_REASON_CYCLE = 8;
+  AGENT_DETECTION_STOP_REASON_DEPTH_LIMIT = 9;
+}
+
+// One inspected ancestor, ordered from the client's parent outwards.
+message CallerProcess {
+  CallerKind kind = 1;
+  // Executable basename only; absent when unavailable. Exclude argv and full
+  // paths because they may contain restricted information.
+  optional string executable = 2;
+}
+
 // This is the origin for every sample in buck2_builds scuba table
 // It's sent from the client to Scribe at the end of each invocation
 message InvocationRecord {
@@ -3719,6 +3748,12 @@ message InvocationRecord {
   // Client ancestry inference, independent of agent_direct_call and never used
   // to enable advice. Unset when inference is unavailable or inconclusive.
   optional bool agent_inferred_direct_call = 764;
+
+  // Inspected ancestors up to the classifier's stopping point, nearest first.
+  repeated CallerProcess agent_callers = 765;
+  // Absent when inference is disabled. Explains matches, boundaries, and
+  // inconclusive inspection without changing the explicit direct_call marker.
+  optional AgentDetectionStopReason agent_detection_stop_reason = 766;
 
   // DICE page-in overhead for this invocation, computed as the delta between
   // the first and last snapshot of the command.

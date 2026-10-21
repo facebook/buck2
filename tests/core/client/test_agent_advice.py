@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import shutil
 import sys
 import unittest
+from pathlib import PurePosixPath
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -171,6 +173,9 @@ class AgentAdviceTest(BuckTestCase):
     @unittest.skip("Ancestry inference requires a Meta internal build") # @oss-enable
     @buck_test()
     async def test_detect_direct_agent_and_stop_at_tools(self, buck: Buck) -> None:
+        # Prost serializes protobuf enum fields as integers in invocation-record JSON.
+        caller_agent, caller_command_shell, caller_other = 1, 2, 3
+        stop_agent, stop_other = 1, 2
         buck._env.pop("CODING_AGENT_METADATA", None)
         # Copy a shell so its executable identity is stable without depending on an
         # installed agent or an LLM service. Keep it alive while Buck reads its parent.
@@ -227,6 +232,12 @@ class AgentAdviceTest(BuckTestCase):
         assert record.get("agent_direct_call") is None
         assert record["agent_inferred_direct_call"] is True
         assert record["agent_context"] == [{"key": "id", "value": "codex"}]
+        shell_name = PurePosixPath(os.path.realpath("/bin/sh")).name
+        assert record["agent_callers"] == [
+            {"kind": caller_command_shell, "executable": shell_name},
+            {"kind": caller_agent, "executable": "codex"},
+        ]
+        assert record["agent_detection_stop_reason"] == stop_agent
         daemon = json.loads((await buck.status()).stdout)["process_info"]["pid"]
 
         tools = [["/bin/sh", str(script)], [sys.executable, str(python_tool)]]
@@ -242,6 +253,22 @@ class AgentAdviceTest(BuckTestCase):
                     None if value in [None, "invalid"] else value == "true"
                 )
                 assert record["agent_inferred_direct_call"] is (prefix == direct)
+                if prefix == direct:
+                    assert record["agent_detection_stop_reason"] == stop_agent
+                    assert record["agent_callers"][-1] == {
+                        "kind": caller_agent,
+                        "executable": "codex",
+                    }
+                else:
+                    assert record["agent_detection_stop_reason"] == stop_other
+                    assert record["agent_callers"] == [
+                        {
+                            "kind": caller_other,
+                            "executable": PurePosixPath(
+                                os.path.realpath(prefix[0])
+                            ).name,
+                        }
+                    ]
 
         # exec and sourced scripts erase the visible tool boundary. These known
         # false positives must remain observations rather than advice opt-ins.
@@ -275,6 +302,8 @@ class AgentAdviceTest(BuckTestCase):
             "InvocationRecord"
         ]
         assert record["agent_inferred_direct_call"] is False
+        assert record["agent_detection_stop_reason"] == stop_other
+        assert record["agent_callers"][-1]["kind"] == caller_other
         assert record.get("agent_direct_call") is None
         assert not record.get("agent_context")
         assert json.loads((await buck.status()).stdout)["process_info"]["pid"] == daemon

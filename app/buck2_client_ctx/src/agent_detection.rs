@@ -11,13 +11,14 @@
 //! Best-effort detection of Buck calls whose output is consumed directly by an
 //! agent, walking client ancestry through command shells and stopping at tools
 //! or scripts. Inherited metadata cannot establish this boundary; executable
-//! names and `exec` can also mislead detection. The inference is logged to improve
-//! the classifier; only explicit `direct_call` controls advice.
+//! names and `exec` can also mislead detection. Results and caller diagnostics
+//! are logged to improve the classifier; only explicit `direct_call` controls advice.
 
 use std::ffi::OsString;
 use std::path::Path;
 use std::time::Duration;
 
+use buck2_data::AgentDetectionStopReason;
 use buck2_hash::BuckMutSet;
 use buck2_wrapper_common::kill::process_creation_time;
 use sysinfo::Pid;
@@ -25,6 +26,8 @@ use sysinfo::ProcessRefreshKind;
 use sysinfo::ProcessesToUpdate;
 use sysinfo::System;
 use sysinfo::UpdateKind;
+
+use crate::agent_invocation_info::AgentCallInference;
 
 // Bound work even for corrupt snapshots or unexpectedly deep shell nesting.
 const MAX_PROCESS_DEPTH: usize = 64;
@@ -47,13 +50,25 @@ enum Caller {
     Unknown,
 }
 
+impl Caller {
+    fn to_proto(self) -> buck2_data::CallerKind {
+        match self {
+            Self::Agent => buck2_data::CallerKind::Agent,
+            Self::CommandShell => buck2_data::CallerKind::CommandShell,
+            Self::Other => buck2_data::CallerKind::Other,
+            Self::Unknown => buck2_data::CallerKind::Unknown,
+        }
+    }
+}
+
 struct ProcessInfo {
     parent_pid: Option<Pid>,
     creation_time: Duration,
     caller: Caller,
+    executable: Option<String>,
 }
 
-pub(crate) fn infer_direct_agent_call() -> Option<bool> {
+pub(crate) fn infer_direct_agent_call() -> AgentCallInference {
     let mut system = System::new();
     let refresh = ProcessRefreshKind::nothing()
         .with_exe(UpdateKind::OnlyIfNotSet)
@@ -65,6 +80,11 @@ pub(crate) fn infer_direct_agent_call() -> Option<bool> {
             parent_pid: process.parent(),
             creation_time: process_creation_time(process)?,
             caller: classify(process.exe(), process.cmd()),
+            executable: process
+                .exe()
+                .and_then(Path::file_name)
+                .and_then(|name| name.to_str())
+                .map(str::to_owned),
         })
     })
 }
@@ -72,31 +92,47 @@ pub(crate) fn infer_direct_agent_call() -> Option<bool> {
 fn walk_ancestors(
     client_pid: Pid,
     mut read_process: impl FnMut(Pid) -> Option<ProcessInfo>,
-) -> Option<bool> {
-    let mut child = read_process(client_pid)?;
-    let mut seen = BuckMutSet::default();
-    seen.insert(client_pid);
-    for _ in 0..MAX_PROCESS_DEPTH {
-        let Some(parent_pid) = child.parent_pid else {
-            return Some(false);
+) -> AgentCallInference {
+    let mut callers = Vec::new();
+    let (inferred_direct_call, stop_reason) = 'walk: {
+        let Some(mut child) = read_process(client_pid) else {
+            break 'walk (None, AgentDetectionStopReason::ClientUnavailable);
         };
-        if !seen.insert(parent_pid) {
-            return None;
+        let mut seen = BuckMutSet::default();
+        seen.insert(client_pid);
+        for _ in 0..MAX_PROCESS_DEPTH {
+            let Some(parent_pid) = child.parent_pid else {
+                break 'walk (Some(false), AgentDetectionStopReason::NoParent);
+            };
+            if !seen.insert(parent_pid) {
+                break 'walk (None, AgentDetectionStopReason::Cycle);
+            }
+            let Some(parent) = read_process(parent_pid) else {
+                break 'walk (None, AgentDetectionStopReason::ParentUnavailable);
+            };
+            // A newer process cannot be our parent. Equal timestamps are allowed:
+            // Unix creation times have one-second resolution.
+            if parent.creation_time > child.creation_time {
+                break 'walk (None, AgentDetectionStopReason::NewerParent);
+            }
+            callers.push(buck2_data::CallerProcess {
+                kind: parent.caller.to_proto().into(),
+                executable: parent.executable.clone(),
+            });
+            match parent.caller {
+                Caller::Agent => break 'walk (Some(true), AgentDetectionStopReason::Agent),
+                Caller::CommandShell => child = parent,
+                Caller::Other => break 'walk (Some(false), AgentDetectionStopReason::Other),
+                Caller::Unknown => break 'walk (None, AgentDetectionStopReason::Unknown),
+            }
         }
-        let parent = read_process(parent_pid)?;
-        // A newer process cannot be our parent. Equal timestamps are allowed:
-        // Unix creation times have one-second resolution.
-        if parent.creation_time > child.creation_time {
-            return None;
-        }
-        match parent.caller {
-            Caller::Agent => return Some(true),
-            Caller::CommandShell => child = parent,
-            Caller::Other => return Some(false),
-            Caller::Unknown => return None,
-        }
+        (None, AgentDetectionStopReason::DepthLimit)
+    };
+    AgentCallInference {
+        inferred_direct_call,
+        callers,
+        stop_reason: Some(stop_reason),
     }
-    None
 }
 
 fn classify(exe: Option<&Path>, cmd: &[OsString]) -> Caller {
@@ -285,8 +321,10 @@ mod tests {
                 parent_pid: parent_pid.map(Pid::from_u32),
                 creation_time: Duration::from_secs(*creation_time),
                 caller: *caller,
+                executable: None,
             })
         })
+        .inferred_direct_call
     }
 
     #[test]
@@ -311,6 +349,117 @@ mod tests {
                 (3, None, 8, Agent)
             ]),
             Some(false)
+        );
+    }
+
+    #[test]
+    fn records_callers_until_the_boundary() {
+        for (terminal, executable, inferred, reason) in [
+            (
+                Caller::Agent,
+                Some("codex"),
+                Some(true),
+                AgentDetectionStopReason::Agent,
+            ),
+            (
+                Caller::Other,
+                Some("python3"),
+                Some(false),
+                AgentDetectionStopReason::Other,
+            ),
+            (
+                Caller::Unknown,
+                None,
+                None,
+                AgentDetectionStopReason::Unknown,
+            ),
+        ] {
+            let mut visited = Vec::new();
+            let inference = walk_ancestors(Pid::from_u32(1), |pid| {
+                visited.push(pid.as_u32());
+                let (caller, executable) = match pid.as_u32() {
+                    1 => (Caller::Other, Some("buck2")),
+                    2 => (Caller::CommandShell, Some("bash")),
+                    3 => (terminal, executable),
+                    _ => panic!("inspected beyond a classifier boundary"),
+                };
+                Some(ProcessInfo {
+                    parent_pid: Some(Pid::from_u32(pid.as_u32() + 1)),
+                    creation_time: Duration::from_secs(1),
+                    caller,
+                    executable: executable.map(str::to_owned),
+                })
+            });
+            assert_eq!(visited, [1, 2, 3]);
+            assert_eq!(inference.inferred_direct_call, inferred);
+            assert_eq!(inference.stop_reason, Some(reason));
+            assert_eq!(
+                inference.callers,
+                vec![
+                    buck2_data::CallerProcess {
+                        kind: Caller::CommandShell.to_proto().into(),
+                        executable: Some("bash".to_owned())
+                    },
+                    buck2_data::CallerProcess {
+                        kind: terminal.to_proto().into(),
+                        executable: executable.map(str::to_owned)
+                    },
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn records_inconclusive_walk_reasons() {
+        for (parent_pid, parent_time, reason, observed) in [
+            (Some(3), 1, AgentDetectionStopReason::ParentUnavailable, 1),
+            (Some(2), 1, AgentDetectionStopReason::Cycle, 1),
+            (None, 2, AgentDetectionStopReason::NewerParent, 0),
+        ] {
+            let inference = walk_ancestors(Pid::from_u32(1), |pid| match pid.as_u32() {
+                1 | 2 => Some(ProcessInfo {
+                    parent_pid: if pid.as_u32() == 1 {
+                        Some(Pid::from_u32(2))
+                    } else {
+                        parent_pid.map(Pid::from_u32)
+                    },
+                    creation_time: Duration::from_secs(if pid.as_u32() == 1 {
+                        1
+                    } else {
+                        parent_time
+                    }),
+                    caller: Caller::CommandShell,
+                    executable: Some("bash".to_owned()),
+                }),
+                _ => None,
+            });
+            assert_eq!(inference.inferred_direct_call, None);
+            assert_eq!(inference.stop_reason, Some(reason));
+            assert_eq!(inference.callers.len(), observed);
+        }
+        let unavailable = walk_ancestors(Pid::from_u32(1), |_| None);
+        assert_eq!(
+            unavailable.stop_reason,
+            Some(AgentDetectionStopReason::ClientUnavailable)
+        );
+        assert!(unavailable.callers.is_empty());
+
+        let mut reads = 0;
+        let inference = walk_ancestors(Pid::from_u32(1), |pid| {
+            reads += 1;
+            Some(ProcessInfo {
+                parent_pid: Some(Pid::from_u32(pid.as_u32() + 1)),
+                creation_time: Duration::from_secs(1),
+                caller: Caller::CommandShell,
+                executable: Some("sh".to_owned()),
+            })
+        });
+        assert_eq!(reads, MAX_PROCESS_DEPTH + 1);
+        assert_eq!(inference.callers.len(), MAX_PROCESS_DEPTH);
+        assert_eq!(inference.inferred_direct_call, None);
+        assert_eq!(
+            inference.stop_reason,
+            Some(AgentDetectionStopReason::DepthLimit)
         );
     }
 

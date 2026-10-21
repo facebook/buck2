@@ -1201,6 +1201,11 @@ impl InvocationRecorder {
                 .find(|entry| entry.key == buck2_data::AgentContextEntry::KEY_DIRECT_CALL)
                 .and_then(|entry| entry.value.parse::<bool>().ok()),
             agent_inferred_direct_call: agent_invocation_info.inferred_direct_call(),
+            agent_callers: agent_invocation_info.inference().callers.clone(),
+            agent_detection_stop_reason: agent_invocation_info
+                .inference()
+                .stop_reason
+                .map(i32::from),
             agent_context,
             errors,
             target_rule_type_names: unique_and_sorted(
