@@ -11,11 +11,11 @@
 
 import json
 from pathlib import Path
-from typing import Any, List
+from typing import Any, Callable, List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import (
     golden,
     sanitize_build_report,
@@ -24,8 +24,10 @@ from buck2.tests.e2e_util.helper.golden import (
 from buck2.tests.e2e_util.helper.utils import read_streaming_report
 
 
-def build_report_test(name: str, command: List[str], should_fail: bool) -> None:
-    async def impl(buck: Buck, tmp_path: Path) -> None:
+def build_report_test(
+    name: str, command: List[str], should_fail: bool
+) -> Callable[..., Any]:
+    async def impl(self: BuckTestCase, buck: Buck, tmp_path: Path) -> None:
         report = tmp_path / "build-report.json"
         if should_fail:
             await expect_failure(
@@ -53,52 +55,7 @@ def build_report_test(name: str, command: List[str], should_fail: bool) -> None:
         )
         pass
 
-    globals()[name] = impl
-
     return buck_test()(impl)
-
-
-build_report_test(
-    "test_build_report_format",
-    ["//:ok", "//:fail_test"],
-    True,
-)
-
-build_report_test(
-    "test_build_report_skip_unconfigured",
-    ["//:ok", "-c", "build_report.print_unconfigured_section=false"],
-    False,
-)
-
-build_report_test(
-    "test_failed_build_has_build_report",
-    ["//:fail_build1"],
-    True,
-)
-
-build_report_test(
-    "test_target_doesnt_exist",
-    ["//:doesnt_exist"],
-    True,
-)
-
-build_report_test(
-    "test_multiple_failures_included",
-    ["//:fail_build1", "//:fail_build2"],
-    True,
-)
-
-build_report_test(
-    "test_build_report_with_build_default_info",
-    ["//...", "--build-default-info"],
-    True,
-)
-
-build_report_test(
-    "test_build_report_with_build_run_info",
-    ["//...", "--build-run-info"],
-    True,
-)
 
 
 def _configured_statuses(reports: list[dict[str, Any]]) -> dict[tuple[str, str], str]:
@@ -116,56 +73,6 @@ def _configured_statuses(reports: list[dict[str, Any]]) -> dict[tuple[str, str],
     return statuses
 
 
-@buck_test()
-async def test_streaming_build_report_target_completion(
-    buck: Buck, tmp_path: Path
-) -> None:
-    """`//:ok` has no outputs, so only its build-finished lines report it."""
-    streaming_report = tmp_path / "streaming-build-report.jsonl"
-
-    await buck.test("//:ok", "--streaming-build-report", str(streaming_report))
-
-    reports = read_streaming_report(streaming_report)
-    # The configured target finishing, then the target.
-    assert len(reports) == 2, f"Expected 2 lines, got {len(reports)}"
-    assert all(set(report["results"]) == {"root//:ok"} for report in reports)
-    assert [
-        (
-            entry["success"],
-            [configured["success"] for configured in entry["configured"].values()],
-        )
-        for entry in (report["results"]["root//:ok"] for report in reports)
-    ] == [("IN_PROGRESS", ["SUCCESS"]), ("SUCCESS", ["SUCCESS"])]
-
-
-@buck_test()
-async def test_streaming_build_report_target_completion_with_failures(
-    buck: Buck, tmp_path: Path
-) -> None:
-    report = tmp_path / "build-report.json"
-    streaming_report = tmp_path / "streaming-build-report.jsonl"
-
-    await expect_failure(
-        buck.test(
-            "--build-report",
-            str(report),
-            "--streaming-build-report",
-            str(streaming_report),
-            "//:ok",
-            "//:fail_test",
-            "//:fail_build1",
-        )
-    )
-
-    streamed = _configured_statuses(read_streaming_report(streaming_report))
-    assert {key for key, _cfg in streamed} == {
-        "root//:ok",
-        "root//:fail_test",
-        "root//:fail_build1",
-    }
-    assert streamed == _configured_statuses([json.loads(report.read_text())])
-
-
 async def _assert_error_before_build_streamed(
     buck: Buck, tmp_path: Path, target: str
 ) -> None:
@@ -181,44 +88,133 @@ async def _assert_error_before_build_streamed(
     assert {report["results"][key]["success"] for report in reports} == {"FAIL"}
 
 
-@buck_test()
-async def test_streaming_build_report_target_completion_analysis_error(
-    buck: Buck, tmp_path: Path
-) -> None:
-    """`//:fail_build1` fails in analysis, before `buck test` builds it."""
-    await _assert_error_before_build_streamed(buck, tmp_path, "//:fail_build1")
+class BuildReportTest(BuckTestCase):
+    test_build_report_format = build_report_test(
+        "test_build_report_format",
+        ["//:ok", "//:fail_test"],
+        True,
+    )
 
+    test_build_report_skip_unconfigured = build_report_test(
+        "test_build_report_skip_unconfigured",
+        ["//:ok", "-c", "build_report.print_unconfigured_section=false"],
+        False,
+    )
 
-@buck_test()
-async def test_streaming_build_report_target_completion_missing_target(
-    buck: Buck, tmp_path: Path
-) -> None:
-    await _assert_error_before_build_streamed(buck, tmp_path, "//:doesnt_exist")
+    test_failed_build_has_build_report = build_report_test(
+        "test_failed_build_has_build_report",
+        ["//:fail_build1"],
+        True,
+    )
 
+    test_target_doesnt_exist = build_report_test(
+        "test_target_doesnt_exist",
+        ["//:doesnt_exist"],
+        True,
+    )
 
-@buck_test()
-async def test_streaming_build_report_target_completion_errors_per_target(
-    buck: Buck, tmp_path: Path
-) -> None:
-    """Both targets fail in analysis. Each line carries one target's errors."""
-    streaming_report = tmp_path / "streaming-build-report.jsonl"
+    test_multiple_failures_included = build_report_test(
+        "test_multiple_failures_included",
+        ["//:fail_build1", "//:fail_build2"],
+        True,
+    )
 
-    await expect_failure(
-        buck.test(
-            "//:fail_build1",
-            "//:fail_build2",
-            "--streaming-build-report",
-            str(streaming_report),
+    test_build_report_with_build_default_info = build_report_test(
+        "test_build_report_with_build_default_info",
+        ["//...", "--build-default-info"],
+        True,
+    )
+
+    test_build_report_with_build_run_info = build_report_test(
+        "test_build_report_with_build_run_info",
+        ["//...", "--build-run-info"],
+        True,
+    )
+
+    @buck_test()
+    async def test_streaming_build_report_target_completion(
+        self, buck: Buck, tmp_path: Path
+    ) -> None:
+        """`//:ok` has no outputs, so only its build-finished lines report it."""
+        streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+        await buck.test("//:ok", "--streaming-build-report", str(streaming_report))
+
+        reports = read_streaming_report(streaming_report)
+        # The configured target finishing, then the target.
+        assert len(reports) == 2, f"Expected 2 lines, got {len(reports)}"
+        assert all(set(report["results"]) == {"root//:ok"} for report in reports)
+        assert [
+            (
+                entry["success"],
+                [configured["success"] for configured in entry["configured"].values()],
+            )
+            for entry in (report["results"]["root//:ok"] for report in reports)
+        ] == [("IN_PROGRESS", ["SUCCESS"]), ("SUCCESS", ["SUCCESS"])]
+
+    @buck_test()
+    async def test_streaming_build_report_target_completion_with_failures(
+        self, buck: Buck, tmp_path: Path
+    ) -> None:
+        report = tmp_path / "build-report.json"
+        streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+        await expect_failure(
+            buck.test(
+                "--build-report",
+                str(report),
+                "--streaming-build-report",
+                str(streaming_report),
+                "//:ok",
+                "//:fail_test",
+                "//:fail_build1",
+            )
         )
-    )
 
-    reports = read_streaming_report(streaming_report)
-    assert sorted(list(report["results"]) for report in reports) == [
-        ["root//:fail_build1"],
-        ["root//:fail_build2"],
-    ]
-    assert all(
-        entry["success"] == "FAIL"
-        for report in reports
-        for entry in report["results"].values()
-    )
+        streamed = _configured_statuses(read_streaming_report(streaming_report))
+        assert {key for key, _cfg in streamed} == {
+            "root//:ok",
+            "root//:fail_test",
+            "root//:fail_build1",
+        }
+        assert streamed == _configured_statuses([json.loads(report.read_text())])
+
+    @buck_test()
+    async def test_streaming_build_report_target_completion_analysis_error(
+        self, buck: Buck, tmp_path: Path
+    ) -> None:
+        """`//:fail_build1` fails in analysis, before `buck test` builds it."""
+        await _assert_error_before_build_streamed(buck, tmp_path, "//:fail_build1")
+
+    @buck_test()
+    async def test_streaming_build_report_target_completion_missing_target(
+        self, buck: Buck, tmp_path: Path
+    ) -> None:
+        await _assert_error_before_build_streamed(buck, tmp_path, "//:doesnt_exist")
+
+    @buck_test()
+    async def test_streaming_build_report_target_completion_errors_per_target(
+        self, buck: Buck, tmp_path: Path
+    ) -> None:
+        """Both targets fail in analysis. Each line carries one target's errors."""
+        streaming_report = tmp_path / "streaming-build-report.jsonl"
+
+        await expect_failure(
+            buck.test(
+                "//:fail_build1",
+                "//:fail_build2",
+                "--streaming-build-report",
+                str(streaming_report),
+            )
+        )
+
+        reports = read_streaming_report(streaming_report)
+        assert sorted(list(report["results"]) for report in reports) == [
+            ["root//:fail_build1"],
+            ["root//:fail_build2"],
+        ]
+        assert all(
+            entry["success"] == "FAIL"
+            for report in reports
+            for entry in report["results"].values()
+        )

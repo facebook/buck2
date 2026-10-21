@@ -11,19 +11,19 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(skip_for_os=["windows"])
-async def test_run_action_timeout_expires(buck: Buck) -> None:
-    await expect_failure(
-        buck.build("//:slow_with_timeout"),
-        stderr_regex="timed out after",
-    )
+class RunActionTimeoutTest(BuckTestCase):
+    @buck_test(skip_for_os=["windows"])
+    async def test_run_action_timeout_expires(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build("//:slow_with_timeout"),
+            stderr_regex="timed out after",
+        )
 
-
-@buck_test(skip_for_os=["windows"])
-async def test_run_action_timeout_succeeds(buck: Buck) -> None:
-    result = await buck.build("//:fast_with_timeout")
-    output = result.get_build_report().output_for_target("//:fast_with_timeout")
-    assert output.read_text().strip() == "hello"
+    @buck_test(skip_for_os=["windows"])
+    async def test_run_action_timeout_succeeds(self, buck: Buck) -> None:
+        result = await buck.build("//:fast_with_timeout")
+        output = result.get_build_report().output_for_target("//:fast_with_timeout")
+        assert output.read_text().strip() == "hello"

@@ -10,7 +10,7 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden
 
 
@@ -37,70 +37,66 @@ async def _test_analysis_query_invalidation_impl(buck: Buck, name: str) -> None:
     assert "macos-select-dep" in macos.stdout
 
 
-@buck_test(data_dir="analysis_query_invalidation")
-async def test_analysis_query_invalidation_deps(buck: Buck) -> None:
-    """
-    This is a regression test for T133069783.
-    """
-    await _test_analysis_query_invalidation_impl(
-        buck, name="analysis_query_invalidation"
+class AnalysisQueriesTest(BuckTestCase):
+    @buck_test(data_dir="analysis_query_invalidation")
+    async def test_analysis_query_invalidation_deps(self, buck: Buck) -> None:
+        """
+        This is a regression test for T133069783.
+        """
+        await _test_analysis_query_invalidation_impl(
+            buck, name="analysis_query_invalidation"
+        )
+
+    @buck_test(
+        data_dir="analysis_query_invalidation_classpath",
     )
+    async def test_analysis_query_invalidation_classpath(self, buck: Buck) -> None:
+        """
+        Equivalent of T133069783 for `classpath()` instead of `deps()` queries.
+        """
+        await _test_analysis_query_invalidation_impl(
+            buck, name="analysis_query_invalidation_classpath"
+        )
 
+    @buck_test(data_dir="analysis_query_deps")
+    async def test_analysis_query_deps(self, buck: Buck) -> None:
+        deps = await buck.build_without_report(":deps", "--out=-")
+        golden(
+            output=deps.stdout,
+            rel_path="analysis_query_deps/deps.txt.golden",
+        )
+        assert ":foo" in deps.stdout
+        assert ":bar" in deps.stdout
+        assert ":baz" in deps.stdout
+        assert ":qux" in deps.stdout
 
-@buck_test(
-    data_dir="analysis_query_invalidation_classpath",
-)
-async def test_analysis_query_invalidation_classpath(buck: Buck) -> None:
-    """
-    Equivalent of T133069783 for `classpath()` instead of `deps()` queries.
-    """
-    await _test_analysis_query_invalidation_impl(
-        buck, name="analysis_query_invalidation_classpath"
-    )
+    @buck_test(data_dir="analysis_query_deps")
+    async def test_duplicate_analysis_query_expansions(self, buck: Buck) -> None:
+        result = await buck.build_without_report(":duplicate_queries", "--out=-")
+        fields = result.stdout.strip().split("|")
+        assert len(fields) == 4
+        assert all(fields)
+        assert fields[0] == fields[2]
+        assert fields[1] == fields[3]
+        assert fields[0].endswith(":bar")
 
+    @buck_test(data_dir="analysis_query_deps")
+    async def test_analysis_query_deps_with_depth(self, buck: Buck) -> None:
+        deps = await buck.build_without_report(":deps1", "--out=-")
+        golden(output=deps.stdout, rel_path="analysis_query_deps/deps1.txt.golden")
+        assert ":foo" in deps.stdout
+        assert ":bar" in deps.stdout
+        assert ":baz" in deps.stdout
+        assert ":qux" not in deps.stdout
 
-@buck_test(data_dir="analysis_query_deps")
-async def test_analysis_query_deps(buck: Buck) -> None:
-    deps = await buck.build_without_report(":deps", "--out=-")
-    golden(
-        output=deps.stdout,
-        rel_path="analysis_query_deps/deps.txt.golden",
-    )
-    assert ":foo" in deps.stdout
-    assert ":bar" in deps.stdout
-    assert ":baz" in deps.stdout
-    assert ":qux" in deps.stdout
-
-
-@buck_test(data_dir="analysis_query_deps")
-async def test_duplicate_analysis_query_expansions(buck: Buck) -> None:
-    result = await buck.build_without_report(":duplicate_queries", "--out=-")
-    fields = result.stdout.strip().split("|")
-    assert len(fields) == 4
-    assert all(fields)
-    assert fields[0] == fields[2]
-    assert fields[1] == fields[3]
-    assert fields[0].endswith(":bar")
-
-
-@buck_test(data_dir="analysis_query_deps")
-async def test_analysis_query_deps_with_depth(buck: Buck) -> None:
-    deps = await buck.build_without_report(":deps1", "--out=-")
-    golden(output=deps.stdout, rel_path="analysis_query_deps/deps1.txt.golden")
-    assert ":foo" in deps.stdout
-    assert ":bar" in deps.stdout
-    assert ":baz" in deps.stdout
-    assert ":qux" not in deps.stdout
-
-
-@buck_test(setup_eden=True, data_dir="analysis_query_deps")
-async def test_analysis_query_target_deps(buck: Buck) -> None:
-    deps = await buck.build_without_report(":target_deps", "--out=-")
-    golden(
-        output=deps.stdout,
-        rel_path="analysis_query_deps/target_deps.txt.golden",
-    )
-    assert ":foo" in deps.stdout
-    assert ":bar" in deps.stdout
-    assert ":baz" not in deps.stdout
-    assert ":qux" not in deps.stdout
+    @buck_test(setup_eden=True, data_dir="analysis_query_deps")
+    async def test_analysis_query_target_deps(self, buck: Buck) -> None:
+        deps = await buck.build_without_report(":target_deps", "--out=-")
+        golden(
+            output=deps.stdout,
+            rel_path="analysis_query_deps/target_deps.txt.golden",
+        )
+        assert ":foo" in deps.stdout
+        assert ":bar" in deps.stdout
+        assert ":baz" not in deps.stdout
+        assert ":qux" not in deps.stdout

@@ -12,35 +12,36 @@
 import tempfile
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_what_ran_incomplete(buck: Buck) -> None:
-    await buck.build("//:my_rule")
+class WhatRanIncompleteTest(BuckTestCase):
+    @buck_test()
+    async def test_what_ran_incomplete(self, buck: Buck) -> None:
+        await buck.build("//:my_rule")
 
-    log = (await buck.log("show")).stdout.strip()
-    log_file = tempfile.NamedTemporaryFile(
-        suffix=".json-lines", mode="w+", delete=False
-    )
+        log = (await buck.log("show")).stdout.strip()
+        log_file = tempfile.NamedTemporaryFile(
+            suffix=".json-lines", mode="w+", delete=False
+        )
 
-    # Truncate log
-    with log_file as f:
-        lines = log.splitlines()
-        for line in lines:
-            if "SpanEnd" in line and "ActionExecution" in line:
-                break
-            f.write(line + "\n")
-        f.close()
+        # Truncate log
+        with log_file as f:
+            lines = log.splitlines()
+            for line in lines:
+                if "SpanEnd" in line and "ActionExecution" in line:
+                    break
+                f.write(line + "\n")
+            f.close()
 
-    target = "build\tprelude//:my_rule (<unspecified>)"
+        target = "build\tprelude//:my_rule (<unspecified>)"
 
-    what_ran = await buck.log("what-ran", "--incomplete", log_file.name)
-    assert "Showing commands from:" in what_ran.stderr
-    assert target in what_ran.stdout
+        what_ran = await buck.log("what-ran", "--incomplete", log_file.name)
+        assert "Showing commands from:" in what_ran.stderr
+        assert target in what_ran.stdout
 
-    what_failed = await buck.log("what-failed", log_file.name)
-    assert target not in what_failed.stdout
+        what_failed = await buck.log("what-failed", log_file.name)
+        assert target not in what_failed.stdout
 
-    what_ran = await buck.log("what-ran", "--show-std-err", log_file.name)
-    assert "<command did not finish executing>" in what_ran.stdout
+        what_ran = await buck.log("what-ran", "--show-std-err", log_file.name)
+        assert "<command did not finish executing>" in what_ran.stdout

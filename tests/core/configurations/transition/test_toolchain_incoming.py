@@ -11,14 +11,17 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test()
-async def test_toolchain_incoming_edge(buck: Buck) -> None:
-    res = await expect_failure(buck.ctargets("root//:stub", "-v0", "--console=none"))
-    golden(
-        output=res.stderr,
-        rel_path="error.golden.stderr",
-    )
+class ToolchainIncomingTest(BuckTestCase):
+    @buck_test()
+    async def test_toolchain_incoming_edge(self, buck: Buck) -> None:
+        res = await expect_failure(
+            buck.ctargets("root//:stub", "-v0", "--console=none")
+        )
+        golden(
+            output=res.stderr,
+            rel_path="error.golden.stderr",
+        )

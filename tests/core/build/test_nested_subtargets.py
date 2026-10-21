@@ -12,34 +12,34 @@
 from buck2.tests.e2e_util import asserts
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_build_nested_subtargets(buck: Buck) -> None:
-    result = await buck.build(
-        "//:nested[sub][nested_sub]",
-    )
-    build_report = result.get_build_report()
+class NestedSubtargetsTest(BuckTestCase):
+    @buck_test()
+    async def test_build_nested_subtargets(self, buck: Buck) -> None:
+        result = await buck.build(
+            "//:nested[sub][nested_sub]",
+        )
+        build_report = result.get_build_report()
 
-    output = build_report.output_for_target("//:nested", "sub|nested_sub")
+        output = build_report.output_for_target("//:nested", "sub|nested_sub")
 
-    assert output.read_text().rstrip() == "foo_content"
-    asserts.assert_not_executable(output)
+        assert output.read_text().rstrip() == "foo_content"
+        asserts.assert_not_executable(output)
 
+    @buck_test()
+    async def test_build_nested_subtargets_errors(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.build(
+                "//:nested[bad]",
+            ),
+            stderr_regex="Available subtargets are.*sub",
+        )
 
-@buck_test()
-async def test_build_nested_subtargets_errors(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "//:nested[bad]",
-        ),
-        stderr_regex="Available subtargets are.*sub",
-    )
-
-    await expect_failure(
-        buck.build(
-            "//:nested[sub][bad]",
-        ),
-        stderr_regex="Available subtargets are.*nested_sub",
-    )
+        await expect_failure(
+            buck.build(
+                "//:nested[sub][bad]",
+            ),
+            stderr_regex="Available subtargets are.*nested_sub",
+        )

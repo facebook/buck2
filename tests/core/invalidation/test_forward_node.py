@@ -10,28 +10,29 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
-@buck_test()
-async def test_forward_node_supports_cutoff(buck: Buck) -> None:
-    await buck.targets("--show-output", "root//:main")
-    # Add a file to the root directory
-    with open(buck.cwd / "TARGETS.fixture", "a") as targetsfile:
-        targetsfile.write("\n# a comment\n")
-    await buck.targets("--show-output", "root//:main")
+class ForwardNodeTest(BuckTestCase):
+    @buck_test()
+    async def test_forward_node_supports_cutoff(self, buck: Buck) -> None:
+        await buck.targets("--show-output", "root//:main")
+        # Add a file to the root directory
+        with open(buck.cwd / "TARGETS.fixture", "a") as targetsfile:
+            targetsfile.write("\n# a comment\n")
+        await buck.targets("--show-output", "root//:main")
 
-    events = await filter_events(buck, "Event", "data", "SpanEnd", "data")
-    loads = []
-    analyses = []
+        events = await filter_events(buck, "Event", "data", "SpanEnd", "data")
+        loads = []
+        analyses = []
 
-    for ev in events:
-        if "Load" in ev:
-            loads.append(ev)
-        if "Analysis" in ev:
-            analyses.append(ev)
+        for ev in events:
+            if "Load" in ev:
+                loads.append(ev)
+            if "Analysis" in ev:
+                analyses.append(ev)
 
-    assert len(loads) > 0
-    # TODO(cjhopman): fix
-    assert len(analyses) == 0, "should not have analysed anything"
+        assert len(loads) > 0
+        # TODO(cjhopman): fix
+        assert len(analyses) == 0, "should not have analysed anything"

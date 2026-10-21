@@ -12,7 +12,7 @@ from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 async def _check_build_and_skip_override(
@@ -28,55 +28,56 @@ async def _check_build_and_skip_override(
     await buck.test(target, *config_args, skip_flag)
 
 
-@buck_test()
-async def test_builds_targets_from_command_line_config(buck: Buck) -> None:
-    await _check_build_and_skip_override(
-        buck,
-        "//:failing_default_info",
-        "--skip-default-info",
-        ["-c", "buck2.test_builds_targets=true"],
-        "failing_default_info",
-    )
-    await _check_build_and_skip_override(
-        buck,
-        "//:failing_run_info",
-        "--skip-run-info",
-        ["-c", "buck2.test_builds_targets=true"],
-        "failing_run_info",
-    )
-
-
-@buck_test()
-async def test_explicit_build_flags_override_disabled_config(buck: Buck) -> None:
-    default_result = await expect_failure(
-        buck.test(
+class BuildsTargetsTest(BuckTestCase):
+    @buck_test()
+    async def test_builds_targets_from_command_line_config(self, buck: Buck) -> None:
+        await _check_build_and_skip_override(
+            buck,
             "//:failing_default_info",
-            "-c",
-            "buck2.test_builds_targets=false",
-            "--build-default-info",
+            "--skip-default-info",
+            ["-c", "buck2.test_builds_targets=true"],
+            "failing_default_info",
         )
-    )
-    assert "failing_default_info" in default_result.stderr
-
-    run_result = await expect_failure(
-        buck.test(
+        await _check_build_and_skip_override(
+            buck,
             "//:failing_run_info",
-            "-c",
-            "buck2.test_builds_targets=false",
-            "--build-run-info",
+            "--skip-run-info",
+            ["-c", "buck2.test_builds_targets=true"],
+            "failing_run_info",
         )
-    )
-    assert "failing_run_info" in run_result.stderr
 
+    @buck_test()
+    async def test_explicit_build_flags_override_disabled_config(
+        self, buck: Buck
+    ) -> None:
+        default_result = await expect_failure(
+            buck.test(
+                "//:failing_default_info",
+                "-c",
+                "buck2.test_builds_targets=false",
+                "--build-default-info",
+            )
+        )
+        assert "failing_default_info" in default_result.stderr
 
-@buck_test()
-async def test_builds_targets_from_included_config_file(buck: Buck) -> None:
-    config_file = buck.cwd / "test_builds_targets_include.bcfg"
+        run_result = await expect_failure(
+            buck.test(
+                "//:failing_run_info",
+                "-c",
+                "buck2.test_builds_targets=false",
+                "--build-run-info",
+            )
+        )
+        assert "failing_run_info" in run_result.stderr
 
-    await _check_build_and_skip_override(
-        buck,
-        "//:failing_default_info",
-        "--skip-default-info",
-        ["--config-file", str(config_file)],
-        "failing_default_info",
-    )
+    @buck_test()
+    async def test_builds_targets_from_included_config_file(self, buck: Buck) -> None:
+        config_file = buck.cwd / "test_builds_targets_include.bcfg"
+
+        await _check_build_and_skip_override(
+            buck,
+            "//:failing_default_info",
+            "--skip-default-info",
+            ["--config-file", str(config_file)],
+            "failing_default_info",
+        )

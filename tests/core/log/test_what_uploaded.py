@@ -13,34 +13,40 @@ import random
 import string
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_what_uploaded_csv(buck: Buck) -> None:
-    # Use a random content on every test invocation to make sure we actually get uploads
-    content = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))
-    await buck.build("//:upload_rule", "--remote-only", "-c", "test.content=" + content)
-    out = await buck.log("what-uploaded", "--format", "csv")
-    header = ["action", "digests_uploaded", "bytes_uploaded"]
-    out = [
-        dict(zip(header, record))
-        for record in csv.reader(out.stdout.splitlines())
-        if record
-    ]
-    assert len(out) > 0, "out should have some uploads"
-    assert out[0] == dict(zip(header, header)), (
-        "ensure that first entry in csv is the header"
-    )
-    assert int(out[1]["digests_uploaded"]) > 0, "second entry should be upload digests"
+class WhatUploadedTest(BuckTestCase):
+    @buck_test()
+    async def test_what_uploaded_csv(self, buck: Buck) -> None:
+        # Use a random content on every test invocation to make sure we actually get uploads
+        content = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))
+        await buck.build(
+            "//:upload_rule", "--remote-only", "-c", "test.content=" + content
+        )
+        out = await buck.log("what-uploaded", "--format", "csv")
+        header = ["action", "digests_uploaded", "bytes_uploaded"]
+        out = [
+            dict(zip(header, record))
+            for record in csv.reader(out.stdout.splitlines())
+            if record
+        ]
+        assert len(out) > 0, "out should have some uploads"
+        assert out[0] == dict(zip(header, header)), (
+            "ensure that first entry in csv is the header"
+        )
+        assert int(out[1]["digests_uploaded"]) > 0, (
+            "second entry should be upload digests"
+        )
 
-
-@buck_test()
-async def test_what_uploaded_aggregated(buck: Buck) -> None:
-    # Use a random content on every test invocation to make sure we actually get uploads
-    content = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))
-    await buck.build("//:upload_rule", "--remote-only", "-c", "test.content=" + content)
-    out = await buck.log("what-uploaded", "--aggregate-by-ext")
-    out = [line.split() for line in out.stdout.splitlines() if line]
-    assert len(out) > 0, "out should have some uploads"
-    assert out[0] == ["txt", "1", "20"], f"unexpected output: {out}"
+    @buck_test()
+    async def test_what_uploaded_aggregated(self, buck: Buck) -> None:
+        # Use a random content on every test invocation to make sure we actually get uploads
+        content = "".join(random.choices(string.ascii_uppercase + string.digits, k=20))
+        await buck.build(
+            "//:upload_rule", "--remote-only", "-c", "test.content=" + content
+        )
+        out = await buck.log("what-uploaded", "--aggregate-by-ext")
+        out = [line.split() for line in out.stdout.splitlines() if line]
+        assert len(out) > 0, "out should have some uploads"
+        assert out[0] == ["txt", "1", "20"], f"unexpected output: {out}"

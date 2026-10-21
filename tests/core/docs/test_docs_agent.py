@@ -9,17 +9,18 @@
 # pyre-strict
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_docs_agent_prints_agent_context_schema(buck: Buck) -> None:
-    result = await buck.docs("agent")
-    result.check_returncode()
+class DocsAgentTest(BuckTestCase):
+    @buck_test()
+    async def test_docs_agent_prints_agent_context_schema(self, buck: Buck) -> None:
+        result = await buck.docs("agent")
+        result.check_returncode()
 
-    assert (
-        result.stdout
-        == """For builds at Meta, use Buck2.
+        assert (
+            result.stdout
+            == """For builds at Meta, use Buck2.
 
 # Rules
 
@@ -43,4 +44,4 @@ Fields:
   Description: The error category from the previous failed build
   Allowed values: kotlin_unresolved_reference, missing_target, starlark_error, action_command_failure
 """
-    )
+        )

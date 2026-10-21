@@ -11,13 +11,14 @@
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_bxl_dynamic_action_basic(buck: Buck) -> None:
-    result = await buck.bxl(
-        "//:dynamic.bxl:basic",
-    )
-    outputs = result.stdout.strip()
-    assert Path(outputs).read_text() == "foobar"
+class DynamicNewTest(BuckTestCase):
+    @buck_test()
+    async def test_bxl_dynamic_action_basic(self, buck: Buck) -> None:
+        result = await buck.bxl(
+            "//:dynamic.bxl:basic",
+        )
+        outputs = result.stdout.strip()
+        assert Path(outputs).read_text() == "foobar"

@@ -12,35 +12,38 @@
 import json
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_imports_toml(buck: Buck) -> None:
-    """Test that targets --streaming --imports handles TOML file imports."""
-    result = await buck.targets("//...", "--json", "--streaming", "--imports")
-    xs = json.loads(result.stdout)
+class TargetsImportsTomlTest(BuckTestCase):
+    @buck_test()
+    async def test_imports_toml(self, buck: Buck) -> None:
+        """Test that targets --streaming --imports handles TOML file imports."""
+        result = await buck.targets("//...", "--json", "--streaming", "--imports")
+        xs = json.loads(result.stdout)
 
-    found_targets = False
-    found_bzl = False
-    found_toml = False
+        found_targets = False
+        found_bzl = False
+        found_toml = False
 
-    for x in xs:
-        if "buck.imports" not in x:
-            continue
-        file = x["buck.file"]
-        imports = x["buck.imports"]
+        for x in xs:
+            if "buck.imports" not in x:
+                continue
+            file = x["buck.file"]
+            imports = x["buck.imports"]
 
-        if file == "root//TARGETS.fixture":
-            assert "root//uses_toml.bzl" in imports
-            found_targets = True
-        elif file == "root//uses_toml.bzl":
-            assert "root//data.toml" in imports
-            found_bzl = True
-        elif file == "root//data.toml":
-            assert imports == []
-            found_toml = True
+            if file == "root//TARGETS.fixture":
+                assert "root//uses_toml.bzl" in imports
+                found_targets = True
+            elif file == "root//uses_toml.bzl":
+                assert "root//data.toml" in imports
+                found_bzl = True
+            elif file == "root//data.toml":
+                assert imports == []
+                found_toml = True
 
-    assert found_targets, "TARGETS.fixture imports should be reported"
-    assert found_bzl, "uses_toml.bzl imports (including data.toml) should be reported"
-    assert found_toml, "data.toml should appear as an import with empty sub-imports"
+        assert found_targets, "TARGETS.fixture imports should be reported"
+        assert found_bzl, (
+            "uses_toml.bzl imports (including data.toml) should be reported"
+        )
+        assert found_toml, "data.toml should appear as an import with empty sub-imports"

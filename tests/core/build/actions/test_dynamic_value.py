@@ -10,12 +10,13 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_dynamic_value(buck: Buck) -> None:
-    result = await buck.build("//:test_rule")
-    out = result.get_build_report().output_for_target("//:test_rule")
-    with open(out, "r") as f:
-        assert f.read().strip() == "<<<123>>>"
+class DynamicValueTest(BuckTestCase):
+    @buck_test()
+    async def test_dynamic_value(self, buck: Buck) -> None:
+        result = await buck.build("//:test_rule")
+        out = result.get_build_report().output_for_target("//:test_rule")
+        with open(out, "r") as f:
+            assert f.read().strip() == "<<<123>>>"

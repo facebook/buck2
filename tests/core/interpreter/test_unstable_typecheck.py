@@ -11,13 +11,14 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_unstable_typecheck(buck: Buck) -> None:
-    await buck.cquery("//:x")
-    await expect_failure(
-        buck.cquery("//:x", "--unstable-typecheck"),
-        stderr_regex="Expected type `int` but got `str`",
-    )
+class UnstableTypecheckTest(BuckTestCase):
+    @buck_test()
+    async def test_unstable_typecheck(self, buck: Buck) -> None:
+        await buck.cquery("//:x")
+        await expect_failure(
+            buck.cquery("//:x", "--unstable-typecheck"),
+            stderr_regex="Expected type `int` but got `str`",
+        )

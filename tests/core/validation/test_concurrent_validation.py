@@ -13,22 +13,23 @@ import string
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
-
-
-@buck_test()
-async def test_validation_concurrent(buck: Buck) -> None:
-    # There are 2 actions — slow build action and fast validation action.
-    # Check that validation doesn't wait for a slow DefaultInfo artifact to be built and fails the build first.
-    await expect_failure(
-        buck.build(
-            ":plate",
-            "-c",
-            f"test.cache_buster={_random_string()}",
-        ),
-        stderr_regex="Validation for `.+` failed",
-    )
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def _random_string() -> str:
     return "".join(random.choice(string.ascii_lowercase) for _ in range(256))
+
+
+class ConcurrentValidationTest(BuckTestCase):
+    @buck_test()
+    async def test_validation_concurrent(self, buck: Buck) -> None:
+        # There are 2 actions — slow build action and fast validation action.
+        # Check that validation doesn't wait for a slow DefaultInfo artifact to be built and fails the build first.
+        await expect_failure(
+            buck.build(
+                ":plate",
+                "-c",
+                f"test.cache_buster={_random_string()}",
+            ),
+            stderr_regex="Validation for `.+` failed",
+        )

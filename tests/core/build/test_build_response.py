@@ -14,7 +14,7 @@ from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
@@ -42,20 +42,21 @@ async def check_targets(
             assert expected in actual_msg["message"]
 
 
-@buck_test()
-async def test_build_one_fails(buck: Buck, tmp_path: Path) -> None:
-    report = tmp_path / "build-report.json"
-    await expect_failure(
-        buck.build(
-            "--build-report",
-            str(report),
-            "//:fail",
-            "//:a_one",
-        ),
-        stderr_regex="Failed to build 'root//:fail",
-    )
-    await check_targets(
-        buck,
-        ["root//:a_one", "root//:fail"],
-        ["Failed to build 'root//:fail (<unspecified>)'"],
-    )
+class BuildResponseTest(BuckTestCase):
+    @buck_test()
+    async def test_build_one_fails(self, buck: Buck, tmp_path: Path) -> None:
+        report = tmp_path / "build-report.json"
+        await expect_failure(
+            buck.build(
+                "--build-report",
+                str(report),
+                "//:fail",
+                "//:a_one",
+            ),
+            stderr_regex="Failed to build 'root//:fail",
+        )
+        await check_targets(
+            buck,
+            ["root//:a_one", "root//:fail"],
+            ["Failed to build 'root//:fail (<unspecified>)'"],
+        )

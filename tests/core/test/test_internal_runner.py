@@ -12,44 +12,43 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, env
 
 # Empty test executor forces internal test executor to be used.
 INTERNAL_TEST_EXECUTOR = ""
 
 
-@buck_test()
-@env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
-async def test_internal_test_executor(buck: Buck) -> None:
-    await buck.test(
-        ":trivial_pass",
-        test_executor=INTERNAL_TEST_EXECUTOR,
-    )
-
-
-@buck_test()
-@env("TEST_VAR", "BAD_VALUE")
-@env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
-async def test_internal_test_executor_env(buck: Buck) -> None:
-    await buck.test(
-        ":check_env",
-        "--",
-        "--env",
-        "TEST_VAR=TEST_VALUE",
-        test_executor=INTERNAL_TEST_EXECUTOR,
-    )
-
-
-@buck_test()
-@env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
-async def test_internal_test_executor_timeout(buck: Buck) -> None:
-    await expect_failure(
-        buck.test(
-            ":timeout",
-            "--",
-            "--timeout",
-            "1",
+class InternalRunnerTest(BuckTestCase):
+    @buck_test()
+    @env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
+    async def test_internal_test_executor(self, buck: Buck) -> None:
+        await buck.test(
+            ":trivial_pass",
             test_executor=INTERNAL_TEST_EXECUTOR,
-        ),
-        stderr_regex="Timeout: ",
-    )
+        )
+
+    @buck_test()
+    @env("TEST_VAR", "BAD_VALUE")
+    @env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
+    async def test_internal_test_executor_env(self, buck: Buck) -> None:
+        await buck.test(
+            ":check_env",
+            "--",
+            "--env",
+            "TEST_VAR=TEST_VALUE",
+            test_executor=INTERNAL_TEST_EXECUTOR,
+        )
+
+    @buck_test()
+    @env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
+    async def test_internal_test_executor_timeout(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.test(
+                ":timeout",
+                "--",
+                "--timeout",
+                "1",
+                test_executor=INTERNAL_TEST_EXECUTOR,
+            ),
+            stderr_regex="Timeout: ",
+        )

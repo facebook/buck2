@@ -12,37 +12,37 @@
 import json
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-# Test select works with buckconfig.
-@buck_test()
-async def test_select_buckconfig(buck: Buck) -> None:
-    out = await buck.cquery(
-        "root//:the-test",
-        "--output-attribute=labels",
-    )
-    q = json.loads(out.stdout)
-    assert len(q) == 1
-    assert list(q.values())[0]["labels"] == ["NO"]
+class SelectBuckconfigTest(BuckTestCase):
+    # Test select works with buckconfig.
+    @buck_test()
+    async def test_select_buckconfig(self, buck: Buck) -> None:
+        out = await buck.cquery(
+            "root//:the-test",
+            "--output-attribute=labels",
+        )
+        q = json.loads(out.stdout)
+        assert len(q) == 1
+        assert list(q.values())[0]["labels"] == ["NO"]
 
-    out = await buck.cquery(
-        "root//:the-test",
-        "--output-attribute=labels",
-        "-c",
-        "aaa.bbb=ccc",
-    )
-    q = json.loads(out.stdout)
-    assert len(q) == 1
-    assert list(q.values())[0]["labels"] == ["YES"]
+        out = await buck.cquery(
+            "root//:the-test",
+            "--output-attribute=labels",
+            "-c",
+            "aaa.bbb=ccc",
+        )
+        q = json.loads(out.stdout)
+        assert len(q) == 1
+        assert list(q.values())[0]["labels"] == ["YES"]
 
-
-@buck_test()
-async def test_select_root_buckconfig(buck: Buck) -> None:
-    out = await buck.cquery(
-        "subcell//:the-root-buckconfig-test",
-        "--output-attribute=labels",
-    )
-    q = json.loads(out.stdout)
-    assert len(q) == 1
-    assert set(list(q.values())[0]["labels"]) == {"ROOT_YES", "TARGET_YES"}
+    @buck_test()
+    async def test_select_root_buckconfig(self, buck: Buck) -> None:
+        out = await buck.cquery(
+            "subcell//:the-root-buckconfig-test",
+            "--output-attribute=labels",
+        )
+        q = json.loads(out.stdout)
+        assert len(q) == 1
+        assert set(list(q.values())[0]["labels"]) == {"ROOT_YES", "TARGET_YES"}

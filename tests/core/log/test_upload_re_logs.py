@@ -13,7 +13,7 @@ import os
 import sys
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, env
 from buck2.tests.e2e_util.helper.utils import json_get
 from manifold.clients.python.manifold_client_deprecated import Client as ManifoldClient
 
@@ -31,17 +31,6 @@ async def manifold_exists(path: str) -> bool:
         return client.exists(bucket=BUCKET_CONFIG["bucket"], path=path)
 
 
-@buck_test()
-@env("SANDCASTLE", "1")  # wait for logs to finish uploading
-async def test_upload_re_logs(buck: Buck) -> None:
-    # Build a trivial action
-    await buck.build("root//:run")
-
-    session_id = await extract_re_session_id(buck)
-    await buck.debug("upload-re-logs", "--session-id", session_id)
-    assert await manifold_exists(path=f"flat/{session_id}.log.zst") is True
-
-
 async def extract_re_session_id(buck: Buck) -> str:
     result = await buck.log("show")
     session_id = None
@@ -53,3 +42,15 @@ async def extract_re_session_id(buck: Buck) -> str:
             break
     assert session_id is not None
     return session_id
+
+
+class UploadReLogsTest(BuckTestCase):
+    @buck_test()
+    @env("SANDCASTLE", "1")  # wait for logs to finish uploading
+    async def test_upload_re_logs(self, buck: Buck) -> None:
+        # Build a trivial action
+        await buck.build("root//:run")
+
+        session_id = await extract_re_session_id(buck)
+        await buck.debug("upload-re-logs", "--session-id", session_id)
+        assert await manifold_exists(path=f"flat/{session_id}.log.zst") is True

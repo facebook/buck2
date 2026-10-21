@@ -9,47 +9,46 @@
 # pyre-strict
 
 
-import pytest
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
-
-# TODO(iguridi) or TODO(raulgarcia4):
-# New `audit` commands have been added since these tests were created.
-# Test them if necessary.
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, parametrize
 
 
-@buck_test()
-@pytest.mark.parametrize(  # type: ignore
-    "cmd",
-    [
-        "audit_visibility",
-        "audit_configurations",
-        "audit_config",
-        "audit_visibility",
-    ],
-)
-async def test_pass_common_opts_func(buck: Buck, cmd: str) -> None:
-    cmd_call = getattr(buck, cmd)
-    await cmd_call("--client-metadata", "id=placeholder_id")
+class AuditCommonOptsTest(BuckTestCase):
+    # TODO(iguridi) or TODO(raulgarcia4):
+    # New `audit` commands have been added since these tests were created.
+    # Test them if necessary.
 
+    @buck_test()
+    @parametrize(  # type: ignore
+        "cmd",
+        [
+            "audit_visibility",
+            "audit_configurations",
+            "audit_config",
+            "audit_visibility",
+        ],
+    )
+    async def test_pass_common_opts_func(self, buck: Buck, cmd: str) -> None:
+        cmd_call = getattr(buck, cmd)
+        await cmd_call("--client-metadata", "id=placeholder_id")
 
-@buck_test()
-@pytest.mark.parametrize(  # type: ignore
-    "cmd",
-    [
-        "analysis-queries",
-        "cell",
-        "execution-platform-resolution",
-        "includes",
-        "prelude",
-        "providers",
-        "subtargets",
-    ],
-)
-async def test_pass_common_opts(buck: Buck, cmd: str) -> None:
-    commands_requiring_target_pattern_arg_value = {"providers", "subtargets"}
+    @buck_test()
+    @parametrize(  # type: ignore
+        "cmd",
+        [
+            "analysis-queries",
+            "cell",
+            "execution-platform-resolution",
+            "includes",
+            "prelude",
+            "providers",
+            "subtargets",
+        ],
+    )
+    async def test_pass_common_opts(self, buck: Buck, cmd: str) -> None:
+        commands_requiring_target_pattern_arg_value = {"providers", "subtargets"}
 
-    if cmd in commands_requiring_target_pattern_arg_value:
-        await buck.audit(cmd, "//:dummy", "--client-metadata", "id=placeholder_id")
-    else:
-        await buck.audit(cmd, "--client-metadata", "id=placeholder_id")
+        if cmd in commands_requiring_target_pattern_arg_value:
+            await buck.audit(cmd, "//:dummy", "--client-metadata", "id=placeholder_id")
+        else:
+            await buck.audit(cmd, "--client-metadata", "id=placeholder_id")

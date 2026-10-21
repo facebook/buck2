@@ -10,56 +10,48 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_get_package_path(buck: Buck) -> None:
-    await buck.bxl(
-        "//package.bxl:get_package_path",
-    )
+class PackageTest(BuckTestCase):
+    @buck_test()
+    async def test_get_package_path(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//package.bxl:get_package_path",
+        )
 
+    @buck_test()
+    async def test_read_package_value(self, buck: Buck) -> None:
+        await buck.bxl("//package.bxl:read_package_value")
 
-@buck_test()
-async def test_read_package_value(buck: Buck) -> None:
-    await buck.bxl("//package.bxl:read_package_value")
+    @buck_test()
+    async def test_read_package_value_from_string(self, buck: Buck) -> None:
+        await buck.bxl("//package.bxl:read_package_value_from_string")
 
+    @buck_test()
+    async def test_read_override_package_value(self, buck: Buck) -> None:
+        await buck.bxl("//package.bxl:read_override_package_value")
 
-@buck_test()
-async def test_read_package_value_from_string(buck: Buck) -> None:
-    await buck.bxl("//package.bxl:read_package_value_from_string")
+    @buck_test()
+    async def test_read_package_value_not_found(self, buck: Buck) -> None:
+        await buck.bxl("//package.bxl:read_package_value_not_found")
 
+    @buck_test()
+    async def test_read_package_visibility(self, buck: Buck) -> None:
+        await buck.bxl("//package.bxl:read_package_visibility")
 
-@buck_test()
-async def test_read_override_package_value(buck: Buck) -> None:
-    await buck.bxl("//package.bxl:read_override_package_value")
+    @buck_test()
+    async def test_read_package_within_view(self, buck: Buck) -> None:
+        await buck.bxl("//package.bxl:read_package_within_view")
 
+    @buck_test()
+    async def test_read_package_visibility_cap(self, buck: Buck) -> None:
+        await buck.bxl("//package.bxl:read_package_visibility_cap")
 
-@buck_test()
-async def test_read_package_value_not_found(buck: Buck) -> None:
-    await buck.bxl("//package.bxl:read_package_value_not_found")
+    @buck_test()
+    async def test_read_package_within_view_cap(self, buck: Buck) -> None:
+        await buck.bxl("//package.bxl:read_package_within_view_cap")
 
-
-@buck_test()
-async def test_read_package_visibility(buck: Buck) -> None:
-    await buck.bxl("//package.bxl:read_package_visibility")
-
-
-@buck_test()
-async def test_read_package_within_view(buck: Buck) -> None:
-    await buck.bxl("//package.bxl:read_package_within_view")
-
-
-@buck_test()
-async def test_read_package_visibility_cap(buck: Buck) -> None:
-    await buck.bxl("//package.bxl:read_package_visibility_cap")
-
-
-@buck_test()
-async def test_read_package_within_view_cap(buck: Buck) -> None:
-    await buck.bxl("//package.bxl:read_package_within_view_cap")
-
-
-@buck_test()
-async def test_read_package_visibility_intersection(buck: Buck) -> None:
-    await buck.bxl("//package.bxl:read_package_visibility_intersection")
+    @buck_test()
+    async def test_read_package_visibility_intersection(self, buck: Buck) -> None:
+        await buck.bxl("//package.bxl:read_package_visibility_intersection")

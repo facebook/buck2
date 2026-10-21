@@ -10,10 +10,11 @@
 
 
 import re
+from typing import Any, Callable
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import (
     golden,
     strip_glog_lines,
@@ -32,8 +33,8 @@ def _sanitize(s: str) -> str:
 
 def error_formatting_test(
     name: str, command: list[str], command_name: str = "build"
-) -> None:
-    async def impl(buck: Buck) -> None:
+) -> Callable[..., Any]:
+    async def impl(self: BuckTestCase, buck: Buck) -> None:
         func = getattr(buck, command_name)
         res = await expect_failure(func("--console=none", *command))
         golden(
@@ -41,79 +42,80 @@ def error_formatting_test(
             rel_path="fixtures/" + name + ".golden.stderr",
         )
 
-    globals()[name] = impl
-
-    buck_test()(impl)
+    return buck_test()(impl)
 
 
-error_formatting_test(name="test_action_fail", command=["//:action_fail"])
+class FormattingTest(BuckTestCase):
+    test_action_fail = error_formatting_test(
+        name="test_action_fail", command=["//:action_fail"]
+    )
 
-error_formatting_test(
-    name="test_missing_dep",
-    command=["//:missing_dep"],
-)
+    test_missing_dep = error_formatting_test(
+        name="test_missing_dep",
+        command=["//:missing_dep"],
+    )
 
-error_formatting_test(
-    name="test_missing_dep_cquery",
-    command=["//:missing_dep"],
-    command_name="cquery",
-)
+    test_missing_dep_cquery = error_formatting_test(
+        name="test_missing_dep_cquery",
+        command=["//:missing_dep"],
+        command_name="cquery",
+    )
 
-error_formatting_test(
-    name="test_attr_coercion",
-    command=["//attr_coercion:int_rule"],
-)
+    test_attr_coercion = error_formatting_test(
+        name="test_attr_coercion",
+        command=["//attr_coercion:int_rule"],
+    )
 
-error_formatting_test(
-    name="test_during_load",
-    command=["//during_load:whatever"],
-)
+    test_during_load = error_formatting_test(
+        name="test_during_load",
+        command=["//during_load:whatever"],
+    )
 
-error_formatting_test(
-    name="test_during_load_via_dep",
-    command=["//during_load/via_dep:via_dep"],
-)
+    test_during_load_via_dep = error_formatting_test(
+        name="test_during_load_via_dep",
+        command=["//during_load/via_dep:via_dep"],
+    )
 
-error_formatting_test(
-    name="test_during_parse",
-    command=["//during_parse:whatever"],
-)
+    test_during_parse = error_formatting_test(
+        name="test_during_parse",
+        command=["//during_parse:whatever"],
+    )
 
-error_formatting_test(
-    name="test_during_select_map",
-    command=["//during_select:map"],
-)
+    test_during_select_map = error_formatting_test(
+        name="test_during_select_map",
+        command=["//during_select:map"],
+    )
 
-error_formatting_test(
-    name="test_bxl_no_stacktrace",
-    command=["//fail_no_stacktrace.bxl:fail_no_stacktrace_test"],
-    command_name="bxl",
-)
+    test_bxl_no_stacktrace = error_formatting_test(
+        name="test_bxl_no_stacktrace",
+        command=["//fail_no_stacktrace.bxl:fail_no_stacktrace_test"],
+        command_name="bxl",
+    )
 
-error_formatting_test(
-    name="test_bxl_no_stacktrace_verbose",
-    command=["//fail_no_stacktrace.bxl:fail_no_stacktrace_test", "-v5"],
-    command_name="bxl",
-)
+    test_bxl_no_stacktrace_verbose = error_formatting_test(
+        name="test_bxl_no_stacktrace_verbose",
+        command=["//fail_no_stacktrace.bxl:fail_no_stacktrace_test", "-v5"],
+        command_name="bxl",
+    )
 
-error_formatting_test(
-    name="test_bxl_with_stacktrace",
-    command=["//fail_no_stacktrace.bxl:fail_with_stacktrace_test"],
-    command_name="bxl",
-)
+    test_bxl_with_stacktrace = error_formatting_test(
+        name="test_bxl_with_stacktrace",
+        command=["//fail_no_stacktrace.bxl:fail_with_stacktrace_test"],
+        command_name="bxl",
+    )
 
-error_formatting_test(
-    name="test_bxl_attr_coercion",
-    command=["//fail_attr_coercion.bxl:int_rule"],
-    command_name="bxl",
-)
+    test_bxl_attr_coercion = error_formatting_test(
+        name="test_bxl_attr_coercion",
+        command=["//fail_attr_coercion.bxl:int_rule"],
+        command_name="bxl",
+    )
 
-error_formatting_test(
-    name="test_duplicate_target",
-    command=["//duplicate_target:foo"],
-)
+    test_duplicate_target = error_formatting_test(
+        name="test_duplicate_target",
+        command=["//duplicate_target:foo"],
+    )
 
-error_formatting_test(
-    name="test_duplicate_target_with_stacktrace",
-    command=["//duplicate_target:foo", "--stack"],
-)
+    test_duplicate_target_with_stacktrace = error_formatting_test(
+        name="test_duplicate_target_with_stacktrace",
+        command=["//duplicate_target:foo", "--stack"],
+    )

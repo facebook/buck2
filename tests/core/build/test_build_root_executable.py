@@ -10,7 +10,7 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 """
 Test that when we render paths relative to the repo root, we prefix them with a
@@ -19,11 +19,11 @@ lookup for them.
 """
 
 
-@buck_test()
-async def test_build_root_executable_local(buck: Buck) -> None:
-    await buck.build(":top", "--local-only")
+class BuildRootExecutableTest(BuckTestCase):
+    @buck_test()
+    async def test_build_root_executable_local(self, buck: Buck) -> None:
+        await buck.build(":top", "--local-only")
 
-
-@buck_test()
-async def test_build_root_executable_remote(buck: Buck) -> None:
-    await buck.build(":top", "--remote-only")
+    @buck_test()
+    async def test_build_root_executable_remote(self, buck: Buck) -> None:
+        await buck.build(":top", "--remote-only")

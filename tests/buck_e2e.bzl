@@ -447,7 +447,7 @@ def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}, allow_bundled_ce
             attrs["deps"] = list(attrs.get("deps") or [])
             attrs["deps"].extend(IMPLICIT_DEPS)
 
-            buck2_e2e_test(name = target, **attrs)
+            buck2_e2e_test(name = target, use_unittest = True, **attrs)
             if target in materializer_variants:
                 for materializer in OTHER_MATERIALIZERS:
                     variant_attrs = dict(attrs)

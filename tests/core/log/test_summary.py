@@ -10,13 +10,14 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_summary_command(buck: Buck) -> None:
-    await buck.build("//:my_rule")
-    out = await buck.log("summary")
+class SummaryTest(BuckTestCase):
+    @buck_test()
+    async def test_summary_command(self, buck: Buck) -> None:
+        await buck.build("//:my_rule")
+        out = await buck.log("summary")
 
-    assert "Showing summary from:" in out.stdout
-    assert "Targets Analyzed: 1" in out.stdout
+        assert "Showing summary from:" in out.stdout
+        assert "Targets Analyzed: 1" in out.stdout

@@ -10,18 +10,19 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden
 
 
-@buck_test()
-async def test_metadata(buck: Buck) -> None:
-    stdout = (
-        await buck.targets(
-            "//...", "--keep-going", "-a", "^metadata|buck.package|name$"
+class TargetMetadataTest(BuckTestCase):
+    @buck_test()
+    async def test_metadata(self, buck: Buck) -> None:
+        stdout = (
+            await buck.targets(
+                "//...", "--keep-going", "-a", "^metadata|buck.package|name$"
+            )
+        ).stdout
+        golden(
+            output=stdout,
+            rel_path="test_metadata.golden.json",
         )
-    ).stdout
-    golden(
-        output=stdout,
-        rel_path="test_metadata.golden.json",
-    )

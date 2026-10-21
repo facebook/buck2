@@ -9,15 +9,16 @@
 # pyre-strict
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_audit_deferred_materializer_list(buck: Buck) -> None:
-    res = await buck.audit("deferred-materializer", "list")
-    assert res.stdout.strip() == ""
+class AuditDeferredMaterializerTest(BuckTestCase):
+    @buck_test()
+    async def test_audit_deferred_materializer_list(self, buck: Buck) -> None:
+        res = await buck.audit("deferred-materializer", "list")
+        assert res.stdout.strip() == ""
 
-    await buck.build("//:simple")
+        await buck.build("//:simple")
 
-    res = await buck.audit("deferred-materializer", "list")
-    assert "__simple__" in res.stdout.strip()
+        res = await buck.audit("deferred-materializer", "list")
+        assert "__simple__" in res.stdout.strip()

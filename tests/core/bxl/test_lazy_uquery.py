@@ -9,18 +9,18 @@
 # pyre-strict
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_testsof(buck: Buck) -> None:
-    await buck.bxl(
-        "//:lazy_uquery.bxl:tests_of",
-    )
+class LazyUqueryTest(BuckTestCase):
+    @buck_test()
+    async def test_testsof(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//:lazy_uquery.bxl:tests_of",
+        )
 
-
-@buck_test()
-async def test_testsof_fail(buck: Buck) -> None:
-    await buck.bxl(
-        "//:lazy_uquery.bxl:tests_of_fail",
-    )
+    @buck_test()
+    async def test_testsof_fail(self, buck: Buck) -> None:
+        await buck.bxl(
+            "//:lazy_uquery.bxl:tests_of_fail",
+        )

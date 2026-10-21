@@ -16,7 +16,7 @@ from typing import Awaitable
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException, BuckResult
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
 
 
@@ -42,75 +42,74 @@ def check_cycle_error(failure: BuckException, name: str) -> None:
     )
 
 
-@buck_test()
-async def test_detect_load_cycle(buck: Buck) -> None:
-    failure = await expect_cycle(
-        buck.cquery(
-            "//:top",
-            "-c",
-            "cycles.load=yes",
-        ),
-    )
-    check_cycle_error(failure, "load_cycle")
+class CycleDetectionTest(BuckTestCase):
+    @buck_test()
+    async def test_detect_load_cycle(self, buck: Buck) -> None:
+        failure = await expect_cycle(
+            buck.cquery(
+                "//:top",
+                "-c",
+                "cycles.load=yes",
+            ),
+        )
+        check_cycle_error(failure, "load_cycle")
 
+    @buck_test()
+    async def test_detect_configured_graph_cycles(self, buck: Buck) -> None:
+        failure = await expect_cycle(
+            buck.cquery(
+                "//:top",
+                "-c",
+                "cycles.cfg_graph=yes",
+            ),
+        )
+        check_cycle_error(failure, "configured_graph_cycle")
 
-@buck_test()
-async def test_detect_configured_graph_cycles(buck: Buck) -> None:
-    failure = await expect_cycle(
-        buck.cquery(
-            "//:top",
-            "-c",
-            "cycles.cfg_graph=yes",
-        ),
-    )
-    check_cycle_error(failure, "configured_graph_cycle")
+    @buck_test()
+    async def test_detect_configured_graph_cycles_on_recompute(
+        self, buck: Buck
+    ) -> None:
+        await buck.cquery("//:top")
 
+        failure = await expect_cycle(
+            buck.cquery(
+                "//:top",
+                "-c",
+                "cycles.cfg_graph=yes",
+            ),
+        )
 
-@buck_test()
-async def test_detect_configured_graph_cycles_on_recompute(buck: Buck) -> None:
-    await buck.cquery("//:top")
+        check_cycle_error(failure, "configured_graph_cycle_on_recompute")
 
-    failure = await expect_cycle(
-        buck.cquery(
-            "//:top",
-            "-c",
-            "cycles.cfg_graph=yes",
-        ),
-    )
+    @buck_test()
+    async def test_detect_configured_graph_cycles_2(self, buck: Buck) -> None:
+        failure = await expect_cycle(
+            buck.cquery(
+                "//:top",
+                "-c",
+                "cycles.cfg_toolchain=yes",
+            ),
+        )
+        check_cycle_error(failure, "configured_toolchain_cycle")
 
-    check_cycle_error(failure, "configured_graph_cycle_on_recompute")
+    @buck_test()
+    async def test_more_recompute_cases(self, buck: Buck) -> None:
+        await buck.cquery("//:top")
 
+        failure = await expect_cycle(
+            buck.cquery(
+                "//:top",
+                "-c",
+                "cycles.load=yes",
+            ),
+        )
+        check_cycle_error(failure, "more_recompute_cases_load")
 
-@buck_test()
-async def test_detect_configured_graph_cycles_2(buck: Buck) -> None:
-    failure = await expect_cycle(
-        buck.cquery(
-            "//:top",
-            "-c",
-            "cycles.cfg_toolchain=yes",
-        ),
-    )
-    check_cycle_error(failure, "configured_toolchain_cycle")
-
-
-@buck_test()
-async def test_more_recompute_cases(buck: Buck) -> None:
-    await buck.cquery("//:top")
-
-    failure = await expect_cycle(
-        buck.cquery(
-            "//:top",
-            "-c",
-            "cycles.load=yes",
-        ),
-    )
-    check_cycle_error(failure, "more_recompute_cases_load")
-
-    failure = await expect_cycle(
-        buck.cquery(
-            "//:top",
-            "-c",
-            "cycles.cfg_graph=yes",
-        ),
-    )
-    check_cycle_error(failure, "more_recompute_cases_cfg_graph")
+        failure = await expect_cycle(
+            buck.cquery(
+                "//:top",
+                "-c",
+                "cycles.cfg_graph=yes",
+            ),
+        )
+        check_cycle_error(failure, "more_recompute_cases_cfg_graph")

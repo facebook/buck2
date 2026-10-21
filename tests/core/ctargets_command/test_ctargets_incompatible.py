@@ -12,25 +12,26 @@
 import re
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-@buck_test()
-async def test_ctargets_incompatible(buck: Buck) -> None:
-    result = await buck.ctargets(
-        # This one will be omitted from the output because it is not compatible.
-        "root//:triangle",
-        # This one will be output.
-        "root//:square",
-        "--target-platforms=root//:rectangular",
-    )
-    stdout = _replace_hash(result.stdout)
-    [line] = stdout.splitlines()
-    assert line == "root//:square (root//:rectangular#<HASH>)"
+class CtargetsIncompatibleTest(BuckTestCase):
+    @buck_test()
+    async def test_ctargets_incompatible(self, buck: Buck) -> None:
+        result = await buck.ctargets(
+            # This one will be omitted from the output because it is not compatible.
+            "root//:triangle",
+            # This one will be output.
+            "root//:square",
+            "--target-platforms=root//:rectangular",
+        )
+        stdout = _replace_hash(result.stdout)
+        [line] = stdout.splitlines()
+        assert line == "root//:square (root//:rectangular#<HASH>)"
 
-    assert "Skipped 1 incompatible targets" in result.stderr
-    assert "root//:triangle (root//:rectangular#" in result.stderr
+        assert "Skipped 1 incompatible targets" in result.stderr
+        assert "root//:triangle (root//:rectangular#" in result.stderr

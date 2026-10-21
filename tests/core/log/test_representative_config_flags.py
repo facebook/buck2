@@ -8,35 +8,41 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(write_invocation_record=True)
-async def test_representative_config_flags_disregards_run_args(
-    buck: Buck,
-) -> None:
-    res = await buck.run(
-        "//:my_rule",
-        "--config",
-        "foo.bar=baz",
-        "--",
-        "--config",
-        "should.not=include",
-    )
+class RepresentativeConfigFlagsTest(BuckTestCase):
+    @buck_test(write_invocation_record=True)
+    async def test_representative_config_flags_disregards_run_args(
+        self,
+        buck: Buck,
+    ) -> None:
+        res = await buck.run(
+            "//:my_rule",
+            "--config",
+            "foo.bar=baz",
+            "--",
+            "--config",
+            "should.not=include",
+        )
 
-    assert res.invocation_record()["representative_config_flags"] == ["-c foo.bar=baz"]
+        assert res.invocation_record()["representative_config_flags"] == [
+            "-c foo.bar=baz"
+        ]
 
+    @buck_test(write_invocation_record=True)
+    async def test_representative_config_flags_includes_build_args(
+        self,
+        buck: Buck,
+    ) -> None:
+        res = await buck.build(
+            "--config",
+            "foo.bar=baz",
+            # For `build` commands, anything after `--` is a positional arg.
+            "--",
+            "//:my_rule",
+        )
 
-@buck_test(write_invocation_record=True)
-async def test_representative_config_flags_includes_build_args(
-    buck: Buck,
-) -> None:
-    res = await buck.build(
-        "--config",
-        "foo.bar=baz",
-        # For `build` commands, anything after `--` is a positional arg.
-        "--",
-        "//:my_rule",
-    )
-
-    assert res.invocation_record()["representative_config_flags"] == ["-c foo.bar=baz"]
+        assert res.invocation_record()["representative_config_flags"] == [
+            "-c foo.bar=baz"
+        ]

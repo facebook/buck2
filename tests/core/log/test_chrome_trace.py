@@ -12,13 +12,14 @@
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_chrome_trace(buck: Buck, tmp_path: Path) -> None:
-    # Just check it at least runs. More thorough coverage lives in the
-    # buck2_log_common unit tests shared with `buck2 debug chrome-trace`.
-    await buck.build("//...")
-    await buck.log("chrome-trace", "--trace-path", str(tmp_path / "trace.json"))
-    assert (tmp_path / "trace.json").exists()
+class ChromeTraceTest(BuckTestCase):
+    @buck_test()
+    async def test_chrome_trace(self, buck: Buck, tmp_path: Path) -> None:
+        # Just check it at least runs. More thorough coverage lives in the
+        # buck2_log_common unit tests shared with `buck2 debug chrome-trace`.
+        await buck.build("//...")
+        await buck.log("chrome-trace", "--trace-path", str(tmp_path / "trace.json"))
+        assert (tmp_path / "trace.json").exists()

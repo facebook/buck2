@@ -10,30 +10,28 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_cquery_ctx(buck: Buck) -> None:
-    await buck.bxl("//bxl/check_type_names_and_symbols.bxl:cquery_ctx")
+class TypeNamesAndSymbolsTest(BuckTestCase):
+    @buck_test()
+    async def test_cquery_ctx(self, buck: Buck) -> None:
+        await buck.bxl("//bxl/check_type_names_and_symbols.bxl:cquery_ctx")
 
+    @buck_test()
+    async def test_target_set(self, buck: Buck) -> None:
+        await buck.bxl("//bxl/check_type_names_and_symbols.bxl:target_set")
 
-@buck_test()
-async def test_target_set(buck: Buck) -> None:
-    await buck.bxl("//bxl/check_type_names_and_symbols.bxl:target_set")
+    @buck_test()
+    async def test_target_set_syntax(self, buck: Buck) -> None:
+        await buck.bxl("//bxl/check_type_names_and_symbols.bxl:target_set_syntax")
 
-
-@buck_test()
-async def test_target_set_syntax(buck: Buck) -> None:
-    await buck.bxl("//bxl/check_type_names_and_symbols.bxl:target_set_syntax")
-
-
-@buck_test()
-async def test_target_set_unsupported_node_type(buck: Buck) -> None:
-    result = await expect_failure(
-        buck.bxl(
-            "//bxl/check_type_names_and_symbols.bxl:target_set_unsupported_node_type"
+    @buck_test()
+    async def test_target_set_unsupported_node_type(self, buck: Buck) -> None:
+        result = await expect_failure(
+            buck.bxl(
+                "//bxl/check_type_names_and_symbols.bxl:target_set_unsupported_node_type"
+            )
         )
-    )
-    assert "`bxl.TargetSet` expects one of" in result.stderr
-    assert "got `int`" in result.stderr
+        assert "`bxl.TargetSet` expects one of" in result.stderr
+        assert "got `int`" in result.stderr

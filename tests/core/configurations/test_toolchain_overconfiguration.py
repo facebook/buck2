@@ -10,12 +10,13 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test()
-async def test_configuration_rule_unbound(buck: Buck) -> None:
-    await buck.cquery(
-        "--target-platforms=root//config:cat_platform",
-        "root//:top",
-    )
+class ToolchainOverconfigurationTest(BuckTestCase):
+    @buck_test()
+    async def test_configuration_rule_unbound(self, buck: Buck) -> None:
+        await buck.cquery(
+            "--target-platforms=root//config:cat_platform",
+            "root//:top",
+        )

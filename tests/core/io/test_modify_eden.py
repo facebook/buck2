@@ -12,19 +12,20 @@
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
-@buck_test(setup_eden=True)
-async def test_modify_src_eden(buck: Buck) -> None:
-    path = buck.cwd / "src.txt"
+class ModifyEdenTest(BuckTestCase):
+    @buck_test(setup_eden=True)
+    async def test_modify_src_eden(self, buck: Buck) -> None:
+        path = buck.cwd / "src.txt"
 
-    path.write_text("HELLO\n")
-    result = await buck.build("root//:copy_file")
-    output = result.get_build_report().output_for_target("root//:copy_file")
-    assert Path(output).read_text() == "HELLO\n"
+        path.write_text("HELLO\n")
+        result = await buck.build("root//:copy_file")
+        output = result.get_build_report().output_for_target("root//:copy_file")
+        assert Path(output).read_text() == "HELLO\n"
 
-    path.write_text("GOODBYE\n")
-    result = await buck.build("root//:copy_file")
-    output = result.get_build_report().output_for_target("root//:copy_file")
-    assert Path(output).read_text() == "GOODBYE\n"
+        path.write_text("GOODBYE\n")
+        result = await buck.build("root//:copy_file")
+        output = result.get_build_report().output_for_target("root//:copy_file")
+        assert Path(output).read_text() == "GOODBYE\n"

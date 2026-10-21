@@ -13,7 +13,7 @@ import json
 from typing import Any
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 
 
 async def _log_download_method(buck: Buck) -> Any:
@@ -37,86 +37,83 @@ def _write_home_local_settings(buck: Buck, settings: str) -> None:
     (home / ".bucksettings.local.toml").write_text(settings)
 
 
-@buck_test()
-async def test_settings_override_buckconfig(buck: Buck) -> None:
-    _write_buckconfig_log_use_manifold(buck, True)
-    _write_buckconfig_log_url(buck, "abc.com")
-    (buck.cwd / ".bucksettings.toml").write_text(
-        '[log_download]\nlog_use_manifold = false\nlog_url = "test.com"\n'
-    )
+class LogDownloadMethodTest(BuckTestCase):
+    @buck_test()
+    async def test_settings_override_buckconfig(self, buck: Buck) -> None:
+        _write_buckconfig_log_use_manifold(buck, True)
+        _write_buckconfig_log_url(buck, "abc.com")
+        (buck.cwd / ".bucksettings.toml").write_text(
+            '[log_download]\nlog_use_manifold = false\nlog_url = "test.com"\n'
+        )
 
-    await buck.server()
-    assert await _log_download_method(buck) == {"Curl": "test.com"}
+        await buck.server()
+        assert await _log_download_method(buck) == {"Curl": "test.com"}
 
+    @buck_test()
+    async def test_log_use_manifold_fallback_to_buckconfig(self, buck: Buck) -> None:
+        _write_buckconfig_log_use_manifold(buck, True)
 
-@buck_test()
-async def test_log_use_manifold_fallback_to_buckconfig(buck: Buck) -> None:
-    _write_buckconfig_log_use_manifold(buck, True)
+        await buck.server()
+        assert await _log_download_method(buck) == "Manifold"
 
-    await buck.server()
-    assert await _log_download_method(buck) == "Manifold"
+    @buck_test()
+    async def test_log_url_fallback_to_buckconfig(self, buck: Buck) -> None:
+        (buck.cwd / ".bucksettings.toml").write_text(
+            "[log_download]\nlog_use_manifold = false\n"
+        )
 
+        await buck.server()
+        assert await _log_download_method(buck) == "None"
 
-@buck_test()
-async def test_log_url_fallback_to_buckconfig(buck: Buck) -> None:
-    (buck.cwd / ".bucksettings.toml").write_text(
-        "[log_download]\nlog_use_manifold = false\n"
-    )
+        _write_buckconfig_log_url(buck, "test.com")
 
-    await buck.server()
-    assert await _log_download_method(buck) == "None"
+        await buck.server()
+        assert await _log_download_method(buck) == {"Curl": "test.com"}
 
-    _write_buckconfig_log_url(buck, "test.com")
+    @buck_test()
+    async def test_home_local_settings_override_repo(self, buck: Buck) -> None:
+        (buck.cwd / ".bucksettings.toml").write_text(
+            "[log_download]\nlog_use_manifold = false\n"
+        )
+        _write_home_local_settings(buck, "[log_download]\nlog_use_manifold = true\n")
 
-    await buck.server()
-    assert await _log_download_method(buck) == {"Curl": "test.com"}
+        await buck.server()
+        assert await _log_download_method(buck) == "Manifold"
 
+    @buck_test()
+    async def test_repo_local_settings_override_repo_and_home_local(
+        self, buck: Buck
+    ) -> None:
+        _write_buckconfig_log_use_manifold(buck, False)
+        (buck.cwd / ".bucksettings.toml").write_text(
+            '[log_download]\nlog_url = "repo_root"\n'
+        )
+        _write_home_local_settings(buck, '[log_download]\nlog_url = "home_local"\n')
+        (buck.cwd / ".bucksettings.local.toml").write_text(
+            '[log_download]\nlog_url = "repo_local"\n'
+        )
 
-@buck_test()
-async def test_home_local_settings_override_repo(buck: Buck) -> None:
-    (buck.cwd / ".bucksettings.toml").write_text(
-        "[log_download]\nlog_use_manifold = false\n"
-    )
-    _write_home_local_settings(buck, "[log_download]\nlog_use_manifold = true\n")
+        await buck.server()
+        assert await _log_download_method(buck) == {"Curl": "repo_local"}
 
-    await buck.server()
-    assert await _log_download_method(buck) == "Manifold"
+    @buck_test()
+    async def test_cli_settings_override_local(self, buck: Buck) -> None:
+        _write_home_local_settings(buck, "[log_download]\nlog_use_manifold = true\n")
+        (buck.cwd / ".bucksettings.local.toml").write_text(
+            '[log_download]\nlog_url = "repo_local"\n'
+        )
 
+        await buck.server(
+            "--setting",
+            "log_download.log_use_manifold=false",
+            "--setting",
+            "log_download.log_url=args",
+        )
+        assert await _log_download_method(buck) == {"Curl": "args"}
 
-@buck_test()
-async def test_repo_local_settings_override_repo_and_home_local(buck: Buck) -> None:
-    _write_buckconfig_log_use_manifold(buck, False)
-    (buck.cwd / ".bucksettings.toml").write_text(
-        '[log_download]\nlog_url = "repo_root"\n'
-    )
-    _write_home_local_settings(buck, '[log_download]\nlog_url = "home_local"\n')
-    (buck.cwd / ".bucksettings.local.toml").write_text(
-        '[log_download]\nlog_url = "repo_local"\n'
-    )
+    @buck_test()
+    async def test_cli_settings_after_mode(self, buck: Buck) -> None:
+        (buck.cwd / "mode").write_text("--verbose=0\n")
 
-    await buck.server()
-    assert await _log_download_method(buck) == {"Curl": "repo_local"}
-
-
-@buck_test()
-async def test_cli_settings_override_local(buck: Buck) -> None:
-    _write_home_local_settings(buck, "[log_download]\nlog_use_manifold = true\n")
-    (buck.cwd / ".bucksettings.local.toml").write_text(
-        '[log_download]\nlog_url = "repo_local"\n'
-    )
-
-    await buck.server(
-        "--setting",
-        "log_download.log_use_manifold=false",
-        "--setting",
-        "log_download.log_url=args",
-    )
-    assert await _log_download_method(buck) == {"Curl": "args"}
-
-
-@buck_test()
-async def test_cli_settings_after_mode(buck: Buck) -> None:
-    (buck.cwd / "mode").write_text("--verbose=0\n")
-
-    await buck.server("@mode", "--setting", "log_download.log_use_manifold=true")
-    assert await _log_download_method(buck) == "Manifold"
+        await buck.server("@mode", "--setting", "log_download.log_use_manifold=true")
+        assert await _log_download_method(buck) == "Manifold"
