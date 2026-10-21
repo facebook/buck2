@@ -82,7 +82,7 @@ def _append_or_default_if_module(
 
 # Produce a list of all the targets that I care about.
 # This should be everything reachable from the command line arguments.
-def _list_targets(ctx: bxl.Context) -> bxl.ConfiguredTargetSet:
+def _list_targets(ctx: bxl.Context) -> bxl.TargetSet[bxl.ConfiguredTargetNode]:
     cquery = ctx.cquery()
     uquery = ctx.uquery()
     files = cquery.deps(ctx.target_universe(uquery.owner(ctx.cli_args.file)).target_set(), 0)
