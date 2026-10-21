@@ -187,9 +187,7 @@ def _relativize(path: str, start: str) -> str:
         if ancestor_segment != segment:
             fail("Path '%s' is not beneath '%s'" % (path, start))
 
-    length = len(segments) - start_length
-    result_segments = segments[-length:]
-    return "/".join(result_segments)
+    return "/".join(segments[start_length:])
 
 def _replace_extension(p: str, new_extension: str) -> str:
     """Replaces the extension of the file at the end of a path.
