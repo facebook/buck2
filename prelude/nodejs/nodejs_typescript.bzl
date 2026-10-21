@@ -11,7 +11,7 @@ load(":nodejs_providers.bzl", "build_node_modules", "get_transitive_outputs")
 # Output paths below are short and leave out the target name, which buck-out already
 # includes twice: `tsc` on Windows stops resolving modules once a path passes MAX_PATH.
 
-_TS_EXTENSIONS = (".ts", ".tsx", ".mts", ".cts")
+_TSC_EXTENSIONS = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".json")
 _DECLARATION_EXTENSIONS = (".d.ts", ".d.mts", ".d.cts")
 
 def compile_typescript(
@@ -21,34 +21,34 @@ def compile_typescript(
     srcs: list[Artifact],
     src_root: str,
     tsconfig: Artifact,
-    package_json: Artifact | None,
+    package_json: Artifact,
     dep_infos: list,
     identifier: str,
     package_tree_tool: RunInfo,
     node_modules_tree = None,
 ) -> Artifact:
-    """Compile TypeScript `srcs` with `tsc` against `dep_infos` and `node_modules_tree`, returning the emitted tree.
+    """Compile `srcs` with `tsc` against `dep_infos` and `node_modules_tree`, returning the emitted tree.
 
+    JavaScript and JSON sources go to `tsc` like TypeScript ones; the `tsconfig`'s `allowJs` and
+    `resolveJsonModule` decide what it does with them.
     Emitted paths are source paths relative to `src_root`, which every source must be under.
     `package_json` is staged beside the sources so its `"type"` decides the emitted module format.
     """
     if tsc == None:
         fail("nodejs_library {}: typescript compilation requires `tsc` on the nodejs toolchain".format(label))
     if not srcs:
-        fail("nodejs_library {}: typescript compilation requires at least one TypeScript source in `srcs`".format(label))
+        fail("nodejs_library {}: typescript compilation requires at least one source in `srcs`".format(label))
     for src in srcs:
-        if not src.short_path.endswith(_TS_EXTENSIONS):
+        if not src.short_path.endswith(_TSC_EXTENSIONS):
             fail(
-                "nodejs_library {}: cannot compile non-TypeScript source '{}': only `.ts`, `.tsx`, `.mts` and `.cts` sources may be compiled".format(
+                "nodejs_library {}: cannot compile '{}': `tsc` takes only `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` and `.json` sources; use `resources` for other files".format(
                     label, src.short_path
                 )
             )
         if src.short_path.endswith(_DECLARATION_EXTENSIONS):
             fail("nodejs_library {}: cannot compile declaration file '{}': `tsc` emits nothing for it".format(label, src.short_path))
 
-    reserved = ["tsconfig.json", "tsconfig.buck.json"]
-    if package_json != None:
-        reserved.append("package.json")
+    reserved = ["tsconfig.json", "tsconfig.buck.json", "package.json"]
     if dep_infos or node_modules_tree != None:
         reserved.append("node_modules")
 
@@ -72,8 +72,7 @@ def compile_typescript(
         },
     )
     stage["tsconfig.json"] = tsconfig
-    if package_json != None:
-        stage["package.json"] = package_json
+    stage["package.json"] = package_json
     if dep_infos or node_modules_tree != None:
         if dep_infos:
             dep_tree = build_node_modules(
@@ -166,7 +165,11 @@ def compile_module_typescript(actions: AnalysisActions, label: Label, tsc: RunIn
         "--rootDir",
         cmd_args(module_dir, format = "{}/" + src_root) if src_root else module_dir,
         "--declaration",
+        "--declarationDir",
+        out_dir.as_output(),
         "--noEmit",
+        "false",
+        "--emitDeclarationOnly",
         "false",
     )
 

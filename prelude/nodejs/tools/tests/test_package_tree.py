@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import errno
 import io
+import json
 import os
 import stat
 import sys
@@ -19,7 +20,14 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from package_tree import assemble_package, main, merge, strip_types
+from package_tree import (
+    assemble_package,
+    main,
+    merge,
+    strip_types,
+    validate_package,
+    write_validation_result,
+)
 
 
 def _write(path: Path, text: str = "") -> None:
@@ -174,6 +182,51 @@ class TestAssemblePackage(unittest.TestCase):
             ("entry 'dir'", "collides", "file 'cmd/render.js'"),
         )
         self.assertTrue((self.out / "cmd" / "extra.txt").exists())
+
+    def test_cli_rejects_package_subdir_with_prebuilt(self) -> None:
+        entries = self.root / "entries.json"
+        entries.write_text("[]")
+        argv = [
+            "package_tree.py",
+            "assemble-package",
+            f"--prebuilt={self.emit}",
+            "--package-subdir=sub",
+            f"--entries={entries}",
+            f"--out={self.out}",
+        ]
+        stderr = io.StringIO()
+        with (
+            mock.patch.object(sys, "argv", argv),
+            contextlib.redirect_stderr(stderr),
+        ):
+            self.assertEqual(main(), 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            "assemble-package: --package-subdir cannot be combined with --prebuilt\n",
+        )
+        self.assertFalse(self.out.exists())
+
+    def test_prebuilt_collisions_name_the_prebuilt_file(self) -> None:
+        _write(self.root / "file.txt")
+        _write(self.emit / "package.json" / "index.js", "js")
+        self.assertEqual(
+            assemble_package(
+                self.emit,
+                "",
+                [
+                    ("cmd/render.js", self.root / "file.txt", "entry 'file.txt'"),
+                    ("cmd/render.d.ts/x.txt", self.root / "file.txt", "entry 'x'"),
+                ],
+                self.root / "package.json",
+                self.out,
+                origin="prebuilt",
+            ),
+            [
+                "entry 'file.txt' collides with the prebuilt file 'cmd/render.js'",
+                "entry 'x' collides with the prebuilt file 'cmd/render.d.ts'",
+                "`package_json` collides with the prebuilt directory 'package.json'",
+            ],
+        )
 
     @unittest.skipIf(sys.platform == "win32", "Windows has no executable bit")
     def test_executable_bit_kept(self) -> None:
@@ -551,3 +604,434 @@ class TestStripTypes(unittest.TestCase):
         ):
             self.assertEqual(main(), 1)
         self.assertRegex(stderr.getvalue(), r"^strip-types: .*index\.js'\n$")
+
+
+class TestValidatePackage(unittest.TestCase):
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.package = Path(tmp.name) / "pkg"
+        self.package.mkdir()
+
+    def _manifest(self, **fields: object) -> None:
+        (self.package / "package.json").write_text(json.dumps(fields))
+
+    def _validate(
+        self,
+        name: str = "pkg",
+        dir_name: str | None = None,
+        main: str | None = None,
+        bins: dict[str, str] | None = None,
+        type_: str | None = None,
+        version: str | None = None,
+        module: Path | None = None,
+        module_src_root: str = "",
+    ) -> list[str]:
+        return validate_package(
+            self.package,
+            name,
+            dir_name,
+            main,
+            bins or {},
+            type_,
+            version,
+            module,
+            module_src_root,
+        )
+
+    def test_valid_package(self) -> None:
+        _write(self.package / "dist" / "index.js")
+        _write(self.package / "dist" / "index.d.ts")
+        _write(self.package / "dist" / "cli.js", "#!/usr/bin/env node\n")
+        self._manifest(
+            name="pkg",
+            version="1.0.0",
+            type="module",
+            main="./dist/index.js",
+            types="./dist/index.d.ts",
+            bin={"pkg-cli": "dist/cli.js"},
+            exports={
+                ".": {"types": "./dist/index.d.ts", "default": "./dist/index.js"},
+                "./cli": ["./dist/cli.js"],
+                "./*": {"types": "./dist/*.d.ts", "default": "./dist/*.js"},
+                "./internal/*": None,
+                "./package.json": "./package.json",
+            },
+        )
+        self.assertEqual(
+            self._validate(
+                main="dist/index.js",
+                bins={"pkg-cli": "dist/cli.js"},
+                type_="module",
+                version="1.0.0",
+            ),
+            [],
+        )
+
+    def test_missing_or_malformed_package_json(self) -> None:
+        self.assertEqual(
+            self._validate(),
+            [
+                "the package has no package.json: a `prebuilt` directory must contain one, or `package_json` adds it"
+            ],
+        )
+        (self.package / "package.json").write_text("{")
+        [message] = self._validate()
+        self.assertTrue(message.startswith("package.json is not valid JSON: "), message)
+        (self.package / "package.json").write_text("[]")
+        self.assertEqual(self._validate(), ["package.json must contain a JSON object"])
+
+    def test_name_must_be_package_name_or_out(self) -> None:
+        for manifest_name, dir_name, errors in [
+            ("pkg", None, []),
+            ("pkg", "canon/pkg", []),
+            ("canon/pkg", "canon/pkg", []),
+            (
+                "other",
+                None,
+                ["package.json \"name\" 'other' must be the `package_name` 'pkg'"],
+            ),
+            (
+                "other",
+                "canon/pkg",
+                [
+                    "package.json \"name\" 'other' must be the `package_name` 'pkg' or the `out` 'canon/pkg'"
+                ],
+            ),
+            (
+                None,
+                None,
+                ["package.json \"name\" null must be the `package_name` 'pkg'"],
+            ),
+        ]:
+            with self.subTest(name=manifest_name, dir_name=dir_name):
+                self._manifest(name=manifest_name)
+                self.assertEqual(self._validate(dir_name=dir_name), errors)
+        self._manifest()
+        self.assertEqual(
+            self._validate(),
+            ["package.json has no \"name\"; it must be the `package_name` 'pkg'"],
+        )
+
+    def test_main_resolves_as_node_resolves_it(self) -> None:
+        _write(self.package / "index.js")
+        _write(self.package / "lib" / "index.js")
+        _write(self.package / "lib" / "util.cjs")
+        _write(self.package / "data.json")
+        for main_field in [".", "./", "index", "lib", "./lib/", "lib/util.cjs", "data"]:
+            with self.subTest(main=main_field):
+                self._manifest(name="pkg", main=main_field)
+                self.assertEqual(self._validate(), [])
+        for main_field in [
+            "missing.js",
+            "../pkg/index.js",
+            "/index.js",
+            "lib/util",
+            "Index.js",
+        ]:
+            with self.subTest(main=main_field):
+                self._manifest(name="pkg", main=main_field)
+                self.assertEqual(
+                    self._validate(),
+                    [
+                        f"package.json \"main\" '{main_field}' is not a file in the package"
+                    ],
+                )
+        self._manifest(name="pkg", main=["index.js"])
+        self.assertEqual(
+            self._validate(),
+            ['package.json "main" must be a string, not ["index.js"]'],
+        )
+
+    def test_bin_files_exist_and_start_with_a_shebang(self) -> None:
+        _write(self.package / "cli.js", "#!/usr/bin/env node\n")
+        _write(self.package / "plain.js", "console.log(1);\n")
+        _write(self.package / "empty.js")
+        _write(self.package / "bom.js", "\ufeff#!/usr/bin/env node\n")
+        self._manifest(name="pkg", bin={"bom": "bom.js"})
+        self.assertEqual(self._validate(), [])
+        self._manifest(name="@scope/pkg", bin="./cli.js")
+        self.assertEqual(self._validate(name="@scope/pkg"), [])
+        self.assertEqual(self._validate(name="@scope/pkg", bins={"pkg": "cli.js"}), [])
+        self.assertEqual(
+            self._validate(name="@scope/pkg", bins={"tool": "cli.js"}),
+            ['package.json "bin" \'./cli.js\' does not match `bin` {"tool": "cli.js"}'],
+        )
+        self._manifest(bin="./cli.js")
+        self.assertEqual(
+            self._validate(bins={"pkg": "cli.js"}),
+            [
+                "package.json has no \"name\"; it must be the `package_name` 'pkg'",
+                'package.json "bin" is a string, which names its command after "name", so "name" must be a string',
+            ],
+        )
+        self._manifest(name="@scope/pkg", bin="./plain.js")
+        self.assertEqual(
+            self._validate(name="@scope/pkg"),
+            [
+                "package.json \"bin\" 'pkg' './plain.js' does not start with a shebang ('#!')"
+            ],
+        )
+        self._manifest(
+            name="pkg",
+            bin={
+                "ok": "cli.js",
+                "plain": "plain.js",
+                "empty": "./empty.js",
+                "missing": "missing.js",
+                "dir": ".",
+                "number": 1,
+            },
+        )
+        self.assertEqual(
+            self._validate(),
+            [
+                "package.json \"bin\" 'number' must be a string, not 1",
+                "package.json \"bin\" 'plain' 'plain.js' does not start with a shebang ('#!')",
+                "package.json \"bin\" 'empty' './empty.js' does not start with a shebang ('#!')",
+                "package.json \"bin\" 'missing' 'missing.js' is not a file in the package",
+                "package.json \"bin\" 'dir' '.' is not a file in the package",
+            ],
+        )
+        self._manifest(name="pkg", bin=["cli.js"])
+        self.assertEqual(
+            self._validate(), ['package.json "bin" must be a string or an object']
+        )
+        self.assertEqual(
+            self._validate(bins={"tool": "cli.js"}),
+            ['package.json "bin" must be a string or an object'],
+        )
+        self._manifest(name="pkg", bin={"tool": "cli.js", "number": 1})
+        self.assertEqual(
+            self._validate(bins={"tool": "cli.js"}),
+            ["package.json \"bin\" 'number' must be a string, not 1"],
+        )
+        self.assertEqual(
+            self._validate(bins={"tool": "cli.js", "number": "cli.js"}),
+            ["package.json \"bin\" 'number' must be a string, not 1"],
+        )
+        self.assertEqual(
+            self._validate(bins={"tool": "plain.js"}),
+            [
+                "package.json \"bin\" 'number' must be a string, not 1",
+                'package.json "bin" {"tool": "cli.js", "number": 1} does not match `bin` {"tool": "plain.js"}',
+            ],
+        )
+        self.assertEqual(
+            self._validate(bins={"tool": "cli.js", "other": "cli.js"}),
+            [
+                "package.json \"bin\" 'number' must be a string, not 1",
+                'package.json "bin" {"tool": "cli.js", "number": 1} does not match `bin` {"tool": "cli.js", "other": "cli.js"}',
+            ],
+        )
+
+    def test_literal_exports_targets_exist(self) -> None:
+        _write(self.package / "dist" / "index.js")
+        self._manifest(
+            name="pkg",
+            exports={
+                ".": {
+                    "types": "./dist/index.d.ts",
+                    "node": {
+                        "import": "./dist/index.mjs",
+                        "default": "./dist/index.js",
+                    },
+                },
+                "./a": ["./dist/a.js", "./dist/index.js"],
+                "./b": "dist/index.js",
+                "./c": "./dist/../../outside.js",
+                "./d": 1,
+                "./patterns/*": "./missing/*.js",
+            },
+        )
+        self.assertEqual(
+            self._validate(),
+            [
+                'package.json exports["."]["types"] \'./dist/index.d.ts\' is not a file in the package',
+                'package.json exports["."]["node"]["import"] \'./dist/index.mjs\' is not a file in the package',
+                "package.json exports[\"./a\"][0] './dist/a.js' is not a file in the package",
+                "package.json exports[\"./b\"] 'dist/index.js' must start with './'",
+                "package.json exports[\"./c\"] './dist/../../outside.js' is not a file in the package",
+                'package.json exports["./d"] must be a string, an array, an object or null',
+            ],
+        )
+        self._manifest(name="pkg", exports="./dist/missing.js")
+        self.assertEqual(
+            self._validate(),
+            ["package.json exports './dist/missing.js' is not a file in the package"],
+        )
+
+    def test_exports_conditions_list_types_first(self) -> None:
+        _write(self.package / "index.js")
+        _write(self.package / "index.d.ts")
+        self._manifest(
+            name="pkg",
+            exports={
+                "import": {"default": "./index.js", "types": "./index.d.ts"},
+                "types": "./index.d.ts",
+            },
+        )
+        self.assertEqual(
+            self._validate(),
+            [
+                'package.json exports lists "types" after "import"; "types" must come first',
+                'package.json exports["import"] lists "types" after "default"; "types" must come first',
+            ],
+        )
+
+    def test_exports_cannot_mix_subpaths_and_conditions(self) -> None:
+        _write(self.package / "index.js")
+        self._manifest(name="pkg", exports={".": "./index.js", "default": "./index.js"})
+        self.assertEqual(
+            self._validate(),
+            [
+                "package.json \"exports\" mixes subpaths (keys starting with '.') and conditions"
+            ],
+        )
+
+    def test_declared_attributes_match_package_json(self) -> None:
+        _write(self.package / "dist" / "index.js")
+        _write(self.package / "dist" / "cli.js", "#!/usr/bin/env node\n")
+        self._manifest(
+            name="pkg",
+            version="1.0.0",
+            main="./dist/index.js",
+            bin={"cli": "./dist/cli.js"},
+        )
+        self.assertEqual(
+            self._validate(
+                main="dist/index.js",
+                bins={"cli": "dist/cli.js"},
+                type_="commonjs",
+                version="1.0.0",
+            ),
+            [],
+        )
+        self.assertEqual(
+            self._validate(
+                main="dist/cli.js",
+                bins={"tool": "dist/cli.js"},
+                type_="module",
+                version="2.0.0",
+            ),
+            [
+                "package.json \"main\" './dist/index.js' does not match `main` 'dist/cli.js'",
+                'package.json "bin" {"cli": "./dist/cli.js"} does not match `bin` {"tool": "dist/cli.js"}',
+                "package.json has no \"type\", but `type` is 'module'",
+                "package.json \"version\" '1.0.0' does not match `version` '2.0.0'",
+            ],
+        )
+        self.assertEqual(self._validate(bins={"cli": "./dist/../dist/cli.js"}), [])
+        self._manifest(name="pkg", main="./dist/index")
+        self.assertEqual(self._validate(main="dist/index.js"), [])
+        self.assertEqual(self._validate(main="dist"), [])
+        self._manifest(name="pkg", type="module")
+        self.assertEqual(
+            self._validate(main="dist/index.js", bins={"cli": "dist/cli.js"}),
+            [
+                "package.json has no \"main\", but `main` is 'dist/index.js'",
+                'package.json has no "bin", but `bin` is {"cli": "dist/cli.js"}',
+            ],
+        )
+
+    def test_types_are_files_in_the_package(self) -> None:
+        _write(self.package / "index.d.ts")
+        _write(self.package / "dist" / "index.d.ts")
+        _write(self.package / "dist" / "util.d.ts")
+        for field in ["types", "typings"]:
+            for value in [".", "./dist/index.d.ts", "dist/util", "dist"]:
+                with self.subTest(field=field, value=value):
+                    self._manifest(name="pkg", **{field: value})
+                    self.assertEqual(self._validate(), [])
+            for value in ["dist/missing.d.ts", "dist/Util.d.ts", "../pkg/index.d.ts"]:
+                with self.subTest(field=field, value=value):
+                    self._manifest(name="pkg", **{field: value})
+                    self.assertEqual(
+                        self._validate(),
+                        [
+                            f"package.json \"{field}\" '{value}' is not a file in the package"
+                        ],
+                    )
+            self._manifest(name="pkg", **{field: ["index.d.ts"]})
+            self.assertEqual(
+                self._validate(),
+                [f'package.json "{field}" must be a string, not ["index.d.ts"]'],
+            )
+
+    def test_type_matches_the_module_package_json(self) -> None:
+        module = self.package.parent / "module"
+        (module / "src").mkdir(parents=True)
+        self._manifest(name="pkg", type="commonjs")
+        self.assertEqual(self._validate(module=module), [])
+        (module / "package.json").write_text(json.dumps({"type": "module"}))
+        self.assertEqual(
+            self._validate(module=module, module_src_root="src"),
+            [
+                "package.json \"type\" 'commonjs' does not match the \"type\" 'module' of the module's package.json, "
+                "which sets the module format `tsc` emits for sources without a closer package.json; "
+                'set `type`, or the "type" of `package_json`, to match'
+            ],
+        )
+        self._manifest(name="pkg", type="module")
+        self.assertEqual(self._validate(module=module), [])
+        (module / "src" / "package.json").write_text("{}")
+        self.assertEqual(
+            self._validate(module=module, module_src_root="src"),
+            [
+                "package.json \"type\" 'module' does not match the \"type\" 'commonjs' of the module's src/package.json, "
+                "which sets the module format `tsc` emits for sources without a closer package.json; "
+                'set `type`, or the "type" of `package_json`, to match'
+            ],
+        )
+        self._manifest(name="pkg")
+        self.assertEqual(self._validate(module=module, module_src_root="src"), [])
+
+    def test_unusable_module_package_json(self) -> None:
+        module = self.package.parent / "module"
+        module.mkdir()
+        self._manifest(name="pkg")
+        (module / "package.json").write_text("{")
+        [message] = self._validate(module=module)
+        self.assertTrue(
+            message.startswith("the module's package.json is not valid JSON: "), message
+        )
+        (module / "package.json").write_text("[]")
+        self.assertEqual(
+            self._validate(module=module),
+            ["the module's package.json must contain a JSON object"],
+        )
+
+    def test_cli_values_may_start_with_a_dash(self) -> None:
+        _write(self.package / "-entry.js")
+        _write(self.package / "bin" / "-x.js", "#!/usr/bin/env node\n")
+        self._manifest(
+            name="-pkg", main="-entry.js", bin={"-x": "bin/-x.js"}, version="-1"
+        )
+        out = self.package.parent / "result.json"
+        argv = [
+            "package_tree.py",
+            "validate-package",
+            f"--package={self.package}",
+            "--name=-pkg",
+            "--main=-entry.js",
+            "--bin=-x:bin/-x.js",
+            "--version=-1",
+            f"--out={out}",
+        ]
+        with mock.patch.object(sys, "argv", argv):
+            self.assertEqual(main(), 0)
+        self.assertEqual(
+            json.loads(out.read_text()), {"version": 1, "data": {"status": "success"}}
+        )
+
+    def test_write_validation_result(self) -> None:
+        out = self.package / "result.json"
+        write_validation_result(out, [])
+        self.assertEqual(
+            json.loads(out.read_text()), {"version": 1, "data": {"status": "success"}}
+        )
+        write_validation_result(out, ["a", "b"])
+        self.assertEqual(
+            json.loads(out.read_text()),
+            {"version": 1, "data": {"status": "failure", "message": "a\nb"}},
+        )

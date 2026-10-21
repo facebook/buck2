@@ -8,17 +8,22 @@
 
 """Build package trees for the prelude's Node.js rules.
 
-package_tree.py assemble-package --emit DIR [--package-subdir PATH] --entries FILE [--package-json FILE] --out DIR
+package_tree.py assemble-package (--emit DIR [--package-subdir PATH] | --prebuilt DIR) --entries FILE [--package-json FILE] --out DIR
 package_tree.py merge --deps DIR --prebuilt DIR --out DIR
 package_tree.py launchers --spec FILE --out DIR
 package_tree.py archive --src DIR --format FORMAT --out FILE [--root ROOT] [--executables FILE]
     [--sha256 FILE]
 package_tree.py compress --src FILE --out OUT [--sha256 FILE] --zstd ZSTD...
 package_tree.py strip-types --src DIR --out DIR
+package_tree.py validate-package --package DIR --name NAME [--dir-name NAME] [--main PATH] [--bin NAME:PATH]... [--type TYPE] [--version VERSION]
+    [--module DIR [--module-src-root PATH]] --out FILE
 
 The `--entries` file of `assemble-package` is a JSON list of
 `[path, src, name]` entries: `src` is copied to the package-relative `path`,
 and `name` describes the entry in error messages.
+
+`validate-package` writes a Buck2 validation result: a failure lists every
+problem with the package's `package.json`.
 """
 
 from __future__ import annotations
@@ -93,21 +98,22 @@ def copy_tree(
 
 
 def assemble_package(
-    emit: Path,
+    base: Path,
     package_subdir: str,
     entries: list[tuple[str, Path, str]],
     package_json: Path | None,
     out: Path,
+    origin: str = "emitted",
 ) -> list[str]:
-    """Lay out `emit` at `package_subdir` inside `out`, copy each `(path, src, name)` entry to `path`, then `package_json` to `package.json`.
+    """Lay out `base` at `package_subdir` inside `out`, copy each `(path, src, name)` entry to `path`, then `package_json` to `package.json`.
 
-    Entries merge into emitted directories and symlinks are copied as their
-    targets. Returns one message per collision with an emitted path and per
+    Entries merge into base directories and symlinks are copied as their
+    targets. Returns one message per collision with an `origin` path and per
     failed copy, a symlink cycle in an entry included. Raises `ValueError` on a
-    symlink cycle in `emit` and `OSError` if `emit` cannot be copied.
+    symlink cycle in `base` and `OSError` if `emit` cannot be copied.
     """
     copy_tree(
-        emit,
+        base,
         out.joinpath(*package_subdir.split("/")) if package_subdir else out,
         keep_symlinks=False,
     )
@@ -119,19 +125,19 @@ def assemble_package(
             errors.append(f"{name}: cannot copy '{path}': {e.strerror or e}")
             continue
         if blocked is not None:
-            errors.append(f"{name} collides with the emitted file '{blocked}'")
+            errors.append(f"{name} collides with the {origin} file '{blocked}'")
         else:
-            _add_entry(src, out / path, path, name, errors, set())
+            _add_entry(src, out / path, path, name, origin, errors, set())
     if package_json is not None:
         manifest = out / "package.json"
         if manifest.is_dir():
             errors.append(
-                "`package_json` collides with the emitted directory 'package.json'"
+                f"`package_json` collides with the {origin} directory 'package.json'"
             )
         else:
             try:
                 if os.path.lexists(manifest):
-                    # The emitted copy keeps its source's mode, which may be read-only.
+                    # The base's copy keeps its source's mode, which may be read-only.
                     os.chmod(manifest, stat.S_IREAD | stat.S_IWRITE)
                 shutil.copy(package_json, manifest)
             except OSError as e:
@@ -159,13 +165,14 @@ def _add_entry(
     dst: Path,
     path: str,
     name: str,
+    origin: str,
     errors: list[str],
     ancestors: set[tuple[int, int]],
 ) -> None:
     if not src.is_dir():
         if os.path.lexists(dst):
             kind = "directory" if dst.is_dir() else "file"
-            errors.append(f"{name} collides with the emitted {kind} '{path}'")
+            errors.append(f"{name} collides with the {origin} {kind} '{path}'")
             return
         try:
             shutil.copy(src, dst)
@@ -173,7 +180,7 @@ def _add_entry(
             errors.append(f"{name}: cannot copy '{path}': {e.strerror or e}")
         return
     if os.path.lexists(dst) and not dst.is_dir():
-        errors.append(f"{name} collides with the emitted file '{path}'")
+        errors.append(f"{name} collides with the {origin} file '{path}'")
         return
     try:
         key = _enter_dir(src, ancestors)
@@ -194,6 +201,7 @@ def _add_entry(
             dst / entry.name,
             f"{path}/{entry.name}",
             name,
+            origin,
             errors,
             ancestors,
         )
@@ -872,6 +880,369 @@ def strip_types(src: Path, out: Path) -> None:
     copy_tree(src, out, keep_symlinks=False, skip_suffixes=_DECLARATION_SUFFIXES)
 
 
+# Node's legacy `main` lookup finds the file at the `main` path plus any of these.
+_MAIN_SUFFIXES = (
+    "",
+    ".js",
+    ".json",
+    ".node",
+    "/index.js",
+    "/index.json",
+    "/index.node",
+)
+
+
+def validate_package(
+    package: Path,
+    name: str,
+    dir_name: str | None,
+    main: str | None,
+    bins: dict[str, str],
+    type_: str | None,
+    version: str | None,
+    module: Path | None = None,
+    module_src_root: str = "",
+) -> list[str]:
+    """Return a message for each problem with the `package.json` of the package directory `package`.
+
+    Its "name" must be `name` or `dir_name`. Its "main", "bin", "types",
+    "typings" and literal "exports" targets must be files in the package, as
+    Node, npm and TypeScript resolve them, and every "bin" file must start
+    with a shebang, after any UTF-8 byte order mark. Every conditions object in "exports" must list "types"
+    first. `main`, when set, must resolve to the same file as its "main", and
+    `bins`, `type_` and `version`, when set, must match its "bin", "type" and
+    "version". Its "type" must match that of the
+    `package.json` nearest `module_src_root` inside `module`, the project
+    directory `tsc` compiled the package from, when there is one.
+    Paths match only with the same case, on any file system.
+    """
+    if not _is_file(package, "package.json"):
+        return [
+            "the package has no package.json: a `prebuilt` directory must contain one, or `package_json` adds it"
+        ]
+    try:
+        manifest = json.loads((package / "package.json").read_text(encoding="utf-8"))
+    except OSError as e:
+        return [f"package.json cannot be read: {e.strerror or e}"]
+    except ValueError as e:
+        return [f"package.json is not valid JSON: {e}"]
+    if not isinstance(manifest, dict):
+        return ["package.json must contain a JSON object"]
+    errors = []
+    _check_name(manifest, name, dir_name, errors)
+    if "main" in manifest:
+        _check_main(package, manifest["main"], errors)
+    reported = len(errors)
+    commands = _bin_commands(manifest, errors)
+    bin_malformed = len(errors) > reported
+    _check_bins(package, commands, errors)
+    for field in ("types", "typings"):
+        if field in manifest:
+            _check_types(package, field, manifest[field], errors)
+    if "exports" in manifest:
+        _check_exports(package, manifest["exports"], errors)
+    _check_declared(
+        package,
+        manifest,
+        commands,
+        main,
+        bins,
+        bin_malformed,
+        type_,
+        version,
+        errors,
+    )
+    if module is not None:
+        _check_module_type(manifest, module, module_src_root, errors)
+    return errors
+
+
+def _check_declared(
+    package: Path,
+    manifest: dict[str, object],
+    commands: dict[str, str],
+    main: str | None,
+    bins: dict[str, str],
+    bin_malformed: bool,
+    type_: str | None,
+    version: str | None,
+    errors: list[str],
+) -> None:
+    manifest_main = manifest.get("main")
+    if main is not None and (
+        not isinstance(manifest_main, str)
+        or _main_target(package, manifest_main) != _main_target(package, main)
+    ):
+        errors.append(_mismatch(manifest, "main", main))
+    compared_bins = (
+        _well_formed_bins(manifest, commands, bins) if bin_malformed else bins
+    )
+    if compared_bins and _package_paths(commands) != _package_paths(compared_bins):
+        errors.append(_mismatch(manifest, "bin", bins))
+    if type_ is not None and manifest.get("type", "commonjs") != type_:
+        errors.append(_mismatch(manifest, "type", type_))
+    if version is not None and manifest.get("version") != version:
+        errors.append(_mismatch(manifest, "version", version))
+
+
+def _well_formed_bins(
+    manifest: dict[str, object], commands: dict[str, str], bins: dict[str, str]
+) -> dict[str, str]:
+    """The entries of `bins` except those for commands whose "bin" entry is malformed, all of them when "bin" itself is."""
+    value = manifest.get("bin")
+    if not isinstance(value, dict):
+        return {}
+    return {
+        command: target
+        for command, target in bins.items()
+        if command in commands or command not in value
+    }
+
+
+def _check_types(package: Path, field: str, value: object, errors: list[str]) -> None:
+    if not isinstance(value, str):
+        errors.append(f'package.json "{field}" must be a string, not {_show(value)}')
+        return
+    path = _package_path(value)
+    candidates = (
+        [path, path + ".d.ts", path + "/index.d.ts"] if path else ["index.d.ts"]
+    )
+    if not any(_is_file(package, candidate) for candidate in candidates):
+        errors.append(
+            f'package.json "{field}" {_show(value)} is not a file in the package'
+        )
+
+
+def _check_module_type(
+    manifest: dict[str, object], module: Path, src_root: str, errors: list[str]
+) -> None:
+    segments = src_root.split("/") if src_root else []
+    for i in range(len(segments), -1, -1):
+        path = "/".join(segments[:i] + ["package.json"])
+        if _is_file(module, path):
+            break
+    else:
+        return
+    try:
+        module_manifest = json.loads((module / path).read_text(encoding="utf-8"))
+    except OSError as e:
+        errors.append(f"the module's {path} cannot be read: {e.strerror or e}")
+        return
+    except ValueError as e:
+        errors.append(f"the module's {path} is not valid JSON: {e}")
+        return
+    if not isinstance(module_manifest, dict):
+        errors.append(f"the module's {path} must contain a JSON object")
+        return
+    module_type = module_manifest.get("type", "commonjs")
+    package_type = manifest.get("type", "commonjs")
+    if package_type != module_type:
+        errors.append(
+            f'package.json "type" {_show(package_type)} does not match the "type" {_show(module_type)} '
+            f"of the module's {path}, which sets the module format `tsc` emits for sources without a closer package.json; "
+            'set `type`, or the "type" of `package_json`, to match'
+        )
+
+
+def _check_name(
+    manifest: dict[str, object], name: str, dir_name: str | None, errors: list[str]
+) -> None:
+    names = [name] + ([dir_name] if dir_name is not None and dir_name != name else [])
+    expected = " or ".join(
+        f"the `{attr}` '{value}'" for attr, value in zip(["package_name", "out"], names)
+    )
+    if "name" not in manifest:
+        errors.append(f'package.json has no "name"; it must be {expected}')
+    elif manifest["name"] not in names:
+        errors.append(
+            f'package.json "name" {_show(manifest["name"])} must be {expected}'
+        )
+
+
+def _check_main(package: Path, value: object, errors: list[str]) -> None:
+    if not isinstance(value, str):
+        errors.append(f'package.json "main" must be a string, not {_show(value)}')
+        return
+    if _main_file(package, value) is None:
+        errors.append(
+            f'package.json "main" {_show(value)} is not a file in the package'
+        )
+
+
+def _check_bins(package: Path, commands: dict[str, str], errors: list[str]) -> None:
+    for command, target in commands.items():
+        path = _package_path(target)
+        if not _is_file(package, path):
+            errors.append(
+                f'package.json "bin" {_show(command)} {_show(target)} is not a file in the package'
+            )
+        else:
+            try:
+                has_shebang = _starts_with_shebang(package / path)
+            except OSError as e:
+                errors.append(
+                    f'package.json "bin" {_show(command)} {_show(target)}: cannot read: {e.strerror or e}'
+                )
+                continue
+            if not has_shebang:
+                errors.append(
+                    f"package.json \"bin\" {_show(command)} {_show(target)} does not start with a shebang ('#!')"
+                )
+
+
+def _show(value: object) -> str:
+    return f"'{value}'" if isinstance(value, str) else json.dumps(value)
+
+
+def _mismatch(manifest: dict[str, object], field: str, declared: object) -> str:
+    if field not in manifest:
+        return f'package.json has no "{field}", but `{field}` is {_show(declared)}'
+    return f'package.json "{field}" {_show(manifest[field])} does not match `{field}` {_show(declared)}'
+
+
+def _package_path(value: str) -> str:
+    """The normalized package-relative path that a path in package.json names, `""` for the package root.
+
+    A path that leaves the package starts with `..` or `/`, which no file in the package matches.
+    """
+    path = posixpath.normpath(value)
+    return "" if path == "." else path
+
+
+def _package_paths(targets: dict[str, str]) -> dict[str, str]:
+    return {key: _package_path(target) for key, target in targets.items()}
+
+
+def _main_file(package: Path, value: str) -> str | None:
+    path = _package_path(value)
+    if path:
+        candidates = [path + suffix for suffix in _MAIN_SUFFIXES]
+    else:
+        candidates = ["index.js", "index.json", "index.node"]
+    return next(
+        (candidate for candidate in candidates if _is_file(package, candidate)), None
+    )
+
+
+def _main_target(package: Path, value: str) -> str:
+    return _main_file(package, value) or _package_path(value)
+
+
+def _bin_commands(manifest: dict[str, object], errors: list[str]) -> dict[str, str]:
+    """The command names and targets of "bin"; a string names one command after the package."""
+    value = manifest.get("bin")
+    if value is None:
+        return {}
+    if isinstance(value, str):
+        name = manifest.get("name")
+        if not isinstance(name, str):
+            errors.append(
+                'package.json "bin" is a string, which names its command after "name", so "name" must be a string'
+            )
+            return {}
+        return {name.split("/")[-1]: value}
+    if not isinstance(value, dict):
+        errors.append('package.json "bin" must be a string or an object')
+        return {}
+    commands = {}
+    for command, target in value.items():
+        if isinstance(target, str):
+            commands[command] = target
+        else:
+            errors.append(
+                f'package.json "bin" {_show(command)} must be a string, not {_show(target)}'
+            )
+    return commands
+
+
+def _check_exports(package: Path, exports: object, errors: list[str]) -> None:
+    if isinstance(exports, dict):
+        subpaths = [key for key in exports if key.startswith(".")]
+        if subpaths and len(subpaths) != len(exports):
+            errors.append(
+                "package.json \"exports\" mixes subpaths (keys starting with '.') and conditions"
+            )
+            return
+        if subpaths:
+            for key, target in exports.items():
+                _check_export_target(
+                    package, target, f"exports[{json.dumps(key)}]", errors
+                )
+            return
+    _check_export_target(package, exports, "exports", errors)
+
+
+def _check_export_target(
+    package: Path, target: object, where: str, errors: list[str]
+) -> None:
+    if target is None:
+        return
+    if isinstance(target, str):
+        if "*" in target:
+            return
+        if not target.startswith("./"):
+            errors.append(f"package.json {where} {_show(target)} must start with './'")
+            return
+        if not _is_file(package, _package_path(target)):
+            errors.append(
+                f"package.json {where} {_show(target)} is not a file in the package"
+            )
+    elif isinstance(target, list):
+        for i, fallback in enumerate(target):
+            _check_export_target(package, fallback, f"{where}[{i}]", errors)
+    elif isinstance(target, dict):
+        conditions = list(target)
+        if "types" in conditions and conditions[0] != "types":
+            errors.append(
+                f'package.json {where} lists "types" after "{conditions[0]}"; "types" must come first'
+            )
+        for condition, nested in target.items():
+            _check_export_target(
+                package, nested, f"{where}[{json.dumps(condition)}]", errors
+            )
+    else:
+        errors.append(
+            f"package.json {where} must be a string, an array, an object or null"
+        )
+
+
+def _is_file(package: Path, path: str) -> bool:
+    """Whether the package-relative `path` is a file in `package`, matching the case of every segment."""
+    entry = None
+    for segment in path.split("/"):
+        directory = package if entry is None else entry.path
+        try:
+            with os.scandir(directory) as entries:
+                entry = next((e for e in entries if e.name == segment), None)
+        except OSError:
+            return False
+        if entry is None:
+            return False
+    return entry.is_file()
+
+
+def _starts_with_shebang(path: Path) -> bool:
+    with open(path, "rb") as f:
+        return f.read(5).removeprefix(b"\xef\xbb\xbf")[:2] == b"#!"
+
+
+def write_validation_result(out: Path, errors: list[str]) -> None:
+    """Write `errors` as a Buck2 validation result: a failure listing them, or a success when there are none."""
+    data = (
+        {"status": "failure", "message": "\n".join(errors)}
+        if errors
+        else {"status": "success"}
+    )
+    out.write_text(json.dumps({"version": 1, "data": data}), encoding="utf-8")
+
+
+def _bin_arg(arg: str) -> tuple[str, str]:
+    command, sep, path = arg.partition(":")
+    if not sep:
+        raise argparse.ArgumentTypeError(f"expected NAME:PATH, got {arg!r}")
+    return command, path
+
+
 def _path(arg: str) -> Path:
     # `node_modules` trees routinely exceed MAX_PATH on Windows.
     if sys.platform == "win32":
@@ -887,17 +1258,38 @@ def _read_executables(path: Path | None) -> list[str]:
 
 
 def _run_assemble_package(args: argparse.Namespace) -> int:
+    if args.prebuilt and args.package_subdir:
+        raise ValueError("--package-subdir cannot be combined with --prebuilt")
     entries = json.loads(args.entries.read_text(encoding="utf-8"))
     errors = assemble_package(
-        args.emit,
+        args.prebuilt or args.emit,
         args.package_subdir,
         [(path, _path(src), name) for path, src, name in entries],
         args.package_json,
         args.out,
+        origin="prebuilt" if args.prebuilt else "emitted",
     )
     for error in errors:
         print(error, file=sys.stderr)
     return 1 if errors else 0
+
+
+def _run_validate_package(args: argparse.Namespace) -> int:
+    write_validation_result(
+        args.out,
+        validate_package(
+            args.package,
+            args.name,
+            args.dir_name,
+            args.main,
+            dict(args.bin),
+            args.type,
+            args.version,
+            args.module,
+            args.module_src_root,
+        ),
+    )
+    return 0
 
 
 def _run_merge(args: argparse.Namespace) -> int:
@@ -941,7 +1333,9 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     assemble = commands.add_parser("assemble-package")
-    assemble.add_argument("--emit", type=_path, required=True)
+    base = assemble.add_mutually_exclusive_group(required=True)
+    base.add_argument("--emit", type=_path)
+    base.add_argument("--prebuilt", type=_path)
     assemble.add_argument("--package-subdir", default="")
     assemble.add_argument("--entries", type=_path, required=True)
     assemble.add_argument("--package-json", type=_path)
@@ -989,6 +1383,20 @@ def _parser() -> argparse.ArgumentParser:
     strip.add_argument("--src", type=_path, required=True)
     strip.add_argument("--out", type=_path, required=True)
     strip.set_defaults(run=_run_strip_types, errors=(ValueError, OSError))
+    validate = commands.add_parser("validate-package")
+    validate.add_argument("--package", type=_path, required=True)
+    validate.add_argument("--name", required=True)
+    validate.add_argument("--dir-name")
+    validate.add_argument("--main")
+    validate.add_argument(
+        "--bin", type=_bin_arg, action="append", default=[], metavar="NAME:PATH"
+    )
+    validate.add_argument("--type")
+    validate.add_argument("--version")
+    validate.add_argument("--module", type=_path)
+    validate.add_argument("--module-src-root", default="")
+    validate.add_argument("--out", type=_path, required=True)
+    validate.set_defaults(run=_run_validate_package, errors=(ValueError, OSError))
     return parser
 
 

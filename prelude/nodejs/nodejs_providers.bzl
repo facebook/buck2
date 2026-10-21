@@ -17,12 +17,17 @@ NodejsLibraryPackage = record(
 NodejsLibraryTSet = transitive_set()
 
 NodejsLibraryInfo = provider(
-    doc = "Information about a Node.js library package.",
+    doc = "A Node.js library: its own package and the packages of its transitive closure. A library with only `deps` stages no package, so its `dir_name`, `package_dir`, `package_name` and `runtime_dir` are `None`. `bins`, `main`, `type` and `version` are the library's attributes; `type` and `version` get the defaults of a synthesized `package.json` only when the rule synthesizes it.",
     fields = {
-        "dir_name": provider_field(str),
-        "package_dir": provider_field(Artifact),
-        "package_name": provider_field(str),
+        "bins": provider_field(dict[str, str], default = {}),
+        "dir_name": provider_field(str | None, default = None),
+        "main": provider_field(str | None, default = None),
+        "package_dir": provider_field(Artifact | None, default = None),
+        "package_name": provider_field(str | None, default = None),
+        "runtime_dir": provider_field(Artifact | None, default = None),
         "transitive_outputs": provider_field(NodejsLibraryTSet),
+        "type": provider_field(str | None, default = None),
+        "version": provider_field(str | None, default = None),
     },
 )
 
@@ -86,7 +91,14 @@ def get_nodejs_library_info(library, consumer_label):
                 consumer_label, library.label
             )
         )
-    return library[NodejsLibraryInfo]
+    info = library[NodejsLibraryInfo]
+    if info.package_dir == None:
+        fail(
+            "target {} has `library` target `{}`, a `nodejs_library` with only `deps`, which stages no package to run a file from; list it in `deps` instead".format(
+                consumer_label, library.label
+            )
+        )
+    return info
 
 def get_nodejs_tree_info(node_modules: Dependency, consumer_label, attr: str = "node_modules") -> NodejsTreeInfo:
     if NodejsTreeInfo not in node_modules:
