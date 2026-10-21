@@ -359,12 +359,15 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         paths: Vec<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<WriteLease>;
 
-    /// Gives every file under `paths` an inode of its own, for a caller about to write content
-    /// there in place: an incremental action's previous outputs. A materializer that keeps
-    /// buck-out content linked elsewhere, the disk-state core's BlobStore, clones or copies
-    /// such files over themselves; one that never shares inodes does nothing. Called under the
-    /// write lease the caller holds over `paths`.
-    async fn unshare_outputs(&self, paths: Vec<ProjectRelativePathBuf>) -> buck2_error::Result<()>;
+    /// Makes every file under `paths` one the caller may write in place, for an incremental
+    /// action's previous outputs: an inode of its own, where a materializer keeps buck-out
+    /// content linked elsewhere (the disk-state core's BlobStore), and its owner's write
+    /// permission, where a materializer keeps tracked files read-only. One that does neither
+    /// does nothing. Called under the write lease the caller holds over `paths`.
+    async fn make_outputs_writable(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<()>;
 
     /// Makes the untracked content an action produced at `src`, which it holds `lease` for, the
     /// artifact at `dest`, described by `value`. The content moves: `src` is the caller's to

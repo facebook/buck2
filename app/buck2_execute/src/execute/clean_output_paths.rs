@@ -110,21 +110,23 @@ fn clear_stale_parent(parent: &AbsNormPath) -> buck2_error::Result<()> {
     }
 }
 
-/// Gives every file under `paths` an inode of its own, for an action about to write its previous
-/// outputs in place: a file the BlobStore holds by hardlink (plan-blobstore.md §4) is cloned or
-/// copied over itself, so that the write stays out of the store. A file with one link is left
-/// alone. Symlinks are not followed.
-pub fn unshare_output_paths(
+/// Makes every file under `paths` one an action may write in place, for its previous outputs
+/// (plan-readonly.md §3): a file the BlobStore holds by hardlink (plan-blobstore.md §4) is cloned
+/// or copied over itself, so that the write stays out of the store, and every file gets its
+/// owner's write permission, which the disk-state core takes from the files it tracks. The
+/// store's name of a shared file keeps its mode, except on Windows, where hardlinks share the
+/// read-only attribute and replacing the file clears it. Symlinks are not followed.
+pub fn make_output_paths_writable(
     fs: &ProjectRoot,
     paths: &[ProjectRelativePathBuf],
 ) -> buck2_error::Result<()> {
     for path in paths {
-        unshare(&fs.resolve(path))?;
+        make_writable(&fs.resolve(path))?;
     }
     Ok(())
 }
 
-fn unshare(path: &AbsNormPath) -> buck2_error::Result<()> {
+fn make_writable(path: &AbsNormPath) -> buck2_error::Result<()> {
     let Some(metadata) = fs_util::symlink_metadata_if_exists(path)? else {
         return Ok(());
     };
@@ -135,22 +137,27 @@ fn unshare(path: &AbsNormPath) -> buck2_error::Result<()> {
                 buck2_fs::error::IoError::new_with_path("read_dir", path, e).categorize_internal()
             })?;
             let name = entry.file_name();
-            unshare(&path.join(ForwardRelativePath::new(&name)?))?;
+            make_writable(&path.join(ForwardRelativePath::new(&name)?))?;
         }
-    } else if file_type.is_file() && shared(&metadata) {
-        let name = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .internal_error("a file has a name")?;
-        let parent = path.parent().internal_error("a file has a parent")?;
-        let unshared = parent.join(ForwardRelativePathBuf::unchecked_new(format!(
-            "{name}.unshare"
-        )));
-        // What a run interrupted between the clone and the rename left.
-        fs_util::remove_all(&unshared).categorize_internal()?;
-        fs_util::reflink_or_copy(path, &unshared).categorize_internal()?;
-        fs_util::set_permissions(&unshared, metadata.permissions()).categorize_internal()?;
-        fs_util::rename(&unshared, path).categorize_internal()?;
+    } else if file_type.is_file() {
+        if shared(&metadata) {
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .internal_error("a file has a name")?;
+            let parent = path.parent().internal_error("a file has a parent")?;
+            let unshared = parent.join(ForwardRelativePathBuf::unchecked_new(format!(
+                "{name}.unshare"
+            )));
+            // What a run interrupted between the clone and the rename left.
+            fs_util::remove_all(&unshared).categorize_internal()?;
+            fs_util::reflink_or_copy(path, &unshared).categorize_internal()?;
+            fs_util::set_permissions(&unshared, metadata.permissions()).categorize_internal()?;
+            fs_util::set_writable(&unshared, true).categorize_internal()?;
+            fs_util::rename(&unshared, path).categorize_internal()?;
+        } else {
+            fs_util::set_writable(path, true).categorize_internal()?;
+        }
     }
     Ok(())
 }
@@ -240,24 +247,32 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn test_unshare_gives_linked_files_their_own_inode() -> buck2_error::Result<()> {
+    fn test_make_writable_gives_linked_files_their_own_inode_and_the_write_bit()
+    -> buck2_error::Result<()> {
         use std::os::unix::fs::MetadataExt;
         use std::os::unix::fs::PermissionsExt;
 
         let temp = ProjectRootTemp::new()?;
         let fs = temp.path();
         let out = fs.resolve(rel("buck-out/v2/gen/out"));
+        let stash = fs.resolve(rel("buck-out/v2/stash"));
         fs_util::create_dir_all(&out)?;
+        fs_util::create_dir_all(&stash)?;
         let a = out.join(ForwardRelativePath::unchecked_new("a"));
-        let b = out.join(ForwardRelativePath::unchecked_new("b"));
+        // The store's name for `a`'s content, outside the paths an action writes.
+        let b = stash.join(ForwardRelativePath::unchecked_new("b"));
         let alone = out.join(ForwardRelativePath::unchecked_new("alone"));
         fs_util::write(&a, b"shared")?;
         fs_util::set_executable(&a, true)?;
         fs_util::hard_link(&a, &b)?;
         fs_util::write(&alone, b"alone")?;
         let alone_inode = fs_util::metadata(&alone)?.ino();
+        // As the disk-state core leaves tracked files.
+        for file in [&a, &alone] {
+            fs_util::set_writable(file, false)?;
+        }
 
-        unshare_output_paths(fs, &[rel("buck-out/v2/gen/out").to_owned()])?;
+        make_output_paths_writable(fs, &[rel("buck-out/v2/gen/out").to_owned()])?;
 
         let (a_meta, b_meta) = (fs_util::metadata(&a)?, fs_util::metadata(&b)?);
         assert_ne!(a_meta.ino(), b_meta.ino());
@@ -265,7 +280,17 @@ mod tests {
         assert_eq!(fs_util::read_to_string(&a)?, "shared");
         assert_eq!(fs_util::read_to_string(&b)?, "shared");
         assert_ne!(a_meta.permissions().mode() & 0o111, 0, "the mode survives");
-        assert_eq!(fs_util::metadata(&alone)?.ino(), alone_inode);
+        assert!(
+            !a_meta.permissions().readonly(),
+            "the copy is the run's to write"
+        );
+        let alone_meta = fs_util::metadata(&alone)?;
+        assert_eq!(alone_meta.ino(), alone_inode);
+        assert!(!alone_meta.permissions().readonly());
+        assert!(
+            b_meta.permissions().readonly(),
+            "the store's name of the shared inode keeps its mode"
+        );
         Ok(())
     }
 }

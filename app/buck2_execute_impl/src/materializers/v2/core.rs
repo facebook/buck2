@@ -84,7 +84,7 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
-use buck2_execute::execute::clean_output_paths::unshare_output_paths;
+use buck2_execute::execute::clean_output_paths::make_output_paths_writable;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
@@ -852,10 +852,13 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         Ok(WriteLease::new(self.take_all_for_writing(paths).await?))
     }
 
-    async fn unshare_outputs(&self, paths: Vec<ProjectRelativePathBuf>) -> buck2_error::Result<()> {
+    async fn make_outputs_writable(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<()> {
         let fs = self.io.fs().dupe();
         self.blocking_executor
-            .execute_io_inline(move || unshare_output_paths(&fs, &paths))
+            .execute_io_inline(move || make_output_paths_writable(&fs, &paths))
             .await
     }
 

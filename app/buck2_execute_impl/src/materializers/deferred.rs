@@ -655,8 +655,8 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         Ok(WriteLease::noop())
     }
 
-    /// This materializer never shares an inode with buck-out.
-    async fn unshare_outputs(
+    /// This materializer neither shares an inode with buck-out nor makes a file read-only.
+    async fn make_outputs_writable(
         &self,
         _paths: Vec<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<()> {

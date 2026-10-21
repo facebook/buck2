@@ -588,10 +588,10 @@ impl LocalExecutor {
                     // if the paths already exist on disk, should explore that
                     self.prepare_content_based_incremental_actions(request, cancellations)
                         .await?;
-                    // The run writes its previous outputs in place, and the store may hold them
-                    // by hardlink.
+                    // The run writes its previous outputs in place, which the store may hold by
+                    // hardlink and the core may have made read-only.
                     self.materializer
-                        .unshare_outputs(output_paths(&self.artifact_fs, request)?)
+                        .make_outputs_writable(output_paths(&self.artifact_fs, request)?)
                         .await?;
                 }
 
