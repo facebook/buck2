@@ -761,6 +761,26 @@ pub fn set_executable<P: AsRef<AbsPath>>(path: P, executable: bool) -> Result<()
     Ok(())
 }
 
+/// Gives or takes the permission to write `path`, a file: with `false` nobody may write it
+/// (`0o444`, or `0o555` for an executable); with `true` its owner may again. On Windows this is
+/// the read-only attribute. Follows symlinks.
+pub fn set_writable<P: AsRef<AbsPath>>(path: P, writable: bool) -> Result<(), IoError> {
+    let path = path.as_ref();
+    let mut perms = metadata(path)?.permissions();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if writable {
+            perms.set_mode(perms.mode() | 0o200);
+        } else {
+            perms.set_mode(perms.mode() & !0o222);
+        }
+    }
+    #[cfg(not(unix))]
+    perms.set_readonly(!writable);
+    set_permissions(path, perms)
+}
+
 pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::RmDirAll.guard();
     with_retries(|| fs::remove_dir_all(path.as_ref().as_maybe_relativized()))
@@ -1187,6 +1207,10 @@ pub mod uncategorized {
 
     pub fn set_executable<P: AsRef<AbsPath>>(path: P, executable: bool) -> buck2_error::Result<()> {
         super::set_executable(path, executable).uncategorized()
+    }
+
+    pub fn set_writable<P: AsRef<AbsPath>>(path: P, writable: bool) -> buck2_error::Result<()> {
+        super::set_writable(path, writable).uncategorized()
     }
 
     pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
@@ -1817,6 +1841,34 @@ mod tests {
         fs_util::set_permissions(&path, perm)?;
         fs_util::remove_all(&path)?;
         assert!(!path.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_writable() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let path = root.join("file");
+        fs_util::write(&path, b"data")?;
+        fs_util::set_executable(&path, true)?;
+
+        fs_util::set_writable(&path, false)?;
+        let perms = fs_util::metadata(&path)?.permissions();
+        assert!(perms.readonly());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(perms.mode() & 0o777, 0o555, "the executable bits stay");
+        }
+        assert!(
+            std::fs::OpenOptions::new().write(true).open(&path).is_err(),
+            "nobody writes a read-only file"
+        );
+
+        fs_util::set_writable(&path, true)?;
+        assert!(!fs_util::metadata(&path)?.permissions().readonly());
+        fs_util::write(&path, b"again")?;
+        assert_eq!(fs_util::read_to_string(&path)?, "again");
         Ok(())
     }
 
