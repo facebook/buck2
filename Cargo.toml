@@ -424,6 +424,7 @@ maplit = "1.0"
 memchr = "2.8.3"
 memmap2 = "0.9.11"
 mimalloc = { version = "0.1.52", default-features = false }
+mini_map = { path = "shed/mini_map", features = ["pagable_dep"] }
 mini_vec = { path = "shed/mini_vec" }
 multimap = "0.10.1"
 nix = { version = "0.31.3", features = ["dir", "event", "hostname", "inotify", "ioctl", "mman", "mount", "net", "poll", "ptrace", "reboot", "resource", "sched", "signal", "term", "time", "user", "zerocopy"] }

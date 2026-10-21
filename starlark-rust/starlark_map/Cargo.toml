@@ -15,12 +15,12 @@ allocative.workspace = true
 dupe.workspace = true
 equivalent.workspace = true
 hashbrown.workspace = true
+mini_map.workspace = true
 pagable = { workspace = true, optional = true }
 serde.workspace = true
 strong_hash.workspace = true
 
 [dev-dependencies]
-rustc-hash.workspace = true
 serde_json.workspace = true
 
 [features]

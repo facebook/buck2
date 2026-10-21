@@ -28,8 +28,8 @@ use equivalent::Equivalent;
 #[cfg(feature = "pagable_dep")]
 use pagable::Pagable;
 
-use crate::hash_value::StarlarkHashValue;
-use crate::hashed::Hashed;
+use crate::Hashed;
+use crate::StarlarkHashValue;
 use crate::vec_map::hint::likely;
 pub(crate) use crate::vec_map::iter::IntoIter;
 pub(crate) use crate::vec_map::iter::IntoIterHashed;

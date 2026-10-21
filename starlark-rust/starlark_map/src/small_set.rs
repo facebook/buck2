@@ -33,8 +33,8 @@ use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::Hashed;
 use crate::StarlarkHashValue;
-use crate::hashed::Hashed;
 use crate::small_map::SmallMap;
 pub use crate::small_set::iter::IntoIter;
 pub use crate::small_set::iter::IntoIterHashed;

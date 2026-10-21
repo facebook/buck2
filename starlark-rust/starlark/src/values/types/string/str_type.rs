@@ -169,7 +169,7 @@ impl StarlarkStr {
         } else {
             let mut s = StarlarkHasher::new();
             hash_string_value(self.as_str(), &mut s);
-            let hash = s.finish_small();
+            let hash = s.finish_short();
             // If hash is zero, we are unlucky, but it is highly improbable.
             self.str.hash.store(hash.get(), atomic::Ordering::Relaxed);
             hash

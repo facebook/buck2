@@ -133,7 +133,7 @@ impl BuildHasher for StarlarkHasherSmallPromoteBuilder {
 impl Hasher for StarlarkHasherSmallPromote {
     #[inline]
     fn finish(&self) -> u64 {
-        self.0.finish_small().promote()
+        self.0.finish_short().promote()
     }
 
     #[inline]
