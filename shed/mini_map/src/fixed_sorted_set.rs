@@ -10,6 +10,7 @@
 
 //! An immutable set whose elements are sorted.
 
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -187,6 +188,21 @@ impl<T: PartialEq> PartialEq for MiniFixedSortedSet<T> {
 
 impl<T: Eq> Eq for MiniFixedSortedSet<T> {}
 
+impl<T: PartialOrd> PartialOrd for MiniFixedSortedSet<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.iter().partial_cmp(other.iter())
+    }
+}
+
+/// Lexicographic over the elements, as for `BTreeSet`.
+impl<T: Ord> Ord for MiniFixedSortedSet<T> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.iter().cmp(other.iter())
+    }
+}
+
 impl<T: Hash> Hash for MiniFixedSortedSet<T> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -303,6 +319,16 @@ mod tests {
         let mut hasher = DefaultHasher::new();
         value.hash(&mut hasher);
         hasher.finish()
+    }
+
+    #[test]
+    fn ordering_is_lexicographic_over_elements() {
+        let set =
+            |elements: &[u64]| -> MiniFixedSortedSet<u64> { elements.iter().copied().collect() };
+        assert!(set(&[]) < set(&[1]));
+        assert!(set(&[1]) < set(&[1, 2]));
+        assert!(set(&[1, 2]) < set(&[2]));
+        assert_eq!(Ordering::Equal, set(&[2, 1]).cmp(&set(&[1, 2])));
     }
 
     #[test]

@@ -10,6 +10,7 @@
 
 //! A map whose keys are fixed at construction and sorted.
 
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -285,6 +286,21 @@ impl<K: PartialEq, V: PartialEq> PartialEq for MiniFixedSortedMap<K, V> {
 
 impl<K: Eq, V: Eq> Eq for MiniFixedSortedMap<K, V> {}
 
+impl<K: PartialOrd, V: PartialOrd> PartialOrd for MiniFixedSortedMap<K, V> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.iter().partial_cmp(other.iter())
+    }
+}
+
+/// Lexicographic over the entries, as for `BTreeMap`.
+impl<K: Ord, V: Ord> Ord for MiniFixedSortedMap<K, V> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.iter().cmp(other.iter())
+    }
+}
+
 impl<K: Hash, V: Hash> Hash for MiniFixedSortedMap<K, V> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -539,6 +555,21 @@ mod tests {
         let back = from_hashed.into_insertion_map();
         assert_eq!(50, back.len());
         assert_eq!(Some(&0), back.get("0"));
+    }
+
+    #[test]
+    fn ordering_is_lexicographic_over_entries() {
+        let map = |entries: &[(u64, u64)]| -> MiniFixedSortedMap<u64, u64> {
+            entries.iter().copied().collect()
+        };
+        assert!(map(&[]) < map(&[(1, 1)]));
+        assert!(map(&[(1, 1)]) < map(&[(1, 2)]));
+        assert!(map(&[(1, 2)]) < map(&[(2, 0)]));
+        assert!(map(&[(1, 1)]) < map(&[(1, 1), (2, 2)]));
+        assert_eq!(
+            Ordering::Equal,
+            map(&[(2, 2), (1, 1)]).cmp(&map(&[(1, 1), (2, 2)]))
+        );
     }
 
     #[test]
