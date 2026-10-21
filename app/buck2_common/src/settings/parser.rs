@@ -744,6 +744,13 @@ mod tests {
             assert!(hydration.page_out_on_idle);
             Ok(())
         }
+
+        #[test]
+        fn old_agent_interactive_rollout_does_not_enable_guards() -> buck2_error::Result<()> {
+            let settings = settings_with_rollout(Some(b"[agent_interactive.0]\nenabled = true"))?;
+            assert!(!settings.agent_interactive.enabled());
+            Ok(())
+        }
     }
 
     #[cfg(not(fbcode_build))]

@@ -10,6 +10,7 @@
 
 //! Typed buck settings, replaces buckconfig for core buck2 settings.
 
+pub mod agent_interactive;
 pub mod args;
 pub mod dice;
 pub mod parser;

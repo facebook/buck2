@@ -163,9 +163,15 @@ impl<'a> ClientCommandContext<'a> {
         if !agent.is_direct_call() || self.maybe_paths()?.is_none() {
             return Ok(Decision::Inactive);
         }
+        let settings = &self.buck_settings()?.agent_interactive;
+        let enabled = match advice {
+            Advice::Killall => settings.killall_enabled(),
+            Advice::Clean => settings.clean_enabled(),
+            Advice::NewIsolationDir => settings.new_isolation_dir_enabled(),
+        };
         Ok(advice.evaluate(
             &Invocation {
-                enabled: self.buck_settings()?.agent_interactive.enabled(),
+                enabled,
                 direct_call: agent.is_direct_call(),
                 reason: agent.reason(),
             },

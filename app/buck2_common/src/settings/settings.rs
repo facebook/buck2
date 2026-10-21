@@ -20,6 +20,8 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::invocation_paths::DEFAULT_ISOLATION_DIR;
+use crate::settings::agent_interactive;
+use crate::settings::agent_interactive::AgentInteractiveSettings;
 
 /// Source categories used to define a setting's override policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -65,10 +67,10 @@ pub(crate) struct SectionMetadata {
     pub(crate) section_version: u32,
 }
 
-struct SettingKey<T> {
-    metadata: SettingKeyMetadata,
-    internal_default: Option<T>,
-    oss_default: Option<T>,
+pub(super) struct SettingKey<T> {
+    pub(super) metadata: SettingKeyMetadata,
+    pub(super) internal_default: Option<T>,
+    pub(super) oss_default: Option<T>,
 }
 
 impl<T: Clone> SettingKey<T> {
@@ -80,7 +82,7 @@ impl<T: Clone> SettingKey<T> {
         }
     }
 
-    fn resolve(&self, value: Option<T>) -> Option<T> {
+    pub(super) fn resolve(&self, value: Option<T>) -> Option<T> {
         value.or_else(|| self.default_value())
     }
 }
@@ -127,18 +129,6 @@ const AGENT_ADVICE_BUILD_INTENT_MESSAGE: SettingKey<&'static str> = SettingKey {
     },
     internal_default: None,
     oss_default: None,
-};
-
-const AGENT_INTERACTIVE_ENABLED: SettingKey<bool> = SettingKey {
-    metadata: SettingKeyMetadata {
-        key: SettingKeyRef {
-            section: "agent_interactive",
-            name: "enabled",
-        },
-        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
-    },
-    internal_default: Some(false),
-    oss_default: Some(false),
 };
 
 const LOG_URL: SettingKey<&'static str> = SettingKey {
@@ -320,7 +310,10 @@ const PACKAGE_VISIBILITY_DEFAULT_INTERSECTION: SettingKey<PackageVisibilityDefau
 pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
     AGENT_ADVICE_BUILD_INTENT_MODE.metadata,
     AGENT_ADVICE_BUILD_INTENT_MESSAGE.metadata,
-    AGENT_INTERACTIVE_ENABLED.metadata,
+    agent_interactive::ENABLED.metadata,
+    agent_interactive::KILLALL_ENABLED.metadata,
+    agent_interactive::CLEAN_ENABLED.metadata,
+    agent_interactive::NEW_ISOLATION_DIR_ENABLED.metadata,
     ANALYSIS_RECORD_REQUESTED_ANON_TARGETS.metadata,
     HYDRATION_ENABLE_PAGING.metadata,
     HYDRATION_DEFER_FIELD_READS.metadata,
@@ -338,7 +331,7 @@ pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
 )]
 pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
     AgentAdviceSection::METADATA,
-    AgentInteractiveSection::METADATA,
+    AgentInteractiveSettings::METADATA,
     AnalysisSection::METADATA,
     HydrationSection::METADATA,
     LogDownloadSection::METADATA,
@@ -357,12 +350,6 @@ pub(crate) fn find_setting_metadata<'a>(
 struct AgentAdviceSectionData {
     build_intent_mode: Option<BuildIntentMode>,
     build_intent_message: Option<String>,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
-#[serde(deny_unknown_fields)]
-struct AgentInteractiveSectionData {
-    enabled: Option<bool>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
@@ -401,7 +388,7 @@ pub(crate) struct BuckSettingsData {
     #[serde(default)]
     agent_advice: AgentAdviceSectionData,
     #[serde(default)]
-    agent_interactive: AgentInteractiveSectionData,
+    agent_interactive: AgentInteractiveSettings,
     #[serde(default)]
     analysis: AnalysisSectionData,
     #[serde(default)]
@@ -445,35 +432,6 @@ impl AgentAdviceSection {
             .build_intent_message
             .as_deref()
             .or_else(|| AGENT_ADVICE_BUILD_INTENT_MESSAGE.default_value())
-    }
-}
-
-/// Controls for agent-interactive command advice.
-#[derive(
-    Clone,
-    Dupe,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    Allocative
-)]
-#[serde(transparent)]
-pub struct AgentInteractiveSection(Arc<AgentInteractiveSectionData>);
-
-impl AgentInteractiveSection {
-    /// Bump when the section's settings schema or semantics change.
-    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
-        section_name: "agent_interactive",
-        section_version: 0,
-    };
-
-    pub fn enabled(&self) -> bool {
-        AGENT_INTERACTIVE_ENABLED
-            .resolve(self.0.enabled)
-            .expect("Agent interactive mode should have a default")
     }
 }
 
@@ -646,7 +604,7 @@ pub struct BuckSettings {
     #[serde(default)]
     pub agent_advice: AgentAdviceSection,
     #[serde(default)]
-    pub agent_interactive: AgentInteractiveSection,
+    pub agent_interactive: AgentInteractiveSettings,
     #[serde(default)]
     pub analysis: AnalysisSection,
     #[serde(default)]
@@ -661,7 +619,7 @@ impl From<BuckSettingsData> for BuckSettings {
     fn from(data: BuckSettingsData) -> Self {
         Self {
             agent_advice: AgentAdviceSection(Arc::new(data.agent_advice)),
-            agent_interactive: AgentInteractiveSection(Arc::new(data.agent_interactive)),
+            agent_interactive: data.agent_interactive,
             analysis: AnalysisSection(Arc::new(data.analysis)),
             hydration: HydrationSection(Arc::new(data.hydration)),
             log_download: LogDownloadSection(Arc::new(data.log_download)),
@@ -707,16 +665,6 @@ mod tests {
     use super::*;
     use crate::settings::parser::resolve_setting_flags;
     use crate::settings::parser::table;
-
-    #[test]
-    fn test_agent_interactive_is_opt_in() -> buck2_error::Result<()> {
-        assert!(!BuckSettings::empty().agent_interactive.enabled());
-        let enabled = resolve_setting_flags(vec![table("[agent_interactive]\nenabled = true")])?;
-        assert!(enabled.agent_interactive.enabled());
-        let disabled = resolve_setting_flags(vec![table("[agent_interactive]\nenabled = false")])?;
-        assert!(!disabled.agent_interactive.enabled());
-        Ok(())
-    }
 
     #[test]
     fn test_default_agent_advice() {
