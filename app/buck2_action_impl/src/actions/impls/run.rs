@@ -1445,25 +1445,6 @@ impl RunAction {
 
         Ok(req)
     }
-
-    fn outputs_for_error_handler(&self) -> buck2_error::Result<Vec<BuildArtifactPath>> {
-        self.values()
-            .outputs_for_error_handler
-            .iter()
-            .map(|artifact| {
-                let a = artifact.inner().artifact();
-
-                match a.as_parts().0 {
-                    BaseArtifactKind::Source(s) => Err(buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::Input,
-                        "Cannot use source artifact `{}` as output for error handler",
-                        s.get_path()
-                    )),
-                    BaseArtifactKind::Build(b) => Ok(b.get_path().dupe()),
-                }
-            })
-            .collect()
-    }
 }
 
 pub(crate) struct PreparedRunAction {
@@ -1668,6 +1649,25 @@ impl Action for RunAction {
 
     fn error_handler(&self) -> Option<&OwnedFrozen<Value<'static>>> {
         self.error_handler.as_ref()
+    }
+
+    fn outputs_for_error_handler(&self) -> buck2_error::Result<Vec<BuildArtifactPath>> {
+        self.values()
+            .outputs_for_error_handler
+            .iter()
+            .map(|artifact| {
+                let a = artifact.inner().artifact();
+
+                match a.as_parts().0 {
+                    BaseArtifactKind::Source(s) => Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Cannot use source artifact `{}` as output for error handler",
+                        s.get_path()
+                    )),
+                    BaseArtifactKind::Build(b) => Ok(b.get_path().dupe()),
+                }
+            })
+            .collect()
     }
 
     fn failed_action_output_artifacts<'v>(

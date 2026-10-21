@@ -34,6 +34,10 @@ use buck2_events::dispatch::span_async;
 use buck2_events::span::SpanId;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
+use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
+use buck2_execute::materialize::materializer::MaterializeRequest;
+use buck2_execute::materialize::materializer::ReadLease;
 use buck2_execute::output_size::OutputSize;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -78,6 +82,7 @@ use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
 use crate::deferred::calculation::ActionLookup;
 use crate::deferred::calculation::lookup_deferred_holder;
 use crate::keep_going::KeepGoing;
+use crate::materialize::invocation_re_use_case;
 use crate::starlark::values::UnpackValue;
 use crate::starlark::values::type_repr::StarlarkTypeRepr;
 
@@ -337,12 +342,27 @@ async fn build_action_inner(
                 _ => None,
             };
 
-            let error_diagnostics = try_run_error_handler(
-                action.dupe(),
-                last_command.as_ref(),
-                ctx.get_artifact_fs().await,
-                outputs,
-            );
+            let error_diagnostics =
+                match materialize_outputs_for_error_handler(ctx, &action, outputs).await {
+                    Ok(lease) => {
+                        let diagnostics = try_run_error_handler(
+                            action.dupe(),
+                            last_command.as_ref(),
+                            ctx.get_artifact_fs().await,
+                            outputs,
+                        );
+                        // The handler read its outputs under the lease.
+                        drop(lease);
+                        diagnostics
+                    }
+                    Err(e) => Some(ActionErrorDiagnostics {
+                        data: Some(
+                            buck2_data::action_error_diagnostics::Data::HandlerInvocationError(
+                                format!("{e:#}"),
+                            ),
+                        ),
+                    }),
+                };
 
             let e = ActionError::new(
                 e,
@@ -496,6 +516,47 @@ fn is_action_eligible_for_dedupe(
     }
 
     buck2_data::EligibleForDedupe::Eligible
+}
+
+/// Puts the outputs the action's error handler reads on disk, for as long as the returned lease
+/// is held. An output the failed run did not produce is left to the handler to report.
+async fn materialize_outputs_for_error_handler(
+    ctx: &mut DiceComputations<'_>,
+    action: &RegisteredAction,
+    outputs: Option<&ActionOutputs>,
+) -> buck2_error::Result<ReadLease> {
+    let (Some(_), Some(outputs)) = (action.action.error_handler(), outputs) else {
+        return Ok(ReadLease::noop());
+    };
+    let artifact_fs = ctx.get_artifact_fs().await?;
+    let mut artifacts = Vec::new();
+    for path in action.action.outputs_for_error_handler()? {
+        let Some(value) = outputs.get(&path) else {
+            continue;
+        };
+        let content_hash = path
+            .is_content_based_path()
+            .then(|| value.content_based_path_hash());
+        artifacts.push((
+            artifact_fs.resolve_build(&path, content_hash.as_ref())?,
+            value.dupe(),
+        ));
+    }
+    if artifacts.is_empty() {
+        return Ok(ReadLease::noop());
+    }
+    let re_use_case = invocation_re_use_case(ctx);
+    let response = ctx
+        .per_transaction_data()
+        .get_materializer()
+        .materialize(MaterializeRequest {
+            artifacts,
+            outputs: Vec::new(),
+            purpose: MaterializationPurpose::IntermediateOnly,
+            re_use_case,
+        })
+        .await?;
+    Ok(response.ensure_results_ok()?)
 }
 
 // Attempt to run the error handler if one was specified. Returns either the error diagnostics, or

@@ -44,6 +44,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::dep_file_state::DepFileStore;
@@ -186,6 +187,11 @@ pub trait Action: PagableTagged + Allocative + Debug + Send + Sync + 'static {
 
     fn error_handler(&self) -> Option<&OwnedFrozen<Value<'static>>> {
         None
+    }
+
+    /// The outputs the error handler reads, put on disk before it runs.
+    fn outputs_for_error_handler(&self) -> buck2_error::Result<Vec<BuildArtifactPath>> {
+        Ok(Vec::new())
     }
 
     fn failed_action_output_artifacts<'v>(

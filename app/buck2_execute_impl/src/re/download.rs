@@ -286,9 +286,9 @@ async fn materialize_failed_build_outputs(
         for result in response.results {
             result?;
         }
-        // FIXME(materializer): The error handler reads these after this returns, outside any
-        // lease. Materializing belongs where the handler runs, so it can hold one. A human
-        // reading them after the command is what final outputs are for and needs none.
+        // These are read after the command, by a human or by whatever reads the paths the event
+        // names, which no lease can cover; the error handler reads its outputs under one of its
+        // own (`materialize_outputs_for_error_handler`).
         drop(response.lease);
     }
 
