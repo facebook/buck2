@@ -920,6 +920,17 @@ async fn establish_connection_inner(
 
                         // The recorded daemon is unusable either way, so start a new one rather
                         // than leaving buckd.info in place for the next invocation to trip over.
+                        //
+                        // This kill can fail with EPERM when the recorded pid belongs to another
+                        // uid, or was recorded inside a pid namespace and resolves to an unrelated
+                        // host process. A privileged helper (e.g. a verb on the setuid Buck
+                        // wrapper) could kill such daemons from the host side, but exposing "kill
+                        // a process" through a setuid binary is severe-incident territory: it
+                        // would have to verify on the host that the target really is a Buck2
+                        // daemon for this project root and isolation dir (unit name, /proc cwd,
+                        // cmdline) before signalling, and any gap in that check is a
+                        // cross-user kill primitive. Until that is designed carefully, we accept
+                        // that these daemons cannot be removed from here.
                         if let Err(error) = hard_kill_until(&buckd_info.info, &deadline).await {
                             events_ctx
                                 .eprintln(&format!(
