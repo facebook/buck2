@@ -585,7 +585,7 @@ def _convert_python_library_to_executable(
                 "generated_build_info_invalidation_deps": generated_build_info_invalidation_deps,
                 "generated_build_info_invalidation_sources": generated_build_info_invalidation_sources,
                 "name": "python_linking:" + ctx.attrs.name,
-                "package_style": package_style,
+                "package_style": package_style.value,
                 "rpath": ctx.attrs.name,
                 "shared_only_deps": list(shared_only_deps.values()),
                 "static_extension_utils": ctx.attrs.static_extension_utils,
