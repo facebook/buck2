@@ -192,7 +192,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
             # We need a unique isolated prefix per test case.
             if test_id is None:
                 test_id = os.environ["PYTEST_CURRENT_TEST"]
-            current_test = __manifest__.fbmake["build_rule"] + test_id
+            current_test = _test_binary_identity() + test_id
             isolation_prefix = hashlib.sha256(current_test.encode("utf-8")).hexdigest()[
                 :40
             ]
@@ -300,6 +300,15 @@ async def buck(request: pytest.FixtureRequest) -> AsyncIterator[Buck]:
     marker = marker.args[0]
     async with buck_fixture(marker) as buck:
         yield buck
+
+
+def _test_binary_identity() -> str:
+    """
+    What tells this test binary apart from the others: its target, or, where the build does not
+    record one (the fbsource cell), the path it runs from. A template module shared by many
+    targets (`bxl_test`'s) gives every target the same test ids.
+    """
+    return __manifest__.fbmake["build_rule"] or os.path.realpath(sys.argv[0])
 
 
 async def _get_common_dir() -> Path:

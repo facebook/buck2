@@ -41,15 +41,14 @@ def buck_e2e_test(
     heavyweight_threads = "4",
     remote_execution = None,
     visibility = None,
-    use_unittest = None,
+    use_unittest = True,
 ):
     """
     Custom macro for buck2/buckaemon end-to-end tests.
 
     use_unittest:
         Whether the sources are `unittest` test modules (`BuckTestCase` subclasses) rather
-        than pytest modules. pytest is unsupported at Meta; this is the way every test is
-        moving. Unset, the `buck2_e2e_test.use_unittest` package value decides.
+        than pytest modules. pytest is unsupported at Meta; `False` is on its way out.
     """
     srcs = srcs or []
     labels = labels or []
@@ -69,8 +68,6 @@ def buck_e2e_test(
 
     # For autodeps
     read_package_value = getattr(native, "read_package_value", None)
-    if use_unittest == None:
-        use_unittest = bool(read_package_value and read_package_value("buck2_e2e_test.use_unittest"))
 
     if not use_unittest:
         # Flags passed to pytest.
@@ -269,7 +266,7 @@ def buck2_e2e_test(
     heavyweight_threads = "4",
     remote_execution = None,
     visibility = None,
-    use_unittest = None,
+    use_unittest = True,
 ):
     """
     Custom macro for buck2 end-to-end tests. All tests are run against buck2 compiled in-repo (compiled buck2).
