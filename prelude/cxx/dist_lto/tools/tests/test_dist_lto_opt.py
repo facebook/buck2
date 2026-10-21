@@ -338,7 +338,6 @@ class TestDistLtoOpt(unittest.TestCase):
             ],
         )
 
-    def test_unterminated_xlinker_returns_the_failure_code(self):
-        # `main` treats `None` as the failure signal and `.extend`s any other result.
-        self.assertEqual(_filter_flags(["-Xlinker"]), 1)
-        self.assertEqual(_filter_flags(["-Xlinker", "-mllvm"]), 1)
+    def test_unterminated_xlinker_returns_none(self):
+        self.assertIsNone(_filter_flags(["-Xlinker"]))
+        self.assertIsNone(_filter_flags(["-Xlinker", "-mllvm"]))
