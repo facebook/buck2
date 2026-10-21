@@ -254,8 +254,19 @@ def compute_mappings(groups_map: dict[str, Group], graph_map: dict[Label, typing
     # first reaches the node and shared by every walk.
     children_of = {}
 
+    # The rooted mappings with filters all walk the graph from their roots, so
+    # one pass finds the targets of most of them. The targets are then claimed
+    # in the order of the mappings, as `_update_target_to_group_mapping` gives
+    # a target to the first mapping that claims it.
+    walked = [mapping for _, mapping in group_mappings_with_roots if _is_walked(mapping)]
+    walked_targets = _find_targets_in_mappings(graph_map, children_of, walked) if walked else []
+    next_walked = 0
     for group, mapping in group_mappings_with_roots:
-        targets_in_mapping = _find_targets_in_mapping(graph_map, mapping, children_of)
+        if _is_walked(mapping):
+            targets_in_mapping = walked_targets[next_walked]
+            next_walked += 1
+        else:
+            targets_in_mapping = _find_targets_in_mapping(graph_map, mapping, children_of)
         for target in targets_in_mapping:
             # If the target doesn't exist in our graph, skip the mapping.
             if target not in graph_map:
@@ -279,6 +290,101 @@ def get_dedupped_roots_from_groups(groups: list[Group]) -> list[Label]:
                 roots[root] = True
 
     return list(roots.keys())
+
+def _is_walked(mapping: GroupMapping) -> bool:
+    """
+    Whether `_find_targets_in_mappings` finds the mapping's targets: it does
+    for the rooted mappings with filters, except the `intersect_any_roots`
+    ones, which `_find_targets_in_mapping` walks root by root, and the
+    `subfolders` ones, which create their implicit groups in the order of
+    their targets.
+    """
+    return bool(mapping.filters) and bool(mapping.roots) and mapping.traversal not in [Traversal("intersect_any_roots"), Traversal("subfolders")]
+
+# Types removed to avoid unnecessary type checking which degrades performance.
+def _find_targets_in_mappings(graph_map, children_of, mappings):
+    """
+    For each of `mappings`, which all have roots and filters, the nodes its
+    walk from its roots reaches that pass its filters: the same nodes
+    `_matching_targets_under` finds, in topological rather than depth first
+    order.
+
+    A walk goes on below a node when the node matches, unless the traversal
+    is `tree`, or when it does not match and the failing filter does not stop
+    the walk; so whether a walk reaches a node depends only on the graph, and
+    one pass over the nodes reachable from any root in topological order (the
+    graph is a DAG, being part of the configured target graph) finds the
+    targets of every mapping at once, with the mappings reaching a node kept
+    as a bit mask. The pass visits every node reachable from the roots, also
+    the ones no walk reaches.
+    """
+    roots = {}
+    seeds = {}
+    for i, mapping in enumerate(mappings):
+        bit = 1 << i
+        for root in mapping.roots:
+            if root not in graph_map:
+                fail("Expected node {} in graph nodes".format(root))
+            roots[root] = None
+            seeds[root] = seeds.get(root, 0) | bit
+
+    # Reverse post order of the nodes reachable from any root: parents before children.
+    visited = set()
+    post_order = []
+    stack = [(root, False) for root in roots]
+    for _ in range(2000000000):
+        if not stack:
+            break
+        node, done = stack.pop()
+        if done:
+            post_order.append(node)
+            continue
+        if node in visited:
+            continue
+        visited.add(node)
+        stack.append((node, True))
+        children = children_of.get(node)
+        if children == None:
+            graph_node = graph_map.get(node)
+            if graph_node == None:
+                fail("Expected node {} in graph nodes".format(node))
+            children = graph_node.deps + graph_node.exported_deps
+            children_of[node] = children
+        for child in children:
+            if child not in visited:
+                stack.append((child, False))
+    expect(not stack, "Expected to be done with graph traversal stack.")
+
+    walks = []
+    for i, mapping in enumerate(mappings):
+        root = mapping.roots[0] if len(mapping.roots) == 1 else None
+        walks.append((1 << i, mapping.filters, root, mapping.traversal == Traversal("tree")))
+    results = [[] for _ in mappings]
+
+    alive = dict(seeds)
+    for idx in range(len(post_order) - 1, -1, -1):
+        node = post_order[idx]
+        mask = alive.get(node)
+        if not mask:
+            continue
+        labels = graph_map[node].labels
+        pass_mask = 0
+        for j in range(len(walks)):
+            bit, filters, root, stop_at_match = walks[j]
+            if not mask & bit:
+                continue
+            matched, traverse = _matches_filters(filters, root, node, labels)
+            if matched:
+                results[j].append(node)
+                if stop_at_match:
+                    continue
+            if traverse:
+                pass_mask |= bit
+        if pass_mask:
+            for child in children_of[node]:
+                alive[child] = alive.get(child, 0) | pass_mask
+
+    return results
 
 # Types removed to avoid unnecessary type checking which degrades performance.
 def _find_targets_in_mapping(
