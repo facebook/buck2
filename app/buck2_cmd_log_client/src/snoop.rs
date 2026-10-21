@@ -151,7 +151,7 @@ impl BuckSubcommand for SnoopCommand {
             loop {
                 match snoop_one(&mut ctx, &console_opts, &current, idle_timeout, &live).await? {
                     SnoopOutcome::Switch(target) => current = target,
-                    SnoopOutcome::Ended(res) => {
+                    SnoopOutcome::Ended { invocation, res } => {
                         match res {
                             Ok(CommandOutcome::Success(result)) => {
                                 for e in &result.errors {
@@ -163,12 +163,19 @@ impl BuckSubcommand for SnoopCommand {
                             }
                             Err(e) if e.has_tag(ErrorTag::MissingCommandResult) => {
                                 buck2_client_ctx::eprintln!(
-                                    "Warning: The event log stopped growing without a command result. \
-                                    The command may have exited abnormally, or its log may have been deleted."
+                                    "The command ended without a result: it was likely interrupted, or its log was deleted."
+                                )?;
+                            }
+                            Err(e) if e.has_tag(ErrorTag::InterruptedByDaemonShutdown) => {
+                                buck2_client_ctx::eprintln!(
+                                    "The buck2 daemon shut down while the command was running."
                                 )?;
                             }
                             Err(e) => return ExitResult::from(e),
                         }
+                        // The console's canvas (and the argv banner in it) is gone by
+                        // now; restate what was being watched in plain scrollback.
+                        buck2_client_ctx::eprintln!("Finished snooping {}", invocation)?;
 
                         if !follow_new {
                             return ExitResult::success();
@@ -318,7 +325,12 @@ enum SnoopOutcome {
     /// The user asked to snoop a different invocation.
     Switch(EventLogPathBuf),
     /// The event stream ended.
-    Ended(buck2_error::Result<CommandOutcome<ReplayResult>>),
+    Ended {
+        /// `<trace_id>: <command line>` of the invocation that ended, for reporting
+        /// after its console is gone.
+        invocation: String,
+        res: buck2_error::Result<CommandOutcome<ReplayResult>>,
+    },
 }
 
 /// Snoop a single invocation until its stream ends or the user switches away.
@@ -344,11 +356,12 @@ async fn snoop_one(
     // The header slot is too cramped for the command line (it shares a row with the
     // action stats), so show it as a banner line inside the canvas: switching
     // invocations then replaces it instead of accumulating scrollback.
-    let banner = format!(
-        "Snooping {}: {}",
+    let invocation_desc = format!(
+        "{}: {}",
         invocation.trace_id,
         invocation.display_command_line()
     );
+    let banner = format!("Snooping {}", invocation_desc);
 
     let header = match running_logs(&log_dir, live)? {
         Some(running) => match running.iter().position(|l| l.path() == log_path.path()) {
@@ -417,7 +430,9 @@ async fn snoop_one(
 
         loop {
             tokio::select! {
-                res = &mut unpack => break SnoopOutcome::Ended(res),
+                res = &mut unpack => {
+                    break SnoopOutcome::Ended { invocation: invocation_desc, res };
+                }
                 _ = live_check.tick() => {
                     // Track the daemon's view of this command for the tail: running
                     // suppresses the idle timeout (a quiet command is not gone), absent
