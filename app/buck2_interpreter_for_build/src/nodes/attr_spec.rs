@@ -30,6 +30,7 @@ use buck2_node::attrs::spec::internal::WITHIN_VIEW_ATTRIBUTE;
 use buck2_node::attrs::spec::internal::attr_is_configurable;
 use buck2_node::attrs::values::AttrValues;
 use buck2_util::arc_str::ArcStr;
+use buck2_util::vec2::Vec2;
 use dupe::Dupe;
 use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
@@ -40,7 +41,6 @@ use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::typing::TyFunction;
 use starlark::values::Value;
-use starlark_map::vec2::Vec2;
 
 use crate::attrs::AttributeCoerceExt;
 use crate::interpreter::module_internals::ModuleInternals;

@@ -17,11 +17,11 @@ use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_util::vec2::Vec2;
 use dupe::Dupe;
 use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use starlark_map::ordered_set::OrderedSet;
-use starlark_map::vec2::Vec2;
 
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::traversal::CoercedAttrTraversal;

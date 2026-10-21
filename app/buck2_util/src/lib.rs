@@ -39,6 +39,7 @@ pub mod threads;
 pub mod time_span;
 pub mod tokio_runtime;
 pub mod truncate;
+pub mod vec2;
 
 // Re-export this to encourage people to use it in a fully qualified way.
 pub use async_move_clone::async_move_clone;

@@ -805,9 +805,9 @@ impl<'a> TargetNodeRef<'a> {
 pub mod testing {
     use buck2_core::package::PackageLabel;
     use buck2_fs::paths::file_name::FileNameBuf;
+    use buck2_util::vec2::Vec2;
     use serde_json::map::Map;
     use serde_json::value::Value;
-    use starlark_map::vec2::Vec2;
 
     use super::*;
     use crate::attrs::attr::Attribute;

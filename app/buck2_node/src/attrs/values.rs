@@ -13,10 +13,10 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_util::vec2;
+use buck2_util::vec2::Vec2;
 use dupe::Dupe;
 use pagable::Pagable;
-use starlark_map::vec2;
-use starlark_map::vec2::Vec2;
 use strong_hash::StrongHash;
 
 use super::attr_type::any_matches::AnyMatches;

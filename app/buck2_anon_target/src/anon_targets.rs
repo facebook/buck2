@@ -87,6 +87,7 @@ use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::time_span::TimeSpan;
+use buck2_util::vec2::Vec2;
 use derive_more::Display;
 use dice::Demand;
 use dice::DiceComputations;
@@ -110,7 +111,6 @@ use starlark::values::ValueTyped;
 use starlark::values::dict::UnpackDictEntries;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
-use starlark_map::vec2::Vec2;
 
 use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
