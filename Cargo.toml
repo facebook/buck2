@@ -187,6 +187,7 @@ members = [
   "remote_execution/oss/re_grpc_proto",
   "shed/lock_free_hashtable",
   "shed/lock_free_vec",
+  "shed/mini_map",
   "shed/mini_vec",
   "shed/provider",
   "shed/setsketch",
