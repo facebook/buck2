@@ -55,8 +55,8 @@ def _dirname(p: str) -> str:
         return sep
     else:
         # If there are multiple consecutive slashes, strip them all out as Python's
-        # os.path.dirname does.
-        return prefix.rstrip("/")
+        # os.path.dirname does, unless the path is nothing but slashes.
+        return prefix.rstrip("/") or prefix + sep
 
 def _is_absolute(path: str) -> bool:
     """Returns `True` if `path` is an absolute path.
@@ -222,9 +222,9 @@ def _split_extension(p: str) -> (str, str):
     b = _basename(p)
     last_dot_in_basename = b.rfind(".")
 
-    # If there is no dot or the only dot in the basename is at the front, then
-    # there is no extension.
-    if last_dot_in_basename <= 0:
+    # If there is no dot or the last dot in the basename is one of its leading
+    # dots, then there is no extension.
+    if last_dot_in_basename < len(b) - len(b.lstrip(".")):
         return (p, "")
 
     dot_distance_from_end = len(b) - last_dot_in_basename
