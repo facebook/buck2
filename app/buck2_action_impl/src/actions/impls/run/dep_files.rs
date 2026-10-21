@@ -95,6 +95,8 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 use buck2_hash::BuckDashMap;
+use buck2_hash::BuckFixedInsertionMap;
+use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_util::strong_hasher::Blake3StrongHasher;
@@ -104,7 +106,6 @@ use pagable::Pagable;
 use parking_lot::MappedMutexGuard;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
-use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use strong_hash::StrongHash;
 use tracing::instrument;
@@ -708,10 +709,9 @@ impl DepFileState {
         let mut guard = input_signatures.lock();
 
         if let DepFileStateInputSignatures::Deferred(ref directories) = *guard {
-            // The directories are `Arc`-shared, so this clone only bumps refcounts; they are
-            // left in place in case the dep file turns out to be invalid.
+            // The directories are left in place in case the dep file turns out to be invalid.
             let fingerprints = compute_fingerprints(
-                directories.clone().unshare(),
+                directories.unshare(),
                 dep_files.into_owned(),
                 digest_config,
                 keep_directories,
@@ -732,7 +732,7 @@ impl DepFileState {
 /// creation time that tags and labels are both unique.
 #[derive(Debug, Allocative, Pagable)]
 pub(crate) struct RunActionDepFiles {
-    pub(crate) labels: OrderedMap<ArtifactTag, Arc<str>>,
+    pub(crate) labels: BuckFixedInsertionMap<ArtifactTag, Arc<str>>,
 }
 
 impl Display for RunActionDepFiles {
@@ -743,14 +743,6 @@ impl Display for RunActionDepFiles {
             .map(|x| x.as_ref())
             .collect::<Vec<&str>>();
         write!(f, "{values:?}")
-    }
-}
-
-impl RunActionDepFiles {
-    pub(crate) fn new() -> Self {
-        Self {
-            labels: OrderedMap::new(),
-        }
     }
 }
 
@@ -1125,7 +1117,7 @@ impl DepFileBundle {
 
         let computed_filtered_fingerprints = self
             .shared_declared_inputs
-            .clone()
+            .as_ref()
             .internal_error("Dep files should have been declared")?
             .unshare()
             .filter(dep_files, fs)?
@@ -1167,7 +1159,7 @@ pub(crate) fn make_dep_file_bundle<'a>(
     } = visitor;
 
     // Filter out tags with no dep file associated with it
-    let tagged_outputs: OrderedMap<ArtifactTag, DeclaredDepFile> = tagged_outputs
+    let tagged_outputs: BuckFixedInsertionMap<ArtifactTag, DeclaredDepFile> = tagged_outputs
         .into_iter()
         .filter_map(|(tag, (label, output))| {
             let output = output?;
@@ -1937,7 +1929,7 @@ async fn dep_files_match(
         // destination and the old. If it's not, then we can assume that the tool wouldn't traverse
         // the symlink anymore.
         let new_fingerprints = declared_inputs
-            .clone()
+            .as_ref()
             .expect("Must have declared inputs when we have dep-files!")
             .unshare()
             .filter(dep_files, ctx.fs())?
@@ -2003,7 +1995,7 @@ pub(crate) async fn read_dep_files(
 }
 
 fn compute_fingerprints(
-    directories: PartitionedInputs<ActionDirectoryBuilder>,
+    directories: PartitionedInputsBuilder<ActionDirectoryBuilder>,
     dep_files: ConcreteDepFiles,
     digest_config: DigestConfig,
     keep_directories: bool,
@@ -2042,7 +2034,7 @@ async fn eagerly_compute_fingerprints(
     .internal_error("Dep file not found")?;
 
     let fingerprints = compute_fingerprints(
-        shared_declared_inputs.clone().unshare(),
+        shared_declared_inputs.unshare(),
         dep_files,
         digest_config,
         keep_directories()?,
@@ -2154,29 +2146,31 @@ pub(crate) async fn populate_dep_files(
     Ok(queued_write)
 }
 
-/// Inputs partitioned by tag. `D` is the representation of the set of inputs.
+/// Inputs partitioned by dep-file label: the inputs no dep file covers, then one partition per
+/// declared label, in declaration order. `D` is the representation of one partition.
+///
+/// Once built, the partitions are only read; this is the form the dep-file cache keeps and
+/// compares. The stages that still write to their partitions are [`PartitionedInputsBuilder`]s.
 #[derive(Clone, PartialEq, Eq, Allocative)]
 pub(crate) struct PartitionedInputs<D> {
     pub(crate) untagged: D,
-    pub(crate) tagged: OrderedMap<Arc<str>, D>,
+    pub(crate) tagged: BuckFixedInsertionMap<Arc<str>, D>,
 }
 
-impl<D> PartitionedInputs<D> {
+/// [`PartitionedInputs`] whose partitions are still being written to: the artifacts gathered off
+/// the command line, and the directory builders a dep file is applied to.
+pub(crate) struct PartitionedInputsBuilder<D> {
+    untagged: D,
+    tagged: BuckIndexMap<Arc<str>, D>,
+}
+
+impl<D> PartitionedInputsBuilder<D> {
     pub(crate) fn iter(&self) -> impl Iterator<Item = &D> {
         std::iter::once(&self.untagged).chain(self.tagged.values())
     }
 }
 
-impl Default for PartitionedInputs<Vec<ArtifactGroup>> {
-    fn default() -> Self {
-        Self {
-            tagged: Default::default(),
-            untagged: Default::default(),
-        }
-    }
-}
-
-impl PartitionedInputs<Vec<ArtifactGroup>> {
+impl PartitionedInputsBuilder<Vec<ArtifactGroup>> {
     /// Add an input to this set of PartitionedInputs.
     fn visit_input(
         &mut self,
@@ -2204,7 +2198,7 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
     fn to_directories(
         &self,
         ctx: &dyn ActionExecutionCtx,
-    ) -> buck2_error::Result<PartitionedInputs<ActionDirectoryBuilder>> {
+    ) -> buck2_error::Result<PartitionedInputsBuilder<ActionDirectoryBuilder>> {
         fn reduce(
             ctx: &dyn ActionExecutionCtx,
             inputs: &[ArtifactGroup],
@@ -2219,7 +2213,7 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
             builder.finalize()
         }
 
-        Ok(PartitionedInputs {
+        Ok(PartitionedInputsBuilder {
             untagged: reduce(ctx, &self.untagged)?,
             tagged: self
                 .tagged
@@ -2231,19 +2225,19 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
 }
 
 impl PartitionedInputs<ActionSharedDirectory> {
-    fn unshare(self) -> PartitionedInputs<ActionDirectoryBuilder> {
-        PartitionedInputs {
-            untagged: self.untagged.into_builder(),
+    fn unshare(&self) -> PartitionedInputsBuilder<ActionDirectoryBuilder> {
+        PartitionedInputsBuilder {
+            untagged: self.untagged.dupe().into_builder(),
             tagged: self
                 .tagged
-                .into_iter()
-                .map(|(k, v)| (k, v.into_builder()))
+                .iter()
+                .map(|(k, v)| (k.dupe(), v.dupe().into_builder()))
                 .collect(),
         }
     }
 }
 
-impl PartitionedInputs<ActionDirectoryBuilder> {
+impl PartitionedInputsBuilder<ActionDirectoryBuilder> {
     fn share(self, digest_config: DigestConfig) -> PartitionedInputs<ActionSharedDirectory> {
         PartitionedInputs {
             untagged: self
@@ -2373,7 +2367,7 @@ impl DeclaredDepFile {
 /// All the dep files declared by a command;
 #[derive(Default, Debug, Allocative)]
 pub(crate) struct DeclaredDepFiles {
-    tagged: OrderedMap<ArtifactTag, DeclaredDepFile>,
+    tagged: BuckFixedInsertionMap<ArtifactTag, DeclaredDepFile>,
 }
 
 impl DeclaredDepFiles {
@@ -2672,8 +2666,8 @@ impl ConcreteDepFiles {
 /// A command line visitor to collect inputs and outputs in a form relevant for dep files
 /// computations.
 pub(crate) struct DepFilesCommandLineVisitor<'a> {
-    pub(crate) inputs: PartitionedInputs<Vec<ArtifactGroup>>,
-    pub(crate) tagged_outputs: OrderedMap<ArtifactTag, (Arc<str>, Option<Artifact>)>,
+    pub(crate) inputs: PartitionedInputsBuilder<Vec<ArtifactGroup>>,
+    pub(crate) tagged_outputs: BuckIndexMap<ArtifactTag, (Arc<str>, Option<Artifact>)>,
     dep_files: &'a RunActionDepFiles,
 }
 
@@ -2681,19 +2675,19 @@ impl<'a> DepFilesCommandLineVisitor<'a> {
     pub(crate) fn new(dep_files: &'a RunActionDepFiles) -> Self {
         // Prepopulate inputs & outputs to maintain the ordering of the labels declaration.
 
-        let tagged_inputs: OrderedMap<Arc<str>, Vec<ArtifactGroup>> = dep_files
+        let tagged_inputs: BuckIndexMap<Arc<str>, Vec<ArtifactGroup>> = dep_files
             .labels
             .iter()
             .map(|(_tag, label)| (label.dupe(), Default::default()))
             .collect();
 
-        let tagged_outputs: OrderedMap<ArtifactTag, (Arc<str>, Option<Artifact>)> = dep_files
+        let tagged_outputs: BuckIndexMap<ArtifactTag, (Arc<str>, Option<Artifact>)> = dep_files
             .labels
             .iter()
             .map(|(tag, label)| (tag.dupe(), (label.dupe(), None)))
             .collect();
         Self {
-            inputs: PartitionedInputs {
+            inputs: PartitionedInputsBuilder {
                 untagged: Default::default(),
                 tagged: tagged_inputs,
             },
@@ -2802,7 +2796,6 @@ mod tests {
     use buck2_execute::directory::extract_artifact_value;
     use buck2_execute::directory::insert_entry;
     use buck2_execute::directory::insert_file;
-    use buck2_hash::BuckIndexMap;
 
     use super::*;
 
@@ -2864,7 +2857,7 @@ mod tests {
         ));
 
         let dep_files = RunActionDepFiles {
-            labels: OrderedMap::from_iter([
+            labels: BuckFixedInsertionMap::from_iter([
                 (tag1.dupe(), Arc::from("l1")),
                 (tag2.dupe(), Arc::from("l2")),
                 (tag3.dupe(), Arc::from("l3")),
@@ -2923,19 +2916,19 @@ mod tests {
         let tag2 = ArtifactTag::testing_new();
 
         let decl1 = DeclaredDepFiles {
-            tagged: OrderedMap::from_iter([(tag1.dupe(), depfile1.dupe())]),
+            tagged: BuckFixedInsertionMap::from_iter([(tag1.dupe(), depfile1.dupe())]),
         };
 
         let decl2 = DeclaredDepFiles {
-            tagged: OrderedMap::from_iter([(tag2.dupe(), depfile1.dupe())]),
+            tagged: BuckFixedInsertionMap::from_iter([(tag2.dupe(), depfile1.dupe())]),
         };
 
         let decl3 = DeclaredDepFiles {
-            tagged: OrderedMap::from_iter([(tag2.dupe(), depfile2.dupe())]),
+            tagged: BuckFixedInsertionMap::from_iter([(tag2.dupe(), depfile2.dupe())]),
         };
 
         let decl4 = DeclaredDepFiles {
-            tagged: OrderedMap::from_iter([(tag2.dupe(), depfile3.dupe())]),
+            tagged: BuckFixedInsertionMap::from_iter([(tag2.dupe(), depfile3.dupe())]),
         };
 
         assert!(decl1.identities()? == decl1.identities()?);
@@ -2950,7 +2943,7 @@ mod tests {
         // The same dep file declared under two different configurations compares equal: this is the
         // loosening that lets dep-file state be reused across target configurations.
         let make = |cfg: ConfigurationData, path: &str| DeclaredDepFiles {
-            tagged: OrderedMap::from_iter([(
+            tagged: BuckFixedInsertionMap::from_iter([(
                 ArtifactTag::testing_new(),
                 DeclaredDepFile {
                     label: Arc::from("foo"),
@@ -3059,7 +3052,7 @@ mod tests {
             ActionIndex::new(0),
         ));
         let dep_files = RunActionDepFiles {
-            labels: OrderedMap::from_iter([
+            labels: BuckFixedInsertionMap::from_iter([
                 (tag1.dupe(), Arc::from("l1")),
                 (tag2.dupe(), Arc::from("l2")),
             ]),

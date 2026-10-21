@@ -37,6 +37,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckMutMap;
 use dupe::Dupe;
 use either::Either;
@@ -482,7 +483,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             return Err(buck2_error::Error::from(ArtifactErrors::DuplicateBind(frozen)).into());
         }
 
-        let mut dep_files_configuration = RunActionDepFiles::new();
+        let mut dep_file_labels: BuckIndexMap<ArtifactTag, Arc<str>> = BuckIndexMap::new();
 
         if let Some(dep_files) = dep_files {
             for (key, tag) in dep_files {
@@ -499,7 +500,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                     );
                 }
 
-                match dep_files_configuration.labels.entry(tag.dupe()) {
+                match dep_file_labels.entry(tag.dupe()) {
                     small_map::Entry::Vacant(v) => {
                         v.insert(Arc::from(key));
                     }
@@ -522,7 +523,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                     input: input.dupe(),
                     tags: conflicting_tags
                         .iter()
-                        .map(|t| (**dep_files_configuration.labels.get(t).unwrap()).to_owned())
+                        .map(|t| (**dep_file_labels.get(t).unwrap()).to_owned())
                         .collect(),
                 })
                 .into(),
@@ -625,7 +626,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             always_print_stderr,
             weight,
             low_pass_filter,
-            dep_files: dep_files_configuration,
+            dep_files: RunActionDepFiles {
+                labels: dep_file_labels.freeze(),
+            },
             metadata_param,
             no_outputs_cleanup,
             incremental_remote_outputs,
