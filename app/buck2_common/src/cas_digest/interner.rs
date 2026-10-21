@@ -18,7 +18,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::LazyLock;
 use std::sync::atomic::AtomicI64;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
@@ -380,7 +380,7 @@ impl TrackedFileDigest {
     pub fn update_expires(&self, time: jiff::Timestamp) {
         let now = jiff::Timestamp::now().as_second();
         if self.inner.record_expires(time.as_second(), now) {
-            FILE_DIGEST_INTERNER.pinned.fetch_add(1, Ordering::Relaxed);
+            FILE_DIGEST_INTERNER.pinned.add(1);
         }
         if time.as_second() > now {
             FILE_DIGEST_INTERNER.evict_stash_of(&self.inner);
@@ -441,15 +441,73 @@ pub struct DigestInterner {
     entries: BuckDashMap<InternedDigest, bool>,
     /// Entries whose expiration is set; maintained at the transition, since counting them by
     /// walking the table would make snapshots proportional to the table.
-    pinned: AtomicU64,
+    pinned: StripedCounter,
     /// Entries a row on disk holds, likewise maintained at the transition.
-    paged: AtomicU64,
-    hits: AtomicU64,
-    misses: AtomicU64,
+    paged: StripedCounter,
+    hits: StripedCounter,
+    misses: StripedCounter,
     /// Who takes a stash record once its entry no longer carries it, by the stash id in the
     /// record's nonce. One per stash; the daemon has one.
     #[allocative(skip)]
     stash_collectors: RwLock<Vec<(u32, StashCollector)>>,
+}
+
+/// A counter spread over 32 cache lines, threads assigned to them round robin as they are
+/// created: an atomic add that at most a few threads share for the counting thread, a sum
+/// over the stripes for the rare snapshot. Being boxed also keeps the stripes out of the line
+/// that holds [`FILE_DIGEST_INTERNER`]'s initialization state, which every
+/// `TrackedFileDigest::drop` reads.
+///
+/// A snapshot reads the stripes one by one while other threads keep adding and subtracting,
+/// so it is approximate; the sum is clamped so that a decrement observed before its increment
+/// cannot wrap.
+#[derive(Allocative)]
+struct StripedCounter {
+    stripes: Box<[CounterStripe; STRIPES]>,
+}
+
+const STRIPES: usize = 32;
+
+#[derive(Allocative)]
+#[repr(align(128))]
+struct CounterStripe(AtomicI64);
+
+impl StripedCounter {
+    fn new() -> Self {
+        Self {
+            stripes: Box::new(std::array::from_fn(|_| CounterStripe(AtomicI64::new(0)))),
+        }
+    }
+
+    #[inline]
+    fn stripe(&self) -> &AtomicI64 {
+        thread_local! {
+            static STRIPE: usize = {
+                static NEXT: AtomicUsize = AtomicUsize::new(0);
+                NEXT.fetch_add(1, Ordering::Relaxed) % STRIPES
+            };
+        }
+        &self.stripes[STRIPE.with(|s| *s)].0
+    }
+
+    #[inline]
+    fn add(&self, n: u64) {
+        self.stripe().fetch_add(n as i64, Ordering::Relaxed);
+    }
+
+    #[inline]
+    fn sub(&self, n: u64) {
+        self.stripe().fetch_sub(n as i64, Ordering::Relaxed);
+    }
+
+    fn get(&self) -> u64 {
+        let sum: i128 = self
+            .stripes
+            .iter()
+            .map(|s| s.0.load(Ordering::Relaxed) as i128)
+            .sum();
+        sum.max(0) as u64
+    }
 }
 
 /// What a stash registers to be handed its records: see [`DigestInterner::add_stash_collector`].
@@ -549,10 +607,10 @@ impl DigestInterner {
     pub fn new() -> Self {
         Self {
             entries: BuckDashMap::default(),
-            pinned: AtomicU64::new(0),
-            paged: AtomicU64::new(0),
-            hits: AtomicU64::new(0),
-            misses: AtomicU64::new(0),
+            pinned: StripedCounter::new(),
+            paged: StripedCounter::new(),
+            hits: StripedCounter::new(),
+            misses: StripedCounter::new(),
             stash_collectors: RwLock::new(Vec::new()),
         }
     }
@@ -594,10 +652,10 @@ impl DigestInterner {
     pub fn stats(&self) -> DigestInternerStats {
         DigestInternerStats {
             entries: self.entries.len() as u64,
-            pinned: self.pinned.load(Ordering::Relaxed),
-            paged: self.paged.load(Ordering::Relaxed),
-            hits: self.hits.load(Ordering::Relaxed),
-            misses: self.misses.load(Ordering::Relaxed),
+            pinned: self.pinned.get(),
+            paged: self.paged.get(),
+            hits: self.hits.get(),
+            misses: self.misses.get(),
         }
     }
 
@@ -647,7 +705,7 @@ impl DigestInterner {
             }
         });
         if pinned_swept > 0 {
-            self.pinned.fetch_sub(pinned_swept, Ordering::Relaxed);
+            self.pinned.sub(pinned_swept);
         }
         for (data, record) in orphaned {
             self.collect_stash(&data, record);
@@ -687,18 +745,18 @@ impl DigestInterner {
                 let inner = entry.key().0.clone();
                 drop(entry);
                 if Arc::ptr_eq(&inner, &candidate) {
-                    self.misses.fetch_add(1, Ordering::Relaxed);
+                    self.misses.add(1);
                     if expires > 0 {
-                        self.pinned.fetch_add(1, Ordering::Relaxed);
+                        self.pinned.add(1);
                     }
                     return TrackedFileDigest { inner };
                 }
                 inner
             }
         };
-        self.hits.fetch_add(1, Ordering::Relaxed);
+        self.hits.add(1);
         if inner.extend_expires(expires) {
-            self.pinned.fetch_add(1, Ordering::Relaxed);
+            self.pinned.add(1);
         }
         // A blob the CAS holds is the CAS's to serve: the stash lets go of it.
         if expires > 0
@@ -723,7 +781,7 @@ impl DigestInterner {
         if let Some(mut entry) = self.entries.get_mut(data)
             && !std::mem::replace(entry.value_mut(), true)
         {
-            self.paged.fetch_add(1, Ordering::Relaxed);
+            self.paged.add(1);
         }
     }
 
