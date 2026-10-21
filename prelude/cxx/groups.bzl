@@ -13,6 +13,7 @@ load(
     "BuildTargetPattern",
     "parse_build_target_pattern",
 )
+load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
     "depth_first_traversal_by",
@@ -249,8 +250,12 @@ def compute_mappings(groups_map: dict[str, Group], graph_map: dict[Label, typing
             if all_match:
                 group_to_targets.setdefault(group.name, []).append((target, mapping))
 
+    # The children of a node, `deps + exported_deps`, concatenated when a walk
+    # first reaches the node and shared by every walk.
+    children_of = {}
+
     for group, mapping in group_mappings_with_roots:
-        targets_in_mapping = _find_targets_in_mapping(graph_map, mapping)
+        targets_in_mapping = _find_targets_in_mapping(graph_map, mapping, children_of)
         for target in targets_in_mapping:
             # If the target doesn't exist in our graph, skip the mapping.
             if target not in graph_map:
@@ -275,7 +280,13 @@ def get_dedupped_roots_from_groups(groups: list[Group]) -> list[Label]:
 
     return list(roots.keys())
 
-def _find_targets_in_mapping(graph_map: dict[Label, typing.Any], mapping: GroupMapping) -> list[Label]:
+# Types removed to avoid unnecessary type checking which degrades performance.
+def _find_targets_in_mapping(
+    graph_map,  # dict[Label, typing.Any]
+    mapping,  # GroupMapping
+    children_of,
+):  # dict[Label, list[Label]]
+    # Returns list[Label].
     # If we have no filtering, we don't need to do any traversal to find targets to include.
     if not mapping.filters:
         if not mapping.roots:
@@ -300,67 +311,81 @@ def _find_targets_in_mapping(graph_map: dict[Label, typing.Any], mapping: GroupM
             return mapping.roots
 
     # Else find all dependencies that match the filter.
-    matching_targets = {}
-
-    def populate_matching_targets(node, root = None):  # Label -> bool:
-        graph_node = graph_map[node]
-
-        # This callsite was migrated away from `lazy.is_any()`
-        # because we saw a non-trivial increase in retained bytes
-        # associated with the lambda required by the function.
-        if mapping.filters:
-            for filter in mapping.filters:
-                if not filter.matches(root, node, graph_node.labels):
-                    # Filters can specify if they should stop once the first
-                    # non-match occurs.
-                    if filter.stop_at_first_non_match:
-                        return False
-                    return True
-
-        matching_targets[node] = None
-        if mapping.traversal == Traversal("tree"):
-            # We can stop traversing the tree at this point because we've added the
-            # build target to the list of all targets that will be traversed by the
-            # algorithm that applies the groups.
-            return False
-        return True
-
-    def populate_matching_targets_bfs_wrapper(node):  # (Label) -> list
-        if populate_matching_targets(node):
-            graph_node = graph_map[node]
-            return graph_node.deps + graph_node.exported_deps
-        return []
-
-    def populate_matching_targets_with_root(root, node):  # (Label, Label) -> list
-        if populate_matching_targets(node, root = root):
-            graph_node = graph_map[node]
-            return graph_node.deps + graph_node.exported_deps
-        return []
+    filters = mapping.filters
+    stop_at_match = mapping.traversal == Traversal("tree")
 
     if not mapping.roots:
+        matching_targets = {}
         for node in graph_map:
-            populate_matching_targets(node)
+            matched, _ = _matches_filters(filters, None, node, graph_map[node].labels)
+            if matched:
+                matching_targets[node] = None
+        return matching_targets.keys()
     elif mapping.traversal == Traversal("intersect_any_roots"):
         targets_to_counter = {}
         for root in mapping.roots:
-            # This is a captured variable inside `populate_matching_targets`.
-            # We reset it for each root we visit so that we don't have results
-            # from other roots.
-            matching_targets = {}
-            depth_first_traversal_by(graph_map, [root], partial(populate_matching_targets_with_root, root))
-            for t in matching_targets:
+            for t in _matching_targets_under(graph_map, children_of, [root], root, filters, stop_at_match):
                 targets_to_counter[t] = targets_to_counter.get(t, 0) + 1
 
         return [t for t, count in targets_to_counter.items() if count > 1]
     else:
-        if len(mapping.roots) == 1:
-            matching_fn = partial(populate_matching_targets_with_root, mapping.roots[0])
-        else:
-            # When we have multiple roots there is no way to determine which
-            # root is being traversed, so just set it to None.
-            matching_fn = populate_matching_targets_bfs_wrapper
+        # When we have multiple roots there is no way to determine which
+        # root is being traversed, so just set it to None.
+        root = mapping.roots[0] if len(mapping.roots) == 1 else None
+        return _matching_targets_under(graph_map, children_of, mapping.roots, root, filters, stop_at_match)
 
-        depth_first_traversal_by(graph_map, mapping.roots, matching_fn)
+def _matches_filters(filters, root, node, labels):  # (list[GroupFilterInfo], Label | None, Label, list[str]) -> (bool, bool)
+    """
+    Whether `node` passes every filter, and whether the traversal continues
+    below it when it does not: a filter can ask to stop at the first non-match.
+    """
+    for filter in filters:
+        if not filter.matches(root, node, labels):
+            return (False, not filter.stop_at_first_non_match)
+    return (True, True)
+
+def _matching_targets_under(
+    graph_map,  # dict[Label, typing.Any]
+    children_of,  # dict[Label, list[Label]]
+    roots,  # list[Label]
+    root,  # Label | None, passed to the filters
+    filters,  # list[GroupFilterInfo]
+    stop_at_match,
+):  # bool
+    """
+    The nodes under `roots` that pass `filters`, in the order a preorder
+    right-to-left depth first traversal (see `depth_first_traversal_by`)
+    reaches them. With `stop_at_match` (the `tree` traversal) a matching
+    node's children are not traversed, although they may still be reached
+    through other nodes.
+    """
+    matching_targets = {}
+    visited = set(roots)
+    stack = list(visited)
+
+    for _ in range(len(graph_map)):
+        if not stack:
+            break
+        node = stack.pop()
+        graph_node = graph_map.get(node)
+        if graph_node == None:
+            fail("Expected node {} in graph nodes".format(node))
+
+        matched, traverse = _matches_filters(filters, root, node, graph_node.labels)
+        if matched:
+            matching_targets[node] = None
+            traverse = not stop_at_match
+        if traverse:
+            children = children_of.get(node)
+            if children == None:
+                children = graph_node.deps + graph_node.exported_deps
+                children_of[node] = children
+            for child in children:
+                if child not in visited:
+                    visited.add(child)
+                    stack.append(child)
+
+    expect(not stack, "Expected to be done with graph traversal stack.")
 
     return matching_targets.keys()
 
