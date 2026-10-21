@@ -98,6 +98,7 @@ use buck2_execute::re::client::induced_cache_misses_configured;
 use buck2_execute::re::client::is_induced_cache_miss;
 use buck2_fs::fs_util;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckFixedSortedSet;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckIndexSet;
 use buck2_hash::BuckMutMap;
@@ -113,7 +114,6 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
-use starlark::collections::SmallSet;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
@@ -161,7 +161,7 @@ pub(crate) struct MetadataParameter {
     pub(crate) path: ForwardRelativePathBuf,
     /// An artifact that is 'tagged' with any of these tags is ignored
     /// when computing the metadata.
-    pub(crate) ignore_tags: SmallSet<ArtifactTag>,
+    pub(crate) ignore_tags: BuckFixedSortedSet<ArtifactTag>,
 }
 
 impl Display for MetadataParameter {
@@ -1501,7 +1501,7 @@ impl PreparedRunAction {
 pub struct RunActionVisitor<'a> {
     pub(crate) dep_files_visitor: DepFilesCommandLineVisitor<'a>,
     pub(crate) incremental_metadata_inputs: Vec<ArtifactGroup>,
-    incremental_metadata_ignore_tags: Option<&'a SmallSet<ArtifactTag>>,
+    incremental_metadata_ignore_tags: Option<&'a BuckFixedSortedSet<ArtifactTag>>,
     /// Built but never materialized; folded into the action key as a salt.
     digest_inputs: BuckIndexSet<ArtifactGroup>,
 }
@@ -1509,7 +1509,7 @@ pub struct RunActionVisitor<'a> {
 impl<'a> RunActionVisitor<'a> {
     pub(crate) fn new(
         dep_files: &'a RunActionDepFiles,
-        incremental_metadata_ignore_tags: Option<&'a SmallSet<ArtifactTag>>,
+        incremental_metadata_ignore_tags: Option<&'a BuckFixedSortedSet<ArtifactTag>>,
     ) -> Self {
         Self {
             dep_files_visitor: DepFilesCommandLineVisitor::new(dep_files),

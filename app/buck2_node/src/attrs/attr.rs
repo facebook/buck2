@@ -16,10 +16,11 @@ use allocative::Allocative;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_hash::BuckFixedSortedSet;
+use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
 use pagable::Pagable;
 use starlark_map::Hashed;
-use starlark_map::small_set::SmallSet;
 
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
@@ -33,7 +34,7 @@ enum AttributeDefault {
     Yes(Arc<CoercedAttr>),
     YesWithAllowed {
         default: Arc<CoercedAttr>,
-        allowed_deps: Hashed<SmallSet<TargetLabel>>,
+        allowed_deps: Hashed<BuckFixedSortedSet<TargetLabel>>,
     },
     // N.B. DefaultOnly attributes are not checked for within_view, so we don't have to track allowed_deps for them
     DefaultOnly(Arc<CoercedAttr>),
@@ -70,7 +71,7 @@ impl Attribute {
                     } else {
                         AttributeDefault::YesWithAllowed {
                             default,
-                            allowed_deps: allowed_deps.hashed(),
+                            allowed_deps: Hashed::new(allowed_deps),
                         }
                     }
                 }
@@ -107,7 +108,7 @@ impl Attribute {
         }
     }
 
-    pub fn default_allowed_deps(&self) -> Option<&SmallSet<TargetLabel>> {
+    pub fn default_allowed_deps(&self) -> Option<&BuckFixedSortedSet<TargetLabel>> {
         match &self.default {
             AttributeDefault::YesWithAllowed { allowed_deps, .. } => Some(&**allowed_deps),
             AttributeDefault::Yes(_) | AttributeDefault::DefaultOnly(_) | AttributeDefault::No => {
@@ -142,9 +143,9 @@ pub enum CoercedValue {
 fn collect_default_deps(
     default: &Arc<CoercedAttr>,
     attr_type: &AttrType,
-) -> buck2_error::Result<SmallSet<TargetLabel>> {
+) -> buck2_error::Result<BuckFixedSortedSet<TargetLabel>> {
     struct CollectDefaultsTraversal<'a> {
-        deps: &'a mut SmallSet<TargetLabel>,
+        deps: &'a mut BuckIndexSet<TargetLabel>,
     }
 
     // N.B. the traversal here needs to match the `dep` cases that check_within_view checks
@@ -176,7 +177,7 @@ fn collect_default_deps(
         }
     }
 
-    let mut default_deps = SmallSet::new();
+    let mut default_deps = BuckIndexSet::default();
     default.traverse(
         attr_type,
         None,
@@ -184,5 +185,5 @@ fn collect_default_deps(
             deps: &mut default_deps,
         },
     )?;
-    Ok(default_deps)
+    Ok(default_deps.into())
 }

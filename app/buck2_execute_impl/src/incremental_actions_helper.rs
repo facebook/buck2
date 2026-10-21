@@ -16,7 +16,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use starlark_map::small_map::SmallMap;
+use buck2_hash::BuckFixedSortedMap;
 
 use crate::sqlite::incremental_state_db::IncrementalDbState;
 
@@ -32,23 +32,15 @@ pub(crate) fn get_incremental_path_map(
 }
 // Contains the declared short path name to the full content-based hash path
 #[derive(Allocative, Clone)]
-pub struct IncrementalPathMap(SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>);
+pub struct IncrementalPathMap(BuckFixedSortedMap<ForwardRelativePathBuf, ProjectRelativePathBuf>);
 
 impl IncrementalPathMap {
-    pub fn new(state: SmallMap<ForwardRelativePathBuf, ProjectRelativePathBuf>) -> Self {
+    pub fn new(state: BuckFixedSortedMap<ForwardRelativePathBuf, ProjectRelativePathBuf>) -> Self {
         IncrementalPathMap(state)
     }
 
     pub fn get(&self, key: &ForwardRelativePathBuf) -> Option<&ProjectRelativePathBuf> {
         self.0.get(key)
-    }
-
-    pub fn insert(
-        &mut self,
-        key: ForwardRelativePathBuf,
-        value: ProjectRelativePathBuf,
-    ) -> Option<ProjectRelativePathBuf> {
-        self.0.insert(key, value)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&ForwardRelativePathBuf, &ProjectRelativePathBuf)> {
@@ -62,20 +54,22 @@ pub(crate) fn save_content_based_incremental_state(
     artifact_fs: &ArtifactFs,
     result: &CommandExecutionResult,
 ) {
-    let mut incremental_path_map = SmallMap::new();
-
-    for (k, v) in &result.outputs {
-        if let CommandExecutionOutput::BuildArtifact { path, .. } = k
-            && path.is_content_based_path()
-        {
-            let p = path.path().to_buf();
-            let content_based_path =
-                artifact_fs.resolve_build(path, Some(&v.content_based_path_hash())).
-                expect("Non-content-based path provided even though is_content_based_path() returned true");
-
-            incremental_path_map.insert(p, content_based_path);
-        }
-    }
+    let incremental_path_map: BuckFixedSortedMap<_, _> = result
+        .outputs
+        .iter()
+        .filter_map(|(k, v)| {
+            if let CommandExecutionOutput::BuildArtifact { path, .. } = k
+                && path.is_content_based_path()
+            {
+                let content_based_path =
+                    artifact_fs.resolve_build(path, Some(&v.content_based_path_hash())).
+                    expect("Non-content-based path provided even though is_content_based_path() returned true");
+                Some((path.path().to_buf(), content_based_path))
+            } else {
+                None
+            }
+        })
+        .collect();
 
     // Need to clear the state if there weren't any outputs to prevent stale outputs from being used
     if incremental_path_map.is_empty() {

@@ -258,7 +258,6 @@ pub(crate) fn testing_incremental_state_sqlite_db(
 mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_events::daemon_id::DaemonId;
-    use starlark_map::small_map::SmallMap;
 
     use super::*;
     use crate::incremental_actions_helper::IncrementalPathMap;
@@ -286,14 +285,16 @@ mod tests {
         let fs = ProjectRootTemp::new()?;
 
         let run_action_key = "test_action".to_owned();
-        let mut mapping = SmallMap::new();
-        mapping.insert(
-            buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf::unchecked_new(
-                "test_file".to_owned(),
-            ),
-            ProjectRelativePathBuf::unchecked_new("buck-out/content_hash/test_file".to_owned()),
+        let incremental_path_map = IncrementalPathMap::new(
+            [(
+                buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf::unchecked_new(
+                    "test_file".to_owned(),
+                ),
+                ProjectRelativePathBuf::unchecked_new("buck-out/content_hash/test_file".to_owned()),
+            )]
+            .into_iter()
+            .collect(),
         );
-        let incremental_path_map = IncrementalPathMap::new(mapping);
         let metadatas = testing_metadatas();
 
         let v0 = IntentionallyStdHashMap::from([("version".to_owned(), "0".to_owned())]);

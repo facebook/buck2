@@ -12,9 +12,9 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_hash::BuckFixedSortedSet;
 use dupe::Dupe;
 use pagable::Pagable;
-use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::builtin::validation_info::OwnedValidationInfo;
 
@@ -30,5 +30,5 @@ pub struct TransitiveValidationsData {
     pub info: Option<OwnedValidationInfo>,
     /// If empty it means that there are no transitive dependencies of current node
     /// which contain `ValidationInfo` providers.
-    pub children: SmallSet<ConfiguredTargetLabel>,
+    pub children: BuckFixedSortedSet<ConfiguredTargetLabel>,
 }

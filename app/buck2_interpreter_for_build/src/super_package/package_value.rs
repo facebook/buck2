@@ -16,6 +16,7 @@ use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_hash::BuckFixedInsertionMap;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
@@ -53,7 +54,9 @@ enum PackageValueError {
 
 #[derive(Debug, Default, Allocative, Pagable)]
 pub struct SuperPackageValuesImpl {
-    values: SmallMap<MetadataKey, OwnedFrozenStarlarkPackageValue>,
+    /// In the order the values were written, which is the order `audit package-values` prints
+    /// them in.
+    values: BuckFixedInsertionMap<MetadataKey, OwnedFrozenStarlarkPackageValue>,
 }
 
 impl SuperPackageValuesImpl {
@@ -79,10 +82,13 @@ impl SuperPackageValuesImpl {
             Ok(parent.dupe())
         } else {
             let parent = Self::get(&**parent)?;
-            let mut merged_package_values = parent.values.clone();
-            merged_package_values.extend(this_package);
             Ok(Arc::new(SuperPackageValuesImpl {
-                values: merged_package_values,
+                values: parent
+                    .values
+                    .iter()
+                    .map(|(key, value)| (key.dupe(), value.dupe()))
+                    .chain(this_package)
+                    .collect(),
             }))
         }
     }
