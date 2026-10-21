@@ -19,9 +19,9 @@ use buck2_build_api_derive::internal_provider;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutInsertionMap;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::Freeze;
@@ -255,7 +255,8 @@ impl<'v> DefaultInfo<'v> {
 
     fn sub_targets_impl(
         &self,
-    ) -> buck2_error::Result<SmallMap<&'v str, ValueTyped<'v, ProviderCollection<'v>>>> {
+    ) -> buck2_error::Result<BuckMutInsertionMap<&'v str, ValueTyped<'v, ProviderCollection<'v>>>>
+    {
         let sub_targets = DictRef::from_value(self.sub_targets.get())
             .internal_error("sub_targets should be a dict-like object")?;
 
@@ -275,7 +276,9 @@ impl<'v> DefaultInfo<'v> {
             .collect()
     }
 
-    pub fn sub_targets(&self) -> SmallMap<&'v str, ValueTyped<'v, ProviderCollection<'v>>> {
+    pub fn sub_targets(
+        &self,
+    ) -> BuckMutInsertionMap<&'v str, ValueTyped<'v, ProviderCollection<'v>>> {
         self.sub_targets_impl().unwrap()
     }
 

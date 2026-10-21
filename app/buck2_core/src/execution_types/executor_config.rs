@@ -20,11 +20,11 @@ use std::time::Duration;
 use allocative::Allocative;
 use buck2_data::NetworkAccess as BuckNetworkAccess;
 use buck2_hash::BuckHasher;
+use buck2_hash::BuckMutInsertionMap;
 use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
 use pagable::Pagable;
-use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 use static_interner::Intern;
 use static_interner::interner;
@@ -107,7 +107,7 @@ pub struct ReGangWorker {
 }
 
 impl ReGangWorker {
-    pub fn parse(worker_map: SmallMap<&str, &str>) -> buck2_error::Result<ReGangWorker> {
+    pub fn parse(worker_map: BuckMutInsertionMap<&str, &str>) -> buck2_error::Result<ReGangWorker> {
         let capabilities: SortedMap<String, String> = worker_map
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
@@ -221,7 +221,9 @@ fn interpolate_dependency_id(id: &str, username: Option<&str>, hostname: Option<
 }
 
 impl RemoteExecutorDependency {
-    pub fn parse(dep_map: SmallMap<&str, &str>) -> buck2_error::Result<RemoteExecutorDependency> {
+    pub fn parse(
+        dep_map: BuckMutInsertionMap<&str, &str>,
+    ) -> buck2_error::Result<RemoteExecutorDependency> {
         fn username() -> Option<String> {
             #[cfg(fbcode_build)]
             {
@@ -621,7 +623,7 @@ mod tests {
 
     #[test]
     fn test_re_gang_worker_parse_success() {
-        let mut worker_map = SmallMap::new();
+        let mut worker_map = BuckMutInsertionMap::new();
         worker_map.insert("subplatform", "H100");
         worker_map.insert("rack", "rack_01");
 
@@ -639,7 +641,7 @@ mod tests {
 
     #[test]
     fn test_dependency_parse_with_revision_interpolation_clean() {
-        let mut dep_map = SmallMap::new();
+        let mut dep_map = BuckMutInsertionMap::new();
         dep_map.insert("smc_tier", "my.tier");
         dep_map.insert("id", "Sandbox:host:$(revision)");
         dep_map.insert("enable_interpolation", "true");
@@ -656,7 +658,7 @@ mod tests {
 
     #[test]
     fn test_dependency_parse_with_revision_interpolation_dirty() {
-        let mut dep_map = SmallMap::new();
+        let mut dep_map = BuckMutInsertionMap::new();
         dep_map.insert("smc_tier", "my.tier");
         dep_map.insert("id", "Sandbox:host:$(revision)");
         dep_map.insert("enable_interpolation", "true");
@@ -672,7 +674,7 @@ mod tests {
 
     #[test]
     fn test_dependency_parse_with_revision_interpolation_missing() {
-        let mut dep_map = SmallMap::new();
+        let mut dep_map = BuckMutInsertionMap::new();
         dep_map.insert("smc_tier", "my.tier");
         dep_map.insert("id", "Sandbox:host:$(revision)");
         dep_map.insert("enable_interpolation", "true");
@@ -697,7 +699,7 @@ mod tests {
 
     #[test]
     fn test_dependency_parse_without_revision_placeholder() {
-        let mut dep_map = SmallMap::new();
+        let mut dep_map = BuckMutInsertionMap::new();
         dep_map.insert("smc_tier", "my.tier");
         dep_map.insert("id", "Limit:foo");
         dep_map.insert("enable_interpolation", "true");
@@ -712,7 +714,7 @@ mod tests {
 
     #[test]
     fn test_dependency_parse_without_interpolation_preserves_revision_placeholder() {
-        let mut dep_map = SmallMap::new();
+        let mut dep_map = BuckMutInsertionMap::new();
         dep_map.insert("smc_tier", "my.tier");
         dep_map.insert("id", "Sandbox:host:$(revision)");
 

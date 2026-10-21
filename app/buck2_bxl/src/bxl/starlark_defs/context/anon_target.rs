@@ -34,6 +34,7 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_hash::BuckFixedInsertionMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -47,7 +48,6 @@ use dice::DiceComputations;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use itertools::Itertools;
-use starlark::collections::SmallMap;
 use starlark::environment::FrozenModule;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -115,8 +115,8 @@ pub(crate) fn register_anon_rule(globals: &mut GlobalsBuilder) {
         >,
         #[starlark(require = named)] attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         #[starlark(require = named, default = "")] doc: &str,
-        #[starlark(require = named, default = SmallMap::default())]
-        artifact_promise_mappings: SmallMap<
+        #[starlark(require = named, default = BuckMutInsertionMap::default())]
+        artifact_promise_mappings: BuckMutInsertionMap<
             StringValue<'v>,
             StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
@@ -173,7 +173,7 @@ impl AnonImpl {
     fn promise_artifact_mappings<'v>(
         &self,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> buck2_error::Result<SmallMap<String, Value<'v>>> {
+    ) -> buck2_error::Result<BuckMutInsertionMap<String, Value<'v>>> {
         promise_artifact_mappings(eval, &self.module, &self.name)
     }
 

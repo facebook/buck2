@@ -8,10 +8,10 @@
  * above-listed licenses.
  */
 
+use buck2_hash::BuckMutInsertionMap;
 use buck2_util::late_binding::LateBinding;
 use starlark::values::StringValue;
 use starlark::values::Value;
-use starlark_map::small_map::SmallMap;
 
 /// `rule()`, `anon_rule()`, `bxl.anon_rule()` value `impl` field.
 pub static FROZEN_RULE_GET_IMPL: LateBinding<
@@ -19,5 +19,5 @@ pub static FROZEN_RULE_GET_IMPL: LateBinding<
 > = LateBinding::new("FROZEN_RULE_GET_IMPL");
 
 pub static FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL: LateBinding<
-    for<'v> fn(Value<'v>) -> buck2_error::Result<SmallMap<StringValue<'v>, Value<'v>>>,
+    for<'v> fn(Value<'v>) -> buck2_error::Result<BuckMutInsertionMap<StringValue<'v>, Value<'v>>>,
 > = LateBinding::new("FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL");

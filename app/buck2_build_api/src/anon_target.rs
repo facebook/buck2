@@ -19,6 +19,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::attrs::spec::AttributeSpec;
@@ -26,7 +27,6 @@ use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dupe::Dupe;
-use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::Value;
@@ -47,7 +47,7 @@ pub trait AnonTargetDyn: Send + Sync + Display {
 
     fn get_fulfilled_promise_artifacts<'v>(
         self: Arc<Self>,
-        promise_artifact_mappings: SmallMap<String, Value<'v>>,
+        promise_artifact_mappings: BuckMutInsertionMap<String, Value<'v>>,
         anon_target_result: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<BuckFixedSortedMap<PromiseArtifactId, Artifact>>;
@@ -105,7 +105,7 @@ pub struct AnonTargetDependentAnalysisResults<'v> {
 }
 
 impl<'v> AnonTargetDependentAnalysisResults<'v> {
-    pub fn validations(&self) -> SmallMap<ConfiguredTargetLabel, TransitiveValidations> {
+    pub fn validations(&self) -> BuckMutInsertionMap<ConfiguredTargetLabel, TransitiveValidations> {
         self.dep_analysis_results
             .iter()
             .filter_map(|(label, analysis_result)| {
@@ -114,6 +114,6 @@ impl<'v> AnonTargetDependentAnalysisResults<'v> {
                     .dupe()
                     .map(|v| ((*label).dupe(), v))
             })
-            .collect::<SmallMap<_, _>>()
+            .collect::<BuckMutInsertionMap<_, _>>()
     }
 }

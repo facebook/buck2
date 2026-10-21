@@ -72,6 +72,7 @@ use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -110,7 +111,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::dict::UnpackDictEntries;
-use starlark_map::small_map::SmallMap;
 
 use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
@@ -256,7 +256,8 @@ impl AnonTargetKey {
         let attrs_spec = rule.attributes();
         let anon_attr_ctx = AnonAttrCtx::new(execution_platform);
 
-        let mut provided: SmallMap<&str, Value> = SmallMap::with_capacity(entries.len());
+        let mut provided: BuckMutInsertionMap<&str, Value> =
+            BuckMutInsertionMap::with_capacity(entries.len());
         for (k, v) in entries {
             if k == "name" {
                 name = Some(Self::coerce_name(v)?);
@@ -556,7 +557,7 @@ impl AnonTargetKey {
                     // into anon targets
                     Some(
                         eval.heap()
-                            .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                            .alloc_typed(AnalysisPlugins::new(BuckMutInsertionMap::new()))
                             .into(),
                     ),
                     registry,

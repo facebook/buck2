@@ -244,6 +244,7 @@ mod tests {
     use buck2_core::package::PackageLabel;
     use buck2_core::target::label::label::TargetLabel;
     use buck2_error::buck2_error;
+    use buck2_hash::buck_mut_insertion_set;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::attr_type::arg::MacroBase;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
@@ -254,7 +255,6 @@ mod tests {
     use dupe::Dupe;
     use starlark::environment::GlobalsBuilder;
     use starlark::environment::Module;
-    use starlark_map::smallset;
 
     use super::*;
     use crate::attrs::coerce::attr_type::AttrTypeExt;
@@ -408,7 +408,7 @@ mod tests {
         {
             let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
-            assert_eq!(smallset![target.dupe()], info.deps);
+            assert_eq!(buck_mut_insertion_set![target.dupe()], info.deps);
         } else {
             return Err(buck2_error!(
                 buck2_error::ErrorTag::Input,
@@ -442,8 +442,8 @@ mod tests {
             let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.base_exec_cfg()?.cfg());
-            assert_eq!(smallset![label.dupe()], info.execution_deps);
-            assert_eq!(smallset![], info.deps);
+            assert_eq!(buck_mut_insertion_set![label.dupe()], info.execution_deps);
+            assert_eq!(buck_mut_insertion_set![], info.deps);
         } else {
             return Err(buck2_error!(
                 buck2_error::ErrorTag::Input,
@@ -480,9 +480,9 @@ mod tests {
             let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.toolchain_cfg().cfg());
-            assert_eq!(smallset![label.dupe()], info.toolchain_deps);
-            assert_eq!(smallset![], info.deps);
-            assert_eq!(smallset![], info.execution_deps);
+            assert_eq!(buck_mut_insertion_set![label.dupe()], info.toolchain_deps);
+            assert_eq!(buck_mut_insertion_set![], info.deps);
+            assert_eq!(buck_mut_insertion_set![], info.execution_deps);
         } else {
             return Err(buck2_error!(
                 buck2_error::ErrorTag::Input,
@@ -512,8 +512,8 @@ mod tests {
             let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.base_exec_cfg()?.cfg());
-            assert_eq!(smallset![label.dupe()], info.execution_deps);
-            assert_eq!(smallset![], info.deps);
+            assert_eq!(buck_mut_insertion_set![label.dupe()], info.execution_deps);
+            assert_eq!(buck_mut_insertion_set![], info.deps);
         } else {
             return Err(buck2_error!(buck2_error::ErrorTag::Input, "Expected Exe"));
         }
@@ -540,8 +540,8 @@ mod tests {
             let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(label.cfg(), config_ctx.cfg().cfg());
-            assert_eq!(smallset![], info.execution_deps);
-            assert_eq!(smallset![label.dupe()], info.deps);
+            assert_eq!(buck_mut_insertion_set![], info.execution_deps);
+            assert_eq!(buck_mut_insertion_set![label.dupe()], info.deps);
         } else {
             return Err(buck2_error!(buck2_error::ErrorTag::Input, "Expected Exe"));
         }

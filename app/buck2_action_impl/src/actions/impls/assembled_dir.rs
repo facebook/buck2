@@ -44,7 +44,6 @@ use starlark::values::OwnedFrozen;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::dict::UnpackDictEntries;
-use starlark_map::small_set::SmallSet;
 
 use crate::actions::impls::copy::CopyMode;
 
@@ -133,7 +132,7 @@ impl UnregisteredAssembledDirAction {
         copy: CopyMode,
     ) -> buck2_error::Result<(
         Vec<(ArtifactGroup, Box<ForwardRelativePath>, CopyMode)>,
-        SmallSet<ArtifactGroup>,
+        BuckMutInsertionSet<ArtifactGroup>,
     )> {
         // This assignment doesn't look like it should be necessary, but we get an error if we
         // don't do it.
@@ -154,7 +153,7 @@ impl UnregisteredAssembledDirAction {
                 ))
             })
             .fold_ok(
-                (Vec::with_capacity(len), SmallSet::new()),
+                (Vec::with_capacity(len), BuckMutInsertionSet::new()),
                 |(mut aps, mut assocs), (ap, assoc)| {
                     aps.push(ap);
                     assoc.iter().flat_map(|v| v.iter()).for_each(|a| {
@@ -197,7 +196,7 @@ impl UnregisteredAssembledDirAction {
         contents: Vec<(&'v str, ValueAsInputArtifactLike<'v>, CopyMode)>,
     ) -> buck2_error::Result<Self> {
         let mut args = Vec::with_capacity(contents.len());
-        let mut assocs = SmallSet::new();
+        let mut assocs = BuckMutInsertionSet::new();
         for (k, as_artifact, mode) in contents {
             let associates = as_artifact.0.get_associated_artifacts();
             args.push((

@@ -17,6 +17,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::pattern::package::PackagePattern;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::visibility::StarlarkTargetNameGlob;
 use buck2_node::visibility::VisibilityPattern;
@@ -26,7 +27,6 @@ use buck2_node::visibility::WithinViewSpecification;
 use buck2_node::visibility::within_scope_from_parsed;
 use buck2_util::arc_str::ThinArcSlice;
 use either::Either;
-use starlark::collections::SmallSet;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -231,7 +231,7 @@ fn parse_exempt_targets(
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
 ) -> buck2_error::Result<ThinArcSlice<PackagePattern>> {
-    let mut seen = SmallSet::with_capacity(patterns.len());
+    let mut seen = BuckMutInsertionSet::with_capacity(patterns.len());
     patterns
         .iter()
         .map(|pattern| {

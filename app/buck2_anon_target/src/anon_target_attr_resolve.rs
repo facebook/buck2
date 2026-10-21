@@ -26,6 +26,7 @@ use buck2_build_api::keep_going::KeepGoing;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
@@ -35,7 +36,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use starlark::values::Value;
 use starlark::values::tuple::AllocTuple;
-use starlark_map::small_map::SmallMap;
 
 use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_targets::AnonTargetKey;
@@ -107,14 +107,14 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                 Ok(ctx.heap().alloc(AllocTuple(values)))
             }
             AnonTargetAttr::Dict(dict) => {
-                let mut res = SmallMap::with_capacity(dict.len());
+                let mut res = BuckMutInsertionMap::with_capacity(dict.len());
                 for (k, v) in dict.iter() {
                     res.insert_hashed(
                         k.resolve_single(pkg, anon_resolution_ctx)?.get_hashed()?,
                         v.resolve_single(pkg, anon_resolution_ctx)?,
                     );
                 }
-                Ok(ctx.heap().alloc_dict(res))
+                Ok(ctx.heap().alloc(res))
             }
             AnonTargetAttr::None => Ok(Value::new_none()),
             AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, anon_resolution_ctx),

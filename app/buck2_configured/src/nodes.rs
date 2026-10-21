@@ -56,6 +56,8 @@ use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLa
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
@@ -98,8 +100,6 @@ use pagable::Pagable;
 use pagable::StaticStr;
 use pagable::pagable_typetag;
 use starlark_map::ordered_map::OrderedMap;
-use starlark_map::small_map::SmallMap;
-use starlark_map::small_set::SmallSet;
 
 use crate::configuration::compute_platform_cfgs;
 use crate::configuration::get_matched_cfg_keys_for_node;
@@ -507,8 +507,8 @@ impl ErrorsAndIncompatibilities {
 #[derive(Default)]
 pub(crate) struct GatheredDeps {
     pub(crate) deps: Vec<ConfiguredTargetNode>,
-    pub(crate) exec_deps: SmallMap<ConfiguredProvidersLabel, CheckVisibility>,
-    pub(crate) toolchain_deps: SmallSet<TargetConfiguredTargetLabel>,
+    pub(crate) exec_deps: BuckMutInsertionMap<ConfiguredProvidersLabel, CheckVisibility>,
+    pub(crate) toolchain_deps: BuckMutInsertionSet<TargetConfiguredTargetLabel>,
     pub(crate) plugin_lists: PluginLists,
 }
 
@@ -520,9 +520,9 @@ pub(crate) async fn gather_deps(
 ) -> ResultMaybeCompatible<(GatheredDeps, ErrorsAndIncompatibilities)> {
     #[derive(Default)]
     struct Traversal {
-        deps: OrderedMap<ConfiguredProvidersLabel, SmallSet<PluginKindSet>>,
-        exec_deps: SmallMap<ConfiguredProvidersLabel, CheckVisibility>,
-        toolchain_deps: SmallSet<TargetConfiguredTargetLabel>,
+        deps: OrderedMap<ConfiguredProvidersLabel, BuckMutInsertionSet<PluginKindSet>>,
+        exec_deps: BuckMutInsertionMap<ConfiguredProvidersLabel, CheckVisibility>,
+        toolchain_deps: BuckMutInsertionSet<TargetConfiguredTargetLabel>,
         plugin_lists: PluginListsBuilder,
     }
 

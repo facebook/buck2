@@ -38,13 +38,13 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use dupe::Dupe;
 use either::Either;
 use host_sharing::WeightClass;
 use host_sharing::WeightPercentage;
 use mini_vec::MiniBoxSlice;
-use starlark::collections::SmallSet;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -61,7 +61,6 @@ use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
 use starlark_map::small_map;
-use starlark_map::small_map::SmallMap;
 
 use crate::actions::impls::dep_file_fingerprint::StarlarkDepFileFingerprint;
 use crate::actions::impls::run::MetadataParameter;
@@ -268,7 +267,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] always_print_stderr: bool,
         #[starlark(require = named)] weight: Option<u32>,
         #[starlark(require = named)] weight_percentage: Option<u32>,
-        #[starlark(require = named)] dep_files: Option<SmallMap<&'v str, &'v ArtifactTag>>,
+        #[starlark(require = named)] dep_files: Option<
+            BuckMutInsertionMap<&'v str, &'v ArtifactTag>,
+        >,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         dep_file_fingerprints: UnpackListOrTuple<ValueTyped<'v, StarlarkDepFileFingerprint<'v>>>,
         #[starlark(require = named)] metadata_env_var: Option<String>,
@@ -291,9 +292,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         >,
         eval: &mut Evaluator<'v, '_, '_>,
         #[starlark(require = named, default=UnpackList::default())]
-        remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
+        remote_execution_dependencies: UnpackList<BuckMutInsertionMap<&'v str, &'v str>>,
         #[starlark(require = named, default=UnpackList::default())] re_gang_workers: UnpackList<
-            SmallMap<&'v str, &'v str>,
+            BuckMutInsertionMap<&'v str, &'v str>,
         >,
         #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
         #[starlark(require = named, default = NoneOr::None)] timeout_seconds: NoneOr<u32>,
@@ -321,14 +322,14 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             inner: SimpleCommandLineArtifactVisitor<'v>,
             tagged_outputs: BuckMutMap<ArtifactTag, Vec<OutputArtifact<'v>>>,
             depth: u64,
-            dep_file_artifact_tags: Option<SmallSet<&'v ArtifactTag>>,
+            dep_file_artifact_tags: Option<BuckMutInsertionSet<&'v ArtifactTag>>,
             inputs_with_multiple_tags_for_dep_files: Vec<(ArtifactGroup, Vec<ArtifactTag>)>,
         }
 
         impl<'v> RunCommandArtifactVisitor<'v> {
-            fn new(dep_files: &Option<SmallMap<&'v str, &'v ArtifactTag>>) -> Self {
+            fn new(dep_files: &Option<BuckMutInsertionMap<&'v str, &'v ArtifactTag>>) -> Self {
                 let dep_file_artifact_tags = if let Some(dep_files) = dep_files {
-                    let mut tags = SmallSet::with_capacity(dep_files.len());
+                    let mut tags = BuckMutInsertionSet::with_capacity(dep_files.len());
                     for (_key, tag) in dep_files {
                         tags.insert(tag.dupe());
                     }

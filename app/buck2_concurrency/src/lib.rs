@@ -40,6 +40,8 @@ use buck2_data::NoActiveDiceState;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_file_watcher::file_watcher::SyncOutcome;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_util::early_command_timing::EXCLUSIVE_COMMAND_WAIT;
 use buck2_util::early_command_timing::EarlyCommandTimingBuilder;
 use buck2_util::rtabort;
@@ -62,8 +64,6 @@ use futures::future::FutureExt;
 use futures::future::Shared;
 use futures::pin_mut;
 use itertools::Itertools;
-use starlark_map::small_map::SmallMap;
-use starlark_map::small_set::SmallSet;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::time::timeout;
@@ -188,9 +188,9 @@ struct CoordinatorState {
     /// "equivalent".
     dice_status: DiceStatus,
     /// A list of the currently running commands.
-    active_commands: SmallMap<CommandId, CommandData>,
+    active_commands: BuckMutInsertionMap<CommandId, CommandData>,
     /// Commands that entered admission but have not begun execution.
-    pending_commands: SmallMap<CommandId, PendingCommand>,
+    pending_commands: BuckMutInsertionMap<CommandId, PendingCommand>,
     next_update_attempt: usize,
     /// The epoch of the last ActiveDice we assigned.
     cleanup_epoch: usize,
@@ -1059,7 +1059,7 @@ struct AdmissionCoordinatorTask {
     branch: BranchId,
     update_in_flight: Option<(CommandId, UpdateAttemptId)>,
     update_waiters: VecDeque<UpdateWaiter>,
-    blocked_waiters: SmallMap<CommandId, oneshot::Sender<()>>,
+    blocked_waiters: BuckMutInsertionMap<CommandId, oneshot::Sender<()>>,
     #[cfg(test)]
     active_commands: Arc<AtomicUsize>,
 }
@@ -1079,8 +1079,8 @@ impl AdmissionCoordinatorTask {
         Self {
             data: CoordinatorState {
                 dice_status: DiceStatus::idle(),
-                active_commands: SmallMap::new(),
-                pending_commands: SmallMap::new(),
+                active_commands: BuckMutInsertionMap::new(),
+                pending_commands: BuckMutInsertionMap::new(),
                 next_update_attempt: 0,
                 cleanup_epoch: 0,
                 previously_tainted: false,
@@ -1090,7 +1090,7 @@ impl AdmissionCoordinatorTask {
             branch,
             update_in_flight: None,
             update_waiters: VecDeque::new(),
-            blocked_waiters: SmallMap::new(),
+            blocked_waiters: BuckMutInsertionMap::new(),
             #[cfg(test)]
             active_commands: Arc::new(AtomicUsize::new(0)),
         }
@@ -2094,7 +2094,7 @@ struct ConcurrentTraces(Vec<TraceId>);
 
 impl ConcurrentTraces {
     fn running_and(
-        active_commands: &SmallMap<CommandId, CommandData>,
+        active_commands: &BuckMutInsertionMap<CommandId, CommandData>,
         current: &CommandData,
     ) -> Self {
         Self(
@@ -2106,7 +2106,7 @@ impl ConcurrentTraces {
         )
     }
 
-    fn running(active_commands: &SmallMap<CommandId, CommandData>) -> Self {
+    fn running(active_commands: &BuckMutInsertionMap<CommandId, CommandData>) -> Self {
         Self(
             active_commands
                 .values()
@@ -2172,7 +2172,11 @@ impl fmt::Display for ConcurrentTraces {
         write!(
             f,
             "{}",
-            self.0.iter().collect::<SmallSet<_>>().iter().join(", ")
+            self.0
+                .iter()
+                .collect::<BuckMutInsertionSet<_>>()
+                .iter()
+                .join(", ")
         )
     }
 }
@@ -2521,7 +2525,7 @@ mod tests {
             })
             .collect();
 
-        let mut seen = SmallSet::new();
+        let mut seen = BuckMutInsertionSet::new();
         for handle in handles {
             for id in handle.await.unwrap() {
                 assert!(seen.insert(id), "duplicate CommandId `{id}`");
@@ -3249,8 +3253,8 @@ mod tests {
         let command_id = CommandId(0);
         let mut data = CoordinatorState {
             dice_status: DiceStatus::idle(),
-            active_commands: SmallMap::new(),
-            pending_commands: SmallMap::new(),
+            active_commands: BuckMutInsertionMap::new(),
+            pending_commands: BuckMutInsertionMap::new(),
             next_update_attempt: 0,
             cleanup_epoch: 0,
             previously_tainted: false,
@@ -3286,8 +3290,8 @@ mod tests {
         let second_id = CommandId(1);
         let mut data = CoordinatorState {
             dice_status: DiceStatus::idle(),
-            active_commands: SmallMap::new(),
-            pending_commands: SmallMap::new(),
+            active_commands: BuckMutInsertionMap::new(),
+            pending_commands: BuckMutInsertionMap::new(),
             next_update_attempt: 0,
             cleanup_epoch: 0,
             previously_tainted: false,
@@ -3822,8 +3826,8 @@ mod tests {
         fn data_with(dice_status: DiceStatus, cleanup_epoch: usize) -> CoordinatorState {
             CoordinatorState {
                 dice_status,
-                active_commands: SmallMap::new(),
-                pending_commands: SmallMap::new(),
+                active_commands: BuckMutInsertionMap::new(),
+                pending_commands: BuckMutInsertionMap::new(),
                 next_update_attempt: 0,
                 cleanup_epoch,
                 previously_tainted: false,

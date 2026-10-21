@@ -11,6 +11,7 @@
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_node::attrs::attr_type::metadata::MetadataAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -23,7 +24,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::dict::DictRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark_map::small_map::SmallMap;
 
 use crate::attrs::coerce::AttrTypeCoerce;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
@@ -41,7 +41,7 @@ impl AttrTypeCoerce for MetadataAttrType {
 
         let dict = DictRef::unpack_value_err(value)?;
 
-        let mut map = SmallMap::with_capacity(dict.len());
+        let mut map = BuckMutInsertionMap::with_capacity(dict.len());
         for (key, value) in dict.iter() {
             let key = MetadataKeyRef::new(key.unpack_str_err()?)?;
 

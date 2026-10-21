@@ -32,7 +32,6 @@ use dupe::IterDupedExt;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallSet;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -78,7 +77,7 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
 
     // `get_projection_sub_inputs()` to iterate through the tset, this is also needed to make
     // sure we aren't re-processing tests.
-    let mut visited = SmallSet::new();
+    let mut visited = BuckMutInsertionSet::new();
 
     // `todo` is a stack, so push in reverse to visit the groups in command line order.
     let mut todo = Vec::new();

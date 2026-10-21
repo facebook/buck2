@@ -106,7 +106,6 @@ use pagable::Pagable;
 use parking_lot::MappedMutexGuard;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
-use starlark_map::small_map::SmallMap;
 use strong_hash::StrongHash;
 use tracing::instrument;
 
@@ -144,7 +143,7 @@ fn encode_config_key(cfg: Option<Configuration>) -> Vec<u8> {
 #[derive(Allocative)]
 enum ConfigActionSlot {
     One(Option<Configuration>, Arc<DepFileState>),
-    Many(Box<SmallMap<Option<Configuration>, Arc<DepFileState>>>),
+    Many(Box<BuckMutInsertionMap<Option<Configuration>, Arc<DepFileState>>>),
 }
 
 impl ConfigActionSlot {
@@ -174,9 +173,10 @@ impl ConfigActionSlot {
                 *s = state;
             }
             _ => {
-                let ConfigActionSlot::One(c, s) =
-                    std::mem::replace(self, ConfigActionSlot::Many(Box::new(SmallMap::new())))
-                else {
+                let ConfigActionSlot::One(c, s) = std::mem::replace(
+                    self,
+                    ConfigActionSlot::Many(Box::new(BuckMutInsertionMap::new())),
+                ) else {
                     unreachable!("the arms above cover Many and the matching One");
                 };
                 let ConfigActionSlot::Many(m) = self else {

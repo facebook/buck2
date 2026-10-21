@@ -31,9 +31,9 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use dupe::Dupe;
-use starlark_map::small_map::SmallMap;
 
 mod proto {
     pub(crate) use buck2_cli_proto::BuildTarget;
@@ -129,9 +129,9 @@ impl<'a> ResultReporter<'a> {
 
         let mut artifact_path_mapping = BuckMutMap::default();
 
-        // NOTE: We use an SmallMap here to preserve the order the rule author wrote, all
+        // NOTE: We use an BuckMutInsertionMap here to preserve the order the rule author wrote, all
         // the while avoiding duplicates.
-        let mut artifacts = SmallMap::new();
+        let mut artifacts = BuckMutInsertionMap::new();
 
         for output in outputs {
             let ProviderArtifacts {

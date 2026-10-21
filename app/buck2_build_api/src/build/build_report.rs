@@ -57,6 +57,7 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_sketches::DependencyGraphSketch;
@@ -70,7 +71,6 @@ use itertools::Either;
 use itertools::EitherOrBoth;
 use itertools::Itertools;
 use serde::Serialize;
-use starlark_map::small_set::SmallSet;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -147,13 +147,13 @@ struct MaybeConfiguredBuildReportEntry {
     success: BuildOutcome,
     /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
     /// the default exposed output of the subtarget
-    outputs: BTreeMap<Arc<str>, SmallSet<ProjectRelativePathBuf>>,
+    outputs: BTreeMap<Arc<str>, BuckMutInsertionSet<ProjectRelativePathBuf>>,
     /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
     /// the hidden, implicitly built outputs of the subtarget. There are multiple outputs
     /// per subtarget
     ///
     /// FIXME(JakobDegen): This should be in `ConfiguredBuildReportEntry`
-    other_outputs: BTreeMap<Arc<str>, SmallSet<ProjectRelativePathBuf>>,
+    other_outputs: BTreeMap<Arc<str>, BuckMutInsertionSet<ProjectRelativePathBuf>>,
     /// The size of the graph for this target, if it was produced
     ///
     /// FIXME(JakobDegen): This should be in `ConfiguredBuildReportEntry`

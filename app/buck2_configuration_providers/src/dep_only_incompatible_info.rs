@@ -18,10 +18,10 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -89,7 +89,7 @@ fn dep_only_incompatible_info_creator(globals: &mut GlobalsBuilder) {
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<DepOnlyIncompatibleInfo<'v>> {
-        let mut result = SmallMap::with_capacity(custom_soft_errors.entries.len());
+        let mut result = BuckMutInsertionMap::with_capacity(custom_soft_errors.entries.len());
         for (category, value) in custom_soft_errors.entries {
             let category_str = category.to_value().unpack_str().ok_or_else(|| {
                 starlark::Error::from(buck2_error::internal_error!(

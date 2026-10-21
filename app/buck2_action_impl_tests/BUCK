@@ -15,6 +15,7 @@ rust_unittest(
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_execute:buck2_execute",
+        "//buck2/app/buck2_hash:buck2_hash",
         "//buck2/app/buck2_interpreter:buck2_interpreter",
         "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",
         "//buck2/gazebo/dupe:dupe",

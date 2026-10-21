@@ -43,6 +43,7 @@ use buck2_error::internal_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckHasher;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::dice::starlark_provider::DynEvalKindKey;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
@@ -55,7 +56,6 @@ use compact_str::CompactString;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::UnpackValue;
@@ -258,7 +258,7 @@ impl AnonTargetDyn for AnonTarget {
 
     fn get_fulfilled_promise_artifacts<'v>(
         self: Arc<Self>,
-        promise_artifact_mappings: SmallMap<String, Value<'v>>,
+        promise_artifact_mappings: BuckMutInsertionMap<String, Value<'v>>,
         anon_target_result: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<BuckFixedSortedMap<PromiseArtifactId, Artifact>> {

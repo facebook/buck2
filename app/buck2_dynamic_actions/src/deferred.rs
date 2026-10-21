@@ -82,7 +82,6 @@ use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictType;
 use starlark::values::list::AllocList;
 use starlark::values::tuple::AllocTuple;
-use starlark_map::small_map::SmallMap;
 
 use crate::attrs::DynamicAttrValue;
 use crate::attrs::DynamicAttrValues;
@@ -661,7 +660,7 @@ fn new_attr_value<'v>(
             Ok(env.heap().alloc(AllocList(xs)))
         }
         DynamicAttrValue::Dict(xs) => {
-            let mut r = SmallMap::with_capacity(xs.len());
+            let mut r = BuckMutInsertionMap::with_capacity(xs.len());
             for (k, v) in &**xs {
                 let prev = r.insert_hashed(
                     k.get_hashed()?,

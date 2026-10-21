@@ -38,6 +38,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::abs_path::AbsPath;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
@@ -63,7 +64,6 @@ use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
@@ -367,7 +367,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     fn get_attrs<'v>(
         this: &StarlarkConfiguredTargetNode,
         heap: Heap<'v>,
-    ) -> starlark::Result<SmallMap<StringValue<'v>, Value<'v>>> {
+    ) -> starlark::Result<BuckMutInsertionMap<StringValue<'v>, Value<'v>>> {
         Ok(NodeAttributeGetter::get_attrs(this, heap)?)
     }
 

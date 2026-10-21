@@ -17,11 +17,11 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact:
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackNonPromiseInputArtifact;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_error::buck2_error;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_util::size_assert;
 use dupe::Dupe;
 use starlark::StarlarkPagable;
-use starlark::collections::SmallSet;
 use starlark::typing::Ty;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
@@ -36,7 +36,6 @@ use starlark::values::list::ListRef;
 use starlark::values::tuple::TupleRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::TypeCompiled;
-use starlark_map::small_map::SmallMap;
 
 use crate::dynamic_value::StarlarkDynamicValue;
 use crate::output_binder::DynamicActionsOutputArtifactBinder;
@@ -91,7 +90,7 @@ pub enum DynamicAttrValue<'v> {
     Value(Value<'v>),
     List(Box<[DynamicAttrValue<'v>]>),
     Tuple(Box<[DynamicAttrValue<'v>]>),
-    Dict(Box<SmallMap<Value<'v>, DynamicAttrValue<'v>>>),
+    Dict(Box<BuckMutInsertionMap<Value<'v>, DynamicAttrValue<'v>>>),
     Option(Option<Box<DynamicAttrValue<'v>>>),
 }
 
@@ -230,7 +229,7 @@ impl<'v> DynamicAttrValues<'v> {
     }
 
     pub fn dynamic_values(&self) -> Box<[DynamicValue]> {
-        let mut dynamic_values = SmallSet::new();
+        let mut dynamic_values = BuckMutInsertionSet::new();
         self.for_each_node(&mut |value| {
             if let DynamicAttrValue::DynamicValue(dynamic_value) = value {
                 dynamic_values.insert(dynamic_value.dupe());
@@ -326,7 +325,7 @@ impl<'v> DynamicAttrType<'v> {
             DynamicAttrType::Dict(elem_ty) => {
                 let (key_ty, value_ty) = &**elem_ty;
                 let dict = DictRef::unpack_value_err(value)?;
-                let mut res = SmallMap::with_capacity(dict.len());
+                let mut res = BuckMutInsertionMap::with_capacity(dict.len());
                 for (key, value) in dict.iter_hashed() {
                     if !key_ty.matches(key.into_key()) {
                         return Err(buck2_error!(

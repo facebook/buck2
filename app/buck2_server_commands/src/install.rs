@@ -81,6 +81,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_install_proto::DeviceMetadata;
@@ -103,7 +104,6 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
-use starlark_map::small_map::SmallMap;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -213,7 +213,7 @@ impl ServerCommandTemplate for InstallServerCommand {
 
 struct InstallRequestData {
     installer_label: ConfiguredProvidersLabel,
-    installed_targets: Vec<(ConfiguredTargetLabel, SmallMap<String, Artifact>)>,
+    installed_targets: Vec<(ConfiguredTargetLabel, BuckMutInsertionMap<String, Artifact>)>,
 }
 
 fn install_id(installed_target: &ConfiguredTargetLabel) -> String {
@@ -1051,7 +1051,7 @@ pub(crate) struct FileResult {
 
 async fn build_files(
     ctx: &mut DiceComputations<'_>,
-    install_files_slice: &[(ConfiguredTargetLabel, SmallMap<String, Artifact>)],
+    install_files_slice: &[(ConfiguredTargetLabel, BuckMutInsertionMap<String, Artifact>)],
     tx: mpsc::UnboundedSender<FileResult>,
 ) -> buck2_error::Result<()> {
     let mut file_outputs = Vec::with_capacity(install_files_slice.len());

@@ -20,6 +20,7 @@ use buck2_core::provider::id::ProviderId;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
@@ -69,8 +70,6 @@ use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
 use starlark::values::typing::TypeMatcherDyn;
 use starlark::values::typing::TypeMatcherFactory;
-use starlark_map::small_map::SmallMap;
-use starlark_map::small_set::SmallSet;
 
 use crate::interpreter::rule_defs::provider::doc::ProviderMembersSource;
 use crate::interpreter::rule_defs::provider::doc::provider_callable_documentation;
@@ -91,7 +90,7 @@ enum ProviderCallableError {
     #[error(
         "Provider type must be assigned to a variable, e.g. `ProviderInfo = provider(fields = {0:?})`"
     )]
-    ProviderNotAssigned(SmallSet<String>),
+    ProviderNotAssigned(BuckMutInsertionSet<String>),
     #[error("non-unique field names: [{}]", .0.iter().map(|s| format!("`{s}`")).join(", "))]
     NonUniqueFields(Vec<String>),
     #[error("Field default value can be either frozen value or an empty list or dict")]
@@ -654,7 +653,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
         #[starlark(require=named, default = "")] doc: &str,
         #[starlark(require=named)] fields: Either<
             UnpackListOrTuple<String>,
-            SmallMap<String, Value<'v>>,
+            BuckMutInsertionMap<String, Value<'v>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<UserProviderCallable<'v>> {

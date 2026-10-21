@@ -25,6 +25,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -41,7 +42,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
-use starlark::collections::SmallSet;
 use starlark::values::Heap;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -74,7 +74,7 @@ pub(crate) fn filter_incompatible<T: ErrorPrinter>(
     error_printer: &T,
 ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
     let mut target_set = TargetSet::new();
-    let mut incompatible_targets = SmallSet::new();
+    let mut incompatible_targets = BuckMutInsertionSet::new();
 
     for res in targets {
         match res {

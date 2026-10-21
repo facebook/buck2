@@ -22,6 +22,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::build_request::Uploads;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use derive_more::Display;
 use dupe::Dupe;
@@ -40,7 +41,6 @@ use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueTyped;
 use starlark::values::starlark_value;
-use starlark_map::small_map::SmallMap;
 
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -160,7 +160,7 @@ pub(crate) fn build<'v>(
     uploads: Uploads,
     eval: &mut Evaluator<'v, '_, '_>,
 ) -> buck2_error::Result<
-    SmallMap<
+    BuckMutInsertionMap<
         ValueTyped<'v, StarlarkConfiguredProvidersLabel>,
         ValueTyped<'v, StarlarkBxlBuildResult>,
     >,

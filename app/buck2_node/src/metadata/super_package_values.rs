@@ -12,9 +12,9 @@ use std::any::Any;
 use std::fmt::Debug;
 
 use allocative::Allocative;
+use buck2_hash::BuckMutInsertionMap;
 use pagable::PagableTagged;
 use pagable::pagable_typetag;
-use starlark_map::small_map::SmallMap;
 
 use crate::metadata::key::MetadataKey;
 use crate::metadata::key::MetadataKeyRef;
@@ -27,7 +27,9 @@ pub trait SuperPackageValues:
     fn is_empty(&self) -> bool;
     /// Only error is internal error: all values must be serializable to JSON,
     /// validated at construction time.
-    fn package_values_json(&self) -> buck2_error::Result<SmallMap<MetadataKey, serde_json::Value>>;
+    fn package_values_json(
+        &self,
+    ) -> buck2_error::Result<BuckMutInsertionMap<MetadataKey, serde_json::Value>>;
     fn contains_key(&self, key: &MetadataKeyRef) -> bool;
     /// Gets package value as a JSON for the given key.
     /// Only error is internal error: all values must be serializable to JSON,

@@ -33,6 +33,7 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
@@ -40,8 +41,6 @@ use dupe::Dupe;
 use dupe::OptionDupedExt;
 use pagable::Pagable;
 use starlark::codemap::FileSpan;
-use starlark::collections::SmallMap;
-use starlark::collections::SmallSet;
 use starlark::values::Heap;
 use starlark::values::Trace;
 
@@ -57,11 +56,11 @@ use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 #[derive(Allocative, Trace)]
 pub struct ActionsRegistry<'v> {
     owner: DeferredHolderKey,
-    artifacts: SmallSet<DeclaredArtifact<'v>>,
+    artifacts: BuckMutInsertionSet<DeclaredArtifact<'v>>,
 
     // For a dynamic_output, maps the ActionKeys for the outputs that have been bound
     // to this dynamic_output to the DeclaredArtifact created in the dynamic_output.
-    declared_dynamic_outputs: SmallMap<ActionKey, DeclaredArtifact<'v>>,
+    declared_dynamic_outputs: BuckMutInsertionMap<ActionKey, DeclaredArtifact<'v>>,
     pending: Vec<ActionToBeRegistered>,
     pub execution_platform: ExecutionPlatformResolution,
     claimed_output_paths: DirectoryBuilder<Option<FileSpan>, NoDigest>,
@@ -74,7 +73,7 @@ impl<'v> ActionsRegistry<'v> {
         Self {
             owner,
             artifacts: Default::default(),
-            declared_dynamic_outputs: SmallMap::new(),
+            declared_dynamic_outputs: BuckMutInsertionMap::new(),
             pending: Default::default(),
             execution_platform,
             claimed_output_paths: DirectoryBuilder::empty_non_exhaustive(),
@@ -300,7 +299,7 @@ impl<'v> ActionsRegistry<'v> {
         })
     }
 
-    pub fn testing_artifacts(&self) -> &SmallSet<DeclaredArtifact<'v>> {
+    pub fn testing_artifacts(&self) -> &BuckMutInsertionSet<DeclaredArtifact<'v>> {
         &self.artifacts
     }
 

@@ -22,6 +22,7 @@ use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutInsertionMap;
 use dupe::Dupe;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
@@ -38,7 +39,6 @@ use starlark::values::Freezer;
 use starlark::values::OwnedFrozenRef;
 use starlark::values::Trace;
 use starlark::values::Tracer;
-use starlark_map::small_map::SmallMap;
 
 use crate::params::DynamicLambdaParams;
 use crate::params::FrozenDynamicLambdaParams;
@@ -46,23 +46,23 @@ use crate::params::FrozenDynamicLambdaParams;
 #[derive(Debug, Allocative, ProvidesStaticType)]
 pub struct DynamicLambdaParamsStorageImpl<'v> {
     self_key: DeferredHolderKey,
-    lambda_params: SmallMap<DynamicLambdaResultsKey, DynamicLambdaParams<'v>>,
+    lambda_params: BuckMutInsertionMap<DynamicLambdaResultsKey, DynamicLambdaParams<'v>>,
 }
 
 #[derive(Debug, Allocative, ProvidesStaticType, starlark::StarlarkPagable)]
 pub struct FrozenDynamicLambdaParamsStorageImpl<'fv> {
     // Mixed: `DynamicLambdaResultsKey` is pagable-only (`buck2_core` cannot
     // depend on `starlark`), values are starlark-aware — so the generic
-    // `SmallMap<K, V>: StarlarkSerialize` blanket doesn't apply. Bridge here.
+    // `BuckMutInsertionMap<K, V>: StarlarkSerialize` blanket doesn't apply. Bridge here.
     #[starlark_pagable(
         serialize_with = "serialize_lambda_params",
         deserialize_with = "deserialize_lambda_params"
     )]
-    lambda_params: SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams<'fv>>,
+    lambda_params: BuckMutInsertionMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams<'fv>>,
 }
 
 fn serialize_lambda_params(
-    field: &SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams<'_>>,
+    field: &BuckMutInsertionMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams<'_>>,
     ctx: &mut dyn StarlarkSerializeContext,
 ) -> starlark::Result<()> {
     PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
@@ -75,9 +75,10 @@ fn serialize_lambda_params(
 
 fn deserialize_lambda_params<'fv>(
     ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
-) -> starlark::Result<SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams<'fv>>> {
+) -> starlark::Result<BuckMutInsertionMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams<'fv>>>
+{
     let len = usize::pagable_deserialize(ctx.pagable())?;
-    let mut map = SmallMap::with_capacity(len);
+    let mut map = BuckMutInsertionMap::with_capacity(len);
     for _ in 0..len {
         let k =
             <DynamicLambdaResultsKey as PagableDeserialize>::pagable_deserialize(ctx.pagable())?;
@@ -173,7 +174,7 @@ impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
         } = self.into_inner();
         // N.B. collect::<Result<_>> sets the lower bound to zero,
         // which can cause over-allocations in frozen containers.
-        let mut frozen_lambda_params = SmallMap::with_capacity(lambda_params.len());
+        let mut frozen_lambda_params = BuckMutInsertionMap::with_capacity(lambda_params.len());
         for (k, v) in lambda_params.into_iter_hashed() {
             frozen_lambda_params.insert_hashed(k, v.freeze(freezer)?);
         }
@@ -212,7 +213,7 @@ pub fn init_dynamic_lambda_params_storages() {
         ) -> Box<DynStarlark<'v, dyn DynamicLambdaParamsStorage<'v>>> {
             Box::new(DynStarlark::new(DynamicLambdaParamsStorageImpl {
                 self_key,
-                lambda_params: SmallMap::new(),
+                lambda_params: BuckMutInsertionMap::new(),
             }))
         }
 
@@ -220,7 +221,7 @@ pub fn init_dynamic_lambda_params_storages() {
             &self,
         ) -> FrozenDynamicLambdaParamsStorageBox<'fv> {
             Box::new(DynStarlark::new(FrozenDynamicLambdaParamsStorageImpl {
-                lambda_params: SmallMap::new(),
+                lambda_params: BuckMutInsertionMap::new(),
             }))
         }
 

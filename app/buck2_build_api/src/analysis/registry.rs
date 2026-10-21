@@ -28,6 +28,7 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
@@ -64,7 +65,6 @@ use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::typing::StarlarkCallable;
-use starlark_map::small_map::SmallMap;
 
 use crate::actions::RegisteredAction;
 use crate::actions::UnregisteredAction;
@@ -393,7 +393,8 @@ impl<'v> ArtifactDeclaration<'v> {
 #[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagablePanic)]
 pub struct AnalysisValueStorage<'v> {
     pub self_key: DeferredHolderKey,
-    action_data: SmallMap<ActionIndex, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
+    action_data:
+        BuckMutInsertionMap<ActionIndex, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
     transitive_sets: Vec<ValueTyped<'v, TransitiveSet<'v>>>,
     pub lambda_params: Box<DynStarlark<'v, dyn DynamicLambdaParamsStorage<'v>>>,
     result_value: OnceCell<ValueTyped<'v, ProviderCollection<'v>>>,
@@ -403,7 +404,8 @@ pub struct AnalysisValueStorage<'v> {
 pub struct FrozenAnalysisValueStorage<'fv> {
     #[starlark_pagable(pagable)]
     pub self_key: DeferredHolderKey,
-    action_data: SmallMap<ActionIndex, (Option<Value<'fv>>, Option<StarlarkCallable<'fv>>)>,
+    action_data:
+        BuckMutInsertionMap<ActionIndex, (Option<Value<'fv>>, Option<StarlarkCallable<'fv>>)>,
     #[starlark_pagable(
         serialize_with = "serialize_transitive_sets",
         deserialize_with = "deserialize_transitive_sets"
@@ -490,7 +492,7 @@ impl<'v> Freeze<'v> for AnalysisValueStorage<'v> {
 
         // N.B. collect::<Result<_>> sets the lower bound to zero,
         // which can cause over-allocations in frozen containers.
-        let mut frozen_action_data = SmallMap::with_capacity(action_data.len());
+        let mut frozen_action_data = BuckMutInsertionMap::with_capacity(action_data.len());
         for (k, (data, error_handler)) in action_data {
             frozen_action_data.insert(
                 k,
@@ -543,7 +545,7 @@ impl<'v> AnalysisValueStorage<'v> {
     fn new(self_key: DeferredHolderKey) -> Self {
         Self {
             self_key: self_key.dupe(),
-            action_data: SmallMap::new(),
+            action_data: BuckMutInsertionMap::new(),
             transitive_sets: Vec::new(),
             lambda_params: DYNAMIC_LAMBDA_PARAMS_STORAGES
                 .get()
@@ -707,7 +709,7 @@ impl RecordedAnalysisValues {
                 heap.alloc_simple_typed(StarlarkAnyComplex {
                     value: FrozenAnalysisValueStorage {
                         self_key: self_key.dupe(),
-                        action_data: SmallMap::new(),
+                        action_data: BuckMutInsertionMap::new(),
                         transitive_sets: alloced_tsets.into_iter().collect(),
                         lambda_params: DYNAMIC_LAMBDA_PARAMS_STORAGES
                             .get()

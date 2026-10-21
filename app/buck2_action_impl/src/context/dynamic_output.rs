@@ -26,6 +26,7 @@ use buck2_dynamic_actions::params::DynamicLambdaStaticFields;
 use buck2_dynamic_actions::storage::DynamicLambdaParamsStorageImpl;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutInsertionMap;
 use dupe::Dupe;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
@@ -34,7 +35,6 @@ use starlark::values::ValueTyped;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
-use starlark_map::small_map::SmallMap;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
@@ -108,8 +108,8 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             'v,
             (
                 Value<'static>,
-                SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
-                SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
+                BuckMutInsertionMap<StarlarkArtifact, StarlarkArtifactValue>,
+                BuckMutInsertionMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
             ),
             NoneType,
         >,

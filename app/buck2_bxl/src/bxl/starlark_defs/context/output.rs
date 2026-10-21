@@ -45,7 +45,6 @@ use serde::Serialize;
 use serde::Serializer;
 use serde::ser::SerializeSeq;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallSet;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
@@ -86,7 +85,7 @@ use crate::bxl::streaming_output_writer::StreamingOutputWriter;
 #[derivative(Debug)]
 struct OutputStreamStateInner {
     /// The output string bytes where all non-streaming outputs are written to.
-    artifacts_to_ensure: SmallSet<EnsuredArtifactOrGroup>,
+    artifacts_to_ensure: BuckMutInsertionSet<EnsuredArtifactOrGroup>,
     /// The output string bytes where all non-streaming outputs are written to.
     output: Vec<u8>,
     /// The output streaming string bytes where all streaming outputs that not waiting on anything are written to.
@@ -95,7 +94,7 @@ struct OutputStreamStateInner {
     pub(crate) error: Vec<u8>,
     /// Pairs of artifacts set and their corresponding streaming output string.
     /// Used to track outputs that are waiting for their associated artifacts to be materialized.
-    pending_streaming_outputs: Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>,
+    pending_streaming_outputs: Vec<(BuckMutInsertionSet<EnsuredArtifactOrGroup>, Vec<u8>)>,
 }
 
 #[derive(Derivative, Display, Allocative, Dupe, Clone)]
@@ -255,7 +254,7 @@ impl OutputStreamState {
 
     fn pending_streaming_outputs(
         &self,
-    ) -> MappedMutexGuard<'_, Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>> {
+    ) -> MappedMutexGuard<'_, Vec<(BuckMutInsertionSet<EnsuredArtifactOrGroup>, Vec<u8>)>> {
         MutexGuard::map(self.inner.try_lock().unwrap(), |inner| {
             &mut inner
                 .as_mut()
@@ -280,7 +279,7 @@ impl<'a, T: Write> Write for BufferPrintOutput<'a, T> {
 }
 
 struct StreamingOutput {
-    wait_on_artifacts: SmallSet<EnsuredArtifactOrGroup>,
+    wait_on_artifacts: BuckMutInsertionSet<EnsuredArtifactOrGroup>,
     output_stream_state: OutputStreamState,
     streaming_writer: BxlStreamingWriter,
     buffer: Vec<u8>,

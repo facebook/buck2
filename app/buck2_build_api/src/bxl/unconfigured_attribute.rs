@@ -18,6 +18,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePath;
 use buck2_error::internal_error;
 use buck2_error::starlark_error::from_starlark_with_options;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::select_fail::StarlarkSelectFail;
@@ -48,7 +49,6 @@ use starlark::values::Value;
 use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
 use starlark::values::tuple::AllocTuple;
-use starlark_map::small_map::SmallMap;
 
 use crate::bxl::select::StarlarkSelectConcat;
 use crate::bxl::select::StarlarkSelectDict;
@@ -153,7 +153,7 @@ impl CoercedAttrExt for CoercedAttr {
                     .collect::<Result<Vec<_>, _>>()?,
             )),
             CoercedAttr::Dict(map) => {
-                let mut res = SmallMap::with_capacity(map.len());
+                let mut res = BuckMutInsertionMap::with_capacity(map.len());
 
                 for (k, v) in map.iter() {
                     res.insert_hashed(
@@ -168,7 +168,7 @@ impl CoercedAttrExt for CoercedAttr {
                     );
                 }
 
-                heap.alloc_dict(res)
+                heap.alloc(res)
             }
             CoercedAttr::None => Value::new_none(),
             CoercedAttr::OneOf(l, _) => l.as_ref().to_value(pkg, heap)?,

@@ -34,6 +34,7 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::BuckStarlarkModule;
@@ -54,7 +55,6 @@ use starlark::eval::Evaluator;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
-use starlark_map::small_map::SmallMap;
 
 use crate::analysis::plugins::plugins_to_starlark_value;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
@@ -179,7 +179,7 @@ pub trait RuleSpec: Sync {
     fn promise_artifact_mappings<'v>(
         &self,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> buck2_error::Result<SmallMap<String, Value<'v>>>;
+    ) -> buck2_error::Result<BuckMutInsertionMap<String, Value<'v>>>;
 }
 
 /// Container for the environment that analysis implementation functions should run in
@@ -255,7 +255,7 @@ async fn run_analysis_with_env_underlying(
                     .dupe()
                     .map(|v| ((*label).dupe(), v))
             })
-            .collect::<SmallMap<_, _>>();
+            .collect::<BuckMutInsertionMap<_, _>>();
 
         let (attributes, plugins) = {
             let dep_analysis_results = get_deps_from_analysis_results(analysis_env.deps)?;
@@ -350,7 +350,7 @@ async fn run_analysis_with_env_underlying(
 }
 
 pub fn transitive_validations(
-    deps: SmallMap<ConfiguredTargetLabel, TransitiveValidations>,
+    deps: BuckMutInsertionMap<ConfiguredTargetLabel, TransitiveValidations>,
     provider_collection: FrozenProviderCollectionValueRef,
 ) -> buck2_error::Result<Option<TransitiveValidations>> {
     let provider_collection = provider_collection.to_owned();
@@ -396,7 +396,7 @@ pub fn promise_artifact_mappings<'v>(
     eval: &mut Evaluator<'v, '_, '_>,
     module: &FrozenModule,
     name: &str,
-) -> buck2_error::Result<SmallMap<String, Value<'v>>> {
+) -> buck2_error::Result<BuckMutInsertionMap<String, Value<'v>>> {
     let rule_callable = get_rule_callable(eval, module, name)?;
     let promise_artifact_mappings =
         (FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL.get()?)(rule_callable)?;
@@ -404,7 +404,7 @@ pub fn promise_artifact_mappings<'v>(
     Ok(promise_artifact_mappings
         .iter()
         .map(|(name, func)| (name.to_string(), *func))
-        .collect::<SmallMap<_, _>>())
+        .collect::<BuckMutInsertionMap<_, _>>())
 }
 
 pub fn get_user_defined_rule_spec(
@@ -429,7 +429,7 @@ pub fn get_user_defined_rule_spec(
         fn promise_artifact_mappings<'v>(
             &self,
             eval: &mut Evaluator<'v, '_, '_>,
-        ) -> buck2_error::Result<SmallMap<String, Value<'v>>> {
+        ) -> buck2_error::Result<BuckMutInsertionMap<String, Value<'v>>> {
             promise_artifact_mappings(eval, &self.module, &self.name)
         }
     }

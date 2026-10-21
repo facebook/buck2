@@ -34,6 +34,7 @@ use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::BuckFixedInsertionMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
@@ -68,7 +69,6 @@ use starlark::values::list::ListRef;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
-use starlark_map::small_map::SmallMap;
 use variant_name::VariantName;
 
 use crate::bxl::eval::CliResolutionCtx;
@@ -249,14 +249,14 @@ impl JsonCliArgValueData {
             Self::List(l) => heap.alloc(AllocList(l.iter().map(|v| v.as_starlark(heap)))),
             Self::None => Value::new_none(),
             Self::Object(mp) => {
-                let mut res = SmallMap::with_capacity(mp.len());
+                let mut res = BuckMutInsertionMap::with_capacity(mp.len());
                 for (k, v) in mp.into_iter() {
                     res.insert_hashed(
                         heap.alloc_str(k).to_value().get_hashed().unwrap(),
                         v.as_starlark(heap),
                     );
                 }
-                heap.alloc_dict(res)
+                heap.alloc(res)
             }
         }
     }

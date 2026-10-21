@@ -13,8 +13,8 @@ use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
+use buck2_hash::BuckMutInsertionMap;
 use pagable::Pagable;
-use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 use strong_hash::StrongHash;
 
@@ -29,7 +29,7 @@ pub struct MetadataMap {
 }
 
 impl MetadataMap {
-    pub fn new(values: SmallMap<MetadataKey, MetadataValue>) -> Self {
+    pub fn new(values: BuckMutInsertionMap<MetadataKey, MetadataValue>) -> Self {
         Self {
             values: Box::new(SortedMap::from(values)),
         }
@@ -96,7 +96,7 @@ mod tests {
     use super::*;
 
     fn make() -> MetadataMap {
-        let mut map = SmallMap::new();
+        let mut map = BuckMutInsertionMap::new();
         map.insert(
             "foo.bar".to_owned().try_into().unwrap(),
             MetadataValue::new(serde_json::Value::String("baz".to_owned())),

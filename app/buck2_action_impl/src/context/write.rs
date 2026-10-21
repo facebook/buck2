@@ -29,6 +29,7 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::buck_mut_insertion_set;
 use dupe::Dupe;
@@ -44,7 +45,6 @@ use starlark::values::ValueOf;
 use starlark::values::ValueTyped;
 use starlark::values::none::NoneOr;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark_map::small_set::SmallSet;
 
 use crate::actions::impls::dep_file_fingerprint::DepFileFingerprintFormat;
 use crate::actions::impls::dep_file_fingerprint::StarlarkDepFileFingerprint;
@@ -94,7 +94,7 @@ type WriteReturnValue<'v> =
 /// However, we do need to always run this visitor, because it verifies that any content-based
 /// inputs are bound. It will also collect "associated artifacts", if requested.
 struct CommandLineInputVisitor {
-    associated_artifacts: SmallSet<ArtifactGroup>,
+    associated_artifacts: BuckMutInsertionSet<ArtifactGroup>,
     with_associated_artifacts: bool,
 }
 
@@ -348,7 +348,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         fn get_cli_inputs(
             with_inputs: bool,
             cli: &dyn CommandLineArgLike,
-        ) -> buck2_error::Result<SmallSet<ArtifactGroup>> {
+        ) -> buck2_error::Result<BuckMutInsertionSet<ArtifactGroup>> {
             let mut visitor = CommandLineInputVisitor::new(with_inputs);
             cli.visit_artifacts(&mut visitor)?;
             Ok(visitor.associated_artifacts)

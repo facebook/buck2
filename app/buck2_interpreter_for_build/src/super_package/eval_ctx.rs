@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use buck2_common::settings::PackageVisibilityDefaultIntersection;
 use buck2_core::pattern::package::PackagePattern;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::super_package::SuperPackage;
@@ -22,7 +23,6 @@ use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
 use buck2_util::arc_str::ThinArcSlice;
 use dupe::Dupe;
-use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::package_file_extra::MAKE_CFG_CONSTRUCTOR;
 use crate::interpreter::package_file_extra::OwnedFrozenPackageFileExtra;
@@ -91,7 +91,7 @@ impl PackageFileEvalCtx {
         let cfg_constructor = Self::cfg_constructor(extra.as_ref())?;
 
         let package_values = match &extra {
-            None => SmallMap::new(),
+            None => BuckMutInsertionMap::new(),
             Some(extra) => extra.package_values(),
         };
 

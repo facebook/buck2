@@ -22,6 +22,7 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::types::package_path::StarlarkPackagePath;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::load_patterns::load_patterns;
@@ -37,7 +38,6 @@ use dupe::Dupe;
 use either::Either;
 use futures::FutureExt;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
@@ -95,7 +95,7 @@ enum LazyResult {
     UnconfiguredTargetNodeKeepGoing(
         (
             StarlarkTargetSet<TargetNode>,
-            SmallMap<StarlarkPackagePath, StarlarkError>,
+            BuckMutInsertionMap<StarlarkPackagePath, StarlarkError>,
         ),
     ),
     BuildArtifact(StarlarkArtifact),
@@ -178,7 +178,7 @@ impl LazyOperation {
                 )?;
 
                 let mut success_targets = TargetSet::new();
-                let mut error_packages = SmallMap::new();
+                let mut error_packages = BuckMutInsertionMap::new();
 
                 match parsed_pattern {
                     ParsedPattern::Target(package, name, TargetPatternExtra) => {

@@ -9,16 +9,16 @@
  */
 
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use starlark_map::small_set::SmallSet;
+use buck2_hash::BuckMutInsertionSet;
 
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 
 #[derive(Default, Debug)]
 pub struct ConfiguredAttrInfoForTests {
     // Including transitioned deps.
-    pub deps: SmallSet<ConfiguredProvidersLabel>,
-    pub execution_deps: SmallSet<ConfiguredProvidersLabel>,
-    pub toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
+    pub deps: BuckMutInsertionSet<ConfiguredProvidersLabel>,
+    pub execution_deps: BuckMutInsertionSet<ConfiguredProvidersLabel>,
+    pub toolchain_deps: BuckMutInsertionSet<ConfiguredProvidersLabel>,
 }
 
 impl ConfiguredAttrInfoForTests {

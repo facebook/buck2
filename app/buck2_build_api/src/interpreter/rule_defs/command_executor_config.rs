@@ -38,9 +38,9 @@ use buck2_core::execution_types::executor_config::parse_network_access;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutInsertionMap;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
-use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
@@ -208,9 +208,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = NoneOr::None, require = named)]
         remote_execution_resource_units: NoneOr<i64>,
         #[starlark(default=UnpackList::default(), require = named)]
-        remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
+        remote_execution_dependencies: UnpackList<BuckMutInsertionMap<&'v str, &'v str>>,
         #[starlark(default=UnpackList::default(), require = named)]
-        remote_execution_gang_workers: UnpackList<SmallMap<&'v str, &'v str>>,
+        remote_execution_gang_workers: UnpackList<BuckMutInsertionMap<&'v str, &'v str>>,
         #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
         #[starlark(default = NoneOr::None, require = named)] meta_internal_extra_params: NoneOr<
             DictRef<'v>,
