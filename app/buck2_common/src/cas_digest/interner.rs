@@ -210,7 +210,9 @@ impl Ord for TrackedFileDigest {
 
 impl PartialEq for TrackedFileDigest {
     fn eq(&self, other: &Self) -> bool {
-        self.data().eq(other.data())
+        // Equal digests nearly always share the allocation; comparing the handles first keeps
+        // the hit from touching two allocations other threads are counting on.
+        Arc::ptr_eq(&self.inner, &other.inner) || self.data().eq(other.data())
     }
 }
 

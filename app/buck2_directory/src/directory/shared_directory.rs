@@ -206,6 +206,11 @@ where
         self.inner.data.size
     }
 
+    /// The allocation behind this handle, for identity comparisons and ordering.
+    pub fn allocation_ptr(&self) -> *const () {
+        Arc::as_ptr(&self.inner) as *const ()
+    }
+
     pub fn into_builder(self) -> DirectoryBuilder<L, H> {
         DirectoryBuilder::Immutable(self.as_immutable())
     }
