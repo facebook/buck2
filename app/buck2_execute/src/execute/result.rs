@@ -35,6 +35,7 @@ use crate::execute::kind::CommandExecutionKind;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
 use crate::execute::request::ResolvedCommandExecutionOutput;
+use crate::materialize::materializer::ReadLease;
 use crate::output_size::OutputSize;
 use crate::re::remote_action_result::ReMetadataTiming;
 
@@ -258,6 +259,11 @@ pub struct CommandExecutionResult {
 
     /// Data about time spent waiting (not on critical path) during command execution.
     pub waiting_data: WaitingData,
+
+    /// Holds the outputs on disk for the readers that come after the run, the cache upload among
+    /// them. `None` when the run did not report its outputs, or from an executor whose outputs
+    /// are not on this machine's disk.
+    pub outputs_lease: Option<ReadLease>,
 }
 
 impl CommandExecutionResult {

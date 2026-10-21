@@ -2591,14 +2591,16 @@ pub(crate) mod state_machine {
             let src = make_path("foo/placeholder");
             let dest = make_path("foo/content");
             let lease = dm.as_dyn().prepare_outputs(vec![src.clone()]).await?;
-            dm.as_dyn()
-                .publish(
-                    &lease,
-                    src.clone(),
-                    dest.clone(),
-                    file_value(digest_config, b"published"),
-                )
-                .await?;
+            drop(
+                dm.as_dyn()
+                    .publish(
+                        &lease,
+                        src.clone(),
+                        dest.clone(),
+                        file_value(digest_config, b"published"),
+                    )
+                    .await?,
+            );
 
             // `dest` is on disk before `publish` returns, and `src` stays tracked because it is
             // what `dest` copies from.

@@ -809,9 +809,11 @@ async fn test_publish_moves_the_content_and_tracks_it() -> buck2_error::Result<(
 
         let lease = dm.as_dyn().prepare_outputs(vec![src.clone()]).await?;
         fs.write_file(&src, "X", false)?;
-        dm.as_dyn()
-            .publish(&lease, src.clone(), dest.clone(), file("X"))
-            .await?;
+        drop(
+            dm.as_dyn()
+                .publish(&lease, src.clone(), dest.clone(), file("X"))
+                .await?,
+        );
         drop(lease);
         assert!(!fs.resolve(&src).exists());
         assert_eq!(std::fs::read_to_string(fs.resolve(&dest))?, "X");
@@ -820,9 +822,11 @@ async fn test_publish_moves_the_content_and_tracks_it() -> buck2_error::Result<(
         // The same content published again is redundant: the source goes, the destination stays.
         let lease = dm.as_dyn().prepare_outputs(vec![src.clone()]).await?;
         fs.write_file(&src, "X", false)?;
-        dm.as_dyn()
-            .publish(&lease, src.clone(), dest.clone(), file("X"))
-            .await?;
+        drop(
+            dm.as_dyn()
+                .publish(&lease, src.clone(), dest.clone(), file("X"))
+                .await?,
+        );
         drop(lease);
         assert!(!fs.resolve(&src).exists());
         assert_eq!(std::fs::read_to_string(fs.resolve(&dest))?, "X");
@@ -945,9 +949,11 @@ async fn test_a_published_output_enters_the_store() -> buck2_error::Result<()> {
         fs.write_file(&src, "published here", false)?;
         // Held as the action's value holds it; the store keeps nothing past the last holder.
         let published = file("published here");
-        dm.as_dyn()
-            .publish(&lease, src, dest, published.dupe())
-            .await?;
+        drop(
+            dm.as_dyn()
+                .publish(&lease, src, dest, published.dupe())
+                .await?,
+        );
         drop(lease);
         let copy = fs.resolve(path("buck-out/v2/gen/copy"));
         assert!(in_store(&dm, b"published here", &copy).await?);

@@ -245,6 +245,11 @@ impl ReadLease {
             },
         }
     }
+
+    /// One lease over everything `leases` hold.
+    pub fn join(leases: Vec<ReadLease>) -> Self {
+        Self::new(leases)
+    }
 }
 
 impl fmt::Debug for ReadLease {
@@ -356,6 +361,16 @@ impl WriteLease {
             self.abandon();
         }
         result
+    }
+
+    /// The lease as the holder's readers hold it once everything under it is reported: the roots
+    /// stay held, for reading, until the returned lease is dropped.
+    pub fn into_read_lease(mut self) -> ReadLease {
+        ReadLease {
+            _lease: Lease {
+                guard: self.lease.guard.take(),
+            },
+        }
     }
 
     /// The roots nothing has settled yet.
@@ -487,7 +502,7 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         src: ProjectRelativePathBuf,
         dest: ProjectRelativePathBuf,
         value: ArtifactValue,
-    ) -> buck2_error::Result<()>;
+    ) -> buck2_error::Result<ReadLease>;
 
     /// Ask the materializer if the artifacts at the set of paths match what is on disk or
     /// declared. Returns Ok(Ok) if they do and Ok(Err) if they don't. It's a result not a boolean
@@ -685,18 +700,19 @@ impl dyn Materializer {
 
     /// Makes the untracked content an action produced at `src`, which it holds `lease` for, the
     /// artifact at `dest`, described by `value`. The content moves: `src` is the caller's to
-    /// produce and not to keep. Returns once `dest` is on disk.
+    /// produce and not to keep. Returns once `dest` is on disk, with a lease over it for the
+    /// readers that follow.
     pub async fn publish(
         &self,
         lease: &WriteLease,
         src: ProjectRelativePathBuf,
         dest: ProjectRelativePathBuf,
         value: ArtifactValue,
-    ) -> buck2_error::Result<()> {
+    ) -> buck2_error::Result<ReadLease> {
         lease.check(&src)?;
-        self.publish_impl(lease, src.clone(), dest, value).await?;
+        let published = self.publish_impl(lease, src.clone(), dest, value).await?;
         lease.settle(&src);
-        Ok(())
+        Ok(published)
     }
 
     /// Declare an artifact at `path` whose files can be materialized by doing

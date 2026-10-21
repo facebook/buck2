@@ -616,11 +616,14 @@ impl LocalExecutor {
         // An action with neither outputs nor a scratch path has nothing to report under it.
         let outputs_lease = outputs_lease.unwrap_or_else(WriteLease::noop);
         // Set once the run's outputs have been collected: that report settles every root of the
-        // lease, what the run produced tracked and what it did not left. Every other way out
-        // leaves the run's partial content untracked, for the next run of the action to clear.
+        // lease, what the run produced tracked and what it did not left, and the leases over
+        // published content join the outputs lease for the result's readers. Every other way
+        // out leaves the run's partial content untracked, for the next run of the action to
+        // clear.
         let mut reported = false;
+        let mut published = Vec::new();
 
-        let result = async {
+        let mut result = async {
             manager.start_waiting_category(WaitingCategory::Unknown);
 
             // TODO: Release here.
@@ -771,8 +774,9 @@ impl LocalExecutor {
                         .boxed()
                         .await
                     {
-                        Ok((output_values, hashing_time)) => {
+                        Ok((output_values, hashing_time, leases)) => {
                             reported = true;
+                            published = leases;
                             (output_values, hashing_time)
                         }
                         Err(e) => {
@@ -879,8 +883,9 @@ impl LocalExecutor {
                         .boxed()
                         .await
                     {
-                        Ok((output_values, hashing_time)) => {
+                        Ok((output_values, hashing_time, leases)) => {
                             reported = true;
+                            published = leases;
                             (output_values, hashing_time)
                         }
                         Err(e) => {
@@ -904,7 +909,10 @@ impl LocalExecutor {
             }
         }
         .await;
-        if !reported {
+        if reported {
+            published.push(outputs_lease.into_read_lease());
+            result.outputs_lease = Some(ReadLease::join(published));
+        } else {
             outputs_lease.abandon();
         }
 
@@ -930,6 +938,7 @@ impl LocalExecutor {
     ) -> buck2_error::Result<(
         BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         HashingInfo,
+        Vec<ReadLease>,
     )> {
         let mut builder = inputs_directory(request.inputs(), digest_config, &self.artifact_fs)?;
 
@@ -997,12 +1006,11 @@ impl LocalExecutor {
         self.materializer
             .declare_existing(outputs_lease, to_declare)
             .await?;
-        buck2_util::future::try_join_all(
-            to_publish.into_iter().map(|(src, dest, value)| {
+        let published =
+            buck2_util::future::try_join_all(to_publish.into_iter().map(|(src, dest, value)| {
                 self.materializer.publish(outputs_lease, src, dest, value)
-            }),
-        )
-        .await?;
+            }))
+            .await?;
 
         Ok((
             mapped_outputs,
@@ -1010,6 +1018,7 @@ impl LocalExecutor {
                 hashing_duration: total_hashing_time,
                 hashed_artifacts_count: total_hashed_outputs,
             },
+            published,
         ))
     }
 

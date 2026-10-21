@@ -868,7 +868,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
         src: ProjectRelativePathBuf,
         dest: ProjectRelativePathBuf,
         value: ArtifactValue,
-    ) -> buck2_error::Result<()> {
+    ) -> buck2_error::Result<ReadLease> {
         if self.roots_of(lease)?.over(&src).is_none() {
             return Err(internal_error!(
                 "`{src}` was published from outside the write roots of its lease"
@@ -891,7 +891,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
             self.blocking_executor
                 .execute_io_inline(move || fs_util::remove_all(&src_abs).categorize_internal())
                 .await?;
-            return Ok(());
+            return Ok(ReadLease::new(Roots(vec![held.into_guard()])));
         }
         // Content-addressed paths hold one content forever, so nothing is ever tracked strictly
         // under an untracked one. Were it, the rename would replace what its readers hold.
@@ -922,7 +922,8 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
             root.entry,
             ArtifactClassification::IntermediateOnly,
         )
-        .await
+        .await?;
+        Ok(ReadLease::new(Roots(vec![held.into_guard()])))
     }
 
     /// Paths without values: `ensure_materialized`'s, for the previous outputs of an incremental

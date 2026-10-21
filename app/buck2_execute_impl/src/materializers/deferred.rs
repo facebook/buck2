@@ -669,7 +669,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         src: ProjectRelativePathBuf,
         dest: ProjectRelativePathBuf,
         value: ArtifactValue,
-    ) -> buck2_error::Result<()> {
+    ) -> buck2_error::Result<ReadLease> {
         // This materializer keeps `dest` as a copy of `src` rather than moving the content, and
         // makes the copy right away so that it happens while the caller still guarantees `src`
         // is intact. Moving would need writers serialized against readers of `dest`, which
@@ -698,7 +698,8 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             )
             .await?;
         self.ensure_materialized(vec![dest], MaterializationPurpose::IntermediateOnly)
-            .await
+            .await?;
+        Ok(ReadLease::noop())
     }
 
     async fn materialize_many(

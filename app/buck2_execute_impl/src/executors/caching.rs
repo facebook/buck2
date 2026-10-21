@@ -455,24 +455,27 @@ impl CacheUploader {
         }
 
         let uploads = async {
-            // FIXME(materializer): The execution that produced these outputs held a lease over
-            // them and knows their values; it should hand that lease on to the upload instead of
-            // the upload asking for the outputs again. No worse than before, so later.
-            let response = self
-                .materializer
-                .materialize(MaterializeRequest {
-                    artifacts: outputs_to_materialize,
-                    outputs: Vec::new(),
-                    purpose: MaterializationPurpose::IntermediateOnly,
-                    re_use_case: self.invocation_re_use_case,
-                })
-                .await
-                .buck_error_context("Error materializing outputs for cache upload")?;
-            for result in response.results {
-                result.buck_error_context("Error materializing outputs for cache upload")?;
-            }
-            // The uploads below read the outputs.
-            let _outputs_lease = response.lease;
+            // The uploads below read the outputs. The execution that produced them holds them
+            // through its result; one that did not, a remote run's say, has them put on disk here.
+            let _outputs_lease = if result.outputs_lease.is_some() {
+                None
+            } else {
+                let response = self
+                    .materializer
+                    .materialize(MaterializeRequest {
+                        artifacts: outputs_to_materialize,
+                        outputs: Vec::new(),
+                        purpose: MaterializationPurpose::IntermediateOnly,
+                        re_use_case: self.invocation_re_use_case,
+                    })
+                    .await
+                    .buck_error_context("Error materializing outputs for cache upload")?;
+                for materialized in response.results {
+                    materialized
+                        .buck_error_context("Error materializing outputs for cache upload")?;
+                }
+                Some(response.lease)
+            };
 
             buck2_util::future::try_join_all(upload_futs)
                 .await
