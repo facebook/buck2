@@ -30,7 +30,7 @@ use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::buck_indexset;
+use buck2_hash::buck_mut_insertion_set;
 use dupe::Dupe;
 use itertools::Itertools;
 use starlark::values::Heap;
@@ -166,7 +166,7 @@ fn register_actions() -> buck2_error::Result<()> {
             heap,
         )?;
 
-        let inputs = buck_indexset![ArtifactGroup::Artifact(
+        let inputs = buck_mut_insertion_set![ArtifactGroup::Artifact(
             BuildArtifact::testing_new(
                 base.unpack_target_label().unwrap().dupe(),
                 "input",
@@ -174,7 +174,7 @@ fn register_actions() -> buck2_error::Result<()> {
             )
             .into()
         )];
-        let outputs = buck_indexset![declared.as_output()];
+        let outputs = buck_mut_insertion_set![declared.as_output()];
 
         let unregistered_action = SimpleUnregisteredAction::new(
             inputs,
@@ -223,7 +223,7 @@ fn finalizing_actions() -> buck2_error::Result<()> {
             heap,
         )?;
 
-        let inputs = buck_indexset![ArtifactGroup::Artifact(
+        let inputs = buck_mut_insertion_set![ArtifactGroup::Artifact(
             BuildArtifact::testing_new(
                 base.unpack_target_label().unwrap().dupe(),
                 "input",
@@ -231,7 +231,7 @@ fn finalizing_actions() -> buck2_error::Result<()> {
             )
             .into()
         )];
-        let outputs = buck_indexset![declared.as_output()];
+        let outputs = buck_mut_insertion_set![declared.as_output()];
 
         let unregistered_action = SimpleUnregisteredAction::new(
             inputs,
@@ -301,13 +301,13 @@ fn category_identifier_test(
     );
     for (category, identifier) in action_names {
         let unregistered_action = SimpleUnregisteredAction::new(
-            buck_indexset![],
+            buck_mut_insertion_set![],
             vec![],
             Category::new((*category).to_owned()).unwrap(),
             identifier.map(|i| i.to_owned()),
         );
 
-        actions.register(&base, buck_indexset![], unregistered_action)?;
+        actions.register(&base, buck_mut_insertion_set![], unregistered_action)?;
     }
 
     (actions.finalize()?)(&AnalysisValueFetcher::testing_new(base))?;

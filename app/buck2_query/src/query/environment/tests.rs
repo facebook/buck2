@@ -14,7 +14,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use buck2_error::BuckErrorOptionContext;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_query::query::traversal::NodeLookup;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
@@ -35,7 +35,7 @@ struct TestTargetAttr;
 #[derive(Clone, Dupe, Eq, PartialEq)]
 struct TestTarget {
     id: TestTargetId,
-    deps: Arc<BuckIndexSet<TestTargetId>>,
+    deps: Arc<BuckMutInsertionSet<TestTargetId>>,
 }
 
 /// Custom debug to make the test output more readable
@@ -262,7 +262,7 @@ impl TestEnv {
 
 #[derive(Default)]
 pub struct TestEnvBuilder {
-    graph: BuckMutMap<u64, BuckIndexSet<u64>>,
+    graph: BuckMutMap<u64, BuckMutInsertionSet<u64>>,
 }
 
 impl TestEnvBuilder {
@@ -636,7 +636,7 @@ async fn test_partial_graph_somepath_skips_node_that_fails_to_load() -> buck2_er
 
 mod multi_query_merge {
     use buck2_core::cells::cell_path::CellPath;
-    use buck2_hash::BuckIndexMap;
+    use buck2_hash::BuckMutInsertionMap;
 
     use super::*;
     use crate::query::syntax::simple::eval::file_set::FileNode;
@@ -649,10 +649,10 @@ mod multi_query_merge {
         let mut env = TestEnvBuilder::default();
         env.edge(1, 2);
         let env = env.build();
-        let files = FileSet::new(BuckIndexSet::from_iter([FileNode(CellPath::testing_new(
-            "root//bin/TARGETS",
-        ))]));
-        MultiQueryResult(BuckIndexMap::from_iter([
+        let files = FileSet::new(BuckMutInsertionSet::from_iter([FileNode(
+            CellPath::testing_new("root//bin/TARGETS"),
+        )]));
+        MultiQueryResult(BuckMutInsertionMap::from_iter([
             (
                 "inputs(root//bin:the_binary)".to_owned(),
                 Ok(QueryEvaluationValue::FileSet(files)),
@@ -726,7 +726,7 @@ mod query_function_args {
         }
 
         async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet> {
-            Ok(FileSet::new(BuckIndexSet::from_iter([FileNode(
+            Ok(FileSet::new(BuckMutInsertionSet::from_iter([FileNode(
                 CellPath::testing_new(&format!("root//{literal}")),
             )])))
         }

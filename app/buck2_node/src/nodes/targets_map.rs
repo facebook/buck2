@@ -16,7 +16,7 @@ use allocative::Allocative;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_hash::BuckFixedInsertionSet;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_util::indent::indent;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -121,7 +121,7 @@ impl TargetsMap {
 /// Collects the targets a build file declares, in declaration order, into a [`TargetsMap`].
 #[derive(Debug, Default)]
 pub struct TargetsMapBuilder {
-    map: BuckIndexSet<NameIndexed>,
+    map: BuckMutInsertionSet<NameIndexed>,
 }
 
 impl TargetsMapBuilder {

@@ -15,7 +15,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -159,7 +159,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
 /// don't inadvertently cause flattening of those sets.
 fn find_target_nodes(
     targets: TargetSet<ConfiguredGraphNodeRef>,
-    label_to_artifact: BuckIndexMap<ConfiguredTargetLabel, Artifact>,
+    label_to_artifact: BuckMutInsertionMap<ConfiguredTargetLabel, Artifact>,
 ) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>> {
     let mut queue: VecDeque<_> = targets.iter().duped().collect();
     let mut seen = targets;

@@ -37,7 +37,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use dupe::Dupe;
 use either::Either;
@@ -483,7 +483,8 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             return Err(buck2_error::Error::from(ArtifactErrors::DuplicateBind(frozen)).into());
         }
 
-        let mut dep_file_labels: BuckIndexMap<ArtifactTag, Arc<str>> = BuckIndexMap::new();
+        let mut dep_file_labels: BuckMutInsertionMap<ArtifactTag, Arc<str>> =
+            BuckMutInsertionMap::new();
 
         if let Some(dep_files) = dep_files {
             for (key, tag) in dep_files {

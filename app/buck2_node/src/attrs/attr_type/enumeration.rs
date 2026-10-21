@@ -13,7 +13,7 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use buck2_hash::BuckFixedInsertionSet;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_util::arc_str::ArcStr;
 use pagable::Pagable;
 
@@ -33,7 +33,7 @@ enum EnumAttrError {
 
 impl EnumAttrType {
     pub fn new(variants: Vec<String>) -> buck2_error::Result<Self> {
-        let mut result = BuckIndexSet::with_capacity(variants.len());
+        let mut result = BuckMutInsertionSet::with_capacity(variants.len());
         for x in variants {
             if x != x.to_lowercase() {
                 return Err(EnumAttrError::NotLowercase(x).into());

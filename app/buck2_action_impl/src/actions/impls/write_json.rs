@@ -41,9 +41,9 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
-use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckIndexSet;
-use buck2_hash::buck_indexmap;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
+use buck2_hash::buck_mut_insertion_map;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -107,7 +107,7 @@ impl UnregisteredWriteJsonAction {
 impl UnregisteredAction for UnregisteredWriteJsonAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -127,7 +127,7 @@ struct WriteJsonAction {
 impl WriteJsonAction {
     fn new(
         contents: OwnedFrozen<Value<'static>>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         inner: UnregisteredWriteJsonAction,
     ) -> buck2_error::Result<Self> {
         contents.by_ref(|v| -> buck2_error::Result<()> {
@@ -211,9 +211,9 @@ impl Action for WriteJsonAction {
         &self,
         fs: &ExecutorFs,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<BuckIndexMap<String, String>> {
+    ) -> buck2_error::Result<BuckMutInsertionMap<String, String>> {
         let content = self.get_contents(fs, artifact_path_mapping)?;
-        Ok(buck_indexmap! {
+        Ok(buck_mut_insertion_map! {
             "contents".to_owned() => String::from_utf8(content)?,
             "absolute".to_owned() => self.inner.absolute.to_string(),
         })
@@ -270,7 +270,7 @@ impl Action for WriteJsonAction {
             - execution_start.internal_error("Action did not set execution_start")?;
 
         Ok((
-            ActionOutputs::new(buck_indexmap![self.output.get_path().dupe() => value]),
+            ActionOutputs::new(buck_mut_insertion_map![self.output.get_path().dupe() => value]),
             ActionExecutionMetadata {
                 dep_file_db_writes_queued: 0,
                 execution_kind,

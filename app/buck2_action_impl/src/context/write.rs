@@ -30,7 +30,7 @@ use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_hash::BuckMutMap;
-use buck2_hash::buck_indexset;
+use buck2_hash::buck_mut_insertion_set;
 use dupe::Dupe;
 use either::Either;
 use sha1::Digest;
@@ -203,7 +203,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         cli.visit_contents(&mut visitor)?;
 
         this.register_action(
-            buck_indexset![output_artifact],
+            buck_mut_insertion_set![output_artifact],
             UnregisteredWriteJsonAction::new(
                 pretty,
                 absolute,
@@ -262,7 +262,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
         visit_hmap_artifacts(content.value, &mut CommandLineInputVisitor::new(false))?;
         this.register_action(
-            buck_indexset![output_artifact],
+            buck_mut_insertion_set![output_artifact],
             UnregisteredWriteHmapAction {},
             Some(content.value),
             None,
@@ -406,7 +406,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 format!("__macros/{sha}")
             };
 
-            let mut written_macro_files = buck_indexset![];
+            let mut written_macro_files = buck_mut_insertion_set![];
             for i in 0..written_macro_count {
                 let macro_file = this.declare_output(
                     None,
@@ -435,12 +435,12 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
 
             written_macro_files
         } else {
-            buck_indexset![]
+            buck_mut_insertion_set![]
         };
 
         let action = {
             let maybe_macro_files = if allow_args {
-                let mut macro_files = buck_indexset![];
+                let mut macro_files = buck_mut_insertion_set![];
                 for a in &written_macro_files {
                     let artifact = a.dupe().ensure_bound()?.into_artifact();
                     macro_files.insert(artifact.dupe());
@@ -459,7 +459,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         let fingerprint_macro_files =
             dep_files_fingerprint_using_canonical_paths.then(|| action.macro_files.clone());
         this.register_action(
-            buck_indexset![output_artifact],
+            buck_mut_insertion_set![output_artifact],
             action,
             Some(content_cli.to_value()),
             None,

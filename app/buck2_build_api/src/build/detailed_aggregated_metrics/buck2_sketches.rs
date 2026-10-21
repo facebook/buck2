@@ -498,7 +498,7 @@ mod tests {
     use buck2_execute::directory::insert_file;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_hash::BuckFixedSortedMap;
-    use buck2_hash::BuckIndexSet;
+    use buck2_hash::BuckMutInsertionSet;
     use buck2_hash::BuckMutMap;
     use buck2_hash::BuckMutSet;
     use dupe::Dupe;
@@ -556,8 +556,8 @@ mod tests {
 
     impl MockAction {
         fn new(
-            inputs: BuckIndexSet<ArtifactGroup>,
-            outputs: BuckIndexSet<BuildArtifact>,
+            inputs: BuckMutInsertionSet<ArtifactGroup>,
+            outputs: BuckMutInsertionSet<BuildArtifact>,
             identifier: Option<String>,
         ) -> Self {
             Self {
@@ -635,7 +635,7 @@ mod tests {
             action_key.dupe(),
             Box::new(MockAction::new(
                 inputs.into_iter().cloned().collect(),
-                BuckIndexSet::from([output.dupe()]),
+                BuckMutInsertionSet::from([output.dupe()]),
                 Some(format!("action-{index}")),
             )),
             CommandExecutorConfig::testing_local(),

@@ -36,7 +36,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_hash::BuckFixedSortedMap;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
@@ -891,10 +891,10 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
         self,
     ) -> impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)> + 'a {
         struct Traversal {
-            queries: BuckIndexSet<(String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
+            queries: BuckMutInsertionSet<(String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
         }
         let mut traversal = Traversal {
-            queries: BuckIndexSet::default(),
+            queries: BuckMutInsertionSet::default(),
         };
         impl ConfiguredAttrTraversal for Traversal {
             fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {

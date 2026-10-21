@@ -19,7 +19,7 @@ use buck2_core::bxl::BxlFilePath;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_hash::BuckFixedInsertionMap;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use cli_args::CliArgs;
 use derive_more::Display;
@@ -264,7 +264,7 @@ impl<'a> BxlCliSpec<'a> {
         clap: clap::ArgMatches,
         ctx: &CliResolutionCtx<'_>,
     ) -> buck2_error::Result<BuckFixedInsertionMap<String, CliArgValue>> {
-        let mut res = BuckIndexMap::with_capacity(self.cli_args.len());
+        let mut res = BuckMutInsertionMap::with_capacity(self.cli_args.len());
 
         for (arg, cli) in self.cli_args.iter() {
             let snake_case_args = arg.replace('-', "_");

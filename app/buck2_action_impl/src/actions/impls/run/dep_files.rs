@@ -96,7 +96,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 use buck2_hash::BuckDashMap;
 use buck2_hash::BuckFixedInsertionMap;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_util::strong_hasher::Blake3StrongHasher;
@@ -2161,7 +2161,7 @@ pub(crate) struct PartitionedInputs<D> {
 /// the command line, and the directory builders a dep file is applied to.
 pub(crate) struct PartitionedInputsBuilder<D> {
     untagged: D,
-    tagged: BuckIndexMap<Arc<str>, D>,
+    tagged: BuckMutInsertionMap<Arc<str>, D>,
 }
 
 impl<D> PartitionedInputsBuilder<D> {
@@ -2667,7 +2667,7 @@ impl ConcreteDepFiles {
 /// computations.
 pub(crate) struct DepFilesCommandLineVisitor<'a> {
     pub(crate) inputs: PartitionedInputsBuilder<Vec<ArtifactGroup>>,
-    pub(crate) tagged_outputs: BuckIndexMap<ArtifactTag, (Arc<str>, Option<Artifact>)>,
+    pub(crate) tagged_outputs: BuckMutInsertionMap<ArtifactTag, (Arc<str>, Option<Artifact>)>,
     dep_files: &'a RunActionDepFiles,
 }
 
@@ -2675,17 +2675,18 @@ impl<'a> DepFilesCommandLineVisitor<'a> {
     pub(crate) fn new(dep_files: &'a RunActionDepFiles) -> Self {
         // Prepopulate inputs & outputs to maintain the ordering of the labels declaration.
 
-        let tagged_inputs: BuckIndexMap<Arc<str>, Vec<ArtifactGroup>> = dep_files
+        let tagged_inputs: BuckMutInsertionMap<Arc<str>, Vec<ArtifactGroup>> = dep_files
             .labels
             .iter()
             .map(|(_tag, label)| (label.dupe(), Default::default()))
             .collect();
 
-        let tagged_outputs: BuckIndexMap<ArtifactTag, (Arc<str>, Option<Artifact>)> = dep_files
-            .labels
-            .iter()
-            .map(|(tag, label)| (tag.dupe(), (label.dupe(), None)))
-            .collect();
+        let tagged_outputs: BuckMutInsertionMap<ArtifactTag, (Arc<str>, Option<Artifact>)> =
+            dep_files
+                .labels
+                .iter()
+                .map(|(tag, label)| (tag.dupe(), (label.dupe(), None)))
+                .collect();
         Self {
             inputs: PartitionedInputsBuilder {
                 untagged: Default::default(),
@@ -2811,7 +2812,7 @@ mod tests {
             identifier: None,
         };
         let state = Arc::new(dep_file_state_with(
-            ActionOutputs::new(BuckIndexMap::new()),
+            ActionOutputs::new(BuckMutInsertionMap::new()),
             DigestConfig::testing_default(),
         ));
 
@@ -2971,7 +2972,7 @@ mod tests {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let artifact = BuildArtifact::testing_new(target, "out", ActionIndex::new(0));
-        ActionOutputs::new(BuckIndexMap::from_iter([(
+        ActionOutputs::new(BuckMutInsertionMap::from_iter([(
             artifact.get_path().dupe(),
             value,
         )]))

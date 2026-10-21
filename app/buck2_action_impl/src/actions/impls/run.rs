@@ -99,11 +99,11 @@ use buck2_execute::re::client::is_induced_cache_miss;
 use buck2_fs::fs_util;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckFixedSortedSet;
-use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
-use buck2_hash::buck_indexmap;
+use buck2_hash::buck_mut_insertion_map;
 use derive_more::Display;
 use dupe::Dupe;
 use host_sharing::HostSharingRequirements;
@@ -321,7 +321,7 @@ pub(crate) struct UnregisteredRunAction {
 impl UnregisteredAction for UnregisteredRunAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozen<Value<'static>>>,
         error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -490,15 +490,15 @@ type ExpandedCommandLineDigestForDepFiles = ExpandedCommandLineDigest;
 
 /// A CommandLineArtifactVisitor that gathers non-hidden inputs.
 pub struct SkipHiddenCommandLineArtifactVisitor {
-    pub inputs: BuckIndexSet<ArtifactGroup>,
-    pub path_only_inputs: BuckIndexSet<ArtifactGroup>,
+    pub inputs: BuckMutInsertionSet<ArtifactGroup>,
+    pub path_only_inputs: BuckMutInsertionSet<ArtifactGroup>,
 }
 
 impl SkipHiddenCommandLineArtifactVisitor {
     pub fn new() -> Self {
         Self {
-            inputs: BuckIndexSet::default(),
-            path_only_inputs: BuckIndexSet::default(),
+            inputs: BuckMutInsertionSet::default(),
+            path_only_inputs: BuckMutInsertionSet::default(),
         }
     }
 }
@@ -741,7 +741,7 @@ impl RunAction {
 
             let input_paths = CommandExecutionPaths::new(
                 inputs,
-                BuckIndexSet::default(),
+                BuckMutInsertionSet::default(),
                 action_execution_ctx.fs(),
                 action_execution_ctx.digest_config(),
                 action_execution_ctx
@@ -845,7 +845,7 @@ impl RunAction {
 
             let input_paths = CommandExecutionPaths::new(
                 inputs,
-                BuckIndexSet::default(),
+                BuckMutInsertionSet::default(),
                 action_execution_ctx.fs(),
                 action_execution_ctx.digest_config(),
                 action_execution_ctx
@@ -957,7 +957,7 @@ impl RunAction {
     pub(crate) fn new(
         inner: UnregisteredRunAction,
         starlark_values: OwnedFrozen<Value<'static>>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Self> {
         let starlark_values: OwnedFrozen<
@@ -1503,7 +1503,7 @@ pub struct RunActionVisitor<'a> {
     pub(crate) incremental_metadata_inputs: Vec<ArtifactGroup>,
     incremental_metadata_ignore_tags: Option<&'a BuckFixedSortedSet<ArtifactTag>>,
     /// Built but never materialized; folded into the action key as a salt.
-    digest_inputs: BuckIndexSet<ArtifactGroup>,
+    digest_inputs: BuckMutInsertionSet<ArtifactGroup>,
 }
 
 impl<'a> RunActionVisitor<'a> {
@@ -1515,7 +1515,7 @@ impl<'a> RunActionVisitor<'a> {
             dep_files_visitor: DepFilesCommandLineVisitor::new(dep_files),
             incremental_metadata_inputs: Vec::new(),
             incremental_metadata_ignore_tags,
-            digest_inputs: BuckIndexSet::default(),
+            digest_inputs: BuckMutInsertionSet::default(),
         }
     }
 
@@ -1638,14 +1638,14 @@ impl Action for RunAction {
         &self,
         fs: &ExecutorFs,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<BuckIndexMap<String, String>> {
+    ) -> buck2_error::Result<BuckMutInsertionMap<String, String>> {
         let values = Self::unpack(self.values())?;
         let mut cli_rendered = Vec::<String>::new();
         let mut fmt = CommandLineBuilder::new(&mut cli_rendered, artifact_path_mapping, fs);
         values.exe.add_to_command_line(&mut fmt)?;
         values.args.add_to_command_line(&mut fmt)?;
         let cmd = format!("[{}]", cli_rendered.iter().join(", "));
-        Ok(buck_indexmap! {
+        Ok(buck_mut_insertion_map! {
             "cmd".to_owned() => cmd,
             "executor_preference".to_owned() => self.inner.executor_preference.to_string(),
             "always_print_stderr".to_owned() => self.inner.always_print_stderr.to_string(),

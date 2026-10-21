@@ -642,7 +642,7 @@ mod tests {
     use buck2_artifact::artifact::build_artifact::BuildArtifact;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-    use buck2_hash::BuckIndexSet;
+    use buck2_hash::BuckMutInsertionSet;
 
     use super::*;
 
@@ -662,12 +662,15 @@ mod tests {
         let a2 = new_test_artifact_group(2);
         let a3 = new_test_artifact_group(3);
         let p1 = PendingStreamingOutput::new(
-            BuckIndexSet::from([a1.dupe(), a2.dupe()]),
+            BuckMutInsertionSet::from([a1.dupe(), a2.dupe()]),
             b"output1".to_vec(),
         );
-        let p2 = PendingStreamingOutput::new(BuckIndexSet::from([a1.dupe()]), b"output2".to_vec());
+        let p2 = PendingStreamingOutput::new(
+            BuckMutInsertionSet::from([a1.dupe()]),
+            b"output2".to_vec(),
+        );
         let p3 = PendingStreamingOutput::new(
-            BuckIndexSet::from([a2.dupe(), a3.dupe()]),
+            BuckMutInsertionSet::from([a2.dupe(), a3.dupe()]),
             b"output3".to_vec(),
         );
 

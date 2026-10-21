@@ -26,7 +26,7 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern::InferTargetNames;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -74,7 +74,7 @@ pub struct Tester {
     cell_alias_resolver: CellAliasResolver,
     cell_resolver: CellResolver,
     root_config: LegacyBuckConfig,
-    loaded_modules: BuckIndexMap<OwnedStarlarkModulePath, LoadedModule>,
+    loaded_modules: BuckMutInsertionMap<OwnedStarlarkModulePath, LoadedModule>,
     additional_globals: Vec<AdditionalGlobalsFn>,
     prelude_path: Option<PreludePath>,
     current_dir_with_allowed_relative_dirs: Arc<CellPathWithAllowedRelativeDir>,
@@ -170,7 +170,7 @@ impl Tester {
             cell_alias_resolver,
             cell_resolver,
             root_config,
-            loaded_modules: BuckIndexMap::default(),
+            loaded_modules: BuckMutInsertionMap::default(),
             additional_globals: Vec::new(),
             prelude_path: None,
             current_dir_with_allowed_relative_dirs: current_dir_with_allowed_relative_dirs.into(),

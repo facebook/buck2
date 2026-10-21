@@ -18,7 +18,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
@@ -36,7 +36,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
         OwnedFrozenRef<'v, &'static FrozenDynamicLambdaParams<'static>>,
         &'v mut DiceComputations,
         InputArtifactsMaterialized,
-        &'v BuckIndexMap<&Artifact, &ArtifactValue>,
+        &'v BuckMutInsertionMap<&Artifact, &ArtifactValue>,
         BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
         DigestConfig,
         CancellationObserver,
@@ -51,7 +51,7 @@ pub async fn eval_bxl_for_dynamic_output<'v>(
     dynamic_lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams<'static>>,
     dice_ctx: &'v mut DiceComputations<'_>,
     input_artifacts_materialized: InputArtifactsMaterialized,
-    ensured_artifacts: &'v BuckIndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &'v BuckMutInsertionMap<&Artifact, &ArtifactValue>,
     resolved_dynamic_values: BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
     digest_config: DigestConfig,
     liveness: CancellationObserver,

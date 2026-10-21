@@ -88,7 +88,7 @@ use buck2_fs::async_fs_util;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_resource_control::ActionFreezeEvent;
 use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::CommandType;
@@ -909,7 +909,7 @@ impl LocalExecutor {
         digest_config: DigestConfig,
         outputs_lease: &WriteLease,
     ) -> buck2_error::Result<(
-        BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+        BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         HashingInfo,
     )> {
         let mut builder = inputs_directory(request.inputs(), digest_config, &self.artifact_fs)?;
@@ -944,7 +944,7 @@ impl LocalExecutor {
 
         let mut to_declare = vec![];
         let mut to_publish = vec![];
-        let mut mapped_outputs = BuckIndexMap::with_capacity(entries.len());
+        let mut mapped_outputs = BuckMutInsertionMap::with_capacity(entries.len());
 
         for (output, output_path) in entries {
             let value = extract_artifact_value(&builder, &output_path, digest_config)?;

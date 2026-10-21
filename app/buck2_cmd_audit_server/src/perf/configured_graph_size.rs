@@ -15,7 +15,7 @@ use buck2_build_api::build::graph_properties::debug_compute_configured_graph_pro
 use buck2_cli_proto::ClientContext;
 use buck2_cmd_audit_client::perf::configured_graph_size::ConfiguredGraphSizeCommand;
 use buck2_core::configuration::compatibility::MaybeCompatible;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -47,7 +47,7 @@ pub(crate) async fn server_execute(
                 sketch: Option<String>,
                 duration_ms: u64,
             }
-            let mut results = BuckIndexMap::default();
+            let mut results = BuckMutInsertionMap::default();
 
             // We intentionally don't do this in parallel so that we can get the computation time for them.
             for target in &targets {

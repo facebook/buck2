@@ -24,7 +24,7 @@ use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_util::future::try_join_all;
 use dupe::Dupe;
 use itertools::Itertools;
@@ -33,16 +33,16 @@ use tracing::info;
 /// For each unhashed path, the hashed paths that claim it, each with the artifact's value and the
 /// path of that value under the hashed path: empty when the artifact is the whole of what is
 /// there, the projection's path when it is a part of it.
-type UnhashedOutputLinks = BuckIndexMap<
+type UnhashedOutputLinks = BuckMutInsertionMap<
     ProjectRelativePathBuf,
-    BuckIndexMap<ProjectRelativePathBuf, (ArtifactValue, ForwardRelativePathBuf)>,
+    BuckMutInsertionMap<ProjectRelativePathBuf, (ArtifactValue, ForwardRelativePathBuf)>,
 >;
 
 fn unhashed_output_links(
     provider_artifacts: Vec<ProviderArtifacts>,
     artifact_fs: &ArtifactFs,
 ) -> buck2_error::Result<UnhashedOutputLinks> {
-    let mut unhashed_to_hashed: UnhashedOutputLinks = BuckIndexMap::new();
+    let mut unhashed_to_hashed: UnhashedOutputLinks = BuckMutInsertionMap::new();
     for provider_artifact in provider_artifacts {
         if !matches!(provider_artifact.provider_type, BuildProviderType::Default) {
             continue;

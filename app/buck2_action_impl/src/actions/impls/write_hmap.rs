@@ -39,9 +39,9 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
-use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckIndexSet;
-use buck2_hash::buck_indexmap;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
+use buck2_hash::buck_mut_insertion_map;
 use dupe::Dupe;
 use hmap::ByteOrder;
 use hmap::HeaderMap;
@@ -97,7 +97,7 @@ pub(crate) struct UnregisteredWriteHmapAction {}
 impl UnregisteredAction for UnregisteredWriteHmapAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -116,7 +116,7 @@ struct WriteHmapAction {
 impl WriteHmapAction {
     fn new(
         contents: OwnedFrozen<Value<'static>>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
     ) -> buck2_error::Result<Self> {
         let mut outputs = outputs.into_iter();
 
@@ -206,8 +206,8 @@ impl Action for WriteHmapAction {
         &self,
         fs: &ExecutorFs,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<BuckIndexMap<String, String>> {
-        Ok(buck_indexmap! {
+    ) -> buck2_error::Result<BuckMutInsertionMap<String, String>> {
+        Ok(buck_mut_insertion_map! {
             "contents_hex".to_owned() => hex::encode(self.get_contents(fs, artifact_path_mapping)?),
         })
     }
@@ -255,7 +255,7 @@ impl Action for WriteHmapAction {
             - execution_start.internal_error("Action did not set execution_start")?;
 
         Ok((
-            ActionOutputs::new(buck_indexmap![self.output.get_path().dupe() => value]),
+            ActionOutputs::new(buck_mut_insertion_map![self.output.get_path().dupe() => value]),
             ActionExecutionMetadata {
                 dep_file_db_writes_queued: 0,
                 execution_kind: ActionExecutionKind::Simple,

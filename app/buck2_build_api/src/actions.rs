@@ -63,11 +63,11 @@ use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_file_watcher::dep_files::DepFileCache;
 use buck2_file_watcher::mergebase::Mergebase;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
-use buck2_hash::buck_indexmap;
+use buck2_hash::buck_mut_insertion_map;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
@@ -110,7 +110,7 @@ pub trait UnregisteredAction: Allocative + Send {
     /// and no longer bindable to any other 'Artifact's.
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozen<Value<'static>>>,
         error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>>;
@@ -180,8 +180,8 @@ pub trait Action: PagableTagged + Allocative + Debug + Send + Sync + 'static {
         &self,
         _fs: &ExecutorFs,
         _artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<BuckIndexMap<String, String>> {
-        Ok(buck_indexmap! {})
+    ) -> buck2_error::Result<BuckMutInsertionMap<String, String>> {
+        Ok(buck_mut_insertion_map! {})
     }
 
     fn error_handler(&self) -> Option<&OwnedFrozen<Value<'static>>> {
@@ -312,7 +312,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// `filter` when given.
     fn artifact_path_mapping(
         &self,
-        filter: Option<&BuckIndexSet<ArtifactGroup>>,
+        filter: Option<&BuckMutInsertionSet<ArtifactGroup>>,
     ) -> BuckMutMap<&Artifact, ContentBasedPathHash>;
 
     /// Like `artifact_path_mapping` over the union of `rendered` and `path_only`,
@@ -320,8 +320,8 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// the inputs serves both.
     fn artifact_path_mapping_with_path_only(
         &self,
-        rendered: &BuckIndexSet<ArtifactGroup>,
-        path_only: &BuckIndexSet<ArtifactGroup>,
+        rendered: &BuckMutInsertionSet<ArtifactGroup>,
+        path_only: &BuckMutInsertionSet<ArtifactGroup>,
     ) -> (
         BuckMutMap<&Artifact, ContentBasedPathHash>,
         BuckMutSet<&Artifact>,
@@ -478,14 +478,14 @@ impl Deref for RegisteredAction {
 #[derive(Allocative)]
 struct ActionToBeRegistered {
     key: ActionKey,
-    outputs: BuckIndexSet<BuildArtifact>,
+    outputs: BuckMutInsertionSet<BuildArtifact>,
     action: Box<dyn UnregisteredAction>,
 }
 
 impl ActionToBeRegistered {
     fn new<A: UnregisteredAction + 'static>(
         key: ActionKey,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         a: A,
     ) -> Self {
         Self {

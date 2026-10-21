@@ -40,9 +40,9 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
-use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckIndexSet;
-use buck2_hash::buck_indexmap;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
+use buck2_hash::buck_mut_insertion_map;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -65,7 +65,7 @@ enum WriteActionValidationError {
 }
 
 pub(crate) struct CommandLineContentBasedInputVisitor {
-    pub(crate) content_based_inputs: BuckIndexSet<ArtifactGroup>,
+    pub(crate) content_based_inputs: BuckMutInsertionSet<ArtifactGroup>,
 }
 
 impl CommandLineContentBasedInputVisitor {
@@ -122,7 +122,7 @@ pub(crate) struct UnregisteredWriteAction {
 impl UnregisteredAction for UnregisteredWriteAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -143,7 +143,7 @@ struct WriteAction {
 impl WriteAction {
     fn new(
         contents: OwnedFrozen<Value<'static>>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         inner: UnregisteredWriteAction,
     ) -> buck2_error::Result<Self> {
         let mut outputs = outputs.into_iter();
@@ -239,8 +239,8 @@ impl Action for WriteAction {
         &self,
         fs: &ExecutorFs,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<BuckIndexMap<String, String>> {
-        Ok(buck_indexmap! {
+    ) -> buck2_error::Result<BuckMutInsertionMap<String, String>> {
+        Ok(buck_mut_insertion_map! {
             "contents".to_owned() => self.get_contents(fs, artifact_path_mapping)?,
             "absolute".to_owned() => self.inner.absolute.to_string(),
         })
@@ -299,7 +299,7 @@ impl Action for WriteAction {
             - execution_start.internal_error("Action did not set execution_start")?;
 
         Ok((
-            ActionOutputs::new(buck_indexmap![self.output.get_path().dupe() => value]),
+            ActionOutputs::new(buck_mut_insertion_map![self.output.get_path().dupe() => value]),
             ActionExecutionMetadata {
                 dep_file_db_writes_queued: 0,
                 execution_kind,

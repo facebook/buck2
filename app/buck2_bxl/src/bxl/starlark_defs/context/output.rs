@@ -32,7 +32,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::starlark_error::from_starlark_with_options;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_server_ctx::bxl::BxlStreamingTracker;
 use buck2_server_ctx::bxl::GetBxlStreamingTracker;
 use derivative::Derivative;
@@ -120,11 +120,11 @@ pub(crate) struct OutputStreamState {
 pub(crate) struct OutputStreamOutcome {
     /// set of artifacts that need to be materialized, flattened from
     /// the original EnsuredArtifactOrGroup entries.
-    pub(crate) ensured_artifacts: BuckIndexSet<ArtifactGroup>,
+    pub(crate) ensured_artifacts: BuckMutInsertionSet<ArtifactGroup>,
     pub(crate) output: Vec<u8>,
     pub(crate) streaming: Vec<u8>,
     pub(crate) error: Vec<u8>,
-    pub(crate) pending_streaming_outputs: Vec<(BuckIndexSet<ArtifactGroup>, Vec<u8>)>,
+    pub(crate) pending_streaming_outputs: Vec<(BuckMutInsertionSet<ArtifactGroup>, Vec<u8>)>,
 }
 
 #[derive(
@@ -196,7 +196,7 @@ impl OutputStreamState {
             .into_iter()
             .map(EnsuredArtifactOrGroup::into_artifact_groups)
             .flatten_ok()
-            .collect::<buck2_error::Result<BuckIndexSet<ArtifactGroup>>>()?;
+            .collect::<buck2_error::Result<BuckMutInsertionSet<ArtifactGroup>>>()?;
         let pending_streaming_outputs = state
             .pending_streaming_outputs
             .into_iter()
@@ -205,10 +205,10 @@ impl OutputStreamState {
                     .into_iter()
                     .map(|ensured_artifact| ensured_artifact.into_artifact_groups())
                     .flatten_ok()
-                    .collect::<buck2_error::Result<BuckIndexSet<ArtifactGroup>>>()?;
+                    .collect::<buck2_error::Result<BuckMutInsertionSet<ArtifactGroup>>>()?;
                 Ok((artifacts, output_str))
             })
-            .collect::<buck2_error::Result<Vec<(BuckIndexSet<ArtifactGroup>, Vec<u8>)>>>()?;
+            .collect::<buck2_error::Result<Vec<(BuckMutInsertionSet<ArtifactGroup>, Vec<u8>)>>>()?;
         Ok(OutputStreamOutcome {
             ensured_artifacts: artifacts,
             output: state.output,

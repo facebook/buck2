@@ -24,7 +24,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
-use buck2_hash::buck_indexmap;
+use buck2_hash::buck_mut_insertion_map;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
@@ -273,11 +273,11 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
                             match includes {
                                 Ok(includes) => map.serialize_entry(
                                     path,
-                                    &buck_indexmap! {"includes" => &includes},
+                                    &buck_mut_insertion_map! {"includes" => &includes},
                                 )?,
                                 Err(e) => map.serialize_entry(
                                     path,
-                                    &buck_indexmap! {"$error" => format!("{:#}", e)},
+                                    &buck_mut_insertion_map! {"$error" => format!("{:#}", e)},
                                 )?,
                             }
                         }

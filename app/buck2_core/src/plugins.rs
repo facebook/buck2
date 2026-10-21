@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use allocative::Allocative;
 use buck2_hash::BuckFixedInsertionMap;
 use buck2_hash::BuckHasher;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::index_map::Entry;
 use buck2_util::size_assert;
 use derive_more::Display;
@@ -325,7 +325,9 @@ impl PluginLists {
 
 /// Accumulates a target's [`PluginLists`] while its dependencies are gathered.
 #[derive(Default)]
-pub struct PluginListsBuilder(BTreeMap<PluginKind, BuckIndexMap<TargetLabel, PluginListElemKind>>);
+pub struct PluginListsBuilder(
+    BTreeMap<PluginKind, BuckMutInsertionMap<TargetLabel, PluginListElemKind>>,
+);
 
 impl PluginListsBuilder {
     pub fn new() -> Self {

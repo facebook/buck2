@@ -35,7 +35,7 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use dupe::Dupe;
 use itertools::Itertools;
 use pagable::Pagable;
@@ -227,7 +227,7 @@ impl UnregisteredAssembledDirAction {
 impl UnregisteredAction for UnregisteredAssembledDirAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {

@@ -30,7 +30,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutSet;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_query::query::environment::QueryTarget;
@@ -262,7 +262,7 @@ impl ActionData {
         &self.deps
     }
 
-    fn attrs(&self) -> buck2_error::Result<BuckIndexMap<String, String>> {
+    fn attrs(&self) -> buck2_error::Result<BuckMutInsertionMap<String, String>> {
         let mut attrs = self.action.action().aquery_attributes(
             &ExecutorFs::new(
                 &self.fs,

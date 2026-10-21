@@ -137,11 +137,11 @@ use buck2_execute_impl::executors::local::output_paths;
 use buck2_execute_impl::executors::local::prep_scratch_path;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
-use buck2_hash::buck_indexset;
+use buck2_hash::buck_mut_insertion_set;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_resource_control::HasResourceControl;
@@ -259,7 +259,7 @@ impl OwnedTestInfo {
         }
     }
 
-    fn local_resources(&self) -> BuckIndexMap<&str, Option<&ConfiguredProvidersLabel>> {
+    fn local_resources(&self) -> BuckMutInsertionMap<&str, Option<&ConfiguredProvidersLabel>> {
         match self {
             Self::External(info) => info.as_ref().value().as_ref().local_resources(),
             Self::Internal(info) => info.as_ref().value().as_ref().local_resources(),
@@ -901,7 +901,7 @@ impl Display for TestExecutionKey {
 struct PreparedLocalResourceSetupContext {
     pub target: ConfiguredTargetLabel,
     pub execution_request: CommandExecutionRequest,
-    pub env_var_mapping: BuckIndexMap<String, String>,
+    pub env_var_mapping: BuckMutInsertionMap<String, String>,
 }
 
 #[derive(Clone, Dupe, Allocative)]
@@ -1795,7 +1795,8 @@ impl BuckTestOrchestrator<'_> {
 
         let output_root = resolve_output_root(dice, test_target, stage).await?;
 
-        let mut declared_outputs = BuckIndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
+        let mut declared_outputs =
+            BuckMutInsertionMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
         let mut supports_re = true;
 
@@ -1866,7 +1867,7 @@ impl BuckTestOrchestrator<'_> {
         cmd: Vec<String>,
         env: SortedVectorMap<String, String>,
         ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
-        declared_outputs: BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
+        declared_outputs: BuckMutInsertionMap<BuckOutTestPath, OutputCreationBehavior>,
         argsfile_inputs: Vec<CommandExecutionInput>,
         fs: &ArtifactFs,
         timeout: Option<Duration>,
@@ -2056,7 +2057,7 @@ impl BuckTestOrchestrator<'_> {
             .collect();
         let paths = CommandExecutionPaths::new(
             inputs,
-            buck_indexset![],
+            buck_mut_insertion_set![],
             fs,
             digest_config,
             dice.per_transaction_data()
@@ -2205,7 +2206,7 @@ struct Execute2RequestExpander<'a> {
     test_info: &'a OwnedTestInfo,
     stage: &'a TestStage,
     output_root: &'a ForwardRelativePath,
-    declared_outputs: &'a mut BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
+    declared_outputs: &'a mut BuckMutInsertionMap<BuckOutTestPath, OutputCreationBehavior>,
     fs: &'a ExecutorFs<'a>,
     cmd: Vec<ExpandableArg>,
     env: Cow<'a, SortedVectorMap<String, ArgValue>>,
@@ -2241,7 +2242,7 @@ fn make_visit_arg_artifacts<'v>(
 }
 
 impl<'a> Execute2RequestExpander<'a> {
-    fn get_inputs(&self) -> buck2_error::Result<BuckIndexSet<ArtifactGroup>> {
+    fn get_inputs(&self) -> buck2_error::Result<BuckMutInsertionSet<ArtifactGroup>> {
         let Execute2RequestExpander {
             test_info,
             stage,
@@ -2275,7 +2276,7 @@ impl<'a> Execute2RequestExpander<'a> {
 
     fn expand_arg_value<'v>(
         fmt: &mut CommandLineBuilder<'v, '_>,
-        declared_outputs: &mut BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
+        declared_outputs: &mut BuckMutInsertionMap<BuckOutTestPath, OutputCreationBehavior>,
         value: &'v ArgValue,
         cli_args_for_interpolation: &[&dyn CommandLineArgLike<'v>],
         env_for_interpolation: &BuckMutMap<&str, &dyn CommandLineArgLike<'v>>,
@@ -2430,7 +2431,7 @@ impl<'a> Execute2RequestExpander<'a> {
                     // TODO(ianc): Support input_paths on test workers
                     input_paths: CommandExecutionPaths::new(
                         vec![],
-                        buck_indexset![],
+                        buck_mut_insertion_set![],
                         fs.fs(),
                         digest_config,
                         None,
@@ -2484,7 +2485,7 @@ struct ExpandedTestExecutable {
     env: SortedVectorMap<String, String>,
     ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
     supports_re: bool,
-    declared_outputs: BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
+    declared_outputs: BuckMutInsertionMap<BuckOutTestPath, OutputCreationBehavior>,
     /// Argsfiles the runner supplied, already written; these become inputs of the action.
     argsfile_inputs: Vec<CommandExecutionInput>,
     worker: Option<WorkerSpec>,
@@ -2866,8 +2867,13 @@ mod tests {
             },
             remote_execution::Platform { properties: vec![] },
         );
-        let paths =
-            CommandExecutionPaths::new(vec![], BuckIndexSet::default(), &fs, digest_config, None)?;
+        let paths = CommandExecutionPaths::new(
+            vec![],
+            BuckMutInsertionSet::default(),
+            &fs,
+            digest_config,
+            None,
+        )?;
         let request = CommandExecutionRequest::new(
             vec![],
             vec!["false".to_owned()],

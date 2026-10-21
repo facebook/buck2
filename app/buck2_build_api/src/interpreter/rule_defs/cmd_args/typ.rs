@@ -22,7 +22,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_error::BuckErrorOptionContext;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_util::size_assert;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -90,7 +90,7 @@ pub enum CommandLineError {
         "Artifact(s) {0:?} are content-based and `hidden` under `ignore_artifacts`: nothing renders them, so nothing would carry their content to the action"
     )]
     #[buck2(input)]
-    HiddenContentBasedIgnoreArtifacts(BuckIndexSet<String>),
+    HiddenContentBasedIgnoreArtifacts(BuckMutInsertionSet<String>),
 }
 
 /// Forwards to `inner`, rewriting the properties of every input below.
@@ -346,7 +346,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
         /// since nothing would render it.
         struct PathOnlyVisitor<'a, 'v> {
             inner: &'a mut dyn CommandLineArtifactVisitor<'v>,
-            rejected: BuckIndexSet<String>,
+            rejected: BuckMutInsertionSet<String>,
         }
 
         impl<'v> CommandLineArtifactVisitor<'v> for PathOnlyVisitor<'_, 'v> {
@@ -429,7 +429,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
 
         let mut path_only_visitor = PathOnlyVisitor {
             inner: visitor,
-            rejected: BuckIndexSet::default(),
+            rejected: BuckMutInsertionSet::default(),
         };
         visit_items(&mut path_only_visitor, self.0.items())?;
         let skip_hidden = path_only_visitor.skip_hidden();
@@ -1259,7 +1259,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
 )]
 pub struct StarlarkCommandLineInputs {
     #[starlark_pagable(pagable)]
-    pub inputs: BuckIndexSet<ArtifactGroup>,
+    pub inputs: BuckMutInsertionSet<ArtifactGroup>,
 }
 
 starlark_simple_value!(StarlarkCommandLineInputs);

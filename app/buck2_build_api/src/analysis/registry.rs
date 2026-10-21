@@ -28,7 +28,7 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_interpreter::testing::Buck2TestHeapName;
@@ -260,7 +260,7 @@ impl<'v> AnalysisRegistry<'v> {
 
     pub fn register_action<A: UnregisteredAction + 'static>(
         &mut self,
-        outputs: BuckIndexSet<OutputArtifact>,
+        outputs: BuckMutInsertionSet<OutputArtifact>,
         action: A,
         associated_value: Option<Value<'v>>,
         error_handler: Option<StarlarkCallable<'v>>,

@@ -57,7 +57,7 @@ use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_execute::re::ttl::re_expiration_from_ttl;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutSet;
 use buck2_util::time_span::TimeSpan;
 use buck2_util::time_span::TimeSpanBuilder;
@@ -114,7 +114,7 @@ pub async fn download_action_results<'a>(
         let std_streams = std_streams.await;
         return DownloadResult::Result(manager.failure(
             response.execution_kind(details),
-            BuckIndexMap::default(),
+            BuckMutInsertionMap::default(),
             CommandStdStreams::Remote(std_streams),
             Some(action_exit_code),
             CommandExecutionMetadata::from_re_timing(response.timing(), TimeSpan::empty_now()),
@@ -230,7 +230,7 @@ async fn materialize_failed_build_outputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
-    available_outputs: &BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+    available_outputs: &BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
     materialize_failed_re_action_outputs: bool,
     re_use_case: RemoteExecutorUseCase,
 ) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
@@ -319,7 +319,7 @@ impl CasDownloader<'_> {
         DownloadResult,
         (
             CommandExecutionManagerWithClaim,
-            BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+            BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
         ),
     > {
         let manager = manager.with_execution_kind(output_spec.execution_kind(details.clone()));
@@ -504,7 +504,7 @@ impl CasDownloader<'_> {
         }
 
         let mut to_declare = Vec::with_capacity(output_paths.len());
-        let mut mapped_outputs = BuckIndexMap::with_capacity(output_paths.len());
+        let mut mapped_outputs = BuckMutInsertionMap::with_capacity(output_paths.len());
 
         for (requested, (path, _)) in requested_outputs.into_iter().zip(output_paths.iter()) {
             let value = extract_artifact_value(&input_dir, path, self.digest_config)?;
@@ -538,7 +538,7 @@ impl CasDownloader<'_> {
         &self,
         artifacts: ExtractedArtifacts,
         info: CasDownloadInfo,
-    ) -> buck2_error::Result<BuckIndexMap<CommandExecutionOutput, ArtifactValue>> {
+    ) -> buck2_error::Result<BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>> {
         // Declare the outputs to the materializer
         self.materializer
             .declare_cas_many(Arc::new(info), artifacts.to_declare)
@@ -561,7 +561,7 @@ fn re_forward_path(re_path: &str) -> buck2_error::Result<&ForwardRelativePath> {
 
 struct ExtractedArtifacts {
     to_declare: Vec<DeclareArtifactPayload>,
-    mapped_outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+    mapped_outputs: BuckMutInsertionMap<CommandExecutionOutput, ArtifactValue>,
 }
 
 /// Did this download work out?

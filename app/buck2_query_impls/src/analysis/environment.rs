@@ -33,7 +33,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorOptionContext;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutSet;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
@@ -354,9 +354,9 @@ pub(crate) async fn get_from_template_placeholder_info(
     ctx: &mut DiceComputations<'_>,
     template_name: StaticStr,
     targets: impl IntoIterator<Item = ConfiguredTargetLabel, IntoIter: ExactSizeIterator>,
-) -> buck2_error::Result<BuckIndexMap<ConfiguredTargetLabel, Artifact>> {
-    let mut label_to_artifact: BuckIndexMap<ConfiguredTargetLabel, Artifact> =
-        BuckIndexMap::default();
+) -> buck2_error::Result<BuckMutInsertionMap<ConfiguredTargetLabel, Artifact>> {
+    let mut label_to_artifact: BuckMutInsertionMap<ConfiguredTargetLabel, Artifact> =
+        BuckMutInsertionMap::default();
 
     // Traversing tsets adds complexity here. Ideally, we could just do a normal traversal of these starlark values
     // we get from the template_info provider, but the cmdlinearglike interface only gives us access via ArtifactGroup
@@ -396,7 +396,7 @@ pub(crate) async fn get_from_template_placeholder_info(
 
     while let Some((target, artifact)) = artifacts.pop_front() {
         let handle_artifact =
-            |label_to_artifact: &mut BuckIndexMap<ConfiguredTargetLabel, Artifact>,
+            |label_to_artifact: &mut BuckMutInsertionMap<ConfiguredTargetLabel, Artifact>,
              artifact: &Artifact|
              -> buck2_error::Result<()> {
                 if let Some(owner) = artifact.owner() {

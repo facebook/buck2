@@ -33,7 +33,7 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use dupe::Dupe;
@@ -209,7 +209,7 @@ impl<'v> ActionsRegistry<'v> {
     pub fn register<A: UnregisteredAction + 'static>(
         &mut self,
         self_key: &DeferredHolderKey,
-        outputs: BuckIndexSet<OutputArtifact>,
+        outputs: BuckMutInsertionSet<OutputArtifact>,
         action: A,
     ) -> buck2_error::Result<ActionKey> {
         let key = ActionKey::new(
@@ -221,7 +221,7 @@ impl<'v> ActionsRegistry<'v> {
                 (self.declared_dynamic_outputs.len() + self.pending.len()).try_into()?,
             ),
         );
-        let mut bound_outputs = BuckIndexSet::with_capacity(outputs.len());
+        let mut bound_outputs = BuckMutInsertionSet::with_capacity(outputs.len());
         for output in outputs {
             let bound = output.bind(key.dupe())?.as_base_artifact().dupe();
             bound_outputs.insert(bound);

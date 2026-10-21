@@ -10,7 +10,7 @@
 
 use allocative::Allocative;
 use buck2_hash::BuckFixedInsertionMap;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::index_map::Entry;
 use buck2_util::exact_size_iter::IterExactSize;
 use pagable::Pagable;
@@ -77,7 +77,9 @@ pub(crate) enum AttributeSpecError {
 }
 
 impl AttributeSpec {
-    fn new(attributes: BuckIndexMap<Box<str>, Attribute>) -> buck2_error::Result<AttributeSpec> {
+    fn new(
+        attributes: BuckMutInsertionMap<Box<str>, Attribute>,
+    ) -> buck2_error::Result<AttributeSpec> {
         if attributes.len() > AttributeId::MAX_INDEX as usize {
             return Err(AttributeSpecError::TooManyAttributes(attributes.len()).into());
         }
@@ -95,8 +97,8 @@ impl AttributeSpec {
 
         let num_internal_attrs =
             internal_attrs.len() + usize::from(cfg == &RuleIncomingTransition::FromAttribute);
-        let mut instances: BuckIndexMap<Box<str>, Attribute> =
-            BuckIndexMap::with_capacity(attributes.len() + num_internal_attrs);
+        let mut instances: BuckMutInsertionMap<Box<str>, Attribute> =
+            BuckMutInsertionMap::with_capacity(attributes.len() + num_internal_attrs);
         for (name, instance) in internal_attrs {
             instances.insert((*name).into(), instance.clone());
         }

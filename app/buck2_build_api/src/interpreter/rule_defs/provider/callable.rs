@@ -19,7 +19,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
@@ -102,7 +102,7 @@ enum ProviderCallableError {
 
 fn create_callable_function_signature<'v>(
     function_name: &str,
-    fields: &BuckIndexMap<String, UserProviderField<'v>>,
+    fields: &BuckMutInsertionMap<String, UserProviderField<'v>>,
     ret_ty: Ty,
 ) -> buck2_error::Result<(ParametersSpec<Value<'v>>, TyCallable)> {
     let (parameters_spec, param_spec) = param_specs(
@@ -138,7 +138,7 @@ pub(crate) struct UserProviderCallableData<'v> {
     pub(crate) provider_id: Arc<ProviderId>,
     /// Type id of provider callable instance.
     pub(crate) ty_provider_type_instance_id: TypeInstanceId,
-    pub(crate) fields: BuckIndexMap<String, TypeCompiled<'v>>,
+    pub(crate) fields: BuckMutInsertionMap<String, TypeCompiled<'v>>,
 }
 
 starlark::register_starlark_any_complex!(frozen UserProviderCallableData<'_>);
@@ -265,14 +265,14 @@ pub struct UserProviderCallable<'v> {
     #[starlark_pagable(pagable)]
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
-    fields: BuckIndexMap<String, UserProviderField<'v>>,
+    fields: BuckMutInsertionMap<String, UserProviderField<'v>>,
     /// Field is initialized after the provider is assigned to a variable.
     callable: OnceCell<UserProviderCallableNamed<'v>>,
 }
 
 fn user_provider_callable_display(
     id: Option<&Arc<ProviderId>>,
-    fields: &BuckIndexMap<String, UserProviderField<'_>>,
+    fields: &BuckMutInsertionMap<String, UserProviderField<'_>>,
     f: &mut Formatter,
 ) -> fmt::Result {
     write!(f, "provider")?;
@@ -313,7 +313,7 @@ impl<'v> UserProviderCallable<'v> {
     fn new(
         path: CellPath,
         docs: Option<DocString>,
-        fields: BuckIndexMap<String, UserProviderField<'v>>,
+        fields: BuckMutInsertionMap<String, UserProviderField<'v>>,
     ) -> Self {
         Self {
             callable: OnceCell::new(),
@@ -357,7 +357,7 @@ impl<'v> Freeze<'v> for UserProviderCallable<'v> {
             }
         };
 
-        let mut fields = BuckIndexMap::with_capacity(self.fields.len());
+        let mut fields = BuckMutInsertionMap::with_capacity(self.fields.len());
         for (name, field) in self.fields {
             fields.insert(name, field.freeze(freezer)?);
         }
@@ -505,7 +505,7 @@ pub struct FrozenUserProviderCallable<'v> {
     #[starlark_pagable(pagable)]
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
-    fields: BuckIndexMap<String, UserProviderField<'v>>,
+    fields: BuckMutInsertionMap<String, UserProviderField<'v>>,
     /// The actual callable that creates instances of `UserProvider`
     callable: UserProviderCallableNamed<'v>,
 }
@@ -525,7 +525,7 @@ impl<'v> Display for FrozenUserProviderCallable<'v> {
 impl<'v> FrozenUserProviderCallable<'v> {
     fn new(
         docs: Option<DocString>,
-        fields: BuckIndexMap<String, UserProviderField<'v>>,
+        fields: BuckMutInsertionMap<String, UserProviderField<'v>>,
         callable: UserProviderCallableNamed<'v>,
     ) -> Self {
         Self {
@@ -663,7 +663,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
 
         let fields = match fields {
             Either::Left(fields) => {
-                let new_fields: BuckIndexMap<String, UserProviderField<'v>> = fields
+                let new_fields: BuckMutInsertionMap<String, UserProviderField<'v>> = fields
                     .items
                     .iter()
                     .map(|name| (name.clone(), UserProviderField::default()))
@@ -679,7 +679,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
                 new_fields
             }
             Either::Right(fields) => {
-                let mut new_fields = BuckIndexMap::with_capacity(fields.len());
+                let mut new_fields = BuckMutInsertionMap::with_capacity(fields.len());
                 for (name, field) in fields {
                     if let Some(field) = field.downcast_ref::<UserProviderField>() {
                         new_fields.insert(name, field.dupe());

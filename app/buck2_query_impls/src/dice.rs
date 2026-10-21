@@ -45,7 +45,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_hash::BuckMutMap;
-use buck2_hash::buck_indexset;
+use buck2_hash::buck_mut_insertion_set;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -294,7 +294,7 @@ impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
 
     async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet> {
         let cell_path = self.query_data.literal_parser.parse_file_literal(literal)?;
-        Ok(FileSet::new(buck_indexset![FileNode(cell_path)]))
+        Ok(FileSet::new(buck_mut_insertion_set![FileNode(cell_path)]))
     }
 
     fn linear_dice_computations(&self) -> LinearRecomputeDiceComputations<'_, '_> {

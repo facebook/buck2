@@ -17,7 +17,7 @@ use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_hash::BuckFixedSortedSet;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use dupe::Dupe;
 use pagable::Pagable;
 use starlark_map::Hashed;
@@ -145,7 +145,7 @@ fn collect_default_deps(
     attr_type: &AttrType,
 ) -> buck2_error::Result<BuckFixedSortedSet<TargetLabel>> {
     struct CollectDefaultsTraversal<'a> {
-        deps: &'a mut BuckIndexSet<TargetLabel>,
+        deps: &'a mut BuckMutInsertionSet<TargetLabel>,
     }
 
     // N.B. the traversal here needs to match the `dep` cases that check_within_view checks
@@ -177,7 +177,7 @@ fn collect_default_deps(
         }
     }
 
-    let mut default_deps = BuckIndexSet::default();
+    let mut default_deps = BuckMutInsertionSet::default();
     default.traverse(
         attr_type,
         None,

@@ -34,7 +34,7 @@ use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::BuckFixedInsertionMap;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -320,7 +320,7 @@ pub(crate) enum CliArgType {
     Int,
     Float,
     String,
-    Enumeration(Arc<BuckIndexSet<String>>),
+    Enumeration(Arc<BuckMutInsertionSet<String>>),
     List(Arc<CliArgType>),
     Option(Arc<CliArgType>),
     TargetLabel,
@@ -404,7 +404,7 @@ impl CliArgType {
         CliArgType::SubTargetExpr
     }
 
-    fn enumeration(vs: BuckIndexSet<String>) -> Self {
+    fn enumeration(vs: BuckMutInsertionSet<String>) -> Self {
         CliArgType::Enumeration(Arc::new(vs))
     }
 
@@ -1303,8 +1303,8 @@ mod tests {
     use buck2_core::provider::label::testing::ProvidersLabelTestExt;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_core::target::label::label::TargetLabel;
-    use buck2_hash::BuckIndexMap;
-    use buck2_hash::BuckIndexSet;
+    use buck2_hash::BuckMutInsertionMap;
+    use buck2_hash::BuckMutInsertionSet;
     use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
     use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
     use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -1333,7 +1333,7 @@ mod tests {
 
     #[test]
     fn print_cli_arg_json() -> buck2_error::Result<()> {
-        let mut args = BuckIndexMap::new();
+        let mut args = BuckMutInsertionMap::new();
         args.insert("my_bool".to_owned(), JsonCliArgValueData::Bool(true));
         args.insert(
             "my_string".to_owned(),
@@ -1386,7 +1386,7 @@ mod tests {
             );
 
             assert_eq!(
-                CliArgType::enumeration(BuckIndexSet::from_iter([
+                CliArgType::enumeration(BuckMutInsertionSet::from_iter([
                     "a".to_owned(),
                     "b".to_owned(),
                     "c".to_owned()

@@ -68,11 +68,11 @@ use buck2_file_watcher::dep_files::DepFileCache;
 use buck2_file_watcher::dep_files::HasDepFileCache;
 use buck2_file_watcher::mergebase::GetMergebase;
 use buck2_file_watcher::mergebase::Mergebase;
-use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionMap;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
-use buck2_hash::buck_indexmap;
+use buck2_hash::buck_mut_insertion_map;
 use buck2_http::HttpClient;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use derive_more::Display;
@@ -134,11 +134,11 @@ struct ActionOutputsData {
 /// Big producers (dist-ThinLTO index actions emit tens of thousands) keep
 /// the map so `get` stays O(1). Both preserve insertion order, which the
 /// fingerprint depends on. The map is boxed so the enum stays two words:
-/// an inline `BuckIndexMap` is 9 words, and every action would carry it.
+/// an inline `BuckMutInsertionMap` is 9 words, and every action would carry it.
 #[derive(Debug, Allocative, pagable::Pagable)]
 enum ActionOutputsMap {
     Small(MiniBoxSlice<(BuildArtifactPath, ArtifactValue)>),
-    Large(Box<BuckIndexMap<BuildArtifactPath, ArtifactValue>>),
+    Large(Box<BuckMutInsertionMap<BuildArtifactPath, ArtifactValue>>),
 }
 
 // One of these is retained per executed action; with the 32-byte fingerprint
@@ -150,7 +150,7 @@ buck2_util::size_assert::words_of_type!(ActionOutputsMap, 2);
 const SMALL_OUTPUTS_MAX: usize = 8;
 
 impl ActionOutputsMap {
-    fn new(outputs: BuckIndexMap<BuildArtifactPath, ArtifactValue>) -> Self {
+    fn new(outputs: BuckMutInsertionMap<BuildArtifactPath, ArtifactValue>) -> Self {
         if outputs.len() <= SMALL_OUTPUTS_MAX {
             ActionOutputsMap::Small(MiniBoxSlice::from_iter(outputs))
         } else {
@@ -327,7 +327,7 @@ impl ActionExecutionKind {
 }
 
 impl ActionOutputs {
-    pub fn new(outputs: BuckIndexMap<BuildArtifactPath, ArtifactValue>) -> Self {
+    pub fn new(outputs: BuckMutInsertionMap<BuildArtifactPath, ArtifactValue>) -> Self {
         let mut hasher = Blake3StrongHasher::new();
         outputs.len().strong_hash(&mut hasher);
         for (path, value) in &outputs {
@@ -342,7 +342,7 @@ impl ActionOutputs {
     }
 
     pub fn from_single(artifact: BuildArtifactPath, value: ArtifactValue) -> Self {
-        Self::new(buck_indexmap! {artifact => value})
+        Self::new(buck_mut_insertion_map! {artifact => value})
     }
 
     pub fn get(&self, artifact: &BuildArtifactPath) -> Option<&ArtifactValue> {
@@ -490,7 +490,7 @@ impl<'d> BuckActionExecutor<'d> {
 struct BuckActionExecutionContext<'a, 'd> {
     executor: &'a BuckActionExecutor<'d>,
     action: &'a RegisteredAction,
-    inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
+    inputs: BuckMutInsertionMap<ArtifactGroup, ArtifactGroupValues>,
     command_reports: &'a mut Vec<CommandExecutionReport>,
     cancellations: &'a CancellationContext,
 }
@@ -532,7 +532,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
 
     fn artifact_path_mapping(
         &self,
-        filter: Option<&BuckIndexSet<ArtifactGroup>>,
+        filter: Option<&BuckMutInsertionSet<ArtifactGroup>>,
     ) -> BuckMutMap<&Artifact, ContentBasedPathHash> {
         self.inputs
             .iter()
@@ -547,8 +547,8 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
 
     fn artifact_path_mapping_with_path_only(
         &self,
-        rendered: &BuckIndexSet<ArtifactGroup>,
-        path_only: &BuckIndexSet<ArtifactGroup>,
+        rendered: &BuckMutInsertionSet<ArtifactGroup>,
+        path_only: &BuckMutInsertionSet<ArtifactGroup>,
     ) -> (
         BuckMutMap<&Artifact, ContentBasedPathHash>,
         BuckMutSet<&Artifact>,
@@ -817,7 +817,7 @@ impl<'d> BuckActionExecutor<'d> {
     pub(crate) async fn execute(
         &self,
         waiting_data: WaitingData,
-        inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
+        inputs: BuckMutInsertionMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
         cancellations: &CancellationContext,
     ) -> (
@@ -978,7 +978,7 @@ mod tests {
             (SMALL_OUTPUTS_MAX, true),
             (SMALL_OUTPUTS_MAX + 1, false),
         ] {
-            let outputs: BuckIndexMap<_, _> = (0..n).rev().map(entry).collect();
+            let outputs: BuckMutInsertionMap<_, _> = (0..n).rev().map(entry).collect();
             let map = ActionOutputsMap::new(outputs.clone());
             assert_eq!(
                 matches!(map, ActionOutputsMap::Small(_)),

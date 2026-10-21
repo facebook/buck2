@@ -38,7 +38,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_hash::BuckDashMap;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_util::time_span::TimeSpan;
 use buck2_worker_proto::ExecuteCommand;
@@ -116,7 +116,7 @@ impl WorkerInitError {
                 // implies that it is the primary command and that exit code != 0
                 manager.failure(
                     execution_kind,
-                    BuckIndexMap::default(),
+                    BuckMutInsertionMap::default(),
                     std_streams,
                     *exit_code,
                     CommandExecutionMetadata::empty(TimeSpan::empty_now()),
@@ -128,7 +128,7 @@ impl WorkerInitError {
             WorkerInitError::ConnectionTimeout(..) | WorkerInitError::SpawnFailed(..) => manager
                 .failure(
                     execution_kind,
-                    BuckIndexMap::default(),
+                    BuckMutInsertionMap::default(),
                     CommandStdStreams::Local {
                         stdout: Default::default(),
                         stderr: format!("Error initializing worker: {self}").into_bytes(),

@@ -13,7 +13,7 @@ use std::time::Duration;
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_error::internal_error;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -144,7 +144,7 @@ pub type OwnedLocalResourceInfo = OwnedFrozen<ValueTyped<'static, LocalResourceI
 impl<'v> LocalResourceInfo<'v> {
     /// Mapping from keys in setup command JSON output to environment variables keys which
     /// should be appended to execution commands dependent on this local resource.
-    pub fn env_var_mapping(&self) -> BuckIndexMap<String, String> {
+    pub fn env_var_mapping(&self) -> BuckMutInsertionMap<String, String> {
         let env_vars = DictRef::from_value(self.resource_env_vars.get()).unwrap();
         env_vars
             .iter()

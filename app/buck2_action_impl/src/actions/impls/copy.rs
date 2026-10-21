@@ -30,8 +30,8 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CopiedArtifact;
-use buck2_hash::BuckIndexSet;
-use buck2_hash::buck_indexset;
+use buck2_hash::BuckMutInsertionSet;
+use buck2_hash::buck_mut_insertion_set;
 use dupe::Dupe;
 use itertools::Itertools;
 use pagable::Pagable;
@@ -74,7 +74,7 @@ impl UnregisteredCopyAction {
 impl UnregisteredAction for UnregisteredCopyAction {
     fn register(
         self: Box<Self>,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -93,7 +93,7 @@ impl CopyAction {
     fn new(
         copy: CopyMode,
         src: ArtifactGroup,
-        outputs: BuckIndexSet<BuildArtifact>,
+        outputs: BuckMutInsertionSet<BuildArtifact>,
     ) -> buck2_error::Result<Self> {
         // TODO: Exclude other variants once they become available here. For now, this is a noop.
         match src {
@@ -108,7 +108,7 @@ impl CopyAction {
         } else {
             Ok(CopyAction {
                 copy,
-                inputs: BoxSliceSet::from(buck_indexset![src]),
+                inputs: BoxSliceSet::from(buck_mut_insertion_set![src]),
                 outputs: BoxSliceSet::from(outputs),
             })
         }

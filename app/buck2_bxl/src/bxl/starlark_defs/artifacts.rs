@@ -24,7 +24,7 @@ use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -476,7 +476,7 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
 #[derive(Debug, Allocative)]
 pub(crate) struct LazyBuildArtifact {
     /// The artifacts that are associated with this artifact. This is used to materialize.
-    artifacts_to_build: BuckIndexSet<ArtifactGroup>,
+    artifacts_to_build: BuckMutInsertionSet<ArtifactGroup>,
     artifact: StarlarkArtifact,
 }
 
@@ -492,7 +492,7 @@ impl LazyBuildArtifact {
             .flat_map(|v| v.iter())
             .cloned()
             .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
-            .collect::<BuckIndexSet<_>>();
+            .collect::<BuckMutInsertionSet<_>>();
 
         LazyBuildArtifact {
             artifacts_to_build: artifacts,
@@ -515,7 +515,7 @@ impl LazyBuildArtifact {
 /// Builds the artifact groups without materializing them.
 async fn build_artifact_groups(
     ctx: &mut DiceComputations<'_>,
-    artifact_groups: &BuckIndexSet<ArtifactGroup>,
+    artifact_groups: &BuckMutInsertionSet<ArtifactGroup>,
 ) -> buck2_error::Result<()> {
     // `ensure_artifact_group` builds every artifact in the group, including each member of a
     // transitive set projection.

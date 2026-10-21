@@ -10,7 +10,7 @@
 
 //! Implementation of the cli and query_* attr query language.
 
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_query_parser::Expr;
 use buck2_query_parser::parse_expr;
 use buck2_query_parser::spanned::Spanned;
@@ -98,7 +98,7 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
             }
             Expr::FileSet(args) => {
                 let patterns: Vec<_> = args.iter().map(|v| v.fragment()).collect::<Vec<_>>();
-                let mut files = FileSet::new(BuckIndexSet::<FileNode>::new());
+                let mut files = FileSet::new(BuckMutInsertionSet::<FileNode>::new());
 
                 for pattern in patterns {
                     files.insert_all(&self.env.eval_file_literal(pattern).await?)

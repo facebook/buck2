@@ -15,7 +15,7 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -108,17 +108,17 @@ pub trait CommandLineArtifactVisitor<'v> {
 
 /// A CommandLineArtifactVisitor that gathers inputs and outputs.
 pub struct SimpleCommandLineArtifactVisitor<'v> {
-    pub inputs: BuckIndexSet<ArtifactGroup>,
-    pub declared_outputs: BuckIndexSet<OutputArtifact<'v>>,
-    pub frozen_outputs: BuckIndexSet<Artifact>,
+    pub inputs: BuckMutInsertionSet<ArtifactGroup>,
+    pub declared_outputs: BuckMutInsertionSet<OutputArtifact<'v>>,
+    pub frozen_outputs: BuckMutInsertionSet<Artifact>,
 }
 
 impl SimpleCommandLineArtifactVisitor<'_> {
     pub fn new() -> Self {
         Self {
-            inputs: BuckIndexSet::default(),
-            declared_outputs: BuckIndexSet::default(),
-            frozen_outputs: BuckIndexSet::default(),
+            inputs: BuckMutInsertionSet::default(),
+            declared_outputs: BuckMutInsertionSet::default(),
+            frozen_outputs: BuckMutInsertionSet::default(),
         }
     }
 

@@ -17,7 +17,7 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckFixedSortedMap;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::EqualityBehavior;
@@ -46,7 +46,7 @@ struct CellPackageBoundaryExceptions {
 
 impl CellPackageBoundaryExceptions {
     fn new(s: &str) -> buck2_error::Result<Self> {
-        let mut prefix_to_subpaths = BuckIndexMap::default();
+        let mut prefix_to_subpaths = BuckMutInsertionMap::default();
         let mut allow_everything = false;
         for path_str in s.split(',') {
             let path_str = path_str.trim();

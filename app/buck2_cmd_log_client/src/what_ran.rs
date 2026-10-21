@@ -32,7 +32,7 @@ use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_event_observer::what_ran::WhatRanRelevantAction;
 use buck2_event_observer::what_ran::WhatRanState;
 use buck2_events::span::SpanId;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use futures::TryStreamExt;
 use futures::stream::Stream;
 
@@ -205,7 +205,7 @@ impl WhatRanEntry {
 pub struct WhatRanCommandState {
     /// Maps action spans to their details, in the order the spans started: unfinished spans are
     /// printed from this map at the end.
-    known_actions: BuckIndexMap<SpanId, WhatRanEntry>,
+    known_actions: BuckMutInsertionMap<SpanId, WhatRanEntry>,
 }
 
 impl WhatRanState for WhatRanCommandState {
@@ -535,13 +535,15 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
     }
 }
 
-fn into_index_map(platform: &Option<buck2_data::RePlatform>) -> BuckIndexMap<&str, &str> {
-    platform.as_ref().map_or_else(BuckIndexMap::new, |p| {
-        p.properties
-            .iter()
-            .map(|Property { name, value }| (name.as_ref(), value.as_ref()))
-            .collect()
-    })
+fn into_index_map(platform: &Option<buck2_data::RePlatform>) -> BuckMutInsertionMap<&str, &str> {
+    platform
+        .as_ref()
+        .map_or_else(BuckMutInsertionMap::new, |p| {
+            p.properties
+                .iter()
+                .map(|Property { name, value }| (name.as_ref(), value.as_ref()))
+                .collect()
+        })
 }
 
 #[derive(serde::Serialize)]
@@ -583,7 +585,7 @@ mod json_reproducer {
         LocalDepFileCache,
         Re {
             digest: &'a str,
-            platform_properties: BuckIndexMap<&'a str, &'a str>,
+            platform_properties: BuckMutInsertionMap<&'a str, &'a str>,
             #[serde(skip_serializing_if = "Option::is_none")]
             action_key: Option<&'a str>,
             /// Why the remote execution service did not run the command, if it did not.
@@ -592,7 +594,7 @@ mod json_reproducer {
         },
         ReWorker {
             digest: &'a str,
-            platform_properties: BuckIndexMap<&'a str, &'a str>,
+            platform_properties: BuckMutInsertionMap<&'a str, &'a str>,
             #[serde(skip_serializing_if = "Option::is_none")]
             action_key: Option<&'a str>,
             /// Why the remote execution service did not run the command, if it did not.
@@ -601,15 +603,15 @@ mod json_reproducer {
         },
         Local {
             command: Cow<'a, [String]>,
-            env: BuckIndexMap<&'a str, &'a str>,
+            env: BuckMutInsertionMap<&'a str, &'a str>,
         },
         Worker {
             command: Cow<'a, [String]>,
-            env: BuckIndexMap<&'a str, &'a str>,
+            env: BuckMutInsertionMap<&'a str, &'a str>,
         },
         WorkerInit {
             command: Cow<'a, [String]>,
-            env: BuckIndexMap<&'a str, &'a str>,
+            env: BuckMutInsertionMap<&'a str, &'a str>,
         },
     }
 }
@@ -642,7 +644,7 @@ mod tests {
 
     fn make_base_command() -> JsonCommand<'static> {
         let command = Cow::Owned(vec!["some".to_owned(), "command".to_owned()]);
-        let mut env = BuckIndexMap::default();
+        let mut env = BuckMutInsertionMap::default();
         env.insert("KEY", "val");
 
         JsonCommand {
@@ -662,7 +664,7 @@ mod tests {
             identity: "some/target",
             reproducer: JsonReproducer::Re {
                 digest: "placeholder",
-                platform_properties: buck2_hash::buck_indexmap! {
+                platform_properties: buck2_hash::buck_mut_insertion_map! {
                     "platform" => "linux-remote-execution"
                 },
                 action_key: None,

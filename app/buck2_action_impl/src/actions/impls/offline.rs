@@ -20,7 +20,7 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::entry::build_entry_from_disk;
 use buck2_execute::materialize::materializer::CopiedArtifact;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use dupe::Dupe;
 
 /// Declares a copy of the output artifact into the offline cache for use in an offline build,
@@ -55,7 +55,7 @@ pub(crate) async fn declare_copy_from_offline_cache(
     ctx: &mut dyn ActionExecutionCtx,
     outputs: &[&BuildArtifact],
 ) -> buck2_error::Result<ActionOutputs> {
-    let mut restored_outputs = BuckIndexMap::default();
+    let mut restored_outputs = BuckMutInsertionMap::default();
 
     // Restore all outputs - any cache miss = total failure
     for output in outputs {

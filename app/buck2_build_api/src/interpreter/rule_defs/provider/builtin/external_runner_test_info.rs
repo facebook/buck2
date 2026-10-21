@@ -18,7 +18,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
-use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use either::Either;
 use starlark::any::ProvidesStaticType;
@@ -176,7 +176,9 @@ impl<'v> ExternalRunnerTestInfo<'v> {
             .map(|v| StarlarkCommandExecutorConfig::from_value(v).unwrap())
     }
 
-    pub fn local_resources(&self) -> BuckIndexMap<&'v str, Option<&'v ConfiguredProvidersLabel>> {
+    pub fn local_resources(
+        &self,
+    ) -> BuckMutInsertionMap<&'v str, Option<&'v ConfiguredProvidersLabel>> {
         unwrap_all(iter_local_resources(self.local_resources.get())).collect()
     }
 
@@ -456,7 +458,7 @@ fn validate_external_runner_test_info<'v>(
 
     let provided_local_resources = iter_local_resources(info.local_resources.get())
         .collect::<buck2_error::Result<
-        BuckIndexMap<&str, Option<&ConfiguredProvidersLabel>>,
+        BuckMutInsertionMap<&str, Option<&ConfiguredProvidersLabel>>,
     >>()?;
 
     let required_local_resources = info.required_local_resources.get();
