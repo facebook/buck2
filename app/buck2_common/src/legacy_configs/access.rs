@@ -12,7 +12,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use buck2_error::BuckErrorContext;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_util::env_vars::substitute_env_vars;
 
 use crate::legacy_configs::configs::ConfigValue;
@@ -24,22 +24,20 @@ use crate::legacy_configs::view::LegacyBuckConfigView;
 
 /// Read the `[buck2_metadata]` section from a `LegacyBuckConfig` and resolve any `$VAR`
 /// references. Entries whose env vars are not set are skipped with a warning.
-pub fn parse_buckconfig_metadata(config: &LegacyBuckConfig) -> StdBuckHashMap<String, String> {
-    let mut map = StdBuckHashMap::default();
+pub fn parse_buckconfig_metadata(config: &LegacyBuckConfig) -> BuckFixedSortedMap<String, String> {
     let Some(section) = config.get_section("buck2_metadata") else {
-        return map;
+        return BuckFixedSortedMap::default();
     };
-    for (key, value) in section.iter() {
-        match substitute_env_vars(value.as_str()) {
-            Ok(resolved) => {
-                map.insert(key.to_owned(), resolved);
-            }
+    section
+        .iter()
+        .filter_map(|(key, value)| match substitute_env_vars(value.as_str()) {
+            Ok(resolved) => Some((key.to_owned(), resolved)),
             Err(e) => {
                 tracing::warn!("Skipping [buck2_metadata] key `{}`: {:#}", key, e);
+                None
             }
-        }
-    }
-    map
+        })
+        .collect()
 }
 
 impl LegacyBuckConfigView for &LegacyBuckConfig {

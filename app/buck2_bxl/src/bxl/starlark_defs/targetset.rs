@@ -465,7 +465,7 @@ starlark::__starlark_pagable_only! {
         use buck2_core::execution_types::execution::ExecutionPlatformResolution;
         use buck2_core::provider::label::ConfiguredProvidersLabel;
         use buck2_core::target::label::label::TargetLabel;
-        use buck2_hash::StdBuckHashMap;
+        use buck2_hash::BuckFixedSortedMap;
         use pagable::PagableDeserialize;
         use pagable::PagableSerialize;
         use starlark::values::FrozenHeapName;
@@ -562,7 +562,7 @@ starlark::__starlark_pagable_only! {
                     RecordedActions::new(0),
                 ),
                 None,
-                StdBuckHashMap::default(),
+                BuckFixedSortedMap::default(),
                 0,
                 0,
                 None,

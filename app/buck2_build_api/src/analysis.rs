@@ -16,7 +16,7 @@ use buck2_build_signals::env::WaitingData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_events::span::SpanId;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use buck2_util::time_span::TimeSpan;
 use smallvec::SmallVec;
@@ -76,7 +76,7 @@ pub struct AnalysisResult {
     /// For forward node, this value is shared with underlying analysis (including this field).
     #[pagable(discard = "None")]
     pub profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
-    promise_artifact_map: Arc<StdBuckHashMap<PromiseArtifactId, Artifact>>,
+    promise_artifact_map: Arc<BuckFixedSortedMap<PromiseArtifactId, Artifact>>,
     pub num_declared_actions: u64,
     pub num_declared_artifacts: u64,
     /// `None` means there are no `ValidationInfo` providers in transitive dependencies.
@@ -92,7 +92,7 @@ impl AnalysisResult {
     pub fn new(
         analysis_values: RecordedAnalysisValues,
         profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
-        promise_artifact_map: StdBuckHashMap<PromiseArtifactId, Artifact>,
+        promise_artifact_map: BuckFixedSortedMap<PromiseArtifactId, Artifact>,
         num_declared_actions: u64,
         num_declared_artifacts: u64,
         validations: Option<TransitiveValidations>,
@@ -117,7 +117,7 @@ impl AnalysisResult {
         self.analysis_values.provider_collection()
     }
 
-    pub fn promise_artifact_map(&self) -> &Arc<StdBuckHashMap<PromiseArtifactId, Artifact>> {
+    pub fn promise_artifact_map(&self) -> &BuckFixedSortedMap<PromiseArtifactId, Artifact> {
         &self.promise_artifact_map
     }
 

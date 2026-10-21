@@ -282,10 +282,11 @@ pub type BuckDashSet<K, S = BuckHasherBuilder> = dashmap::DashSet<K, S>;
 /// Do not use in new code. A [`HashMap`](std::collections::HashMap) with the standard
 /// library's `RandomState` hasher.
 ///
-/// What is left of this alias marks retained maps - dice values, daemon state, the
-/// materializer tree - that want [`BuckFixedSortedMap`]. Once those are converted this alias goes
-/// away. Anywhere else, the map is either transient, and wants [`BuckMutMap`], or forced to be
-/// a concrete `HashMap` by something outside buck2, and wants [`IntentionallyStdHashMap`].
+/// The one use left of this alias is the materializer tree, a map that is mutated for as long as
+/// the daemon runs and so is not a [`BuckFixedSortedMap`]; the alias goes away with it. Anywhere
+/// else, a map is either retained, and wants [`BuckFixedSortedMap`], or transient, and wants
+/// [`BuckMutMap`], or forced to be a concrete `HashMap` by something outside buck2, and wants
+/// [`IntentionallyStdHashMap`].
 pub type StdBuckHashMap<K, V> = std::collections::HashMap<K, V>;
 
 /// A [`HashMap`](std::collections::HashMap) that intentionally uses the standard library's

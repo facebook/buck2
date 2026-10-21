@@ -33,8 +33,8 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutMap;
-use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
@@ -336,7 +336,7 @@ async fn run_analysis_with_env_underlying(
                 AnalysisResult::new(
                     recorded_values,
                     profile_data,
-                    StdBuckHashMap::default(),
+                    BuckFixedSortedMap::default(),
                     declared_actions,
                     declared_artifacts,
                     validations,

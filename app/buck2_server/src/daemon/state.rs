@@ -91,7 +91,8 @@ use buck2_fs::cwd::WorkingDirectory;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutMap;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
@@ -233,7 +234,7 @@ pub struct RepoState {
     /// Executor for blocking I/O against this repo's project root.
     pub blocking_executor: Arc<dyn BlockingExecutor>,
 
-    pub buckconfig_metadata: StdBuckHashMap<String, String>,
+    pub buckconfig_metadata: BuckFixedSortedMap<String, String>,
 
     /// Tags to be logged per command.
     pub tags: Vec<String>,
@@ -409,10 +410,10 @@ impl TenantState {
             root_config,
         )?);
 
-        let mut ignore_specs: StdBuckHashMap<CellName, IgnoreSet> = StdBuckHashMap::default();
+        let mut ignore_specs = Vec::new();
         for (cell, _) in cells.cells() {
             let config = legacy_cells.parse_single_cell(cell, &fs).await?;
-            ignore_specs.insert(
+            ignore_specs.push((
                 cell,
                 IgnoreSet::from_ignore_spec(
                     config
@@ -423,8 +424,10 @@ impl TenantState {
                         .unwrap_or(""),
                     cells.is_root_cell(cell),
                 )?,
-            );
+            ));
         }
+        let ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet> =
+            ignore_specs.into_iter().collect();
 
         let disk_state_options = DiskStateOptions::new(root_config)?;
         let blocking_executor = shared.blocking_executor_factory.for_project(fs.dupe());
@@ -882,7 +885,7 @@ struct TenantStateRegistry {
     /// insertion, and the same allocation is accounted for through `tenants`.
     #[allocative(skip)]
     initial_state: Arc<TenantState>,
-    tenants: StdMutex<StdBuckHashMap<TenantKey, Arc<TenantStateSlot<TenantState>>>>,
+    tenants: StdMutex<BuckMutMap<TenantKey, Arc<TenantStateSlot<TenantState>>>>,
     #[allocative(skip)]
     next_generation: AtomicU64,
 }
@@ -934,7 +937,7 @@ impl TenantStateRegistry {
         let registry = Self {
             initial_tenant: initial_key,
             initial_state: initial_tenant.dupe(),
-            tenants: StdMutex::new(StdBuckHashMap::default()),
+            tenants: StdMutex::new(BuckMutMap::default()),
             next_generation: AtomicU64::new(1),
         };
         registry

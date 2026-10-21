@@ -47,8 +47,8 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutMap;
-use buck2_hash::StdBuckHashMap;
 use dice::UserComputationData;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
@@ -95,7 +95,7 @@ fn mock_analysis_for_tsets(
                     RecordedActions::new(0),
                 ),
                 None,
-                StdBuckHashMap::default(),
+                BuckFixedSortedMap::default(),
                 0,
                 0,
                 None,

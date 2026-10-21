@@ -18,8 +18,8 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutMap;
-use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -50,7 +50,7 @@ pub trait AnonTargetDyn: Send + Sync + Display {
         promise_artifact_mappings: SmallMap<String, Value<'v>>,
         anon_target_result: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> buck2_error::Result<StdBuckHashMap<PromiseArtifactId, Artifact>>;
+    ) -> buck2_error::Result<BuckFixedSortedMap<PromiseArtifactId, Artifact>>;
 
     /// `attrs_spec` must be the spec of the rule this anon target was
     /// defined with: attribute names are not stored in the target and are

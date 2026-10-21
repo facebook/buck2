@@ -28,7 +28,7 @@ use buck2_data::FileWatcherKind;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::span_async;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckFixedSortedMap;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 use notify::EventKind;
@@ -82,7 +82,7 @@ impl NotifyFileData {
         event: notify::Result<notify::Event>,
         root: &ProjectRoot,
         cells: &CellResolver,
-        ignore_specs: &StdBuckHashMap<CellName, IgnoreSet>,
+        ignore_specs: &BuckFixedSortedMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<()> {
         let event =
             event.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
@@ -285,7 +285,7 @@ impl NotifyFileWatcher {
     pub fn new(
         root: &ProjectRoot,
         cells: CellResolver,
-        ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+        ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<Self> {
         let data = Arc::new(Mutex::new(Ok(NotifyFileData::new())));
         let data2 = data.dupe();
@@ -372,7 +372,7 @@ mod tests {
     fn fixture() -> (
         ProjectRoot,
         CellResolver,
-        StdBuckHashMap<CellName, IgnoreSet>,
+        BuckFixedSortedMap<CellName, IgnoreSet>,
         tempfile::TempDir,
     ) {
         let cells = CellResolver::testing_with_name_and_path(
@@ -383,7 +383,7 @@ mod tests {
         let root_path =
             fs_util::canonicalize(AbsNormPathBuf::new(tempdir.path().to_owned()).unwrap()).unwrap();
         let root = ProjectRoot::new(root_path).unwrap();
-        (root, cells, StdBuckHashMap::default(), tempdir)
+        (root, cells, BuckFixedSortedMap::default(), tempdir)
     }
 
     /// The kernel-overflow signal can arrive as a rescan-flagged event with no paths attached

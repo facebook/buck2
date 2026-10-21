@@ -25,7 +25,7 @@ use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_error::internal_error;
 use buck2_events::dispatch::span_async;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_util::process::async_background_command;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
@@ -52,7 +52,7 @@ struct WatchmanQueryProcessor {
     // `tests/e2e/cells/test_file_watcher_resolution:test_changing_cell_location_bug` for a repro of
     // a bug.
     cells: CellResolver,
-    ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+    ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
     empty_on_fresh_instance: bool,
     report_global_rev: bool,
     last_mergebase: Option<String>,
@@ -368,7 +368,7 @@ impl WatchmanFileWatcher {
         project_root: &AbsNormPath,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
-        ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+        ignore_specs: BuckFixedSortedMap<CellName, IgnoreSet>,
         dep_file_cache: Arc<dyn DepFileCache>,
     ) -> buck2_error::Result<Self> {
         let watchman_merge_base = root_config

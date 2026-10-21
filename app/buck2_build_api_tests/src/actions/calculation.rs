@@ -102,7 +102,7 @@ use buck2_file_watcher::dep_files::SetDepFileCache;
 use buck2_file_watcher::dep_files::create_dep_file_cache;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::buck_indexset;
 use buck2_http::HttpClientBuilder;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -167,7 +167,7 @@ fn mock_analysis_for_action_resolution(
                 actions,
             ),
             None,
-            StdBuckHashMap::default(),
+            BuckFixedSortedMap::default(),
             0,
             0,
             None,

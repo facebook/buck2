@@ -497,10 +497,10 @@ mod tests {
     use buck2_execute::directory::insert_artifact;
     use buck2_execute::directory::insert_file;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    use buck2_hash::BuckFixedSortedMap;
     use buck2_hash::BuckIndexSet;
     use buck2_hash::BuckMutMap;
     use buck2_hash::BuckMutSet;
-    use buck2_hash::StdBuckHashMap;
     use dupe::Dupe;
     use pagable::Pagable;
     use pagable::pagable_typetag;
@@ -716,7 +716,7 @@ mod tests {
         let holder = OwnedDeferredHolder::Analysis(AnalysisResult::new(
             analysis_values,
             None,
-            StdBuckHashMap::default(),
+            BuckFixedSortedMap::default(),
             0,
             0,
             None,

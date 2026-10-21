@@ -27,7 +27,7 @@ use crate::daemon_id::DaemonId;
 #[cfg(not(fbcode_build))]
 pub fn collect_with_extras(
     daemon: &DaemonId,
-    extras: &IntentionallyStdHashMap<String, String>,
+    extras: &buck2_hash::BuckFixedSortedMap<String, String>,
 ) -> IntentionallyStdHashMap<String, String> {
     let mut map = collect(daemon);
     for (k, v) in extras.iter() {
