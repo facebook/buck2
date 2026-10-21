@@ -11,7 +11,7 @@ license.workspace = true
 dashmap.workspace = true
 dupe.workspace = true
 fxhash.workspace = true
-indexmap.workspace = true
+mini_map.workspace = true
 
 [lints]
 workspace = true

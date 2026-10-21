@@ -1263,7 +1263,6 @@ dependencies = [
  "dupe",
  "either",
  "futures 0.3.34",
- "indexmap",
  "internment",
  "inventory",
  "itertools 0.15.0",
@@ -2831,7 +2830,7 @@ dependencies = [
  "dashmap 6.2.1",
  "dupe",
  "fxhash",
- "indexmap",
+ "mini_map",
 ]
 
 [[package]]
@@ -3190,7 +3189,6 @@ dependencies = [
  "enum-iterator",
  "fancy-regex 0.19.2",
  "futures 0.3.34",
- "indexmap",
  "indoc",
  "itertools 0.15.0",
  "pagable",
@@ -10490,10 +10488,10 @@ dependencies = [
  "either",
  "erased-serde 0.4.10",
  "hashbrown 0.17.1",
- "indexmap",
  "inventory",
  "itertools 0.15.0",
  "maplit",
+ "mini_map",
  "num-bigint 0.5.1",
  "num-traits",
  "once_cell",

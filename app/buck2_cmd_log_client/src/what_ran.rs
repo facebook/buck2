@@ -702,9 +702,9 @@ mod tests {
 
     #[test]
     fn serialize_what_ran_command_with_extra() -> buck2_error::Result<()> {
+        let cases = ["case".to_owned()];
         let mut command = make_base_command();
-        let cases = &["case".to_owned()];
-        command.extra = Some(JsonExtra::TestCases(cases));
+        command.extra = Some(JsonExtra::TestCases(&cases));
 
         let expected = r#"{
   "reason": "test.run",

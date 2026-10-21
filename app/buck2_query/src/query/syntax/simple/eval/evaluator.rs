@@ -10,13 +10,13 @@
 
 //! Implementation of the cli and query_* attr query language.
 
+use buck2_hash::BuckIndexSet;
 use buck2_query_parser::Expr;
 use buck2_query_parser::parse_expr;
 use buck2_query_parser::spanned::Spanned;
 use futures::FutureExt;
 use variant_name::VariantName;
 
-use crate::__derive_refs::indexmap::IndexSet;
 use crate::query::environment::QueryEnvironment;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileNode;
@@ -98,7 +98,7 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
             }
             Expr::FileSet(args) => {
                 let patterns: Vec<_> = args.iter().map(|v| v.fragment()).collect::<Vec<_>>();
-                let mut files = FileSet::new(IndexSet::<FileNode>::new());
+                let mut files = FileSet::new(BuckIndexSet::<FileNode>::new());
 
                 for pattern in patterns {
                     files.insert_all(&self.env.eval_file_literal(pattern).await?)

@@ -30,7 +30,10 @@ fn rust_nightly() {
 
     let stdout = String::from_utf8(version.stdout).unwrap();
     assert!(stdout.contains("rustc"), "Sanity check");
-    let nightly = stdout.contains("nightly") || stdout.contains("dev");
+    // `RUSTC_BOOTSTRAP=1` makes a stable compiler accept nightly features too.
+    println!("cargo:rerun-if-env-changed=RUSTC_BOOTSTRAP");
+    let bootstrap = std::env::var("RUSTC_BOOTSTRAP").is_ok_and(|v| v == "1");
+    let nightly = bootstrap || stdout.contains("nightly") || stdout.contains("dev");
     if nightly {
         println!("cargo:rustc-cfg=rust_nightly");
     }

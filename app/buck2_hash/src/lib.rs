@@ -50,6 +50,8 @@ use std::hash::Hasher;
 
 use dupe::Dupe;
 use fxhash::FxHasher64;
+use mini_map::MiniMutInsertionMap;
+use mini_map::MiniMutInsertionSet;
 
 /// A hasher for buck2 internal use.
 ///
@@ -150,29 +152,19 @@ pub type BuckMutMap<K, V> = std::collections::HashMap<K, V, BuckHasherBuilder>;
 /// The set counterpart of [`BuckMutMap`], and the default set for buck2 code.
 pub type BuckMutSet<K> = std::collections::HashSet<K, BuckHasherBuilder>;
 
-/// An [`IndexMap`](indexmap::IndexMap) using the default hasher.
+/// A mutable map that iterates in insertion order: [`MiniMutInsertionMap`].
 ///
-/// This is a type alias for `indexmap::IndexMap` that preserves insertion order.
-/// Unlike [`BuckMutMap`], iteration order is guaranteed to match insertion order.
-///
-/// This abstraction allows the hasher implementation to be changed centrally
-/// in a future commit.
-pub type BuckIndexMap<K, V> = indexmap::IndexMap<K, V>;
+/// Use it where the order entries were added in is part of what the map means; otherwise
+/// [`BuckMutMap`]. `==` and `Hash` are order-sensitive, as for `Vec`; `eq_unordered` is there for
+/// the other comparison.
+pub type BuckIndexMap<K, V> = MiniMutInsertionMap<K, V>;
 
-/// An [`IndexSet`](indexmap::IndexSet) using the default hasher.
+/// A mutable set that iterates in insertion order: [`MiniMutInsertionSet`].
 ///
-/// This is a type alias for `indexmap::IndexSet` that preserves insertion order.
-/// Unlike [`BuckMutSet`], iteration order is guaranteed to match insertion order.
-///
-/// This abstraction allows the hasher implementation to be changed centrally
-/// in a future commit.
-pub type BuckIndexSet<K> = indexmap::IndexSet<K>;
+/// The set counterpart of [`BuckIndexMap`].
+pub type BuckIndexSet<K> = MiniMutInsertionSet<K>;
 
 /// Creates a [`BuckIndexMap`] from a list of key-value pairs.
-///
-/// This macro mirrors the `indexmap!` macro from the `indexmap` crate but uses
-/// whatever hasher [`BuckIndexMap`] is configured to use, allowing the hasher
-/// to be changed centrally.
 ///
 /// # Example
 ///
@@ -183,8 +175,8 @@ pub type BuckIndexSet<K> = indexmap::IndexSet<K>;
 ///     "a" => 1,
 ///     "b" => 2,
 /// };
-/// assert_eq!(map["a"], 1);
-/// assert_eq!(map["b"], 2);
+/// assert_eq!(map.get("a"), Some(&1));
+/// assert_eq!(map.get("b"), Some(&2));
 /// ```
 #[macro_export]
 macro_rules! buck_indexmap {
@@ -199,10 +191,6 @@ macro_rules! buck_indexmap {
 }
 
 /// Creates a [`BuckIndexSet`] from a list of values.
-///
-/// This macro mirrors the `indexset!` macro from the `indexmap` crate but uses
-/// whatever hasher [`BuckIndexSet`] is configured to use, allowing the hasher
-/// to be changed centrally.
 ///
 /// # Example
 ///

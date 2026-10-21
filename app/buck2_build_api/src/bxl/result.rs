@@ -98,7 +98,7 @@ impl PendingStreamingOutput {
     }
 
     pub fn remove_wait_on(&mut self, artifact: &ArtifactGroup) -> bool {
-        self.waits_on.swap_remove(artifact)
+        self.waits_on.shift_remove(artifact)
     }
 
     pub fn is_pending(&self) -> bool {

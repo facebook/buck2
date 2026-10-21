@@ -12,8 +12,6 @@ use std::cell::OnceCell;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::hash::BuildHasher;
-use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -21,11 +19,11 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_hash::BuckIndexMap;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
 use either::Either;
-use indexmap::IndexMap;
 use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -57,7 +55,6 @@ use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
-use starlark::values::StarlarkPagableViaPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
@@ -72,8 +69,6 @@ use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
 use starlark::values::typing::TypeMatcherDyn;
 use starlark::values::typing::TypeMatcherFactory;
-use starlark_map::StarlarkHasher;
-use starlark_map::StarlarkHasherBuilder;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
@@ -105,116 +100,9 @@ enum ProviderCallableError {
     InvalidDefaultValueType(String, &'static str, Ty),
 }
 
-/// `Hashed` from starlark contains the small hash,
-/// we get it in `UserProvider::get_hashed`.
-/// To lookup in `IndexMap` we can promote it to `u64`.
-/// This is what this hasher does.
-#[derive(Default, Debug, Clone, Copy, Dupe, Pagable, StarlarkPagableViaPagable)]
-pub(crate) struct StarlarkHasherSmallPromoteBuilder(StarlarkHasherBuilder);
-pub(crate) struct StarlarkHasherSmallPromote(StarlarkHasher);
-
-impl BuildHasher for StarlarkHasherSmallPromoteBuilder {
-    type Hasher = StarlarkHasherSmallPromote;
-
-    fn build_hasher(&self) -> Self::Hasher {
-        StarlarkHasherSmallPromote(self.0.build_hasher())
-    }
-}
-
-// IMPORTANT: `Hasher` wrappers must explicitly forward every `write_*` method
-// to the inner hasher. Without forwarding, a wrapper's `write_usize` (for
-// example) takes the default byte-serialization path — which produces a
-// different hash than the inner hasher's native `write_usize`. With the
-// current `fxhash::FxHasher64` the two paths happen to agree, but this
-// breaks with `rustc_hash::FxHasher` (introduced in a follow-up diff)
-// where `write_u64` hashes the value directly as a word while
-// `write(&[u8; 8])` runs it through a different byte-hashing path.
-#[deny(clippy::missing_trait_methods)]
-impl Hasher for StarlarkHasherSmallPromote {
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.0.finish_short().promote()
-    }
-
-    #[inline]
-    fn write(&mut self, bytes: &[u8]) {
-        self.0.write(bytes)
-    }
-
-    #[inline]
-    fn write_u8(&mut self, i: u8) {
-        self.0.write_u8(i)
-    }
-
-    #[inline]
-    fn write_u16(&mut self, i: u16) {
-        self.0.write_u16(i)
-    }
-
-    #[inline]
-    fn write_u32(&mut self, i: u32) {
-        self.0.write_u32(i)
-    }
-
-    #[inline]
-    fn write_u64(&mut self, i: u64) {
-        self.0.write_u64(i)
-    }
-
-    #[inline]
-    fn write_u128(&mut self, i: u128) {
-        self.0.write_u128(i)
-    }
-
-    #[inline]
-    fn write_usize(&mut self, i: usize) {
-        self.0.write_usize(i)
-    }
-
-    #[inline]
-    fn write_i8(&mut self, i: i8) {
-        self.0.write_i8(i)
-    }
-
-    #[inline]
-    fn write_i16(&mut self, i: i16) {
-        self.0.write_i16(i)
-    }
-
-    #[inline]
-    fn write_i32(&mut self, i: i32) {
-        self.0.write_i32(i)
-    }
-
-    #[inline]
-    fn write_i64(&mut self, i: i64) {
-        self.0.write_i64(i)
-    }
-
-    #[inline]
-    fn write_i128(&mut self, i: i128) {
-        self.0.write_i128(i)
-    }
-
-    #[inline]
-    fn write_isize(&mut self, i: isize) {
-        self.0.write_isize(i)
-    }
-
-    #[inline]
-    fn write_length_prefix(&mut self, len: usize) {
-        self.0.write_length_prefix(len)
-    }
-
-    #[inline]
-    fn write_str(&mut self, s: &str) {
-        self.0.write_str(s)
-    }
-}
-
 fn create_callable_function_signature<'v>(
     function_name: &str,
-    fields: &IndexMap<String, UserProviderField<'v>, StarlarkHasherSmallPromoteBuilder>,
+    fields: &BuckIndexMap<String, UserProviderField<'v>>,
     ret_ty: Ty,
 ) -> buck2_error::Result<(ParametersSpec<Value<'v>>, TyCallable)> {
     let (parameters_spec, param_spec) = param_specs(
@@ -250,7 +138,7 @@ pub(crate) struct UserProviderCallableData<'v> {
     pub(crate) provider_id: Arc<ProviderId>,
     /// Type id of provider callable instance.
     pub(crate) ty_provider_type_instance_id: TypeInstanceId,
-    pub(crate) fields: IndexMap<String, TypeCompiled<'v>, StarlarkHasherSmallPromoteBuilder>,
+    pub(crate) fields: BuckIndexMap<String, TypeCompiled<'v>>,
 }
 
 starlark::register_starlark_any_complex!(frozen UserProviderCallableData<'_>);
@@ -377,14 +265,14 @@ pub struct UserProviderCallable<'v> {
     #[starlark_pagable(pagable)]
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
-    fields: IndexMap<String, UserProviderField<'v>, StarlarkHasherSmallPromoteBuilder>,
+    fields: BuckIndexMap<String, UserProviderField<'v>>,
     /// Field is initialized after the provider is assigned to a variable.
     callable: OnceCell<UserProviderCallableNamed<'v>>,
 }
 
 fn user_provider_callable_display(
     id: Option<&Arc<ProviderId>>,
-    fields: &IndexMap<String, UserProviderField<'_>, StarlarkHasherSmallPromoteBuilder>,
+    fields: &BuckIndexMap<String, UserProviderField<'_>>,
     f: &mut Formatter,
 ) -> fmt::Result {
     write!(f, "provider")?;
@@ -425,7 +313,7 @@ impl<'v> UserProviderCallable<'v> {
     fn new(
         path: CellPath,
         docs: Option<DocString>,
-        fields: IndexMap<String, UserProviderField<'v>, StarlarkHasherSmallPromoteBuilder>,
+        fields: BuckIndexMap<String, UserProviderField<'v>>,
     ) -> Self {
         Self {
             callable: OnceCell::new(),
@@ -469,10 +357,7 @@ impl<'v> Freeze<'v> for UserProviderCallable<'v> {
             }
         };
 
-        let mut fields = IndexMap::with_capacity_and_hasher(
-            self.fields.len(),
-            StarlarkHasherSmallPromoteBuilder::default(),
-        );
+        let mut fields = BuckIndexMap::with_capacity(self.fields.len());
         for (name, field) in self.fields {
             fields.insert(name, field.freeze(freezer)?);
         }
@@ -620,7 +505,7 @@ pub struct FrozenUserProviderCallable<'v> {
     #[starlark_pagable(pagable)]
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
-    fields: IndexMap<String, UserProviderField<'v>, StarlarkHasherSmallPromoteBuilder>,
+    fields: BuckIndexMap<String, UserProviderField<'v>>,
     /// The actual callable that creates instances of `UserProvider`
     callable: UserProviderCallableNamed<'v>,
 }
@@ -640,7 +525,7 @@ impl<'v> Display for FrozenUserProviderCallable<'v> {
 impl<'v> FrozenUserProviderCallable<'v> {
     fn new(
         docs: Option<DocString>,
-        fields: IndexMap<String, UserProviderField<'v>, StarlarkHasherSmallPromoteBuilder>,
+        fields: BuckIndexMap<String, UserProviderField<'v>>,
         callable: UserProviderCallableNamed<'v>,
     ) -> Self {
         Self {
@@ -778,11 +663,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
 
         let fields = match fields {
             Either::Left(fields) => {
-                let new_fields: IndexMap<
-                    String,
-                    UserProviderField<'v>,
-                    StarlarkHasherSmallPromoteBuilder,
-                > = fields
+                let new_fields: BuckIndexMap<String, UserProviderField<'v>> = fields
                     .items
                     .iter()
                     .map(|name| (name.clone(), UserProviderField::default()))
@@ -798,10 +679,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
                 new_fields
             }
             Either::Right(fields) => {
-                let mut new_fields = IndexMap::with_capacity_and_hasher(
-                    fields.len(),
-                    StarlarkHasherSmallPromoteBuilder::default(),
-                );
+                let mut new_fields = BuckIndexMap::with_capacity(fields.len());
                 for (name, field) in fields {
                     if let Some(field) = field.downcast_ref::<UserProviderField>() {
                         new_fields.insert(name, field.dupe());

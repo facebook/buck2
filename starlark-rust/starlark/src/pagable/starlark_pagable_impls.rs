@@ -21,7 +21,6 @@
 //! This allows these types to be used directly in `#[derive(StarlarkPagable)]`
 //! without needing `#[starlark_pagable(pagable)]`.
 
-use std::hash::BuildHasher;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::num::NonZeroI32;
@@ -29,7 +28,8 @@ use std::sync::Arc;
 use std::sync::Weak;
 
 use dupe::Dupe;
-use indexmap::IndexMap;
+use mini_map::MiniMutInsertionMap;
+use mini_map::MiniMutInsertionSet;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
@@ -175,10 +175,10 @@ impl<'fv, T: StarlarkDeserialize<'fv>> StarlarkDeserialize<'fv> for Option<T> {
 }
 
 // ============================================================================
-// SmallMap
+// Insertion-ordered maps and sets, and starlark_map's facades over them
 // ============================================================================
 
-impl<K: StarlarkSerialize, V: StarlarkSerialize> StarlarkSerialize for SmallMap<K, V> {
+impl<K: StarlarkSerialize, V: StarlarkSerialize> StarlarkSerialize for MiniMutInsertionMap<K, V> {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
         self.len().pagable_serialize(ctx.pagable())?;
         for (k, v) in self.iter() {
@@ -190,13 +190,13 @@ impl<K: StarlarkSerialize, V: StarlarkSerialize> StarlarkSerialize for SmallMap<
 }
 
 impl<'fv, K: SmallMapKeyDeserialize<'fv>, V: StarlarkDeserialize<'fv>> StarlarkDeserialize<'fv>
-    for SmallMap<K, V>
+    for MiniMutInsertionMap<K, V>
 {
     fn starlark_deserialize(
         ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<Self> {
         let len = usize::pagable_deserialize(ctx.pagable())?;
-        let mut map = SmallMap::with_capacity(len);
+        let mut map = MiniMutInsertionMap::with_capacity(len);
         for _ in 0..len {
             let hashed_k = K::starlark_deserialize_hashed(ctx)?;
             let v = V::starlark_deserialize(ctx)?;
@@ -206,11 +206,29 @@ impl<'fv, K: SmallMapKeyDeserialize<'fv>, V: StarlarkDeserialize<'fv>> StarlarkD
     }
 }
 
+impl<K: StarlarkSerialize, V: StarlarkSerialize> StarlarkSerialize for SmallMap<K, V> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.as_inner().starlark_serialize(ctx)
+    }
+}
+
+impl<'fv, K: SmallMapKeyDeserialize<'fv>, V: StarlarkDeserialize<'fv>> StarlarkDeserialize<'fv>
+    for SmallMap<K, V>
+{
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
+    ) -> crate::Result<Self> {
+        Ok(SmallMap::from(MiniMutInsertionMap::starlark_deserialize(
+            ctx,
+        )?))
+    }
+}
+
 // ============================================================================
 // SmallSet
 // ============================================================================
 
-impl<T: StarlarkSerialize> StarlarkSerialize for SmallSet<T> {
+impl<T: StarlarkSerialize> StarlarkSerialize for MiniMutInsertionSet<T> {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
         self.len().pagable_serialize(ctx.pagable())?;
         for v in self.iter() {
@@ -220,17 +238,33 @@ impl<T: StarlarkSerialize> StarlarkSerialize for SmallSet<T> {
     }
 }
 
-impl<'fv, T: SmallMapKeyDeserialize<'fv>> StarlarkDeserialize<'fv> for SmallSet<T> {
+impl<'fv, T: SmallMapKeyDeserialize<'fv>> StarlarkDeserialize<'fv> for MiniMutInsertionSet<T> {
     fn starlark_deserialize(
         ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<Self> {
         let len = usize::pagable_deserialize(ctx.pagable())?;
-        let mut set = SmallSet::with_capacity(len);
+        let mut set = MiniMutInsertionSet::with_capacity(len);
         for _ in 0..len {
             let hashed = T::starlark_deserialize_hashed(ctx)?;
             set.insert_hashed(hashed);
         }
         Ok(set)
+    }
+}
+
+impl<T: StarlarkSerialize> StarlarkSerialize for SmallSet<T> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.as_inner().starlark_serialize(ctx)
+    }
+}
+
+impl<'fv, T: SmallMapKeyDeserialize<'fv>> StarlarkDeserialize<'fv> for SmallSet<T> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
+    ) -> crate::Result<Self> {
+        Ok(SmallSet::from(MiniMutInsertionSet::starlark_deserialize(
+            ctx,
+        )?))
     }
 }
 
@@ -602,43 +636,6 @@ impl<'fv, T: StarlarkSerialize + for<'x> StarlarkDeserialize<'x> + Send + Sync +
     ) -> crate::Result<Self> {
         let bridge: StarlarkArcBridge<T> = deserialize_arc(ctx.pagable())?;
         Ok(bridge.inner)
-    }
-}
-
-// ============================================================================
-// IndexMap — insertion-order-preserving hash map. Mirrors `pagable::impls`'s
-// `IndexMap` impl: the hasher is not serialized; deserialize constructs a
-// default-hasher map and inserts entries in order.
-// ============================================================================
-
-impl<K: StarlarkSerialize, V: StarlarkSerialize, S> StarlarkSerialize for IndexMap<K, V, S> {
-    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
-        self.len().pagable_serialize(ctx.pagable())?;
-        for (k, v) in self.iter() {
-            k.starlark_serialize(ctx)?;
-            v.starlark_serialize(ctx)?;
-        }
-        Ok(())
-    }
-}
-
-impl<'fv, K, V, S> StarlarkDeserialize<'fv> for IndexMap<K, V, S>
-where
-    K: StarlarkDeserialize<'fv> + Hash + Eq,
-    V: StarlarkDeserialize<'fv>,
-    S: Default + BuildHasher,
-{
-    fn starlark_deserialize(
-        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
-    ) -> crate::Result<Self> {
-        let len = usize::pagable_deserialize(ctx.pagable())?;
-        let mut map: IndexMap<K, V, S> = IndexMap::default();
-        for _ in 0..len {
-            let k = K::starlark_deserialize(ctx)?;
-            let v = V::starlark_deserialize(ctx)?;
-            map.insert(k, v);
-        }
-        Ok(map)
     }
 }
 
