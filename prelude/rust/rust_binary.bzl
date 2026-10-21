@@ -224,6 +224,7 @@ def _native_test_info(
             executor_overrides = re_executors.executor_overrides,
             run_from_project_root = True,
             use_project_relative_paths = True,
+            supports_test_execution_caching = ctx.attrs.supports_test_execution_caching,
         ),
     )
 
@@ -1195,6 +1196,7 @@ rust_test = prelude_rule(
                 same command-line parameters and produce the same output as the test framework.
             """,
             ),
+            "supports_test_execution_caching": attrs.bool(default = False),
         }
         | miri_interpreted_attr()
         | re_test_common.test_args()
