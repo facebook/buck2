@@ -1632,6 +1632,7 @@ mod tests {
             endpoint: "tcp:44805".to_owned(),
             version: "92ca877522e06be7580a7ea2d622a3c06712322a".to_owned(),
             auth_token: "redacted".to_owned(),
+            pid_start_time: 0,
         };
         let daemon_dir = DaemonDir {
             path: AbsNormPathBuf::new("/tmp/buckd".into()).expect("daemon dir should be valid"),
@@ -1658,6 +1659,7 @@ mod tests {
             endpoint: "tcp:44805".to_owned(),
             version: "92ca877522e06be7580a7ea2d622a3c06712322a".to_owned(),
             auth_token: "redacted".to_owned(),
+            pid_start_time: 0,
         };
         let daemon_dir = DaemonDir {
             path: AbsNormPathBuf::new("/tmp/buckd".into()).expect("daemon dir should be valid"),

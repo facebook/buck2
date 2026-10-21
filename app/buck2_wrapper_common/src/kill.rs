@@ -13,7 +13,9 @@
 use std::time::Duration;
 
 use sysinfo::Process;
+use sysinfo::ProcessRefreshKind;
 use sysinfo::ProcessesToUpdate;
+use sysinfo::System;
 
 use crate::pid::Pid;
 #[cfg(unix)]
@@ -27,6 +29,32 @@ pub fn process_creation_time(process: &Process) -> Option<Duration> {
 
 pub fn process_exists(pid: Pid) -> buck2_error::Result<bool> {
     imp::process_exists(pid)
+}
+
+/// Start time of the given process in seconds since the unix epoch, with 1
+/// second precision, or `None` if the process does not exist or its start
+/// time cannot be read.
+///
+/// A `(pid, start time)` pair identifies a process instance where the pid
+/// alone is ambiguous (pid reuse, or a pid recorded inside a pid namespace).
+/// Writers and readers of recorded start times must both use this function so
+/// the values compare exactly.
+///
+/// `None` names the current process, for recording its own start time.
+pub fn process_start_time(pid: Option<Pid>) -> Option<u64> {
+    let pid = match pid {
+        Some(pid) => sysinfo::Pid::from_u32(pid.to_u32()),
+        None => sysinfo::Pid::from_u32(std::process::id()),
+    };
+    let mut system = System::new();
+    system.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid]),
+        true,
+        ProcessRefreshKind::nothing(),
+    );
+    let proc = system.process(pid)?;
+    // sysinfo reports 0, not an error, when the start time is unavailable.
+    Some(proc.start_time()).filter(|t| *t != 0)
 }
 
 /// Send `KILL` or call `TerminateProcess` on the given process.

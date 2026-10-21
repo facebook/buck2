@@ -24,6 +24,13 @@ message DaemonProcessInfo {
   // can't be removed.
   string version = 3;
   string auth_token = 4;
+  // Start time of the daemon process, in seconds since the unix epoch, as
+  // reported by `buck2_wrapper_common::kill::process_start_time`. Lets
+  // readers tell the recorded daemon apart from an unrelated process that
+  // ended up with its pid: `pid` alone is ambiguous both through ordinary
+  // pid reuse and when it was recorded inside a pid namespace. 0 when
+  // unknown (files written by older daemons).
+  uint64 pid_start_time = 5;
 }
 
 // Controls whether we will use a given daemon or not.

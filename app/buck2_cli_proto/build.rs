@@ -39,6 +39,8 @@ fn main() -> io::Result<()> {
         .boxed("CommandProgress.progress.result")
         .boxed("CommandProgress.progress.partial_result")
         .field_attribute("expires_at", "#[serde(with = \"serialize_timestamp\")]")
+        // buckd.info files written by older daemons lack this field.
+        .field_attribute("DaemonProcessInfo.pid_start_time", "#[serde(default)]")
         .extern_path(".buck.data", "::buck2_data")
         .extern_path(".buck.subscription", "::buck2_subscription_proto")
         .compile(proto_files, &includes)

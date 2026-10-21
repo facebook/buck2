@@ -2207,6 +2207,7 @@ dependencies = [
  "buck2_resource_control",
  "buck2_server",
  "buck2_util",
+ "buck2_wrapper_common",
  "clap",
  "dice",
  "dupe",
