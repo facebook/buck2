@@ -21,7 +21,14 @@ load(
     "strip_type_declarations",
 )
 load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
-load(":nodejs_typescript.bzl", "assemble_flat_package", "compile_module_typescript", "compile_typescript")
+load(":nodejs_typescript.bzl", "compile_module_typescript", "compile_typescript")
+
+_StagedEntry = record(
+    artifact = field(Artifact),
+    attr = field(str),
+    # Set only for `resources`, the only entries passed in `--entries`.
+    name = field(str | None, None),
+)
 
 def _fail_invalid(label: Label, package_name: str, reason: str, hint: str) -> None:
     fail("nodejs_library {}: invalid `package_name` '{}': {}{}".format(label, package_name, reason, hint))
@@ -69,10 +76,10 @@ def _validate_package_name(label: Label, package_name: str, is_default: bool = F
                     hint,
                 )
 
-def _check_relative_dir(label: Label, attr: str, path: str) -> None:
-    segments = check_relative_path(path, "nodejs_library {}: invalid `{}`".format(label, attr))
+def _check_path_attr(label: Label, what: str, path: str) -> None:
+    segments = check_relative_path(path, "nodejs_library {}: invalid {}".format(label, what))
     if "node_modules" in [s.lower() for s in segments]:
-        fail("nodejs_library {}: invalid `{}` '{}': must not contain a 'node_modules' segment".format(label, attr, path))
+        fail("nodejs_library {}: invalid {} '{}': must not contain a 'node_modules' segment".format(label, what, path))
 
 def _src_root_relative(label: Label, src_root: str, attr: str, artifact: Artifact) -> str:
     path = artifact.short_path
@@ -82,9 +89,79 @@ def _src_root_relative(label: Label, src_root: str, attr: str, artifact: Artifac
         fail("nodejs_library {}: `{}` entry '{}' is not under `src_root` '{}'".format(label, attr, path, src_root))
     return path[len(src_root) + 1 :]
 
-def _staged_path(label: Label, src_root: str, package_subdir: str, attr: str, artifact: Artifact) -> str:
-    path = _src_root_relative(label, src_root, attr, artifact)
-    return package_subdir + "/" + path if package_subdir else path
+def _join(directory: str, path: str) -> str:
+    return directory + "/" + path if directory else path
+
+def _resource_entries(label: Label, src_root: str, package_subdir: str, resources: dict[str, Artifact] | list[Artifact]) -> list[(str, _StagedEntry)]:
+    if isinstance(resources, dict):
+        named = [(path, path, artifact) for path, artifact in resources.items()]
+    else:
+        named = [(artifact.short_path, _join(package_subdir, _src_root_relative(label, src_root, "resources", artifact)), artifact) for artifact in resources]
+    entries = []
+    for name, path, artifact in named:
+        _check_path_attr(label, "`resources` path", path)
+        if path == "package.json":
+            fail("nodejs_library {}: `resources` '{}' maps to 'package.json', which is reserved for `package_json`".format(label, artifact))
+        entries.append((path, _StagedEntry(artifact = artifact, attr = "`resources`", name = "`resources` entry '{}'".format(name))))
+    return entries
+
+def _stage(label: Label, staged: dict[str, _StagedEntry], path: str, entry: _StagedEntry) -> None:
+    existing = staged.get(path)
+    if existing == None:
+        staged[path] = entry
+    elif existing.artifact != entry.artifact:
+        fail(
+            "nodejs_library {}: duplicate {} '{}' and {} '{}' both map to '{}'".format(
+                label, existing.attr, existing.artifact, entry.attr, entry.artifact, path
+            )
+        )
+
+def _ancestors(path: str) -> list[str]:
+    segments = path.split("/")
+    return ["/".join(segments[:i]) for i in range(1, len(segments))]
+
+def _nests(a: str, b: str) -> bool:
+    return a == b or a in _ancestors(b) or b in _ancestors(a)
+
+def _any_nests(staged: dict[str, _StagedEntry], path: str) -> bool:
+    for staged_path in staged:
+        if _nests(staged_path, path):
+            return True
+    return False
+
+def _assemble_package(
+    actions: AnalysisActions,
+    package_tree_tool: RunInfo,
+    emit: Artifact,
+    package_subdir: str,
+    staged: dict[str, _StagedEntry],
+    identifier: str,
+) -> Artifact:
+    """The entry staged at `package.json` replaces an emitted one; any other entry that collides with an emitted file or directory fails the action."""
+    package_dir = actions.declare_output("ts/p", dir = True)
+    entries = actions.write_json(
+        "ts/p.json",
+        [(path, staged[path].artifact, staged[path].name) for path in sorted(staged) if path != "package.json"],
+        with_inputs = True,
+    )
+    manifest = staged.get("package.json")
+    actions.run(
+        cmd_args(
+            package_tree_tool,
+            "assemble-package",
+            "--emit",
+            emit,
+            cmd_args("--package-subdir", package_subdir) if package_subdir else [],
+            "--entries",
+            entries,
+            cmd_args("--package-json", manifest.artifact) if manifest != None else [],
+            "--out",
+            package_dir.as_output(),
+        ),
+        category = "assemble_package",
+        identifier = identifier,
+    )
+    return package_dir
 
 def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
     package_name = ctx.attrs.package_name
@@ -95,24 +172,42 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label, non_code_attr = "resources")
     if ctx.attrs.out != None:
-        _check_relative_dir(ctx.label, "out", ctx.attrs.out)
+        _check_path_attr(ctx.label, "`out`", ctx.attrs.out)
     dir_name = ctx.attrs.out if ctx.attrs.out != None else package_name
     src_root = ctx.attrs.src_root
     if src_root:
-        _check_relative_dir(ctx.label, "src_root", src_root)
+        _check_path_attr(ctx.label, "`src_root`", src_root)
     package_subdir = ctx.attrs.package_subdir
     if package_subdir:
-        _check_relative_dir(ctx.label, "package_subdir", package_subdir)
+        _check_path_attr(ctx.label, "`package_subdir`", package_subdir)
     if ctx.attrs.module != None:
-        if ctx.attrs.srcs or ctx.attrs.resources or dep_infos or ctx.attrs.node_modules != None:
-            fail("nodejs_library {}: `module` cannot be combined with `srcs`, `resources`, `deps` or `node_modules`".format(ctx.label))
+        if ctx.attrs.srcs or dep_infos or ctx.attrs.node_modules != None:
+            fail("nodejs_library {}: `module` cannot be combined with `srcs`, `deps` or `node_modules`".format(ctx.label))
         if ctx.attrs.tsconfig != None:
             fail("nodejs_library {}: `module` uses the module's own tsconfig.json; `tsconfig` cannot be combined with `module`".format(ctx.label))
+    compiled = ctx.attrs.module != None or ctx.attrs.tsconfig != None
+    staged = {}
+    for src in ctx.attrs.srcs:
+        path = _src_root_relative(ctx.label, src_root, "srcs", src)
+        if not compiled:
+            _stage(ctx.label, staged, _join(package_subdir, path), _StagedEntry(artifact = src, attr = "`srcs`"))
+    for path, entry in _resource_entries(ctx.label, src_root, package_subdir, ctx.attrs.resources):
+        _stage(ctx.label, staged, path, entry)
+    if ctx.attrs.package_json != None:
+        _stage(ctx.label, staged, "package.json", _StagedEntry(artifact = ctx.attrs.package_json, attr = "`package_json`"))
+    for path in sorted(staged):
+        for prefix in _ancestors(path):
+            if prefix in staged:
+                fail(
+                    "nodejs_library {}: overlapping staged paths '{}' and '{}' ('{}' and '{}'): staged entries must not nest".format(
+                        ctx.label, prefix, path, staged[prefix].artifact, staged[path].artifact
+                    )
+                )
+
     node_modules_tree = None
     if ctx.attrs.node_modules != None:
         node_modules_tree = get_nodejs_tree_info(ctx.attrs.node_modules, consumer_label = ctx.label).node_modules
 
-    srcs_map = {}
     emit = None
     if ctx.attrs.module != None:
         module_outs = ctx.attrs.module[DefaultInfo].default_outputs
@@ -127,10 +222,6 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.attrs.name,
         )
     elif ctx.attrs.tsconfig != None:
-        if ctx.attrs.resources:
-            fail("nodejs_library {}: `resources` cannot be combined with `tsconfig` yet".format(ctx.label))
-        for src in ctx.attrs.srcs:
-            _src_root_relative(ctx.label, src_root, "srcs", src)
         emit = compile_typescript(
             actions = ctx.actions,
             label = ctx.label,
@@ -144,49 +235,15 @@ def nodejs_library_impl(ctx: AnalysisContext) -> list[Provider]:
             package_tree_tool = ctx.attrs._package_tree_tool[RunInfo],
             node_modules_tree = node_modules_tree,
         )
+    elif node_modules_tree != None:
+        fail("nodejs_library {}: `node_modules` requires `tsconfig`: without compilation the tree is unused".format(ctx.label))
+    files = {path: entry.artifact for path, entry in staged.items()}
+    if emit == None:
+        package_dir = ctx.actions.copied_dir("package_dir", files)
+    elif package_subdir and not _any_nests(staged, package_subdir):
+        package_dir = ctx.actions.copied_dir("package_dir", files | {package_subdir: emit})
     else:
-        if node_modules_tree != None:
-            fail("nodejs_library {}: `node_modules` requires `tsconfig`: without compilation the tree is unused".format(ctx.label))
-        for src in ctx.attrs.srcs:
-            key = _staged_path(ctx.label, src_root, package_subdir, "srcs", src)
-            existing = srcs_map.get(key)
-            if existing != None and existing != src:
-                fail("nodejs_library {}: duplicate `srcs` '{}' and '{}' both map to '{}'".format(ctx.label, existing, src, key))
-            srcs_map[key] = src
-        for res in ctx.attrs.resources:
-            key = _staged_path(ctx.label, src_root, package_subdir, "resources", res)
-            existing = srcs_map.get(key)
-            if existing != None and existing != res:
-                fail("nodejs_library {}: duplicate `srcs`/`resources` '{}' and '{}' both map to '{}'".format(ctx.label, existing, res, key))
-            srcs_map[key] = res
-    if emit != None and not package_subdir:
-        package_dir = assemble_flat_package(
-            ctx.actions,
-            ctx.attrs._package_tree_tool[RunInfo],
-            emit,
-            ctx.attrs.package_json,
-            ctx.attrs.name,
-        )
-    else:
-        if emit != None:
-            srcs_map[package_subdir] = emit
-        if ctx.attrs.package_json != None:
-            existing = srcs_map.get("package.json")
-            if existing != None and existing != ctx.attrs.package_json:
-                fail("nodejs_library {}: '{}' and `package_json` '{}' both map to 'package.json'".format(ctx.label, existing, ctx.attrs.package_json))
-            srcs_map["package.json"] = ctx.attrs.package_json
-        for key in sorted(srcs_map):
-            segments = key.split("/")
-            prefix = segments[0]
-            for i in range(1, len(segments)):
-                if prefix in srcs_map:
-                    fail(
-                        "nodejs_library {}: overlapping staged paths '{}' and '{}' ('{}' and '{}'): staged entries must not nest".format(
-                            ctx.label, prefix, key, srcs_map[prefix], srcs_map[key]
-                        )
-                    )
-                prefix += "/" + segments[i]
-        package_dir = ctx.actions.copied_dir("package_dir", srcs_map)
+        package_dir = _assemble_package(ctx.actions, ctx.attrs._package_tree_tool[RunInfo], emit, package_subdir, staged, ctx.attrs.name)
 
     runtime_dir = strip_type_declarations(ctx.actions, ctx.attrs._package_tree_tool[RunInfo], package_dir, "runtime_dir")
     own_package = NodejsLibraryPackage(
@@ -220,13 +277,15 @@ nodejs_library = prelude_rule(
     impl = nodejs_library_impl,
     docs = """A Node.js library that packages code as a regular
     `node_modules` package loadable by Node without custom loaders.
-    `src_root` (default `""`) is the directory, relative to the BUCK
-    package (to the module root with `module`), that staged and emitted
-    paths are relative to; every `srcs` and `resources` entry must be
-    under it. `package_subdir` (default `""`, the package root, beside
+    `src_root` (default `""`) is the directory that staged and emitted
+    paths are relative to. For `srcs` and a `resources` list it applies to
+    each artifact's short path (a source file's path inside its BUCK
+    package, a generated artifact's path inside its rule's output), and
+    every entry must be under it; for `module` it applies inside the
+    module root. `package_subdir` (default `""`, the package root, beside
     `package.json`) is the directory inside the package that compiled
-    output, the `module` emit and uncompiled `srcs` and `resources` are
-    staged in, e.g. `"dist"`. Both are
+    output, the `module` emit, uncompiled `srcs` and `resources` list
+    entries are staged in, e.g. `"dist"`. Both are
     relative paths with `/` separators, no `:` and no `.`, `..` or
     `node_modules` segments.
     Without `tsconfig`, the artifacts it is given are packaged as-is
@@ -234,9 +293,7 @@ nodejs_library = prelude_rule(
     generated files, another rule's output) feeds `srcs`, and each entry
     is staged at `<package_subdir>/<path>` inside the package, where `<path>`
     is its short path relative to `src_root` (repeating the
-    same source is allowed; distinct sources mapping to the same staged
-    path fail, and staged paths must not nest, e.g. `a` and `a/b`
-    fail).
+    same source is allowed).
     With `tsconfig`, `srcs` must be TypeScript compiled with the
     toolchain's `tsc` before staging: sources are staged by short path
     next to the `tsconfig`, the `package_json` (whose `"type"` decides the
@@ -251,15 +308,32 @@ nodejs_library = prelude_rule(
     pointing at a sibling config file does not resolve. A source whose
     first path segment is `tsconfig.json`, `tsconfig.buck.json`, or a
     staged `package.json` or `node_modules` fails.
-    Without `tsconfig`, each entry of `resources` is staged like `srcs`,
-    for non-code files (including generated artifacts
-    and directory artifacts from other rules) that ship with the package;
-    `resources` cannot be combined with `tsconfig`. `deps` must
-    be `nodejs_library` targets; use `resources` for non-code artifacts.
+    `resources` ship non-code files and directories with the package,
+    whether or not its code is compiled: source files and directories,
+    generated files, and other rules' directory outputs. A list entry is
+    staged like an uncompiled source, at `<package_subdir>/<path>` where
+    `<path>` is its short path relative to `src_root`, so it keeps its
+    place relative to code compiled from the same package and lookups
+    through `__dirname` resolve as they do in the source tree. The
+    `module` emit mirrors the module root instead, so a list entry lines
+    up with it only when the entry's short path matches its place in the
+    module root, as a source of a `filegroup` module's own package does;
+    otherwise use a dict. A dict maps package-relative paths to entries
+    staged at exactly those paths. Every path a resource is staged at is
+    relative and `/`-separated, with no `:` and no `.`, `..` or
+    `node_modules` segments; `package.json` is reserved for
+    `package_json`. Two distinct entries (uncompiled `srcs`, `resources`
+    or `package_json`) that map to the same staged path fail, and staged
+    paths must not nest, e.g. `a` and `a/b` fail. With compiled
+    content, `resources` may be staged inside the compiled output and
+    merge into its directories, but one that collides with an emitted
+    file or directory fails the build with an error naming both. `deps`
+    must be `nodejs_library` targets; use `resources` for non-code
+    artifacts.
     Staging copies files so the package runs under Node without
     `--preserve-symlinks`. `package_json`, when supplied, is staged at the
-    package root as `package.json`; an uncompiled entry staged at the same
-    path fails. Its `name` is not checked against
+    package root as `package.json`, replacing a `package.json` the compile
+    emits there. Its `name` is not checked against
     `package_name`; keep the two in sync. Without it, importing by package
     name does not resolve in Node; for packages that must be imported by name,
     supply `package_json` whose `exports` (or `main`) entry points at the
@@ -284,7 +358,7 @@ nodejs_library = prelude_rule(
     and the emitted tree is staged as the package's `package_subdir`, mirroring
     source paths (with the defaults, `src/main.ts` emits
     `src/main.js`). It cannot be
-    combined with `srcs`, `resources`, `deps`, `node_modules` or `tsconfig`;
+    combined with `srcs`, `deps`, `node_modules` or `tsconfig`;
     the module tsconfig must not require writes into the tree. Only the
     emitted tree is staged, not the module's own `node_modules`: a
     `nodejs_binary` running the package must supply that tree through its
@@ -308,7 +382,7 @@ nodejs_library = prelude_rule(
         # @unsorted-dict-items
         {
             "srcs": attrs.list(attrs.source(), default = []),
-            "resources": attrs.list(attrs.source(), default = []),
+            "resources": attrs.named_set(attrs.source(allow_directory = True), sorted = True, default = []),
             "package_name": attrs.option(attrs.string(), default = None),
             "package_json": attrs.option(attrs.source(allow_directory = False), default = None),
             "tsconfig": attrs.option(attrs.source(allow_directory = False), default = None),

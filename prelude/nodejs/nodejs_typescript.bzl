@@ -118,24 +118,6 @@ def compile_typescript(
 
     return out_dir
 
-def assemble_flat_package(actions: AnalysisActions, package_tree_tool: RunInfo, emit: Artifact, package_json: Artifact | None, identifier: str) -> Artifact:
-    """Assemble a package directory with the compile output and `package_json` at its root."""
-    package_dir = actions.declare_output("ts/p", dir = True)
-    actions.run(
-        cmd_args(
-            package_tree_tool,
-            "flat-package",
-            "--emit",
-            emit,
-            cmd_args("--package-json", package_json) if package_json != None else [],
-            "--out",
-            package_dir.as_output(),
-        ),
-        category = "tsc_flat_package",
-        identifier = identifier,
-    )
-    return package_dir
-
 def merge_node_modules(actions: AnalysisActions, package_tree_tool: RunInfo, dep_node_modules: Artifact, prebuilt_tree: Artifact, identifier: str) -> Artifact:
     """Merge a deps-built `node_modules` tree with a prebuilt tree.
 

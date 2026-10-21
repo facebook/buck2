@@ -8,13 +8,17 @@
 
 """Build package trees for the prelude's Node.js rules.
 
-package_tree.py flat-package --emit DIR [--package-json FILE] --out DIR
+package_tree.py assemble-package --emit DIR [--package-subdir PATH] --entries FILE [--package-json FILE] --out DIR
 package_tree.py merge --deps DIR --prebuilt DIR --out DIR
 package_tree.py launchers --spec FILE --out DIR
 package_tree.py archive --src DIR --format FORMAT --out FILE [--root ROOT] [--executables FILE]
     [--sha256 FILE]
 package_tree.py compress --src FILE --out OUT [--sha256 FILE] --zstd ZSTD...
 package_tree.py strip-types --src DIR --out DIR
+
+The `--entries` file of `assemble-package` is a JSON list of
+`[path, src, name]` entries: `src` is copied to the package-relative `path`,
+and `name` describes the entry in error messages.
 """
 
 from __future__ import annotations
@@ -63,13 +67,7 @@ def _copy_tree(
     skip_suffixes: tuple[str, ...],
     ancestors: set[tuple[int, int]],
 ) -> None:
-    st = os.stat(src)
-    key = (st.st_dev, st.st_ino)
-    if key in ancestors:
-        raise ValueError(
-            f"symlink cycle: {src} resolves to a directory that contains it"
-        )
-    ancestors.add(key)
+    key = _enter_dir(src, ancestors)
     dst.mkdir(parents=True, exist_ok=True)
     with os.scandir(src) as entries:
         for entry in entries:
@@ -94,11 +92,123 @@ def copy_tree(
     _copy_tree(src, dst, keep_symlinks, skip_suffixes, set())
 
 
-def flat_package(emit: Path, package_json: Path | None, out: Path) -> None:
-    """Lay out `emit` at the root of `out`, with `package_json` as its `package.json`."""
-    copy_tree(emit, out)
+def assemble_package(
+    emit: Path,
+    package_subdir: str,
+    entries: list[tuple[str, Path, str]],
+    package_json: Path | None,
+    out: Path,
+) -> list[str]:
+    """Lay out `emit` at `package_subdir` inside `out`, copy each `(path, src, name)` entry to `path`, then `package_json` to `package.json`.
+
+    Entries merge into emitted directories and symlinks are copied as their
+    targets. Returns one message per collision with an emitted path and per
+    failed copy, a symlink cycle in an entry included. Raises `ValueError` on a
+    symlink cycle in `emit` and `OSError` if `emit` cannot be copied.
+    """
+    copy_tree(
+        emit,
+        out.joinpath(*package_subdir.split("/")) if package_subdir else out,
+        keep_symlinks=False,
+    )
+    errors = []
+    for path, src, name in entries:
+        try:
+            blocked = _make_parent_dirs(out, path)
+        except OSError as e:
+            errors.append(f"{name}: cannot copy '{path}': {e.strerror or e}")
+            continue
+        if blocked is not None:
+            errors.append(f"{name} collides with the emitted file '{blocked}'")
+        else:
+            _add_entry(src, out / path, path, name, errors, set())
     if package_json is not None:
-        shutil.copy(package_json, out / "package.json")
+        manifest = out / "package.json"
+        if manifest.is_dir():
+            errors.append(
+                "`package_json` collides with the emitted directory 'package.json'"
+            )
+        else:
+            try:
+                if os.path.lexists(manifest):
+                    # The emitted copy keeps its source's mode, which may be read-only.
+                    os.chmod(manifest, stat.S_IREAD | stat.S_IWRITE)
+                shutil.copy(package_json, manifest)
+            except OSError as e:
+                errors.append(
+                    f"`package_json`: cannot copy 'package.json': {e.strerror or e}"
+                )
+    return errors
+
+
+def _make_parent_dirs(out: Path, path: str) -> str | None:
+    """Create the directories above `path` inside `out`, or return the first of them that is a file."""
+    parent = out
+    segments = path.split("/")[:-1]
+    for i, segment in enumerate(segments):
+        parent = parent / segment
+        if not parent.is_dir():
+            if os.path.lexists(parent):
+                return "/".join(segments[: i + 1])
+            parent.mkdir()
+    return None
+
+
+def _add_entry(
+    src: Path,
+    dst: Path,
+    path: str,
+    name: str,
+    errors: list[str],
+    ancestors: set[tuple[int, int]],
+) -> None:
+    if not src.is_dir():
+        if os.path.lexists(dst):
+            kind = "directory" if dst.is_dir() else "file"
+            errors.append(f"{name} collides with the emitted {kind} '{path}'")
+            return
+        try:
+            shutil.copy(src, dst)
+        except OSError as e:
+            errors.append(f"{name}: cannot copy '{path}': {e.strerror or e}")
+        return
+    if os.path.lexists(dst) and not dst.is_dir():
+        errors.append(f"{name} collides with the emitted file '{path}'")
+        return
+    try:
+        key = _enter_dir(src, ancestors)
+    except ValueError as e:
+        errors.append(f"{name}: cannot copy '{path}': {e}")
+        return
+    try:
+        dst.mkdir(exist_ok=True)
+        with os.scandir(src) as entries:
+            children = sorted(entries, key=lambda e: e.name)
+    except OSError as e:
+        errors.append(f"{name}: cannot copy '{path}': {e.strerror or e}")
+        ancestors.remove(key)
+        return
+    for entry in children:
+        _add_entry(
+            Path(entry.path),
+            dst / entry.name,
+            f"{path}/{entry.name}",
+            name,
+            errors,
+            ancestors,
+        )
+    ancestors.remove(key)
+
+
+def _enter_dir(path: Path, ancestors: set[tuple[int, int]]) -> tuple[int, int]:
+    st = os.stat(path)
+    key = (st.st_dev, st.st_ino)
+    if key in ancestors:
+        raise ValueError(
+            f"symlink cycle: {path} resolves to a directory that contains it"
+        )
+    ancestors.add(key)
+    return key
 
 
 def merge(
@@ -776,9 +886,18 @@ def _read_executables(path: Path | None) -> list[str]:
     return [line.strip() for line in lines if line.strip()]
 
 
-def _run_flat_package(args: argparse.Namespace) -> int:
-    flat_package(args.emit, args.package_json, args.out)
-    return 0
+def _run_assemble_package(args: argparse.Namespace) -> int:
+    entries = json.loads(args.entries.read_text(encoding="utf-8"))
+    errors = assemble_package(
+        args.emit,
+        args.package_subdir,
+        [(path, _path(src), name) for path, src, name in entries],
+        args.package_json,
+        args.out,
+    )
+    for error in errors:
+        print(error, file=sys.stderr)
+    return 1 if errors else 0
 
 
 def _run_merge(args: argparse.Namespace) -> int:
@@ -821,11 +940,13 @@ def _run_strip_types(args: argparse.Namespace) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    flat = commands.add_parser("flat-package")
-    flat.add_argument("--emit", type=_path, required=True)
-    flat.add_argument("--package-json", type=_path)
-    flat.add_argument("--out", type=_path, required=True)
-    flat.set_defaults(run=_run_flat_package, errors=(OSError,))
+    assemble = commands.add_parser("assemble-package")
+    assemble.add_argument("--emit", type=_path, required=True)
+    assemble.add_argument("--package-subdir", default="")
+    assemble.add_argument("--entries", type=_path, required=True)
+    assemble.add_argument("--package-json", type=_path)
+    assemble.add_argument("--out", type=_path, required=True)
+    assemble.set_defaults(run=_run_assemble_package, errors=(ValueError, OSError))
     merged = commands.add_parser("merge")
     merged.add_argument("--deps", type=_path, required=True)
     merged.add_argument("--prebuilt", type=_path, required=True)
