@@ -214,6 +214,12 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 11, 0),
     },
+    "CoreAI": {
+        "appletvos": (27, 0, 0),
+        "iphoneos": (27, 0, 0),
+        "macosx": (27, 0, 0),
+        "watchos": (27, 0, 0),
+    },
     "CoreAudio": {
         "appletvos": (9, 0, 0),
         "iphoneos": (2, 0, 0),
