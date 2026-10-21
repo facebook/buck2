@@ -359,7 +359,6 @@ impl WriteLease {
     }
 
     /// The roots nothing has settled yet.
-    #[cfg(test)]
     fn pending(&self) -> Vec<ProjectRelativePathBuf> {
         self.roots
             .lock()
@@ -374,6 +373,29 @@ impl WriteLease {
 impl fmt::Debug for WriteLease {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("WriteLease")
+    }
+}
+
+impl Drop for WriteLease {
+    fn drop(&mut self) {
+        let pending = self.pending();
+        if pending.is_empty() || std::thread::panicking() {
+            return;
+        }
+        let pending = pending
+            .iter()
+            .map(|path| format!("`{path}`"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        // A bug in the holder: whatever it left there may be named by a value and is tracked by
+        // nothing. Under the hard-error policy buck2's own tests run with there is no caller to
+        // hand the error to, so there it is a panic.
+        if let Err(e) = buck2_core::soft_error!(
+            "write_lease_released_unsettled",
+            internal_error!("A write lease was released with nothing reported at [{pending}]")
+        ) {
+            panic!("{e:#}");
+        }
     }
 }
 
