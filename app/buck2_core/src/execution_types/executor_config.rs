@@ -19,13 +19,13 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_data::NetworkAccess as BuckNetworkAccess;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckHasher;
 use buck2_hash::BuckMutInsertionMap;
 use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
 use pagable::Pagable;
-use starlark_map::sorted_map::SortedMap;
 use static_interner::Intern;
 use static_interner::interner;
 
@@ -103,12 +103,12 @@ pub struct RemoteExecutorDependency {
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative, Pagable)]
 pub struct ReGangWorker {
     /// The platform capabilities required for this gang worker
-    pub capabilities: SortedMap<String, String>,
+    pub capabilities: BuckFixedSortedMap<String, String>,
 }
 
 impl ReGangWorker {
     pub fn parse(worker_map: BuckMutInsertionMap<&str, &str>) -> buck2_error::Result<ReGangWorker> {
-        let capabilities: SortedMap<String, String> = worker_map
+        let capabilities: BuckFixedSortedMap<String, String> = worker_map
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
@@ -159,7 +159,7 @@ impl ReGangLocality {
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative, Pagable)]
 pub struct ReGang {
     /// The platform capabilities required for all gang workers
-    pub capabilities: SortedMap<String, String>,
+    pub capabilities: BuckFixedSortedMap<String, String>,
     /// Number of workers in the gang
     pub num_of_workers: i32,
     /// Optional locality constraint for gang scheduling
@@ -185,7 +185,7 @@ enum ReGangErrors {
 
 impl ReGang {
     pub fn parse(
-        capabilities: SortedMap<String, String>,
+        capabilities: BuckFixedSortedMap<String, String>,
         num_of_workers: i32,
         locality: Option<ReGangLocality>,
         num_sub_groups: Option<i32>,
@@ -367,7 +367,7 @@ pub enum RemoteEnabledExecutor {
 /// Normalized `remote_execution::Platform`. Also implements `Eq`, `Hash`.
 #[derive(Default, Debug, Clone, PartialEq, Eq, Hash, Pagable, Allocative)]
 pub struct RePlatformFields {
-    pub properties: Arc<SortedMap<String, Vec<String>>>,
+    pub properties: Arc<BuckFixedSortedMap<String, Vec<String>>>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Pagable, Allocative)]

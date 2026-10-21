@@ -11,6 +11,7 @@
 use std::marker::PhantomData;
 use std::sync::OnceLock;
 
+use buck2_hash::BuckFixedSortedMap;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use dupe::Dupe;
 use starlark::environment::GlobalsBuilder;
@@ -19,7 +20,6 @@ use starlark::typing::TyStarlarkValue;
 use starlark::values::StarlarkValue;
 use starlark::values::function::FUNCTION_TYPE;
 use starlark::values::typing::TypeInstanceId;
-use starlark_map::sorted_map::SortedMap;
 
 use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
@@ -36,7 +36,7 @@ pub struct BuiltinProviderTy<
     instance: OnceLock<Ty>,
     /// The provider's attributes, which the typechecker needs since instances resolve
     /// attributes directly rather than through a methods table.
-    fields: fn() -> SortedMap<String, Ty>,
+    fields: fn() -> BuckFixedSortedMap<String, Ty>,
     phantom: PhantomData<&'v (P, C)>,
 }
 
@@ -51,7 +51,9 @@ unsafe impl<
 impl<'v, P: StarlarkValue<'v> + ProviderLike<'v>, C: StarlarkValue<'v> + ProviderCallableLike>
     BuiltinProviderTy<'v, P, C>
 {
-    pub const fn new(fields: fn() -> SortedMap<String, Ty>) -> BuiltinProviderTy<'v, P, C> {
+    pub const fn new(
+        fields: fn() -> BuckFixedSortedMap<String, Ty>,
+    ) -> BuiltinProviderTy<'v, P, C> {
         BuiltinProviderTy {
             callable: OnceLock::new(),
             instance: OnceLock::new(),
@@ -109,6 +111,6 @@ fn builtin_provider_typechecker_ty<'v, C: StarlarkValue<'v> + ProviderCallableLi
 }
 
 /// For providers whose attributes come from a custom methods table.
-pub fn no_fields() -> SortedMap<String, Ty> {
-    SortedMap::new()
+pub fn no_fields() -> BuckFixedSortedMap<String, Ty> {
+    BuckFixedSortedMap::new()
 }

@@ -32,6 +32,7 @@ use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::buck2_error;
+use buck2_hash::BuckFixedSortedSet;
 use buck2_hash::BuckMutInsertionSet;
 use derive_more::Display;
 use dupe::Dupe;
@@ -41,7 +42,6 @@ use pagable::Pagable;
 use prost::Message;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
-use starlark_map::sorted_set::SortedSet;
 
 use super::dep_file_digest::DepFileDigest;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
@@ -393,7 +393,7 @@ pub struct CommandExecutionRequest {
     /// Whether to treat this action as a cache miss everywhere: buck2's remote lookups skip it and
     /// the remote execution service is told not to serve it from its own cache.
     induced_cache_miss: bool,
-    required_local_resources: SortedSet<LocalResourceState>,
+    required_local_resources: BuckFixedSortedSet<LocalResourceState>,
     /// Persistent worker to use for execution
     worker: Option<WorkerSpec>,
     /// Persistent remote worker to use for execution
@@ -455,7 +455,7 @@ impl CommandExecutionRequest {
             force_full_hybrid_if_capable: false,
             disable_miniperf: false,
             induced_cache_miss: false,
-            required_local_resources: SortedSet::new(),
+            required_local_resources: BuckFixedSortedSet::new(),
             worker: None,
             remote_worker: None,
             unique_input_inodes: false,
@@ -673,7 +673,7 @@ impl CommandExecutionRequest {
         Ok(self)
     }
 
-    pub fn required_local_resources(&self) -> &SortedSet<LocalResourceState> {
+    pub fn required_local_resources(&self) -> &BuckFixedSortedSet<LocalResourceState> {
         &self.required_local_resources
     }
 

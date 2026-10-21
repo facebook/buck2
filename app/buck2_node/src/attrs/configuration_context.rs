@@ -25,7 +25,6 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckFixedSortedMap;
 use dupe::Dupe;
-use starlark_map::sorted_map::SortedMap;
 
 use crate::configuration::resolved::MatchedConfigurationSettingKeys;
 use crate::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
@@ -105,7 +104,7 @@ pub trait AttrConfigurationContext {
         &self,
         label: &ProvidersLabel,
         tr: &TransitionId,
-    ) -> buck2_error::Result<SortedMap<String, ConfiguredProvidersLabel>> {
+    ) -> buck2_error::Result<BuckFixedSortedMap<String, ConfiguredProvidersLabel>> {
         let cfg = self
             .resolved_transitions()?
             .get(tr)

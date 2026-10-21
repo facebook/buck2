@@ -21,9 +21,9 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use mini_map::MiniFixedSortedMap;
 use pagable::Pagable;
 use pagable::pagable_typetag;
-use starlark_map::sorted_map::SortedMap;
 use starlark_syntax::codemap::Span;
 
 use crate::typing::Ty;
@@ -74,7 +74,7 @@ impl TyUserIndex {
 #[derive(Allocative, Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Pagable)]
 pub struct TyUserFields {
     /// Known fields.
-    pub known: SortedMap<String, Ty>,
+    pub known: MiniFixedSortedMap<String, Ty>,
     /// Are there unknown fields?
     /// Unknown fields are possible if this type represents an abstract type like a provider.
     pub unknown: bool,
@@ -92,7 +92,7 @@ impl TyUserFields {
     /// No fields.
     pub fn no_fields() -> TyUserFields {
         TyUserFields {
-            known: SortedMap::new(),
+            known: MiniFixedSortedMap::new(),
             unknown: false,
         }
     }
@@ -100,7 +100,7 @@ impl TyUserFields {
     /// All fields are not known.
     pub fn unknown() -> TyUserFields {
         TyUserFields {
-            known: SortedMap::new(),
+            known: MiniFixedSortedMap::new(),
             unknown: true,
         }
     }

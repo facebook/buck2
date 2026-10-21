@@ -38,6 +38,7 @@ use buck2_core::execution_types::executor_config::parse_network_access;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
+use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutInsertionMap;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
@@ -53,7 +54,6 @@ use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
-use starlark_map::sorted_map::SortedMap;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -639,7 +639,7 @@ fn parse_remote_execution_gang<'v>(
         ))
     })?;
 
-    let capabilities: SortedMap<String, String> = capabilities_dict
+    let capabilities: BuckFixedSortedMap<String, String> = capabilities_dict
         .iter()
         .map(|(k, v)| (k.to_str(), v.to_str()))
         .collect();

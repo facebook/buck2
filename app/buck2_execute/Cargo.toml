@@ -61,7 +61,6 @@ sha2.workspace = true
 slog.workspace = true
 smallvec.workspace = true
 sorted_vector_map.workspace = true
-starlark_map.workspace = true
 static_interner.workspace = true
 strong_hash.workspace = true
 tokio.workspace = true

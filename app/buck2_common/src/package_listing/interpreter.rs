@@ -20,7 +20,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
-use starlark_map::sorted_set::SortedSet;
 use starlark_map::sorted_vec::SortedVec;
 
 use crate::file_ops::dice::DiceFileComputations;
@@ -498,14 +497,12 @@ impl Directory {
         self.collect_into(&mut files, &mut dirs, &mut subpackages);
 
         // The files are discovered in a deterministic order but not necessarily sorted.
-        // TODO(cjhopman): Do we require that they be sorted for anything?
-        let files = SortedVec::from(files);
-        let dirs = SortedVec::from(dirs);
+        // TODO(cjhopman): Do we require that subpackages be sorted for anything?
         let subpackages = SortedVec::from(subpackages);
 
         PackageListing::new(
-            SortedSet::from(files),
-            SortedSet::from(dirs),
+            files.into_iter().collect(),
+            dirs.into_iter().collect(),
             subpackages,
             buildfile,
         )

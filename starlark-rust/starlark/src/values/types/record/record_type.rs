@@ -25,13 +25,13 @@ use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
 use either::Either;
+use mini_map::MiniFixedSortedMap;
 use once_cell::unsync::OnceCell;
 use starlark_derive::NoSerialize;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 use starlark_map::small_map::SmallMap;
-use starlark_map::sorted_map::SortedMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -354,7 +354,7 @@ impl<'v, V: RecordVariant> StarlarkValue<'v> for RecordTypeGen<'v, V> {
         _eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<()> {
         V::get_or_init_ty(&self.ty_record_data, || {
-            let fields: SortedMap<String, Ty> = self
+            let fields: MiniFixedSortedMap<String, Ty> = self
                 .fields
                 .iter()
                 .map(|(name, field)| (name.clone(), field.ty()))

@@ -22,10 +22,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use mini_map::MiniFixedSortedMap;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark_derive::type_matcher;
-use starlark_map::sorted_map::SortedMap;
 
 use crate as starlark;
 use crate::typing::Ty;
@@ -61,7 +61,7 @@ impl TypeMatcher for StructMatcher {
 #[pagable_typetag(TyCustomDyn)]
 pub struct TyStruct {
     /// The fields that are definitely present in the struct, with their types.
-    pub(crate) fields: SortedMap<ArcStr, Ty>,
+    pub(crate) fields: MiniFixedSortedMap<ArcStr, Ty>,
     /// [`true`] if there might be additional fields not captured above,
     /// [`false`] if this struct has no extra members.
     pub(crate) extra: bool,
@@ -71,7 +71,7 @@ impl TyStruct {
     /// Any struct.
     pub fn any() -> TyStruct {
         TyStruct {
-            fields: SortedMap::new(),
+            fields: MiniFixedSortedMap::new(),
             extra: true,
         }
     }
@@ -120,7 +120,7 @@ impl TyCustomImpl for TyStruct {
                 fields.push((a_k.dupe(), Ty::union2(a_v.clone(), b_v.clone())));
             }
             Ok(Arc::new(TyStruct {
-                fields: SortedMap::from_iter(fields),
+                fields: MiniFixedSortedMap::from_iter(fields),
                 extra: a.extra,
             }))
         } else {

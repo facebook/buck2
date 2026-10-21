@@ -17,9 +17,9 @@ use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_hash::BuckFixedSortedMap;
 use dupe::Dupe;
 use pagable::Pagable;
-use starlark_map::sorted_map::SortedMap;
 use strong_hash::StrongHash;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -58,7 +58,7 @@ impl SplitTransitionDepAttrType {
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Allocative, Pagable)]
 pub struct ConfiguredSplitTransitionDep {
-    pub deps: SortedMap<String, ConfiguredProvidersLabel>,
+    pub deps: BuckFixedSortedMap<String, ConfiguredProvidersLabel>,
     pub required_providers: ProviderIdSet,
 }
 

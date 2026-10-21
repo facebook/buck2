@@ -14,10 +14,10 @@ use allocative::Allocative;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_hash::BuckFixedSortedSet;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
 use pagable::Pagable;
-use starlark_map::sorted_set::SortedSet;
 use starlark_map::sorted_vec::SortedVec;
 
 use crate::package_listing::file_listing::PackageFileListing;
@@ -30,15 +30,15 @@ pub struct PackageListing {
 #[derive(Eq, PartialEq, Debug, Allocative, Pagable)]
 struct PackageListingData {
     files: PackageFileListing,
-    directories: SortedSet<ArcS<PackageRelativePath>>,
+    directories: BuckFixedSortedSet<ArcS<PackageRelativePath>>,
     subpackages: SortedVec<ArcS<PackageRelativePath>>,
     buildfile: FileNameBuf,
 }
 
 impl PackageListing {
     pub(crate) fn new(
-        files: SortedSet<ArcS<PackageRelativePath>>,
-        directories: SortedSet<ArcS<PackageRelativePath>>,
+        files: BuckFixedSortedSet<ArcS<PackageRelativePath>>,
+        directories: BuckFixedSortedSet<ArcS<PackageRelativePath>>,
         subpackages: SortedVec<ArcS<PackageRelativePath>>,
         buildfile: FileNameBuf,
     ) -> Self {
@@ -54,8 +54,8 @@ impl PackageListing {
 
     pub fn empty(buildfile: FileNameBuf) -> Self {
         Self::new(
-            SortedSet::new(),
-            SortedSet::new(),
+            BuckFixedSortedSet::new(),
+            BuckFixedSortedSet::new(),
             SortedVec::new(),
             buildfile,
         )
@@ -106,7 +106,7 @@ impl PackageListing {
 pub mod testing {
     use buck2_core::package::package_relative_path::PackageRelativePathBuf;
     use buck2_fs::paths::file_name::FileNameBuf;
-    use starlark_map::sorted_set::SortedSet;
+    use buck2_hash::BuckFixedSortedSet;
     use starlark_map::sorted_vec::SortedVec;
 
     use crate::package_listing::listing::PackageListing;
@@ -133,8 +133,8 @@ pub mod testing {
                     .to_arc()
             });
             PackageListing::new(
-                SortedSet::from_iter(files),
-                SortedSet::new(),
+                BuckFixedSortedSet::from_iter(files),
+                BuckFixedSortedSet::new(),
                 SortedVec::new(),
                 FileNameBuf::unchecked_new(buildfile),
             )

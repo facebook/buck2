@@ -84,7 +84,6 @@ rust_library(
         "//buck2/pagable:pagable",
         "//buck2/remote_execution:remote_execution",
         "//buck2/shed/static_interner:static_interner",
-        "//buck2/starlark-rust/starlark_map:starlark_map",
         "//common/rust/shed/fbinit:fbinit",
     ],
 )

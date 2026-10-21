@@ -17,13 +17,13 @@ use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_hash::BuckFixedSortedMap;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use itertools::Itertools;
 use pagable::Pagable;
 use regex::Regex;
-use starlark_map::sorted_map::SortedMap;
 
 use super::cells::ExternalPathBuckconfigData;
 use crate::legacy_configs::args::ResolvedConfigFlag;
@@ -78,7 +78,7 @@ struct SectionBuilder {
 impl SectionBuilder {
     fn finish(self) -> LegacyBuckConfigSection {
         LegacyBuckConfigSection {
-            values: SortedMap::from_iter(self.values),
+            values: BuckFixedSortedMap::from_iter(self.values),
         }
     }
 }

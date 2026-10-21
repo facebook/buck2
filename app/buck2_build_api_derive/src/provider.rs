@@ -709,7 +709,7 @@ impl ProviderCodegen {
             syn::parse_quote_spanned! { self.span=>
                 impl<'v> #name<'v> {
                     #[doc(hidden)]
-                    pub fn __builtin_provider_fields() -> buck2_build_api::__derive_refs::starlark_map::sorted_map::SortedMap<String, starlark::typing::Ty> {
+                    pub fn __builtin_provider_fields() -> buck2_build_api::__derive_refs::buck2_hash::BuckFixedSortedMap<String, starlark::typing::Ty> {
                         std::iter::FromIterator::from_iter([
                             #((#field_names.to_owned(), #field_types)),*
                         ])

@@ -37,14 +37,14 @@ mod tests {
     use std::sync::Arc;
 
     use buck2_core::execution_types::executor_config::RePlatformFields;
-    use starlark_map::sorted_map::SortedMap;
+    use buck2_hash::BuckFixedSortedMap;
 
     use crate::executors::to_re_platform::RePlatformFieldsToRePlatform;
 
     #[test]
     fn test_multiple_values_become_repeated_properties() {
         let platform = RePlatformFields {
-            properties: Arc::new(SortedMap::from_iter([(
+            properties: Arc::new(BuckFixedSortedMap::from_iter([(
                 "arch".to_owned(),
                 vec!["x86_64".to_owned(), "aarch64".to_owned()],
             )])),

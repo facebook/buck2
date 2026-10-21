@@ -59,6 +59,7 @@ pub fn init_late_bindings() {
 
 #[doc(hidden)]
 pub mod __derive_refs {
+    pub use buck2_hash;
     pub use display_container;
     pub use inventory;
     pub use serde;

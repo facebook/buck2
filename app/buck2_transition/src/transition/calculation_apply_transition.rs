@@ -26,6 +26,8 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
@@ -51,7 +53,6 @@ use starlark::values::Value;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::structs::AllocStruct;
 use starlark_map::ordered_map::OrderedMap;
-use starlark_map::sorted_map::SortedMap;
 
 use crate::transition::calculation_fetch_transition::FetchTransition;
 use crate::transition::calculation_fetch_transition::TransitionData;
@@ -113,7 +114,7 @@ fn call_transition_function<'v>(
     if transition.is_split() {
         match UnpackDictEntries::<&str, &PlatformInfo>::unpack_value(new_platforms)? {
             Some(dict) => {
-                let mut split = OrderedMap::new();
+                let mut split = BuckMutInsertionMap::new();
                 for (k, v) in dict.entries {
                     let prev = split.insert(
                         k.to_owned(),
@@ -121,7 +122,7 @@ fn call_transition_function<'v>(
                     );
                     assert!(prev.is_none());
                 }
-                Ok(TransitionApplied::Split(SortedMap::from(split)))
+                Ok(TransitionApplied::Split(BuckFixedSortedMap::from(split)))
             }
             None => Err(ApplyTransitionError::SplitTransitionMustReturnDict.into()),
         }
