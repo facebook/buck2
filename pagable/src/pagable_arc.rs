@@ -847,7 +847,7 @@ impl<T: Pagable> PagableArcInner<T> {
     fn try_alloc_pinned(&self) -> bool {
         if self
             .pinned_count
-            .fetch_update(Ordering::Acquire, Ordering::Relaxed, |v| {
+            .try_update(Ordering::Acquire, Ordering::Relaxed, |v| {
                 if v == 0 { None } else { Some(v + 1) }
             })
             .is_ok()

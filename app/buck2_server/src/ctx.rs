@@ -471,6 +471,7 @@ impl<'a> ServerCommandContext<'a> {
             action_paths_interner: None,
             write_cas_probe: false,
             write_action_cache: WriteActionCacheMode::Off,
+            dedupe_in_flight_actions: false,
         };
 
         let concurrency = self
@@ -931,6 +932,13 @@ impl DiceCommandUpdater<'_, '_> {
             .parse::<bool>(BuckconfigKeyRef {
                 section: "buck2",
                 property: "default_allow_cache_upload",
+            })?
+            .unwrap_or(false);
+
+        run_action_knobs.dedupe_in_flight_actions = root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "dedupe_in_flight_actions",
             })?
             .unwrap_or(false);
 
