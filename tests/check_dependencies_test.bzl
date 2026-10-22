@@ -8,6 +8,7 @@
 
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbsource//tools/build_defs/testinfra:network_access_utils.bzl", "network_access_utils")
 load("@fbsource//tools/build_defs/windows:powershell.bzl", "powershell_cmd_exe")
 load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 
@@ -107,6 +108,7 @@ def check_dependencies_test(
         (for example, allowlist: //testing/jest/.*).
     """
 
+    kwargs.setdefault("network_access", network_access_utils.all())
     bxl_main = "fbcode//buck2/tests/check_dependencies_test.bxl:test"
     allowlist_patterns = ",".join(allowlist_patterns) if allowlist_patterns else ""
     blocklist_patterns = ",".join(blocklist_patterns) if blocklist_patterns else ""
