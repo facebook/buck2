@@ -84,7 +84,8 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
-use buck2_execute::execute::clean_output_paths::make_output_paths_writable;
+use buck2_execute::execute::readonly_outputs::make_output_paths_writable;
+use buck2_execute::execute::readonly_outputs::seal_files;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
@@ -1471,25 +1472,6 @@ fn copy_from_disk(
         let _ignored = fs_util::remove_all(&dest);
     }
     copied
-}
-
-/// Takes the write bits off every file of `entry` under `root`: what a report does under
-/// `readonly_outputs`. Directories and symlinks are left as they are.
-fn seal_files(
-    fs: &ProjectRoot,
-    root: &ProjectRelativePath,
-    entry: &ArtifactMetadata,
-) -> buck2_error::Result<()> {
-    let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
-    while let Some((path, entry)) = walk.next() {
-        if let DirectoryEntry::Leaf(ActionDirectoryMember::File(_)) = entry {
-            let file = fs.resolve(root.join(path.get()));
-            fs_util::set_writable(&file, false)
-                .categorize_internal()
-                .with_buck_error_context(|| format!("Making `{file}` read-only"))?;
-        }
-    }
-    Ok(())
 }
 
 /// The files of `entry`, on disk under `root`, as the store wants them for insertion.

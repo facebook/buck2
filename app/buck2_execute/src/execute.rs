@@ -24,6 +24,7 @@ pub mod manager;
 pub mod output;
 pub mod paths_with_digest;
 pub mod prepared;
+pub mod readonly_outputs;
 pub mod request;
 pub mod result;
 pub mod target;
