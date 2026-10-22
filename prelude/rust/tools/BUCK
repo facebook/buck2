@@ -175,3 +175,12 @@ prelude.python_test(
     ],
     base_module = "",
 )
+
+prelude.python_test(
+    name = "test_buildscript_run",
+    srcs = [
+        "buildscript_run.py",
+        "tests/test_buildscript_run.py",
+    ],
+    base_module = "",
+)
