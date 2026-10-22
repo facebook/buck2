@@ -265,12 +265,14 @@ def main() -> None:  # noqa: C901
 
     flags = ""
     for line in script_output.split("\n"):
-        cargo_rustc_cfg_match = cargo_rustc_cfg_pattern.match(line)
+        # Cargo reads each directive from the trimmed line.
+        directive = line.strip()
+        cargo_rustc_cfg_match = cargo_rustc_cfg_pattern.match(directive)
         if cargo_rustc_cfg_match:
             value = cargo_rustc_cfg_match.group(1)
             flags += f"--cfg={value}\n"
             continue
-        cargo_rustc_env_match = cargo_rustc_env_pattern.match(line)
+        cargo_rustc_env_match = cargo_rustc_env_pattern.match(directive)
         if cargo_rustc_env_match:
             key = cargo_rustc_env_match.group(1)
             value = cargo_rustc_env_match.group(2)
@@ -283,12 +285,12 @@ def main() -> None:  # noqa: C901
             else:
                 flags += f"--env-set={key}={value}\n"
             continue
-        cargo_rustc_link_lib_match = cargo_rustc_link_lib_pattern.match(line)
+        cargo_rustc_link_lib_match = cargo_rustc_link_lib_pattern.match(directive)
         if args.rustc_link_lib and cargo_rustc_link_lib_match:
             value = cargo_rustc_link_lib_match.group(1)
             flags += f"-l{value}\n"
             continue
-        cargo_rustc_link_search_match = cargo_rustc_link_search_pattern.match(line)
+        cargo_rustc_link_search_match = cargo_rustc_link_search_pattern.match(directive)
         if args.rustc_link_search and cargo_rustc_link_search_match:
             kind = cargo_rustc_link_search_match.group(1) or ""
             path = cargo_rustc_link_search_match.group(2)

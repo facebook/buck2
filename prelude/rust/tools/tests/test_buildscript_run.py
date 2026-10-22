@@ -63,11 +63,14 @@ class BuildscriptRunTest(unittest.TestCase):
             main()
         return outfile.read_text().splitlines()
 
-    def test_trailing_blanks_of_a_directive_reach_rustc(self) -> None:
-        # Cargo gives rustc `v`; a build script that prints a padded line is read literally.
+    def test_a_directive_is_read_from_the_trimmed_line(self) -> None:
         self.assertEqual(
             self.rustc_flags_for(
-                ["cargo:rustc-env=TRAIL=v  ", "cargo:rustc-cfg=feature_x "]
+                [
+                    "cargo:rustc-env=TRAIL=v  ",
+                    "cargo:rustc-cfg=feature_x ",
+                    "  cargo:rustc-cfg=y",
+                ]
             ),
-            ["--env-set=TRAIL=v  ", "--cfg=feature_x "],
+            ["--env-set=TRAIL=v", "--cfg=feature_x", "--cfg=y"],
         )
