@@ -27,9 +27,17 @@ use crate::query::syntax::simple::eval::set::TargetSet;
 #[derive(Hash, Eq, PartialEq, Debug, Clone, Display, Allocative, Pagable)]
 pub struct FileNode(pub CellPath);
 
-#[derive(Debug, Eq, PartialEq, Clone, Allocative, Pagable)]
+/// Iterates in insertion order; `==` is set equality, so the order the files arrived in does not
+/// matter.
+#[derive(Debug, Eq, Clone, Allocative, Pagable)]
 pub struct FileSet {
     files: BuckMutInsertionSet<FileNode>,
+}
+
+impl PartialEq for FileSet {
+    fn eq(&self, other: &Self) -> bool {
+        self.files.eq_unordered(&other.files)
+    }
 }
 
 impl fmt::Display for FileSet {
@@ -116,5 +124,31 @@ impl FromIterator<FileNode> for FileSet {
         FileSet {
             files: BuckMutInsertionSet::from_iter(iter),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::cells::cell_path::CellPath;
+    use buck2_core::cells::name::CellName;
+    use buck2_core::cells::paths::CellRelativePath;
+
+    use super::*;
+
+    fn file(name: &str) -> FileNode {
+        FileNode(CellPath::new(
+            CellName::testing_new("root"),
+            CellRelativePath::unchecked_new(name),
+        ))
+    }
+
+    #[test]
+    fn equality_ignores_insertion_order() {
+        let ab: FileSet = [file("a"), file("b")].into_iter().collect();
+        let ba: FileSet = [file("b"), file("a")].into_iter().collect();
+        let abc: FileSet = [file("a"), file("b"), file("c")].into_iter().collect();
+        assert_eq!(ab, ba);
+        assert_ne!(ab, abc);
+        assert!(ab.iter().map(|p| p.to_string()).eq(["root//a", "root//b"]));
     }
 }
