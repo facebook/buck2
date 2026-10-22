@@ -59,19 +59,104 @@
 //! assert_eq!(map.first(), Some((&"a".to_string(), &1)));
 //! ```
 
-/// The hasher behind every alias in this crate: mini_map's, so that buck2's own hashing, its
-/// maps and Starlark all agree. Fast rather than flooding-resistant, so not for
-/// attacker-controlled keys, and not stable across versions, so nothing persisted may depend
-/// on it.
-pub use mini_map::FastHasher as BuckHasher;
-/// [`BuildHasher`](std::hash::BuildHasher) producing [`BuckHasher`].
-pub use mini_map::FastHasherBuilder as BuckHasherBuilder;
+use std::hash::BuildHasher;
+use std::hash::Hasher;
+
+use dupe::Dupe;
+use fxhash::FxHasher64;
 use mini_map::MiniFixedInsertionMap;
 use mini_map::MiniFixedInsertionSet;
 use mini_map::MiniFixedSortedMap;
 use mini_map::MiniFixedSortedSet;
 use mini_map::MiniMutInsertionMap;
 use mini_map::MiniMutInsertionSet;
+
+/// A hasher for buck2 internal use.
+///
+/// This hasher is optimized for speed rather than security, making it suitable
+/// for internal hash maps where hash-flooding attacks are not a concern.
+///
+/// Currently wraps `fxhash::FxHasher64`.
+///
+/// # Important
+///
+/// When wrapping this hasher, all `write_*` methods should be explicitly
+/// forwarded to the inner hasher. This is not a correctness issue — both paths
+/// produce valid hashes — but it is a performance concern. The default `Hasher`
+/// trait implementations of `write_u8`, `write_usize`, etc. serialize the value
+/// to bytes and call `self.write()`, but `FxHasher` processes typed writes more
+/// efficiently (e.g., `FxHasher::write_u64` hashes the value directly as a word,
+/// whereas `FxHasher::write(&[u8; 8])` processes it byte-by-byte). If a
+/// forwarding method is omitted, calls to it will silently take the slower
+/// byte-serialization path.
+#[derive(Default)]
+pub struct BuckHasher(FxHasher64);
+
+impl BuckHasher {
+    /// Creates a new hasher.
+    #[inline]
+    pub fn new() -> Self {
+        BuckHasher::default()
+    }
+}
+
+// IMPORTANT: `Hasher` wrappers must explicitly forward every `write_*` method
+// to the inner hasher. See the doc comment on `BuckHasher` for details.
+#[allow(clippy::missing_trait_methods)]
+impl Hasher for BuckHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0.finish()
+    }
+
+    #[inline]
+    fn write(&mut self, bytes: &[u8]) {
+        self.0.write(bytes)
+    }
+
+    #[inline]
+    fn write_u8(&mut self, i: u8) {
+        self.0.write_u8(i)
+    }
+
+    #[inline]
+    fn write_u16(&mut self, i: u16) {
+        self.0.write_u16(i)
+    }
+
+    #[inline]
+    fn write_u32(&mut self, i: u32) {
+        self.0.write_u32(i)
+    }
+
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        self.0.write_u64(i)
+    }
+
+    #[inline]
+    fn write_u128(&mut self, i: u128) {
+        self.0.write_u128(i)
+    }
+
+    #[inline]
+    fn write_usize(&mut self, i: usize) {
+        self.0.write_usize(i)
+    }
+}
+
+/// [`BuildHasher`] implementation which produces [`BuckHasher`].
+#[derive(Default, Debug, Clone, Copy, Dupe)]
+pub struct BuckHasherBuilder;
+
+impl BuildHasher for BuckHasherBuilder {
+    type Hasher = BuckHasher;
+
+    #[inline]
+    fn build_hasher(&self) -> Self::Hasher {
+        BuckHasher::new()
+    }
+}
 
 /// A [`HashMap`](std::collections::HashMap) using [`BuckHasherBuilder`].
 ///
@@ -229,7 +314,30 @@ pub type IntentionallyStdHashSet<K> = std::collections::HashSet<K>;
 
 #[cfg(test)]
 mod tests {
+    use std::hash::Hash;
+    use std::hash::Hasher;
+
     use super::*;
+
+    fn hash_with_buck_hasher<T: Hash>(value: &T) -> u64 {
+        let mut hasher = BuckHasher::new();
+        value.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn test_buck_hasher_deterministic() {
+        let h1 = hash_with_buck_hasher(&42u64);
+        let h2 = hash_with_buck_hasher(&42u64);
+        assert_eq!(h1, h2, "BuckHasher should be deterministic");
+    }
+
+    #[test]
+    fn test_buck_hasher_different_values() {
+        let h1 = hash_with_buck_hasher(&42u64);
+        let h2 = hash_with_buck_hasher(&43u64);
+        assert_ne!(h1, h2, "Different values should produce different hashes");
+    }
 
     #[test]
     fn test_buck_mut_map() {
@@ -289,5 +397,22 @@ mod tests {
         // Verify insertion order is preserved
         let values: Vec<_> = set.iter().copied().collect();
         assert_eq!(values, vec![3, 1, 2]);
+    }
+
+    #[test]
+    fn test_multi_write_sequence() {
+        let mut h1 = BuckHasher::new();
+        h1.write_u64(1);
+        h1.write_u64(2);
+
+        let mut h2 = BuckHasher::new();
+        h2.write_u64(1);
+        h2.write_u64(2);
+
+        assert_eq!(
+            h1.finish(),
+            h2.finish(),
+            "Identical multi-write sequences should produce identical hashes"
+        );
     }
 }

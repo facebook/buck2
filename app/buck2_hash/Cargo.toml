@@ -9,6 +9,8 @@ license.workspace = true
 
 [dependencies]
 dashmap.workspace = true
+dupe.workspace = true
+fxhash.workspace = true
 mini_map.workspace = true
 
 [lints]
