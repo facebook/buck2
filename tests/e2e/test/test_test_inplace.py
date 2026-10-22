@@ -773,7 +773,6 @@ class TestInplaceTest(BuckTestCase):
         await buck.build(
             "fbcode//buck2/tests/targets/rules/python/test:timeout_re",
             get_mode_from_platform(),
-            "--no-remote-cache",
             "--build-test-info",
         )
 
