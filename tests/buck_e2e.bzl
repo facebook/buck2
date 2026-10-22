@@ -35,6 +35,7 @@ def buck_e2e_test(
     compatible_with = None,
     heavyweight_threads = "4",
     remote_execution = None,
+    network_access = None,
     visibility = None,
 ):
     """
@@ -136,6 +137,12 @@ def buck_e2e_test(
         # `remote_execution = False` pin — the narrow form — instead of a
         # directory-wide PACKAGE opt-out.
         remote_execution = remote_execution,
+        # Forwarded verbatim for the same reason as `remote_execution`: the
+        # nested buck2 these tests spawn is resolved through DotSlash and talks
+        # to RE, so a caller under a no-network PACKAGE
+        # (network_access_utils.set_package_default) needs the per-target pin to
+        # keep its own unit tests isolated.
+        network_access = network_access,
         resources = resources,
         skip_on_mode_mac = "darwin" in skip_for_os,
         skip_on_mode_win = "windows" in skip_for_os,
@@ -221,6 +228,7 @@ def buck2_e2e_test(
     compatible_with = None,
     heavyweight_threads = "4",
     remote_execution = None,
+    network_access = None,
     visibility = None,
 ):
     """
@@ -258,6 +266,7 @@ def buck2_e2e_test(
         "data_dir": data_dir,
         "heavyweight_threads": heavyweight_threads,
         "labels": labels,
+        "network_access": network_access,
         "remote_execution": remote_execution,
         "require_nano_prelude": require_nano_prelude,
         "resources": resources,
