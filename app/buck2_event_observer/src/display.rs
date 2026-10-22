@@ -29,11 +29,11 @@ use buck2_data::span_start_event::Data;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_events::BuckEvent;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_test_api::data::TestStatus;
 use buck2_util::commas::commas;
 use buck2_util::truncate::truncate;
 use dupe::Dupe;
-use starlark_map::ordered_set::OrderedSet;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
@@ -583,7 +583,7 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
 
         let is_fresh_instance = stats.fresh_instance;
 
-        let mut to_print = OrderedSet::new();
+        let mut to_print = BuckMutInsertionSet::new();
         for x in &stats.events {
             to_print.insert((&x.path, x.kind()));
         }

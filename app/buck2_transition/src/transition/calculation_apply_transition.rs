@@ -52,7 +52,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::structs::AllocStruct;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::transition::calculation_fetch_transition::FetchTransition;
 use crate::transition::calculation_fetch_transition::TransitionData;
@@ -261,7 +260,7 @@ impl TransitionCalculation for TransitionCalculationImpl {
     async fn apply_transition(
         &self,
         ctx: &mut DiceComputations<'_>,
-        configured_attrs: &OrderedMap<&str, Arc<ConfiguredAttr>>,
+        configured_attrs: &BuckMutInsertionMap<&str, Arc<ConfiguredAttr>>,
         cfg: &ConfigurationData,
         transition_id: &TransitionId,
     ) -> buck2_error::Result<Arc<TransitionApplied>> {

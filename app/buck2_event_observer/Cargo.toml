@@ -24,7 +24,6 @@ linked-hash-map.workspace = true
 prost-types.workspace = true
 regex.workspace = true
 shlex.workspace = true
-starlark_map.workspace = true
 superconsole.workspace = true
 termwiz.workspace = true
 tracing.workspace = true

@@ -27,7 +27,6 @@ futures.workspace = true
 itertools.workspace = true
 pagable.workspace = true
 ref-cast.workspace = true
-starlark_map.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true

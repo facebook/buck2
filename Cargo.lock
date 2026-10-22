@@ -1396,7 +1396,6 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "starlark_map",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -2123,7 +2122,6 @@ dependencies = [
  "itertools 0.15.0",
  "pagable",
  "ref-cast",
- "starlark_map",
  "tokio",
 ]
 
@@ -2478,7 +2476,6 @@ dependencies = [
  "prost-types",
  "regex",
  "shlex",
- "starlark_map",
  "superconsole",
  "termwiz",
  "tracing",
@@ -2724,7 +2721,6 @@ dependencies = [
  "notify",
  "regex",
  "serde",
- "starlark_map",
  "tempfile",
  "tokio",
  "tracing",
@@ -3612,7 +3608,6 @@ dependencies = [
  "pagable",
  "ref-cast",
  "starlark",
- "starlark_map",
 ]
 
 [[package]]

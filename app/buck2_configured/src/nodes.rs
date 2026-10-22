@@ -99,7 +99,6 @@ use itertools::Itertools;
 use pagable::Pagable;
 use pagable::StaticStr;
 use pagable::pagable_typetag;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::configuration::compute_platform_cfgs;
 use crate::configuration::get_matched_cfg_keys_for_node;
@@ -520,7 +519,7 @@ pub(crate) async fn gather_deps(
 ) -> ResultMaybeCompatible<(GatheredDeps, ErrorsAndIncompatibilities)> {
     #[derive(Default)]
     struct Traversal {
-        deps: OrderedMap<ConfiguredProvidersLabel, BuckMutInsertionSet<PluginKindSet>>,
+        deps: BuckMutInsertionMap<ConfiguredProvidersLabel, BuckMutInsertionSet<PluginKindSet>>,
         exec_deps: BuckMutInsertionMap<ConfiguredProvidersLabel, CheckVisibility>,
         toolchain_deps: BuckMutInsertionSet<TargetConfiguredTargetLabel>,
         plugin_lists: PluginListsBuilder,
@@ -649,7 +648,7 @@ async fn resolve_transition_input_attrs<'a>(
     matched_cfg_keys: &MatchedConfigurationSettingKeysWithCfg,
     platform_cfgs: &BuckFixedSortedMap<TargetLabel, ConfigurationData>,
     ctx: &mut DiceComputations<'_>,
-) -> ResultMaybeCompatible<OrderedMap<&'a str, Arc<ConfiguredAttr>>> {
+) -> ResultMaybeCompatible<BuckMutInsertionMap<&'a str, Arc<ConfiguredAttr>>> {
     struct AttrConfigurationContextToResolveTransitionAttrs<'c> {
         target_label: &'c ConfiguredTargetLabel,
         matched_cfg_keys: &'c MatchedConfigurationSettingKeysWithCfg,
@@ -719,7 +718,7 @@ async fn resolve_transition_input_attrs<'a>(
             .make_toolchain(&ConfigurationNoExec::unbound_exec()),
         label: target_node.label().dupe(),
     };
-    let mut result = OrderedMap::default();
+    let mut result = BuckMutInsertionMap::default();
     for tr in transitions {
         let attrs = TRANSITION_ATTRS_PROVIDER
             .get()?
@@ -756,7 +755,7 @@ async fn resolve_transition_input_attrs<'a>(
 /// Only check attributes used in transition.
 fn verify_transitioned_attrs(
     // Attributes resolved with pre-transition configuration
-    pre_transition_attrs: &OrderedMap<&str, Arc<ConfiguredAttr>>,
+    pre_transition_attrs: &BuckMutInsertionMap<&str, Arc<ConfiguredAttr>>,
     pre_transition_config: &ConfigurationData,
     node: &ConfiguredTargetNode,
 ) -> buck2_error::Result<()> {

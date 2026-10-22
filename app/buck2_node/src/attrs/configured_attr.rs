@@ -21,12 +21,12 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
 use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
-use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
 use strong_hash::StrongHash;
 
@@ -410,7 +410,7 @@ impl ConfiguredAttr {
                     Ok(ConfiguredAttr::List(ListLiteral(res.into())))
                 }
                 ConfiguredAttr::Dict(left) => {
-                    let mut res = OrderedMap::new();
+                    let mut res = BuckMutInsertionMap::new();
                     for (k, v) in left.iter().cloned() {
                         res.insert(k, v);
                     }

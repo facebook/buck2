@@ -29,6 +29,7 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::span_async;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_hash::BuckFixedSortedMap;
+use buck2_hash::BuckMutInsertionSet;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 use notify::EventKind;
@@ -38,7 +39,6 @@ use notify::event::CreateKind;
 use notify::event::MetadataKind;
 use notify::event::ModifyKind;
 use notify::event::RemoveKind;
-use starlark_map::ordered_set::OrderedSet;
 use tracing::debug;
 use tracing::info;
 
@@ -63,7 +63,7 @@ fn ignore_event_kind(event_kind: EventKind) -> bool {
 struct NotifyFileData {
     ignored: u64,
     #[allocative(skip)]
-    events: OrderedSet<(CellPath, EventKind)>,
+    events: BuckMutInsertionSet<(CellPath, EventKind)>,
     /// Whether file system changes were missed
     missed_events: bool,
 }
@@ -72,7 +72,7 @@ impl NotifyFileData {
     fn new() -> Self {
         Self {
             ignored: 0,
-            events: OrderedSet::new(),
+            events: BuckMutInsertionSet::new(),
             missed_events: false,
         }
     }

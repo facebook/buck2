@@ -55,6 +55,7 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::span::SpanId;
 use buck2_hash::BuckDashMap;
 use buck2_hash::BuckDashSet;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKeyActivationData;
@@ -69,7 +70,6 @@ use dice::PageInPhase;
 use dupe::Dupe;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
-use starlark_map::ordered_set::OrderedSet;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -1044,7 +1044,7 @@ where
             // Only the dep *package* labels are needed here. Use `dep_packages()` (an on-demand
             // attribute traversal) rather than `deps()` so we don't force every loaded target's
             // `deps_cache` to materialize on every build.
-            let deps_pkg: OrderedSet<PackageLabel> = load_result
+            let deps_pkg: BuckMutInsertionSet<PackageLabel> = load_result
                 .targets()
                 .values()
                 .flat_map(|target| target.dep_packages())

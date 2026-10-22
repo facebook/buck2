@@ -17,11 +17,11 @@ use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_hash::BuckMutInsertionSet;
 use buck2_util::vec2::Vec2;
 use dupe::Dupe;
 use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
-use starlark_map::ordered_set::OrderedSet;
 
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::traversal::CoercedAttrTraversal;
@@ -74,34 +74,34 @@ impl From<CoercedDepsCollector> for CoercedDeps {
 pub struct CoercedDepsCollector {
     /// Contains the deps derived from the attributes.
     /// Does not include the transition, exec or configuration deps.
-    pub deps: OrderedSet<TargetLabel>,
+    pub deps: BuckMutInsertionSet<TargetLabel>,
 
     /// Contains the deps which are transitioned to other configuration
     /// (including split transitions).
-    pub transition_deps: OrderedSet<(TargetLabel, Arc<TransitionId>)>,
+    pub transition_deps: BuckMutInsertionSet<(TargetLabel, Arc<TransitionId>)>,
 
     /// Contains the execution deps derived from the attributes.
-    pub exec_deps: OrderedSet<TargetLabel>,
+    pub exec_deps: BuckMutInsertionSet<TargetLabel>,
 
     /// Contains the toolchain deps derived from the attributes.
-    pub toolchain_deps: OrderedSet<TargetLabel>,
+    pub toolchain_deps: BuckMutInsertionSet<TargetLabel>,
 
     /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    pub configuration_deps: OrderedSet<(ProvidersLabel, ConfigurationDepKind)>,
+    pub configuration_deps: BuckMutInsertionSet<(ProvidersLabel, ConfigurationDepKind)>,
 
     /// Contains the plugin deps
-    pub plugin_deps: OrderedSet<TargetLabel>,
+    pub plugin_deps: BuckMutInsertionSet<TargetLabel>,
 }
 
 impl CoercedDepsCollector {
     pub fn new() -> Self {
         Self {
-            deps: OrderedSet::new(),
-            exec_deps: OrderedSet::new(),
-            toolchain_deps: OrderedSet::new(),
-            transition_deps: OrderedSet::new(),
-            configuration_deps: OrderedSet::new(),
-            plugin_deps: OrderedSet::new(),
+            deps: BuckMutInsertionSet::new(),
+            exec_deps: BuckMutInsertionSet::new(),
+            toolchain_deps: BuckMutInsertionSet::new(),
+            transition_deps: BuckMutInsertionSet::new(),
+            configuration_deps: BuckMutInsertionSet::new(),
+            plugin_deps: BuckMutInsertionSet::new(),
         }
     }
 }
@@ -168,13 +168,13 @@ impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
 /// full `deps_cache`.
 #[derive(Debug)]
 pub struct DepPackagesCollector {
-    pub packages: OrderedSet<PackageLabel>,
+    pub packages: BuckMutInsertionSet<PackageLabel>,
 }
 
 impl DepPackagesCollector {
     pub fn new() -> Self {
         Self {
-            packages: OrderedSet::new(),
+            packages: BuckMutInsertionSet::new(),
         }
     }
 }
