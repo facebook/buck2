@@ -47,6 +47,7 @@ use buck2_build_signals::node_key::BuildSignalsNodeKeyImpl;
 use buck2_common::package_listing::dice::PackageListingKey;
 use buck2_common::package_listing::dice::PackageListingKeyActivationData;
 use buck2_core::package::PackageLabel;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::EventDispatcher;
@@ -81,6 +82,8 @@ use crate::backend::backend::BuildListenerBackend;
 use crate::backend::logging::LoggingBackend;
 use crate::backend::longest_path_graph::LongestPathGraphBackend;
 use crate::enhancement::CriticalPathProtoEnhancer;
+use crate::test_signals::InstallBuildSignalKey;
+use crate::test_signals::InstallSignal;
 use crate::test_signals::TestExecutionBuildSignalKey;
 use crate::test_signals::TestExecutionSignal;
 use crate::test_signals::TestListingBuildSignalKey;
@@ -108,6 +111,7 @@ enum NodeKey {
     // Keys for test not on DICE.
     TestExecution(TestExecutionBuildSignalKey),
     TestListing(TestListingBuildSignalKey),
+    Install(InstallBuildSignalKey),
 
     // Dynamically-typed.
     Dyn(&'static str, BuildSignalsNodeKey),
@@ -258,6 +262,12 @@ impl NodeKey {
             }
             .into(),
 
+            NodeKey::Install(t) => buck2_data::critical_path_entry2::Install {
+                installer_label: Some(t.installer.target().as_proto()),
+                target_labels: t.targets.iter().map(|t| t.as_proto()).collect(),
+            }
+            .into(),
+
             key @ NodeKey::PageInConnector(..) => key.into_generic_entry(),
 
             NodeKey::EvaluationWork(inner) => inner
@@ -303,6 +313,7 @@ impl fmt::Display for NodeKey {
             Self::FinalMaterialization(k) => write!(f, "FinalMaterialization({k})"),
             Self::TestExecution(k) => write!(f, "TestExecution({k:?})"),
             Self::TestListing(k) => write!(f, "TestListing({k:?})"),
+            Self::Install(k) => write!(f, "Install({k:?})"),
             Self::Dyn(name, k) => write!(f, "{name}({k})"),
             Self::PageInConnector(key) => write!(f, "{}({key})", key.key_type_name()),
             Self::EvaluationWork(k) => write!(f, "EvaluationWork({k})"),
@@ -348,6 +359,7 @@ enum BuildSignal {
     FinalMaterialization(FinalMaterializationSignal),
     TestExecution(TestExecutionSignal),
     TestListing(TestListingSignal),
+    Install(InstallSignal),
     PageIn(PageInSignal),
     BuildFinished,
 }
@@ -518,6 +530,7 @@ impl BuildSignals for BuildSignalSender {
         suite: String,
         duration: NodeDuration,
         deps: &[ActionKey],
+        waiting_data: WaitingData,
     ) {
         let _ignored = self
             .sender
@@ -526,6 +539,7 @@ impl BuildSignals for BuildSignalSender {
                 suite,
                 deps: deps.to_vec(),
                 duration,
+                waiting_data,
             }));
     }
 
@@ -537,6 +551,7 @@ impl BuildSignals for BuildSignalSender {
         variant: Option<String>,
         duration: NodeDuration,
         deps: &[ActionKey],
+        waiting_data: WaitingData,
     ) {
         let _ignored = self
             .sender
@@ -547,7 +562,25 @@ impl BuildSignals for BuildSignalSender {
                 variant,
                 deps: deps.to_vec(),
                 duration,
+                waiting_data,
             }));
+    }
+
+    fn install(
+        &self,
+        installer: ConfiguredProvidersLabel,
+        targets: Vec<ConfiguredTargetLabel>,
+        duration: NodeDuration,
+        deps: &[ActionKey],
+        waiting_data: WaitingData,
+    ) {
+        let _ignored = self.sender.send(BuildSignal::Install(InstallSignal {
+            installer,
+            targets,
+            deps: deps.to_vec(),
+            duration,
+            waiting_data,
+        }));
     }
 }
 
@@ -869,6 +902,7 @@ where
                     self.process_test_execution(test_execution)
                 }
                 BuildSignal::TestListing(test_listing) => self.process_test_listing(test_listing),
+                BuildSignal::Install(install) => self.process_install(install),
                 BuildSignal::PageIn(page_in) => self.process_page_in(page_in),
                 BuildSignal::BuildFinished => {
                     self.flush_unmatched_page_ins();
@@ -1135,7 +1169,7 @@ where
             signal.duration,
             deps.chain(listing_key),
             Default::default(),
-            WaitingData::new(),
+            signal.waiting_data,
         );
     }
 
@@ -1162,7 +1196,28 @@ where
             signal.duration,
             deps,
             Default::default(),
-            WaitingData::new(),
+            signal.waiting_data,
+        );
+    }
+
+    fn process_install(&mut self, signal: InstallSignal) {
+        let key = InstallBuildSignalKey {
+            installer: signal.installer,
+            targets: Arc::new(signal.targets),
+        };
+
+        let deps = signal
+            .deps
+            .into_iter()
+            .map(|d| NodeKey::BuildKey(BuildKey(d)));
+
+        self.backend.process_node(
+            NodeKey::Install(key),
+            NodeExtraData::None,
+            signal.duration,
+            deps,
+            Default::default(),
+            signal.waiting_data,
         );
     }
 

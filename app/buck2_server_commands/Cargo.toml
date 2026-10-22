@@ -11,6 +11,7 @@ license.workspace = true
 async-trait.workspace = true
 buck2_artifact.workspace = true
 buck2_build_api.workspace = true
+buck2_build_signals.workspace = true
 buck2_certs.workspace = true
 buck2_cli_proto.workspace = true
 buck2_common.workspace = true

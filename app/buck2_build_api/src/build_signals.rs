@@ -15,6 +15,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::DeferredBuildSignals;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_events::span::SpanId;
 use buck2_util::late_binding::LateBinding;
@@ -68,6 +69,7 @@ pub trait BuildSignals: Send + Sync + 'static {
         suite: String,
         duration: NodeDuration,
         deps: &[ActionKey],
+        waiting_data: WaitingData,
     );
 
     fn test_execution(
@@ -78,6 +80,17 @@ pub trait BuildSignals: Send + Sync + 'static {
         variant: Option<String>,
         duration: NodeDuration,
         deps: &[ActionKey],
+        waiting_data: WaitingData,
+    );
+
+    /// Record an installer run that consumed the artifacts built by `deps`.
+    fn install(
+        &self,
+        installer: ConfiguredProvidersLabel,
+        targets: Vec<ConfiguredTargetLabel>,
+        duration: NodeDuration,
+        deps: &[ActionKey],
+        waiting_data: WaitingData,
     );
 }
 

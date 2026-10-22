@@ -1360,6 +1360,13 @@ impl<'a> CriticalPathEntryDisplay<'a> {
                 };
                 ("test-listing", name, None, None, None)
             }
+            Entry::Install(install) => {
+                let name = match install.target_labels.first() {
+                    Some(t) => display_configured_target_label(t, opts)?,
+                    None => "unknown".to_owned(),
+                };
+                ("install", name, None, None, None)
+            }
             Entry::EnsureTransitiveSetProjection(..) => (
                 "ensure-transitive-set-projection",
                 String::new(),

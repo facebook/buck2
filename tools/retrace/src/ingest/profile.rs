@@ -936,6 +936,10 @@ fn cp_label(entry: &buck2_data::CriticalPathEntry2) -> (&'static str, String) {
                 .unwrap_or_default(),
         ),
         Some(Entry::PageIn(p)) => ("PageIn", p.key_type.clone()),
+        Some(Entry::Install(p)) => (
+            "Install",
+            p.target_labels.first().map(configured).unwrap_or_default(),
+        ),
         None => ("Unknown", String::new()),
     }
 }

@@ -25,12 +25,14 @@ use std::time::Instant;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_dyn::ArtifactDyn;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::calculation::get_target_rule_type_name;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::build_signals::HasBuildSignals;
 use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapperImpl;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -43,6 +45,9 @@ use buck2_build_api::materialize::HasMaterializationQueueTracker;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_build_api::materialize::materialize_and_upload_artifact_group;
 use buck2_build_api::validation::validation_impl::VALIDATION_IMPL;
+use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::env::WaitingCategory;
+use buck2_build_signals::env::WaitingData;
 use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
 use buck2_common::client_utils::get_channel_tcp;
@@ -104,6 +109,7 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
 use buck2_util::future::try_join_all;
 use buck2_util::process::async_background_command;
+use buck2_util::time_span::TimeSpan;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -801,6 +807,7 @@ async fn handle_install_request(
     // neither finished nor failed was cut short.
     let artifacts_built = OnceLock::new();
     let build_failed = AtomicBool::new(false);
+    let installer_deps = OnceLock::new();
     let compute_result = ctx
         .try_compute2(
             async |ctx| {
@@ -834,7 +841,7 @@ async fn handle_install_request(
 
                 installer_run_args.extend(initial_installer_run_args.to_vec());
 
-                let mut installer_child = build_launch_installer(
+                let (mut installer_child, installer_action_keys) = build_launch_installer(
                     ctx,
                     &install_request_data.installer_label,
                     &installer_run_args,
@@ -842,6 +849,7 @@ async fn handle_install_request(
                     &stderr_log_path_string,
                 )
                 .await?;
+                let _ignored = installer_deps.set(installer_action_keys);
                 let artifact_fs = ctx.get_artifact_fs().await?;
 
                 let installer = ConnectedInstaller::connect(
@@ -889,6 +897,13 @@ async fn handle_install_request(
                 &get_dispatcher(),
                 SystemTime::now() - Instant::now().saturating_duration_since(build_finished),
                 buck2_data::BuildStatus::Success,
+            );
+            send_install_signal(
+                ctx,
+                install_request_data,
+                installer_deps.get().map_or(&[], |v| v.as_slice()),
+                installer_ready,
+                installer_finished,
             );
 
             (
@@ -954,7 +969,7 @@ async fn build_launch_installer(
     installer_run_args: &[String],
     installer_log_console: bool,
     stderr_log_path: &str,
-) -> buck2_error::Result<tokio::process::Child> {
+) -> buck2_error::Result<(tokio::process::Child, Vec<ActionKey>)> {
     let frozen_providers = ctx
         .get_providers(providers_label)
         .await?
@@ -1030,7 +1045,16 @@ async fn build_launch_installer(
             .spawn()
             .buck_error_context("Failed to spawn installer")?;
 
-        Ok(child)
+        let installer_action_keys = ensured_inputs
+            .iter()
+            .flat_map(|(_, values)| {
+                values
+                    .iter()
+                    .filter_map(|(artifact, _)| artifact.action_key().map(|k| k.dupe()))
+            })
+            .collect();
+
+        Ok((child, installer_action_keys))
     } else {
         Err(InstallError::NoRunInfoProvider(providers_label.target().name().to_owned()).into())
     }
@@ -1079,6 +1103,48 @@ pub(crate) struct FileResult {
     name: String,
     artifact: Artifact,
     artifact_value: ArtifactValue,
+}
+
+/// Adds the installer run to the critical path. It depends on every installed artifact and on the
+/// installer's own build, so only the part of the run after the last of them was built is
+/// critical. Time between that and the installer accepting files is attributed to
+/// `InstallerStartup`.
+fn send_install_signal(
+    ctx: &DiceComputations<'_>,
+    install_request_data: &InstallRequestData,
+    installer_deps: &[ActionKey],
+    installer_ready: Instant,
+    installer_finished: Instant,
+) {
+    let Some(signals) = ctx.per_transaction_data().get_build_signals() else {
+        return;
+    };
+    let deps: Vec<ActionKey> = install_request_data
+        .installed_targets
+        .iter()
+        .flat_map(|(_, files)| {
+            files
+                .values()
+                .filter_map(|a| a.action_key().map(|k| k.dupe()))
+        })
+        .chain(installer_deps.iter().map(|k| k.dupe()))
+        .collect();
+    let total = TimeSpan::new_saturating(installer_ready, installer_finished);
+    signals.install(
+        install_request_data.installer_label.dupe(),
+        install_request_data
+            .installed_targets
+            .iter()
+            .map(|(target, _)| target.dupe())
+            .collect(),
+        NodeDuration {
+            user: total.duration(),
+            total,
+            queue: None,
+        },
+        &deps,
+        WaitingData::with_initial_category(WaitingCategory::InstallerStartup),
+    );
 }
 
 async fn build_files(

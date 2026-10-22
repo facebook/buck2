@@ -54,6 +54,7 @@ use buck2_build_api::interpreter::rule_defs::required_test_local_resource::Starl
 use buck2_build_api::keep_going::KeepGoing;
 use buck2_build_api::materialize::invocation_re_use_case;
 use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::env::WaitingCategory;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
@@ -482,6 +483,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             execution_kind,
             outputs,
             command_execution,
+            ..
         } = prepare_and_execute(
             &mut self.dice.dupe().ctx(),
             self.cancellations,
@@ -607,6 +609,11 @@ impl<'a> BuckTestOrchestrator<'a> {
             host_sharing_requirements,
             disable_test_execution_caching,
         } = key;
+        // The test executor decides when to ask buck2 to run a test, so the time from the test's
+        // dependencies finishing until now is the executor's scheduling.
+        let mut waiting_data =
+            WaitingData::with_initial_category(WaitingCategory::TestExecutorScheduling);
+        waiting_data.start_waiting_category_now(WaitingCategory::PreparingAction);
         let fs = dice.get_artifact_fs().await?;
         let test_info = Self::get_test_info(dice, &test_target, internal_runner_config).await?;
         let effective_test_execution_caching =
@@ -721,6 +728,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             liveliness_observer.dupe(),
             test_executor.re_cache_enabled(),
             effective_test_execution_caching,
+            waiting_data,
         )
         .boxed()
         .await?;
@@ -739,6 +747,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                         suite.to_owned(),
                         duration.to_owned(),
                         &input_deps_action_keys,
+                        result.waiting_data.clone(),
                     );
                 }
                 TestStage::Testing {
@@ -754,6 +763,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                         variant.to_owned(),
                         duration,
                         &input_deps_action_keys,
+                        result.waiting_data.clone(),
                     );
                 }
             }
@@ -1249,6 +1259,8 @@ struct ExecuteData {
     pub execution_kind: Option<CommandExecutionKind>,
     pub outputs: Vec<(BuckOutTestPath, ArtifactValue)>,
     pub command_execution: Option<buck2_data::CommandExecution>,
+    #[allocative(skip)]
+    pub waiting_data: WaitingData,
 }
 
 impl BuckTestOrchestrator<'_> {
@@ -1283,13 +1295,14 @@ impl BuckTestOrchestrator<'_> {
         liveliness_observer: Arc<dyn LivelinessObserver>,
         re_cache_enabled: bool,
         supports_test_execution_caching: bool,
+        waiting_data: WaitingData,
     ) -> Result<ExecuteData, ExecuteError> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),
             events.dupe(),
             liveliness_observer.dupe(),
-            WaitingData::new(),
+            waiting_data,
         );
         let digest_config = dice.global_data().get_digest_config();
 
@@ -1447,6 +1460,7 @@ impl BuckTestOrchestrator<'_> {
                     timing,
                     ..
                 },
+            waiting_data,
             ..
         } = command_exec_result;
 
@@ -1477,6 +1491,7 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind: Some(execution_kind),
                 outputs,
                 command_execution,
+                waiting_data,
             },
             CommandExecutionStatus::Failure { execution_kind, .. }
             | CommandExecutionStatus::WorkerFailure { execution_kind } => ExecuteData {
@@ -1489,6 +1504,7 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind: Some(execution_kind),
                 outputs,
                 command_execution,
+                waiting_data,
             },
             CommandExecutionStatus::TimedOut {
                 duration,
@@ -1501,6 +1517,7 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind: Some(execution_kind),
                 outputs,
                 command_execution,
+                waiting_data,
             },
             CommandExecutionStatus::Error {
                 error,
@@ -1516,6 +1533,7 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind,
                 outputs,
                 command_execution,
+                waiting_data,
             },
             CommandExecutionStatus::Cancelled {
                 execution_kind: _,
@@ -2932,6 +2950,7 @@ mod tests {
                 NoopLivelinessObserver::create(),
                 false,
                 false,
+                WaitingData::new(),
             ),
         )
         .await

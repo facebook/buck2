@@ -614,4 +614,101 @@ mod tests {
             Duration::from_secs(1)
         );
     }
+
+    /// Lays out an install node whose installed artifacts finished building at `deps_done_s` and
+    /// whose installer ran from `installer_ready_s` to `installer_finished_s`, all from `t0`.
+    fn install_entries(
+        deps_done_s: u64,
+        installer_ready_s: u64,
+        installer_finished_s: u64,
+    ) -> Vec<buck2_data::CriticalPathEntry2> {
+        use std::sync::Arc;
+
+        use buck2_build_signals::env::NodeDuration;
+        use buck2_build_signals::env::WaitingData;
+        use buck2_core::configuration::data::ConfigurationData;
+        use buck2_core::provider::label::ConfiguredProvidersLabel;
+        use buck2_core::provider::label::ProvidersName;
+        use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+
+        let t0 = Instant::now();
+        let at = |s: u64| t0 + Duration::from_secs(s);
+        let label =
+            |l: &str| ConfiguredTargetLabel::testing_parse(l, ConfigurationData::testing_new());
+        let total = TimeSpan::new_saturating(at(installer_ready_s), at(installer_finished_s));
+        let mut enhancer = CriticalPathProtoEnhancer::new(t0, 4);
+        enhancer.add_entry(DetailedCriticalPathEntry {
+            key: crate::NodeKey::Install(crate::test_signals::InstallBuildSignalKey {
+                installer: ConfiguredProvidersLabel::new(
+                    label("cell//tools:installer"),
+                    ProvidersName::Default,
+                ),
+                targets: Arc::new(vec![label("cell//app:app")]),
+            }),
+            data: crate::NodeData {
+                extra_data: NodeExtraData::None,
+                duration: NodeDuration {
+                    user: total.duration(),
+                    total,
+                    queue: None,
+                },
+                waiting_data: WaitingData::with_initial_category(WaitingCategory::InstallerStartup),
+                span_ids: Default::default(),
+            },
+            potential_improvement: None,
+            deps_finished_time: Some(at(deps_done_s)),
+        });
+        enhancer.into_entries()
+    }
+
+    fn waiting_category(entry: &buck2_data::CriticalPathEntry2) -> Option<&str> {
+        match &entry.entry {
+            Some(critical_path_entry2::Entry::Waiting(w)) => w.category.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// When the installer is ready after the artifacts are built, the wait for it is attributed
+    /// to installer startup and the whole installer run is critical.
+    #[test]
+    fn install_waits_for_late_installer() {
+        let entries = install_entries(1, 3, 5);
+        let [for_deps, startup, install] = entries.as_slice() else {
+            panic!("unexpected entries: {entries:?}");
+        };
+        assert_eq!(waiting_category(for_deps), Some("for_deps"));
+        assert_eq!(
+            waiting_category(startup),
+            Some(WaitingCategory::InstallerStartup.variant_name_lowercase())
+        );
+        assert_eq!(
+            duration(&startup.non_critical_path_duration),
+            Duration::from_secs(2)
+        );
+        assert!(matches!(
+            install.entry,
+            Some(critical_path_entry2::Entry::Install(_))
+        ));
+        assert_eq!(duration(&install.duration), Duration::from_secs(2));
+    }
+
+    /// When the installer is ready before the artifacts are built, only the installer time after
+    /// the last artifact is critical, and no time is attributed to installer startup.
+    #[test]
+    fn install_overlapping_build_is_trimmed() {
+        let entries = install_entries(4, 1, 6);
+        let install = entries.last().unwrap();
+        assert!(matches!(
+            install.entry,
+            Some(critical_path_entry2::Entry::Install(_))
+        ));
+        assert_eq!(duration(&install.duration), Duration::from_secs(2));
+        for e in &entries {
+            if waiting_category(e)
+                == Some(WaitingCategory::InstallerStartup.variant_name_lowercase())
+            {
+                assert_eq!(duration(&e.non_critical_path_duration), Duration::ZERO);
+            }
+        }
+    }
 }
