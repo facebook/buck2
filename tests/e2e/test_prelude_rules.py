@@ -50,9 +50,9 @@ async def test_include_prefix_needs_a_whole_path_suffix(buck: Buck) -> None:
 
 # prelude/cxx/cxx_sources.bzl `get_srcs_with_flags`
 @buck_test(inplace=False)
-async def test_flag_sets_with_the_same_hash_collapse(buck: Buck) -> None:
-    # Flag sets of one source are keyed by `hash(str(flags))`, a 32-bit value, so
-    # two different flag sets can share a key and one compile silently replaces
-    # the other.
-    out = await _output(buck, "root//srcs_flags:colliding_flag_sets")
+async def test_distinct_flag_sets_compile_separately(buck: Buck) -> None:
+    for target in ("colliding_flag_sets", "quote_colliding_flag_sets"):
+        out = await _output(buck, f"root//srcs_flags:{target}")
+        assert out.read_text().split() == ["0", "1"], target
+    out = await _output(buck, "root//srcs_flags:repeated_flag_set")
     assert out.read_text().split() == ["None"]

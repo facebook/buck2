@@ -8,3 +8,21 @@ srcs_with_flags(
         ("a.cpp", ["-DMODE=BB"]),
     ],
 )
+
+# `str()` of a resolved `attrs.arg()` wraps the text in quotes without escaping
+# the quotes inside it, so these two lists print the same: `["-DA", "-DB"]`.
+srcs_with_flags(
+    name = "quote_colliding_flag_sets",
+    srcs = [
+        ("a.cpp", ['-DA", "-DB']),
+        ("a.cpp", ["-DA", "-DB"]),
+    ],
+)
+
+srcs_with_flags(
+    name = "repeated_flag_set",
+    srcs = [
+        ("a.cpp", ["-DMODE=Aa"]),
+        ("a.cpp", ["-DMODE=Aa"]),
+    ],
+)
