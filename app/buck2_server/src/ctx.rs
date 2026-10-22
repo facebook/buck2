@@ -24,6 +24,7 @@ use buck2_build_api::actions::execute::dice_data::SetReClient;
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
+use buck2_build_api::actions::impls::run_action_knobs::WriteActionCacheMode;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventsHolder;
@@ -469,6 +470,7 @@ impl<'a> ServerCommandContext<'a> {
             default_allow_cache_upload: false,
             action_paths_interner: None,
             write_cas_probe: false,
+            write_action_cache: WriteActionCacheMode::Off,
         };
 
         let concurrency = self
@@ -960,6 +962,12 @@ impl DiceCommandUpdater<'_, '_> {
                 .unwrap_or_else(RolloutPercentage::never)
                 .roll()
                 && repo.materializer_defers_writes);
+        run_action_knobs.write_action_cache = root_config
+            .parse::<WriteActionCacheMode>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "write_action_cache",
+            })?
+            .unwrap_or_default();
 
         let output_trees_download_semaphore_size = root_config.parse::<u32>(BuckconfigKeyRef {
             section: "buck2",

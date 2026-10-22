@@ -8,8 +8,11 @@
  * above-listed licenses.
  */
 
+use std::str::FromStr;
+
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
+use buck2_error::buck2_error;
 use buck2_execute::directory::ActionDirectoryMember;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -34,6 +37,40 @@ pub struct RunActionKnobs {
     /// Whether write actions ask the CAS for their content first and declare a CAS download
     /// instead of a write when it is there.
     pub write_cas_probe: bool,
+
+    pub write_action_cache: WriteActionCacheMode,
+}
+
+/// How write actions use the action cache; `buck2.write_action_cache`.
+#[derive(Copy, Clone, Dupe, Debug, Default, PartialEq, Eq)]
+pub enum WriteActionCacheMode {
+    #[default]
+    Off,
+    /// As `Off`, and the cache is asked as well: a hit whose content is not what the write
+    /// renders is reported (`write_action_cache_mismatch`). For trying the key out before `Use`.
+    Verify,
+    /// A write whose content the cache knows is declared as that content without rendering
+    /// it; one it does not know is declared as it would be without the cache.
+    Use,
+    /// `Use`, and a miss uploads the content and records it for later invocations.
+    Populate,
+}
+
+impl FromStr for WriteActionCacheMode {
+    type Err = buck2_error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "off" => Ok(Self::Off),
+            "verify" => Ok(Self::Verify),
+            "use" => Ok(Self::Use),
+            "populate" => Ok(Self::Populate),
+            _ => Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Unknown `write_action_cache` mode `{s}`; expected one of [`off`, `verify`, `use`, `populate`]"
+            )),
+        }
+    }
 }
 
 pub trait HasRunActionKnobs {

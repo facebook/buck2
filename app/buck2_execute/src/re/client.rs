@@ -124,6 +124,7 @@ pub enum ActionCacheWriteType {
     LocalCacheUpload,
     PermissionCheck,
     RemoteDepFile,
+    WriteAction,
 }
 impl ActionCacheWriteType {
     fn as_str(&self) -> &'static str {
@@ -131,6 +132,7 @@ impl ActionCacheWriteType {
             ActionCacheWriteType::LocalCacheUpload => "local_cache_upload",
             ActionCacheWriteType::PermissionCheck => "permission_check",
             ActionCacheWriteType::RemoteDepFile => "remote_dep_file",
+            ActionCacheWriteType::WriteAction => "write_action",
         }
     }
 }

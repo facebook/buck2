@@ -17,6 +17,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
 
+use buck2_build_api::actions::impls::write_action_cache_stats::WRITE_ACTION_CACHE_STATS;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_error::BuckErrorContext;
 use buck2_events::EventSinkStats;
@@ -209,6 +210,7 @@ impl SnapshotCollector {
         self.add_system_metrics(&mut snapshot);
         self.add_daemon_metrics(&mut snapshot);
         self.add_re_metrics(&mut snapshot);
+        self.add_write_action_cache_metrics(&mut snapshot);
         self.add_http_metrics(&mut snapshot);
         self.add_io_metrics(&mut snapshot);
         self.add_dice_metrics(&mut snapshot);
@@ -329,6 +331,17 @@ impl SnapshotCollector {
             };
             *pointer = Some(key.get_finished());
         }
+    }
+
+    fn add_write_action_cache_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        let counts = WRITE_ACTION_CACHE_STATS.counts();
+        snapshot.write_action_cache_hits = counts.hits;
+        snapshot.write_action_cache_misses = counts.misses;
+        snapshot.write_action_cache_lookup_failures = counts.lookup_failures;
+        snapshot.write_action_cache_populated = counts.populated;
+        snapshot.write_action_cache_populate_failures = counts.populate_failures;
+        snapshot.write_action_cache_verified = counts.verified;
+        snapshot.write_action_cache_mismatches = counts.mismatches;
     }
 
     fn add_re_metrics(&self, snapshot: &mut buck2_data::Snapshot) {

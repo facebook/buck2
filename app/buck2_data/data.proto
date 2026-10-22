@@ -1280,6 +1280,15 @@ message Snapshot {
   uint64 re_presence_check_digest_answers = 1069;
   uint64 re_presence_check_largest_batch = 1070;
 
+  // Write actions served from the action cache (`buck2.write_action_cache`).
+  uint64 write_action_cache_hits = 1209;
+  uint64 write_action_cache_misses = 1210;
+  uint64 write_action_cache_lookup_failures = 1211;
+  uint64 write_action_cache_populated = 1212;
+  uint64 write_action_cache_populate_failures = 1213;
+  uint64 write_action_cache_verified = 1214;
+  uint64 write_action_cache_mismatches = 1215;
+
   // I/O operations in progress.
   uint32 io_in_flight_copy = 1101;
   uint32 io_in_flight_symlink = 1102;

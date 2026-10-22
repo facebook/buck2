@@ -18,6 +18,7 @@ pub(crate) mod download_file;
 pub(crate) mod offline;
 pub(crate) mod run;
 pub(crate) mod write;
+pub(crate) mod write_cache;
 pub(crate) mod write_hmap;
 pub(crate) mod write_json;
 pub(crate) mod write_macros;
