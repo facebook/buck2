@@ -171,8 +171,8 @@ pub struct DiskStateMaterializer<T: IoHandler + Allocative + 'static = DefaultIo
     #[allocative(skip)]
     thread: Option<std::thread::JoinHandle<()>>,
     io: Arc<T>,
-    /// The BlobStore (plan-blobstore.md), whose stash the daemon attached: what it holds of a
-    /// root is linked out of it before the CAS is asked for the rest.
+    /// The BlobStore, whose stash the daemon attached: what it holds of a root is linked out of
+    /// it before the CAS is asked for the rest.
     store: &'static BlobStore,
     /// Which tracked paths hold which file digests, the processor's to keep and the download
     /// tasks' to read (`index.rs`).
@@ -442,8 +442,8 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
         let mut granted = granted.await.map_err(|_| failed(stopped()))?;
         if !granted.held.guard().holds_for_writing() && !granted.verified {
             // A root loaded from sqlite is trusted for its content, not for still being there
-            // as the rows say (plan-new-core.md §5): its first reader checks kind and size against
-            // disk. One that fails is forgotten and put there again like any untracked path.
+            // as the rows say: its first reader checks kind and size against disk. One that fails
+            // is forgotten and put there again like any untracked path.
             let (fs, path, entry) = (self.io.fs().dupe(), root.path.clone(), root.entry.dupe());
             let as_tracked = self
                 .blocking_executor
@@ -564,9 +564,9 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
     }
 
     /// Puts a reported root's files into the store: content this daemon produced, not known to
-    /// be in the CAS, entering the store as it comes into existence (plan-blobstore.md §3). The
-    /// root is write-held, so nothing reads or replaces it meanwhile. A failure costs only the
-    /// store's copy, which is why it is reported rather than failing the report.
+    /// be in the CAS, entering the store as it comes into existence. The root is write-held, so
+    /// nothing reads or replaces it meanwhile. A failure costs only the store's copy, which is
+    /// why it is reported rather than failing the report.
     async fn stash(&self, root: &Root) {
         let files = files_to_insert(self.io.fs(), &root.path, &root.entry, Origin::BuckOut);
         if let Err(e) = self.store.insert_files(files).await {
@@ -756,8 +756,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
     /// same digests as the source's, and whoever needs the destination on disk materializes it
     /// from them, out of the store or the CAS. A source outside buck-out, a source file, is not
     /// known to be in the CAS, so its content enters the store, checked against the digest the
-    /// value claims, and the destination is materialized from there when asked
-    /// (plan-blobstore.md §3).
+    /// value claims, and the destination is materialized from there when asked.
     async fn declare_copy_impl(
         &self,
         _path: ProjectRelativePathBuf,
@@ -1285,8 +1284,7 @@ impl RequestPlan {
 
 /// The IO of a content root this request has to write: whatever is there and not wanted goes,
 /// entry by entry where something under the root is excluded, and the rest is put there, file by
-/// file from the stash, then from a tracked path holding the same content, then from the CAS
-/// (plan-blobstore.md §5).
+/// file from the stash, then from a tracked path holding the same content, then from the CAS.
 fn download_task<T: IoHandler>(
     io: Arc<T>,
     blocking_executor: Arc<dyn BlockingExecutor>,
@@ -1344,8 +1342,7 @@ fn download_task<T: IoHandler>(
             }
             // Only what the index has a path for is worth a round trip to the processor: a
             // path holding the content, held for reading for the length of the copy. A hold
-            // that never waits cannot close a cycle with the write lease this task runs under
-            // (plan-new-core.md §2b).
+            // that never waits cannot close a cycle with the write lease this task runs under.
             let indexed: Vec<WantedFile> = rest
                 .extract_if(.., |wanted| index.holds(wanted.digest.data()))
                 .collect();

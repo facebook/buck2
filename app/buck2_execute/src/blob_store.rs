@@ -9,11 +9,11 @@
  */
 
 //! The BlobStore: where the blobs behind the daemon's tracked file digests are, and how to get
-//! them back (plan-blobstore.md). It is the digest interner with its backings made explicit, a
-//! recorded CAS expiration and a recorded stash entry, the stash directory under buck-out that
-//! keeps content this daemon produced and the CAS is not known to hold, and one walk over the
-//! table that refreshes CAS expirations. Where a digest's entry says the stash holds the blob,
-//! the materializer links the content out of it before asking the CAS.
+//! them back. It is the digest interner with its backings made explicit, a recorded CAS
+//! expiration and a recorded stash entry, the stash directory under buck-out that keeps content
+//! this daemon produced and the CAS is not known to hold, and one walk over the table that
+//! refreshes CAS expirations. Where a digest's entry says the stash holds the blob, the
+//! materializer links the content out of it before asking the CAS.
 //!
 //! The stash holds exactly the blobs some `TrackedFileDigest` is held for and the CAS is not
 //! known to hold, and starts empty with every daemon. An insertion writes a file under a name of
@@ -202,10 +202,10 @@ impl BlobStore {
     }
 
     /// Gives the store its directory and starts it empty: what a previous daemon left there is
-    /// moved aside and removed in the background, since nothing refers to it any more
-    /// (plan-blobstore.md §2). Returns whether the store took the directory: the store has one,
-    /// and a second materializer in the process shares the first's. Must be called from within
-    /// a tokio runtime, which the collector's task then lives on.
+    /// moved aside and removed in the background, since nothing refers to it any more. Returns
+    /// whether the store took the directory: the store has one, and a second materializer in the
+    /// process shares the first's. Must be called from within a tokio runtime, which the
+    /// collector's task then lives on.
     pub fn attach_stash(
         &self,
         root: AbsNormPathBuf,
@@ -395,8 +395,8 @@ impl BlobStore {
                                 Ok(false)
                             }
                             Err(e) => {
-                                // A miss, as the plan has it (plan-blobstore.md §5): the CAS is
-                                // asked, which a half-made destination would be in the way of.
+                                // A miss: the CAS is asked, which a half-made destination would
+                                // be in the way of.
                                 let _ignored = buck2_core::soft_error!(
                                     "blob_store_link_failed",
                                     e.context(format!(
@@ -528,10 +528,10 @@ async fn collect(
 const TRASH: &str = "stash.trash";
 
 /// Moves what is at `root`, the stash a previous daemon left, aside and removes it in the
-/// background: nothing refers to it any more (plan-blobstore.md §2). For the daemon that goes on
-/// to attach the directory and for one that runs without a stash alike; a start that dies before
-/// the removal is done leaves the rest for the next. A failure is reported and costs disk, not
-/// the build. Must be called from within a tokio runtime.
+/// background: nothing refers to it any more. For the daemon that goes on to attach the directory
+/// and for one that runs without a stash alike; a start that dies before the removal is done
+/// leaves the rest for the next. A failure is reported and costs disk, not the build. Must be
+/// called from within a tokio runtime.
 pub fn discard_stash(root: &AbsNormPath, blocking: Arc<dyn BlockingExecutor>) {
     let Some(parent) = root.parent() else {
         return;

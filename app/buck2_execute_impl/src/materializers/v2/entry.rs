@@ -9,11 +9,11 @@
  */
 
 //! What the disk tree knows about a path's content: an `ActionDirectoryEntry` in shape, with
-//! plain digests. The materializer holds no `TrackedFileDigest` (plan-new-core.md §2a): a handle
-//! keeps the digest's interner entry alive, and with it whatever the stash holds for the digest,
-//! where the stash is meant to hold what live values hold and nothing for content that is merely
-//! on disk (plan-blobstore.md §6). So a root is tracked as a copy of its metadata, not as a share
-//! of the value it came from, and sqlite is written from that copy.
+//! plain digests. The materializer holds no `TrackedFileDigest`: a handle keeps the digest's
+//! interner entry alive, and with it whatever the stash holds for the digest, where the stash is
+//! meant to hold what live values hold and nothing for content that is merely on disk. So a root
+//! is tracked as a copy of its metadata, not as a share of the value it came from, and sqlite is
+//! written from that copy.
 
 use std::sync::Arc;
 

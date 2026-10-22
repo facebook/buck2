@@ -73,9 +73,9 @@ pub(crate) struct Tracked {
     pub(crate) last_access_time: Timestamp,
     pub(crate) classification: ArtifactClassification,
     /// Whether this daemon has seen the root on disk: true for one it put there, false for one
-    /// loaded from sqlite until a reader has checked it (plan-new-core.md §5). An unverified root
-    /// is matched like any other; what differs is that its first reader checks before reading,
-    /// and that a write over it does not exclude it.
+    /// loaded from sqlite until a reader has checked it. An unverified root is matched like any
+    /// other; what differs is that its first reader checks before reading, and that a write over
+    /// it does not exclude it.
     pub(crate) verified: bool,
 }
 

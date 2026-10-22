@@ -10,10 +10,10 @@
 
 //! The reverse index: which tracked paths hold a file of a given digest, so that a
 //! materialization of content that is already on disk somewhere copies it rather than downloads
-//! it (plan-new-core.md §2b). The processor keeps it from the tree's changes; download tasks read
-//! it without the processor, so that the common case, nothing on disk holds the digest, costs a
-//! lookup and no round trip. A hit is a candidate until the processor holds the path for reading,
-//! where the tree has the last word.
+//! it. The processor keeps it from the tree's changes; download tasks read it without the
+//! processor, so that the common case, nothing on disk holds the digest, costs a lookup and no
+//! round trip. A hit is a candidate until the processor holds the path for reading, where the
+//! tree has the last word.
 
 use allocative::Allocative;
 use buck2_common::file_ops::metadata::FileDigest;

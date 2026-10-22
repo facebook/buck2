@@ -808,8 +808,8 @@ pub enum CasDownloadInfoOrigin {
     Probed,
 
     /// A value the disk-state materializer was handed to put on disk, whose digests' invariant
-    /// (plan-new-core.md) puts the content in the CAS or in the store; how it got there is not
-    /// carried along. A miss is therefore a CAS failure, as for a probed blob.
+    /// puts the content in the CAS or in the store; how it got there is not carried along. A miss
+    /// is therefore a CAS failure, as for a probed blob.
     Tracked,
 
     /// Uploaded directly by the client.

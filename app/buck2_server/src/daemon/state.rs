@@ -623,8 +623,7 @@ impl TenantState {
             .join(ForwardRelativePath::unchecked_new("stash"));
         if disk_state_core {
             // The daemon has one stash, started empty. It lives under this repo's buck-out until
-            // it has a home of the daemon's own (plan-blobstore.md §2); a second repo in the
-            // process would share it.
+            // it has a home of the daemon's own; a second repo in the process would share it.
             BlobStore::global().attach_stash(
                 stash,
                 digest_config.cas_digest_config(),

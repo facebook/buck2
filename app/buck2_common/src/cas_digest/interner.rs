@@ -429,7 +429,7 @@ impl TrackedFileDigest {
 /// with that property. A recorded stash entry does not pin: it leaves with the entry, at the
 /// last handle's drop or at a sweep, or sooner, when a CAS expiration is recorded for the blob,
 /// and goes to the stash's collector each time, so that the stash holds exactly what live values
-/// hold and the CAS does not (plan-blobstore.md §6).
+/// hold and the CAS does not.
 #[derive(Allocative)]
 pub struct DigestInterner {
     /// Dropping a handle takes its shard's write lock, so never construct or drop a
