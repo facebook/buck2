@@ -57,7 +57,7 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         use_proto_format = False,
         referenced_resources_lists = [],
         generate_strings_and_ids_separately = False,
-        aapt2_preferred_density = ctx.attrs.preferred_density_for_binary_resources,
+        aapt2_preferred_density = ctx.attrs.aapt2_preferred_density,
         manifest_entries = ctx.attrs.manifest_entries,
     )
 
@@ -159,6 +159,7 @@ robolectric_test = prelude_rule(
         # @unsorted-dict-items
         buck.inject_test_env_arg()
         | {
+            "aapt2_preferred_density": attrs.option(attrs.string(), default = None),
             "android_optional_jars": attrs.option(attrs.list(attrs.dep()), default = None),
             "compiled_resource_apks": attrs.list(attrs.source(), default = []),
             "cxx_library_allowlist": attrs.list(
@@ -193,7 +194,6 @@ robolectric_test = prelude_rule(
             "manifest_file": attrs.option(attrs.source(), default = None),
             "manifest_skeleton": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
-            "preferred_density_for_binary_resources": attrs.option(attrs.string(), default = None),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "provided_deps": attrs.list(attrs.dep(), default = []),
             "provided_deps_query": attrs.option(attrs.query(), default = None),
