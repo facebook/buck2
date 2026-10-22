@@ -29,3 +29,34 @@ srcs_with_flags = rule(
         "srcs": attrs.list(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.list(attrs.arg())))),
     },
 )
+
+def _script_impl(ctx):
+    out = ctx.actions.write(ctx.attrs.filename, ctx.attrs.lines, is_executable = True)
+    return [DefaultInfo(default_output = out), RunInfo(args = [out])]
+
+# An executable written by an action, so the test data needs no executable bits.
+script = rule(
+    impl = _script_impl,
+    attrs = {
+        "filename": attrs.string(),
+        "lines": attrs.list(attrs.string()),
+    },
+)
+
+def _two_outputs_impl(ctx):
+    a = ctx.actions.write("a.txt", "a")
+    b = ctx.actions.write("b.txt", "b")
+    return [
+        DefaultInfo(
+            default_outputs = [a, b],
+            sub_targets = {
+                "a": [DefaultInfo(default_output = a)],
+                "b": [DefaultInfo(default_output = b)],
+            },
+        )
+    ]
+
+two_outputs = rule(
+    impl = _two_outputs_impl,
+    attrs = {},
+)

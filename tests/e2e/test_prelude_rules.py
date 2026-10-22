@@ -56,3 +56,12 @@ async def test_distinct_flag_sets_compile_separately(buck: Buck) -> None:
         assert out.read_text().split() == ["0", "1"], target
     out = await _output(buck, "root//srcs_flags:repeated_flag_set")
     assert out.read_text().split() == ["None"]
+
+
+# prelude/sh_binary.bzl `_generate_script`
+@buck_test(inplace=False, skip_for_os=["windows"])
+async def test_two_resources_from_one_target_keep_only_the_last(buck: Buck) -> None:
+    # Generated resources are linked at `package/target-name`, so `:gen[a]` and
+    # `:gen[b]` share a link and only `b` is laid out, without an error.
+    res = await buck.run("root//sh_resources:show")
+    assert res.stdout == "gen\nb"

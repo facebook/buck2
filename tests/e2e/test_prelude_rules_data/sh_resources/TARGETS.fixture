@@ -1,0 +1,19 @@
+load("//:defs.bzl", "script", "two_outputs")
+
+two_outputs(name = "gen")
+
+script(
+    name = "show_main",
+    filename = "show.sh",
+    lines = [
+        "#!/bin/sh",
+        'ls "$BUCK_PROJECT_ROOT/sh_resources"',
+        'cat "$BUCK_PROJECT_ROOT/sh_resources/gen"',
+    ],
+)
+
+sh_binary(
+    name = "show",
+    main = ":show_main",
+    resources = [":gen[a]", ":gen[b]"],
+)
