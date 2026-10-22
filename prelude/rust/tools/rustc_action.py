@@ -22,6 +22,7 @@ import asyncio
 import json
 import os
 import platform
+import re
 import shlex
 import subprocess
 import sys
@@ -103,11 +104,33 @@ if sys.version_info[:2] < (3, 7):
 
 
 def key_value_arg(s: str) -> tuple[str, str]:
-    s = arg_eval(s)
+    return plain_key_value_arg(arg_eval(s))
+
+
+def plain_key_value_arg(s: str) -> tuple[str, str]:
+    """Splits without evaluating `$(`: `--env` values are decoded and evaluated in `main`."""
     key_value = s.split("=", maxsplit=1)
     if len(key_value) == 2:
         return (key_value[0], key_value[1])
     raise argparse.ArgumentTypeError(f"expected the form `key=value` for `{s}`")
+
+
+_ENV_ESCAPE_RE = re.compile(r"\\(?:[\\nrvf]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})")
+_ENV_ESCAPES = {"\\": "\\", "n": "\n", "r": "\r", "v": "\x0b", "f": "\x0c"}
+
+
+def _decode_env_escape(match: re.Match[str]) -> str:
+    escape = match.group()[1:]
+    if escape[0] in "xu":
+        return chr(int(escape[1:], 16))
+    return _ENV_ESCAPES[escape]
+
+
+def unescape_env_value(value: str) -> str:
+    """Undo the escaping `process_env` in build.bzl applies so that a value fits on one line
+    of the argfile: `\\\\`, `\\n`, `\\r`, `\\v`, `\\f`, `\\xHH` and `\\uHHHH`, decoded in one
+    left-to-right pass. A backslash that starts no such escape is kept as it is."""
+    return _ENV_ESCAPE_RE.sub(_decode_env_escape, value)
 
 
 class Args(NamedTuple):
@@ -152,7 +175,7 @@ def arg_parse(argv: Optional[list[str]] = None) -> Args:
     parser.add_argument(
         "--env",
         action="append",
-        type=key_value_arg,
+        type=plain_key_value_arg,
         metavar="NAME=VALUE",
         help="Set environment",
     )
@@ -452,11 +475,7 @@ async def main() -> int:  # noqa: C901
     # Inherit a very limited initial environment, then add the new things
     env = inherited_env()
     if args.env:
-        # Unescape previously escaped newlines.
-        # Example: \\\\n\\n -> \\\n\n -> \\n\n
-        env.update(
-            {k: v.replace("\\n", "\n").replace("\\\n", "\\n") for k, v in args.env}
-        )
+        env.update({k: arg_eval(unescape_env_value(v)) for k, v in args.env})
     if args.path_env:
         env.update({k: os.path.abspath(v) for k, v in args.path_env})
 

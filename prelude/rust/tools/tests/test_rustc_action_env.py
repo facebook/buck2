@@ -43,11 +43,15 @@ class EnvTransportTest(unittest.TestCase):
 
     def transport(self, value: str) -> str:
         """The value rustc sees for `K`."""
+        return self.rustc_env_for(escape_like_process_env(value))
+
+    def rustc_env_for(self, argfile_value: str) -> str:
+        """The value rustc sees for `K` when the argfile holds `argfile_value`."""
         dump = self.tmp / "env.json"
         dump.unlink(missing_ok=True)
         args = [
             f"--env=FAKE_DUMP_ENV={dump}",
-            "--env=K=" + escape_like_process_env(value),
+            "--env=K=" + argfile_value,
             f"--diag-json={self.tmp / 'diag.json'}",
             f"--diag-txt={self.tmp / 'diag.txt'}",
             sys.executable,
@@ -63,31 +67,60 @@ class EnvTransportTest(unittest.TestCase):
 
 
 def escape_like_process_env(value: str) -> str:
-    """The `replace_regex` rules of `process_env` in build.bzl, in order."""
-    return value.replace("\\n", "\\\n").replace("\n", "\\n").replace("\r", "\\r")
+    """`_RUSTC_ACTION_ENV_ESCAPES` of `process_env` in build.bzl, applied in order."""
+    for raw, escaped in [
+        ("\\", "\\\\"),
+        ("\n", "\\n"),
+        ("\r", "\\r"),
+        ("\x0b", "\\v"),
+        ("\x0c", "\\f"),
+        ("\x1c", "\\x1c"),
+        ("\x1d", "\\x1d"),
+        ("\x1e", "\\x1e"),
+        ("\x85", "\\x85"),
+        ("\u2028", "\\u2028"),
+        ("\u2029", "\\u2029"),
+    ]:
+        value = value.replace(raw, escaped)
+    return value
 
 
-class EnvTransportPinnedTest(EnvTransportTest):
-    def test_newlines_round_trip(self) -> None:
-        for value in ["a\nb", "a\\nb", "\\n\n"]:
+class EnvTransportFixedTest(EnvTransportTest):
+    def test_values_reach_rustc_unchanged(self) -> None:
+        for value in [
+            "a\nb",
+            "a\\nb",
+            "\\n\n",
+            "a\rb",
+            "a\\\nb",
+            "a\\\\b",
+            "a\x0bb",
+            "a\x0cb",
+            "a\x1cb",
+            "a\x1db",
+            "a\x1eb",
+            "a\x85b",
+            "a\u2028b",
+            "a\u2029b",
+            "\\x41",
+            "\\u0041",
+            "trailing\\",
+        ]:
             self.assertEqual(self.transport(value), value)
 
-    def test_a_carriage_return_reaches_rustc_as_backslash_r(self) -> None:
-        self.assertEqual(self.transport("a\rb"), "a\\rb")
-
-    def test_a_backslash_before_a_newline_reaches_rustc_as_backslash_n(self) -> None:
-        # Both values are escaped to the same text.
-        self.assertEqual(
-            escape_like_process_env("a\\\nb"), escape_like_process_env("a\\nb")
-        )
-        self.assertEqual(self.transport("a\\\nb"), "a\\nb")
-
-    def test_a_form_feed_breaks_the_action(self) -> None:
-        # The argfile line is split at the form feed; the tail becomes the rustc command.
-        with self.assertRaises(FileNotFoundError):
-            self.transport("a\x0cb")
-
-    def test_a_dollar_cat_in_a_value_is_expanded(self) -> None:
+    def test_a_dollar_cat_in_a_value_is_still_expanded(self) -> None:
         secret = self.tmp / "secret.txt"
         secret.write_text("FILE-CONTENTS")
         self.assertEqual(self.transport(f"echo $(cat {secret})"), "echo FILE-CONTENTS")
+
+    def test_a_backslash_that_starts_no_escape_is_kept(self) -> None:
+        # `process_env` never writes these; an argfile written by hand may.
+        for argfile_value in [
+            "a\\b",
+            "\\x4",
+            "\\xZZ",
+            "\\u00",
+            "\\u00G1",
+            "trailing\\",
+        ]:
+            self.assertEqual(self.rustc_env_for(argfile_value), argfile_value)

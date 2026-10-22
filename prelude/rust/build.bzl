@@ -2126,9 +2126,23 @@ def _long_command(ctx: AnalysisContext, exe: RunInfo, args: cmd_args, argfile_na
         ),
     )
 
-_DOUBLE_ESCAPED_NEWLINE_RE = regex("\\\\n")
-_ESCAPED_NEWLINE_RE = regex("\\n")
-_ESCAPED_CARRIAGE_RETURN_RE = regex("\\r")
+# An escape per character that cannot sit on one line of the `rustc_action` argfile: the
+# backslash first, so that one left-to-right pass decodes, then every separator Python's
+# `str.splitlines` recognises. `rustc_action.py` undoes this.
+_RUSTC_ACTION_ENV_ESCAPES = [
+    ("\\", "\\\\"),
+    ("\n", "\\n"),
+    ("\r", "\\r"),
+    ("\x0b", "\\v"),
+    ("\x0c", "\\f"),
+    ("\x1c", "\\x1c"),
+    ("\x1d", "\\x1d"),
+    ("\x1e", "\\x1e"),
+    ("\x85", "\\x85"),
+    ("\u2028", "\\u2028"),
+    ("\u2029", "\\u2029"),
+]
+_RUSTC_ACTION_ENV_REPLACE_REGEX = [(regex("\\x{%x}" % ord(raw)), escaped) for raw, escaped in _RUSTC_ACTION_ENV_ESCAPES]
 _DIRECTORY_ENV = [
     "CARGO_MANIFEST_DIR",
     "OUT_DIR",
@@ -2143,9 +2157,10 @@ _DIRECTORY_ENV = [
 # distinguish path from non-path. (This will not work if the value contains both
 # path and non-path content, but we'll burn that bridge when we get to it.)
 def _env_value_needs_escape(value: str) -> bool:
-    # Match the full escape path below, which rewrites carriage returns as
-    # well as newlines; a value with only `\r` must not bypass escaping.
-    return "\n" in value or "\\n" in value or "\r" in value or "\\r" in value
+    for raw, _ in _RUSTC_ACTION_ENV_ESCAPES:
+        if raw in value:
+            return True
+    return False
 
 def process_env(
     compile_ctx: CompileContext, env: dict[str, str | ResolvedStringWithMacros | Artifact], escape_for_rustc_action: bool = True
@@ -2165,18 +2180,7 @@ def process_env(
         if len(arg.inputs) > 0:
             path_env[k] = arg
         elif escape_for_rustc_action:
-            # Environment variables may have newlines, escape them for now.
-            # Will be unescaped in rustc_action.
-            # Variable may have "\\n" as well.
-            # Example: \\n\n -> \\\n\n -> \\\\n\\n
-            plain_env[k] = cmd_args(
-                v,
-                replace_regex = [
-                    (_DOUBLE_ESCAPED_NEWLINE_RE, "\\\n"),
-                    (_ESCAPED_NEWLINE_RE, "\\n"),
-                    (_ESCAPED_CARRIAGE_RETURN_RE, "\\r"),
-                ],
-            )
+            plain_env[k] = cmd_args(v, replace_regex = _RUSTC_ACTION_ENV_REPLACE_REGEX)
         else:
             # No escaping requested and no inputs to track: retain the value
             # itself rather than a single-element `cmd_args` wrapper.
