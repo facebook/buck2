@@ -8,11 +8,81 @@
 
 # pyre-strict
 
+from pathlib import Path
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 
 class DocsAgentTest(BuckTestCase):
+    @buck_test()
+    async def test_docs_agent_does_not_start_daemon(self, buck: Buck) -> None:
+        await buck.docs("agent")
+
+        status = await buck.status()
+        assert "no buckd running" in status.stderr
+
+    @buck_test()
+    async def test_docs_agent_preserves_daemon_config(self, buck: Buck) -> None:
+        await buck.audit_config("--config", "foo.bar=bar")
+        version_path = (
+            "Event",
+            "data",
+            "SpanStart",
+            "data",
+            "CommandCritical",
+            "dice_version",
+        )
+        before = await filter_events(buck, *version_path)
+        assert len(before) == 1
+
+        await buck.docs("agent")
+
+        result = await buck.audit_config(
+            "foo.bar", "--reuse-current-config", "--style", "json"
+        )
+        assert result.get_json() == {"foo.bar": "bar"}
+        assert await filter_events(buck, *version_path) == before
+
+        await buck.audit_config("--config", "foo.bar=bar")
+        assert await filter_events(buck, *version_path) == before
+        assert (
+            await filter_events(
+                buck, "Event", "data", "Instant", "data", "CellHasNewConfigs"
+            )
+            == []
+        )
+
+    @buck_test()
+    async def test_docs_agent_reads_includes_and_overrides(self, buck: Buck) -> None:
+        (buck.cwd / "guidance.bcfg").write_text(
+            "[agent_context#included]\n description = From the included file\n"
+        )
+        with (buck.cwd / ".buckconfig").open("a") as config:
+            config.write("\n<file:guidance.bcfg>\n")
+        (buck.cwd / "nested").mkdir()
+
+        result = await buck.docs("agent", rel_cwd=Path("nested"))
+        assert "Description: From the included file" in result.stdout
+
+        overrides = buck.cwd / "overrides.bcfg"
+        overrides.write_text(
+            "[agent_context#included]\n description = From the config override file\n"
+        )
+        flag = "agent_context#included.description=From the command line"
+        result = await buck.docs(
+            "agent", "--config-file", str(overrides), "--config", flag
+        )
+        assert "Description: From the command line" in result.stdout
+        assert "From the config override file" not in result.stdout
+
+        result = await buck.docs(
+            "agent", "--config", flag, "--config-file", str(overrides)
+        )
+        assert "Description: From the config override file" in result.stdout
+        assert "From the command line" not in result.stdout
+
     @buck_test()
     async def test_docs_agent_prints_agent_context_schema(self, buck: Buck) -> None:
         result = await buck.docs("agent")

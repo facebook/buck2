@@ -1734,6 +1734,7 @@ dependencies = [
  "async-trait",
  "buck2_cli_proto",
  "buck2_client_ctx",
+ "buck2_common",
  "buck2_error",
  "buck2_query",
  "clap",
