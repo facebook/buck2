@@ -12,6 +12,7 @@
 import asyncio
 import re
 import shutil
+import stat
 import time
 from datetime import datetime, timedelta, UTC
 
@@ -595,6 +596,9 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 24
         assert "\tmaterialized" in entry
         artifact = buck.cwd / entry.split("\t", 1)[0]
         assert artifact.read_text(encoding="utf-8") == original
+        # Tracked outputs are read-only (`buck2.readonly_outputs`); the edit is what a user
+        # would do after a `chmod`.
+        artifact.chmod(artifact.stat().st_mode | stat.S_IWUSR)
         artifact.write_text("EDITED", encoding="utf-8")
 
         await buck.clean("--stale")

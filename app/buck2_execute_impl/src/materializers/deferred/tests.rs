@@ -480,6 +480,21 @@ pub(crate) mod state_machine {
         fn digest_config(&self) -> DigestConfig {
             self.digest_config
         }
+
+        async fn seal(
+            self: &Arc<Self>,
+            _path: ProjectRelativePathBuf,
+            _entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        ) -> buck2_error::Result<()> {
+            Ok(())
+        }
+
+        async fn make_outputs_writable(
+            self: &Arc<Self>,
+            _paths: Vec<ProjectRelativePathBuf>,
+        ) -> buck2_error::Result<()> {
+            Ok(())
+        }
     }
 
     /// A stub command sender. We are calling materializer methods directly so that's all we need.

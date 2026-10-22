@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 """
-With `buck2.readonly_outputs` on, every file the disk-state core tracks is read-only from the
+With `buck2.readonly_outputs` on, every file the materializer tracks is read-only from the
 moment it is tracked, directories stay writable, and an incremental action's previous outputs
 are made writable for its run and read-only again after it.
 """
@@ -29,7 +29,7 @@ def _read_only(path: Path) -> bool:
 
 
 class ReadonlyOutputsTest(BuckTestCase):
-    @buck_test(skip_for_materializer=["deferred"])
+    @buck_test()
     async def test_tracked_files_are_read_only(self, buck: Buck) -> None:
         for target in ["//:write", "//:produce", "//:copy_src"]:
             res = await buck.build(target, "--local-only")
@@ -43,7 +43,7 @@ class ReadonlyOutputsTest(BuckTestCase):
             else:
                 raise AssertionError(f"{target}: a write to the output went through")
 
-    @buck_test(skip_for_materializer=["deferred"])
+    @buck_test()
     async def test_an_incremental_action_writes_its_previous_output(
         self, buck: Buck
     ) -> None:
@@ -63,7 +63,7 @@ class ReadonlyOutputsTest(BuckTestCase):
         )
         assert _read_only(res.get_build_report().output_for_target("//:incremental"))
 
-    @buck_test(skip_for_materializer=["deferred"])
+    @buck_test()
     async def test_clean_removes_read_only_outputs(self, buck: Buck) -> None:
         res = await buck.build("//:produce", "--local-only")
         out = res.get_build_report().output_for_target("//:produce")

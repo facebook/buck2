@@ -52,10 +52,10 @@ pub fn seal_files(
 
 /// Makes every file under `paths` one an action may write in place, for its previous outputs: a
 /// file the BlobStore holds by hardlink is cloned or copied over itself, so that the write stays
-/// out of the store, and every file gets its owner's write permission, which the disk-state core
-/// takes from the files it tracks. The store's name of a shared file keeps its mode, except on
-/// Windows, where hardlinks share the read-only attribute and replacing the file clears it.
-/// Symlinks are not followed.
+/// out of the store, and every file gets its owner's write permission, which a materializer takes
+/// from the files it tracks. The store's name of a shared file keeps its mode, except on Windows,
+/// where hardlinks share the read-only attribute and replacing the file clears it. Symlinks are
+/// not followed.
 pub fn make_output_paths_writable(
     fs: &ProjectRoot,
     paths: &[ProjectRelativePathBuf],
@@ -117,14 +117,73 @@ fn shared(_metadata: &std::fs::Metadata) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::file_ops::metadata::FileMetadata;
+    use buck2_common::file_ops::metadata::TrackedFileDigest;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_fs::fs_util::uncategorized as fs_util;
 
     use super::*;
+    use crate::digest_config::DigestConfig;
+    use crate::directory::ActionDirectoryBuilder;
+    use crate::directory::INTERNER;
 
     fn rel(s: &str) -> &ProjectRelativePath {
         ProjectRelativePath::unchecked_new(s)
+    }
+
+    fn file(content: &str, is_executable: bool) -> ActionDirectoryMember {
+        ActionDirectoryMember::File(FileMetadata {
+            digest: TrackedFileDigest::from_content(
+                content.as_bytes(),
+                DigestConfig::testing_default().cas_digest_config(),
+            ),
+            is_executable,
+        })
+    }
+
+    #[test]
+    fn test_seal_files_takes_the_write_bits_off_files_only() -> buck2_error::Result<()> {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path();
+        let dir = rel("buck-out/v2/gen/dir");
+        fs.write_file(dir.join(ForwardRelativePath::new("a")?), "a", false)?;
+        fs.write_file(dir.join(ForwardRelativePath::new("sub/b")?), "b", true)?;
+        let mut builder = ActionDirectoryBuilder::empty_exhaustive();
+        builder
+            .insert(
+                ForwardRelativePath::new("a")?,
+                DirectoryEntry::Leaf(file("a", false)),
+            )
+            .unwrap();
+        builder
+            .insert(
+                ForwardRelativePath::new("sub/b")?,
+                DirectoryEntry::Leaf(file("b", true)),
+            )
+            .unwrap();
+        builder.mark_uniformly_exhaustive();
+        let entry = DirectoryEntry::Dir(
+            builder
+                .fingerprint(DigestConfig::testing_default().as_directory_serializer())
+                .shared(&*INTERNER),
+        );
+
+        seal_files(fs, dir, &entry)?;
+
+        let perms = |p: &str| fs_util::metadata(fs.resolve(rel(p))).unwrap().permissions();
+        assert!(perms("buck-out/v2/gen/dir/a").readonly());
+        assert!(perms("buck-out/v2/gen/dir/sub/b").readonly());
+        assert!(
+            !perms("buck-out/v2/gen/dir/sub").readonly(),
+            "directories stay writable"
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(perms("buck-out/v2/gen/dir/sub/b").mode() & 0o777, 0o555);
+        }
+        Ok(())
     }
 
     #[cfg(unix)]

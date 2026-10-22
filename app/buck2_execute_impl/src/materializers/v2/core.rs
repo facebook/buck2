@@ -210,6 +210,8 @@ impl DiskStateMaterializer<DefaultIoHandler> {
                 buck_out_path,
                 re_client_manager,
                 blocking_executor.dupe(),
+                // The report seals every root, whichever way it came to be on disk.
+                false,
             )),
             BlobStore::global(),
             blocking_executor,
@@ -809,6 +811,8 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
             self.blocking_executor.as_ref(),
             self.io.digest_config(),
             Box::new(move || Ok(requests)),
+            // The report seals them, as it does every root.
+            false,
         )
         .await?;
         for (path, value) in paths.into_iter().zip_eq(&values) {

@@ -274,8 +274,8 @@ pub struct DeferredMaterializerConfigs {
     pub update_access_times: AccessTimesUpdates,
     pub verbose_materializer_log: bool,
     pub clean_stale_config: CleanStaleConfig,
-    /// Whether the disk-state core makes every file it tracks read-only as the root is reported
-    /// (`buck2.readonly_outputs`). The deferred core does not read it.
+    /// Whether the files a materializer tracks are read-only from the moment it tracks them
+    /// (`buck2.readonly_outputs`).
     pub readonly_outputs: bool,
 }
 
@@ -444,6 +444,12 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         _lease: &WriteLease,
         artifacts: Vec<DeclareArtifactPayload>,
     ) -> buck2_error::Result<()> {
+        buck2_util::future::try_join_all(artifacts.iter().map(
+            |DeclareArtifactPayload { path, artifact }| {
+                self.io.seal(path.clone(), artifact.entry().dupe())
+            },
+        ))
+        .await?;
         let cmd =
             MaterializerCommand::DeclareExisting(artifacts, current_span(), get_dispatcher_opt());
         self.command_sender.send(cmd)?;
@@ -661,9 +667,9 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
     /// This materializer neither shares an inode with buck-out nor makes a file read-only.
     async fn make_outputs_writable(
         &self,
-        _paths: Vec<ProjectRelativePathBuf>,
+        paths: Vec<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<()> {
-        Ok(())
+        self.io.make_outputs_writable(paths).await
     }
 
     async fn publish_impl(
@@ -997,6 +1003,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
                 buck_out_path,
                 re_client_manager,
                 io_executor,
+                configs.readonly_outputs,
             )),
             configs,
             sqlite_db,

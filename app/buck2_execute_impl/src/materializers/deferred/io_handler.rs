@@ -40,6 +40,8 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
+use buck2_execute::execute::readonly_outputs::make_output_paths_writable;
+use buck2_execute::execute::readonly_outputs::seal_files;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CasNotFoundError;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -87,6 +89,9 @@ pub struct DefaultIoHandler {
     re_client_manager: Arc<ReConnectionManager>,
     /// Executor for blocking IO operations
     io_executor: Arc<dyn BlockingExecutor>,
+    /// Whether the files this handler puts on disk, and those it is told are there, are made
+    /// read-only (`buck2.readonly_outputs`).
+    readonly_outputs: bool,
 }
 
 #[derive(Allocative)]
@@ -145,6 +150,21 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
         cancellations: &CancellationContext,
     ) -> Result<(), MaterializeEntryError>;
 
+    /// Makes the files of `entry`, which got to `path` without this handler, read-only when the
+    /// handler's own materializations are (`buck2.readonly_outputs`).
+    async fn seal(
+        self: &Arc<Self>,
+        path: ProjectRelativePathBuf,
+        entry: ActionDirectoryEntry<ActionSharedDirectory>,
+    ) -> buck2_error::Result<()>;
+
+    /// Gives an incremental action's previous outputs back to it, undoing what `seal` and the
+    /// handler's materializations did to them; nothing when they did nothing.
+    async fn make_outputs_writable(
+        self: &Arc<Self>,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<()>;
+
     fn create_ttl_refresh(
         self: &Arc<Self>,
         tree: &ArtifactTree,
@@ -172,6 +192,7 @@ impl DefaultIoHandler {
         buck_out_path: ProjectRelativePathBuf,
         re_client_manager: Arc<ReConnectionManager>,
         io_executor: Arc<dyn BlockingExecutor>,
+        readonly_outputs: bool,
     ) -> Self {
         Self {
             fs,
@@ -179,6 +200,7 @@ impl DefaultIoHandler {
             buck_out_path,
             re_client_manager,
             io_executor,
+            readonly_outputs,
         }
     }
     /// Materializes an `entry` at `path`, using the materialization `method`
@@ -191,6 +213,7 @@ impl DefaultIoHandler {
         stat: &mut MaterializationStat,
         cancellations: &CancellationContext,
     ) -> Result<(), MaterializeEntryError> {
+        let sealed = self.readonly_outputs.then(|| (path.clone(), entry.dupe()));
         // Materialize the dir structure, and symlinks
         self.io_executor
             .execute_io(
@@ -300,6 +323,11 @@ impl DefaultIoHandler {
             #[cfg(test)]
             ArtifactMaterializationMethod::Test => unimplemented!(),
         };
+        if let Some((path, entry)) = sealed {
+            self.io_executor
+                .execute_io_inline(|| seal_files(&self.fs, &path, &entry))
+                .await?;
+        }
         Ok(())
     }
 }
@@ -315,6 +343,7 @@ impl IoHandler for DefaultIoHandler {
             self.io_executor.as_ref(),
             self.digest_config(),
             generate,
+            self.readonly_outputs,
         )
         .await
     }
@@ -457,6 +486,31 @@ impl IoHandler for DefaultIoHandler {
     fn digest_config(&self) -> DigestConfig {
         self.digest_config
     }
+
+    async fn seal(
+        self: &Arc<Self>,
+        path: ProjectRelativePathBuf,
+        entry: ActionDirectoryEntry<ActionSharedDirectory>,
+    ) -> buck2_error::Result<()> {
+        if !self.readonly_outputs {
+            return Ok(());
+        }
+        self.io_executor
+            .execute_io_inline(|| seal_files(&self.fs, &path, &entry))
+            .await
+    }
+
+    async fn make_outputs_writable(
+        self: &Arc<Self>,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<()> {
+        if !self.readonly_outputs {
+            return Ok(());
+        }
+        self.io_executor
+            .execute_io_inline(|| make_output_paths_writable(&self.fs, &paths))
+            .await
+    }
 }
 
 #[async_trait]
@@ -557,6 +611,21 @@ impl IoHandler for NoDiskIoHandler {
 
     fn digest_config(&self) -> DigestConfig {
         self.digest_config
+    }
+
+    async fn seal(
+        self: &Arc<Self>,
+        _path: ProjectRelativePathBuf,
+        _entry: ActionDirectoryEntry<ActionSharedDirectory>,
+    ) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    async fn make_outputs_writable(
+        self: &Arc<Self>,
+        _paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<()> {
+        Ok(())
     }
 }
 

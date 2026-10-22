@@ -295,11 +295,14 @@ fn write_via_atomic_rename(
     Ok(())
 }
 
+/// Writes each request's content at its path. With `read_only` the files are left without their
+/// write bits, as `buck2.readonly_outputs` has them.
 pub async fn write_to_disk<'a>(
     fs: &ProjectRoot,
     io_executor: &dyn BlockingExecutor,
     digest_config: DigestConfig,
     generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+    read_only: bool,
 ) -> buck2_error::Result<Vec<ArtifactValue>> {
     io_executor
         .execute_io_inline({
@@ -320,6 +323,9 @@ pub async fn write_to_disk<'a>(
                     );
 
                     maybe_locked_write(fs, &path, &content, is_executable, path_kind)?;
+                    if read_only {
+                        fs_util::set_writable(fs.resolve(&path), false).categorize_internal()?;
+                    }
 
                     values.push(ArtifactValue::file(FileMetadata {
                         digest,
@@ -406,10 +412,15 @@ mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+    use buck2_execute::digest_config::DigestConfig;
+    use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
+    use buck2_execute::materialize::materializer::WriteRequest;
     use buck2_fs::error::IoResultExt;
     use buck2_fs::fs_util;
+    use dupe::Dupe;
 
     use crate::materializers::immediate::maybe_locked_write;
+    use crate::materializers::immediate::write_to_disk;
 
     /// A target analyzed under several configurations produces one writer per
     /// configuration for a single content-based output path, all writing the
@@ -598,6 +609,45 @@ mod tests {
             content,
             "a stale file in a parent position must be repaired and the write published"
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_write_to_disk_read_only_takes_the_write_bits_off() -> buck2_error::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let project = ProjectRootTemp::new()?;
+        let fs = project.path();
+        let executor = DummyBlockingExecutor { fs: fs.dupe() };
+        let path = ProjectRelativePathBuf::unchecked_new("gen/out".to_owned());
+        // The second write replaces a read-only file, as a write action's re-run does.
+        for read_only in [true, false] {
+            let request = WriteRequest {
+                path: path.clone(),
+                content: b"content".to_vec(),
+                is_executable: true,
+                path_kind: BuckOutPathKind::Configuration,
+            };
+            write_to_disk(
+                fs,
+                &executor,
+                DigestConfig::testing_default(),
+                Box::new(move || Ok(vec![request])),
+                read_only,
+            )
+            .await?;
+            let mode = fs_util::metadata(fs.resolve(&path))
+                .categorize_internal()?
+                .permissions()
+                .mode()
+                & 0o777;
+            assert_eq!(mode & 0o222 == 0, read_only, "{mode:o}");
+            assert_ne!(mode & 0o111, 0, "{mode:o}");
+            assert_eq!(
+                fs_util::read_to_string(fs.resolve(&path)).categorize_internal()?,
+                "content"
+            );
+        }
         Ok(())
     }
 }
