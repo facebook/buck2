@@ -74,3 +74,13 @@ async def test_a_resource_at_the_main_link_is_an_error(buck: Buck) -> None:
         buck.build("root//sh_resources:resource_at_main_link"),
         stderr_regex="would both be placed at `show.sh`",
     )
+
+
+# prelude/http_archive/unarchive.bzl `unarchive`
+@buck_test(inplace=False, skip_for_os=["windows", "darwin"])
+async def test_excluded_names_are_read_by_tar_as_globs(buck: Buck) -> None:
+    # The exclusion list holds the member names that matched the `excludes`
+    # regexes, but tar reads every `--exclude-from` line as a glob: `[id].js`
+    # keeps the excluded file and drops `i.js` and `d.js` instead.
+    out = await _output(buck, "root//archive:unpacked")
+    assert sorted(p.name for p in (out / "pages").iterdir()) == ["[id].js", "keep.js"]

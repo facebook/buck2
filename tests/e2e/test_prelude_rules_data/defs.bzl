@@ -7,6 +7,8 @@
 # above-listed licenses.
 
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
+load("@prelude//http_archive:exec_deps.bzl", "HttpArchiveExecDeps")
+load("@prelude//http_archive:unarchive.bzl", "unarchive")
 
 def _value_impl(_ctx):
     return [DefaultInfo()]
@@ -59,4 +61,48 @@ def _two_outputs_impl(ctx):
 two_outputs = rule(
     impl = _two_outputs_impl,
     attrs = {},
+)
+
+def _tarball_impl(ctx):
+    out = ctx.actions.declare_output("pages.tar.gz")
+    ctx.actions.run(
+        cmd_args(
+            "sh",
+            "-c",
+            'set -e; d="$(mktemp -d)"; mkdir -p "$d/top/pages"; for f in "[id].js" i.js d.js keep.js; do echo "$f" > "$d/top/pages/$f"; done; tar -C "$d" -czf "$(pwd)/$1" top',
+            "--",
+            out.as_output(),
+        ),
+        category = "tarball",
+    )
+    return [DefaultInfo(default_output = out)]
+
+# `top/pages/{[id].js,i.js,d.js,keep.js}`, each holding its own name.
+tarball = rule(
+    impl = _tarball_impl,
+    attrs = {},
+)
+
+def _unpack_impl(ctx):
+    out, _ = unarchive(
+        ctx,
+        archive = ctx.attrs.archive,
+        output_name = "unpacked",
+        ext_type = "tar.gz",
+        excludes = ctx.attrs.excludes,
+        strip_prefix = "top",
+        exec_deps = ctx.attrs.exec_deps[HttpArchiveExecDeps],
+        prefer_local = True,
+        sub_targets = [],
+    )
+    return [DefaultInfo(default_output = out)]
+
+# `http_archive` without the download: unpacks a tarball built in this workspace.
+unpack = rule(
+    impl = _unpack_impl,
+    attrs = {
+        "archive": attrs.source(),
+        "excludes": attrs.list(attrs.string(), default = []),
+        "exec_deps": attrs.exec_dep(providers = [HttpArchiveExecDeps], default = "prelude//http_archive/tools:exec_deps"),
+    },
 )
