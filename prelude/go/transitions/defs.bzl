@@ -6,7 +6,9 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+# @oss-disable[end= ]: load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//go:coverage.bzl", "GoCoverageMode")
+# @oss-disable[end= ]: load("@prelude//go/meta_only:transitions.bzl", "IMPLICIT_SANITIZER_REFS", "disable_implicit_sanitizers")
 load(":tags_helper.bzl", "selects_for_tags", "tag_to_constraint_value")
 
 def _cgo_enabled_transition(platform, refs, attrs):
@@ -105,12 +107,14 @@ def _chain_transitions(transitions):
     return tr
 
 _all_level_transitions = [_force_mingw_on_windows]
+# @oss-disable[end= ]: _all_level_transitions.extend([disable_implicit_sanitizers] if is_full_meta_repo() else [])
 _top_level_transitions = [_cgo_enabled_transition, _tags_transition] + _all_level_transitions
 
 _all_level_refs = {
     "abi_gnu": "prelude//abi/constraints:gnu",
     "os_windows": "config//os/constraints:windows",
 }
+# @oss-disable[end= ]: _all_level_refs.update(IMPLICIT_SANITIZER_REFS if is_full_meta_repo() else {})
 
 _top_level_refs = (
     {
