@@ -1443,7 +1443,7 @@ async fn test_tracked_files_are_read_only_under_the_knob() -> buck2_error::Resul
         drop(lease);
 
         // The run of an incremental action may write them again.
-        let lease = dm.prepare_outputs(vec![d.clone()]).await?;
+        let lease = dm.as_dyn().prepare_outputs(vec![d.clone()]).await?;
         dm.make_outputs_writable(vec![d.clone()]).await?;
         assert!(!readonly(&a)? && !readonly(&b)?);
         drop(lease);
