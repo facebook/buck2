@@ -130,7 +130,10 @@ def _info_plist_additional_keys(ctx: AnalysisContext) -> dict[str, typing.Any]:
             sdk_version = sdk_version,
         )
         result["DTPlatformVersion"] = platform_version
-        result["DTSDKName"] = platform_name + platform_version
+        sdk_canonical_name = ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_canonical_name
+        # TODO(T157757124): Remove conditional when selected Xcode provides this value
+        if sdk_canonical_name:
+            result["DTSDKName"] = sdk_canonical_name
     sdk_build_version = ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_build_version
     if sdk_build_version:
         result["DTPlatformBuild"] = sdk_build_version

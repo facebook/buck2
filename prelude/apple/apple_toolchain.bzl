@@ -48,6 +48,7 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             platform_path = platform_path,
             required_reasons_tools = ctx.attrs.required_reasons_tools[RequiredReasonsToolsInfo],
             sdk_build_version = ctx.attrs.build_version,
+            sdk_canonical_name = ctx.attrs.sdk_canonical_name,
             sdk_name = ctx.attrs.sdk_name,
             sdk_path = sdk_path,
             sdk_version = ctx.attrs.version,

@@ -1199,6 +1199,7 @@ apple_toolchain = prelude_rule(
             # that the selected Xcode version matches the one defined
             # by the `xcode_build_version` fields.
             "requires_xcode_version_match": attrs.bool(default = False),
+            "sdk_canonical_name": attrs.option(attrs.string(), default = None),
             "sdk_environment": attrs.option(attrs.string(), default = None),
             "sdk_name": attrs.string(default = ""),
             "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
