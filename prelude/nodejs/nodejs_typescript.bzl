@@ -26,6 +26,7 @@ def compile_typescript(
     dep_infos: list,
     identifier: str,
     trees: list = [],
+    rule: str = "nodejs_library",
 ) -> Artifact:
     """Compile `srcs` with `tsc` against `dep_infos` and the third-party `trees`, returning the emitted tree.
 
@@ -33,20 +34,21 @@ def compile_typescript(
     `resolveJsonModule` decide what it does with them.
     Emitted paths are source paths relative to `src_root`, which every source must be under.
     `package_json` is staged beside the sources so its `"type"` decides the emitted module format.
+    `rule` names the calling rule in errors.
     """
     if tsc == None:
-        fail("nodejs_library {}: typescript compilation requires `tsc` on the nodejs toolchain".format(label))
+        fail("{} {}: typescript compilation requires `tsc` on the nodejs toolchain".format(rule, label))
     if not srcs:
-        fail("nodejs_library {}: typescript compilation requires at least one source in `srcs`".format(label))
+        fail("{} {}: typescript compilation requires at least one source in `srcs`".format(rule, label))
     for src in srcs:
         if not src.short_path.endswith(_TSC_EXTENSIONS):
             fail(
-                "nodejs_library {}: cannot compile '{}': `tsc` takes only `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` and `.json` sources; use `resources` for other files".format(
-                    label, src.short_path
+                "{} {}: cannot compile '{}': `tsc` takes only `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` and `.json` sources; use `resources` for other files".format(
+                    rule, label, src.short_path
                 )
             )
         if src.short_path.endswith(_DECLARATION_EXTENSIONS):
-            fail("nodejs_library {}: cannot compile declaration file '{}': `tsc` emits nothing for it".format(label, src.short_path))
+            fail("{} {}: cannot compile declaration file '{}': `tsc` emits nothing for it".format(rule, label, src.short_path))
 
     reserved = ["tsconfig.json", "tsconfig.buck.json", "package.json"]
     if dep_infos or trees:
@@ -57,10 +59,10 @@ def compile_typescript(
         key = src.short_path
         root = key.split("/")[0]
         if root in reserved:
-            fail("nodejs_library {}: source '{}' collides with the staged `{}`".format(label, key, root))
+            fail("{} {}: source '{}' collides with the staged `{}`".format(rule, label, key, root))
         existing = stage.get(key)
         if existing != None and existing != src:
-            fail("nodejs_library {}: duplicate sources '{}' and '{}' both stage to '{}'".format(label, existing, src, key))
+            fail("{} {}: duplicate sources '{}' and '{}' both stage to '{}'".format(rule, label, existing, src, key))
         stage[key] = src
     stage["tsconfig.buck.json"] = actions.write_json(
         "ts/c.json",

@@ -13,9 +13,10 @@ load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//tests:re_utils.bzl", "get_re_executors_from_props")
-load(":nodejs_binary.bzl", "build_nodejs_command", "launcher_providers", "nodejs_command", "stage_nodejs_entries")
-load(":nodejs_providers.bzl", "get_nodejs_tree_info")
+load(":nodejs_binary.bzl", "build_nodejs_command", "launcher_providers", "nodejs_command", "nodejs_manifest_name", "nodejs_tree_infos", "stage_nodejs_entries")
+load(":nodejs_providers.bzl", "get_nodejs_dep_infos", "get_nodejs_tree_info")
 load(":nodejs_toolchain.bzl", "NodejsToolchainInfo")
+load(":nodejs_typescript.bzl", "compile_typescript")
 
 # TPX reads per-test results from `TEST_RESULTS_OUTPUT_FILE` without copying the run's output into each.
 _PER_TEST_RESULT_LABELS = ["tpx:supports-test-result-output-spec", "tpx:bundled-tests-have-per-test-details"]
@@ -35,11 +36,11 @@ def _is_node_test_file(short_path: str, strip_types: bool) -> bool:
         return False
     return "test" in dirs or stem == "test" or stem.startswith("test-") or stem.endswith((".test", "-test", "_test"))
 
-def _node_test_files(ctx: AnalysisContext) -> list[Artifact]:
+def _node_test_files(ctx: AnalysisContext, srcs: dict[str, Artifact]) -> dict[str, Artifact]:
     if ctx.attrs.library != None:
-        return []
+        return {}
     strip_types = "--no-strip-types" not in ctx.attrs.node_args and "--no-experimental-strip-types" not in ctx.attrs.node_args
-    test_files = [src for src in ctx.attrs.srcs if _is_node_test_file(src.short_path, strip_types)]
+    test_files = {path: src for path, src in srcs.items() if _is_node_test_file(path, strip_types)}
     if not test_files:
         fail(
             "{}: no `srcs` entry is a node:test test file; node:test runs `**/{{test,test/**/*,test-*,*[._-]test}}.{{js,mjs,cjs{}}}` outside `node_modules`".format(
@@ -48,6 +49,61 @@ def _node_test_files(ctx: AnalysisContext) -> list[Artifact]:
             )
         )
     return test_files
+
+# `.tsx` assumes `jsx` is not `preserve`.
+_TS_EMITS = {".cts": ".cjs", ".mts": ".mjs", ".ts": ".js", ".tsx": ".js"}
+
+def _emitted_path(short_path: str) -> str | None:
+    for declaration in (".d.ts", ".d.mts", ".d.cts"):
+        if short_path.endswith(declaration):
+            return None
+    stem, dot, ext = short_path.rpartition(".")
+    emitted = _TS_EMITS.get(dot + ext)
+    return stem + emitted if dot and emitted else None
+
+def _staged_srcs(ctx: AnalysisContext) -> (dict[str, Artifact], dict[str, str]):
+    """The `srcs` by the path each is staged at, and the source path of each compiled one."""
+    if ctx.attrs.tsconfig == None:
+        by_path = {}
+        for src in ctx.attrs.srcs:
+            existing = by_path.get(src.short_path)
+            if existing != None and existing != src:
+                fail("{}: `srcs` entries '{}' and '{}' both have the short path '{}'".format(ctx.label, existing, src, src.short_path))
+            by_path[src.short_path] = src
+        return by_path, {}
+    # JSON sources go to `tsc` for the modules that import them.
+    compiled = [
+        src for src in ctx.attrs.srcs if _emitted_path(src.short_path) != None or (src.short_path.endswith(".json") and src.short_path != "package.json")
+    ]
+    package_json = [src for src in ctx.attrs.srcs if src.short_path == "package.json"]
+    dep_infos = get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label)
+    emit = compile_typescript(
+        actions = ctx.actions,
+        label = ctx.label,
+        tsc = ctx.attrs._nodejs_toolchain[NodejsToolchainInfo].tsc,
+        srcs = compiled,
+        src_root = "",
+        tsconfig = ctx.attrs.tsconfig,
+        package_json = package_json[0] if package_json else ctx.actions.write_json("ts/t.json", {"name": nodejs_manifest_name(ctx.label.name)}),
+        dep_infos = dep_infos,
+        identifier = ctx.attrs.name,
+        trees = nodejs_tree_infos(ctx, dep_infos),
+        rule = "nodejs_test",
+    )
+    staged = {}
+    origins = {}
+    sources = {}
+    for src in ctx.attrs.srcs:
+        emitted = _emitted_path(src.short_path)
+        path = emitted or src.short_path
+        existing = origins.get(path)
+        if existing != None and existing != src:
+            fail("{}: `srcs` entries '{}' and '{}' both stage to '{}'".format(ctx.label, existing, src, path))
+        origins[path] = src
+        staged[path] = emit.project(emitted) if emitted else src
+        if emitted:
+            sources[path] = src.short_path
+    return staged, sources
 
 def _jest_install(ctx: AnalysisContext) -> Artifact:
     if ctx.attrs.test_runner != None:
@@ -78,19 +134,21 @@ def _framework_command(ctx: AnalysisContext) -> struct:
     for reserved in ("LIST_COMMAND", "TEST_COMMAND"):
         if reserved in ctx.attrs.env:
             fail('{}: `env` cannot set `{}` with framework = "{}", which uses it to list and run tests'.format(ctx.label, reserved, ctx.attrs.framework))
+    by_path, sources = _staged_srcs(ctx)
     if jest != None:
+        mains = by_path
+        srcs = dict(by_path)
         if ctx.attrs.config != None:
-            for src in ctx.attrs.srcs:
-                if src.short_path == ctx.attrs.config.short_path and src != ctx.attrs.config:
-                    fail("{}: `config` '{}' and `srcs` entry '{}' both stage to '{}'".format(ctx.label, ctx.attrs.config, src, src.short_path))
-        mains = ctx.attrs.srcs
-        srcs = ctx.attrs.srcs + ([ctx.attrs.config] if ctx.attrs.config != None else [])
+            existing = srcs.get(ctx.attrs.config.short_path)
+            if existing != None and existing != ctx.attrs.config:
+                fail("{}: `config` '{}' and `srcs` entry '{}' both stage to '{}'".format(ctx.label, ctx.attrs.config, existing, ctx.attrs.config.short_path))
+            srcs[ctx.attrs.config.short_path] = ctx.attrs.config
     else:
-        mains = _node_test_files(ctx)
-        srcs = None
+        mains = _node_test_files(ctx, by_path)
+        srcs = by_path
 
-    # Jest looks for tests and modules under a root directory, so its files are always staged.
-    staged = stage_nodejs_entries(ctx, mains, mains_attr = "`srcs`", staged_attrs = "`srcs`", srcs = srcs, stage = jest != None)
+    # Jest looks for tests under a root directory, and emitted files exist only in the staged directory.
+    staged = stage_nodejs_entries(ctx, mains, mains_attr = "`srcs`", staged_attrs = "`srcs`", srcs = srcs, stage = jest != None or ctx.attrs.tsconfig != None)
     args = cmd_args(ctx.attrs._test_adapter, "--framework", ctx.attrs.framework, hidden = staged.hidden)
     for arg in ctx.attrs.node_args:
         args.add("--node-arg", arg)
@@ -101,7 +159,7 @@ def _framework_command(ctx: AnalysisContext) -> struct:
         for arg in ctx.attrs.args:
             args.add("--arg", arg)
     for entry in staged.entries:
-        args.add("--test-file", entry.name, entry.path)
+        args.add("--test-file", sources.get(entry.name, entry.name), entry.path)
     return struct(dir = staged.dir, merged = staged.runtime, output = nodejs_command(ctx, args, staged.env), env = staged.env, resources = staged.resources)
 
 def nodejs_test_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -109,6 +167,8 @@ def nodejs_test_impl(ctx: AnalysisContext) -> list[Provider]:
         for attr in ("config", "test_runner"):
             if getattr(ctx.attrs, attr) != None:
                 fail('{}: `{}` requires framework = "jest"'.format(ctx.label, attr))
+    if ctx.attrs.tsconfig != None and ctx.attrs.framework == "none":
+        fail('{}: `tsconfig` requires framework = "node" or "jest"; framework = "none" runs `main` as it is'.format(ctx.label))
     command = build_nodejs_command(ctx) if ctx.attrs.framework == "none" else _framework_command(ctx)
     cmd = cmd_args(command.output.cmd, hidden = command.resources)
     if ctx.attrs.framework == "none":
@@ -175,6 +235,18 @@ nodejs_test = prelude_rule(
     `--changedFilesWithAncestor`, `--lastCommit`, `--findRelatedTests`,
     `--shard`), which fail the test.
 
+    `tsconfig`, with `"node"` or `"jest"`, compiles the `.ts`, `.tsx`, `.mts`
+    and `.cts` `srcs` (not declarations) together with the toolchain's
+    `tsc`, as `nodejs_library` compiles its `srcs`, against `deps`, the
+    third-party trees and the `.json` `srcs` they import, then stages each
+    TypeScript source as the file `tsc` emits for it:
+    its short path with the extension `.js`, `.mjs` or `.cjs` (`.js` for
+    `.tsx`, so `jsx` must not be `preserve`). A `package.json` in `srcs`
+    decides the emitted module format. Test files are then selected among
+    the emitted names (for `"jest"`, the config must match them) but keep
+    their source paths in results. Other `srcs` are staged as they are. A
+    type error fails the build rather than the test.
+
     The other `srcs` are helpers, not run, and `main` cannot be set.
     Without `library`, the test fails if no `srcs` entry is a test file: at
     analysis with `"node"`, when listing or running with `"jest"`.
@@ -237,6 +309,7 @@ nodejs_test = prelude_rule(
             "resources": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = []),
             "framework": attrs.enum(["node", "jest", "none"], default = "node"),
             "config": attrs.option(attrs.source(allow_directory = False), default = None),
+            "tsconfig": attrs.option(attrs.source(allow_directory = False), default = None),
             "test_runner": attrs.option(attrs.dep(), default = None),
             "args": attrs.list(attrs.arg(), default = []),
             "node_args": attrs.list(attrs.string(), default = []),

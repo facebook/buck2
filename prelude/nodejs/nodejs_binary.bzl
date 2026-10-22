@@ -46,12 +46,13 @@ def _library_entry(label: Label, entry_point: str | None, lib_info: NodejsLibrar
         return lib_info.main
     fail("{}: `library` requires `entry_point` when the library sets neither a single `bin` nor `main` attribute".format(label))
 
-def _tree_infos(ctx: AnalysisContext, dep_infos: list[NodejsLibraryInfo]) -> list[NodejsTreeInfo]:
+def nodejs_tree_infos(ctx: AnalysisContext, dep_infos: list[NodejsLibraryInfo]) -> list[NodejsTreeInfo]:
+    """The third-party trees a target runs with: its `node_modules`, or else those of `dep_infos`."""
     if ctx.attrs.node_modules == None:
         return get_trees(get_transitive_trees(ctx.actions, deps = dep_infos))
     return [get_nodejs_tree_info(dep, consumer_label = ctx.label) for dep in ctx.attrs.node_modules]
 
-def _manifest_name(name: str) -> str:
+def nodejs_manifest_name(name: str) -> str:
     chars = []
     for c in name.lower().elems():
         chars.append(c if c.isalnum() or c in "-._~" else "-")
@@ -98,11 +99,11 @@ def _directory_main(ctx: AnalysisContext, mains: list[Artifact], srcs: list[Arti
 
 def stage_nodejs_entries(
     ctx: AnalysisContext,
-    mains: list[Artifact],
+    mains: list[Artifact] | dict[str, Artifact],
     *,
     mains_attr: str = "`main`",
     staged_attrs: str = "`main`/`srcs`",
-    srcs: list[Artifact] | None = None,
+    srcs: list[Artifact] | dict[str, Artifact] | None = None,
     stage: bool = False,
     bundled_node: (str, Artifact) | None = None,
     directory_main: bool = False,
@@ -111,7 +112,8 @@ def stage_nodejs_entries(
 
     `mains` are the files to run without `library`; `mains_attr` names them in errors, and
     `staged_attrs` names them together with `srcs` in staging conflicts. `srcs`
-    (default: the `srcs` attribute) are staged with `mains`. `mains` run staged when there is a
+    (default: the `srcs` attribute) are staged with `mains`. A list stages each file at its short
+    path; a dict maps paths to files, and its `mains` are named by those paths. `mains` run staged when there is a
     `library`, `deps`, a third-party tree, `bundled_node`, a `resources` dict or `stage`.
     `directory_main` lets `entry_point` without `library` run inside a directory `main`. Returns:
     - `dir`: the staged directory, if any.
@@ -139,23 +141,25 @@ def stage_nodejs_entries(
             return _directory_main(ctx, mains, srcs, bundled_node)
         if not mains:
             fail("{}: {} is required without `library`".format(ctx.label, mains_attr))
-    mains_by_path = {}
-    for main in mains:
-        existing = mains_by_path.get(main.short_path)
-        if existing != None and existing != main:
-            fail("{}: {} entries '{}' and '{}' both have the short path '{}'".format(ctx.label, mains_attr, existing, main, main.short_path))
-        mains_by_path[main.short_path] = main
-    mains = mains_by_path.values()
+    if isinstance(mains, dict):
+        mains_by_path = mains
+    else:
+        mains_by_path = {}
+        for main in mains:
+            existing = mains_by_path.get(main.short_path)
+            if existing != None and existing != main:
+                fail("{}: {} entries '{}' and '{}' both have the short path '{}'".format(ctx.label, mains_attr, existing, main, main.short_path))
+            mains_by_path[main.short_path] = main
     dep_infos = ([lib_info] if lib_info != None else []) + get_nodejs_dep_infos(ctx.attrs.deps, consumer_label = ctx.label)
-    tree_infos = _tree_infos(ctx, dep_infos)
+    tree_infos = nodejs_tree_infos(ctx, dep_infos)
     staged = {}
     if lib_info == None:
         staged.update(mains_by_path)
-        for src in srcs:
-            existing = staged.get(src.short_path)
+        for path, src in srcs.items() if isinstance(srcs, dict) else [(src.short_path, src) for src in srcs]:
+            existing = staged.get(path)
             if existing != None and existing != src:
-                fail("{}: {} entries '{}' and '{}' both stage to '{}'".format(ctx.label, staged_attrs, existing, src, src.short_path))
-            staged[src.short_path] = src
+                fail("{}: {} entries '{}' and '{}' both stage to '{}'".format(ctx.label, staged_attrs, existing, src, path))
+            staged[path] = src
     resources = _resource_paths(ctx.label, ctx.attrs.resources)
     for path, resource in resources.items():
         existing = staged.get(path)
@@ -176,7 +180,7 @@ def stage_nodejs_entries(
     packages = collect_packages(get_transitive_outputs(ctx.actions, deps = dep_infos))
     if "package.json" not in staged:
         # Tools that find the project root beside `node_modules`, such as `module-alias/register`, read it.
-        staged["package.json"] = ctx.actions.write_json("app.json", {"name": _manifest_name(ctx.label.name), "private": True, "version": "0.0.0"})
+        staged["package.json"] = ctx.actions.write_json("app.json", {"name": nodejs_manifest_name(ctx.label.name), "private": True, "version": "0.0.0"})
     staged_dir = compose_node_modules(
         ctx.actions,
         name,
@@ -197,10 +201,10 @@ def stage_nodejs_entries(
             ),
         ]
     elif runtime != None:
-        entries = [NodejsEntry(name = main.short_path, path = cmd_args(runtime, format = "{}/" + main.short_path)) for main in mains]
+        entries = [NodejsEntry(name = path, path = cmd_args(runtime, format = "{}/" + path)) for path in mains_by_path]
     else:
-        entries = [NodejsEntry(name = main.short_path, path = main) for main in mains]
-        hidden = srcs
+        entries = [NodejsEntry(name = path, path = main) for path, main in mains_by_path.items()]
+        hidden = list(srcs.values()) if isinstance(srcs, dict) else srcs
 
     return struct(
         dir = staged_dir,
