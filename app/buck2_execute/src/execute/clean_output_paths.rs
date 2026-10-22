@@ -110,12 +110,12 @@ fn clear_stale_parent(parent: &AbsNormPath) -> buck2_error::Result<()> {
     }
 }
 
-/// Makes every file under `paths` one an action may write in place, for its previous outputs
-/// (plan-readonly.md §3): a file the BlobStore holds by hardlink (plan-blobstore.md §4) is cloned
-/// or copied over itself, so that the write stays out of the store, and every file gets its
-/// owner's write permission, which the disk-state core takes from the files it tracks. The
-/// store's name of a shared file keeps its mode, except on Windows, where hardlinks share the
-/// read-only attribute and replacing the file clears it. Symlinks are not followed.
+/// Makes every file under `paths` one an action may write in place, for its previous outputs: a
+/// file the BlobStore holds by hardlink is cloned or copied over itself, so that the write stays
+/// out of the store, and every file gets its owner's write permission, which the disk-state core
+/// takes from the files it tracks. The store's name of a shared file keeps its mode, except on
+/// Windows, where hardlinks share the read-only attribute and replacing the file clears it.
+/// Symlinks are not followed.
 pub fn make_output_paths_writable(
     fs: &ProjectRoot,
     paths: &[ProjectRelativePathBuf],

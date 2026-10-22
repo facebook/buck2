@@ -179,6 +179,8 @@ pub struct DiskStateMaterializer<T: IoHandler + Allocative + 'static = DefaultIo
     #[allocative(skip)]
     blocking_executor: Arc<dyn BlockingExecutor>,
     materialize_final_artifacts: bool,
+    /// Whether a reported root's files are made read-only (`buck2.readonly_outputs`).
+    readonly_outputs: bool,
     #[allocative(skip)]
     next_request: AtomicU64,
     #[allocative(skip)]
@@ -308,6 +310,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             index,
             blocking_executor,
             materialize_final_artifacts: configs.materialize_final_artifacts,
+            readonly_outputs: configs.readonly_outputs,
             next_request: AtomicU64::new(0),
             shared,
             cleaner,
@@ -380,13 +383,21 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
     }
 
     /// Records `entry` as what the holder put at the guard's root, which it holds in read mode
-    /// from then on.
+    /// from then on. Under `readonly_outputs` the root's files lose their write bits first, so
+    /// that nothing writes through a name the tree, the index or the stash vouches for; an
+    /// incremental action gets them back through `make_outputs_writable`.
     async fn report(
         &self,
         guard: &RootGuard,
         entry: ArtifactMetadata,
         classification: ArtifactClassification,
     ) -> buck2_error::Result<()> {
+        if self.readonly_outputs {
+            let (fs, root, files) = (self.io.fs().dupe(), guard.path().to_buf(), entry.dupe());
+            self.blocking_executor
+                .execute_io_inline(move || seal_files(&fs, &root, &files))
+                .await?;
+        }
         let hold = guard.take_write()?;
         let (reply, answer) = oneshot::channel();
         self.sender.send(Command::Report {
@@ -1460,6 +1471,25 @@ fn copy_from_disk(
         let _ignored = fs_util::remove_all(&dest);
     }
     copied
+}
+
+/// Takes the write bits off every file of `entry` under `root`: what a report does under
+/// `readonly_outputs`. Directories and symlinks are left as they are.
+fn seal_files(
+    fs: &ProjectRoot,
+    root: &ProjectRelativePath,
+    entry: &ArtifactMetadata,
+) -> buck2_error::Result<()> {
+    let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
+    while let Some((path, entry)) = walk.next() {
+        if let DirectoryEntry::Leaf(ActionDirectoryMember::File(_)) = entry {
+            let file = fs.resolve(root.join(path.get()));
+            fs_util::set_writable(&file, false)
+                .categorize_internal()
+                .with_buck_error_context(|| format!("Making `{file}` read-only"))?;
+        }
+    }
+    Ok(())
 }
 
 /// The files of `entry`, on disk under `root`, as the store wants them for insertion.

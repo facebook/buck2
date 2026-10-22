@@ -488,6 +488,13 @@ impl TenantState {
             // says of the deferred core's own refresher.
             clean_stale_config
                 .suppress_unmaterialize_without_ttl_refresh(ttl_refresh_enabled || disk_state_core);
+            let readonly_outputs = root_config
+                .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "readonly_outputs",
+                })?
+                .unwrap_or_else(RolloutPercentage::never)
+                .roll();
 
             DeferredMaterializerConfigs {
                 materialize_final_artifacts: matches!(
@@ -503,6 +510,7 @@ impl TenantState {
                 update_access_times,
                 verbose_materializer_log,
                 clean_stale_config,
+                readonly_outputs,
             }
         };
         let materializer_defers_writes =

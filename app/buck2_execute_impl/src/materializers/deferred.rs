@@ -274,6 +274,9 @@ pub struct DeferredMaterializerConfigs {
     pub update_access_times: AccessTimesUpdates,
     pub verbose_materializer_log: bool,
     pub clean_stale_config: CleanStaleConfig,
+    /// Whether the disk-state core makes every file it tracks read-only as the root is reported
+    /// (`buck2.readonly_outputs`). The deferred core does not read it.
+    pub readonly_outputs: bool,
 }
 
 pub struct TtlRefreshConfiguration {
@@ -1036,6 +1039,7 @@ impl DeferredMaterializerAccessor<NoDiskIoHandler> {
                 update_access_times: AccessTimesUpdates::Disabled,
                 verbose_materializer_log: false,
                 clean_stale_config: CleanStaleConfig::default(),
+                readonly_outputs: false,
             },
             EventDispatcher::null(),
         )

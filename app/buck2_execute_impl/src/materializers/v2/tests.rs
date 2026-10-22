@@ -136,6 +136,7 @@ fn configs() -> DeferredMaterializerConfigs {
         update_access_times: AccessTimesUpdates::Disabled,
         verbose_materializer_log: false,
         clean_stale_config: CleanStaleConfig::default(),
+        readonly_outputs: false,
     }
 }
 
@@ -1389,6 +1390,63 @@ async fn test_a_copy_from_outside_buck_out_enters_the_store() -> buck2_error::Re
             .await
             .is_err()
         );
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// Under `readonly_outputs` a reported root's files lose their write bits, a write's as a local
+/// action's, directories keep theirs, and an incremental action's run gets the bits back.
+#[tokio::test]
+async fn test_tracked_files_are_read_only_under_the_knob() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path().dupe();
+        let mut configs = configs();
+        configs.readonly_outputs = true;
+        let (dm, _io) = make_with_configs(&fs, StubIoHandler::new(fs.dupe()), None, None, configs);
+        let readonly = |p: &ProjectRelativePathBuf| -> buck2_error::Result<bool> {
+            Ok(std::fs::metadata(fs.resolve(p))?.permissions().readonly())
+        };
+
+        let w = path("buck-out/v2/gen/written");
+        let request_path = w.clone();
+        dm.declare_write(Box::new(move || {
+            Ok(vec![WriteRequest {
+                path: request_path,
+                content: b"written".to_vec(),
+                is_executable: false,
+                path_kind: BuckOutPathKind::Configuration,
+            }])
+        }))
+        .await?;
+        assert!(readonly(&w)?, "a write's output");
+
+        // A local action's outputs, with the modes the tool left.
+        let d = path("buck-out/v2/gen/out");
+        let (a, b) = (
+            d.join(ForwardRelativePath::unchecked_new("a")),
+            d.join(ForwardRelativePath::unchecked_new("b")),
+        );
+        fs.write_file(&a, "A", true)?;
+        fs.write_file(&b, "B", false)?;
+        let lease = report(&dm, &d, dir(&[("a", "A"), ("b", "B")])).await?;
+        assert!(readonly(&a)? && readonly(&b)?, "a reported root's files");
+        assert!(!readonly(&d)?, "directories stay writable");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(fs.resolve(&a))?.permissions().mode() & 0o777;
+            assert_eq!(mode, 0o555, "the executable bits stay");
+        }
+        drop(lease);
+
+        // The run of an incremental action may write them again.
+        let lease = dm.prepare_outputs(vec![d.clone()]).await?;
+        dm.make_outputs_writable(vec![d.clone()]).await?;
+        assert!(!readonly(&a)? && !readonly(&b)?);
+        drop(lease);
         abort(dm);
         Ok(())
     })
