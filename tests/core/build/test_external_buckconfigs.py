@@ -86,15 +86,24 @@ class ExternalBuckconfigsTest(BuckTestCase):
             external_path_configs["origin_path"]
             == buck._env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"]
         )
-        assert len(external_path_configs["values"]) == 2
+        assert len(external_path_configs["values"]) == 3
 
-        # Our tests inject file_watcher to external configs in test setup stage
+        # Our tests inject file_watcher and readonly_outputs to external configs in test setup
+        # stage
         local_config_value = external_path_configs["values"][external_index]
         assert (
             local_config_value["section"] == "buck2"
             and local_config_value["key"] == "file_watcher"
             and local_config_value["value"] == "fs_hash_crawler"
             and not local_config_value["is_cli"]
+        )
+        external_index += 1
+        readonly_value = external_path_configs["values"][external_index]
+        assert (
+            readonly_value["section"] == "buck2"
+            and readonly_value["key"] == "readonly_outputs"
+            and readonly_value["value"] == "true"
+            and not readonly_value["is_cli"]
         )
         external_index += 1
         external_path_config_value = external_path_configs["values"][external_index]
@@ -310,9 +319,14 @@ class ExternalBuckconfigsTest(BuckTestCase):
             for e in external_configs
         ]
         expected = [
-            # Our tests inject file_watcher to external configs in test setup stage
+            # Our tests inject file_watcher and readonly_outputs to external configs in test setup
+            # stage
             ExternalConfigsLog(
                 descriptor="buck2.file_watcher = fs_hash_crawler",
+                origin=buck._env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"],
+            ),
+            ExternalConfigsLog(
+                descriptor="buck2.readonly_outputs = true",
                 origin=buck._env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"],
             ),
             ExternalConfigsLog(
@@ -329,7 +343,7 @@ class ExternalBuckconfigsTest(BuckTestCase):
                 origin="cli",
             ),
         ]
-        assert len(external_configs) == 4
+        assert len(external_configs) == 5
 
         for s, e in zip(external_configs, expected):
             assert s.descriptor == e.descriptor

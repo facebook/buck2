@@ -239,6 +239,9 @@ async def buck_fixture(  # noqa C901 : "too complex"
         materializer = os.environ.get("BUCK2_TEST_MATERIALIZER")
         if materializer:
             extra_config_lines.append(f"[buck2]\nmaterializer = {materializer}\n")
+        # Core tests run with read-only outputs. The knob is the disk-state
+        # core's, so it bites in the `_v2` variants and the deferred core ignores it.
+        extra_config_lines.append("[buck2]\nreadonly_outputs = true\n")
 
         for section, config in marker.extra_buck_config.items():
             extra_config_lines.append(f"[{section}]\n")

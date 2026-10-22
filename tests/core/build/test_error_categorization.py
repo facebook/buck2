@@ -405,8 +405,9 @@ class ErrorCategorizationTest(BuckTestCase):
             (await buck.build(target)).get_build_report().output_for_target(target)
         )
 
-        # Open the file for writing and keep it open
-        f = open(file_path, "w")
+        # Keep the file open: a handle is what makes it busy on Windows, and the output may be
+        # read-only (`buck2.readonly_outputs`), so it is opened for reading.
+        f = open(file_path, "r")
         # build again, source code has changed, binary must be rebuilt
         build = buck.build(
             target,
