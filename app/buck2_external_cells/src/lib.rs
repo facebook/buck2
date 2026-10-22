@@ -23,7 +23,10 @@ use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_execute::execute::blocking::HasBlockingExecutor;
+use buck2_execute::execute::readonly_outputs::make_output_paths_writable;
 use dice::DiceComputations;
+use dupe::Dupe;
 
 mod bundled;
 mod git;
@@ -94,7 +97,13 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
             ExternalCellOrigin::Git(setup) => git::materialize_all(ctx, cell, setup).await?,
         };
 
-        Ok(io.project_root().copy(&materialized_path, &dest_path)?)
+        let fs = io.project_root().dupe();
+        fs.copy(&materialized_path, &dest_path)?;
+        // The copy carries the materialized files' modes, read-only under
+        // `buck2.readonly_outputs`, and the expanded cell is the user's to edit.
+        ctx.get_blocking_executor()
+            .execute_io_inline(move || make_output_paths_writable(&fs, &[dest_path]))
+            .await
     }
 }
 
