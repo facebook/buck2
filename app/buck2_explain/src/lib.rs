@@ -69,7 +69,7 @@ pub async fn main(
 
     let html_out = inline_fbs(fbs, fbs_dump, include_str!("explain.html"))?;
 
-    let mut cursor = &mut Cursor::new(html_out.as_bytes());
+    let mut cursor = Cursor::new(html_out.as_bytes());
 
     if let Some(o) = output {
         fs::write(o, &html_out)?

@@ -1904,7 +1904,7 @@ impl Shared {
     }
 
     fn remove(&self, tracked: &Tracked) {
-        let _ignored = self.bytes_of(tracked.classification).fetch_update(
+        let _ignored = self.bytes_of(tracked.classification).try_update(
             Ordering::Relaxed,
             Ordering::Relaxed,
             |current| Some(current.saturating_sub(tracked.size())),

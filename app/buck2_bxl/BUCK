@@ -58,6 +58,5 @@ rust_library(
         "//buck2/gazebo/variant_name:variant_name",
         "//buck2/pagable:pagable",
         "//buck2/starlark-rust/starlark:starlark",
-        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
 )

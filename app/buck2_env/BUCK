@@ -16,6 +16,5 @@ rust_library(
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_hash:buck2_hash",
         "//buck2/gazebo/dupe:dupe",
-        "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
 )

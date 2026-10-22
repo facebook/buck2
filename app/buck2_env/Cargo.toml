@@ -12,7 +12,6 @@ buck2_error.workspace = true
 buck2_hash.workspace = true
 dupe.workspace = true
 linkme.workspace = true
-starlark_map.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]

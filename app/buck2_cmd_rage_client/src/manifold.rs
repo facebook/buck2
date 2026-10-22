@@ -46,7 +46,7 @@ pub(crate) async fn buf_to_manifold(
     filename: String,
 ) -> buck2_error::Result<String> {
     let bucket = Bucket::RAGE_DUMPS;
-    let mut cursor = &mut Cursor::new(buf);
+    let mut cursor = Cursor::new(buf);
 
     manifold
         .read_and_upload(bucket, &filename, Default::default(), &mut cursor)

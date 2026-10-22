@@ -46,7 +46,6 @@ sha1.workspace = true
 sha2.workspace = true
 smallvec.workspace = true
 starlark.workspace = true
-starlark_map.workspace = true
 toml.workspace = true
 tracing.workspace = true
 twox-hash.workspace = true

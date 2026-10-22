@@ -52,7 +52,6 @@ maplit.workspace = true
 pagable.workspace = true
 serde_json.workspace = true
 starlark.workspace = true
-starlark_map.workspace = true
 tokio.workspace = true
 
 [lints]

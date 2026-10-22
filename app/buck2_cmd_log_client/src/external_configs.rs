@@ -91,7 +91,7 @@ struct ExternalConfigFileEntry<'a> {
 fn write_config_value<'a>(
     config_value: &'a buck2_data::ConfigValue,
     origin_path: &'a str,
-    mut log_writer: &mut LogCommandOutputFormatWithWriter,
+    log_writer: &mut LogCommandOutputFormatWithWriter,
 ) -> buck2_error::Result<()> {
     let external_config = ExternalConfigValueEntry {
         section: &config_value.section,
@@ -101,7 +101,7 @@ fn write_config_value<'a>(
         origin: Some(origin_path),
     };
 
-    match &mut log_writer {
+    match log_writer {
         LogCommandOutputFormatWithWriter::Readable(writer)
         | LogCommandOutputFormatWithWriter::Tabulated(writer) => {
             writeln!(
@@ -147,11 +147,11 @@ fn write_config_values(
 
 fn write_config_file(
     path: &str,
-    mut log_writer: &mut LogCommandOutputFormatWithWriter,
+    log_writer: &mut LogCommandOutputFormatWithWriter,
 ) -> buck2_error::Result<()> {
     let origin = "config-file";
     let config_file = ExternalConfigFileEntry { path, origin };
-    match &mut log_writer {
+    match log_writer {
         LogCommandOutputFormatWithWriter::Readable(writer)
         | LogCommandOutputFormatWithWriter::Tabulated(writer) => {
             writeln!(writer, "{path}\t\t{origin}")?;

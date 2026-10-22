@@ -179,7 +179,7 @@ impl Counters {
 }
 
 fn saturating_sub(counter: &AtomicU64, n: u64) {
-    let _ignored = counter.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+    let _ignored = counter.try_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
         Some(v.saturating_sub(n))
     });
 }

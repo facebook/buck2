@@ -25,7 +25,6 @@ dupe.workspace = true
 futures.workspace = true
 itertools.workspace = true
 parking_lot.workspace = true
-starlark_map.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 

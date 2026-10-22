@@ -369,7 +369,7 @@ impl SoftErrorContext {
 
 fn increment_soft_error_counter(count: &AtomicUsize) -> bool {
     count
-        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+        .try_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
             (count < 10).then_some(count + 1)
         })
         .is_ok()

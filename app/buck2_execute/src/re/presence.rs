@@ -628,7 +628,7 @@ mod tests {
             self.started.notify_one();
             if self
                 .hold
-                .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1))
+                .try_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_sub(1))
                 .is_ok()
             {
                 self.release.notified().await;

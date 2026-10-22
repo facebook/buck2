@@ -32,7 +32,6 @@ ref-cast.workspace = true
 regex.workspace = true
 serde.workspace = true
 starlark.workspace = true
-starlark_map.workspace = true
 strong_hash.workspace = true
 tokio.workspace = true
 triomphe.workspace = true
