@@ -19,6 +19,7 @@ pub use crate::settings::agent_advice::AgentAdviceSection;
 use crate::settings::agent_advice::AgentAdviceSectionData;
 pub use crate::settings::agent_advice::BuildIntentMode;
 use crate::settings::agent_interactive::AgentInteractiveSettings;
+use crate::settings::agent_materialization::AgentMaterializationSettings;
 pub use crate::settings::analysis::AnalysisSection;
 use crate::settings::analysis::AnalysisSectionData;
 pub use crate::settings::hydration::HydrationSection;
@@ -33,6 +34,7 @@ use crate::settings::package_visibility::PackageVisibilitySectionData;
 pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
     AgentAdviceSection::METADATA,
     AgentInteractiveSettings::METADATA,
+    AgentMaterializationSettings::METADATA,
     AnalysisSection::METADATA,
     HydrationSection::METADATA,
     LogDownloadSection::METADATA,
@@ -46,6 +48,8 @@ pub(crate) struct BuckSettingsData {
     agent_advice: AgentAdviceSectionData,
     #[serde(default)]
     agent_interactive: AgentInteractiveSettings,
+    #[serde(default)]
+    agent_materialization: AgentMaterializationSettings,
     #[serde(default)]
     analysis: AnalysisSectionData,
     #[serde(default)]
@@ -64,6 +68,8 @@ pub struct BuckSettings {
     #[serde(default)]
     pub agent_interactive: AgentInteractiveSettings,
     #[serde(default)]
+    pub agent_materialization: AgentMaterializationSettings,
+    #[serde(default)]
     pub analysis: AnalysisSection,
     #[serde(default)]
     pub hydration: HydrationSection,
@@ -78,6 +84,7 @@ impl From<BuckSettingsData> for BuckSettings {
         Self {
             agent_advice: AgentAdviceSection(Arc::new(data.agent_advice)),
             agent_interactive: data.agent_interactive,
+            agent_materialization: data.agent_materialization,
             analysis: AnalysisSection(Arc::new(data.analysis)),
             hydration: HydrationSection(Arc::new(data.hydration)),
             log_download: LogDownloadSection(Arc::new(data.log_download)),

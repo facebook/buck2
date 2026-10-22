@@ -6,12 +6,17 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
+from __future__ import annotations
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden
+
+
+AGENT_MATERIALIZATION = "--setting=agent_materialization.enabled=true"
+DIRECT = "--agent-context=direct_call=true"
+MATERIALIZATION_NOTICE = "Final-output materialization was automatically disabled"
 
 
 class BuildOutputTest(BuckTestCase):
@@ -61,3 +66,115 @@ class BuildOutputTest(BuckTestCase):
             )
         )
         assert len(show_output.stdout.splitlines()) == 1
+
+        skipped_outputs = await expect_failure(
+            buck.build_without_report(
+                "root//:foo", "root//:fail", AGENT_MATERIALIZATION, DIRECT
+            )
+        )
+        assert MATERIALIZATION_NOTICE not in skipped_outputs.stderr
+
+    @buck_test(
+        extra_buck_config={
+            "buck2": {"materializations": "deferred", "defer_write_actions": "true"}
+        }
+    )
+    async def test_agent_materialization_activation_and_overrides(
+        self, buck: Buck
+    ) -> None:
+        cases = [
+            ("direct", (AGENT_MATERIALIZATION, DIRECT), False),
+            ("disabled", (DIRECT,), True),
+            ("tool", (AGENT_MATERIALIZATION,), True),
+            (
+                "explicit_all",
+                (AGENT_MATERIALIZATION, DIRECT, "--materializations=all"),
+                True,
+            ),
+            (
+                "explicit_none",
+                (
+                    AGENT_MATERIALIZATION,
+                    DIRECT,
+                    "--materializations=none",
+                    "--show-output",
+                ),
+                False,
+            ),
+        ]
+        # Distinct outputs keep earlier materializations from masking a later skip.
+        (buck.cwd / "TARGETS.fixture").write_text(
+            "\n".join(f'trivial_build(name="{name}")' for name, _, _ in cases)
+        )
+        for name, args, materialized in cases:
+            target = f"root//:{name}"
+            result = await buck.build(
+                target,
+                *args,
+                env={"CODING_AGENT_METADATA": "id=codex"},
+            )
+            output = result.get_build_report().output_for_target(target)
+            assert output.exists() == materialized, name
+            assert result.stderr.count(MATERIALIZATION_NOTICE) == (
+                1 if name == "direct" else 0
+            ), name
+            assert MATERIALIZATION_NOTICE not in result.stdout
+            if name == "direct":
+                for option in (
+                    "--out <path>",
+                    "--show-output",
+                    "--show-full-output",
+                ):
+                    assert option in result.stderr
+            if name in ("direct", "tool"):
+                queried = await buck.targets(
+                    target, "--show-output", AGENT_MATERIALIZATION
+                )
+                path = buck.cwd / queried.stdout.split()[1]
+                assert path == output
+                assert path.exists() == materialized, name
+                if materialized:
+                    assert path.read_text() == "abcd"
+
+    @buck_test(
+        extra_buck_config={
+            "buck2": {"materializations": "deferred", "defer_write_actions": "true"}
+        }
+    )
+    async def test_agent_materialization_preserves_output_requests(
+        self, buck: Buck
+    ) -> None:
+        cases = [
+            ("--show-output",),
+            ("--show-full-output",),
+            ("--show-simple-output",),
+            ("--show-full-simple-output",),
+            ("--show-json-output",),
+            ("--show-full-json-output",),
+            ("--out=copied.txt",),
+            ("--out=-",),
+        ]
+        (buck.cwd / "TARGETS.fixture").write_text(
+            "\n".join(f'trivial_build(name="case_{i}")' for i in range(len(cases)))
+            + '\ntrivial_build(name="custom_default")\n'
+        )
+        for i, args in enumerate(cases):
+            target = f"root//:case_{i}"
+            result = await buck.build(target, AGENT_MATERIALIZATION, DIRECT, *args)
+            assert MATERIALIZATION_NOTICE not in result.stderr, args
+            output = result.get_build_report().output_for_target(target)
+            assert output.read_text() == "abcd", args
+            if args == ("--out=copied.txt",):
+                assert (buck.cwd / "copied.txt").read_text() == "abcd"
+            elif args == ("--out=-",):
+                assert "abcd" in result.stdout
+
+        # Output requests preserve the configured default rather than forcing materialization.
+        (buck.cwd / ".buckconfig.local").write_text(
+            "[buck2]\nmaterializations = deferred_skip_final_artifacts\n"
+        )
+        target = "root//:custom_default"
+        result = await buck.build(
+            target, AGENT_MATERIALIZATION, DIRECT, "--show-output"
+        )
+        assert not result.get_build_report().output_for_target(target).exists()

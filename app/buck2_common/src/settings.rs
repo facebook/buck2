@@ -12,6 +12,7 @@
 
 mod agent_advice;
 pub mod agent_interactive;
+pub mod agent_materialization;
 mod analysis;
 pub mod args;
 pub mod dice;
