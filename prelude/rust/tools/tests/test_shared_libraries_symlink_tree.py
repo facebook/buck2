@@ -48,10 +48,11 @@ class DwpSymlinkTreeTest(unittest.TestCase):
             main()
         return sorted(os.listdir(self.tmp / "dwp"))
 
-    def test_a_dwp_link_drops_the_so_suffix(self) -> None:
-        # The C++ dwp tree names the same file `libanyhow.so.dwp`.
-        self.assertEqual(self.dwp_tree_for(["libanyhow.so"]), ["libanyhow.dwp"])
+    def test_a_dwp_link_keeps_the_whole_soname(self) -> None:
+        self.assertEqual(self.dwp_tree_for(["libanyhow.so"]), ["libanyhow.so.dwp"])
 
-    def test_versioned_sonames_collide(self) -> None:
-        with self.assertRaises(FileExistsError):
-            self.dwp_tree_for(["libfoo.so.1", "libfoo.so.2"])
+    def test_versioned_sonames_get_their_own_links(self) -> None:
+        self.assertEqual(
+            self.dwp_tree_for(["libfoo.so.1", "libfoo.so.2"]),
+            ["libfoo.so.1.dwp", "libfoo.so.2.dwp"],
+        )
