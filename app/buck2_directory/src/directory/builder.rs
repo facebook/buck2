@@ -816,9 +816,10 @@ where
     pub fn fingerprint(self, hasher: &impl DirectoryDigester<L, H>) -> ImmutableDirectory<L, H> {
         match self {
             Self::Mutable {
-                entries,
+                mut entries,
                 exhaustiveness,
             } => {
+                entries.sort_keys();
                 let entries = entries
                     .into_iter()
                     .map(|(k, v)| (k, v.map_dir(|v| v.fingerprint(hasher))))

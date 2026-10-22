@@ -59,7 +59,6 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
-use sorted_vector_map::SortedVectorMap;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::calculation::ActionCalculation;
@@ -309,10 +308,11 @@ async fn dir_artifact_value(
                 Multiple(ActionDirectoryBuilder),
             }
 
-            let mut entries = SortedVectorMap::new();
+            // `included` is sorted, so the entries arrive in key order.
+            let mut entries = Vec::with_capacity(entry_values.len());
             let mut deps_merger = DepsMerger::None;
             for (file_name, value) in entry_values {
-                entries.insert(file_name, value.entry().dupe());
+                entries.push((file_name, value.entry().dupe()));
                 if let Some(deps) = value.deps() {
                     deps_merger = match deps_merger {
                         DepsMerger::None => DepsMerger::One(deps.dupe()),

@@ -1276,7 +1276,6 @@ dependencies = [
  "serde_json",
  "setsketch",
  "smallvec",
- "sorted_vector_map",
  "starlark",
  "starlark_map",
  "strong_hash",
@@ -2258,7 +2257,6 @@ dependencies = [
  "either",
  "mini_vec",
  "pagable",
- "sorted_vector_map",
  "starlark_map",
  "strong_hash",
 ]

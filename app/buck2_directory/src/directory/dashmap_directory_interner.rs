@@ -139,13 +139,13 @@ where
 #[cfg(test)]
 mod tests {
     use buck2_fs::paths::file_name::FileNameBuf;
-    use sorted_vector_map::SortedVectorMap;
 
     use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
     use crate::directory::directory_data::DirectoryData;
     use crate::directory::entry::DirectoryEntry;
     use crate::directory::exhaustiveness::Exhaustiveness;
     use crate::directory::shared_directory::SharedDirectoryData;
+    use crate::directory::sorted_slice_map::SortedSliceMap;
     use crate::directory::test::NopEntry;
     use crate::directory::test::TestDigest;
     use crate::directory::test::TestDirectoryBuilder;
@@ -186,12 +186,10 @@ mod tests {
         let interner = DashMapDirectoryInterner::new();
 
         let entries = || {
-            let mut entries = SortedVectorMap::new();
-            entries.insert(
+            SortedSliceMap::from_iter([(
                 FileNameBuf::try_from("a".to_owned()).unwrap(),
                 DirectoryEntry::Leaf(NopEntry),
-            );
-            entries
+            )])
         };
 
         let scaffold = || -> SharedDirectoryData<NopEntry, TestDigest> {
