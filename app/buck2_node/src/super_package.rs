@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
 use crate::cfg_constructor::CfgConstructorImpl;
@@ -22,6 +23,17 @@ use crate::visibility::VisibilityIntersection;
 use crate::visibility::VisibilityPatternList;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
+
+/// Package value which, when set, makes a `select()` without a matching key or a default
+/// mark its target incompatible instead of failing. The value is the reason shown.
+pub const UNMATCHED_SELECT_INCOMPATIBLE_KEY: &str = "buck.unmatched_select_incompatible";
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum SuperPackageError {
+    #[error("Package value `{0}` must be a string, got `{1}`")]
+    NotAString(&'static str, serde_json::Value),
+}
 
 #[derive(Debug, Allocative, pagable::Pagable)]
 pub(crate) struct SuperPackageData {
@@ -39,6 +51,8 @@ pub(crate) struct SuperPackageData {
     // we store it here separately as rust value because we are going to use it
     // in a special attribute and cfg constractor
     cfg_modifiers: Option<PackageCfgModifiersValue>,
+    /// Stored as a rust value for the same reason as `cfg_modifiers`.
+    unmatched_select_incompatible: Option<ArcStr>,
     test_config_unification_rollout: bool,
 }
 
@@ -57,6 +71,20 @@ impl SuperPackageData {
         let cfg_modifiers = package_values
             .get_package_value_json(modifier_key)?
             .map(PackageCfgModifiersValue::new);
+        let unmatched_select_key = MetadataKeyRef::new(UNMATCHED_SELECT_INCOMPATIBLE_KEY)
+            .map_err(buck2_error::Error::from)?;
+        let unmatched_select_incompatible =
+            match package_values.get_package_value_json(unmatched_select_key)? {
+                None => None,
+                Some(serde_json::Value::String(reason)) => Some(ArcStr::from(reason)),
+                Some(other) => {
+                    return Err(SuperPackageError::NotAString(
+                        UNMATCHED_SELECT_INCOMPATIBLE_KEY,
+                        other,
+                    )
+                    .into());
+                }
+            };
         Ok(SuperPackageData {
             package_values,
             visibility,
@@ -65,6 +93,7 @@ impl SuperPackageData {
             within_view_cap,
             cfg_constructor,
             cfg_modifiers,
+            unmatched_select_incompatible,
             test_config_unification_rollout,
         })
     }
@@ -136,6 +165,11 @@ impl SuperPackage {
     pub fn cfg_modifiers(&self) -> Option<&PackageCfgModifiersValue> {
         self.0.cfg_modifiers.as_ref()
     }
+
+    /// Reason from `buck.unmatched_select_incompatible`, if set in this or a parent `PACKAGE`.
+    pub fn unmatched_select_incompatible(&self) -> Option<&ArcStr> {
+        self.0.unmatched_select_incompatible.as_ref()
+    }
     pub fn test_config_unification_rollout(&self) -> bool {
         self.0.test_config_unification_rollout
     }
@@ -151,6 +185,7 @@ impl PartialEq for SuperPackage {
             within_view_cap: this_within_view_cap,
             cfg_constructor: this_cfg_constructor,
             cfg_modifiers: _, // cfg_modifiers are already contained in package_values
+            unmatched_select_incompatible: _, // also contained in package_values
             test_config_unification_rollout: this_test_config_unification_rollout,
         } = &*self.0;
         let SuperPackageData {
@@ -161,6 +196,7 @@ impl PartialEq for SuperPackage {
             within_view_cap: other_within_view_cap,
             cfg_constructor: other_cfg_constructor,
             cfg_modifiers: _, // cfg_modifiers are already contained in package_values
+            unmatched_select_incompatible: _, // also contained in package_values
             test_config_unification_rollout: other_test_config_unification_rollout,
         } = &*other.0;
         (this_visibility, this_within_view) == (other_visibility, other_within_view)

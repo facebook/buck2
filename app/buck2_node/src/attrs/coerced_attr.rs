@@ -790,7 +790,7 @@ impl CoercedAttr {
         ctx: &dyn AttrConfigurationContext,
         select: &'a CoercedSelector,
         attr_name: Option<&str>,
-    ) -> buck2_error::Result<&'a CoercedAttr> {
+    ) -> ResultMaybeCompatible<&'a CoercedAttr> {
         let CoercedSelector {
             entries, default, ..
         } = select;
@@ -841,17 +841,25 @@ impl CoercedAttr {
                 }
                 _ => {}
             }
-            Ok(v)
+            ResultMaybeCompatible::Compatible(v)
+        } else if let Some(default) = default {
+            ResultMaybeCompatible::Compatible(default)
+        } else if let Some(reason) = ctx.unmatched_select_incompatible() {
+            ResultMaybeCompatible::Incompatible(ctx.incompatible_platform_reason(
+                IncompatiblePlatformReasonCause::UnmatchedSelect {
+                    attr: attr_name.map(ArcStr::from),
+                    reason: reason.dupe(),
+                },
+            ))
         } else {
-            default.as_ref().ok_or_else(|| {
-                buck2_error!(
-                    buck2_error::ErrorTag::Input,
-                    "None of {} conditions matched configuration `{}` and no default was set:\n{}",
-                    entries.len(),
-                    ctx.cfg().cfg(),
-                    entries.iter().map(|(s, _)| format!("  {s}")).join("\n"),
-                )
-            })
+            buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "None of {} conditions matched configuration `{}` and no default was set:\n{}",
+                entries.len(),
+                ctx.cfg().cfg(),
+                entries.iter().map(|(s, _)| format!("  {s}")).join("\n"),
+            )
+            .into()
         }
     }
 

@@ -655,6 +655,7 @@ async fn resolve_transition_input_attrs<'a>(
         toolchain_cfg: ConfigurationWithExec,
         platform_cfgs: &'c BuckFixedSortedMap<TargetLabel, ConfigurationData>,
         label: TargetLabel,
+        unmatched_select_incompatible: Option<&'c ArcStr>,
     }
 
     impl AttrConfigurationContext for AttrConfigurationContextToResolveTransitionAttrs<'_> {
@@ -668,6 +669,10 @@ async fn resolve_transition_input_attrs<'a>(
 
         fn target_label(&self) -> Option<&TargetLabel> {
             Some(&self.label)
+        }
+
+        fn unmatched_select_incompatible(&self) -> Option<&ArcStr> {
+            self.unmatched_select_incompatible
         }
 
         fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
@@ -717,6 +722,7 @@ async fn resolve_transition_input_attrs<'a>(
             .cfg()
             .make_toolchain(&ConfigurationNoExec::unbound_exec()),
         label: target_node.label().dupe(),
+        unmatched_select_incompatible: target_node.as_ref().unmatched_select_incompatible(),
     };
     let mut result = BuckMutInsertionMap::default();
     for tr in transitions {
@@ -805,12 +811,14 @@ impl ConfiguredNodePreamble<'_> {
     /// Exec-dep and toolchain-dep cfgs from it are placeholders that callers replace once
     /// execution platform resolution has run. The real configuration path builds this context
     /// inline from the destructured pieces instead (see the size-assert comment there).
-    pub(crate) fn attr_cfg_ctx(
-        &self,
+    pub(crate) fn attr_cfg_ctx<'a>(
+        &'a self,
         target_label: &ConfiguredTargetLabel,
-    ) -> AttrConfigurationContextImpl<'_> {
+        target_node: TargetNodeRef<'a>,
+    ) -> AttrConfigurationContextImpl<'a> {
         unspecified_attr_cfg_ctx(
             target_label,
+            target_node,
             self.resolved_configuration,
             &self.resolved_transitions,
             &self.platform_cfgs,
@@ -824,6 +832,7 @@ impl ConfiguredNodePreamble<'_> {
 /// label are supplied in here, so construction sites cannot drift apart in them.
 pub(crate) fn unspecified_attr_cfg_ctx<'v>(
     target_label: &ConfiguredTargetLabel,
+    target_node: TargetNodeRef<'v>,
     resolved_configuration: &'v MatchedConfigurationSettingKeysWithCfg,
     resolved_transitions: &'v BuckFixedSortedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     platform_cfgs: &'v BuckFixedSortedMap<TargetLabel, ConfigurationData>,
@@ -839,6 +848,7 @@ pub(crate) fn unspecified_attr_cfg_ctx<'v>(
         resolved_transitions,
         platform_cfgs,
         Some(target_label.unconfigured().dupe()),
+        target_node.unmatched_select_incompatible(),
     )
 }
 
@@ -895,6 +905,7 @@ pub(crate) async fn compute_configured_node_preamble<'d>(
     // configured so that we don't need to support propagate configuration errors on attr access.
     let attr_cfg_ctx = unspecified_attr_cfg_ctx(
         target_label,
+        target_node.as_ref(),
         resolved_configuration,
         &resolved_transitions,
         &platform_cfgs,
@@ -943,6 +954,7 @@ async fn compute_configured_target_node_no_transition(
 
     let attr_cfg_ctx = unspecified_attr_cfg_ctx(
         target_label,
+        target_node.as_ref(),
         resolved_configuration,
         &resolved_transitions,
         &platform_cfgs,
@@ -956,6 +968,11 @@ async fn compute_configured_target_node_no_transition(
         // And so we use an "unspecified" execution platform to avoid cycles and cause any attempts at execution to fail.
         None
     } else if let Some(exec_cfg) = target_label.exec_cfg() {
+        if *exec_cfg == ConfigurationData::unspecified_exec() {
+            // A toolchain whose execution platform resolution found it incompatible (see
+            // `get_configured_target`): report why.
+            std::mem::take(&mut errors_and_incompats).finalize()?;
+        }
         // The label was produced by a toolchain_dep, so we use the execution platform of our parent
         // We need to convert that to an execution platform, so just find the one with the same configuration.
         Some(ExecutionPlatformResolutionPartial::new(
@@ -1390,7 +1407,8 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                     if matches!(
                         &reason.cause,
                         &IncompatiblePlatformReasonCause::Dependency(_)
-                    ) {
+                    ) && !package_allows_dep_only_incompatible(ctx, target.unconfigured_label()).await?
+                    {
                         if check_error_on_incompatible_dep(ctx, target.unconfigured_label()).await? {
                             return ResultMaybeCompatible::Err(reason.to_err());
                         }
@@ -1424,6 +1442,17 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
         }
         .boxed()
     }
+}
+
+/// A target whose package set `buck.unmatched_select_incompatible` is skipped, like a
+/// directly incompatible one, when it is incompatible only because of a dependency:
+/// such packages expect targets that only some configurations can build.
+async fn package_allows_dep_only_incompatible(
+    ctx: &mut DiceComputations<'_>,
+    target: &TargetLabel,
+) -> buck2_error::Result<bool> {
+    let node = ctx.get_target_node(target).await?;
+    Ok(node.unmatched_select_incompatible().is_some())
 }
 
 pagable::static_str!(SECTION_BUCK2 = "buck2");

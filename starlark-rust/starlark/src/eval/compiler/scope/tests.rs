@@ -107,7 +107,7 @@ fn test_with_module<'f>(
                     ResolvedIdent::Slot(_slot, binding_id) => binding_id.0.to_string(),
                     ResolvedIdent::Global(_) => "G".to_owned(),
                 };
-                write!(&mut self.r, " {}:{}", ident.node.ident, resolved).unwrap();
+                write!(self.r, " {}:{}", ident.node.ident, resolved).unwrap();
             }
 
             expr.visit_expr(|expr| self.visit_expr(expr));
@@ -120,7 +120,7 @@ fn test_with_module<'f>(
         }
 
         fn visit_lvalue(&mut self, ident: &CstAssignIdent) {
-            write!(&mut self.r, " {}:{}", ident.ident, ident.payload.unwrap().0).unwrap();
+            write!(self.r, " {}:{}", ident.ident, ident.payload.unwrap().0).unwrap();
         }
 
         fn visit_stmt_children(&mut self, stmt: &CstStmt) {
