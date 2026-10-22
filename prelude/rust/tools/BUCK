@@ -166,3 +166,12 @@ prelude.python_test(
     ],
     base_module = "",
 )
+
+prelude.python_test(
+    name = "test_rustc_action_env",
+    srcs = [
+        "rustc_action.py",
+        "tests/test_rustc_action_env.py",
+    ],
+    base_module = "",
+)
