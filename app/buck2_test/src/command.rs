@@ -12,6 +12,7 @@ use std::ops::ControlFlow;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -89,6 +90,7 @@ use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
+use buck2_server_ctx::commands::send_build_phase_end;
 use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
@@ -851,6 +853,15 @@ async fn test_targets(
                 let first_internal_error = driver.first_internal_error.take();
                 let mut build_target_result =
                     std::mem::replace(&mut driver.build_target_result, BuildTargetResult::new());
+                // A run cancelled while targets were still being built has no build outcome.
+                if driver.pending_build_work == 0 {
+                    send_build_phase_end(
+                        ctx.per_transaction_data().get_dispatcher(),
+                        driver.build_phase_end,
+                        convert_error(&build_target_result).is_empty()
+                            && convert_error(&error_target_result).is_empty(),
+                    );
+                }
                 drop(driver);
 
                 // Drop the internal runner's sender clone so it doesn't keep
@@ -1017,10 +1028,22 @@ struct TestDriverState<'a, 'e> {
     build_run_info: bool,
 }
 
+type DriverWorkResult = ControlFlow<Vec<BuildEvent>, Vec<TestDriverTask>>;
+
+#[derive(Clone, Copy, Dupe, PartialEq, Eq)]
+enum DriverWorkKind {
+    Build,
+    Test,
+}
+
 /// Maintains the state of an ongoing test execution.
 struct TestDriver<'a, 'e> {
     state: TestDriverState<'a, 'e>,
-    work: FuturesUnordered<BoxFuture<'a, ControlFlow<Vec<BuildEvent>, Vec<TestDriverTask>>>>,
+    work: FuturesUnordered<BoxFuture<'a, (DriverWorkKind, DriverWorkResult)>>,
+    /// When the last build work item (interpreting, configuring or building a target)
+    /// finished. Test work items don't move it.
+    build_phase_end: SystemTime,
+    pending_build_work: usize,
     labels_configured: BuckMutSet<(ProvidersLabelWithModifiers, bool)>,
     labels_tested: BuckMutSet<ConfiguredProvidersLabel>,
     /// Fed the events of every `ControlFlow::Break`.
@@ -1039,6 +1062,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         Self {
             state,
             work: FuturesUnordered::new(),
+            build_phase_end: SystemTime::now(),
+            pending_build_work: 0,
             labels_configured: BuckMutSet::default(),
             labels_tested: BuckMutSet::default(),
             errors: BuildTargetResultBuilder::new(
@@ -1049,6 +1074,13 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             build_target_result: BuildTargetResult::new(),
             streaming_build_result_tx,
         }
+    }
+
+    fn push_work(&mut self, kind: DriverWorkKind, fut: BoxFuture<'a, DriverWorkResult>) {
+        if kind == DriverWorkKind::Build {
+            self.pending_build_work += 1;
+        }
+        self.work.push(fut.map(move |res| (kind, res)).boxed());
     }
 
     /// Add new patterns for the test driver to process.
@@ -1067,13 +1099,17 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             ]))
             .boxed();
 
-            self.work.push(fut);
+            self.push_work(DriverWorkKind::Build, fut);
         }
     }
 
     /// Drive the test loop until all work is complete.
     async fn drive_to_completion(&mut self) {
-        while let Some(tasks) = self.work.next().await {
+        while let Some((kind, tasks)) = self.work.next().await {
+            if kind == DriverWorkKind::Build {
+                self.pending_build_work -= 1;
+                self.build_phase_end = SystemTime::now();
+            }
             match tasks {
                 ControlFlow::Continue(tasks) => {
                     for task in tasks {
@@ -1160,7 +1196,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
         let PackageLabelWithModifiers { package, modifiers } = package_with_modifiers;
 
-        self.work.push(
+        self.push_work(
+            DriverWorkKind::Build,
             async move {
                 let res = match state
                     .ctx
@@ -1398,7 +1435,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         }
         .boxed();
 
-        self.work.push(fut);
+        self.push_work(DriverWorkKind::Build, fut);
     }
 
     fn build_target(
@@ -1410,7 +1447,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         tenting_acl_names: TentingStatus,
     ) {
         if !self.labels_tested.insert(label.dupe()) {
-            self.work.push(
+            self.push_work(
+                DriverWorkKind::Build,
                 async move {
                     ControlFlow::Break(vec![BuildEvent::new_configured(
                         label,
@@ -1470,7 +1508,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         }
         .boxed();
 
-        self.work.push(fut);
+        self.push_work(DriverWorkKind::Build, fut);
     }
 
     fn test_target(
@@ -1517,7 +1555,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         }
         .boxed();
 
-        self.work.push(fut);
+        self.push_work(DriverWorkKind::Test, fut);
     }
 }
 

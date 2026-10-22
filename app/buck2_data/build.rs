@@ -146,6 +146,10 @@ fn main() -> io::Result<()> {
             "#[serde(default, with = \"::buck2_proto_serde::serialize_timestamp\")]",
         )
         .field_attribute(
+            "buck.data.BuildPhaseEnd.end_time",
+            "#[serde(default, with = \"::buck2_proto_serde::serialize_timestamp\")]",
+        )
+        .field_attribute(
             "client_start_time",
             "#[serde(default, with = \"::buck2_proto_serde::serialize_timestamp\")]",
         )

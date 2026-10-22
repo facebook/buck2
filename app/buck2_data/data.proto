@@ -413,6 +413,9 @@ message InstantEvent {
     TransitiveSetProjectionDef transitive_set_projection_def = 66;
     ActionGraphStructureDef action_graph_structure_def = 67;
     ActionGraphAlias action_graph_alias = 68;
+
+    // Marks the end of the build phase of a command that builds targets.
+    BuildPhaseEnd build_phase_end = 69;
   }
 }
 
@@ -3810,6 +3813,14 @@ message InvocationRecord {
   optional int64 paging_memory_restored_bytes = 462;
   // Entries in the deserialized-arc cache at command end.
   optional uint64 paging_arc_cache_entries = 768;
+
+  // Time from the start of the daemon command span (the same origin as
+  // `command_duration`) to the end of the build phase. Absent for commands
+  // without a build phase and when the build phase never ended.
+  optional uint64 build_duration_ms = 769;
+  // Outcome of the build phase, independent of whether tests or installs that
+  // follow it succeeded. Absent for commands without a build phase.
+  optional BuildStatus build_status = 770;
   // Heap-granularity versus value-granularity cost of Starlark page-in, as
   // daemon-lifetime totals rather than a per-command delta.
   optional StarlarkPartialDeserStats starlark_partial_deser = 759;
@@ -4255,6 +4266,26 @@ message DeviceMetadata {
     string value = 2;
   }
   repeated Entry entry = 1;
+}
+
+// The build phase of a command covers loading, analysis, actions and the
+// materializations the command waits on for the targets it was asked to build.
+// For `test` and `install` it can end before the command does, since tests and
+// installs run after or alongside it.
+message BuildPhaseEnd {
+  // When the build phase ended, on the daemon clock. For `test` this is the end
+  // of the last build work item, which can precede the event itself.
+  google.protobuf.Timestamp end_time = 1;
+  BuildStatus status = 2;
+}
+
+enum BuildStatus {
+  BUILD_STATUS_UNKNOWN = 0;
+  BUILD_STATUS_SUCCESS = 1;
+  BUILD_STATUS_FAILED = 2;
+  BUILD_STATUS_CANCELLED = 3;
+  // The command failed before its build phase started.
+  BUILD_STATUS_NOT_STARTED = 4;
 }
 
 message InstallFinished {

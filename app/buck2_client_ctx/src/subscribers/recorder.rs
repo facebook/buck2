@@ -208,6 +208,9 @@ pub struct InvocationRecorder {
     bxl_ensure_artifacts_duration: Option<prost_types::Duration>,
     install_duration: Option<prost_types::Duration>,
     install_device_metadata: Vec<buck2_data::DeviceMetadata>,
+    /// Daemon timestamp of `CommandStart`, the origin of `command_duration`.
+    command_start_timestamp: Option<SystemTime>,
+    build_phase_end: Option<(SystemTime, buck2_data::BuildStatus)>,
     installer_log_url: Option<String>,
     installer_name: Option<String>,
     initial_re_upload_bytes: Option<u64>,
@@ -440,6 +443,8 @@ impl InvocationRecorder {
             bxl_ensure_artifacts_duration: None,
             install_duration: None,
             install_device_metadata: Vec::new(),
+            command_start_timestamp: None,
+            build_phase_end: None,
             installer_log_url: None,
             installer_name: None,
             initial_re_upload_bytes: None,
@@ -1226,6 +1231,8 @@ impl InvocationRecorder {
             re_avg_upload_speed: self.re_avg_upload_speed.avg_per_second(),
             install_duration: self.install_duration.take(),
             install_device_metadata: std::mem::take(&mut self.install_device_metadata),
+            build_duration_ms: self.build_duration_ms(),
+            build_status: self.build_status().map(|s| s.into()),
             installer_log_url: self.installer_log_url.take(),
             installer_name: self.installer_name.take(),
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
@@ -1470,6 +1477,7 @@ impl InvocationRecorder {
     ) -> buck2_error::Result<()> {
         self.metadata.extend(command.metadata.clone());
         self.time_to_command_start = Some(duration_since(event.timestamp(), self.start_time));
+        self.command_start_timestamp = Some(event.timestamp());
         Ok(())
     }
 
@@ -1910,6 +1918,47 @@ impl InvocationRecorder {
         self.time_to_first_test_run
             .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
         Ok(())
+    }
+
+    fn handle_build_phase_end(
+        &mut self,
+        build_phase_end: &buck2_data::BuildPhaseEnd,
+    ) -> buck2_error::Result<()> {
+        let end_time = build_phase_end
+            .end_time
+            .internal_error("Missing `end_time` in BuildPhaseEnd")?;
+        let end_time = SystemTime::try_from(end_time)
+            .map_err(|e| internal_error!("Invalid `end_time` in BuildPhaseEnd: {e}"))?;
+        self.build_phase_end = Some(merge_build_phase_ends(
+            self.build_phase_end,
+            (end_time, build_phase_end.status()),
+        ));
+        Ok(())
+    }
+
+    fn build_duration_ms(&self) -> Option<u64> {
+        let (end_time, _) = self.build_phase_end?;
+        duration_as_millis(duration_since(end_time, self.command_start_timestamp?))
+    }
+
+    /// The build outcome for commands that have a build phase. Without a `BuildPhaseEnd`
+    /// event the outcome is inferred from how the command ended.
+    fn build_status(&self) -> Option<buck2_data::BuildStatus> {
+        if !matches!(
+            self.command_name,
+            Some("build" | "test" | "install" | "run")
+        ) {
+            return None;
+        }
+        if let Some((_, status)) = self.build_phase_end {
+            return Some(status);
+        }
+        Some(match (self.command_start_timestamp, self.outcome) {
+            (_, Some(InvocationOutcome::Cancelled)) => buck2_data::BuildStatus::Cancelled,
+            (None, _) => buck2_data::BuildStatus::NotStarted,
+            (Some(_), Some(InvocationOutcome::Failed)) => buck2_data::BuildStatus::Failed,
+            (Some(_), _) => buck2_data::BuildStatus::Unknown,
+        })
     }
 
     fn handle_test_result(
@@ -2592,6 +2641,9 @@ impl InvocationRecorder {
                     buck2_data::instant_event::Data::InstallFinished(install_finished) => {
                         self.handle_install_finished(install_finished)
                     }
+                    buck2_data::instant_event::Data::BuildPhaseEnd(build_phase_end) => {
+                        self.handle_build_phase_end(build_phase_end)
+                    }
                     buck2_data::instant_event::Data::SystemInfo(system_info) => {
                         self.handle_system_info(system_info)
                     }
@@ -2872,6 +2924,30 @@ fn duration_since(end_time: SystemTime, start_time: SystemTime) -> Duration {
     end_time.duration_since(start_time).unwrap_or_default()
 }
 
+/// A command sends one `BuildPhaseEnd` per independent build it runs (e.g. one per install
+/// request). The build phase ends with the last of them and has the worst of their statuses.
+fn merge_build_phase_ends(
+    prev: Option<(SystemTime, buck2_data::BuildStatus)>,
+    next: (SystemTime, buck2_data::BuildStatus),
+) -> (SystemTime, buck2_data::BuildStatus) {
+    fn severity(status: buck2_data::BuildStatus) -> u8 {
+        match status {
+            buck2_data::BuildStatus::Success => 0,
+            buck2_data::BuildStatus::Unknown => 1,
+            buck2_data::BuildStatus::Cancelled => 2,
+            buck2_data::BuildStatus::NotStarted => 3,
+            buck2_data::BuildStatus::Failed => 4,
+        }
+    }
+    match prev {
+        None => next,
+        Some((prev_time, prev_status)) => (
+            max(prev_time, next.0),
+            std::cmp::max_by_key(prev_status, next.1, |s| severity(*s)),
+        ),
+    }
+}
+
 fn duration_as_millis(duration: Duration) -> Option<u64> {
     u64::try_from(duration.as_millis()).ok()
 }
@@ -2895,6 +2971,7 @@ mod tests {
     use crate::exit_result::ExecEnvironment;
     use crate::exit_result::ExitResult;
     use crate::subscribers::recorder::InvocationRecorder;
+    use crate::subscribers::recorder::merge_build_phase_ends;
     use crate::subscribers::recorder::truncate_stderr;
     use crate::subscribers::subscriber::EventSubscriber;
 
@@ -2936,6 +3013,73 @@ mod tests {
         let err = buck2_error!(ErrorTag::IoClientBrokenPipe, "test");
         let exit_result = ExitResult::err(err);
         assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Cancelled);
+    }
+
+    fn recorder_for(command_name: &'static str) -> InvocationRecorder {
+        let mut recorder =
+            InvocationRecorder::new(TraceId::new(), None, SystemTime::UNIX_EPOCH, vec![]);
+        recorder.command_name = Some(command_name);
+        recorder
+    }
+
+    fn at_secs(secs: u64) -> SystemTime {
+        SystemTime::UNIX_EPOCH + Duration::from_secs(secs)
+    }
+
+    #[test]
+    fn test_build_status_from_build_phase_end() {
+        let mut recorder = recorder_for("test");
+        recorder.command_start_timestamp = Some(at_secs(100));
+        recorder.build_phase_end = Some((at_secs(160), buck2_data::BuildStatus::Success));
+        // Tests failing after the build don't change the build outcome.
+        recorder.outcome = Some(InvocationOutcome::Failed);
+        assert_eq!(
+            recorder.build_status(),
+            Some(buck2_data::BuildStatus::Success)
+        );
+        assert_eq!(recorder.build_duration_ms(), Some(60_000));
+    }
+
+    #[test]
+    fn test_merge_build_phase_ends() {
+        use buck2_data::BuildStatus;
+        let merged = [
+            (at_secs(30), BuildStatus::Success),
+            (at_secs(50), BuildStatus::Success),
+            (at_secs(40), BuildStatus::Failed),
+        ]
+        .into_iter()
+        .fold(None, |acc, next| Some(merge_build_phase_ends(acc, next)));
+        assert_eq!(merged, Some((at_secs(50), BuildStatus::Failed)));
+    }
+
+    #[test]
+    fn test_build_status_without_build_phase_end() {
+        let mut recorder = recorder_for("build");
+        assert_eq!(
+            recorder.build_status(),
+            Some(buck2_data::BuildStatus::NotStarted)
+        );
+        assert_eq!(recorder.build_duration_ms(), None);
+
+        recorder.command_start_timestamp = Some(at_secs(100));
+        recorder.outcome = Some(InvocationOutcome::Failed);
+        assert_eq!(
+            recorder.build_status(),
+            Some(buck2_data::BuildStatus::Failed)
+        );
+        recorder.outcome = Some(InvocationOutcome::Cancelled);
+        assert_eq!(
+            recorder.build_status(),
+            Some(buck2_data::BuildStatus::Cancelled)
+        );
+        recorder.outcome = Some(InvocationOutcome::Crashed);
+        assert_eq!(
+            recorder.build_status(),
+            Some(buck2_data::BuildStatus::Unknown)
+        );
+
+        assert_eq!(recorder_for("targets").build_status(), None);
     }
 
     #[test]

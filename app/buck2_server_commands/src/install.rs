@@ -17,8 +17,12 @@ use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::sync::OnceLock;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
+use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_dyn::ArtifactDyn;
@@ -91,6 +95,7 @@ use buck2_install_proto::ShutdownRequest;
 use buck2_install_proto::installer_client::InstallerClient;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
+use buck2_server_ctx::commands::send_build_phase_end_with_status;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -792,10 +797,22 @@ async fn handle_install_request(
     let stderr_log_path = install_log_dir.join(FileName::unchecked_new(&stderr_log_filename));
     let stderr_log_path_string = stderr_log_path.to_string();
 
+    // `try_compute2` cancels the build when the installer fails first, so a build that
+    // neither finished nor failed was cut short.
+    let artifacts_built = OnceLock::new();
+    let build_failed = AtomicBool::new(false);
     let compute_result = ctx
         .try_compute2(
             async |ctx| {
-                build_files(ctx, &install_request_data.installed_targets, files_tx).await?;
+                let built =
+                    build_files(ctx, &install_request_data.installed_targets, files_tx).await;
+                match built {
+                    Ok(()) => {
+                        let _ignored = artifacts_built.set(SystemTime::now());
+                    }
+                    Err(_) => build_failed.store(true, Ordering::Relaxed),
+                }
+                built?;
                 buck2_error::Ok(Instant::now())
             },
             async |ctx| {
@@ -868,6 +885,11 @@ async fn handle_install_request(
                 .collect();
             let build_finished = std::cmp::max(installer_ready, artifacts_ready);
             let install_duration = installer_finished - build_finished;
+            send_build_phase_end_with_status(
+                &get_dispatcher(),
+                SystemTime::now() - Instant::now().saturating_duration_since(build_finished),
+                buck2_data::BuildStatus::Success,
+            );
 
             (
                 Some(install_duration),
@@ -876,7 +898,17 @@ async fn handle_install_request(
                 result,
             )
         }
-        Err(e) => (None, Vec::new(), None, Err(e)),
+        Err(e) => {
+            let (end_time, status) = match artifacts_built.get() {
+                Some(end_time) => (*end_time, buck2_data::BuildStatus::Success),
+                None if build_failed.load(Ordering::Relaxed) => {
+                    (SystemTime::now(), buck2_data::BuildStatus::Failed)
+                }
+                None => (SystemTime::now(), buck2_data::BuildStatus::Cancelled),
+            };
+            send_build_phase_end_with_status(&get_dispatcher(), end_time, status);
+            (None, Vec::new(), None, Err(e))
+        }
     };
 
     let mut log_url = None;
