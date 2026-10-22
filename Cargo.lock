@@ -2824,8 +2824,6 @@ name = "buck2_hash"
 version = "0.1.0"
 dependencies = [
  "dashmap 6.2.1",
- "dupe",
- "fxhash",
  "mini_map",
 ]
 
