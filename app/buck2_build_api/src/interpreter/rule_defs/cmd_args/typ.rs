@@ -1287,7 +1287,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         if let Some(other) = other.downcast_ref::<Self>() {
-            Ok(self.inputs == other.inputs)
+            Ok(self.inputs.eq_unordered(&other.inputs))
         } else {
             Ok(false)
         }

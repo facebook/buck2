@@ -45,6 +45,26 @@ fn test_inputs_outputs() -> buck2_error::Result<()> {
 }
 
 #[test]
+fn test_inputs_equality_ignores_order() -> buck2_error::Result<()> {
+    let mut tester = tester()?;
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def test():
+            a = source_artifact("foo", "a.h")
+            b = source_artifact("foo", "b.h")
+            c = source_artifact("foo", "c.h")
+
+            inputs = cmd_args(a, b).inputs
+            assert_eq(inputs, cmd_args(b, a).inputs)
+            assert_eq(inputs, cmd_args(b, hidden = [a, b]).inputs)
+            assert_eq(False, inputs == cmd_args(a).inputs)
+            assert_eq(False, inputs == cmd_args(a, c).inputs)
+        "#
+    ))?;
+    Ok(())
+}
+
+#[test]
 fn test_ignore_artifacts() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     tester.run_starlark_bzl_test(indoc!(
