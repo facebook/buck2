@@ -10,9 +10,15 @@
 
 //! Typed buck settings, replaces buckconfig for core buck2 settings.
 
+mod agent_advice;
 pub mod agent_interactive;
+mod analysis;
 pub mod args;
 pub mod dice;
+mod hydration;
+mod log_download;
+mod metadata;
+mod package_visibility;
 pub mod parser;
 mod path;
 #[cfg(fbcode_build)]

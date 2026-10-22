@@ -13,19 +13,15 @@ use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::settings::settings::OverrideSource;
-use crate::settings::settings::SectionMetadata;
-use crate::settings::settings::SettingKey;
-use crate::settings::settings::SettingKeyMetadata;
-use crate::settings::settings::SettingKeyRef;
+use crate::settings::metadata::OverrideSource;
+use crate::settings::metadata::SectionMetadata;
+use crate::settings::metadata::SettingKey;
+use crate::settings::metadata::SettingKeyMetadata;
 
 const fn enabled_key(name: &'static str) -> SettingKey<bool> {
     SettingKey {
         metadata: SettingKeyMetadata {
-            key: SettingKeyRef {
-                section: "agent_interactive",
-                name,
-            },
+            name,
             overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
         },
         internal_default: Some(false),
@@ -33,11 +29,10 @@ const fn enabled_key(name: &'static str) -> SettingKey<bool> {
     }
 }
 
-pub(super) const ENABLED: SettingKey<bool> = enabled_key("enabled");
-pub(super) const KILLALL_ENABLED: SettingKey<bool> = enabled_key("killall_enabled");
-pub(super) const CLEAN_ENABLED: SettingKey<bool> = enabled_key("clean_enabled");
-pub(super) const NEW_ISOLATION_DIR_ENABLED: SettingKey<bool> =
-    enabled_key("new_isolation_dir_enabled");
+const ENABLED: SettingKey<bool> = enabled_key("enabled");
+const KILLALL_ENABLED: SettingKey<bool> = enabled_key("killall_enabled");
+const CLEAN_ENABLED: SettingKey<bool> = enabled_key("clean_enabled");
+const NEW_ISOLATION_DIR_ENABLED: SettingKey<bool> = enabled_key("new_isolation_dir_enabled");
 
 /// Guard accessors require both the master switch and the guard's own switch.
 #[derive(
@@ -65,6 +60,12 @@ impl AgentInteractiveSettings {
     pub(super) const METADATA: SectionMetadata = SectionMetadata {
         section_name: "agent_interactive",
         section_version: 1,
+        settings: &[
+            ENABLED.metadata,
+            KILLALL_ENABLED.metadata,
+            CLEAN_ENABLED.metadata,
+            NEW_ISOLATION_DIR_ENABLED.metadata,
+        ],
     };
 
     pub fn enabled(&self) -> bool {
@@ -112,7 +113,7 @@ mod tests {
 
         for master in [false, true] {
             for key in [KILLALL_ENABLED, CLEAN_ENABLED, NEW_ISOLATION_DIR_ENABLED] {
-                let name = key.metadata.key.name;
+                let name = key.metadata.name;
                 let settings = resolve_setting_flags(vec![table(&format!(
                     "[agent_interactive]\nenabled = {master}\n{name} = true",
                 ))])?

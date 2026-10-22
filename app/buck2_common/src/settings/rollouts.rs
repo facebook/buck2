@@ -12,9 +12,9 @@
 
 use buck2_error::buck2_error;
 
+use crate::settings::metadata::SectionMetadata;
 use crate::settings::settings::ALL_SECTION_METADATA;
 use crate::settings::settings::BuckSettingsData;
-use crate::settings::settings::SectionMetadata;
 
 /// Selects the exact compiled version of every registered settings section.
 ///
@@ -92,6 +92,7 @@ mod tests {
     const SECTION_METADATA: SectionMetadata = SectionMetadata {
         section_name: SECTION,
         section_version: 0,
+        settings: &[],
     };
 
     fn table(content: &str) -> toml::Table {
