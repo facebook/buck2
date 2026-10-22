@@ -68,7 +68,7 @@ async def soft_errors(buck: Buck, category: str) -> int:
 # fixed path separator, so the keys are the same on every host.
 GOLDEN_KEYS = {
     "prelude//:write": "53936911ab4db47a2756903fc00e386fb539788b4e7f5b4e009999af83ffac29",
-    "prelude//:write_tset": "11ba241018f8eaf29e94ae4c9aabf18213c1b6c5e334cfc42700980d7ed08a54",
+    "prelude//:write_tset": "3434dc53ca83f845ea2d19282a91ab32ec2bc20076b2b33790ac5ec762cf8f53",
 }
 
 

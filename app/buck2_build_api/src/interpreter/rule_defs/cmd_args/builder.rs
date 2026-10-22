@@ -29,6 +29,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::RelativePath;
 use buck2_interpreter::types::regex::StarlarkBuckRegex;
 use buck2_util::strong_hasher::Blake3StrongHasher;
+use buck2_util::strong_hasher::StrongHash128;
 use dupe::Dupe;
 use regex::Regex;
 use starlark::values::ValueOfUnchecked;
@@ -43,6 +44,7 @@ use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::shlex_quote::shlex_quote;
 use crate::interpreter::rule_defs::cmd_args::sink::CommandLineSink;
 use crate::interpreter::rule_defs::cmd_args::traits::ArtifactPathMapper;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -288,6 +290,12 @@ enum Op<'a> {
     PushCellPath(&'a CellPath),
     PushNextWriteToFileMacroPath,
     PushProjectPath(&'a ProjectRelativePath),
+    /// A transitive set projection, by `TransitiveSet::projection_hash` and how it is traversed.
+    PushTransitiveSetProjection {
+        hash: StrongHash128,
+        projection: usize,
+        ordering: TransitiveSetOrdering,
+    },
 }
 
 enum CommandLineBuilderInner<'v, 'a> {
@@ -410,6 +418,35 @@ impl<'v, 'a> CommandLineBuilder<'v, 'a> {
     pub fn new_hashing(sink: &'a mut Blake3StrongHasher) -> HashingCommandLineBuilder<'v, 'a> {
         sink.write_u32(HASH_VERSION);
         HashingCommandLineBuilder(Self(CommandLineBuilderInner::Hash { h: sink }))
+    }
+
+    /// Whether this is a hashing builder (`new_hashing`) rather than a rendering one.
+    pub(crate) fn is_hashing(&self) -> bool {
+        matches!(&self.0, CommandLineBuilderInner::Hash { .. })
+    }
+
+    /// Hashes a transitive set projection by its precomputed `hash` in place of its contents. For
+    /// a hashing builder only; a rendering builder renders the contents.
+    pub(crate) fn push_transitive_set_projection(
+        &mut self,
+        hash: StrongHash128,
+        projection: usize,
+        ordering: TransitiveSetOrdering,
+    ) -> buck2_error::Result<()> {
+        match &mut self.0 {
+            CommandLineBuilderInner::Hash { h, .. } => {
+                Op::PushTransitiveSetProjection {
+                    hash,
+                    projection,
+                    ordering,
+                }
+                .strong_hash(h);
+                Ok(())
+            }
+            CommandLineBuilderInner::Regular(_) => Err(internal_error!(
+                "Precomputed transitive set projection hashes are for hashing builders only"
+            )),
+        }
     }
 
     pub(crate) fn push_scope(

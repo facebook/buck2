@@ -9,6 +9,7 @@
  */
 
 use std::fmt;
+use std::hash::Hasher;
 use std::iter;
 use std::ptr;
 use std::sync::Arc;
@@ -23,6 +24,8 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_hash::BuckMutSet;
+use buck2_util::strong_hasher::Blake3StrongHasher;
+use buck2_util::strong_hasher::StrongHash128;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
@@ -39,6 +42,9 @@ use starlark::eval::Evaluator;
 use starlark::type_matcher;
 use starlark::values::Deferred;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
+use starlark::values::Freezer;
 use starlark::values::FrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -54,6 +60,7 @@ use starlark::values::starlark_value;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
 use starlark::values::typing::TypeMatcherDyn;
+use strong_hash::StrongHash;
 
 use crate::actions::impls::json::JsonUnpack;
 use crate::actions::impls::json::validate_json;
@@ -65,6 +72,7 @@ use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::InputProperties;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
@@ -147,20 +155,11 @@ impl ProjectionBitSet {
     }
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Trace,
-    Freeze,
-    ProvidesStaticType,
-    Allocative,
-    StarlarkPagable
-)]
+#[derive(Debug, Clone, Trace, ProvidesStaticType, Allocative, StarlarkPagable)]
 #[repr(C)]
 pub struct TransitiveSet<'v> {
     /// A Deferred key that maps back to this set. This is used to compute its inputs.
     #[starlark_pagable(pagable)]
-    #[freeze(identity)]
     pub key: TransitiveSetKey,
 
     /// The TransitiveSetCallable that this set uses.
@@ -176,6 +175,12 @@ pub struct TransitiveSet<'v> {
     pub(crate) projection_path_resolution_may_require_artifact_value: ProjectionBitSet,
 
     pub(crate) projection_is_eligible_for_dedupe: ProjectionBitSet,
+
+    /// Each projection's hash, see `projection_hash`: one per projection once frozen, none
+    /// before.
+    #[trace(static)]
+    #[starlark_pagable(pagable)]
+    projection_hashes: Box<[StrongHash128]>,
 
     /// Read together on first access; `len()` does not read them.
     pub children: Deferred<ThinBoxSliceValue<'v>>,
@@ -410,6 +415,92 @@ impl<'v> TransitiveSet<'v> {
             })
             .collect()
     }
+}
+
+impl<'v> Freeze<'v> for TransitiveSet<'v> {
+    type Frozen<'fv> = TransitiveSet<'fv>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        let TransitiveSet {
+            key,
+            definition,
+            node,
+            reductions,
+            projection_path_resolution_may_require_artifact_value,
+            projection_is_eligible_for_dedupe,
+            projection_hashes: _,
+            children,
+        } = self;
+        let definition = definition.freeze(freezer)?;
+        let node = node.freeze(freezer)?;
+        let reductions = reductions.freeze(freezer)?;
+        // Freezes the children first, so each has its hashes by the time this set's are
+        // computed from them.
+        let children = children.freeze(freezer)?;
+        let projection_hashes = hash_projections(&key, &definition, node.as_ref(), &children)
+            .map_err(|e| FreezeError::new(format!("Hashing the projections of {key}: {e:#}")))?;
+        Ok(TransitiveSet {
+            key,
+            definition,
+            node,
+            reductions,
+            projection_path_resolution_may_require_artifact_value,
+            projection_is_eligible_for_dedupe,
+            projection_hashes,
+            children,
+        })
+    }
+}
+
+/// See `TransitiveSet::projection_hash`. The node's identity is in it because traversal dedups
+/// nodes by identity: two sets with equal content but different sharing can render differently.
+fn hash_projections<'fv>(
+    key: &TransitiveSetKey,
+    definition: &FrozenTransitiveSetDefinition<'fv>,
+    node: Option<&Node<'fv>>,
+    children: &Deferred<ThinBoxSliceValue<'fv>>,
+) -> buck2_error::Result<Box<[StrongHash128]>> {
+    let children: Vec<&TransitiveSet<'fv>> = children
+        .read()?
+        .iter()
+        .map(|child| {
+            TransitiveSet::from_value(child.to_value())
+                .internal_error("Invalid transitive set child")
+        })
+        .collect::<buck2_error::Result<_>>()?;
+    let def: &dyn TransitiveSetDefinitionLike = definition;
+    def.operations()
+        .projections
+        .values()
+        .enumerate()
+        .map(|(idx, spec)| {
+            let mut hasher = Blake3StrongHasher::new();
+            if let TransitiveSetProjectionKind::Args = spec.kind {
+                key.strong_hash(&mut hasher);
+                hasher.write_usize(children.len());
+                for child in &children {
+                    child
+                        .projection_hash(idx)
+                        .internal_error("A child was frozen without its projection hashes")?
+                        .strong_hash(&mut hasher);
+                }
+                match node {
+                    None => hasher.write_u8(0),
+                    Some(node) => {
+                        hasher.write_u8(1);
+                        let value = node
+                            .projections
+                            .get(idx)
+                            .internal_error("Invalid projection id")?;
+                        TransitiveSetArgsProjection::as_command_line(*value)?.add_to_command_line(
+                            &mut CommandLineBuilder::new_hashing(&mut hasher),
+                        )?;
+                    }
+                }
+            }
+            Ok(hasher.finalize128())
+        })
+        .collect()
 }
 
 starlark_complex_value!(pub TransitiveSet);
@@ -651,8 +742,18 @@ impl<'v> TransitiveSet<'v> {
             reductions,
             projection_path_resolution_may_require_artifact_value,
             projection_is_eligible_for_dedupe,
+            projection_hashes: Default::default(),
             children: Deferred::new(children),
         })
+    }
+
+    /// What `TransitiveSetArgsProjection::add_to_command_line` renders for args projection
+    /// `projection` of this set, as a hash: every reachable node's identity and its projection's
+    /// `CommandLineBuilder::new_hashing` hash, in the structure that any traversal order is a
+    /// function of. Computed when the set is frozen; `None` before that, and for json
+    /// projections unspecified.
+    pub(crate) fn projection_hash(&self, projection: usize) -> Option<StrongHash128> {
+        self.projection_hashes.get(projection).copied()
     }
 
     pub fn new_from_values(

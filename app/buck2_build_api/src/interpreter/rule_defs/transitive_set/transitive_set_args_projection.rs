@@ -234,6 +234,12 @@ impl<'v> CommandLineArgLike<'v> for TransitiveSetArgsProjection<'v> {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
             .internal_error("Invalid transitive_set")?;
 
+        if fmt.is_hashing() {
+            if let Some(hash) = set.projection_hash(self.projection) {
+                return fmt.push_transitive_set_projection(hash, self.projection, self.ordering);
+            }
+        }
+
         set.prefetch_children()?;
         for node in set.iter(self.ordering)?.values() {
             let node = node?;
