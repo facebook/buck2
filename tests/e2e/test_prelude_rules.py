@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -60,8 +61,16 @@ async def test_distinct_flag_sets_compile_separately(buck: Buck) -> None:
 
 # prelude/sh_binary.bzl `_generate_script`
 @buck_test(inplace=False, skip_for_os=["windows"])
-async def test_two_resources_from_one_target_keep_only_the_last(buck: Buck) -> None:
-    # Generated resources are linked at `package/target-name`, so `:gen[a]` and
-    # `:gen[b]` share a link and only `b` is laid out, without an error.
-    res = await buck.run("root//sh_resources:show")
-    assert res.stdout == "gen\nb"
+async def test_two_resources_at_one_link_are_an_error(buck: Buck) -> None:
+    await expect_failure(
+        buck.run("root//sh_resources:show"),
+        stderr_regex="would both be placed at `sh_resources/gen`",
+    )
+
+
+@buck_test(inplace=False, skip_for_os=["windows"])
+async def test_a_resource_at_the_main_link_is_an_error(buck: Buck) -> None:
+    await expect_failure(
+        buck.build("root//sh_resources:resource_at_main_link"),
+        stderr_regex="would both be placed at `show.sh`",
+    )

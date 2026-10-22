@@ -17,3 +17,10 @@ sh_binary(
     main = ":show_main",
     resources = [":gen[a]", ":gen[b]"],
 )
+
+# `main` is laid out at `show.sh`, where the source resource of that name goes too.
+sh_binary(
+    name = "resource_at_main_link",
+    main = ":show_main",
+    resources = ["show.sh"],
+)

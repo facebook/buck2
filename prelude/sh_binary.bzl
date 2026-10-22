@@ -38,8 +38,12 @@ def _generate_script(
         main_link = main_path if main_path.endswith(".bat") or main_path.endswith(".cmd") else main_path + ".bat"
     else:
         main_link = main_path if main_path.endswith(".sh") else main_path + ".sh"
-    resources = {_derive_link(src): src for src in resources}
-    resources[main_link] = main
+    links = {}
+    for link, src in [(_derive_link(src), src) for src in resources] + [(main_link, main)]:
+        if links.get(link, src) != src:
+            fail("sh_binary `{}`: `{}` and `{}` would both be placed at `{}`".format(name, links[link], src, link))
+        links[link] = src
+    resources = links
 
     # windows isn't stable with resources passed in as symbolic links for
     # remote execution. Allow using copies instead.
