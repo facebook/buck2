@@ -184,3 +184,12 @@ prelude.python_test(
     ],
     base_module = "",
 )
+
+prelude.python_test(
+    name = "test_shared_libraries_symlink_tree",
+    srcs = [
+        "shared_libraries_symlink_tree.py",
+        "tests/test_shared_libraries_symlink_tree.py",
+    ],
+    base_module = "",
+)
