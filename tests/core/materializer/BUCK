@@ -9,6 +9,7 @@ buck2_core_tests(
         "test_materializer",
         "test_granularity",
         "test_projections",
+        "test_readonly_outputs",
         "test_symlink_deps",
         "test_symlink_local_remote_bug",
         "test_symlink_to_parent_bug",
