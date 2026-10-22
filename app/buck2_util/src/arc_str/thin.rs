@@ -250,11 +250,13 @@ mod tests {
 
     #[test]
     fn test_little_stress_test() {
-        for i in 0..100 {
+        // Interpreted, a string costs milliseconds on the Windows CI hosts.
+        let (rounds, churn) = if cfg!(miri) { (20, 100) } else { (100, 1000) };
+        for i in 0..rounds {
             let strings = (0..i)
                 .map(|i| ThinArcStr::from(i.to_string()))
                 .collect::<Vec<_>>();
-            for j in 0..1000 {
+            for j in 0..churn {
                 let _ignore = ThinArcStr::from(j.to_string());
             }
             for (k, s) in strings.iter().enumerate() {
