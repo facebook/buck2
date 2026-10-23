@@ -31,6 +31,32 @@ use crate::actions::impls::cas_artifact::DirectoryKind;
 use crate::actions::impls::cas_artifact::UnregisteredCasArtifactAction;
 use crate::actions::impls::download_file::UnregisteredDownloadFileAction;
 
+/// The checksum of a `download_file` call.
+///
+/// Without `sha512` this is the `Checksum::new(sha1, sha256)` call that was always made, so every
+/// existing download keeps its representation. Only a `sha512` needs the table-driven
+/// constructor.
+fn download_checksum(
+    sha1: Option<&str>,
+    sha256: Option<&str>,
+    sha512: Option<&str>,
+) -> buck2_error::Result<Checksum> {
+    match sha512 {
+        None => Checksum::new(sha1, sha256),
+        Some(sha512) => {
+            let mut pairs = Vec::with_capacity(3);
+            if let Some(sha1) = sha1 {
+                pairs.push(("sha1", sha1));
+            }
+            if let Some(sha256) = sha256 {
+                pairs.push(("sha256", sha256));
+            }
+            pairs.push(("sha512", sha512));
+            Checksum::from_pairs(&pairs)
+        }
+    }
+}
+
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Tier0)]
 enum CasArtifactError {
@@ -44,8 +70,11 @@ enum CasArtifactError {
 #[starlark_module]
 pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
     /// Downloads a URL to an output (filename as string or output artifact). The file at the URL
-    /// must have the given sha1 or the command will fail. The optional parameter is_executable
-    /// indicates whether the resulting file should be marked with executable permissions.
+    /// must match every checksum given (`sha1`, `sha256` and/or `sha512`, each as a hex string,
+    /// and at least one is required) or the command will fail. The optional parameter size_bytes
+    /// is checked against the size of the downloaded file. The optional parameter
+    /// is_executable indicates whether the resulting file should be marked with executable
+    /// permissions.
     /// (Meta-internal) The optional parameter vpnless_url indicates a url from which this resource
     /// can be downloaded off VPN; this has the same restrictions as `url` above.
     fn download_file<'v>(
@@ -55,6 +84,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] vpnless_url: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] sha1: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] sha256: NoneOr<&str>,
+        #[starlark(require = named, default = NoneOr::None)] sha512: NoneOr<&str>,
         #[starlark(require = named, default = NoneOr::None)] size_bytes: NoneOr<u64>,
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
@@ -68,7 +98,11 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
             has_content_based_path.into_option(),
         )?;
 
-        let checksum = Checksum::new(sha1.into_option(), sha256.into_option())?;
+        let checksum = download_checksum(
+            sha1.into_option(),
+            sha256.into_option(),
+            sha512.into_option(),
+        )?;
 
         this.register_action(
             buck_mut_insertion_set![output_artifact],
@@ -162,5 +196,53 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         )?;
 
         Ok(output_value.into_declared_artifact(AssociatedArtifacts::new()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SHA1: &str = "8843d7f92416211de9ebb963ff4ce28125932878";
+    const SHA256: &str = "c3ab8ff13720e8ad9047dd39466b3c8974e592c2fa383d4a3960714caef0c4f2";
+    const SHA512: &str = "0a50261ebd1a390fed2bf326f2673c145582a6342d523204973d0219337f81616a8069b012587cf5635f6925f1b56c360230c19b273500ee013e030601bf2425";
+
+    #[test]
+    fn test_download_checksum_without_sha512_is_unchanged() -> buck2_error::Result<()> {
+        assert!(matches!(
+            download_checksum(Some(SHA1), None, None)?,
+            Checksum::Sha1(..)
+        ));
+        assert!(matches!(
+            download_checksum(None, Some(SHA256), None)?,
+            Checksum::Sha256(..)
+        ));
+        assert!(matches!(
+            download_checksum(Some(SHA1), Some(SHA256), None)?,
+            Checksum::Both { .. }
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn test_download_checksum_with_sha512_keeps_every_given_digest() -> buck2_error::Result<()> {
+        let only = download_checksum(None, None, Some(SHA512))?;
+        assert!(matches!(only, Checksum::Entries(..)));
+        assert_eq!(only.sha512(), Some(SHA512));
+        assert_eq!((only.sha1(), only.sha256()), (None, None));
+
+        let all = download_checksum(Some(SHA1), Some(SHA256), Some(SHA512))?;
+        assert_eq!(
+            (all.sha1(), all.sha256(), all.sha512()),
+            (Some(SHA1), Some(SHA256), Some(SHA512))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_download_checksum_refuses() {
+        assert!(download_checksum(None, None, None).is_err());
+        assert!(download_checksum(None, None, Some(SHA256)).is_err());
+        assert!(download_checksum(Some(SHA512), None, Some(SHA512)).is_err());
     }
 }
