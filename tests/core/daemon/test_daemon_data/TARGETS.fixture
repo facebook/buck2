@@ -1,5 +1,7 @@
-load(":defs.bzl", "long_running")
+load(":defs.bzl", "long_running", "pwd_run")
 
 trivial_build(name = "rule")
 
 long_running(name = "long_running")
+
+pwd_run(name = "pwd_run")
