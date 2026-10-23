@@ -44,20 +44,26 @@ use crate::storage::handle::WeakPagableStorageHandle;
 
 /// A resident value, or a fallible loader shared by all clones of the field.
 ///
+/// Optional metadata lives with the loader, so inspecting a deferred value need
+/// not restore its payload. Ready values derive metadata from `T` instead of
+/// retaining a separate copy. `M = ()` keeps metadata-free fields unchanged.
+///
 /// Serialization resolves unread fields before writing them, including when
 /// writing into another storage backend, using the value's normal serializer
-/// rather than forwarding an unread source-storage key.
+/// rather than forwarding an unread source-storage key. Metadata is not part
+/// of that encoding; an enclosing format must store and restore it separately.
 #[derive(Clone, Allocative)]
-pub struct DeferredValue<T>(DeferredValueState<T>);
+pub struct DeferredValue<T, M = ()>(DeferredValueState<T, M>);
 
 #[derive(Clone, Allocative)]
-enum DeferredValueState<T> {
+enum DeferredValueState<T, M> {
     Ready(T),
-    Pending(Arc<PendingValue<T>>),
+    Pending(Arc<PendingValue<T, M>>),
 }
 
 #[derive(Allocative)]
-struct PendingValue<T> {
+struct PendingValue<T, M> {
+    metadata: M,
     value: OnceCell<T>,
     /// Released after a successful load.
     load: Mutex<Option<Loader<T>>>,
@@ -111,14 +117,14 @@ impl<T> ArcLoader<T> {
     }
 }
 
-impl<T> PendingValue<T> {
+impl<T, M> PendingValue<T, M> {
     fn load(&self) -> crate::Result<T> {
         let mut loader = self.load.lock();
         let value = loader
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("resolved native field has no loader"))?
             .load()?;
-        // Released so a resolved field retains only its value.
+        // A resident value no longer needs the loader's resources.
         *loader = None;
         Ok(value)
     }
@@ -171,7 +177,7 @@ fn blocking<R>(load: impl FnOnce() -> crate::Result<R>) -> crate::Result<R> {
     load()
 }
 
-impl<T> DeferredValue<T> {
+impl<T, M> DeferredValue<T, M> {
     /// Construct a field that needs no storage access.
     pub fn new(value: T) -> Self {
         Self(DeferredValueState::Ready(value))
@@ -181,16 +187,23 @@ impl<T> DeferredValue<T> {
     /// owns the field. It also cannot perform a cold read of any deferred field,
     /// its own included: `read` refuses that while a cell is held (see
     /// [`HeldCell`]), so such a loader fails instead of deadlocking.
-    fn pending_loader(loader: Loader<T>) -> Self {
+    fn pending_loader(loader: Loader<T>, metadata: M) -> Self {
         Self(DeferredValueState::Pending(Arc::new(PendingValue {
+            metadata,
             value: OnceCell::new(),
             load: Mutex::new(Some(loader)),
         })))
     }
 
-    #[cfg(test)]
-    fn pending(load: impl Fn() -> crate::Result<T> + Send + Sync + 'static) -> Self {
-        Self::pending_loader(Loader::Custom(Box::new(load)))
+    /// Inspect metadata without loading, including while another cell is held.
+    /// The caller must make `from_ready` agree with the metadata supplied at
+    /// deserialization. Pending values retain that metadata after a read succeeds
+    /// or fails, so this operation never needs the loader or its lock.
+    pub fn metadata_or_else<'a>(&'a self, from_ready: impl FnOnce(&'a T) -> &'a M) -> &'a M {
+        match &self.0 {
+            DeferredValueState::Ready(value) => from_ready(value),
+            DeferredValueState::Pending(pending) => &pending.metadata,
+        }
     }
 
     /// Resolve once, sharing the result across readers. Failed loads may be
@@ -234,6 +247,19 @@ impl<A: ArcErase> DeferredValue<A> {
         deserializer: &mut D,
         enabled: bool,
     ) -> crate::Result<Self> {
+        Self::deserialize_arc_with_metadata(deserializer, enabled, ())
+    }
+}
+
+impl<A: ArcErase, M> DeferredValue<A, M> {
+    /// Defer an existing Arc edge with metadata supplied by its enclosing format.
+    /// The metadata must describe the stored value. If deferral is disabled or
+    /// the format has no stable Arc keys, restore eagerly and discard metadata.
+    pub fn deserialize_arc_with_metadata<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+        enabled: bool,
+        metadata: M,
+    ) -> crate::Result<Self> {
         if enabled && let Some(key) = deserializer.take_arc_key()? {
             fn restore<A: ArcErase>(
                 storage: &PagableStorageHandle,
@@ -252,23 +278,26 @@ impl<A: ArcErase> DeferredValue<A> {
                     .map(ArcErase::dupe_strong)
                     .ok_or_else(|| anyhow::anyhow!("deferred arc type mismatch"))
             }
-            return Ok(Self::pending_loader(Loader::Arc(ArcLoader {
-                storage: deserializer.storage().downgrade(),
-                key,
-                restore: restore::<A>,
-            })));
+            return Ok(Self::pending_loader(
+                Loader::Arc(ArcLoader {
+                    storage: deserializer.storage().downgrade(),
+                    key,
+                    restore: restore::<A>,
+                }),
+                metadata,
+            ));
         }
         Ok(Self::new(deserialize_arc(deserializer)?))
     }
 }
 
-impl<T: PagableSerialize> PagableSerialize for DeferredValue<T> {
+impl<T: PagableSerialize, M> PagableSerialize for DeferredValue<T, M> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         self.read()?.pagable_serialize(serializer)
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for DeferredValue<T> {
+impl<T: fmt::Debug, M> fmt::Debug for DeferredValue<T, M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.0 {
             DeferredValueState::Ready(value) => f.debug_tuple("Ready").field(value).finish(),
@@ -281,12 +310,53 @@ impl<T: fmt::Debug> fmt::Debug for DeferredValue<T> {
 }
 
 #[cfg(test)]
+impl<T> DeferredValue<T> {
+    fn pending(load: impl Fn() -> crate::Result<T> + Send + Sync + 'static) -> Self {
+        Self::pending_loader(Loader::Custom(Box::new(load)), ())
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use std::sync::Barrier;
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
 
     use super::*;
+
+    static_assertions::const_assert_eq!(
+        std::mem::size_of::<DeferredValue<Arc<u8>, [u8; 32]>>(),
+        std::mem::size_of::<DeferredValue<Arc<u8>>>(),
+    );
+
+    #[test]
+    fn metadata_survives_failed_and_successful_reads() -> crate::Result<()> {
+        let loads = Arc::new(AtomicUsize::new(0));
+        let count = loads.clone();
+        let value = DeferredValue::pending_loader(
+            Loader::Custom(Box::new(move || {
+                if count.fetch_add(1, Ordering::Relaxed) == 0 {
+                    anyhow::bail!("first read failed");
+                }
+                Ok(17)
+            })),
+            17,
+        );
+        {
+            let _held = HeldCell::enter();
+            assert_eq!(*value.metadata_or_else(|v| v), 17);
+        }
+        assert_eq!(loads.load(Ordering::Relaxed), 0);
+        assert!(value.read().is_err());
+        assert_eq!(*value.metadata_or_else(|v| v), 17);
+        assert_eq!(loads.load(Ordering::Relaxed), 1);
+        assert_eq!(*value.clone().read()?, 17);
+        assert_eq!(*value.metadata_or_else(|v| v), 17);
+        assert_eq!(loads.load(Ordering::Relaxed), 2);
+        let ready = DeferredValue::new(17);
+        assert_eq!(value.metadata_or_else(|v| v), ready.metadata_or_else(|v| v));
+        Ok(())
+    }
 
     #[test]
     fn concurrent_clones_load_once() -> crate::Result<()> {
@@ -341,7 +411,7 @@ mod tests {
     #[test]
     fn cold_read_while_holding_a_cell_is_refused() {
         let value = DeferredValue::pending(|| Ok(3));
-        let ready = DeferredValue::new(4);
+        let ready = DeferredValue::<_>::new(4);
         {
             let _held = HeldCell::enter();
             assert!(value.read().is_err());
@@ -403,7 +473,7 @@ mod tests {
         let value = DeferredValue::pending(|| Ok(17));
         assert!(value.read().is_err());
         assert!(!value.is_resolved());
-        assert_eq!(*DeferredValue::new(17).read()?, 17);
+        assert_eq!(*DeferredValue::<_>::new(17).read()?, 17);
         Ok(())
     }
 

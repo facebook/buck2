@@ -688,6 +688,40 @@ fn deferred_arc_skips_fetch_then_preserves_identity() -> anyhow::Result<()> {
 }
 
 #[test]
+fn deferred_arc_metadata_skips_fetch_then_preserves_identity() -> anyhow::Result<()> {
+    let mem = InMemoryPagableStorage::new();
+    let storage = Arc::new(CountingStorage::new(mem.handle()));
+    let keys = serialize_shared_arc_items(&storage, 1)?;
+    let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+    let data = storage.fetch_data_blocking(&keys[0])?;
+    let mut de = handle.root_deserializer(keys[0], &data);
+    let _: u8 = crate::PagableDeserialize::pagable_deserialize(&mut de)?;
+    let before = storage.fetch_count.load(Ordering::SeqCst);
+    let deferred = crate::DeferredValue::<Arc<Vec<u8>>, u8>::deserialize_arc_with_metadata(
+        &mut de, true, 0xAB,
+    )?;
+    assert_eq!(*deferred.metadata_or_else(|v| &v[0]), 0xAB);
+    assert!(!deferred.is_resolved());
+    assert_eq!(storage.fetch_count.load(Ordering::SeqCst), before);
+    let loaded = deferred.read()?;
+    assert_eq!(loaded.as_slice(), &[0xAB; 1000]);
+    assert_eq!(storage.fetch_count.load(Ordering::SeqCst), before + 1);
+
+    let mut eager_de = handle.root_deserializer(keys[0], &data);
+    let _: u8 = crate::PagableDeserialize::pagable_deserialize(&mut eager_de)?;
+    let eager = crate::DeferredValue::<Arc<Vec<u8>>, u8>::deserialize_arc_with_metadata(
+        &mut eager_de,
+        false,
+        0xAB,
+    )?;
+    assert!(eager.is_resolved());
+    assert_eq!(*eager.metadata_or_else(|v| &v[0]), 0xAB);
+    assert!(Arc::ptr_eq(loaded, eager.read()?));
+    assert_eq!(storage.fetch_count.load(Ordering::SeqCst), before + 1);
+    Ok(())
+}
+
+#[test]
 fn unread_native_field_serializes_to_another_storage() -> anyhow::Result<()> {
     let mem = InMemoryPagableStorage::new();
     let storage = Arc::new(CountingStorage::new(mem.handle()));

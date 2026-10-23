@@ -474,8 +474,8 @@ mod tests {
 
     #[test]
     #[cfg_attr(
-        all(miri, windows),
-        ignore = "parking_lot finds `WaitOnAddress` through `GetModuleHandleA`, which Miri lets only std call"
+        miri,
+        ignore = "parking_lot contention uses exposed provenance and platform APIs unsupported by Miri"
     )]
     fn storage_context_initializes_state_once_concurrently() {
         const THREADS: usize = 8;
