@@ -40,6 +40,7 @@ use buck2_hash::BuckMutInsertionSet;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use starlark_map::Hashed;
 use strong_hash::StrongHash;
@@ -616,7 +617,7 @@ struct ConfiguredTargetNodeDeps {
     /// Number of deps, excluding exec deps. Used as an index to retrieve exec_deps
     deps_count: usize,
     /// (target deps and toolchain deps) followed by `exec_deps`.
-    all_deps: Box<[ConfiguredTargetNode]>,
+    all_deps: MiniBoxSlice<ConfiguredTargetNode>,
 }
 
 impl ConfiguredTargetNodeDeps {
@@ -624,21 +625,17 @@ impl ConfiguredTargetNodeDeps {
         if deps.is_empty() {
             ConfiguredTargetNodeDeps {
                 deps_count: 0,
-                all_deps: exec_deps.into_boxed_slice(),
+                all_deps: exec_deps.into(),
             }
         } else if exec_deps.is_empty() {
             ConfiguredTargetNodeDeps {
                 deps_count: deps.len(),
-                all_deps: deps.into_boxed_slice(),
+                all_deps: deps.into(),
             }
         } else {
             ConfiguredTargetNodeDeps {
                 deps_count: deps.len(),
-                all_deps: deps
-                    .into_iter()
-                    .chain(exec_deps)
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
+                all_deps: deps.into_iter().chain(exec_deps).collect(),
             }
         }
     }
