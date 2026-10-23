@@ -33,6 +33,12 @@ python_library(
 )
 
 python_library(
+    name = "http_archive",
+    srcs = ["helper/http_archive.py"],
+    deps = [":http_server"],
+)
+
+python_library(
     name = "utilities",
     srcs = [
         "asserts.py",
