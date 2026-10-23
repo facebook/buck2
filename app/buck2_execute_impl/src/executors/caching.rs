@@ -568,11 +568,20 @@ impl UploadCache for CacheUploader {
     ) -> buck2_error::Result<CacheUploadResults> {
         let error_on_cache_upload = error_on_cache_upload().buck_error_context("cache_upload")?;
 
-        // Local results need the action's permission; RE-produced results are already published.
-        let local_upload_allowed = !res.was_locally_executed() || info.allow_cache_upload;
-        let (cache_upload_outcome, mut local_result) = if !local_upload_allowed {
+        // A result RE produced is published already; a local one needs the action's permission.
+        let (cache_upload_outcome, mut local_result) = if !res.was_locally_executed() {
+            if dep_file_bundle.is_some() {
+                (CacheUploadOutcome::HadDepFileBundle, None)
+            } else {
+                tracing::info!(
+                    "Cache upload for `{}` not attempted",
+                    action_digest_and_blobs.action
+                );
+                (CacheUploadOutcome::NonLocalExecution, None)
+            }
+        } else if !info.allow_cache_upload {
             (CacheUploadOutcome::ActionUploadNotAllowed, None)
-        } else if res.was_locally_executed() {
+        } else {
             tracing::debug!(
                 "Uploading action result for `{}`",
                 action_digest_and_blobs.action
@@ -588,14 +597,6 @@ impl UploadCache for CacheUploader {
             )
             .boxed()
             .await?
-        } else if dep_file_bundle.is_some() {
-            (CacheUploadOutcome::HadDepFileBundle, None)
-        } else {
-            tracing::info!(
-                "Cache upload for `{}` not attempted",
-                action_digest_and_blobs.action
-            );
-            (CacheUploadOutcome::NonLocalExecution, None)
         };
         // A local upload re-sends the result it just wrote; anything else re-sends RE's.
         let action_result = if res.was_locally_executed() {
@@ -604,10 +605,13 @@ impl UploadCache for CacheUploader {
             re_result
         };
 
-        let should_upload_dep_file = local_upload_allowed
-            && (res.was_locally_executed()
-                || res.was_remotely_executed()
-                || res.was_action_cache_hit());
+        // The dep file entry publishes the result it names, so it follows the result: a local
+        // one on the action's permission, a remote one or a cache hit as RE published it.
+        let should_upload_dep_file = if res.was_locally_executed() {
+            info.allow_cache_upload
+        } else {
+            res.was_remotely_executed() || res.was_action_cache_hit()
+        };
 
         let (dep_file_cache_upload_outcome, dep_file_cache_upload_key) = match dep_file_bundle {
             Some(dep_file_bundle) if should_upload_dep_file => {
