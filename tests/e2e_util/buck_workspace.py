@@ -20,6 +20,7 @@ import os
 import platform
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -486,6 +487,13 @@ def _cleanup_eden(
     )
 
 
+def _copy_writable(src: str | os.PathLike[str], dst: str | os.PathLike[str]) -> None:
+    """Copies a file, giving the copy its owner's write permission; the test
+    writes to its copy of fixtures that buck materializes read-only."""
+    shutil.copy2(src, dst)
+    os.chmod(dst, os.stat(dst).st_mode | stat.S_IWUSR)
+
+
 def _copytree(
     src: Path,
     dst: Path,
@@ -500,9 +508,11 @@ def _copytree(
         s = src / item
         d = dst / item
         if os.path.isdir(s):
-            shutil.copytree(s, d, symlinks, ignore, dirs_exist_ok=True)
+            shutil.copytree(
+                s, d, symlinks, ignore, copy_function=_copy_writable, dirs_exist_ok=True
+            )
         else:
-            shutil.copy2(s, d)
+            _copy_writable(s, d)
 
 
 def _check_core_test_cells(project_dir: Path) -> None:
