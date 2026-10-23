@@ -1,0 +1,1 @@
+outside `strip_prefix`, must not be extracted at all
