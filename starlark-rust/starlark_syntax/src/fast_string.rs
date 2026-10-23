@@ -26,8 +26,6 @@ use std::str;
 
 use dupe::Dupe;
 
-use crate::convert_indices::convert_indices;
-
 #[inline(always)]
 fn is_1byte(x: u8) -> bool {
     x & 0x80 == 0
@@ -178,6 +176,21 @@ fn split_at_end(x: &str, i: CharIndex) -> &str {
     }
 }
 
+/// Like `convert_indices`, but for a char length that may not fit in `i32`
+/// (a string can hold up to `u32::MAX` bytes).
+fn convert_char_indices(
+    len: CharIndex,
+    start: Option<i32>,
+    end: Option<i32>,
+) -> (CharIndex, CharIndex) {
+    let bound = |i: Option<i32>, default: usize| match i {
+        None => default,
+        Some(i) if i < 0 => len.0.saturating_sub(i.unsigned_abs() as usize),
+        Some(i) => min(i as usize, len.0),
+    };
+    (CharIndex(bound(start, 0)), CharIndex(bound(end, len.0)))
+}
+
 fn convert_str_indices_slow(
     s: &str,
     start: Option<i32>,
@@ -187,12 +200,11 @@ fn convert_str_indices_slow(
     // because at least one of the indices is negative.
     debug_assert!(matches!(start, Some(start) if start < 0) || matches!(end, Some(end) if end < 0));
     let len = len(s);
-    let (start, end) = convert_indices(len.0 as i32, start, end);
+    let (start, end) = convert_char_indices(len, start, end);
     if start > end {
         return None;
     }
-    let (start, end) = (CharIndex(start), CharIndex(end));
-    debug_assert!(end <= len);
+    assert!(end <= len);
     let s = if len.0 == s.len() {
         // ASCII fast path: if char len is equal to byte len,
         // we know the string is ASCII.
@@ -300,6 +312,7 @@ mod tests {
 
     use crate::fast_string::CharIndex;
     use crate::fast_string::StrIndices;
+    use crate::fast_string::convert_char_indices;
     use crate::fast_string::convert_str_indices;
 
     #[test]
@@ -355,6 +368,30 @@ mod tests {
                 haystack: "fish",
             }),
             convert_str_indices("fish", None, Some(10))
+        );
+    }
+
+    #[test]
+    fn test_convert_char_indices_len_beyond_i32() {
+        let len = CharIndex(1 << 31);
+        assert_eq!(
+            (CharIndex(0), CharIndex((1 << 31) - 1)),
+            convert_char_indices(len, None, Some(-1))
+        );
+        assert_eq!(
+            (CharIndex(0), CharIndex(5)),
+            convert_char_indices(len, Some(i32::MIN), Some(5))
+        );
+        assert_eq!(
+            (CharIndex((1 << 31) - 1), CharIndex(1 << 31)),
+            convert_char_indices(len, Some(-1), None)
+        );
+        assert_eq!(
+            (
+                CharIndex(u32::MAX as usize - 1),
+                CharIndex(i32::MAX as usize)
+            ),
+            convert_char_indices(CharIndex(u32::MAX as usize), Some(-1), Some(i32::MAX))
         );
     }
 
