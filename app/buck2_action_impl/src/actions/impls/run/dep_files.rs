@@ -138,13 +138,11 @@ fn encode_config_key(cfg: Option<Configuration>) -> Vec<u8> {
 /// configuration (and always occupy their own single-entry slot).
 /// Most logical actions are only ever
 /// seen under a single configuration, so that common case is stored inline (`One`) to avoid
-/// allocating a map for a single entry; a second configuration promotes the slot to `Many`. The
-/// `Many` map is boxed so this enum stays pointer-sized -- single-configuration `One` slots (the
-/// common case) then don't pay for the map's larger inline footprint.
+/// allocating a map for a single entry; a second configuration promotes the slot to `Many`.
 #[derive(Allocative)]
 enum ConfigActionSlot {
     One(Option<Configuration>, Arc<DepFileState>),
-    Many(Box<BuckMutInsertionMap<Option<Configuration>, Arc<DepFileState>>>),
+    Many(BuckMutInsertionMap<Option<Configuration>, Arc<DepFileState>>),
 }
 
 impl ConfigActionSlot {
@@ -174,10 +172,9 @@ impl ConfigActionSlot {
                 *s = state;
             }
             _ => {
-                let ConfigActionSlot::One(c, s) = std::mem::replace(
-                    self,
-                    ConfigActionSlot::Many(Box::new(BuckMutInsertionMap::new())),
-                ) else {
+                let ConfigActionSlot::One(c, s) =
+                    std::mem::replace(self, ConfigActionSlot::Many(BuckMutInsertionMap::new()))
+                else {
                     unreachable!("the arms above cover Many and the matching One");
                 };
                 let ConfigActionSlot::Many(m) = self else {

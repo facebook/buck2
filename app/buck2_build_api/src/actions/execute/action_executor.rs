@@ -133,12 +133,11 @@ struct ActionOutputsData {
 /// linear lookups beats the index map's two allocations plus bucket slack.
 /// Big producers (dist-ThinLTO index actions emit tens of thousands) keep
 /// the map so `get` stays O(1). Both preserve insertion order, which the
-/// fingerprint depends on. The map is boxed so the enum stays two words:
-/// an inline `BuckMutInsertionMap` is 9 words, and every action would carry it.
+/// fingerprint depends on.
 #[derive(Debug, Allocative, pagable::Pagable)]
 enum ActionOutputsMap {
     Small(MiniBoxSlice<(BuildArtifactPath, ArtifactValue)>),
-    Large(Box<BuckMutInsertionMap<BuildArtifactPath, ArtifactValue>>),
+    Large(BuckMutInsertionMap<BuildArtifactPath, ArtifactValue>),
 }
 
 // One of these is retained per executed action; with the 32-byte fingerprint
@@ -154,7 +153,7 @@ impl ActionOutputsMap {
         if outputs.len() <= SMALL_OUTPUTS_MAX {
             ActionOutputsMap::Small(MiniBoxSlice::from_iter(outputs))
         } else {
-            ActionOutputsMap::Large(Box::new(outputs))
+            ActionOutputsMap::Large(outputs)
         }
     }
 
