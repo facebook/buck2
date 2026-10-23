@@ -60,10 +60,18 @@ SelectedAppleAssetCatalogSpec = record(
     target = field(Label),
 )
 
+# An asset symbol spec on a node of the bundle's resource graph, and whether
+# the bundle's resource group selects that node.
+ReachableXcassetsSymbolSpec = record(
+    spec = field(MetaXcassetsAssetSymbolSpec),
+    selected = field(bool),
+)
+
 AppleResourceSelectionOutput = record(
     resource_specs = field(list[AppleResourceSpec]),
     asset_catalog_specs = field(list[AppleAssetCatalogSpec]),
     selected_asset_catalog_specs = field(list[SelectedAppleAssetCatalogSpec], []),
+    reachable_xcassets_symbol_specs = field(list[ReachableXcassetsSymbolSpec], []),
     core_data_specs = field(list[AppleCoreDataSpec]),
     scene_kit_assets_spec = field(list[SceneKitAssetsSpec]),
     cxx_resource_specs = field(list[CxxResourceSpec]),
