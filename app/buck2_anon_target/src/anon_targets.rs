@@ -86,6 +86,7 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::spec::internal::is_internal_attr;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
+use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::time_span::TimeSpan;
@@ -618,6 +619,7 @@ impl AnonTargetKey {
                         num_declared_artifacts,
                         validations,
                         requested_anon_targets,
+                        RuleType::Starlark(self.0.rule_type().dupe()),
                     )?,
                     split_instants,
                 ),

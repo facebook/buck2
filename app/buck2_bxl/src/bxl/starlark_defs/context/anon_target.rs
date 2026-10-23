@@ -44,6 +44,7 @@ use buck2_interpreter_for_build::rule::StarlarkRuleCallable;
 use buck2_interpreter_for_build::rule::frozen_rule_attribute_spec;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
+use buck2_node::rule_type::RuleType;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
@@ -354,6 +355,7 @@ async fn eval_bxl_for_anon_target_inner(
                 num_declared_artifacts,
                 validations,
                 requested_anon_targets,
+                RuleType::Starlark(anon_target.rule_type().dupe()),
             )?,
         ))
     })

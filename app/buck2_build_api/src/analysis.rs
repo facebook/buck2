@@ -18,6 +18,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_events::span::SpanId;
 use buck2_hash::BuckFixedSortedMap;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
+use buck2_node::rule_type::RuleType;
 use buck2_util::time_span::TimeSpan;
 use pagable::DeferredValue;
 use pagable::PagableDeserialize;
@@ -78,6 +79,9 @@ pub struct AnalysisWithExtraData {
 
 #[derive(Debug, Clone, Dupe, Allocative, pagable::Pagable)]
 pub struct AnalysisResult {
+    /// Shares the rule definition without retaining its configured dependency graph.
+    /// Forward nodes reuse the underlying analysis result, including this metadata.
+    rule_type: RuleType,
     /// With deferred field reads enabled, provider-only reads leave this
     /// payload unloaded, avoiding restoration of unrelated registered actions.
     analysis_values: DeferredAnalysisValues,
@@ -130,11 +134,13 @@ impl AnalysisResult {
         num_declared_artifacts: u64,
         validations: Option<TransitiveValidations>,
         requested_anon_targets: Vec<BaseDeferredKey>,
+        rule_type: RuleType,
     ) -> buck2_error::Result<Self> {
         let provider_collection = analysis_values
             .provider_collection_if_present()?
             .map(|providers| providers.to_owned().value);
         Ok(Self {
+            rule_type,
             analysis_values: DeferredAnalysisValues(DeferredValue::new(Arc::new(analysis_values))),
             provider_collection,
             profile_data,
@@ -148,6 +154,10 @@ impl AnalysisResult {
 
     pub fn requested_anon_targets(&self) -> &[BaseDeferredKey] {
         &self.requested_anon_targets
+    }
+
+    pub fn rule_type(&self) -> &RuleType {
+        &self.rule_type
     }
 
     pub fn providers(&self) -> buck2_error::Result<FrozenProviderCollectionValueRef<'_>> {

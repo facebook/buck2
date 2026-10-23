@@ -341,6 +341,7 @@ async fn run_analysis_with_env_underlying(
                     declared_artifacts,
                     validations,
                     requested_anon_targets,
+                    node.rule_type().dupe(),
                 )?,
                 split_instants,
             ),

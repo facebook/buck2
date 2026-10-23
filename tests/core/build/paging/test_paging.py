@@ -24,6 +24,7 @@ from buck2.tests.e2e_util.buck_workspace import (
     env,
     parametrize,
 )
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 # The fixture's `.buckconfig` sets two `DaemonStartupConfig`s:
 # `buck2_hydration.enable_paging` (pagable DICE storage on disk) and
@@ -71,6 +72,13 @@ def _paged_in_count(result: BuildResult) -> int:
 def _paged_in_count_for_key_type(result: BuildResult, key_type: str) -> int:
     stats = result.invocation_record().get("page_in_by_key_type", {}).get(key_type)
     return int(stats["count"]) if stats is not None else 0
+
+
+async def _action_rule_type_names(buck: Buck) -> list[str | None]:
+    actions = await filter_events(
+        buck, "Event", "data", "SpanEnd", "data", "ActionExecution"
+    )
+    return [action.get("target_rule_type_name") for action in actions]
 
 
 async def _hydration_counts_for_key_type(buck: Buck, key_type: str) -> tuple[int, int]:
@@ -415,11 +423,13 @@ class PagingTest(BuckTestCase):
         # the loaded `.bxl` module heap. Page-out must retain and serialize that
         # owning module heap instead of following an unowned `FrozenValue` pointer.
         await buck.bxl("//page_out.bxl:main", "--", "--value", "first")
+        assert await _action_rule_type_names(buck) == [None, None]
         await buck.debug("hydration", "page-out")
 
         # A distinct BXL key pages the module back in while computing a new root.
         # The restored module must be retained by that root's evaluation heap too.
         await buck.bxl("//page_out.bxl:main", "--", "--value", "second")
+        assert await _action_rule_type_names(buck) == [None, None]
         await buck.debug("hydration", "page-out")
 
     @buck_test(data_dir="paging", write_invocation_record=True)
@@ -782,3 +792,58 @@ class PagingTest(BuckTestCase):
         assert changed.invocation_record()["analysis_count"] == 0
         if defer_field_reads:
             assert changed.invocation_record()["paging_data_keys_in"] < 500
+
+    @buck_test(data_dir="paging", write_invocation_record=True)
+    async def test_cached_build_metadata_skips_configured_graph(
+        self, buck: Buck
+    ) -> None:
+        _hydration_settings(
+            buck, page_out_on_idle=False, page_out_policy="once_per_value"
+        )
+        graph = buck.cwd / "graph"
+        graph.mkdir()
+        # A separate package keeps the top-level pattern lookup small. Reading its
+        # cached outputs and rule name must not restore these dependency nodes.
+        (graph / "TARGETS.fixture").write_text(
+            'load("//:rules.bzl", "analysis_node")\n'
+            + "\n".join(f'analysis_node(name="leaf_{i}")' for i in range(2000))
+            + '\nanalysis_node(name="all", deps=[":leaf_{}".format(i) for i in range(2000)], visibility=["PUBLIC"])\n'
+        )
+        targets = buck.cwd / "TARGETS.fixture"
+        targets.write_text(
+            'load(":rules.bzl", "copy_file")\n'
+            'copy_file(name="graph_root", src="src.txt", out="out.txt", deps=["//graph:all"])\n'
+        )
+        (buck.cwd / "src.txt").write_text("before eviction\n")
+        assert (
+            _target_output(await buck.build("//:graph_root"), "graph_root")
+            == "before eviction\n"
+        )
+        assert (await _page_out(buck))["paged_out_count"] > 0
+
+        for content in ["before eviction\n", "after eviction\n"]:
+            (buck.cwd / "src.txt").write_text(content)
+            result = await buck.build("//:graph_root")
+            assert _target_output(result, "graph_root") == content
+            assert result.invocation_record()["analysis_count"] == 0
+            assert result.invocation_record()["paging_data_keys_in"] < 500
+            assert _paged_in_count_for_key_type(result, "ConfiguredTargetNodeKey") == 0
+
+            responses = await filter_events(
+                buck, "Result", "result", "build_response", "build_targets"
+            )
+            assert responses[0][0]["target_rule_type_name"] == "copy_file"
+            if content == "after eviction\n":
+                assert await _action_rule_type_names(buck) == ["copy_file"]
+
+        # A rule-type change must update both analysis metadata and cached outputs.
+        targets.write_text(
+            'load(":rules.bzl", "analysis_node")\n'
+            'analysis_node(name="graph_root", deps=["//graph:all"])\n'
+        )
+        changed = await buck.build("//:graph_root")
+        assert changed.invocation_record()["analysis_count"] > 0
+        responses = await filter_events(
+            buck, "Result", "result", "build_response", "build_targets"
+        )
+        assert responses[0][0]["target_rule_type_name"] == "analysis_node"

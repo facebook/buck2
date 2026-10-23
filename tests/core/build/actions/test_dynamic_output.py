@@ -6,9 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
-
-
 import asyncio
 import fileinput
 import time
@@ -17,12 +14,25 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
 from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 
 class DynamicOutputTest(BuckTestCase):
     @buck_test(data_dir="everything")
     async def test_dynamic_output(self, buck: Buck) -> None:
         await buck.build("root//:")
+
+    @buck_test(data_dir="everything")
+    async def test_nested_dynamic_action_rule_type_names(self, buck: Buck) -> None:
+        # Both levels of dynamic holders must inherit the original rule metadata.
+        await buck.build("root//:nested")
+        actions = await filter_events(
+            buck, "Event", "data", "SpanEnd", "data", "ActionExecution"
+        )
+        assert actions
+        assert {action["target_rule_type_name"] for action in actions} == {
+            "dynamic_check"
+        }
 
     @buck_test(data_dir="everything_new")
     async def test_dynamic_output_new(self, buck: Buck) -> None:

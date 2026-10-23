@@ -13,6 +13,7 @@ def _copy_file_impl(ctx):
 copy_file = rule(
     impl = _copy_file_impl,
     attrs = {
+        "deps": attrs.list(attrs.dep(), default = []),
         "out": attrs.string(),
         "src": attrs.source(),
     },

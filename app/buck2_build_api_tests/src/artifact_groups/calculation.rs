@@ -49,6 +49,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
 use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutMap;
+use buck2_node::rule_type::RuleType;
 use dice::UserComputationData;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
@@ -101,6 +102,7 @@ fn mock_analysis_for_tsets(
                     0,
                     None,
                     Vec::new(),
+                    RuleType::Forward,
                 )
                 .expect("test analysis should have valid providers"),
             ),

@@ -501,6 +501,7 @@ mod tests {
     use buck2_hash::BuckMutInsertionSet;
     use buck2_hash::BuckMutMap;
     use buck2_hash::BuckMutSet;
+    use buck2_node::rule_type::RuleType;
     use dupe::Dupe;
     use pagable::Pagable;
     use pagable::pagable_typetag;
@@ -722,6 +723,7 @@ mod tests {
                 0,
                 None,
                 Vec::new(),
+                RuleType::Forward,
             )
             .expect("test analysis should have valid providers"),
         );

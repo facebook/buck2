@@ -54,7 +54,6 @@ use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::http::SetHttpClient;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::inject_legacy_config_for_test;
-use buck2_configured::nodes::ConfiguredTargetNodeKey;
 use buck2_core::category::CategoryRef;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
@@ -142,12 +141,18 @@ fn registered_action(
 }
 
 fn mock_analysis_for_action_resolution(
-    mut dice_builder: DiceBuilder,
+    dice_builder: DiceBuilder,
     action_key: &ActionKey,
     registered_action_arc: Arc<RegisteredAction>,
 ) -> DiceBuilder {
     let configured_target_label = create_test_configured_target_label();
-    let configured_node_key = ConfiguredTargetNodeKey(configured_target_label.dupe());
+    let node = ConfiguredTargetNode::testing_new(
+        configured_target_label.dupe(),
+        "foo_lib",
+        ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
+        vec![],
+        None,
+    );
 
     assert_eq!(
         &DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(configured_target_label.dupe())),
@@ -157,7 +162,9 @@ fn mock_analysis_for_action_resolution(
     let mut actions = RecordedActions::new(1);
     actions.insert(action_key.dupe(), registered_action_arc);
 
-    dice_builder = dice_builder.mock_and_return(
+    // Action execution must obtain telemetry from its analysis holder. Leave the
+    // configured-node key unmocked so an accidental graph lookup fails this test.
+    dice_builder.mock_and_return(
         AnalysisKey(configured_target_label.dupe()),
         ResultMaybeCompatible::Compatible(
             AnalysisResult::new(
@@ -172,20 +179,10 @@ fn mock_analysis_for_action_resolution(
                 0,
                 None,
                 Vec::new(),
+                node.rule_type().dupe(),
             )
             .expect("test analysis should have valid providers"),
         ),
-    );
-
-    dice_builder.mock_and_return(
-        configured_node_key,
-        ResultMaybeCompatible::Compatible(ConfiguredTargetNode::testing_new(
-            configured_target_label,
-            "foo_lib",
-            ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
-            vec![],
-            None,
-        )),
     )
 }
 

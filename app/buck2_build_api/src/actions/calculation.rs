@@ -21,7 +21,6 @@ use buck2_build_signals::env::WaitingData;
 use buck2_common::events::HasEvents;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
@@ -42,7 +41,7 @@ use buck2_execute::output_size::OutputSize;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
+use buck2_node::rule_type::RuleType;
 use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -93,7 +92,7 @@ async fn build_action_impl(
     cancellation: &CancellationContext,
     key: &ActionKey,
 ) -> buck2_error::Result<ActionOutputs> {
-    let action = ActionCalculation::get_action(ctx, key).await?;
+    let (action, rule_type) = ActionCalculation::get_action_with_rule_type(ctx, key).await?;
 
     if action.key() != key {
         // The action key we start with is on the DICE graph, and thus cached
@@ -107,7 +106,7 @@ async fn build_action_impl(
             .duped();
     }
 
-    build_action_no_redirect(ctx, cancellation, action).await
+    build_action_no_redirect(ctx, cancellation, action, rule_type).await
 }
 
 mini_vec::size_assert::words_of_async_fn_future!(build_action_impl, (_, _, _), ~53);
@@ -116,6 +115,7 @@ async fn build_action_no_redirect(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext,
     action: Arc<RegisteredAction>,
+    rule_type: Option<&RuleType>,
 ) -> buck2_error::Result<ActionOutputs> {
     let inputs = action.inputs()?;
     let waiting_data = WaitingData::new();
@@ -148,13 +148,7 @@ async fn build_action_no_redirect(
 
     let now = TimeSpan::start_now();
 
-    let target_rule_type_name = match action.key().owner() {
-        BaseDeferredKey::TargetLabel(target_label) => {
-            Some(get_target_rule_type_name(ctx, target_label).await?)
-        }
-        BaseDeferredKey::AnonTarget(anon_target) => anon_target.rule_type_name().map(str::to_owned),
-        BaseDeferredKey::BxlLabel(_) => None,
-    };
+    let target_rule_type_name = rule_type.map(|rule_type| rule_type.name().to_owned());
 
     let fut = build_action_inner(
         ctx,
@@ -700,6 +694,13 @@ impl ActionCalculation {
         ctx: &mut DiceComputations<'_>,
         action_key: &ActionKey,
     ) -> buck2_error::Result<Arc<RegisteredAction>> {
+        Ok(Self::get_action_with_rule_type(ctx, action_key).await?.0)
+    }
+
+    async fn get_action_with_rule_type<'d>(
+        ctx: &mut DiceComputations<'d>,
+        action_key: &ActionKey,
+    ) -> buck2_error::Result<(Arc<RegisteredAction>, Option<&'d RuleType>)> {
         // In the typical case, this lookup is only going to require a single deferred holder lookup. There's three cases:
         // 1. a normal action defined in analysis: lookup the holder for that analysis, get the action
         // 2. an action bound to a dynamic_output and then bound to an action there: the initial holder_key will actually
@@ -711,13 +712,15 @@ impl ActionCalculation {
         // of dynamic_output that were re-binding artifacts. In practice we've not yet encountered that.
         let deferred_holder = lookup_deferred_holder(ctx, action_key.holder_key()).await?;
         match deferred_holder.lookup_action(action_key)? {
-            ActionLookup::Action(action) => Ok(action),
+            ActionLookup::Action(action) => Ok((action, deferred_holder.rule_type())),
             ActionLookup::Deferred(action_key) => {
-                fn get_action_recurse<'a>(
-                    ctx: &'a mut DiceComputations<'_>,
+                fn get_action_recurse<'a, 'd>(
+                    ctx: &'a mut DiceComputations<'d>,
                     action_key: &'a ActionKey,
-                ) -> BoxFuture<'a, buck2_error::Result<Arc<RegisteredAction>>> {
-                    async move { ActionCalculation::get_action(ctx, action_key).await }.boxed()
+                ) -> BoxFuture<'a, buck2_error::Result<(Arc<RegisteredAction>, Option<&'d RuleType>)>>
+                {
+                    async move { ActionCalculation::get_action_with_rule_type(ctx, action_key).await }
+                        .boxed()
                 }
                 get_action_recurse(ctx, &action_key).await
             }
@@ -857,17 +860,4 @@ pub async fn command_details(
         metadata: Some(command.timing.to_proto()),
         additional_message: command.additional_message.clone(),
     }
-}
-
-pub async fn get_target_rule_type_name(
-    ctx: &mut DiceComputations<'_>,
-    label: &ConfiguredTargetLabel,
-) -> buck2_error::Result<String> {
-    Ok(ctx
-        .get_configured_target_node(label)
-        .await
-        .require_compatible()?
-        .underlying_rule_type()
-        .name()
-        .to_owned())
 }

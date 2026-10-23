@@ -20,6 +20,7 @@ use buck2_data::ComputeDetailedAggregatedMetricsStart;
 use buck2_error::internal_error;
 use buck2_events::dispatch::span_async_simple;
 use buck2_hash::BuckMutSet;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceDataBuilder;
@@ -35,6 +36,7 @@ use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
 use crate::build::detailed_aggregated_metrics::types::ActionGraphSketchResult;
 use crate::build::detailed_aggregated_metrics::types::ArtifactPathSketchResult;
 use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
+use crate::build::detailed_aggregated_metrics::types::DetailedMetricsInput;
 use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
 use crate::deferred::calculation::DeferredHolder;
@@ -56,7 +58,7 @@ pub trait HasDetailedAggregatedMetrics {
         config: &LegacyBuckConfig,
     ) -> buck2_error::Result<()>;
     fn compute_detailed_metrics(
-        &self,
+        &mut self,
         events: PerBuildEvents,
     ) -> impl Future<Output = buck2_error::Result<DetailedAggregatedMetrics>> + Send;
     fn compute_action_graph_sketch(
@@ -112,14 +114,29 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
     }
 
     async fn compute_detailed_metrics(
-        &self,
+        &mut self,
         events: PerBuildEvents,
     ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         span_async_simple(
             ComputeDetailedAggregatedMetricsStart {},
             async move {
+                let top_level_targets = self
+                    .compute_join(events.top_level_targets, async |ctx, spec| {
+                        let target = ctx
+                            .get_configured_target_node(spec.label.target())
+                            .await
+                            .require_compatible()?
+                            .dupe();
+                        Ok((spec, target))
+                    })
+                    .await
+                    .into_iter()
+                    .collect::<buck2_error::Result<Vec<_>>>()?;
                 get_detailed_aggregated_metrics_handle(self)?
-                    .compute_metrics(events)
+                    .compute_metrics(DetailedMetricsInput {
+                        executed_actions: events.executed_actions,
+                        top_level_targets,
+                    })
                     .await
             },
             ComputeDetailedAggregatedMetricsEnd {},

@@ -46,7 +46,6 @@ pub struct AnalysisMetrics {
 #[derive(Clone)]
 pub struct TopLevelTargetSpec {
     pub label: ConfiguredProvidersLabel,
-    pub target: ConfiguredTargetNode,
     pub outputs: Arc<Vec<(ArtifactGroup, BuildProviderType)>>,
 }
 
@@ -54,6 +53,13 @@ pub struct TopLevelTargetSpec {
 pub struct PerBuildEvents {
     pub executed_actions: buck2_hash::BuckMutSet<ActionKey>,
     pub top_level_targets: Vec<TopLevelTargetSpec>,
+}
+
+/// Full configured graphs are needed only by detailed metrics. Recording a
+/// top-level build must not restore or retain them for the other consumers.
+pub(crate) struct DetailedMetricsInput {
+    pub executed_actions: buck2_hash::BuckMutSet<ActionKey>,
+    pub top_level_targets: Vec<(TopLevelTargetSpec, ConfiguredTargetNode)>,
 }
 
 #[derive(Default)]

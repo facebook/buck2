@@ -33,7 +33,7 @@ use crate::build::detailed_aggregated_metrics::types::AllTargetsAggregatedData;
 use crate::build::detailed_aggregated_metrics::types::AnalysisMetrics;
 use crate::build::detailed_aggregated_metrics::types::BuiltWhen;
 use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
-use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
+use crate::build::detailed_aggregated_metrics::types::DetailedMetricsInput;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetAggregatedData;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
 use crate::deferred::calculation::OwnedDeferredHolder;
@@ -114,36 +114,37 @@ impl DetailedAggregatedMetricsStateTracker {
 
     async fn compute_metrics(
         &self,
-        events: PerBuildEvents,
+        events: DetailedMetricsInput,
     ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         let now = Instant::now();
 
-        let futures = events
-            .top_level_targets
-            .into_iter()
-            .enumerate()
-            .map(|(idx, spec)| {
-                let analysis_nodes = self.analysis_nodes.dupe();
-                let rule_type_name = spec.target.rule_type().name().to_owned();
-                spawn_blocking(move || {
-                    let mut target_graph = BuckMutSet::default();
-                    traverse_target_graph(&spec.target, |target| {
-                        target_graph.insert(target.dupe());
-                    });
-                    let action_graph_result = traverse_partial_action_graph(
-                        spec.outputs.iter().map(|(artifact, _)| artifact),
-                        &analysis_nodes,
-                    );
+        let futures =
+            events
+                .top_level_targets
+                .into_iter()
+                .enumerate()
+                .map(|(idx, (spec, target))| {
+                    let analysis_nodes = self.analysis_nodes.dupe();
+                    let rule_type_name = target.rule_type().name().to_owned();
+                    spawn_blocking(move || {
+                        let mut target_graph = BuckMutSet::default();
+                        traverse_target_graph(&target, |target| {
+                            target_graph.insert(target.dupe());
+                        });
+                        let action_graph_result = traverse_partial_action_graph(
+                            spec.outputs.iter().map(|(artifact, _)| artifact),
+                            &analysis_nodes,
+                        );
 
-                    (
-                        idx,
-                        spec.label,
-                        rule_type_name,
-                        target_graph,
-                        action_graph_result,
-                    )
-                })
-            });
+                        (
+                            idx,
+                            spec.label,
+                            rule_type_name,
+                            target_graph,
+                            action_graph_result,
+                        )
+                    })
+                });
 
         let results = buck2_util::future::try_join_all(futures).await?;
 

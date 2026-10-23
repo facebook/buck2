@@ -29,7 +29,6 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_dyn::ArtifactDyn;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
-use buck2_build_api::actions::calculation::get_target_rule_type_name;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::build_signals::HasBuildSignals;
@@ -92,7 +91,6 @@ use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
-use buck2_hash::BuckMutSet;
 use buck2_install_proto::DeviceMetadata;
 use buck2_install_proto::FileReadyRequest;
 use buck2_install_proto::InstallInfoRequest;
@@ -236,29 +234,10 @@ async fn install(
     mut ctx: DiceTransaction,
     request: &InstallRequest,
 ) -> buck2_error::Result<InstallResponse> {
-    let install_request_data_vec: Vec<InstallRequestData> =
-        collect_install_request_data(server_ctx, &mut ctx, request)
-            .await?
-            .into_iter()
-            .collect();
+    let (install_request_data_vec, target_rule_type_names) =
+        collect_install_request_data(server_ctx, &mut ctx, request).await?;
 
     let install_log_dir = &get_installer_log_directory(server_ctx, &mut ctx.ctx()).await?;
-
-    // Snapshot the installed target labels for telemetry before the vec is
-    // consumed by the install pipeline below. Deduped to keep
-    // `get_target_rule_type_name` work proportional to unique targets.
-    let installed_target_labels: Vec<ConfiguredTargetLabel> = {
-        let mut seen = BuckMutSet::default();
-        let mut out = Vec::new();
-        for data in &install_request_data_vec {
-            for (label, _) in &data.installed_targets {
-                if seen.insert(label.dupe()) {
-                    out.push(label.dupe());
-                }
-            }
-        }
-        out
-    };
 
     let install_requests = install_request_data_vec.into_iter().map(|data| {
         let installer_run_args = &request.installer_run_args;
@@ -280,23 +259,6 @@ async fn install(
         .await
         .buck_error_context("Interaction with installer failed.")?;
 
-    // Best-effort telemetry: a successful install must not be reported as failed
-    // because rule-type lookup hit an error (DICE failure, unbound late binding, etc).
-    let mut target_rule_type_names: Vec<String> = Vec::with_capacity(installed_target_labels.len());
-    for label in &installed_target_labels {
-        match get_target_rule_type_name(&mut ctx.ctx(), label).await {
-            Ok(name) => target_rule_type_names.push(name),
-            Err(e) => {
-                let _unused = soft_error!(
-                    "install_target_rule_type_name_failed",
-                    e.context("Failed to resolve installed target rule type for telemetry")
-                );
-            }
-        }
-    }
-    target_rule_type_names.sort();
-    target_rule_type_names.dedup();
-
     Ok(InstallResponse {
         target_rule_type_names,
     })
@@ -306,7 +268,7 @@ async fn collect_install_request_data(
     server_ctx: &dyn ServerCommandContextTrait,
     ctx: &mut DiceTransaction,
     request: &InstallRequest,
-) -> buck2_error::Result<impl IntoIterator<Item = InstallRequestData>> {
+) -> buck2_error::Result<(Vec<InstallRequestData>, Vec<String>)> {
     let cwd = server_ctx.working_dir();
 
     let global_cfg_options = global_cfg_options_from_client_context(
@@ -336,6 +298,7 @@ async fn collect_install_request_data(
         .buck_error_context("Install with explicit configuration pattern is not supported yet")?;
 
     let mut installer_to_files_map = BuckMutMap::default();
+    let mut target_rule_type_names = Vec::new();
     for (package_with_modifiers, spec) in resolved_pattern.specs {
         let PackageLabelWithModifiers { package, modifiers } = package_with_modifiers;
 
@@ -378,14 +341,19 @@ async fn collect_install_request_data(
                 .ctx()
                 .get_configured_provider_label(&label, &local_cfg_options)
                 .await?;
-            let install_info = ctx
+            let analysis = ctx
                 .ctx()
-                .get_providers(&providers_label)
-                .await?
-                .require_compatible()?
+                .get_analysis_result(providers_label.target())
+                .await
+                .require_compatible()?;
+            let install_info = analysis
+                .lookup_inner(&providers_label)?
                 .builtin_provider_value::<InstallInfo>()?;
             match install_info {
                 Some(owned_install_info) => {
+                    // Capture telemetry while the required analysis is already resident.
+                    // Completing installation must not trigger another graph lookup.
+                    target_rule_type_names.push(analysis.rule_type().name().to_owned());
                     let install_info = owned_install_info.as_ref().value().as_ref();
                     let installer_label = install_info.get_installer();
                     let install_files = install_info.get_files()?;
@@ -412,7 +380,9 @@ async fn collect_install_request_data(
             installed_targets,
         });
     }
-    Ok(request_data_vec)
+    target_rule_type_names.sort();
+    target_rule_type_names.dedup();
+    Ok((request_data_vec, target_rule_type_names))
 }
 
 /// Parses `--install-timeout <seconds>` or `--install-timeout=<seconds>` from the installer run

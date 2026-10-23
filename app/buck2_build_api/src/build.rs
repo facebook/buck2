@@ -32,7 +32,6 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::console_message;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
-use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -49,7 +48,6 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::actions::calculation::BuildKey;
-use crate::actions::calculation::get_target_rule_type_name;
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::ResolvedArtifactGroup;
@@ -740,21 +738,12 @@ async fn build_configured_label_inner(
         MaybeCompatible::Compatible(v) => v,
     };
 
-    let node = ctx
-        .get()
-        .get_configured_target_node(providers_label.target())
-        .await
-        .require_compatible()?
-        .dupe();
-
+    let target_rule_type_name = outputs.rule_type.name().to_owned();
+    let outputs = outputs.outputs;
     ctx.get().top_level_target(TopLevelTargetSpec {
         label: providers_label.dupe(),
-        target: node,
         outputs: outputs.dupe(),
     })?;
-
-    let target_rule_type_name =
-        get_target_rule_type_name(&mut ctx.get(), providers_label.target()).await?;
 
     let run_info: Option<OwnedRunInfo> = if opts.return_run_args {
         ctx.get()

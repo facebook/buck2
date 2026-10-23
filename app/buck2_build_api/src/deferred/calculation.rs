@@ -19,6 +19,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_node::rule_type::RuleType;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -110,6 +111,16 @@ pub enum DeferredHolder<'d> {
 }
 
 impl<'d> DeferredHolder<'d> {
+    /// Read metadata from the holder already required to resolve an action.
+    /// This must not demand the owner's configured node or deferred analysis fields.
+    pub fn rule_type(self) -> Option<&'d RuleType> {
+        match self {
+            Self::Analysis(result) => Some(result.rule_type()),
+            Self::Bxl(_) => None,
+            Self::DynamicLambda(result) => result.rule_type.as_ref(),
+        }
+    }
+
     pub(crate) fn lookup_transitive_set(
         self,
         key: &TransitiveSetKey,
