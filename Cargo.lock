@@ -1298,6 +1298,7 @@ name = "buck2_build_api_tests"
 version = "0.1.0"
 dependencies = [
  "allocative",
+ "anyhow",
  "assert_matches",
  "async-trait",
  "buck2_action_impl",
@@ -1328,7 +1329,9 @@ dependencies = [
  "buck2_util",
  "ctor",
  "derivative",
+ "derive_more 2.1.1",
  "dice",
+ "dice_futures",
  "dupe",
  "indoc",
  "itertools 0.15.0",

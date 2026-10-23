@@ -72,6 +72,7 @@ use crate::actions::errors::error_handler::StarlarkActionErrorContext;
 use crate::actions::errors::execute_error::ExecuteError;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::BuckActionExecutor;
+use crate::actions::execute::action_executor::DiceActionOutputs;
 use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
@@ -732,7 +733,7 @@ impl ActionCalculation {
         action_key: &ActionKey,
     ) -> impl Future<Output = buck2_error::Result<&'d ActionOutputs>> + use<'a, 'd> {
         ctx.compute(BuildKey::ref_cast(action_key))
-            .map(|v| v?.as_ref().duped_err())
+            .map(|v| v?.as_ref().duped_err()?.outputs())
     }
 
     pub fn build_artifact<'a, 'd>(
@@ -752,19 +753,21 @@ pub struct BuildKey(pub ActionKey);
 
 #[async_trait]
 impl Key for BuildKey {
-    type Value = buck2_error::Result<ActionOutputs>;
+    type Value = buck2_error::Result<DiceActionOutputs>;
 
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
         cancellation: &CancellationContext,
     ) -> Self::Value {
-        build_action_impl(ctx, cancellation, &self.0).await
+        build_action_impl(ctx, cancellation, &self.0)
+            .await
+            .map(Into::into)
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
         EqualityBehavior::Compare(|x, y| match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
+            (Ok(x), Ok(y)) => x.fingerprint() == y.fingerprint(),
             _ => false,
         })
     }

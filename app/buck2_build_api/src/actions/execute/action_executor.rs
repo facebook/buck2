@@ -30,6 +30,9 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_data::SchedulingMode;
+use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -82,7 +85,15 @@ use dupe::Dupe;
 use either::Either;
 use itertools::Itertools;
 use mini_vec::MiniBoxSlice;
+use pagable::DeferredValue;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
+use ref_cast::RefCastCustom;
+use ref_cast::ref_cast_custom;
 use remote_execution::TActionResult2;
+use starlark::pagable::DeferredFieldReadsEnabled;
 use strong_hash::StrongHash;
 
 use crate::actions::ActionExecutionCtx;
@@ -100,8 +111,89 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 
 /// This is the result of the action as exposed to other things in the dice computation.
-#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative, pagable::Pagable)]
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    PartialEq,
+    Eq,
+    Allocative,
+    pagable::Pagable,
+    RefCastCustom
+)]
+#[repr(transparent)]
 pub struct ActionOutputs(Arc<ActionOutputsData>);
+
+/// The DICE value exposes equality without demanding large output graphs. Actual
+/// artifact consumers use `outputs`, which can fail when paged data is unreadable.
+#[derive(Debug, Allocative)]
+pub struct DiceActionOutputs(DeferredValue<Arc<ActionOutputsData>, [u8; 32]>);
+
+// Computed values must stay as compact as Result<ActionOutputs>; only restored
+// values allocate a deferred cell and retain a separate equality fingerprint.
+buck2_util::size_assert::words_of_type!(buck2_error::Result<DiceActionOutputs>, 2);
+
+impl From<ActionOutputs> for DiceActionOutputs {
+    fn from(outputs: ActionOutputs) -> Self {
+        Self(DeferredValue::new(outputs.0))
+    }
+}
+
+impl DiceActionOutputs {
+    pub(crate) fn fingerprint(&self) -> &[u8; 32] {
+        self.0
+            .metadata_or_else(|outputs| outputs.fingerprint.as_bytes())
+    }
+
+    /// Resolve the stored output map once; equality checks do not call this.
+    pub fn outputs(&self) -> buck2_error::Result<&ActionOutputs> {
+        self.0
+            .read()
+            .map(ActionOutputs::ref_cast)
+            .map_err(|error| from_any_with_tag(error, ErrorTag::Environment))
+            .buck_error_context("Failed to restore action outputs")
+    }
+}
+
+impl PagableSerialize for DiceActionOutputs {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        let outputs = self.0.read()?;
+        // Bounded leaf results are cheaper to restore directly: a deferred
+        // cell and a second blocking read otherwise cost more than they save.
+        // Even one directory or symlink dependency can own an unbounded tree.
+        let defer = match &outputs.outputs {
+            ActionOutputsMap::Small(entries) => entries
+                .iter()
+                .any(|(_, value)| value.is_dir() || value.deps().is_some()),
+            ActionOutputsMap::Large(_) => true,
+        };
+        defer.pagable_serialize(serializer)?;
+        if defer {
+            outputs.fingerprint.pagable_serialize(serializer)?;
+        }
+        outputs.pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for DiceActionOutputs {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        if !bool::pagable_deserialize(deserializer)? {
+            return Ok(ActionOutputs::pagable_deserialize(deserializer)?.into());
+        }
+        let fingerprint = blake3::Hash::pagable_deserialize(deserializer)?;
+        let enabled = deserializer
+            .storage_context()
+            .get::<DeferredFieldReadsEnabled>()
+            .is_some();
+        Ok(Self(DeferredValue::deserialize_arc_with_metadata(
+            deserializer,
+            enabled,
+            *fingerprint.as_bytes(),
+        )?))
+    }
+}
 
 impl OutputSize for ActionOutputs {
     fn calc_output_count_and_bytes(&self, include_symlinks: bool) -> OutputCountAndBytes {
@@ -326,6 +418,9 @@ impl ActionExecutionKind {
 }
 
 impl ActionOutputs {
+    #[ref_cast_custom]
+    fn ref_cast(outputs: &Arc<ActionOutputsData>) -> &Self;
+
     pub fn new(outputs: BuckMutInsertionMap<BuildArtifactPath, ArtifactValue>) -> Self {
         let mut hasher = Blake3StrongHasher::new();
         outputs.len().strong_hash(&mut hasher);
