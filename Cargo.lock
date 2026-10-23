@@ -2300,6 +2300,7 @@ dependencies = [
  "dice_futures",
  "dupe",
  "futures 0.3.34",
+ "mini_vec",
  "pagable",
  "smallvec",
  "starlark",

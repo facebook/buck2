@@ -190,7 +190,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable<'v> {
                     attr_values.push(value);
                 }
                 Ok(DynamicAttrValues {
-                    values: attr_values.into_boxed_slice(),
+                    values: attr_values.into(),
                 })
             })?;
         Ok(eval.heap().alloc(StarlarkDynamicActions {

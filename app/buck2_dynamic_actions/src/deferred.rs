@@ -661,7 +661,7 @@ fn new_attr_value<'v>(
         }
         DynamicAttrValue::Dict(xs) => {
             let mut r = BuckMutInsertionMap::with_capacity(xs.len());
-            for (k, v) in &**xs {
+            for (k, v) in xs.iter() {
                 let prev = r.insert_hashed(
                     k.get_hashed()?,
                     new_attr_value(
