@@ -70,37 +70,9 @@ fn deserialize_target_outputs(
 
 #[derive(Debug, PartialEq, Allocative, StarlarkPagable)]
 pub enum ResolvedQueryMacro {
-    Outputs(
-        #[starlark_pagable(
-            serialize_with = "serialize_minibox_starlark",
-            deserialize_with = "deserialize_minibox_starlark"
-        )]
-        MiniBoxSlice<Box<[StarlarkArtifact]>>,
-    ),
+    Outputs(MiniBoxSlice<Box<[StarlarkArtifact]>>),
     Targets(#[starlark_pagable(pagable)] MiniBoxSlice<ConfiguredTargetLabel>),
     TargetsAndOutputs(Box<ResolvedQueryMacroTargetAndOutputs>),
-}
-
-fn serialize_minibox_starlark<T: StarlarkSerialize + 'static>(
-    field: &MiniBoxSlice<T>,
-    ctx: &mut dyn StarlarkSerializeContext,
-) -> starlark::Result<()> {
-    PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
-    for item in field.iter() {
-        StarlarkSerialize::starlark_serialize(item, ctx)?;
-    }
-    Ok(())
-}
-
-fn deserialize_minibox_starlark<'fv, T: StarlarkDeserialize<'fv> + 'static>(
-    ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
-) -> starlark::Result<MiniBoxSlice<T>> {
-    let len = usize::pagable_deserialize(ctx.pagable())?;
-    let mut items = Vec::with_capacity(len);
-    for _ in 0..len {
-        items.push(T::starlark_deserialize(ctx)?);
-    }
-    Ok(MiniBoxSlice::from_iter(items))
 }
 
 size_assert::words_of_type!(ResolvedQueryMacro, 2);

@@ -37,8 +37,6 @@ use derivative::Derivative;
 use dupe::Dupe;
 use itertools::Itertools;
 use mini_vec::MiniBoxSlice;
-use pagable::PagableDeserialize;
-use pagable::PagableSerialize;
 use starlark::StarlarkPagable;
 use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
@@ -46,7 +44,6 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::pagable::StarlarkDeserialize;
 use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
@@ -406,10 +403,6 @@ pub struct FrozenAnalysisValueStorage<'fv> {
     pub self_key: DeferredHolderKey,
     action_data:
         BuckMutInsertionMap<ActionIndex, (Option<Value<'fv>>, Option<StarlarkCallable<'fv>>)>,
-    #[starlark_pagable(
-        serialize_with = "serialize_transitive_sets",
-        deserialize_with = "deserialize_transitive_sets"
-    )]
     transitive_sets: MiniBoxSlice<ValueTyped<'fv, TransitiveSet<'fv>>>,
     #[starlark_pagable(
         serialize_with = "serialize_lambda_params",
@@ -432,28 +425,6 @@ fn deserialize_lambda_params<'fv>(
     DYNAMIC_LAMBDA_PARAMS_STORAGES
         .get()?
         .deserialize_frozen_dynamic_lambda_params_storage(ctx)
-}
-
-fn serialize_transitive_sets<'v>(
-    field: &MiniBoxSlice<ValueTyped<'v, TransitiveSet<'v>>>,
-    ctx: &mut dyn StarlarkSerializeContext,
-) -> starlark::Result<()> {
-    PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
-    for item in field.iter() {
-        StarlarkSerialize::starlark_serialize(item, ctx)?;
-    }
-    Ok(())
-}
-
-fn deserialize_transitive_sets<'v>(
-    ctx: &mut dyn StarlarkDeserializeContext<'_, 'v>,
-) -> starlark::Result<MiniBoxSlice<ValueTyped<'v, TransitiveSet<'v>>>> {
-    let len = usize::pagable_deserialize(ctx.pagable())?;
-    let mut items = Vec::with_capacity(len);
-    for _ in 0..len {
-        items.push(ValueTyped::<TransitiveSet>::starlark_deserialize(ctx)?);
-    }
-    Ok(MiniBoxSlice::from_iter(items))
 }
 
 unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {

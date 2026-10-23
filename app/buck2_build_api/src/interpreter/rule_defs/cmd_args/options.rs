@@ -22,15 +22,9 @@ use display_container::fmt_container;
 use dupe::Dupe;
 use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
-use pagable::PagableDeserialize;
-use pagable::PagableSerialize;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::pagable::StarlarkDeserialize;
-use starlark::pagable::StarlarkDeserializeContext;
-use starlark::pagable::StarlarkSerialize;
-use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -248,46 +242,14 @@ enum FrozenCommandLineOption<'v> {
     Format(StringValue<'v>),
     Prepend(StringValue<'v>),
     Quote(#[starlark_pagable(pagable)] QuoteStyle),
-    Replacements(
-        #[starlark_pagable(
-            serialize_with = "serialize_minibox_starlark",
-            deserialize_with = "deserialize_minibox_starlark"
-        )]
-        MiniBoxSlice<(CmdArgsRegex<'v>, StringValue<'v>)>,
-    ),
+    Replacements(MiniBoxSlice<(CmdArgsRegex<'v>, StringValue<'v>)>),
 }
 
 size_assert::words_of_type!(FrozenCommandLineOption<'static>, 2);
 
 #[derive(Debug, Default, ProvidesStaticType, Allocative, StarlarkPagable)]
 pub(crate) struct FrozenCommandLineOptions<'v> {
-    #[starlark_pagable(
-        serialize_with = "serialize_minibox_starlark",
-        deserialize_with = "deserialize_minibox_starlark"
-    )]
     options: MiniBoxSlice<FrozenCommandLineOption<'v>>,
-}
-
-fn serialize_minibox_starlark<T: StarlarkSerialize>(
-    field: &MiniBoxSlice<T>,
-    ctx: &mut dyn StarlarkSerializeContext,
-) -> starlark::Result<()> {
-    PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
-    for item in field.iter() {
-        StarlarkSerialize::starlark_serialize(item, ctx)?;
-    }
-    Ok(())
-}
-
-fn deserialize_minibox_starlark<'fv, T: StarlarkDeserialize<'fv>>(
-    ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
-) -> starlark::Result<MiniBoxSlice<T>> {
-    let len = usize::pagable_deserialize(ctx.pagable())?;
-    let mut items = Vec::with_capacity(len);
-    for _ in 0..len {
-        items.push(T::starlark_deserialize(ctx)?);
-    }
-    Ok(MiniBoxSlice::from_iter(items))
 }
 
 impl<'v> FrozenCommandLineOptions<'v> {
