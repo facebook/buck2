@@ -2258,6 +2258,9 @@ fn cache_upload_outcome(value: &Value) -> String {
         UploadResult::DepFileUploadNotAllowed => {
             "not uploaded by client: action disallows dep-file cache uploads"
         }
+        UploadResult::LocalInPlaceOfRemote => {
+            "not uploaded by client: a local run stood in for a remote one"
+        }
     }
     .to_owned()
 }
@@ -3788,6 +3791,10 @@ mod tests {
         assert_eq!(
             cache_upload_outcome(&json!(16)),
             "not uploaded by client: non-local result had a dep-file bundle",
+        );
+        assert_eq!(
+            cache_upload_outcome(&json!(19)),
+            "not uploaded by client: a local run stood in for a remote one",
         );
     }
 

@@ -2566,6 +2566,10 @@ enum UploadResult {
   UPLOAD_RESULT_DEP_FILE_ENTRY_EXISTS = 17;
   // The action declares dep files but does not allow dep-file cache uploads.
   UPLOAD_RESULT_DEP_FILE_UPLOAD_NOT_ALLOWED = 18;
+  // Not uploaded: the command ran locally only because a hybrid executor fell
+  // back to local or local won the race. A local result is published only
+  // where the command was configured to run locally.
+  UPLOAD_RESULT_LOCAL_IN_PLACE_OF_REMOTE = 19;
 }
 
 message CommandInvalidationInfo {

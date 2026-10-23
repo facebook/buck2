@@ -9,6 +9,7 @@
 # pyre-strict
 
 
+import typing
 from typing import Optional
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -20,7 +21,16 @@ from buck2.tests.e2e_util.buck_workspace import (
     env,
     parametrize,
 )
-from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
+from buck2.tests.e2e_util.helper.utils import (
+    filter_events,
+    json_get,
+    random_string,
+    read_what_ran,
+)
+
+# `buck2_data::UploadResult`
+UPLOAD_RESULT_ACTION_UPLOAD_NOT_ALLOWED = 6
+UPLOAD_RESULT_LOCAL_IN_PLACE_OF_REMOTE = 19
 
 
 class HybridExecutorTest(BuckTestCase):
@@ -75,6 +85,52 @@ class HybridExecutorTest(BuckTestCase):
                 *opts,
             )
         )
+
+    @buck_test()
+    async def test_hybrid_executor_fallback_is_not_published(self, buck: Buck) -> None:
+        async def execution(target: str) -> dict[str, typing.Any]:
+            await buck.build(target, "-c", f"test.cache_buster={random_string()}")
+            executions = await filter_events(
+                buck, "Event", "data", "SpanEnd", "data", "ActionExecution"
+            )
+            assert len(executions) == 1
+            return executions[0]
+
+        async def cache_uploads(buck: Buck) -> int:
+            return len(
+                await filter_events(
+                    buck, "Event", "data", "SpanEnd", "data", "CacheUpload"
+                )
+            )
+
+        # Remote execution fails the command and the fallback runs it locally. The platform
+        # allows cache uploads, but a result from a run the configuration did not decide on is
+        # not published.
+        fallback = await execution(
+            "root//executor_fallback_tests:local_only_with_uploads"
+        )
+        assert fallback["cache_upload_result"] == UPLOAD_RESULT_LOCAL_IN_PLACE_OF_REMOTE
+        assert await cache_uploads(buck) == 0
+
+        # An action that may not publish at all reports that, whatever run produced its result.
+        not_allowed = await execution(
+            "root//executor_fallback_tests:local_only_with_uploads_not_allowed"
+        )
+        assert (
+            not_allowed["cache_upload_result"]
+            == UPLOAD_RESULT_ACTION_UPLOAD_NOT_ALLOWED
+        )
+        assert await cache_uploads(buck) == 0
+
+        # The same command run locally by its own preference is published (or its upload refused
+        # for want of permission where the test runs, which is still an upload attempted).
+        preferred = await execution(
+            "root//executor_fallback_tests:prefer_local_with_uploads"
+        )
+        assert (
+            preferred["cache_upload_result"] != UPLOAD_RESULT_LOCAL_IN_PLACE_OF_REMOTE
+        )
+        assert await cache_uploads(buck) == 1
 
     @buck_test()
     async def test_hybrid_executor_fallback_preferred_error(self, buck: Buck) -> None:

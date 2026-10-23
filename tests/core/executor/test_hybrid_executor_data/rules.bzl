@@ -198,12 +198,14 @@ def _command_impl(ctx):
         force_full_hybrid_if_capable = ctx.attrs.force_full_hybrid_if_capable,
         weight = ctx.attrs.weight,
         unique_input_inodes = ctx.attrs.unique_input_inodes,
+        allow_cache_upload = ctx.attrs.allow_cache_upload,
     )
     return [DefaultInfo(default_output = out)]
 
 command = rule(
     impl = _command_impl,
     attrs = {
+        "allow_cache_upload": attrs.bool(default = False),
         "cache_buster": attrs.string(default = read_config("test", "cache_buster", "")),
         "command": attrs.source(),
         "env": attrs.dict(attrs.string(), attrs.arg(), default = {}),

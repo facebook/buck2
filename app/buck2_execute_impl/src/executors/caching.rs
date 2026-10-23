@@ -568,7 +568,10 @@ impl UploadCache for CacheUploader {
     ) -> buck2_error::Result<CacheUploadResults> {
         let error_on_cache_upload = error_on_cache_upload().buck_error_context("cache_upload")?;
 
-        // A result RE produced is published already; a local one needs the action's permission.
+        // A result RE produced is published already. A local one needs the action's
+        // permission, and must be the run the command was configured for: a hybrid executor's
+        // fallback or won race would publish, from one build and not the next, what remote
+        // execution would otherwise have produced.
         let (cache_upload_outcome, mut local_result) = if !res.was_locally_executed() {
             if dep_file_bundle.is_some() {
                 (CacheUploadOutcome::HadDepFileBundle, None)
@@ -581,6 +584,8 @@ impl UploadCache for CacheUploader {
             }
         } else if !info.allow_cache_upload {
             (CacheUploadOutcome::ActionUploadNotAllowed, None)
+        } else if res.ran_locally_in_place_of_remote() {
+            (CacheUploadOutcome::LocalInPlaceOfRemote, None)
         } else {
             tracing::debug!(
                 "Uploading action result for `{}`",
@@ -608,7 +613,7 @@ impl UploadCache for CacheUploader {
         // The dep file entry publishes the result it names, so it follows the result: a local
         // one on the action's permission, a remote one or a cache hit as RE published it.
         let should_upload_dep_file = if res.was_locally_executed() {
-            info.allow_cache_upload
+            info.allow_cache_upload && !res.ran_locally_in_place_of_remote()
         } else {
             res.was_remotely_executed() || res.was_action_cache_hit()
         };
@@ -635,12 +640,19 @@ impl UploadCache for CacheUploader {
                     Some(remote_dep_file_action.action.coerce()),
                 )
             }
-            Some(..) if res.was_locally_executed() => {
+            Some(..) if res.was_locally_executed() && !info.allow_cache_upload => {
                 tracing::info!(
                     "Dep file cache upload for `{}` not attempted: local cache upload not allowed",
                     action_digest_and_blobs.action
                 );
                 (DepFileCacheUploadOutcome::LocalUploadNotAllowed, None)
+            }
+            Some(..) if res.ran_locally_in_place_of_remote() => {
+                tracing::info!(
+                    "Dep file cache upload for `{}` not attempted: a local run in place of a remote one",
+                    action_digest_and_blobs.action
+                );
+                (DepFileCacheUploadOutcome::LocalInPlaceOfRemote, None)
             }
             Some(..) => {
                 tracing::info!(

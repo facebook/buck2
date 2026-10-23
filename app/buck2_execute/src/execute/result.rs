@@ -317,6 +317,23 @@ impl CommandExecutionResult {
         )
     }
 
+    /// Whether this is a local run that a hybrid executor chose at run time over a remote one:
+    /// a fallback after the remote run failed, or a race the local run won. Where the command
+    /// would run was not decided by its configuration, so the result is not one every build
+    /// of the same command would have produced the same way.
+    pub fn ran_locally_in_place_of_remote(&self) -> bool {
+        self.was_locally_executed()
+            && matches!(
+                self.scheduling_mode,
+                Some(
+                    SchedulingMode::FullHybrid
+                        | SchedulingMode::PreferRemote
+                        | SchedulingMode::Fallback
+                        | SchedulingMode::FallbackReQueueEstimate
+                )
+            )
+    }
+
     /// Resolves the output path as used by execution, a stable path it can be
     /// accessed at without holding a lock, and the artifact value.
     ///
