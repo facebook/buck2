@@ -180,6 +180,14 @@ impl TargetNodeOrForward {
         }
     }
 
+    fn unmatched_select_incompatible(&self) -> Option<&ArcStr> {
+        match self {
+            TargetNodeOrForward::TargetNode(node) => node.unmatched_select_incompatible(),
+            // The only attribute of a forward node is `actual`, which has no select.
+            TargetNodeOrForward::Forward(..) => None,
+        }
+    }
+
     fn attr_or_none<'a>(
         &'a self,
         name: &str,
@@ -724,6 +732,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             &self.0.get().resolved_transition_configurations,
             &self.0.get().platform_cfgs,
             Some(self.0.get().label.key().unconfigured().dupe()),
+            self.0.get().target_node.unmatched_select_incompatible(),
         )
     }
 

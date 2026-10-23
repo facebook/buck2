@@ -24,6 +24,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckFixedSortedMap;
+use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
 use crate::configuration::resolved::MatchedConfigurationSettingKeys;
@@ -47,6 +48,12 @@ pub trait AttrConfigurationContext {
     /// Used for diagnostics (select_first_match_differs soft error message).
     // TODO(nero): clean this when we migrate to the first select match
     fn target_label(&self) -> Option<&TargetLabel> {
+        None
+    }
+
+    /// Reason to mark the target incompatible when a `select()` has no matching condition
+    /// and no default. `None` makes that case an error.
+    fn unmatched_select_incompatible(&self) -> Option<&ArcStr> {
         None
     }
 
@@ -128,6 +135,7 @@ pub struct AttrConfigurationContextImpl<'b> {
     /// when in the Resolved state.
     execution_platform_resolution: &'b ExecutionPlatformResolution,
     label: Option<TargetLabel>,
+    unmatched_select_incompatible: Option<&'b ArcStr>,
 }
 
 impl<'b> AttrConfigurationContextImpl<'b> {
@@ -138,6 +146,7 @@ impl<'b> AttrConfigurationContextImpl<'b> {
         resolved_transitions: &'b BuckFixedSortedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         platform_cfgs: &'b BuckFixedSortedMap<TargetLabel, ConfigurationData>,
         label: Option<TargetLabel>,
+        unmatched_select_incompatible: Option<&'b ArcStr>,
     ) -> AttrConfigurationContextImpl<'b> {
         let exec_cfg = execution_platform_resolution.base_cfg();
         AttrConfigurationContextImpl {
@@ -148,6 +157,7 @@ impl<'b> AttrConfigurationContextImpl<'b> {
             platform_cfgs,
             execution_platform_resolution,
             label,
+            unmatched_select_incompatible,
         }
     }
 }
@@ -163,6 +173,10 @@ impl AttrConfigurationContext for AttrConfigurationContextImpl<'_> {
 
     fn target_label(&self) -> Option<&TargetLabel> {
         self.label.as_ref()
+    }
+
+    fn unmatched_select_incompatible(&self) -> Option<&ArcStr> {
+        self.unmatched_select_incompatible
     }
 
     fn incompatible_platform_reason(

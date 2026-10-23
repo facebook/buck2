@@ -24,6 +24,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_hash::BuckFixedSortedMap;
+use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -32,15 +33,34 @@ use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::configuration::resolved::MatchedConfigurationSettingKeys;
 
 pub fn configuration_ctx() -> impl AttrConfigurationContext {
+    configuration_ctx_impl(None)
+}
+
+/// Like `configuration_ctx`, for a target whose package set
+/// `buck.unmatched_select_incompatible` to `reason`.
+pub fn configuration_ctx_unmatched_select_incompatible(
+    reason: &str,
+) -> impl AttrConfigurationContext {
+    configuration_ctx_impl(Some(ArcStr::from(reason)))
+}
+
+fn configuration_ctx_impl(
+    unmatched_select_incompatible: Option<ArcStr>,
+) -> impl AttrConfigurationContext {
     struct TestAttrConfigurationContext(
         ConfigurationData,
         ConfigurationData,
         MatchedConfigurationSettingKeys,
         ConfiguredTargetLabel,
+        Option<ArcStr>,
     );
     impl AttrConfigurationContext for TestAttrConfigurationContext {
         fn cfg(&self) -> ConfigurationNoExec {
             ConfigurationNoExec::new(self.0.dupe())
+        }
+
+        fn unmatched_select_incompatible(&self) -> Option<&ArcStr> {
+            self.4.as_ref()
         }
 
         fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
@@ -107,5 +127,6 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ),
         ])),
         TargetLabel::testing_parse("root//:test_target").configure(cfg),
+        unmatched_select_incompatible,
     )
 }
