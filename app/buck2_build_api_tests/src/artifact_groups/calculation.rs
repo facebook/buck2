@@ -88,19 +88,22 @@ fn mock_analysis_for_tsets(
     for (target, tsets) in by_target.into_iter() {
         dice_builder = dice_builder.mock_and_return(
             AnalysisKey(target.dupe()),
-            ResultMaybeCompatible::Compatible(AnalysisResult::new(
-                RecordedAnalysisValues::testing_new(
-                    DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
-                    tsets,
-                    RecordedActions::new(0),
-                ),
-                None,
-                BuckFixedSortedMap::default(),
-                0,
-                0,
-                None,
-                Vec::new(),
-            )),
+            ResultMaybeCompatible::Compatible(
+                AnalysisResult::new(
+                    RecordedAnalysisValues::testing_new(
+                        DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
+                        tsets,
+                        RecordedActions::new(0),
+                    ),
+                    None,
+                    BuckFixedSortedMap::default(),
+                    0,
+                    0,
+                    None,
+                    Vec::new(),
+                )
+                .expect("test analysis should have valid providers"),
+            ),
         );
     }
 

@@ -159,19 +159,22 @@ fn mock_analysis_for_action_resolution(
 
     dice_builder = dice_builder.mock_and_return(
         AnalysisKey(configured_target_label.dupe()),
-        ResultMaybeCompatible::Compatible(AnalysisResult::new(
-            RecordedAnalysisValues::testing_new(
-                action_key.holder_key().dupe(),
+        ResultMaybeCompatible::Compatible(
+            AnalysisResult::new(
+                RecordedAnalysisValues::testing_new(
+                    action_key.holder_key().dupe(),
+                    Vec::new(),
+                    actions,
+                ),
+                None,
+                BuckFixedSortedMap::default(),
+                0,
+                0,
+                None,
                 Vec::new(),
-                actions,
-            ),
-            None,
-            BuckFixedSortedMap::default(),
-            0,
-            0,
-            None,
-            Vec::new(),
-        )),
+            )
+            .expect("test analysis should have valid providers"),
+        ),
     );
 
     dice_builder.mock_and_return(

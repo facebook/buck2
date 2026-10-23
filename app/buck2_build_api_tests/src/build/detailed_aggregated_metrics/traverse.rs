@@ -112,15 +112,18 @@ mod tests {
                 RecordedAnalysisValues::testing_new(holder_key.dupe(), tsets, recorded_actions);
             let holder = match &holder_key {
                 DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(..)) => {
-                    OwnedDeferredHolder::Analysis(AnalysisResult::new(
-                        analysis_values,
-                        None,
-                        BuckFixedSortedMap::default(),
-                        0,
-                        0,
-                        None,
-                        Vec::new(),
-                    ))
+                    OwnedDeferredHolder::Analysis(
+                        AnalysisResult::new(
+                            analysis_values,
+                            None,
+                            BuckFixedSortedMap::default(),
+                            0,
+                            0,
+                            None,
+                            Vec::new(),
+                        )
+                        .expect("test analysis should have valid providers"),
+                    )
                 }
                 DeferredHolderKey::DynamicLambda(..) => {
                     OwnedDeferredHolder::DynamicLambda(Arc::new(DynamicLambdaResult {

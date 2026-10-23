@@ -787,6 +787,15 @@ impl RecordedAnalysisValues {
         Ok(FrozenProviderCollectionValueRef::from_inner(inner))
     }
 
+    pub(crate) fn provider_collection_if_present(
+        &self,
+    ) -> buck2_error::Result<Option<FrozenProviderCollectionValueRef<'_>>> {
+        if self.analysis_storage.is_none() {
+            return Ok(None);
+        }
+        self.provider_collection().map(Some)
+    }
+
     pub(crate) fn retained_memory(&self) -> buck2_error::Result<usize> {
         Ok(self
             .analysis_storage

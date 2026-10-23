@@ -290,7 +290,7 @@ impl Key for AnalysisGraphPropertiesKey {
         analysis_result.try_map(|analysis_result| {
             Ok(gather_heap_graph_sketch(
                 analysis_result
-                    .analysis_values()
+                    .analysis_values()?
                     .analysis_storage()?
                     .owner(),
                 self.compute_retained,
@@ -713,15 +713,18 @@ mod tests {
 
         let analysis_values =
             RecordedAnalysisValues::testing_new_actions_only(holder_key.dupe(), recorded_actions);
-        let holder = OwnedDeferredHolder::Analysis(AnalysisResult::new(
-            analysis_values,
-            None,
-            BuckFixedSortedMap::default(),
-            0,
-            0,
-            None,
-            Vec::new(),
-        ));
+        let holder = OwnedDeferredHolder::Analysis(
+            AnalysisResult::new(
+                analysis_values,
+                None,
+                BuckFixedSortedMap::default(),
+                0,
+                0,
+                None,
+                Vec::new(),
+            )
+            .expect("test analysis should have valid providers"),
+        );
 
         let mut state = BuckMutMap::default();
         state.insert(holder_key, holder);

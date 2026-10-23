@@ -191,7 +191,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
         .await
         .require_compatible()?;
 
-    assert_eq!(analysis.analysis_values().iter_actions().count(), 0);
+    assert_eq!(analysis.analysis_values()?.iter_actions().count(), 0);
 
     assert_eq!(
         analysis

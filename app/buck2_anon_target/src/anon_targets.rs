@@ -618,7 +618,7 @@ impl AnonTargetKey {
                         num_declared_artifacts,
                         validations,
                         requested_anon_targets,
-                    ),
+                    )?,
                     split_instants,
                 ),
             ))

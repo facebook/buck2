@@ -114,18 +114,18 @@ impl<'d> DeferredHolder<'d> {
         self,
         key: &TransitiveSetKey,
     ) -> buck2_error::Result<OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>> {
-        self.analysis_values().lookup_transitive_set(key)
+        self.analysis_values()?.lookup_transitive_set(key)
     }
 
     pub(crate) fn lookup_action(self, key: &ActionKey) -> buck2_error::Result<ActionLookup> {
-        self.analysis_values().lookup_action(key)
+        self.analysis_values()?.lookup_action(key)
     }
 
-    pub fn analysis_values(self) -> &'d RecordedAnalysisValues {
+    pub fn analysis_values(self) -> buck2_error::Result<&'d RecordedAnalysisValues> {
         match self {
             DeferredHolder::Analysis(result) => result.analysis_values(),
-            DeferredHolder::Bxl(result) => result.analysis_values(),
-            DeferredHolder::DynamicLambda(result) => result.analysis_values(),
+            DeferredHolder::Bxl(result) => Ok(result.analysis_values()),
+            DeferredHolder::DynamicLambda(result) => Ok(result.analysis_values()),
         }
     }
 
@@ -159,7 +159,7 @@ impl OwnedDeferredHolder {
         }
     }
 
-    pub fn analysis_values(&self) -> &RecordedAnalysisValues {
+    pub fn analysis_values(&self) -> buck2_error::Result<&RecordedAnalysisValues> {
         self.as_ref().analysis_values()
     }
 }

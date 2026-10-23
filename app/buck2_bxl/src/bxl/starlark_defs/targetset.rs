@@ -567,7 +567,7 @@ starlark::__starlark_pagable_only! {
                 0,
                 None,
                 Vec::new(),
-            );
+            ).expect("test analysis should have valid providers");
             let node = ActionQueryNode::new_analysis(ConfiguredProvidersLabel::default_for(label), analysis);
             let owned: OwnedFrozen<Value<'static>> = OwnedFrozen::build(
                 FrozenHeapName::user("aquery_target_set_fails_page_out_without_panicking"),

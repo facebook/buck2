@@ -95,7 +95,7 @@ impl Key for DynamicLambdaDiceKey {
 
         let deferred_holder = lookup_deferred_holder(ctx, self.0.holder_key()).await?;
         let lambda = FrozenDynamicLambdaParamsStorageImpl::lookup_lambda(
-            deferred_holder.analysis_values().analysis_storage()?,
+            deferred_holder.analysis_values()?.analysis_storage()?,
             &self.0,
         )?;
 

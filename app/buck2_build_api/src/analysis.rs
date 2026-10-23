@@ -19,7 +19,14 @@ use buck2_events::span::SpanId;
 use buck2_hash::BuckFixedSortedMap;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use buck2_util::time_span::TimeSpan;
+use pagable::DeferredValue;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
 use smallvec::SmallVec;
+use starlark::pagable::DeferredFieldReadsEnabled;
+use starlark::values::FrozenValueTyped;
+use starlark::values::OwnedFrozen;
+use starlark::values::ValueTyped;
 
 use crate::analysis::registry::RecordedAnalysisValues;
 use crate::artifact_groups::promise::PromiseArtifactId;
@@ -37,6 +44,7 @@ use dupe::Dupe;
 
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
+use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 use crate::validation::transitive_validations::TransitiveValidations;
 
 /// Timestamps around promise resolution, for splitting analysis nodes.
@@ -70,7 +78,14 @@ pub struct AnalysisWithExtraData {
 
 #[derive(Debug, Clone, Dupe, Allocative, pagable::Pagable)]
 pub struct AnalysisResult {
-    analysis_values: Arc<RecordedAnalysisValues>,
+    /// With deferred field reads enabled, provider-only reads leave this
+    /// payload unloaded, avoiding restoration of unrelated registered actions.
+    analysis_values: DeferredAnalysisValues,
+    /// Shares the collection and owning frozen heap with the provider root
+    /// in `RecordedAnalysisValues`. Keeping this root independently accessible
+    /// lets provider reads bypass `analysis_values`.
+    /// `None` when the recorded values have no analysis storage.
+    provider_collection: Option<OwnedFrozen<ValueTyped<'static, ProviderCollection<'static>>>>,
     /// Profiling data after running analysis, for this analysis only, without dependencies.
     /// `None` when profiling is disabled.
     /// For forward node, this value is shared with underlying analysis (including this field).
@@ -87,6 +102,24 @@ pub struct AnalysisResult {
     requested_anon_targets: Arc<[BaseDeferredKey]>,
 }
 
+#[derive(Debug, Clone, Allocative, pagable::PagableSerialize)]
+struct DeferredAnalysisValues(DeferredValue<Arc<RecordedAnalysisValues>>);
+
+impl Dupe for DeferredAnalysisValues {}
+
+impl<'de> PagableDeserialize<'de> for DeferredAnalysisValues {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let enabled = deserializer
+            .storage()
+            .storage_context()
+            .get::<DeferredFieldReadsEnabled>()
+            .is_some();
+        Ok(Self(DeferredValue::deserialize_arc(deserializer, enabled)?))
+    }
+}
+
 impl AnalysisResult {
     /// Create a new AnalysisResult
     pub fn new(
@@ -97,16 +130,20 @@ impl AnalysisResult {
         num_declared_artifacts: u64,
         validations: Option<TransitiveValidations>,
         requested_anon_targets: Vec<BaseDeferredKey>,
-    ) -> Self {
-        Self {
-            analysis_values: Arc::new(analysis_values),
+    ) -> buck2_error::Result<Self> {
+        let provider_collection = analysis_values
+            .provider_collection_if_present()?
+            .map(|providers| providers.to_owned().value);
+        Ok(Self {
+            analysis_values: DeferredAnalysisValues(DeferredValue::new(Arc::new(analysis_values))),
+            provider_collection,
             profile_data,
             promise_artifact_map: Arc::new(promise_artifact_map),
             num_declared_actions,
             num_declared_artifacts,
             validations,
             requested_anon_targets: requested_anon_targets.into(),
-        }
+        })
     }
 
     pub fn requested_anon_targets(&self) -> &[BaseDeferredKey] {
@@ -114,7 +151,17 @@ impl AnalysisResult {
     }
 
     pub fn providers(&self) -> buck2_error::Result<FrozenProviderCollectionValueRef<'_>> {
-        self.analysis_values.provider_collection()
+        let value = self
+            .provider_collection
+            .as_ref()
+            .ok_or_else(|| buck2_error::internal_error!("missing provider collection"))?;
+        Ok(FrozenProviderCollectionValueRef::from_inner(
+            value
+                .as_ref()
+                .map::<FrozenValueTyped<'static, ProviderCollection<'static>>, _>(|v| {
+                    FrozenValueTyped::new(v.to_value()).expect("provider collection is frozen")
+                }),
+        ))
     }
 
     pub fn promise_artifact_map(&self) -> &BuckFixedSortedMap<PromiseArtifactId, Artifact> {
@@ -138,8 +185,10 @@ impl AnalysisResult {
         })
     }
 
-    pub fn analysis_values(&self) -> &RecordedAnalysisValues {
-        &self.analysis_values
+    pub fn analysis_values(&self) -> buck2_error::Result<&RecordedAnalysisValues> {
+        Ok(self.analysis_values.0.read().map_err(|error| {
+            buck2_error::conversion::from_any_with_tag(error, buck2_error::ErrorTag::Environment)
+        })?)
     }
 }
 

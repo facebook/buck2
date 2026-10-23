@@ -341,7 +341,7 @@ async fn run_analysis_with_env_underlying(
                     declared_artifacts,
                     validations,
                     requested_anon_targets,
-                ),
+                )?,
                 split_instants,
             ),
         ))

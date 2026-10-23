@@ -354,7 +354,7 @@ async fn eval_bxl_for_anon_target_inner(
                 num_declared_artifacts,
                 validations,
                 requested_anon_targets,
-            ),
+            )?,
         ))
     })
 }

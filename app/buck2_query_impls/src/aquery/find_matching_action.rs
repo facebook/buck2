@@ -85,9 +85,9 @@ async fn find_matching_action(
             let mut maybe_match: Option<BuildArtifact> = None;
 
             for build_artifact in analysis
-                .analysis_values()
+                .analysis_values()?
                 .iter_dynamic_lambda_outputs()?
-                .chain(analysis.analysis_values().iter_actions().flat_map(|v| {
+                .chain(analysis.analysis_values()?.iter_actions().flat_map(|v| {
                     match v.action().outputs() {
                         Cow::Borrowed(v) => Either::Left(v.iter().duped()),
                         Cow::Owned(v) => Either::Right(v.into_iter()),
