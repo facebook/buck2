@@ -130,8 +130,12 @@ class RustProjectTest(BuckTestCase):
             "fbcode//buck2/integrations/rust-project/tests/targets/foo:f"
         ]
 
-        assert "fbsource//third-party/rust-toolchain:core" in target["deps"]
-        assert "fbsource//third-party/rust-toolchain:std" in target["deps"]
+        sysroot_crates = {
+            dep.rsplit(":", 1)[1]
+            for dep in target["deps"]
+            if dep.startswith("fbsource//third-party/rust-toolchain/")
+        }
+        assert {"core", "std"} <= sysroot_crates, target["deps"]
 
     @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
     async def test_resolve_owning_buildfile_no_extra_targets(self, buck: Buck) -> None:
