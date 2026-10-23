@@ -23,6 +23,7 @@ use crate::classify::best_tag;
 use crate::classify::error_tag_category;
 use crate::classify::tag_is_generic;
 use crate::classify::tag_is_hidden;
+use crate::classify::tag_is_root_cause;
 use crate::context_value::ContextValue;
 use crate::context_value::StarlarkContext;
 use crate::context_value::StringTag;
@@ -152,6 +153,10 @@ impl Error {
     /// This tries to include the least information possible that can be used to uniquely identify an error type.
     pub fn category_key(&self) -> String {
         let tags = self.tags();
+
+        if let Some(root_cause) = best_tag(tags.iter().copied().filter(tag_is_root_cause)) {
+            return root_cause.as_str_name().to_owned();
+        }
 
         let non_generic_tags: Vec<ErrorTag> = tags
             .clone()
@@ -398,6 +403,31 @@ mod tests {
             crate::ErrorTag::ReInternal,
         ]);
         assert_eq!(err.category_key(), "RE_INTERNAL");
+    }
+
+    #[test]
+    fn test_category_key_root_cause() {
+        let err: crate::Error = TestError.into();
+        let err = err
+            .tag([
+                crate::ErrorTag::IoEden,
+                crate::ErrorTag::IoNotConnected,
+                crate::ErrorTag::StarlarkValue,
+            ])
+            .string_tag("cxx_no_such_file_or_directory");
+        assert_eq!(err.category_key(), "IO_NOT_CONNECTED");
+
+        // With several root causes, the best-ranked one is the key.
+        let err = err.tag([crate::ErrorTag::IoStorageFull]);
+        assert_eq!(
+            err.category_key(),
+            crate::classify::best_tag([
+                crate::ErrorTag::IoNotConnected,
+                crate::ErrorTag::IoStorageFull
+            ])
+            .unwrap()
+            .as_str_name()
+        );
     }
 
     #[test]
