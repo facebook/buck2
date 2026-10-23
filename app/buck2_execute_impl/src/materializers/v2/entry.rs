@@ -35,6 +35,7 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
 
@@ -60,7 +61,7 @@ pub(crate) struct DiskDirectory {
     /// The RE digest of the directory, which is what two directories are compared by.
     fingerprint: FileDigest,
     /// In name order.
-    entries: Box<[(FileNameBuf, DiskEntry)]>,
+    entries: MiniBoxSlice<(FileNameBuf, DiskEntry)>,
     /// Bytes of the files below.
     size: u64,
 }
@@ -221,7 +222,7 @@ impl DiskEntry {
 impl DiskDirectory {
     fn from_action(dir: &ActionSharedDirectory) -> Self {
         let mut size = 0;
-        let entries: Box<[(FileNameBuf, DiskEntry)]> = dir
+        let entries: MiniBoxSlice<(FileNameBuf, DiskEntry)> = dir
             .entries()
             .into_iter()
             .map(|(name, entry)| {
