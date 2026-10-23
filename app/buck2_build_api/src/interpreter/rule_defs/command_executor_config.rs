@@ -82,6 +82,10 @@ enum CommandExecutorConfigErrors {
     ReGangNumSubGroupsNotAnInt(String),
     #[error("expected an integer for `resource_units` in `remote_execution_gang`, got `{0}`")]
     ReGangResourceUnitsNotAnInt(String),
+    #[error(
+        "expected a positive integer for `queue_timeout_s` in `remote_execution_policy`, got `{0}`"
+    )]
+    ReQueueTimeoutNotPositive(String),
 }
 
 #[derive(
@@ -169,7 +173,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// * `remote_execution_custom_image`: Custom Tupperware image for remote execution for this platform
     /// * `meta_internal_extra_params`: Json dict of extra params to pass to RE related to Meta internal infra.
     ///   Supports the following keys:
-    ///   - `remote_execution_policy`: Policy settings for remote execution
+    ///   - `remote_execution_policy`: Policy settings for remote execution. A dict with optional keys
+    ///     `priority`, `region_preference`, `setup_preference_key` and `queue_timeout_s` (seconds the
+    ///     action may wait in the RE queue; RE caps it at the platform's queue timeout)
     ///   - `remote_execution_caf_fbpkgs`: CAF fbpkgs configuration
     ///   - `remote_execution_gang`: Constrained gang for gang scheduling in remote execution. A dict with keys:
     ///     - `capabilities`: A dict of capability key-value pairs (required)
@@ -526,6 +532,19 @@ fn parse_remote_execution_policy(
                 ))
             })?;
 
+            let queue_timeout_s = match re_policy_dict.get_str("queue_timeout_s") {
+                None => None,
+                Some(v) => match v.unpack_i32() {
+                    Some(seconds) if seconds > 0 => Some(seconds),
+                    _ => {
+                        return Err(CommandExecutorConfigErrors::ReQueueTimeoutNotPositive(
+                            v.to_repr(),
+                        )
+                        .into());
+                    }
+                },
+            };
+
             Ok(RemoteExecutionPolicy {
                 setup_preference_key: re_policy_dict
                     .get_str("setup_preference_key")
@@ -539,6 +558,7 @@ fn parse_remote_execution_policy(
                     .get_str("priority")
                     .and_then(|v| v.unpack_i32())
                     .map(|i| i.to_owned()),
+                queue_timeout_s,
             })
         }
     }

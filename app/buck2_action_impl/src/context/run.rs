@@ -212,7 +212,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///     a timeout to try and enforce a specific runtime goal will inevitably
     ///     result in flaky failures for end users running builds.
     ///  * `meta_internal_extra_params`: a dictionary to pass extra parameters to RE, can add more keys in the future:
-    ///     * `remote_execution_policy`: refer to TExecutionPolicy.
+    ///     * `remote_execution_policy`: refer to TExecutionPolicy. Keys: `priority`,
+    ///       `region_preference`, `setup_preference_key` and `queue_timeout_s` (seconds the action
+    ///       may wait in the RE queue; RE caps it at the platform's queue timeout).
     ///  * `error_handler`: an optional function that analyzes action failures and produces structured error information.
     ///     * Type signature: `def error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]`
     ///     * The function receives an [`ActionErrorCtx`](../ActionErrorCtx) parameter and should return a list of [`ActionSubError`](../ActionSubError) objects

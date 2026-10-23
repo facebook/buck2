@@ -595,6 +595,10 @@ pub struct RemoteExecutionPolicy {
     pub priority: Option<i32>,
     pub region_preference: Option<String>,
     pub setup_preference_key: Option<String>,
+    /// Maximum seconds the action may wait in the RE queue. Always positive. The RE scheduler
+    /// uses `min(queue_timeout, platform schedule timeout)`, so a larger value just gets the
+    /// platform default.
+    pub queue_timeout_s: Option<i32>,
 }
 
 /// This struct is used to pass meta internal params to RE

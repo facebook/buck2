@@ -76,6 +76,7 @@ use remote_execution::TClientContextMetadata;
 use remote_execution::TCode;
 use remote_execution::TDependency;
 use remote_execution::TDigest;
+use remote_execution::TDuration;
 use remote_execution::TExecutionPolicy;
 use remote_execution::THostResourceRequirements;
 use remote_execution::THostRuntimeRequirements;
@@ -1659,6 +1660,13 @@ impl RemoteExecutionClientImpl {
                     .setup_preference_key
                     .clone()
                     .unwrap_or_default(),
+                queue_timeout: meta_internal_extra_params
+                    .remote_execution_policy
+                    .queue_timeout_s
+                    .map(|seconds| TDuration {
+                        seconds: seconds.into(),
+                        ..Default::default()
+                    }),
                 ..Default::default()
             }),
             action_digest: action_digest.to_re(),

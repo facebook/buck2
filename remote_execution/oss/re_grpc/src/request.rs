@@ -131,11 +131,19 @@ pub struct TDependency {
 }
 
 #[derive(Clone, Default)]
+pub struct TDuration {
+    pub seconds: i64,
+    pub nanos: i32,
+    pub _dot_dot: (),
+}
+
+#[derive(Clone, Default)]
 pub struct TExecutionPolicy {
     pub priority: i32,
     pub affinity_keys: Vec<String>,
     pub region_preference: String,
     pub setup_preference_key: String,
+    pub queue_timeout: Option<TDuration>,
     pub _dot_dot: (),
 }
 
