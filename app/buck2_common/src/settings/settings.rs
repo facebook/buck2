@@ -15,9 +15,6 @@ use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
 
-pub use crate::settings::agent_advice::AgentAdviceSection;
-use crate::settings::agent_advice::AgentAdviceSectionData;
-pub use crate::settings::agent_advice::BuildIntentMode;
 use crate::settings::agent_interactive::AgentInteractiveSettings;
 use crate::settings::agent_materialization::AgentMaterializationSettings;
 pub use crate::settings::analysis::AnalysisSection;
@@ -32,7 +29,6 @@ pub use crate::settings::package_visibility::PackageVisibilitySection;
 use crate::settings::package_visibility::PackageVisibilitySectionData;
 
 pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
-    AgentAdviceSection::METADATA,
     AgentInteractiveSettings::METADATA,
     AgentMaterializationSettings::METADATA,
     AnalysisSection::METADATA,
@@ -44,8 +40,6 @@ pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
-    #[serde(default)]
-    agent_advice: AgentAdviceSectionData,
     #[serde(default)]
     agent_interactive: AgentInteractiveSettings,
     #[serde(default)]
@@ -64,8 +58,6 @@ pub(crate) struct BuckSettingsData {
 #[serde(deny_unknown_fields)]
 pub struct BuckSettings {
     #[serde(default)]
-    pub agent_advice: AgentAdviceSection,
-    #[serde(default)]
     pub agent_interactive: AgentInteractiveSettings,
     #[serde(default)]
     pub agent_materialization: AgentMaterializationSettings,
@@ -82,7 +74,6 @@ pub struct BuckSettings {
 impl From<BuckSettingsData> for BuckSettings {
     fn from(data: BuckSettingsData) -> Self {
         Self {
-            agent_advice: AgentAdviceSection(Arc::new(data.agent_advice)),
             agent_interactive: data.agent_interactive,
             agent_materialization: data.agent_materialization,
             analysis: AnalysisSection(Arc::new(data.analysis)),

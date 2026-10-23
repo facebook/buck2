@@ -8,6 +8,14 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+import os
+import shutil
+import sys
+import unittest
+from pathlib import PurePosixPath
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
@@ -252,3 +260,140 @@ class AgentContextTest(BuckTestCase):
             "direct_call=true",
         )
         assert res.invocation_record()["agent_direct_call"] is True
+
+    @unittest.skipIf(
+        sys.platform != "linux", reason="Ancestry inference is enabled only on Linux"
+    )
+    @unittest.skip("Ancestry inference requires a Meta internal build") # @oss-enable
+    @buck_test()
+    async def test_detect_direct_agent_and_stop_at_tools(self, buck: Buck) -> None:
+        # Prost serializes protobuf enum fields as integers in invocation-record JSON.
+        caller_agent, caller_command_shell, caller_other = 1, 2, 3
+        stop_agent, stop_other = 1, 2
+        buck._env.pop("CODING_AGENT_METADATA", None)
+        # Copy a shell so its executable identity is stable without depending on an
+        # installed agent or an LLM service. Keep it alive while Buck reads its parent.
+        agent = buck.cwd / "codex"
+        shutil.copy2("/bin/sh", agent)
+        script = buck.cwd / "tool.sh"
+        script.write_text('"$@"\nexit $?\n')
+        python_tool = buck.cwd / "tool.py"
+        python_tool.write_text(
+            "import subprocess, sys\nsys.exit(subprocess.call(sys.argv[1:]))\n"
+        )
+        exec_script = buck.cwd / "exec_tool.sh"
+        exec_script.write_text('exec "$@"\n')
+        record_path = buck.cwd / "record.json"
+
+        async def run(prefix: list[str], *extra: str) -> tuple[int, str, dict]:
+            command = buck.construct_buck_command(
+                "build",
+                "//:pass",
+                "--unstable-write-invocation-record",
+                str(record_path),
+                *extra,
+            )
+            process = await asyncio.create_subprocess_exec(
+                str(agent),
+                "-c",
+                '"$@"; exit $?',
+                "agent",
+                *prefix,
+                *command,
+                cwd=buck.cwd,
+                env=buck._get_command_env(
+                    {"CODING_AGENT_METADATA": "id=codex,direct_call=true"}
+                ),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await asyncio.wait_for(process.communicate(), timeout=120)
+            assert process.returncode is not None
+            return (
+                process.returncode,
+                stderr.decode(),
+                json.loads(record_path.read_text())["data"]["Record"]["data"][
+                    "InvocationRecord"
+                ],
+            )
+
+        # Reuse an agent-started daemon from tools and the test runner. Only the
+        # client's ancestry contributes to inference; it does not change the explicit marker.
+        direct = ["/bin/sh", "-c", '"$@"; exit $?', "shell"]
+        code, stderr, record = await run(direct)
+        assert code == 0, stderr
+        assert record.get("agent_direct_call") is None
+        assert record["agent_inferred_direct_call"] is True
+        assert record["agent_context"] == [{"key": "id", "value": "codex"}]
+        shell_name = PurePosixPath(os.path.realpath("/bin/sh")).name
+        assert record["agent_callers"] == [
+            {"kind": caller_command_shell, "executable": shell_name},
+            {"kind": caller_agent, "executable": "codex"},
+        ]
+        assert record["agent_detection_stop_reason"] == stop_agent
+        daemon = json.loads((await buck.status()).stdout)["process_info"]["pid"]
+
+        tools = [["/bin/sh", str(script)], [sys.executable, str(python_tool)]]
+        for prefix in [direct, *tools]:
+            for value in [None, "true", "false", "invalid"]:
+                extra = (
+                    [] if value is None else ["--agent-context", f"direct_call={value}"]
+                )
+                code, stderr, record = await run(prefix, *extra)
+                assert code == 0, stderr
+                assert record.get("agent_direct_call") is (
+                    None if value in [None, "invalid"] else value == "true"
+                )
+                assert record["agent_inferred_direct_call"] is (prefix == direct)
+                if prefix == direct:
+                    assert record["agent_detection_stop_reason"] == stop_agent
+                    assert record["agent_callers"][-1] == {
+                        "kind": caller_agent,
+                        "executable": "codex",
+                    }
+                else:
+                    assert record["agent_detection_stop_reason"] == stop_other
+                    assert record["agent_callers"] == [
+                        {
+                            "kind": caller_other,
+                            "executable": PurePosixPath(
+                                os.path.realpath(prefix[0])
+                            ).name,
+                        }
+                    ]
+
+        # exec and sourced scripts erase the visible tool boundary. These known
+        # false positives must leave the explicit direct-call marker unset.
+        for prefix in [
+            ["/bin/sh", str(exec_script)],
+            ["/bin/sh", "-c", f'. "{script}"', "shell"],
+        ]:
+            code, stderr, record = await run(prefix)
+            assert code == 0, stderr
+            assert record.get("agent_direct_call") is None
+            assert record["agent_inferred_direct_call"] is True
+
+        code, stderr, record = await run(
+            [],
+            "--agent-context",
+            "direct_call=true",
+            "--agent-context",
+            "advice_ack=test_advice",
+        )
+        assert code == 0, stderr
+        assert record["agent_direct_call"] is True
+        assert record["agent_inferred_direct_call"] is True
+        await buck.build(
+            "//:pass",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        )
+        record = json.loads(record_path.read_text())["data"]["Record"]["data"][
+            "InvocationRecord"
+        ]
+        assert record["agent_inferred_direct_call"] is False
+        assert record["agent_detection_stop_reason"] == stop_other
+        assert record["agent_callers"][-1]["kind"] == caller_other
+        assert record.get("agent_direct_call") is None
+        assert not record.get("agent_context")
+        assert json.loads((await buck.status()).stdout)["process_info"]["pid"] == daemon

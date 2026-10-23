@@ -10,7 +10,6 @@
 
 //! Typed buck settings, replaces buckconfig for core buck2 settings.
 
-mod agent_advice;
 pub mod agent_interactive;
 pub mod agent_materialization;
 mod analysis;
