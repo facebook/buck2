@@ -13,7 +13,9 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_recursion::async_recursion;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -22,6 +24,8 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_dynamic_actions::deferred::resolve_dynamic_value;
+use buck2_dynamic_actions::resolved_dynamic_value::StarlarkResolvedDynamicValue;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::types::package_path::StarlarkPackagePath;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -83,6 +87,7 @@ enum LazyOperation {
     },
     Cquery(LazyCqueryOperation),
     BuildArtifact(LazyBuildArtifact),
+    DynamicValue(DynamicValue),
     Join(Arc<LazyOperation>, Arc<LazyOperation>),
     Batch(Vec<Arc<LazyOperation>>),
     Catch(Arc<LazyOperation>),
@@ -99,6 +104,7 @@ enum LazyResult {
         ),
     ),
     BuildArtifact(StarlarkArtifact),
+    DynamicValue(FrozenProviderCollectionValue),
     Uquery(LazyUqueryResult),
     Cquery(LazyCqueryResult),
     Join(Box<(LazyResult, LazyResult)>),
@@ -120,6 +126,9 @@ impl LazyResult {
                 Ok(heap.alloc((success_targets, error_packages)))
             }
             LazyResult::BuildArtifact(artifact) => Ok(heap.alloc(artifact)),
+            LazyResult::DynamicValue(providers) => Ok(heap.alloc(StarlarkResolvedDynamicValue {
+                value: providers.add_heap_ref(heap),
+            })),
             LazyResult::Uquery(res) => res.into_value(heap),
             LazyResult::Cquery(res) => res.into_value(heap),
             LazyResult::Join(res) => Ok(heap.alloc((
@@ -235,6 +244,9 @@ impl LazyOperation {
                 artifact.build_artifacts(dice).await?;
                 Ok(LazyResult::BuildArtifact(artifact.artifact()))
             }
+            LazyOperation::DynamicValue(value) => Ok(LazyResult::DynamicValue(
+                resolve_dynamic_value(value, dice).await?,
+            )),
             LazyOperation::Join(lazy0, lazy1) => {
                 let (res0, res1) = dice
                     .try_compute2(
@@ -342,6 +354,12 @@ impl StarlarkLazy {
     pub(crate) fn new_build_artifact(artifact: LazyBuildArtifact) -> Self {
         Self {
             lazy: Arc::new(LazyOperation::BuildArtifact(artifact)),
+        }
+    }
+
+    pub(crate) fn new_dynamic_value(value: DynamicValue) -> Self {
+        Self {
+            lazy: Arc::new(LazyOperation::DynamicValue(value)),
         }
     }
 }

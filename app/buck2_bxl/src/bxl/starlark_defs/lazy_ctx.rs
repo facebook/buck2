@@ -9,6 +9,8 @@
  */
 
 use allocative::Allocative;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_dynamic_actions::dynamic_value::StarlarkDynamicValue;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -50,6 +52,17 @@ enum BxlBuildArtifactError {
         "`ctx.lazy.build_artifact()` does not accept declared artifact {0}. Use `ctx.output.ensure()` instead."
     )]
     NotSupportDeclaredArtifact(String),
+}
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum BxlResolveDynamicValueError {
+    #[error(
+        "`ctx.lazy.resolve_dynamic_value()` does not accept dynamic value `{0}` \
+         owned by a BXL invocation. Pass a value owned by a regular target or an \
+         anonymous target instead. Anonymous targets created within BXL are also allowed."
+    )]
+    NotSupportBxlDynamicValue(String),
 }
 
 #[derive(
@@ -132,6 +145,41 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkLazy::new_batch(
             operations.into_iter().map(|o| o.dupe()),
         ))
+    }
+
+    /// Resolve a `DynamicValue` to a [`ResolvedDynamicValue`](../../build/ResolvedDynamicValue) lazily.
+    ///
+    /// Resolving evaluates the dynamic action that produces the value, which includes building
+    /// the artifacts it reads and resolving the dynamic values it depends on. Use `.catch()` to get
+    /// a failure of any of these as a [`bxl.Result`](../Result) error instead of failing the script.
+    ///
+    /// Only dynamic values owned by a regular or anonymous target are accepted, including anonymous
+    /// targets created within BXL. Dynamic values owned by the BXL invocation itself, i.e. created
+    /// directly by BXL actions, are rejected.
+    ///
+    /// Example:
+    /// ```python
+    /// def _impl(ctx):
+    ///     target = ctx.configured_targets("cell//path/to:target")
+    ///     value = ctx.analysis(target).providers()[MyInfo].dynamic_value
+    ///     result = ctx.lazy.resolve_dynamic_value(value).catch().resolve()
+    ///     if result.is_ok():
+    ///         metadata = result.unwrap().providers[MetadataInfo]
+    ///     else:
+    ///         err = result.unwrap_err()
+    /// ```
+    fn resolve_dynamic_value<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyCtx<'v>,
+        #[starlark(require = pos)] value: &'v StarlarkDynamicValue,
+    ) -> starlark::Result<StarlarkLazy> {
+        let value = &value.dynamic_value;
+        if let BaseDeferredKey::BxlLabel(_) = value.dynamic_lambda_results_key.owner() {
+            return Err(buck2_error::Error::from(
+                BxlResolveDynamicValueError::NotSupportBxlDynamicValue(value.to_string()),
+            )
+            .into());
+        }
+        Ok(StarlarkLazy::new_dynamic_value(value.dupe()))
     }
 
     /// Analyze a target lazily. This will return a lazy operation that can be evaluated later.

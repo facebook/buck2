@@ -507,16 +507,27 @@ async fn resolve_dynamic_values(
 
     let providers = ctx
         .try_compute_join(dynamic_values, async |ctx, dynamic_value| {
-            let result = dynamic_lambda_result(ctx, &dynamic_value.dynamic_lambda_results_key)
-                .await?
-                .analysis_values
-                .provider_collection()?
-                .to_owned();
+            let result = resolve_dynamic_value(dynamic_value, ctx).await?;
             buck2_error::Ok((dynamic_value.dupe(), result))
         })
         .await?;
 
     Ok(BuckMutMap::from_iter(providers))
+}
+
+/// Evaluates the dynamic lambda that produces `dynamic_value`, including building its input
+/// artifacts and resolving the dynamic values it depends on, and returns its providers.
+pub async fn resolve_dynamic_value(
+    dynamic_value: &DynamicValue,
+    ctx: &mut DiceComputations<'_>,
+) -> buck2_error::Result<FrozenProviderCollectionValue> {
+    Ok(
+        dynamic_lambda_result(ctx, &dynamic_value.dynamic_lambda_results_key)
+            .await?
+            .analysis_values
+            .provider_collection()?
+            .to_owned(),
+    )
 }
 
 pub enum DynamicLambdaCtxDataSpec<'v> {
