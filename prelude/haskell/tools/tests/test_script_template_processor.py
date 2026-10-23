@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 import os
-import re
 import runpy
 import sys
 import tempfile
