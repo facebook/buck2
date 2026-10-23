@@ -29,6 +29,7 @@ use display_container::fmt_container;
 use display_container::iter_display_chain;
 use dupe::Dupe;
 use either::Either;
+use mini_vec::MiniVec;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -232,8 +233,8 @@ impl<'v, F: Fields<'v>> Display for FieldsRef<'v, F> {
 impl<'v, F: Fields<'v>> FieldsRef<'v, F> {
     fn copy(&self) -> StarlarkCmdArgs<'v> {
         StarlarkCmdArgs(RefCell::new(StarlarkCommandLineData {
-            items: self.0.items().to_vec(),
-            hidden: self.0.hidden().to_vec(),
+            items: self.0.items().into(),
+            hidden: self.0.hidden().into(),
             options: self
                 .0
                 .options()
@@ -504,8 +505,8 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
 #[derive(Debug, Default, Clone, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct StarlarkCommandLineData<'v> {
-    items: Vec<CommandLineArg<'v>>,
-    hidden: Vec<CommandLineArg<'v>>,
+    items: MiniVec<CommandLineArg<'v>>,
+    hidden: MiniVec<CommandLineArg<'v>>,
     options: Option<Box<CommandLineOptions<'v>>>,
 }
 
@@ -617,7 +618,7 @@ impl<'v, A: Fields<'v>, B: Fields<'v>> Fields<'v> for Either<A, B> {
 }
 
 // These types show up a lot in the frozen heaps, so make sure they don't regress
-size_assert::words_of_type!(StarlarkCmdArgs<'static>, 8);
+size_assert::words_of_type!(StarlarkCmdArgs<'static>, 4);
 size_assert::words_of_type!(FrozenStarlarkCmdArgs<'static>, 3);
 size_assert::words_of_type!(CommandLineOptions<'static>, 10);
 
@@ -816,7 +817,7 @@ impl<'v> Freeze<'v> for StarlarkCmdArgs<'v> {
         } = self.0.into_inner();
 
         fn freeze_elements<'v, 'fv>(
-            elements: Vec<CommandLineArg<'v>>,
+            elements: MiniVec<CommandLineArg<'v>>,
             freezer: &Freezer<'v, 'fv>,
         ) -> FreezeResult<ThinBoxSliceValue<'fv>> {
             elements
@@ -1235,7 +1236,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             for (pattern, _replacement) in &replace_regex {
                 pattern.validate()?;
             }
-            builder.options_mut().replacements = Some(Box::new(replace_regex));
+            builder.options_mut().replacements = replace_regex.into();
         }
         for v in args.items {
             builder.add_value_typed(v)?;

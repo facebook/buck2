@@ -21,6 +21,7 @@ use derive_more::Display;
 use display_container::fmt_container;
 use dupe::Dupe;
 use mini_vec::MiniBoxSlice;
+use mini_vec::MiniVec;
 use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
@@ -110,8 +111,7 @@ pub(crate) struct CommandLineOptions<'v> {
     pub(crate) format: Option<StringValue<'v>>,
     pub(crate) prepend: Option<StringValue<'v>>,
     pub(crate) quote: Option<QuoteStyle>,
-    #[allow(clippy::box_collection)]
-    pub(crate) replacements: Option<Box<Vec<(CmdArgsRegex<'v>, StringValue<'v>)>>>,
+    pub(crate) replacements: MiniVec<(CmdArgsRegex<'v>, StringValue<'v>)>,
 }
 
 #[derive(Clone, Copy, Dupe, Default)]
@@ -188,11 +188,7 @@ impl<'v, 'a> CommandLineOptionsRef<'v, 'a> {
             format: self.format,
             prepend: self.prepend,
             quote: self.quote.dupe(),
-            replacements: if self.replacements.is_empty() {
-                None
-            } else {
-                Some(Box::new(self.replacements.iter().collect()))
-            },
+            replacements: self.replacements.iter().collect(),
         }
     }
 }
@@ -222,10 +218,7 @@ impl<'v> CommandLineOptionsTrait<'v> for CommandLineOptions<'v> {
             format: self.format,
             prepend: self.prepend,
             quote: self.quote.dupe(),
-            replacements: match &self.replacements {
-                None => OptionsReplacementsRef::default(),
-                Some(v) => OptionsReplacementsRef(v.as_slice()),
-            },
+            replacements: OptionsReplacementsRef(self.replacements.as_slice()),
         }
     }
 }
@@ -414,11 +407,9 @@ impl<'v> Freeze<'v> for CommandLineOptions<'v> {
         if let Some(quote) = quote {
             options.push(FrozenCommandLineOption::Quote(quote));
         }
-        if let Some(replacements) = replacements {
-            if !replacements.is_empty() {
-                let replacements = MiniBoxSlice::from_iter(Freeze::freeze(*replacements, freezer)?);
-                options.push(FrozenCommandLineOption::Replacements(replacements));
-            }
+        if !replacements.is_empty() {
+            let replacements = MiniBoxSlice::from(Freeze::freeze(replacements, freezer)?);
+            options.push(FrozenCommandLineOption::Replacements(replacements));
         }
 
         Ok(FrozenCommandLineOptions {
