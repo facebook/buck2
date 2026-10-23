@@ -42,6 +42,7 @@ rust_library(
     },
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
+        "fbsource//third-party/rust:tempfile",
     ],
     deps = [
         "fbsource//third-party/rust:async-trait",
@@ -57,7 +58,6 @@ rust_library(
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:rusqlite",
-        "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-retry",
         "fbsource//third-party/rust:tokio-stream",

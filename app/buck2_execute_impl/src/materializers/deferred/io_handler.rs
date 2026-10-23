@@ -45,6 +45,7 @@ use buck2_execute::execute::readonly_outputs::seal_files;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CasNotFoundError;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::materialize::write::write_to_disk;
 use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ReConnectionManager;
@@ -77,7 +78,6 @@ use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::Version;
 use crate::materializers::deferred::artifact_tree::MaterializationMethodToProto;
 use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
-use crate::materializers::immediate;
 use crate::materializers::io::MaterializeTreeStructure;
 use crate::materializers::io::materialize_files;
 
@@ -338,7 +338,7 @@ impl IoHandler for DefaultIoHandler {
         self: &Arc<Self>,
         generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> buck2_error::Result<Vec<ArtifactValue>> {
-        immediate::write_to_disk(
+        write_to_disk(
             self.fs(),
             self.io_executor.as_ref(),
             self.digest_config(),

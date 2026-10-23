@@ -103,6 +103,7 @@ use buck2_execute::materialize::materializer::MaterializerIterItem;
 use buck2_execute::materialize::materializer::ReadLease;
 use buck2_execute::materialize::materializer::WriteLease;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::materialize::write::write_to_disk;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
@@ -136,7 +137,6 @@ use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_entry;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
-use crate::materializers::immediate;
 use crate::materializers::v2::clean_stale::Cleaner;
 use crate::materializers::v2::entry::DiskEntry;
 use crate::materializers::v2::index::DigestIndex;
@@ -805,7 +805,7 @@ impl<T: IoHandler + Allocative> Materializer for DiskStateMaterializer<T> {
             .map(|request| request.path.clone())
             .collect();
         let roots = self.take_all_for_writing(paths.clone()).await?;
-        let values = immediate::write_to_disk(
+        let values = write_to_disk(
             self.io.fs(),
             self.blocking_executor.as_ref(),
             self.io.digest_config(),

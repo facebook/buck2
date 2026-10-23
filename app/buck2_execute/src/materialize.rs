@@ -11,3 +11,4 @@
 pub mod http;
 
 pub mod materializer;
+pub mod write;
