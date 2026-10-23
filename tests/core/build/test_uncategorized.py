@@ -25,6 +25,7 @@ from buck2.tests.e2e_util.helper.utils import (
     get_buck2_re_use_case,
     json_get,
     read_what_ran,
+    remove_output,
 )
 
 
@@ -334,13 +335,13 @@ class UncategorizedTest(BuckTestCase):
 
         # The output should be something like path/__cleanup__/out/dir1/dir2/output.txt
         # We want to ensure that if we make a file dir1 or dir1/dir2, cleanup still works
-        output.unlink()
+        remove_output(output)
         output.parent.rmdir()
         output.parent.write_text("File that must be deleted")
         await buck.kill()
         await buck.build(target_pattern)
 
-        output.unlink()
+        remove_output(output)
         output.parent.rmdir()
         output.parent.parent.rmdir()
         output.parent.parent.write_text("File that must be deleted")

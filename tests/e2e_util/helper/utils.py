@@ -11,6 +11,7 @@ import json
 import math
 import random
 import re
+import stat
 import string
 import sys
 import typing
@@ -87,6 +88,15 @@ async def read_timestamps(buck: Buck, *args) -> typing.List[int]:
         for line in log
         if json_get(line, *args) is not None
     ]
+
+
+def remove_output(path: Path) -> None:
+    """
+    Deletes a build output, which is read-only (`buck2.readonly_outputs`). Unix needs only the
+    directory for that; Windows refuses until the attribute is cleared.
+    """
+    path.chmod(path.stat().st_mode | stat.S_IWRITE)
+    path.unlink()
 
 
 def is_running_on_linux() -> bool:
