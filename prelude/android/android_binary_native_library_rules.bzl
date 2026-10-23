@@ -35,7 +35,9 @@ load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module
     # @oss-disable[end= ]: "gatorade_libraries",
     # @oss-disable[end= ]: "is_late_gatorade_enabled",
     # @oss-disable[end= ]: "is_middle_gatorade_enabled",
+    # @oss-disable[end= ]: "is_monogatorade_enabled",
     # @oss-disable[end= ]: "middle_gatorade_merge_args",
+    # @oss-disable[end= ]: "monogatorade_whole_app",
     # @oss-disable[end= ]: "relink_for_native_libs",
 # @oss-disable[end= ]: )
 # @oss-disable[end= ]: load(
@@ -472,6 +474,7 @@ def get_android_binary_native_library_info(
         # @oss-disable[end= ]: enable_relinker,
     # @oss-disable[end= ]: )
 
+    monogatorade_products = None
     if native_library_merge_sequence:
         native_library_merge_input_file = ctx.actions.write_json(
             "mergemap.input",
@@ -483,7 +486,27 @@ def get_android_binary_native_library_info(
             has_content_based_path = False,
         )
 
-        if not "early" in getattr(ctx.attrs, "gatorade_phases", []):
+        if False: # @oss-enable
+        # @oss-disable[end= ]: if is_monogatorade_enabled(ctx) and enable_relinker:
+            # Monogatorade's whole-app step decides the merges itself, so
+            # neither Early Gatorade nor the mergemap tool runs.
+            native_library_merge_dir = ctx.actions.declare_output("merge_sequence_output", dir = True, has_content_based_path = False)
+            native_library_merge_map = native_library_merge_dir.project("merge.map")
+            split_groups_map = native_library_merge_dir.project("split_groups.map")
+            # @oss-disable[end= ]: monogatorade_products = monogatorade_whole_app(
+                # @oss-disable[end= ]: ctx,
+                # @oss-disable[end= ]: linkable_nodes_by_platform,
+                # @oss-disable[end= ]: glue_linkables,
+                # @oss-disable[end= ]: native_library_merge_input_file,
+                # @oss-disable[end= ]: None,
+                # @oss-disable[end= ]: apk_module_graph_file,
+                # @oss-disable[end= ]: native_library_merge_non_asset_libs,
+                # @oss-disable[end= ]: native_library_merge_linker_args_all or [],
+                # @oss-disable[end= ]: native_library_merge_linker_args or {},
+                # @oss-disable[end= ]: native_library_merge_dir,
+                # @oss-disable[end= ]: native_build_command_entries,
+            # @oss-disable[end= ]: )
+        elif not "early" in getattr(ctx.attrs, "gatorade_phases", []):
             mergemap_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mergemap_tool)
             mergemap_cmd.add(cmd_args(native_library_merge_input_file, format = "--mergemap-input={}"))
             if apk_module_graph_file:
@@ -538,6 +561,30 @@ def get_android_binary_native_library_info(
         dynamic_inputs.append(native_library_merge_map)
         dynamic_inputs.append(split_groups_map)
 
+    elif False: # @oss-enable
+    # @oss-disable[end= ]: elif native_library_merge_map and is_monogatorade_enabled(ctx) and enable_relinker:
+        # A regex merge map is decided here, so the whole-app step takes the
+        # decision instead of making it.
+        given_merge_map = ctx.actions.write_json(
+            "monogatorade-merge-map.json",
+            _merge_map_from_regexes(native_library_merge_map, linkable_nodes_by_platform),
+            pretty = True,
+            has_content_based_path = False,
+        )
+        # @oss-disable[end= ]: monogatorade_products = monogatorade_whole_app(
+            # @oss-disable[end= ]: ctx,
+            # @oss-disable[end= ]: linkable_nodes_by_platform,
+            # @oss-disable[end= ]: glue_linkables,
+            # @oss-disable[end= ]: None,
+            # @oss-disable[end= ]: given_merge_map,
+            # @oss-disable[end= ]: None,
+            # @oss-disable[end= ]: False,
+            # @oss-disable[end= ]: native_library_merge_linker_args_all or [],
+            # @oss-disable[end= ]: native_library_merge_linker_args or {},
+            # @oss-disable[end= ]: None,
+            # @oss-disable[end= ]: native_build_command_entries,
+        # @oss-disable[end= ]: )
+
     mergemap_gencode_jar = None
 
     if has_native_merging and native_library_merge_code_generator:
@@ -564,6 +611,7 @@ def get_android_binary_native_library_info(
 
         split_groups = None
         merged_shared_lib_targets_by_platform = {}  # dict[str, dict[Label, str]]
+        excluded_shared_libs_by_platform = {}
         if has_native_merging:
             native_library_merge_debug_outputs = {}
 
@@ -574,24 +622,7 @@ def get_android_binary_native_library_info(
                 split_groups = artifacts[split_groups_map].read_json()
                 native_library_merge_debug_outputs["merge_sequence_output"] = native_library_merge_dir
             elif native_library_merge_map:
-                merge_map_by_platform = {}
-                for platform, linkable_nodes in linkable_nodes_by_platform.items():
-                    merge_map = merge_map_by_platform.setdefault(platform, {})
-                    merge_lib_to_fancy_regexes = {
-                        merge_lib: [regex(pattern, fancy = True) for pattern in patterns] for merge_lib, patterns in native_library_merge_map.items()
-                    }
-                    for target, _node in linkable_nodes.items():
-                        raw_target = str(target.raw_target())
-                        merge_result = None
-                        for merge_lib, fancy_regexes in merge_lib_to_fancy_regexes.items():
-                            for fancy_regex in fancy_regexes:
-                                if fancy_regex.match(raw_target):
-                                    merge_result = merge_lib
-                                    break
-                            if merge_result:
-                                break
-                        if merge_result:
-                            merge_map[str(target)] = merge_result
+                merge_map_by_platform = _merge_map_from_regexes(native_library_merge_map, linkable_nodes_by_platform)
                 merge_map = ctx.actions.write_json("merge.map", merge_map_by_platform, pretty = True, has_content_based_path = False)
                 native_library_merge_debug_outputs["merge_map_output"] = merge_map
             else:
@@ -673,6 +704,13 @@ def get_android_binary_native_library_info(
                 }
                 for platform, merged_shared_libs in merged_shared_libs_by_platform.items()
             }
+
+            # The libraries that ship still link against a dropped library, and
+            # monogatorade's whole-app step linked it like any other.
+            excluded_shared_libs_by_platform = {
+                platform: {soname: d.lib for soname, d in merged_shared_libs.items() if _merged_lib_provided_by_apk_under_test(d, shared_libraries_to_exclude)}
+                for platform, merged_shared_libs in merged_shared_libs_by_platform.items()
+            }
         elif enable_relinker:
             final_shared_libs_by_platform, native_library_merge_debug_outputs = _create_all_relinkable_links(
                 ctx,
@@ -746,6 +784,8 @@ def get_android_binary_native_library_info(
                 final_shared_libs_by_platform,
                 native_cmd_entries,
                 outputs[middle_relink_check_report] if middle_relink_check_report else None,
+                monogatorade_products,
+                excluded_shared_libs_by_platform,
             )
             middle_gatorade_relinked_libraries_by_platform = final_shared_libs_by_platform
             relinked_libs_for_extra_outputs = final_shared_libs_by_platform
@@ -788,6 +828,8 @@ def get_android_binary_native_library_info(
                 final_shared_libs_by_platform,
                 native_cmd_entries,
                 outputs[middle_relink_check_report] if middle_relink_check_report else None,
+                monogatorade_products,
+                excluded_shared_libs_by_platform,
             )
             # This branch deliberately leaves final_shared_libs_by_platform unrelinked for the
             # [unrelinked] subtargets below. Final diagnostic reports must instead reuse the
@@ -2145,6 +2187,27 @@ def _link_info_object_artifacts(link_info: LinkInfo) -> list[Artifact]:
             artifacts.extend(linkable.objects or [])
     return artifacts
 
+def _merge_map_from_regexes(native_library_merge_map: dict, linkable_nodes_by_platform: dict[str, dict[Label, LinkableNode]]) -> dict[str, dict[str, str]]:
+    # Each target whose raw label one of a library's patterns matches merges
+    # into that library, the first library in the map winning.
+    merge_map_by_platform = {}
+    merge_lib_to_fancy_regexes = {merge_lib: [regex(pattern, fancy = True) for pattern in patterns] for merge_lib, patterns in native_library_merge_map.items()}
+    for platform, linkable_nodes in linkable_nodes_by_platform.items():
+        merge_map = merge_map_by_platform.setdefault(platform, {})
+        for target, _node in linkable_nodes.items():
+            raw_target = str(target.raw_target())
+            merge_result = None
+            for merge_lib, fancy_regexes in merge_lib_to_fancy_regexes.items():
+                for fancy_regex in fancy_regexes:
+                    if fancy_regex.match(raw_target):
+                        merge_result = merge_lib
+                        break
+                if merge_result:
+                    break
+            if merge_result:
+                merge_map[str(target)] = merge_result
+    return merge_map_by_platform
+
 def _get_merged_linkables_for_platform(
     ctx: AnalysisContext,
     cxx_toolchain: CxxToolchainInfo,
@@ -2885,9 +2948,13 @@ def _relink_for_native_libs(
     libraries_by_platform: dict[str, dict[str, SharedLibrary]],
     native_cmd_entries = None,
     check_report: Artifact | None = None,
+    monogatorade_products: dict[str, Artifact] | None = None,
+    excluded_libraries_by_platform: dict[str, dict[str, SharedLibrary]] = {},
 ) -> tuple:
     return (relink_libraries(ctx, libraries_by_platform, native_cmd_entries), {}) # @oss-enable
-    # @oss-disable[end= ]: return relink_for_native_libs(ctx, libraries_by_platform, relink_libraries, create_shared_lib, native_cmd_entries, check_report)
+    # @oss-disable[end= ]: relink = relink_for_native_libs
+    # @oss-disable[end= ]: products = (monogatorade_products, excluded_libraries_by_platform)
+    # @oss-disable[end= ]: return relink(ctx, libraries_by_platform, relink_libraries, create_shared_lib, native_cmd_entries, check_report, *products)
 
 def extract_provided_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo, lib: Artifact) -> Artifact:
     return extract_defined_syms(ctx, toolchain, lib, "relinker_extract_provided_symbols")
