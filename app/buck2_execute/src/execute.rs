@@ -20,6 +20,7 @@ pub mod dep_file_digest;
 pub mod environment_inheritance;
 pub mod inputs_directory;
 pub mod kind;
+pub mod low_pass_filter;
 pub mod manager;
 pub mod output;
 pub mod paths_with_digest;

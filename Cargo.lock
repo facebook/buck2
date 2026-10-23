@@ -2514,6 +2514,7 @@ dependencies = [
  "allocative",
  "anyhow",
  "assert_matches",
+ "async-condvar-fair",
  "async-recursion",
  "async-trait",
  "buck2_action_metadata_proto",
@@ -2554,6 +2555,7 @@ dependencies = [
  "itertools 0.15.0",
  "jiff",
  "pagable",
+ "parking_lot 0.12.5",
  "pathdiff",
  "prost",
  "prost-types",
@@ -2578,7 +2580,6 @@ version = "0.1.0"
 dependencies = [
  "allocative",
  "assert_matches",
- "async-condvar-fair",
  "async-trait",
  "buck2_action_metadata_proto",
  "buck2_build_signals",
