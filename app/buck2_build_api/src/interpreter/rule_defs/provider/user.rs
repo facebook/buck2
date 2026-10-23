@@ -18,6 +18,7 @@ use allocative::Allocative;
 use buck2_core::provider::id::ProviderId;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::Hashed;
@@ -61,7 +62,7 @@ enum UserProviderError {
 )]
 pub struct UserProvider<'v> {
     pub(crate) callable: UserProviderCallableDataValue<'v>,
-    attributes: Box<[Value<'v>]>,
+    attributes: MiniBoxSlice<Value<'v>>,
 }
 
 starlark_complex_value!(pub UserProvider);
@@ -195,7 +196,7 @@ pub(crate) fn user_provider_creator<'v>(
             // parameter, which the parser already rejected.
             None => Err(UserProviderError::MissingParameter(name.to_owned()).into()),
         })
-        .collect::<buck2_error::Result<Box<[Value]>>>()?;
+        .collect::<buck2_error::Result<MiniBoxSlice<Value>>>()?;
     Ok(heap.alloc(UserProvider {
         callable,
         attributes: values,
