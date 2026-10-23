@@ -39,6 +39,10 @@ pub struct RunActionKnobs {
     pub write_cas_probe: bool,
 
     pub write_action_cache: WriteActionCacheMode,
+
+    /// Whether a `run` action whose digest equals that of one already executing waits for that
+    /// execution and takes its result (`buck2.dedupe_in_flight_actions`).
+    pub dedupe_in_flight_actions: bool,
 }
 
 /// How write actions use the action cache; `buck2.write_action_cache`.
