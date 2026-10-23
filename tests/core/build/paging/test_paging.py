@@ -744,3 +744,41 @@ class PagingTest(BuckTestCase):
         assert summary["db_size_bytes_after"] >= summary["db_size_bytes_before"], (
             f"the pagable store shrank across a page-out: {summary}"
         )
+
+    @buck_test(data_dir="paging", write_invocation_record=True)
+    @parametrize("defer_field_reads", [False, True])
+    async def test_provider_and_action_reads_skip_unrelated_actions(
+        self, buck: Buck, defer_field_reads: bool
+    ) -> None:
+        _hydration_settings(
+            buck,
+            page_out_on_idle=False,
+            page_out_policy="once_per_value",
+            defer_field_reads=defer_field_reads,
+        )
+        (buck.cwd / "src.txt").write_text("before eviction\n")
+        warm = await buck.audit("providers", "-p", "InstallInfo", "//:many_actions")
+        assert (
+            _target_output(await buck.build("//:many_actions"), "many_actions")
+            == "before eviction\n"
+        )
+        assert (await _page_out(buck))["paged_out_count"] > 0
+
+        providers = await buck.audit(
+            "providers", "-p", "InstallInfo", "//:many_actions"
+        )
+        assert providers.stdout == warm.stdout
+        assert providers.invocation_record()["analysis_count"] == 0
+        if defer_field_reads:
+            # There are 2,000 irrelevant actions. Root/provider metadata should need
+            # only a bounded set of reads, independently of those action payloads.
+            assert providers.invocation_record()["paging_data_keys_in"] < 500
+
+        # A source-content edit reuses analysis but needs the copy action. This must
+        # resolve that action without restoring the 2,000 unrelated write actions.
+        (buck.cwd / "src.txt").write_text("after eviction\n")
+        changed = await buck.build("//:many_actions")
+        assert _target_output(changed, "many_actions") == "after eviction\n"
+        assert changed.invocation_record()["analysis_count"] == 0
+        if defer_field_reads:
+            assert changed.invocation_record()["paging_data_keys_in"] < 500

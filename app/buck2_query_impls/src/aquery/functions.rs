@@ -117,7 +117,7 @@ impl<'a> AqueryFunctions<'a> {
                 }
                 ActionQueryNodeData::Analysis(analysis) => {
                     for action in analysis.analysis_result().analysis_values()?.iter_actions() {
-                        action_keys.push(action.key().dupe());
+                        action_keys.push(action?.key().dupe());
                     }
                 }
             }

@@ -1,4 +1,4 @@
-load(":rules.bzl", "analysis_node", "copy_file", "module_const", "uses_anon")
+load(":rules.bzl", "analysis_node", "copy_file", "many_actions", "module_const", "uses_anon")
 
 analysis_node(
     name = "analysis_leaf",
@@ -37,4 +37,10 @@ uses_anon(
 
 uses_anon(
     name = "uses_anon_b",
+)
+
+many_actions(
+    name = "many_actions",
+    src = "src.txt",
+    installer = ":many_actions",
 )

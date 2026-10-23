@@ -201,7 +201,7 @@ impl DetailedAggregatedMetricsStateTracker {
                 .get(&DeferredHolderKey::for_analysis(target.dupe()))
                 .internal_error("analysis missing for output")?;
             let metrics = AnalysisMetrics {
-                actions: ev.analysis_values()?.iter_actions().count(),
+                actions: ev.analysis_values()?.num_actions(),
                 retained_memory: ev.analysis_values()?.retained_memory().expect("todo!()"),
             };
             let amortization_factor = owners.len();

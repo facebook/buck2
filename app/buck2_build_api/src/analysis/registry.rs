@@ -735,8 +735,14 @@ impl RecordedAnalysisValues {
         self.actions.lookup(key)
     }
 
-    /// Iterates over the actions created in this analysis.
-    pub fn iter_actions(&self) -> impl Iterator<Item = &Arc<RegisteredAction>> + '_ {
+    pub fn num_actions(&self) -> usize {
+        self.actions.num_actions()
+    }
+
+    /// Reads each action created in this analysis on demand.
+    pub fn iter_actions(
+        &self,
+    ) -> impl Iterator<Item = buck2_error::Result<&Arc<RegisteredAction>>> + '_ {
         self.actions.iter_actions()
     }
 

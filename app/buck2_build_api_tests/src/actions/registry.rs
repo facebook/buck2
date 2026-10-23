@@ -250,7 +250,10 @@ fn finalizing_actions() -> buck2_error::Result<()> {
                 .is_ok(),
             "Expected results to contain `{}`, had `[{}]`",
             declared.testing_action_key().unwrap(),
-            result.iter_actions().map(|v| v.key()).join(", ")
+            result
+                .iter_actions()
+                .map(|v| v.expect("fresh action is resident").key())
+                .join(", ")
         );
 
         Ok(())
