@@ -62,7 +62,13 @@ pub(crate) fn classify_server_stderr(
                 tags.push(ErrorTag::ReClientCrash);
             }
 
-            error.string_tag(&format!("crash({})", trace.trace_key()))
+            // A trace with no frames (e.g. because writing it failed on a full disk) would give
+            // unrelated crashes the same key.
+            if trace.stack_trace_lines.is_empty() {
+                error
+            } else {
+                error.string_tag(&format!("crash({})", trace.trace_key()))
+            }
         } else if let Some(signal_line) = trace.signal_line {
             // Keep this because the PID that (might have) sent it could be useful.
             // *** Signal 15 (SIGTERM) (0x2b08100000ab5) received by PID 1762297 (pthread TID 0x7f6650339640) (linux TID 1762297) (maybe from PID 2741, UID 176257) (code: 0), stack trace: ***
@@ -220,6 +226,36 @@ mod tests {
             .map(|s| s.trim().to_owned())
             .filter(|s| !s.is_empty())
             .collect()
+    }
+
+    const SIGBUS_NO_FRAMES: &str = "
+*** Aborted at 1792565221 (Unix time, try 'date -d @1792565221') ***
+*** Signal 7 (SIGBUS) (0x7f90e726bcb0) received by PID 7166 (pthread TID 0x7f902d3ff640) (linux TID 7627) (code: nonexistent physical address), stack trace: ***
+";
+
+    const SIGBUS_WITH_FRAMES: &str = "
+*** Signal 7 (SIGBUS) (0x25921d78) received by PID 5126 (pthread TID 0xfff1e6ba2380) (linux TID 6859) (code: nonexistent physical address), stack trace: ***
+    @ 000000000ddb2c8b folly::symbolizer::(anonymous namespace)::signalHandler(int, siginfo_t*, void*)
+    @ 000000000e5c7f3f folly::FunctionScheduler::runOneFunction(std::unique_lock<std::mutex>&)
+";
+
+    fn daemon_disconnect_error() -> buck2_error::Error {
+        buck2_error::buck2_error!(ErrorTag::ClientGrpcStream, "broken pipe")
+    }
+
+    #[test]
+    fn test_sigbus_without_frames_has_no_crash_key() {
+        let error = classify_server_stderr(daemon_disconnect_error(), SIGBUS_NO_FRAMES);
+        assert!(error.has_tag(ErrorTag::ServerSigbus));
+        assert!(error.string_tags().is_empty());
+    }
+
+    #[test]
+    fn test_sigbus_with_frames_has_crash_key() {
+        let error = classify_server_stderr(daemon_disconnect_error(), SIGBUS_WITH_FRAMES);
+        assert!(error.has_tag(ErrorTag::ServerSigbus));
+        assert_eq!(error.string_tags().len(), 1);
+        assert!(error.string_tags()[0].starts_with("crash("));
     }
 
     #[test]
