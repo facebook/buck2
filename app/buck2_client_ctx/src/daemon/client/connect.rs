@@ -76,6 +76,7 @@ use crate::immediate_config::ImmediateConfigContext;
 use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
+use crate::subscribers::system_warning::is_disk_near_full;
 
 #[cfg(all(fbcode_build, target_os = "linux"))]
 mod linux_unsandbox;
@@ -1325,7 +1326,10 @@ async fn daemon_connect_error(
             ))
             .tag([ErrorTag::DaemonConnect]);
 
-        classify_server_stderr(error, &stderr)
+        let disk_near_full = fs_util::disk_space_stats(paths.buck_out_path())
+            .is_ok_and(|stats| is_disk_near_full(stats.free_space, stats.total_space));
+
+        classify_server_stderr(error, &stderr, disk_near_full)
     };
     let delete_command = if cfg!(windows) {
         "rmdir /s /q %USERPROFILE%\\.buck\\buckd"

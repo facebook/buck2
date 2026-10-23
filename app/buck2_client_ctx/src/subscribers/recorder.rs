@@ -89,6 +89,7 @@ use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::system_warning::check_download_speed;
 use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::check_remaining_disk_space;
+use crate::subscribers::system_warning::is_disk_near_full;
 
 pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
     // buck2_rss is the resident set size observed by daemon (exluding subprocesses).
@@ -710,12 +711,21 @@ impl InvocationRecorder {
 
     fn finalize_errors(&mut self) -> Vec<ProcessedErrorReport> {
         let mut errors = Vec::new();
+        let disk_near_full = match (
+            self.last_snapshot
+                .as_ref()
+                .and_then(|snapshot| snapshot.used_disk_space_bytes),
+            self.system_info.total_disk_space_bytes,
+        ) {
+            (Some(used), Some(total)) => is_disk_near_full(total.saturating_sub(used), total),
+            _ => false,
+        };
         for error in self.command_errors.drain(..) {
             // FIXME this error should be updated at the source if possible, and not only in the invocation record.
             let error: ErrorReport = if error.tags.contains(&(ErrorTag::ClientGrpc as i32)) {
                 let error: buck2_error::Error = error.into();
                 // Add stderr to GRPC connection errors if available
-                let error = classify_server_stderr(error, &self.server_stderr);
+                let error = classify_server_stderr(error, &self.server_stderr, disk_near_full);
                 let error = if self.server_stderr.is_empty() {
                     let error = error.context("buckd stderr is empty");
                     // Likely buckd received SIGKILL, may be due to memory pressure
