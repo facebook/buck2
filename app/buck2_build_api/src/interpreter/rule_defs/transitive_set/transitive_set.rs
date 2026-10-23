@@ -30,6 +30,7 @@ use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use serde::Serialize;
@@ -170,7 +171,7 @@ pub struct TransitiveSet<'v> {
     pub(crate) node: Option<Node<'v>>,
 
     /// Pre-computed reductions. Those are arbitrary values based on the set's definition.
-    pub(crate) reductions: Box<[Value<'v>]>,
+    pub(crate) reductions: MiniBoxSlice<Value<'v>>,
 
     pub(crate) projection_path_resolution_may_require_artifact_value: ProjectionBitSet,
 
@@ -180,7 +181,7 @@ pub struct TransitiveSet<'v> {
     /// before.
     #[trace(static)]
     #[starlark_pagable(pagable)]
-    projection_hashes: Box<[StrongHash128]>,
+    projection_hashes: MiniBoxSlice<StrongHash128>,
 
     /// Read together on first access; `len()` does not read them.
     pub children: Deferred<ThinBoxSliceValue<'v>>,
@@ -193,7 +194,7 @@ pub struct Node<'v> {
     pub value: Value<'v>,
 
     /// Pre-computed projections.
-    pub projections: Box<[Value<'v>]>,
+    pub projections: MiniBoxSlice<Value<'v>>,
 }
 
 impl<'v> fmt::Display for TransitiveSet<'v> {
@@ -459,7 +460,7 @@ fn hash_projections<'fv>(
     definition: &FrozenTransitiveSetDefinition<'fv>,
     node: Option<&Node<'fv>>,
     children: &Deferred<ThinBoxSliceValue<'fv>>,
-) -> buck2_error::Result<Box<[StrongHash128]>> {
+) -> buck2_error::Result<MiniBoxSlice<StrongHash128>> {
     let children: Vec<&TransitiveSet<'fv>> = children
         .read()?
         .iter()
@@ -570,7 +571,7 @@ impl<'v> TransitiveSet<'v> {
                         }
                         buck2_error::Ok(projected_value)
                     })
-                    .collect::<Result<Box<[_]>, _>>()?;
+                    .collect::<Result<MiniBoxSlice<_>, _>>()?;
 
                 buck2_error::Ok(Node { value, projections })
             })
@@ -603,7 +604,7 @@ impl<'v> TransitiveSet<'v> {
 
                     buck2_error::Ok(reduced)
                 })
-                .collect::<Result<Box<[_]>, _>>()?;
+                .collect::<Result<MiniBoxSlice<_>, _>>()?;
 
         let target_platform =
             if let BaseDeferredKey::TargetLabel(configured_label) = key.holder_key().owner() {
