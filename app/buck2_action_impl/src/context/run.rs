@@ -570,7 +570,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let starlark_values = heap.alloc(StarlarkRunActionValues {
             exe: heap.alloc_typed(starlark_exe),
             args: heap.alloc_typed(starlark_args),
-            dep_file_fingerprints: dep_file_fingerprints.items,
+            dep_file_fingerprints: MiniBoxSlice::from(dep_file_fingerprints.items),
             env: starlark_env,
             worker: starlark_worker,
             remote_worker: starlark_remote_worker,
@@ -579,7 +579,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 category
             },
             identifier: identifier.into_option(),
-            outputs_for_error_handler: outputs_for_error_handler.items,
+            outputs_for_error_handler: MiniBoxSlice::from(outputs_for_error_handler.items),
         });
 
         let re_dependencies = remote_execution_dependencies

@@ -336,13 +336,13 @@ impl UnregisteredAction for UnregisteredRunAction {
 pub(crate) struct StarlarkRunActionValues<'v> {
     pub(crate) exe: ValueTyped<'v, StarlarkCmdArgs<'v>>,
     pub(crate) args: ValueTyped<'v, StarlarkCmdArgs<'v>>,
-    pub(crate) dep_file_fingerprints: Vec<ValueTyped<'v, StarlarkDepFileFingerprint<'v>>>,
+    pub(crate) dep_file_fingerprints: MiniBoxSlice<ValueTyped<'v, StarlarkDepFileFingerprint<'v>>>,
     pub(crate) env: Option<ValueOfUnchecked<'v, DictType<String, ValueAsCommandLineLike<'static>>>>,
     pub(crate) worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
     pub(crate) remote_worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
     pub(crate) category: StringValue<'v>,
     pub(crate) identifier: Option<StringValue<'v>>,
-    pub(crate) outputs_for_error_handler: Vec<ValueTyped<'v, StarlarkOutputArtifact<'v>>>,
+    pub(crate) outputs_for_error_handler: MiniBoxSlice<ValueTyped<'v, StarlarkOutputArtifact<'v>>>,
 }
 
 #[derive(
@@ -357,13 +357,14 @@ pub(crate) struct StarlarkRunActionValues<'v> {
 pub(crate) struct FrozenStarlarkRunActionValues<'v> {
     pub(crate) exe: ValueTyped<'v, FrozenStarlarkCmdArgs<'v>>,
     pub(crate) args: ValueTyped<'v, FrozenStarlarkCmdArgs<'v>>,
-    pub(crate) dep_file_fingerprints: Vec<ValueTyped<'v, StarlarkDepFileFingerprint<'v>>>,
+    pub(crate) dep_file_fingerprints: MiniBoxSlice<ValueTyped<'v, StarlarkDepFileFingerprint<'v>>>,
     pub(crate) env: Option<ValueOfUnchecked<'v, DictType<String, ValueAsCommandLineLike<'static>>>>,
     pub(crate) worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
     pub(crate) remote_worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
     pub(crate) category: StringValue<'v>,
     pub(crate) identifier: Option<StringValue<'v>>,
-    pub(crate) outputs_for_error_handler: Vec<ValueTyped<'v, FrozenStarlarkOutputArtifact<'v>>>,
+    pub(crate) outputs_for_error_handler:
+        MiniBoxSlice<ValueTyped<'v, FrozenStarlarkOutputArtifact<'v>>>,
 }
 
 #[starlark_value(type = "RunActionValues")]
@@ -405,15 +406,7 @@ impl<'v> Freeze<'v> for StarlarkRunActionValues<'v> {
             remote_worker: Freeze::freeze(remote_worker, freezer)?,
             category: category.freeze(freezer)?,
             identifier: identifier.map(|i| i.freeze(freezer)).transpose()?,
-            // N.B. collect::<Result<_>> sets the lower bound to zero,
-            // which can cause over-allocations in frozen containers.
-            outputs_for_error_handler: {
-                let mut frozen_outputs = Vec::with_capacity(outputs_for_error_handler.len());
-                for output in outputs_for_error_handler {
-                    frozen_outputs.push(Freeze::freeze(output, freezer)?);
-                }
-                frozen_outputs
-            },
+            outputs_for_error_handler: Freeze::freeze(outputs_for_error_handler, freezer)?,
         })
     }
 }
