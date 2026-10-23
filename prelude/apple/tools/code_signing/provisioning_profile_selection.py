@@ -72,6 +72,12 @@ def _matches_or_array_is_subset_of(
         return True
     if isinstance(expected_value, list) and isinstance(actual_value, list):
         return set(expected_value).issubset(set(actual_value))
+    if (
+        isinstance(expected_value, str)
+        and isinstance(actual_value, list)
+        and all(isinstance(value, str) for value in actual_value)
+    ):
+        return expected_value in actual_value
     return actual_value == expected_value
 
 
