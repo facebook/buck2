@@ -49,6 +49,7 @@ use buck2_execute::re::presence::NegativeCache;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_http::HttpClient;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
@@ -116,7 +117,7 @@ impl UnregisteredAction for UnregisteredDownloadFileAction {
 
 #[derive(Debug, Allocative, Pagable)]
 struct DownloadFileAction {
-    outputs: Box<[BuildArtifact]>,
+    outputs: MiniBoxSlice<BuildArtifact>,
     inner: UnregisteredDownloadFileAction,
 }
 

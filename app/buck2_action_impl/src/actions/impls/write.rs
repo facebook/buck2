@@ -51,6 +51,7 @@ use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::buck_mut_insertion_map;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
@@ -126,7 +127,7 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor 
 pub(crate) struct UnregisteredWriteAction {
     pub(crate) is_executable: bool,
     pub(crate) absolute: bool,
-    pub(crate) macro_files: Option<Box<[Artifact]>>,
+    pub(crate) macro_files: Option<MiniBoxSlice<Artifact>>,
     pub(crate) use_dep_files_placeholder_for_content_based_paths: bool,
 }
 

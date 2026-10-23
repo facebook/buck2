@@ -13,11 +13,12 @@ use std::vec;
 
 use allocative::Allocative;
 use buck2_hash::BuckMutInsertionSet;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 
-/// It is a boxed slice, where all elements are unique.
+/// A `MiniBoxSlice` whose elements are all unique.
 #[derive(Debug, Allocative, Pagable)]
-pub struct BoxSliceSet<T>(Box<[T]>);
+pub struct BoxSliceSet<T>(MiniBoxSlice<T>);
 
 impl<T> BoxSliceSet<T> {
     #[inline]

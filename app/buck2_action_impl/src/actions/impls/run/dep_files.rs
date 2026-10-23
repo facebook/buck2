@@ -102,6 +102,7 @@ use buck2_hash::BuckMutSet;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use either::Either;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use parking_lot::MappedMutexGuard;
 use parking_lot::Mutex;
@@ -406,7 +407,7 @@ enum DepFileDeclaration {
     },
     /// Reloaded from disk: only the configuration-independent identities survived.
     Reloaded {
-        identities: Box<[DeclaredDepFileIdentity]>,
+        identities: MiniBoxSlice<DeclaredDepFileIdentity>,
     },
 }
 
@@ -454,7 +455,7 @@ struct LoadedEntry {
     /// held in full; directory values hold only a fingerprint and are rehydrated from the
     /// materializer at reuse time (see `resolve_loaded_outputs`). The real `BuildArtifactPath` is
     /// reconstructed from the live action's declared outputs on reuse.
-    outputs: Box<[StoredOutput]>,
+    outputs: MiniBoxSlice<StoredOutput>,
     was_produced_locally: bool,
     declared: DepFileDeclaration,
 }
@@ -620,7 +621,7 @@ impl LoadedEntry {
         // Validate paths loaded from disk rather than trusting them: a corrupt or
         // differently-versioned row surfaces as a `from_stored` error, which the lookup path drops
         // and reports, instead of constructing an invalid path that misbehaves later.
-        let identities: Box<[DeclaredDepFileIdentity]> = stored
+        let identities: MiniBoxSlice<DeclaredDepFileIdentity> = stored
             .declared
             .into_iter()
             .map(|i| {
@@ -641,7 +642,7 @@ impl LoadedEntry {
         };
         Ok(LoadedEntry {
             digests,
-            outputs: stored.outputs.into_boxed_slice(),
+            outputs: stored.outputs.into(),
             was_produced_locally: stored.was_produced_locally,
             declared,
         })

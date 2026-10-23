@@ -38,6 +38,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckMutInsertionSet;
 use dupe::Dupe;
 use itertools::Itertools;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
@@ -231,7 +232,7 @@ impl UnregisteredAction for UnregisteredAssembledDirAction {
         _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(AssembledDirAction {
-            args: self.args,
+            args: self.args.into(),
             outputs: BoxSliceSet::from(outputs),
             category: self.category,
         }))
@@ -240,7 +241,7 @@ impl UnregisteredAction for UnregisteredAssembledDirAction {
 
 #[derive(Debug, Allocative, Pagable)]
 struct AssembledDirAction {
-    args: Vec<(ArtifactGroup, Box<ForwardRelativePath>, CopyMode)>,
+    args: MiniBoxSlice<(ArtifactGroup, Box<ForwardRelativePath>, CopyMode)>,
     outputs: BoxSliceSet<BuildArtifact>,
     category: DirActionCategory,
 }

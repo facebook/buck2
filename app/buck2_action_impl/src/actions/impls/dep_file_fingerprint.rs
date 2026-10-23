@@ -27,6 +27,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use derive_more::Display;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -51,7 +52,7 @@ pub(crate) enum DepFileFingerprintFormat {
     },
     Args {
         is_executable: bool,
-        macro_files: Option<Box<[Artifact]>>,
+        macro_files: Option<MiniBoxSlice<Artifact>>,
     },
 }
 

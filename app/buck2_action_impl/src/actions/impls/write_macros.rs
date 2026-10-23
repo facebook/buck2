@@ -39,6 +39,7 @@ use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
@@ -98,7 +99,7 @@ enum WriteMacrosActionValidationError {
 #[derive(Debug, Allocative, Pagable)]
 struct WriteMacrosToFileAction {
     contents: OwnedFrozen<Value<'static>>, // StarlarkCmdArgs
-    outputs: Box<[BuildArtifact]>,
+    outputs: MiniBoxSlice<BuildArtifact>,
     inner: UnregisteredWriteMacrosToFileAction,
 }
 
