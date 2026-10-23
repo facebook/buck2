@@ -20,6 +20,7 @@ use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
@@ -207,7 +208,7 @@ impl<'v> Display for ResolvedStringWithMacrosPart<'v> {
     StarlarkPagable
 )]
 pub struct ResolvedStringWithMacros<'v> {
-    parts: Vec<ResolvedStringWithMacrosPart<'v>>,
+    parts: MiniBoxSlice<ResolvedStringWithMacrosPart<'v>>,
     #[trace(static)]
     #[freeze(identity)]
     #[starlark_pagable(pagable)]
@@ -232,7 +233,7 @@ impl<'v> ResolvedStringWithMacros<'v> {
         configured_macros: Option<&ConfiguredStringWithMacros>,
     ) -> Self {
         Self {
-            parts,
+            parts: parts.into(),
             configured_macros: configured_macros.cloned(),
         }
     }

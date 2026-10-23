@@ -39,11 +39,11 @@ pub struct ResolvedQueryMacroTargetAndOutputs {
         serialize_with = "serialize_target_outputs",
         deserialize_with = "deserialize_target_outputs"
     )]
-    pub list: Box<[(ConfiguredTargetLabel, Box<[StarlarkArtifact]>)]>,
+    pub list: MiniBoxSlice<(ConfiguredTargetLabel, MiniBoxSlice<StarlarkArtifact>)>,
 }
 
 fn serialize_target_outputs(
-    field: &[(ConfiguredTargetLabel, Box<[StarlarkArtifact]>)],
+    field: &[(ConfiguredTargetLabel, MiniBoxSlice<StarlarkArtifact>)],
     ctx: &mut dyn StarlarkSerializeContext,
 ) -> starlark::Result<()> {
     PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
@@ -56,21 +56,22 @@ fn serialize_target_outputs(
 
 fn deserialize_target_outputs(
     ctx: &mut dyn StarlarkDeserializeContext<'_, '_>,
-) -> starlark::Result<Box<[(ConfiguredTargetLabel, Box<[StarlarkArtifact]>)]>> {
+) -> starlark::Result<MiniBoxSlice<(ConfiguredTargetLabel, MiniBoxSlice<StarlarkArtifact>)>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
     let mut v = Vec::with_capacity(len);
     for _ in 0..len {
         let target =
             <ConfiguredTargetLabel as PagableDeserialize>::pagable_deserialize(ctx.pagable())?;
-        let outputs = <Box<[StarlarkArtifact]> as StarlarkDeserialize>::starlark_deserialize(ctx)?;
+        let outputs =
+            <MiniBoxSlice<StarlarkArtifact> as StarlarkDeserialize>::starlark_deserialize(ctx)?;
         v.push((target, outputs));
     }
-    Ok(v.into_boxed_slice())
+    Ok(v.into())
 }
 
 #[derive(Debug, PartialEq, Allocative, StarlarkPagable)]
 pub enum ResolvedQueryMacro {
-    Outputs(MiniBoxSlice<Box<[StarlarkArtifact]>>),
+    Outputs(MiniBoxSlice<MiniBoxSlice<StarlarkArtifact>>),
     Targets(#[starlark_pagable(pagable)] MiniBoxSlice<ConfiguredTargetLabel>),
     TargetsAndOutputs(Box<ResolvedQueryMacroTargetAndOutputs>),
 }
