@@ -25,6 +25,7 @@ use crate::subscribers::errorconsole::ErrorConsole;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::superconsole::BUCK_NO_INTERACTIVE_CONSOLE;
+use crate::subscribers::superconsole::ConsoleCanvas;
 use crate::subscribers::superconsole::StatefulSuperConsole;
 use crate::subscribers::superconsole::SuperConsoleConfig;
 use crate::subscribers::superconsole::timekeeper::Timekeeper;
@@ -118,7 +119,7 @@ pub fn get_console_with_root(
             Ok(Some(sc)) => StatefulSuperConsole::new(
                 command_name,
                 trace_id.dupe(),
-                sc,
+                ConsoleCanvas::Terminal(sc),
                 verbosity,
                 expect_spans,
                 timekeeper,
