@@ -1007,11 +1007,9 @@ mod tests {
         let err = |sha1: Option<&str>, sha256: Option<&str>| {
             format!("{:#}", Checksum::new(sha1, sha256).unwrap_err())
         };
-        assert!(
-            err(None, None).contains(&"Must pass in at least one checksum (e.g. `sha1 = ...`)")
-        );
+        assert!(err(None, None).contains("Must pass in at least one checksum (e.g. `sha1 = ...`)"));
         assert!(err(Some("abc"), None).contains(
-            &"Invalid digest for `sha1` argument, expected length of 40 but got 3, digest `abc`"
+            "Invalid digest for `sha1` argument, expected length of 40 but got 3, digest `abc`"
         ));
         assert!(
             err(None, Some(FOOBAR_SHA1)).contains(&format!(
@@ -1162,7 +1160,7 @@ mod tests {
 
     #[test]
     fn test_hash_algorithm_table() {
-        let mut names = std::collections::HashSet::new();
+        let mut names = buck2_hash::BuckMutSet::default();
         for algorithm in HASH_ALGORITHMS {
             assert!(names.insert(algorithm.name), "duplicate {}", algorithm.name);
             // The recorded length is what the hasher really produces.
