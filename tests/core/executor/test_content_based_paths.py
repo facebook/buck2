@@ -19,6 +19,8 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import ExitCodeV2
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
+from buck2.tests.e2e_util.helper.http_archive import make_archive
+from buck2.tests.e2e_util.helper.http_server import download_configs, StaticHttpServer
 from buck2.tests.e2e_util.helper.utils import filter_events, read_what_ran
 
 
@@ -296,11 +298,15 @@ class ContentBasedPathsTest(BuckTestCase):
 
     @buck_test()
     async def test_download_with_content_based_path(self, buck: Buck) -> None:
-        await (
-            build_target_with_different_platforms_and_verify_output_paths_are_identical(
-                buck, "root//:download_with_content_based_path"
+        files = {
+            name: f"{name}\n".encode() for name in ("foo2", "foo/bar2", "foo/bar/qux")
+        }
+        content = make_archive("tgz", files)
+        async with StaticHttpServer({"/archive": content}) as server:
+            config = download_configs(server.url("/archive"), content)
+            await build_target_with_different_platforms_and_verify_output_paths_are_identical(
+                buck, "root//:download_with_content_based_path", config
             )
-        )
 
     @buck_test()
     async def test_download_with_content_based_path_and_no_metadata(
@@ -309,6 +315,8 @@ class ContentBasedPathsTest(BuckTestCase):
         await expect_failure(
             buck.build(
                 "root//:download_with_content_based_path_and_no_metadata",
+                "-c",
+                "test.url=http://localhost:1/archive",
             ),
             stderr_regex=r"Downloads using content-based path .* must supply metadata \(usually in the form of a sha1\)!",
         )
@@ -344,21 +352,30 @@ class ContentBasedPathsTest(BuckTestCase):
 
     @buck_test()
     async def test_offline_download_with_content_based_path(self, buck: Buck) -> None:
-        hg_init(cwd=buck.cwd)
+        files = {
+            name: f"{name}\n".encode() for name in ("foo2", "foo/bar2", "foo/bar/qux")
+        }
+        content = make_archive("tgz", files)
+        async with StaticHttpServer({"/archive": content}) as server:
+            config = download_configs(server.url("/archive"), content)
+            hg_init(cwd=buck.cwd)
 
-        await buck.debug("trace-io", "enable")
-        target = "root//:download_with_content_based_path"
+            await buck.debug("trace-io", "enable")
+            target = "root//:download_with_content_based_path"
+            await buck.build(
+                *config,
+                target,
+                "--target-platforms",
+                "root//:p_default",
+                "--show-output",
+            )
+
+            await buck.debug("trace-io", "export-manifest")
+            await buck.kill()
+            assert server.count("GET", "/archive") > 0
+
         await buck.build(
-            target,
-            "--target-platforms",
-            "root//:p_default",
-            "--show-output",
-        )
-
-        await buck.debug("trace-io", "export-manifest")
-        await buck.kill()
-
-        await buck.build(
+            *config,
             target,
             "--target-platforms",
             "root//:p_default",

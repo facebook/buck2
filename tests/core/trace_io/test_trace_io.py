@@ -20,6 +20,8 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase, env
+from buck2.tests.e2e_util.helper.http_archive import make_archive
+from buck2.tests.e2e_util.helper.http_server import download_configs, StaticHttpServer
 
 
 def assert_path_in_manifest(path: str, manifest_paths: list[str]) -> None:
@@ -214,20 +216,27 @@ class TraceIoTest(BuckTestCase):
     # Validate that manifest includes downloaded http_archive path in buck-out.
     @buck_test(skip_for_os=["windows"])
     async def test_includes_http_archive_in_manifest(self, buck: Buck) -> None:
-        hg_init(cwd=buck.cwd)
+        files = {
+            name: f"{name}\n".encode() for name in ("foo2", "foo/bar2", "foo/bar/qux")
+        }
+        content = make_archive("zip", files)
+        async with StaticHttpServer({"/archive": content}) as server:
+            config = download_configs(server.url("/archive"), content)
+            hg_init(cwd=buck.cwd)
 
-        await buck.debug("trace-io", "enable")
-        await buck.build("root//http_archive:test_zip")
-        out = await buck.debug("trace-io", "export-manifest")
-        manifest = json.loads(out.stdout)
+            await buck.debug("trace-io", "enable")
+            await buck.build("root//http_archive:test_zip", *config)
+            out = await buck.debug("trace-io", "export-manifest")
+            manifest = json.loads(out.stdout)
 
-        assert any(
-            re.match(
-                r"buck-out/.+/offline-cache/.+/http_archive/__test_zip__/download", path
-            )
-            for path in manifest["paths"]
-        ), "manifest should contain http_archive cached output"
-        assert_buck_out_paths_materialized(buck.cwd, manifest["paths"])
+            assert any(
+                re.match(
+                    r"buck-out/.+/offline-cache/.+/http_archive/__test_zip__/download",
+                    path,
+                )
+                for path in manifest["paths"]
+            ), "manifest should contain http_archive cached output"
+            assert_buck_out_paths_materialized(buck.cwd, manifest["paths"])
 
     # Ensure offline-cache buck-out dir is _not_ created when not doing I/O tracing.
     @buck_test(skip_for_os=["windows"])
@@ -235,10 +244,16 @@ class TraceIoTest(BuckTestCase):
         self,
         buck: Buck,
     ) -> None:
-        await buck.build("root//http_archive:test_zip")
-        assert not os.path.exists(os.path.join(buck.cwd, "buck-out/offline-cache")), (
-            "offline cache should not exist when not doing I/O tracing"
-        )
+        files = {
+            name: f"{name}\n".encode() for name in ("foo2", "foo/bar2", "foo/bar/qux")
+        }
+        content = make_archive("zip", files)
+        async with StaticHttpServer({"/archive": content}) as server:
+            config = download_configs(server.url("/archive"), content)
+            await buck.build("root//http_archive:test_zip", *config)
+            assert not os.path.exists(
+                os.path.join(buck.cwd, "buck-out/offline-cache")
+            ), "offline cache should not exist when not doing I/O tracing"
 
     # Validate that when buckconfig use_network_action_output_cache=true is set we use the
     # offline-cache action output instead of fetching from the network.
@@ -250,37 +265,45 @@ class TraceIoTest(BuckTestCase):
     async def test_fake_offline_http_archive_uses_offline_cache(
         self, buck: Buck
     ) -> None:
-        hg_init(cwd=buck.cwd)
+        files = {
+            name: f"{name}\n".encode() for name in ("foo2", "foo/bar2", "foo/bar/qux")
+        }
+        content = make_archive("zip", files)
+        async with StaticHttpServer({"/archive": content}) as server:
+            config = download_configs(server.url("/archive"), content)
+            hg_init(cwd=buck.cwd)
 
-        # This should materialize the offline-cache dir.
-        target = "root//http_archive:test_zip"
-        await buck.debug("trace-io", "enable")
-        result = await buck.build(target)
-        print("stderr:", result.stderr)
-        assert "/offline-cache/" in result.stderr, (
-            "materializer should declare offline-cache materialization"
-        )
+            # This should materialize the offline-cache dir.
+            target = "root//http_archive:test_zip"
+            await buck.debug("trace-io", "enable")
+            result = await buck.build(target, *config)
+            print("stderr:", result.stderr)
+            assert "/offline-cache/" in result.stderr, (
+                "materializer should declare offline-cache materialization"
+            )
 
-        # Validate that offline-cache path doesn't exist prior to manifest export.
-        http_download_path = result.get_build_report().output_for_target(target)
-        # This is hacky, but there's no other good way to discover the offline-cache path.
-        offline_cache_path = (
-            Path(str(http_download_path).replace("/art/", "/offline-cache/")).parent
-            / "download"
-        )
-        assert not offline_cache_path.exists(), (
-            "offline cache path should not exist before manifest export"
-        )
+            # Validate that offline-cache path doesn't exist prior to manifest export.
+            http_download_path = result.get_build_report().output_for_target(target)
+            # This is hacky, but there's no other good way to discover the offline-cache path.
+            offline_cache_path = (
+                Path(str(http_download_path).replace("/art/", "/offline-cache/")).parent
+                / "download"
+            )
+            assert not offline_cache_path.exists(), (
+                "offline cache path should not exist before manifest export"
+            )
 
-        # Ensure buck-out/offline-cache paths are materialized.
-        await buck.debug("trace-io", "export-manifest")
-        assert offline_cache_path.exists(), (
-            "offline cache path should exist after manifest export"
-        )
+            # Ensure buck-out/offline-cache paths are materialized.
+            await buck.debug("trace-io", "export-manifest")
+            assert offline_cache_path.exists(), (
+                "offline cache path should exist after manifest export"
+            )
 
-        await buck.kill()
+            await buck.kill()
+            assert server.count("GET", "/archive") > 0
 
         result = await buck.build(
+            *config,
             "root//http_archive:test_zip",
             "--config",
             "buck2.use_network_action_output_cache=true",
