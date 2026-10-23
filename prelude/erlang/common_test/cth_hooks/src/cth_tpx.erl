@@ -46,6 +46,7 @@
 
 %% For tests purposes
 
+-include_lib("kernel/include/logger.hrl").
 -include("method_ids.hrl").
 
 %% ----------------------- Types --------------------------
@@ -158,8 +159,9 @@ Whether a crash asks to be reported to tpx as an infra failure rather than a tes
 failure.
 
 A test or callback opts in by crashing with `error(test_infra_error)` or
-`error({test_infra_error, Reason})`. tpx retries infra failures transparently and
-records them outside the failure band, so they do not break a diff.
+`error({test_infra_error, Reason})`, or via a configured `infra_failure_classifier`
+module. tpx retries infra failures transparently and records them outside the
+failure band, so they do not break a diff.
 
 Only the wrapper shapes CT itself adds are unwrapped. The marker is deliberately not
 searched for inside arbitrary terms, so an ordinary failure that happens to carry the
@@ -174,16 +176,37 @@ is_infra_error({failed, {_Suite, _Callback, Reason}}) ->
     is_infra_error(Reason);
 is_infra_error({'EXIT', Reason}) ->
     is_infra_error(Reason);
+is_infra_error({'EXIT', _Pid, Reason}) ->
+    is_infra_error(Reason);
 is_infra_error({Reason, Stacktrace}) when is_list(Stacktrace) ->
     is_infra_error(Reason);
 is_infra_error({Tag, Reason}) when Tag =:= skip; Tag =:= fail; Tag =:= error ->
     is_infra_error(Reason);
-is_infra_error(_Reason) ->
-    false.
+is_infra_error(Reason) ->
+    classify_infra_failure(Reason).
+
+-spec classify_infra_failure(term()) -> boolean().
+classify_infra_failure(Reason) ->
+    case common_util:get_env(infra_failure_classifier) of
+        {ok, Classifier} when is_atom(Classifier) ->
+            try
+                Classifier:is_infra_failure(Reason) =:= true
+            catch
+                Class:Error:Stack ->
+                    ?LOG_WARNING(
+                        "infra_failure_classifier ~tp:is_infra_failure/1 failed: ~ts",
+                        [Classifier, erl_error:format_exception(Class, Error, Stack)]
+                    ),
+                    false
+            end;
+        _ ->
+            false
+    end.
 
 -doc """
 The outcome to record for a failing method: `infra_failure` if it opted in via
-`test_infra_error`, otherwise the usual `failed`.
+`test_infra_error` or is classified by the configured `infra_failure_classifier`,
+otherwise the usual `failed`.
 """.
 -spec fail_outcome(Reason) -> failed | infra_failure when Reason :: term().
 fail_outcome(Reason) ->
