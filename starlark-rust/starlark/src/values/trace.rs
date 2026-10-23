@@ -38,6 +38,8 @@ use either::Either;
 use hashbrown::HashTable;
 use mini_map::MiniMutInsertionMap;
 use mini_map::MiniMutInsertionSet;
+use mini_vec::MiniBoxSlice;
+use mini_vec::MiniVec;
 use starlark_map::Hashed;
 use starlark_map::small_set::SmallSet;
 
@@ -78,6 +80,18 @@ unsafe impl<'v, T: Trace<'v>> Trace<'v> for Vec<T> {
 unsafe impl<'v, T: Trace<'v>> Trace<'v> for [T] {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         self.iter_mut().for_each(|x| x.trace(tracer));
+    }
+}
+
+unsafe impl<'v, T: Trace<'v>> Trace<'v> for MiniVec<T> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        self.as_mut_slice().trace(tracer);
+    }
+}
+
+unsafe impl<'v, T: Trace<'v>> Trace<'v> for MiniBoxSlice<T> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        self.as_mut_slice().trace(tracer);
     }
 }
 

@@ -46,6 +46,8 @@ use std::marker::PhantomData;
 
 use mini_map::MiniMutInsertionMap;
 use mini_map::MiniMutInsertionSet;
+use mini_vec::MiniBoxSlice;
+use mini_vec::MiniVec;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -287,6 +289,34 @@ where
         self.into_vec()
             .into_try_map(|v| v.freeze(freezer))
             .map(|v| v.into_boxed_slice())
+    }
+}
+
+impl<'v, T> Freeze<'v> for MiniVec<T>
+where
+    T: Freeze<'v>,
+{
+    type Frozen<'fv> = MiniVec<T::Frozen<'fv>>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        // Not `collect`: its `size_hint` through `Result` has a zero lower bound, which would
+        // leave growth slack behind in the frozen heap.
+        let mut frozen = MiniVec::with_capacity(self.len());
+        for v in self {
+            frozen.push(v.freeze(freezer)?);
+        }
+        Ok(frozen)
+    }
+}
+
+impl<'v, T> Freeze<'v> for MiniBoxSlice<T>
+where
+    T: Freeze<'v>,
+{
+    type Frozen<'fv> = MiniBoxSlice<T::Frozen<'fv>>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(MiniBoxSlice::from(MiniVec::from(self).freeze(freezer)?))
     }
 }
 

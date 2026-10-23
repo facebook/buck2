@@ -30,6 +30,8 @@ use std::sync::Weak;
 use dupe::Dupe;
 use mini_map::MiniMutInsertionMap;
 use mini_map::MiniMutInsertionSet;
+use mini_vec::MiniBoxSlice;
+use mini_vec::MiniVec;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
@@ -100,6 +102,16 @@ impl<'fv, K: StarlarkDeserialize<'fv>> StarlarkDeserialize<'fv> for Hashed<K> {
         let hash = starlark_map::StarlarkHashValue::starlark_deserialize(ctx)?;
         let key = K::starlark_deserialize(ctx)?;
         Ok(Hashed::new_unchecked(hash, key))
+    }
+}
+
+impl<T: StarlarkSerialize> StarlarkSerialize for [T] {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.len().pagable_serialize(ctx.pagable())?;
+        for elem in self {
+            elem.starlark_serialize(ctx)?;
+        }
+        Ok(())
     }
 }
 
@@ -421,6 +433,39 @@ impl<'fv, T: StarlarkDeserialize<'fv>> StarlarkDeserialize<'fv> for Box<[T]> {
             v.push(T::starlark_deserialize(ctx)?);
         }
         Ok(v.into_boxed_slice())
+    }
+}
+
+impl<T: StarlarkSerialize> StarlarkSerialize for MiniVec<T> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.as_slice().starlark_serialize(ctx)
+    }
+}
+
+impl<'fv, T: StarlarkDeserialize<'fv>> StarlarkDeserialize<'fv> for MiniVec<T> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
+    ) -> crate::Result<Self> {
+        let len = usize::pagable_deserialize(ctx.pagable())?;
+        let mut v = MiniVec::with_capacity(len);
+        for _ in 0..len {
+            v.push(T::starlark_deserialize(ctx)?);
+        }
+        Ok(v)
+    }
+}
+
+impl<T: StarlarkSerialize> StarlarkSerialize for MiniBoxSlice<T> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.as_slice().starlark_serialize(ctx)
+    }
+}
+
+impl<'fv, T: StarlarkDeserialize<'fv>> StarlarkDeserialize<'fv> for MiniBoxSlice<T> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
+    ) -> crate::Result<Self> {
+        Ok(MiniBoxSlice::from(MiniVec::starlark_deserialize(ctx)?))
     }
 }
 
