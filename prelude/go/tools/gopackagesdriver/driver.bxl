@@ -8,7 +8,7 @@
 
 load("@prelude//bxl:lazy.bxl", "catch_resolve_lazy_dict")
 load("@prelude//go:cgo_builder.bzl", "project_go_and_c_files")
-load("@prelude//go:go_list.bzl", "GoListOut", "parse_go_list_out")
+load("@prelude//go:go_list.bzl", "GoListDynamicValue", "GoListOut")
 load("@prelude//go:packages.bzl", "GoPackageInfo")
 load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//utils:utils.bzl", "flatten")
@@ -136,8 +136,8 @@ def _driver(ctx):
                 roots = [str(t.label) for t in go_root_targets],
                 go_version = go_version.minor if go_version else 0,
             ),
-            artifacts = {
-                td.go_package_info.go_list_out: td.go_package_info.go_list_out
+            go_list_values = {
+                td.go_package_info.go_list_out: td.go_package_info.go_list_value
                 for td in targets_data.values()
                 if build_results[td.go_package_info.go_list_out].is_ok()
             },
@@ -147,11 +147,11 @@ def _driver(ctx):
 
     ctx.output.print(ctx.output.ensure(dynamic_out).abs_path())
 
-def _produce_result_json_impl(bxl_ctx: bxl.Context, data: DriverData, artifacts, output):
+def _produce_result_json_impl(bxl_ctx: bxl.Context, data: DriverData, go_list_values, output):
     packages = []
     for td in data.targets.values():
         info = td.go_package_info
-        if info.go_list_out not in artifacts:
+        if info.go_list_out not in go_list_values:
             go_files = [src for src in info.srcs if src.extension == ".go"]
             package = {
                 "CompiledGoFiles": go_files,
@@ -161,7 +161,7 @@ def _produce_result_json_impl(bxl_ctx: bxl.Context, data: DriverData, artifacts,
                 "PkgPath": info.pkg_import_path,
             }
         else:
-            go_list_out = parse_go_list_out(info.srcs, info.package_root, artifacts[info.go_list_out])
+            go_list_out = go_list_values[info.go_list_out].providers[GoListDynamicValue].go_list_out
             package = _make_protocol_package(data.load_mode, go_list_out, td, data.import_table, data.build_results)
 
         packages.append(package)
@@ -181,8 +181,8 @@ def _produce_result_json_impl(bxl_ctx: bxl.Context, data: DriverData, artifacts,
 _produce_result_json = bxl.dynamic_actions(
     impl = _produce_result_json_impl,
     attrs = {
-        "artifacts": dynattrs.dict(Artifact, dynattrs.artifact_value()),
         "data": dynattrs.value(DriverData),
+        "go_list_values": dynattrs.dict(Artifact, dynattrs.dynamic_value()),
         "output": dynattrs.output(),
     },
 )
@@ -226,7 +226,13 @@ def _make_protocol_package(
             errors.add(_to_protocol_error(export_file_result.unwrap_err(), td.target))
 
     if load_mode.need_imports:
-        package["Imports"] = _imports(go_list_out, import_table)
+        package["Imports"] = {imp: import_table.get(imp, imp) for imp in go_list_out.imports + go_list_out.test_imports if imp != "C"}
+        if go_list_out.cgo_files:
+            package["Imports"] |= {
+                "runtime/cgo": "runtime/cgo",
+                "syscall": "syscall",
+                "unsafe": "unsafe",
+            }
 
     if go_list_out.error != None:
         errors.add(PackageError(Msg = go_list_out.error.err))
@@ -235,28 +241,6 @@ def _make_protocol_package(
         package["Errors"] = list(errors)
 
     return package
-
-# map import names to packages ID, for non-buck packages like stdlib leave names as is
-# Example {"foo/bar": "fbcode//foo/bar:bar"}
-def _imports(go_list_out: GoListOut, import_table: dict[str, str]) -> dict[str, str]:
-    # todo: make it work when deps are not requested
-
-    # We don't need to use "if" statements for test imports, because they are always empty for non-test targets
-    all_imports = go_list_out.imports + go_list_out.test_imports
-
-    # resolve imports, consider an import as stdlib import if not found in buck deps
-    imports = {imp: import_table.get(imp, imp) for imp in all_imports if imp != "C"}
-
-    if go_list_out.cgo_files:
-        # we don't pass -compiled flag to `go list` to make it faster
-        # so we have to manually add there imports from generated code
-        imports |= {
-            "runtime/cgo": "runtime/cgo",
-            "syscall": "syscall",
-            "unsafe": "unsafe",
-        }
-
-    return imports
 
 def _target_id(target: bxl.ConfiguredTargetNode) -> str:
     return str(target.label.raw_target())

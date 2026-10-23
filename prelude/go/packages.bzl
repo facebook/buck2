@@ -25,7 +25,7 @@ GoPackageInfo = provider(
         "build_out": provider_field(Artifact),
         "cgo_gen_dir": provider_field(Artifact),
         "go_list_out": provider_field(Artifact),
-        "package_root": provider_field(str),
+        "go_list_value": provider_field(DynamicValue),  # GoListDynamicValue inside
         "pkg_import_path": provider_field(str),
         # Full list of package source files
         # including generated and files of the package under test
@@ -101,7 +101,7 @@ _cgo_syscall_exclude = set([
 def implicit_imports(
     pkg_name: str, pkg_import_path: str, standard: bool, has_cgo_files: bool, coverage_enabled: bool, coverage_mode: GoCoverageMode | None
 ) -> set[str]:
-    imports = set([])
+    imports = set()
     if has_cgo_files:
         if not standard or pkg_import_path != "runtime/cgo":
             imports.add("runtime/cgo")
