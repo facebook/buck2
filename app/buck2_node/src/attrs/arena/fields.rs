@@ -34,8 +34,14 @@ use crate::attrs::arena::storage::ABSENT_REF;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
+use crate::attrs::arena::storage::INLINE_PAYLOAD_BITS;
+use crate::attrs::arena::storage::INLINE_PAYLOAD_MASK;
+use crate::attrs::arena::storage::INT_INLINE_MAX;
+use crate::attrs::arena::storage::INT_INLINE_MIN;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::Tail;
+use crate::attrs::arena::storage::unzigzag;
+use crate::attrs::arena::storage::zigzag;
 use crate::attrs::arena::view::CoercedAttrRef;
 use crate::attrs::arena::view::Pairs;
 use crate::attrs::arena::view::RefItem;
@@ -74,6 +80,11 @@ pub struct Cursor<'a> {
 }
 
 impl<'a> Cursor<'a> {
+    /// Whether the value is an inline word rather than a record.
+    pub(crate) fn is_inline(&self) -> bool {
+        self.head.is_none()
+    }
+
     pub(crate) fn new(arena: &'a CoercedAttrArena, r: AttrWord) -> Cursor<'a> {
         let (head, tail) = if r.is_inline() {
             (None, Tail::None)
@@ -620,6 +631,66 @@ impl Field for U32 {
     }
 
     fn same(a: u32, b: u32) -> bool {
+        a == b
+    }
+}
+
+/// A signed 64-bit value: one head value when it fits the word's payload,
+/// sign-extended; otherwise two, the zigzag encoding in 32-bit halves. The
+/// hash is the value's, whichever form it takes.
+pub struct I64;
+
+impl Field for I64 {
+    const DEPS: bool = false;
+    const INLINE: bool = true;
+    const HAS_TEXT: bool = false;
+    type View<'a> = i64;
+    type Spec<'s> = i64;
+
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Extent> {
+        Some(Extent::head(2))
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> i64 {
+        if c.is_inline() {
+            let shifted = (c.raw() << (32 - INLINE_PAYLOAD_BITS)) as i32;
+            (shifted >> (32 - INLINE_PAYLOAD_BITS)) as i64
+        } else {
+            let lo = c.raw() as u64;
+            let hi = c.raw() as u64;
+            unzigzag(lo | (hi << 32))
+        }
+    }
+
+    fn encode<'s>(
+        i: i64,
+        _b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        if (INT_INLINE_MIN..=INT_INLINE_MAX).contains(&i) {
+            w.head((i as u32) & INLINE_PAYLOAD_MASK);
+        } else {
+            let z = zigzag(i);
+            w.head(z as u32);
+            w.head((z >> 32) as u32);
+        }
+        w.hash(&i);
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        i: i64,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        <Self as Field>::encode(i, b, w)
+    }
+
+    fn identity(i: i64, h: &mut IdHasher<'_>) {
+        h.h.write_i64(i);
+    }
+
+    fn same(a: i64, b: i64) -> bool {
         a == b
     }
 }

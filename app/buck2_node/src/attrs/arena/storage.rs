@@ -124,12 +124,12 @@ pub(super) fn field_at(bytes: &[u8], at: usize, width: u8) -> Option<u32> {
 }
 
 #[inline]
-pub(super) fn zigzag(i: i64) -> u64 {
+pub(crate) fn zigzag(i: i64) -> u64 {
     ((i << 1) ^ (i >> 63)) as u64
 }
 
 #[inline]
-pub(super) fn unzigzag(v: u64) -> i64 {
+pub(crate) fn unzigzag(v: u64) -> i64 {
     ((v >> 1) as i64) ^ -((v & 1) as i64)
 }
 
@@ -168,9 +168,9 @@ pub(super) const INLINE_BIT: u32 = 1 << 31;
 pub(super) const OFFSET_MASK: u32 = INLINE_BIT - 1;
 pub(super) const INLINE_KIND_BITS: u32 = 5;
 pub(super) const INLINE_KIND_MASK: u32 = (1 << INLINE_KIND_BITS) - 1;
-pub(super) const INLINE_PAYLOAD_BITS: u32 = 26;
+pub(crate) const INLINE_PAYLOAD_BITS: u32 = 26;
 pub(super) const INLINE_KIND_SHIFT: u32 = INLINE_PAYLOAD_BITS;
-pub(super) const INLINE_PAYLOAD_MASK: u32 = (1 << INLINE_PAYLOAD_BITS) - 1;
+pub(crate) const INLINE_PAYLOAD_MASK: u32 = (1 << INLINE_PAYLOAD_BITS) - 1;
 
 /// Ref field layout, inside a record's tail: the inline flag is the low
 /// bit, so a small inline leaf fits a one-byte field; above it an inline
@@ -181,8 +181,8 @@ const FIELD_PAYLOAD_SHIFT: u32 = FIELD_KIND_SHIFT + INLINE_KIND_BITS;
 const FIELD_DELTA_SHIFT: u32 = 1;
 
 /// Small ints are sign-extended inline payloads.
-pub(super) const INT_INLINE_MAX: i64 = (1 << (INLINE_PAYLOAD_BITS - 1)) - 1;
-pub(super) const INT_INLINE_MIN: i64 = -(1 << (INLINE_PAYLOAD_BITS - 1));
+pub(crate) const INT_INLINE_MAX: i64 = (1 << (INLINE_PAYLOAD_BITS - 1)) - 1;
+pub(crate) const INT_INLINE_MIN: i64 = -(1 << (INLINE_PAYLOAD_BITS - 1));
 
 impl AttrWord {
     /// An inline leaf; `payload` must fit [`INLINE_PAYLOAD_MASK`].
@@ -477,21 +477,6 @@ impl CoercedAttrArena {
         let hash = h.h.finalize128();
         memo.insert(r.0, hash);
         hash
-    }
-
-    /// The value of an `Int`, inline or record.
-    pub(super) fn int_at(&self, r: AttrWord) -> i64 {
-        match r.inline_parts() {
-            // Sign-extend the 26-bit payload.
-            Some((_, p)) => {
-                let shifted = (p << (32 - INLINE_PAYLOAD_BITS)) as i32;
-                (shifted >> (32 - INLINE_PAYLOAD_BITS)) as i64
-            }
-            None => {
-                let rec = self.open(r);
-                unzigzag(rec.head.raw(0) as u64 | ((rec.head.raw(1) as u64) << 32))
-            }
-        }
     }
 
     /// Raw bytes of a text record, without UTF-8 validation: the string-dedup

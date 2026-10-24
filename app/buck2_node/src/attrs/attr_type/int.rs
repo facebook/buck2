@@ -16,6 +16,11 @@ use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::fields::I64;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::coerced::configure::Configure;
 use crate::attrs::coerced::configure::TraverseConfigured;
@@ -33,6 +38,16 @@ use crate::attrs::configured_attr::ConfiguredAttr;
     Debug, Eq, PartialEq, Hash, Pagable, Allocative, Clone, Copy, Dupe, StrongHash
 )]
 pub struct IntAttrType;
+
+impl SchemaKind for kinds::Int {
+    type Fields = I64;
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_int(&mut self, i: i64) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::Int>(self, i)
+    }
+}
 
 impl Semantics for kinds::Int {
     fn traverse<'a>(_: Self::View<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {

@@ -31,9 +31,6 @@ use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::CoercedAttrHash;
 use crate::attrs::arena::storage::INLINE_PAYLOAD_MASK;
-use crate::attrs::arena::storage::INT_INLINE_MAX;
-use crate::attrs::arena::storage::INT_INLINE_MIN;
-use crate::attrs::arena::storage::zigzag;
 use crate::attrs::arena::view::CoercedAttrRef;
 use crate::attrs::coerced::kinds::CoercedAttrKind;
 use crate::attrs::coerced::kinds::dispatch;
@@ -236,26 +233,6 @@ impl CoercedAttrArenaBuilder {
                 Ok(AttrToken(r, hash))
             }
         }
-    }
-
-    pub fn encode_int(&mut self, i: i64) -> buck2_error::Result<AttrToken> {
-        // Inline and record ints share a hash tag: same value, same hash,
-        // whichever encoding it lands in.
-        let hash = mix_kind(CoercedAttrKind::Int, i as u64);
-        if (INT_INLINE_MIN..=INT_INLINE_MAX).contains(&i) {
-            return Ok(AttrToken(
-                AttrWord::inline(CoercedAttrKind::Int, (i as u32) & INLINE_PAYLOAD_MASK),
-                hash,
-            ));
-        }
-        let z = zigzag(i);
-        let r = self.encode_record(
-            CoercedAttrKind::Int,
-            hash,
-            &[z as u32, (z >> 32) as u32],
-            &[],
-        )?;
-        Ok(AttrToken(r, hash))
     }
 
     /// Copy a value out of another arena into this one, node by node through

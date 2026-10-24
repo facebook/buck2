@@ -11,8 +11,6 @@
 //! The kinds table and the per-kind structure it derives: record shape,
 //! decoding, copying, identity hashing and equality.
 
-use std::hash::Hasher;
-
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Cursor;
 use crate::attrs::arena::fields::Extent;
@@ -24,7 +22,6 @@ use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::INLINE_KIND_MASK;
 use crate::attrs::arena::view::CoercedAttrRef;
-use crate::attrs::coerced::kinds;
 use crate::attrs::coerced::kinds::CoercedAttrKind;
 use crate::attrs::coerced::kinds::dispatch;
 
@@ -245,34 +242,6 @@ pub(crate) fn encode_kind<K: SchemaKind>(
 pub(crate) trait KindVisitor {
     type Out;
     fn visit<K: Kind + 'static>(self) -> Self::Out;
-}
-
-/// `Int`: inline when the value fits the payload, otherwise a record of the
-/// zigzag value in 32-bit halves; one kind either way.
-impl Kind for kinds::Int {
-    const STORAGE: Storage = Storage::Record;
-    const SCALAR: bool = true;
-    type View<'a> = i64;
-
-    fn shape(_peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent> {
-        Some(Extent::head(2))
-    }
-
-    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> i64 {
-        arena.int_at(r)
-    }
-
-    fn copy_into(parts: i64, b: &mut CoercedAttrArenaBuilder) -> buck2_error::Result<AttrToken> {
-        b.encode_int(parts)
-    }
-
-    fn identity(parts: i64, h: &mut IdHasher<'_>) {
-        h.h.write_i64(parts);
-    }
-
-    fn same(a: i64, b: i64) -> bool {
-        a == b
-    }
 }
 
 /// [`CoercedAttrKind::is_scalar`].
