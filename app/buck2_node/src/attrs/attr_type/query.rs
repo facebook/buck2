@@ -24,7 +24,7 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
-use crate::attrs::arena::fields::ExprChild;
+use crate::attrs::arena::fields::ChildOf;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -231,7 +231,7 @@ impl QueryAttrBase<ProvidersLabel> {
 }
 
 impl SchemaKind for kinds::Query {
-    type Fields = ExprChild;
+    type Fields = ChildOf<kinds::QueryExpr>;
 }
 
 impl CoercedAttrArenaBuilder {

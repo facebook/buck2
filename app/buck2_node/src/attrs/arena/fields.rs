@@ -29,7 +29,7 @@ use strong_hash::StrongHash;
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::builder::EncodeScratchFields;
 use crate::attrs::arena::builder::EncodeScratchRefs;
-use crate::attrs::arena::query_expr::QueryExprRef;
+use crate::attrs::arena::schema::Kind;
 use crate::attrs::arena::storage::ABSENT_REF;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
@@ -1024,16 +1024,16 @@ impl Field for SelectorEntries {
     }
 }
 
-/// A ref to a `QueryExpr` record. Its identity hash is the expression's,
-/// inline; equality compares reprints.
-pub struct ExprChild;
+/// One child ref to a record of kind `K`, decoded as that kind's view and
+/// hashed and compared by that kind's rules.
+pub struct ChildOf<K>(std::marker::PhantomData<K>);
 
-impl Field for ExprChild {
-    const DEPS: bool = true;
+impl<K: Kind> Field for ChildOf<K> {
+    const DEPS: bool = !K::SCALAR;
     const HEAD: u32 = 0;
     const HAS_REFS: bool = true;
     const HAS_TEXT: bool = false;
-    type View<'a> = QueryExprRef<'a>;
+    type View<'a> = K::View<'a>;
     type Spec<'s> = AttrToken;
 
     fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
@@ -1044,12 +1044,12 @@ impl Field for ExprChild {
         })
     }
 
-    fn decode<'a>(c: &mut Cursor<'a>) -> QueryExprRef<'a> {
-        QueryExprRef {
-            arena: c.arena,
-            r: c.child()
-                .expect("should be present: a query always has an expression"),
-        }
+    fn decode<'a>(c: &mut Cursor<'a>) -> K::View<'a> {
+        K::decode(
+            c.arena,
+            c.child()
+                .expect("should be present: only a selector default may be absent"),
+        )
     }
 
     fn encode<'s>(
@@ -1063,18 +1063,18 @@ impl Field for ExprChild {
     }
 
     fn reemit<'a>(
-        view: QueryExprRef<'a>,
+        view: K::View<'a>,
         b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
-        <Self as Field>::encode(b.encode_query_expr_view(view)?, b, w)
+        <Self as Field>::encode(K::copy_into(view, b)?, b, w)
     }
 
-    fn identity(view: QueryExprRef<'_>, h: &mut IdHasher<'_>) {
-        view.strong_hash(&mut h.h);
+    fn identity(view: K::View<'_>, h: &mut IdHasher<'_>) {
+        K::identity(view, h);
     }
 
-    fn same(a: QueryExprRef<'_>, b: QueryExprRef<'_>) -> bool {
-        a.same_expr(&b)
+    fn same(a: K::View<'_>, b: K::View<'_>) -> bool {
+        K::same(a, b)
     }
 }
