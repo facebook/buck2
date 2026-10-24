@@ -33,6 +33,7 @@ use starlark::values::Heap;
 use starlark::values::Value;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
+use starlark::values::tuple::TupleRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use static_interner::Intern;
 use static_interner::interner;
@@ -402,7 +403,9 @@ impl<'v> ModifierSource<'v> for Value<'v> {
     }
 
     fn list(self) -> Option<Vec<Self>> {
-        ListRef::from_value(self).map(|l| l.content().to_vec())
+        ListRef::from_value(self)
+            .map(|l| l.content().to_vec())
+            .or_else(|| TupleRef::from_value(self).map(|t| t.content().to_vec()))
     }
 
     fn entries(self) -> Option<Vec<(&'v str, Self)>> {
@@ -669,6 +672,7 @@ mod tests {
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use serde_json::json;
+    use starlark::values::tuple::AllocTuple;
 
     use super::*;
 
@@ -747,6 +751,23 @@ mod tests {
             4,
             "two invalid labels and two malformed subtrees"
         );
+    }
+
+    #[test]
+    fn test_starlark_tuple_is_a_list() {
+        Heap::temp(|heap| {
+            let cells = cells();
+            let labels = ModifierLabelParser::new(&cells);
+            assert_eq!(
+                CfgModifiers::from_target(heap.alloc(AllocTuple(["cfg//os:linux"])), &labels),
+                CfgModifiers::from_target(heap.alloc(vec!["cfg//os:linux"]), &labels),
+            );
+            assert!(CfgModifiers::from_target(heap.alloc(AllocTuple::EMPTY), &labels).is_empty());
+            assert_eq!(
+                CfgModifiers::from_package(heap.alloc(AllocTuple::EMPTY), &labels, None),
+                CfgModifiers::from_package(heap.alloc(Vec::<&str>::new()), &labels, None),
+            );
+        });
     }
 
     #[test]
