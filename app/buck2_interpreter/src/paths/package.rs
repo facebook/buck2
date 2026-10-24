@@ -22,6 +22,7 @@ use pagable::Pagable;
 /// can specify per-package values accessible via Starlark.
 ///
 /// Example of a valid PACKAGE file path: `fbsource//path/to/PACKAGE`
+/// or `fbsource//path/to/BUCK_TREE`; see [`PackageFilePath::package_file_names`].
 ///
 /// Find more details in the [Buck2 documentation](https://buck2.build/docs/rule_authors/package_files/).
 #[derive(
@@ -36,11 +37,18 @@ use pagable::Pagable;
 )]
 #[display("{}", path)]
 pub struct PackageFilePath {
-    /// Including `/PACKAGE`.
+    /// Including the file name, one of [`PackageFilePath::package_file_names`].
     path: CellPath,
 }
 
 impl PackageFilePath {
+    /// The file names a `PACKAGE` file may have, in lookup order: the first
+    /// that exists is the one evaluated.
+    ///
+    /// A directory that contains a `package/` subdirectory cannot also hold a
+    /// file named `PACKAGE` on a case-insensitive filesystem, so its `PACKAGE`
+    /// file is named `BUCK_TREE`. Anything that enumerates or classifies
+    /// `PACKAGE` files has to accept both names.
     pub fn package_file_names() -> impl Iterator<Item = &'static FileName> {
         [
             FileName::unchecked_new("BUCK_TREE"),
@@ -56,6 +64,10 @@ impl PackageFilePath {
         })
     }
 
+    /// `path`'s `PACKAGE` file under the `PACKAGE` name, whether or not that
+    /// file exists or is really named `BUCK_TREE`. Only identifies the
+    /// directory's interpreter context; the file that is actually evaluated is
+    /// found with [`Self::for_dir`].
     pub fn package_file_for_dir(path: CellPath) -> PackageFilePath {
         PackageFilePath {
             path: path.join(FileName::unchecked_new("PACKAGE")),
