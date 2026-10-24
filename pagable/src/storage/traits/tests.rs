@@ -37,8 +37,6 @@ use crate::testing::TestingSerializer;
 use crate::traits::PagableDeserializer;
 use crate::traits::PagableSerializer;
 
-static RESIDENT_ARC_DESERIALIZATIONS: AtomicUsize = AtomicUsize::new(0);
-
 #[crate::pagable_typetag]
 trait SerializationView: PagableTagged + Send + Sync + std::fmt::Debug {
     fn value(&self) -> u8;
@@ -66,7 +64,28 @@ impl<'de> PagableDeserialize<'de> for ResidentArcValue {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
-        RESIDENT_ARC_DESERIALIZATIONS.fetch_add(1, Ordering::SeqCst);
+        Ok(Self(u8::pagable_deserialize(deserializer)?))
+    }
+}
+
+/// Deserializations of [`ReuseProbe`], which only
+/// `page_in_reuses_arc_still_resident_after_page_out` deserializes, so its
+/// exact counts hold whatever the other tests do on parallel threads.
+static REUSE_PROBE_DESERIALIZATIONS: AtomicUsize = AtomicUsize::new(0);
+
+struct ReuseProbe(u8);
+
+impl PagableSerialize for ReuseProbe {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        self.0.pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for ReuseProbe {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        REUSE_PROBE_DESERIALIZATIONS.fetch_add(1, Ordering::SeqCst);
         Ok(Self(u8::pagable_deserialize(deserializer)?))
     }
 }
@@ -163,21 +182,29 @@ impl ArcErase for PausedDataKeyLookupArc {
 fn deserialize_resident_partial_arc<'de, D: PagableDeserializer<'de> + ?Sized>(
     deserializer: &mut D,
 ) -> crate::Result<PartialPagableArc<ResidentArcValue>> {
-    fn deserialize_fn(
+    deserialize_partial_arc(deserializer)
+}
+
+fn deserialize_partial_arc<'de, T, D>(deserializer: &mut D) -> crate::Result<PartialPagableArc<T>>
+where
+    T: for<'a> PagableDeserialize<'a> + PagableSerialize + Send + Sync + 'static,
+    D: PagableDeserializer<'de> + ?Sized,
+{
+    fn deserialize_fn<
+        T: for<'a> PagableDeserialize<'a> + PagableSerialize + Send + Sync + 'static,
+    >(
         deserializer: &mut dyn PagableDeserializer<'_>,
         _recipe: Arc<dyn PagableDeserializerRecipe>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>> {
-        Ok(Box::new(PartialPagableArc::new(
-            ResidentArcValue::pagable_deserialize(deserializer)?,
-        )))
+        Ok(Box::new(PartialPagableArc::new(T::pagable_deserialize(
+            deserializer,
+        )?)))
     }
 
-    let arc = deserializer.deserialize_arc(
-        TypeId::of::<PartialPagableArc<ResidentArcValue>>(),
-        deserialize_fn,
-    )?;
+    let arc =
+        deserializer.deserialize_arc(TypeId::of::<PartialPagableArc<T>>(), deserialize_fn::<T>)?;
     arc.as_arc_any()
-        .downcast_ref::<PartialPagableArc<ResidentArcValue>>()
+        .downcast_ref::<PartialPagableArc<T>>()
         .ok_or_else(|| anyhow::anyhow!("resident partial arc type mismatch"))
         .cloned()
 }
@@ -1310,7 +1337,7 @@ fn page_in_reuses_arc_still_resident_after_page_out() -> anyhow::Result<()> {
     let mem = InMemoryPagableStorage::new();
     let storage = Arc::new(CountingStorage::new(mem.handle()));
     let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
-    let original = PartialPagableArc::new(ResidentArcValue(42));
+    let original = PartialPagableArc::new(ReuseProbe(42));
 
     let finished = ArcSerCache::new();
     let storage_context = storage.storage_context();
@@ -1324,36 +1351,33 @@ fn page_in_reuses_arc_still_resident_after_page_out() -> anyhow::Result<()> {
             PageOutError::AlreadyFailed => panic!("unexpected AlreadyFailed"),
         })?;
 
-    RESIDENT_ARC_DESERIALIZATIONS.store(0, Ordering::SeqCst);
+    REUSE_PROBE_DESERIALIZATIONS.store(0, Ordering::SeqCst);
     let parent = storage.fetch_data_blocking(&parent_key)?;
     let child_key = parent.arcs[0];
     let mut deser = handle.root_deserializer(parent_key, &parent);
-    let restored = deserialize_resident_partial_arc(&mut deser)?;
+    let restored: PartialPagableArc<ReuseProbe> = deserialize_partial_arc(&mut deser)?;
 
     assert!(
         PartialPagableArc::ptr_eq(&original, &restored),
         "page-in should reuse the allocation retained across page-out",
     );
     assert_eq!(restored.0, 42);
-    assert_eq!(RESIDENT_ARC_DESERIALIZATIONS.load(Ordering::SeqCst), 0);
+    assert_eq!(REUSE_PROBE_DESERIALIZATIONS.load(Ordering::SeqCst), 0);
 
     drop(restored);
     drop(original);
     assert!(
         storage
             .arc_cache()
-            .get(
-                &TypeId::of::<PartialPagableArc<ResidentArcValue>>(),
-                &child_key,
-            )
+            .get(&TypeId::of::<PartialPagableArc<ReuseProbe>>(), &child_key,)
             .is_none(),
         "the resident registry must not keep the allocation alive",
     );
 
     let mut deser = handle.root_deserializer(parent_key, &parent);
-    let restored = deserialize_resident_partial_arc(&mut deser)?;
+    let restored: PartialPagableArc<ReuseProbe> = deserialize_partial_arc(&mut deser)?;
     assert_eq!(restored.0, 42);
-    assert_eq!(RESIDENT_ARC_DESERIALIZATIONS.load(Ordering::SeqCst), 1);
+    assert_eq!(REUSE_PROBE_DESERIALIZATIONS.load(Ordering::SeqCst), 1);
     Ok(())
 }
 
