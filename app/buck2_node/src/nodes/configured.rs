@@ -46,6 +46,7 @@ use starlark_map::Hashed;
 use strong_hash::StrongHash;
 
 use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::any_matches::AnyMatches;
@@ -54,7 +55,6 @@ use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::attr_type::string::StringLiteral;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContextImpl;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_attr_full::ConfiguredAttrFull;
@@ -218,7 +218,7 @@ impl ConfiguredTargetNode {
         name: ConfiguredTargetLabel,
         rule_type: &str,
         execution_platform_resolution: ExecutionPlatformResolution,
-        attrs: Vec<(&str, Attribute, CoercedAttr)>,
+        attrs: Vec<(&str, Attribute, OwnedCoercedAttr)>,
         call_stack: Option<StarlarkCallStack>,
     ) -> Self {
         use crate::nodes::unconfigured::testing::TargetNodeExt;
@@ -958,10 +958,8 @@ mod tests {
     use crate::attrs::attr_type::arg::QueryExpansion;
     use crate::attrs::attr_type::arg::StringWithMacros;
     use crate::attrs::attr_type::arg::StringWithMacrosPart;
-    use crate::attrs::attr_type::query::QueryAttr;
     use crate::attrs::attr_type::query::QueryAttrBase;
     use crate::attrs::attr_type::query::QueryMacroBase;
-    use crate::attrs::coerced_attr::CoercedSelector;
     use crate::configuration::resolved::ConfigurationNode;
     use crate::nodes::unconfigured::testing::TargetNodeExt;
 
@@ -1003,7 +1001,7 @@ mod tests {
 
     fn node(
         cfg: ConfigurationData,
-        attrs: Vec<(&str, Attribute, CoercedAttr)>,
+        attrs: Vec<(&str, Attribute, OwnedCoercedAttr)>,
     ) -> ConfiguredTargetNode {
         ConfiguredTargetNode::testing_new(
             TargetLabel::testing_parse("root//pkg:owner").configure(cfg),
@@ -1020,10 +1018,7 @@ mod tests {
     fn test_queries_deduplicate_attributes_and_macro_expansions() {
         let attr_query = query("deps(:dep)", ":dep", "root//pkg:dep");
         let macro_query = query("deps(root//pkg:dep)", "root//pkg:dep", "root//pkg:dep");
-        let query_attr = CoercedAttr::Query(Box::new(QueryAttr {
-            providers: ProviderIdSet::EMPTY,
-            query: attr_query.clone(),
-        }));
+        let query_attr = OwnedCoercedAttr::new_with(|b| b.encode_query(&attr_query)).unwrap();
         let macros = [
             QueryExpansion::Target,
             QueryExpansion::Output,
@@ -1054,7 +1049,8 @@ mod tests {
             (
                 "command",
                 Attribute::new_const(None, "", AttrType::arg(false)),
-                CoercedAttr::Arg(StringWithMacros::ManyParts(macros)),
+                OwnedCoercedAttr::new_with(|b| b.encode_arg(&StringWithMacros::ManyParts(macros)))
+                    .unwrap(),
             ),
         ];
 
@@ -1096,7 +1092,8 @@ mod tests {
             vec![(
                 "command",
                 Attribute::new_const(None, "", AttrType::arg(false)),
-                CoercedAttr::Arg(StringWithMacros::ManyParts(macros)),
+                OwnedCoercedAttr::new_with(|b| b.encode_arg(&StringWithMacros::ManyParts(macros)))
+                    .unwrap(),
             )],
         );
         let queries: Vec<_> = node.queries().collect();
@@ -1126,7 +1123,7 @@ mod tests {
             vec![(
                 "value",
                 Attribute::new_const(None, "", AttrType::string()),
-                CoercedAttr::String(StringLiteral(ArcStr::from(value))),
+                OwnedCoercedAttr::new_with(|b| b.encode_string(value)).unwrap(),
             )],
             None,
         )
@@ -1146,7 +1143,8 @@ mod tests {
                     "",
                     AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY),
                 ),
-                CoercedAttr::Dep(ProvidersLabel::default_for(dep)),
+                OwnedCoercedAttr::new_with(|b| b.encode_dep(&ProvidersLabel::default_for(dep)))
+                    .unwrap(),
             )],
             None,
         )
@@ -1188,21 +1186,16 @@ mod tests {
             vec![(
                 "value",
                 Attribute::new(None, "", AttrType::string()).expect("valid string attribute"),
-                CoercedAttr::Selector(Arc::new(
-                    CoercedSelector::new(
-                        branches
-                            .iter()
-                            .map(|key| {
-                                (
-                                    ConfigurationSettingKey::testing_parse(key),
-                                    CoercedAttr::String(StringLiteral("same".into())),
-                                )
-                            })
-                            .collect(),
-                        Some(CoercedAttr::String(StringLiteral("changed".into()))),
-                    )
-                    .expect("unique select keys"),
-                )),
+                OwnedCoercedAttr::new_with(|b| {
+                    let same = b.encode_string("same")?;
+                    let changed = b.encode_string("changed")?;
+                    let entries: Vec<_> = branches
+                        .iter()
+                        .map(|key| (ConfigurationSettingKey::testing_parse(key), same))
+                        .collect();
+                    b.encode_selector(&entries, Some(changed))
+                })
+                .expect("valid select"),
             )],
             None,
         );

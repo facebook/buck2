@@ -31,7 +31,6 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::coerced_deps_collector::CoercedDeps;
 use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
@@ -843,7 +842,7 @@ pub mod testing {
         fn testing_new(
             label: TargetLabel,
             rule_type: RuleType,
-            attrs: Vec<(&str, Attribute, CoercedAttr)>,
+            attrs: Vec<(&str, Attribute, OwnedCoercedAttr)>,
             call_stack: Option<StarlarkCallStack>,
         ) -> Self;
     }
@@ -852,7 +851,7 @@ pub mod testing {
         fn testing_new(
             label: TargetLabel,
             rule_type: RuleType,
-            attrs: Vec<(&str, Attribute, CoercedAttr)>,
+            attrs: Vec<(&str, Attribute, OwnedCoercedAttr)>,
             call_stack: Option<StarlarkCallStack>,
         ) -> TargetNode {
             let attr_spec = AttributeSpec::testing_new(
@@ -871,7 +870,7 @@ pub mod testing {
 
             for (name, _attr, val) in attrs.into_iter() {
                 let idx = attr_spec.attribute_id_by_name(name).unwrap();
-                let val = builder.encode(&val).unwrap();
+                let val = builder.encode_view(val.as_ref()).unwrap();
                 attributes.push_sorted(&mut builder, idx, val);
             }
 

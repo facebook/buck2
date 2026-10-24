@@ -202,11 +202,9 @@ enum ConfiguredTargetHashError {
 mod tests {
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+    use buck2_node::attrs::arena::OwnedCoercedAttr;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::AttrType;
-    use buck2_node::attrs::attr_type::string::StringLiteral;
-    use buck2_node::attrs::coerced_attr::CoercedAttr;
-    use buck2_util::arc_str::ArcStr;
 
     use super::*;
 
@@ -268,7 +266,7 @@ mod tests {
             vec![(
                 "value",
                 Attribute::new_const(None, "", AttrType::string()),
-                CoercedAttr::String(StringLiteral(ArcStr::from(value))),
+                OwnedCoercedAttr::new_with(|b| b.encode_string(value)).unwrap(),
             )],
             None,
         )

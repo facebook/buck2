@@ -159,12 +159,10 @@ mod tests {
     use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::target::label::label::TargetLabel;
     use buck2_query::query::syntax::simple::eval::set::TargetSet;
-    use buck2_util::arc_str::ArcSlice;
 
+    use crate::attrs::arena::OwnedCoercedAttr;
     use crate::attrs::attr::Attribute;
     use crate::attrs::attr_type::AttrType;
-    use crate::attrs::attr_type::list::ListLiteral;
-    use crate::attrs::coerced_attr::CoercedAttr;
     use crate::bzl_or_bxl_path::BzlOrBxlPath;
     use crate::nodes::unconfigured::TargetNode;
     use crate::nodes::unconfigured::testing::TargetNodeExt;
@@ -187,9 +185,13 @@ mod tests {
                     AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
                 )
                 .unwrap(),
-                CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
-                    ProvidersLabel::default_for(TargetLabel::testing_parse(dep)),
-                )]))),
+                OwnedCoercedAttr::new_with(|b| {
+                    let dep = b.encode_dep(&ProvidersLabel::default_for(
+                        TargetLabel::testing_parse(dep),
+                    ))?;
+                    b.encode_list(&[dep])
+                })
+                .unwrap(),
             )],
             None,
         )

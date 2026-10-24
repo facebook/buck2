@@ -79,7 +79,6 @@ use allocative::Allocative;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::config_setting::ConfigSettingData;
-use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePathRef;
@@ -87,7 +86,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_hash::BuckHasher;
@@ -95,7 +93,6 @@ use buck2_hash::BuckMutMap;
 use buck2_query_parser::BinaryOp;
 use buck2_query_parser::Expr;
 use buck2_util::arc_str::ArcS;
-use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::pointer_identity::StaticPointerIdentity;
 use buck2_util::pointer_identity::mix_addr;
@@ -133,12 +130,10 @@ use crate::attrs::attr_type::arg::MacroDepKind;
 use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::arg::StringWithMacros;
 use crate::attrs::attr_type::arg::StringWithMacrosPart;
-use crate::attrs::attr_type::arg::UnconfiguredMacro;
 use crate::attrs::attr_type::attr_config::source_file_display;
 use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::label::LabelAttrType;
@@ -148,10 +143,7 @@ use crate::attrs::attr_type::query::QueryAttrBase;
 use crate::attrs::attr_type::query::QueryMacroBase;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::attr_type::string::StringLiteral;
-use crate::attrs::attr_type::transition_dep::CoercedTransitionDep;
 use crate::attrs::attr_type::tuple::TupleLiteral;
-use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::coerced_attr::CoercedConcat;
 use crate::attrs::coerced_attr::CoercedSelector;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -797,7 +789,7 @@ impl PackageAttrStorage {
 
 /// The owned form of one attribute value, for holders that outlive any
 /// package (rule defaults): arena-encoded in its own single-value storage,
-/// unlike a plain [`CoercedAttr`] tree. Equality and hashing are
+/// so it needs no package. Equality and hashing are
 /// content-based, so two `OwnedCoercedAttr`s encoding equal values compare
 /// equal regardless of which storage holds them.
 #[derive(Clone, Dupe, Debug, Allocative, Pagable)]
@@ -807,12 +799,6 @@ pub struct OwnedCoercedAttr {
 }
 
 impl OwnedCoercedAttr {
-    pub fn try_new(attr: &CoercedAttr) -> buck2_error::Result<OwnedCoercedAttr> {
-        let mut builder = CoercedAttrArenaBuilder::default();
-        let token = builder.encode(attr)?;
-        Self::seal_from_builder(builder, token)
-    }
-
     /// A value `f` encodes into storage of its own.
     pub fn new_with(
         f: impl FnOnce(&mut CoercedAttrArenaBuilder) -> buck2_error::Result<AttrToken>,
@@ -903,7 +889,7 @@ impl CoercedAttrArena {
     }
 
     /// The identity-grade content hash of a root value, if `r` was interned
-    /// as a root (`CoercedAttrArenaBuilder::encode_root`).
+    /// as a root (`CoercedAttrArenaBuilder::root`).
     pub fn root_strong_hash(&self, r: AttrWord) -> Option<StrongHash128> {
         self.root_words
             .binary_search(&r.0)
@@ -2638,17 +2624,6 @@ impl<'a> QueryView<'a> {
         self.expr().labels(out);
     }
 
-    fn to_query_attr(self) -> QueryAttr<ProvidersLabel> {
-        let (query, resolved_literals) = self.query();
-        QueryAttr {
-            providers: ProviderIdSet::EMPTY,
-            query: QueryAttrBase {
-                query,
-                resolved_literals,
-            },
-        }
-    }
-
     fn configure(&self, ctx: &dyn AttrConfigurationContext) -> QueryAttr<ConfiguredProvidersLabel> {
         let mut query = String::new();
         let mut lits = BTreeMap::new();
@@ -2730,17 +2705,6 @@ impl<'a> ArgQueryView<'a> {
     /// same order as the offset-sorted map of the original text).
     pub fn literal_labels(&self, out: &mut Vec<&'a ProvidersLabel>) {
         self.expr().labels(out);
-    }
-
-    fn to_query_macro(self) -> QueryMacroBase<ProvidersLabel> {
-        let (query, resolved_literals) = self.query();
-        QueryMacroBase {
-            expansion_type: self.expansion_type(),
-            query: QueryAttrBase {
-                query,
-                resolved_literals,
-            },
-        }
     }
 
     fn configure(
@@ -3063,39 +3027,6 @@ impl StrongHash for QueryExprRef<'_> {
 }
 
 impl<'a> ArgPartView<'a> {
-    fn to_part(self) -> StringWithMacrosPart<ProvidersLabel> {
-        match self {
-            ArgPartView::String(s) => StringWithMacrosPart::String(ArcStr::from(s)),
-            ArgPartView::Macro { write_to_file, mac } => StringWithMacrosPart::Macro(
-                write_to_file,
-                match mac {
-                    ArgMacroView::Location { label, dep_kind } => UnconfiguredMacro::Location {
-                        label: label.dupe(),
-                        dep_kind,
-                    },
-                    ArgMacroView::Exe { label, exec_dep } => UnconfiguredMacro::Exe {
-                        label: label.dupe(),
-                        exec_dep,
-                    },
-                    ArgMacroView::UserUnkeyedPlaceholder(name) => {
-                        UnconfiguredMacro::UserUnkeyedPlaceholder(Box::from(name))
-                    }
-                    ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
-                        UnconfiguredMacro::UserKeyedPlaceholder(Box::new((
-                            Box::from(var),
-                            label.dupe(),
-                            arg.map(Box::from),
-                        )))
-                    }
-                    ArgMacroView::Source(path) => UnconfiguredMacro::Source(path.clone()),
-                    ArgMacroView::Query(q) => {
-                        UnconfiguredMacro::Query(Box::new(q.to_query_macro()))
-                    }
-                },
-            ),
-        }
-    }
-
     /// Mirror of `MacroBase::<ProvidersLabel>::configure` off the view.
     fn configure(
         &self,
@@ -3535,89 +3466,6 @@ impl<'a> CoercedAttrRef<'a> {
                 )),
             },
         }
-    }
-
-    /// Reconstruct an owned [`CoercedAttr`]. Bridge for consumers that take
-    /// owned enum values, and for round-trip testing.
-    pub fn to_coerced(&self) -> buck2_error::Result<CoercedAttr> {
-        Ok(match self.kind() {
-            CoercedAttrRefKind::None => CoercedAttr::None,
-            CoercedAttrRefKind::Bool(b) => CoercedAttr::Bool(BoolLiteral(b)),
-            CoercedAttrRefKind::Int(i) => CoercedAttr::Int(i),
-            CoercedAttrRefKind::String(s) => CoercedAttr::String(StringLiteral(ArcStr::from(s))),
-            CoercedAttrRefKind::EnumVariant(s) => {
-                CoercedAttr::EnumVariant(StringLiteral(ArcStr::from(s)))
-            }
-            CoercedAttrRefKind::ArgSimple(s) => {
-                CoercedAttr::Arg(StringWithMacros::StringPart(ArcStr::from(s)))
-            }
-            CoercedAttrRefKind::Arg(parts) => CoercedAttr::Arg(StringWithMacros::ManyParts(
-                parts.iter().map(|p| p.to_part()).collect(),
-            )),
-            CoercedAttrRefKind::List(seq) => CoercedAttr::List(ListLiteral(
-                seq.iter()
-                    .map(|v| v.to_coerced())
-                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
-            )),
-            CoercedAttrRefKind::Tuple(seq) => CoercedAttr::Tuple(TupleLiteral(
-                seq.iter()
-                    .map(|v| v.to_coerced())
-                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
-            )),
-            CoercedAttrRefKind::Dict(pairs) => CoercedAttr::Dict(DictLiteral(
-                pairs
-                    .iter()
-                    .map(|(k, v)| Ok((k.to_coerced()?, v.to_coerced()?)))
-                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
-            )),
-            CoercedAttrRefKind::Selector { entries, default } => {
-                let entries = entries
-                    .iter()
-                    .map(|(key, v)| Ok((ConfigurationSettingKey(key.dupe()), v.to_coerced()?)))
-                    .collect::<buck2_error::Result<ArcSlice<_>>>()?;
-                let default = default.map(|d| d.to_coerced()).transpose()?;
-                CoercedAttr::Selector(Arc::new(
-                    CoercedSelector::new(entries, default)
-                        .internal_error("should be valid: encoded from a valid selector")?,
-                ))
-            }
-            CoercedAttrRefKind::Concat(seq) => CoercedAttr::Concat(CoercedConcat(
-                seq.iter()
-                    .map(|v| v.to_coerced())
-                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
-            )),
-            CoercedAttrRefKind::OneOf(child, idx) => {
-                CoercedAttr::OneOf(Box::new(child.to_coerced()?), idx)
-            }
-            CoercedAttrRefKind::Dep(l) => CoercedAttr::Dep(l.dupe()),
-            CoercedAttrRefKind::Label(l) => CoercedAttr::Label(l.dupe()),
-            CoercedAttrRefKind::SourceLabel(l) => CoercedAttr::SourceLabel(l.dupe()),
-            CoercedAttrRefKind::ConfigurationDep(l) => CoercedAttr::ConfigurationDep(l.dupe()),
-            CoercedAttrRefKind::SplitTransitionDep(l) => CoercedAttr::SplitTransitionDep(l.dupe()),
-            CoercedAttrRefKind::PluginDep(l) => CoercedAttr::PluginDep(l.dupe()),
-            CoercedAttrRefKind::SourceFile(p) => CoercedAttr::SourceFile(p.clone()),
-            CoercedAttrRefKind::Query(q) => CoercedAttr::Query(Box::new(q.to_query_attr())),
-            CoercedAttrRefKind::SelectFail(s) => CoercedAttr::SelectFail(ArcStr::from(s)),
-            CoercedAttrRefKind::SelectIncompatible(s) => {
-                CoercedAttr::SelectIncompatible(ArcStr::from(s))
-            }
-            CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
-                CoercedAttr::ExplicitConfiguredDep(Box::new(UnconfiguredExplicitConfiguredDep {
-                    label: label.dupe(),
-                    platform: platform.dupe(),
-                }))
-            }
-            CoercedAttrRefKind::TransitionDep { dep, transition } => {
-                CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
-                    dep: dep.dupe(),
-                    transition: transition.map(|t| Arc::new(TransitionId::Target(t.dupe()))),
-                }))
-            }
-            CoercedAttrRefKind::Visibility(v) => CoercedAttr::Visibility(v.clone()),
-            CoercedAttrRefKind::WithinView(v) => CoercedAttr::WithinView(v.clone()),
-            CoercedAttrRefKind::Modifiers(m) => CoercedAttr::TargetModifiers(m.dupe()),
-            CoercedAttrRefKind::Metadata(m) => CoercedAttr::Metadata(m.clone()),
-        })
     }
 }
 
@@ -4516,10 +4364,7 @@ impl crate::attrs::display::AttrDisplayWithContext for CoercedAttrRef<'_> {
 
 impl std::fmt::Debug for CoercedAttrRef<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.to_coerced() {
-            Ok(a) => write!(f, "CoercedAttrRef({a:?})"),
-            Err(_) => write!(f, "CoercedAttrRef(<decode error>)"),
-        }
+        write!(f, "CoercedAttrRef({})", self.as_display_no_ctx())
     }
 }
 
@@ -5031,15 +4876,6 @@ impl CoercedAttrArenaBuilder {
         Ok(r)
     }
 
-    /// [`Self::encode`] for a root: a top-level attribute value referenced
-    /// from outside the arena. The sealed arena retains an identity-grade
-    /// strong hash for every root (`CoercedAttrArena::root_strong_hash`).
-    pub fn encode_root(&mut self, attr: &CoercedAttr) -> buck2_error::Result<AttrToken> {
-        let token = self.encode(attr)?;
-        self.root(token);
-        Ok(token)
-    }
-
     /// Mark an encoded value as a root: a top-level attribute value referenced
     /// from outside the arena, for which the sealed arena retains an
     /// identity-grade strong hash.
@@ -5341,75 +5177,6 @@ impl CoercedAttrArenaBuilder {
                 self.encode_query_node(hash, subtag, &[], &refs)
             }
         }
-    }
-
-    /// Import an owned attribute value (recursively) into the arena. Only
-    /// tests build owned values; coercion encodes through the per-kind
-    /// entry points.
-    pub fn encode(&mut self, attr: &CoercedAttr) -> buck2_error::Result<AttrToken> {
-        match attr {
-            CoercedAttr::None => self.encode_none(),
-            CoercedAttr::Bool(BoolLiteral(b)) => self.encode_bool(*b),
-            CoercedAttr::Int(i) => self.encode_int(*i),
-            CoercedAttr::String(StringLiteral(s)) => self.encode_string(s),
-            CoercedAttr::EnumVariant(StringLiteral(s)) => self.encode_enum_variant(s),
-            CoercedAttr::List(ListLiteral(xs)) => {
-                let items = self.encode_all(xs)?;
-                self.encode_list(&items)
-            }
-            CoercedAttr::Tuple(TupleLiteral(xs)) => {
-                let items = self.encode_all(xs)?;
-                self.encode_tuple(&items)
-            }
-            CoercedAttr::Concat(CoercedConcat(xs)) => {
-                let items = self.encode_all(xs)?;
-                self.encode_concat(&items)
-            }
-            CoercedAttr::Dict(DictLiteral(pairs)) => {
-                let mut tokens = Vec::with_capacity(pairs.len());
-                for (k, v) in pairs.iter() {
-                    tokens.push((self.encode(k)?, self.encode(v)?));
-                }
-                self.encode_dict(&tokens)
-            }
-            CoercedAttr::Selector(s) => {
-                let mut entries = Vec::with_capacity(s.entries.len());
-                for (k, v) in s.entries.iter() {
-                    entries.push((k.dupe(), self.encode(v)?));
-                }
-                let default = s.default.as_ref().map(|d| self.encode(d)).transpose()?;
-                self.encode_selector(&entries, default)
-            }
-            CoercedAttr::OneOf(child, idx) => {
-                let child = self.encode(child)?;
-                self.encode_one_of(*idx, child)
-            }
-            CoercedAttr::Dep(l) => self.encode_dep(l),
-            CoercedAttr::Label(l) => self.encode_label(l),
-            CoercedAttr::SourceLabel(l) => self.encode_source_label(l),
-            CoercedAttr::ConfigurationDep(l) => self.encode_configuration_dep(l),
-            CoercedAttr::SplitTransitionDep(l) => self.encode_split_transition_dep(l),
-            CoercedAttr::PluginDep(l) => self.encode_plugin_dep(l),
-            CoercedAttr::SourceFile(p) => self.encode_source_file(p),
-            CoercedAttr::Arg(arg) => self.encode_arg(arg),
-            CoercedAttr::Query(q) => self.encode_query(&q.query),
-            CoercedAttr::SelectFail(s) => self.encode_select_fail(s),
-            CoercedAttr::SelectIncompatible(s) => self.encode_select_incompatible(s),
-            CoercedAttr::ExplicitConfiguredDep(d) => {
-                self.encode_explicit_configured_dep(&d.label, &d.platform)
-            }
-            CoercedAttr::TransitionDep(d) => {
-                self.encode_transition_dep(&d.dep, d.get_dynamic_transition())
-            }
-            CoercedAttr::Visibility(v) => self.encode_visibility(v),
-            CoercedAttr::WithinView(v) => self.encode_within_view(v),
-            CoercedAttr::Metadata(m) => self.encode_metadata(m),
-            CoercedAttr::TargetModifiers(m) => self.encode_target_modifiers(m),
-        }
-    }
-
-    fn encode_all(&mut self, xs: &[CoercedAttr]) -> buck2_error::Result<Vec<AttrToken>> {
-        xs.iter().map(|c| self.encode(c)).collect()
     }
 
     /// Path table index and content hash, via the `ArcS` pointer lookaside
@@ -5755,10 +5522,12 @@ impl CoercedAttrArenaBuilder {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use buck2_core::provider::label::testing::ProvidersLabelTestExt;
 
     use super::*;
-    use crate::attrs::attr_type::string::StringLiteral;
+    use crate::attrs::attr_type::arg::UnconfiguredMacro;
     use crate::attrs::display::AttrDisplayWithContextExt;
     use crate::visibility::VisibilitySpecification;
 
@@ -5766,91 +5535,213 @@ mod tests {
         ProvidersLabel::testing_new("root", pkg, name, None)
     }
 
-    /// Round-trip for values whose decode is a canonical reprint (query
-    /// macros): bytes may differ from the source, but the decoded form must
-    /// be a fixed point, render identically to its own enum form, and
-    /// preserve every literal label with spans that slice the reprint to
-    /// that label's rendering.
-    fn roundtrip_canonical(attrs: &[CoercedAttr]) -> CoercedAttrArena {
-        fn query_lits(a: &CoercedAttr) -> Vec<(String, Vec<(String, ProvidersLabel)>)> {
-            let mut out = Vec::new();
-            if let CoercedAttr::Arg(StringWithMacros::ManyParts(parts)) = a {
-                for part in parts.iter() {
-                    if let StringWithMacrosPart::Macro(_, UnconfiguredMacro::Query(q)) = part {
-                        let mut lits: Vec<(String, ProvidersLabel)> = q
-                            .query
-                            .resolved_literals
-                            .0
-                            .values()
-                            .map(|l| (l.to_string(), l.dupe()))
-                            .collect();
-                        lits.sort_by(|a, b| a.0.cmp(&b.0));
-                        out.push((q.query.query.clone(), lits));
-                    }
-                }
-            }
-            out
-        }
+    /// A test value: the recipe that encodes it into a builder, so one
+    /// value can be encoded into any number of arenas.
+    type V = Rc<dyn Fn(&mut CoercedAttrArenaBuilder) -> buck2_error::Result<AttrToken>>;
 
-        let mut b = CoercedAttrArena::builder();
-        let refs: Vec<AttrWord> = attrs.iter().map(|a| b.encode(a).unwrap().0).collect();
-        let arena = b.finish();
+    fn v(
+        f: impl Fn(&mut CoercedAttrArenaBuilder) -> buck2_error::Result<AttrToken> + 'static,
+    ) -> V {
+        Rc::new(f)
+    }
+
+    fn put(b: &mut CoercedAttrArenaBuilder, xs: &[V]) -> buck2_error::Result<Vec<AttrToken>> {
+        xs.iter().map(|x| x(b)).collect()
+    }
+
+    fn none() -> V {
+        v(|b| b.encode_none())
+    }
+    fn boolean(x: bool) -> V {
+        v(move |b| b.encode_bool(x))
+    }
+    fn int(x: i64) -> V {
+        v(move |b| b.encode_int(x))
+    }
+    fn s(x: &'static str) -> V {
+        v(move |b| b.encode_string(x))
+    }
+    fn enum_variant(x: &'static str) -> V {
+        v(move |b| b.encode_enum_variant(x))
+    }
+    fn select_fail(x: &'static str) -> V {
+        v(move |b| b.encode_select_fail(x))
+    }
+    fn select_incompatible(x: &'static str) -> V {
+        v(move |b| b.encode_select_incompatible(x))
+    }
+    fn arg_simple(x: &'static str) -> V {
+        arg_value(StringWithMacros::StringPart(ArcStr::from(x)))
+    }
+    fn arg(parts: Vec<StringWithMacrosPart<ProvidersLabel>>) -> V {
+        arg_value(StringWithMacros::ManyParts(parts.into_boxed_slice()))
+    }
+    fn arg_value(x: StringWithMacros<ProvidersLabel>) -> V {
+        v(move |b| b.encode_arg(&x))
+    }
+    fn query(x: QueryAttrBase<ProvidersLabel>) -> V {
+        v(move |b| b.encode_query(&x))
+    }
+    fn list(xs: Vec<V>) -> V {
+        v(move |b| {
+            let t = put(b, &xs)?;
+            b.encode_list(&t)
+        })
+    }
+    fn tuple(xs: Vec<V>) -> V {
+        v(move |b| {
+            let t = put(b, &xs)?;
+            b.encode_tuple(&t)
+        })
+    }
+    fn concat(xs: Vec<V>) -> V {
+        v(move |b| {
+            let t = put(b, &xs)?;
+            b.encode_concat(&t)
+        })
+    }
+    fn dict(pairs: Vec<(V, V)>) -> V {
+        v(move |b| {
+            let mut t = Vec::with_capacity(pairs.len());
+            for (k, x) in &pairs {
+                t.push((k(b)?, x(b)?));
+            }
+            b.encode_dict(&t)
+        })
+    }
+    fn one_of(x: V, idx: u32) -> V {
+        v(move |b| {
+            let t = x(b)?;
+            b.encode_one_of(idx, t)
+        })
+    }
+    /// A selector keyed by `root//cfg:<key>` labels.
+    fn sel(entries: Vec<(&'static str, V)>, default: Option<V>) -> V {
+        v(move |b| {
+            let mut t = Vec::with_capacity(entries.len());
+            for (k, x) in &entries {
+                t.push((ConfigurationSettingKey(label("cfg", k)), x(b)?));
+            }
+            let d = default.as_ref().map(|d| d(b)).transpose()?;
+            b.encode_selector(&t, d)
+        })
+    }
+    fn dep(l: ProvidersLabel) -> V {
+        v(move |b| b.encode_dep(&l))
+    }
+    fn label_value(l: ProvidersLabel) -> V {
+        v(move |b| b.encode_label(&l))
+    }
+    fn source_label(l: ProvidersLabel) -> V {
+        v(move |b| b.encode_source_label(&l))
+    }
+    fn configuration_dep(l: ProvidersLabel) -> V {
+        v(move |b| b.encode_configuration_dep(&l))
+    }
+    fn split_transition_dep(l: ProvidersLabel) -> V {
+        v(move |b| b.encode_split_transition_dep(&l))
+    }
+    fn explicit_configured_dep(l: ProvidersLabel, platform: TargetLabel) -> V {
+        v(move |b| b.encode_explicit_configured_dep(&l, &platform))
+    }
+    fn transition_dep(l: ProvidersLabel, transition: Option<ProvidersLabel>) -> V {
+        v(move |b| b.encode_transition_dep(&l, transition.as_ref()))
+    }
+    fn source_file(p: CoercedPath) -> V {
+        v(move |b| b.encode_source_file(&p))
+    }
+    fn visibility(x: VisibilitySpecification) -> V {
+        v(move |b| b.encode_visibility(&x))
+    }
+    fn metadata(x: MetadataMap) -> V {
+        v(move |b| b.encode_metadata(&x))
+    }
+    fn target_modifiers(x: CfgModifiers) -> V {
+        v(move |b| b.encode_target_modifiers(&x))
+    }
+
+    /// Encode each value and check what every value must satisfy:
+    /// re-encoding it into the same arena dedups to the same ref, and a
+    /// copy into a fresh arena is content-equal with the same identity hash
+    /// and rendering.
+    fn roundtrip(values: &[V]) -> CoercedAttrArena {
+        let (arena, refs) = encode_all(values);
         assert_copies(&arena, &refs);
-        for (a, r) in attrs.iter().zip(&refs) {
-            let view = arena.view(*r);
-            let decoded = view.to_coerced().unwrap();
-
-            // fixed point: encoding the decoded value round-trips exactly
-            let mut b2 = CoercedAttrArena::builder();
-            let r2 = b2.encode(&decoded).unwrap().0;
-            let arena2 = b2.finish();
-            assert_eq!(
-                decoded,
-                arena2.view(r2).to_coerced().unwrap(),
-                "canonical form should be a fixed point"
-            );
-
-            // literal labels preserved; decoded spans slice the reprint to
-            // the label rendering
-            let orig = query_lits(a);
-            let dec = query_lits(&decoded);
-            assert_eq!(orig.len(), dec.len(), "query macro count should survive");
-            for ((_, orig_lits), (dq, dec_lits)) in orig.iter().zip(dec.iter()) {
-                assert_eq!(
-                    orig_lits.iter().map(|(s, _)| s).collect::<Vec<_>>(),
-                    dec_lits.iter().map(|(s, _)| s).collect::<Vec<_>>(),
-                    "literal label set should survive the reprint"
-                );
-                if let CoercedAttr::Arg(StringWithMacros::ManyParts(parts)) = &decoded {
-                    for part in parts.iter() {
-                        if let StringWithMacrosPart::Macro(_, UnconfiguredMacro::Query(q)) = part {
-                            if q.query.query == *dq {
-                                for ((off, len), l) in q.query.resolved_literals.0.iter() {
-                                    assert_eq!(
-                                        &dq[*off..*off + *len],
-                                        l.to_string(),
-                                        "literal span should slice the reprint to its label"
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
         arena
     }
 
-    fn roundtrip(attrs: &[CoercedAttr]) -> CoercedAttrArena {
+    /// Encode `values` into one arena, in order.
+    fn encode_all(values: &[V]) -> (CoercedAttrArena, Vec<AttrWord>) {
         let mut b = CoercedAttrArena::builder();
-        let refs: Vec<AttrWord> = attrs.iter().map(|a| b.encode(a).unwrap().0).collect();
-        let arena = b.finish();
-        for (a, r) in attrs.iter().zip(&refs) {
-            let view = arena.view(*r);
-            let back = view.to_coerced().unwrap();
-            assert_eq!(a, &back, "round-trip should preserve the value");
+        let refs: Vec<AttrWord> = values.iter().map(|x| x(&mut b).unwrap().0).collect();
+        for (x, &r) in values.iter().zip(&refs) {
+            assert_eq!(
+                x(&mut b).unwrap().0,
+                r,
+                "re-encoding should dedup to the same ref: {}",
+                b.view(r).as_display_no_ctx()
+            );
         }
+        (b.finish(), refs)
+    }
+
+    /// Encode one value into a fresh arena.
+    fn encode_one(value: &V) -> (CoercedAttrArena, AttrWord) {
+        let (arena, refs) = encode_all(std::slice::from_ref(value));
+        (arena, refs[0])
+    }
+
+    /// The query expressions a value holds, as `attrs.query()` values or
+    /// query macros: each as its reprint and literal bindings.
+    fn queries_of(
+        view: CoercedAttrRef<'_>,
+    ) -> Vec<(String, ResolvedQueryLiterals<ProvidersLabel>)> {
+        match view.kind() {
+            CoercedAttrRefKind::Query(q) => vec![q.query()],
+            CoercedAttrRefKind::Arg(parts) => parts
+                .iter()
+                .filter_map(|p| match p {
+                    ArgPartView::Macro {
+                        mac: ArgMacroView::Query(m),
+                        ..
+                    } => Some(m.query()),
+                    _ => None,
+                })
+                .collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Round-trip for values whose decode is a canonical reprint (query
+    /// expressions): bytes may differ from the source, but every literal
+    /// label must survive with a span that slices the reprint to that
+    /// label's rendering, and the reprint must be a fixed point.
+    fn roundtrip_canonical(values: &[V]) -> CoercedAttrArena {
+        let (arena, refs) = encode_all(values);
         assert_copies(&arena, &refs);
+        for &r in &refs {
+            for (reprint, lits) in queries_of(arena.view(r)) {
+                for ((off, len), l) in lits.0.iter() {
+                    assert_eq!(
+                        &reprint[*off..*off + *len],
+                        l.to_string(),
+                        "literal span should slice the reprint to its label"
+                    );
+                }
+                let again = QueryAttrBase {
+                    query: reprint.clone(),
+                    resolved_literals: lits.clone(),
+                };
+                let mut b2 = CoercedAttrArena::builder();
+                let r2 = b2.encode_query(&again).unwrap().0;
+                let arena2 = b2.finish();
+                assert_eq!(
+                    queries_of(arena2.view(r2)),
+                    vec![(reprint, lits)],
+                    "canonical form should be a fixed point"
+                );
+            }
+        }
         arena
     }
 
@@ -5879,54 +5770,41 @@ mod tests {
         }
     }
 
-    fn s(v: &str) -> CoercedAttr {
-        CoercedAttr::String(StringLiteral(ArcStr::from(v)))
-    }
-
     /// Near-miss values must stay distinct under both the identity hash and
     /// content equality: the shared decomposition may not coarsen either.
     #[test]
     fn test_near_miss_values_are_distinct() {
         let l = label("pkg", "t");
-        let sel = |default: Option<CoercedAttr>| {
-            CoercedAttr::Selector(Arc::new(
-                CoercedSelector::new(
-                    ArcSlice::new([(ConfigurationSettingKey(label("cfg", "a")), s("x"))]),
-                    default,
-                )
-                .unwrap(),
-            ))
-        };
         let values = vec![
-            CoercedAttr::None,
-            CoercedAttr::Bool(BoolLiteral(true)),
-            CoercedAttr::Bool(BoolLiteral(false)),
-            CoercedAttr::Int(1),
-            CoercedAttr::Int(2),
+            none(),
+            boolean(true),
+            boolean(false),
+            int(1),
+            int(2),
             s("a"),
             s(""),
-            CoercedAttr::EnumVariant(StringLiteral(ArcStr::from("a"))),
-            CoercedAttr::Arg(StringWithMacros::StringPart(ArcStr::from("a"))),
-            CoercedAttr::SelectFail(ArcStr::from("a")),
-            CoercedAttr::SelectIncompatible(ArcStr::from("a")),
-            CoercedAttr::List(ListLiteral(ArcSlice::new([s("a")]))),
-            CoercedAttr::List(ListLiteral(ArcSlice::new([s("a"), s("a")]))),
-            CoercedAttr::Tuple(TupleLiteral(ArcSlice::new([s("a")]))),
-            CoercedAttr::Concat(CoercedConcat(ArcSlice::new([s("a")]))),
-            CoercedAttr::Dict(DictLiteral(ArcSlice::new([(s("a"), CoercedAttr::Int(1))]))),
-            CoercedAttr::Dep(l.dupe()),
-            CoercedAttr::Label(l.dupe()),
-            CoercedAttr::SourceLabel(l.dupe()),
-            CoercedAttr::ConfigurationDep(l.dupe()),
-            CoercedAttr::SplitTransitionDep(l.dupe()),
-            CoercedAttr::OneOf(Box::new(s("a")), 0),
-            CoercedAttr::OneOf(Box::new(s("a")), 1),
-            sel(None),
-            sel(Some(s("d"))),
+            enum_variant("a"),
+            arg_simple("a"),
+            select_fail("a"),
+            select_incompatible("a"),
+            list(vec![s("a")]),
+            list(vec![s("a"), s("a")]),
+            tuple(vec![s("a")]),
+            concat(vec![s("a")]),
+            dict(vec![(s("a"), int(1))]),
+            dep(l.dupe()),
+            label_value(l.dupe()),
+            source_label(l.dupe()),
+            configuration_dep(l.dupe()),
+            split_transition_dep(l.dupe()),
+            one_of(s("a"), 0),
+            one_of(s("a"), 1),
+            sel(vec![("a", s("x"))], None),
+            sel(vec![("a", s("x"))], Some(s("d"))),
         ];
         roundtrip(&values);
         let mut b = CoercedAttrArena::builder();
-        let refs: Vec<AttrWord> = values.iter().map(|a| b.encode(a).unwrap().0).collect();
+        let refs: Vec<AttrWord> = values.iter().map(|x| x(&mut b).unwrap().0).collect();
         let arena = b.finish();
         let mut memo = BuckMutMap::default();
         for (i, &ri) in refs.iter().enumerate() {
@@ -5955,7 +5833,7 @@ mod tests {
         use pagable::testing::TestingSerializer;
 
         let mut b = CoercedAttrArena::builder();
-        let r = b.encode(&s("héllo")).unwrap().0;
+        let r = b.encode_string("héllo").unwrap().0;
         let arena = b.finish();
 
         let mut ser = TestingSerializer::new();
@@ -5982,10 +5860,7 @@ mod tests {
         use pagable::testing::TestingSerializer;
 
         let mut b = CoercedAttrArena::builder();
-        let r = b
-            .encode(&CoercedAttr::List(ListLiteral(vec![s("héllo")].into())))
-            .unwrap()
-            .0;
+        let r = list(vec![s("héllo")])(&mut b).unwrap().0;
         let arena = b.finish();
 
         // The list record's single ref field follows its tag byte and one
@@ -6005,14 +5880,14 @@ mod tests {
     #[test]
     fn test_immediates_roundtrip_and_cost_no_bytes() {
         let arena = roundtrip(&[
-            CoercedAttr::None,
-            CoercedAttr::Bool(BoolLiteral(true)),
-            CoercedAttr::Bool(BoolLiteral(false)),
-            CoercedAttr::Int(0),
-            CoercedAttr::Int(-1),
-            CoercedAttr::Int(INT_INLINE_MAX),
-            CoercedAttr::Int(INT_INLINE_MIN),
-            CoercedAttr::Dep(label("foo", "bar")),
+            none(),
+            boolean(true),
+            boolean(false),
+            int(0),
+            int(-1),
+            int(INT_INLINE_MAX),
+            int(INT_INLINE_MIN),
+            dep(label("foo", "bar")),
         ]);
         assert_eq!(
             arena.byte_len(),
@@ -6023,22 +5898,21 @@ mod tests {
 
     #[test]
     fn test_root_strong_hash_identity() {
-        let list = CoercedAttr::List(ListLiteral(ArcSlice::new([
-            s("x"),
-            CoercedAttr::Int(3),
-            CoercedAttr::Dep(label("foo", "bar")),
-        ])));
-        let other = CoercedAttr::List(ListLiteral(ArcSlice::new([s("y")])));
+        let value = list(vec![s("x"), int(3), dep(label("foo", "bar"))]);
+        let other = list(vec![s("y")]);
 
         // Same value in two arenas, interleaved with different neighbors:
         // strong hashes must agree (identity is content, not placement).
         let mut b1 = CoercedAttrArena::builder();
-        let r1 = b1.encode_root(&list).unwrap().0;
+        let t = value(&mut b1).unwrap();
+        let r1 = b1.root(t);
         let a1 = b1.finish();
 
         let mut b2 = CoercedAttrArena::builder();
-        let o2 = b2.encode_root(&other).unwrap().0;
-        let r2 = b2.encode_root(&list).unwrap().0;
+        let t = other(&mut b2).unwrap();
+        let o2 = b2.root(t);
+        let t = value(&mut b2).unwrap();
+        let r2 = b2.root(t);
         let a2 = b2.finish();
 
         assert_eq!(
@@ -6054,7 +5928,7 @@ mod tests {
 
         // Non-roots retain no strong hash.
         let mut b3 = CoercedAttrArena::builder();
-        let interior = b3.encode(&list).unwrap().0;
+        let interior = value(&mut b3).unwrap().0;
         let a3 = b3.finish();
         assert_eq!(
             a3.root_strong_hash(interior),
@@ -6063,7 +5937,7 @@ mod tests {
         );
 
         // OwnedCoercedAttr agrees with a package arena holding the same value.
-        let sealed = OwnedCoercedAttr::try_new(&list).unwrap();
+        let sealed = OwnedCoercedAttr::new_with(|b| value(b)).unwrap();
         assert_eq!(
             sealed.strong_hash(),
             a1.root_strong_hash(r1).unwrap(),
@@ -6074,10 +5948,10 @@ mod tests {
     #[test]
     fn test_big_ints() {
         let arena = roundtrip(&[
-            CoercedAttr::Int(INT_INLINE_MAX + 1),
-            CoercedAttr::Int(INT_INLINE_MIN - 1),
-            CoercedAttr::Int(i64::MAX),
-            CoercedAttr::Int(i64::MIN),
+            int(INT_INLINE_MAX + 1),
+            int(INT_INLINE_MIN - 1),
+            int(i64::MAX),
+            int(i64::MIN),
         ]);
         // Each is a tag plus the two 32-bit halves of the zigzag value, at
         // four bytes each once the low half needs them.
@@ -6097,87 +5971,61 @@ mod tests {
 
     #[test]
     fn test_containers() {
-        let list = CoercedAttr::List(ListLiteral(ArcSlice::new([
-            s("x"),
-            CoercedAttr::Int(3),
-            CoercedAttr::None,
-        ])));
-        let tuple = CoercedAttr::Tuple(TupleLiteral(ArcSlice::new([
-            list.clone(),
-            CoercedAttr::Bool(BoolLiteral(false)),
-        ])));
-        let dict = CoercedAttr::Dict(DictLiteral(ArcSlice::new([
-            (s("k1"), list.clone()),
-            (s("k2"), tuple.clone()),
-        ])));
-        let oneof = CoercedAttr::OneOf(Box::new(dict.clone()), 7);
-        roundtrip(&[list, tuple, dict, oneof]);
+        let list_v = list(vec![s("x"), int(3), none()]);
+        let tuple_v = tuple(vec![list_v.clone(), boolean(false)]);
+        let dict_v = dict(vec![(s("k1"), list_v.clone()), (s("k2"), tuple_v.clone())]);
+        let oneof_v = one_of(dict_v.clone(), 7);
+        roundtrip(&[list_v, tuple_v, dict_v.clone(), oneof_v]);
+        let (arena, r) = encode_one(&dict_v);
+        assert_eq!(
+            arena.view(r).as_display_no_ctx().to_string(),
+            "{\"k1\": [\"x\", 3, None], \"k2\": ([\"x\", 3, None], False)}"
+        );
     }
 
     #[test]
     fn test_labels_and_selector() {
-        let dep = CoercedAttr::Dep(label("foo", "bar"));
-        let sel = CoercedAttr::Selector(Arc::new(
-            CoercedSelector::new(
-                ArcSlice::new([
-                    (ConfigurationSettingKey(label("cfg", "a")), s("on-a")),
-                    (ConfigurationSettingKey(label("cfg", "b")), dep.clone()),
-                ]),
-                Some(s("dflt")),
-            )
-            .unwrap(),
-        ));
-        let sel_no_default = CoercedAttr::Selector(Arc::new(
-            CoercedSelector::new(
-                ArcSlice::new([(ConfigurationSettingKey(label("cfg", "a")), s("v"))]),
-                None,
-            )
-            .unwrap(),
-        ));
-        let concat = CoercedAttr::Concat(CoercedConcat(ArcSlice::new([sel.clone(), s("suffix")])));
-        roundtrip(&[dep, sel, sel_no_default, concat]);
+        let dep_v = dep(label("foo", "bar"));
+        let sel_full = sel(
+            vec![("a", s("on-a")), ("b", dep_v.clone())],
+            Some(s("dflt")),
+        );
+        let sel_no_default = sel(vec![("a", s("v"))], None);
+        let concat_v = concat(vec![sel_full.clone(), s("suffix")]);
+        roundtrip(&[dep_v, sel_full, sel_no_default, concat_v.clone()]);
+        let (arena, r) = encode_one(&concat_v);
+        assert_eq!(
+            arena.view(r).as_display_no_ctx().to_string(),
+            "select({\"root//cfg:a\": \"on-a\", \"root//cfg:b\": \"root//foo:bar\", \"DEFAULT\": \"dflt\"})+\"suffix\""
+        );
     }
 
     /// Whole-value leaves intern into their own tables, one entry per
     /// distinct value.
     #[test]
     fn test_whole_value_leaves_intern_into_tables() {
-        let visibility =
-            CoercedAttr::Visibility(VisibilitySpecification::testing_parse(&["root//a/..."]));
-        let metadata = CoercedAttr::Metadata(Default::default());
+        let vis = visibility(VisibilitySpecification::testing_parse(&["root//a/..."]));
+        let meta = metadata(Default::default());
         let arena = roundtrip(&[
-            visibility.clone(),
-            CoercedAttr::Visibility(VisibilitySpecification::DEFAULT),
-            visibility.clone(),
-            metadata.clone(),
-            metadata.clone(),
+            vis.clone(),
+            visibility(VisibilitySpecification::DEFAULT),
+            vis.clone(),
+            meta.clone(),
+            meta.clone(),
         ]);
         assert_eq!(arena.visibility.len(), 2);
         assert_eq!(arena.metadata.len(), 1);
-        let mut b = CoercedAttrArena::builder();
-        let AttrToken(r1, _) = b.encode(&visibility).unwrap();
-        let AttrToken(r2, _) = b.encode(&visibility).unwrap();
-        assert_eq!(r1, r2, "re-encoding should dedup to the same entry");
-        let AttrToken(m1, _) = b.encode(&metadata).unwrap();
-        let AttrToken(m2, _) = b.encode(&metadata).unwrap();
-        assert_eq!(m1, m2);
     }
 
     #[test]
     fn test_dep_like_leaves_encode_natively() {
-        let configured_dep =
-            CoercedAttr::ExplicitConfiguredDep(Box::new(UnconfiguredExplicitConfiguredDep {
-                label: label("pkg", "dep"),
-                platform: label("platforms", "linux").target().dupe(),
-            }));
-        let fixed_transition = CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
-            dep: label("pkg", "dep"),
-            transition: None,
-        }));
-        let dynamic_transition = CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
-            dep: label("pkg", "dep"),
-            transition: Some(Arc::new(TransitionId::Target(label("transitions", "t")))),
-        }));
+        let configured_dep = explicit_configured_dep(
+            label("pkg", "dep"),
+            label("platforms", "linux").target().dupe(),
+        );
+        let fixed_transition = transition_dep(label("pkg", "dep"), None);
+        let dynamic_transition =
+            transition_dep(label("pkg", "dep"), Some(label("transitions", "t")));
         roundtrip(&[
             configured_dep,
             fixed_transition.clone(),
@@ -6186,15 +6034,10 @@ mod tests {
 
         // Same dep with and without a dynamic transition: distinct records.
         let mut b = CoercedAttrArena::builder();
-        let AttrToken(r1, h1) = b.encode(&fixed_transition).unwrap();
-        let AttrToken(r2, h2) = b.encode(&dynamic_transition).unwrap();
+        let AttrToken(r1, h1) = fixed_transition(&mut b).unwrap();
+        let AttrToken(r2, h2) = dynamic_transition(&mut b).unwrap();
         assert_ne!(r1, r2);
         assert_ne!(h1, h2);
-        assert_eq!(
-            b.encode(&dynamic_transition).unwrap().0,
-            r2,
-            "re-encoding should dedup to the same record"
-        );
     }
 
     fn modifiers(json: serde_json::Value) -> CfgModifiers {
@@ -6233,19 +6076,17 @@ mod tests {
                 "cfg//os:windows": "cfg//compiler:msvc[sub]",
             },
         ]);
-        let value = CoercedAttr::TargetModifiers(modifiers(json.clone()));
-        let non_list = CoercedAttr::TargetModifiers(modifiers(json!({"a": 1})));
-        let empty = CoercedAttr::TargetModifiers(CfgModifiers::empty());
+        let value = target_modifiers(modifiers(json.clone()));
+        let non_list = target_modifiers(modifiers(json!({"a": 1})));
+        let empty = target_modifiers(CfgModifiers::empty());
         let arena = roundtrip(&[value.clone(), non_list.clone(), empty]);
         assert_eq!(arena.modifiers.len(), 3);
 
         let mut b = CoercedAttrArena::builder();
-        let AttrToken(r, _) = b.encode(&value).unwrap();
-        let AttrToken(again, _) = b
-            .encode(&CoercedAttr::TargetModifiers(modifiers(json.clone())))
-            .unwrap();
+        let AttrToken(r, _) = value(&mut b).unwrap();
+        let AttrToken(again, _) = target_modifiers(modifiers(json.clone()))(&mut b).unwrap();
         assert_eq!(r, again, "an equal value should intern to the same entry");
-        let AttrToken(r2, _) = b.encode(&non_list).unwrap();
+        let AttrToken(r2, _) = non_list(&mut b).unwrap();
         let arena = b.finish();
         assert_eq!(arena.modifiers.len(), 2);
         let CoercedAttrRefKind::Modifiers(m) = arena.view(r).kind() else {
@@ -6287,10 +6128,10 @@ mod tests {
             },
         ]);
         let package = CfgModifiers::from_package(&json, &ModifierLabelParser::new(&cells), None);
-        let value = CoercedAttr::TargetModifiers(package);
+        let value = target_modifiers(package);
         roundtrip(std::slice::from_ref(&value));
         let mut b = CoercedAttrArena::builder();
-        let AttrToken(r, _) = b.encode(&value).unwrap();
+        let AttrToken(r, _) = value(&mut b).unwrap();
         let arena = b.finish();
         assert_eq!(
             arena.view(r).to_json(&AttrFmtContext::NO_CONTEXT).unwrap(),
@@ -6300,14 +6141,14 @@ mod tests {
 
     #[test]
     fn test_select_outcomes_are_text_records() {
-        let fail = CoercedAttr::SelectFail(ArcStr::from("nope"));
-        let incompatible = CoercedAttr::SelectIncompatible(ArcStr::from("nope"));
+        let fail = select_fail("nope");
+        let incompatible = select_incompatible("nope");
         roundtrip(&[fail.clone(), incompatible.clone()]);
 
         // Same message, different outcome: distinct values.
         let mut b = CoercedAttrArena::builder();
-        let AttrToken(r1, h1) = b.encode(&fail).unwrap();
-        let AttrToken(r2, h2) = b.encode(&incompatible).unwrap();
+        let AttrToken(r1, h1) = fail(&mut b).unwrap();
+        let AttrToken(r2, h2) = incompatible(&mut b).unwrap();
         assert_ne!(r1, r2);
         assert_ne!(h1, h2);
         let arena = b.finish();
@@ -6323,25 +6164,15 @@ mod tests {
 
     #[test]
     fn test_selector_keys_shared_across_values() {
-        let entries = |v: &str| {
-            ArcSlice::new([
-                (ConfigurationSettingKey(label("cfg", "a")), s(v)),
-                (
-                    ConfigurationSettingKey(label("cfg", "b")),
-                    CoercedAttr::None,
-                ),
-            ])
-        };
-        let sel1 = CoercedAttr::Selector(Arc::new(
-            CoercedSelector::new(entries("one"), None).unwrap(),
-        ));
-        let sel2 = CoercedAttr::Selector(Arc::new(
-            CoercedSelector::new(entries("two"), None).unwrap(),
-        ));
+        let entries = |x: &'static str| vec![("a", s(x)), ("b", none())];
+        let sel1 = sel(entries("one"), None);
+        let sel2 = sel(entries("two"), None);
+        roundtrip(&[sel1.clone(), sel2.clone()]);
+
         let mut b = CoercedAttrArena::builder();
-        let AttrToken(r1, _) = b.encode(&sel1).unwrap();
+        let AttrToken(r1, _) = sel1(&mut b).unwrap();
         let bytes_after_first = b.arena.bytes.len();
-        let AttrToken(r2, _) = b.encode(&sel2).unwrap();
+        let AttrToken(r2, _) = sel2(&mut b).unwrap();
         // Second selector shares the keys record and the None value: it
         // adds only its own record (tag, count, 4 one-byte refs: keys,
         // absent default, 2 values) plus the new "two" text record (tag,
@@ -6358,21 +6189,16 @@ mod tests {
             keys_of(&b, r2),
             "selectors should share one keys record"
         );
-        drop(b.finish());
-        // Round-trip both.
-        let mut b2 = CoercedAttrArena::builder();
-        let r1 = b2.encode(&sel1).unwrap().0;
-        let r2 = b2.encode(&sel2).unwrap().0;
-        let arena2 = b2.finish();
-        assert_eq!(arena2.view(r1).to_coerced().unwrap(), sel1);
-        assert_eq!(arena2.view(r2).to_coerced().unwrap(), sel2);
     }
 
     #[test]
     fn test_arg_simple_and_many_parts_encode_natively() {
-        let simple = CoercedAttr::Arg(StringWithMacros::StringPart(ArcStr::from("-DFOO=1")));
-        let many = CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([])));
-        roundtrip(&[simple, many]);
+        roundtrip(&[arg_simple("-DFOO=1"), arg(vec![])]);
+        let (arena, r) = encode_one(&arg_simple("-DFOO=1"));
+        assert!(matches!(
+            arena.view(r).kind(),
+            CoercedAttrRefKind::ArgSimple("-DFOO=1")
+        ));
     }
 
     /// An `attrs.query()` value and a query macro over the same expression
@@ -6381,30 +6207,25 @@ mod tests {
     fn test_query_attr_shares_expression_with_query_macro() {
         let text = "deps(:dep)";
         let lits = || ResolvedQueryLiterals(BTreeMap::from([((5, 4), label("pkg", "dep"))]));
-        let attr = CoercedAttr::Query(Box::new(QueryAttr {
-            providers: ProviderIdSet::EMPTY,
-            query: QueryAttrBase {
-                query: text.to_owned(),
-                resolved_literals: lits(),
-            },
-        }));
-        let arg = CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([
-            StringWithMacrosPart::Macro(
-                false,
-                UnconfiguredMacro::Query(Box::new(QueryMacroBase {
-                    expansion_type: QueryExpansion::Target,
-                    query: QueryAttrBase {
-                        query: text.to_owned(),
-                        resolved_literals: lits(),
-                    },
-                })),
-            ),
-        ])));
+        let attr = query(QueryAttrBase {
+            query: text.to_owned(),
+            resolved_literals: lits(),
+        });
+        let arg = arg(vec![StringWithMacrosPart::Macro(
+            false,
+            UnconfiguredMacro::Query(Box::new(QueryMacroBase {
+                expansion_type: QueryExpansion::Target,
+                query: QueryAttrBase {
+                    query: text.to_owned(),
+                    resolved_literals: lits(),
+                },
+            })),
+        )]);
         roundtrip_canonical(&[attr.clone(), arg.clone()]);
 
         let mut b = CoercedAttrArena::builder();
-        let AttrToken(ra, _) = b.encode(&attr).unwrap();
-        let AttrToken(rg, _) = b.encode(&arg).unwrap();
+        let AttrToken(ra, _) = attr(&mut b).unwrap();
+        let AttrToken(rg, _) = arg(&mut b).unwrap();
         let arena = b.finish();
         let CoercedAttrRefKind::Query(q) = arena.view(ra).kind() else {
             panic!("should decode as a query");
@@ -6429,7 +6250,7 @@ mod tests {
 
     #[test]
     fn test_arg_many_parts_roundtrip_native() {
-        let parts: Box<[StringWithMacrosPart<ProvidersLabel>]> = Box::new([
+        let parts = vec![
             StringWithMacrosPart::String(ArcStr::from("--flag=")),
             StringWithMacrosPart::Macro(
                 false,
@@ -6465,13 +6286,51 @@ mod tests {
                     Some(Box::from("--x")),
                 ))),
             ),
-        ]);
-        roundtrip(&[CoercedAttr::Arg(StringWithMacros::ManyParts(parts))]);
+        ];
+        let value = arg(parts);
+        roundtrip(std::slice::from_ref(&value));
+        let (arena, r) = encode_one(&value);
+        let CoercedAttrRefKind::Arg(decoded) = arena.view(r).kind() else {
+            panic!("should decode as arg parts");
+        };
+        let decoded: Vec<ArgPartView<'_>> = decoded.iter().collect();
+        assert_eq!(decoded.len(), 6);
+        assert!(decoded[0] == ArgPartView::String("--flag="));
+        assert!(
+            decoded[1]
+                == ArgPartView::Macro {
+                    write_to_file: false,
+                    mac: ArgMacroView::Location {
+                        label: &label("foo", "gen"),
+                        dep_kind: MacroDepKind::Toolchain,
+                    },
+                }
+        );
+        assert!(
+            decoded[2]
+                == ArgPartView::Macro {
+                    write_to_file: true,
+                    mac: ArgMacroView::Exe {
+                        label: &label("tools", "compiler"),
+                        exec_dep: true,
+                    },
+                }
+        );
+        assert!(
+            decoded[5]
+                == ArgPartView::Macro {
+                    write_to_file: false,
+                    mac: ArgMacroView::UserKeyedPlaceholder {
+                        var: "cxxflags",
+                        label: &label("foo", "deps"),
+                        arg: Some("--x"),
+                    },
+                }
+        );
     }
 
     #[test]
     fn test_arg_query_macro_native_roundtrip_and_shared_record() {
-        use std::collections::BTreeMap;
         let mk_query = |expansion: QueryExpansion| {
             let mut lits = BTreeMap::new();
             lits.insert((5usize, 10usize), label("foo", "dep1"));
@@ -6484,40 +6343,42 @@ mod tests {
                 },
             }))
         };
-        let arg = |prefix: &str, expansion| {
-            CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([
+        let query_arg = |prefix: &str, expansion| {
+            arg(vec![
                 StringWithMacrosPart::String(ArcStr::from(prefix)),
                 StringWithMacrosPart::Macro(false, mk_query(expansion)),
-            ])))
+            ])
         };
-        let no_lits = CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([
-            StringWithMacrosPart::Macro(
-                true,
-                UnconfiguredMacro::Query(Box::new(QueryMacroBase {
-                    expansion_type: QueryExpansion::Output,
-                    query: QueryAttrBase {
-                        query: "deps(:x)".to_owned(),
-                        resolved_literals: ResolvedQueryLiterals(BTreeMap::new()),
-                    },
-                })),
-            ),
-        ])));
+        let no_lits = arg(vec![StringWithMacrosPart::Macro(
+            true,
+            UnconfiguredMacro::Query(Box::new(QueryMacroBase {
+                expansion_type: QueryExpansion::Output,
+                query: QueryAttrBase {
+                    query: "deps(:x)".to_owned(),
+                    resolved_literals: ResolvedQueryLiterals(BTreeMap::new()),
+                },
+            })),
+        )]);
         roundtrip_canonical(&[
-            arg("--deps=", QueryExpansion::Target),
-            arg(
+            query_arg("--deps=", QueryExpansion::Target),
+            query_arg(
                 "--deps=",
                 QueryExpansion::TargetAndOutput(Some("=".to_owned())),
             ),
-            arg("--deps=", QueryExpansion::TargetAndOutput(None)),
+            query_arg("--deps=", QueryExpansion::TargetAndOutput(None)),
             no_lits,
         ]);
+        let (arena, r) = encode_one(&query_arg("--deps=", QueryExpansion::Target));
+        let (reprint, lits) = queries_of(arena.view(r)).remove(0);
+        assert_eq!(reprint, "( deps(root//foo:dep1) + set(root//bar:dep2))");
+        assert_eq!(lits.0.len(), 2);
 
         // Same macro in a different arg: only the new arg record and the
         // new text record allocate; the query macro record is shared.
         let mut b = CoercedAttrArena::builder();
-        b.encode(&arg("--deps=", QueryExpansion::Target)).unwrap();
+        query_arg("--deps=", QueryExpansion::Target)(&mut b).unwrap();
         let bytes_after = b.arena.bytes.len();
-        let AttrToken(r2, _) = b.encode(&arg("--other=", QueryExpansion::Target)).unwrap();
+        let AttrToken(r2, _) = query_arg("--other=", QueryExpansion::Target)(&mut b).unwrap();
         let (_, width) = b.arena.tag(r2);
         assert_eq!(
             b.arena.bytes.len(),
@@ -6531,40 +6392,30 @@ mod tests {
     /// would carry the raw spelling that analysis cannot resolve.
     #[test]
     fn test_arg_query_macro_repeated_literal_resolves_every_occurrence() {
-        use std::collections::BTreeMap;
         let query = "deps(set(//foo:dep1 //foo:dep1 //bar:dep2 //foo:dep1))".to_owned();
         let mut lits = BTreeMap::new();
         lits.insert((9usize, 10usize), label("foo", "dep1"));
         lits.insert((31usize, 10usize), label("bar", "dep2"));
-        let arg = CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([
-            StringWithMacrosPart::Macro(
-                false,
-                UnconfiguredMacro::Query(Box::new(QueryMacroBase {
-                    expansion_type: QueryExpansion::Target,
-                    query: QueryAttrBase {
-                        query,
-                        resolved_literals: ResolvedQueryLiterals(lits),
-                    },
-                })),
-            ),
-        ])));
+        let value = arg(vec![StringWithMacrosPart::Macro(
+            false,
+            UnconfiguredMacro::Query(Box::new(QueryMacroBase {
+                expansion_type: QueryExpansion::Target,
+                query: QueryAttrBase {
+                    query,
+                    resolved_literals: ResolvedQueryLiterals(lits),
+                },
+            })),
+        )]);
         let mut b = CoercedAttrArena::builder();
-        let r = b.encode(&arg).unwrap().0;
+        let r = value(&mut b).unwrap().0;
         let arena = b.finish();
-        let CoercedAttr::Arg(StringWithMacros::ManyParts(parts)) =
-            arena.view(r).to_coerced().unwrap()
-        else {
-            panic!("should decode to a macro arg");
-        };
-        let StringWithMacrosPart::Macro(_, UnconfiguredMacro::Query(q)) = &parts[0] else {
-            panic!("should decode to a query macro");
-        };
+        let (reprint, lits) = queries_of(arena.view(r)).remove(0);
         assert_eq!(
-            q.query.query, "deps(set(root//foo:dep1 root//foo:dep1 root//bar:dep2 root//foo:dep1))",
+            reprint, "deps(set(root//foo:dep1 root//foo:dep1 root//bar:dep2 root//foo:dep1))",
             "every occurrence should reprint as the resolved label"
         );
         assert_eq!(
-            q.query.resolved_literals.0.len(),
+            lits.0.len(),
             4,
             "each occurrence should carry its own literal span"
         );
@@ -6574,15 +6425,15 @@ mod tests {
     fn test_source_file_pointer_dedup() {
         use buck2_core::package::package_relative_path::PackageRelativePath;
         let shared = PackageRelativePath::new("hdrs/common.h").unwrap().to_arc();
-        let a = CoercedAttr::SourceFile(CoercedPath::File(shared.dupe()));
-        let b = CoercedAttr::SourceFile(CoercedPath::File(shared));
-        let other = CoercedAttr::SourceFile(CoercedPath::File(
+        let a = source_file(CoercedPath::File(shared.dupe()));
+        let b = source_file(CoercedPath::File(shared));
+        let other = source_file(CoercedPath::File(
             PackageRelativePath::new("other.h").unwrap().to_arc(),
         ));
         let mut bld = CoercedAttrArena::builder();
-        let AttrToken(r1, h1) = bld.encode(&a).unwrap();
-        let AttrToken(r2, h2) = bld.encode(&b).unwrap();
-        let AttrToken(r3, _) = bld.encode(&other).unwrap();
+        let AttrToken(r1, h1) = a(&mut bld).unwrap();
+        let AttrToken(r2, h2) = b(&mut bld).unwrap();
+        let AttrToken(r3, _) = other(&mut bld).unwrap();
         assert_eq!(r1, r2, "same listing allocation should dedup by pointer");
         assert_eq!(h1, h2);
         assert_ne!(r1, r3);
@@ -6593,8 +6444,8 @@ mod tests {
     fn test_arg_parts_dedup_across_args() {
         // Same template, different exe label: the literal chunk is shared;
         // the second arg adds only its parent node and the new macro record.
-        let arg = |name: &str| {
-            CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([
+        let exe_arg = |name: &str| {
+            arg(vec![
                 StringWithMacrosPart::String(ArcStr::from("-o $OUT --long-shared-literal-chunk")),
                 StringWithMacrosPart::Macro(
                     false,
@@ -6603,12 +6454,12 @@ mod tests {
                         exec_dep: true,
                     },
                 ),
-            ])))
+            ])
         };
         let mut b = CoercedAttrArena::builder();
-        let AttrToken(r1, h1) = b.encode(&arg("gen1")).unwrap();
+        let AttrToken(r1, h1) = exe_arg("gen1")(&mut b).unwrap();
         let bytes_after_first = b.arena.bytes.len();
-        let AttrToken(r2, h2) = b.encode(&arg("gen2")).unwrap();
+        let AttrToken(r2, h2) = exe_arg("gen2")(&mut b).unwrap();
         assert_ne!(r1, r2);
         assert_ne!(h1, h2);
         let (_, width) = b.arena.tag(r2);
@@ -6619,30 +6470,24 @@ mod tests {
             bytes_after_first + 4 + (1 + 1 + 2 * width as usize),
             "second arg should add its own record and one macro record; the text record is shared"
         );
-        let AttrToken(r3, _) = b.encode(&arg("gen1")).unwrap();
+        let AttrToken(r3, _) = exe_arg("gen1")(&mut b).unwrap();
         assert_eq!(r1, r3, "identical arg should dedup to one node");
     }
 
     #[test]
     fn test_dedup_shares_nodes_and_labels() {
-        let shared = CoercedAttr::List(ListLiteral(ArcSlice::new([
-            s("shared"),
-            CoercedAttr::Dep(label("foo", "bar")),
-        ])));
+        let shared = list(vec![s("shared"), dep(label("foo", "bar"))]);
         let mut b = CoercedAttrArena::builder();
-        let r1 = b.encode(&shared).unwrap().0;
+        let r1 = shared(&mut b).unwrap().0;
         let bytes_after = b.arena.bytes.len();
-        let r2 = b.encode(&shared.clone()).unwrap().0;
+        let r2 = shared(&mut b).unwrap().0;
         assert_eq!(r1, r2, "structurally equal values should dedup to one ref");
         assert_eq!(
             bytes_after,
             b.arena.bytes.len(),
             "dedup hit should allocate nothing"
         );
-        let r3 = b
-            .encode(&CoercedAttr::Label(label("foo", "bar")))
-            .unwrap()
-            .0;
+        let r3 = b.encode_label(&label("foo", "bar")).unwrap().0;
         // A different kind over the same label is an inline leaf sharing
         // the table entry: no bytes.
         assert_eq!(b.arena.bytes.len(), bytes_after);
