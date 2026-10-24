@@ -33,6 +33,7 @@ use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx_listing;
 use buck2_interpreter_for_build::attrs::coerce::testing::to_value;
 use buck2_interpreter_for_build::interpreter::selector::register_select;
+use buck2_node::attrs::arena::CoercedAttrArena;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -151,6 +152,47 @@ fn test_invalid_concat_coercion_into_one_of() -> buck2_error::Result<()> {
         assert!(
             err.to_string()
                 .contains("Cannot concatenate values coerced/configured to different oneof variants: `attrs.list(attrs.bool())` and `attrs.list(attrs.string())`"),
+            "err: {err}"
+        );
+        Ok(())
+    })
+}
+
+#[test]
+fn test_configured_dep_traversal_rejects_duplicate_dict_concat_keys() -> buck2_error::Result<()> {
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
+
+        let value = to_value(
+            &env,
+            &globals,
+            indoc!(
+                r#"
+            {"a": 1} + select({"DEFAULT": {"a": 2}})
+            "#
+            ),
+        );
+        let attr = AttrType::dict(AttrType::string(), AttrType::int(), false);
+
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        let mut builder = CoercedAttrArena::builder();
+        let (word, _) = builder.encode(&coerced)?;
+        let arena = builder.finish();
+        let mut info = ConfiguredAttrInfoForTests::new();
+        let err = arena
+            .view(word)
+            .traverse_configured(
+                &attr,
+                PackageLabel::testing(),
+                &configuration_ctx(),
+                &mut info,
+                None,
+            )
+            .require_compatible()
+            .expect_err("a key on both sides of the concat must fail dep collection");
+        assert!(
+            err.to_string()
+                .contains("got same key in both sides of dictionary concat"),
             "err: {err}"
         );
         Ok(())

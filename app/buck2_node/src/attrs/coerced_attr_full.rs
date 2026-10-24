@@ -16,6 +16,7 @@ use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::attr::Attribute;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr_full::ConfiguredAttrFull;
+use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
 /// Full coerced attribute: name, type, value.
@@ -48,5 +49,18 @@ impl<'a> CoercedAttrFull<'a> {
         self.value
             .traverse(self.attr.coercer(), Some(pkg), traversal)
             .with_buck_error_context(|| format!("traversing attribute `{}`", self.name))
+    }
+
+    /// Visit the deps this attr's configured form would contain, without
+    /// materializing the configured value.
+    pub fn traverse_configured(
+        &self,
+        pkg: PackageLabel,
+        ctx: &dyn AttrConfigurationContext,
+        traversal: &mut dyn ConfiguredAttrTraversal,
+    ) -> ResultMaybeCompatible<()> {
+        self.value
+            .traverse_configured(self.attr.coercer(), pkg, ctx, traversal, Some(self.name))
+            .with_buck_error_context(|| format!("configuring attr `{}`", self.name))
     }
 }

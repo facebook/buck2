@@ -565,9 +565,7 @@ pub(crate) async fn gather_deps(
 
     let mut traversal = Traversal::default();
     for a in target_node.attrs(AttrInspectOptions::All) {
-        a.configure(attr_cfg_ctx)?
-            .traverse(target_node.label().pkg(), &mut traversal)
-            .with_buck_error_context(|| format!("traversing attribute `{}`", a.name))?;
+        a.traverse_configured(target_node.label().pkg(), attr_cfg_ctx, &mut traversal)?;
     }
 
     let dep_results = ctx

@@ -147,7 +147,9 @@ use crate::attrs::coerced_attr::CoercedSelector;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
+use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::configuration::resolved::ConfigurationSettingKey;
@@ -2317,16 +2319,7 @@ impl<'a> CoercedAttrRef<'a> {
             CoercedAttrRefKind::Selector { entries, default } => {
                 match Self::select_view(ctx, entries, default)? {
                     Some(selected) => return selected.configure(t, ctx, attr_name),
-                    None => {
-                        return buck2_error!(
-                            buck2_error::ErrorTag::Input,
-                            "None of {} conditions matched configuration `{}` and no default was set:\n{}",
-                            entries.len(),
-                            ctx.cfg().cfg(),
-                            entries.iter().map(|(k, _)| format!("  {k}")).join("\n"),
-                        )
-                        .into();
-                    }
+                    None => return Self::select_no_match_error(ctx, entries).into(),
                 }
             }
             CoercedAttrRefKind::Concat(items) => {
@@ -2353,6 +2346,21 @@ impl<'a> CoercedAttrRef<'a> {
             kind => return Self::configure_typed(kind, t, ctx, attr_name),
         };
         ResultMaybeCompatible::Compatible(configured)
+    }
+
+    /// The error for a select where no condition matched and no default
+    /// was set.
+    fn select_no_match_error(
+        ctx: &dyn AttrConfigurationContext,
+        entries: AttrRefSelectorEntries<'a>,
+    ) -> buck2_error::Error {
+        buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "None of {} conditions matched configuration `{}` and no default was set:\n{}",
+            entries.len(),
+            ctx.cfg().cfg(),
+            entries.iter().map(|(k, _)| format!("  {k}")).join("\n"),
+        )
     }
 
     /// Resolve a select against the configuration: most specific matching
@@ -2569,6 +2577,304 @@ impl<'a> CoercedAttrRef<'a> {
             _ => return internal_error!("attr arena configure: unexpected any-typed kind").into(),
         };
         ResultMaybeCompatible::Compatible(configured)
+    }
+
+    /// Fused [`Self::configure`] + `ConfiguredAttr::traverse`: visit the deps
+    /// the configured form of this value would contain, without
+    /// materializing `ConfiguredAttr` trees. Containers, selects, and concat
+    /// recurse natively (scalars cost nothing); dep-like leaves configure
+    /// just the leaf value and traverse it, reusing the per-dep-kind
+    /// dispatch of the owned path.
+    ///
+    /// Concat items are validated as `ConfiguredAttr::concat` would (one
+    /// concat-able kind, equal oneof variants, no duplicate dict keys):
+    /// configure-time errors must surface here, before the node exists,
+    /// because later attr reads assume configuration succeeds.
+    pub fn traverse_configured(
+        &self,
+        t: &AttrType,
+        pkg: PackageLabel,
+        ctx: &dyn AttrConfigurationContext,
+        traversal: &mut dyn ConfiguredAttrTraversal,
+        attr_name: Option<&str>,
+    ) -> ResultMaybeCompatible<()> {
+        if self.arena.kind_of(self.r).is_scalar() {
+            return ResultMaybeCompatible::Compatible(());
+        }
+        match self.kind() {
+            CoercedAttrRefKind::Selector { entries, default } => {
+                match Self::select_view(ctx, entries, default) {
+                    Ok(Some(selected)) => {
+                        selected.traverse_configured(t, pkg, ctx, traversal, attr_name)
+                    }
+                    Ok(None) => Self::select_no_match_error(ctx, entries).into(),
+                    Err(e) => e.into(),
+                }
+            }
+            CoercedAttrRefKind::Concat(items) => {
+                let mut leaves: SmallVec<[CoercedAttrRef<'a>; 4]> = SmallVec::new();
+                for item in items.iter() {
+                    if !item.concat_leaves(ctx, &mut leaves)? {
+                        // A leaf only the owned path can inspect: validate
+                        // and traverse the whole concat there.
+                        let configured = self.configure(t, ctx, attr_name)?;
+                        return match configured.traverse(pkg, traversal) {
+                            Ok(()) => ResultMaybeCompatible::Compatible(()),
+                            Err(e) => e.into(),
+                        };
+                    }
+                }
+                if leaves.len() > 1
+                    && let Err(e) = Self::validate_concat(t, &leaves)
+                {
+                    return e.into();
+                }
+                for leaf in leaves {
+                    leaf.traverse_configured(t, pkg, ctx, traversal, attr_name)?;
+                }
+                ResultMaybeCompatible::Compatible(())
+            }
+            CoercedAttrRefKind::Legacy(a) => {
+                let configured = a.configure(t, ctx, attr_name)?;
+                match configured.traverse(pkg, traversal) {
+                    Ok(()) => ResultMaybeCompatible::Compatible(()),
+                    Err(e) => e.into(),
+                }
+            }
+            kind => Self::traverse_configured_typed(kind, t, pkg, ctx, traversal, attr_name),
+        }
+    }
+
+    fn traverse_configured_typed(
+        kind: CoercedAttrRefKind<'a>,
+        t: &AttrType,
+        pkg: PackageLabel,
+        ctx: &dyn AttrConfigurationContext,
+        traversal: &mut dyn ConfiguredAttrTraversal,
+        attr_name: Option<&str>,
+    ) -> ResultMaybeCompatible<()> {
+        match &t.0.inner {
+            AttrTypeInner::Option(opt) => {
+                return Self::traverse_configured_typed(
+                    kind, &opt.inner, pkg, ctx, traversal, attr_name,
+                );
+            }
+            // `Any`-typed values cannot contain deps (they coerce to
+            // scalars/containers of strings), matching `configure_any`.
+            AttrTypeInner::Any(_) => return ResultMaybeCompatible::Compatible(()),
+            inner => match (kind, inner) {
+                // Scalars configure to themselves: nothing to visit, and the
+                // owned path's per-string `ArcStr` materialization is skipped.
+                (
+                    CoercedAttrRefKind::None
+                    | CoercedAttrRefKind::Bool(_)
+                    | CoercedAttrRefKind::Int(_)
+                    | CoercedAttrRefKind::String(_)
+                    | CoercedAttrRefKind::EnumVariant(_)
+                    | CoercedAttrRefKind::ArgSimple(_),
+                    _,
+                ) => {}
+                (CoercedAttrRefKind::List(items), AttrTypeInner::List(ty)) => {
+                    for v in items.iter() {
+                        v.traverse_configured(&ty.inner, pkg, ctx, traversal, attr_name)?;
+                    }
+                }
+                (CoercedAttrRefKind::Tuple(items), AttrTypeInner::Tuple(ty)) => {
+                    if items.len() != ty.xs.len() {
+                        return internal_error!("Inconsistent number of elements in tuple").into();
+                    }
+                    for (v, vt) in items.iter().zip(&ty.xs) {
+                        v.traverse_configured(vt, pkg, ctx, traversal, attr_name)?;
+                    }
+                }
+                (CoercedAttrRefKind::Dict(pairs), AttrTypeInner::Dict(ty)) => {
+                    for (k, v) in pairs.iter() {
+                        k.traverse_configured(&ty.key, pkg, ctx, traversal, attr_name)?;
+                        v.traverse_configured(&ty.value, pkg, ctx, traversal, attr_name)?;
+                    }
+                }
+                (CoercedAttrRefKind::OneOf(v, i), AttrTypeInner::OneOf(ty)) => {
+                    let item_ty = match ty.xs.get(i as usize) {
+                        Some(ty) => ty,
+                        None => return internal_error!("invalid oneof index").into(),
+                    };
+                    v.traverse_configured(item_ty, pkg, ctx, traversal, attr_name)?;
+                }
+                (CoercedAttrRefKind::SourceFile(s), AttrTypeInner::Source(_)) => {
+                    for x in s.inputs() {
+                        if let Err(e) = traversal.input(SourcePathRef::new(pkg, x)) {
+                            return e.into();
+                        }
+                    }
+                }
+                (CoercedAttrRefKind::SourceLabel(s), AttrTypeInner::Source(_)) => {
+                    let configured = s.configure_pair(ctx.cfg().cfg_pair().dupe());
+                    if let Err(e) = traversal.dep(&configured) {
+                        return e.into();
+                    }
+                }
+                (CoercedAttrRefKind::PluginDep(d), AttrTypeInner::PluginDep(ty)) => {
+                    if let Err(e) = traversal.plugin_dep(d, ty.kind()) {
+                        return e.into();
+                    }
+                }
+                // Remaining dep-like leaves: configure the leaf only (one
+                // small owned value) and reuse its traverse dispatch. Also
+                // the error path for mismatched kind/type combinations.
+                (leaf, _) => {
+                    let configured = Self::configure_typed(leaf, t, ctx, attr_name)?;
+                    if let Err(e) = configured.traverse(pkg, traversal) {
+                        return e.into();
+                    }
+                }
+            },
+        }
+        ResultMaybeCompatible::Compatible(())
+    }
+
+    /// Flattens one concat item into the leaves `ConfiguredAttr::concat`
+    /// would see: selects resolved, nested concats inlined. `false` when a
+    /// leaf is only inspectable through the owned path.
+    fn concat_leaves(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+        out: &mut SmallVec<[CoercedAttrRef<'a>; 4]>,
+    ) -> ResultMaybeCompatible<bool> {
+        match self.kind() {
+            CoercedAttrRefKind::Selector { entries, default } => {
+                match Self::select_view(ctx, entries, default) {
+                    Ok(Some(selected)) => selected.concat_leaves(ctx, out),
+                    Ok(None) => Self::select_no_match_error(ctx, entries).into(),
+                    Err(e) => e.into(),
+                }
+            }
+            CoercedAttrRefKind::Concat(items) => {
+                for item in items.iter() {
+                    if !item.concat_leaves(ctx, out)? {
+                        return ResultMaybeCompatible::Compatible(false);
+                    }
+                }
+                ResultMaybeCompatible::Compatible(true)
+            }
+            CoercedAttrRefKind::Legacy(_) => ResultMaybeCompatible::Compatible(false),
+            _ => {
+                out.push(*self);
+                ResultMaybeCompatible::Compatible(true)
+            }
+        }
+    }
+
+    /// The checks `ConfiguredAttr::concat` makes on its items, applied to
+    /// the resolved leaves: one concat-able kind throughout, equal oneof
+    /// variants, no dict key on both sides.
+    fn validate_concat(t: &AttrType, leaves: &[CoercedAttrRef<'a>]) -> buck2_error::Result<()> {
+        let Some((first, rest)) = leaves.split_first() else {
+            return Ok(());
+        };
+        match &t.0.inner {
+            AttrTypeInner::Option(opt) => return Self::validate_concat(&opt.inner, leaves),
+            AttrTypeInner::OneOf(oneof) => {
+                let mut inner: SmallVec<[CoercedAttrRef<'a>; 4]> =
+                    SmallVec::with_capacity(leaves.len());
+                let mut variant = None;
+                for leaf in leaves {
+                    let CoercedAttrRefKind::OneOf(v, i) = leaf.kind() else {
+                        return Err(internal_error!(
+                            "expecting oneof variant, got: {}",
+                            leaf.as_display_no_ctx()
+                        ));
+                    };
+                    match variant {
+                        None => variant = Some(i),
+                        Some(first_i) if first_i != i => {
+                            return Err(buck2_error!(
+                                buck2_error::ErrorTag::Input,
+                                "Cannot concatenate values coerced/configured \
+                                to different oneof variants: `{}` and `{}`",
+                                oneof.get(first_i)?,
+                                oneof.get(i)?
+                            ));
+                        }
+                        Some(_) => {}
+                    }
+                    inner.push(v);
+                }
+                return match variant {
+                    Some(i) => Self::validate_concat(oneof.get(i)?, &inner),
+                    None => Ok(()),
+                };
+            }
+            _ => {}
+        }
+        match first.kind() {
+            CoercedAttrRefKind::List(_) => {
+                for leaf in rest {
+                    if !matches!(leaf.kind(), CoercedAttrRefKind::List(_)) {
+                        return Err(leaf.concat_not_supported("list"));
+                    }
+                }
+            }
+            CoercedAttrRefKind::Dict(first_pairs) => {
+                let mut seen: Vec<CoercedAttrRef<'a>> =
+                    first_pairs.iter().map(|(k, _)| k).collect();
+                for leaf in rest {
+                    let CoercedAttrRefKind::Dict(pairs) = leaf.kind() else {
+                        return Err(leaf.concat_not_supported("dict"));
+                    };
+                    for (k, _) in pairs.iter() {
+                        if seen.iter().any(|s| s.r == k.r || s.content_eq(&k)) {
+                            return Err(buck2_error!(
+                                buck2_error::ErrorTag::Input,
+                                "got same key in both sides of dictionary concat (key `{}`)",
+                                k.as_display_no_ctx()
+                            ));
+                        }
+                        seen.push(k);
+                    }
+                }
+            }
+            CoercedAttrRefKind::String(_) => {
+                for leaf in rest {
+                    if !matches!(leaf.kind(), CoercedAttrRefKind::String(_)) {
+                        return Err(leaf.concat_not_supported("string"));
+                    }
+                }
+            }
+            CoercedAttrRefKind::ArgSimple(_) | CoercedAttrRefKind::Arg(_) => {
+                for leaf in rest {
+                    if !matches!(
+                        leaf.kind(),
+                        CoercedAttrRefKind::ArgSimple(_) | CoercedAttrRefKind::Arg(_)
+                    ) {
+                        return Err(leaf.concat_not_supported("arg"));
+                    }
+                }
+            }
+            CoercedAttrRefKind::OneOf(..) => {
+                return Err(internal_error!(
+                    "Inconsistent attr value (`{}`) and attr type (`{}`)",
+                    first.as_display_no_ctx(),
+                    t
+                ));
+            }
+            _ => {
+                return Err(buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "addition not supported for this attribute type `{}`",
+                    first.as_display_no_ctx()
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn concat_not_supported(&self, attr_ty: &'static str) -> buck2_error::Error {
+        buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "addition not supported for these attribute type `{}` and value `{}`",
+            attr_ty,
+            self.as_display_no_ctx()
+        )
     }
 }
 
