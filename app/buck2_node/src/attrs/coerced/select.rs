@@ -11,11 +11,15 @@
 use core::fmt;
 use std::borrow::Cow;
 use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
+use buck2_hash::BuckHasher;
 use buck2_hash::BuckHasherBuilder;
 use buck2_hash::BuckMutSet;
 use buck2_util::arc_str::ArcStr;
@@ -25,19 +29,31 @@ use serde::Serialize;
 use serde::Serializer;
 use serde::ser::SerializeMap;
 use smallvec::SmallVec;
+use strong_hash::StrongHash;
 
-use crate::attrs::arena::AttrRefSelectorEntries;
 use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::AttrWord;
+use crate::attrs::arena::CoercedAttrArena;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrHash;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::Refs;
 use crate::attrs::arena::Values;
+use crate::attrs::arena::builder::EncodeScratchFields;
 use crate::attrs::arena::fields::Children;
+use crate::attrs::arena::fields::Cursor;
+use crate::attrs::arena::fields::Field;
+use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::fields::OptChild;
-use crate::attrs::arena::fields::SelectorEntries;
+use crate::attrs::arena::fields::Part;
+use crate::attrs::arena::fields::RecordWriter;
 use crate::attrs::arena::fields::Text;
+use crate::attrs::arena::schema::Kind;
 use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::schema::encode_kind;
+use crate::attrs::arena::storage::RefRun;
+use crate::attrs::arena::storage::TailLen;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
@@ -45,6 +61,7 @@ use crate::attrs::coerced::configure::ConcatLeaves;
 use crate::attrs::coerced::configure::Configure;
 use crate::attrs::coerced::configure::TraverseConfigured;
 use crate::attrs::coerced::kinds;
+use crate::attrs::coerced::kinds::CoercedAttrKind;
 use crate::attrs::coerced::render::AttrRefDisplay;
 use crate::attrs::coerced::render::Fmt;
 use crate::attrs::coerced::render::MatchesAny;
@@ -645,6 +662,177 @@ fn validate_concat<'a>(t: &AttrType, leaves: &[CoercedAttrRef<'a>]) -> buck2_err
         }
     }
     Ok(())
+}
+
+/// View of a selector value's (configuration setting key, value) entries.
+#[derive(Copy, Clone)]
+pub struct AttrRefSelectorEntries<'a> {
+    /// Providers-label table indices, from the shared `SelectorKeys` record.
+    keys: RefRun<'a>,
+    /// Value refs, one per key, stored in the selector record.
+    values: RefRun<'a>,
+}
+impl<'a> AttrRefSelectorEntries<'a> {
+    pub fn len(&self) -> usize {
+        self.values.len() as usize
+    }
+
+    pub fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (&'a ProvidersLabel, CoercedAttrRef<'a>)> + 'a {
+        let arena = self.values.arena;
+        self.keys
+            .iter_raw()
+            .zip(self.values.iter())
+            .map(move |(k, v)| (&arena.providers_labels[k as usize], arena.view(v)))
+    }
+}
+/// A selector's entries: a count head field, a ref to the shared
+/// `SelectorKeys` record, then that many value refs.
+pub struct SelectorEntries;
+
+impl Field for SelectorEntries {
+    const DEPS: bool = true;
+    const HEAD: u32 = 1;
+    const HAS_REFS: bool = true;
+    const HAS_TEXT: bool = false;
+    type View<'a> = AttrRefSelectorEntries<'a>;
+    type Spec<'s> = &'s [(ConfigurationSettingKey, AttrToken)];
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part> {
+        Some(Part {
+            head: 1,
+            refs: Some(peek(at)?.checked_add(1)?),
+            text: None,
+        })
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> AttrRefSelectorEntries<'a> {
+        let n = c.raw();
+        let keys = c
+            .child()
+            .expect("should be present: a selector always has a keys record");
+        AttrRefSelectorEntries {
+            keys: <kinds::SelectorKeys as Kind>::decode(c.arena, keys).keys,
+            values: c.refs(n),
+        }
+    }
+
+    fn encode<'s>(
+        entries: &'s [(ConfigurationSettingKey, AttrToken)],
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        check_select_keys_unique(entries)?;
+        let AttrToken(keys, keys_hash) =
+            b.encode_selector_keys(entries.iter().map(|(k, _)| &k.0))?;
+        w.head(entries.len() as u32);
+        w.r(keys);
+        w.hash(&keys_hash);
+        for (_, v) in entries {
+            w.r(v.0);
+            w.hash(&v.1);
+        }
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        view: AttrRefSelectorEntries<'a>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        let AttrToken(keys, keys_hash) = b.encode_selector_keys(view.iter().map(|(k, _)| k))?;
+        w.head(view.len() as u32);
+        w.r(keys);
+        w.hash(&keys_hash);
+        for (_, v) in view.iter() {
+            let t = b.encode_view(v)?;
+            w.r(t.0);
+            w.hash(&t.1);
+        }
+        Ok(())
+    }
+
+    fn identity(view: AttrRefSelectorEntries<'_>, h: &mut IdHasher<'_>) {
+        h.h.write_usize(view.len());
+        for (k, v) in view.iter() {
+            k.strong_hash(&mut h.h);
+            h.child(v);
+        }
+    }
+
+    fn same(a: AttrRefSelectorEntries<'_>, b: AttrRefSelectorEntries<'_>) -> bool {
+        a.len() == b.len()
+            && a.iter()
+                .zip(b.iter())
+                .all(|((ka, va), (kb, vb))| ka == kb && va == vb)
+    }
+}
+/// The label set of a `SelectorKeys` record: `[n, idx...]`.
+#[derive(Copy, Clone)]
+pub struct KeysParts<'a> {
+    keys: RefRun<'a>,
+}
+impl<'a> KeysParts<'a> {
+    fn iter(&self) -> impl ExactSizeIterator<Item = &'a ProvidersLabel> + 'a {
+        let arena = self.keys.arena;
+        self.keys
+            .iter_raw()
+            .map(move |k| &arena.providers_labels[k as usize])
+    }
+}
+impl Kind for kinds::SelectorKeys {
+    const STORAGE: Storage = Storage::Record;
+    const SCALAR: bool = false;
+    type View<'a> = KeysParts<'a>;
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
+        Some((1u32.checked_add(peek(0)?)?, TailLen::None))
+    }
+
+    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> KeysParts<'a> {
+        let mut c = Cursor::new(arena, r);
+        let n = c.raw();
+        KeysParts { keys: c.raws(n) }
+    }
+
+    fn copy_into(
+        parts: KeysParts<'_>,
+        b: &mut CoercedAttrArenaBuilder,
+    ) -> buck2_error::Result<AttrToken> {
+        b.encode_selector_keys(parts.iter())
+    }
+
+    fn identity(parts: KeysParts<'_>, h: &mut IdHasher<'_>) {
+        h.h.write_u32(parts.keys.len());
+        for k in parts.iter() {
+            k.strong_hash(&mut h.h);
+        }
+    }
+
+    fn same(a: KeysParts<'_>, b: KeysParts<'_>) -> bool {
+        a.keys.len() == b.keys.len() && a.iter().zip(b.iter()).all(|(x, y)| x == y)
+    }
+}
+impl CoercedAttrArenaBuilder {
+    /// The shared `SelectorKeys` record of a selector's key set.
+    fn encode_selector_keys<'k>(
+        &mut self,
+        keys: impl ExactSizeIterator<Item = &'k ProvidersLabel>,
+    ) -> buck2_error::Result<AttrToken> {
+        let mut key_idxs = EncodeScratchFields::with_capacity(1 + keys.len());
+        key_idxs.push(keys.len() as u32);
+        let mut keys_hasher = BuckHasher::default();
+        Hash::hash(&(CoercedAttrKind::SelectorKeys as u8), &mut keys_hasher);
+        for key in keys {
+            let (key_idx, key_hash) = self.providers_label_idx_and_hash(key);
+            key_idxs.push(key_idx);
+            key_hash.hash(&mut keys_hasher);
+        }
+        let keys_hash = CoercedAttrHash(keys_hasher.finish());
+        let r = self.encode_record(CoercedAttrKind::SelectorKeys, keys_hash, &key_idxs, &[])?;
+        Ok(AttrToken(r, keys_hash))
+    }
 }
 
 #[cfg(test)]

@@ -15,10 +15,13 @@
 //! of globally interned labels and of the package listing's paths, and
 //! tables of the whole-value leaves, one entry per distinct value). An
 //! [`AttrWord`] names a value in it: either an inline leaf, held in the
-//! word itself, or the offset of a record. The byte format is in `storage`;
-//! what each kind of record holds is the kinds table in `schema`, and what
-//! each kind means to traversal, configuration and rendering is its
-//! `Semantics` impl beside its attribute type.
+//! word itself, or the offset of a record. The byte format is in `storage`,
+//! the field vocabulary records are declared with is in `fields`, and
+//! `schema` derives each kind's layout, decoding, copying, hashing and
+//! equality from its field list. Which kinds exist is the list in
+//! [`kinds`](crate::attrs::coerced::kinds); what each one holds and what it
+//! means to traversal, configuration and rendering is declared beside its
+//! attribute type.
 //!
 //! An arena is *sealed* when its package finishes evaluating: writes end,
 //! reads begin (distinct from starlark *freezing*, which happens earlier,
@@ -51,7 +54,6 @@ pub use storage::AttrToken;
 pub use storage::AttrWord;
 pub use storage::CoercedAttrArena;
 pub use storage::CoercedAttrHash;
-pub use view::AttrRefSelectorEntries;
 pub use view::CoercedAttrRef;
 pub use view::Pairs;
 pub use view::RefItem;

@@ -13,9 +13,6 @@
 
 use std::hash::Hasher;
 
-use buck2_core::provider::label::ProvidersLabel;
-use strong_hash::StrongHash;
-
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Cursor;
 use crate::attrs::arena::fields::FieldList;
@@ -25,7 +22,6 @@ use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::INLINE_KIND_MASK;
-use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::TailLen;
 use crate::attrs::arena::view::CoercedAttrRef;
 use crate::attrs::coerced::kinds;
@@ -288,55 +284,6 @@ impl Kind for kinds::Int {
 
     fn same(a: i64, b: i64) -> bool {
         a == b
-    }
-}
-
-/// The label set of a `SelectorKeys` record: `[n, idx...]`.
-#[derive(Copy, Clone)]
-pub struct KeysParts<'a> {
-    pub(super) keys: RefRun<'a>,
-}
-
-impl<'a> KeysParts<'a> {
-    pub(super) fn iter(&self) -> impl ExactSizeIterator<Item = &'a ProvidersLabel> + 'a {
-        let arena = self.keys.arena;
-        self.keys
-            .iter_raw()
-            .map(move |k| &arena.providers_labels[k as usize])
-    }
-}
-
-impl Kind for kinds::SelectorKeys {
-    const STORAGE: Storage = Storage::Record;
-    const SCALAR: bool = false;
-    type View<'a> = KeysParts<'a>;
-
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
-        Some((1u32.checked_add(peek(0)?)?, TailLen::None))
-    }
-
-    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> KeysParts<'a> {
-        KeysParts {
-            keys: arena.open(r).head.skip(1),
-        }
-    }
-
-    fn copy_into(
-        parts: KeysParts<'_>,
-        b: &mut CoercedAttrArenaBuilder,
-    ) -> buck2_error::Result<AttrToken> {
-        b.encode_selector_keys(parts.iter())
-    }
-
-    fn identity(parts: KeysParts<'_>, h: &mut IdHasher<'_>) {
-        h.h.write_u32(parts.keys.len());
-        for k in parts.iter() {
-            k.strong_hash(&mut h.h);
-        }
-    }
-
-    fn same(a: KeysParts<'_>, b: KeysParts<'_>) -> bool {
-        a.keys.len() == b.keys.len() && a.iter().zip(b.iter()).all(|(x, y)| x == y)
     }
 }
 

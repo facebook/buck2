@@ -234,25 +234,6 @@ impl CoercedAttrArenaBuilder {
         }
     }
 
-    /// The shared `SelectorKeys` record of a selector's key set.
-    pub(super) fn encode_selector_keys<'k>(
-        &mut self,
-        keys: impl ExactSizeIterator<Item = &'k ProvidersLabel>,
-    ) -> buck2_error::Result<AttrToken> {
-        let mut key_idxs = EncodeScratchFields::with_capacity(1 + keys.len());
-        key_idxs.push(keys.len() as u32);
-        let mut keys_hasher = BuckHasher::default();
-        Hash::hash(&(CoercedAttrKind::SelectorKeys as u8), &mut keys_hasher);
-        for key in keys {
-            let (key_idx, key_hash) = self.providers_label_idx_and_hash(key);
-            key_idxs.push(key_idx);
-            key_hash.hash(&mut keys_hasher);
-        }
-        let keys_hash = CoercedAttrHash(keys_hasher.finish());
-        let r = self.encode_record(CoercedAttrKind::SelectorKeys, keys_hash, &key_idxs, &[])?;
-        Ok(AttrToken(r, keys_hash))
-    }
-
     pub fn encode_int(&mut self, i: i64) -> buck2_error::Result<AttrToken> {
         // Inline and record ints share a hash tag: same value, same hash,
         // whichever encoding it lands in.

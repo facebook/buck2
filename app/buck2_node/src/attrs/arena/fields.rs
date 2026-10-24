@@ -37,16 +37,13 @@ use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::Tail;
 use crate::attrs::arena::storage::TailLen;
-use crate::attrs::arena::view::AttrRefSelectorEntries;
 use crate::attrs::arena::view::CoercedAttrRef;
 use crate::attrs::arena::view::Pairs;
 use crate::attrs::arena::view::RefItem;
 use crate::attrs::arena::view::Refs;
 use crate::attrs::arena::view::Values;
 use crate::attrs::coerced::kinds::CoercedAttrKind;
-use crate::attrs::coerced::select::check_select_keys_unique;
 use crate::attrs::coerced_path::CoercedPath;
-use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::modifiers::CfgModifiers;
 use crate::visibility::VisibilitySpecification;
@@ -60,7 +57,7 @@ pub struct IdHasher<'m> {
 
 impl IdHasher<'_> {
     /// A child's whole-value identity hash, memoized per record.
-    pub(super) fn child(&mut self, c: CoercedAttrRef<'_>) {
+    pub(crate) fn child(&mut self, c: CoercedAttrRef<'_>) {
         c.arena.strong_of(c.r, self.memo).strong_hash(&mut self.h);
     }
 }
@@ -171,24 +168,24 @@ impl<'s> RecordWriter<'s> {
         }
     }
 
-    pub(super) fn head(&mut self, v: u32) {
+    pub(crate) fn head(&mut self, v: u32) {
         self.head.push(v);
     }
 
-    pub(super) fn r(&mut self, w: AttrWord) {
+    pub(crate) fn r(&mut self, w: AttrWord) {
         self.refs.push(w);
     }
 
-    pub(super) fn hash<T: Hash + ?Sized>(&mut self, t: &T) {
+    pub(crate) fn hash<T: Hash + ?Sized>(&mut self, t: &T) {
         t.hash(&mut self.h);
     }
 }
 
 /// What a field occupies in a record.
 pub struct Part {
-    pub(super) head: u32,
-    pub(super) refs: Option<u32>,
-    pub(super) text: Option<u32>,
+    pub(crate) head: u32,
+    pub(crate) refs: Option<u32>,
+    pub(crate) text: Option<u32>,
 }
 
 impl Part {
@@ -949,88 +946,6 @@ impl<T: RefItem + 'static> Field for ChildrenOf<T> {
 
     fn same(a: Refs<'_, T>, b: Refs<'_, T>) -> bool {
         a.len() == b.len() && a.children().zip(b.children()).all(|(x, y)| x == y)
-    }
-}
-
-/// A selector's entries: a count head field, a ref to the shared
-/// `SelectorKeys` record, then that many value refs.
-pub struct SelectorEntries;
-
-impl Field for SelectorEntries {
-    const DEPS: bool = true;
-    const HEAD: u32 = 1;
-    const HAS_REFS: bool = true;
-    const HAS_TEXT: bool = false;
-    type View<'a> = AttrRefSelectorEntries<'a>;
-    type Spec<'s> = &'s [(ConfigurationSettingKey, AttrToken)];
-
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part> {
-        Some(Part {
-            head: 1,
-            refs: Some(peek(at)?.checked_add(1)?),
-            text: None,
-        })
-    }
-
-    fn decode<'a>(c: &mut Cursor<'a>) -> AttrRefSelectorEntries<'a> {
-        let n = c.raw();
-        let keys = c
-            .child()
-            .expect("should be present: a selector always has a keys record");
-        AttrRefSelectorEntries {
-            keys: c.arena.open(keys).head.skip(1),
-            values: c.refs(n),
-        }
-    }
-
-    fn encode<'s>(
-        entries: &'s [(ConfigurationSettingKey, AttrToken)],
-        b: &mut CoercedAttrArenaBuilder,
-        w: &mut RecordWriter<'s>,
-    ) -> buck2_error::Result<()> {
-        check_select_keys_unique(entries)?;
-        let AttrToken(keys, keys_hash) =
-            b.encode_selector_keys(entries.iter().map(|(k, _)| &k.0))?;
-        w.head(entries.len() as u32);
-        w.r(keys);
-        w.hash(&keys_hash);
-        for (_, v) in entries {
-            w.r(v.0);
-            w.hash(&v.1);
-        }
-        Ok(())
-    }
-
-    fn reemit<'a>(
-        view: AttrRefSelectorEntries<'a>,
-        b: &mut CoercedAttrArenaBuilder,
-        w: &mut RecordWriter<'a>,
-    ) -> buck2_error::Result<()> {
-        let AttrToken(keys, keys_hash) = b.encode_selector_keys(view.iter().map(|(k, _)| k))?;
-        w.head(view.len() as u32);
-        w.r(keys);
-        w.hash(&keys_hash);
-        for (_, v) in view.iter() {
-            let t = b.encode_view(v)?;
-            w.r(t.0);
-            w.hash(&t.1);
-        }
-        Ok(())
-    }
-
-    fn identity(view: AttrRefSelectorEntries<'_>, h: &mut IdHasher<'_>) {
-        h.h.write_usize(view.len());
-        for (k, v) in view.iter() {
-            k.strong_hash(&mut h.h);
-            h.child(v);
-        }
-    }
-
-    fn same(a: AttrRefSelectorEntries<'_>, b: AttrRefSelectorEntries<'_>) -> bool {
-        a.len() == b.len()
-            && a.iter()
-                .zip(b.iter())
-                .all(|((ka, va), (kb, vb))| ka == kb && va == vb)
     }
 }
 

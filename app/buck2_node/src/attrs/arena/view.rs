@@ -10,7 +10,6 @@
 
 //! Decoded views of attribute values.
 
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_util::strong_hasher::StrongHash128;
 
 use crate::attrs::arena::schema::EqParts;
@@ -117,31 +116,6 @@ impl<'a, T: RefItem> Refs<'a, T> {
     ) -> impl ExactSizeIterator<Item = CoercedAttrRef<'a>> + use<'a, T> {
         let arena = self.run.arena;
         self.run.iter().map(move |r| arena.view(r))
-    }
-}
-
-/// View of a selector value's (configuration setting key, value) entries.
-#[derive(Copy, Clone)]
-pub struct AttrRefSelectorEntries<'a> {
-    /// Providers-label table indices, from the shared `SelectorKeys` record.
-    pub(super) keys: RefRun<'a>,
-    /// Value refs, one per key, stored in the selector record.
-    pub(super) values: RefRun<'a>,
-}
-
-impl<'a> AttrRefSelectorEntries<'a> {
-    pub fn len(&self) -> usize {
-        self.values.len() as usize
-    }
-
-    pub fn iter(
-        &self,
-    ) -> impl ExactSizeIterator<Item = (&'a ProvidersLabel, CoercedAttrRef<'a>)> + 'a {
-        let arena = self.values.arena;
-        self.keys
-            .iter_raw()
-            .zip(self.values.iter())
-            .map(move |(k, v)| (&arena.providers_labels[k as usize], arena.view(v)))
     }
 }
 

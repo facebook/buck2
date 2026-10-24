@@ -8,6 +8,14 @@
  * above-listed licenses.
  */
 
+//! The arena's behavior over every kind of value: round-trips through the
+//! builder and back, dedup and record sharing down to the byte, identity
+//! hashes, interning into the side tables and page-in validation. Kinds
+//! whose records are declared beside their attribute types are covered
+//! here too, because what these tests pin is the stored form. What a kind
+//! means (traversal, configuration, rendering) is tested through the attr
+//! suites in `buck2_build_api_tests` and `buck2_node_tests`.
+
 use std::collections::BTreeMap;
 use std::rc::Rc;
 

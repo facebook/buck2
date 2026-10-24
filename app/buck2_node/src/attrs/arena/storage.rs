@@ -686,7 +686,7 @@ pub(super) enum Tail<'a> {
 }
 
 /// A run of fixed-width values inside one record: ref fields (see
-/// [`AttrWord::to_field`]) or raw indices (`SelectorKeys`).
+/// [`AttrWord::to_field`]) or raw head values.
 #[derive(Copy, Clone)]
 pub(crate) struct RefRun<'a> {
     pub(crate) arena: &'a CoercedAttrArena,

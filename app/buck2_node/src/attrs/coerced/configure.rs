@@ -22,11 +22,11 @@ use itertools::Itertools;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
 
-use crate::attrs::arena::AttrRefSelectorEntries;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced::kinds::ValueVisitor;
 use crate::attrs::coerced::kinds::dispatch_value;
+use crate::attrs::coerced::select::AttrRefSelectorEntries;
 use crate::attrs::coerced::semantics::Semantics;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
