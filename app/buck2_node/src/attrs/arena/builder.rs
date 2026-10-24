@@ -13,9 +13,7 @@ use std::hash::Hasher;
 
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::buck2_error;
 use buck2_hash::BuckHasher;
 use buck2_hash::BuckMutMap;
 use buck2_util::arc_str::ArcS;
@@ -32,17 +30,13 @@ use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::schema::dispatch;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::schema::kinds;
-use crate::attrs::arena::storage::ABSENT_REF;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::CoercedAttrHash;
-use crate::attrs::arena::storage::INLINE_BIT;
 use crate::attrs::arena::storage::INLINE_PAYLOAD_MASK;
 use crate::attrs::arena::storage::INT_INLINE_MAX;
 use crate::attrs::arena::storage::INT_INLINE_MIN;
-use crate::attrs::arena::storage::TAG_WIDTH_SHIFT;
-use crate::attrs::arena::storage::Tail;
 use crate::attrs::arena::storage::zigzag;
 use crate::attrs::arena::view::CoercedAttrRef;
 use crate::attrs::coerced_path::CoercedPath;
@@ -134,20 +128,6 @@ pub(super) type EncodeScratchFields = SmallVec<[u32; 32]>;
 /// to 32 children on the stack — beyond typical select/list/dict fan-out.
 pub(super) type EncodeScratchRefs = SmallVec<[AttrWord; 32]>;
 
-/// Smallest width (1-4 bytes) holding `v`.
-#[inline]
-pub(super) fn width_for(v: u32) -> u8 {
-    if v < 1 << 8 {
-        1
-    } else if v < 1 << 16 {
-        2
-    } else if v < 1 << 24 {
-        3
-    } else {
-        4
-    }
-}
-
 impl CoercedAttrArenaBuilder {
     /// View an already-encoded value while still building (reads between
     /// appends; the borrow prevents concurrent mutation).
@@ -157,14 +137,6 @@ impl CoercedAttrArenaBuilder {
 
     pub fn finish(self) -> CoercedAttrArena {
         let mut arena = self.arena;
-        arena.bytes.shrink_to_fit();
-        arena.providers_labels.shrink_to_fit();
-        arena.target_labels.shrink_to_fit();
-        arena.paths.shrink_to_fit();
-        arena.visibility.shrink_to_fit();
-        arena.within_view.shrink_to_fit();
-        arena.metadata.shrink_to_fit();
-        arena.modifiers.shrink_to_fit();
 
         // Strong hashes are computed at seal, from content the arena
         // already holds: the intern hot path never touches blake3, and a
@@ -178,6 +150,7 @@ impl CoercedAttrArenaBuilder {
             .map(|&w| arena.strong_of(AttrWord(w), &mut memo))
             .collect();
         arena.root_words = roots;
+        arena.shrink_to_fit();
         arena
     }
 
@@ -187,14 +160,8 @@ impl CoercedAttrArenaBuilder {
         if let Some(&i) = self.providers_label_dedup.get(l) {
             return i;
         }
-        let i = self.push_providers_label(l);
+        let i = self.arena.push_providers_label(l);
         self.providers_label_dedup.insert(l.dupe(), i);
-        i
-    }
-
-    pub(super) fn push_providers_label(&mut self, l: &ProvidersLabel) -> u32 {
-        let i = self.arena.providers_labels.len() as u32;
-        self.arena.providers_labels.push(l.dupe());
         i
     }
 
@@ -203,101 +170,9 @@ impl CoercedAttrArenaBuilder {
         if let Some(&i) = self.target_label_dedup.get(&ptr) {
             return i;
         }
-        let i = self.arena.target_labels.len() as u32;
-        self.arena.target_labels.push(l);
+        let i = self.arena.push_target_label(l);
         self.target_label_dedup.insert(ptr, i);
         i
-    }
-
-    /// Whether the record at `r` is `kind` with head `fields`, text `text`,
-    /// and refs that resolve to `refs`. Refs are compared by target since
-    /// their widths and deltas depend on placement.
-    pub(super) fn record_matches(
-        &self,
-        r: AttrWord,
-        kind: AttrKind,
-        fields: &[u32],
-        text: &[u8],
-        refs: &[AttrWord],
-    ) -> bool {
-        let rec = self.arena.open(r);
-        if rec.kind != kind || rec.head.len() as usize != fields.len() {
-            return false;
-        }
-        if !rec.head.iter_raw().eq(fields.iter().copied()) {
-            return false;
-        }
-        match rec.tail {
-            Tail::None => refs.is_empty(),
-            Tail::Text(got) => got == text,
-            Tail::Refs(run) => {
-                run.len() as usize == refs.len()
-                    && refs
-                        .iter()
-                        .enumerate()
-                        .all(|(i, &want)| match run.get_opt(i as u32) {
-                            Some(got) => got == want,
-                            None => want == ABSENT_REF,
-                        })
-            }
-        }
-    }
-
-    /// Append one record: tag, head fields, text, then refs, every field
-    /// and ref in the smallest width that fits the largest of them.
-    pub(super) fn append_record(
-        &mut self,
-        kind: AttrKind,
-        fields: &[u32],
-        text: &[u8],
-        refs: &[AttrWord],
-    ) -> buck2_error::Result<AttrWord> {
-        let off = self.arena.bytes.len();
-        let rec = off as u32;
-        let max_field = fields
-            .iter()
-            .copied()
-            .chain(refs.iter().map(|&r| r.to_field(rec)))
-            .max()
-            .unwrap_or(0);
-        let width = width_for(max_field);
-        let end = off + 1 + (fields.len() + refs.len()) * width as usize + text.len();
-        // Record offsets are 31 bits: an encoder-bug backstop at 2 GiB per
-        // package, deliberately not a user-input limit.
-        const CAPACITY: usize = INLINE_BIT as usize;
-        if end > CAPACITY {
-            return Err(buck2_error!(
-                buck2_error::ErrorTag::Input,
-                "Package attribute storage exceeds 2GiB of encoded attribute content; split the package or reduce attribute sizes"
-            ));
-        }
-        // One warning per arena, on the crossing allocation: offsets are
-        // monotone, so the threshold is crossed exactly once.
-        const CAPACITY_WARN: usize = CAPACITY / 2;
-        if off < CAPACITY_WARN && end >= CAPACITY_WARN {
-            let _unused = soft_error!(
-                "attr_arena_near_capacity",
-                buck2_error!(
-                    buck2_error::ErrorTag::Environment,
-                    "Attr arena buffer past 50% of its 2GiB capacity ({end} bytes)"
-                ),
-                quiet: true
-            );
-        }
-        self.arena
-            .bytes
-            .push(kind as u8 | ((width - 1) << TAG_WIDTH_SHIFT));
-        let w = width as usize;
-        for &f in fields {
-            self.arena.bytes.extend_from_slice(&f.to_le_bytes()[..w]);
-        }
-        self.arena.bytes.extend_from_slice(text);
-        for &r in refs {
-            self.arena
-                .bytes
-                .extend_from_slice(&r.to_field(rec).to_le_bytes()[..w]);
-        }
-        Ok(AttrWord::record(rec))
     }
 
     /// Dedup-or-append a record: reuse an existing value when one with the
@@ -312,11 +187,11 @@ impl CoercedAttrArenaBuilder {
         refs: &[AttrWord],
     ) -> buck2_error::Result<AttrWord> {
         if let Some(&(_, r)) = self.value_dedup.find(hash.0, |&(h, r)| {
-            h == hash.0 && self.record_matches(r, kind, fields, &[], refs)
+            h == hash.0 && self.arena.record_matches(r, kind, fields, &[], refs)
         }) {
             return Ok(r);
         }
-        let r = self.append_record(kind, fields, &[], refs)?;
+        let r = self.arena.append_record(kind, fields, &[], refs)?;
         self.value_dedup
             .insert_unique(hash.0, (hash.0, r), |&(h, _)| h);
         Ok(r)
@@ -426,8 +301,7 @@ impl CoercedAttrArenaBuilder {
             }
             CoercedPath::Directory(_) => None,
         };
-        let idx = self.arena.paths.len() as u32;
-        self.arena.paths.push(p.clone());
+        let idx = self.arena.push_path(p.clone());
         let mut hasher = BuckHasher::default();
         p.hash(&mut hasher);
         let hash = hasher.finish();
@@ -451,7 +325,7 @@ impl CoercedAttrArenaBuilder {
             if let Some(&(idx, label_hash)) = self.label_by_ptr.get(&ptr) {
                 return (idx, label_hash);
             }
-            let idx = self.push_providers_label(l);
+            let idx = self.arena.push_providers_label(l);
             let mut lh = BuckHasher::default();
             l.hash(&mut lh);
             let label_hash = lh.finish();
@@ -478,7 +352,9 @@ impl CoercedAttrArenaBuilder {
         }) {
             return Ok(AttrToken(r, hash));
         }
-        let r = self.append_record(kind, &[bytes.len() as u32], bytes, &[])?;
+        let r = self
+            .arena
+            .append_record(kind, &[bytes.len() as u32], bytes, &[])?;
         self.str_dedup
             .insert_unique(byte_hash, (byte_hash, r), |&(h, _)| h);
         Ok(AttrToken(r, hash))

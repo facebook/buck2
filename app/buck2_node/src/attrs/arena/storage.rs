@@ -8,14 +8,56 @@
  * above-listed licenses.
  */
 
-//! The record buffer and the words that address it: the byte format the
-//! module doc of [`crate::attrs::arena`] describes.
+//! The record buffer and the words that address it.
+//!
+//! An attribute value is either an inline leaf, held entirely in its
+//! [`AttrWord`], or a tagged record in the buffer, whose word is the byte
+//! offset of the record's tag:
+//!
+//! ```text
+//! AttrWord: [ 1 | kind:5 | payload:26 ]      inline leaf: None, bools,
+//!                                            small ints, table indices
+//!           [ 0 | record offset:31 ]         everything else
+//!
+//! record:   tag:u8 = [ width:2 | kind:6 ]   head fields...   tail
+//!
+//!   head    the record's immediate content (counts, table indices, split
+//!           ints) as `width + 1`-byte little-endian fields; how many, and
+//!           what follows, is the kind's field list (its row in the kinds
+//!           table);
+//!   tail    text bytes (length in the first head field), or child refs,
+//!           `width + 1` bytes each: bit 0 set = an inline leaf, kind in the
+//!           next five bits and payload above; bit 0 clear = a record ref,
+//!           the backward delta from the record's own offset above; a zero
+//!           field marks an absent value. The width is chosen per record
+//!           from its largest head field or ref.
+//! ```
+//!
+//! A value's kind costs at most one byte read: inline leaves carry it in
+//! the word, records in their tag, so a traversal over deps opens only
+//! containers. Worked example: `{"srcs": ["a.c"]}`, a dict of one pair
+//! whose value is a one-element list of a source file:
+//!
+//! ```text
+//! bytes:  [String  4 "srcs"]   [List  1  SourceFile#0]   [Dict  1  ->"srcs" ->list]
+//!          ^ S                  ^ L                      ^ D = the value's own ref
+//!
+//! the list's one ref is the inline source leaf (path table index 0); the
+//! dict's refs are deltas D - S and D - L, all one byte wide here.
+//! ```
+//!
+//! Offsets are indices, not addresses: the buffer can grow while the
+//! package coerces, and the sealed form is position-independent. Refs only
+//! ever point at already-appended records (children are encoded before
+//! their parents), so deltas are never negative and a ref cannot be
+//! observed half-built.
 
 use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::buck2_error;
 use buck2_hash::BuckMutMap;
@@ -114,11 +156,23 @@ impl AttrToken {
     }
 }
 
+/// Word layout: the inline flag, then for an inline leaf the kind and the
+/// payload, for a record ref the offset.
 pub(super) const INLINE_BIT: u32 = 1 << 31;
 pub(super) const OFFSET_MASK: u32 = INLINE_BIT - 1;
-pub(super) const INLINE_KIND_SHIFT: u32 = 26;
+pub(super) const INLINE_KIND_BITS: u32 = 5;
+pub(super) const INLINE_KIND_MASK: u32 = (1 << INLINE_KIND_BITS) - 1;
 pub(super) const INLINE_PAYLOAD_BITS: u32 = 26;
+pub(super) const INLINE_KIND_SHIFT: u32 = INLINE_PAYLOAD_BITS;
 pub(super) const INLINE_PAYLOAD_MASK: u32 = (1 << INLINE_PAYLOAD_BITS) - 1;
+
+/// Ref field layout, inside a record's tail: the inline flag is the low
+/// bit, so a small inline leaf fits a one-byte field; above it an inline
+/// leaf carries its kind then its payload, a record ref its backward delta.
+const FIELD_INLINE_FLAG: u32 = 1;
+const FIELD_KIND_SHIFT: u32 = 1;
+const FIELD_PAYLOAD_SHIFT: u32 = FIELD_KIND_SHIFT + INLINE_KIND_BITS;
+const FIELD_DELTA_SHIFT: u32 = 1;
 
 /// Small ints are sign-extended inline payloads.
 pub(super) const INT_INLINE_MAX: i64 = (1 << (INLINE_PAYLOAD_BITS - 1)) - 1;
@@ -141,13 +195,19 @@ impl AttrWord {
         ))
     }
 
+    /// Whether this is an inline leaf rather than a record ref.
+    #[inline]
+    pub(super) fn is_inline(self) -> bool {
+        self.0 & INLINE_BIT != 0
+    }
+
     /// The kind and payload of an inline leaf, or `None` for a record ref.
     #[inline]
     pub(super) fn inline_parts(self) -> Option<(AttrKind, u32)> {
-        if self.0 & INLINE_BIT == 0 {
+        if !self.is_inline() {
             return None;
         }
-        let kind = AttrKind::from_repr(((self.0 >> INLINE_KIND_SHIFT) & 0x1F) as u8)
+        let kind = AttrKind::from_repr(((self.0 >> INLINE_KIND_SHIFT) & INLINE_KIND_MASK) as u8)
             .expect("should be valid: words are only minted with known kinds");
         Some((kind, self.0 & INLINE_PAYLOAD_MASK))
     }
@@ -161,7 +221,7 @@ impl AttrWord {
     /// Byte offset of this record ref's tag.
     #[inline]
     pub(super) fn off(self) -> usize {
-        debug_assert!(self.0 & INLINE_BIT == 0, "inline leaves have no record");
+        debug_assert!(!self.is_inline(), "inline leaves have no record");
         (self.0 & OFFSET_MASK) as usize
     }
 
@@ -171,9 +231,11 @@ impl AttrWord {
         if self == ABSENT_REF {
             0
         } else if let Some((kind, payload)) = self.inline_parts() {
-            (payload << 6) | ((kind as u32) << 1) | 1
+            (payload << FIELD_PAYLOAD_SHIFT)
+                | ((kind as u32) << FIELD_KIND_SHIFT)
+                | FIELD_INLINE_FLAG
         } else {
-            (rec - self.0) << 1
+            (rec - self.0) << FIELD_DELTA_SHIFT
         }
     }
 
@@ -182,12 +244,12 @@ impl AttrWord {
     pub(super) fn from_field(field: u32, rec: u32) -> Option<AttrWord> {
         if field == 0 {
             None
-        } else if field & 1 == 1 {
-            Some(AttrWord(
-                INLINE_BIT | (((field >> 1) & 0x1F) << INLINE_KIND_SHIFT) | (field >> 6),
-            ))
+        } else if field & FIELD_INLINE_FLAG != 0 {
+            let kind = (field >> FIELD_KIND_SHIFT) & INLINE_KIND_MASK;
+            let payload = field >> FIELD_PAYLOAD_SHIFT;
+            Some(AttrWord(INLINE_BIT | (kind << INLINE_KIND_SHIFT) | payload))
         } else {
-            Some(AttrWord(rec - (field >> 1)))
+            Some(AttrWord(rec - (field >> FIELD_DELTA_SHIFT)))
         }
     }
 }
@@ -265,11 +327,11 @@ pub(super) fn validate_records(bytes: &[u8]) -> Result<(), String> {
                 for i in 0..n as usize {
                     let field = field_at(bytes, tail_start + i * width as usize, width)
                         .ok_or_else(|| format!("record at {rec} is truncated"))?;
-                    // Zero is an absent ref and odd fields are inline leaves;
-                    // the rest are backward deltas.
-                    if field != 0 && field & 1 == 0 {
+                    // Zero is an absent ref and inline leaves need no
+                    // target; the rest are backward deltas.
+                    if field != 0 && field & FIELD_INLINE_FLAG == 0 {
                         (rec as u32)
-                            .checked_sub(field >> 1)
+                            .checked_sub(field >> FIELD_DELTA_SHIFT)
                             .filter(|target| starts.binary_search(target).is_ok())
                             .ok_or_else(|| {
                                 format!("record at {rec} has a ref that is not an earlier record")
@@ -451,6 +513,156 @@ impl CoercedAttrArena {
         // SAFETY: text records are written from `&str`, and a buffer from
         // outside this process is validated when it pages in (`RecordBytes`).
         unsafe { std::str::from_utf8_unchecked(bytes) }
+    }
+}
+
+/// Smallest width (1-4 bytes) holding `v`.
+#[inline]
+fn width_for(v: u32) -> u8 {
+    if v < 1 << 8 {
+        1
+    } else if v < 1 << 16 {
+        2
+    } else if v < 1 << 24 {
+        3
+    } else {
+        4
+    }
+}
+
+/// Writes. The arena has no dedup of its own: [`CoercedAttrArenaBuilder`]
+/// decides what to append and the arena appends it.
+impl CoercedAttrArena {
+    /// Append one record: tag, head fields, text, then refs, every field
+    /// and ref in the smallest width that fits the largest of them.
+    pub(super) fn append_record(
+        &mut self,
+        kind: AttrKind,
+        fields: &[u32],
+        text: &[u8],
+        refs: &[AttrWord],
+    ) -> buck2_error::Result<AttrWord> {
+        let off = self.bytes.len();
+        let rec = off as u32;
+        let max_field = fields
+            .iter()
+            .copied()
+            .chain(refs.iter().map(|&r| r.to_field(rec)))
+            .max()
+            .unwrap_or(0);
+        let width = width_for(max_field);
+        let end = off + 1 + (fields.len() + refs.len()) * width as usize + text.len();
+        // Record offsets are 31 bits: an encoder-bug backstop at 2 GiB per
+        // package, deliberately not a user-input limit.
+        const CAPACITY: usize = INLINE_BIT as usize;
+        if end > CAPACITY {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Package attribute storage exceeds 2GiB of encoded attribute content; split the package or reduce attribute sizes"
+            ));
+        }
+        // One warning per arena, on the crossing allocation: offsets are
+        // monotone, so the threshold is crossed exactly once.
+        const CAPACITY_WARN: usize = CAPACITY / 2;
+        if off < CAPACITY_WARN && end >= CAPACITY_WARN {
+            let _unused = soft_error!(
+                "attr_arena_near_capacity",
+                buck2_error!(
+                    buck2_error::ErrorTag::Environment,
+                    "Attr arena buffer past 50% of its 2GiB capacity ({end} bytes)"
+                ),
+                quiet: true
+            );
+        }
+        self.bytes
+            .push(kind as u8 | ((width - 1) << TAG_WIDTH_SHIFT));
+        let w = width as usize;
+        for &f in fields {
+            self.bytes.extend_from_slice(&f.to_le_bytes()[..w]);
+        }
+        self.bytes.extend_from_slice(text);
+        for &r in refs {
+            self.bytes
+                .extend_from_slice(&r.to_field(rec).to_le_bytes()[..w]);
+        }
+        Ok(AttrWord::record(rec))
+    }
+
+    /// Whether the record at `r` is `kind` with head `fields`, text `text`,
+    /// and refs that resolve to `refs`. Refs are compared by target since
+    /// their widths and deltas depend on placement.
+    pub(super) fn record_matches(
+        &self,
+        r: AttrWord,
+        kind: AttrKind,
+        fields: &[u32],
+        text: &[u8],
+        refs: &[AttrWord],
+    ) -> bool {
+        let rec = self.open(r);
+        if rec.kind != kind || rec.head.len() as usize != fields.len() {
+            return false;
+        }
+        if !rec.head.iter_raw().eq(fields.iter().copied()) {
+            return false;
+        }
+        match rec.tail {
+            Tail::None => refs.is_empty(),
+            Tail::Text(got) => got == text,
+            Tail::Refs(run) => {
+                run.len() as usize == refs.len()
+                    && refs
+                        .iter()
+                        .enumerate()
+                        .all(|(i, &want)| match run.get_opt(i as u32) {
+                            Some(got) => got == want,
+                            None => want == ABSENT_REF,
+                        })
+            }
+        }
+    }
+
+    /// Side-table appends; each returns the new entry's index.
+    pub(super) fn push_providers_label(&mut self, l: &ProvidersLabel) -> u32 {
+        self.providers_labels.push(l.dupe());
+        self.providers_labels.len() as u32 - 1
+    }
+
+    pub(super) fn push_target_label(&mut self, l: TargetLabel) -> u32 {
+        self.target_labels.push(l);
+        self.target_labels.len() as u32 - 1
+    }
+
+    pub(super) fn push_path(&mut self, p: CoercedPath) -> u32 {
+        self.paths.push(p);
+        self.paths.len() as u32 - 1
+    }
+
+    /// Release the growth slack of every table; the sealed arena is retained
+    /// for the life of the package.
+    pub(super) fn shrink_to_fit(&mut self) {
+        let CoercedAttrArena {
+            bytes,
+            providers_labels,
+            target_labels,
+            paths,
+            visibility,
+            within_view,
+            metadata,
+            modifiers,
+            root_words,
+            root_strong,
+        } = self;
+        bytes.shrink_to_fit();
+        providers_labels.shrink_to_fit();
+        target_labels.shrink_to_fit();
+        paths.shrink_to_fit();
+        visibility.shrink_to_fit();
+        within_view.shrink_to_fit();
+        metadata.shrink_to_fit();
+        modifiers.shrink_to_fit();
+        root_words.shrink_to_fit();
+        root_strong.shrink_to_fit();
     }
 }
 

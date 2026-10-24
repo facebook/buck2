@@ -77,7 +77,7 @@ pub(crate) struct Cursor<'a> {
 
 impl<'a> Cursor<'a> {
     pub(super) fn new(arena: &'a CoercedAttrArena, r: AttrWord) -> Cursor<'a> {
-        let (head, tail) = if r.inline_parts().is_some() {
+        let (head, tail) = if r.is_inline() {
             (None, Tail::None)
         } else {
             let rec = arena.open(r);
