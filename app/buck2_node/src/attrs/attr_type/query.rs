@@ -37,7 +37,6 @@ use crate::attrs::coerced::render::MatchesAny;
 use crate::attrs::coerced::render::SerializeKind;
 use crate::attrs::coerced::render::ToJson;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::inner_type;
 use crate::attrs::coerced::semantics::mismatch;
 use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -248,7 +247,7 @@ impl Semantics for kinds::Query {
     ) -> buck2_error::Result<()> {
         // Queries have no inputs or configuration deps: literal labels only,
         // in expression order.
-        if !matches!(&inner_type(t).0.inner, AttrTypeInner::Query(_)) {
+        if !matches!(&t.non_optional().0.inner, AttrTypeInner::Query(_)) {
             return Err(mismatch(v, t));
         }
         let mut labels = Vec::new();
@@ -263,7 +262,7 @@ impl Semantics for kinds::Query {
         expr: Self::View<'_>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::Query(_) => ResultMaybeCompatible::Compatible(ConfiguredAttr::Query(
                 Box::new(expr.configure(ctx)),
             )),

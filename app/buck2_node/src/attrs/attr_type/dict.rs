@@ -29,7 +29,6 @@ use crate::attrs::arena::fields::ChildPairs;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrType;
-use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::coerced::configure::Configure;
 use crate::attrs::coerced::configure::TraverseConfigured;
@@ -42,7 +41,6 @@ use crate::attrs::coerced::render::ToJson;
 use crate::attrs::coerced::render::ser_err;
 use crate::attrs::coerced::render::ser_keyed;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::inner_type;
 use crate::attrs::coerced::semantics::mismatch;
 use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -166,12 +164,7 @@ impl Semantics for kinds::Dict {
         pairs: Self::View<'a>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
-        let inner = inner_type(t);
-        let (kt, vt) = match &inner.0.inner {
-            AttrTypeInner::Any(_) => (inner, inner),
-            AttrTypeInner::Dict(ty) => (&ty.key, &ty.value),
-            _ => return Err(mismatch(v, t)),
-        };
+        let (kt, vt) = t.dict_items().ok_or_else(|| mismatch(v, t))?;
         for (k, val) in pairs.iter() {
             k.traverse(kt, pkg, tr)?;
             val.traverse(vt, pkg, tr)?;
@@ -183,11 +176,7 @@ impl Semantics for kinds::Dict {
         pairs: Self::View<'_>,
         Configure { v, t, ctx, name }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        let (kt, vt) = match &inner_type(t).0.inner {
-            AttrTypeInner::Any(_) => (AttrType::any_ref(), AttrType::any_ref()),
-            AttrTypeInner::Dict(ty) => (&ty.key, &ty.value),
-            _ => return mismatch(v, t).into(),
-        };
+        let (kt, vt) = t.dict_items().ok_or_else(|| mismatch(v, t))?;
         ResultMaybeCompatible::Compatible(ConfiguredAttr::Dict(DictLiteral(
             pairs
                 .iter()
@@ -212,11 +201,7 @@ impl Semantics for kinds::Dict {
             name,
         }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
-        let (kt, vt) = match &inner_type(t).0.inner {
-            AttrTypeInner::Any(_) => return ResultMaybeCompatible::Compatible(()),
-            AttrTypeInner::Dict(ty) => (&ty.key, &ty.value),
-            _ => return mismatch(v, t).into(),
-        };
+        let (kt, vt) = t.dict_items().ok_or_else(|| mismatch(v, t))?;
         for (k, val) in pairs.iter() {
             k.traverse_configured(kt, pkg, ctx, tr, name)?;
             val.traverse_configured(vt, pkg, ctx, tr, name)?;

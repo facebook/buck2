@@ -36,7 +36,6 @@ use crate::attrs::coerced::render::MatchesAny;
 use crate::attrs::coerced::render::SerializeKind;
 use crate::attrs::coerced::render::ToJson;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::inner_type;
 use crate::attrs::coerced::semantics::mismatch;
 use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -90,7 +89,7 @@ impl Semantics for kinds::OneOf {
         (idx, inner): Self::View<'a>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::OneOf(ty) => {
                 let item_t = ty
                     .xs
@@ -106,7 +105,7 @@ impl Semantics for kinds::OneOf {
         (idx, inner): Self::View<'_>,
         Configure { v, t, ctx, name }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::OneOf(ty) => {
                 let item_t = match ty.xs.get(idx as usize) {
                     Some(ty) => ty,
@@ -130,8 +129,7 @@ impl Semantics for kinds::OneOf {
             name,
         }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
-        match &inner_type(t).0.inner {
-            AttrTypeInner::Any(_) => ResultMaybeCompatible::Compatible(()),
+        match &t.non_optional().0.inner {
             AttrTypeInner::OneOf(ty) => {
                 let item_t = match ty.xs.get(idx as usize) {
                     Some(ty) => ty,

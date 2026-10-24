@@ -56,7 +56,6 @@ use crate::attrs::coerced::render::ser_err;
 use crate::attrs::coerced::render::ser_keyed;
 use crate::attrs::coerced::render::ser_seq;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::inner_type;
 use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -569,7 +568,7 @@ fn validate_concat<'a>(t: &AttrType, leaves: &[CoercedAttrRef<'a>]) -> buck2_err
     let Some((first, rest)) = leaves.split_first() else {
         return Ok(());
     };
-    let t = inner_type(t);
+    let t = t.non_optional();
     if let AttrTypeInner::OneOf(oneof) = &t.0.inner {
         let mut inner: SmallVec<[CoercedAttrRef<'a>; 4]> = SmallVec::with_capacity(leaves.len());
         let mut variant = None;

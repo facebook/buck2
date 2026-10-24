@@ -15,7 +15,6 @@ use std::ops::Deref;
 
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
-use buck2_error::internal_error;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_container;
 use pagable::Pagable;
@@ -30,7 +29,6 @@ use crate::attrs::arena::fields::Children;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrType;
-use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::coerced::configure::Configure;
 use crate::attrs::coerced::configure::TraverseConfigured;
@@ -44,7 +42,6 @@ use crate::attrs::coerced::render::fmt_seq;
 use crate::attrs::coerced::render::json_seq;
 use crate::attrs::coerced::render::ser_seq;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::inner_type;
 use crate::attrs::coerced::semantics::mismatch;
 use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -139,22 +136,9 @@ impl Semantics for kinds::Tuple {
         items: Self::View<'a>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
-        let inner = inner_type(t);
-        match &inner.0.inner {
-            AttrTypeInner::Any(_) => {
-                for item in items.iter() {
-                    item.traverse(inner, pkg, tr)?;
-                }
-            }
-            AttrTypeInner::Tuple(ty) => {
-                if items.len() != ty.xs.len() {
-                    return Err(internal_error!("Inconsistent number of elements in tuple"));
-                }
-                for (item, item_t) in items.iter().zip(&ty.xs) {
-                    item.traverse(item_t, pkg, tr)?;
-                }
-            }
-            _ => return Err(mismatch(v, t)),
+        let item_ts = t.tuple_items(items.len()).ok_or_else(|| mismatch(v, t))?;
+        for (item, item_t) in items.iter().zip(item_ts) {
+            item.traverse(item_t, pkg, tr)?;
         }
         Ok(())
     }
@@ -163,24 +147,12 @@ impl Semantics for kinds::Tuple {
         items: Self::View<'_>,
         Configure { v, t, ctx, name }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        let configured = match &inner_type(t).0.inner {
-            AttrTypeInner::Any(_) => items
-                .iter()
-                .map(|item| item.configure(AttrType::any_ref(), ctx, name))
-                .collect::<ResultMaybeCompatible<Vec<_>>>()?
-                .into(),
-            AttrTypeInner::Tuple(ty) => {
-                if items.len() != ty.xs.len() {
-                    return internal_error!("Inconsistent number of elements in tuple").into();
-                }
-                items
-                    .iter()
-                    .zip(&ty.xs)
-                    .map(|(item, item_t)| item.configure(item_t, ctx, name))
-                    .collect::<ResultMaybeCompatible<_>>()?
-            }
-            _ => return mismatch(v, t).into(),
-        };
+        let item_ts = t.tuple_items(items.len()).ok_or_else(|| mismatch(v, t))?;
+        let configured = items
+            .iter()
+            .zip(item_ts)
+            .map(|(item, item_t)| item.configure(item_t, ctx, name))
+            .collect::<ResultMaybeCompatible<_>>()?;
         ResultMaybeCompatible::Compatible(ConfiguredAttr::Tuple(TupleLiteral(configured)))
     }
 
@@ -195,17 +167,9 @@ impl Semantics for kinds::Tuple {
             name,
         }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
-        match &inner_type(t).0.inner {
-            AttrTypeInner::Any(_) => {}
-            AttrTypeInner::Tuple(ty) => {
-                if items.len() != ty.xs.len() {
-                    return internal_error!("Inconsistent number of elements in tuple").into();
-                }
-                for (item, item_t) in items.iter().zip(&ty.xs) {
-                    item.traverse_configured(item_t, pkg, ctx, tr, name)?;
-                }
-            }
-            _ => return mismatch(v, t).into(),
+        let item_ts = t.tuple_items(items.len()).ok_or_else(|| mismatch(v, t))?;
+        for (item, item_t) in items.iter().zip(item_ts) {
+            item.traverse_configured(item_t, pkg, ctx, tr, name)?;
         }
         ResultMaybeCompatible::Compatible(())
     }

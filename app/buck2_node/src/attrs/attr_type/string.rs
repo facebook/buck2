@@ -38,7 +38,6 @@ use crate::attrs::coerced::render::SerializeKind;
 use crate::attrs::coerced::render::ToJson;
 use crate::attrs::coerced::render::fmt_text;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::inner_type;
 use crate::attrs::coerced::semantics::mismatch;
 use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -95,7 +94,7 @@ impl Semantics for kinds::String {
         s: Self::View<'_>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::String(_) | AttrTypeInner::Any(_) => ResultMaybeCompatible::Compatible(
                 ConfiguredAttr::String(StringLiteral(ArcStr::from(s))),
             ),

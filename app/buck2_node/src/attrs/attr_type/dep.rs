@@ -40,7 +40,6 @@ use crate::attrs::coerced::render::SerializeKind;
 use crate::attrs::coerced::render::ToJson;
 use crate::attrs::coerced::render::json_label;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::inner_type;
 use crate::attrs::coerced::semantics::mismatch;
 use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -173,7 +172,7 @@ impl Semantics for kinds::Dep {
         l: Self::View<'a>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::Dep(ty) => DepAttr::<ProvidersLabel>::traverse(l, ty, tr),
             _ => Err(mismatch(v, t)),
         }
@@ -183,7 +182,7 @@ impl Semantics for kinds::Dep {
         l: Self::View<'_>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::Dep(ty) => ResultMaybeCompatible::Compatible(ty.configure(l, ctx)?),
             _ => mismatch(v, t).into(),
         }

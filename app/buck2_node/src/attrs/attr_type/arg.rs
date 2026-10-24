@@ -50,7 +50,6 @@ use crate::attrs::coerced::render::MatchesAny;
 use crate::attrs::coerced::render::SerializeKind;
 use crate::attrs::coerced::render::ToJson;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::inner_type;
 use crate::attrs::coerced::semantics::mismatch;
 use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::coerced_path::CoercedPath;
@@ -564,7 +563,7 @@ impl Semantics for kinds::ArgSimple {
         s: Self::View<'_>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::Arg(ty) => {
                 ResultMaybeCompatible::Compatible(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
                     string_with_macros: StringWithMacros::StringPart(ArcStr::from(s)),
@@ -626,7 +625,7 @@ impl Semantics for kinds::Arg {
         parts: Self::View<'a>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
-        if !matches!(&inner_type(t).0.inner, AttrTypeInner::Arg(_)) {
+        if !matches!(&t.non_optional().0.inner, AttrTypeInner::Arg(_)) {
             return Err(mismatch(v, t));
         }
         for part in parts.iter() {
@@ -681,7 +680,7 @@ impl Semantics for kinds::Arg {
         parts: Self::View<'_>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::Arg(ty) => {
                 let configured = parts
                     .iter()

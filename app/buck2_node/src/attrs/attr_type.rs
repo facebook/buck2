@@ -11,7 +11,6 @@
 use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
-use std::sync::LazyLock;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
@@ -20,6 +19,7 @@ use buck2_core::plugins::PluginKindSet;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use buck2_util::strong_hasher::StrongHash128;
 use dupe::Dupe;
+use itertools::Either;
 use pagable::Pagable;
 use strong_hash::StrongHash;
 
@@ -197,9 +197,48 @@ impl AttrType {
         Self::of(AttrTypeInner::Any(AnyAttrType), false)
     }
 
-    pub(crate) fn any_ref() -> &'static Self {
-        static ANY: LazyLock<AttrType> = LazyLock::new(AttrType::any);
-        &ANY
+    /// This type with its `Option` layers removed. Values do not record
+    /// optionality, so a value's kind is read against this.
+    pub(crate) fn non_optional(&self) -> &AttrType {
+        let mut t = self;
+        while let AttrTypeInner::Option(opt) = &t.0.inner {
+            t = &opt.inner;
+        }
+        t
+    }
+
+    /// The item type of a list value of this type, or `None` if lists do
+    /// not fit it. Values do not record that they were coerced as `Any`
+    /// either: an `Any` holds literal containers whose items are `Any`.
+    pub(crate) fn list_item(&self) -> Option<&AttrType> {
+        let t = self.non_optional();
+        match &t.0.inner {
+            AttrTypeInner::Any(_) => Some(t),
+            AttrTypeInner::List(ty) => Some(&ty.inner),
+            _ => None,
+        }
+    }
+
+    /// The key and value types of a dict value of this type, or `None` if
+    /// dicts do not fit it; `Any` as for [`Self::list_item`].
+    pub(crate) fn dict_items(&self) -> Option<(&AttrType, &AttrType)> {
+        let t = self.non_optional();
+        match &t.0.inner {
+            AttrTypeInner::Any(_) => Some((t, t)),
+            AttrTypeInner::Dict(ty) => Some((&ty.key, &ty.value)),
+            _ => None,
+        }
+    }
+
+    /// The item types of a tuple value of this type and length, or `None`
+    /// if such tuples do not fit it; `Any` as for [`Self::list_item`].
+    pub(crate) fn tuple_items(&self, len: usize) -> Option<impl Iterator<Item = &AttrType>> {
+        let t = self.non_optional();
+        match &t.0.inner {
+            AttrTypeInner::Any(_) => Some(Either::Left(std::iter::repeat_n(t, len))),
+            AttrTypeInner::Tuple(ty) if ty.xs.len() == len => Some(Either::Right(ty.xs.iter())),
+            _ => None,
+        }
     }
 
     /// An arg attribute. Args are similar to strings, but have built in support

@@ -35,7 +35,6 @@ use crate::attrs::coerced::render::MatchesAny;
 use crate::attrs::coerced::render::SerializeKind;
 use crate::attrs::coerced::render::ToJson;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::inner_type;
 use crate::attrs::coerced::semantics::mismatch;
 use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -72,7 +71,7 @@ impl Semantics for kinds::PluginDep {
         l: Self::View<'a>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::PluginDep(ty) => tr.plugin_dep(l, ty.kind()),
             _ => Err(mismatch(v, t)),
         }
@@ -82,7 +81,7 @@ impl Semantics for kinds::PluginDep {
         l: Self::View<'_>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::PluginDep(ty) => ResultMaybeCompatible::Compatible(
                 ConfiguredAttr::PluginDep(l.dupe(), ty.kind().dupe()),
             ),
@@ -94,8 +93,7 @@ impl Semantics for kinds::PluginDep {
         l: Self::View<'_>,
         TraverseConfigured { v, t, tr, .. }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
-        match &inner_type(t).0.inner {
-            AttrTypeInner::Any(_) => {}
+        match &t.non_optional().0.inner {
             AttrTypeInner::PluginDep(ty) => {
                 if let Err(e) = tr.plugin_dep(l, ty.kind()) {
                     return e.into();

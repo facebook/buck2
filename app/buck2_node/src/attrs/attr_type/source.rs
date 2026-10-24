@@ -39,7 +39,6 @@ use crate::attrs::coerced::render::SerializeKind;
 use crate::attrs::coerced::render::ToJson;
 use crate::attrs::coerced::render::json_label;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::inner_type;
 use crate::attrs::coerced::semantics::mismatch;
 use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::coerced_path::CoercedPath;
@@ -67,7 +66,7 @@ impl Semantics for kinds::SourceLabel {
         l: Self::View<'a>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::Source(_) => tr.dep(l),
             _ => Err(mismatch(v, t)),
         }
@@ -77,7 +76,7 @@ impl Semantics for kinds::SourceLabel {
         l: Self::View<'_>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::Source(_) => ResultMaybeCompatible::Compatible(
                 ConfiguredAttr::SourceLabel(l.configure_pair(ctx.cfg().cfg_pair().dupe())),
             ),
@@ -89,8 +88,7 @@ impl Semantics for kinds::SourceLabel {
         l: Self::View<'_>,
         TraverseConfigured { v, t, ctx, tr, .. }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
-        match &inner_type(t).0.inner {
-            AttrTypeInner::Any(_) => {}
+        match &t.non_optional().0.inner {
             AttrTypeInner::Source(_) => {
                 let configured = l.configure_pair(ctx.cfg().cfg_pair().dupe());
                 if let Err(e) = tr.dep(&configured) {
@@ -144,7 +142,7 @@ impl Semantics for kinds::SourceFile {
         p: Self::View<'a>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::Source(_) => {
                 let pkg = pkg.ok_or_else(|| {
                     internal_error!("Expected a package when traversing coerced source attribute")
@@ -162,7 +160,7 @@ impl Semantics for kinds::SourceFile {
         p: Self::View<'_>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        match &inner_type(t).0.inner {
+        match &t.non_optional().0.inner {
             AttrTypeInner::Source(_) => {
                 ResultMaybeCompatible::Compatible(ConfiguredAttr::SourceFile(p.clone()))
             }
@@ -174,8 +172,7 @@ impl Semantics for kinds::SourceFile {
         p: Self::View<'_>,
         TraverseConfigured { v, t, pkg, tr, .. }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
-        match &inner_type(t).0.inner {
-            AttrTypeInner::Any(_) => {}
+        match &t.non_optional().0.inner {
             AttrTypeInner::Source(_) => {
                 for x in p.inputs() {
                     if let Err(e) = tr.input(SourcePathRef::new(pkg, x)) {

@@ -20,7 +20,6 @@ use serde::Serializer;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::schema::Kind;
 use crate::attrs::attr_type::AttrType;
-use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::coerced::configure::ConcatLeaves;
 use crate::attrs::coerced::configure::Configure;
 use crate::attrs::coerced::configure::TraverseConfigured;
@@ -68,10 +67,6 @@ pub(crate) trait Semantics: Kind {
             name,
         }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
-        // `Any`-typed values cannot contain deps.
-        if matches!(inner_type(t).0.inner, AttrTypeInner::Any(_)) {
-            return ResultMaybeCompatible::Compatible(());
-        }
         let configured = Self::configure(parts, Configure { v, t, ctx, name })?;
         if let Err(e) = configured.traverse(pkg, tr) {
             return e.into();
@@ -107,16 +102,6 @@ pub(crate) trait Semantics: Kind {
         parts: Self::View<'_>,
         op: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error>;
-}
-
-/// The attribute type with `Option` layers removed: values do not record
-/// optionality.
-pub(crate) fn inner_type(t: &AttrType) -> &AttrType {
-    let mut t = t;
-    while let AttrTypeInner::Option(opt) = &t.0.inner {
-        t = &opt.inner;
-    }
-    t
 }
 
 /// A value whose kind does not fit the attribute type it is read with:

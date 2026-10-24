@@ -28,7 +28,6 @@ use crate::attrs::arena::fields::Children;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrType;
-use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::coerced::configure::Configure;
 use crate::attrs::coerced::configure::TraverseConfigured;
@@ -42,7 +41,6 @@ use crate::attrs::coerced::render::fmt_seq;
 use crate::attrs::coerced::render::json_seq;
 use crate::attrs::coerced::render::ser_seq;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::inner_type;
 use crate::attrs::coerced::semantics::mismatch;
 use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -137,12 +135,7 @@ impl Semantics for kinds::List {
         items: Self::View<'a>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
-        let inner = inner_type(t);
-        let item_t = match &inner.0.inner {
-            AttrTypeInner::Any(_) => inner,
-            AttrTypeInner::List(ty) => &ty.inner,
-            _ => return Err(mismatch(v, t)),
-        };
+        let item_t = t.list_item().ok_or_else(|| mismatch(v, t))?;
         for item in items.iter() {
             item.traverse(item_t, pkg, tr)?;
         }
@@ -153,12 +146,7 @@ impl Semantics for kinds::List {
         items: Self::View<'_>,
         Configure { v, t, ctx, name }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        let inner = inner_type(t);
-        let item_t = match &inner.0.inner {
-            AttrTypeInner::Any(_) => AttrType::any_ref(),
-            AttrTypeInner::List(ty) => &ty.inner,
-            _ => return mismatch(v, t).into(),
-        };
+        let item_t = t.list_item().ok_or_else(|| mismatch(v, t))?;
         ResultMaybeCompatible::Compatible(ConfiguredAttr::List(ListLiteral(
             items
                 .iter()
@@ -179,11 +167,7 @@ impl Semantics for kinds::List {
             name,
         }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
-        let item_t = match &inner_type(t).0.inner {
-            AttrTypeInner::Any(_) => return ResultMaybeCompatible::Compatible(()),
-            AttrTypeInner::List(ty) => &ty.inner,
-            _ => return mismatch(v, t).into(),
-        };
+        let item_t = t.list_item().ok_or_else(|| mismatch(v, t))?;
         for item in items.iter() {
             item.traverse_configured(item_t, pkg, ctx, tr, name)?;
         }

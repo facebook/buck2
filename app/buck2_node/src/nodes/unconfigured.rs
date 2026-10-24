@@ -215,13 +215,11 @@ impl TargetNodeData {
             {
                 // Infallible, which is what lets the deps accessors stay non-`Result`. Every
                 // `CoercedDepsCollector` callback returns `Ok`, and the only errors `traverse`
-                // raises on its own are two `internal_error!` invariant checks: a tuple whose
-                // arity disagrees with its type (the coercer builds tuples by zipping against
-                // that type and rejects longer ones, so it cannot construct a mismatched one),
-                // and a missing package (we pass `Some`). Either would be a buck2 bug, and
-                // panicking is the only option here because the callers cannot surface an
-                // error. `OnceLock` does not poison, so the cell stays empty and a later
-                // access retries.
+                // raises on its own are internal invariant checks: a value whose kind does not
+                // fit its attribute type (the coercer established that pairing) and a missing
+                // package (we pass `Some`). Either would be a buck2 bug, and panicking is the
+                // only option here because the callers cannot surface an error. `OnceLock`
+                // does not poison, so the cell stays empty and a later access retries.
                 a.traverse(self.label.pkg(), &mut collector)
                     .expect("should be unreachable: collector callbacks all return Ok");
             }
