@@ -9,6 +9,7 @@
  */
 
 pub(crate) mod anon_target_attr_validation;
+pub mod arena;
 pub mod attr;
 pub mod attr_type;
 pub mod coerced_attr;

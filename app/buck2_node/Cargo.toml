@@ -28,6 +28,7 @@ display_container.workspace = true
 dupe.workspace = true
 either.workspace = true
 futures.workspace = true
+hashbrown.workspace = true
 itertools.workspace = true
 memchr.workspace = true
 mini_vec.workspace = true
@@ -41,6 +42,7 @@ starlark_map.workspace = true
 static_interner.workspace = true
 strong_hash.workspace = true
 strsim.workspace = true
+strum.workspace = true
 triomphe.workspace = true
 
 [dev-dependencies]

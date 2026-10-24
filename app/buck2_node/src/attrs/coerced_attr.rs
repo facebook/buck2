@@ -217,7 +217,7 @@ impl CoercedSelector {
         })
     }
 
-    fn check_all_keys_unique(
+    pub(crate) fn check_all_keys_unique(
         entries: &[(ConfigurationSettingKey, CoercedAttr)],
     ) -> buck2_error::Result<()> {
         fn duplicate_key(key: &ConfigurationSettingKey) -> buck2_error::Error {
@@ -425,6 +425,13 @@ pub enum CoercedAttr {
     SourceFile(CoercedPath),
     Metadata(MetadataMap),
     TargetModifiers(TargetModifiersValue),
+    /// A value already encoded into the package arena during coercion.
+    /// Never escapes coercion: `AttrValues::from_pairs` consumes it; every
+    /// other consumer errors.
+    Encoded(
+        crate::attrs::arena::AttrWord,
+        crate::attrs::arena::CoercedAttrHash,
+    ),
 }
 
 // This is just to help understand any impact that changes have to the size of this.
@@ -471,6 +478,7 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
             CoercedAttr::Metadata(m) => write!(f, "{m}"),
             CoercedAttr::TargetModifiers(m) => write!(f, "{m}"),
+            CoercedAttr::Encoded(..) => write!(f, "<encoded attr>"),
         }
     }
 }
@@ -559,6 +567,9 @@ impl CoercedAttr {
             CoercedAttr::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
             CoercedAttr::Metadata(m) => Ok(m.to_value()),
             CoercedAttr::TargetModifiers(m) => Ok(m.to_value()),
+            CoercedAttr::Encoded(..) => {
+                Err(internal_error!("Encoded attr must not escape coercion").into())
+            }
         }
     }
 
@@ -1062,6 +1073,9 @@ impl CoercedAttr {
             CoercedAttr::SourceFile(e) => filter(&e.path().to_string()),
             CoercedAttr::Metadata(e) => e.any_matches(filter),
             CoercedAttr::TargetModifiers(e) => e.any_matches(filter),
+            CoercedAttr::Encoded(..) => {
+                Err(internal_error!("Encoded attr must not escape coercion"))
+            }
         }
     }
 }

@@ -217,6 +217,11 @@ impl CoercedAttrExt for CoercedAttr {
             ))),
             CoercedAttr::Metadata(data) => heap.alloc(data.to_value()),
             CoercedAttr::TargetModifiers(data) => heap.alloc(data.to_value()),
+            CoercedAttr::Encoded(..) => {
+                return Err(buck2_error::internal_error!(
+                    "Encoded attr must not escape coercion"
+                ));
+            }
             CoercedAttr::Selector(selector) => {
                 let select_dict = StarlarkSelectDict::new(selector.dupe(), pkg.dupe());
                 heap.alloc(select_dict)

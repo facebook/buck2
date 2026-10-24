@@ -195,6 +195,9 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             (CoercedAttr::TargetModifiers(p), AttrTypeInner::TargetModifiers(t)) => {
                 Ok(CoercedAttrWithType::TargetModifiers(p, *t))
             }
+            (CoercedAttr::Encoded(..), _) => Err(buck2_error::internal_error!(
+                "Encoded attr must not escape coercion"
+            )),
 
             // Explicitly list the remaining pattern to make sure nothing is forgotten.
             (CoercedAttr::Bool(_), _)
@@ -232,6 +235,9 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | CoercedAttr::Concat(_)
             | CoercedAttr::SelectFail(_)
             | CoercedAttr::SelectIncompatible(_) => Err(CoercedAttrWithTypeError::Select.into()),
+            CoercedAttr::Encoded(..) => Err(buck2_error::internal_error!(
+                "Encoded attr must not escape coercion"
+            )),
             CoercedAttr::Bool(b) => Ok(CoercedAttrWithType::Bool(*b, BoolAttrType)),
             CoercedAttr::Int(i) => Ok(CoercedAttrWithType::Int(*i, IntAttrType)),
             CoercedAttr::String(s) => Ok(CoercedAttrWithType::String(s, StringAttrType)),
