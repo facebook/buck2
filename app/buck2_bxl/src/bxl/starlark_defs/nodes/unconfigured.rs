@@ -15,7 +15,6 @@ use buck2_build_api::bxl::unconfigured_attribute::StarlarkCoercedAttr;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::unconfigured::TargetNode;
 use derive_more::Display;
@@ -101,10 +100,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
             .chain(special_attrs_iter.map(|(name, attr)| {
                 Ok((
                     name,
-                    StarlarkCoercedAttr(
-                        OwnedCoercedAttr::try_new(&attr)?,
-                        this.0.label().pkg().dupe(),
-                    ),
+                    StarlarkCoercedAttr(attr.to_owned_coerced()?, this.0.label().pkg().dupe()),
                 ))
             }));
 

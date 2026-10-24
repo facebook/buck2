@@ -161,6 +161,7 @@ use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
+use crate::attrs::special_attr::SpecialAttr;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::TargetModifiersValue;
 use crate::configuration::resolved::ConfigurationSettingKey;
@@ -3425,14 +3426,11 @@ impl std::fmt::Debug for CoercedAttrRef<'_> {
 
 /// An attribute value handed to a callback: a normal attr, which the package
 /// arena stores, or a special attr, which is built per call and served as
-/// built.
-///
-/// Encoding a special attr would cost an arena build and a root hash per
-/// call, and nothing reads its identity.
+/// built — nothing reads a special attr's identity, so nothing is retained.
 #[derive(Debug)]
 pub enum AttrView<'a> {
     Normal(CoercedAttrRef<'a>),
-    Special(CoercedAttr),
+    Special(SpecialAttr),
 }
 
 impl AttrView<'_> {
@@ -3463,7 +3461,7 @@ impl AttrSerializeWithContext for AttrView<'_> {
     {
         match self {
             AttrView::Normal(r) => r.serialize_with_ctx(ctx, s),
-            AttrView::Special(a) => a.serialize_with_ctx(ctx, s),
+            AttrView::Special(a) => a.to_json().map_err(serde::ser::Error::custom)?.serialize(s),
         }
     }
 }
