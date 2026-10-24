@@ -607,6 +607,53 @@ impl Field for OptLabel {
     }
 }
 
+/// A boolean head field: the payload of an inline leaf that is either
+/// true or false.
+pub(crate) struct Flag;
+
+impl Field for Flag {
+    const DEPS: bool = false;
+    const HEAD: u32 = 1;
+    const HAS_REFS: bool = false;
+    const HAS_TEXT: bool = false;
+    type View<'a> = bool;
+    type Spec<'s> = bool;
+
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
+        Some(Part::head(1))
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> bool {
+        c.raw() != 0
+    }
+
+    fn encode<'s>(
+        v: bool,
+        _b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        w.head(v as u32);
+        w.hash(&v);
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        view: bool,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        <Self as Field>::encode(view, b, w)
+    }
+
+    fn identity(view: bool, h: &mut IdHasher<'_>) {
+        h.h.write_u8(view as u8);
+    }
+
+    fn same(a: bool, b: bool) -> bool {
+        a == b
+    }
+}
+
 /// An immediate head field.
 pub(crate) struct U32;
 

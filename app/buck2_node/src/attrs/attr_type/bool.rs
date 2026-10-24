@@ -26,6 +26,7 @@ use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Flag;
 use crate::attrs::arena::kinds;
 use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::SchemaKind;
@@ -86,124 +87,64 @@ impl AnyMatches for BoolLiteral {
     }
 }
 
+impl SchemaKind for kinds::Bool {
+    const KIND: AttrKind = AttrKind::Bool;
+    type Fields = Flag;
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, b: bool) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Bool(b)
+    }
+}
+
 impl CoercedAttrArenaBuilder {
     pub fn encode_bool(&mut self, b: bool) -> buck2_error::Result<AttrToken> {
-        if b {
-            encode_kind::<kinds::BoolTrue>(self, ())
-        } else {
-            encode_kind::<kinds::BoolFalse>(self, ())
-        }
+        encode_kind::<kinds::Bool>(self, b)
     }
 }
 
-impl SchemaKind for kinds::BoolFalse {
-    const KIND: AttrKind = AttrKind::BoolFalse;
-    type Fields = ();
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, (): ()) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::Bool(false)
-    }
-}
-
-impl Semantics for kinds::BoolFalse {
-    fn traverse<'a>((): Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+impl Semantics for kinds::Bool {
+    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
     }
 
     fn configure(
-        (): Self::Parts<'_>,
+        b: Self::Parts<'_>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Bool(_) | AttrTypeInner::Any(_) => {
-                ResultMaybeCompatible::Compatible(ConfiguredAttr::Bool(BoolLiteral(false)))
+                ResultMaybeCompatible::Compatible(ConfiguredAttr::Bool(BoolLiteral(b)))
             }
             _ => mismatch(v, t).into(),
         }
     }
 
     fn traverse_configured(
-        (): Self::Parts<'_>,
+        _: Self::Parts<'_>,
         _: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json((): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
-        Ok(to_value(false)?)
+    fn to_json(b: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value(b)?)
     }
 
-    fn fmt((): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
-        write!(f, "{}", BoolLiteral(false))
-    }
-
-    fn any_matches(
-        (): Self::Parts<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
-    ) -> buck2_error::Result<bool> {
-        BoolLiteral(false).any_matches(filter)
-    }
-
-    fn serialize<S: Serializer>(
-        (): Self::Parts<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
-    ) -> Result<S::Ok, S::Error> {
-        ser.serialize_bool(false)
-    }
-}
-
-impl SchemaKind for kinds::BoolTrue {
-    const KIND: AttrKind = AttrKind::BoolTrue;
-    type Fields = ();
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, (): ()) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::Bool(true)
-    }
-}
-
-impl Semantics for kinds::BoolTrue {
-    fn traverse<'a>((): Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
-        Ok(())
-    }
-
-    fn configure(
-        (): Self::Parts<'_>,
-        Configure { v, t, .. }: Configure<'_, '_>,
-    ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        match &inner_type(t).0.inner {
-            AttrTypeInner::Bool(_) | AttrTypeInner::Any(_) => {
-                ResultMaybeCompatible::Compatible(ConfiguredAttr::Bool(BoolLiteral(true)))
-            }
-            _ => mismatch(v, t).into(),
-        }
-    }
-
-    fn traverse_configured(
-        (): Self::Parts<'_>,
-        _: TraverseConfigured<'_, '_>,
-    ) -> ResultMaybeCompatible<()> {
-        ResultMaybeCompatible::Compatible(())
-    }
-
-    fn to_json((): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
-        Ok(to_value(true)?)
-    }
-
-    fn fmt((): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
-        write!(f, "{}", BoolLiteral(true))
+    fn fmt(b: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "{}", BoolLiteral(b))
     }
 
     fn any_matches(
-        (): Self::Parts<'_>,
+        b: Self::Parts<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
-        BoolLiteral(true).any_matches(filter)
+        BoolLiteral(b).any_matches(filter)
     }
 
     fn serialize<S: Serializer>(
-        (): Self::Parts<'_>,
+        b: Self::Parts<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
-        ser.serialize_bool(true)
+        ser.serialize_bool(b)
     }
 }

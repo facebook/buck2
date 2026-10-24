@@ -81,57 +81,55 @@ macro_rules! arena_kinds {
 
 arena_kinds! {
     None = 0,
-    /// `encode_bool` picks the kind.
-    BoolFalse = 1,
-    BoolTrue = 2,
+    Bool = 1,
     /// Inline as a 26-bit sign-extended payload when it fits; otherwise a
     /// record with head `[lo, hi]`: the zigzag-encoded value in 32-bit halves.
-    Int = 3,
-    WithinView = 4,
-    String = 5,
-    EnumVariant = 6,
-    List = 7,
-    Tuple = 8,
-    Dict = 9,
-    Selector = 10,
-    Concat = 11,
-    OneOf = 12,
-    Dep = 13,
-    Label = 14,
-    SourceLabel = 15,
-    ConfigurationDep = 16,
-    SplitTransitionDep = 17,
-    PluginDep = 18,
-    SourceFile = 19,
-    Visibility = 20,
+    Int = 2,
+    WithinView = 3,
+    String = 4,
+    EnumVariant = 5,
+    List = 6,
+    Tuple = 7,
+    Dict = 8,
+    Selector = 9,
+    Concat = 10,
+    OneOf = 11,
+    Dep = 12,
+    Label = 13,
+    SourceLabel = 14,
+    ConfigurationDep = 15,
+    SplitTransitionDep = 16,
+    PluginDep = 17,
+    SourceFile = 18,
+    Visibility = 19,
     /// `Arg` with no macros (`StringWithMacros::StringPart`) -- most `Arg`
     /// values in real graphs contain no macros.
-    ArgSimple = 21,
+    ArgSimple = 20,
     /// Head: `[n, idx...]`: `n` providers-label table indices, a selector's
     /// key set. Never appears as an attribute value ref.
-    SelectorKeys = 22: internal,
+    SelectorKeys = 21: internal,
     /// Parts are `ArgSimple` or `ArgMacro` records.
-    ArgParts = 23,
+    ArgParts = 22,
     /// Head: `[header, payload index, n]`; refs: `n` per the header's
     /// variant tag. Never appears as an attribute value ref.
-    ArgMacro = 24: internal,
+    ArgMacro = 23: internal,
     /// Head: `[subtag, nv, nv values, n]`; refs: `n` per `Q_EXPR_*`. Encodes
     /// the parsed form of a query macro's expression; target literals are
     /// label table indices, text is shared text records. Never appears as
     /// an attribute value ref.
-    QueryExpr = 25: internal,
+    QueryExpr = 24: internal,
     /// The parsed form of an `attrs.query()` value.
-    Query = 26,
+    Query = 25,
     /// A `select_fail()` / `select_incompatible()` leaf holding the message.
-    SelectFail = 27,
-    SelectIncompatible = 28,
+    SelectFail = 26,
+    SelectIncompatible = 27,
     /// An `attrs.configured_dep()` value.
-    ExplicitConfiguredDep = 29,
+    ExplicitConfiguredDep = 28,
     /// The dynamic transition target is absent when the attr type fixes the
     /// transition.
-    TransitionDep = 30,
-    Modifiers = 31,
-    Metadata = 32,
+    TransitionDep = 29,
+    Modifiers = 30,
+    Metadata = 31,
 }
 
 impl AttrKind {
