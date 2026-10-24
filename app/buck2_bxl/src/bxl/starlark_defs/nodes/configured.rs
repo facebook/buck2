@@ -42,13 +42,9 @@ use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
+use buck2_node::attrs::arena::CoercedAttrArenaBuilder;
 use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr_type::arg::StringWithMacros;
-use buck2_node::attrs::attr_type::dict::DictLiteral;
-use buck2_node::attrs::attr_type::list::ListLiteral;
-use buck2_node::attrs::attr_type::query::QueryAttr;
-use buck2_node::attrs::attr_type::transition_dep::CoercedTransitionDep;
-use buck2_node::attrs::attr_type::tuple::TupleLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -92,41 +88,55 @@ use crate::bxl::starlark_defs::nodes::configured::attr_resolution_ctx::LazyAttrR
 
 mod attr_resolution_ctx;
 
-fn attr_with_stripped_cfg(attr: &ConfiguredAttr) -> buck2_error::Result<CoercedAttr> {
+/// Strip configurations off `attr`, encoding the result into its own
+/// single-value storage.
+fn attr_with_stripped_cfg(attr: &ConfiguredAttr) -> buck2_error::Result<OwnedCoercedAttr> {
+    let mut b = CoercedAttrArenaBuilder::default();
+    let root = strip_cfg_into(attr, &mut b)?;
+    OwnedCoercedAttr::seal_from_builder(b, &root)
+}
+
+fn strip_cfg_into(
+    attr: &ConfiguredAttr,
+    b: &mut CoercedAttrArenaBuilder,
+) -> buck2_error::Result<CoercedAttr> {
     Ok(match attr {
-        ConfiguredAttr::Bool(v) => CoercedAttr::Bool(*v),
-        ConfiguredAttr::Int(v) => CoercedAttr::Int(*v),
-        ConfiguredAttr::String(v) => CoercedAttr::String(v.dupe()),
-        ConfiguredAttr::EnumVariant(v) => CoercedAttr::EnumVariant(v.dupe()),
-        ConfiguredAttr::List(list) => CoercedAttr::List(ListLiteral(
-            list.iter()
-                .map(attr_with_stripped_cfg)
-                .collect::<buck2_error::Result<Vec<_>>>()?
-                .into(),
-        )),
-        ConfiguredAttr::Tuple(tuple) => CoercedAttr::Tuple(TupleLiteral(
-            tuple
+        ConfiguredAttr::Bool(v) => b.encode_bool(v.0)?,
+        ConfiguredAttr::Int(v) => b.encode_int(*v)?,
+        ConfiguredAttr::String(v) => b.encode_string(v.0.as_str())?,
+        ConfiguredAttr::EnumVariant(v) => b.encode_enum_variant(v.0.as_str())?,
+        ConfiguredAttr::List(list) => {
+            let items = list
                 .iter()
-                .map(attr_with_stripped_cfg)
-                .collect::<buck2_error::Result<Vec<_>>>()?
-                .into(),
-        )),
-        ConfiguredAttr::Dict(dict) => CoercedAttr::Dict(DictLiteral(
-            dict.iter()
-                .map(|(k, v)| Ok((attr_with_stripped_cfg(k)?, attr_with_stripped_cfg(v)?)))
-                .collect::<buck2_error::Result<Vec<_>>>()?
-                .into(),
-        )),
-        ConfiguredAttr::None => CoercedAttr::None,
-        ConfiguredAttr::OneOf(attr, i) => {
-            CoercedAttr::OneOf(Box::new(attr_with_stripped_cfg(attr)?), *i)
+                .map(|v| strip_cfg_into(v, b))
+                .collect::<buck2_error::Result<Vec<_>>>()?;
+            b.encode_list(&items)?
         }
-        ConfiguredAttr::Visibility(v) => CoercedAttr::Visibility(v.dupe()),
-        ConfiguredAttr::WithinView(v) => CoercedAttr::WithinView(v.dupe()),
+        ConfiguredAttr::Tuple(tuple) => {
+            let items = tuple
+                .iter()
+                .map(|v| strip_cfg_into(v, b))
+                .collect::<buck2_error::Result<Vec<_>>>()?;
+            b.encode_tuple(&items)?
+        }
+        ConfiguredAttr::Dict(dict) => {
+            let pairs = dict
+                .iter()
+                .map(|(k, v)| Ok((strip_cfg_into(k, b)?, strip_cfg_into(v, b)?)))
+                .collect::<buck2_error::Result<Vec<_>>>()?;
+            b.encode_dict(&pairs)?
+        }
+        ConfiguredAttr::None => b.encode_none()?,
+        ConfiguredAttr::OneOf(attr, i) => {
+            let inner = strip_cfg_into(attr, b)?;
+            b.encode_one_of(*i, &inner)?
+        }
+        ConfiguredAttr::Visibility(v) => b.encode_visibility(v)?,
+        ConfiguredAttr::WithinView(v) => b.encode_within_view(v)?,
         ConfiguredAttr::ExplicitConfiguredDep(dep) => {
             // Platform information is lost during this conversion
             // This is fine for most use cases since dep and configured dep display the same
-            CoercedAttr::Dep(dep.label.unconfigured())
+            b.encode_dep(&dep.label.unconfigured())?
         }
         ConfiguredAttr::SplitTransitionDep(dep) => {
             let deps: BuckMutSet<_> = dep.deps.values().map(|l| l.unconfigured()).collect();
@@ -138,28 +148,20 @@ fn attr_with_stripped_cfg(attr: &ConfiguredAttr) -> buck2_error::Result<CoercedA
             }
             // This loses the split transition information. This is fine for most use cases since
             // dep and transition dep display the same
-            CoercedAttr::Dep(
-                deps.iter()
-                    .next()
-                    .ok_or_else(|| {
-                        buck2_error::internal_error!("deps is empty after checking length")
-                    })?
-                    .dupe(),
-            )
+            b.encode_dep(deps.iter().next().ok_or_else(|| {
+                buck2_error::internal_error!("deps is empty after checking length")
+            })?)?
         }
         ConfiguredAttr::TransitionDep(dep) => {
             // This loses the transition information. This is fine for most use cases since
             // dep and transition dep display the same
-            CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
-                dep: dep.dep.unconfigured(),
-                transition: None, // The transition information is not available in ConfiguredTransitionDep
-            }))
+            b.encode_transition_dep(&dep.dep.unconfigured(), None)?
         }
-        ConfiguredAttr::ConfigurationDep(dep) => CoercedAttr::ConfigurationDep(dep.dupe()),
-        ConfiguredAttr::PluginDep(dep, _) => CoercedAttr::PluginDep(dep.dupe()),
-        ConfiguredAttr::Dep(dep) => CoercedAttr::Dep(dep.label.unconfigured()),
-        ConfiguredAttr::SourceLabel(dep) => CoercedAttr::SourceLabel(dep.unconfigured()),
-        ConfiguredAttr::Label(label) => CoercedAttr::Label(label.unconfigured()),
+        ConfiguredAttr::ConfigurationDep(dep) => b.encode_configuration_dep(dep)?,
+        ConfiguredAttr::PluginDep(dep, _) => b.encode_plugin_dep(dep)?,
+        ConfiguredAttr::Dep(dep) => b.encode_dep(&dep.label.unconfigured())?,
+        ConfiguredAttr::SourceLabel(dep) => b.encode_source_label(&dep.unconfigured())?,
+        ConfiguredAttr::Label(label) => b.encode_label(&label.unconfigured())?,
         ConfiguredAttr::Arg(arg) => {
             let unconfigured_parts = match &arg.string_with_macros {
                 StringWithMacros::StringPart(s) => StringWithMacros::StringPart(s.clone()),
@@ -244,11 +246,10 @@ fn attr_with_stripped_cfg(attr: &ConfiguredAttr) -> buck2_error::Result<CoercedA
                         .into_boxed_slice(),
                 ),
             };
-            CoercedAttr::Arg(unconfigured_parts)
+            b.encode_arg(&unconfigured_parts)?
         }
-        ConfiguredAttr::Query(query) => CoercedAttr::Query(Box::new(QueryAttr {
-            providers: query.providers.clone(),
-            query: buck2_node::attrs::attr_type::query::QueryAttrBase {
+        ConfiguredAttr::Query(query) => {
+            b.encode_query(&buck2_node::attrs::attr_type::query::QueryAttrBase {
                 query: query.query.query.clone(),
                 resolved_literals: buck2_node::attrs::attr_type::query::ResolvedQueryLiterals(
                     query
@@ -259,11 +260,11 @@ fn attr_with_stripped_cfg(attr: &ConfiguredAttr) -> buck2_error::Result<CoercedA
                         .map(|(k, v)| (*k, v.unconfigured()))
                         .collect(),
                 ),
-            },
-        })),
-        ConfiguredAttr::SourceFile(path) => CoercedAttr::SourceFile(path.clone()),
-        ConfiguredAttr::Metadata(m) => CoercedAttr::Metadata(m.clone()),
-        ConfiguredAttr::TargetModifiers(m) => CoercedAttr::TargetModifiers(m.clone()),
+            })?
+        }
+        ConfiguredAttr::SourceFile(path) => b.encode_source_file(path)?,
+        ConfiguredAttr::Metadata(m) => b.encode_metadata(m)?,
+        ConfiguredAttr::TargetModifiers(m) => b.encode_target_modifiers(m)?,
     })
 }
 
@@ -894,10 +895,7 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkCoercedAttr> {
         let stripped = attr_with_stripped_cfg(&this.0)
             .buck_error_context("Failed to strip configuration from attribute")?;
-        Ok(StarlarkCoercedAttr(
-            OwnedCoercedAttr::try_new(&stripped)?,
-            this.1.dupe(),
-        ))
+        Ok(StarlarkCoercedAttr(stripped, this.1.dupe()))
     }
 }
 
