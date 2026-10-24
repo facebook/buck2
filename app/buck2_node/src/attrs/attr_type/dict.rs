@@ -24,7 +24,17 @@ use serde_json::Value;
 use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrRefDisplay;
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::Pairs;
+use crate::attrs::arena::Refs;
+use crate::attrs::arena::fields::ChildPairs;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::MatchesAny;
@@ -138,6 +148,24 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for DictLiteral<C> {
             );
         }
         Ok(res.into())
+    }
+}
+
+impl SchemaKind for kinds::Dict {
+    const KIND: AttrKind = AttrKind::Dict;
+    type Fields = (ChildPairs,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (pairs,): (Refs<'a, Pairs>,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Dict(pairs)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_dict(
+        &mut self,
+        pairs: &[(AttrToken, AttrToken)],
+    ) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::Dict>(self, (pairs,))
     }
 }
 

@@ -13,13 +13,22 @@ use std::borrow::Cow;
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::plugins::PluginKind;
+use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 use pagable::Pagable;
 use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Target;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::JsonKey;
@@ -48,6 +57,21 @@ impl PluginDepAttrType {
 
     pub fn kind(&self) -> &PluginKind {
         &self.kind
+    }
+}
+
+impl SchemaKind for kinds::PluginDep {
+    const KIND: AttrKind = AttrKind::PluginDep;
+    type Fields = (Target,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (l,): (&'a TargetLabel,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::PluginDep(l)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_plugin_dep(&mut self, l: &TargetLabel) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::PluginDep>(self, (l,))
     }
 }
 

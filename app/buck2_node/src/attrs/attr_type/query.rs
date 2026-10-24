@@ -22,7 +22,16 @@ use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::QueryExprRef;
+use crate::attrs::arena::fields::ExprChild;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::MatchesAny;
@@ -224,6 +233,21 @@ impl QueryAttrBase<ProvidersLabel> {
             traversal.dep(dep)?;
         }
         Ok(())
+    }
+}
+
+impl SchemaKind for kinds::Query {
+    const KIND: AttrKind = AttrKind::Query;
+    type Fields = (ExprChild,);
+
+    fn wrap<'a>(v: CoercedAttrRef<'a>, (_,): (QueryExprRef<'a>,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Query(query_view(v))
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_parsed_query(&mut self, expr: AttrToken) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::Query>(self, (expr,))
     }
 }
 

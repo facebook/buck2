@@ -13,6 +13,7 @@ use std::borrow::Cow;
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::package::source_path::SourcePathRef;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::internal_error;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -20,7 +21,16 @@ use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Label;
+use crate::attrs::arena::fields::Path;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::JsonKey;
@@ -35,6 +45,7 @@ use crate::attrs::arena::semantics::json_label;
 use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::attr_config::source_file_display;
+use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configured_attr::ConfiguredAttr;
 
 #[derive(
@@ -42,6 +53,21 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 )]
 pub struct SourceAttrType {
     pub allow_directory: bool,
+}
+
+impl SchemaKind for kinds::SourceLabel {
+    const KIND: AttrKind = AttrKind::SourceLabel;
+    type Fields = (Label,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (l,): (&'a ProvidersLabel,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::SourceLabel(l)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_source_label(&mut self, l: &ProvidersLabel) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::SourceLabel>(self, (l,))
+    }
 }
 
 impl Semantics for kinds::SourceLabel {
@@ -111,6 +137,21 @@ impl Semantics for kinds::SourceLabel {
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&l.to_string())
+    }
+}
+
+impl SchemaKind for kinds::SourceFile {
+    const KIND: AttrKind = AttrKind::SourceFile;
+    type Fields = (Path,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (p,): (&'a CoercedPath,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::SourceFile(p)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_source_file(&mut self, p: &CoercedPath) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::SourceFile>(self, (p,))
     }
 }
 

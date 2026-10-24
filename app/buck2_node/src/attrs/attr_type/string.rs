@@ -22,7 +22,15 @@ use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Text;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::JsonKey;
@@ -66,6 +74,21 @@ impl AttrDisplayWithContext for StringLiteral {
         } else {
             write!(f, "\"{}\"", self.0)
         }
+    }
+}
+
+impl SchemaKind for kinds::String {
+    const KIND: AttrKind = AttrKind::String;
+    type Fields = (Text,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (s,): (&'a str,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::String(s)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_string(&mut self, s: &str) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::String>(self, (s,))
     }
 }
 

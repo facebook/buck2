@@ -24,7 +24,15 @@ use pagable::Pagable;
 use serde::Serializer;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Label;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::JsonKey;
@@ -150,6 +158,21 @@ impl DepAttrType {
             attr_type: self.dupe(),
             label: configured_label,
         })))
+    }
+}
+
+impl SchemaKind for kinds::Dep {
+    const KIND: AttrKind = AttrKind::Dep;
+    type Fields = (Label,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (l,): (&'a ProvidersLabel,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Dep(l)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_dep(&mut self, l: &ProvidersLabel) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::Dep>(self, (l,))
     }
 }
 

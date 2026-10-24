@@ -25,7 +25,15 @@ use pagable::Pagable;
 use serde::Serializer;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Label;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::JsonKey;
@@ -126,6 +134,24 @@ impl ConfiguredSplitTransitionDep {
             }
         }
         Ok(false)
+    }
+}
+
+impl SchemaKind for kinds::SplitTransitionDep {
+    const KIND: AttrKind = AttrKind::SplitTransitionDep;
+    type Fields = (Label,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (l,): (&'a ProvidersLabel,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::SplitTransitionDep(l)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_split_transition_dep(
+        &mut self,
+        l: &ProvidersLabel,
+    ) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::SplitTransitionDep>(self, (l,))
     }
 }
 

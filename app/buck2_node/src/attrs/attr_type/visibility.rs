@@ -16,7 +16,15 @@ use serde::Serialize;
 use serde::Serializer;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Idx;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::MatchesAny;
@@ -27,11 +35,33 @@ use crate::attrs::arena::semantics::Traverse;
 use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::visibility::VisibilitySpecification;
 
 #[derive(
     Debug, Pagable, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe, StrongHash
 )]
 pub struct VisibilityAttrType;
+
+impl SchemaKind for kinds::Visibility {
+    const KIND: AttrKind = AttrKind::Visibility;
+    type Fields = (Idx<VisibilitySpecification>,);
+
+    fn wrap<'a>(
+        _v: CoercedAttrRef<'a>,
+        (v,): (&'a VisibilitySpecification,),
+    ) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Visibility(v)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_visibility(
+        &mut self,
+        v: &VisibilitySpecification,
+    ) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::Visibility>(self, (v,))
+    }
+}
 
 impl Semantics for kinds::Visibility {
     fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {

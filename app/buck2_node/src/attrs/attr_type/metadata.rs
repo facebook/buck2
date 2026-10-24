@@ -16,7 +16,15 @@ use serde::Serialize;
 use serde::Serializer;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Idx;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::MatchesAny;
@@ -27,11 +35,27 @@ use crate::attrs::arena::semantics::Traverse;
 use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::metadata::map::MetadataMap;
 
 #[derive(
     Debug, Pagable, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe, StrongHash
 )]
 pub struct MetadataAttrType;
+
+impl SchemaKind for kinds::Metadata {
+    const KIND: AttrKind = AttrKind::Metadata;
+    type Fields = (Idx<MetadataMap>,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (m,): (&'a MetadataMap,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Metadata(m)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_metadata(&mut self, m: &MetadataMap) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::Metadata>(self, (m,))
+    }
+}
 
 impl Semantics for kinds::Metadata {
     fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {

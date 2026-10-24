@@ -24,7 +24,17 @@ use serde_json::Value;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::Refs;
+use crate::attrs::arena::Values;
+use crate::attrs::arena::fields::Children;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::MatchesAny;
@@ -116,6 +126,21 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for TupleLiteral<C> {
                 .map(|c| c.to_json(ctx))
                 .collect::<Result<Vec<_>, _>>()?,
         )?)
+    }
+}
+
+impl SchemaKind for kinds::Tuple {
+    const KIND: AttrKind = AttrKind::Tuple;
+    type Fields = (Children,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (items,): (Refs<'a, Values>,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Tuple(items)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_tuple(&mut self, items: &[AttrToken]) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::Tuple>(self, (items,))
     }
 }
 

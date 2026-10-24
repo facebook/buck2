@@ -29,6 +29,7 @@ use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::query_expr::QueryExprRef;
 use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::schema::kinds;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
@@ -143,6 +144,7 @@ impl CoercedAttrArena {
 /// `ArgSimple` record and never reaches here.
 impl Kind for kinds::ArgMacro {
     const KIND: AttrKind = AttrKind::ArgMacro;
+    const STORAGE: Storage = Storage::Record;
     const SCALAR: bool = false;
     type Parts<'a> = ArgPartView<'a>;
 

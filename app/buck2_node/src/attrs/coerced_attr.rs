@@ -28,10 +28,20 @@ use smallvec::SmallVec;
 
 use crate::attrs::arena::AttrRefDisplay;
 use crate::attrs::arena::AttrRefSelectorEntries;
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
 use crate::attrs::arena::Refs;
 use crate::attrs::arena::Values;
+use crate::attrs::arena::fields::Children;
+use crate::attrs::arena::fields::OptChild;
+use crate::attrs::arena::fields::SelectorEntries;
+use crate::attrs::arena::fields::Text;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::ConcatLeaves;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
@@ -148,6 +158,21 @@ pub(crate) fn select_incompatible_to_json(
     ])))
 }
 
+impl SchemaKind for kinds::SelectFail {
+    const KIND: AttrKind = AttrKind::SelectFail;
+    type Fields = (Text,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (message,): (&'a str,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::SelectFail(message)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_select_fail(&mut self, message: &str) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::SelectFail>(self, (message,))
+    }
+}
+
 impl Semantics for kinds::SelectFail {
     fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
@@ -191,6 +216,21 @@ impl Semantics for kinds::SelectFail {
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         select_fail_to_json(m).map_err(ser_err::<S>)?.serialize(ser)
+    }
+}
+
+impl SchemaKind for kinds::SelectIncompatible {
+    const KIND: AttrKind = AttrKind::SelectIncompatible;
+    type Fields = (Text,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (message,): (&'a str,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::SelectIncompatible(message)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_select_incompatible(&mut self, message: &str) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::SelectIncompatible>(self, (message,))
     }
 }
 
@@ -257,6 +297,28 @@ fn select_incompatible<T>(
     ResultMaybeCompatible::Incompatible(ctx.incompatible_platform_reason(
         IncompatiblePlatformReasonCause::SelectIncompatible(ArcStr::from(message)),
     ))
+}
+
+impl SchemaKind for kinds::Selector {
+    const KIND: AttrKind = AttrKind::Selector;
+    type Fields = (SelectorEntries, OptChild);
+
+    fn wrap<'a>(
+        _v: CoercedAttrRef<'a>,
+        (entries, default): (AttrRefSelectorEntries<'a>, Option<CoercedAttrRef<'a>>),
+    ) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Selector { entries, default }
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_selector(
+        &mut self,
+        entries: &[(ConfigurationSettingKey, AttrToken)],
+        default: Option<AttrToken>,
+    ) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::Selector>(self, (entries, default))
+    }
 }
 
 impl Semantics for kinds::Selector {
@@ -400,6 +462,21 @@ impl Semantics for kinds::Selector {
             },
         )?;
         map.end()
+    }
+}
+
+impl SchemaKind for kinds::Concat {
+    const KIND: AttrKind = AttrKind::Concat;
+    type Fields = (Children,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (items,): (Refs<'a, Values>,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Concat(items)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_concat(&mut self, items: &[AttrToken]) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::Concat>(self, (items,))
     }
 }
 

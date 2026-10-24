@@ -33,7 +33,18 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::ArgMacroView;
 use crate::attrs::arena::ArgPartView;
+use crate::attrs::arena::ArgParts;
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::Refs;
+use crate::attrs::arena::fields::ArgChildren;
+use crate::attrs::arena::fields::Text;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::JsonKey;
@@ -492,6 +503,21 @@ impl Display for QueryExpansion {
     }
 }
 
+impl SchemaKind for kinds::ArgSimple {
+    const KIND: AttrKind = AttrKind::ArgSimple;
+    type Fields = (Text,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (s,): (&'a str,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::ArgSimple(s)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_arg_simple(&mut self, s: &str) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::ArgSimple>(self, (s,))
+    }
+}
+
 impl Semantics for kinds::ArgSimple {
     const CONCAT: Option<&'static str> = Some("arg");
 
@@ -548,6 +574,21 @@ impl Semantics for kinds::ArgSimple {
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(s)
+    }
+}
+
+impl SchemaKind for kinds::ArgParts {
+    const KIND: AttrKind = AttrKind::ArgParts;
+    type Fields = (ArgChildren,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (parts,): (Refs<'a, ArgParts>,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Arg(parts)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_arg_parts(&mut self, parts: &[AttrToken]) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::ArgParts>(self, (parts,))
     }
 }
 

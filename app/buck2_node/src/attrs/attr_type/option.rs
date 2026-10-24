@@ -16,7 +16,14 @@ use pagable::Pagable;
 use serde::Serializer;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::MatchesAny;
@@ -40,6 +47,21 @@ impl OptionAttrType {
 
     pub(crate) fn fmt_with_arg(&self, f: &mut fmt::Formatter<'_>, arg: &str) -> fmt::Result {
         write!(f, "attrs.option({}{})", self.inner, arg)
+    }
+}
+
+impl SchemaKind for kinds::None {
+    const KIND: AttrKind = AttrKind::None;
+    type Fields = ();
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (): ()) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::None
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_none(&mut self) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::None>(self, ())
     }
 }
 

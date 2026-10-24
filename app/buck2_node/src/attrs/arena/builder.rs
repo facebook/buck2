@@ -28,8 +28,6 @@ use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::CopyParts;
 use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::schema::dispatch;
-use crate::attrs::arena::schema::encode_kind;
-use crate::attrs::arena::schema::kinds;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
@@ -250,14 +248,6 @@ impl CoercedAttrArenaBuilder {
         let keys_hash = CoercedAttrHash(keys_hasher.finish());
         let r = self.encode_record(AttrKind::SelectorKeys, keys_hash, &key_idxs, &[])?;
         Ok(AttrToken(r, keys_hash))
-    }
-
-    pub fn encode_bool(&mut self, b: bool) -> buck2_error::Result<AttrToken> {
-        if b {
-            encode_kind::<kinds::BoolTrue>(self, ())
-        } else {
-            encode_kind::<kinds::BoolFalse>(self, ())
-        }
     }
 
     pub fn encode_int(&mut self, i: i64) -> buck2_error::Result<AttrToken> {

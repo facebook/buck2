@@ -34,6 +34,7 @@ use crate::attrs::arena::builder::content_hash;
 use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::schema::kinds;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
@@ -79,6 +80,7 @@ pub(super) fn binary_op_from_bits(bits: u32) -> BinaryOp {
 
 impl Kind for kinds::QueryExpr {
     const KIND: AttrKind = AttrKind::QueryExpr;
+    const STORAGE: Storage = Storage::Record;
     const SCALAR: bool = false;
     type Parts<'a> = QueryExprRef<'a>;
 

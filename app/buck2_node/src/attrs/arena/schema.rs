@@ -14,56 +14,34 @@
 use std::hash::Hasher;
 
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::label::label::TargetLabel;
 use strong_hash::StrongHash;
 use strum::FromRepr;
 
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
-use crate::attrs::arena::fields::ArgChildren;
-use crate::attrs::arena::fields::Child;
-use crate::attrs::arena::fields::ChildPairs;
-use crate::attrs::arena::fields::Children;
 use crate::attrs::arena::fields::Cursor;
-use crate::attrs::arena::fields::ExprChild;
 use crate::attrs::arena::fields::FieldList;
 use crate::attrs::arena::fields::IdHasher;
-use crate::attrs::arena::fields::Idx;
-use crate::attrs::arena::fields::Label;
-use crate::attrs::arena::fields::OptChild;
-use crate::attrs::arena::fields::OptLabel;
-use crate::attrs::arena::fields::Path;
 use crate::attrs::arena::fields::RecordWriter;
-use crate::attrs::arena::fields::SelectorEntries;
-use crate::attrs::arena::fields::Target;
-use crate::attrs::arena::fields::Text;
-use crate::attrs::arena::fields::U32;
-use crate::attrs::arena::query_expr::QueryView;
+use crate::attrs::arena::semantics::ValueVisitor;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
+use crate::attrs::arena::storage::INLINE_KIND_MASK;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::TailLen;
 use crate::attrs::arena::view::CoercedAttrRef;
 use crate::attrs::arena::view::CoercedAttrRefKind;
-use crate::attrs::coerced_path::CoercedPath;
-use crate::configuration::resolved::ConfigurationSettingKey;
-use crate::metadata::map::MetadataMap;
-use crate::modifiers::CfgModifiers;
-use crate::visibility::VisibilitySpecification;
-use crate::visibility::WithinViewSpecification;
 
-/// Every kind once: its tag, its storage class, and its fields in order. A
-/// field type says what a head field or the tail *means* (a providers-label
-/// table index, a count plus that many child refs, UTF-8 text), so decoding,
-/// copying between arenas, identity hashing, content equality and the
-/// record's byte layout all derive from this row. `custom` kinds are the
-/// tagged unions inside a record (`ArgMacro`, `QueryExpr`), plus `Int` and
-/// `SelectorKeys`, which implement [`Kind`] by hand.
+/// Every record kind once: its name and tag. Each becomes an [`AttrKind`]
+/// variant, a unit type in [`kinds`] that the kind's trait impls hang off
+/// (its [`SchemaKind`] beside its attribute type, or a hand-written
+/// [`Kind`]), and an arm of the dispatchers. `internal` marks the record
+/// kinds that are never attribute values.
 macro_rules! arena_kinds {
     (
         $(
             $(#[$doc:meta])*
-            $name:ident = $tag:literal : $body:tt ;
+            $name:ident = $tag:literal $(: $internal:ident)? ,
         )*
     ) => {
         /// Record kinds.
@@ -71,16 +49,6 @@ macro_rules! arena_kinds {
         #[repr(u8)]
         pub(crate) enum AttrKind {
             $( $(#[$doc])* $name = $tag, )*
-        }
-
-        impl AttrKind {
-            /// Whether values of this kind are inline leaves (payload in the
-            /// word) rather than records in the buffer.
-            pub(super) fn is_inline(self) -> bool {
-                match self {
-                    $( AttrKind::$name => arena_kinds!(@inline $body), )*
-                }
-            }
         }
 
         /// Each kind as a type, for [`Kind`] impls and [`dispatch`].
@@ -95,195 +63,83 @@ macro_rules! arena_kinds {
             }
         }
 
-        $( arena_kinds!(@impl $name $body); )*
-    };
-    (@inline { inline $($rest:tt)* }) => { true };
-    (@inline { record $($rest:tt)* }) => { false };
-    (@inline { text $($rest:tt)* }) => { false };
-    (@inline { custom inline }) => { true };
-    (@inline { custom record }) => { false };
-    (@impl $name:ident { custom $storage:ident }) => {};
-    (@impl $name:ident {
-        $storage:ident ($($fname:ident : $f:ty = $spec:ty),* $(,)?) $(as $enc:ident)? => |$v:ident| $wrap:expr
-    }) => {
-        impl SchemaKind for kinds::$name {
-            const KIND: AttrKind = AttrKind::$name;
-            const STORAGE: Storage = arena_kinds!(@storage $storage);
-            type Fields = ($($f,)*);
-            #[allow(unused_variables)]
-            fn wrap<'a>(
-                $v: CoercedAttrRef<'a>,
-                ($($fname,)*): <($($f,)*) as FieldList>::View<'a>,
-            ) -> CoercedAttrRefKind<'a> {
-                $wrap
-            }
-        }
-
-        arena_kinds!(@encoder $name ($($fname : $spec),*) $($enc)?);
-    };
-    (@encoder $name:ident ($($fname:ident : $spec:ty),*)) => {};
-    (@encoder $name:ident ($($fname:ident : $spec:ty),*) $enc:ident) => {
-        impl CoercedAttrArenaBuilder {
-            /// Encode one value of this kind from its parts; children are
-            /// tokens this builder minted.
-            pub fn $enc(
-                &mut self,
-                $($fname: $spec),*
-            ) -> buck2_error::Result<AttrToken> {
-                encode_kind::<kinds::$name>(self, ($($fname,)*))
+        /// Runs `v` for the [`Semantics`] type of `kind`, which must be an
+        /// attribute value kind.
+        pub(super) fn dispatch_value<V: ValueVisitor>(kind: AttrKind, v: V) -> V::Out {
+            match kind {
+                $( AttrKind::$name => arena_kinds!(@value v $name $($internal)?), )*
             }
         }
     };
-    (@storage inline) => { Storage::Inline };
-    (@storage record) => { Storage::Record };
-    (@storage text) => { Storage::Text };
+    (@value $v:ident $name:ident internal) => {
+        unreachable!("not an attribute value: {:?}", AttrKind::$name)
+    };
+    (@value $v:ident $name:ident) => {
+        $v.visit::<kinds::$name>()
+    };
 }
 
 arena_kinds! {
-    None = 0: { inline () as encode_none => |_v| CoercedAttrRefKind::None };
+    None = 0,
     /// `encode_bool` picks the kind.
-    BoolFalse = 1: { inline () => |_v| CoercedAttrRefKind::Bool(false) };
-    BoolTrue = 2: { inline () => |_v| CoercedAttrRefKind::Bool(true) };
+    BoolFalse = 1,
+    BoolTrue = 2,
     /// Inline as a 26-bit sign-extended payload when it fits; otherwise a
     /// record with head `[lo, hi]`: the zigzag-encoded value in 32-bit halves.
-    Int = 3: { custom record };
-    WithinView = 4: {
-        inline (
-            v: Idx<WithinViewSpecification> = &WithinViewSpecification,
-        ) as encode_within_view
-            => |_v| CoercedAttrRefKind::WithinView(v)
-    };
-    String = 5: { text (s: Text = &str) as encode_string => |_v| CoercedAttrRefKind::String(s) };
-    EnumVariant = 6: {
-        text (s: Text = &str) as encode_enum_variant
-            => |_v| CoercedAttrRefKind::EnumVariant(s)
-    };
-    List = 7: {
-        record (items: Children = &[AttrToken]) as encode_list
-            => |_v| CoercedAttrRefKind::List(items)
-    };
-    Tuple = 8: {
-        record (items: Children = &[AttrToken]) as encode_tuple
-            => |_v| CoercedAttrRefKind::Tuple(items)
-    };
-    Dict = 9: {
-        record (pairs: ChildPairs = &[(AttrToken, AttrToken)]) as encode_dict
-            => |_v| CoercedAttrRefKind::Dict(pairs)
-    };
-    Selector = 10: {
-        record (
-            entries: SelectorEntries = &[(ConfigurationSettingKey, AttrToken)],
-            default: OptChild = Option<AttrToken>,
-        ) as encode_selector
-            => |_v| CoercedAttrRefKind::Selector { entries, default }
-    };
-    Concat = 11: {
-        record (items: Children = &[AttrToken]) as encode_concat
-            => |_v| CoercedAttrRefKind::Concat(items)
-    };
-    OneOf = 12: {
-        record (
-            idx: U32 = u32,
-            inner: Child = AttrToken,
-        ) as encode_one_of
-            => |_v| CoercedAttrRefKind::OneOf(inner, idx)
-    };
-    Dep = 13: {
-        inline (l: Label = &ProvidersLabel) as encode_dep
-            => |_v| CoercedAttrRefKind::Dep(l)
-    };
-    Label = 14: {
-        inline (l: Label = &ProvidersLabel) as encode_label
-            => |_v| CoercedAttrRefKind::Label(l)
-    };
-    SourceLabel = 15: {
-        inline (l: Label = &ProvidersLabel) as encode_source_label
-            => |_v| CoercedAttrRefKind::SourceLabel(l)
-    };
-    ConfigurationDep = 16: {
-        inline (l: Label = &ProvidersLabel) as encode_configuration_dep
-            => |_v| CoercedAttrRefKind::ConfigurationDep(l)
-    };
-    SplitTransitionDep = 17: {
-        inline (l: Label = &ProvidersLabel) as encode_split_transition_dep
-            => |_v| CoercedAttrRefKind::SplitTransitionDep(l)
-    };
-    PluginDep = 18: {
-        inline (l: Target = &TargetLabel) as encode_plugin_dep
-            => |_v| CoercedAttrRefKind::PluginDep(l)
-    };
-    SourceFile = 19: {
-        inline (p: Path = &CoercedPath) as encode_source_file
-            => |_v| CoercedAttrRefKind::SourceFile(p)
-    };
-    Visibility = 20: {
-        inline (
-            v: Idx<VisibilitySpecification> = &VisibilitySpecification,
-        ) as encode_visibility
-            => |_v| CoercedAttrRefKind::Visibility(v)
-    };
+    Int = 3,
+    WithinView = 4,
+    String = 5,
+    EnumVariant = 6,
+    List = 7,
+    Tuple = 8,
+    Dict = 9,
+    Selector = 10,
+    Concat = 11,
+    OneOf = 12,
+    Dep = 13,
+    Label = 14,
+    SourceLabel = 15,
+    ConfigurationDep = 16,
+    SplitTransitionDep = 17,
+    PluginDep = 18,
+    SourceFile = 19,
+    Visibility = 20,
     /// `Arg` with no macros (`StringWithMacros::StringPart`) -- most `Arg`
     /// values in real graphs contain no macros.
-    ArgSimple = 21: {
-        text (s: Text = &str) as encode_arg_simple
-            => |_v| CoercedAttrRefKind::ArgSimple(s)
-    };
+    ArgSimple = 21,
     /// Head: `[n, idx...]`: `n` providers-label table indices, a selector's
     /// key set. Never appears as an attribute value ref.
-    SelectorKeys = 22: { custom record };
+    SelectorKeys = 22: internal,
     /// Parts are `ArgSimple` or `ArgMacro` records.
-    ArgParts = 23: {
-        record (parts: ArgChildren = &[AttrToken]) as encode_arg_parts
-            => |_v| CoercedAttrRefKind::Arg(parts)
-    };
+    ArgParts = 23,
     /// Head: `[header, payload index, n]`; refs: `n` per the header's
     /// variant tag. Never appears as an attribute value ref.
-    ArgMacro = 24: { custom record };
+    ArgMacro = 24: internal,
     /// Head: `[subtag, nv, nv values, n]`; refs: `n` per `Q_EXPR_*`. Encodes
     /// the parsed form of a query macro's expression; target literals are
     /// label table indices, text is shared text records. Never appears as
     /// an attribute value ref.
-    QueryExpr = 25: { custom record };
+    QueryExpr = 25: internal,
     /// The parsed form of an `attrs.query()` value.
-    Query = 26: {
-        record (expr: ExprChild = AttrToken) as encode_parsed_query
-            => |v| CoercedAttrRefKind::Query(QueryView { arena: v.arena, r: v.r })
-    };
+    Query = 26,
     /// A `select_fail()` / `select_incompatible()` leaf holding the message.
-    SelectFail = 27: {
-        text (message: Text = &str) as encode_select_fail
-            => |_v| CoercedAttrRefKind::SelectFail(message)
-    };
-    SelectIncompatible = 28: {
-        text (message: Text = &str) as encode_select_incompatible
-            => |_v| CoercedAttrRefKind::SelectIncompatible(message)
-    };
+    SelectFail = 27,
+    SelectIncompatible = 28,
     /// An `attrs.configured_dep()` value.
-    ExplicitConfiguredDep = 29: {
-        record (
-            label: Label = &ProvidersLabel,
-            platform: Target = &TargetLabel,
-        ) as encode_explicit_configured_dep
-            => |_v| CoercedAttrRefKind::ExplicitConfiguredDep { label, platform }
-    };
+    ExplicitConfiguredDep = 29,
     /// The dynamic transition target is absent when the attr type fixes the
     /// transition.
-    TransitionDep = 30: {
-        record (
-            dep: Label = &ProvidersLabel,
-            transition: OptLabel = Option<&ProvidersLabel>,
-        ) as encode_transition_dep
-            => |_v| CoercedAttrRefKind::TransitionDep { dep, transition }
-    };
-    Modifiers = 31: {
-        inline (m: Idx<CfgModifiers> = &CfgModifiers) as encode_target_modifiers
-            => |_v| CoercedAttrRefKind::Modifiers(m)
-    };
-    /// A record, not an inline leaf: the tag does not fit the inline kind bits.
-    Metadata = 32: {
-        record (m: Idx<MetadataMap> = &MetadataMap) as encode_metadata
-            => |_v| CoercedAttrRefKind::Metadata(m)
-    };
+    TransitionDep = 30,
+    Modifiers = 31,
+    Metadata = 32,
+}
+
+impl AttrKind {
+    /// Whether values of this kind are inline leaves (payload in the
+    /// word) rather than records in the buffer.
+    pub(super) fn is_inline(self) -> bool {
+        dispatch(self, IsInline)
+    }
 }
 
 impl AttrKind {
@@ -306,12 +162,36 @@ pub(crate) enum Storage {
     Text,
 }
 
+pub(crate) const fn storage_class(
+    kind: AttrKind,
+    has_text: bool,
+    head: u32,
+    has_refs: bool,
+) -> Storage {
+    if has_text {
+        Storage::Text
+    } else if !has_refs && head <= 1 && (kind as u32) <= INLINE_KIND_MASK {
+        Storage::Inline
+    } else {
+        Storage::Record
+    }
+}
+
 /// A kind whose values are a sequence of typed fields: everything about it
 /// derives from the field list.
 pub(crate) trait SchemaKind: 'static {
     const KIND: AttrKind;
-    const STORAGE: Storage;
     type Fields: FieldList;
+    /// How values are stored follows from the fields and the tag: a text
+    /// tail makes a text record; no tail and at most one head field fit the
+    /// word, if the tag fits the word's kind bits; anything else is a
+    /// record.
+    const STORAGE: Storage = storage_class(
+        Self::KIND,
+        <Self::Fields as FieldList>::HAS_TEXT,
+        <Self::Fields as FieldList>::HEAD,
+        <Self::Fields as FieldList>::HAS_REFS,
+    );
     /// The public view case for decoded fields.
     fn wrap<'a>(
         v: CoercedAttrRef<'a>,
@@ -325,6 +205,7 @@ pub(crate) trait SchemaKind: 'static {
 /// the record-internal tagged unions implement it by hand.
 pub(crate) trait Kind {
     const KIND: AttrKind;
+    const STORAGE: Storage;
     /// Whether values hold no deps: no labels, paths or children, so
     /// traversals have nothing to visit.
     const SCALAR: bool;
@@ -352,6 +233,7 @@ pub(crate) trait Kind {
 
 impl<K: SchemaKind> Kind for K {
     const KIND: AttrKind = K::KIND;
+    const STORAGE: Storage = K::STORAGE;
     const SCALAR: bool = !<K::Fields as FieldList>::DEPS;
     type Parts<'a> = <K::Fields as FieldList>::View<'a>;
 
@@ -390,7 +272,7 @@ impl<K: SchemaKind> Kind for K {
 }
 
 /// Encode a schema kind's value from its field specs.
-pub(super) fn encode_kind<K: SchemaKind>(
+pub(crate) fn encode_kind<K: SchemaKind>(
     b: &mut CoercedAttrArenaBuilder,
     spec: <K::Fields as FieldList>::Spec<'_>,
 ) -> buck2_error::Result<AttrToken> {
@@ -410,6 +292,7 @@ pub(super) trait KindVisitor {
 /// zigzag value in 32-bit halves; one kind either way.
 impl Kind for kinds::Int {
     const KIND: AttrKind = AttrKind::Int;
+    const STORAGE: Storage = Storage::Record;
     const SCALAR: bool = true;
     type Parts<'a> = i64;
 
@@ -458,6 +341,7 @@ impl<'a> KeysParts<'a> {
 
 impl Kind for kinds::SelectorKeys {
     const KIND: AttrKind = AttrKind::SelectorKeys;
+    const STORAGE: Storage = Storage::Record;
     const SCALAR: bool = false;
     type Parts<'a> = KeysParts<'a>;
 
@@ -494,6 +378,16 @@ impl Kind for kinds::SelectorKeys {
 
     fn same(a: KeysParts<'_>, b: KeysParts<'_>) -> bool {
         a.keys.len() == b.keys.len() && a.iter().zip(b.iter()).all(|(x, y)| x == y)
+    }
+}
+
+/// [`AttrKind::is_inline`].
+pub(super) struct IsInline;
+
+impl KindVisitor for IsInline {
+    type Out = bool;
+    fn visit<K: Kind + 'static>(self) -> bool {
+        matches!(K::STORAGE, Storage::Inline)
     }
 }
 

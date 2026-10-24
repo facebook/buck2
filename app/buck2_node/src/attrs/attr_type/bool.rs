@@ -22,7 +22,14 @@ use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::MatchesAny;
@@ -79,6 +86,25 @@ impl AnyMatches for BoolLiteral {
     }
 }
 
+impl CoercedAttrArenaBuilder {
+    pub fn encode_bool(&mut self, b: bool) -> buck2_error::Result<AttrToken> {
+        if b {
+            encode_kind::<kinds::BoolTrue>(self, ())
+        } else {
+            encode_kind::<kinds::BoolFalse>(self, ())
+        }
+    }
+}
+
+impl SchemaKind for kinds::BoolFalse {
+    const KIND: AttrKind = AttrKind::BoolFalse;
+    type Fields = ();
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (): ()) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Bool(false)
+    }
+}
+
 impl Semantics for kinds::BoolFalse {
     fn traverse<'a>((): Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
@@ -123,6 +149,15 @@ impl Semantics for kinds::BoolFalse {
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_bool(false)
+    }
+}
+
+impl SchemaKind for kinds::BoolTrue {
+    const KIND: AttrKind = AttrKind::BoolTrue;
+    type Fields = ();
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (): ()) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::Bool(true)
     }
 }
 

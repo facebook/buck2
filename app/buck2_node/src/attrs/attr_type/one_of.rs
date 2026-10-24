@@ -19,7 +19,16 @@ use pagable::Pagable;
 use serde::Serializer;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Child;
+use crate::attrs::arena::fields::U32;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::JsonKey;
@@ -66,6 +75,24 @@ impl OneOfAttrType {
         self.xs
             .get(i as usize)
             .with_internal_error(|| format!("Oneof index ({i}) out of bounds (internal error)"))
+    }
+}
+
+impl SchemaKind for kinds::OneOf {
+    const KIND: AttrKind = AttrKind::OneOf;
+    type Fields = (U32, Child);
+
+    fn wrap<'a>(
+        _v: CoercedAttrRef<'a>,
+        (idx, inner): (u32, CoercedAttrRef<'a>),
+    ) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::OneOf(inner, idx)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_one_of(&mut self, idx: u32, inner: AttrToken) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::OneOf>(self, (idx, inner))
     }
 }
 

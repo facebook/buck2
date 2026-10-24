@@ -22,7 +22,15 @@ use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Text;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::JsonKey;
@@ -88,6 +96,21 @@ impl EnumAttrType {
             write!(f, "{x:?}")?;
         }
         write!(f, "]{arg})")
+    }
+}
+
+impl SchemaKind for kinds::EnumVariant {
+    const KIND: AttrKind = AttrKind::EnumVariant;
+    type Fields = (Text,);
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, (s,): (&'a str,)) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::EnumVariant(s)
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_enum_variant(&mut self, s: &str) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::EnumVariant>(self, (s,))
     }
 }
 

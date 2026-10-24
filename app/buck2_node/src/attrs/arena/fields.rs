@@ -193,6 +193,11 @@ impl Part {
 pub(crate) trait Field {
     /// Whether the field can hold a dep: a label, a path or a child.
     const DEPS: bool;
+    /// What the field occupies, statically: head fields, whether it adds
+    /// refs to the tail, whether it is the text tail.
+    const HEAD: u32;
+    const HAS_REFS: bool;
+    const HAS_TEXT: bool;
     /// Decoded form, borrowed from the arena.
     type View<'a>: Copy;
     /// Input form for encoding: leaf values by reference, children as
@@ -219,6 +224,9 @@ pub(crate) trait Field {
 /// A kind's fields as a tuple.
 pub(crate) trait FieldList {
     const DEPS: bool;
+    const HEAD: u32;
+    const HAS_REFS: bool;
+    const HAS_TEXT: bool;
     type View<'a>: Copy;
     type Spec<'s>: Copy;
     fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)>;
@@ -247,6 +255,9 @@ pub(crate) fn tail_len(refs: Option<u32>, text: Option<u32>) -> TailLen {
 
 impl FieldList for () {
     const DEPS: bool = false;
+    const HEAD: u32 = 0;
+    const HAS_REFS: bool = false;
+    const HAS_TEXT: bool = false;
     type View<'a> = ();
     type Spec<'s> = ();
 
@@ -283,6 +294,9 @@ macro_rules! field_tuples {
     ($( ($($F:ident $a:ident $b:ident),+) ;)*) => { $(
         impl<$($F: Field),+> FieldList for ($($F,)+) {
             const DEPS: bool = $($F::DEPS)||+;
+            const HEAD: u32 = 0 $(+ $F::HEAD)+;
+            const HAS_REFS: bool = $($F::HAS_REFS)||+;
+            const HAS_TEXT: bool = $($F::HAS_TEXT)||+;
             type View<'a> = ($($F::View<'a>,)+);
             type Spec<'s> = ($($F::Spec<'s>,)+);
 
@@ -452,6 +466,9 @@ pub(crate) type Path = Idx<CoercedPath>;
 
 impl<T: Interned> Field for Idx<T> {
     const DEPS: bool = T::DEPS;
+    const HEAD: u32 = 1;
+    const HAS_REFS: bool = false;
+    const HAS_TEXT: bool = false;
     type View<'a> = &'a T;
     type Spec<'s> = &'s T;
 
@@ -496,6 +513,9 @@ pub(crate) struct OptLabel;
 
 impl Field for OptLabel {
     const DEPS: bool = true;
+    const HEAD: u32 = 1;
+    const HAS_REFS: bool = false;
+    const HAS_TEXT: bool = false;
     type View<'a> = Option<&'a ProvidersLabel>;
     type Spec<'s> = Option<&'s ProvidersLabel>;
 
@@ -549,6 +569,9 @@ pub(crate) struct U32;
 
 impl Field for U32 {
     const DEPS: bool = false;
+    const HEAD: u32 = 1;
+    const HAS_REFS: bool = false;
+    const HAS_TEXT: bool = false;
     type View<'a> = u32;
     type Spec<'s> = u32;
 
@@ -593,6 +616,9 @@ pub(crate) struct Text;
 
 impl Field for Text {
     const DEPS: bool = false;
+    const HEAD: u32 = 1;
+    const HAS_REFS: bool = false;
+    const HAS_TEXT: bool = true;
     type View<'a> = &'a str;
     type Spec<'s> = &'s str;
 
@@ -639,6 +665,9 @@ pub(crate) struct Child;
 
 impl Field for Child {
     const DEPS: bool = true;
+    const HEAD: u32 = 0;
+    const HAS_REFS: bool = true;
+    const HAS_TEXT: bool = false;
     type View<'a> = CoercedAttrRef<'a>;
     type Spec<'s> = AttrToken;
 
@@ -690,6 +719,9 @@ pub(crate) struct OptChild;
 
 impl Field for OptChild {
     const DEPS: bool = true;
+    const HEAD: u32 = 0;
+    const HAS_REFS: bool = true;
+    const HAS_TEXT: bool = false;
     type View<'a> = Option<CoercedAttrRef<'a>>;
     type Spec<'s> = Option<AttrToken>;
 
@@ -752,6 +784,9 @@ pub(crate) type ArgChildren = ChildrenOf<ArgParts>;
 
 impl<T: RefItem + 'static> Field for ChildrenOf<T> {
     const DEPS: bool = true;
+    const HEAD: u32 = 1;
+    const HAS_REFS: bool = true;
+    const HAS_TEXT: bool = false;
     type View<'a> = Refs<'a, T>;
     type Spec<'s> = &'s T::Spec;
 
@@ -820,6 +855,9 @@ pub(crate) struct SelectorEntries;
 
 impl Field for SelectorEntries {
     const DEPS: bool = true;
+    const HEAD: u32 = 1;
+    const HAS_REFS: bool = true;
+    const HAS_TEXT: bool = false;
     type View<'a> = AttrRefSelectorEntries<'a>;
     type Spec<'s> = &'s [(ConfigurationSettingKey, AttrToken)];
 
@@ -899,6 +937,9 @@ pub(crate) struct ExprChild;
 
 impl Field for ExprChild {
     const DEPS: bool = true;
+    const HEAD: u32 = 0;
+    const HAS_REFS: bool = true;
+    const HAS_TEXT: bool = false;
     type View<'a> = QueryExprRef<'a>;
     type Spec<'s> = AttrToken;
 

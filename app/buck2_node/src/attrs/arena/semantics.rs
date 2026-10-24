@@ -26,9 +26,7 @@ use serde_json::to_value;
 use smallvec::SmallVec;
 
 use crate::attrs::arena::query_expr::QueryView;
-use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::Kind;
-use crate::attrs::arena::schema::kinds;
 use crate::attrs::arena::view::AttrRefDisplay;
 use crate::attrs::arena::view::AttrRefSerialize;
 use crate::attrs::arena::view::CoercedAttrRef;
@@ -194,44 +192,6 @@ pub(crate) fn query_view(v: CoercedAttrRef<'_>) -> QueryView<'_> {
 pub(super) trait ValueVisitor {
     type Out;
     fn visit<K: Semantics + 'static>(self) -> Self::Out;
-}
-
-pub(super) fn dispatch_value<V: ValueVisitor>(kind: AttrKind, v: V) -> V::Out {
-    match kind {
-        AttrKind::None => v.visit::<kinds::None>(),
-        AttrKind::BoolFalse => v.visit::<kinds::BoolFalse>(),
-        AttrKind::BoolTrue => v.visit::<kinds::BoolTrue>(),
-        AttrKind::Int => v.visit::<kinds::Int>(),
-        AttrKind::WithinView => v.visit::<kinds::WithinView>(),
-        AttrKind::String => v.visit::<kinds::String>(),
-        AttrKind::EnumVariant => v.visit::<kinds::EnumVariant>(),
-        AttrKind::List => v.visit::<kinds::List>(),
-        AttrKind::Tuple => v.visit::<kinds::Tuple>(),
-        AttrKind::Dict => v.visit::<kinds::Dict>(),
-        AttrKind::Selector => v.visit::<kinds::Selector>(),
-        AttrKind::Concat => v.visit::<kinds::Concat>(),
-        AttrKind::OneOf => v.visit::<kinds::OneOf>(),
-        AttrKind::Dep => v.visit::<kinds::Dep>(),
-        AttrKind::Label => v.visit::<kinds::Label>(),
-        AttrKind::SourceLabel => v.visit::<kinds::SourceLabel>(),
-        AttrKind::ConfigurationDep => v.visit::<kinds::ConfigurationDep>(),
-        AttrKind::SplitTransitionDep => v.visit::<kinds::SplitTransitionDep>(),
-        AttrKind::PluginDep => v.visit::<kinds::PluginDep>(),
-        AttrKind::SourceFile => v.visit::<kinds::SourceFile>(),
-        AttrKind::Visibility => v.visit::<kinds::Visibility>(),
-        AttrKind::ArgSimple => v.visit::<kinds::ArgSimple>(),
-        AttrKind::ArgParts => v.visit::<kinds::ArgParts>(),
-        AttrKind::Query => v.visit::<kinds::Query>(),
-        AttrKind::SelectFail => v.visit::<kinds::SelectFail>(),
-        AttrKind::SelectIncompatible => v.visit::<kinds::SelectIncompatible>(),
-        AttrKind::ExplicitConfiguredDep => v.visit::<kinds::ExplicitConfiguredDep>(),
-        AttrKind::TransitionDep => v.visit::<kinds::TransitionDep>(),
-        AttrKind::Modifiers => v.visit::<kinds::Modifiers>(),
-        AttrKind::Metadata => v.visit::<kinds::Metadata>(),
-        AttrKind::SelectorKeys | AttrKind::ArgMacro | AttrKind::QueryExpr => {
-            unreachable!("not an attribute value: {kind:?}")
-        }
-    }
 }
 
 /// `String` and `EnumVariant` render alike.

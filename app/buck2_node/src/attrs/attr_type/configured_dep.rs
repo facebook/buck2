@@ -22,7 +22,16 @@ use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Label;
+use crate::attrs::arena::fields::Target;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::MatchesAny;
@@ -131,6 +140,28 @@ impl ConfiguredExplicitConfiguredDep {
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {
         traversal.dep(&self.label)
+    }
+}
+
+impl SchemaKind for kinds::ExplicitConfiguredDep {
+    const KIND: AttrKind = AttrKind::ExplicitConfiguredDep;
+    type Fields = (Label, Target);
+
+    fn wrap<'a>(
+        _v: CoercedAttrRef<'a>,
+        (label, platform): (&'a ProvidersLabel, &'a TargetLabel),
+    ) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::ExplicitConfiguredDep { label, platform }
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_explicit_configured_dep(
+        &mut self,
+        label: &ProvidersLabel,
+        platform: &TargetLabel,
+    ) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::ExplicitConfiguredDep>(self, (label, platform))
     }
 }
 

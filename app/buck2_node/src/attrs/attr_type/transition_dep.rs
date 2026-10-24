@@ -27,7 +27,16 @@ use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrToken;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::CoercedAttrRefKind;
+use crate::attrs::arena::fields::Label;
+use crate::attrs::arena::fields::OptLabel;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
 use crate::attrs::arena::semantics::Fmt;
 use crate::attrs::arena::semantics::MatchesAny;
@@ -174,6 +183,28 @@ impl CoercedTransitionDep {
             TransitionId::Target(t) => Some(t),
             TransitionId::MagicObject { .. } => unreachable!(),
         }
+    }
+}
+
+impl SchemaKind for kinds::TransitionDep {
+    const KIND: AttrKind = AttrKind::TransitionDep;
+    type Fields = (Label, OptLabel);
+
+    fn wrap<'a>(
+        _v: CoercedAttrRef<'a>,
+        (dep, transition): (&'a ProvidersLabel, Option<&'a ProvidersLabel>),
+    ) -> CoercedAttrRefKind<'a> {
+        CoercedAttrRefKind::TransitionDep { dep, transition }
+    }
+}
+
+impl CoercedAttrArenaBuilder {
+    pub fn encode_transition_dep(
+        &mut self,
+        dep: &ProvidersLabel,
+        transition: Option<&ProvidersLabel>,
+    ) -> buck2_error::Result<AttrToken> {
+        encode_kind::<kinds::TransitionDep>(self, (dep, transition))
     }
 }
 
