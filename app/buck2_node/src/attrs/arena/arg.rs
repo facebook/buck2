@@ -433,6 +433,33 @@ impl<'a> ArgPartView<'a> {
     }
 }
 
+/// A macro's content as its record stores it: labels and paths by
+/// reference, nested text as text, the query expression already encoded.
+/// Both the parsed and the decoded form of a macro convert to this, so the
+/// record layout and its content hash are defined once.
+enum MacroParts<'a> {
+    Location {
+        label: &'a ProvidersLabel,
+        dep_kind: MacroDepKind,
+    },
+    Exe {
+        label: &'a ProvidersLabel,
+        exec_dep: bool,
+    },
+    UserUnkeyedPlaceholder(&'a str),
+    UserKeyedPlaceholder {
+        var: &'a str,
+        label: &'a ProvidersLabel,
+        arg: Option<&'a str>,
+    },
+    Source(&'a CoercedPath),
+    Query {
+        expr: AttrToken,
+        expansion: u32,
+        sep: Option<&'a str>,
+    },
+}
+
 impl CoercedAttrArenaBuilder {
     /// Encode an `arg()` value: simple text and macros as records.
     pub fn encode_arg(
@@ -451,101 +478,6 @@ impl CoercedAttrArenaBuilder {
         }
     }
 
-    /// [`Self::encode_arg_part`] from a decoded part: the same records and
-    /// the same hashes, so copies dedup against parsed originals.
-    pub(super) fn encode_arg_part_view(
-        &mut self,
-        part: ArgPartView<'_>,
-    ) -> buck2_error::Result<AttrToken> {
-        let (write_to_file, mac) = match part {
-            ArgPartView::String(s) => return self.encode_str(AttrKind::ArgSimple, s),
-            ArgPartView::Macro { write_to_file, mac } => (write_to_file, mac),
-        };
-        let wtf_bit = if write_to_file { ARG_MACRO_WTF_BIT } else { 0 };
-        let (tag, flag, payload, refs, hash_parts): (
-            u32,
-            u32,
-            u32,
-            SmallVec<[AttrWord; 2]>,
-            SmallVec<[u64; 3]>,
-        ) = match mac {
-            ArgMacroView::Location { label, dep_kind } => {
-                let (idx, lh) = self.providers_label_idx_and_hash(label);
-                (
-                    ARG_MACRO_TAG_LOCATION,
-                    dep_kind_bits(dep_kind),
-                    idx,
-                    smallvec![],
-                    smallvec![lh],
-                )
-            }
-            ArgMacroView::Exe { label, exec_dep } => {
-                let (idx, lh) = self.providers_label_idx_and_hash(label);
-                (
-                    ARG_MACRO_TAG_EXE,
-                    exec_dep as u32,
-                    idx,
-                    smallvec![],
-                    smallvec![lh],
-                )
-            }
-            ArgMacroView::UserUnkeyedPlaceholder(name) => {
-                let AttrToken(sr, sh) = self.encode_str(AttrKind::String, name)?;
-                (ARG_MACRO_TAG_UNKEYED, 0, 0, smallvec![sr], smallvec![sh.0])
-            }
-            ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
-                let AttrToken(vr, vh) = self.encode_str(AttrKind::String, var)?;
-                let (idx, lh) = self.providers_label_idx_and_hash(label);
-                let mut refs: SmallVec<[AttrWord; 2]> = smallvec![vr];
-                let mut parts: SmallVec<[u64; 3]> = smallvec![vh.0, lh];
-                let mut flag = 0;
-                if let Some(a) = arg {
-                    let AttrToken(ar, ah) = self.encode_str(AttrKind::String, a)?;
-                    refs.push(ar);
-                    parts.push(ah.0);
-                    flag = 1;
-                }
-                (ARG_MACRO_TAG_KEYED, flag, idx, refs, parts)
-            }
-            ArgMacroView::Source(path) => {
-                let (idx, path_hash) = self.source_path_idx_and_hash(path);
-                (
-                    ARG_MACRO_TAG_SOURCE,
-                    0,
-                    idx,
-                    smallvec![],
-                    smallvec![path_hash],
-                )
-            }
-            ArgMacroView::Query(q) => {
-                let AttrToken(er, eh) = self.encode_query_expr_view(q.expr())?;
-                let (expansion, sep) = q.expansion_parts();
-                let mut refs: SmallVec<[AttrWord; 2]> = smallvec![er];
-                let (sep_hash, sep_flag) = match sep {
-                    Some(sp) => {
-                        let AttrToken(sr, sh) = self.encode_str(AttrKind::String, sp)?;
-                        refs.push(sr);
-                        (Some(sh), ARG_QUERY_HAS_SEP)
-                    }
-                    None => (None, 0),
-                };
-                let flags = expansion | sep_flag;
-                let hash = content_hash(AttrKind::ArgMacro, |h| {
-                    (ARG_MACRO_TAG_QUERY, flags, write_to_file, eh, sep_hash).hash(h)
-                });
-                let head = self.arg_macro_head(ARG_MACRO_TAG_QUERY, flags, wtf_bit, 0, refs.len());
-                let r = self.encode_record(AttrKind::ArgMacro, hash, &head, &refs)?;
-                return Ok(AttrToken(r, hash));
-            }
-        };
-        let hash = content_hash(AttrKind::ArgMacro, |h| {
-            (tag, flag, write_to_file, &hash_parts).hash(h)
-        });
-        let head = self.arg_macro_head(tag, flag, wtf_bit, payload, refs.len());
-        let r = self.encode_record(AttrKind::ArgMacro, hash, &head, &refs)?;
-        Ok(AttrToken(r, hash))
-    }
-
     /// Encode one arg part: string parts are `ArgSimple` text records;
     /// macro parts dedup as `ArgMacro` records with labels in the label
     /// table.
@@ -557,42 +489,115 @@ impl CoercedAttrArenaBuilder {
             StringWithMacrosPart::String(s) => return self.encode_str(AttrKind::ArgSimple, s),
             StringWithMacrosPart::Macro(write_to_file, m) => (*write_to_file, m),
         };
-        let wtf_bit = if write_to_file { ARG_MACRO_WTF_BIT } else { 0 };
-        // Every record hashes the same shape — (tag, flag, write_to_file,
-        // components) — and lays out `[header, payload, n, refs...]`; the
-        // arms only extract their components.
+        let parts = match m {
+            MacroBase::Location { label, dep_kind } => MacroParts::Location {
+                label,
+                dep_kind: *dep_kind,
+            },
+            MacroBase::Exe { label, exec_dep } => MacroParts::Exe {
+                label,
+                exec_dep: *exec_dep,
+            },
+            MacroBase::UserUnkeyedPlaceholder(name) => MacroParts::UserUnkeyedPlaceholder(name),
+            MacroBase::UserKeyedPlaceholder(box (var, label, arg)) => {
+                MacroParts::UserKeyedPlaceholder {
+                    var,
+                    label,
+                    arg: arg.as_deref(),
+                }
+            }
+            MacroBase::Source(path) => MacroParts::Source(path),
+            MacroBase::Query(q) => {
+                let parsed = buck2_query_parser::parse_expr(&q.query.query)?;
+                let expr =
+                    self.encode_query_expr(&parsed, &q.query.query, &q.query.resolved_literals)?;
+                let (expansion, sep) = match &q.expansion_type {
+                    QueryExpansion::Output => (ARG_QUERY_EXPANSION_OUTPUT, None),
+                    QueryExpansion::Target => (ARG_QUERY_EXPANSION_TARGET, None),
+                    QueryExpansion::TargetAndOutput(sep) => {
+                        (ARG_QUERY_EXPANSION_TARGET_AND_OUTPUT, sep.as_deref())
+                    }
+                };
+                MacroParts::Query {
+                    expr,
+                    expansion,
+                    sep,
+                }
+            }
+        };
+        self.encode_macro(write_to_file, parts)
+    }
+
+    /// [`Self::encode_arg_part`] from a decoded part: the same records and
+    /// the same hashes, so copies dedup against parsed originals.
+    pub(super) fn encode_arg_part_view(
+        &mut self,
+        part: ArgPartView<'_>,
+    ) -> buck2_error::Result<AttrToken> {
+        let (write_to_file, mac) = match part {
+            ArgPartView::String(s) => return self.encode_str(AttrKind::ArgSimple, s),
+            ArgPartView::Macro { write_to_file, mac } => (write_to_file, mac),
+        };
+        let parts = match mac {
+            ArgMacroView::Location { label, dep_kind } => MacroParts::Location { label, dep_kind },
+            ArgMacroView::Exe { label, exec_dep } => MacroParts::Exe { label, exec_dep },
+            ArgMacroView::UserUnkeyedPlaceholder(name) => MacroParts::UserUnkeyedPlaceholder(name),
+            ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
+                MacroParts::UserKeyedPlaceholder { var, label, arg }
+            }
+            ArgMacroView::Source(path) => MacroParts::Source(path),
+            ArgMacroView::Query(q) => {
+                let expr = self.encode_query_expr_view(q.expr())?;
+                let (expansion, sep) = q.expansion_parts();
+                MacroParts::Query {
+                    expr,
+                    expansion,
+                    sep,
+                }
+            }
+        };
+        self.encode_macro(write_to_file, parts)
+    }
+
+    /// One `ArgMacro` record: head `[header, payload, n]` then `n` refs; the
+    /// content hash folds the same components in the same order.
+    fn encode_macro(
+        &mut self,
+        write_to_file: bool,
+        mac: MacroParts<'_>,
+    ) -> buck2_error::Result<AttrToken> {
         let (tag, flag, payload, refs, hash_parts): (
             u32,
             u32,
             u32,
             SmallVec<[AttrWord; 2]>,
             SmallVec<[u64; 3]>,
-        ) = match m {
-            MacroBase::Location { label, dep_kind } => {
+        ) = match mac {
+            MacroParts::Location { label, dep_kind } => {
                 let (idx, lh) = self.providers_label_idx_and_hash(label);
                 (
                     ARG_MACRO_TAG_LOCATION,
-                    dep_kind_bits(*dep_kind),
+                    dep_kind_bits(dep_kind),
                     idx,
                     smallvec![],
                     smallvec![lh],
                 )
             }
-            MacroBase::Exe { label, exec_dep } => {
+            MacroParts::Exe { label, exec_dep } => {
                 let (idx, lh) = self.providers_label_idx_and_hash(label);
                 (
                     ARG_MACRO_TAG_EXE,
-                    *exec_dep as u32,
+                    exec_dep as u32,
                     idx,
                     smallvec![],
                     smallvec![lh],
                 )
             }
-            MacroBase::UserUnkeyedPlaceholder(name) => {
+            MacroParts::UserUnkeyedPlaceholder(name) => {
                 let AttrToken(sr, sh) = self.encode_str(AttrKind::String, name)?;
                 (ARG_MACRO_TAG_UNKEYED, 0, 0, smallvec![sr], smallvec![sh.0])
             }
-            MacroBase::UserKeyedPlaceholder(box (var, label, arg)) => {
+            MacroParts::UserKeyedPlaceholder { var, label, arg } => {
                 let AttrToken(vr, vh) = self.encode_str(AttrKind::String, var)?;
                 let (idx, lh) = self.providers_label_idx_and_hash(label);
                 let mut refs: SmallVec<[AttrWord; 2]> = smallvec![vr];
@@ -606,7 +611,7 @@ impl CoercedAttrArenaBuilder {
                 }
                 (ARG_MACRO_TAG_KEYED, flag, idx, refs, parts)
             }
-            MacroBase::Source(path) => {
+            MacroParts::Source(path) => {
                 let (idx, path_hash) = self.source_path_idx_and_hash(path);
                 (
                     ARG_MACRO_TAG_SOURCE,
@@ -616,55 +621,33 @@ impl CoercedAttrArenaBuilder {
                     smallvec![path_hash],
                 )
             }
-            MacroBase::Query(q) => {
-                let parsed = buck2_query_parser::parse_expr(&q.query.query)?;
-                let AttrToken(er, eh) =
-                    self.encode_query_expr(&parsed, &q.query.query, &q.query.resolved_literals)?;
-                let (expansion, sep) = match &q.expansion_type {
-                    QueryExpansion::Output => (ARG_QUERY_EXPANSION_OUTPUT, None),
-                    QueryExpansion::Target => (ARG_QUERY_EXPANSION_TARGET, None),
-                    QueryExpansion::TargetAndOutput(sep) => {
-                        (ARG_QUERY_EXPANSION_TARGET_AND_OUTPUT, sep.as_deref())
-                    }
-                };
-                let mut refs: SmallVec<[AttrWord; 2]> = smallvec![er];
-                let (sep_hash, sep_flag) = match sep {
-                    Some(sp) => {
-                        let AttrToken(sr, sh) = self.encode_str(AttrKind::String, sp)?;
-                        refs.push(sr);
-                        (Some(sh), ARG_QUERY_HAS_SEP)
-                    }
-                    None => (None, 0),
-                };
-                let flags = expansion | sep_flag;
-                let hash = content_hash(AttrKind::ArgMacro, |h| {
-                    (ARG_MACRO_TAG_QUERY, flags, write_to_file, eh, sep_hash).hash(h)
-                });
-                let head = self.arg_macro_head(ARG_MACRO_TAG_QUERY, flags, wtf_bit, 0, refs.len());
-                let r = self.encode_record(AttrKind::ArgMacro, hash, &head, &refs)?;
-                return Ok(AttrToken(r, hash));
+            MacroParts::Query {
+                expr,
+                expansion,
+                sep,
+            } => {
+                let mut refs: SmallVec<[AttrWord; 2]> = smallvec![expr.0];
+                let mut parts: SmallVec<[u64; 3]> = smallvec![expr.1.0];
+                let mut flags = expansion;
+                if let Some(sp) = sep {
+                    let AttrToken(sr, sh) = self.encode_str(AttrKind::String, sp)?;
+                    refs.push(sr);
+                    parts.push(sh.0);
+                    flags |= ARG_QUERY_HAS_SEP;
+                }
+                (ARG_MACRO_TAG_QUERY, flags, 0, refs, parts)
             }
         };
         let hash = content_hash(AttrKind::ArgMacro, |h| {
             (tag, flag, write_to_file, &hash_parts).hash(h)
         });
-        let head = self.arg_macro_head(tag, flag, wtf_bit, payload, refs.len());
-        let r = self.encode_record(AttrKind::ArgMacro, hash, &head, &refs)?;
-        Ok(AttrToken(r, hash))
-    }
-
-    pub(super) fn arg_macro_head(
-        &self,
-        tag: u32,
-        flag: u32,
-        wtf_bit: u32,
-        payload: u32,
-        nrefs: usize,
-    ) -> [u32; 3] {
-        [
+        let wtf_bit = if write_to_file { ARG_MACRO_WTF_BIT } else { 0 };
+        let head = [
             tag | (flag << ARG_MACRO_FLAG_SHIFT) | wtf_bit,
             payload,
-            nrefs as u32,
-        ]
+            refs.len() as u32,
+        ];
+        let r = self.encode_record(AttrKind::ArgMacro, hash, &head, &refs)?;
+        Ok(AttrToken(r, hash))
     }
 }

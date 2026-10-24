@@ -24,6 +24,7 @@ use buck2_query_parser::BinaryOp;
 use buck2_query_parser::Expr;
 use dupe::Dupe;
 use smallvec::SmallVec;
+use smallvec::smallvec;
 use strong_hash::StrongHash;
 
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
@@ -474,6 +475,41 @@ impl StrongHash for QueryExprRef<'_> {
     }
 }
 
+/// One node of a query expression as its record stores it, children
+/// already encoded. Both the parser's expression and a decoded node convert
+/// to this, so the record layout and its content hash are defined once.
+enum QueryNode<'a> {
+    None,
+    Word(&'a str),
+    String(&'a str),
+    Int(u64),
+    Label(&'a ProvidersLabel),
+    Function {
+        name: &'a str,
+        args: SmallVec<[AttrToken; 8]>,
+    },
+    BinOp {
+        first: AttrToken,
+        rest: SmallVec<[(BinaryOp, AttrToken); 8]>,
+    },
+    Set(SmallVec<[AttrToken; 16]>),
+    FileSet(SmallVec<[AttrToken; 16]>),
+}
+
+/// The record parts of a `set(...)` or `fileset(...)` node over encoded members.
+fn set_parts(
+    subtag: u32,
+    items: &[AttrToken],
+) -> (u32, SmallVec<[u32; 8]>, EncodeScratchRefs, CoercedAttrHash) {
+    let hashes: SmallVec<[CoercedAttrHash; 16]> = items.iter().map(|i| i.1).collect();
+    (
+        subtag,
+        smallvec![],
+        items.iter().map(|i| i.0).collect(),
+        content_hash(AttrKind::QueryExpr, |h| (subtag, &hashes).hash(h)),
+    )
+}
+
 impl CoercedAttrArenaBuilder {
     /// Encode an `attrs.query()` value as its parsed expression.
     pub fn encode_query(
@@ -485,91 +521,7 @@ impl CoercedAttrArenaBuilder {
         self.encode_parsed_query(expr)
     }
 
-    /// [`Self::encode_query_expr_inner`] from a decoded expression: node for
-    /// node and hash for hash.
-    pub(super) fn encode_query_expr_view(
-        &mut self,
-        e: QueryExprRef<'_>,
-    ) -> buck2_error::Result<AttrToken> {
-        match e.view() {
-            QueryExprView::None => {
-                let hash = content_hash(AttrKind::QueryExpr, |h| Q_EXPR_NONE.hash(h));
-                self.encode_query_node(hash, Q_EXPR_NONE, &[], &[])
-            }
-            QueryExprView::Word(t) | QueryExprView::String(t) => {
-                let subtag = if matches!(e.view(), QueryExprView::Word(_)) {
-                    Q_EXPR_WORD
-                } else {
-                    Q_EXPR_STRING
-                };
-                let AttrToken(sr, sh) = self.encode_str(AttrKind::String, t)?;
-                let hash = content_hash(AttrKind::QueryExpr, |h| (subtag, sh).hash(h));
-                self.encode_query_node(hash, subtag, &[], &[sr])
-            }
-            QueryExprView::Int(v) => {
-                let hash = content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_INT, v).hash(h));
-                self.encode_query_node(hash, Q_EXPR_INT, &[v as u32, (v >> 32) as u32], &[])
-            }
-            QueryExprView::Label(label) => {
-                let (idx, lh) = self.providers_label_idx_and_hash(label);
-                let hash = content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_LABEL, lh).hash(h));
-                self.encode_query_node(hash, Q_EXPR_LABEL, &[idx], &[])
-            }
-            QueryExprView::Function { name, args } => {
-                let AttrToken(nr, nh) = self.encode_str(AttrKind::String, name)?;
-                let mut refs = EncodeScratchRefs::with_capacity(1 + args.len() as usize);
-                refs.push(nr);
-                let mut hashes =
-                    SmallVec::<[CoercedAttrHash; 8]>::with_capacity(args.len() as usize);
-                for a in args.iter() {
-                    let AttrToken(ar, ah) = self.encode_query_expr_view(a)?;
-                    refs.push(ar);
-                    hashes.push(ah);
-                }
-                let hash = content_hash(AttrKind::QueryExpr, |h| {
-                    (Q_EXPR_FUNCTION, nh, &hashes).hash(h)
-                });
-                self.encode_query_node(hash, Q_EXPR_FUNCTION, &[], &refs)
-            }
-            QueryExprView::BinOp { first, rest } => {
-                let AttrToken(fr, fh) = self.encode_query_expr_view(first)?;
-                let mut refs = EncodeScratchRefs::with_capacity(1 + rest.len() as usize);
-                refs.push(fr);
-                let mut ops = SmallVec::<[u32; 8]>::with_capacity(rest.len() as usize);
-                let mut hashes =
-                    SmallVec::<[CoercedAttrHash; 8]>::with_capacity(rest.len() as usize);
-                for (op, ex) in rest.iter() {
-                    let opw = binary_op_bits(op);
-                    let AttrToken(xr, xh) = self.encode_query_expr_view(ex)?;
-                    ops.push(opw);
-                    refs.push(xr);
-                    hashes.push(CoercedAttrHash(xh.0 ^ ((opw as u64) << 60)));
-                }
-                let hash =
-                    content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_BINOP, fh, &hashes).hash(h));
-                self.encode_query_node(hash, Q_EXPR_BINOP, &ops, &refs)
-            }
-            QueryExprView::Set(items) | QueryExprView::FileSet(items) => {
-                let subtag = if matches!(e.view(), QueryExprView::Set(_)) {
-                    Q_EXPR_SET
-                } else {
-                    Q_EXPR_FILESET
-                };
-                let mut refs = EncodeScratchRefs::with_capacity(items.len() as usize);
-                let mut hashes =
-                    SmallVec::<[CoercedAttrHash; 16]>::with_capacity(items.len() as usize);
-                for v in items.iter() {
-                    let AttrToken(mr, mh) = self.encode_query_expr_view(v)?;
-                    refs.push(mr);
-                    hashes.push(mh);
-                }
-                let hash = content_hash(AttrKind::QueryExpr, |h| (subtag, &hashes).hash(h));
-                self.encode_query_node(hash, subtag, &[], &refs)
-            }
-        }
-    }
-
-    /// Encode one parsed query expression node. Literal text (from
+    /// Encode a parsed query expression. Literal text (from
     /// `resolved_literals`) becomes providers-label refs; every other text
     /// becomes a shared text record.
     ///
@@ -589,7 +541,7 @@ impl CoercedAttrArenaBuilder {
             .map(|(&(off, len), label)| (&src[off..off + len], label))
             .collect();
         let mut matched: BuckMutMap<&str, ()> = BuckMutMap::default();
-        let r = self.encode_query_expr_inner(e, &by_text, &mut matched)?;
+        let r = self.encode_parsed_node(e, &by_text, &mut matched)?;
         if matched.len() != by_text.len() {
             return Err(internal_error!(
                 "query literals must all match expression nodes: matched {} of {}",
@@ -600,110 +552,186 @@ impl CoercedAttrArenaBuilder {
         Ok(r)
     }
 
-    /// One `QueryExpr` record: `[subtag, nv, values..., n]` then refs.
-    pub(super) fn encode_query_node(
-        &mut self,
-        hash: CoercedAttrHash,
-        subtag: u32,
-        values: &[u32],
-        refs: &[AttrWord],
-    ) -> buck2_error::Result<AttrToken> {
-        let mut head = EncodeScratchFields::with_capacity(3 + values.len());
-        head.push(subtag);
-        head.push(values.len() as u32);
-        head.extend_from_slice(values);
-        head.push(refs.len() as u32);
-        let r = self.encode_record(AttrKind::QueryExpr, hash, &head, refs)?;
-        Ok(AttrToken(r, hash))
-    }
-
-    pub(super) fn encode_query_word<'s>(
-        &mut self,
-        subtag: u32,
-        text: &'s str,
-        by_text: &BuckMutMap<&'s str, &ProvidersLabel>,
-        matched: &mut BuckMutMap<&'s str, ()>,
-    ) -> buck2_error::Result<AttrToken> {
-        if let Some(label) = by_text.get(text) {
-            matched.insert(text, ());
-            let (idx, lh) = self.providers_label_idx_and_hash(label);
-            let hash = content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_LABEL, lh).hash(h));
-            return self.encode_query_node(hash, Q_EXPR_LABEL, &[idx], &[]);
-        }
-        let AttrToken(sr, sh) = self.encode_str(AttrKind::String, text)?;
-        let hash = content_hash(AttrKind::QueryExpr, |h| (subtag, sh).hash(h));
-        self.encode_query_node(hash, subtag, &[], &[sr])
-    }
-
-    pub(super) fn encode_query_expr_inner<'s>(
+    fn encode_parsed_node<'s>(
         &mut self,
         e: &buck2_query_parser::SpannedExpr<'s>,
         by_text: &BuckMutMap<&'s str, &ProvidersLabel>,
         matched: &mut BuckMutMap<&'s str, ()>,
     ) -> buck2_error::Result<AttrToken> {
-        match &e.value {
-            Expr::None => {
-                let hash = content_hash(AttrKind::QueryExpr, |h| Q_EXPR_NONE.hash(h));
-                self.encode_query_node(hash, Q_EXPR_NONE, &[], &[])
-            }
-            Expr::String(w) => self.encode_query_word(Q_EXPR_STRING, w, by_text, matched),
-            Expr::Integer(v) => {
-                let hash = content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_INT, *v).hash(h));
-                self.encode_query_node(hash, Q_EXPR_INT, &[*v as u32, (*v >> 32) as u32], &[])
-            }
+        // A word or string whose text names a resolved literal is that
+        // literal.
+        let mut literal_or =
+            |text: &'s str, as_text: fn(&'s str) -> QueryNode<'s>| match by_text.get(text) {
+                Some(label) => {
+                    matched.insert(text, ());
+                    QueryNode::Label(label)
+                }
+                None => as_text(text),
+            };
+        let node = match &e.value {
+            Expr::None => QueryNode::None,
+            Expr::String(w) => literal_or(w, QueryNode::String),
+            Expr::Integer(v) => QueryNode::Int(*v),
             Expr::Function {
                 function_name,
                 args,
-            } => {
-                let AttrToken(nr, nh) =
-                    self.encode_str(AttrKind::String, function_name.fragment())?;
-                let mut refs = EncodeScratchRefs::with_capacity(1 + args.len());
-                refs.push(nr);
-                let mut hashes = SmallVec::<[CoercedAttrHash; 8]>::with_capacity(args.len());
-                for a in args {
-                    let AttrToken(ar, ah) = self.encode_query_expr_inner(a, by_text, matched)?;
-                    refs.push(ar);
-                    hashes.push(ah);
-                }
-                let hash = content_hash(AttrKind::QueryExpr, |h| {
-                    (Q_EXPR_FUNCTION, nh, &hashes).hash(h)
-                });
-                self.encode_query_node(hash, Q_EXPR_FUNCTION, &[], &refs)
-            }
-            Expr::BinaryOpSequence(first, rest) => {
-                let AttrToken(fr, fh) = self.encode_query_expr_inner(first, by_text, matched)?;
-                let mut refs = EncodeScratchRefs::with_capacity(1 + rest.len());
-                refs.push(fr);
-                let mut ops = SmallVec::<[u32; 8]>::with_capacity(rest.len());
-                let mut hashes = SmallVec::<[CoercedAttrHash; 8]>::with_capacity(rest.len());
-                for (op, ex) in rest {
-                    let opw = binary_op_bits(*op);
-                    let AttrToken(xr, xh) = self.encode_query_expr_inner(ex, by_text, matched)?;
-                    ops.push(opw);
-                    refs.push(xr);
-                    hashes.push(CoercedAttrHash(xh.0 ^ ((opw as u64) << 60)));
-                }
-                let hash =
-                    content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_BINOP, fh, &hashes).hash(h));
-                self.encode_query_node(hash, Q_EXPR_BINOP, &ops, &refs)
-            }
+            } => QueryNode::Function {
+                name: function_name.fragment(),
+                args: args
+                    .iter()
+                    .map(|a| self.encode_parsed_node(a, by_text, matched))
+                    .collect::<buck2_error::Result<_>>()?,
+            },
+            Expr::BinaryOpSequence(first, rest) => QueryNode::BinOp {
+                first: self.encode_parsed_node(first, by_text, matched)?,
+                rest: rest
+                    .iter()
+                    .map(|(op, ex)| Ok((*op, self.encode_parsed_node(ex, by_text, matched)?)))
+                    .collect::<buck2_error::Result<_>>()?,
+            },
             Expr::Set(vals) | Expr::FileSet(vals) => {
-                let subtag = if matches!(&e.value, Expr::Set(_)) {
-                    Q_EXPR_SET
-                } else {
-                    Q_EXPR_FILESET
-                };
-                let mut refs = EncodeScratchRefs::with_capacity(vals.len());
-                let mut hashes = SmallVec::<[CoercedAttrHash; 16]>::with_capacity(vals.len());
-                for v in vals {
-                    let AttrToken(mr, mh) =
-                        self.encode_query_word(Q_EXPR_WORD, v.fragment(), by_text, matched)?;
-                    refs.push(mr);
-                    hashes.push(mh);
+                let items = vals
+                    .iter()
+                    .map(|v| self.encode_query_node(literal_or(v.fragment(), QueryNode::Word)))
+                    .collect::<buck2_error::Result<_>>()?;
+                match &e.value {
+                    Expr::Set(_) => QueryNode::Set(items),
+                    _ => QueryNode::FileSet(items),
                 }
-                let hash = content_hash(AttrKind::QueryExpr, |h| (subtag, &hashes).hash(h));
-                self.encode_query_node(hash, subtag, &[], &refs)
             }
-        }
+        };
+        self.encode_query_node(node)
+    }
+
+    /// [`Self::encode_query_expr`] from a decoded expression: node for node
+    /// and hash for hash.
+    pub(super) fn encode_query_expr_view(
+        &mut self,
+        e: QueryExprRef<'_>,
+    ) -> buck2_error::Result<AttrToken> {
+        let node = match e.view() {
+            QueryExprView::None => QueryNode::None,
+            QueryExprView::Word(t) => QueryNode::Word(t),
+            QueryExprView::String(t) => QueryNode::String(t),
+            QueryExprView::Int(v) => QueryNode::Int(v),
+            QueryExprView::Label(l) => QueryNode::Label(l),
+            QueryExprView::Function { name, args } => QueryNode::Function {
+                name,
+                args: args
+                    .iter()
+                    .map(|a| self.encode_query_expr_view(a))
+                    .collect::<buck2_error::Result<_>>()?,
+            },
+            QueryExprView::BinOp { first, rest } => QueryNode::BinOp {
+                first: self.encode_query_expr_view(first)?,
+                rest: rest
+                    .iter()
+                    .map(|(op, ex)| Ok((op, self.encode_query_expr_view(ex)?)))
+                    .collect::<buck2_error::Result<_>>()?,
+            },
+            QueryExprView::Set(items) => QueryNode::Set(
+                items
+                    .iter()
+                    .map(|v| self.encode_query_expr_view(v))
+                    .collect::<buck2_error::Result<_>>()?,
+            ),
+            QueryExprView::FileSet(items) => QueryNode::FileSet(
+                items
+                    .iter()
+                    .map(|v| self.encode_query_expr_view(v))
+                    .collect::<buck2_error::Result<_>>()?,
+            ),
+        };
+        self.encode_query_node(node)
+    }
+
+    /// One `QueryExpr` record: `[subtag, nv, values..., n]` then refs; the
+    /// content hash folds the subtag and the node's content.
+    fn encode_query_node(&mut self, node: QueryNode<'_>) -> buck2_error::Result<AttrToken> {
+        let (subtag, values, refs, hash): (
+            u32,
+            SmallVec<[u32; 8]>,
+            EncodeScratchRefs,
+            CoercedAttrHash,
+        ) = match node {
+            QueryNode::None => (
+                Q_EXPR_NONE,
+                smallvec![],
+                EncodeScratchRefs::new(),
+                content_hash(AttrKind::QueryExpr, |h| Q_EXPR_NONE.hash(h)),
+            ),
+            QueryNode::Word(t) | QueryNode::String(t) => {
+                let subtag = match node {
+                    QueryNode::Word(_) => Q_EXPR_WORD,
+                    _ => Q_EXPR_STRING,
+                };
+                let AttrToken(sr, sh) = self.encode_str(AttrKind::String, t)?;
+                (
+                    subtag,
+                    smallvec![],
+                    smallvec![sr],
+                    content_hash(AttrKind::QueryExpr, |h| (subtag, sh).hash(h)),
+                )
+            }
+            QueryNode::Int(v) => (
+                Q_EXPR_INT,
+                smallvec![v as u32, (v >> 32) as u32],
+                EncodeScratchRefs::new(),
+                content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_INT, v).hash(h)),
+            ),
+            QueryNode::Label(label) => {
+                let (idx, lh) = self.providers_label_idx_and_hash(label);
+                (
+                    Q_EXPR_LABEL,
+                    smallvec![idx],
+                    EncodeScratchRefs::new(),
+                    content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_LABEL, lh).hash(h)),
+                )
+            }
+            QueryNode::Function { name, args } => {
+                let AttrToken(nr, nh) = self.encode_str(AttrKind::String, name)?;
+                let hashes: SmallVec<[CoercedAttrHash; 8]> = args.iter().map(|a| a.1).collect();
+                let refs = std::iter::once(nr)
+                    .chain(args.iter().map(|a| a.0))
+                    .collect();
+                (
+                    Q_EXPR_FUNCTION,
+                    smallvec![],
+                    refs,
+                    content_hash(AttrKind::QueryExpr, |h| {
+                        (Q_EXPR_FUNCTION, nh, &hashes).hash(h)
+                    }),
+                )
+            }
+            QueryNode::BinOp { first, rest } => {
+                let ops: SmallVec<[u32; 8]> =
+                    rest.iter().map(|(op, _)| binary_op_bits(*op)).collect();
+                let hashes: SmallVec<[CoercedAttrHash; 8]> = rest
+                    .iter()
+                    .zip(&ops)
+                    .map(|((_, x), &opw)| CoercedAttrHash(x.1.0 ^ ((opw as u64) << 60)))
+                    .collect();
+                let refs = std::iter::once(first.0)
+                    .chain(rest.iter().map(|(_, x)| x.0))
+                    .collect();
+                (
+                    Q_EXPR_BINOP,
+                    ops,
+                    refs,
+                    content_hash(AttrKind::QueryExpr, |h| {
+                        (Q_EXPR_BINOP, first.1, &hashes).hash(h)
+                    }),
+                )
+            }
+            QueryNode::Set(items) => set_parts(Q_EXPR_SET, &items),
+            QueryNode::FileSet(items) => set_parts(Q_EXPR_FILESET, &items),
+        };
+        let mut head = EncodeScratchFields::with_capacity(3 + values.len());
+        head.push(subtag);
+        head.push(values.len() as u32);
+        head.extend_from_slice(&values);
+        head.push(refs.len() as u32);
+        let r = self.encode_record(AttrKind::QueryExpr, hash, &head, &refs)?;
+        Ok(AttrToken(r, hash))
     }
 }
