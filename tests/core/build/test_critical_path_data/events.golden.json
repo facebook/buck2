@@ -20,8 +20,17 @@
     ]
   },
   {
+    "deps": [],
+    "key": "MatchedConfigurationSettingKeysKey(ResolvedConfigurationKey(target_cfg: <unspecified>, cell: root, configuration_deps size 0))",
+    "time_span": [
+      null,
+      null
+    ]
+  },
+  {
     "deps": [
-      "InterpreterResultsKey(root//)"
+      "InterpreterResultsKey(root//)",
+      "MatchedConfigurationSettingKeysKey(ResolvedConfigurationKey(target_cfg: <unspecified>, cell: root, configuration_deps size 0))"
     ],
     "key": "ConfiguredTargetNodeKey(root//:step_0 (<unspecified>))",
     "time_span": [
@@ -32,6 +41,7 @@
   {
     "deps": [
       "InterpreterResultsKey(root//)",
+      "MatchedConfigurationSettingKeysKey(ResolvedConfigurationKey(target_cfg: <unspecified>, cell: root, configuration_deps size 0))",
       "ConfiguredTargetNodeKey(root//:step_0 (<unspecified>))"
     ],
     "key": "ConfiguredTargetNodeKey(root//:step_1 (<unspecified>))",
@@ -43,6 +53,7 @@
   {
     "deps": [
       "InterpreterResultsKey(root//)",
+      "MatchedConfigurationSettingKeysKey(ResolvedConfigurationKey(target_cfg: <unspecified>, cell: root, configuration_deps size 0))",
       "ConfiguredTargetNodeKey(root//:step_1 (<unspecified>))"
     ],
     "key": "ConfiguredTargetNodeKey(root//:check_dynamic_input (<unspecified>))",

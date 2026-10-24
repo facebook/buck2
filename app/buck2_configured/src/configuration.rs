@@ -11,6 +11,8 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_signals::node_key::BuildSignalsNodeKey;
+use buck2_build_signals::node_key::BuildSignalsNodeKeyImpl;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::configs::parse_config_section_and_key;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -21,6 +23,7 @@ use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::data::ExecPlatformMarking;
 use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
@@ -35,6 +38,7 @@ use buck2_node::configuration::resolved::MatchedConfigurationSettingKeys;
 use buck2_node::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use derive_more::Display;
+use dice::Demand;
 use dice::DiceComputations;
 use dice::EqualityBehavior;
 use dice::Key;
@@ -255,6 +259,16 @@ impl Key for MatchedConfigurationSettingKeysKey {
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         OkPagableValueSerialize::<Self::Value>::new()
     }
+
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        demand.provide_value_with(|| BuildSignalsNodeKey::new(self.clone()))
+    }
+}
+
+impl BuildSignalsNodeKeyImpl for MatchedConfigurationSettingKeysKey {
+    fn kind(&self) -> &'static str {
+        "matched_configuration_settings"
+    }
 }
 
 async fn get_configuration_node(
@@ -320,6 +334,20 @@ impl Key for ConfigurationNodeKey {
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         OkPagableValueSerialize::<Self::Value>::new()
+    }
+
+    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
+        demand.provide_value_with(|| BuildSignalsNodeKey::new(self.clone()))
+    }
+}
+
+impl BuildSignalsNodeKeyImpl for ConfigurationNodeKey {
+    fn kind(&self) -> &'static str {
+        "configuration_node"
+    }
+
+    fn package(&self) -> Option<PackageLabel> {
+        Some(self.cfg_target.0.target().pkg())
     }
 }
 

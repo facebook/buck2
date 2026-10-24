@@ -96,6 +96,38 @@ async def critical_path_helper(buck: Buck) -> typing.List[typing.Dict[str, typin
     return critical_path_actions[0]
 
 
+def _use_logging_backend(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig", "a") as f:
+        f.write("[buck2]\n")
+        f.write("critical_path_backend2 = logging\n")
+
+
+async def _discovery_edges(buck: Buck) -> typing.Set[typing.Tuple[str, str]]:
+    events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "UnstableE2eData",
+    )
+    return {
+        (json.loads(ev["data"])["key"], json.loads(ev["data"])["dep"])
+        for ev in events
+        if ev["key"] == "critical_path_logging_edge"
+    }
+
+
+ROOT_LOAD = "InterpreterResultsKey(root//)"
+SUB_LOAD = "InterpreterResultsKey(root//sub)"
+
+
+def _assert_no_load_cycle(edges: typing.Set[typing.Tuple[str, str]]) -> None:
+    assert not ((ROOT_LOAD, SUB_LOAD) in edges and (SUB_LOAD, ROOT_LOAD) in edges), (
+        f"load discovery edges form a cycle: {sorted(edges)}"
+    )
+
+
 class CriticalPathTest(BuckTestCase):
     @buck_test()
     async def test_critical_path_longest_path_graph(self, buck: Buck) -> None:
@@ -485,6 +517,11 @@ class CriticalPathTest(BuckTestCase):
             for ev in events
             if ev["key"] == "critical_path_logging_node"
         }
+        discovery_edges = {
+            (json.loads(ev["data"])["key"], json.loads(ev["data"])["dep"])
+            for ev in events
+            if ev["key"] == "critical_path_logging_edge"
+        }
 
         # Both package loads must be present: root// (holds cross_pkg) and root//sub (loaded to
         # resolve the cross-package dep //sub:leaf).
@@ -493,14 +530,25 @@ class CriticalPathTest(BuckTestCase):
             "root//sub should be loaded to resolve the cross-package dep"
         )
 
-        # root// is loaded first and its cross_pkg target references root//sub, so enrich_load
-        # records first_edge_to_load[root//sub] = root//, giving root//sub's load a dependency on
-        # root//'s load. That cross-package load edge is exactly what this test guards.
-        sub_load_deps = nodes["InterpreterResultsKey(root//sub)"]["deps"]
-        assert "InterpreterResultsKey(root//)" in sub_load_deps, (
-            "expected cross-package load edge (root//sub load depends on root// load), "
-            f"got deps: {sub_load_deps}"
+        # Configuring root//:cross_pkg requests the load of root//sub to resolve //sub:leaf, so
+        # root//sub's load gets a discovery edge to root//'s load. That cross-package load edge is
+        # exactly what this test guards.
+        assert (
+            "InterpreterResultsKey(root//sub)",
+            "InterpreterResultsKey(root//)",
+        ) in discovery_edges, (
+            "expected cross-package load discovery edge (root//sub load depends on root// load), "
+            f"got edges: {sorted(discovery_edges)}"
         )
+
+    @buck_test()
+    async def test_build_package_cycle_has_no_load_cycle(self, buck: Buck) -> None:
+        _use_logging_backend(buck)
+        await buck.build("//:pkg_cycle_top", "--no-remote-cache")
+        edges = await _discovery_edges(buck)
+        _assert_no_load_cycle(edges)
+        # root// loaded first, so its request for //sub:pkg_cycle_mid is what discovered root//sub.
+        assert (SUB_LOAD, ROOT_LOAD) in edges, f"got edges: {sorted(edges)}"
 
     @buck_test()
     async def test_configuration_dep_load_edge(self, buck: Buck) -> None:
@@ -522,17 +570,25 @@ class CriticalPathTest(BuckTestCase):
             for ev in events
             if ev["key"] == "critical_path_logging_node"
         }
+        discovery_edges = {
+            (json.loads(ev["data"])["key"], json.loads(ev["data"])["dep"])
+            for ev in events
+            if ev["key"] == "critical_path_logging_edge"
+        }
 
         assert "InterpreterResultsKey(root//cfg)" in nodes, (
             "root//cfg should be loaded to resolve the select key"
         )
 
-        # root// is loaded first and its cfg_dep_pkg target reaches root//cfg only through a
-        # select key, so root//cfg's load must still depend on root//'s load.
-        cfg_load_deps = nodes["InterpreterResultsKey(root//cfg)"]["deps"]
-        assert "InterpreterResultsKey(root//)" in cfg_load_deps, (
-            "expected a load edge for the configuration dep (root//cfg load depends on root// "
-            f"load), got deps: {cfg_load_deps}"
+        # Configuring root//:cfg_dep_pkg reaches root//cfg only through a select key, whose
+        # configuration node loads root//cfg; root//cfg's load must still get a discovery edge to
+        # root//'s load.
+        assert (
+            "InterpreterResultsKey(root//cfg)",
+            "InterpreterResultsKey(root//)",
+        ) in discovery_edges, (
+            "expected a load discovery edge for the configuration dep (root//cfg load depends on "
+            f"root// load), got edges: {sorted(discovery_edges)}"
         )
 
     @buck_test()

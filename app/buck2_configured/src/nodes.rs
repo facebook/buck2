@@ -39,6 +39,7 @@ use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::execution::ExecutionPlatformResolutionPartial;
+use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::plugins::PluginKind;
@@ -1369,6 +1370,10 @@ impl Key for ConfiguredTargetNodeKey {
 impl BuildSignalsNodeKeyImpl for ConfiguredTargetNodeKey {
     fn kind(&self) -> &'static str {
         "configure_target"
+    }
+
+    fn package(&self) -> Option<PackageLabel> {
+        Some(self.0.unconfigured().pkg())
     }
 }
 

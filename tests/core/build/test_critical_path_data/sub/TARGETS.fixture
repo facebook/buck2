@@ -1,1 +1,2 @@
 write(name = "leaf", visibility = ["PUBLIC"])
+cp(name = "pkg_cycle_mid", dep = "//:pkg_cycle_leaf", visibility = ["PUBLIC"])

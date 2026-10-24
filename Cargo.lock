@@ -1355,6 +1355,7 @@ version = "0.1.0"
 dependencies = [
  "allocative",
  "async-trait",
+ "buck2_core",
  "buck2_data",
  "buck2_error",
  "buck2_events",
@@ -1386,7 +1387,6 @@ dependencies = [
  "buck2_events",
  "buck2_hash",
  "buck2_interpreter_for_build",
- "buck2_node",
  "buck2_util",
  "dice",
  "dupe",

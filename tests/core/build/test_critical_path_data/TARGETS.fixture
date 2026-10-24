@@ -36,3 +36,8 @@ cp(
         "DEFAULT": 0,
     }),
 )
+
+# A package-level cycle with no target cycle: root//:pkg_cycle_top -> root//sub:pkg_cycle_mid
+# -> root//:pkg_cycle_leaf.
+cp(name = "pkg_cycle_top", dep = "//sub:pkg_cycle_mid")
+write(name = "pkg_cycle_leaf", visibility = ["PUBLIC"])
