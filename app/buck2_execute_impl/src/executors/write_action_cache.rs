@@ -15,6 +15,7 @@ use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
@@ -38,6 +39,9 @@ const OUTPUT_NAME: &str = "content";
 pub struct ReWriteActionCache {
     pub re_client: ManagedRemoteExecutionClient,
     pub platform: RePlatformFields,
+    /// Whether the executor configuration publishes local results, as the cache uploader is
+    /// given to run actions only when it does.
+    pub populates: bool,
     pub cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
 }
 
@@ -45,6 +49,10 @@ pub struct ReWriteActionCache {
 impl WriteActionCache for ReWriteActionCache {
     fn use_case(&self) -> RemoteExecutorUseCase {
         self.re_client.use_case
+    }
+
+    fn populates(&self) -> bool {
+        self.populates
     }
 
     async fn lookup(
@@ -66,6 +74,11 @@ impl WriteActionCache for ReWriteActionCache {
         is_executable: bool,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<PopulateOutcome> {
+        if !self.populates {
+            return Err(internal_error!(
+                "A write was recorded under an executor that publishes no local results"
+            ));
+        }
         if let Err(reason) = self
             .cache_upload_permission_checker
             .has_permission_to_upload_to_cache(&self.re_client, &self.platform, digest_config)

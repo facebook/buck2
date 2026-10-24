@@ -27,6 +27,10 @@ pub trait WriteActionCache: Send + Sync {
     /// what a hit's content is declared with.
     fn use_case(&self) -> RemoteExecutorUseCase;
 
+    /// Whether `populate` may be called: the executor configuration publishes local results
+    /// (`allow_cache_uploads`), and a write's content recorded for other builds is one.
+    fn populates(&self) -> bool;
+
     /// The entry under `action`, if there is one. `Err` when the cache could not answer.
     async fn lookup(
         &self,
@@ -35,7 +39,7 @@ pub trait WriteActionCache: Send + Sync {
 
     /// Records `content`, whose digest is `digest`, as the one output of `action`: uploads it
     /// with the action's blobs and writes the entry. `digest` carries the entry's expiration
-    /// afterwards, a lower bound on the content's.
+    /// afterwards, a lower bound on the content's. Only where `populates`.
     async fn populate(
         &self,
         action: &ActionDigestAndBlobs,

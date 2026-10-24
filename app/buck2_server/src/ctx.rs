@@ -65,6 +65,7 @@ use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
+use buck2_core::rollout_percentage::RolloutFraction;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::soft_error;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
@@ -471,6 +472,7 @@ impl<'a> ServerCommandContext<'a> {
             action_paths_interner: None,
             write_cas_probe: false,
             write_action_cache: WriteActionCacheMode::Off,
+            write_action_cache_populate: RolloutFraction::none(),
         };
 
         let concurrency = self
@@ -968,6 +970,12 @@ impl DiceCommandUpdater<'_, '_> {
                 property: "write_action_cache",
             })?
             .unwrap_or_default();
+        run_action_knobs.write_action_cache_populate = root_config
+            .parse::<RolloutFraction>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "write_action_cache_populate",
+            })?
+            .unwrap_or_else(RolloutFraction::none);
 
         let output_trees_download_semaphore_size = root_config.parse::<u32>(BuckconfigKeyRef {
             section: "buck2",

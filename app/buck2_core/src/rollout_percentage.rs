@@ -123,6 +123,56 @@ impl FromStr for Inner {
     }
 }
 
+/// A share of a keyed population, for rolling a feature out key by key rather than host by host.
+/// `includes(key)` answers the same for a key wherever it is asked, so a rollout at a fraction
+/// covers the same keys on every host, and raising the fraction only adds keys. Parsed from a
+/// float in [0, 1].
+#[derive(Copy, Clone, Dupe, Debug, Default, PartialEq)]
+pub struct RolloutFraction(f64);
+
+impl RolloutFraction {
+    pub fn none() -> Self {
+        Self(0.0)
+    }
+
+    pub fn all() -> Self {
+        Self(1.0)
+    }
+
+    /// Whether no key is included.
+    pub fn is_none(&self) -> bool {
+        self.0 <= 0.0
+    }
+
+    pub fn includes(&self, key: &[u8]) -> bool {
+        if self.0 >= 1.0 {
+            return true;
+        }
+        if self.0 <= 0.0 {
+            return false;
+        }
+        let hash = blake3::hash(key);
+        let point = u64::from_le_bytes(hash.as_bytes()[..8].try_into().unwrap());
+        // `point` is uniform over the u64s; as a fraction of 2^64 it is uniform over [0, 1).
+        (point as f64 / 2f64.powi(64)) < self.0
+    }
+}
+
+impl FromStr for RolloutFraction {
+    type Err = buck2_error::Error;
+
+    fn from_str(val: &str) -> Result<Self, Self::Err> {
+        let val: f64 = val.parse().map_err(|_| {
+            buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "RolloutFraction must be a float within [0,1] (got: {})",
+                val
+            )
+        })?;
+        Ok(Self(rate(val)?))
+    }
+}
+
 fn rate(val: f64) -> buck2_error::Result<f64> {
     if (0.0..=1.0).contains(&val) {
         Ok(val)
@@ -205,6 +255,56 @@ mod tests {
                 }
                 .roll_inner(hostname)
             );
+        }
+    }
+
+    #[test]
+    fn test_fraction_parse() {
+        assert_eq!(
+            "0".parse::<RolloutFraction>().unwrap(),
+            RolloutFraction::none()
+        );
+        assert_eq!(
+            "1".parse::<RolloutFraction>().unwrap(),
+            RolloutFraction::all()
+        );
+        assert_eq!(
+            "0.25".parse::<RolloutFraction>().unwrap(),
+            RolloutFraction(0.25)
+        );
+        assert_matches!(RolloutFraction::from_str("1.5"), Err(..));
+        assert_matches!(RolloutFraction::from_str("true"), Err(..));
+        assert_matches!(RolloutFraction::from_str(""), Err(..));
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore = "hashes thousands of keys, which Miri runs too slowly")]
+    fn test_fraction_includes() {
+        let keys: Vec<Vec<u8>> = (0..4_000u32).map(|i| i.to_le_bytes().to_vec()).collect();
+        for key in &keys {
+            assert!(!RolloutFraction::none().includes(key));
+            assert!(RolloutFraction::all().includes(key));
+        }
+        let mut previous = 0;
+        for fraction in [0.1, 0.3, 0.5, 0.9] {
+            let fraction = RolloutFraction(fraction);
+            let included = keys.iter().filter(|key| fraction.includes(key)).count();
+            // Within a few percent of the fraction, and a larger fraction keeps every key a
+            // smaller one had.
+            let expected = (fraction.0 * keys.len() as f64) as usize;
+            assert!(
+                included.abs_diff(expected) < keys.len() / 25,
+                "{fraction:?}: {included}"
+            );
+            assert!(included > previous);
+            previous = included;
+        }
+        let small = RolloutFraction(0.3);
+        let large = RolloutFraction(0.6);
+        for key in &keys {
+            if small.includes(key) {
+                assert!(large.includes(key));
+            }
         }
     }
 

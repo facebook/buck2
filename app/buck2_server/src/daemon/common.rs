@@ -307,6 +307,19 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
                 let re_client = self.get_prepared_re_client(remote_options.re_use_case);
 
+                // `Some` where local results are published, with the size cap on a run's.
+                let cache_upload_max_bytes: Option<Option<u64>> = if force_cache_upload()? {
+                    Some(None)
+                } else if disable_caching {
+                    None
+                } else if let CacheUploadBehavior::Enabled { max_bytes } =
+                    remote_options.cache_upload_behavior
+                {
+                    Some(max_bytes)
+                } else {
+                    None
+                };
+
                 let write_action_cache: Option<Arc<dyn WriteActionCache>> =
                     if disable_caching || !remote_options.remote_cache_enabled {
                         None
@@ -314,6 +327,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         Some(Arc::new(ReWriteActionCache {
                             re_client: re_client.dupe(),
                             platform: remote_options.re_properties.clone(),
+                            populates: cache_upload_max_bytes.is_some(),
                             cache_upload_permission_checker: self
                                 .cache_upload_permission_checker
                                 .dupe(),
@@ -452,22 +466,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         cache_checker_new()
                     };
 
-                let cache_uploader = if force_cache_upload()? {
-                    Arc::new(CacheUploader::new(
-                        artifact_fs.dupe(),
-                        self.materializer.dupe(),
-                        re_client.dupe(),
-                        self.invocation_re_use_case,
-                        remote_options.re_properties.clone(),
-                        None,
-                        self.cache_upload_permission_checker.dupe(),
-                    )) as _
-                } else if disable_caching {
-                    Arc::new(NoOpCacheUploader {}) as _
-                } else if let CacheUploadBehavior::Enabled { max_bytes } =
-                    remote_options.cache_upload_behavior
-                {
-                    Arc::new(CacheUploader::new(
+                let cache_uploader = match cache_upload_max_bytes {
+                    Some(max_bytes) => Arc::new(CacheUploader::new(
                         artifact_fs.dupe(),
                         self.materializer.dupe(),
                         re_client.dupe(),
@@ -475,9 +475,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         remote_options.re_properties.clone(),
                         max_bytes,
                         self.cache_upload_permission_checker.dupe(),
-                    )) as _
-                } else {
-                    Arc::new(NoOpCacheUploader {}) as _
+                    )) as _,
+                    None => Arc::new(NoOpCacheUploader {}) as _,
                 };
 
                 executor.map(|executor| CommandExecutorResponse {

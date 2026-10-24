@@ -13,9 +13,9 @@
 //! A write's content is a function of its command line, so a strong hash of that command line
 //! (`CommandLineBuilder::new_hashing`) keys an action cache entry whose one output is the
 //! content's digest. A hit declares the output as CAS content without rendering the command
-//! line; a miss renders it and declares the write as usual, in `populate` mode after uploading
-//! the content and recording the entry. `verify` renders every write and compares a hit's
-//! content against it, for trying the key out.
+//! line; a miss renders it and declares the write as usual, after uploading the content and
+//! recording the entry where the write is one to record (`WriteCache::use_for`). `verify`
+//! renders every write and compares a hit's content against it, for trying the key out.
 //!
 //! A write with `absolute` renders the project root, which is not the same between hosts, so
 //! it does not go through the cache at all (`WriteAction::execute`).
@@ -38,6 +38,7 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::rollout_percentage::RolloutFraction;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
@@ -74,6 +75,19 @@ const ACTION_MARKER: &str = "buck2-write-action-cache";
 pub(crate) struct WriteCache<'a> {
     cache: &'a dyn WriteActionCache,
     mode: WriteActionCacheMode,
+    /// The keys whose misses are recorded; none where the executor publishes no local results.
+    populate: RolloutFraction,
+}
+
+/// What a write does with the cache.
+#[derive(Copy, Clone, Dupe, PartialEq, Eq)]
+pub(crate) enum CacheUse {
+    /// Nothing: the write is declared as it is without the cache.
+    None,
+    /// Served from the cache on a hit; a miss leaves no entry.
+    Lookup,
+    /// Served from the cache on a hit; a miss is recorded for later builds.
+    Populate,
 }
 
 /// Identifies a write's content without rendering it.
@@ -82,6 +96,10 @@ pub(crate) struct WriteCacheKey(blake3::Hash);
 impl WriteCacheKey {
     pub(crate) fn to_hex(&self) -> String {
         self.0.to_hex().to_string()
+    }
+
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
     }
 }
 
@@ -118,28 +136,44 @@ pub(crate) struct KeyInputs<'a> {
 }
 
 impl<'a> WriteCache<'a> {
-    /// The cache this action goes through, if any.
+    /// The cache this action may go through; `None` where none of its writes would ask it.
     pub(crate) fn for_ctx(ctx: &'a dyn ActionExecutionCtx) -> Option<Self> {
         if !ctx.may_probe_cas() {
             return None;
         }
         let cache = ctx.write_action_cache()?;
-        match ctx.run_action_knobs().write_action_cache {
-            WriteActionCacheMode::Off => None,
-            mode @ (WriteActionCacheMode::Verify
-            | WriteActionCacheMode::Use
-            | WriteActionCacheMode::Populate) => Some(Self { cache, mode }),
+        let knobs = ctx.run_action_knobs();
+        // An entry recorded is a local result published, so the share is read under the rule a
+        // run's result is published by.
+        let populate = if cache.populates() {
+            knobs.write_action_cache_populate
+        } else {
+            RolloutFraction::none()
+        };
+        if knobs.write_action_cache == WriteActionCacheMode::Off && populate.is_none() {
+            return None;
         }
-    }
-
-    /// Whether misses record their content for later invocations.
-    pub(crate) fn populates(self) -> bool {
-        matches!(self.mode, WriteActionCacheMode::Populate)
+        Some(Self {
+            cache,
+            mode: knobs.write_action_cache,
+            populate,
+        })
     }
 
     /// Whether writes are rendered regardless and hits only checked against them.
     pub(crate) fn verifies(self) -> bool {
         matches!(self.mode, WriteActionCacheMode::Verify)
+    }
+
+    /// What the write with `key` does with the cache.
+    pub(crate) fn use_for(self, key: &WriteCacheKey) -> CacheUse {
+        if self.populate.includes(key.as_bytes()) {
+            CacheUse::Populate
+        } else if self.mode == WriteActionCacheMode::Use {
+            CacheUse::Lookup
+        } else {
+            CacheUse::None
+        }
     }
 
     /// The content the cache holds for `key`. `None` is a miss, which a cache that could not

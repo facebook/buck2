@@ -11,6 +11,7 @@
 use std::str::FromStr;
 
 use buck2_common::file_ops::metadata::TrackedFileDigest;
+use buck2_core::rollout_percentage::RolloutFraction;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_error::buck2_error;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -39,21 +40,28 @@ pub struct RunActionKnobs {
     pub write_cas_probe: bool,
 
     pub write_action_cache: WriteActionCacheMode,
+
+    /// The share of write keys whose misses are recorded in the action cache for later builds,
+    /// under an executor that publishes local results at all (`allow_cache_uploads`):
+    /// `buck2.write_action_cache_populate`. By key rather than by host, so that the cache fills,
+    /// and the traffic to it grows, in steps that are the same on every host. A write within
+    /// the share goes through the cache whatever `write_action_cache` says.
+    pub write_action_cache_populate: RolloutFraction,
 }
 
-/// How write actions use the action cache; `buck2.write_action_cache`.
+/// How write actions use the action cache; `buck2.write_action_cache`. Whether a miss is
+/// recorded is `write_action_cache_populate`'s decision, not this one's.
 #[derive(Copy, Clone, Dupe, Debug, Default, PartialEq, Eq)]
 pub enum WriteActionCacheMode {
     #[default]
     Off,
     /// As `Off`, and the cache is asked as well: a hit whose content is not what the write
-    /// renders is reported (`write_action_cache_mismatch`). For trying the key out before `Use`.
+    /// renders is reported (`write_action_cache_mismatch`), and no miss is recorded. For trying
+    /// the key out before `Use`.
     Verify,
     /// A write whose content the cache knows is declared as that content without rendering
-    /// it; one it does not know is declared as it would be without the cache.
+    /// it.
     Use,
-    /// `Use`, and a miss uploads the content and records it for later invocations.
-    Populate,
 }
 
 impl FromStr for WriteActionCacheMode {
@@ -64,10 +72,9 @@ impl FromStr for WriteActionCacheMode {
             "off" => Ok(Self::Off),
             "verify" => Ok(Self::Verify),
             "use" => Ok(Self::Use),
-            "populate" => Ok(Self::Populate),
             _ => Err(buck2_error!(
                 buck2_error::ErrorTag::Input,
-                "Unknown `write_action_cache` mode `{s}`; expected one of [`off`, `verify`, `use`, `populate`]"
+                "Unknown `write_action_cache` mode `{s}`; expected one of [`off`, `verify`, `use`]"
             )),
         }
     }

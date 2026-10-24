@@ -12,9 +12,11 @@
 With `buck2.write_action_cache` on, a write action asks the action cache for its content under a
 key that is a hash of its command line. A hit declares the output as a CAS download without
 rendering the content, and nothing is written until something needs the file. A miss renders the
-content and declares the write as it would be without the cache, probe included; under `populate`
-it first uploads the content and records the entry for later builds. Under `verify` every write
-is rendered and declared as without the cache, and a hit is only compared against it.
+content and declares the write as it would be without the cache, probe included. A write whose key
+falls within `buck2.write_action_cache_populate`, under an executor that publishes local results
+(`allow_cache_uploads`), goes through the cache whatever the mode says, and a miss first uploads
+the content and records the entry for later builds. Under `verify` every write is rendered and
+declared as without the cache, and a hit is only compared against it.
 
 The daemon is killed between recording and looking up, so that a hit says the key is the same
 from one process to the next.
@@ -101,7 +103,7 @@ class WriteActionCacheTest(BuckTestCase):
         configs = ["-c", f"test.content={content}"]
 
         res = await buck.build(
-            "//:write", "-c", "buck2.write_action_cache=populate", *configs
+            "//:write", "-c", "buck2.write_action_cache_populate=1", *configs
         )
         if await soft_errors(buck, "write_action_cache_populate_failed"):
             # CI and devservers lack write access to the action cache (see `test_cache_uploads`),
@@ -149,7 +151,7 @@ class WriteActionCacheTest(BuckTestCase):
             "-c",
             f"test.content={recorded}",
             "-c",
-            "buck2.write_action_cache=populate",
+            "buck2.write_action_cache_populate=1",
         )
         await buck.kill()
 
@@ -179,7 +181,7 @@ class WriteActionCacheTest(BuckTestCase):
         configs = ["-c", f"test.content={content}"]
 
         await buck.build(
-            "//:write", "-c", "buck2.write_action_cache=populate", *configs
+            "//:write", "-c", "buck2.write_action_cache_populate=1", *configs
         )
         recorded = await soft_errors(buck, "write_action_cache_populate_failed") == 0
         await buck.kill()
@@ -203,7 +205,7 @@ class WriteActionCacheTest(BuckTestCase):
         expected = f"{content}\nchild"
 
         res = await buck.build(
-            "//:write_tset", "-c", "buck2.write_action_cache=populate", *configs
+            "//:write_tset", "-c", "buck2.write_action_cache_populate=1", *configs
         )
         if await soft_errors(buck, "write_action_cache_populate_failed"):
             output = res.get_build_report().output_for_target("//:write_tset")
@@ -231,6 +233,57 @@ class WriteActionCacheTest(BuckTestCase):
 
         await buck.build(target, "-c", "buck2.write_action_cache=use", *configs)
         assert output.read_text() == expected
+
+    @buck_test(write_invocation_record=True)
+    async def test_a_key_outside_the_share_is_a_plain_write(self, buck: Buck) -> None:
+        content = random_string()
+        # A share this small holds none of the keys a test produces; a write outside it, with the
+        # mode off, never asks the cache.
+        res = await buck.build(
+            "//:write",
+            "-c",
+            f"test.content={content}",
+            "-c",
+            "buck2.write_action_cache_populate=0.000000001",
+        )
+        output = res.get_build_report().output_for_target("//:write")
+        assert counter(res, "write_action_cache_hits") == 0
+        assert counter(res, "write_action_cache_misses") == 0
+        assert output.read_text() == content
+
+    @buck_test(write_invocation_record=True)
+    async def test_nothing_is_recorded_where_local_results_are_not_published(
+        self, buck: Buck
+    ) -> None:
+        content = random_string()
+        configs = [
+            "-c",
+            f"test.content={content}",
+            "-c",
+            "test.allow_cache_uploads=false",
+            "-c",
+            "buck2.write_action_cache_populate=1",
+        ]
+
+        # The share covers every key, but the executor publishes no local results: with the mode
+        # off the cache is not asked...
+        res = await buck.build("//:write", *configs)
+        assert counter(res, "write_action_cache_misses") == 0
+        assert (
+            res.get_build_report().output_for_target("//:write").read_text() == content
+        )
+
+        # ...and under `use` it is asked, and the miss is not recorded.
+        res = await buck.build(
+            "//:write_again", "-c", "buck2.write_action_cache=use", *configs
+        )
+        assert counter(res, "write_action_cache_misses") >= 1
+        assert counter(res, "write_action_cache_populated") == 0
+        assert counter(res, "write_action_cache_populate_failures") == 0
+        assert (
+            res.get_build_report().output_for_target("//:write_again").read_text()
+            == content
+        )
 
     @buck_test()
     async def test_keys_are_golden(self, buck: Buck) -> None:

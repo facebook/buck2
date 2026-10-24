@@ -47,6 +47,9 @@ def _execution_platforms(ctx):
                         local_enabled = True,
                         remote_enabled = False,
                         use_windows_path_separators = False,
+                        # Whether local results are published, which is what lets a write's
+                        # content be recorded.
+                        allow_cache_uploads = read_config("test", "allow_cache_uploads", "true") in ["true", "True"],
                     ),
                 ),
             ],

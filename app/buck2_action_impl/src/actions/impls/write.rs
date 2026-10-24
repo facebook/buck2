@@ -61,6 +61,7 @@ use starlark::values::Value;
 use crate::actions::impls::declare_writes::declare_writes;
 use crate::actions::impls::run::DepFilesPlaceholderArtifactPathMapper;
 use crate::actions::impls::write_cache;
+use crate::actions::impls::write_cache::CacheUse;
 use crate::actions::impls::write_cache::KeyInputs;
 use crate::actions::impls::write_cache::WriteCache;
 use crate::actions::impls::write_cache::WriteCacheKey;
@@ -268,22 +269,37 @@ impl WriteAction {
         Ok(key)
     }
 
+    /// Declares the output as a write without the cache is declared.
+    async fn execute_plain(
+        &self,
+        ctx: &dyn ActionExecutionCtx,
+    ) -> buck2_error::Result<(ArtifactValue, ActionExecutionKind)> {
+        let (values, execution_kind) =
+            declare_writes(ctx, Box::new(|| Ok(vec![self.write_request(ctx)?]))).await?;
+        Ok((single(values)?, execution_kind))
+    }
+
     /// Declares the output through `cache`: as the content the cache has for it, or else the
-    /// way a write without the cache is declared, recorded for later first if the cache
-    /// populates.
+    /// way a write without the cache is declared, recorded for later first where the write is
+    /// one to record.
     async fn execute_cached(
         &self,
         ctx: &dyn ActionExecutionCtx,
         cache: WriteCache<'_>,
     ) -> buck2_error::Result<(ArtifactValue, ActionExecutionKind)> {
         let key = self.cache_key(ctx)?;
+        let populate = match cache.use_for(&key) {
+            CacheUse::None => return self.execute_plain(ctx).await,
+            CacheUse::Lookup => false,
+            CacheUse::Populate => true,
+        };
         if let Some(cached) = cache.lookup(ctx, &key).await {
             let value = cached.value(self.inner.is_executable);
             write_cache::declare(ctx, &self.output, value.dupe(), cached.info).await?;
             return Ok((value, ActionExecutionKind::Deferred));
         }
         let mut rendered = None;
-        if cache.populates() {
+        if populate {
             let request = self.write_request(ctx)?;
             match cache.populate(ctx, &key, &request).await {
                 Ok((value, info)) => {
