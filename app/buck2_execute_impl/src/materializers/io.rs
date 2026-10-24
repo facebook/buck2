@@ -179,7 +179,13 @@ where
                     .categorize_internal()
                     .is_err()
             {
-                fs_util::symlink(s.target().as_str(), dest).categorize_internal()?;
+                // A relative path normalizes `.` away, so a link to its own directory has an
+                // empty target, which the filesystem refuses.
+                let target = match s.target().as_str() {
+                    "" => ".",
+                    target => target,
+                };
+                fs_util::symlink(target, dest).categorize_internal()?;
             }
             Ok(())
         }
