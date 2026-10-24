@@ -28,7 +28,6 @@ use pagable::Pagable;
 use smallvec::SmallVec;
 use strong_hash::StrongHash;
 
-use super::values::TargetModifiersValue;
 use crate::attrs::attr_type::arg::StringWithMacros;
 use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
@@ -41,6 +40,7 @@ use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
+use crate::modifiers::CfgModifiers;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
@@ -224,7 +224,7 @@ pub enum CoercedAttr {
     Query(Box<QueryAttr<ProvidersLabel>>),
     SourceFile(CoercedPath),
     Metadata(MetadataMap),
-    TargetModifiers(TargetModifiersValue),
+    TargetModifiers(CfgModifiers),
     /// A value already encoded into the package arena during coercion.
     /// Never escapes coercion: `AttrValues::from_pairs` consumes it; every
     /// other consumer errors.

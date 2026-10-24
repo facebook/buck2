@@ -22,8 +22,8 @@ use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::spec::AttributeId;
-use crate::attrs::values::TargetModifiersValue;
 use crate::metadata::map::MetadataMap;
+use crate::modifiers::CfgModifiers;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
@@ -162,9 +162,7 @@ pub(crate) const TARGET_MODIFIERS_ATTRIBUTE: InternalAttribute = InternalAttribu
     name: "modifiers",
     attr: || {
         Attribute::new_const(
-            Some(CoercedAttr::TargetModifiers(TargetModifiersValue::new(
-                serde_json::Value::Array(vec![]),
-            ))),
+            Some(CoercedAttr::TargetModifiers(CfgModifiers::empty())),
             "an array of modifiers associated with this target",
             AttrType::target_modifiers(),
         )

@@ -37,6 +37,8 @@ use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::coercion_context::CoerceMemoKey;
 use buck2_node::attrs::coercion_context::CoerceMemoTable;
+use buck2_node::modifiers::CfgModifiers;
+use buck2_node::modifiers::ModifierLabelParser;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
@@ -48,6 +50,7 @@ use dupe::Dupe;
 use dupe::IterDupedExt;
 use hashbrown::HashTable;
 use hashbrown::hash_table;
+use starlark::values::Value;
 use tracing::info;
 
 use crate::attrs::coerce::arc_str_interner::ArcStrInterner;
@@ -268,6 +271,10 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
         }
     }
 
+    fn coerce_cfg_modifiers(&self, value: Value<'v>) -> CfgModifiers {
+        CfgModifiers::from_target(value, &ModifierLabelParser::new(&self.cell_resolver))
+    }
+
     fn intern_str(&self, value: &str) -> ArcStr {
         self.str_interner.intern(value)
     }
@@ -363,6 +370,10 @@ impl<'c, 'v> AttrCoercionContext<'v> for MemoizedCoercionCtx<'c, 'v> {
 
     fn coerce_memo_insert(&self, key: CoerceMemoKey<'v>, value: &CoercedAttr) {
         self.memo.insert(key, value);
+    }
+
+    fn coerce_cfg_modifiers(&self, value: Value<'v>) -> CfgModifiers {
+        AttrCoercionContext::coerce_cfg_modifiers(self.base, value)
     }
 
     fn intern_str(&self, value: &str) -> ArcStr {

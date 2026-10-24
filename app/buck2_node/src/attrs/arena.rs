@@ -163,9 +163,9 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::special_attr::SpecialAttr;
 use crate::attrs::traversal::CoercedAttrTraversal;
-use crate::attrs::values::TargetModifiersValue;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
+use crate::modifiers::CfgModifiers;
 use crate::provider_id_set::ProviderIdSet;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
@@ -718,8 +718,10 @@ pub struct CoercedAttrArena {
     /// the package.
     visibility: Vec<VisibilitySpecification>,
     within_view: Vec<WithinViewSpecification>,
-    modifiers: Vec<TargetModifiersValue>,
     metadata: Vec<MetadataMap>,
+    /// `modifiers` values, indexed by `Modifiers` records; each shared with
+    /// every holder that outlives the arena.
+    modifiers: Vec<CfgModifiers>,
     /// Identity-grade content hashes for root values (the values referenced
     /// from outside the arena: one per unique top-level attribute value),
     /// sorted by word for binary search. Read on the value-identity paths:
@@ -1274,7 +1276,7 @@ pub enum CoercedAttrRefKind<'a> {
     },
     Visibility(&'a VisibilitySpecification),
     WithinView(&'a WithinViewSpecification),
-    Modifiers(&'a TargetModifiersValue),
+    Modifiers(&'a CfgModifiers),
     Metadata(&'a MetadataMap),
 }
 
@@ -2180,7 +2182,7 @@ impl<'a> CoercedAttrRef<'a> {
         }
     }
 
-    pub fn unpack_target_modifiers(&self) -> Option<&'a TargetModifiersValue> {
+    pub fn unpack_target_modifiers(&self) -> Option<&'a CfgModifiers> {
         match self.kind() {
             CoercedAttrRefKind::Modifiers(m) => Some(m),
             _ => None,
@@ -2741,6 +2743,9 @@ impl<'a> CoercedAttrRef<'a> {
                 (CoercedAttrRefKind::Query(q), AttrTypeInner::Query(_)) => {
                     ConfiguredAttr::Query(Box::new(q.configure(ctx)))
                 }
+                (CoercedAttrRefKind::Modifiers(m), AttrTypeInner::TargetModifiers(_)) => {
+                    ConfiguredAttr::TargetModifiers(*m)
+                }
                 (
                     CoercedAttrRefKind::ExplicitConfiguredDep { label, platform },
                     AttrTypeInner::ConfiguredDep(ty),
@@ -3209,7 +3214,7 @@ impl<'a> CoercedAttrRef<'a> {
             },
             CoercedAttrRefKind::Visibility(v) => Ok(v.to_json()),
             CoercedAttrRefKind::WithinView(v) => Ok(v.to_json()),
-            CoercedAttrRefKind::Modifiers(m) => Ok(m.to_value()),
+            CoercedAttrRefKind::Modifiers(m) => Ok(m.to_json()),
             CoercedAttrRefKind::Metadata(m) => Ok(m.to_value()),
         }
     }
@@ -3640,7 +3645,7 @@ impl AttrSerializeWithContext for CoercedAttrRef<'_> {
             CoercedAttrRefKind::Query(q) => s.serialize_str(&q.query().0),
             CoercedAttrRefKind::Visibility(v) => v.to_json().serialize(s),
             CoercedAttrRefKind::WithinView(v) => v.to_json().serialize(s),
-            CoercedAttrRefKind::Modifiers(m) => m.to_value().serialize(s),
+            CoercedAttrRefKind::Modifiers(m) => m.to_json().serialize(s),
             CoercedAttrRefKind::Metadata(m) => m.to_value().serialize(s),
         }
     }
@@ -3809,8 +3814,8 @@ impl CoercedAttrArenaBuilder {
         arena.paths.shrink_to_fit();
         arena.visibility.shrink_to_fit();
         arena.within_view.shrink_to_fit();
-        arena.modifiers.shrink_to_fit();
         arena.metadata.shrink_to_fit();
+        arena.modifiers.shrink_to_fit();
 
         // Strong hashes are computed at seal, from content the arena
         // already holds: the intern hot path never touches blake3, and a
@@ -4289,7 +4294,7 @@ impl CoercedAttrArenaBuilder {
 
     pub fn encode_target_modifiers(
         &mut self,
-        m: &TargetModifiersValue,
+        m: &CfgModifiers,
     ) -> buck2_error::Result<CoercedAttr> {
         intern_whole(
             &mut self.value_dedup,
@@ -5083,6 +5088,107 @@ mod tests {
             b.encode(&dynamic_transition).unwrap().0,
             r2,
             "re-encoding should dedup to the same record"
+        );
+    }
+
+    fn modifiers(json: serde_json::Value) -> CfgModifiers {
+        use buck2_core::cells::CellResolver;
+        use buck2_core::cells::cell_root_path::CellRootPathBuf;
+        use buck2_core::cells::name::CellName;
+
+        use crate::modifiers::ModifierLabelParser;
+        let cells = CellResolver::testing_with_names_and_paths(&[
+            (
+                CellName::testing_new("root"),
+                CellRootPathBuf::testing_new(""),
+            ),
+            (
+                CellName::testing_new("cfg"),
+                CellRootPathBuf::testing_new("cfg"),
+            ),
+        ]);
+        CfgModifiers::from_target(&json, &ModifierLabelParser::new(&cells))
+    }
+
+    /// `modifiers` values intern into the modifiers table: equal values
+    /// share one entry, and the view hands out the shared value.
+    #[test]
+    fn test_modifiers_intern_into_table() {
+        use serde_json::json;
+        let json = json!([
+            "root//os:linux",
+            null,
+            "not-a-label",
+            42,
+            {
+                "_type": "ModifiersMatch",
+                "DEFAULT": "cfg//compiler:gcc",
+                "cfg//os:linux": {"_type": "ModifiersMatch", "cfg//arch:arm": null},
+                "cfg//os:windows": "cfg//compiler:msvc[sub]",
+            },
+        ]);
+        let value = CoercedAttr::TargetModifiers(modifiers(json.clone()));
+        let non_list = CoercedAttr::TargetModifiers(modifiers(json!({"a": 1})));
+        let empty = CoercedAttr::TargetModifiers(CfgModifiers::empty());
+        let arena = roundtrip(&[value.clone(), non_list.clone(), empty]);
+        assert_eq!(arena.modifiers.len(), 3);
+
+        let mut b = CoercedAttrArena::builder();
+        let (r, _) = b.encode(&value).unwrap();
+        let (again, _) = b
+            .encode(&CoercedAttr::TargetModifiers(modifiers(json.clone())))
+            .unwrap();
+        assert_eq!(r, again, "an equal value should intern to the same entry");
+        let (r2, _) = b.encode(&non_list).unwrap();
+        let arena = b.finish();
+        assert_eq!(arena.modifiers.len(), 2);
+        let CoercedAttrRefKind::Modifiers(m) = arena.view(r).kind() else {
+            panic!("should decode as modifiers");
+        };
+        assert_eq!(m.to_json(), json);
+        assert_eq!(
+            arena.view(r2).to_json(&AttrFmtContext::NO_CONTEXT).unwrap(),
+            json!({"a": 1})
+        );
+    }
+
+    /// `PACKAGE` modifier groups served as `buck.package_cfg_modifiers`
+    /// share the package's value.
+    #[test]
+    fn test_package_modifier_groups_intern_into_table() {
+        use buck2_core::cells::CellResolver;
+        use buck2_core::cells::cell_root_path::CellRootPathBuf;
+        use buck2_core::cells::name::CellName;
+        use serde_json::json;
+
+        use crate::modifiers::ModifierLabelParser;
+        let cells = CellResolver::testing_with_names_and_paths(&[(
+            CellName::testing_new("root"),
+            CellRootPathBuf::testing_new(""),
+        )]);
+        let json = json!([
+            {
+                "_type": "TaggedModifiers",
+                "location": {"_type": "ModifierPackageLocation", "package_path": "root//foo/PACKAGE"},
+                "modifiers": ["root//cfg:linux"],
+                "rule_name": null,
+            },
+            {
+                "_type": "TaggedModifiers",
+                "location": {"_type": "ModifierTargetLocation"},
+                "modifiers": [],
+                "rule_name": "python_binary",
+            },
+        ]);
+        let package = CfgModifiers::from_package(&json, &ModifierLabelParser::new(&cells), None);
+        let value = CoercedAttr::TargetModifiers(package);
+        roundtrip(std::slice::from_ref(&value));
+        let mut b = CoercedAttrArena::builder();
+        let (r, _) = b.encode(&value).unwrap();
+        let arena = b.finish();
+        assert_eq!(
+            arena.view(r).to_json(&AttrFmtContext::NO_CONTEXT).unwrap(),
+            json
         );
     }
 

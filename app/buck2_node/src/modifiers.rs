@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::fmt;
+use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 
@@ -35,6 +37,8 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 use static_interner::Intern;
 use static_interner::interner;
 use strong_hash::StrongHash;
+
+use crate::attrs::attr_type::any_matches::AnyMatches;
 
 pub const MODIFIER_METADATA_KEY: &str = "buck.cfg_modifiers";
 
@@ -418,6 +422,27 @@ impl<'v> ModifierSource<'v> for Value<'v> {
 
 fn malformed<'a>(value: impl ModifierSource<'a>) -> Modifier {
     Modifier::Malformed(ArcStr::from(value.json_text().as_str()))
+}
+
+impl Display for CfgModifiers {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.to_json(), f)
+    }
+}
+
+impl StrongHash for CfgModifiers {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        self.content_hash().strong_hash(state);
+    }
+}
+
+impl AnyMatches for CfgModifiers {
+    fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
+        self.to_json().any_matches(filter)
+    }
 }
 
 /// A modifier list: `None`, a list of modifiers, or malformed text.

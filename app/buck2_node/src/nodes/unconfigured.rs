@@ -48,7 +48,6 @@ use crate::attrs::spec::internal::VISIBILITY_ATTRIBUTE;
 use crate::attrs::special_attr::SpecialAttr;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
-use crate::attrs::values::TargetModifiersValue;
 use crate::call_stack::StarlarkCallStack;
 use crate::call_stack::StarlarkTargetCallStackRoot;
 use crate::metadata::map::MetadataMap;
@@ -699,9 +698,7 @@ impl<'a> TargetNodeRef<'a> {
                 Some(x) => Some(SpecialAttr::String(ArcStr::from(x))),
             },
             PACKAGE_CFG_MODIFIERS => match self.package_cfg_modifiers() {
-                Some(x) => Some(SpecialAttr::TargetModifiers(
-                    TargetModifiersValue::from_package_modifiers(x),
-                )),
+                Some(x) => Some(SpecialAttr::TargetModifiers(*x)),
                 None => Some(SpecialAttr::None),
             },
             _ => None,
@@ -735,12 +732,13 @@ impl<'a> TargetNodeRef<'a> {
             .transpose()
     }
 
-    pub fn target_modifiers(self) -> buck2_error::Result<Option<&'a TargetModifiersValue>> {
+    /// The target's own `modifiers`, shared with the stored value.
+    pub fn target_modifiers(self) -> buck2_error::Result<Option<CfgModifiers>> {
         self.known_attr_or_none(TARGET_MODIFIERS_ATTRIBUTE.id, AttrInspectOptions::All)
             .map(|attr| match attr.value.unpack_target_modifiers() {
-                Some(m) => Ok(m),
+                Some(m) => Ok(m.dupe()),
                 x => Err(internal_error!(
-                    "`modifiers` attribute should be coerced as a JSON value. Found `{:?}` instead",
+                    "`modifiers` attribute should be coerced as modifiers. Found `{:?}` instead",
                     x
                 )),
             })

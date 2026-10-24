@@ -53,8 +53,8 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
-use crate::attrs::values::TargetModifiersValue;
 use crate::metadata::map::MetadataMap;
+use crate::modifiers::CfgModifiers;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
@@ -102,7 +102,7 @@ pub enum ConfiguredAttr {
     Query(Box<QueryAttr<ConfiguredProvidersLabel>>),
     SourceFile(CoercedPath),
     Metadata(MetadataMap),
-    TargetModifiers(TargetModifiersValue),
+    TargetModifiers(CfgModifiers),
 }
 
 impl StrongHashWithoutConfig for ConfiguredAttr {

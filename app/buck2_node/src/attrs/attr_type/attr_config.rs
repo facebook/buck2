@@ -46,7 +46,7 @@ impl ToJsonWithContext for ConfiguredAttr {
             ConfiguredAttr::Query(e) => Ok(to_value(&e.query.query)?),
             ConfiguredAttr::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
             ConfiguredAttr::Metadata(m) => Ok(m.to_value()),
-            ConfiguredAttr::TargetModifiers(m) => Ok(m.to_value()),
+            ConfiguredAttr::TargetModifiers(m) => Ok(m.to_json()),
         }
     }
 }

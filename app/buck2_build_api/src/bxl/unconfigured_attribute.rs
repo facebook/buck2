@@ -228,12 +228,12 @@ pub(crate) fn ref_to_value<'v>(
             }
         }
         CoercedAttrRefKind::Query(q) => heap.alloc(q.query().0),
+        CoercedAttrRefKind::Modifiers(m) => m.alloc_starlark(heap),
         CoercedAttrRefKind::Visibility(VisibilitySpecification(specs))
         | CoercedAttrRefKind::WithinView(WithinViewSpecification(specs)) => {
             pattern_list_to_value(specs, heap)?
         }
         CoercedAttrRefKind::Metadata(data) => heap.alloc(data.to_value()),
-        CoercedAttrRefKind::Modifiers(data) => heap.alloc(data.to_value()),
     })
 }
 

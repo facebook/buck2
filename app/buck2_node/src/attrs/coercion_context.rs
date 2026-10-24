@@ -36,6 +36,7 @@ use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configurable::AttrIsConfigurable;
+use crate::modifiers::CfgModifiers;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
@@ -153,6 +154,9 @@ pub trait AttrCoercionContext<'v> {
     /// into. It is borrowed for one `encode_*` call at a time, so a value's
     /// children are encoded before the value.
     fn attr_arena(&self) -> RefMut<'_, CoercedAttrArenaBuilder>;
+
+    /// Parses a `modifiers` attribute value.
+    fn coerce_cfg_modifiers(&self, value: Value<'v>) -> CfgModifiers;
 
     /// Reuse previously allocated string if possible.
     fn intern_str(&self, value: &str) -> ArcStr;

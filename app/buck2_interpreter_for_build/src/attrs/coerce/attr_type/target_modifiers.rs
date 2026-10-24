@@ -16,7 +16,6 @@ use buck2_node::attrs::attr_type::target_modifiers::TargetModifiersAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::attrs::values::TargetModifiersValue;
 use starlark::values::Value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
@@ -33,8 +32,9 @@ impl AttrTypeCoerce for TargetModifiersAttrType {
         if configurable == AttrIsConfigurable::Yes {
             return Err(internal_error!("modifiers attribute is not configurable"));
         }
-        let value = value
-            .to_json_value()
+        // Rejects values with no JSON form without building one: the
+        // serializer writes into a sink and allocates nothing of its own.
+        serde_json::to_writer(std::io::sink(), &value)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .with_buck_error_context(|| {
                 format!(
@@ -42,9 +42,8 @@ impl AttrTypeCoerce for TargetModifiersAttrType {
                     value.to_repr(),
                 )
             })?;
-
-        ctx.attr_arena()
-            .encode_target_modifiers(&TargetModifiersValue::new(value))
+        let modifiers = ctx.coerce_cfg_modifiers(value);
+        ctx.attr_arena().encode_target_modifiers(&modifiers)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

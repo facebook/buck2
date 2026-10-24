@@ -18,9 +18,7 @@ use buck2_util::vec2;
 use buck2_util::vec2::Vec2;
 use dupe::Dupe;
 use pagable::Pagable;
-use strong_hash::StrongHash;
 
-use super::attr_type::any_matches::AnyMatches;
 use crate::attrs::arena::AttrWord;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
@@ -28,8 +26,6 @@ use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::arena::PackageAttrStorage;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::spec::AttributeId;
-use crate::metadata::value::hash_json_value;
-use crate::modifiers::CfgModifiers;
 
 /// One explicitly-set attribute, by arena ref. Hashing and equality read
 /// the identity-grade strong hash from the arena's root table, so the row
@@ -287,68 +283,5 @@ impl<'a, V> IntoIterator for &'a SortedAttrValues<V> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.sorted.iter()
-    }
-}
-
-#[derive(
-    Debug,
-    Dupe,
-    Eq,
-    PartialEq,
-    Hash,
-    Clone,
-    Allocative,
-    Default,
-    derive_more::Display,
-    Pagable
-)]
-#[display("{}", self.0.as_ref())]
-pub struct TargetModifiersValue(Arc<serde_json::Value>);
-
-impl TargetModifiersValue {
-    pub fn new(v: serde_json::Value) -> Self {
-        Self(Arc::new(v))
-    }
-
-    /// Exposes package-level modifiers as a `target_modifiers` attribute value.
-    /// Renders per call; only the `buck.package_cfg_modifiers` special
-    /// attribute reads it.
-    pub fn from_package_modifiers(m: &CfgModifiers) -> Self {
-        Self(Arc::new(m.to_json()))
-    }
-
-    pub fn to_value(&self) -> serde_json::Value {
-        (*self.0).clone()
-    }
-
-    pub fn as_json(&self) -> Arc<serde_json::Value> {
-        self.0.dupe()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        match self.0.as_ref() {
-            serde_json::Value::Null => true,
-            serde_json::Value::Bool(_) => false,
-            serde_json::Value::Number(_) => false,
-            serde_json::Value::String(_) => false,
-            serde_json::Value::Array(vec) => vec.is_empty(),
-            serde_json::Value::Object(map) => map.is_empty(),
-        }
-    }
-}
-
-impl StrongHash for TargetModifiersValue {
-    fn strong_hash<H: Hasher>(&self, state: &mut H) {
-        let Self(value) = self;
-        hash_json_value(value.as_ref(), state);
-    }
-}
-
-impl AnyMatches for TargetModifiersValue {
-    fn any_matches(
-        &self,
-        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool> {
-        self.0.any_matches(filter)
     }
 }

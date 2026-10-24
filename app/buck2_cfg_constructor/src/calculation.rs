@@ -23,7 +23,6 @@ use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CfgConstructorModifiers;
 use buck2_node::modifiers::CfgModifiers;
-use buck2_node::modifiers::ModifierLabelParser;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::rule_type::RuleType;
 use buck2_node::super_package::SuperPackage;
@@ -187,16 +186,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             );
         }
 
-        let target_cfg_modifiers = match target.target_modifiers()?.filter(|t| !t.is_empty()) {
-            Some(t) => {
-                let cells = ctx.get_cell_resolver().await?;
-                Some(CfgModifiers::from_target(
-                    &*t.as_json(),
-                    &ModifierLabelParser::new(&cells),
-                ))
-            }
-            None => None,
-        };
+        let target_cfg_modifiers = target.target_modifiers()?.filter(|t| !t.is_empty());
 
         // If there are no PACKAGE/target/cli modifiers, return the original configuration without computing DICE call
         // TODO(scottcao): This is just for rollout purpose. Remove once modifier is rolled out

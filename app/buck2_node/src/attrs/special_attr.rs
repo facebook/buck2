@@ -17,7 +17,7 @@ use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::fmt_context::AttrFmtContext;
-use crate::attrs::values::TargetModifiersValue;
+use crate::modifiers::CfgModifiers;
 
 /// A synthesized `buck.*` attribute value: built per call from node data and
 /// served as built, never stored in any arena. The vocabulary is fixed by
@@ -31,7 +31,7 @@ pub enum SpecialAttr {
     LabelList(Vec<ProvidersLabel>),
     /// Configuration dep labels (`buck.configuration_deps`).
     ConfigurationDepList(Vec<ProvidersLabel>),
-    TargetModifiers(TargetModifiersValue),
+    TargetModifiers(CfgModifiers),
 }
 
 impl SpecialAttr {
@@ -66,7 +66,7 @@ impl SpecialAttr {
                         .collect(),
                 ))
             }
-            SpecialAttr::TargetModifiers(m) => Ok(m.to_value()),
+            SpecialAttr::TargetModifiers(m) => Ok(m.to_json()),
         }
     }
 
@@ -118,10 +118,14 @@ impl AttrDisplayWithContext for SpecialAttr {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::cells::CellResolver;
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    use buck2_core::cells::name::CellName;
     use buck2_core::target::label::label::TargetLabel;
 
     use super::*;
     use crate::attrs::display::AttrDisplayWithContextExt;
+    use crate::modifiers::ModifierLabelParser;
 
     fn label(s: &str) -> ProvidersLabel {
         ProvidersLabel::default_for(TargetLabel::testing_parse(s))
@@ -133,9 +137,13 @@ mod tests {
             SpecialAttr::String(ArcStr::from("some_rule")),
             SpecialAttr::LabelList(vec![label("root//a:b"), label("cell1//c:d")]),
             SpecialAttr::ConfigurationDepList(vec![label("root//cfg:x")]),
-            SpecialAttr::TargetModifiers(TargetModifiersValue::new(serde_json::json!({
-                "k": "v"
-            }))),
+            SpecialAttr::TargetModifiers(CfgModifiers::from_target(
+                &serde_json::json!(["root//cfg:linux", {"_type": "ModifiersMatch", "DEFAULT": null, "root//cfg:windows": "root//cfg:msvc"}]),
+                &ModifierLabelParser::new(&CellResolver::testing_with_name_and_path(
+                    CellName::testing_new("root"),
+                    CellRootPathBuf::testing_new(""),
+                )),
+            )),
         ]
     }
 

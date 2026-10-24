@@ -276,7 +276,7 @@ fn configured_attr_to_value<'v>(
             }
         },
         ConfiguredAttr::Metadata(data) => heap.alloc(data.to_value()),
-        ConfiguredAttr::TargetModifiers(data) => heap.alloc(data.to_value()),
+        ConfiguredAttr::TargetModifiers(data) => data.alloc_starlark(heap),
     })
 }
 
