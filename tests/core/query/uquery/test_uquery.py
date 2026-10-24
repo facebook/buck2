@@ -836,8 +836,7 @@ class UqueryTest(BuckTestCase):
         )
         assert json.loads(out.stdout) == {
             "root//:holder": {
-                # Query macros render with two spaces after the expansion kind.
-                "arg": "$(query_targets  deps('root//:libc++'))",
+                "arg": "$(query_targets deps('root//:libc++'))",
                 "q": "deps(root//:dep)",
             }
         }

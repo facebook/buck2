@@ -459,12 +459,12 @@ pub enum QueryExpansion {
 impl Display for QueryExpansion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            QueryExpansion::Output => f.write_str("query_outputs ")?,
-            QueryExpansion::Target => f.write_str("query_targets ")?,
+            QueryExpansion::Output => f.write_str("query_outputs")?,
+            QueryExpansion::Target => f.write_str("query_targets")?,
             QueryExpansion::TargetAndOutput(Some(separator)) => {
-                write!(f, "query_targets_and_outputs '{separator}' ")?;
+                write!(f, "query_targets_and_outputs '{separator}'")?;
             }
-            QueryExpansion::TargetAndOutput(None) => f.write_str("query_targets_and_outputs ")?,
+            QueryExpansion::TargetAndOutput(None) => f.write_str("query_targets_and_outputs")?,
         };
 
         Ok(())
