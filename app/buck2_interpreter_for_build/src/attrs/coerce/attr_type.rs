@@ -12,14 +12,13 @@ use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::arena::CoercedAttrRef;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::AttrTypeInner;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::Value;
 
 use crate::attrs::coerce::AttrTypeCoerce;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::coerced_attr::CoercedAttrExr;
+use crate::attrs::coerce::coerced_attr::coerce_attr;
 
 pub mod any;
 pub mod arg;
@@ -74,7 +73,7 @@ pub trait AttrTypeExt {
         value: Value<'v>,
         default: Option<CoercedAttrRef<'_>>,
     ) -> buck2_error::Result<AttrToken> {
-        CoercedAttr::coerce(self.this(), configurable, ctx, value, default)
+        coerce_attr(self.this(), configurable, ctx, value, default)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

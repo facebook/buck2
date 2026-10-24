@@ -217,8 +217,8 @@ impl StrongHashWithoutConfig for ConfiguredAttr {
     }
 }
 
-// For `ConfiguredAttr` size is not as important as for `CoercedAttr`,
-// yet we should keep it reasonable.
+// `ConfiguredAttr` is built per access rather than stored per target, so its
+// size matters less than the arena encoding's, yet we should keep it reasonable.
 size_assert::words_of_type!(ConfiguredAttr, 4);
 
 impl AttrSerializeWithContext for ConfiguredAttr {

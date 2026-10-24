@@ -118,7 +118,7 @@ unsafe impl<'v> ProvidesStaticType<'v> for CoerceMemoTable<'v> {
 }
 
 // SAFETY: keys are identities of frozen values, which the GC neither owns
-// nor moves, and `CoercedAttr` holds no starlark values.
+// nor moves, and an arena token holds no starlark values.
 unsafe impl<'v> Trace<'v> for CoerceMemoTable<'v> {
     fn trace(&mut self, _tracer: &Tracer<'v>) {}
 }

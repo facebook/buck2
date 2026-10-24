@@ -61,7 +61,7 @@ impl AttributeId {
 /// Attributes are kept in declaration order, internal attributes first; an attribute's
 /// `AttributeId` is its position.
 ///
-/// For its attribute values, a TargetNode will hold a sorted Vec<(AttributeId, CoercedAttr)> that will have values
+/// For its attribute values, a TargetNode will hold sorted (AttributeId, arena ref) rows that have values
 /// only for the values that are explicitly set. Default values need to be looked up through the AttributeSpec.
 #[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative)]
 pub struct AttributeSpec {

@@ -144,7 +144,9 @@ use crate::attrs::attr_type::query::QueryMacroBase;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::tuple::TupleLiteral;
-use crate::attrs::coerced_attr::CoercedSelector;
+use crate::attrs::coerced_attr::check_select_keys_unique;
+use crate::attrs::coerced_attr::select_fail_to_json;
+use crate::attrs::coerced_attr::select_incompatible_to_json;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -2076,7 +2078,7 @@ impl Field for SelectorEntries {
         b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'s>,
     ) -> buck2_error::Result<()> {
-        CoercedSelector::check_all_keys_unique(entries)?;
+        check_select_keys_unique(entries)?;
         let (keys, keys_hash) = b.encode_selector_keys(entries.iter().map(|(k, _)| &k.0))?;
         w.head(entries.len() as u32);
         w.r(keys);
@@ -4155,8 +4157,8 @@ impl<'a> CoercedAttrRef<'a> {
                 Ok(to_value(source_file_display(ctx, p).to_string())?)
             }
             CoercedAttrRefKind::Query(q) => Ok(to_value(q.query().0)?),
-            CoercedAttrRefKind::SelectFail(s) => CoercedSelector::fail_to_json(s),
-            CoercedAttrRefKind::SelectIncompatible(s) => CoercedSelector::incompatible_to_json(s),
+            CoercedAttrRefKind::SelectFail(s) => select_fail_to_json(s),
+            CoercedAttrRefKind::SelectIncompatible(s) => select_incompatible_to_json(s),
             CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
                 Ok(to_value([label.to_string(), platform.to_string()])?)
             }
@@ -4573,10 +4575,10 @@ impl AttrSerializeWithContext for CoercedAttrRef<'_> {
             CoercedAttrRefKind::SourceFile(p) => {
                 s.serialize_str(&source_file_display(ctx, p).to_string())
             }
-            CoercedAttrRefKind::SelectFail(m) => CoercedSelector::fail_to_json(m)
-                .map_err(err::<S>)?
-                .serialize(s),
-            CoercedAttrRefKind::SelectIncompatible(m) => CoercedSelector::incompatible_to_json(m)
+            CoercedAttrRefKind::SelectFail(m) => {
+                select_fail_to_json(m).map_err(err::<S>)?.serialize(s)
+            }
+            CoercedAttrRefKind::SelectIncompatible(m) => select_incompatible_to_json(m)
                 .map_err(err::<S>)?
                 .serialize(s),
             CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
