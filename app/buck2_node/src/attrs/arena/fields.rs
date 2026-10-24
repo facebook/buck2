@@ -71,7 +71,7 @@ impl IdHasher<'_> {
 /// head fields and tail.
 pub struct Cursor<'a> {
     pub(crate) arena: &'a CoercedAttrArena,
-    pub(super) r: AttrWord,
+    pub(crate) r: AttrWord,
     /// Head fields of a record; `None` for an inline word.
     pub(super) head: Option<RefRun<'a>>,
     pub(super) tail: Tail<'a>,
