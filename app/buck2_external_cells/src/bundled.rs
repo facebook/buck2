@@ -50,6 +50,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::MaterializeRequest;
+use buck2_execute::materialize::materializer::ReadLease;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_external_cells_bundled::BundledCell;
 use buck2_external_cells_bundled::BundledFile;
@@ -512,10 +513,11 @@ pub(crate) async fn get_file_ops_delegate(
         .dupe()
 }
 
+/// Puts the whole cell on disk and returns where, with the lease its reader holds.
 pub(crate) async fn materialize_all(
     ctx: &mut DiceComputations<'_>,
     cell: CellName,
-) -> buck2_error::Result<ProjectRelativePathBuf> {
+) -> buck2_error::Result<(ProjectRelativePathBuf, ReadLease)> {
     let artifact_fs = ctx.get_artifact_fs().await?;
     let buck_out_resolver = artifact_fs.buck_out_path_resolver();
 
@@ -544,16 +546,13 @@ pub(crate) async fn materialize_all(
             re_use_case,
         })
         .await?;
-    for result in response.results {
-        result?;
-    }
-    // FIXME(materializer): The command reads the cell's sources for as long as it runs, so the
-    // lease should live as long, held by whatever dice value this becomes. Nothing here can
-    // hold it that long, so it goes with the result.
-    drop(response.lease);
-    Ok(buck_out_resolver.resolve_external_cell_source(
-        CellRelativePath::unchecked_new(""),
-        ExternalCellOrigin::Bundled(cell),
+    let lease = response.ensure_results_ok()?;
+    Ok((
+        buck_out_resolver.resolve_external_cell_source(
+            CellRelativePath::unchecked_new(""),
+            ExternalCellOrigin::Bundled(cell),
+        ),
+        lease,
     ))
 }
 

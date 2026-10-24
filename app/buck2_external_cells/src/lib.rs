@@ -92,13 +92,16 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         // without doing the actual materialization. However, that's not currently possible without
         // it resulting in the materializer tracking paths in the repo, so this will have to do for
         // now.
-        let materialized_path = match origin {
+        let (materialized_path, lease) = match origin {
             ExternalCellOrigin::Bundled(cell) => bundled::materialize_all(ctx, cell).await?,
             ExternalCellOrigin::Git(setup) => git::materialize_all(ctx, cell, setup).await?,
         };
 
         let fs = io.project_root().dupe();
-        fs.copy(&materialized_path, &dest_path)?;
+        let copied = fs.copy(&materialized_path, &dest_path);
+        // The copy read the cell under the lease.
+        drop(lease);
+        copied?;
         // The copy carries the materialized files' modes, read-only under
         // `buck2.readonly_outputs`, and the expanded cell is the user's to edit.
         ctx.get_blocking_executor()

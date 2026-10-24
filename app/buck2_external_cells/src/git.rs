@@ -18,6 +18,7 @@ use std::sync::Mutex;
 use std::sync::OnceLock;
 
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
+use buck2_build_api::materialize::invocation_re_use_case;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::file_ops::delegate::FileOpsDelegate;
 use buck2_common::file_ops::metadata::FileDigestConfig;
@@ -35,6 +36,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -45,7 +47,10 @@ use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
+use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::materialize::materializer::ReadLease;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -458,12 +463,35 @@ pub(crate) async fn get_file_ops_delegate(
         .dupe()
 }
 
+/// Puts the whole cell on disk and returns where, with the lease its reader holds.
 pub(crate) async fn materialize_all(
     ctx: &mut DiceComputations<'_>,
     cell: CellName,
     setup: GitCellSetup,
-) -> buck2_error::Result<ProjectRelativePathBuf> {
+) -> buck2_error::Result<(ProjectRelativePathBuf, ReadLease)> {
     // Get the `GitFileOpsDelegate` instance to make sure all the data is materialized.
     let ops = get_file_ops_delegate(ctx, cell, setup.dupe()).await?;
-    Ok(ops.get_base_path())
+    let path = ops.get_base_path();
+    // The checkout is tracked as one root, whose value the materializer has; asking for it by
+    // that value is what holds it for the reader.
+    let materializer = ctx.per_transaction_data().get_materializer();
+    let entry = materializer
+        .get_artifact_entries_for_materialized_paths(vec![path.clone()], false)
+        .await?
+        .pop()
+        .flatten()
+        .map(|(_, entry)| entry)
+        .with_internal_error(|| {
+            format!("The git cell at `{path}` is not tracked after its download")
+        })?;
+    let re_use_case = invocation_re_use_case(ctx);
+    let response = materializer
+        .materialize(MaterializeRequest {
+            artifacts: vec![(path.clone(), ArtifactValue::new(entry, None))],
+            outputs: Vec::new(),
+            purpose: MaterializationPurpose::IntermediateOnly,
+            re_use_case,
+        })
+        .await?;
+    Ok((path, response.ensure_results_ok()?))
 }
