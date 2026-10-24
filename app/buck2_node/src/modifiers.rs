@@ -21,12 +21,12 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_error::buck2_error;
 use buck2_hash::BuckHasher;
+use buck2_hash::BuckMutInsertionMap;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use buck2_util::strong_hasher::StrongHash128;
 use dupe::Dupe;
 use pagable::Pagable;
-use starlark::collections::SmallMap;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -216,8 +216,9 @@ impl CfgModifiers {
     pub fn from_target<'a>(value: impl ModifierSource<'a>, labels: &ModifierLabelParser) -> Self {
         let parsed = parse_list(value, labels);
         let source = value.json_text();
-        let source = (render(&parsed, &mut JsonRenderer).to_string() != source)
-            .then(|| ArcStr::from(source.as_str()));
+        let rendered_as_written = serde_json::from_str::<serde_json::Value>(&source)
+            .is_ok_and(|written| written == render(&parsed, &mut JsonRenderer));
+        let source = (!rendered_as_written).then(|| ArcStr::from(source.as_str()));
         Self::new_with_source(None, parsed, source)
     }
 
@@ -684,8 +685,11 @@ impl<'v> ModifierRenderer for StarlarkRenderer<'v> {
     }
 
     fn dict(&mut self, entries: Vec<(String, Value<'v>)>) -> Value<'v> {
-        self.0
-            .alloc(entries.into_iter().collect::<SmallMap<String, Value<'v>>>())
+        self.0.alloc(
+            entries
+                .into_iter()
+                .collect::<BuckMutInsertionMap<String, Value<'v>>>(),
+        )
     }
 
     fn raw_json(&mut self, json: &str) -> Value<'v> {

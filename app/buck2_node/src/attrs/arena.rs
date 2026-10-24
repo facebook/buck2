@@ -6798,7 +6798,7 @@ mod tests {
             query: text.to_owned(),
             resolved_literals: lits,
         });
-        roundtrip_canonical(&[attr.clone()]);
+        roundtrip_canonical(std::slice::from_ref(&attr));
 
         let mut b = CoercedAttrArena::builder();
         let AttrToken(r, _) = attr(&mut b).unwrap();
