@@ -38,13 +38,3 @@ pub fn configured_value_to_json(
         options: Default::default(),
     })
 }
-
-pub fn value_to_string(value: &CoercedAttr, pkg: PackageLabel) -> buck2_error::Result<String> {
-    match value_to_json(value, pkg)?.as_str() {
-        Some(s) => Ok(s.to_owned()),
-        None => Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::Input,
-            "Expected a string, did not get one",
-        )),
-    }
-}

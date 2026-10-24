@@ -15,10 +15,24 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
-use buck2_node::attrs::hacks;
+use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
+
+fn value_to_string(value: &CoercedAttr, pkg: PackageLabel) -> buck2_error::Result<String> {
+    let ctx = AttrFmtContext {
+        package: Some(pkg),
+        options: Default::default(),
+    };
+    match value.to_json(&ctx)?.as_str() {
+        Some(s) => Ok(s.to_owned()),
+        None => Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Expected a string, did not get one",
+        )),
+    }
+}
 
 #[test]
 fn stringifies_correctly() -> buck2_error::Result<()> {
@@ -31,12 +45,12 @@ fn stringifies_correctly() -> buck2_error::Result<()> {
 
     assert_eq!(
         "Hello, world!".to_owned(),
-        hacks::value_to_string(&coerced, package.dupe())?
+        value_to_string(&coerced, package.dupe())?
     );
 
     let list = CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::String(
         StringLiteral(ArcStr::from("Hello, world!")),
     )])));
-    assert!(hacks::value_to_string(&list, package.dupe()).is_err());
+    assert!(value_to_string(&list, package.dupe()).is_err());
     Ok(())
 }

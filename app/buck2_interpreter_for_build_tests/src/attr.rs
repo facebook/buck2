@@ -26,13 +26,27 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::attrs::hacks::value_to_string;
+use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::Dupe;
 use indoc::indoc;
 use starlark::values::Heap;
 use starlark::values::dict::AllocDict;
 use starlark::values::list::AllocList;
+
+fn value_to_string(value: &CoercedAttr, pkg: PackageLabel) -> buck2_error::Result<String> {
+    let ctx = AttrFmtContext {
+        package: Some(pkg),
+        options: Default::default(),
+    };
+    match value.to_json(&ctx)?.as_str() {
+        Some(s) => Ok(s.to_owned()),
+        None => Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Expected a string, did not get one",
+        )),
+    }
+}
 
 #[test]
 fn string_works() -> buck2_error::Result<()> {
