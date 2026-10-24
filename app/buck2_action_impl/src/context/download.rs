@@ -33,28 +33,23 @@ use crate::actions::impls::download_file::UnregisteredDownloadFileAction;
 
 /// The checksum of a `download_file` call.
 ///
-/// Without `sha512` this is the `Checksum::new(sha1, sha256)` call that was always made, so every
-/// existing download keeps its representation. Only a `sha512` needs the table-driven
-/// constructor.
+/// Every digest given is checked, in the order `sha1`, `sha256`, `sha512`.
 fn download_checksum(
     sha1: Option<&str>,
     sha256: Option<&str>,
     sha512: Option<&str>,
 ) -> buck2_error::Result<Checksum> {
-    match sha512 {
-        None => Checksum::new(sha1, sha256),
-        Some(sha512) => {
-            let mut pairs = Vec::with_capacity(3);
-            if let Some(sha1) = sha1 {
-                pairs.push(("sha1", sha1));
-            }
-            if let Some(sha256) = sha256 {
-                pairs.push(("sha256", sha256));
-            }
-            pairs.push(("sha512", sha512));
-            Checksum::from_pairs(&pairs)
-        }
+    let mut pairs = Vec::with_capacity(3);
+    if let Some(sha1) = sha1 {
+        pairs.push(("sha1", sha1));
     }
+    if let Some(sha256) = sha256 {
+        pairs.push(("sha256", sha256));
+    }
+    if let Some(sha512) = sha512 {
+        pairs.push(("sha512", sha512));
+    }
+    Checksum::from_pairs(&pairs)
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -75,6 +70,22 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
     /// is checked against the size of the downloaded file. The optional parameter
     /// is_executable indicates whether the resulting file should be marked with executable
     /// permissions.
+    ///
+    /// Which checksum to give: prefer `sha512` when you can, since SHA-512 has the longest digest
+    /// of the three and is the one that package lock files (npm, yarn) record. Otherwise prefer
+    /// `sha256` over `sha1`: SHA-1 is broken against deliberate collisions, so a checksum that
+    /// only has `sha1` protects against accidental corruption but not against a crafted file. Give
+    /// more than one if you have them; the file must match all of them. `sha1` and `sha256` keep
+    /// working as before.
+    ///
+    /// ```python
+    /// ctx.actions.download_file(
+    ///     out,
+    ///     "https://example.com/tool.tar.gz",
+    ///     sha512 = "0a50261e...",  # the full 128 hex characters
+    /// )
+    /// ```
+    ///
     /// (Meta-internal) The optional parameter vpnless_url indicates a url from which this resource
     /// can be downloaded off VPN; this has the same restrictions as `url` above.
     fn download_file<'v>(
@@ -208,19 +219,23 @@ mod tests {
     const SHA512: &str = "0a50261ebd1a390fed2bf326f2673c145582a6342d523204973d0219337f81616a8069b012587cf5635f6925f1b56c360230c19b273500ee013e030601bf2425";
 
     #[test]
-    fn test_download_checksum_without_sha512_is_unchanged() -> buck2_error::Result<()> {
-        assert!(matches!(
-            download_checksum(Some(SHA1), None, None)?,
-            Checksum::Sha1(..)
-        ));
-        assert!(matches!(
-            download_checksum(None, Some(SHA256), None)?,
-            Checksum::Sha256(..)
-        ));
-        assert!(matches!(
-            download_checksum(Some(SHA1), Some(SHA256), None)?,
-            Checksum::Both { .. }
-        ));
+    fn test_download_checksum_without_sha512_keeps_its_digests() -> buck2_error::Result<()> {
+        let only_1 = download_checksum(Some(SHA1), None, None)?;
+        assert!(matches!(only_1, Checksum::Entries(..)));
+        assert_eq!(
+            (only_1.sha1(), only_1.sha256(), only_1.sha512()),
+            (Some(SHA1), None, None)
+        );
+        let only_256 = download_checksum(None, Some(SHA256), None)?;
+        assert_eq!(
+            (only_256.sha1(), only_256.sha256(), only_256.sha512()),
+            (None, Some(SHA256), None)
+        );
+        let both = download_checksum(Some(SHA1), Some(SHA256), None)?;
+        assert_eq!(
+            (both.sha1(), both.sha256(), both.sha512()),
+            (Some(SHA1), Some(SHA256), None)
+        );
         Ok(())
     }
 

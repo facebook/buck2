@@ -105,8 +105,12 @@ pub struct ChecksumEntry {
 
 /// The checksums a download must match.
 ///
-/// `Entries` holds the checksums built by [`Checksum::from_pairs`] and is used when `sha512` is
-/// given; every download without it keeps using the other three variants.
+/// `Entries` holds the checksums built by [`Checksum::from_pairs`]; it is the only variant anything
+/// constructs.
+///
+/// `Sha1`, `Sha256` and `Both` are kept only so that data stored before `Entries` existed still
+/// decodes (they are part of the `Pagable` encoding). Nothing constructs them any more; they are
+/// read the same way as `Entries`.
 ///
 /// `Checksum` derives `Pagable`, so a variant's position is part of its serialized form. New
 /// variants go last; never reorder or insert before an existing one.
@@ -155,55 +159,26 @@ fn supported_algorithms() -> String {
 }
 
 impl Checksum {
+    /// Builds a checksum from an optional SHA-1 and an optional SHA-256, with the same checks and
+    /// error messages as always.
+    ///
+    /// Deprecated: it is `Checksum::from_pairs` over the digests that are given, in the order
+    /// `sha1`, `sha256`, so it returns the `Entries` variant like `from_pairs` does. Use
+    /// `Checksum::from_pairs` directly.
+    #[deprecated(note = "use Checksum::from_pairs")]
     pub fn new(sha1: Option<&str>, sha256: Option<&str>) -> buck2_error::Result<Self> {
-        fn is_hex_digit(x: char) -> bool {
-            let x = x.to_ascii_lowercase();
-            x.is_ascii_digit() || ('a'..='f').contains(&x)
+        let mut pairs = SmallVec::<[(&str, &str); 2]>::new();
+        if let Some(sha1) = sha1 {
+            pairs.push(("sha1", sha1));
         }
-
-        fn validate_digest(
-            digest: Option<&str>,
-            digest_len: usize,
-            digest_type: &'static str,
-        ) -> buck2_error::Result<Option<Arc<str>>> {
-            match digest {
-                None => Ok(None),
-                Some(digest) => {
-                    let expected_len = digest_len * 2;
-                    if digest.len() != expected_len {
-                        return Err(DownloadFileError::InvalidDigestLength {
-                            digest: digest.to_owned(),
-                            expected_len,
-                            digest_type,
-                        }
-                        .into());
-                    }
-                    if let Some(bad_char) = digest.chars().find(|x| !is_hex_digit(*x)) {
-                        return Err(DownloadFileError::InvalidDigestCharacter {
-                            digest: digest.to_owned(),
-                            bad_char,
-                            digest_type,
-                        }
-                        .into());
-                    }
-                    Ok(Some(Arc::from(digest.to_ascii_lowercase())))
-                }
-            }
+        if let Some(sha256) = sha256 {
+            pairs.push(("sha256", sha256));
         }
-
-        match (
-            validate_digest(sha1, SHA1_SIZE, "sha1")?,
-            validate_digest(sha256, SHA256_SIZE, "sha256")?,
-        ) {
-            (Some(sha1), None) => Ok(Checksum::Sha1(sha1)),
-            (None, Some(sha256)) => Ok(Checksum::Sha256(sha256)),
-            (Some(sha1), Some(sha256)) => Ok(Checksum::Both { sha1, sha256 }),
-            (None, None) => Err(DownloadFileError::MissingChecksum.into()),
-        }
+        Self::from_pairs(&pairs)
     }
 
-    /// Builds a checksum from (algorithm name, hex digest) pairs, for the algorithms of
-    /// `HASH_ALGORITHMS` that `new` has no argument for (`sha512`). Refuses an algorithm that is
+    /// Builds a checksum from (algorithm name, hex digest) pairs, for any of the algorithms of
+    /// `HASH_ALGORITHMS` (`sha1`, `sha256`, `sha512`). Refuses an algorithm that is
     /// not in the table, an algorithm given twice, a digest of the wrong length or with non-hex
     /// characters, and an empty list. The content has to match every pair.
     pub fn from_pairs(pairs: &[(&str, &str)]) -> buck2_error::Result<Self> {
@@ -970,42 +945,73 @@ mod tests {
         );
     }
 
+    // A sha1-only, a sha256-only and a both-digests download used to be the `Sha1`, `Sha256` and
+    // `Both` variants. They are built through `from_pairs` (`Entries`) now; these tests compare the
+    // two on everything a download reads from a checksum. `old` builds the old variants directly,
+    // as the code before `Entries` did.
+
+    fn old(sha1: Option<&str>, sha256: Option<&str>) -> Checksum {
+        match (sha1, sha256) {
+            (Some(sha1), None) => Checksum::Sha1(Arc::from(sha1)),
+            (None, Some(sha256)) => Checksum::Sha256(Arc::from(sha256)),
+            (Some(sha1), Some(sha256)) => Checksum::Both {
+                sha1: Arc::from(sha1),
+                sha256: Arc::from(sha256),
+            },
+            (None, None) => unreachable!("no checksum"),
+        }
+    }
+
+    fn entries(sha1: Option<&str>, sha256: Option<&str>) -> buck2_error::Result<Checksum> {
+        let mut pairs = Vec::new();
+        if let Some(sha1) = sha1 {
+            pairs.push(("sha1", sha1));
+        }
+        if let Some(sha256) = sha256 {
+            pairs.push(("sha256", sha256));
+        }
+        Checksum::from_pairs(&pairs)
+    }
+
+    const OLD_COMBINATIONS: [(Option<&str>, Option<&str>); 3] = [
+        (Some(FOOBAR_SHA1), None),
+        (None, Some(FOOBAR_SHA256)),
+        (Some(FOOBAR_SHA1), Some(FOOBAR_SHA256)),
+    ];
+
     #[test]
-    fn test_checksum_new_is_unchanged() -> buck2_error::Result<()> {
-        // `Checksum::new` builds the same variants it always did, so every download without
-        // `sha512` keeps its representation.
-        assert_matches!(
-            Checksum::new(Some(FOOBAR_SHA1), None)?,
-            Checksum::Sha1(h) if &*h == FOOBAR_SHA1
-        );
-        assert_matches!(
-            Checksum::new(None, Some(FOOBAR_SHA256))?,
-            Checksum::Sha256(h) if &*h == FOOBAR_SHA256
-        );
-        assert_matches!(
-            Checksum::new(Some(FOOBAR_SHA1), Some(FOOBAR_SHA256))?,
-            Checksum::Both { sha1, sha256 } if &*sha1 == FOOBAR_SHA1 && &*sha256 == FOOBAR_SHA256
-        );
+    fn test_entries_declare_what_the_old_variants_declared() -> buck2_error::Result<()> {
+        // The digests a download declares up front (its metadata is built from `sha1()` and
+        // `sha256()`), and the pairs it verifies.
+        for (sha1, sha256) in OLD_COMBINATIONS {
+            let old = old(sha1, sha256);
+            let new = entries(sha1, sha256)?;
+            assert_matches!(new, Checksum::Entries(..));
+            assert_eq!(new.sha1(), old.sha1());
+            assert_eq!(new.sha256(), old.sha256());
+            assert_eq!(new.sha512(), None);
+            assert_eq!(new.pairs(), old.pairs());
+        }
+        Ok(())
+    }
 
-        let both = Checksum::new(Some(FOOBAR_SHA1), Some(FOOBAR_SHA256))?;
-        assert_eq!(both.sha1(), Some(FOOBAR_SHA1));
-        assert_eq!(both.sha256(), Some(FOOBAR_SHA256));
-        assert_eq!(both.sha512(), None);
-        let only_1 = Checksum::new(Some(FOOBAR_SHA1), None)?;
-        assert_eq!((only_1.sha1(), only_1.sha256()), (Some(FOOBAR_SHA1), None));
-        let only_256 = Checksum::new(None, Some(FOOBAR_SHA256))?;
-        assert_eq!(
-            (only_256.sha1(), only_256.sha256()),
-            (None, Some(FOOBAR_SHA256))
-        );
-
-        // Lowercased, as before.
-        let upper = Checksum::new(Some(&FOOBAR_SHA1.to_ascii_uppercase()), None)?;
+    #[test]
+    fn test_entries_normalise_digests_like_the_old_constructor() -> buck2_error::Result<()> {
+        // Digests are stored lowercase, whatever case they were given in.
+        let upper = entries(
+            Some(&FOOBAR_SHA1.to_ascii_uppercase()),
+            Some(&FOOBAR_SHA256.to_ascii_uppercase()),
+        )?;
         assert_eq!(upper.sha1(), Some(FOOBAR_SHA1));
+        assert_eq!(upper.sha256(), Some(FOOBAR_SHA256));
+        Ok(())
+    }
 
-        // The messages of the errors it always gave.
+    #[test]
+    fn test_entries_give_the_error_messages_of_the_old_constructor() {
+        // These messages were given for the same inputs before `Entries` existed.
         let err = |sha1: Option<&str>, sha256: Option<&str>| {
-            format!("{:#}", Checksum::new(sha1, sha256).unwrap_err())
+            format!("{:#}", entries(sha1, sha256).unwrap_err())
         };
         assert!(err(None, None).contains("Must pass in at least one checksum (e.g. `sha1 = ...`)"));
         assert!(err(Some("abc"), None).contains(
@@ -1022,44 +1028,56 @@ mod tests {
                 "Invalid digest for `sha1` argument, expected 0-9 a-z hex characters, but got `z`, digest `{bad}`"
             ))
         );
+        // With two bad digests, the sha1 one is reported, as before.
+        assert!(err(Some("abc"), Some("def")).contains("`sha1` argument"));
+    }
 
+    #[test]
+    #[allow(deprecated)]
+    fn test_deprecated_new_is_from_pairs() -> buck2_error::Result<()> {
+        for (sha1, sha256) in OLD_COMBINATIONS {
+            let via_new = Checksum::new(sha1, sha256)?;
+            assert_matches!(via_new, Checksum::Entries(..));
+            let direct = entries(sha1, sha256)?;
+            assert_eq!(via_new.pairs(), direct.pairs());
+        }
+        assert_eq!(
+            format!("{:#}", Checksum::new(None, None).unwrap_err()),
+            format!("{:#}", entries(None, None).unwrap_err())
+        );
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_copy_and_hash_old_variants_check_every_digest() -> buck2_error::Result<()> {
-        // `Checksum::new` builds Sha1, Sha256 and Both; each of its digests is enforced, for a
-        // primary and for a secondary hasher.
+    async fn test_copy_and_hash_entries_behave_like_the_old_variants() -> buck2_error::Result<()> {
+        // The same bytes are accepted and refused, with the same error message, whether the
+        // checksum is an old variant or `Entries`, for a primary and for a secondary hasher.
         let wrong_sha1 = "da39a3ee5e6b4b0d3255bfef95601890afd80709";
         let wrong_sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         for config in [testing::sha1(), testing::sha256(), testing::blake3()] {
-            do_test(config, &Checksum::new(Some(FOOBAR_SHA1), None)?).await?;
-            do_test(config, &Checksum::new(None, Some(FOOBAR_SHA256))?).await?;
-            do_test(
-                config,
-                &Checksum::new(Some(FOOBAR_SHA1), Some(FOOBAR_SHA256))?,
-            )
-            .await?;
+            for (sha1, sha256) in OLD_COMBINATIONS {
+                let (old_digest, old_bytes) = do_test(config, &old(sha1, sha256)).await?;
+                let (new_digest, new_bytes) = do_test(config, &entries(sha1, sha256)?).await?;
+                assert_eq!(new_digest, old_digest);
+                assert_eq!(new_bytes, old_bytes);
+                assert_eq!(std::str::from_utf8(&new_bytes).unwrap(), "foobar");
+            }
 
-            for (checksum, kind) in [
-                (Checksum::new(Some(wrong_sha1), None)?, "sha1"),
-                (Checksum::new(None, Some(wrong_sha256))?, "sha256"),
-                (
-                    Checksum::new(Some(FOOBAR_SHA1), Some(wrong_sha256))?,
-                    "sha256",
-                ),
-                (
-                    Checksum::new(Some(wrong_sha1), Some(FOOBAR_SHA256))?,
-                    "sha1",
-                ),
+            for (sha1, sha256, kind) in [
+                (Some(wrong_sha1), None, "sha1"),
+                (None, Some(wrong_sha256), "sha256"),
+                (Some(FOOBAR_SHA1), Some(wrong_sha256), "sha256"),
+                (Some(wrong_sha1), Some(FOOBAR_SHA256), "sha1"),
             ] {
+                let old_err = do_test(config, &old(sha1, sha256)).await.unwrap_err();
+                let new_err = do_test(config, &entries(sha1, sha256)?).await.unwrap_err();
                 assert_matches!(
-                    do_test(config, &checksum).await,
-                    Err(HttpDownloadError::InvalidChecksum { digest_kind, .. }) if digest_kind == kind
+                    &new_err,
+                    HttpDownloadError::InvalidChecksum { digest_kind, .. } if *digest_kind == kind
                 );
+                assert_eq!(new_err.to_string(), old_err.to_string());
             }
         }
-
         Ok(())
     }
 
@@ -1114,18 +1132,14 @@ mod tests {
     fn test_checksum_old_variants_encode_to_the_old_bytes() -> buck2_error::Result<()> {
         // Only the identities differ between runs: compare the variant index and the strings.
         for (checksum, old, strings) in [
+            (old(Some(FOOBAR_SHA1), None), OLD_SHA1, vec![FOOBAR_SHA1]),
             (
-                Checksum::new(Some(FOOBAR_SHA1), None)?,
-                OLD_SHA1,
-                vec![FOOBAR_SHA1],
-            ),
-            (
-                Checksum::new(None, Some(FOOBAR_SHA256))?,
+                old(None, Some(FOOBAR_SHA256)),
                 OLD_SHA256,
                 vec![FOOBAR_SHA256],
             ),
             (
-                Checksum::new(Some(FOOBAR_SHA1), Some(FOOBAR_SHA256))?,
+                old(Some(FOOBAR_SHA1), Some(FOOBAR_SHA256)),
                 OLD_BOTH,
                 vec![FOOBAR_SHA1, FOOBAR_SHA256],
             ),
