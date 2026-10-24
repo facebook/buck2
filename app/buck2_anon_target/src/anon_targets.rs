@@ -83,7 +83,6 @@ use buck2_interpreter_for_build::attrs::coerce::arc_str_interner::ArcStrInterner
 use buck2_interpreter_for_build::rule::FrozenStarlarkRuleCallable;
 use buck2_interpreter_for_build::rule::frozen_rule_attribute_spec;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::spec::internal::is_internal_attr;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::rule_type::RuleType;
@@ -284,7 +283,7 @@ impl AnonTargetKey {
                 Some(v) => Self::coerce_to_anon_target_attr(a.coercer(), *v, &anon_attr_ctx)
                     .with_buck_error_context(|| format!("Error coercing attribute `{k}`"))?,
                 None => match a.default_as_ref() {
-                    Some(x) => Self::coerced_to_anon_target_attr(k, &x.to_coerced()?, a.coercer())?,
+                    Some(x) => AnonTargetAttr::from_attr_ref(k, x, a.coercer())?,
                     None => return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into()),
                 },
             };
@@ -402,14 +401,6 @@ impl AnonTargetKey {
         ctx: &AnonAttrCtx,
     ) -> buck2_error::Result<AnonTargetAttr> {
         attr.coerce_item(ctx, x)
-    }
-
-    fn coerced_to_anon_target_attr(
-        attr_name: &str,
-        x: &CoercedAttr,
-        ty: &AttrType,
-    ) -> buck2_error::Result<AnonTargetAttr> {
-        AnonTargetAttr::from_coerced_attr(attr_name, x, ty)
     }
 
     pub(crate) async fn resolve<'d>(

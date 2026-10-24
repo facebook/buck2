@@ -16,7 +16,10 @@ use buck2_build_api::artifact_groups::promise::PromiseArtifactAttr;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_node::attrs::arena::CoercedAttrRef;
+use buck2_node::attrs::arena::CoercedAttrRefKind;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::attr_type::AttrTypeInner;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
@@ -24,15 +27,13 @@ use buck2_node::attrs::attr_type::dict::DictLiteral;
 use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::attr_type::tuple::TupleLiteral;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
-use buck2_node::attrs::coerced_attr_with_type::CoercedAttrWithType;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::json::ToJsonWithContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
+use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
-use dupe::Dupe;
 use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
@@ -248,87 +249,100 @@ impl AnonTargetAttr {
         }
     }
 
-    // We need this method for attr defaults in anon targets, which are automatically coerced as CoercedAttrs.
-    // Note that non-primitives, such as dep/source, will result in an error.
-
-    // TODO(@wendyy) - find a way to coerce attr defaults used in anon targets directly to AnonTargetAttr
-    pub fn from_coerced_attr(
+    // We need this method for attr defaults in anon targets, which are
+    // served as arena views like every other attribute value. Note that
+    // non-primitives, such as dep/source, will result in an error.
+    pub(crate) fn from_attr_ref(
         attr_name: &str,
-        attr: &CoercedAttr,
+        r: CoercedAttrRef<'_>,
         ty: &AttrType,
     ) -> buck2_error::Result<AnonTargetAttr> {
-        Ok(match CoercedAttrWithType::pack(attr, ty)? {
-            CoercedAttrWithType::AnyList(list) => AnonTargetAttr::List(ListLiteral(
-                list.iter()
-                    .map(|v| AnonTargetAttr::from_coerced_attr(attr_name, v, ty))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into(),
-            )),
-            CoercedAttrWithType::AnyTuple(tuple) => AnonTargetAttr::Tuple(TupleLiteral(
-                tuple
+        let unsupported = || -> buck2_error::Error {
+            AnonTargetFromCoercedAttrError::DefaultAttrTypeNotSupported(
+                ty.to_string(),
+                attr_name.to_owned(),
+            )
+            .into()
+        };
+        Ok(match (&ty.0.inner, r.kind()) {
+            // `Any`: structure comes from the value alone.
+            (AttrTypeInner::Any(_), kind) => match kind {
+                CoercedAttrRefKind::None => AnonTargetAttr::None,
+                CoercedAttrRefKind::Bool(v) => AnonTargetAttr::Bool(BoolLiteral(v)),
+                CoercedAttrRefKind::Int(v) => AnonTargetAttr::Int(v),
+                CoercedAttrRefKind::String(v) => {
+                    AnonTargetAttr::String(StringLiteral(ArcStr::from(v)))
+                }
+                CoercedAttrRefKind::List(items) => AnonTargetAttr::List(
+                    items
+                        .iter()
+                        .map(|v| AnonTargetAttr::from_attr_ref(attr_name, v, ty))
+                        .collect::<buck2_error::Result<_>>()?,
+                ),
+                CoercedAttrRefKind::Tuple(items) => AnonTargetAttr::Tuple(
+                    items
+                        .iter()
+                        .map(|v| AnonTargetAttr::from_attr_ref(attr_name, v, ty))
+                        .collect::<buck2_error::Result<_>>()?,
+                ),
+                CoercedAttrRefKind::Dict(pairs) => AnonTargetAttr::Dict(
+                    pairs
+                        .iter()
+                        .map(|(k, v)| {
+                            let k2 = AnonTargetAttr::from_attr_ref(attr_name, k, ty)?;
+                            let v2 = AnonTargetAttr::from_attr_ref(attr_name, v, ty)?;
+                            buck2_error::Ok((k2, v2))
+                        })
+                        .collect::<buck2_error::Result<_>>()?,
+                ),
+                _ => return Err(unsupported()),
+            },
+            (AttrTypeInner::Bool(_), CoercedAttrRefKind::Bool(v)) => {
+                AnonTargetAttr::Bool(BoolLiteral(v))
+            }
+            (AttrTypeInner::Int(_), CoercedAttrRefKind::Int(v)) => AnonTargetAttr::Int(v),
+            (AttrTypeInner::String(_), CoercedAttrRefKind::String(v)) => {
+                AnonTargetAttr::String(StringLiteral(ArcStr::from(v)))
+            }
+            (AttrTypeInner::Enum(_), CoercedAttrRefKind::EnumVariant(v)) => {
+                AnonTargetAttr::EnumVariant(StringLiteral(ArcStr::from(v)))
+            }
+            (AttrTypeInner::List(t), CoercedAttrRefKind::List(items)) => AnonTargetAttr::List(
+                items
                     .iter()
-                    .map(|v| AnonTargetAttr::from_coerced_attr(attr_name, v, ty))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into(),
-            )),
-            CoercedAttrWithType::AnyDict(dict) => AnonTargetAttr::Dict(DictLiteral(
-                dict.iter()
-                    .map(|(k, v)| {
-                        let k2 = AnonTargetAttr::from_coerced_attr(attr_name, k, ty)?;
-                        let v2 = AnonTargetAttr::from_coerced_attr(attr_name, v, ty)?;
-                        buck2_error::Ok((k2, v2))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into(),
-            )),
-
-            CoercedAttrWithType::Bool(v, _t) => AnonTargetAttr::Bool(v),
-            CoercedAttrWithType::Int(v, _t) => AnonTargetAttr::Int(v),
-            CoercedAttrWithType::String(v, _t) => AnonTargetAttr::String(v.dupe()),
-            CoercedAttrWithType::EnumVariant(v, _t) => AnonTargetAttr::EnumVariant(v.dupe()),
-            CoercedAttrWithType::List(list, t) => AnonTargetAttr::List(ListLiteral(
-                list.iter()
-                    .map(|v| AnonTargetAttr::from_coerced_attr(attr_name, v, &t.inner))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into(),
-            )),
-            CoercedAttrWithType::Tuple(list, t) => {
-                if list.len() != t.xs.len() {
+                    .map(|v| AnonTargetAttr::from_attr_ref(attr_name, v, &t.inner))
+                    .collect::<buck2_error::Result<_>>()?,
+            ),
+            (AttrTypeInner::Tuple(t), CoercedAttrRefKind::Tuple(items)) => {
+                if items.len() != t.xs.len() {
                     return Err(AnonTargetAttrError::InconsistentTupleLength.into());
                 }
-                AnonTargetAttr::Tuple(TupleLiteral(
-                    list.iter()
+                AnonTargetAttr::Tuple(
+                    items
+                        .iter()
                         .zip(&t.xs)
-                        .map(|(v, vt)| AnonTargetAttr::from_coerced_attr(attr_name, v, vt))
+                        .map(|(v, vt)| AnonTargetAttr::from_attr_ref(attr_name, v, vt))
                         .collect::<buck2_error::Result<_>>()?,
-                ))
+                )
             }
-            CoercedAttrWithType::Dict(dict, t) => AnonTargetAttr::Dict(DictLiteral(
-                dict.iter()
+            (AttrTypeInner::Dict(t), CoercedAttrRefKind::Dict(pairs)) => AnonTargetAttr::Dict(
+                pairs
+                    .iter()
                     .map(|(k, v)| {
-                        let k2 = AnonTargetAttr::from_coerced_attr(attr_name, k, &t.key)?;
-                        let v2 = AnonTargetAttr::from_coerced_attr(attr_name, v, &t.value)?;
+                        let k2 = AnonTargetAttr::from_attr_ref(attr_name, k, &t.key)?;
+                        let v2 = AnonTargetAttr::from_attr_ref(attr_name, v, &t.value)?;
                         buck2_error::Ok((k2, v2))
                     })
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into(),
-            )),
-            CoercedAttrWithType::None => AnonTargetAttr::None,
-            CoercedAttrWithType::Some(attr, t) => {
-                AnonTargetAttr::from_coerced_attr(attr_name, attr, &t.inner)?
-            }
-            CoercedAttrWithType::OneOf(l, i, t) => {
+                    .collect::<buck2_error::Result<_>>()?,
+            ),
+            (AttrTypeInner::Option(_), CoercedAttrRefKind::None) => AnonTargetAttr::None,
+            (AttrTypeInner::Option(t), _) => AnonTargetAttr::from_attr_ref(attr_name, r, &t.inner)?,
+            (AttrTypeInner::OneOf(t), CoercedAttrRefKind::OneOf(l, i)) => {
                 let item_ty = &t.xs[i as usize];
-                let configured = AnonTargetAttr::from_coerced_attr(attr_name, l, item_ty)?;
-                AnonTargetAttr::OneOf(Box::new(configured), i)
+                let inner = AnonTargetAttr::from_attr_ref(attr_name, l, item_ty)?;
+                AnonTargetAttr::OneOf(Box::new(inner), i)
             }
-            _ => {
-                return Err(AnonTargetFromCoercedAttrError::DefaultAttrTypeNotSupported(
-                    ty.to_string(),
-                    attr_name.to_owned(),
-                )
-                .into());
-            }
+            _ => return Err(unsupported()),
         })
     }
 }
