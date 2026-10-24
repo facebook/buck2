@@ -45,6 +45,7 @@ use crate::attrs::arena::semantics::SerializeKind;
 use crate::attrs::arena::semantics::ToJson;
 use crate::attrs::arena::semantics::Traverse;
 use crate::attrs::arena::semantics::TraverseConfigured;
+use crate::attrs::arena::semantics::dispatch_value;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
@@ -329,7 +330,7 @@ impl<'a> CoercedAttrRef<'a> {
         if kind.is_scalar() {
             return Ok(());
         }
-        dispatch(
+        dispatch_value(
             kind,
             Traverse {
                 v: *self,
@@ -350,7 +351,7 @@ impl<'a> CoercedAttrRef<'a> {
         ctx: &dyn AttrConfigurationContext,
         attr_name: Option<&str>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        dispatch(
+        dispatch_value(
             self.arena.kind_of(self.r),
             Configure {
                 v: *self,
@@ -518,7 +519,7 @@ impl<'a> CoercedAttrRef<'a> {
         traversal: &mut dyn ConfiguredAttrTraversal,
         attr_name: Option<&str>,
     ) -> ResultMaybeCompatible<()> {
-        dispatch(
+        dispatch_value(
             self.arena.kind_of(self.r),
             TraverseConfigured {
                 v: *self,
@@ -538,7 +539,7 @@ impl<'a> CoercedAttrRef<'a> {
         ctx: &dyn AttrConfigurationContext,
         out: &mut SmallVec<[CoercedAttrRef<'a>; 4]>,
     ) -> ResultMaybeCompatible<()> {
-        dispatch(
+        dispatch_value(
             self.arena.kind_of(self.r),
             ConcatLeaves { v: *self, ctx, out },
         )
@@ -546,7 +547,7 @@ impl<'a> CoercedAttrRef<'a> {
 
     /// The class of values this one concatenates with, if any.
     pub(crate) fn concat_class(&self) -> Option<&'static str> {
-        dispatch(self.arena.kind_of(self.r), ConcatClass {})
+        dispatch_value(self.arena.kind_of(self.r), ConcatClass {})
     }
 }
 
@@ -556,7 +557,7 @@ impl<'a> CoercedAttrRef<'a> {
         &self,
         ctx: &crate::attrs::fmt_context::AttrFmtContext,
     ) -> buck2_error::Result<serde_json::Value> {
-        dispatch(self.arena.kind_of(self.r), ToJson { v: *self, ctx })
+        dispatch_value(self.arena.kind_of(self.r), ToJson { v: *self, ctx })
     }
 
     /// Whether any leaf's string form matches the filter.
@@ -564,7 +565,7 @@ impl<'a> CoercedAttrRef<'a> {
         &self,
         filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
     ) -> buck2_error::Result<bool> {
-        dispatch(self.arena.kind_of(self.r), MatchesAny { v: *self, filter })
+        dispatch_value(self.arena.kind_of(self.r), MatchesAny { v: *self, filter })
     }
 
     /// The configuration-dep label, or `None` for an explicit `None` value.
@@ -612,7 +613,7 @@ impl crate::attrs::display::AttrDisplayWithContext for CoercedAttrRef<'_> {
         ctx: &crate::attrs::fmt_context::AttrFmtContext,
         f: &mut std::fmt::Formatter<'_>,
     ) -> std::fmt::Result {
-        dispatch(self.arena.kind_of(self.r), Fmt { v: *self, ctx, f })
+        dispatch_value(self.arena.kind_of(self.r), Fmt { v: *self, ctx, f })
     }
 }
 
@@ -685,7 +686,7 @@ impl<'a> CoercedAttrRef<'a> {
     ///
     /// Errors for values that render as anything but a string.
     pub(crate) fn json_key(&self, ctx: &AttrFmtContext) -> buck2_error::Result<Cow<'a, str>> {
-        dispatch(self.arena.kind_of(self.r), JsonKey { v: *self, ctx })
+        dispatch_value(self.arena.kind_of(self.r), JsonKey { v: *self, ctx })
     }
 }
 
@@ -694,7 +695,7 @@ impl AttrSerializeWithContext for CoercedAttrRef<'_> {
     where
         S: Serializer,
     {
-        dispatch(
+        dispatch_value(
             self.arena.kind_of(self.r),
             SerializeKind { v: *self, ctx, s },
         )

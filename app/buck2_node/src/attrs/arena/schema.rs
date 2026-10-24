@@ -39,7 +39,6 @@ use crate::attrs::arena::fields::Target;
 use crate::attrs::arena::fields::Text;
 use crate::attrs::arena::fields::U32;
 use crate::attrs::arena::query_expr::QueryView;
-use crate::attrs::arena::semantics::Semantics;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
@@ -406,7 +405,7 @@ pub(super) fn encode_kind<K: SchemaKind>(
 /// visitor per kind.
 pub(super) trait KindVisitor {
     type Out;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out;
+    fn visit<K: Kind + 'static>(self) -> Self::Out;
 }
 
 /// `Int`: inline when the value fits the payload, otherwise a record of the
@@ -505,7 +504,7 @@ pub(super) struct IsScalar;
 
 impl KindVisitor for IsScalar {
     type Out = bool;
-    fn visit<K: Semantics + 'static>(self) -> bool {
+    fn visit<K: Kind + 'static>(self) -> bool {
         K::SCALAR
     }
 }
@@ -517,7 +516,7 @@ pub(super) struct Shape<'f> {
 
 impl KindVisitor for Shape<'_> {
     type Out = Option<(u32, TailLen)>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+    fn visit<K: Kind + 'static>(self) -> Self::Out {
         K::shape(self.peek)
     }
 }
@@ -530,7 +529,7 @@ pub(super) struct CopyParts<'b, 'a> {
 
 impl KindVisitor for CopyParts<'_, '_> {
     type Out = buck2_error::Result<AttrToken>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+    fn visit<K: Kind + 'static>(self) -> Self::Out {
         K::copy_into(K::decode(self.v.arena, self.v.r), self.b)
     }
 }
@@ -543,7 +542,7 @@ pub(super) struct HashParts<'h, 'm, 'a> {
 
 impl KindVisitor for HashParts<'_, '_, '_> {
     type Out = ();
-    fn visit<K: Semantics + 'static>(self) {
+    fn visit<K: Kind + 'static>(self) {
         K::identity(K::decode(self.v.arena, self.v.r), self.h)
     }
 }
@@ -555,7 +554,7 @@ pub(super) struct ToRefKind<'a> {
 
 impl<'a> KindVisitor for ToRefKind<'a> {
     type Out = CoercedAttrRefKind<'a>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+    fn visit<K: Kind + 'static>(self) -> Self::Out {
         K::wrap(self.v, K::decode(self.v.arena, self.v.r))
     }
 }
@@ -568,7 +567,7 @@ pub(super) struct EqParts<'a, 'b> {
 
 impl KindVisitor for EqParts<'_, '_> {
     type Out = bool;
-    fn visit<K: Semantics + 'static>(self) -> bool {
+    fn visit<K: Kind + 'static>(self) -> bool {
         K::same(
             K::decode(self.a.arena, self.a.r),
             K::decode(self.b.arena, self.b.r),

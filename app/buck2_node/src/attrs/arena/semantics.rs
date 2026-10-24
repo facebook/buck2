@@ -26,8 +26,8 @@ use serde_json::to_value;
 use smallvec::SmallVec;
 
 use crate::attrs::arena::query_expr::QueryView;
+use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::Kind;
-use crate::attrs::arena::schema::KindVisitor;
 use crate::attrs::arena::schema::kinds;
 use crate::attrs::arena::view::AttrRefDisplay;
 use crate::attrs::arena::view::AttrRefSerialize;
@@ -322,55 +322,49 @@ macro_rules! impl_semantics {
 }
 pub(crate) use impl_semantics;
 
-/// Record kinds that are never attribute values: they have no semantics.
-pub(super) trait NotAValue: Kind {}
+/// Selects the [`Semantics`] type for a value's tag at runtime,
+/// monomorphizing the visitor per kind. The record-internal kinds are not
+/// attribute values and never reach a value operation.
+pub(super) trait ValueVisitor {
+    type Out;
+    fn visit<K: Semantics + 'static>(self) -> Self::Out;
+}
 
-impl NotAValue for kinds::SelectorKeys {}
-impl NotAValue for kinds::ArgMacro {}
-impl NotAValue for kinds::QueryExpr {}
-
-impl<K: NotAValue> Semantics for K {
-    fn traverse<'a>(
-        _v: CoercedAttrRef<'a>,
-        _t: &AttrType,
-        _pkg: Option<PackageLabel>,
-        _tr: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> buck2_error::Result<()> {
-        unreachable!("not an attribute value")
-    }
-    fn configure(
-        _v: CoercedAttrRef<'_>,
-        _t: &AttrType,
-        _ctx: &dyn AttrConfigurationContext,
-        _name: Option<&str>,
-    ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        unreachable!("not an attribute value")
-    }
-    fn to_json(
-        _v: CoercedAttrRef<'_>,
-        _ctx: &AttrFmtContext,
-    ) -> buck2_error::Result<serde_json::Value> {
-        unreachable!("not an attribute value")
-    }
-    fn fmt(
-        _v: CoercedAttrRef<'_>,
-        _ctx: &AttrFmtContext,
-        _f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
-        unreachable!("not an attribute value")
-    }
-    fn any_matches(
-        _v: CoercedAttrRef<'_>,
-        _filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool> {
-        unreachable!("not an attribute value")
-    }
-    fn serialize<S: Serializer>(
-        _v: CoercedAttrRef<'_>,
-        _ctx: &AttrFmtContext,
-        _ser: S,
-    ) -> Result<S::Ok, S::Error> {
-        unreachable!("not an attribute value")
+pub(super) fn dispatch_value<V: ValueVisitor>(kind: AttrKind, v: V) -> V::Out {
+    match kind {
+        AttrKind::None => v.visit::<kinds::None>(),
+        AttrKind::BoolFalse => v.visit::<kinds::BoolFalse>(),
+        AttrKind::BoolTrue => v.visit::<kinds::BoolTrue>(),
+        AttrKind::Int => v.visit::<kinds::Int>(),
+        AttrKind::WithinView => v.visit::<kinds::WithinView>(),
+        AttrKind::String => v.visit::<kinds::String>(),
+        AttrKind::EnumVariant => v.visit::<kinds::EnumVariant>(),
+        AttrKind::List => v.visit::<kinds::List>(),
+        AttrKind::Tuple => v.visit::<kinds::Tuple>(),
+        AttrKind::Dict => v.visit::<kinds::Dict>(),
+        AttrKind::Selector => v.visit::<kinds::Selector>(),
+        AttrKind::Concat => v.visit::<kinds::Concat>(),
+        AttrKind::OneOf => v.visit::<kinds::OneOf>(),
+        AttrKind::Dep => v.visit::<kinds::Dep>(),
+        AttrKind::Label => v.visit::<kinds::Label>(),
+        AttrKind::SourceLabel => v.visit::<kinds::SourceLabel>(),
+        AttrKind::ConfigurationDep => v.visit::<kinds::ConfigurationDep>(),
+        AttrKind::SplitTransitionDep => v.visit::<kinds::SplitTransitionDep>(),
+        AttrKind::PluginDep => v.visit::<kinds::PluginDep>(),
+        AttrKind::SourceFile => v.visit::<kinds::SourceFile>(),
+        AttrKind::Visibility => v.visit::<kinds::Visibility>(),
+        AttrKind::ArgSimple => v.visit::<kinds::ArgSimple>(),
+        AttrKind::ArgParts => v.visit::<kinds::ArgParts>(),
+        AttrKind::Query => v.visit::<kinds::Query>(),
+        AttrKind::SelectFail => v.visit::<kinds::SelectFail>(),
+        AttrKind::SelectIncompatible => v.visit::<kinds::SelectIncompatible>(),
+        AttrKind::ExplicitConfiguredDep => v.visit::<kinds::ExplicitConfiguredDep>(),
+        AttrKind::TransitionDep => v.visit::<kinds::TransitionDep>(),
+        AttrKind::Modifiers => v.visit::<kinds::Modifiers>(),
+        AttrKind::Metadata => v.visit::<kinds::Metadata>(),
+        AttrKind::SelectorKeys | AttrKind::ArgMacro | AttrKind::QueryExpr => {
+            unreachable!("not an attribute value: {kind:?}")
+        }
     }
 }
 
@@ -430,15 +424,15 @@ pub(crate) fn json_label(l: &ProvidersLabel) -> buck2_error::Result<serde_json::
     Ok(to_value(l.to_string())?)
 }
 
-/// One semantic entry point as a visitor: [`dispatch`] runs it for the
-/// value's kind.
+/// One semantic entry point as a visitor: [`dispatch_value`] runs it for
+/// the value's kind.
 macro_rules! semantic_visitor {
     ($name:ident<$($lt:lifetime),*> { $($f:ident : $ty:ty),* $(,)? } -> $out:ty, |$k:ident, $s:ident| $body:expr) => {
         pub(super) struct $name<$($lt),*> {
             $(pub(super) $f: $ty,)*
         }
 
-        impl<$($lt),*> KindVisitor for $name<$($lt),*> {
+        impl<$($lt),*> ValueVisitor for $name<$($lt),*> {
             type Out = $out;
             fn visit<$k: Semantics + 'static>($s) -> $out {
                 $body
@@ -489,7 +483,7 @@ pub(super) struct SerializeKind<'x, 'a, S> {
     pub(super) s: S,
 }
 
-impl<S: Serializer> KindVisitor for SerializeKind<'_, '_, S> {
+impl<S: Serializer> ValueVisitor for SerializeKind<'_, '_, S> {
     type Out = Result<S::Ok, S::Error>;
     fn visit<K: Semantics + 'static>(self) -> Self::Out {
         K::serialize(self.v, self.ctx, self.s)
