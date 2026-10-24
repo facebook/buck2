@@ -18,18 +18,23 @@ use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::plugins::PluginKindSet;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
+use buck2_interpreter_for_build::attrs::coerce::coerced_attr::coerce_attr;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_interpreter_for_build::attrs::coerce::testing::CoerceSealed;
+use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx_listing;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
+use buck2_node::attrs::coercion_context::CoerceMemoKey;
+use buck2_node::attrs::coercion_context::CoerceMemoTable;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::Dupe;
 use indoc::indoc;
+use starlark::values::FrozenHeap;
 use starlark::values::Heap;
 use starlark::values::dict::AllocDict;
 use starlark::values::list::AllocList;
@@ -233,6 +238,58 @@ fn any_nested_dict_is_interned() -> buck2_error::Result<()> {
         )?;
         assert_eq!(first, second);
         assert_eq!(first.word(), second.word());
+        Ok(())
+    })
+}
+
+/// The coercion memo keys every input a coercion's result depends on. The same
+/// frozen value coerces differently as a string and as a source path, and is a
+/// different entry under another type, configurability or default; repeating a
+/// coercion's inputs finds its entry.
+#[test]
+fn coerce_memo_keys_every_input() -> buck2_error::Result<()> {
+    use AttrIsConfigurable::No;
+    use AttrIsConfigurable::Yes;
+
+    FrozenHeap::temp(|frozen| {
+        let ctx = coercion_ctx_listing(PackageListing::testing_files(&["foo.cpp"]));
+        let value = frozen.alloc_str("foo.cpp").to_value();
+        let string = AttrType::string();
+        let source = AttrType::source(false);
+        let default_a = OwnedCoercedAttr::new_with(|b| b.encode_int(1))?;
+        let default_b = OwnedCoercedAttr::new_with(|b| b.encode_int(2))?;
+        let key = |attr: &AttrType, default: Option<&OwnedCoercedAttr>, c| {
+            CoerceMemoKey::new(value, attr, default.map(|d| d.as_ref()), c)
+                .expect("a frozen value under a root default is memoizable")
+        };
+
+        let as_string = coerce_attr(&string, Yes, &ctx, value, None)?;
+        let as_source = coerce_attr(&source, Yes, &ctx, value, None)?;
+        {
+            let arena = ctx.attr_arena();
+            assert!(
+                !arena
+                    .view(as_string.word())
+                    .content_eq(&arena.view(as_source.word())),
+                "a string and a source path coerce differently"
+            );
+        }
+
+        let memo = CoerceMemoTable::default();
+        memo.insert(key(&string, None, Yes), as_string);
+        assert_eq!(memo.lookup(key(&string, None, Yes)), Some(as_string));
+        for (other, why) in [
+            (key(&source, None, Yes), "the coercer"),
+            (key(&string, None, No), "configurability"),
+            (key(&string, Some(&default_a), Yes), "the default"),
+        ] {
+            assert_eq!(memo.lookup(other), None, "{why} is part of the key");
+        }
+        assert_ne!(
+            key(&string, Some(&default_a), Yes),
+            key(&string, Some(&default_b), Yes),
+            "defaults with different content are different keys"
+        );
         Ok(())
     })
 }
