@@ -32,7 +32,6 @@ use crate::attrs::arena::storage::ABSENT_REF;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
-use crate::attrs::arena::storage::CoercedAttrHash;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::Tail;
 use crate::attrs::arena::storage::TailLen;
@@ -849,7 +848,8 @@ impl Field for SelectorEntries {
         w: &mut RecordWriter<'s>,
     ) -> buck2_error::Result<()> {
         check_select_keys_unique(entries)?;
-        let (keys, keys_hash) = b.encode_selector_keys(entries.iter().map(|(k, _)| &k.0))?;
+        let AttrToken(keys, keys_hash) =
+            b.encode_selector_keys(entries.iter().map(|(k, _)| &k.0))?;
         w.head(entries.len() as u32);
         w.r(keys);
         w.hash(&keys_hash);
@@ -865,7 +865,7 @@ impl Field for SelectorEntries {
         b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
-        let (keys, keys_hash) = b.encode_selector_keys(view.iter().map(|(k, _)| k))?;
+        let AttrToken(keys, keys_hash) = b.encode_selector_keys(view.iter().map(|(k, _)| k))?;
         w.head(view.len() as u32);
         w.r(keys);
         w.hash(&keys_hash);
@@ -900,7 +900,7 @@ pub(crate) struct ExprChild;
 impl Field for ExprChild {
     const DEPS: bool = true;
     type View<'a> = QueryExprRef<'a>;
-    type Spec<'s> = (AttrWord, CoercedAttrHash);
+    type Spec<'s> = AttrToken;
 
     fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
         Some(Part {
@@ -919,7 +919,7 @@ impl Field for ExprChild {
     }
 
     fn encode<'s>(
-        (r, hash): (AttrWord, CoercedAttrHash),
+        AttrToken(r, hash): AttrToken,
         _b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'s>,
     ) -> buck2_error::Result<()> {

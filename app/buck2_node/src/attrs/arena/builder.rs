@@ -103,12 +103,6 @@ pub struct CoercedAttrArenaBuilder {
     pub(super) roots: Vec<AttrWord>,
 }
 
-/// The builder's result for one value: a ref plus the content hash a parent
-/// folds into its own.
-pub(super) fn token((r, h): (AttrWord, CoercedAttrHash)) -> AttrToken {
-    AttrToken(r, h)
-}
-
 pub(super) fn content_hash(tag: AttrKind, f: impl FnOnce(&mut BuckHasher)) -> CoercedAttrHash {
     let mut h = BuckHasher::default();
     Hash::hash(&(tag as u8), &mut h);
@@ -347,7 +341,7 @@ impl CoercedAttrArenaBuilder {
                 let text = w
                     .text
                     .expect("should have text: text storage has a `Text` field");
-                self.encode_str(w.kind, text).map(token)
+                self.encode_str(w.kind, text)
             }
             Storage::Inline => {
                 let payload = w.head.first().copied().unwrap_or(0);
@@ -368,7 +362,7 @@ impl CoercedAttrArenaBuilder {
     pub(super) fn encode_selector_keys<'k>(
         &mut self,
         keys: impl ExactSizeIterator<Item = &'k ProvidersLabel>,
-    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+    ) -> buck2_error::Result<AttrToken> {
         let mut key_idxs = EncodeScratchFields::with_capacity(1 + keys.len());
         key_idxs.push(keys.len() as u32);
         let mut keys_hasher = BuckHasher::default();
@@ -380,7 +374,7 @@ impl CoercedAttrArenaBuilder {
         }
         let keys_hash = CoercedAttrHash(keys_hasher.finish());
         let r = self.encode_record(AttrKind::SelectorKeys, keys_hash, &key_idxs, &[])?;
-        Ok((r, keys_hash))
+        Ok(AttrToken(r, keys_hash))
     }
 
     pub fn encode_bool(&mut self, b: bool) -> buck2_error::Result<AttrToken> {
@@ -470,11 +464,7 @@ impl CoercedAttrArenaBuilder {
         (idx, lh.finish())
     }
 
-    pub(super) fn encode_str(
-        &mut self,
-        kind: AttrKind,
-        s: &str,
-    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+    pub(super) fn encode_str(&mut self, kind: AttrKind, s: &str) -> buck2_error::Result<AttrToken> {
         let bytes = s.as_bytes();
         let mut byte_hasher = BuckHasher::default();
         bytes.hash(&mut byte_hasher);
@@ -486,11 +476,11 @@ impl CoercedAttrArenaBuilder {
         if let Some(&(_, r)) = self.str_dedup.find(byte_hash, |&(h, r)| {
             h == byte_hash && self.arena.kind_of(r) == kind && self.arena.bytes_at(r) == bytes
         }) {
-            return Ok((r, hash));
+            return Ok(AttrToken(r, hash));
         }
         let r = self.append_record(kind, &[bytes.len() as u32], bytes, &[])?;
         self.str_dedup
             .insert_unique(byte_hash, (byte_hash, r), |&(h, _)| h);
-        Ok((r, hash))
+        Ok(AttrToken(r, hash))
     }
 }

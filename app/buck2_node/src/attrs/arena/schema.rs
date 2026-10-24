@@ -19,7 +19,6 @@ use strong_hash::StrongHash;
 use strum::FromRepr;
 
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
-use crate::attrs::arena::builder::token;
 use crate::attrs::arena::fields::ArgChildren;
 use crate::attrs::arena::fields::Child;
 use crate::attrs::arena::fields::ChildPairs;
@@ -42,7 +41,6 @@ use crate::attrs::arena::query_expr::QueryView;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
-use crate::attrs::arena::storage::CoercedAttrHash;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::TailLen;
 use crate::attrs::arena::view::CoercedAttrRef;
@@ -248,7 +246,7 @@ arena_kinds! {
     QueryExpr = 25: { custom record };
     /// The parsed form of an `attrs.query()` value.
     Query = 26: {
-        record (expr: ExprChild = (AttrWord, CoercedAttrHash)) as encode_parsed_query
+        record (expr: ExprChild = AttrToken) as encode_parsed_query
             => |v| CoercedAttrRefKind::Query(QueryView { arena: v.arena, r: v.r })
     };
     /// A `select_fail()` / `select_incompatible()` leaf holding the message.
@@ -484,7 +482,7 @@ impl Kind for kinds::SelectorKeys {
         parts: KeysParts<'_>,
         b: &mut CoercedAttrArenaBuilder,
     ) -> buck2_error::Result<AttrToken> {
-        b.encode_selector_keys(parts.iter()).map(token)
+        b.encode_selector_keys(parts.iter())
     }
 
     fn identity(parts: KeysParts<'_>, h: &mut IdHasher<'_>) {

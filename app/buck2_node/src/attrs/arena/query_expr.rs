@@ -30,7 +30,6 @@ use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::builder::EncodeScratchFields;
 use crate::attrs::arena::builder::EncodeScratchRefs;
 use crate::attrs::arena::builder::content_hash;
-use crate::attrs::arena::builder::token;
 use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::Kind;
@@ -102,7 +101,7 @@ impl Kind for kinds::QueryExpr {
         parts: QueryExprRef<'_>,
         b: &mut CoercedAttrArenaBuilder,
     ) -> buck2_error::Result<AttrToken> {
-        b.encode_query_expr_view(parts).map(token)
+        b.encode_query_expr_view(parts)
     }
 
     fn identity(parts: QueryExprRef<'_>, h: &mut IdHasher<'_>) {
@@ -491,7 +490,7 @@ impl CoercedAttrArenaBuilder {
     pub(super) fn encode_query_expr_view(
         &mut self,
         e: QueryExprRef<'_>,
-    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+    ) -> buck2_error::Result<AttrToken> {
         match e.view() {
             QueryExprView::None => {
                 let hash = content_hash(AttrKind::QueryExpr, |h| Q_EXPR_NONE.hash(h));
@@ -503,7 +502,7 @@ impl CoercedAttrArenaBuilder {
                 } else {
                     Q_EXPR_STRING
                 };
-                let (sr, sh) = self.encode_str(AttrKind::String, t)?;
+                let AttrToken(sr, sh) = self.encode_str(AttrKind::String, t)?;
                 let hash = content_hash(AttrKind::QueryExpr, |h| (subtag, sh).hash(h));
                 self.encode_query_node(hash, subtag, &[], &[sr])
             }
@@ -517,13 +516,13 @@ impl CoercedAttrArenaBuilder {
                 self.encode_query_node(hash, Q_EXPR_LABEL, &[idx], &[])
             }
             QueryExprView::Function { name, args } => {
-                let (nr, nh) = self.encode_str(AttrKind::String, name)?;
+                let AttrToken(nr, nh) = self.encode_str(AttrKind::String, name)?;
                 let mut refs = EncodeScratchRefs::with_capacity(1 + args.len() as usize);
                 refs.push(nr);
                 let mut hashes =
                     SmallVec::<[CoercedAttrHash; 8]>::with_capacity(args.len() as usize);
                 for a in args.iter() {
-                    let (ar, ah) = self.encode_query_expr_view(a)?;
+                    let AttrToken(ar, ah) = self.encode_query_expr_view(a)?;
                     refs.push(ar);
                     hashes.push(ah);
                 }
@@ -533,7 +532,7 @@ impl CoercedAttrArenaBuilder {
                 self.encode_query_node(hash, Q_EXPR_FUNCTION, &[], &refs)
             }
             QueryExprView::BinOp { first, rest } => {
-                let (fr, fh) = self.encode_query_expr_view(first)?;
+                let AttrToken(fr, fh) = self.encode_query_expr_view(first)?;
                 let mut refs = EncodeScratchRefs::with_capacity(1 + rest.len() as usize);
                 refs.push(fr);
                 let mut ops = SmallVec::<[u32; 8]>::with_capacity(rest.len() as usize);
@@ -541,7 +540,7 @@ impl CoercedAttrArenaBuilder {
                     SmallVec::<[CoercedAttrHash; 8]>::with_capacity(rest.len() as usize);
                 for (op, ex) in rest.iter() {
                     let opw = binary_op_bits(op);
-                    let (xr, xh) = self.encode_query_expr_view(ex)?;
+                    let AttrToken(xr, xh) = self.encode_query_expr_view(ex)?;
                     ops.push(opw);
                     refs.push(xr);
                     hashes.push(CoercedAttrHash(xh.0 ^ ((opw as u64) << 60)));
@@ -560,7 +559,7 @@ impl CoercedAttrArenaBuilder {
                 let mut hashes =
                     SmallVec::<[CoercedAttrHash; 16]>::with_capacity(items.len() as usize);
                 for v in items.iter() {
-                    let (mr, mh) = self.encode_query_expr_view(v)?;
+                    let AttrToken(mr, mh) = self.encode_query_expr_view(v)?;
                     refs.push(mr);
                     hashes.push(mh);
                 }
@@ -583,7 +582,7 @@ impl CoercedAttrArenaBuilder {
         e: &buck2_query_parser::SpannedExpr<'_>,
         src: &str,
         lits: &ResolvedQueryLiterals<ProvidersLabel>,
-    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+    ) -> buck2_error::Result<AttrToken> {
         let by_text: BuckMutMap<&str, &ProvidersLabel> = lits
             .0
             .iter()
@@ -608,14 +607,14 @@ impl CoercedAttrArenaBuilder {
         subtag: u32,
         values: &[u32],
         refs: &[AttrWord],
-    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+    ) -> buck2_error::Result<AttrToken> {
         let mut head = EncodeScratchFields::with_capacity(3 + values.len());
         head.push(subtag);
         head.push(values.len() as u32);
         head.extend_from_slice(values);
         head.push(refs.len() as u32);
         let r = self.encode_record(AttrKind::QueryExpr, hash, &head, refs)?;
-        Ok((r, hash))
+        Ok(AttrToken(r, hash))
     }
 
     pub(super) fn encode_query_word<'s>(
@@ -624,14 +623,14 @@ impl CoercedAttrArenaBuilder {
         text: &'s str,
         by_text: &BuckMutMap<&'s str, &ProvidersLabel>,
         matched: &mut BuckMutMap<&'s str, ()>,
-    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+    ) -> buck2_error::Result<AttrToken> {
         if let Some(label) = by_text.get(text) {
             matched.insert(text, ());
             let (idx, lh) = self.providers_label_idx_and_hash(label);
             let hash = content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_LABEL, lh).hash(h));
             return self.encode_query_node(hash, Q_EXPR_LABEL, &[idx], &[]);
         }
-        let (sr, sh) = self.encode_str(AttrKind::String, text)?;
+        let AttrToken(sr, sh) = self.encode_str(AttrKind::String, text)?;
         let hash = content_hash(AttrKind::QueryExpr, |h| (subtag, sh).hash(h));
         self.encode_query_node(hash, subtag, &[], &[sr])
     }
@@ -641,7 +640,7 @@ impl CoercedAttrArenaBuilder {
         e: &buck2_query_parser::SpannedExpr<'s>,
         by_text: &BuckMutMap<&'s str, &ProvidersLabel>,
         matched: &mut BuckMutMap<&'s str, ()>,
-    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+    ) -> buck2_error::Result<AttrToken> {
         match &e.value {
             Expr::None => {
                 let hash = content_hash(AttrKind::QueryExpr, |h| Q_EXPR_NONE.hash(h));
@@ -656,12 +655,13 @@ impl CoercedAttrArenaBuilder {
                 function_name,
                 args,
             } => {
-                let (nr, nh) = self.encode_str(AttrKind::String, function_name.fragment())?;
+                let AttrToken(nr, nh) =
+                    self.encode_str(AttrKind::String, function_name.fragment())?;
                 let mut refs = EncodeScratchRefs::with_capacity(1 + args.len());
                 refs.push(nr);
                 let mut hashes = SmallVec::<[CoercedAttrHash; 8]>::with_capacity(args.len());
                 for a in args {
-                    let (ar, ah) = self.encode_query_expr_inner(a, by_text, matched)?;
+                    let AttrToken(ar, ah) = self.encode_query_expr_inner(a, by_text, matched)?;
                     refs.push(ar);
                     hashes.push(ah);
                 }
@@ -671,14 +671,14 @@ impl CoercedAttrArenaBuilder {
                 self.encode_query_node(hash, Q_EXPR_FUNCTION, &[], &refs)
             }
             Expr::BinaryOpSequence(first, rest) => {
-                let (fr, fh) = self.encode_query_expr_inner(first, by_text, matched)?;
+                let AttrToken(fr, fh) = self.encode_query_expr_inner(first, by_text, matched)?;
                 let mut refs = EncodeScratchRefs::with_capacity(1 + rest.len());
                 refs.push(fr);
                 let mut ops = SmallVec::<[u32; 8]>::with_capacity(rest.len());
                 let mut hashes = SmallVec::<[CoercedAttrHash; 8]>::with_capacity(rest.len());
                 for (op, ex) in rest {
                     let opw = binary_op_bits(*op);
-                    let (xr, xh) = self.encode_query_expr_inner(ex, by_text, matched)?;
+                    let AttrToken(xr, xh) = self.encode_query_expr_inner(ex, by_text, matched)?;
                     ops.push(opw);
                     refs.push(xr);
                     hashes.push(CoercedAttrHash(xh.0 ^ ((opw as u64) << 60)));
@@ -696,7 +696,7 @@ impl CoercedAttrArenaBuilder {
                 let mut refs = EncodeScratchRefs::with_capacity(vals.len());
                 let mut hashes = SmallVec::<[CoercedAttrHash; 16]>::with_capacity(vals.len());
                 for v in vals {
-                    let (mr, mh) =
+                    let AttrToken(mr, mh) =
                         self.encode_query_word(Q_EXPR_WORD, v.fragment(), by_text, matched)?;
                     refs.push(mr);
                     hashes.push(mh);
