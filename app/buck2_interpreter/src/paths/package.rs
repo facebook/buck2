@@ -64,16 +64,6 @@ impl PackageFilePath {
         })
     }
 
-    /// `path`'s `PACKAGE` file under the `PACKAGE` name, whether or not that
-    /// file exists or is really named `BUCK_TREE`. Only identifies the
-    /// directory's interpreter context; the file that is actually evaluated is
-    /// found with [`Self::for_dir`].
-    pub fn package_file_for_dir(path: CellPath) -> PackageFilePath {
-        PackageFilePath {
-            path: path.join(FileName::unchecked_new("PACKAGE")),
-        }
-    }
-
     pub fn from_file_path(path: CellPath) -> Option<PackageFilePath> {
         for file_name in Self::package_file_names() {
             if path.ends_with(file_name.as_ref()) {
