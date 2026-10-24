@@ -45,6 +45,25 @@ pub struct ReWriteActionCache {
     pub cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
 }
 
+impl ReWriteActionCache {
+    async fn upload_blobs(
+        &self,
+        mut blobs: Vec<RE::InlinedBlobWithDigest>,
+        content: &[u8],
+        digest: &TrackedFileDigest,
+    ) -> buck2_error::Result<()> {
+        blobs.push(RE::InlinedBlobWithDigest {
+            blob: content.to_vec(),
+            digest: digest.to_re(),
+            ..Default::default()
+        });
+        self.re_client
+            .upload_files_and_directories(vec![], vec![], blobs)
+            .await
+            .buck_error_context("Uploading a write's content")
+    }
+}
+
 #[async_trait]
 impl WriteActionCache for ReWriteActionCache {
     fn use_case(&self) -> RemoteExecutorUseCase {
@@ -64,6 +83,10 @@ impl WriteActionCache for ReWriteActionCache {
             .action_cache(action.action, &self.platform.to_re_platform())
             .await?;
         Ok(response.map(|response| response.action_result))
+    }
+
+    async fn upload(&self, content: &[u8], digest: &TrackedFileDigest) -> buck2_error::Result<()> {
+        self.upload_blobs(Vec::new(), content, digest).await
     }
 
     async fn populate(
@@ -89,16 +112,8 @@ impl WriteActionCache for ReWriteActionCache {
 
         // The action cache reads an entry's action back from the CAS before accepting the
         // entry, so the action's blobs go up with the content.
-        let mut blobs = action.blobs.to_inlined_blobs();
-        blobs.push(RE::InlinedBlobWithDigest {
-            blob: content.to_vec(),
-            digest: digest.to_re(),
-            ..Default::default()
-        });
-        self.re_client
-            .upload_files_and_directories(vec![], vec![], blobs)
-            .await
-            .buck_error_context("Uploading a write's content")?;
+        self.upload_blobs(action.blobs.to_inlined_blobs(), content, digest)
+            .await?;
 
         let mut result = TActionResult2 {
             output_files: vec![RE::TFile {

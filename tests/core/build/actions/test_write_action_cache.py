@@ -12,11 +12,12 @@
 With `buck2.write_action_cache` on, a write action asks the action cache for its content under a
 key that is a hash of its command line. A hit declares the output as a CAS download without
 rendering the content, and nothing is written until something needs the file. A miss renders the
-content and declares the write as it would be without the cache, probe included. A write whose key
-falls within `buck2.write_action_cache_populate`, under an executor that publishes local results
-(`allow_cache_uploads`), goes through the cache whatever the mode says, and a miss first uploads
-the content and records the entry for later builds. Under `verify` every write is rendered and
-declared as without the cache, and a hit is only compared against it.
+content and produces it the way a run action's output comes to be: written to its path when the
+machine has room for local work, uploaded to the CAS and declared from there when it does not. A
+write whose key falls within `buck2.write_action_cache_populate`, under an executor that publishes
+local results (`allow_cache_uploads`), goes through the cache whatever the mode says, and a miss
+first uploads the content and records the entry for later builds. Under `verify` every write is
+rendered and declared as without the cache, and a hit is only compared against it.
 
 The daemon is killed between recording and looking up, so that a hit says the key is the same
 from one process to the next.
@@ -76,7 +77,7 @@ GOLDEN_KEYS = {
 
 class WriteActionCacheTest(BuckTestCase):
     @buck_test(write_invocation_record=True)
-    async def test_miss_is_declared_as_a_plain_write(self, buck: Buck) -> None:
+    async def test_miss_is_written_when_there_is_room_for_it(self, buck: Buck) -> None:
         content = random_string()
         configs = [
             "-c",
@@ -85,15 +86,50 @@ class WriteActionCacheTest(BuckTestCase):
             "buck2.write_action_cache=use",
         ]
 
+        # One write in an otherwise idle build is made locally, and nothing asks the CAS about
+        # it: `write_cas_probe` is on in this repo, and the miss does not probe.
         res = await buck.build("//:write", *configs)
         output = res.get_build_report().output_for_target("//:write")
         assert await soft_errors(buck, "write_action_cache_lookup_failed") == 0
-        # A miss is declared as any write is: `write_cas_probe` is on in this repo, so it probed.
-        assert presence_check_rpcs(res) >= 1, "the miss probed the CAS"
+        assert counter(res, "write_action_cache_misses") >= 1
+        assert counter(res, "write_action_cache_written") >= 1
+        assert counter(res, "write_action_cache_uploaded") == 0
+        assert presence_check_rpcs(res) == 0, "the miss did not probe the CAS"
         assert (
             await get_last_execution_kind(buck, category="write")
             == ACTION_EXECUTION_KIND_SIMPLE
         )
+        assert output.read_text() == content
+
+    @buck_test(write_invocation_record=True)
+    async def test_miss_is_uploaded_when_there_is_no_room_for_it(
+        self, buck: Buck
+    ) -> None:
+        content = random_string()
+        configs = [
+            "-c",
+            f"test.content={content}",
+            "-c",
+            "buck2.write_action_cache=use",
+        ]
+        # The gate the hybrid executor runs local commands behind, with no room at all.
+        env = {"BUCK2_TEST_LOW_PASS_FILTER_CAPACITY": "0"}
+
+        # The miss is uploaded and declared as CAS content; neither memory nor disk holds the
+        # bytes...
+        res = await buck.build("//:write", "--materializations=none", *configs, env=env)
+        output = res.get_build_report().output_for_target("//:write")
+        assert counter(res, "write_action_cache_misses") >= 1
+        assert counter(res, "write_action_cache_uploaded") >= 1
+        assert counter(res, "write_action_cache_written") == 0
+        assert (
+            await get_last_execution_kind(buck, category="write")
+            == ACTION_EXECUTION_KIND_DEFERRED
+        )
+        assert not output.exists()
+
+        # ...until something needs the file, which then comes out of the CAS.
+        await buck.build("//:write", *configs, env=env)
         assert output.read_text() == content
 
     # The populate failure where the cache cannot be written is a (quiet) soft error.
@@ -108,13 +144,12 @@ class WriteActionCacheTest(BuckTestCase):
         if await soft_errors(buck, "write_action_cache_populate_failed"):
             # CI and devservers lack write access to the action cache (see `test_cache_uploads`),
             # and `pytest.skip` is a failure under tpx: where the entry cannot be recorded, what
-            # there is to check is that the output still came to be. Deferred rather than written
-            # when the content's upload went through before the entry was refused: the probe then
-            # finds it.
+            # there is to check is that the output still came to be, as a miss does.
             output = res.get_build_report().output_for_target("//:write")
-            assert await get_last_execution_kind(buck, category="write") in (
-                ACTION_EXECUTION_KIND_SIMPLE,
-                ACTION_EXECUTION_KIND_DEFERRED,
+            assert counter(res, "write_action_cache_written") >= 1
+            assert (
+                await get_last_execution_kind(buck, category="write")
+                == ACTION_EXECUTION_KIND_SIMPLE
             )
             assert output.read_text() == content
             return
@@ -155,8 +190,7 @@ class WriteActionCacheTest(BuckTestCase):
         )
         await buck.kill()
 
-        # The key is of the content's command line, so other content is a miss, declared as a plain
-        # write: the CAS has never seen this content, so the probe writes it.
+        # The key is of the content's command line, so other content is a miss, written here.
         content = random_string()
         target = "//:write_again"
         res = await buck.build(
@@ -169,6 +203,7 @@ class WriteActionCacheTest(BuckTestCase):
         output = res.get_build_report().output_for_target(target)
         assert counter(res, "write_action_cache_hits") == 0
         assert counter(res, "write_action_cache_misses") >= 1
+        assert counter(res, "write_action_cache_written") >= 1
         assert (
             await get_last_execution_kind(buck, category="write")
             == ACTION_EXECUTION_KIND_SIMPLE

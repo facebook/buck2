@@ -53,6 +53,7 @@ use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::CacheUploadResults;
 use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
+use buck2_execute::execute::low_pass_filter::LowPassFilter;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::request::CommandExecutionRequest;
@@ -356,6 +357,11 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// The action cache as write actions use it, under this action's executor configuration;
     /// `None` where that executor reads no cache.
     fn write_action_cache(&self) -> Option<&dyn WriteActionCache>;
+
+    /// The command's gate on local work: the hybrid executor runs a command locally only when
+    /// there is room behind it, and a write that could as well be uploaded is written locally
+    /// on the same terms.
+    fn low_pass_filter(&self) -> &LowPassFilter;
 
     fn re_platform(&self) -> &remote_execution::Platform;
 

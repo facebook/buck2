@@ -20,6 +20,7 @@ use std::time::Instant;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::actions::execute::dice_data::SetCommandExecutor;
+use buck2_build_api::actions::execute::dice_data::SetLowPassFilter;
 use buck2_build_api::actions::execute::dice_data::SetReClient;
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
@@ -55,6 +56,7 @@ use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::facebook_only;
@@ -914,7 +916,13 @@ impl DiceCommandUpdater<'_, '_> {
         // doesn't *have* to be the same as the concurrency we give the actual executor, it's a
         // reasonable pick, because if we send more tasks than our concurrency limit allows, we
         // would expect to start losing out to RE in terms of perf.
-        let low_pass_filter = LowPassFilter::new(concurrency);
+        let low_pass_filter_capacity = buck2_env!(
+            "BUCK2_TEST_LOW_PASS_FILTER_CAPACITY",
+            type = usize,
+            applicability = testing
+        )?
+        .unwrap_or(concurrency);
+        let low_pass_filter = Arc::new(LowPassFilter::new(low_pass_filter_capacity));
 
         let mut data = DiceData::new();
         data.set(self.cmd_ctx.events().dupe());
@@ -1061,6 +1069,7 @@ impl DiceCommandUpdater<'_, '_> {
         if let Some(v) = &self.profile_event_listener {
             SetProfileEventListener::set(&mut data, v.clone());
         }
+        data.set_low_pass_filter(low_pass_filter.dupe());
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
             self.re_connection.dupe(),
             host_sharing_broker,

@@ -51,6 +51,7 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::kind::CommandExecutionKind;
+use buck2_execute::execute::low_pass_filter::LowPassFilter;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::prepared::PreparedCommand;
@@ -106,6 +107,7 @@ use crate::actions::execute::dice_data::CommandExecutorResponse;
 use crate::actions::execute::dice_data::DiceHasCommandExecutor;
 use crate::actions::execute::dice_data::GetInvalidationTrackingConfig;
 use crate::actions::execute::dice_data::GetReClient;
+use crate::actions::execute::dice_data::HasLowPassFilter;
 use crate::actions::impls::run_action_knobs::HasRunActionKnobs;
 use crate::actions::impls::run_action_knobs::RunActionKnobs;
 use crate::artifact_groups::ArtifactGroup;
@@ -491,6 +493,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
         let events = self.per_transaction_data().get_dispatcher();
         let re_client = self.per_transaction_data().get_re_client();
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
+        let low_pass_filter = self.per_transaction_data().get_low_pass_filter();
         let dep_file_cache = self.per_transaction_data().get_dep_file_cache();
         let dep_file_store = self.per_transaction_data().get_dep_file_store();
         let io_provider = self.global_data().get_io_provider();
@@ -516,6 +519,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
             re_client,
             digest_config,
             run_action_knobs,
+            low_pass_filter,
             dep_file_cache,
             dep_file_store,
             io_provider,
@@ -536,6 +540,7 @@ pub struct BuckActionExecutor<'d> {
     re_client: &'d UnconfiguredRemoteExecutionClient,
     digest_config: DigestConfig,
     run_action_knobs: &'d RunActionKnobs,
+    low_pass_filter: &'d LowPassFilter,
     dep_file_cache: &'d dyn DepFileCache,
     dep_file_store: Option<&'d dyn DepFileStore>,
     io_provider: &'d dyn IoProvider,
@@ -555,6 +560,7 @@ impl<'d> BuckActionExecutor<'d> {
         re_client: &'d UnconfiguredRemoteExecutionClient,
         digest_config: DigestConfig,
         run_action_knobs: &'d RunActionKnobs,
+        low_pass_filter: &'d LowPassFilter,
         dep_file_cache: &'d dyn DepFileCache,
         dep_file_store: Option<&'d dyn DepFileStore>,
         io_provider: &'d dyn IoProvider,
@@ -572,6 +578,7 @@ impl<'d> BuckActionExecutor<'d> {
             re_client,
             digest_config,
             run_action_knobs,
+            low_pass_filter,
             dep_file_cache,
             dep_file_store,
             io_provider,
@@ -692,6 +699,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
 
     fn write_action_cache(&self) -> Option<&dyn WriteActionCache> {
         self.executor.command_executor.write_action_cache()
+    }
+
+    fn low_pass_filter(&self) -> &LowPassFilter {
+        self.executor.low_pass_filter
     }
 
     fn re_platform(&self) -> &remote_execution::Platform {

@@ -25,6 +25,10 @@ pub struct WriteActionCacheStats {
     pub populated: AtomicU64,
     /// Entries that could not be recorded.
     pub populate_failures: AtomicU64,
+    /// Misses uploaded to the CAS and declared from there, without an entry.
+    pub uploaded: AtomicU64,
+    /// Misses written to their output path.
+    pub written: AtomicU64,
     /// Hits compared against what the write rendered, under `verify`.
     pub verified: AtomicU64,
     /// Of those, hits whose content was not what the write rendered.
@@ -39,6 +43,8 @@ pub struct WriteActionCacheCounts {
     pub lookup_failures: u64,
     pub populated: u64,
     pub populate_failures: u64,
+    pub uploaded: u64,
+    pub written: u64,
     pub verified: u64,
     pub mismatches: u64,
 }
@@ -49,6 +55,8 @@ pub static WRITE_ACTION_CACHE_STATS: WriteActionCacheStats = WriteActionCacheSta
     lookup_failures: AtomicU64::new(0),
     populated: AtomicU64::new(0),
     populate_failures: AtomicU64::new(0),
+    uploaded: AtomicU64::new(0),
+    written: AtomicU64::new(0),
     verified: AtomicU64::new(0),
     mismatches: AtomicU64::new(0),
 };
@@ -65,6 +73,8 @@ impl WriteActionCacheStats {
             lookup_failures: self.lookup_failures.load(Ordering::Relaxed),
             populated: self.populated.load(Ordering::Relaxed),
             populate_failures: self.populate_failures.load(Ordering::Relaxed),
+            uploaded: self.uploaded.load(Ordering::Relaxed),
+            written: self.written.load(Ordering::Relaxed),
             verified: self.verified.load(Ordering::Relaxed),
             mismatches: self.mismatches.load(Ordering::Relaxed),
         }

@@ -37,6 +37,10 @@ pub trait WriteActionCache: Send + Sync {
         action: &ActionDigestAndBlobs,
     ) -> buck2_error::Result<Option<TActionResult2>>;
 
+    /// Uploads `content`, whose digest is `digest`, to the CAS, for a write whose content is
+    /// declared as CAS content without an entry.
+    async fn upload(&self, content: &[u8], digest: &TrackedFileDigest) -> buck2_error::Result<()>;
+
     /// Records `content`, whose digest is `digest`, as the one output of `action`: uploads it
     /// with the action's blobs and writes the entry. `digest` carries the entry's expiration
     /// afterwards, a lower bound on the content's. Only where `populates`.

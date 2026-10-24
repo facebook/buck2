@@ -29,6 +29,7 @@ use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
 use buck2_build_api::actions::execute::dice_data::HasCommandExecutor;
 use buck2_build_api::actions::execute::dice_data::SetCommandExecutor;
 use buck2_build_api::actions::execute::dice_data::SetInvalidationTrackingConfig;
+use buck2_build_api::actions::execute::dice_data::SetLowPassFilter;
 use buck2_build_api::actions::execute::dice_data::SetReClient;
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
@@ -84,6 +85,7 @@ use buck2_execute::execute::blocking::SetBlockingExecutor;
 use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
 use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
 use buck2_execute::execute::kind::CommandExecutionKind;
+use buck2_execute::execute::low_pass_filter::LowPassFilter;
 use buck2_execute::execute::output::CommandStdStreams;
 use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
 use buck2_execute::execute::request::CommandExecutionOutput;
@@ -259,6 +261,7 @@ async fn make_default_dice_state(
     extra.set_mergebase(Default::default());
     extra.data.set(EventDispatcher::null());
     extra.data.set(RunActionKnobs::default());
+    extra.set_low_pass_filter(Arc::new(LowPassFilter::new(1)));
     extra.spawner = Arc::new(BuckSpawner::current_runtime().unwrap());
 
     let mut computations = dice_builder.build(extra).await.unwrap();

@@ -13,9 +13,10 @@
 //! A write's content is a function of its command line, so a strong hash of that command line
 //! (`CommandLineBuilder::new_hashing`) keys an action cache entry whose one output is the
 //! content's digest. A hit declares the output as CAS content without rendering the command
-//! line; a miss renders it and declares the write as usual, after uploading the content and
-//! recording the entry where the write is one to record (`WriteCache::use_for`). `verify`
-//! renders every write and compares a hit's content against it, for trying the key out.
+//! line. A miss renders it, and where the write is one to record (`WriteCache::use_for`)
+//! uploads the content and records the entry; otherwise it is produced the way a run action's
+//! output is, locally or remotely (`declare_miss`). `verify` renders every write and compares a
+//! hit's content against it, for trying the key out.
 //!
 //! A write with `absolute` renders the project root, which is not the same between hosts, so
 //! it does not go through the cache at all (`WriteAction::execute`).
@@ -26,6 +27,7 @@ use std::sync::Arc;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::ActionExecutionCtx;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::impls::run_action_knobs::WriteActionCacheMode;
 use buck2_build_api::actions::impls::write_action_cache_stats::WRITE_ACTION_CACHE_STATS;
 use buck2_build_api::actions::impls::write_action_cache_stats::WriteActionCacheStats;
@@ -38,9 +40,11 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::rollout_percentage::RolloutFraction;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
@@ -52,6 +56,7 @@ use buck2_execute::execute::write_action_cache::WriteActionCache;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_execute::materialize::write::write_to_disk;
 use buck2_execute::re::ttl::re_expiration_from_ttl;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutMap;
@@ -246,6 +251,29 @@ impl<'a> WriteCache<'a> {
         })
     }
 
+    /// Uploads `request`'s content to the CAS and returns it with the download info to declare
+    /// it under.
+    pub(crate) async fn upload(
+        self,
+        ctx: &dyn ActionExecutionCtx,
+        request: &WriteRequest,
+    ) -> buck2_error::Result<(ArtifactValue, Arc<CasDownloadInfo>)> {
+        let digest = TrackedFileDigest::from_content(
+            &request.content,
+            ctx.digest_config().cas_digest_config(),
+        );
+        self.cache.upload(&request.content, &digest).await?;
+        WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.uploaded);
+        let value = ArtifactValue::file(FileMetadata {
+            digest,
+            is_executable: request.is_executable,
+        });
+        Ok((
+            value,
+            Arc::new(CasDownloadInfo::new_uploaded(self.cache.use_case())),
+        ))
+    }
+
     /// Records `request`'s content as what `key` identifies, uploading it to the CAS, and returns
     /// it with the download info to declare it under.
     pub(crate) async fn populate(
@@ -330,6 +358,90 @@ pub(crate) async fn declare(
             }],
         )
         .await
+}
+
+/// The weight of one write behind the gate: a small, short piece of local work.
+const LOCAL_WRITE_WEIGHT: usize = 1;
+
+/// Declares `request`, a write the cache missed, as `output`, the way a run action's output
+/// comes to be: produced here when the machine has room for local work, and uploaded and
+/// declared as CAS content when it does not, by the gate the hybrid executor runs local
+/// commands behind. A burst of writes in a cold build is thousands of files nothing on this
+/// machine may ever read; one write in a small build is quicker made than sent. Returns the
+/// value with `Simple` for a write made here and `Deferred` for one declared from the CAS.
+pub(crate) async fn declare_miss(
+    ctx: &dyn ActionExecutionCtx,
+    cache: WriteCache<'_>,
+    output: &BuildArtifact,
+    request: WriteRequest,
+) -> buck2_error::Result<(ArtifactValue, ActionExecutionKind)> {
+    // Held while the write is made, so that a burst of writes counts as the load it is.
+    let permit = ctx.low_pass_filter().try_access(LOCAL_WRITE_WEIGHT);
+    if permit.is_none() {
+        match cache.upload(ctx, &request).await {
+            Ok((value, info)) => {
+                declare(ctx, output, value.dupe(), info).await?;
+                return Ok((value, ActionExecutionKind::Deferred));
+            }
+            Err(e) => {
+                // Writing locally is the right fallback, but a CAS that refuses uploads would
+                // silently turn every busy write into a local one, which should be visible.
+                let _ignored = soft_error!(
+                    "write_action_cache_upload_failed",
+                    e.context("Uploading a write's content failed; writing it locally instead"),
+                    quiet: true
+                );
+            }
+        }
+    }
+    let value = write_locally(ctx, request).await?;
+    WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.written);
+    Ok((value, ActionExecutionKind::Simple))
+}
+
+/// Writes `request` to its path and reports it, as a local run's output is reported: under a
+/// write lease over the path, with nothing of the write's held in memory afterwards.
+async fn write_locally(
+    ctx: &dyn ActionExecutionCtx,
+    request: WriteRequest,
+) -> buck2_error::Result<ArtifactValue> {
+    let path: ProjectRelativePathBuf = request.path.clone();
+    let lease = ctx
+        .materializer()
+        .prepare_outputs(vec![path.clone()])
+        .await?;
+    let written = write_to_disk(
+        ctx.fs().fs(),
+        ctx.blocking_executor(),
+        ctx.digest_config(),
+        Box::new(move || Ok(vec![request])),
+        // The report seals the file, as it does every output.
+        false,
+    )
+    .await;
+    let values = match written {
+        Ok(values) => values,
+        Err(e) => {
+            lease.abandon();
+            return Err(e);
+        }
+    };
+    let value = values
+        .into_iter()
+        .next()
+        .internal_error("Write did not execute")?;
+    let reported = ctx
+        .materializer()
+        .declare_existing(
+            &lease,
+            vec![DeclareArtifactPayload {
+                path,
+                artifact: value.dupe(),
+            }],
+        )
+        .await;
+    lease.abandon_on_err(reported)?;
+    Ok(value)
 }
 
 /// The key for the content `WriteCommandLineOptions::render` would produce from `contents` and

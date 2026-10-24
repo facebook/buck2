@@ -111,7 +111,7 @@ impl CommandExecutorFactory {
     pub fn new(
         re_connection: Arc<ReConnectionHandle>,
         host_sharing_broker: HostSharingBroker,
-        low_pass_filter: LowPassFilter,
+        low_pass_filter: Arc<LowPassFilter>,
         materializer: Arc<dyn Materializer>,
         blocking_executor: Arc<dyn BlockingExecutor>,
         strategy: ExecutionStrategy,
@@ -138,7 +138,7 @@ impl CommandExecutorFactory {
         Self {
             re_connection,
             host_sharing_broker: Arc::new(host_sharing_broker),
-            low_pass_filter: Arc::new(low_pass_filter),
+            low_pass_filter,
             materializer,
             blocking_executor,
             strategy,

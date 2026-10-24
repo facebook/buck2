@@ -1299,6 +1299,8 @@ message Snapshot {
   uint64 write_action_cache_populate_failures = 1213;
   uint64 write_action_cache_verified = 1214;
   uint64 write_action_cache_mismatches = 1215;
+  uint64 write_action_cache_uploaded = 1216;
+  uint64 write_action_cache_written = 1217;
 
   // I/O operations in progress.
   uint32 io_in_flight_copy = 1101;

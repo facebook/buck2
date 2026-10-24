@@ -94,6 +94,22 @@ impl LowPassFilter {
     }
 }
 
+impl LowPassFilter {
+    /// A permit if there is room for `weight` more right now, else nothing: for work that has
+    /// somewhere else to go rather than wait.
+    pub fn try_access(&self, weight: usize) -> Option<LowPassFilterGuard<'_>> {
+        let mut state = self.state.lock();
+        if state.accessors + weight > self.capacity {
+            return None;
+        }
+        state.accessors += weight;
+        Some(LowPassFilterGuard {
+            filter: self,
+            weight,
+        })
+    }
+}
+
 pub struct LowPassFilterGuard<'a> {
     filter: &'a LowPassFilter,
     weight: usize,
@@ -122,6 +138,29 @@ mod tests {
     async fn test_access() {
         let filter = LowPassFilter::new(1);
         filter.access(1).await;
+    }
+
+    #[tokio::test]
+    async fn test_try_access() {
+        let filter = LowPassFilter::new(2);
+        let t0 = filter.try_access(1).expect("room for one");
+        let t1 = filter.try_access(1).expect("room for a second");
+        assert!(filter.try_access(1).is_none(), "full");
+
+        // Over capacity through `access`, nothing is handed out until it drains.
+        let over = filter.access(1);
+        futures::pin_mut!(over);
+        assert!(futures::poll!(over.as_mut()).is_pending());
+        drop(t0);
+        assert!(
+            filter.try_access(1).is_none(),
+            "still over capacity with the waiter counted"
+        );
+        drop(t1);
+        assert!(futures::poll!(over.as_mut()).is_ready());
+        let _t3 = filter
+            .try_access(1)
+            .expect("room beside the waiter now served");
     }
 
     #[tokio::test]

@@ -340,6 +340,8 @@ impl SnapshotCollector {
         snapshot.write_action_cache_lookup_failures = counts.lookup_failures;
         snapshot.write_action_cache_populated = counts.populated;
         snapshot.write_action_cache_populate_failures = counts.populate_failures;
+        snapshot.write_action_cache_uploaded = counts.uploaded;
+        snapshot.write_action_cache_written = counts.written;
         snapshot.write_action_cache_verified = counts.verified;
         snapshot.write_action_cache_mismatches = counts.mismatches;
     }

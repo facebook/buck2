@@ -298,39 +298,26 @@ impl WriteAction {
             write_cache::declare(ctx, &self.output, value.dupe(), cached.info).await?;
             return Ok((value, ActionExecutionKind::Deferred));
         }
-        let mut rendered = None;
+        let request = self.write_request(ctx)?;
         if populate {
-            let request = self.write_request(ctx)?;
             match cache.populate(ctx, &key, &request).await {
                 Ok((value, info)) => {
                     write_cache::declare(ctx, &self.output, value.dupe(), info).await?;
-                    return Ok((value, ActionExecutionKind::Simple));
+                    return Ok((value, ActionExecutionKind::Deferred));
                 }
                 Err(e) => {
                     WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.populate_failures);
-                    // Declaring the write as usual is the right fallback, but a cache that
+                    // Producing the write anyway is the right fallback, but a cache that
                     // cannot be populated would silently stay empty, which should be visible.
                     let _ignored = soft_error!(
                         "write_action_cache_populate_failed",
                         e.context("Recording a write's content in the action cache failed"),
                         quiet: true
                     );
-                    rendered = Some(request);
                 }
             }
         }
-        // A miss is a write like any other: the probe, when it is on, still spares the write
-        // when the CAS has the content, which on a cold cache is most of them. Rendered
-        // already when populating failed; `declare_writes` asks again only for a probe miss.
-        let (values, execution_kind) = declare_writes(
-            ctx,
-            Box::new(move || match rendered.take() {
-                Some(request) => Ok(vec![request]),
-                None => Ok(vec![self.write_request(ctx)?]),
-            }),
-        )
-        .await?;
-        Ok((single(values)?, execution_kind))
+        write_cache::declare_miss(ctx, cache, &self.output, request).await
     }
 
     /// Declares the output as it would be declared without the cache, and checks the content
