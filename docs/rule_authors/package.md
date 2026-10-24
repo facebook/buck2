@@ -13,6 +13,12 @@ Before evaluating `BUCK` file, buck2 will evaluate all `PACKAGE` files in the
 same directory and all parent directories. Absent `PACKAGE` files are treated as
 empty files.
 
+A `PACKAGE` file may also be named `BUCK_TREE`. Buck2 looks for `BUCK_TREE`
+first and will use it preferentially over `PACKAGE`. It's typically used in a
+directory that also contains a `package/` subdirectory, since `PACKAGE` cannot
+coexist with it on a case-insensitive filesystem. Tools that look for `PACKAGE`
+files must accept both names, and prefer `BUCK_TREE` when both exist.
+
 All relevant `PACKAGE` files are executed sequentially from the root directory
 to the current directory (but unrelated `PACKAGE` files can be executed in
 parallel). Evaluating `PACKAGE` files sequentially provides additional
