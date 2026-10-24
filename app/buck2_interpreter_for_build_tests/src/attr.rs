@@ -19,12 +19,11 @@ use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::plugins::PluginKindSet;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
-use buck2_interpreter_for_build::attrs::coerce::testing::CoerceOwned;
+use buck2_interpreter_for_build::attrs::coerce::testing::CoerceSealed;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
@@ -35,13 +34,12 @@ use starlark::values::Heap;
 use starlark::values::dict::AllocDict;
 use starlark::values::list::AllocList;
 
-fn value_to_string(value: &CoercedAttr, pkg: PackageLabel) -> buck2_error::Result<String> {
+fn value_to_string(value: &OwnedCoercedAttr, pkg: PackageLabel) -> buck2_error::Result<String> {
     let ctx = AttrFmtContext {
         package: Some(pkg),
         options: Default::default(),
     };
-    let encoded = OwnedCoercedAttr::try_new(value)?;
-    match encoded.as_ref().to_json(&ctx)?.as_str() {
+    match value.as_ref().to_json(&ctx)?.as_str() {
         Some(s) => Ok(s.to_owned()),
         None => Err(buck2_error::buck2_error!(
             buck2_error::ErrorTag::Input,
@@ -162,16 +160,17 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
             .is_err()
         );
 
-        let label_value1 = coercer_ctx.coerce_owned(&label_coercer, heap.alloc("root//foo:bar"))?;
+        let label_value1 =
+            coercer_ctx.coerce_sealed(&label_coercer, heap.alloc("root//foo:bar"))?;
         let label_value2 =
-            coercer_ctx.coerce_owned(&label_coercer, heap.alloc("root//foo:bar[baz]"))?;
-        let label_value3 = coercer_ctx.coerce_owned(&label_coercer, heap.alloc(":bar"))?;
-        let label_value4 = coercer_ctx.coerce_owned(&label_coercer, heap.alloc(":bar[baz]"))?;
+            coercer_ctx.coerce_sealed(&label_coercer, heap.alloc("root//foo:bar[baz]"))?;
+        let label_value3 = coercer_ctx.coerce_sealed(&label_coercer, heap.alloc(":bar"))?;
+        let label_value4 = coercer_ctx.coerce_sealed(&label_coercer, heap.alloc(":bar[baz]"))?;
         let invalid_label_value1 =
-            coercer_ctx.coerce_owned(&label_coercer, heap.alloc("root//foo/..."));
+            coercer_ctx.coerce_sealed(&label_coercer, heap.alloc("root//foo/..."));
         let invalid_label_value2 =
-            coercer_ctx.coerce_owned(&label_coercer, heap.alloc("root//foo:"));
-        let invalid_label_value3 = coercer_ctx.coerce_owned(&label_coercer, heap.alloc("1"));
+            coercer_ctx.coerce_sealed(&label_coercer, heap.alloc("root//foo:"));
+        let invalid_label_value3 = coercer_ctx.coerce_sealed(&label_coercer, heap.alloc("1"));
 
         assert_eq!(
             "root//foo:bar",
@@ -193,14 +192,14 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
         assert!(invalid_label_value2.is_err());
         assert!(invalid_label_value3.is_err());
 
-        let string_value1 = coercer_ctx.coerce_owned(&string_coercer, heap.alloc("str"))?;
+        let string_value1 = coercer_ctx.coerce_sealed(&string_coercer, heap.alloc("str"))?;
         assert_eq!("str", value_to_string(&string_value1, package.dupe())?);
 
-        let enum_valid1 = coercer_ctx.coerce_owned(&enum_coercer, heap.alloc("red"))?;
-        let enum_valid2 = coercer_ctx.coerce_owned(&enum_coercer, heap.alloc("green"))?;
-        let enum_valid3 = coercer_ctx.coerce_owned(&enum_coercer, heap.alloc("RED"))?;
-        let enum_invalid1 = coercer_ctx.coerce_owned(&enum_coercer, heap.alloc("orange"));
-        let enum_invalid2 = coercer_ctx.coerce_owned(&enum_coercer, heap.alloc(false));
+        let enum_valid1 = coercer_ctx.coerce_sealed(&enum_coercer, heap.alloc("red"))?;
+        let enum_valid2 = coercer_ctx.coerce_sealed(&enum_coercer, heap.alloc("green"))?;
+        let enum_valid3 = coercer_ctx.coerce_sealed(&enum_coercer, heap.alloc("RED"))?;
+        let enum_invalid1 = coercer_ctx.coerce_sealed(&enum_coercer, heap.alloc("orange"));
+        let enum_invalid2 = coercer_ctx.coerce_sealed(&enum_coercer, heap.alloc(false));
         assert_eq!("red", value_to_string(&enum_valid1, package.dupe())?);
         assert_eq!("green", value_to_string(&enum_valid2, package.dupe())?);
         assert_eq!("red", value_to_string(&enum_valid3, package.dupe())?);

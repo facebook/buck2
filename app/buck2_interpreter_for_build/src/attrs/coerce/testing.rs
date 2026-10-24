@@ -26,7 +26,6 @@ use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::Dupe;
@@ -53,29 +52,8 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> BuildAttrCoercio
     build_coercion_ctx(package_listing)
 }
 
-/// Coercion for tests that assert on owned `CoercedAttr` values: coerces
-/// into this context's arena and decodes the result back out.
-pub trait CoerceOwned {
-    fn coerce_owned<'v>(
-        &self,
-        attr: &AttrType,
-        value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr>;
-}
-
-impl CoerceOwned for BuildAttrCoercionContext {
-    fn coerce_owned<'v>(
-        &self,
-        attr: &AttrType,
-        value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr> {
-        let token = attr.coerce(AttrIsConfigurable::Yes, self, value)?;
-        self.attr_arena().view(token.word()).to_coerced()
-    }
-}
-
 /// Coercion for tests that assert on the encoded value: coerces into this
-/// context's arena and seals the result into its own single-value storage.
+/// context's arena and copies the result into its own single-value storage.
 pub trait CoerceSealed {
     fn coerce_sealed<'v>(
         &self,
@@ -90,7 +68,9 @@ impl CoerceSealed for BuildAttrCoercionContext {
         attr: &AttrType,
         value: Value<'v>,
     ) -> buck2_error::Result<OwnedCoercedAttr> {
-        OwnedCoercedAttr::try_new(&self.coerce_owned(attr, value)?)
+        let token = attr.coerce(AttrIsConfigurable::Yes, self, value)?;
+        let arena = self.attr_arena();
+        OwnedCoercedAttr::new_with(|b| b.encode_view(arena.view(token.word())))
     }
 }
 

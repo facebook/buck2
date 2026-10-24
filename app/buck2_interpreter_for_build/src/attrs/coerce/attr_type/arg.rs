@@ -243,10 +243,9 @@ mod tests {
     use buck2_core::target::label::label::TargetLabel;
     use buck2_error::buck2_error;
     use buck2_hash::buck_mut_insertion_set;
-    use buck2_node::attrs::arena::OwnedCoercedAttr;
+    use buck2_node::attrs::arena::CoercedAttrRefKind;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::attr_type::arg::MacroBase;
-    use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::configured_attr_info_for_tests::ConfiguredAttrInfoForTests;
@@ -257,7 +256,7 @@ mod tests {
     use starlark::environment::Module;
 
     use super::*;
-    use crate::attrs::coerce::testing::CoerceOwned;
+    use crate::attrs::coerce::testing::CoerceSealed;
     use crate::attrs::coerce::testing::coercion_ctx;
     use crate::attrs::coerce::testing::to_value;
     use crate::interpreter::selector::register_select;
@@ -299,8 +298,8 @@ mod tests {
                 r#""$(exe //:foo) " + select({"DEFAULT": "$(location //:bar)"})"#,
             );
 
-            let coerced = coercion_ctx().coerce_owned(&attr, value)?;
-            let configured = OwnedCoercedAttr::try_new(&coerced)?
+            let coerced = coercion_ctx().coerce_sealed(&attr, value)?;
+            let configured = coerced
                 .as_ref()
                 .configure(&attr, &configuration_ctx(), None)
                 .require_compatible()?;
@@ -331,7 +330,7 @@ mod tests {
                 ("$(find . -name foo)", "find", 3),
             ] {
                 let value = env.heap().alloc(input);
-                let error = coercion_ctx().coerce_owned(&attr, value).unwrap_err();
+                let error = coercion_ctx().coerce_sealed(&attr, value).unwrap_err();
                 assert!(
                     format!("{error:#}").contains(&format!(
                         "Unrecognized macro `{name}` (with {arg_count} args). If this is shell command substitution rather than a buck macro, escape it as `\\$({name} ...)`"
@@ -348,13 +347,11 @@ mod tests {
         Module::with_temp_heap(|env| {
             let attr = AttrType::arg(true);
             let value = env.heap().alloc(r"\$(find . -name foo)");
-            let coerced = coercion_ctx().coerce_owned(&attr, value)?;
-            assert_eq!(
-                coerced,
-                CoercedAttr::Arg(UnconfiguredStringWithMacros::StringPart(
-                    "$(find . -name foo)".into(),
-                )),
-            );
+            let coerced = coercion_ctx().coerce_sealed(&attr, value)?;
+            let CoercedAttrRefKind::ArgSimple(part) = coerced.as_ref().kind() else {
+                panic!("expected a plain-string arg");
+            };
+            assert_eq!("$(find . -name foo)", part);
             Ok(())
         })
     }
@@ -373,12 +370,9 @@ mod tests {
                 ),
             ] {
                 let value = env.heap().alloc(input);
-                let coerced = coercion_ctx().coerce_owned(&attr, value)?;
+                let coerced = coercion_ctx().coerce_sealed(&attr, value)?;
                 assert_eq!(
-                    OwnedCoercedAttr::try_new(&coerced)?
-                        .as_ref()
-                        .as_display_no_ctx()
-                        .to_string(),
+                    coerced.as_ref().as_display_no_ctx().to_string(),
                     format!(r#""{expected}""#)
                 );
             }

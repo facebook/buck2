@@ -9,108 +9,71 @@
  */
 
 use std::collections::BTreeMap;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::sync::Arc;
 
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::constraints::ConstraintKey;
 use buck2_core::configuration::constraints::ConstraintValue;
+use buck2_node::attrs::arena::CoercedAttrArena;
 use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
-use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
-use buck2_node::attrs::coerced_attr::CoercedConcat;
-use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
-use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
-fn hash(value: &impl Hash) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    value.hash(&mut hasher);
-    hasher.finish()
+fn key(s: &str) -> ConfigurationSettingKey {
+    ConfigurationSettingKey::testing_parse(s)
 }
 
-trait EncodedToJson {
-    fn encoded_to_json(&self) -> String;
-}
-
-impl EncodedToJson for CoercedAttr {
-    fn encoded_to_json(&self) -> String {
-        OwnedCoercedAttr::try_new(self)
-            .unwrap()
-            .as_ref()
-            .to_json(&AttrFmtContext::NO_CONTEXT)
-            .unwrap()
-            .to_string()
-    }
+fn to_json(value: &OwnedCoercedAttr) -> String {
+    value
+        .as_ref()
+        .to_json(&AttrFmtContext::NO_CONTEXT)
+        .unwrap()
+        .to_string()
 }
 
 #[test]
-fn selector_equals_accounts_for_ordering() {
-    let s1 = CoercedAttr::Selector(Arc::new(
-        CoercedSelector::new(
-            ArcSlice::new([
-                (
-                    ConfigurationSettingKey::testing_parse("cell1//pkg1:target1"),
-                    CoercedAttr::Bool(BoolLiteral(true)),
-                ),
-                (
-                    ConfigurationSettingKey::testing_parse("cell2//pkg2:target2"),
-                    CoercedAttr::Bool(BoolLiteral(false)),
-                ),
-            ]),
-            Some(CoercedAttr::Bool(BoolLiteral(false))),
-        )
-        .unwrap(),
-    ));
-    let s2 = CoercedAttr::Selector(Arc::new(
-        CoercedSelector::new(
-            ArcSlice::new([
-                (
-                    ConfigurationSettingKey::testing_parse("cell1//pkg1:target1"),
-                    CoercedAttr::Bool(BoolLiteral(true)),
-                ),
-                (
-                    ConfigurationSettingKey::testing_parse("cell2//pkg2:target2"),
-                    CoercedAttr::Bool(BoolLiteral(false)),
-                ),
-            ]),
-            Some(CoercedAttr::Bool(BoolLiteral(false))),
-        )
-        .unwrap(),
-    ));
+fn selector_identity_accounts_for_ordering() -> buck2_error::Result<()> {
+    let mut b = CoercedAttrArena::builder();
+    let t = b.encode_bool(true)?;
+    let f = b.encode_bool(false)?;
+    let s1 = b.encode_selector(
+        &[
+            (key("cell1//pkg1:target1"), t),
+            (key("cell2//pkg2:target2"), f),
+        ],
+        Some(f),
+    )?;
+    let s2 = b.encode_selector(
+        &[
+            (key("cell1//pkg1:target1"), t),
+            (key("cell2//pkg2:target2"), f),
+        ],
+        Some(f),
+    )?;
+    let reordered = b.encode_selector(
+        &[
+            (key("cell2//pkg2:target2"), f),
+            (key("cell1//pkg1:target1"), t),
+        ],
+        Some(f),
+    )?;
+    let nested_s1 = b.encode_list(&[s1])?;
+    let nested_s2 = b.encode_list(&[s2])?;
+    let arena = b.finish();
 
-    assert!(s1 == s2);
-    assert_eq!(hash(&s1), hash(&s2));
-    let nested_s1 = CoercedAttr::List(ListLiteral(ArcSlice::new([s1.clone()])));
-    let nested_s2 = CoercedAttr::List(ListLiteral(ArcSlice::new([s2])));
-    assert_eq!(hash(&nested_s1), hash(&nested_s2));
+    assert_eq!(s1, s2);
     assert_eq!(nested_s1, nested_s2);
-
-    let s2 = CoercedAttr::Selector(Arc::new(
-        CoercedSelector::new(
-            ArcSlice::new([
-                (
-                    ConfigurationSettingKey::testing_parse("cell2//pkg2:target2"),
-                    CoercedAttr::Bool(BoolLiteral(false)),
-                ),
-                (
-                    ConfigurationSettingKey::testing_parse("cell1//pkg1:target1"),
-                    CoercedAttr::Bool(BoolLiteral(true)),
-                ),
-            ]),
-            Some(CoercedAttr::Bool(BoolLiteral(false))),
-        )
-        .unwrap(),
-    ));
-
-    assert!(s1 != s2);
+    assert_ne!(s1.word(), reordered.word());
+    assert!(
+        !arena
+            .view(s1.word())
+            .content_eq(&arena.view(reordered.word()))
+    );
+    Ok(())
 }
 
 #[test]
@@ -286,41 +249,37 @@ fn test_select_refines_bug() {
 }
 
 #[test]
-fn test_to_json_concat() {
+fn test_to_json_concat() -> buck2_error::Result<()> {
+    let concat = OwnedCoercedAttr::new_with(|b| {
+        let items = ["a", "b", "c", "d"]
+            .iter()
+            .map(|s| b.encode_string(s))
+            .collect::<buck2_error::Result<Vec<_>>>()?;
+        b.encode_concat(&items)
+    })?;
     assert_eq!(
         r#"{"__type":"concat","items":["a","b","c","d"]}"#,
-        CoercedAttr::Concat(CoercedConcat(ArcSlice::new([
-            CoercedAttr::String(StringLiteral(ArcStr::from("a"))),
-            CoercedAttr::String(StringLiteral(ArcStr::from("b"))),
-            CoercedAttr::String(StringLiteral(ArcStr::from("c"))),
-            CoercedAttr::String(StringLiteral(ArcStr::from("d"))),
-        ])))
-        .encoded_to_json()
+        to_json(&concat)
     );
+    Ok(())
 }
 
 #[test]
-fn test_to_json_selector() {
+fn test_to_json_selector() -> buck2_error::Result<()> {
+    let selector = OwnedCoercedAttr::new_with(|b| {
+        let t = b.encode_bool(true)?;
+        let ten = b.encode_int(10)?;
+        let ddd = b.encode_string("ddd")?;
+        b.encode_selector(
+            &[(key("config//:a"), t), (key("config//:b"), ten)],
+            Some(ddd),
+        )
+    })?;
     assert_eq!(
         r#"{"__type":"selector","entries":{"DEFAULT":"ddd","config//:a":true,"config//:b":10}}"#,
-        CoercedAttr::Selector(Arc::new(
-            CoercedSelector::new(
-                ArcSlice::new([
-                    (
-                        ConfigurationSettingKey::testing_parse("config//:a"),
-                        CoercedAttr::Bool(BoolLiteral(true))
-                    ),
-                    (
-                        ConfigurationSettingKey::testing_parse("config//:b"),
-                        CoercedAttr::Int(10)
-                    ),
-                ]),
-                Some(CoercedAttr::String(StringLiteral(ArcStr::from("ddd")))),
-            )
-            .unwrap()
-        ))
-        .encoded_to_json()
+        to_json(&selector)
     );
+    Ok(())
 }
 
 #[test]

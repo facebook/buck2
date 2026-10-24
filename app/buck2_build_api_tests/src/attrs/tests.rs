@@ -1118,11 +1118,9 @@ fn test_user_placeholders() -> buck2_error::Result<()> {
 #[test]
 fn test_select_incompatible_configure() -> buck2_error::Result<()> {
     let attr = AttrType::string();
-    let coerced = OwnedCoercedAttr::try_new(
-        &buck2_node::attrs::coerced_attr::CoercedAttr::SelectIncompatible(
-            buck2_util::arc_str::ArcStr::from("not supported on this platform"),
-        ),
-    )?;
+    let coerced = OwnedCoercedAttr::new_with(|b| {
+        b.encode_select_incompatible("not supported on this platform")
+    })?;
     let result = coerced
         .as_ref()
         .configure(&attr, &configuration_ctx(), None);
