@@ -25,6 +25,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKindSet;
+use buck2_error::ErrorTag;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::BuckMutMap;
@@ -34,7 +35,9 @@ use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx_listing;
 use buck2_interpreter_for_build::attrs::coerce::testing::to_value;
 use buck2_interpreter_for_build::interpreter::selector::register_select;
 use buck2_node::attrs::arena::OwnedCoercedAttr;
+use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::AttrType;
+use buck2_node::attrs::coerced_attr_full::CoercedAttrFull;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configured_attr_info_for_tests::ConfiguredAttrInfoForTests;
@@ -1111,6 +1114,47 @@ fn test_user_placeholders() -> buck2_error::Result<()> {
             }
         }
 
+        Ok(())
+    })
+}
+
+/// Errors configuring an attribute, whether materializing it or collecting its
+/// deps, are tagged as configuration errors.
+#[test]
+fn test_configure_errors_are_tagged() -> buck2_error::Result<()> {
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
+        let value = to_value(&env, &globals, r#"select({"root//some:config": "a"})"#);
+        let attr = Attribute::new_const(None, "", AttrType::string());
+        let coerced = coercion_ctx().coerce_sealed(attr.coercer(), value)?;
+        let full = CoercedAttrFull {
+            name: "a",
+            attr: &attr,
+            value: coerced.as_ref(),
+        };
+
+        let err = full
+            .configure(&configuration_ctx())
+            .require_compatible()
+            .expect_err("no condition matches and there is no default");
+        assert!(
+            err.tags().contains(&ErrorTag::ConfigureAttr),
+            "tags: {:?}",
+            err.tags()
+        );
+        let err = full
+            .traverse_configured(
+                PackageLabel::testing(),
+                &configuration_ctx(),
+                &mut ConfiguredAttrInfoForTests::new(),
+            )
+            .require_compatible()
+            .expect_err("no condition matches and there is no default");
+        assert!(
+            err.tags().contains(&ErrorTag::ConfigureAttr),
+            "tags: {:?}",
+            err.tags()
+        );
         Ok(())
     })
 }

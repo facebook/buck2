@@ -3244,20 +3244,20 @@ semantics!(Selector {
         Ok(())
     }
     configure(v, (entries, default), t, ctx, name) {
-        match CoercedAttrRef::select_view(ctx, entries, default)? {
+        match CoercedAttrRef::select_view(ctx, v, entries, default, name)? {
             Some(selected) => selected.configure(t, ctx, name),
             None => CoercedAttrRef::select_no_match_error(ctx, entries).into(),
         }
     }
     traverse_configured(v, (entries, default), t, pkg, ctx, tr, name) {
-        match CoercedAttrRef::select_view(ctx, entries, default) {
+        match CoercedAttrRef::select_view(ctx, v, entries, default, name) {
             Ok(Some(selected)) => selected.traverse_configured(t, pkg, ctx, tr, name),
             Ok(None) => CoercedAttrRef::select_no_match_error(ctx, entries).into(),
             Err(e) => e.into(),
         }
     }
     concat_leaves(v, (entries, default), ctx, out) {
-        match CoercedAttrRef::select_view(ctx, entries, default) {
+        match CoercedAttrRef::select_view(ctx, v, entries, default, None) {
             Ok(Some(selected)) => selected.concat_leaves(ctx, out),
             Ok(None) => CoercedAttrRef::select_no_match_error(ctx, entries).into(),
             Err(e) => e.into(),
@@ -4774,9 +4774,6 @@ impl<'a> CoercedAttrRef<'a> {
 impl<'a> CoercedAttrRef<'a> {
     /// Builds the `ConfiguredAttr` straight off the arena: selects resolve on
     /// the view, and only the configured form is materialized.
-    ///
-    /// TODO(jtbraun): tag errors with `ErrorTag::ConfigureAttr` and emit the
-    /// `select_first_match_differs` soft error.
     pub fn configure(
         &self,
         t: &AttrType,
@@ -4813,8 +4810,10 @@ impl<'a> CoercedAttrRef<'a> {
     /// entry, or `Ok(None)` for "use the default / no match".
     fn select_view(
         ctx: &dyn AttrConfigurationContext,
+        select: CoercedAttrRef<'a>,
         entries: AttrRefSelectorEntries<'a>,
         default: Option<CoercedAttrRef<'a>>,
+        attr_name: Option<&str>,
     ) -> buck2_error::Result<Option<CoercedAttrRef<'a>>> {
         let matched_cfg_keys = ctx.matched_cfg_keys();
         let resolved: SmallVec<[(&ProvidersLabel, &ConfigSettingData, CoercedAttrRef<'a>); 17]> =
@@ -4828,9 +4827,11 @@ impl<'a> CoercedAttrRef<'a> {
                 .collect();
 
         let mut iter = resolved.iter();
-        let Some(mut matching) = iter.next() else {
+        let Some(first) = iter.next() else {
             return Ok(default);
         };
+        let mut matching = first;
+        let mut slow = None;
         for entry in iter {
             let (_, conf, _) = entry;
             let (_, prev_conf, _) = matching;
@@ -4839,10 +4840,58 @@ impl<'a> CoercedAttrRef<'a> {
             } else if prev_conf.refines(conf) {
                 // keep `matching`
             } else {
-                return Self::select_view_slow(&resolved).map(Some);
+                slow = Some(Self::select_view_slow(&resolved)?);
+                break;
             }
         }
-        Ok(Some(matching.2))
+        let selected = slow.unwrap_or(matching.2);
+        if !selected.content_eq(&first.2) {
+            Self::first_match_differs(ctx, select, &resolved, selected, attr_name);
+        }
+        Ok(Some(selected))
+    }
+
+    /// Records a select whose first matching entry has a different value
+    /// than its most specific one: data for migrating selects to
+    /// first-match.
+    fn first_match_differs(
+        ctx: &dyn AttrConfigurationContext,
+        select: CoercedAttrRef<'a>,
+        resolved: &[(&ProvidersLabel, &ConfigSettingData, CoercedAttrRef<'a>)],
+        selected: CoercedAttrRef<'a>,
+        attr_name: Option<&str>,
+    ) {
+        let first_key = resolved[0].0;
+        let most_specific_key = resolved
+            .iter()
+            .find(|(_, _, v)| v.content_eq(&selected))
+            .map_or("<unknown>".to_owned(), |(k, _, _)| k.to_string());
+        let all_matched_keys = resolved
+            .iter()
+            .map(|(k, _, _)| format!("  `{k}`"))
+            .join("\n");
+        let target_info = ctx
+            .target_label()
+            .map_or("<unknown>".to_owned(), |l| l.to_string());
+        let _unused = soft_error!(
+            "select_first_match_differs",
+            buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Target `{}` (configuration `{}`), attribute `{}`:\n\
+                First matching select key `{}` has different value than most specific match `{}`.\n\
+                All matched keys:\n{}\n\
+                Select expression: {}",
+                target_info,
+                ctx.cfg().cfg(),
+                attr_name.unwrap_or("<unknown>"),
+                first_key,
+                most_specific_key,
+                all_matched_keys,
+                select.as_display_no_ctx()
+            ),
+            quiet: true,
+            error_on_oss: true,
+        );
     }
 
     fn select_view_slow(

@@ -11,6 +11,7 @@
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::package::PackageLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::attr::Attribute;
@@ -38,6 +39,7 @@ impl<'a> CoercedAttrFull<'a> {
                 attr: self.attr,
                 value: v,
             })
+            .tag(ErrorTag::ConfigureAttr)
             .with_buck_error_context(|| format!("configuring attr `{}`", self.name))
     }
 
@@ -61,6 +63,7 @@ impl<'a> CoercedAttrFull<'a> {
     ) -> ResultMaybeCompatible<()> {
         self.value
             .traverse_configured(self.attr.coercer(), pkg, ctx, traversal, Some(self.name))
+            .tag(ErrorTag::ConfigureAttr)
             .with_buck_error_context(|| format!("configuring attr `{}`", self.name))
     }
 }
