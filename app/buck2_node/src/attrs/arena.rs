@@ -103,14 +103,21 @@ use pagable::PagableSerializer;
 use ref_cast::RefCast;
 use serde_json::to_value;
 use smallvec::SmallVec;
+use smallvec::smallvec;
 use strong_hash::StrongHash;
 use strum::FromRepr;
 
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::any_matches::AnyMatches;
+use crate::attrs::attr_type::arg::ConfiguredMacro;
 use crate::attrs::attr_type::arg::ConfiguredStringWithMacros;
+use crate::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
+use crate::attrs::attr_type::arg::MacroBase;
+use crate::attrs::attr_type::arg::MacroDepKind;
 use crate::attrs::attr_type::arg::StringWithMacros;
+use crate::attrs::attr_type::arg::StringWithMacrosPart;
+use crate::attrs::attr_type::arg::UnconfiguredMacro;
 use crate::attrs::attr_type::attr_config::source_file_display;
 use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
@@ -136,6 +143,38 @@ use crate::configuration::resolved::ConfigurationSettingKey;
 /// of every head field and ref in the record, minus one.
 const TAG_KIND_MASK: u8 = 0x3F;
 const TAG_WIDTH_SHIFT: u8 = 6;
+
+/// Arg macro record header (its first head field):
+/// - bits 0-3: variant tag (`ARG_MACRO_TAG_*`)
+/// - bits 4-11: variant flag byte — location: `MacroDepKind`; exe:
+///   `exec_dep`; keyed placeholder: has-arg
+/// - bit 12: `write_to_file`
+const ARG_MACRO_TAG_MASK: u32 = 0xF;
+const ARG_MACRO_FLAG_MASK: u32 = 0xFF;
+const ARG_MACRO_TAG_LOCATION: u32 = 0;
+const ARG_MACRO_TAG_EXE: u32 = 1;
+const ARG_MACRO_TAG_UNKEYED: u32 = 2;
+const ARG_MACRO_TAG_KEYED: u32 = 3;
+const ARG_MACRO_TAG_SOURCE: u32 = 4;
+const ARG_MACRO_FLAG_SHIFT: u32 = 4;
+const ARG_MACRO_WTF_BIT: u32 = 1 << 12;
+
+fn dep_kind_bits(k: MacroDepKind) -> u32 {
+    match k {
+        MacroDepKind::Regular => 0,
+        MacroDepKind::Exec => 1,
+        MacroDepKind::Toolchain => 2,
+    }
+}
+
+fn dep_kind_from_bits(bits: u32) -> MacroDepKind {
+    match bits {
+        0 => MacroDepKind::Regular,
+        1 => MacroDepKind::Exec,
+        2 => MacroDepKind::Toolchain,
+        _ => unreachable!("should be valid: records are only written by the encoder"),
+    }
+}
 
 /// Record kinds. Each variant documents its head and refs; a kind with
 /// neither is a tag-only record.
@@ -184,6 +223,12 @@ enum AttrKind {
     /// Head: `[n, idx...]`: `n` providers-label table indices, a selector's
     /// key set.
     SelectorKeys = 22,
+    /// Head: `[n]`; refs: `n` parts, `ArgSimple` or `ArgMacro` records.
+    /// Args containing query macros stay `Legacy`.
+    ArgParts = 23,
+    /// Head: `[header, payload index, n]`; refs: `n` per the header's
+    /// variant tag. Never appears as an attribute value ref.
+    ArgMacro = 24,
 }
 
 /// How a kind's record body is laid out: how many head fields it has and
@@ -216,6 +261,7 @@ enum RefCount {
     TwiceField0,
     Field0Plus2,
     One,
+    Field2,
 }
 
 impl AttrKind {
@@ -226,11 +272,14 @@ impl AttrKind {
         let (head, tail) = match self {
             AttrKind::Int => (Fixed(2), None),
             AttrKind::String | AttrKind::EnumVariant | AttrKind::ArgSimple => (Fixed(1), Text),
-            AttrKind::List | AttrKind::Tuple | AttrKind::Concat => (Fixed(1), Refs(Field0)),
+            AttrKind::List | AttrKind::Tuple | AttrKind::Concat | AttrKind::ArgParts => {
+                (Fixed(1), Refs(Field0))
+            }
             AttrKind::Dict => (Fixed(1), Refs(TwiceField0)),
             AttrKind::Selector => (Fixed(1), Refs(Field0Plus2)),
             AttrKind::OneOf => (Fixed(1), Refs(One)),
             AttrKind::SelectorKeys => (OnePlusField0, None),
+            AttrKind::ArgMacro => (Fixed(3), Refs(Field2)),
             AttrKind::None
             | AttrKind::BoolFalse
             | AttrKind::BoolTrue
@@ -272,6 +321,7 @@ fn shape(kind: AttrKind, field: impl Fn(u32) -> Option<u32>) -> Option<(u32, Tai
             RefCount::TwiceField0 => field(0)?.checked_mul(2)?,
             RefCount::Field0Plus2 => field(0)?.checked_add(2)?,
             RefCount::One => 1,
+            RefCount::Field2 => field(2)?,
         }),
     };
     Some((nfields, tail))
@@ -725,6 +775,48 @@ impl CoercedAttrArena {
         let mut h = Blake3StrongHasher::new();
         let kind = self.kind_of(r);
         h.write_u8(kind as u8);
+        // Macro records are child structure of `ArgParts`, not attribute
+        // values — `CoercedAttrRefKind` has no case for them — so they hash here
+        // rather than through the value walk below.
+        if kind == AttrKind::ArgMacro {
+            match self.arg_part_at(r) {
+                ArgPartView::String(_) => {
+                    unreachable!("should be a macro: `ArgMacro` refs decode to macro parts")
+                }
+                ArgPartView::Macro { write_to_file, mac } => {
+                    write_to_file.strong_hash(&mut h);
+                    match mac {
+                        ArgMacroView::Location { label, dep_kind } => {
+                            h.write_u8(ARG_MACRO_TAG_LOCATION as u8);
+                            h.write_u8(dep_kind_bits(dep_kind) as u8);
+                            label.strong_hash(&mut h);
+                        }
+                        ArgMacroView::Exe { label, exec_dep } => {
+                            h.write_u8(ARG_MACRO_TAG_EXE as u8);
+                            exec_dep.strong_hash(&mut h);
+                            label.strong_hash(&mut h);
+                        }
+                        ArgMacroView::UserUnkeyedPlaceholder(var) => {
+                            h.write_u8(ARG_MACRO_TAG_UNKEYED as u8);
+                            var.strong_hash(&mut h);
+                        }
+                        ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
+                            h.write_u8(ARG_MACRO_TAG_KEYED as u8);
+                            var.strong_hash(&mut h);
+                            label.strong_hash(&mut h);
+                            arg.strong_hash(&mut h);
+                        }
+                        ArgMacroView::Source(path) => {
+                            h.write_u8(ARG_MACRO_TAG_SOURCE as u8);
+                            path.strong_hash(&mut h);
+                        }
+                    }
+                }
+            }
+            let hash = h.finalize128();
+            memo.insert(r.0, hash);
+            return hash;
+        }
         match self.view(r).kind() {
             CoercedAttrRefKind::None => {}
             // True/false are distinct kinds; the tag byte is the content.
@@ -733,6 +825,12 @@ impl CoercedAttrArena {
             CoercedAttrRefKind::String(s)
             | CoercedAttrRefKind::EnumVariant(s)
             | CoercedAttrRefKind::ArgSimple(s) => s.strong_hash(&mut h),
+            CoercedAttrRefKind::Arg(arg) => {
+                h.write_usize(arg.len());
+                for w in arg.run.iter() {
+                    self.strong_of(w, memo).strong_hash(&mut h);
+                }
+            }
             CoercedAttrRefKind::List(items)
             | CoercedAttrRefKind::Tuple(items)
             | CoercedAttrRefKind::Concat(items) => {
@@ -795,6 +893,47 @@ impl CoercedAttrArena {
         // SAFETY: text records are written from `&str`, and a buffer from
         // outside this process is validated when it pages in (`RecordBytes`).
         unsafe { std::str::from_utf8_unchecked(bytes) }
+    }
+
+    /// Header, payload index, and refs of an `ArgMacro` record.
+    fn arg_macro_parts(&self, r: AttrWord) -> (u32, u32, RefRun<'_>) {
+        let rec = self.open(r);
+        (rec.head.raw(0), rec.head.raw(1), rec.refs())
+    }
+
+    fn arg_part_at(&self, r: AttrWord) -> ArgPartView<'_> {
+        match self.kind_of(r) {
+            AttrKind::ArgSimple => ArgPartView::String(self.str_at(r)),
+            AttrKind::ArgMacro => {
+                let (header, payload, refs) = self.arg_macro_parts(r);
+                let flag = (header >> ARG_MACRO_FLAG_SHIFT) & ARG_MACRO_FLAG_MASK;
+                let mac = match header & ARG_MACRO_TAG_MASK {
+                    ARG_MACRO_TAG_LOCATION => ArgMacroView::Location {
+                        label: &self.providers_labels[payload as usize],
+                        dep_kind: dep_kind_from_bits(flag),
+                    },
+                    ARG_MACRO_TAG_EXE => ArgMacroView::Exe {
+                        label: &self.providers_labels[payload as usize],
+                        exec_dep: flag != 0,
+                    },
+                    ARG_MACRO_TAG_UNKEYED => {
+                        ArgMacroView::UserUnkeyedPlaceholder(self.str_at(refs.get(0)))
+                    }
+                    ARG_MACRO_TAG_KEYED => ArgMacroView::UserKeyedPlaceholder {
+                        var: self.str_at(refs.get(0)),
+                        label: &self.providers_labels[payload as usize],
+                        arg: (flag != 0).then(|| self.str_at(refs.get(1))),
+                    },
+                    ARG_MACRO_TAG_SOURCE => ArgMacroView::Source(&self.paths[payload as usize]),
+                    _ => unreachable!("should be valid: records are only written by the encoder"),
+                };
+                ArgPartView::Macro {
+                    write_to_file: header & ARG_MACRO_WTF_BIT != 0,
+                    mac,
+                }
+            }
+            _ => unreachable!("should be valid: arg parts are ArgSimple or ArgMacro refs"),
+        }
     }
 }
 
@@ -928,6 +1067,7 @@ pub enum CoercedAttrRefKind<'a> {
     String(&'a str),
     EnumVariant(&'a str),
     ArgSimple(&'a str),
+    Arg(AttrRefArgParts<'a>),
     List(AttrRefSeq<'a>),
     Tuple(AttrRefSeq<'a>),
     Dict(AttrRefDict<'a>),
@@ -945,6 +1085,183 @@ pub enum CoercedAttrRefKind<'a> {
     PluginDep(&'a TargetLabel),
     SourceFile(&'a CoercedPath),
     Legacy(&'a CoercedAttr),
+}
+
+/// View of the parts of an `Arg` value containing macros.
+#[derive(Copy, Clone)]
+pub struct AttrRefArgParts<'a> {
+    /// Part refs (`ArgSimple` or `ArgMacro` records), one per part.
+    run: RefRun<'a>,
+}
+
+impl<'a> AttrRefArgParts<'a> {
+    pub fn len(&self) -> usize {
+        self.run.len() as usize
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = ArgPartView<'a>> + 'a {
+        let arena = self.run.arena;
+        self.run.iter().map(move |w| arena.arg_part_at(w))
+    }
+}
+
+/// One decoded part of an `Arg` value containing macros.
+#[derive(Copy, Clone, PartialEq)]
+pub enum ArgPartView<'a> {
+    String(&'a str),
+    Macro {
+        write_to_file: bool,
+        mac: ArgMacroView<'a>,
+    },
+}
+
+/// One decoded arg macro record. Query macros never appear:
+/// args containing them are stored whole in the legacy table.
+#[derive(Copy, Clone, PartialEq)]
+pub enum ArgMacroView<'a> {
+    Location {
+        label: &'a ProvidersLabel,
+        dep_kind: MacroDepKind,
+    },
+    Exe {
+        label: &'a ProvidersLabel,
+        exec_dep: bool,
+    },
+    UserUnkeyedPlaceholder(&'a str),
+    UserKeyedPlaceholder {
+        var: &'a str,
+        label: &'a ProvidersLabel,
+        arg: Option<&'a str>,
+    },
+    Source(&'a CoercedPath),
+}
+
+/// Mirrors `Display for MacroBase`: approximately the source text of the
+/// macro, without the `$(...)` wrapper.
+impl std::fmt::Display for ArgMacroView<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ArgMacroView::Location { label, dep_kind } => {
+                write!(
+                    f,
+                    "{} {}",
+                    match dep_kind {
+                        MacroDepKind::Exec => "location_exec",
+                        MacroDepKind::Toolchain => "location_toolchain",
+                        MacroDepKind::Regular => "location",
+                    },
+                    label
+                )
+            }
+            ArgMacroView::Exe { label, exec_dep } => {
+                write!(
+                    f,
+                    "{} {}",
+                    if *exec_dep { "exe" } else { "exe_target" },
+                    label
+                )
+            }
+            ArgMacroView::UserUnkeyedPlaceholder(var) => write!(f, "{var}"),
+            ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
+                write!(f, "{var} {label}")?;
+                if let Some(arg) = arg {
+                    write!(f, " {arg}")?;
+                }
+                Ok(())
+            }
+            ArgMacroView::Source(path) => write!(f, "src {}", path.path()),
+        }
+    }
+}
+
+/// Mirrors `Display for StringWithMacros`: the parts concatenated, string
+/// parts raw and macro parts as `$(...)`, without surrounding quotes.
+impl std::fmt::Display for AttrRefArgParts<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for part in self.iter() {
+            match part {
+                ArgPartView::String(s) => write!(f, "{s}")?,
+                ArgPartView::Macro { write_to_file, mac } => {
+                    write!(f, "$({}{})", if write_to_file { "@" } else { "" }, mac)?
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'a> ArgPartView<'a> {
+    fn to_part(self) -> StringWithMacrosPart<ProvidersLabel> {
+        match self {
+            ArgPartView::String(s) => StringWithMacrosPart::String(ArcStr::from(s)),
+            ArgPartView::Macro { write_to_file, mac } => StringWithMacrosPart::Macro(
+                write_to_file,
+                match mac {
+                    ArgMacroView::Location { label, dep_kind } => UnconfiguredMacro::Location {
+                        label: label.dupe(),
+                        dep_kind,
+                    },
+                    ArgMacroView::Exe { label, exec_dep } => UnconfiguredMacro::Exe {
+                        label: label.dupe(),
+                        exec_dep,
+                    },
+                    ArgMacroView::UserUnkeyedPlaceholder(name) => {
+                        UnconfiguredMacro::UserUnkeyedPlaceholder(Box::from(name))
+                    }
+                    ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
+                        UnconfiguredMacro::UserKeyedPlaceholder(Box::new((
+                            Box::from(var),
+                            label.dupe(),
+                            arg.map(Box::from),
+                        )))
+                    }
+                    ArgMacroView::Source(path) => UnconfiguredMacro::Source(path.clone()),
+                },
+            ),
+        }
+    }
+
+    /// Mirror of `MacroBase::<ProvidersLabel>::configure` off the view.
+    fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> buck2_error::Result<ConfiguredStringWithMacrosPart> {
+        Ok(match self {
+            ArgPartView::String(s) => StringWithMacrosPart::String(ArcStr::from(*s)),
+            ArgPartView::Macro { write_to_file, mac } => StringWithMacrosPart::Macro(
+                *write_to_file,
+                match mac {
+                    ArgMacroView::Location { label, dep_kind } => ConfiguredMacro::Location {
+                        label: match dep_kind {
+                            MacroDepKind::Exec => ctx.configure_exec_target(label)?,
+                            MacroDepKind::Toolchain => ctx.configure_toolchain_target(label),
+                            MacroDepKind::Regular => ctx.configure_target(label),
+                        },
+                        dep_kind: *dep_kind,
+                    },
+                    ArgMacroView::Exe { label, exec_dep } => ConfiguredMacro::Exe {
+                        label: if *exec_dep {
+                            ctx.configure_exec_target(label)?
+                        } else {
+                            ctx.configure_target(label)
+                        },
+                        exec_dep: *exec_dep,
+                    },
+                    ArgMacroView::UserUnkeyedPlaceholder(name) => {
+                        ConfiguredMacro::UserUnkeyedPlaceholder(Box::from(*name))
+                    }
+                    ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
+                        ConfiguredMacro::UserKeyedPlaceholder(Box::new((
+                            Box::from(*var),
+                            ctx.configure_target(label),
+                            arg.map(Box::from),
+                        )))
+                    }
+                    ArgMacroView::Source(path) => ConfiguredMacro::Source((*path).clone()),
+                },
+            ),
+        })
+    }
 }
 
 /// View of a sequence value's child refs (`len`/`iter`).
@@ -1064,6 +1381,10 @@ impl<'a> CoercedAttrRef<'a> {
             AttrKind::String => CoercedAttrRefKind::String(arena.str_at(r)),
             AttrKind::EnumVariant => CoercedAttrRefKind::EnumVariant(arena.str_at(r)),
             AttrKind::ArgSimple => CoercedAttrRefKind::ArgSimple(arena.str_at(r)),
+            AttrKind::ArgParts => CoercedAttrRefKind::Arg(AttrRefArgParts { run: rec.refs() }),
+            AttrKind::ArgMacro => {
+                unreachable!("arg macro records are not attribute values")
+            }
             AttrKind::SelectorKeys => {
                 unreachable!("selector keys records are not attribute values")
             }
@@ -1103,6 +1424,9 @@ impl<'a> CoercedAttrRef<'a> {
             CoercedAttrRefKind::ArgSimple(s) => {
                 CoercedAttr::Arg(StringWithMacros::StringPart(ArcStr::from(s)))
             }
+            CoercedAttrRefKind::Arg(parts) => CoercedAttr::Arg(StringWithMacros::ManyParts(
+                parts.iter().map(|p| p.to_part()).collect(),
+            )),
             CoercedAttrRefKind::List(seq) => CoercedAttr::List(ListLiteral(
                 seq.iter()
                     .map(|v| v.to_coerced())
@@ -1191,6 +1515,9 @@ impl<'a> CoercedAttrRef<'a> {
             (CoercedAttrRefKind::String(a), CoercedAttrRefKind::String(b)) => a == b,
             (CoercedAttrRefKind::EnumVariant(a), CoercedAttrRefKind::EnumVariant(b)) => a == b,
             (CoercedAttrRefKind::ArgSimple(a), CoercedAttrRefKind::ArgSimple(b)) => a == b,
+            (CoercedAttrRefKind::Arg(a), CoercedAttrRefKind::Arg(b)) => {
+                a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| x == y)
+            }
             (CoercedAttrRefKind::List(a), CoercedAttrRefKind::List(b))
             | (CoercedAttrRefKind::Tuple(a), CoercedAttrRefKind::Tuple(b))
             | (CoercedAttrRefKind::Concat(a), CoercedAttrRefKind::Concat(b)) => {
@@ -1366,6 +1693,52 @@ impl<'a> CoercedAttrRef<'a> {
                     })?;
                     for x in source.inputs() {
                         traversal.input(SourcePathRef::new(pkg, x))?;
+                    }
+                    Ok(())
+                }
+                // Mirror of `StringWithMacros::<ProvidersLabel>::traverse`, with
+                // `MacroBase::<ProvidersLabel>::traverse`'s dispatch inlined.
+                (CoercedAttrRefKind::Arg(parts), AttrTypeInner::Arg(_)) => {
+                    for part in parts.iter() {
+                        let ArgPartView::Macro { mac, .. } = part else {
+                            continue;
+                        };
+                        match mac {
+                            ArgMacroView::UserKeyedPlaceholder { label, .. } => {
+                                traversal.dep(label)?;
+                            }
+                            ArgMacroView::Location {
+                                label,
+                                dep_kind: MacroDepKind::Exec,
+                            } => traversal.exec_dep(label)?,
+                            ArgMacroView::Location {
+                                label,
+                                dep_kind: MacroDepKind::Toolchain,
+                            } => traversal.toolchain_dep(label)?,
+                            ArgMacroView::Location {
+                                label,
+                                dep_kind: MacroDepKind::Regular,
+                            } => traversal.dep(label)?,
+                            ArgMacroView::Exe {
+                                label,
+                                exec_dep: true,
+                            } => traversal.exec_dep(label)?,
+                            ArgMacroView::Exe {
+                                label,
+                                exec_dep: false,
+                            } => traversal.dep(label)?,
+                            ArgMacroView::Source(path) => {
+                                let pkg = pkg.ok_or_else(|| {
+                                    internal_error!(
+                                        "Expected a package when traversing arg source macro"
+                                    )
+                                })?;
+                                for x in path.inputs() {
+                                    traversal.input(SourcePathRef::new(pkg, x))?;
+                                }
+                            }
+                            ArgMacroView::UserUnkeyedPlaceholder(_) => {}
+                        }
                     }
                     Ok(())
                 }
@@ -1593,6 +1966,16 @@ impl<'a> CoercedAttrRef<'a> {
                         anon_target_compatible: ty.anon_target_compatible,
                     })
                 }
+                (CoercedAttrRefKind::Arg(parts), AttrTypeInner::Arg(ty)) => {
+                    let configured = parts
+                        .iter()
+                        .map(|p| p.configure(ctx))
+                        .collect::<buck2_error::Result<Box<[_]>>>()?;
+                    ConfiguredAttr::Arg(ConfiguredStringWithMacros {
+                        string_with_macros: StringWithMacros::ManyParts(configured),
+                        anon_target_compatible: ty.anon_target_compatible,
+                    })
+                }
                 _ => return internal_error!("attr arena configure: kind and type mismatch").into(),
             },
         };
@@ -1650,6 +2033,7 @@ impl<'a> CoercedAttrRef<'a> {
             CoercedAttrRefKind::String(s)
             | CoercedAttrRefKind::EnumVariant(s)
             | CoercedAttrRefKind::ArgSimple(s) => Ok(to_value(s)?),
+            CoercedAttrRefKind::Arg(parts) => Ok(to_value(parts.to_string())?),
             CoercedAttrRefKind::List(items) | CoercedAttrRefKind::Tuple(items) => {
                 Ok(serde_json::Value::Array(
                     items
@@ -1733,6 +2117,7 @@ impl<'a> CoercedAttrRef<'a> {
             CoercedAttrRefKind::String(s)
             | CoercedAttrRefKind::EnumVariant(s)
             | CoercedAttrRefKind::ArgSimple(s) => filter(s),
+            CoercedAttrRefKind::Arg(parts) => filter(&parts.to_string()),
             CoercedAttrRefKind::List(items)
             | CoercedAttrRefKind::Tuple(items)
             | CoercedAttrRefKind::Concat(items) => {
@@ -1848,6 +2233,7 @@ impl crate::attrs::display::AttrDisplayWithContext for CoercedAttrRef<'_> {
                 }
             }
             CoercedAttrRefKind::ArgSimple(s) => write!(f, "\"{s}\""),
+            CoercedAttrRefKind::Arg(parts) => write!(f, "\"{parts}\""),
             CoercedAttrRefKind::List(items) => fmt_container(
                 f,
                 "[",
@@ -1961,6 +2347,16 @@ fn parts(attr: CoercedAttr) -> (AttrWord, CoercedAttrHash) {
     match attr {
         CoercedAttr::Encoded(r, h) => (r, h),
         _ => unreachable!("should be encoded: the builder only produces `Encoded` values"),
+    }
+}
+
+/// Parts the native `Arg` encoding covers. Query macros carry a whole
+/// `QueryAttr` and are rare enough that args containing them are stored
+/// whole in the legacy table instead.
+fn arg_part_encodable(part: &StringWithMacrosPart<ProvidersLabel>) -> bool {
+    match part {
+        StringWithMacrosPart::String(_) => true,
+        StringWithMacrosPart::Macro(_, m) => !matches!(m, MacroBase::Query(_)),
     }
 }
 
@@ -2382,8 +2778,8 @@ impl CoercedAttrArenaBuilder {
         ))
     }
 
-    /// Encode an `arg()` value: plain text natively, args carrying macros
-    /// whole into the legacy table.
+    /// Encode an `arg()` value: simple text and recognized macros natively,
+    /// args carrying query macros whole into the legacy table.
     pub fn encode_arg(
         &mut self,
         arg: &StringWithMacros<ProvidersLabel>,
@@ -2391,6 +2787,19 @@ impl CoercedAttrArenaBuilder {
         match arg {
             StringWithMacros::StringPart(part) => {
                 self.encode_str(AttrKind::ArgSimple, part).map(token)
+            }
+            StringWithMacros::ManyParts(parts) if parts.iter().all(arg_part_encodable) => {
+                let mut refs = EncodeScratchRefs::with_capacity(parts.len());
+                let mut hashes = EncodeScratchHashes::with_capacity(parts.len());
+                for part in parts.iter() {
+                    let (r, h) = self.encode_arg_part(part)?;
+                    refs.push(r);
+                    hashes.push(h);
+                }
+                let hash = content_hash(AttrKind::ArgParts, |h| hashes.hash(h));
+                let r =
+                    self.encode_record(AttrKind::ArgParts, hash, &[parts.len() as u32], &refs)?;
+                Ok(CoercedAttr::Encoded(r, hash))
             }
             StringWithMacros::ManyParts(_) => self.encode_legacy(&CoercedAttr::Arg(arg.clone())),
         }
@@ -2496,6 +2905,110 @@ impl CoercedAttrArenaBuilder {
     ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
         let (idx, label_hash) = self.providers_label_idx_and_hash(l);
         Ok((AttrWord::inline(kind, idx)?, mix_kind(kind, label_hash)))
+    }
+
+    /// Encode one arg part: string parts are `ArgSimple` text records;
+    /// macro parts dedup as `ArgMacro` records with labels in the label
+    /// table.
+    fn encode_arg_part(
+        &mut self,
+        part: &StringWithMacrosPart<ProvidersLabel>,
+    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+        let (write_to_file, m) = match part {
+            StringWithMacrosPart::String(s) => return self.encode_str(AttrKind::ArgSimple, s),
+            StringWithMacrosPart::Macro(write_to_file, m) => (*write_to_file, m),
+        };
+        let wtf_bit = if write_to_file { ARG_MACRO_WTF_BIT } else { 0 };
+        // Every record hashes the same shape — (tag, flag, write_to_file,
+        // components) — and lays out `[header, payload, n, refs...]`; the
+        // arms only extract their components.
+        let (tag, flag, payload, refs, hash_parts): (
+            u32,
+            u32,
+            u32,
+            SmallVec<[AttrWord; 2]>,
+            SmallVec<[u64; 3]>,
+        ) = match m {
+            MacroBase::Location { label, dep_kind } => {
+                let (idx, lh) = self.providers_label_idx_and_hash(label);
+                (
+                    ARG_MACRO_TAG_LOCATION,
+                    dep_kind_bits(*dep_kind),
+                    idx,
+                    smallvec![],
+                    smallvec![lh],
+                )
+            }
+            MacroBase::Exe { label, exec_dep } => {
+                let (idx, lh) = self.providers_label_idx_and_hash(label);
+                (
+                    ARG_MACRO_TAG_EXE,
+                    *exec_dep as u32,
+                    idx,
+                    smallvec![],
+                    smallvec![lh],
+                )
+            }
+            MacroBase::UserUnkeyedPlaceholder(name) => {
+                let (sr, sh) = self.encode_str(AttrKind::String, name)?;
+                (ARG_MACRO_TAG_UNKEYED, 0, 0, smallvec![sr], smallvec![sh.0])
+            }
+            MacroBase::UserKeyedPlaceholder(box (var, label, arg)) => {
+                let (vr, vh) = self.encode_str(AttrKind::String, var)?;
+                let (idx, lh) = self.providers_label_idx_and_hash(label);
+                let mut refs: SmallVec<[AttrWord; 2]> = smallvec![vr];
+                let mut parts: SmallVec<[u64; 3]> = smallvec![vh.0, lh];
+                let mut flag = 0;
+                if let Some(a) = arg {
+                    let (ar, ah) = self.encode_str(AttrKind::String, a)?;
+                    refs.push(ar);
+                    parts.push(ah.0);
+                    flag = 1;
+                }
+                (ARG_MACRO_TAG_KEYED, flag, idx, refs, parts)
+            }
+            MacroBase::Source(path) => {
+                // Like `SourceFile`: the path side table has no dedup, so
+                // identical source macros do not share (rare in practice).
+                let idx = self.arena.paths.len() as u32;
+                self.arena.paths.push(path.clone());
+                let mut ph = BuckHasher::default();
+                path.hash(&mut ph);
+                (
+                    ARG_MACRO_TAG_SOURCE,
+                    0,
+                    idx,
+                    smallvec![],
+                    smallvec![ph.finish()],
+                )
+            }
+            MacroBase::Query(_) => {
+                return Err(internal_error!(
+                    "should be unreachable: query macros are stored in the legacy table"
+                ));
+            }
+        };
+        let hash = content_hash(AttrKind::ArgMacro, |h| {
+            (tag, flag, write_to_file, &hash_parts).hash(h)
+        });
+        let head = self.arg_macro_head(tag, flag, wtf_bit, payload, refs.len());
+        let r = self.encode_record(AttrKind::ArgMacro, hash, &head, &refs)?;
+        Ok((r, hash))
+    }
+
+    fn arg_macro_head(
+        &self,
+        tag: u32,
+        flag: u32,
+        wtf_bit: u32,
+        payload: u32,
+        nrefs: usize,
+    ) -> [u32; 3] {
+        [
+            tag | (flag << ARG_MACRO_FLAG_SHIFT) | wtf_bit,
+            payload,
+            nrefs as u32,
+        ]
     }
 
     fn encode_str(
@@ -2843,9 +3356,86 @@ mod tests {
         let arena = roundtrip(&[simple, many]);
         assert_eq!(
             arena.legacy.len(),
-            1,
-            "only the ManyParts arg should ride the legacy table"
+            0,
+            "simple and macro args should both encode natively"
         );
+    }
+
+    #[test]
+    fn test_arg_many_parts_roundtrip_native() {
+        let parts: Box<[StringWithMacrosPart<ProvidersLabel>]> = Box::new([
+            StringWithMacrosPart::String(ArcStr::from("--flag=")),
+            StringWithMacrosPart::Macro(
+                false,
+                UnconfiguredMacro::Location {
+                    label: label("foo", "gen"),
+                    dep_kind: MacroDepKind::Toolchain,
+                },
+            ),
+            StringWithMacrosPart::Macro(
+                true,
+                UnconfiguredMacro::Exe {
+                    label: label("tools", "compiler"),
+                    exec_dep: true,
+                },
+            ),
+            StringWithMacrosPart::Macro(
+                false,
+                UnconfiguredMacro::UserUnkeyedPlaceholder(Box::from("CXX")),
+            ),
+            StringWithMacrosPart::Macro(
+                false,
+                UnconfiguredMacro::UserKeyedPlaceholder(Box::new((
+                    Box::from("cxxppflags"),
+                    label("foo", "hdrs"),
+                    None,
+                ))),
+            ),
+            StringWithMacrosPart::Macro(
+                false,
+                UnconfiguredMacro::UserKeyedPlaceholder(Box::new((
+                    Box::from("cxxflags"),
+                    label("foo", "deps"),
+                    Some(Box::from("--x")),
+                ))),
+            ),
+        ]);
+        let arena = roundtrip(&[CoercedAttr::Arg(StringWithMacros::ManyParts(parts))]);
+        assert_eq!(arena.legacy.len(), 0, "macro args should encode natively");
+    }
+
+    #[test]
+    fn test_arg_parts_dedup_across_args() {
+        // Same template, different exe label: the literal chunk is shared;
+        // the second arg adds only its parent node and the new macro record.
+        let arg = |name: &str| {
+            CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([
+                StringWithMacrosPart::String(ArcStr::from("-o $OUT --long-shared-literal-chunk")),
+                StringWithMacrosPart::Macro(
+                    false,
+                    UnconfiguredMacro::Exe {
+                        label: label("tools", name),
+                        exec_dep: true,
+                    },
+                ),
+            ])))
+        };
+        let mut b = CoercedAttrArena::builder();
+        let (r1, h1) = b.encode(&arg("gen1")).unwrap();
+        let bytes_after_first = b.arena.bytes.len();
+        let (r2, h2) = b.encode(&arg("gen2")).unwrap();
+        assert_ne!(r1, r2);
+        assert_ne!(h1, h2);
+        let (_, width) = b.arena.tag(r2);
+        // The macro record is [tag, header, label index, 0 refs] (4 bytes);
+        // the arg record is [tag, count, 2 refs]; the text record is shared.
+        assert_eq!(
+            b.arena.bytes.len(),
+            bytes_after_first + 4 + (1 + 1 + 2 * width as usize),
+            "second arg should add its own record and one macro record; the text record is shared"
+        );
+        let (r3, _) = b.encode(&arg("gen1")).unwrap();
+        assert_eq!(r1, r3, "identical arg should dedup to one node");
     }
 
     #[test]
