@@ -583,8 +583,10 @@ def miri_command(
 
     # Never written, but the driver validates `-o` like rustc: without it the
     # output would be `<crate name>` in the cwd, which may be an existing
-    # directory.
-    miri_out = ctx.actions.write(ctx.actions.declare_output("__miri_out"), [""])
+    # directory. The path must not exist: an existing read-only file fails the
+    # driver's writability check.
+    miri_out_placeholder = ctx.actions.write(ctx.actions.declare_output("__miri_out", "placeholder"), [""])
+    miri_out = cmd_args(miri_out_placeholder, parent = 1, format = "{}" + compile_ctx.path_sep + "out")
 
     miri_cmd = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for (k, v) in plain_env.items()],
