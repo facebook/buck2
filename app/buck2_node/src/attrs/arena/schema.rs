@@ -15,7 +15,7 @@ use std::hash::Hasher;
 
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Cursor;
-use crate::attrs::arena::fields::FieldList;
+use crate::attrs::arena::fields::Field;
 use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::fields::RecordWriter;
 use crate::attrs::arena::storage::AttrToken;
@@ -163,19 +163,19 @@ pub(crate) const fn storage_class(
     }
 }
 
-/// A kind whose values are a sequence of typed fields: everything about it
-/// derives from the field list.
+/// A kind whose values are one [`Field`], or a tuple of them in sequence:
+/// everything about it derives from that field.
 pub trait SchemaKind: KindTag + 'static {
-    type Fields: FieldList;
+    type Fields: Field;
     /// How values are stored follows from the fields and the tag: a text
     /// tail makes a text record; no tail and at most one head field fit the
     /// word, if the tag fits the word's kind bits; anything else is a
     /// record.
     const STORAGE: Storage = storage_class(
         Self::KIND,
-        <Self::Fields as FieldList>::HAS_TEXT,
-        <Self::Fields as FieldList>::HEAD,
-        <Self::Fields as FieldList>::HAS_REFS,
+        <Self::Fields as Field>::HAS_TEXT,
+        <Self::Fields as Field>::HEAD,
+        <Self::Fields as Field>::HAS_REFS,
     );
 }
 
@@ -212,11 +212,12 @@ pub trait Kind: KindTag {
 
 impl<K: SchemaKind> Kind for K {
     const STORAGE: Storage = K::STORAGE;
-    const SCALAR: bool = !<K::Fields as FieldList>::DEPS;
-    type View<'a> = <K::Fields as FieldList>::View<'a>;
+    const SCALAR: bool = !<K::Fields as Field>::DEPS;
+    type View<'a> = <K::Fields as Field>::View<'a>;
 
     fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
-        K::Fields::shape(peek)
+        let p = K::Fields::shape(peek, 0)?;
+        Some((p.head, tail_len(p.refs, p.text)))
     }
 
     fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> Self::View<'a> {
@@ -242,10 +243,18 @@ impl<K: SchemaKind> Kind for K {
     }
 }
 
+fn tail_len(refs: Option<u32>, text: Option<u32>) -> TailLen {
+    match (text, refs) {
+        (Some(t), _) => TailLen::Text(t),
+        (None, Some(n)) => TailLen::Refs(n),
+        (None, None) => TailLen::None,
+    }
+}
+
 /// Encode a schema kind's value from its field specs.
 pub(crate) fn encode_kind<K: SchemaKind>(
     b: &mut CoercedAttrArenaBuilder,
-    spec: <K::Fields as FieldList>::Spec<'_>,
+    spec: <K::Fields as Field>::Spec<'_>,
 ) -> buck2_error::Result<AttrToken> {
     let mut w = RecordWriter::new(K::KIND);
     K::Fields::encode(spec, b, &mut w)?;

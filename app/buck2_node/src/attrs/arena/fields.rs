@@ -36,7 +36,6 @@ use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::Tail;
-use crate::attrs::arena::storage::TailLen;
 use crate::attrs::arena::view::CoercedAttrRef;
 use crate::attrs::arena::view::Pairs;
 use crate::attrs::arena::view::RefItem;
@@ -233,39 +232,8 @@ pub trait Field {
     fn same(a: Self::View<'_>, b: Self::View<'_>) -> bool;
 }
 
-/// A kind's fields as a tuple.
-pub trait FieldList {
-    const DEPS: bool;
-    const HEAD: u32;
-    const HAS_REFS: bool;
-    const HAS_TEXT: bool;
-    type View<'a>: Copy;
-    type Spec<'s>: Copy;
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)>;
-    fn decode<'a>(c: &mut Cursor<'a>) -> Self::View<'a>;
-    fn encode<'s>(
-        spec: Self::Spec<'s>,
-        b: &mut CoercedAttrArenaBuilder,
-        w: &mut RecordWriter<'s>,
-    ) -> buck2_error::Result<()>;
-    fn reemit<'a>(
-        view: Self::View<'a>,
-        b: &mut CoercedAttrArenaBuilder,
-        w: &mut RecordWriter<'a>,
-    ) -> buck2_error::Result<()>;
-    fn identity(view: Self::View<'_>, h: &mut IdHasher<'_>);
-    fn same(a: Self::View<'_>, b: Self::View<'_>) -> bool;
-}
-
-pub(crate) fn tail_len(refs: Option<u32>, text: Option<u32>) -> TailLen {
-    match (text, refs) {
-        (Some(t), _) => TailLen::Text(t),
-        (None, Some(n)) => TailLen::Refs(n),
-        (None, None) => TailLen::None,
-    }
-}
-
-impl FieldList for () {
+/// No fields.
+impl Field for () {
     const DEPS: bool = false;
     const HEAD: u32 = 0;
     const HAS_REFS: bool = false;
@@ -273,8 +241,8 @@ impl FieldList for () {
     type View<'a> = ();
     type Spec<'s> = ();
 
-    fn shape(_peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
-        Some((0, TailLen::None))
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
+        Some(Part::head(0))
     }
 
     fn decode<'a>(_c: &mut Cursor<'a>) {}
@@ -302,109 +270,58 @@ impl FieldList for () {
     }
 }
 
-macro_rules! field_tuples {
-    ($( ($($F:ident $a:ident $b:ident),+) ;)*) => { $(
-        impl<$($F: Field),+> FieldList for ($($F,)+) {
-            const DEPS: bool = $($F::DEPS)||+;
-            const HEAD: u32 = 0 $(+ $F::HEAD)+;
-            const HAS_REFS: bool = $($F::HAS_REFS)||+;
-            const HAS_TEXT: bool = $($F::HAS_TEXT)||+;
-            type View<'a> = ($($F::View<'a>,)+);
-            type Spec<'s> = ($($F::Spec<'s>,)+);
+/// Two fields in sequence.
+impl<A: Field, B: Field> Field for (A, B) {
+    const DEPS: bool = A::DEPS || B::DEPS;
+    const HEAD: u32 = A::HEAD + B::HEAD;
+    const HAS_REFS: bool = A::HAS_REFS || B::HAS_REFS;
+    const HAS_TEXT: bool = A::HAS_TEXT || B::HAS_TEXT;
+    type View<'a> = (A::View<'a>, B::View<'a>);
+    type Spec<'s> = (A::Spec<'s>, B::Spec<'s>);
 
-            fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
-                let mut at = 0u32;
-                let mut refs: Option<u32> = None;
-                let mut text = None;
-                $(
-                    let p = $F::shape(peek, at)?;
-                    at = at.checked_add(p.head)?;
-                    if let Some(n) = p.refs {
-                        refs = Some(refs.unwrap_or(0).checked_add(n)?);
-                    }
-                    text = text.or(p.text);
-                )+
-                Some((at, tail_len(refs, text)))
-            }
-
-            fn decode<'a>(c: &mut Cursor<'a>) -> Self::View<'a> {
-                ($($F::decode(c),)+)
-            }
-
-            fn encode<'s>(
-                ($($a,)+): Self::Spec<'s>,
-                b: &mut CoercedAttrArenaBuilder,
-                w: &mut RecordWriter<'s>,
-            ) -> buck2_error::Result<()> {
-                $( $F::encode($a, b, w)?; )+
-                Ok(())
-            }
-
-            fn reemit<'a>(
-                ($($a,)+): Self::View<'a>,
-                b: &mut CoercedAttrArenaBuilder,
-                w: &mut RecordWriter<'a>,
-            ) -> buck2_error::Result<()> {
-                $( $F::reemit($a, b, w)?; )+
-                Ok(())
-            }
-
-            fn identity(($($a,)+): Self::View<'_>, h: &mut IdHasher<'_>) {
-                $( $F::identity($a, h); )+
-            }
-
-            fn same(($($a,)+): Self::View<'_>, ($($b,)+): Self::View<'_>) -> bool {
-                $( $F::same($a, $b) )&&+
-            }
-        }
-    )* };
-}
-
-field_tuples! {
-    (A a0 b0, B a1 b1);
-}
-
-/// A single field is its own field list: its view and spec are the field's,
-/// not a one-tuple around them.
-impl<F: Field> FieldList for F {
-    const DEPS: bool = F::DEPS;
-    const HEAD: u32 = F::HEAD;
-    const HAS_REFS: bool = F::HAS_REFS;
-    const HAS_TEXT: bool = F::HAS_TEXT;
-    type View<'a> = F::View<'a>;
-    type Spec<'s> = F::Spec<'s>;
-
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
-        let p = F::shape(peek, 0)?;
-        Some((p.head, tail_len(p.refs, p.text)))
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part> {
+        let a = A::shape(peek, at)?;
+        let b = B::shape(peek, at.checked_add(a.head)?)?;
+        let refs = match (a.refs, b.refs) {
+            (None, None) => None,
+            (x, y) => Some(x.unwrap_or(0).checked_add(y.unwrap_or(0))?),
+        };
+        Some(Part {
+            head: a.head.checked_add(b.head)?,
+            refs,
+            text: a.text.or(b.text),
+        })
     }
 
     fn decode<'a>(c: &mut Cursor<'a>) -> Self::View<'a> {
-        F::decode(c)
+        (A::decode(c), B::decode(c))
     }
 
     fn encode<'s>(
-        spec: Self::Spec<'s>,
-        b: &mut CoercedAttrArenaBuilder,
+        (a, b): Self::Spec<'s>,
+        bld: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'s>,
     ) -> buck2_error::Result<()> {
-        F::encode(spec, b, w)
+        A::encode(a, bld, w)?;
+        B::encode(b, bld, w)
     }
 
     fn reemit<'a>(
-        view: Self::View<'a>,
-        b: &mut CoercedAttrArenaBuilder,
+        (a, b): Self::View<'a>,
+        bld: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
-        F::reemit(view, b, w)
+        A::reemit(a, bld, w)?;
+        B::reemit(b, bld, w)
     }
 
-    fn identity(view: Self::View<'_>, h: &mut IdHasher<'_>) {
-        F::identity(view, h)
+    fn identity((a, b): Self::View<'_>, h: &mut IdHasher<'_>) {
+        A::identity(a, h);
+        B::identity(b, h);
     }
 
-    fn same(a: Self::View<'_>, b: Self::View<'_>) -> bool {
-        F::same(a, b)
+    fn same((a, b): Self::View<'_>, (a2, b2): Self::View<'_>) -> bool {
+        A::same(a, a2) && B::same(b, b2)
     }
 }
 
