@@ -385,6 +385,12 @@ fn is_word_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || "*/@.-_:$#%".contains(c)
 }
 
+/// Whether `s` parses back as itself without quotes. Text that does not must
+/// be quoted when printed into a query.
+pub fn is_unquoted_word(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(is_word_char)
+}
+
 fn word<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, Span<'a>, E> {
     maybe_quoted_word(input).map(|(remaining, (_unquoted, x))| (remaining, x))
 }

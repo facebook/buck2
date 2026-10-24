@@ -4356,20 +4356,28 @@ impl<'a> QueryExprRef<'a> {
     fn reprint(&self, out: &mut String, lit: &mut dyn FnMut((usize, usize), &'a ProvidersLabel)) {
         match self.view() {
             QueryExprView::None => out.push_str("None"),
-            QueryExprView::Word(t) => out.push_str(t),
-            QueryExprView::String(t) => {
-                // The query grammar has no escapes, so a string literal
-                // holds at most one quote kind.
-                let quote = if t.contains('\'') { '"' } else { '\'' };
+            QueryExprView::Word(t) if buck2_query_parser::is_unquoted_word(t) => out.push_str(t),
+            QueryExprView::Word(t) | QueryExprView::String(t) => {
+                let quote = Self::quote_for(t);
                 out.push(quote);
                 out.push_str(t);
                 out.push(quote);
             }
             QueryExprView::Int(v) => write!(out, "{v}").expect("should write: String"),
             QueryExprView::Label(label) => {
-                let start = out.len();
+                let mut start = out.len();
                 write!(out, "{label}").expect("should write: String");
-                lit((start, out.len() - start), label);
+                // Target names and subtarget brackets reach outside the
+                // unquoted-word grammar.
+                if !buck2_query_parser::is_unquoted_word(&out[start..]) {
+                    let quote = Self::quote_for(&out[start..]);
+                    out.insert(start, quote);
+                    out.push(quote);
+                    start += 1;
+                    lit((start, out.len() - 1 - start), label);
+                } else {
+                    lit((start, out.len() - start), label);
+                }
             }
             QueryExprView::Function { name, args } => {
                 out.push_str(name);
@@ -4403,6 +4411,12 @@ impl<'a> QueryExprRef<'a> {
             QueryExprView::Set(items) => Self::reprint_set("set(", items, out, lit),
             QueryExprView::FileSet(items) => Self::reprint_set("fileset(", items, out, lit),
         }
+    }
+
+    /// The query grammar has no escapes, so quoted text holds at most one
+    /// quote kind.
+    fn quote_for(t: &str) -> char {
+        if t.contains('\'') { '"' } else { '\'' }
     }
 
     fn reprint_set(
@@ -6766,6 +6780,36 @@ mod tests {
         assert_eq!(lits.0.len(), 1);
         let ((off, len), l) = lits.0.iter().next().unwrap();
         assert_eq!(&reprint[*off..*off + *len], l.to_string());
+    }
+
+    /// A label outside the unquoted-word grammar reprints quoted, so the
+    /// reprint parses back to the same expression.
+    #[test]
+    fn test_query_reprint_quotes_labels_outside_word_grammar() {
+        let text = "deps('//x:libc++') + set('//x:y[sub]')";
+        let lits = ResolvedQueryLiterals(BTreeMap::from([
+            ((6, 10), label("x", "libc++")),
+            (
+                (26, 10),
+                ProvidersLabel::testing_new("root", "x", "y", Some(&["sub"])),
+            ),
+        ]));
+        let attr = query(QueryAttrBase {
+            query: text.to_owned(),
+            resolved_literals: lits,
+        });
+        roundtrip_canonical(&[attr.clone()]);
+
+        let mut b = CoercedAttrArena::builder();
+        let AttrToken(r, _) = attr(&mut b).unwrap();
+        let arena = b.finish();
+        let CoercedAttrRefKind::Query(q) = arena.view(r).kind() else {
+            panic!("should decode as a query");
+        };
+        assert_eq!(
+            q.query().0,
+            "( deps('root//x:libc++') + set('root//x:y[sub]'))"
+        );
     }
 
     #[test]
