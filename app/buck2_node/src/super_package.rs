@@ -14,10 +14,8 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::cfg_constructor::CfgConstructorImpl;
-use crate::metadata::key::MetadataKeyRef;
 use crate::metadata::super_package_values::SuperPackageValues;
-use crate::modifiers::MODIFIER_METADATA_KEY;
-use crate::modifiers::PackageCfgModifiersValue;
+use crate::modifiers::CfgModifiers;
 use crate::visibility::VisibilityIntersection;
 use crate::visibility::VisibilityPatternList;
 use crate::visibility::VisibilitySpecification;
@@ -38,7 +36,7 @@ pub(crate) struct SuperPackageData {
     // we have package cfg modifiers in package_values as a starlark value
     // we store it here separately as rust value because we are going to use it
     // in a special attribute and cfg constractor
-    cfg_modifiers: Option<PackageCfgModifiersValue>,
+    cfg_modifiers: Option<CfgModifiers>,
     test_config_unification_rollout: bool,
 }
 
@@ -50,13 +48,9 @@ impl SuperPackageData {
         visibility_intersection: VisibilityIntersection,
         within_view_cap: VisibilityPatternList,
         cfg_constructor: Option<Arc<dyn CfgConstructorImpl>>,
+        cfg_modifiers: Option<CfgModifiers>,
         test_config_unification_rollout: bool,
     ) -> buck2_error::Result<SuperPackageData> {
-        let modifier_key =
-            MetadataKeyRef::new(MODIFIER_METADATA_KEY).map_err(buck2_error::Error::from)?;
-        let cfg_modifiers = package_values
-            .get_package_value_json(modifier_key)?
-            .map(PackageCfgModifiersValue::new);
         Ok(SuperPackageData {
             package_values,
             visibility,
@@ -83,6 +77,7 @@ impl SuperPackage {
         visibility_intersection: VisibilityIntersection,
         within_view_cap: VisibilityPatternList,
         cfg_constructor: Option<Arc<dyn CfgConstructorImpl>>,
+        cfg_modifiers: Option<CfgModifiers>,
         test_config_unification_rollout: bool,
     ) -> buck2_error::Result<SuperPackage> {
         Ok(SuperPackage(Arc::new(SuperPackageData::new(
@@ -92,6 +87,7 @@ impl SuperPackage {
             visibility_intersection,
             within_view_cap,
             cfg_constructor,
+            cfg_modifiers,
             test_config_unification_rollout,
         )?)))
     }
@@ -103,6 +99,7 @@ impl SuperPackage {
             WithinViewSpecification::default(),
             VisibilityIntersection::unrestricted(),
             VisibilityPatternList::Public,
+            None,
             None,
             false,
         )
@@ -133,7 +130,7 @@ impl SuperPackage {
         self.0.cfg_constructor.as_ref()
     }
 
-    pub fn cfg_modifiers(&self) -> Option<&PackageCfgModifiersValue> {
+    pub fn cfg_modifiers(&self) -> Option<&CfgModifiers> {
         self.0.cfg_modifiers.as_ref()
     }
     pub fn test_config_unification_rollout(&self) -> bool {

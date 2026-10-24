@@ -351,6 +351,7 @@ foo_binary(
                     intersection.dupe(),
                     base.super_package().within_view_cap().dupe(),
                     base.super_package().cfg_constructor().cloned(),
+                    base.super_package().cfg_modifiers().cloned(),
                     base.super_package().test_config_unification_rollout(),
                 )
                 .unwrap(),

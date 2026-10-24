@@ -52,7 +52,7 @@ use crate::attrs::values::TargetModifiersValue;
 use crate::call_stack::StarlarkCallStack;
 use crate::call_stack::StarlarkTargetCallStackRoot;
 use crate::metadata::map::MetadataMap;
-use crate::modifiers::PackageCfgModifiersValue;
+use crate::modifiers::CfgModifiers;
 use crate::nodes::attributes::CONFIGURATION_DEPS;
 use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::ONCALL;
@@ -151,7 +151,7 @@ pub struct TargetNodeData {
     call_stack: Option<StarlarkCallStack>,
 
     /// Config modifiers set in the package this target belongs to
-    package_cfg_modifiers: Option<PackageCfgModifiersValue>,
+    package_cfg_modifiers: Option<CfgModifiers>,
 
     test_config_unification_rollout: bool,
 }
@@ -197,7 +197,7 @@ impl TargetNodeData {
         self.call_stack.as_ref().and_then(|s| s.root_location())
     }
 
-    pub fn package_cfg_modifiers(&self) -> Option<&PackageCfgModifiersValue> {
+    pub fn package_cfg_modifiers(&self) -> Option<&CfgModifiers> {
         self.package_cfg_modifiers.as_ref()
     }
 
@@ -245,7 +245,7 @@ impl TargetNode {
         label: TargetLabel,
         attributes: AttrValues,
         call_stack: Option<StarlarkCallStack>,
-        package_cfg_modifiers: Option<PackageCfgModifiersValue>,
+        package_cfg_modifiers: Option<CfgModifiers>,
         test_config_unification_rollout: bool,
     ) -> TargetNode {
         TargetNode(triomphe::Arc::new(TargetNodeData {

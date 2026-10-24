@@ -176,6 +176,11 @@ impl OwnedFrozenStarlarkPackageValue {
             .internal_error("Not valid JSON, should have been validated at construction")
     }
 
+    /// Reads the value without copying it to a heap.
+    pub(crate) fn with_value<R>(&self, f: impl for<'v> FnOnce(Value<'v>) -> R) -> R {
+        self.0.by_ref(|v| f(*v))
+    }
+
     pub fn add_to_heap<'v>(&self, heap: Heap<'v>) -> Value<'v> {
         self.0.as_ref().add_to_heap(heap)
     }

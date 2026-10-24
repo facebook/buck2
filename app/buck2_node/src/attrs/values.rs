@@ -23,7 +23,7 @@ use super::attr_type::any_matches::AnyMatches;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::spec::AttributeId;
 use crate::metadata::value::hash_json_value;
-use crate::modifiers::PackageCfgModifiersValue;
+use crate::modifiers::CfgModifiers;
 
 /// Attribute values sorted by [`AttributeId`].
 ///
@@ -136,10 +136,11 @@ impl TargetModifiersValue {
         Self(Arc::new(v))
     }
 
-    /// Exposes package-level modifiers as a `target_modifiers` attribute value, sharing the
-    /// underlying JSON.
-    pub fn from_package_modifiers(m: &PackageCfgModifiersValue) -> Self {
-        Self(m.as_json())
+    /// Exposes package-level modifiers as a `target_modifiers` attribute value.
+    /// Renders per call; only the `buck.package_cfg_modifiers` special
+    /// attribute reads it.
+    pub fn from_package_modifiers(m: &CfgModifiers) -> Self {
+        Self(Arc::new(m.to_json()))
     }
 
     pub fn to_value(&self) -> serde_json::Value {

@@ -52,6 +52,7 @@ use buck2_interpreter::prelude_path::PreludePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
+use buck2_node::modifiers::ModifierLabelParser;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::eval_result::EvaluationResultWithStats;
 use buck2_node::super_package::SuperPackage;
@@ -669,7 +670,11 @@ impl InterpreterForDir {
 
             let package_file_eval_ctx = per_file_context.into_package_file()?;
 
-            Ok((token, package_file_eval_ctx.build_super_package(extra)?))
+            let modifier_labels = ModifierLabelParser::new(&self.global_state.cell_resolver);
+            Ok((
+                token,
+                package_file_eval_ctx.build_super_package(extra, &modifier_labels)?,
+            ))
         })
     }
 

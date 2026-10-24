@@ -26,8 +26,7 @@ use pagable::PagableTagged;
 use pagable::pagable_typetag;
 
 use crate::metadata::key::MetadataKeyRef;
-use crate::metadata::value::MetadataValue;
-use crate::modifiers::PackageCfgModifiersValue;
+use crate::modifiers::CfgModifiers;
 use crate::nodes::unconfigured::TargetNodeRef;
 use crate::rule_type::RuleType;
 use crate::super_package::SuperPackage;
@@ -47,8 +46,8 @@ pub trait CfgConstructorImpl: PagableTagged + Send + Sync + Debug + Allocative {
         &'a self,
         ctx: &'a mut DiceComputations,
         cfg: &'a ConfigurationData,
-        package_cfg_modifiers: Option<&'a PackageCfgModifiersValue>,
-        target_cfg_modifiers: Option<&'a MetadataValue>,
+        package_cfg_modifiers: Option<&'a CfgModifiers>,
+        target_cfg_modifiers: Option<&'a CfgModifiers>,
         cli_modifiers: &'a [String],
         rule_type: &'a RuleType,
         configuring_exec_dep: bool,
