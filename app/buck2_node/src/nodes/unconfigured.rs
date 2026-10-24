@@ -512,7 +512,7 @@ impl TargetNode {
     /// Hash the fields that impact how this target is built.
     /// Don't do any recursive hashing of the dependencies.
     pub fn target_hash<H: Hasher>(&self, state: &mut H) {
-        self.label().hash(state);
+        self.label().strong_hash(state);
         self.rule_type().hash(state);
         self.package_cfg_modifiers().hash(state);
         // Hash the visibility intersection so that tightening the visibility
@@ -522,7 +522,13 @@ impl TargetNode {
             // We deliberately don't hash the attribute, as if the value being passed to analysis
             // stays the same, we don't care if the attribute that generated it changed.
             x.name.hash(state);
-            x.value.hash_coerced(state);
+            // The stored identity hash is 128-bit blake3 over full content
+            // (`CoercedAttrArena::strong_of`), so folding it preserves the strength
+            // of hashing the value itself without re-walking the tree.
+            x.value
+                .root_strong_hash()
+                .expect("should be a root: attr reads serve row and default values")
+                .hash(state);
         });
         self.test_config_unification_rollout().hash(state);
     }

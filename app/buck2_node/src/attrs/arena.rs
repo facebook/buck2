@@ -3029,14 +3029,6 @@ impl<'a> CoercedAttrRef<'a> {
         }
     }
 
-    /// Hash the value's content with `CoercedAttr`'s `Hash` semantics
-    /// (target hashing). Bridged through the owned form.
-    pub fn hash_coerced<H: Hasher>(&self, state: &mut H) {
-        self.to_coerced()
-            .expect("should decode: encoded from a valid attribute")
-            .hash(state);
-    }
-
     /// The configuration-dep label, or `None` for an explicit `None` value.
     ///
     /// Errors on any other kind: only for attributes the coercer has already
