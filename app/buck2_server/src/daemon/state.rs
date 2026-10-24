@@ -261,11 +261,12 @@ pub struct RepoState {
     /// says so. The disk-state core writes to the path at once.
     pub(crate) materializer_defers_writes: bool,
 
-    /// Whether this repo's `materializer` wants every write and source copy probed against the
-    /// CAS before its content is produced, whatever `buck2.write_cas_probe` says: the disk-state
-    /// core's, which otherwise writes to disk what the CAS already holds, 98% of a cold adfinder
-    /// build's writes (RESULTS.md, 2026-10-13). One switch for the core and its probe keeps a
-    /// rollout from meeting the two in every combination.
+    /// Whether this repo's `materializer` wants every write served from the action cache where
+    /// it can be, and every write it cannot and every source copy probed against the CAS before
+    /// its content is produced, whatever `buck2.write_action_cache` and `buck2.write_cas_probe`
+    /// say: the disk-state core's, which otherwise writes to disk what the CAS already holds,
+    /// 98% of a cold adfinder build's writes (RESULTS.md, 2026-10-13). One switch for the core
+    /// and what spares its writes keeps a rollout from meeting them in every combination.
     pub(crate) materializer_probes_writes: bool,
 
     /// How often this repo's `materializer` refreshes TTLs (`buck2.ttl_refresh_frequency_seconds`).

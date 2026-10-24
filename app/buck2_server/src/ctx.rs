@@ -972,12 +972,20 @@ impl DiceCommandUpdater<'_, '_> {
                 .unwrap_or_else(RolloutPercentage::never)
                 .roll()
                 && repo.materializer_defers_writes);
+        // The disk-state core asks for the write cache as it asks for the probe: a hit costs
+        // neither the rendering nor the probe's read of the content, and a miss is produced as a
+        // run action's output is, which is the only kind of write the core has. The config
+        // overrides either way, so a build can take the cache away from the core in a pinch.
         run_action_knobs.write_action_cache = root_config
             .parse::<WriteActionCacheMode>(BuckconfigKeyRef {
                 section: "buck2",
                 property: "write_action_cache",
             })?
-            .unwrap_or_default();
+            .unwrap_or(if repo.materializer_probes_writes {
+                WriteActionCacheMode::Use
+            } else {
+                WriteActionCacheMode::Off
+            });
         run_action_knobs.write_action_cache_populate = root_config
             .parse::<RolloutFraction>(BuckconfigKeyRef {
                 section: "buck2",
