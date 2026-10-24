@@ -114,6 +114,7 @@ impl ConfiguredTransitionDep {
     derive_more::Display,
     Debug,
     Hash,
+    StrongHash,
     PartialEq,
     Eq,
     Clone,

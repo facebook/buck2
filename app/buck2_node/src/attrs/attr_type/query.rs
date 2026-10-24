@@ -41,7 +41,7 @@ impl QueryAttrType {
 }
 
 /// Attribute value of type `attrs.query(...)`.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable)]
+#[derive(Debug, Eq, PartialEq, Hash, StrongHash, Clone, Allocative, Pagable)]
 pub struct QueryAttr<P: ProvidersLabelMaybeConfigured> {
     pub providers: ProviderIdSet,
     pub query: QueryAttrBase<P>,

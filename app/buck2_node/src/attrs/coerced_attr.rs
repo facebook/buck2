@@ -45,6 +45,7 @@ use serde::Serialize;
 use serde::Serializer;
 use serde_json::to_value;
 use smallvec::SmallVec;
+use strong_hash::StrongHash;
 
 use super::values::TargetModifiersValue;
 use crate::attrs::attr_type::AttrType;
@@ -120,6 +121,13 @@ impl Hash for CoercedSelector {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entries.hash(state);
         self.default.hash(state);
+    }
+}
+
+impl StrongHash for CoercedSelector {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        self.entries.strong_hash(state);
+        self.default.strong_hash(state);
     }
 }
 
@@ -317,7 +325,7 @@ impl CoercedSelector {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, Pagable)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, StrongHash, Allocative, Pagable)]
 pub struct CoercedConcat(pub ArcSlice<CoercedAttr>);
 
 impl Deref for CoercedConcat {
@@ -376,7 +384,7 @@ impl AttrSerializeWithContext for CoercedConcat {
 /// CoercedData::Concat supports a representation for when a selectable is added
 /// to something. Not all types support this case and those will return an error
 /// during coercion and not ever use the ::Concat case.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, Pagable)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, StrongHash, Allocative, Pagable)]
 pub enum CoercedAttr {
     Selector(Arc<CoercedSelector>),
     SelectFail(ArcStr),

@@ -19,6 +19,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_hash::BuckFixedSortedMap;
 use dupe::Dupe;
 use pagable::Pagable;
+use strong_hash::StrongHash;
 
 /// Key in `select` or an item in `target_compatible_with`.
 /// Should point to `config_setting` target, or `constraint_value`.
@@ -27,6 +28,7 @@ use pagable::Pagable;
     Eq,
     PartialEq,
     Hash,
+    StrongHash,
     Allocative,
     derive_more::Display,
     Clone,
