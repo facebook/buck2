@@ -66,7 +66,9 @@
 //!   before their parents), so a ref cannot be observed half-built and
 //!   deltas are never negative.
 
+use std::collections::BTreeMap;
 use std::fmt::Display;
+use std::fmt::Write as _;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
@@ -78,6 +80,7 @@ use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePathRef;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
@@ -86,6 +89,8 @@ use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_hash::BuckHasher;
 use buck2_hash::BuckMutMap;
+use buck2_query_parser::BinaryOp;
+use buck2_query_parser::Expr;
 use buck2_util::arc_str::ArcS;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
@@ -118,6 +123,7 @@ use crate::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use crate::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
 use crate::attrs::attr_type::arg::MacroBase;
 use crate::attrs::attr_type::arg::MacroDepKind;
+use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::arg::StringWithMacros;
 use crate::attrs::attr_type::arg::StringWithMacrosPart;
 use crate::attrs::attr_type::arg::UnconfiguredMacro;
@@ -129,6 +135,10 @@ use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::list::ListLiteral;
+use crate::attrs::attr_type::query::QueryAttr;
+use crate::attrs::attr_type::query::QueryAttrBase;
+use crate::attrs::attr_type::query::QueryMacroBase;
+use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -141,6 +151,7 @@ use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::configuration::resolved::ConfigurationSettingKey;
+use crate::provider_id_set::ProviderIdSet;
 
 /// Tag byte of a record: `[ width:2 | kind:6 ]`. `width` is the byte width
 /// of every head field and ref in the record, minus one.
@@ -150,7 +161,8 @@ const TAG_WIDTH_SHIFT: u8 = 6;
 /// Arg macro record header (its first head field):
 /// - bits 0-3: variant tag (`ARG_MACRO_TAG_*`)
 /// - bits 4-11: variant flag byte — location: `MacroDepKind`; exe:
-///   `exec_dep`; keyed placeholder: has-arg
+///   `exec_dep`; keyed placeholder: has-arg; query: expansion kind in
+///   flag bits 0-1, has-separator in flag bit 2
 /// - bit 12: `write_to_file`
 const ARG_MACRO_TAG_MASK: u32 = 0xF;
 const ARG_MACRO_FLAG_MASK: u32 = 0xFF;
@@ -159,8 +171,29 @@ const ARG_MACRO_TAG_EXE: u32 = 1;
 const ARG_MACRO_TAG_UNKEYED: u32 = 2;
 const ARG_MACRO_TAG_KEYED: u32 = 3;
 const ARG_MACRO_TAG_SOURCE: u32 = 4;
+/// Refs: `[expr, sep]`; `expr` is the parsed expression as a `QueryExpr`
+/// record, `sep` a text record present when the has-separator flag bit is
+/// set.
+const ARG_MACRO_TAG_QUERY: u32 = 5;
 const ARG_MACRO_FLAG_SHIFT: u32 = 4;
 const ARG_MACRO_WTF_BIT: u32 = 1 << 12;
+
+// Query-expression node subtags (first head field of a `QueryExpr` record).
+const Q_EXPR_NONE: u32 = 0;
+const Q_EXPR_WORD: u32 = 1;
+const Q_EXPR_STRING: u32 = 2;
+const Q_EXPR_INT: u32 = 3;
+const Q_EXPR_LABEL: u32 = 4;
+const Q_EXPR_FUNCTION: u32 = 5;
+const Q_EXPR_BINOP: u32 = 6;
+const Q_EXPR_SET: u32 = 7;
+const Q_EXPR_FILESET: u32 = 8;
+
+const ARG_QUERY_EXPANSION_MASK: u32 = 0x3;
+const ARG_QUERY_EXPANSION_OUTPUT: u32 = 0;
+const ARG_QUERY_EXPANSION_TARGET: u32 = 1;
+const ARG_QUERY_EXPANSION_TARGET_AND_OUTPUT: u32 = 2;
+const ARG_QUERY_HAS_SEP: u32 = 4;
 
 fn dep_kind_bits(k: MacroDepKind) -> u32 {
     match k {
@@ -175,6 +208,23 @@ fn dep_kind_from_bits(bits: u32) -> MacroDepKind {
         0 => MacroDepKind::Regular,
         1 => MacroDepKind::Exec,
         2 => MacroDepKind::Toolchain,
+        _ => unreachable!("should be valid: records are only written by the encoder"),
+    }
+}
+
+fn binary_op_bits(op: BinaryOp) -> u32 {
+    match op {
+        BinaryOp::Intersect => 0,
+        BinaryOp::Except => 1,
+        BinaryOp::Union => 2,
+    }
+}
+
+fn binary_op_from_bits(bits: u32) -> BinaryOp {
+    match bits {
+        0 => BinaryOp::Intersect,
+        1 => BinaryOp::Except,
+        2 => BinaryOp::Union,
         _ => unreachable!("should be valid: records are only written by the encoder"),
     }
 }
@@ -232,6 +282,14 @@ enum AttrKind {
     /// Head: `[header, payload index, n]`; refs: `n` per the header's
     /// variant tag. Never appears as an attribute value ref.
     ArgMacro = 24,
+    /// Head: `[subtag, nv, nv values, n]`; refs: `n` per `Q_EXPR_*`. Encodes
+    /// the parsed form of a query macro's expression; target literals are
+    /// label table indices, text is shared text records. Never appears as
+    /// an attribute value ref.
+    QueryExpr = 25,
+    /// Refs: `[expr]`: a `QueryExpr` record, the parsed form of an
+    /// `attrs.query()` value.
+    Query = 26,
 }
 
 /// How a kind's record body is laid out: how many head fields it has and
@@ -248,6 +306,9 @@ enum HeadLen {
     Fixed(u32),
     /// `SelectorKeys`: the count in field 0, then that many indices.
     OnePlusField0,
+    /// `QueryExpr`: subtag, a value count in field 1, that many values, and
+    /// a ref count.
+    ThreePlusField1,
 }
 
 #[derive(Copy, Clone)]
@@ -265,6 +326,7 @@ enum RefCount {
     Field0Plus2,
     One,
     Field2,
+    LastField,
 }
 
 impl AttrKind {
@@ -281,8 +343,10 @@ impl AttrKind {
             AttrKind::Dict => (Fixed(1), Refs(TwiceField0)),
             AttrKind::Selector => (Fixed(1), Refs(Field0Plus2)),
             AttrKind::OneOf => (Fixed(1), Refs(One)),
+            AttrKind::Query => (Fixed(0), Refs(One)),
             AttrKind::SelectorKeys => (OnePlusField0, None),
             AttrKind::ArgMacro => (Fixed(3), Refs(Field2)),
+            AttrKind::QueryExpr => (ThreePlusField1, Refs(LastField)),
             AttrKind::None
             | AttrKind::BoolFalse
             | AttrKind::BoolTrue
@@ -315,6 +379,7 @@ fn shape(kind: AttrKind, field: impl Fn(u32) -> Option<u32>) -> Option<(u32, Tai
     let nfields = match head {
         HeadLen::Fixed(n) => n,
         HeadLen::OnePlusField0 => 1 + field(0)?,
+        HeadLen::ThreePlusField1 => 3 + field(1)?,
     };
     let tail = match tail {
         TailKind::None => TailLen::None,
@@ -325,6 +390,7 @@ fn shape(kind: AttrKind, field: impl Fn(u32) -> Option<u32>) -> Option<(u32, Tai
             RefCount::Field0Plus2 => field(0)?.checked_add(2)?,
             RefCount::One => 1,
             RefCount::Field2 => field(2)?,
+            RefCount::LastField => field(nfields - 1)?,
         }),
     };
     Some((nfields, tail))
@@ -813,6 +879,13 @@ impl CoercedAttrArena {
                             h.write_u8(ARG_MACRO_TAG_SOURCE as u8);
                             path.strong_hash(&mut h);
                         }
+                        ArgMacroView::Query(q) => {
+                            h.write_u8(ARG_MACRO_TAG_QUERY as u8);
+                            let (kind, sep) = q.expansion_parts();
+                            h.write_u8(kind as u8);
+                            sep.strong_hash(&mut h);
+                            q.expr().strong_hash(&mut h);
+                        }
                     }
                 }
             }
@@ -874,6 +947,7 @@ impl CoercedAttrArena {
             | CoercedAttrRefKind::SplitTransitionDep(l) => l.strong_hash(&mut h),
             CoercedAttrRefKind::PluginDep(t) => t.strong_hash(&mut h),
             CoercedAttrRefKind::SourceFile(p) => p.strong_hash(&mut h),
+            CoercedAttrRefKind::Query(q) => q.expr().strong_hash(&mut h),
             CoercedAttrRefKind::Legacy(a) => a.strong_hash(&mut h),
         }
         let hash = h.finalize128();
@@ -928,6 +1002,7 @@ impl CoercedAttrArena {
                         arg: (flag != 0).then(|| self.str_at(refs.get(1))),
                     },
                     ARG_MACRO_TAG_SOURCE => ArgMacroView::Source(&self.paths[payload as usize]),
+                    ARG_MACRO_TAG_QUERY => ArgMacroView::Query(ArgQueryView { arena: self, r }),
                     _ => unreachable!("should be valid: records are only written by the encoder"),
                 };
                 ArgPartView::Macro {
@@ -1087,6 +1162,7 @@ pub enum CoercedAttrRefKind<'a> {
     SplitTransitionDep(&'a ProvidersLabel),
     PluginDep(&'a TargetLabel),
     SourceFile(&'a CoercedPath),
+    Query(QueryView<'a>),
     Legacy(&'a CoercedAttr),
 }
 
@@ -1118,8 +1194,7 @@ pub enum ArgPartView<'a> {
     },
 }
 
-/// One decoded arg macro record. Query macros never appear:
-/// args containing them are stored whole in the legacy table.
+/// One decoded arg macro record.
 #[derive(Copy, Clone, PartialEq)]
 pub enum ArgMacroView<'a> {
     Location {
@@ -1137,6 +1212,7 @@ pub enum ArgMacroView<'a> {
         arg: Option<&'a str>,
     },
     Source(&'a CoercedPath),
+    Query(ArgQueryView<'a>),
 }
 
 /// Mirrors `Display for MacroBase`: approximately the source text of the
@@ -1173,6 +1249,7 @@ impl std::fmt::Display for ArgMacroView<'_> {
                 Ok(())
             }
             ArgMacroView::Source(path) => write!(f, "src {}", path.path()),
+            ArgMacroView::Query(q) => write!(f, "{} {}", q.expansion_type(), q.query().0),
         }
     }
 }
@@ -1190,6 +1267,446 @@ impl std::fmt::Display for AttrRefArgParts<'_> {
             }
         }
         Ok(())
+    }
+}
+
+/// Decoded view of an `attrs.query()` value record.
+#[derive(Copy, Clone)]
+pub struct QueryView<'a> {
+    arena: &'a CoercedAttrArena,
+    r: AttrWord,
+}
+
+impl<'a> QueryView<'a> {
+    fn expr(&self) -> QueryExprRef<'a> {
+        QueryExprRef {
+            arena: self.arena,
+            r: self.arena.open(self.r).refs().get(0),
+        }
+    }
+
+    /// The canonical reprint of the stored expression plus its literal map,
+    /// with offsets into the reprint.
+    pub fn query(&self) -> (String, ResolvedQueryLiterals<ProvidersLabel>) {
+        let mut out = String::new();
+        let mut lits = BTreeMap::new();
+        self.expr().reprint(&mut out, &mut |span, l| {
+            lits.insert(span, l.dupe());
+        });
+        (out, ResolvedQueryLiterals(lits))
+    }
+
+    /// The stored expression's literal labels, in expression order.
+    fn literal_labels(&self, out: &mut Vec<&'a ProvidersLabel>) {
+        self.expr().labels(out);
+    }
+
+    fn to_query_attr(self) -> QueryAttr<ProvidersLabel> {
+        let (query, resolved_literals) = self.query();
+        QueryAttr {
+            providers: ProviderIdSet::EMPTY,
+            query: QueryAttrBase {
+                query,
+                resolved_literals,
+            },
+        }
+    }
+
+    fn configure(&self, ctx: &dyn AttrConfigurationContext) -> QueryAttr<ConfiguredProvidersLabel> {
+        let mut query = String::new();
+        let mut lits = BTreeMap::new();
+        self.expr().reprint(&mut query, &mut |span, l| {
+            lits.insert(span, ctx.configure_target(l));
+        });
+        QueryAttr {
+            providers: ProviderIdSet::EMPTY,
+            query: QueryAttrBase {
+                query,
+                resolved_literals: ResolvedQueryLiterals(lits),
+            },
+        }
+    }
+}
+
+impl PartialEq for QueryView<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.query() == other.query()
+    }
+}
+
+/// Decoded view of a query macro record (`$(query_targets ...)` etc.).
+#[derive(Copy, Clone)]
+pub struct ArgQueryView<'a> {
+    arena: &'a CoercedAttrArena,
+    r: AttrWord,
+}
+
+impl<'a> ArgQueryView<'a> {
+    fn flags(&self) -> u32 {
+        let (header, _, _) = self.arena.arg_macro_parts(self.r);
+        (header >> ARG_MACRO_FLAG_SHIFT) & ARG_MACRO_FLAG_MASK
+    }
+
+    fn expr(&self) -> QueryExprRef<'a> {
+        let (_, _, refs) = self.arena.arg_macro_parts(self.r);
+        QueryExprRef {
+            arena: self.arena,
+            r: refs.get(0),
+        }
+    }
+
+    fn separator(&self) -> Option<&'a str> {
+        let (_, _, refs) = self.arena.arg_macro_parts(self.r);
+        (self.flags() & ARG_QUERY_HAS_SEP != 0).then(|| self.arena.str_at(refs.get(1)))
+    }
+
+    /// Expansion kind bits and the borrowed separator, for readers that must
+    /// not allocate; the owned [`QueryExpansion`] clones the separator.
+    fn expansion_parts(&self) -> (u32, Option<&'a str>) {
+        (self.flags() & ARG_QUERY_EXPANSION_MASK, self.separator())
+    }
+
+    fn expansion_type(&self) -> QueryExpansion {
+        match self.flags() & ARG_QUERY_EXPANSION_MASK {
+            ARG_QUERY_EXPANSION_OUTPUT => QueryExpansion::Output,
+            ARG_QUERY_EXPANSION_TARGET => QueryExpansion::Target,
+            ARG_QUERY_EXPANSION_TARGET_AND_OUTPUT => {
+                QueryExpansion::TargetAndOutput(self.separator().map(str::to_owned))
+            }
+            _ => unreachable!("should be valid: records are only written by the encoder"),
+        }
+    }
+
+    /// The canonical reprint of the stored expression plus its literal map,
+    /// with offsets into the reprint. One walk produces both, so the map's
+    /// spans always agree with the returned text.
+    pub fn query(&self) -> (String, ResolvedQueryLiterals<ProvidersLabel>) {
+        let mut out = String::new();
+        let mut lits = BTreeMap::new();
+        self.expr().reprint(&mut out, &mut |span, l| {
+            lits.insert(span, l.dupe());
+        });
+        (out, ResolvedQueryLiterals(lits))
+    }
+
+    /// The stored expression's literal labels, in expression order (the
+    /// same order as the offset-sorted map of the original text).
+    pub fn literal_labels(&self, out: &mut Vec<&'a ProvidersLabel>) {
+        self.expr().labels(out);
+    }
+
+    fn to_query_macro(self) -> QueryMacroBase<ProvidersLabel> {
+        let (query, resolved_literals) = self.query();
+        QueryMacroBase {
+            expansion_type: self.expansion_type(),
+            query: QueryAttrBase {
+                query,
+                resolved_literals,
+            },
+        }
+    }
+
+    fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> QueryMacroBase<ConfiguredProvidersLabel> {
+        let mut query = String::new();
+        let mut lits = BTreeMap::new();
+        self.expr().reprint(&mut query, &mut |span, l| {
+            lits.insert(span, ctx.configure_target(l));
+        });
+        QueryMacroBase {
+            expansion_type: self.expansion_type(),
+            query: QueryAttrBase {
+                query,
+                resolved_literals: ResolvedQueryLiterals(lits),
+            },
+        }
+    }
+}
+
+impl PartialEq for ArgQueryView<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.flags() == other.flags()
+            && self.separator() == other.separator()
+            && self.query() == other.query()
+    }
+}
+
+/// Handle to one stored query-expression node ([`AttrKind::QueryExpr`]);
+/// `view` decodes it shallowly.
+#[derive(Copy, Clone)]
+struct QueryExprRef<'a> {
+    arena: &'a CoercedAttrArena,
+    r: AttrWord,
+}
+
+/// Shallow decode of a [`QueryExprRef`]. Children decode lazily via further
+/// `view` calls.
+enum QueryExprView<'a> {
+    None,
+    /// Bare word (set members, unresolved tokens).
+    Word(&'a str),
+    /// Quoted string.
+    String(&'a str),
+    Int(u64),
+    /// A target literal, resolved at coercion.
+    Label(&'a ProvidersLabel),
+    Function {
+        name: &'a str,
+        args: QueryExprSeq<'a>,
+    },
+    BinOp {
+        first: QueryExprRef<'a>,
+        rest: QueryExprOpSeq<'a>,
+    },
+    Set(QueryExprSeq<'a>),
+    FileSet(QueryExprSeq<'a>),
+}
+
+/// View of a run of query-expression child refs.
+#[derive(Copy, Clone)]
+struct QueryExprSeq<'a> {
+    run: RefRun<'a>,
+}
+
+impl<'a> QueryExprSeq<'a> {
+    fn len(&self) -> u32 {
+        self.run.len()
+    }
+
+    fn iter(&self) -> impl Iterator<Item = QueryExprRef<'a>> + 'a {
+        let arena = self.run.arena;
+        self.run.iter().map(move |r| QueryExprRef { arena, r })
+    }
+}
+
+/// View of a binop node's tail: `n` operators in the head, paired with `n`
+/// operand refs.
+#[derive(Copy, Clone)]
+struct QueryExprOpSeq<'a> {
+    ops: RefRun<'a>,
+    run: RefRun<'a>,
+}
+
+impl<'a> QueryExprOpSeq<'a> {
+    fn len(&self) -> u32 {
+        self.run.len()
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (BinaryOp, QueryExprRef<'a>)> + 'a {
+        let arena = self.run.arena;
+        self.ops
+            .iter_raw()
+            .zip(self.run.iter())
+            .map(move |(op, r)| (binary_op_from_bits(op), QueryExprRef { arena, r }))
+    }
+}
+
+impl<'a> QueryExprRef<'a> {
+    fn view(&self) -> QueryExprView<'a> {
+        let arena = self.arena;
+        let rec = arena.open(self.r);
+        let subtag = rec.head.raw(0);
+        let nv = rec.head.raw(1);
+        let vals = rec.head.skip(2);
+        match subtag {
+            Q_EXPR_NONE => QueryExprView::None,
+            Q_EXPR_WORD | Q_EXPR_STRING => {
+                let text = arena.str_at(rec.refs().get(0));
+                if subtag == Q_EXPR_WORD {
+                    QueryExprView::Word(text)
+                } else {
+                    QueryExprView::String(text)
+                }
+            }
+            Q_EXPR_INT => QueryExprView::Int(vals.raw(0) as u64 | ((vals.raw(1) as u64) << 32)),
+            Q_EXPR_LABEL => QueryExprView::Label(&arena.providers_labels[vals.raw(0) as usize]),
+            Q_EXPR_FUNCTION => {
+                let refs = rec.refs();
+                QueryExprView::Function {
+                    name: arena.str_at(refs.get(0)),
+                    args: QueryExprSeq { run: refs.skip(1) },
+                }
+            }
+            Q_EXPR_BINOP => {
+                let refs = rec.refs();
+                QueryExprView::BinOp {
+                    first: QueryExprRef {
+                        arena,
+                        r: refs.get(0),
+                    },
+                    rest: QueryExprOpSeq {
+                        ops: RefRun { len: nv, ..vals },
+                        run: refs.skip(1),
+                    },
+                }
+            }
+            Q_EXPR_SET | Q_EXPR_FILESET => {
+                let seq = QueryExprSeq { run: rec.refs() };
+                if subtag == Q_EXPR_SET {
+                    QueryExprView::Set(seq)
+                } else {
+                    QueryExprView::FileSet(seq)
+                }
+            }
+            _ => unreachable!("should be valid: query nodes are only written by the encoder"),
+        }
+    }
+
+    /// Reprints the node in the parser `Display` form
+    /// (`buck2_query_parser::Expr`), handing each literal label and its span
+    /// in the reprint to `lit`. Reparsing the reprint yields the same
+    /// expression.
+    fn reprint(&self, out: &mut String, lit: &mut dyn FnMut((usize, usize), &'a ProvidersLabel)) {
+        match self.view() {
+            QueryExprView::None => out.push_str("None"),
+            QueryExprView::Word(t) => out.push_str(t),
+            QueryExprView::String(t) => {
+                // The query grammar has no escapes, so a string literal
+                // holds at most one quote kind.
+                let quote = if t.contains('\'') { '"' } else { '\'' };
+                out.push(quote);
+                out.push_str(t);
+                out.push(quote);
+            }
+            QueryExprView::Int(v) => write!(out, "{v}").expect("should write: String"),
+            QueryExprView::Label(label) => {
+                let start = out.len();
+                write!(out, "{label}").expect("should write: String");
+                lit((start, out.len() - start), label);
+            }
+            QueryExprView::Function { name, args } => {
+                out.push_str(name);
+                out.push('(');
+                for (i, a) in args.iter().enumerate() {
+                    if i != 0 {
+                        out.push_str(", ");
+                    }
+                    a.reprint(out, lit);
+                }
+                out.push(')');
+            }
+            QueryExprView::BinOp { first, rest } => {
+                for _ in 0..rest.len() {
+                    out.push('(');
+                }
+                out.push(' ');
+                first.reprint(out, lit);
+                for (op, ex) in rest.iter() {
+                    out.push(' ');
+                    out.push_str(match op {
+                        BinaryOp::Intersect => "^",
+                        BinaryOp::Except => "-",
+                        BinaryOp::Union => "+",
+                    });
+                    out.push(' ');
+                    ex.reprint(out, lit);
+                    out.push(')');
+                }
+            }
+            QueryExprView::Set(items) => Self::reprint_set("set(", items, out, lit),
+            QueryExprView::FileSet(items) => Self::reprint_set("fileset(", items, out, lit),
+        }
+    }
+
+    fn reprint_set(
+        prefix: &str,
+        items: QueryExprSeq<'a>,
+        out: &mut String,
+        lit: &mut dyn FnMut((usize, usize), &'a ProvidersLabel),
+    ) {
+        out.push_str(prefix);
+        for (i, v) in items.iter().enumerate() {
+            if i != 0 {
+                out.push(' ');
+            }
+            v.reprint(out, lit);
+        }
+        out.push(')');
+    }
+
+    /// Collects the node's literal labels, in expression order.
+    fn labels(&self, out: &mut Vec<&'a ProvidersLabel>) {
+        match self.view() {
+            QueryExprView::Label(l) => out.push(l),
+            QueryExprView::Function { args, .. } => {
+                for a in args.iter() {
+                    a.labels(out);
+                }
+            }
+            QueryExprView::BinOp { first, rest } => {
+                first.labels(out);
+                for (_, ex) in rest.iter() {
+                    ex.labels(out);
+                }
+            }
+            QueryExprView::Set(items) | QueryExprView::FileSet(items) => {
+                for v in items.iter() {
+                    v.labels(out);
+                }
+            }
+            QueryExprView::None
+            | QueryExprView::Word(_)
+            | QueryExprView::String(_)
+            | QueryExprView::Int(_) => {}
+        }
+    }
+}
+
+/// Subtag plus content, children in order.
+impl StrongHash for QueryExprRef<'_> {
+    fn strong_hash<H: Hasher>(&self, h: &mut H) {
+        match self.view() {
+            QueryExprView::None => h.write_u32(Q_EXPR_NONE),
+            QueryExprView::Word(t) => {
+                h.write_u32(Q_EXPR_WORD);
+                t.strong_hash(h);
+            }
+            QueryExprView::String(t) => {
+                h.write_u32(Q_EXPR_STRING);
+                t.strong_hash(h);
+            }
+            QueryExprView::Int(v) => {
+                h.write_u32(Q_EXPR_INT);
+                h.write_u64(v);
+            }
+            QueryExprView::Label(l) => {
+                h.write_u32(Q_EXPR_LABEL);
+                l.strong_hash(h);
+            }
+            QueryExprView::Function { name, args } => {
+                h.write_u32(Q_EXPR_FUNCTION);
+                name.strong_hash(h);
+                h.write_u32(args.len());
+                for a in args.iter() {
+                    a.strong_hash(h);
+                }
+            }
+            QueryExprView::BinOp { first, rest } => {
+                h.write_u32(Q_EXPR_BINOP);
+                first.strong_hash(h);
+                h.write_u32(rest.len());
+                for (op, ex) in rest.iter() {
+                    h.write_u32(binary_op_bits(op));
+                    ex.strong_hash(h);
+                }
+            }
+            QueryExprView::Set(items) => {
+                h.write_u32(Q_EXPR_SET);
+                h.write_u32(items.len());
+                for v in items.iter() {
+                    v.strong_hash(h);
+                }
+            }
+            QueryExprView::FileSet(items) => {
+                h.write_u32(Q_EXPR_FILESET);
+                h.write_u32(items.len());
+                for v in items.iter() {
+                    v.strong_hash(h);
+                }
+            }
+        }
     }
 }
 
@@ -1219,6 +1736,9 @@ impl<'a> ArgPartView<'a> {
                         )))
                     }
                     ArgMacroView::Source(path) => UnconfiguredMacro::Source(path.clone()),
+                    ArgMacroView::Query(q) => {
+                        UnconfiguredMacro::Query(Box::new(q.to_query_macro()))
+                    }
                 },
             ),
         }
@@ -1261,6 +1781,7 @@ impl<'a> ArgPartView<'a> {
                         )))
                     }
                     ArgMacroView::Source(path) => ConfiguredMacro::Source((*path).clone()),
+                    ArgMacroView::Query(q) => ConfiguredMacro::Query(Box::new(q.configure(ctx))),
                 },
             ),
         })
@@ -1384,9 +1905,13 @@ impl<'a> CoercedAttrRef<'a> {
             AttrKind::String => CoercedAttrRefKind::String(arena.str_at(r)),
             AttrKind::EnumVariant => CoercedAttrRefKind::EnumVariant(arena.str_at(r)),
             AttrKind::ArgSimple => CoercedAttrRefKind::ArgSimple(arena.str_at(r)),
+            AttrKind::Query => CoercedAttrRefKind::Query(QueryView { arena, r }),
             AttrKind::ArgParts => CoercedAttrRefKind::Arg(AttrRefArgParts { run: rec.refs() }),
             AttrKind::ArgMacro => {
                 unreachable!("arg macro records are not attribute values")
+            }
+            AttrKind::QueryExpr => {
+                unreachable!("query expression nodes are not attribute values")
             }
             AttrKind::SelectorKeys => {
                 unreachable!("selector keys records are not attribute values")
@@ -1472,6 +1997,7 @@ impl<'a> CoercedAttrRef<'a> {
             CoercedAttrRefKind::SplitTransitionDep(l) => CoercedAttr::SplitTransitionDep(l.dupe()),
             CoercedAttrRefKind::PluginDep(l) => CoercedAttr::PluginDep(l.dupe()),
             CoercedAttrRefKind::SourceFile(p) => CoercedAttr::SourceFile(p.clone()),
+            CoercedAttrRefKind::Query(q) => CoercedAttr::Query(Box::new(q.to_query_attr())),
             CoercedAttrRefKind::Legacy(a) => a.clone(),
         })
     }
@@ -1566,6 +2092,7 @@ impl<'a> CoercedAttrRef<'a> {
             ) => a == b,
             (CoercedAttrRefKind::PluginDep(a), CoercedAttrRefKind::PluginDep(b)) => a == b,
             (CoercedAttrRefKind::SourceFile(a), CoercedAttrRefKind::SourceFile(b)) => a == b,
+            (CoercedAttrRefKind::Query(a), CoercedAttrRefKind::Query(b)) => a == b,
             (CoercedAttrRefKind::Legacy(a), CoercedAttrRefKind::Legacy(b)) => a == b,
             _ => false,
         }
@@ -1740,8 +2267,28 @@ impl<'a> CoercedAttrRef<'a> {
                                     traversal.input(SourcePathRef::new(pkg, x))?;
                                 }
                             }
+                            // Mirror of `QueryAttrBase::<ProvidersLabel>::traverse`:
+                            // literal labels only. Expression order equals
+                            // the map's offset-sorted order.
+                            ArgMacroView::Query(q) => {
+                                let mut labels = Vec::new();
+                                q.literal_labels(&mut labels);
+                                for label in labels {
+                                    traversal.dep(label)?;
+                                }
+                            }
                             ArgMacroView::UserUnkeyedPlaceholder(_) => {}
                         }
+                    }
+                    Ok(())
+                }
+                // Queries have no inputs or configuration deps: literal
+                // labels only, in expression order.
+                (CoercedAttrRefKind::Query(q), AttrTypeInner::Query(_)) => {
+                    let mut labels = Vec::new();
+                    q.literal_labels(&mut labels);
+                    for label in labels {
+                        traversal.dep(label)?;
                     }
                     Ok(())
                 }
@@ -1944,6 +2491,9 @@ impl<'a> CoercedAttrRef<'a> {
                     ConfiguredAttr::OneOf(Box::new(configured), i)
                 }
                 (CoercedAttrRefKind::Dep(d), AttrTypeInner::Dep(ty)) => ty.configure(d, ctx)?,
+                (CoercedAttrRefKind::Query(q), AttrTypeInner::Query(_)) => {
+                    ConfiguredAttr::Query(Box::new(q.configure(ctx)))
+                }
                 (CoercedAttrRefKind::SourceLabel(s), AttrTypeInner::Source(_)) => {
                     ConfiguredAttr::SourceLabel(s.configure_pair(ctx.cfg().cfg_pair().dupe()))
                 }
@@ -2103,6 +2653,7 @@ impl<'a> CoercedAttrRef<'a> {
             CoercedAttrRefKind::SourceFile(p) => {
                 Ok(to_value(source_file_display(ctx, p).to_string())?)
             }
+            CoercedAttrRefKind::Query(q) => Ok(to_value(q.query().0)?),
             CoercedAttrRefKind::Legacy(a) => a.to_json(ctx),
         }
     }
@@ -2160,6 +2711,7 @@ impl<'a> CoercedAttrRef<'a> {
             | CoercedAttrRefKind::SplitTransitionDep(l) => filter(&l.to_string()),
             CoercedAttrRefKind::PluginDep(t) => filter(&t.to_string()),
             CoercedAttrRefKind::SourceFile(p) => filter(&p.path().to_string()),
+            CoercedAttrRefKind::Query(q) => filter(&q.query().0),
             CoercedAttrRefKind::Legacy(a) => a.any_matches(filter),
         }
     }
@@ -2288,6 +2840,7 @@ impl crate::attrs::display::AttrDisplayWithContext for CoercedAttrRef<'_> {
             CoercedAttrRefKind::SplitTransitionDep(l) => std::fmt::Display::fmt(l, f),
             CoercedAttrRefKind::PluginDep(t) => write!(f, "\"{t}\""),
             CoercedAttrRefKind::SourceFile(p) => write!(f, "\"{}\"", source_file_display(ctx, p)),
+            CoercedAttrRefKind::Query(q) => write!(f, "\"{}\"", q.query().0),
             CoercedAttrRefKind::Legacy(a) => AttrDisplayWithContext::fmt(a, ctx, f),
         }
     }
@@ -2365,16 +2918,6 @@ fn parts(attr: CoercedAttr) -> (AttrWord, CoercedAttrHash) {
     }
 }
 
-/// Parts the native `Arg` encoding covers. Query macros carry a whole
-/// `QueryAttr` and are rare enough that args containing them are stored
-/// whole in the legacy table instead.
-fn arg_part_encodable(part: &StringWithMacrosPart<ProvidersLabel>) -> bool {
-    match part {
-        StringWithMacrosPart::String(_) => true,
-        StringWithMacrosPart::Macro(_, m) => !matches!(m, MacroBase::Query(_)),
-    }
-}
-
 fn content_hash(tag: AttrKind, f: impl FnOnce(&mut BuckHasher)) -> CoercedAttrHash {
     let mut h = BuckHasher::default();
     Hash::hash(&(tag as u8), &mut h);
@@ -2408,8 +2951,8 @@ static FIXED_KIND_HASHES: std::sync::LazyLock<[CoercedAttrHash; 3]> =
         ]
     });
 
-/// Head fields of one record while encoding; `SelectorKeys` heads can
-/// run long, everything else is one to three fields.
+/// Head fields of one record while encoding; `SelectorKeys` and
+/// `QueryExpr` heads can run long, everything else is one to three fields.
 type EncodeScratchFields = SmallVec<[u32; 32]>;
 
 /// Child refs gathered alongside [`EncodeScratchFields`]: covers values with up
@@ -2807,7 +3350,7 @@ impl CoercedAttrArenaBuilder {
             StringWithMacros::StringPart(part) => {
                 self.encode_str(AttrKind::ArgSimple, part).map(token)
             }
-            StringWithMacros::ManyParts(parts) if parts.iter().all(arg_part_encodable) => {
+            StringWithMacros::ManyParts(parts) => {
                 let mut refs = EncodeScratchRefs::with_capacity(parts.len());
                 let mut hashes = EncodeScratchHashes::with_capacity(parts.len());
                 for part in parts.iter() {
@@ -2820,8 +3363,19 @@ impl CoercedAttrArenaBuilder {
                     self.encode_record(AttrKind::ArgParts, hash, &[parts.len() as u32], &refs)?;
                 Ok(CoercedAttr::Encoded(r, hash))
             }
-            StringWithMacros::ManyParts(_) => self.encode_legacy(&CoercedAttr::Arg(arg.clone())),
         }
+    }
+
+    /// Encode an `attrs.query()` value as its parsed expression.
+    pub fn encode_query(
+        &mut self,
+        q: &QueryAttrBase<ProvidersLabel>,
+    ) -> buck2_error::Result<CoercedAttr> {
+        let parsed = buck2_query_parser::parse_expr(&q.query)?;
+        let (er, eh) = self.encode_query_expr(&parsed, &q.query, &q.resolved_literals)?;
+        let hash = content_hash(AttrKind::Query, |h| eh.hash(h));
+        let r = self.encode_record(AttrKind::Query, hash, &[], &[er])?;
+        Ok(CoercedAttr::Encoded(r, hash))
     }
 
     /// Intern a whole-value variant into the legacy table.
@@ -2879,13 +3433,13 @@ impl CoercedAttrArenaBuilder {
             CoercedAttr::PluginDep(l) => self.encode_plugin_dep(l).map(parts),
             CoercedAttr::SourceFile(p) => self.encode_source_file(p).map(parts),
             CoercedAttr::Arg(arg) => self.encode_arg(arg).map(parts),
+            CoercedAttr::Query(q) => self.encode_query(&q.query).map(parts),
             legacy @ (CoercedAttr::SelectFail(_)
             | CoercedAttr::SelectIncompatible(_)
             | CoercedAttr::Visibility(_)
             | CoercedAttr::WithinView(_)
             | CoercedAttr::ExplicitConfiguredDep(_)
             | CoercedAttr::TransitionDep(_)
-            | CoercedAttr::Query(_)
             | CoercedAttr::Metadata(_)
             | CoercedAttr::TargetModifiers(_)) => self.encode_legacy(legacy).map(parts),
         }
@@ -3027,10 +3581,33 @@ impl CoercedAttrArenaBuilder {
                     smallvec![path_hash],
                 )
             }
-            MacroBase::Query(_) => {
-                return Err(internal_error!(
-                    "should be unreachable: query macros are stored in the legacy table"
-                ));
+            MacroBase::Query(q) => {
+                let parsed = buck2_query_parser::parse_expr(&q.query.query)?;
+                let (er, eh) =
+                    self.encode_query_expr(&parsed, &q.query.query, &q.query.resolved_literals)?;
+                let (expansion, sep) = match &q.expansion_type {
+                    QueryExpansion::Output => (ARG_QUERY_EXPANSION_OUTPUT, None),
+                    QueryExpansion::Target => (ARG_QUERY_EXPANSION_TARGET, None),
+                    QueryExpansion::TargetAndOutput(sep) => {
+                        (ARG_QUERY_EXPANSION_TARGET_AND_OUTPUT, sep.as_deref())
+                    }
+                };
+                let mut refs: SmallVec<[AttrWord; 2]> = smallvec![er];
+                let (sep_hash, sep_flag) = match sep {
+                    Some(sp) => {
+                        let (sr, sh) = self.encode_str(AttrKind::String, sp)?;
+                        refs.push(sr);
+                        (Some(sh), ARG_QUERY_HAS_SEP)
+                    }
+                    None => (None, 0),
+                };
+                let flags = expansion | sep_flag;
+                let hash = content_hash(AttrKind::ArgMacro, |h| {
+                    (ARG_MACRO_TAG_QUERY, flags, write_to_file, eh, sep_hash).hash(h)
+                });
+                let head = self.arg_macro_head(ARG_MACRO_TAG_QUERY, flags, wtf_bit, 0, refs.len());
+                let r = self.encode_record(AttrKind::ArgMacro, hash, &head, &refs)?;
+                return Ok((r, hash));
             }
         };
         let hash = content_hash(AttrKind::ArgMacro, |h| {
@@ -3054,6 +3631,143 @@ impl CoercedAttrArenaBuilder {
             payload,
             nrefs as u32,
         ]
+    }
+
+    /// Encode one parsed query expression node. Literal text (from
+    /// `resolved_literals`) becomes providers-label refs; every other text
+    /// becomes a shared text record.
+    ///
+    /// Coercion records one literal per distinct text, keyed by the span of
+    /// its first occurrence, and evaluation resolves literals by text; so a
+    /// token is a literal whenever its text matches a recorded one, repeated
+    /// occurrences included.
+    fn encode_query_expr(
+        &mut self,
+        e: &buck2_query_parser::SpannedExpr<'_>,
+        src: &str,
+        lits: &ResolvedQueryLiterals<ProvidersLabel>,
+    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+        let by_text: BuckMutMap<&str, &ProvidersLabel> = lits
+            .0
+            .iter()
+            .map(|(&(off, len), label)| (&src[off..off + len], label))
+            .collect();
+        let mut matched: BuckMutMap<&str, ()> = BuckMutMap::default();
+        let r = self.encode_query_expr_inner(e, &by_text, &mut matched)?;
+        if matched.len() != by_text.len() {
+            return Err(internal_error!(
+                "query literals must all match expression nodes: matched {} of {}",
+                matched.len(),
+                by_text.len()
+            ));
+        }
+        Ok(r)
+    }
+
+    /// One `QueryExpr` record: `[subtag, nv, values..., n]` then refs.
+    fn encode_query_node(
+        &mut self,
+        hash: CoercedAttrHash,
+        subtag: u32,
+        values: &[u32],
+        refs: &[AttrWord],
+    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+        let mut head = EncodeScratchFields::with_capacity(3 + values.len());
+        head.push(subtag);
+        head.push(values.len() as u32);
+        head.extend_from_slice(values);
+        head.push(refs.len() as u32);
+        let r = self.encode_record(AttrKind::QueryExpr, hash, &head, refs)?;
+        Ok((r, hash))
+    }
+
+    fn encode_query_word<'s>(
+        &mut self,
+        subtag: u32,
+        text: &'s str,
+        by_text: &BuckMutMap<&'s str, &ProvidersLabel>,
+        matched: &mut BuckMutMap<&'s str, ()>,
+    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+        if let Some(label) = by_text.get(text) {
+            matched.insert(text, ());
+            let (idx, lh) = self.providers_label_idx_and_hash(label);
+            let hash = content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_LABEL, lh).hash(h));
+            return self.encode_query_node(hash, Q_EXPR_LABEL, &[idx], &[]);
+        }
+        let (sr, sh) = self.encode_str(AttrKind::String, text)?;
+        let hash = content_hash(AttrKind::QueryExpr, |h| (subtag, sh).hash(h));
+        self.encode_query_node(hash, subtag, &[], &[sr])
+    }
+
+    fn encode_query_expr_inner<'s>(
+        &mut self,
+        e: &buck2_query_parser::SpannedExpr<'s>,
+        by_text: &BuckMutMap<&'s str, &ProvidersLabel>,
+        matched: &mut BuckMutMap<&'s str, ()>,
+    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+        match &e.value {
+            Expr::None => {
+                let hash = content_hash(AttrKind::QueryExpr, |h| Q_EXPR_NONE.hash(h));
+                self.encode_query_node(hash, Q_EXPR_NONE, &[], &[])
+            }
+            Expr::String(w) => self.encode_query_word(Q_EXPR_STRING, w, by_text, matched),
+            Expr::Integer(v) => {
+                let hash = content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_INT, *v).hash(h));
+                self.encode_query_node(hash, Q_EXPR_INT, &[*v as u32, (*v >> 32) as u32], &[])
+            }
+            Expr::Function {
+                function_name,
+                args,
+            } => {
+                let (nr, nh) = self.encode_str(AttrKind::String, function_name.fragment())?;
+                let mut refs = EncodeScratchRefs::with_capacity(1 + args.len());
+                refs.push(nr);
+                let mut hashes = SmallVec::<[CoercedAttrHash; 8]>::with_capacity(args.len());
+                for a in args {
+                    let (ar, ah) = self.encode_query_expr_inner(a, by_text, matched)?;
+                    refs.push(ar);
+                    hashes.push(ah);
+                }
+                let hash = content_hash(AttrKind::QueryExpr, |h| {
+                    (Q_EXPR_FUNCTION, nh, &hashes).hash(h)
+                });
+                self.encode_query_node(hash, Q_EXPR_FUNCTION, &[], &refs)
+            }
+            Expr::BinaryOpSequence(first, rest) => {
+                let (fr, fh) = self.encode_query_expr_inner(first, by_text, matched)?;
+                let mut refs = EncodeScratchRefs::with_capacity(1 + rest.len());
+                refs.push(fr);
+                let mut ops = SmallVec::<[u32; 8]>::with_capacity(rest.len());
+                let mut hashes = SmallVec::<[CoercedAttrHash; 8]>::with_capacity(rest.len());
+                for (op, ex) in rest {
+                    let opw = binary_op_bits(*op);
+                    let (xr, xh) = self.encode_query_expr_inner(ex, by_text, matched)?;
+                    ops.push(opw);
+                    refs.push(xr);
+                    hashes.push(CoercedAttrHash(xh.0 ^ ((opw as u64) << 60)));
+                }
+                let hash =
+                    content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_BINOP, fh, &hashes).hash(h));
+                self.encode_query_node(hash, Q_EXPR_BINOP, &ops, &refs)
+            }
+            Expr::Set(vals) | Expr::FileSet(vals) => {
+                let subtag = if matches!(&e.value, Expr::Set(_)) {
+                    Q_EXPR_SET
+                } else {
+                    Q_EXPR_FILESET
+                };
+                let mut refs = EncodeScratchRefs::with_capacity(vals.len());
+                let mut hashes = SmallVec::<[CoercedAttrHash; 16]>::with_capacity(vals.len());
+                for v in vals {
+                    let (mr, mh) =
+                        self.encode_query_word(Q_EXPR_WORD, v.fragment(), by_text, matched)?;
+                    refs.push(mr);
+                    hashes.push(mh);
+                }
+                let hash = content_hash(AttrKind::QueryExpr, |h| (subtag, &hashes).hash(h));
+                self.encode_query_node(hash, subtag, &[], &refs)
+            }
+        }
     }
 
     fn encode_str(
@@ -3108,6 +3822,81 @@ mod tests {
 
     fn label(pkg: &str, name: &str) -> ProvidersLabel {
         ProvidersLabel::testing_new("root", pkg, name, None)
+    }
+
+    /// Round-trip for values whose decode is a canonical reprint (query
+    /// macros): bytes may differ from the source, but the decoded form must
+    /// be a fixed point, render identically to its own enum form, and
+    /// preserve every literal label with spans that slice the reprint to
+    /// that label's rendering.
+    fn roundtrip_canonical(attrs: &[CoercedAttr]) -> CoercedAttrArena {
+        fn query_lits(a: &CoercedAttr) -> Vec<(String, Vec<(String, ProvidersLabel)>)> {
+            let mut out = Vec::new();
+            if let CoercedAttr::Arg(StringWithMacros::ManyParts(parts)) = a {
+                for part in parts.iter() {
+                    if let StringWithMacrosPart::Macro(_, UnconfiguredMacro::Query(q)) = part {
+                        let mut lits: Vec<(String, ProvidersLabel)> = q
+                            .query
+                            .resolved_literals
+                            .0
+                            .values()
+                            .map(|l| (l.to_string(), l.dupe()))
+                            .collect();
+                        lits.sort_by(|a, b| a.0.cmp(&b.0));
+                        out.push((q.query.query.clone(), lits));
+                    }
+                }
+            }
+            out
+        }
+
+        let mut b = CoercedAttrArena::builder();
+        let refs: Vec<AttrWord> = attrs.iter().map(|a| b.encode(a).unwrap().0).collect();
+        let arena = b.finish();
+        for (a, r) in attrs.iter().zip(&refs) {
+            let view = arena.view(*r);
+            let decoded = view.to_coerced().unwrap();
+            output_parity(&decoded, view);
+
+            // fixed point: encoding the decoded value round-trips exactly
+            let mut b2 = CoercedAttrArena::builder();
+            let r2 = b2.encode(&decoded).unwrap().0;
+            let arena2 = b2.finish();
+            assert_eq!(
+                decoded,
+                arena2.view(r2).to_coerced().unwrap(),
+                "canonical form should be a fixed point"
+            );
+
+            // literal labels preserved; decoded spans slice the reprint to
+            // the label rendering
+            let orig = query_lits(a);
+            let dec = query_lits(&decoded);
+            assert_eq!(orig.len(), dec.len(), "query macro count should survive");
+            for ((_, orig_lits), (dq, dec_lits)) in orig.iter().zip(dec.iter()) {
+                assert_eq!(
+                    orig_lits.iter().map(|(s, _)| s).collect::<Vec<_>>(),
+                    dec_lits.iter().map(|(s, _)| s).collect::<Vec<_>>(),
+                    "literal label set should survive the reprint"
+                );
+                if let CoercedAttr::Arg(StringWithMacros::ManyParts(parts)) = &decoded {
+                    for part in parts.iter() {
+                        if let StringWithMacrosPart::Macro(_, UnconfiguredMacro::Query(q)) = part {
+                            if q.query.query == *dq {
+                                for ((off, len), l) in q.query.resolved_literals.0.iter() {
+                                    assert_eq!(
+                                        &dq[*off..*off + *len],
+                                        l.to_string(),
+                                        "literal span should slice the reprint to its label"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        arena
     }
 
     fn roundtrip(attrs: &[CoercedAttr]) -> CoercedAttrArena {
@@ -3395,7 +4184,7 @@ mod tests {
     }
 
     #[test]
-    fn test_arg_simple_native_and_many_parts_legacy() {
+    fn test_arg_simple_and_many_parts_encode_natively() {
         let simple = CoercedAttr::Arg(StringWithMacros::StringPart(ArcStr::from("-DFOO=1")));
         let many = CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([])));
         let arena = roundtrip(&[simple, many]);
@@ -3404,6 +4193,59 @@ mod tests {
             0,
             "simple and macro args should both encode natively"
         );
+    }
+
+    /// An `attrs.query()` value and a query macro over the same expression
+    /// share one expression record, so `queries()` sees one query.
+    #[test]
+    fn test_query_attr_shares_expression_with_query_macro() {
+        let text = "deps(:dep)";
+        let lits = || ResolvedQueryLiterals(BTreeMap::from([((5, 4), label("pkg", "dep"))]));
+        let attr = CoercedAttr::Query(Box::new(QueryAttr {
+            providers: ProviderIdSet::EMPTY,
+            query: QueryAttrBase {
+                query: text.to_owned(),
+                resolved_literals: lits(),
+            },
+        }));
+        let arg = CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([
+            StringWithMacrosPart::Macro(
+                false,
+                UnconfiguredMacro::Query(Box::new(QueryMacroBase {
+                    expansion_type: QueryExpansion::Target,
+                    query: QueryAttrBase {
+                        query: text.to_owned(),
+                        resolved_literals: lits(),
+                    },
+                })),
+            ),
+        ])));
+        let arena = roundtrip_canonical(&[attr.clone(), arg.clone()]);
+        assert_eq!(arena.legacy.len(), 0, "query attrs should encode natively");
+
+        let mut b = CoercedAttrArena::builder();
+        let (ra, _) = b.encode(&attr).unwrap();
+        let (rg, _) = b.encode(&arg).unwrap();
+        let arena = b.finish();
+        let CoercedAttrRefKind::Query(q) = arena.view(ra).kind() else {
+            panic!("should decode as a query");
+        };
+        let CoercedAttrRefKind::Arg(parts) = arena.view(rg).kind() else {
+            panic!("should decode as arg parts");
+        };
+        let ArgPartView::Macro {
+            mac: ArgMacroView::Query(m),
+            ..
+        } = parts.iter().next().unwrap()
+        else {
+            panic!("should decode as a query macro");
+        };
+        assert_eq!(q.expr().r, m.expr().r, "expression record should be shared");
+        let (reprint, lits) = q.query();
+        assert_eq!(reprint, "deps(root//pkg:dep)");
+        assert_eq!(lits.0.len(), 1);
+        let ((off, len), l) = lits.0.iter().next().unwrap();
+        assert_eq!(&reprint[*off..*off + *len], l.to_string());
     }
 
     #[test]
@@ -3447,6 +4289,112 @@ mod tests {
         ]);
         let arena = roundtrip(&[CoercedAttr::Arg(StringWithMacros::ManyParts(parts))]);
         assert_eq!(arena.legacy.len(), 0, "macro args should encode natively");
+    }
+
+    #[test]
+    fn test_arg_query_macro_native_roundtrip_and_shared_record() {
+        use std::collections::BTreeMap;
+        let mk_query = |expansion: QueryExpansion| {
+            let mut lits = BTreeMap::new();
+            lits.insert((5usize, 10usize), label("foo", "dep1"));
+            lits.insert((23usize, 10usize), label("bar", "dep2"));
+            UnconfiguredMacro::Query(Box::new(QueryMacroBase {
+                expansion_type: expansion,
+                query: QueryAttrBase {
+                    query: "deps(//foo:dep1) + set(//bar:dep2)".to_owned(),
+                    resolved_literals: ResolvedQueryLiterals(lits),
+                },
+            }))
+        };
+        let arg = |prefix: &str, expansion| {
+            CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([
+                StringWithMacrosPart::String(ArcStr::from(prefix)),
+                StringWithMacrosPart::Macro(false, mk_query(expansion)),
+            ])))
+        };
+        let no_lits = CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([
+            StringWithMacrosPart::Macro(
+                true,
+                UnconfiguredMacro::Query(Box::new(QueryMacroBase {
+                    expansion_type: QueryExpansion::Output,
+                    query: QueryAttrBase {
+                        query: "deps(:x)".to_owned(),
+                        resolved_literals: ResolvedQueryLiterals(BTreeMap::new()),
+                    },
+                })),
+            ),
+        ])));
+        let arena = roundtrip_canonical(&[
+            arg("--deps=", QueryExpansion::Target),
+            arg(
+                "--deps=",
+                QueryExpansion::TargetAndOutput(Some("=".to_owned())),
+            ),
+            arg("--deps=", QueryExpansion::TargetAndOutput(None)),
+            no_lits,
+        ]);
+        assert_eq!(
+            arena.legacy.len(),
+            0,
+            "query-macro args should encode natively"
+        );
+
+        // Same macro in a different arg: only the new arg record and the
+        // new text record allocate; the query macro record is shared.
+        let mut b = CoercedAttrArena::builder();
+        b.encode(&arg("--deps=", QueryExpansion::Target)).unwrap();
+        let bytes_after = b.arena.bytes.len();
+        let (r2, _) = b.encode(&arg("--other=", QueryExpansion::Target)).unwrap();
+        let (_, width) = b.arena.tag(r2);
+        assert_eq!(
+            b.arena.bytes.len(),
+            bytes_after + (1 + 1 + 8) + (1 + 1 + 2 * width as usize),
+            "second arg should add one 8-byte text record and its own [tag, count, 2 refs] record"
+        );
+    }
+
+    /// Coercion records a repeated literal once (first occurrence's span);
+    /// every occurrence must still encode as that label, or the reprint
+    /// would carry the raw spelling that analysis cannot resolve.
+    #[test]
+    fn test_arg_query_macro_repeated_literal_resolves_every_occurrence() {
+        use std::collections::BTreeMap;
+        let query = "deps(set(//foo:dep1 //foo:dep1 //bar:dep2 //foo:dep1))".to_owned();
+        let mut lits = BTreeMap::new();
+        lits.insert((9usize, 10usize), label("foo", "dep1"));
+        lits.insert((31usize, 10usize), label("bar", "dep2"));
+        let arg = CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([
+            StringWithMacrosPart::Macro(
+                false,
+                UnconfiguredMacro::Query(Box::new(QueryMacroBase {
+                    expansion_type: QueryExpansion::Target,
+                    query: QueryAttrBase {
+                        query,
+                        resolved_literals: ResolvedQueryLiterals(lits),
+                    },
+                })),
+            ),
+        ])));
+        let mut b = CoercedAttrArena::builder();
+        let r = b.encode(&arg).unwrap().0;
+        let arena = b.finish();
+        let CoercedAttr::Arg(StringWithMacros::ManyParts(parts)) =
+            arena.view(r).to_coerced().unwrap()
+        else {
+            panic!("should decode to a macro arg");
+        };
+        let StringWithMacrosPart::Macro(_, UnconfiguredMacro::Query(q)) = &parts[0] else {
+            panic!("should decode to a query macro");
+        };
+        assert_eq!(
+            q.query.query, "deps(set(root//foo:dep1 root//foo:dep1 root//bar:dep2 root//foo:dep1))",
+            "every occurrence should reprint as the resolved label"
+        );
+        assert_eq!(
+            q.query.resolved_literals.0.len(),
+            4,
+            "each occurrence should carry its own literal span"
+        );
     }
 
     #[test]

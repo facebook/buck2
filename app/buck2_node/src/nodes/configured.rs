@@ -965,14 +965,40 @@ mod tests {
     use crate::configuration::resolved::ConfigurationNode;
     use crate::nodes::unconfigured::testing::TargetNodeExt;
 
-    fn query(text: &str, target: &str) -> QueryAttrBase<ProvidersLabel> {
+    /// `literal` is the target's spelling inside `text`; `target` its
+    /// resolved label.
+    fn query(text: &str, literal: &str, target: &str) -> QueryAttrBase<ProvidersLabel> {
+        let start = text.find(literal).unwrap();
         QueryAttrBase {
             query: text.to_owned(),
             resolved_literals: ResolvedQueryLiterals(BTreeMap::from([(
-                (5, 4),
+                (start, literal.len()),
                 ProvidersLabel::default_for(TargetLabel::testing_parse(target)),
             )])),
         }
+    }
+
+    /// Asserts `actual` is `expected` as reported by `queries()`: the
+    /// canonical reprint, with one literal whose span slices the reprint to
+    /// the configured label's unconfigured spelling.
+    fn assert_query(
+        actual: &(String, ResolvedQueryLiterals<ConfiguredProvidersLabel>),
+        expected_reprint: &str,
+        expected: &QueryAttrBase<ProvidersLabel>,
+        cfg: &ConfigurationData,
+    ) {
+        assert_eq!(actual.0, expected_reprint);
+        let [label]: [&ProvidersLabel; 1] = expected
+            .resolved_literals
+            .0
+            .values()
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        let ((off, len), configured) = actual.1.0.iter().next().unwrap();
+        assert_eq!(actual.1.0.len(), 1);
+        assert_eq!(configured, &label.configure(cfg.dupe()));
+        assert_eq!(&actual.0[*off..*off + *len], label.to_string());
     }
 
     fn node(
@@ -988,12 +1014,15 @@ mod tests {
         )
     }
 
+    /// The attribute spells its literal relative and the macros spell it
+    /// in full: all four are one query.
     #[test]
     fn test_queries_deduplicate_attributes_and_macro_expansions() {
-        let query = query("deps(:dep)", "root//pkg:dep");
+        let attr_query = query("deps(:dep)", ":dep", "root//pkg:dep");
+        let macro_query = query("deps(root//pkg:dep)", "root//pkg:dep", "root//pkg:dep");
         let query_attr = CoercedAttr::Query(Box::new(QueryAttr {
             providers: ProviderIdSet::EMPTY,
-            query: query.clone(),
+            query: attr_query.clone(),
         }));
         let macros = [
             QueryExpansion::Target,
@@ -1006,7 +1035,7 @@ mod tests {
                 true,
                 MacroBase::Query(Box::new(QueryMacroBase {
                     expansion_type,
-                    query: query.clone(),
+                    query: macro_query.clone(),
                 })),
             )
         })
@@ -1036,19 +1065,19 @@ mod tests {
             let node = node(cfg.dupe(), attrs.clone());
             let queries: Vec<_> = node.queries().collect();
             assert_eq!(queries.len(), 1);
-            assert_eq!(queries[0].0, query.query);
-            assert_eq!(
-                queries[0].1.0[&(5, 4)],
-                query.resolved_literals.0[&(5, 4)].configure(cfg),
-            );
+            assert_query(&queries[0], "deps(root//pkg:dep)", &attr_query, &cfg);
         }
     }
 
     #[test]
     fn test_queries_preserve_order_and_distinct_literal_bindings() {
-        let first = query("deps(:dep, 1)", "root//pkg:dep");
-        let second = query("deps(:dep)", "root//pkg:dep");
-        let third = query("deps(:dep)", "root//other:dep");
+        let first = query("deps(:dep, 1)", ":dep", "root//pkg:dep");
+        let second = query("deps(:dep)", ":dep", "root//pkg:dep");
+        let third = query(
+            "deps(root//other:dep)",
+            "root//other:dep",
+            "root//other:dep",
+        );
         let macros = [&first, &second, &first, &third, &second]
             .into_iter()
             .map(|query| {
@@ -1072,12 +1101,12 @@ mod tests {
         );
         let queries: Vec<_> = node.queries().collect();
         assert_eq!(queries.len(), 3);
-        for (actual, expected) in queries.iter().zip([first, second, third]) {
-            assert_eq!(actual.0, expected.query);
-            assert_eq!(
-                actual.1.0[&(5, 4)],
-                expected.resolved_literals.0[&(5, 4)].configure(cfg.dupe()),
-            );
+        for (actual, (reprint, expected)) in queries.iter().zip([
+            ("deps(root//pkg:dep, 1)", first),
+            ("deps(root//pkg:dep)", second),
+            ("deps(root//other:dep)", third),
+        ]) {
+            assert_query(actual, reprint, &expected, &cfg);
         }
     }
 
