@@ -18,10 +18,18 @@ use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 use pagable::Pagable;
 use serde::Serialize;
+use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -126,8 +134,11 @@ impl ConfiguredExplicitConfiguredDep {
     }
 }
 
-impl_semantics!(ExplicitConfiguredDep {
-    traverse(v, (label, platform), t, pkg, tr) {
+impl Semantics for kinds::ExplicitConfiguredDep {
+    fn traverse<'a>(
+        (label, platform): Self::Parts<'a>,
+        Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::ConfiguredDep(_) => {
                 tr.dep(label)?;
@@ -139,7 +150,11 @@ impl_semantics!(ExplicitConfiguredDep {
             _ => Err(mismatch(v, t)),
         }
     }
-    configure(v, (label, platform), t, ctx, name) {
+
+    fn configure(
+        (label, platform): Self::Parts<'_>,
+        Configure { v, t, ctx, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::ConfiguredDep(ty) => {
                 ResultMaybeCompatible::Compatible(ty.configure(ctx, label, platform.dupe())?)
@@ -147,10 +162,29 @@ impl_semantics!(ExplicitConfiguredDep {
             _ => mismatch(v, t).into(),
         }
     }
-    json(v, (label, platform), ctx) { Ok(to_value([label.to_string(), platform.to_string()])?) }
-    fmt(v, (label, platform), ctx, f) { write!(f, "({label}, {platform})") }
-    any_matches(v, (label, platform), filter) { filter(&format!("({label}, {platform})")) }
-    serialize<S>(v, (label, platform), ctx, ser) {
+
+    fn to_json(
+        (label, platform): Self::Parts<'_>,
+        _: ToJson<'_, '_>,
+    ) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value([label.to_string(), platform.to_string()])?)
+    }
+
+    fn fmt((label, platform): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "({label}, {platform})")
+    }
+
+    fn any_matches(
+        (label, platform): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        filter(&format!("({label}, {platform})"))
+    }
+
+    fn serialize<S: Serializer>(
+        (label, platform): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
         [label.to_string(), platform.to_string()].serialize(ser)
     }
-});
+}

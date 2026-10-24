@@ -45,8 +45,11 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 
 /// What a kind's values mean: to dependency traversal, configuration,
 /// rendering, JSON and substring search. One impl per kind, in the file of
-/// the attribute type it belongs to, through [`impl_semantics!`]; a kind
-/// without one does not compile.
+/// the attribute type it belongs to; a kind without one does not compile.
+///
+/// Each operation receives the value's decoded parts and the operation's
+/// operands (the value itself among them) as one struct, so an impl binds
+/// only what it uses.
 pub(crate) trait Semantics: Kind {
     /// The class of values `+` concatenates: leaves of one class
     /// concatenate; `None` means addition is not supported.
@@ -57,37 +60,33 @@ pub(crate) trait Semantics: Kind {
     }
 
     /// Type-threaded traversal over the value's deps.
-    fn traverse<'a>(
-        v: CoercedAttrRef<'a>,
-        t: &AttrType,
-        pkg: Option<PackageLabel>,
-        tr: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> buck2_error::Result<()>;
+    fn traverse<'a>(parts: Self::Parts<'a>, op: Traverse<'_, 'a>) -> buck2_error::Result<()>;
 
     /// The configured form of the value.
     fn configure(
-        v: CoercedAttrRef<'_>,
-        t: &AttrType,
-        ctx: &dyn AttrConfigurationContext,
-        name: Option<&str>,
+        parts: Self::Parts<'_>,
+        op: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr>;
 
     /// The deps of the configured form, without materializing it. Leaves
     /// configure the small configured value and traverse that; containers,
     /// selects and concats recurse.
     fn traverse_configured(
-        v: CoercedAttrRef<'_>,
-        t: &AttrType,
-        pkg: PackageLabel,
-        ctx: &dyn AttrConfigurationContext,
-        tr: &mut dyn ConfiguredAttrTraversal,
-        name: Option<&str>,
+        parts: Self::Parts<'_>,
+        TraverseConfigured {
+            v,
+            t,
+            pkg,
+            ctx,
+            tr,
+            name,
+        }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         // `Any`-typed values cannot contain deps.
         if matches!(inner_type(t).0.inner, AttrTypeInner::Any(_)) {
             return ResultMaybeCompatible::Compatible(());
         }
-        let configured = Self::configure(v, t, ctx, name)?;
+        let configured = Self::configure(parts, Configure { v, t, ctx, name })?;
         if let Err(e) = configured.traverse(pkg, tr) {
             return e.into();
         }
@@ -97,46 +96,36 @@ pub(crate) trait Semantics: Kind {
     /// The leaves `ConfiguredAttr::concat` would see: selects resolved,
     /// nested concats inlined. A plain value is its own leaf.
     fn concat_leaves<'a>(
-        v: CoercedAttrRef<'a>,
-        _ctx: &dyn AttrConfigurationContext,
-        out: &mut SmallVec<[CoercedAttrRef<'a>; 4]>,
+        _parts: Self::Parts<'a>,
+        ConcatLeaves { v, out, .. }: ConcatLeaves<'_, 'a>,
     ) -> ResultMaybeCompatible<()> {
         out.push(v);
         ResultMaybeCompatible::Compatible(())
     }
 
     fn to_json(
-        v: CoercedAttrRef<'_>,
-        ctx: &AttrFmtContext,
+        parts: Self::Parts<'_>,
+        op: ToJson<'_, '_>,
     ) -> buck2_error::Result<serde_json::Value>;
 
-    fn fmt(
-        v: CoercedAttrRef<'_>,
-        ctx: &AttrFmtContext,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result;
+    fn fmt(parts: Self::Parts<'_>, op: Fmt<'_, '_, '_>) -> std::fmt::Result;
 
     /// Whether any leaf's string form matches the filter.
-    fn any_matches(
-        v: CoercedAttrRef<'_>,
-        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool>;
+    fn any_matches(parts: Self::Parts<'_>, op: MatchesAny<'_, '_>) -> buck2_error::Result<bool>;
 
     /// The value's rendering as a JSON object key; an error for values that
     /// render as anything but a string.
     fn json_key<'a>(
-        v: CoercedAttrRef<'a>,
-        ctx: &AttrFmtContext,
+        _parts: Self::Parts<'a>,
+        _op: JsonKey<'_, 'a>,
     ) -> buck2_error::Result<Cow<'a, str>> {
-        let _ = (v, ctx);
         Err(internal_error!("dict keys must render to JSON strings"))
     }
 
     /// Serialize the value's JSON form without building a `serde_json::Value`.
     fn serialize<S: Serializer>(
-        v: CoercedAttrRef<'_>,
-        ctx: &AttrFmtContext,
-        ser: S,
+        parts: Self::Parts<'_>,
+        op: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error>;
 }
 
@@ -198,129 +187,6 @@ pub(crate) fn query_view(v: CoercedAttrRef<'_>) -> QueryView<'_> {
         r: v.r,
     }
 }
-
-/// `impl Semantics` for one kind from its method bodies. Sections are in a
-/// fixed order and each binds the decoded parts to its pattern; a section
-/// the trait provides a default for may be omitted.
-macro_rules! impl_semantics {
-    ($kind:ident $(: concat $concat:literal)? {
-        $( traverse($tv:ident, $tp:pat_param, $tt:ident, $tpkg:ident, $ttr:ident) $traverse:block )?
-        $( configure($cv:ident, $cp:pat_param, $ct:ident, $cctx:ident, $cname:ident) $configure:block )?
-        $( traverse_configured($xv:ident, $xp:pat_param, $xt:ident, $xpkg:ident, $xctx:ident, $xtr:ident, $xname:ident) $tc:block )?
-        $( concat_leaves($lv:ident, $lp:pat_param, $lctx:ident, $lout:ident) $leaves:block )?
-        $( json($jv:ident, $jp:pat_param, $jctx:ident) $json:block )?
-        $( fmt($fv:ident, $fp:pat_param, $fctx:ident, $ff:ident) $fmt:block )?
-        $( any_matches($mv:ident, $mp:pat_param, $filter:ident) $matches:block )?
-        $( json_key($kv:ident, $kp:pat_param, $kctx:ident) $key:block )?
-        $( serialize<$S:ident>($sv:ident, $sp:pat_param, $sctx:ident, $ss:ident) $serialize:block )?
-    }) => {
-        impl $crate::attrs::arena::semantics::Semantics for $crate::attrs::arena::kinds::$kind {
-            $( const CONCAT: Option<&'static str> = Some($concat); )?
-            $(
-                #[allow(unused_variables)]
-                fn traverse<'a>(
-                    $tv: $crate::attrs::arena::CoercedAttrRef<'a>,
-                    $tt: &$crate::attrs::attr_type::AttrType,
-                    $tpkg: Option<::buck2_core::package::PackageLabel>,
-                    $ttr: &mut dyn $crate::attrs::traversal::CoercedAttrTraversal<'a>,
-                ) -> ::buck2_error::Result<()> {
-                    let $tp = Self::parts($tv);
-                    $traverse
-                }
-            )?
-            $(
-                #[allow(unused_variables)]
-                fn configure(
-                    $cv: $crate::attrs::arena::CoercedAttrRef<'_>,
-                    $ct: &$crate::attrs::attr_type::AttrType,
-                    $cctx: &dyn $crate::attrs::configuration_context::AttrConfigurationContext,
-                    $cname: Option<&str>,
-                ) -> ::buck2_core::configuration::compatibility::ResultMaybeCompatible<$crate::attrs::configured_attr::ConfiguredAttr> {
-                    let $cp = Self::parts($cv);
-                    $configure
-                }
-            )?
-            $(
-                #[allow(unused_variables)]
-                fn traverse_configured(
-                    $xv: $crate::attrs::arena::CoercedAttrRef<'_>,
-                    $xt: &$crate::attrs::attr_type::AttrType,
-                    $xpkg: ::buck2_core::package::PackageLabel,
-                    $xctx: &dyn $crate::attrs::configuration_context::AttrConfigurationContext,
-                    $xtr: &mut dyn $crate::attrs::configured_traversal::ConfiguredAttrTraversal,
-                    $xname: Option<&str>,
-                ) -> ::buck2_core::configuration::compatibility::ResultMaybeCompatible<()> {
-                    let $xp = Self::parts($xv);
-                    $tc
-                }
-            )?
-            $(
-                #[allow(unused_variables)]
-                fn concat_leaves<'a>(
-                    $lv: $crate::attrs::arena::CoercedAttrRef<'a>,
-                    $lctx: &dyn $crate::attrs::configuration_context::AttrConfigurationContext,
-                    $lout: &mut ::smallvec::SmallVec<[$crate::attrs::arena::CoercedAttrRef<'a>; 4]>,
-                ) -> ::buck2_core::configuration::compatibility::ResultMaybeCompatible<()> {
-                    let $lp = Self::parts($lv);
-                    $leaves
-                }
-            )?
-            $(
-                #[allow(unused_variables)]
-                fn to_json(
-                    $jv: $crate::attrs::arena::CoercedAttrRef<'_>,
-                    $jctx: &$crate::attrs::fmt_context::AttrFmtContext,
-                ) -> ::buck2_error::Result<::serde_json::Value> {
-                    let $jp = Self::parts($jv);
-                    $json
-                }
-            )?
-            $(
-                #[allow(unused_variables)]
-                fn fmt(
-                    $fv: $crate::attrs::arena::CoercedAttrRef<'_>,
-                    $fctx: &$crate::attrs::fmt_context::AttrFmtContext,
-                    $ff: &mut ::std::fmt::Formatter<'_>,
-                ) -> ::std::fmt::Result {
-                    let $fp = Self::parts($fv);
-                    $fmt
-                }
-            )?
-            $(
-                #[allow(unused_variables)]
-                fn any_matches(
-                    $mv: $crate::attrs::arena::CoercedAttrRef<'_>,
-                    $filter: &dyn Fn(&str) -> ::buck2_error::Result<bool>,
-                ) -> ::buck2_error::Result<bool> {
-                    let $mp = Self::parts($mv);
-                    $matches
-                }
-            )?
-            $(
-                #[allow(unused_variables)]
-                fn json_key<'a>(
-                    $kv: $crate::attrs::arena::CoercedAttrRef<'a>,
-                    $kctx: &$crate::attrs::fmt_context::AttrFmtContext,
-                ) -> ::buck2_error::Result<::std::borrow::Cow<'a, str>> {
-                    let $kp = Self::parts($kv);
-                    $key
-                }
-            )?
-            $(
-                #[allow(unused_variables)]
-                fn serialize<$S: ::serde::Serializer>(
-                    $sv: $crate::attrs::arena::CoercedAttrRef<'_>,
-                    $sctx: &$crate::attrs::fmt_context::AttrFmtContext,
-                    $ss: $S,
-                ) -> Result<$S::Ok, $S::Error> {
-                    let $sp = Self::parts($sv);
-                    $serialize
-                }
-            )?
-        }
-    };
-}
-pub(crate) use impl_semantics;
 
 /// Selects the [`Semantics`] type for a value's tag at runtime,
 /// monomorphizing the visitor per kind. The record-internal kinds are not
@@ -424,68 +290,133 @@ pub(crate) fn json_label(l: &ProvidersLabel) -> buck2_error::Result<serde_json::
     Ok(to_value(l.to_string())?)
 }
 
-/// One semantic entry point as a visitor: [`dispatch_value`] runs it for
-/// the value's kind.
-macro_rules! semantic_visitor {
-    ($name:ident<$($lt:lifetime),*> { $($f:ident : $ty:ty),* $(,)? } -> $out:ty, |$k:ident, $s:ident| $body:expr) => {
-        pub(super) struct $name<$($lt),*> {
-            $(pub(super) $f: $ty,)*
-        }
-
-        impl<$($lt),*> ValueVisitor for $name<$($lt),*> {
-            type Out = $out;
-            fn visit<$k: Semantics + 'static>($s) -> $out {
-                $body
-            }
-        }
-    };
+/// The operands of one value operation, as [`dispatch_value`] hands them to
+/// the kind's [`Semantics`]; `v` is the value itself.
+pub(crate) struct Traverse<'x, 'a> {
+    pub(crate) v: CoercedAttrRef<'a>,
+    pub(crate) t: &'x AttrType,
+    pub(crate) pkg: Option<PackageLabel>,
+    pub(crate) tr: &'x mut dyn CoercedAttrTraversal<'a>,
 }
 
-semantic_visitor!(Traverse<'x, 'a> {
-    v: CoercedAttrRef<'a>, t: &'x AttrType, pkg: Option<PackageLabel>, tr: &'x mut dyn CoercedAttrTraversal<'a>,
-} -> buck2_error::Result<()>, |K, self| K::traverse(self.v, self.t, self.pkg, self.tr));
+impl ValueVisitor for Traverse<'_, '_> {
+    type Out = buck2_error::Result<()>;
+    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+        K::traverse(K::parts(self.v), self)
+    }
+}
 
-semantic_visitor!(Configure<'x, 'a> {
-    v: CoercedAttrRef<'a>, t: &'x AttrType, ctx: &'x dyn AttrConfigurationContext, name: Option<&'x str>,
-} -> ResultMaybeCompatible<ConfiguredAttr>, |K, self| K::configure(self.v, self.t, self.ctx, self.name));
+pub(crate) struct Configure<'x, 'a> {
+    pub(crate) v: CoercedAttrRef<'a>,
+    pub(crate) t: &'x AttrType,
+    pub(crate) ctx: &'x dyn AttrConfigurationContext,
+    pub(crate) name: Option<&'x str>,
+}
 
-semantic_visitor!(TraverseConfigured<'x, 'a> {
-    v: CoercedAttrRef<'a>, t: &'x AttrType, pkg: PackageLabel, ctx: &'x dyn AttrConfigurationContext,
-    tr: &'x mut dyn ConfiguredAttrTraversal, name: Option<&'x str>,
-} -> ResultMaybeCompatible<()>, |K, self| K::traverse_configured(self.v, self.t, self.pkg, self.ctx, self.tr, self.name));
+impl ValueVisitor for Configure<'_, '_> {
+    type Out = ResultMaybeCompatible<ConfiguredAttr>;
+    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+        K::configure(K::parts(self.v), self)
+    }
+}
 
-semantic_visitor!(ConcatLeaves<'x, 'a> {
-    v: CoercedAttrRef<'a>, ctx: &'x dyn AttrConfigurationContext, out: &'x mut SmallVec<[CoercedAttrRef<'a>; 4]>,
-} -> ResultMaybeCompatible<()>, |K, self| K::concat_leaves(self.v, self.ctx, self.out));
+pub(crate) struct TraverseConfigured<'x, 'a> {
+    pub(crate) v: CoercedAttrRef<'a>,
+    pub(crate) t: &'x AttrType,
+    pub(crate) pkg: PackageLabel,
+    pub(crate) ctx: &'x dyn AttrConfigurationContext,
+    pub(crate) tr: &'x mut dyn ConfiguredAttrTraversal,
+    pub(crate) name: Option<&'x str>,
+}
 
-semantic_visitor!(ToJson<'x, 'a> {
-    v: CoercedAttrRef<'a>, ctx: &'x AttrFmtContext,
-} -> buck2_error::Result<serde_json::Value>, |K, self| K::to_json(self.v, self.ctx));
+impl ValueVisitor for TraverseConfigured<'_, '_> {
+    type Out = ResultMaybeCompatible<()>;
+    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+        K::traverse_configured(K::parts(self.v), self)
+    }
+}
 
-semantic_visitor!(Fmt<'x, 'y, 'a> {
-    v: CoercedAttrRef<'a>, ctx: &'x AttrFmtContext, f: &'x mut std::fmt::Formatter<'y>,
-} -> std::fmt::Result, |K, self| K::fmt(self.v, self.ctx, self.f));
+pub(crate) struct ConcatLeaves<'x, 'a> {
+    pub(crate) v: CoercedAttrRef<'a>,
+    pub(crate) ctx: &'x dyn AttrConfigurationContext,
+    pub(crate) out: &'x mut SmallVec<[CoercedAttrRef<'a>; 4]>,
+}
 
-semantic_visitor!(MatchesAny<'x, 'a> {
-    v: CoercedAttrRef<'a>, filter: &'x dyn Fn(&str) -> buck2_error::Result<bool>,
-} -> buck2_error::Result<bool>, |K, self| K::any_matches(self.v, self.filter));
+impl ValueVisitor for ConcatLeaves<'_, '_> {
+    type Out = ResultMaybeCompatible<()>;
+    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+        K::concat_leaves(K::parts(self.v), self)
+    }
+}
 
-semantic_visitor!(ConcatClass<> {} -> Option<&'static str>, |K, self| K::CONCAT);
+pub(crate) struct ConcatClass;
 
-semantic_visitor!(JsonKey<'x, 'a> {
-    v: CoercedAttrRef<'a>, ctx: &'x AttrFmtContext,
-} -> buck2_error::Result<Cow<'a, str>>, |K, self| K::json_key(self.v, self.ctx));
+impl ValueVisitor for ConcatClass {
+    type Out = Option<&'static str>;
+    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+        K::CONCAT
+    }
+}
+
+pub(crate) struct ToJson<'x, 'a> {
+    pub(crate) v: CoercedAttrRef<'a>,
+    pub(crate) ctx: &'x AttrFmtContext,
+}
+
+impl ValueVisitor for ToJson<'_, '_> {
+    type Out = buck2_error::Result<serde_json::Value>;
+    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+        K::to_json(K::parts(self.v), self)
+    }
+}
+
+pub(crate) struct Fmt<'x, 'y, 'a> {
+    pub(crate) v: CoercedAttrRef<'a>,
+    pub(crate) ctx: &'x AttrFmtContext,
+    pub(crate) f: &'x mut std::fmt::Formatter<'y>,
+}
+
+impl ValueVisitor for Fmt<'_, '_, '_> {
+    type Out = std::fmt::Result;
+    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+        K::fmt(K::parts(self.v), self)
+    }
+}
+
+pub(crate) struct MatchesAny<'x, 'a> {
+    pub(crate) v: CoercedAttrRef<'a>,
+    pub(crate) filter: &'x dyn Fn(&str) -> buck2_error::Result<bool>,
+}
+
+impl ValueVisitor for MatchesAny<'_, '_> {
+    type Out = buck2_error::Result<bool>;
+    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+        K::any_matches(K::parts(self.v), self)
+    }
+}
+
+pub(crate) struct JsonKey<'x, 'a> {
+    pub(crate) v: CoercedAttrRef<'a>,
+    pub(crate) ctx: &'x AttrFmtContext,
+}
+
+impl<'a> ValueVisitor for JsonKey<'_, 'a> {
+    type Out = buck2_error::Result<Cow<'a, str>>;
+    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+        K::json_key(K::parts(self.v), self)
+    }
+}
 
 /// [`AttrSerializeWithContext`] for a value: generic over the serializer.
-pub(super) struct SerializeKind<'x, 'a, S> {
-    pub(super) v: CoercedAttrRef<'a>,
-    pub(super) ctx: &'x AttrFmtContext,
-    pub(super) s: S,
+pub(crate) struct SerializeKind<'x, 'a, S> {
+    pub(crate) v: CoercedAttrRef<'a>,
+    pub(crate) ctx: &'x AttrFmtContext,
+    pub(crate) ser: S,
 }
 
 impl<S: Serializer> ValueVisitor for SerializeKind<'_, '_, S> {
     type Out = Result<S::Ok, S::Error>;
     fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::serialize(self.v, self.ctx, self.s)
+        K::serialize(K::parts(self.v), self)
     }
 }

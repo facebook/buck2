@@ -23,10 +23,18 @@ use buck2_error::internal_error;
 use dupe::Dupe;
 use pagable::Pagable;
 use serde::Serialize;
+use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -169,14 +177,21 @@ impl CoercedTransitionDep {
     }
 }
 
-impl_semantics!(TransitionDep {
-    traverse(v, (dep, transition), t, pkg, tr) {
+impl Semantics for kinds::TransitionDep {
+    fn traverse<'a>(
+        (dep, transition): Self::Parts<'a>,
+        Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::TransitionDep(ty) => ty.traverse(dep, transition, tr),
             _ => Err(mismatch(v, t)),
         }
     }
-    configure(v, (dep, transition), t, ctx, name) {
+
+    fn configure(
+        (dep, transition): Self::Parts<'_>,
+        Configure { v, t, ctx, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::TransitionDep(ty) => {
                 ResultMaybeCompatible::Compatible(ty.configure(dep, transition, ctx)?)
@@ -184,18 +199,35 @@ impl_semantics!(TransitionDep {
             _ => mismatch(v, t).into(),
         }
     }
-    json(v, (dep, transition), ctx) {
+
+    fn to_json(
+        (dep, transition): Self::Parts<'_>,
+        _: ToJson<'_, '_>,
+    ) -> buck2_error::Result<serde_json::Value> {
         match transition {
             Some(tr) => Ok(to_value([dep.to_string(), tr.to_string()])?),
             None => Ok(to_value(dep.to_string())?),
         }
     }
-    fmt(v, (dep, transition), ctx, f) { std::fmt::Display::fmt(dep, f) }
-    any_matches(v, (dep, transition), filter) { filter(&dep.to_string()) }
-    serialize<S>(v, (dep, transition), ctx, ser) {
+
+    fn fmt((dep, _): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(dep, f)
+    }
+
+    fn any_matches(
+        (dep, _): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        filter(&dep.to_string())
+    }
+
+    fn serialize<S: Serializer>(
+        (dep, transition): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
         match transition {
             Some(tr) => [dep.to_string(), tr.to_string()].serialize(ser),
             None => ser.serialize_str(&dep.to_string()),
         }
     }
-});
+}

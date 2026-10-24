@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::borrow::Cow;
 use std::fmt;
 
 use allocative::Allocative;
@@ -15,9 +16,19 @@ use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use pagable::Pagable;
+use serde::Serializer;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::JsonKey;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::attr_type::AttrType;
@@ -58,8 +69,11 @@ impl OneOfAttrType {
     }
 }
 
-impl_semantics!(OneOf {
-    traverse(v, (idx, inner), t, pkg, tr) {
+impl Semantics for kinds::OneOf {
+    fn traverse<'a>(
+        (idx, inner): Self::Parts<'a>,
+        Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::OneOf(ty) => {
                 let item_t = ty
@@ -71,7 +85,11 @@ impl_semantics!(OneOf {
             _ => Err(mismatch(v, t)),
         }
     }
-    configure(v, (idx, inner), t, ctx, name) {
+
+    fn configure(
+        (idx, inner): Self::Parts<'_>,
+        Configure { v, t, ctx, name }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::OneOf(ty) => {
                 let item_t = match ty.xs.get(idx as usize) {
@@ -84,7 +102,18 @@ impl_semantics!(OneOf {
             _ => mismatch(v, t).into(),
         }
     }
-    traverse_configured(v, (idx, inner), t, pkg, ctx, tr, name) {
+
+    fn traverse_configured(
+        (idx, inner): Self::Parts<'_>,
+        TraverseConfigured {
+            v,
+            t,
+            pkg,
+            ctx,
+            tr,
+            name,
+        }: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Any(_) => ResultMaybeCompatible::Compatible(()),
             AttrTypeInner::OneOf(ty) => {
@@ -97,9 +126,36 @@ impl_semantics!(OneOf {
             _ => mismatch(v, t).into(),
         }
     }
-    json(v, (idx, inner), ctx) { inner.to_json(ctx) }
-    fmt(v, (idx, inner), ctx, f) { AttrDisplayWithContext::fmt(&inner, ctx, f) }
-    any_matches(v, (idx, inner), filter) { inner.any_matches(filter) }
-    json_key(v, (idx, inner), ctx) { inner.json_key(ctx) }
-    serialize<S>(v, (idx, inner), ctx, ser) { inner.serialize_with_ctx(ctx, ser) }
-});
+
+    fn to_json(
+        (_, inner): Self::Parts<'_>,
+        ToJson { ctx, .. }: ToJson<'_, '_>,
+    ) -> buck2_error::Result<serde_json::Value> {
+        inner.to_json(ctx)
+    }
+
+    fn fmt((_, inner): Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        AttrDisplayWithContext::fmt(&inner, ctx, f)
+    }
+
+    fn any_matches(
+        (_, inner): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        inner.any_matches(filter)
+    }
+
+    fn json_key<'a>(
+        (_, inner): Self::Parts<'a>,
+        JsonKey { ctx, .. }: JsonKey<'_, 'a>,
+    ) -> buck2_error::Result<Cow<'a, str>> {
+        inner.json_key(ctx)
+    }
+
+    fn serialize<S: Serializer>(
+        (_, inner): Self::Parts<'_>,
+        SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        inner.serialize_with_ctx(ctx, ser)
+    }
+}

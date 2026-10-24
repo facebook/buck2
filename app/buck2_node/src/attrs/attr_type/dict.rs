@@ -19,11 +19,20 @@ use buck2_error::internal_error;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_keyed_container;
 use pagable::Pagable;
+use serde::Serializer;
 use serde_json::Value;
 use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrRefDisplay;
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::arena::semantics::ser_err;
@@ -132,8 +141,13 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for DictLiteral<C> {
     }
 }
 
-impl_semantics!(Dict: concat "dict" {
-    traverse(v, (pairs,), t, pkg, tr) {
+impl Semantics for kinds::Dict {
+    const CONCAT: Option<&'static str> = Some("dict");
+
+    fn traverse<'a>(
+        (pairs,): Self::Parts<'a>,
+        Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         let inner = inner_type(t);
         let (kt, vt) = match &inner.0.inner {
             AttrTypeInner::Any(_) => (inner, inner),
@@ -146,7 +160,11 @@ impl_semantics!(Dict: concat "dict" {
         }
         Ok(())
     }
-    configure(v, (pairs,), t, ctx, name) {
+
+    fn configure(
+        (pairs,): Self::Parts<'_>,
+        Configure { v, t, ctx, name }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         let (kt, vt) = match &inner_type(t).0.inner {
             AttrTypeInner::Any(_) => (AttrType::any_ref(), AttrType::any_ref()),
             AttrTypeInner::Dict(ty) => (&ty.key, &ty.value),
@@ -164,7 +182,18 @@ impl_semantics!(Dict: concat "dict" {
                 .into(),
         )))
     }
-    traverse_configured(v, (pairs,), t, pkg, ctx, tr, name) {
+
+    fn traverse_configured(
+        (pairs,): Self::Parts<'_>,
+        TraverseConfigured {
+            v,
+            t,
+            pkg,
+            ctx,
+            tr,
+            name,
+        }: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
         let (kt, vt) = match &inner_type(t).0.inner {
             AttrTypeInner::Any(_) => return ResultMaybeCompatible::Compatible(()),
             AttrTypeInner::Dict(ty) => (&ty.key, &ty.value),
@@ -176,7 +205,11 @@ impl_semantics!(Dict: concat "dict" {
         }
         ResultMaybeCompatible::Compatible(())
     }
-    json(v, (pairs,), ctx) {
+
+    fn to_json(
+        (pairs,): Self::Parts<'_>,
+        ToJson { ctx, .. }: ToJson<'_, '_>,
+    ) -> buck2_error::Result<serde_json::Value> {
         let mut res = serde_json::Map::with_capacity(pairs.len());
         for (k, val) in pairs.iter() {
             res.insert(
@@ -189,7 +222,8 @@ impl_semantics!(Dict: concat "dict" {
         }
         Ok(serde_json::Value::Object(res))
     }
-    fmt(v, (pairs,), ctx, f) {
+
+    fn fmt((pairs,): Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         fmt_keyed_container(
             f,
             "{",
@@ -200,7 +234,11 @@ impl_semantics!(Dict: concat "dict" {
                 .map(|(k, val)| (AttrRefDisplay { ctx, r: k }, AttrRefDisplay { ctx, r: val })),
         )
     }
-    any_matches(v, (pairs,), filter) {
+
+    fn any_matches(
+        (pairs,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
         for (k, val) in pairs.iter() {
             if k.any_matches(filter)? || val.any_matches(filter)? {
                 return Ok(true);
@@ -208,7 +246,11 @@ impl_semantics!(Dict: concat "dict" {
         }
         Ok(false)
     }
-    serialize<S>(v, (pairs,), ctx, ser) {
+
+    fn serialize<S: Serializer>(
+        (pairs,): Self::Parts<'_>,
+        SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
         ser_keyed(
             pairs
                 .iter()
@@ -220,4 +262,4 @@ impl_semantics!(Dict: concat "dict" {
             ser,
         )
     }
-});
+}

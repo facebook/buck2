@@ -18,11 +18,21 @@ use buck2_hash::BuckFixedInsertionSet;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_util::arc_str::ArcStr;
 use pagable::Pagable;
+use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::JsonKey;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::arena::semantics::fmt_text;
-use crate::attrs::arena::semantics::impl_semantics;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -81,9 +91,15 @@ impl EnumAttrType {
     }
 }
 
-impl_semantics!(EnumVariant {
-    traverse(v, (s,), t, pkg, tr) { Ok(()) }
-    configure(v, (s,), t, ctx, name) {
+impl Semantics for kinds::EnumVariant {
+    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn configure(
+        (s,): Self::Parts<'_>,
+        Configure { v, t, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Enum(_) => ResultMaybeCompatible::Compatible(
                 ConfiguredAttr::EnumVariant(StringLiteral(ArcStr::from(s))),
@@ -91,10 +107,40 @@ impl_semantics!(EnumVariant {
             _ => mismatch(v, t).into(),
         }
     }
-    traverse_configured(v, (s,), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
-    json(v, (s,), ctx) { Ok(to_value(s)?) }
-    fmt(v, (s,), ctx, f) { fmt_text(s, ctx, f) }
-    any_matches(v, (s,), filter) { filter(s) }
-    json_key(v, (s,), ctx) { Ok(Cow::Borrowed(s)) }
-    serialize<S>(v, (s,), ctx, ser) { ser.serialize_str(s) }
-});
+
+    fn traverse_configured(
+        _: Self::Parts<'_>,
+        _: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
+        ResultMaybeCompatible::Compatible(())
+    }
+
+    fn to_json((s,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value(s)?)
+    }
+
+    fn fmt((s,): Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        fmt_text(s, ctx, f)
+    }
+
+    fn any_matches(
+        (s,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        filter(s)
+    }
+
+    fn json_key<'a>(
+        (s,): Self::Parts<'a>,
+        _: JsonKey<'_, 'a>,
+    ) -> buck2_error::Result<Cow<'a, str>> {
+        Ok(Cow::Borrowed(s))
+    }
+
+    fn serialize<S: Serializer>(
+        (s,): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(s)
+    }
+}

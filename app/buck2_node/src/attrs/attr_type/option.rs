@@ -13,9 +13,18 @@ use std::fmt;
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use pagable::Pagable;
+use serde::Serializer;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::configured_attr::ConfiguredAttr;
 
@@ -34,12 +43,41 @@ impl OptionAttrType {
     }
 }
 
-impl_semantics!(None {
-    traverse(v, (), t, pkg, tr) { Ok(()) }
-    configure(v, (), t, ctx, name) { ResultMaybeCompatible::Compatible(ConfiguredAttr::None) }
-    traverse_configured(v, (), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
-    json(v, (), ctx) { Ok(serde_json::Value::Null) }
-    fmt(v, (), ctx, f) { write!(f, "None") }
-    any_matches(v, (), filter) { Ok(false) }
-    serialize<S>(v, (), ctx, ser) { ser.serialize_unit() }
-});
+impl Semantics for kinds::None {
+    fn traverse<'a>((): Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn configure(
+        (): Self::Parts<'_>,
+        _: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
+        ResultMaybeCompatible::Compatible(ConfiguredAttr::None)
+    }
+
+    fn traverse_configured(
+        (): Self::Parts<'_>,
+        _: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
+        ResultMaybeCompatible::Compatible(())
+    }
+
+    fn to_json((): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        Ok(serde_json::Value::Null)
+    }
+
+    fn fmt((): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "None")
+    }
+
+    fn any_matches((): Self::Parts<'_>, _: MatchesAny<'_, '_>) -> buck2_error::Result<bool> {
+        Ok(false)
+    }
+
+    fn serialize<S: Serializer>(
+        (): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_unit()
+    }
+}

@@ -21,9 +21,18 @@ use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_util::size_assert;
 use dupe::Dupe;
 use pagable::Pagable;
+use serde::Serializer;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::JsonKey;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::json_label;
 use crate::attrs::arena::semantics::mismatch;
@@ -144,22 +153,53 @@ impl DepAttrType {
     }
 }
 
-impl_semantics!(Dep {
-    traverse(v, (l,), t, pkg, tr) {
+impl Semantics for kinds::Dep {
+    fn traverse<'a>(
+        (l,): Self::Parts<'a>,
+        Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Dep(ty) => DepAttr::<ProvidersLabel>::traverse(l, ty, tr),
             _ => Err(mismatch(v, t)),
         }
     }
-    configure(v, (l,), t, ctx, name) {
+
+    fn configure(
+        (l,): Self::Parts<'_>,
+        Configure { v, t, ctx, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Dep(ty) => ResultMaybeCompatible::Compatible(ty.configure(l, ctx)?),
             _ => mismatch(v, t).into(),
         }
     }
-    json(v, (l,), ctx) { json_label(l) }
-    fmt(v, (l,), ctx, f) { write!(f, "\"{l}\"") }
-    any_matches(v, (l,), filter) { filter(&l.to_string()) }
-    json_key(v, (l,), ctx) { Ok(Cow::Owned(l.to_string())) }
-    serialize<S>(v, (l,), ctx, ser) { ser.serialize_str(&l.to_string()) }
-});
+
+    fn to_json((l,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        json_label(l)
+    }
+
+    fn fmt((l,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "\"{l}\"")
+    }
+
+    fn any_matches(
+        (l,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        filter(&l.to_string())
+    }
+
+    fn json_key<'a>(
+        (l,): Self::Parts<'a>,
+        _: JsonKey<'_, 'a>,
+    ) -> buck2_error::Result<Cow<'a, str>> {
+        Ok(Cow::Owned(l.to_string()))
+    }
+
+    fn serialize<S: Serializer>(
+        (l,): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&l.to_string())
+    }
+}

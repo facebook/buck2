@@ -547,7 +547,7 @@ impl<'a> CoercedAttrRef<'a> {
 
     /// The class of values this one concatenates with, if any.
     pub(crate) fn concat_class(&self) -> Option<&'static str> {
-        dispatch_value(self.arena.kind_of(self.r), ConcatClass {})
+        dispatch_value(self.arena.kind_of(self.r), ConcatClass)
     }
 }
 
@@ -697,7 +697,11 @@ impl AttrSerializeWithContext for CoercedAttrRef<'_> {
     {
         dispatch_value(
             self.arena.kind_of(self.r),
-            SerializeKind { v: *self, ctx, s },
+            SerializeKind {
+                v: *self,
+                ctx,
+                ser: s,
+            },
         )
     }
 }

@@ -15,10 +15,20 @@ use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::plugins::PluginKind;
 use dupe::Dupe;
 use pagable::Pagable;
+use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::JsonKey;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -41,23 +51,33 @@ impl PluginDepAttrType {
     }
 }
 
-impl_semantics!(PluginDep {
-    traverse(v, (l,), t, pkg, tr) {
+impl Semantics for kinds::PluginDep {
+    fn traverse<'a>(
+        (l,): Self::Parts<'a>,
+        Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::PluginDep(ty) => tr.plugin_dep(l, ty.kind()),
             _ => Err(mismatch(v, t)),
         }
     }
-    configure(v, (l,), t, ctx, name) {
+
+    fn configure(
+        (l,): Self::Parts<'_>,
+        Configure { v, t, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
-            AttrTypeInner::PluginDep(ty) => ResultMaybeCompatible::Compatible(ConfiguredAttr::PluginDep(
-                l.dupe(),
-                ty.kind().dupe(),
-            )),
+            AttrTypeInner::PluginDep(ty) => ResultMaybeCompatible::Compatible(
+                ConfiguredAttr::PluginDep(l.dupe(), ty.kind().dupe()),
+            ),
             _ => mismatch(v, t).into(),
         }
     }
-    traverse_configured(v, (l,), t, pkg, ctx, tr, name) {
+
+    fn traverse_configured(
+        (l,): Self::Parts<'_>,
+        TraverseConfigured { v, t, tr, .. }: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Any(_) => {}
             AttrTypeInner::PluginDep(ty) => {
@@ -69,9 +89,33 @@ impl_semantics!(PluginDep {
         }
         ResultMaybeCompatible::Compatible(())
     }
-    json(v, (l,), ctx) { Ok(to_value(l.to_string())?) }
-    fmt(v, (l,), ctx, f) { write!(f, "\"{l}\"") }
-    any_matches(v, (l,), filter) { filter(&l.to_string()) }
-    json_key(v, (l,), ctx) { Ok(Cow::Owned(l.to_string())) }
-    serialize<S>(v, (l,), ctx, ser) { ser.serialize_str(&l.to_string()) }
-});
+
+    fn to_json((l,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value(l.to_string())?)
+    }
+
+    fn fmt((l,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "\"{l}\"")
+    }
+
+    fn any_matches(
+        (l,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        filter(&l.to_string())
+    }
+
+    fn json_key<'a>(
+        (l,): Self::Parts<'a>,
+        _: JsonKey<'_, 'a>,
+    ) -> buck2_error::Result<Cow<'a, str>> {
+        Ok(Cow::Owned(l.to_string()))
+    }
+
+    fn serialize<S: Serializer>(
+        (l,): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&l.to_string())
+    }
+}

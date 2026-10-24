@@ -13,9 +13,18 @@ use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use dupe::Dupe;
 use pagable::Pagable;
 use serde::Serialize;
+use serde::Serializer;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::configured_attr::ConfiguredAttr;
 
@@ -24,12 +33,44 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 )]
 pub struct VisibilityAttrType;
 
-impl_semantics!(Visibility {
-    traverse(v, (s,), t, pkg, tr) { Ok(()) }
-    configure(v, (s,), t, ctx, name) { ResultMaybeCompatible::Compatible(ConfiguredAttr::Visibility(s.clone())) }
-    traverse_configured(v, (s,), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
-    json(v, (s,), ctx) { Ok(s.to_json()) }
-    fmt(v, (s,), ctx, f) { write!(f, "{}", s) }
-    any_matches(v, (s,), filter) { s.any_matches(filter) }
-    serialize<S>(v, (s,), ctx, ser) { s.to_json().serialize(ser) }
-});
+impl Semantics for kinds::Visibility {
+    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn configure(
+        (s,): Self::Parts<'_>,
+        _: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
+        ResultMaybeCompatible::Compatible(ConfiguredAttr::Visibility(s.clone()))
+    }
+
+    fn traverse_configured(
+        _: Self::Parts<'_>,
+        _: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
+        ResultMaybeCompatible::Compatible(())
+    }
+
+    fn to_json((s,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        Ok(s.to_json())
+    }
+
+    fn fmt((s,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "{}", s)
+    }
+
+    fn any_matches(
+        (s,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        s.any_matches(filter)
+    }
+
+    fn serialize<S: Serializer>(
+        (s,): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        s.to_json().serialize(ser)
+    }
+}

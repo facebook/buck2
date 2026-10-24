@@ -18,10 +18,19 @@ use dupe::Dupe;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -70,9 +79,15 @@ impl AnyMatches for BoolLiteral {
     }
 }
 
-impl_semantics!(BoolFalse {
-    traverse(v, (), t, pkg, tr) { Ok(()) }
-    configure(v, (), t, ctx, name) {
+impl Semantics for kinds::BoolFalse {
+    fn traverse<'a>((): Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn configure(
+        (): Self::Parts<'_>,
+        Configure { v, t, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Bool(_) | AttrTypeInner::Any(_) => {
                 ResultMaybeCompatible::Compatible(ConfiguredAttr::Bool(BoolLiteral(false)))
@@ -80,16 +95,46 @@ impl_semantics!(BoolFalse {
             _ => mismatch(v, t).into(),
         }
     }
-    traverse_configured(v, (), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
-    json(v, (), ctx) { Ok(to_value(false)?) }
-    fmt(v, (), ctx, f) { write!(f, "{}", BoolLiteral(false)) }
-    any_matches(v, (), filter) { BoolLiteral(false).any_matches(filter) }
-    serialize<S>(v, (), ctx, ser) { ser.serialize_bool(false) }
-});
 
-impl_semantics!(BoolTrue {
-    traverse(v, (), t, pkg, tr) { Ok(()) }
-    configure(v, (), t, ctx, name) {
+    fn traverse_configured(
+        (): Self::Parts<'_>,
+        _: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
+        ResultMaybeCompatible::Compatible(())
+    }
+
+    fn to_json((): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value(false)?)
+    }
+
+    fn fmt((): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "{}", BoolLiteral(false))
+    }
+
+    fn any_matches(
+        (): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        BoolLiteral(false).any_matches(filter)
+    }
+
+    fn serialize<S: Serializer>(
+        (): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_bool(false)
+    }
+}
+
+impl Semantics for kinds::BoolTrue {
+    fn traverse<'a>((): Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn configure(
+        (): Self::Parts<'_>,
+        Configure { v, t, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Bool(_) | AttrTypeInner::Any(_) => {
                 ResultMaybeCompatible::Compatible(ConfiguredAttr::Bool(BoolLiteral(true)))
@@ -97,9 +142,33 @@ impl_semantics!(BoolTrue {
             _ => mismatch(v, t).into(),
         }
     }
-    traverse_configured(v, (), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
-    json(v, (), ctx) { Ok(to_value(true)?) }
-    fmt(v, (), ctx, f) { write!(f, "{}", BoolLiteral(true)) }
-    any_matches(v, (), filter) { BoolLiteral(true).any_matches(filter) }
-    serialize<S>(v, (), ctx, ser) { ser.serialize_bool(true) }
-});
+
+    fn traverse_configured(
+        (): Self::Parts<'_>,
+        _: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
+        ResultMaybeCompatible::Compatible(())
+    }
+
+    fn to_json((): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value(true)?)
+    }
+
+    fn fmt((): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "{}", BoolLiteral(true))
+    }
+
+    fn any_matches(
+        (): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        BoolLiteral(true).any_matches(filter)
+    }
+
+    fn serialize<S: Serializer>(
+        (): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_bool(true)
+    }
+}

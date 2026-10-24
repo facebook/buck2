@@ -19,13 +19,22 @@ use buck2_error::internal_error;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_container;
 use pagable::Pagable;
+use serde::Serializer;
 use serde_json::Value;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::arena::semantics::any_matches_seq;
 use crate::attrs::arena::semantics::fmt_seq;
-use crate::attrs::arena::semantics::impl_semantics;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::json_seq;
 use crate::attrs::arena::semantics::mismatch;
@@ -110,8 +119,11 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for TupleLiteral<C> {
     }
 }
 
-impl_semantics!(Tuple {
-    traverse(v, (items,), t, pkg, tr) {
+impl Semantics for kinds::Tuple {
+    fn traverse<'a>(
+        (items,): Self::Parts<'a>,
+        Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         let inner = inner_type(t);
         match &inner.0.inner {
             AttrTypeInner::Any(_) => {
@@ -131,7 +143,11 @@ impl_semantics!(Tuple {
         }
         Ok(())
     }
-    configure(v, (items,), t, ctx, name) {
+
+    fn configure(
+        (items,): Self::Parts<'_>,
+        Configure { v, t, ctx, name }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         let configured = match &inner_type(t).0.inner {
             AttrTypeInner::Any(_) => items
                 .iter()
@@ -152,7 +168,18 @@ impl_semantics!(Tuple {
         };
         ResultMaybeCompatible::Compatible(ConfiguredAttr::Tuple(TupleLiteral(configured)))
     }
-    traverse_configured(v, (items,), t, pkg, ctx, tr, name) {
+
+    fn traverse_configured(
+        (items,): Self::Parts<'_>,
+        TraverseConfigured {
+            v,
+            t,
+            pkg,
+            ctx,
+            tr,
+            name,
+        }: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Any(_) => {}
             AttrTypeInner::Tuple(ty) => {
@@ -167,8 +194,29 @@ impl_semantics!(Tuple {
         }
         ResultMaybeCompatible::Compatible(())
     }
-    json(v, (items,), ctx) { json_seq(items, ctx) }
-    fmt(v, (items,), ctx, f) { fmt_seq(items, "(", ")", ctx, f) }
-    any_matches(v, (items,), filter) { any_matches_seq(items, filter) }
-    serialize<S>(v, (items,), ctx, ser) { ser_seq(items, ctx, ser) }
-});
+
+    fn to_json(
+        (items,): Self::Parts<'_>,
+        ToJson { ctx, .. }: ToJson<'_, '_>,
+    ) -> buck2_error::Result<serde_json::Value> {
+        json_seq(items, ctx)
+    }
+
+    fn fmt((items,): Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        fmt_seq(items, "(", ")", ctx, f)
+    }
+
+    fn any_matches(
+        (items,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        any_matches_seq(items, filter)
+    }
+
+    fn serialize<S: Serializer>(
+        (items,): Self::Parts<'_>,
+        SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser_seq(items, ctx, ser)
+    }
+}

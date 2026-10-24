@@ -13,9 +13,18 @@ use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use dupe::Dupe;
 use pagable::Pagable;
 use serde::Serialize;
+use serde::Serializer;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::configured_attr::ConfiguredAttr;
 
@@ -24,12 +33,44 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 )]
 pub struct MetadataAttrType;
 
-impl_semantics!(Metadata {
-    traverse(v, (m,), t, pkg, tr) { Ok(()) }
-    configure(v, (m,), t, ctx, name) { ResultMaybeCompatible::Compatible(ConfiguredAttr::Metadata(m.clone())) }
-    traverse_configured(v, (m,), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
-    json(v, (m,), ctx) { Ok(m.to_value()) }
-    fmt(v, (m,), ctx, f) { write!(f, "{}", m) }
-    any_matches(v, (m,), filter) { m.any_matches(filter) }
-    serialize<S>(v, (m,), ctx, ser) { m.to_value().serialize(ser) }
-});
+impl Semantics for kinds::Metadata {
+    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn configure(
+        (m,): Self::Parts<'_>,
+        _: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
+        ResultMaybeCompatible::Compatible(ConfiguredAttr::Metadata(m.clone()))
+    }
+
+    fn traverse_configured(
+        _: Self::Parts<'_>,
+        _: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
+        ResultMaybeCompatible::Compatible(())
+    }
+
+    fn to_json((m,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        Ok(m.to_value())
+    }
+
+    fn fmt((m,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "{}", m)
+    }
+
+    fn any_matches(
+        (m,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        m.any_matches(filter)
+    }
+
+    fn serialize<S: Serializer>(
+        (m,): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        m.to_value().serialize(ser)
+    }
+}

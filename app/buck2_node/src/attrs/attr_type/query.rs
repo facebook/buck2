@@ -18,10 +18,18 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use pagable::Pagable;
+use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::arena::semantics::query_view;
@@ -219,8 +227,11 @@ impl QueryAttrBase<ProvidersLabel> {
     }
 }
 
-impl_semantics!(Query {
-    traverse(v, (expr,), t, pkg, tr) {
+impl Semantics for kinds::Query {
+    fn traverse<'a>(
+        (expr,): Self::Parts<'a>,
+        Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         // Queries have no inputs or configuration deps: literal labels only,
         // in expression order.
         if !matches!(&inner_type(t).0.inner, AttrTypeInner::Query(_)) {
@@ -233,7 +244,11 @@ impl_semantics!(Query {
         }
         Ok(())
     }
-    configure(v, (expr,), t, ctx, name) {
+
+    fn configure(
+        _: Self::Parts<'_>,
+        Configure { v, t, ctx, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Query(_) => ResultMaybeCompatible::Compatible(ConfiguredAttr::Query(
                 Box::new(query_view(v).configure(ctx)),
@@ -241,8 +256,29 @@ impl_semantics!(Query {
             _ => mismatch(v, t).into(),
         }
     }
-    json(v, (expr,), ctx) { Ok(to_value(query_view(v).query().0)?) }
-    fmt(v, (expr,), ctx, f) { write!(f, "\"{}\"", query_view(v).query().0) }
-    any_matches(v, (expr,), filter) { filter(&query_view(v).query().0) }
-    serialize<S>(v, (expr,), ctx, ser) { ser.serialize_str(&query_view(v).query().0) }
-});
+
+    fn to_json(
+        _: Self::Parts<'_>,
+        ToJson { v, .. }: ToJson<'_, '_>,
+    ) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value(query_view(v).query().0)?)
+    }
+
+    fn fmt(_: Self::Parts<'_>, Fmt { v, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "\"{}\"", query_view(v).query().0)
+    }
+
+    fn any_matches(
+        _: Self::Parts<'_>,
+        MatchesAny { v, filter }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        filter(&query_view(v).query().0)
+    }
+
+    fn serialize<S: Serializer>(
+        _: Self::Parts<'_>,
+        SerializeKind { v, ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&query_view(v).query().0)
+    }
+}

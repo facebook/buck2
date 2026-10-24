@@ -32,8 +32,16 @@ use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::Refs;
 use crate::attrs::arena::Values;
 use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::ConcatLeaves;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::arena::semantics::any_matches_seq;
-use crate::attrs::arena::semantics::impl_semantics;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::json_seq;
 use crate::attrs::arena::semantics::ser_err;
@@ -43,6 +51,7 @@ use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::configuration_context::AttrConfigurationContext;
+use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::configuration::resolved::ConfigurationSettingKey;
@@ -139,29 +148,99 @@ pub(crate) fn select_incompatible_to_json(
     ])))
 }
 
-impl_semantics!(SelectFail {
-    traverse(v, (m,), t, pkg, tr) { Ok(()) }
-    configure(v, (m,), t, ctx, name) { select_fail(m) }
-    traverse_configured(v, (m,), t, pkg, ctx, tr, name) { select_fail(m) }
-    concat_leaves(v, (m,), ctx, out) { select_fail(m) }
-    json(v, (m,), ctx) { select_fail_to_json(m) }
-    fmt(v, (m,), ctx, f) { write!(f, "select_fail(\"{m}\")") }
-    any_matches(v, (m,), filter) { Ok(false) }
-    serialize<S>(v, (m,), ctx, ser) { select_fail_to_json(m).map_err(ser_err::<S>)?.serialize(ser) }
-});
-
-impl_semantics!(SelectIncompatible {
-    traverse(v, (m,), t, pkg, tr) { Ok(()) }
-    configure(v, (m,), t, ctx, name) { select_incompatible(m, ctx) }
-    traverse_configured(v, (m,), t, pkg, ctx, tr, name) { select_incompatible(m, ctx) }
-    concat_leaves(v, (m,), ctx, out) { select_incompatible(m, ctx) }
-    json(v, (m,), ctx) { select_incompatible_to_json(m) }
-    fmt(v, (m,), ctx, f) { write!(f, "select_incompatible(\"{m}\")") }
-    any_matches(v, (m,), filter) { Ok(false) }
-    serialize<S>(v, (m,), ctx, ser) {
-        select_incompatible_to_json(m).map_err(ser_err::<S>)?.serialize(ser)
+impl Semantics for kinds::SelectFail {
+    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+        Ok(())
     }
-});
+
+    fn configure(
+        (m,): Self::Parts<'_>,
+        _: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
+        select_fail(m)
+    }
+
+    fn traverse_configured(
+        (m,): Self::Parts<'_>,
+        _: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
+        select_fail(m)
+    }
+
+    fn concat_leaves<'a>(
+        (m,): Self::Parts<'a>,
+        _: ConcatLeaves<'_, 'a>,
+    ) -> ResultMaybeCompatible<()> {
+        select_fail(m)
+    }
+
+    fn to_json((m,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        select_fail_to_json(m)
+    }
+
+    fn fmt((m,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "select_fail(\"{m}\")")
+    }
+
+    fn any_matches(_: Self::Parts<'_>, _: MatchesAny<'_, '_>) -> buck2_error::Result<bool> {
+        Ok(false)
+    }
+
+    fn serialize<S: Serializer>(
+        (m,): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        select_fail_to_json(m).map_err(ser_err::<S>)?.serialize(ser)
+    }
+}
+
+impl Semantics for kinds::SelectIncompatible {
+    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn configure(
+        (m,): Self::Parts<'_>,
+        Configure { ctx, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
+        select_incompatible(m, ctx)
+    }
+
+    fn traverse_configured(
+        (m,): Self::Parts<'_>,
+        TraverseConfigured { ctx, .. }: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
+        select_incompatible(m, ctx)
+    }
+
+    fn concat_leaves<'a>(
+        (m,): Self::Parts<'a>,
+        ConcatLeaves { ctx, .. }: ConcatLeaves<'_, 'a>,
+    ) -> ResultMaybeCompatible<()> {
+        select_incompatible(m, ctx)
+    }
+
+    fn to_json((m,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        select_incompatible_to_json(m)
+    }
+
+    fn fmt((m,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "select_incompatible(\"{m}\")")
+    }
+
+    fn any_matches(_: Self::Parts<'_>, _: MatchesAny<'_, '_>) -> buck2_error::Result<bool> {
+        Ok(false)
+    }
+
+    fn serialize<S: Serializer>(
+        (m,): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        select_incompatible_to_json(m)
+            .map_err(ser_err::<S>)?
+            .serialize(ser)
+    }
+}
 
 fn select_fail<T>(message: &str) -> ResultMaybeCompatible<T> {
     buck2_error!(
@@ -180,8 +259,11 @@ fn select_incompatible<T>(
     ))
 }
 
-impl_semantics!(Selector {
-    traverse(v, (entries, default), t, pkg, tr) {
+impl Semantics for kinds::Selector {
+    fn traverse<'a>(
+        (entries, default): Self::Parts<'a>,
+        Traverse { t, pkg, tr, .. }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         for (key, val) in entries.iter() {
             tr.configuration_dep(key, ConfigurationDepKind::SelectKey)?;
             val.traverse(t, pkg, tr)?;
@@ -191,27 +273,50 @@ impl_semantics!(Selector {
         }
         Ok(())
     }
-    configure(v, (entries, default), t, ctx, name) {
+
+    fn configure(
+        (entries, default): Self::Parts<'_>,
+        Configure { v, t, ctx, name }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match CoercedAttrRef::select_view(ctx, v, entries, default, name)? {
             Some(selected) => selected.configure(t, ctx, name),
             None => CoercedAttrRef::select_no_match_error(ctx, entries).into(),
         }
     }
-    traverse_configured(v, (entries, default), t, pkg, ctx, tr, name) {
+
+    fn traverse_configured(
+        (entries, default): Self::Parts<'_>,
+        TraverseConfigured {
+            v,
+            t,
+            pkg,
+            ctx,
+            tr,
+            name,
+        }: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
         match CoercedAttrRef::select_view(ctx, v, entries, default, name) {
             Ok(Some(selected)) => selected.traverse_configured(t, pkg, ctx, tr, name),
             Ok(None) => CoercedAttrRef::select_no_match_error(ctx, entries).into(),
             Err(e) => e.into(),
         }
     }
-    concat_leaves(v, (entries, default), ctx, out) {
+
+    fn concat_leaves<'a>(
+        (entries, default): Self::Parts<'a>,
+        ConcatLeaves { v, ctx, out }: ConcatLeaves<'_, 'a>,
+    ) -> ResultMaybeCompatible<()> {
         match CoercedAttrRef::select_view(ctx, v, entries, default, None) {
             Ok(Some(selected)) => selected.concat_leaves(ctx, out),
             Ok(None) => CoercedAttrRef::select_no_match_error(ctx, entries).into(),
             Err(e) => e.into(),
         }
     }
-    json(v, (entries, default), ctx) {
+
+    fn to_json(
+        (entries, default): Self::Parts<'_>,
+        ToJson { ctx, .. }: ToJson<'_, '_>,
+    ) -> buck2_error::Result<serde_json::Value> {
         let mut map = serde_json::Map::new();
         for (key, value) in entries.iter() {
             map.insert(key.to_string(), value.to_json(ctx)?);
@@ -227,7 +332,11 @@ impl_semantics!(Selector {
             ("entries".to_owned(), serde_json::Value::Object(map)),
         ])))
     }
-    fmt(v, (entries, default), ctx, f) {
+
+    fn fmt(
+        (entries, default): Self::Parts<'_>,
+        Fmt { ctx, f, .. }: Fmt<'_, '_, '_>,
+    ) -> std::fmt::Result {
         write!(f, "select(")?;
         fmt_keyed_container(
             f,
@@ -241,7 +350,11 @@ impl_semantics!(Selector {
         )?;
         write!(f, ")")
     }
-    any_matches(v, (entries, default), filter) {
+
+    fn any_matches(
+        (entries, default): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
         for (_, val) in entries.iter() {
             if val.any_matches(filter)? {
                 return Ok(true);
@@ -254,7 +367,11 @@ impl_semantics!(Selector {
         }
         Ok(false)
     }
-    serialize<S>(v, (entries, default), ctx, ser) {
+
+    fn serialize<S: Serializer>(
+        (entries, default): Self::Parts<'_>,
+        SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
         struct Entries<'a> {
             entries: AttrRefSelectorEntries<'a>,
             default: Option<CoercedAttrRef<'a>>,
@@ -274,19 +391,33 @@ impl_semantics!(Selector {
         }
         let mut map = ser.serialize_map(Some(2))?;
         map.serialize_entry("__type", "selector")?;
-        map.serialize_entry("entries", &Entries { entries, default, ctx })?;
+        map.serialize_entry(
+            "entries",
+            &Entries {
+                entries,
+                default,
+                ctx,
+            },
+        )?;
         map.end()
     }
-});
+}
 
-impl_semantics!(Concat {
-    traverse(v, (items,), t, pkg, tr) {
+impl Semantics for kinds::Concat {
+    fn traverse<'a>(
+        (items,): Self::Parts<'a>,
+        Traverse { t, pkg, tr, .. }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         for item in items.iter() {
             item.traverse(t, pkg, tr)?;
         }
         Ok(())
     }
-    configure(v, (items,), t, ctx, name) {
+
+    fn configure(
+        (items,): Self::Parts<'_>,
+        Configure { t, ctx, name, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         let singleton = items.len() == 1;
         let mut configured = Vec::with_capacity(items.len());
         for item in items.iter() {
@@ -303,7 +434,18 @@ impl_semantics!(Concat {
             first.concat(t, &mut iter.map(Ok))?
         })
     }
-    traverse_configured(v, (items,), t, pkg, ctx, tr, name) {
+
+    fn traverse_configured(
+        (items,): Self::Parts<'_>,
+        TraverseConfigured {
+            t,
+            pkg,
+            ctx,
+            tr,
+            name,
+            ..
+        }: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
         let mut leaves: SmallVec<[CoercedAttrRef<'_>; 4]> = SmallVec::new();
         for item in items.iter() {
             item.concat_leaves(ctx, &mut leaves)?;
@@ -318,13 +460,21 @@ impl_semantics!(Concat {
         }
         ResultMaybeCompatible::Compatible(())
     }
-    concat_leaves(v, (items,), ctx, out) {
+
+    fn concat_leaves<'a>(
+        (items,): Self::Parts<'a>,
+        ConcatLeaves { ctx, out, .. }: ConcatLeaves<'_, 'a>,
+    ) -> ResultMaybeCompatible<()> {
         for item in items.iter() {
             item.concat_leaves(ctx, out)?;
         }
         ResultMaybeCompatible::Compatible(())
     }
-    json(v, (items,), ctx) {
+
+    fn to_json(
+        (items,): Self::Parts<'_>,
+        ToJson { ctx, .. }: ToJson<'_, '_>,
+    ) -> buck2_error::Result<serde_json::Value> {
         Ok(serde_json::Value::Object(serde_json::Map::from_iter([
             (
                 "__type".to_owned(),
@@ -333,15 +483,26 @@ impl_semantics!(Concat {
             ("items".to_owned(), json_seq(items, ctx)?),
         ])))
     }
-    fmt(v, (items,), ctx, f) {
+
+    fn fmt((items,): Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         items
             .iter()
             .map(|a| AttrRefDisplay { ctx, r: a })
             .format("+")
             .fmt(f)
     }
-    any_matches(v, (items,), filter) { any_matches_seq(items, filter) }
-    serialize<S>(v, (items,), ctx, ser) {
+
+    fn any_matches(
+        (items,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        any_matches_seq(items, filter)
+    }
+
+    fn serialize<S: Serializer>(
+        (items,): Self::Parts<'_>,
+        SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
         struct Items<'a> {
             items: Refs<'a, Values>,
             ctx: &'a AttrFmtContext,
@@ -356,7 +517,7 @@ impl_semantics!(Concat {
         map.serialize_entry("items", &Items { items, ctx })?;
         map.end()
     }
-});
+}
 
 /// The checks `ConfiguredAttr::concat` makes on its items, applied to the
 /// resolved leaves: one concat class throughout, equal oneof variants, no

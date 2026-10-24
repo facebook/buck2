@@ -16,10 +16,20 @@ use buck2_core::package::source_path::SourcePathRef;
 use buck2_error::internal_error;
 use dupe::Dupe;
 use pagable::Pagable;
+use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::JsonKey;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::json_label;
 use crate::attrs::arena::semantics::mismatch;
@@ -34,22 +44,33 @@ pub struct SourceAttrType {
     pub allow_directory: bool,
 }
 
-impl_semantics!(SourceLabel {
-    traverse(v, (l,), t, pkg, tr) {
+impl Semantics for kinds::SourceLabel {
+    fn traverse<'a>(
+        (l,): Self::Parts<'a>,
+        Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Source(_) => tr.dep(l),
             _ => Err(mismatch(v, t)),
         }
     }
-    configure(v, (l,), t, ctx, name) {
+
+    fn configure(
+        (l,): Self::Parts<'_>,
+        Configure { v, t, ctx, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
-            AttrTypeInner::Source(_) => ResultMaybeCompatible::Compatible(ConfiguredAttr::SourceLabel(
-                l.configure_pair(ctx.cfg().cfg_pair().dupe()),
-            )),
+            AttrTypeInner::Source(_) => ResultMaybeCompatible::Compatible(
+                ConfiguredAttr::SourceLabel(l.configure_pair(ctx.cfg().cfg_pair().dupe())),
+            ),
             _ => mismatch(v, t).into(),
         }
     }
-    traverse_configured(v, (l,), t, pkg, ctx, tr, name) {
+
+    fn traverse_configured(
+        (l,): Self::Parts<'_>,
+        TraverseConfigured { v, t, ctx, tr, .. }: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Any(_) => {}
             AttrTypeInner::Source(_) => {
@@ -62,15 +83,42 @@ impl_semantics!(SourceLabel {
         }
         ResultMaybeCompatible::Compatible(())
     }
-    json(v, (l,), ctx) { json_label(l) }
-    fmt(v, (l,), ctx, f) { write!(f, "\"{l}\"") }
-    any_matches(v, (l,), filter) { filter(&l.to_string()) }
-    json_key(v, (l,), ctx) { Ok(Cow::Owned(l.to_string())) }
-    serialize<S>(v, (l,), ctx, ser) { ser.serialize_str(&l.to_string()) }
-});
 
-impl_semantics!(SourceFile {
-    traverse(v, (p,), t, pkg, tr) {
+    fn to_json((l,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        json_label(l)
+    }
+
+    fn fmt((l,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "\"{l}\"")
+    }
+
+    fn any_matches(
+        (l,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        filter(&l.to_string())
+    }
+
+    fn json_key<'a>(
+        (l,): Self::Parts<'a>,
+        _: JsonKey<'_, 'a>,
+    ) -> buck2_error::Result<Cow<'a, str>> {
+        Ok(Cow::Owned(l.to_string()))
+    }
+
+    fn serialize<S: Serializer>(
+        (l,): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&l.to_string())
+    }
+}
+
+impl Semantics for kinds::SourceFile {
+    fn traverse<'a>(
+        (p,): Self::Parts<'a>,
+        Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Source(_) => {
                 let pkg = pkg.ok_or_else(|| {
@@ -84,13 +132,23 @@ impl_semantics!(SourceFile {
             _ => Err(mismatch(v, t)),
         }
     }
-    configure(v, (p,), t, ctx, name) {
+
+    fn configure(
+        (p,): Self::Parts<'_>,
+        Configure { v, t, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
-            AttrTypeInner::Source(_) => ResultMaybeCompatible::Compatible(ConfiguredAttr::SourceFile(p.clone())),
+            AttrTypeInner::Source(_) => {
+                ResultMaybeCompatible::Compatible(ConfiguredAttr::SourceFile(p.clone()))
+            }
             _ => mismatch(v, t).into(),
         }
     }
-    traverse_configured(v, (p,), t, pkg, ctx, tr, name) {
+
+    fn traverse_configured(
+        (p,): Self::Parts<'_>,
+        TraverseConfigured { v, t, pkg, tr, .. }: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Any(_) => {}
             AttrTypeInner::Source(_) => {
@@ -104,9 +162,36 @@ impl_semantics!(SourceFile {
         }
         ResultMaybeCompatible::Compatible(())
     }
-    json(v, (p,), ctx) { Ok(to_value(source_file_display(ctx, p).to_string())?) }
-    fmt(v, (p,), ctx, f) { write!(f, "\"{}\"", source_file_display(ctx, p)) }
-    any_matches(v, (p,), filter) { filter(&p.path().to_string()) }
-    json_key(v, (p,), ctx) { Ok(Cow::Owned(source_file_display(ctx, p).to_string())) }
-    serialize<S>(v, (p,), ctx, ser) { ser.serialize_str(&source_file_display(ctx, p).to_string()) }
-});
+
+    fn to_json(
+        (p,): Self::Parts<'_>,
+        ToJson { ctx, .. }: ToJson<'_, '_>,
+    ) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value(source_file_display(ctx, p).to_string())?)
+    }
+
+    fn fmt((p,): Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "\"{}\"", source_file_display(ctx, p))
+    }
+
+    fn any_matches(
+        (p,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        filter(&p.path().to_string())
+    }
+
+    fn json_key<'a>(
+        (p,): Self::Parts<'a>,
+        JsonKey { ctx, .. }: JsonKey<'_, 'a>,
+    ) -> buck2_error::Result<Cow<'a, str>> {
+        Ok(Cow::Owned(source_file_display(ctx, p).to_string()))
+    }
+
+    fn serialize<S: Serializer>(
+        (p,): Self::Parts<'_>,
+        SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&source_file_display(ctx, p).to_string())
+    }
+}

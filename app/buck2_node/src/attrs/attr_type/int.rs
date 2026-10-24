@@ -12,10 +12,19 @@ use allocative::Allocative;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use dupe::Dupe;
 use pagable::Pagable;
+use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -26,9 +35,15 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 )]
 pub struct IntAttrType;
 
-impl_semantics!(Int {
-    traverse(v, i, t, pkg, tr) { Ok(()) }
-    configure(v, i, t, ctx, name) {
+impl Semantics for kinds::Int {
+    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn configure(
+        i: Self::Parts<'_>,
+        Configure { v, t, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Int(_) | AttrTypeInner::Any(_) => {
                 ResultMaybeCompatible::Compatible(ConfiguredAttr::Int(i))
@@ -36,9 +51,33 @@ impl_semantics!(Int {
             _ => mismatch(v, t).into(),
         }
     }
-    traverse_configured(v, i, t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
-    json(v, i, ctx) { Ok(to_value(i)?) }
-    fmt(v, i, ctx, f) { write!(f, "{i}") }
-    any_matches(v, i, filter) { filter(&i.to_string()) }
-    serialize<S>(v, i, ctx, ser) { ser.serialize_i64(i) }
-});
+
+    fn traverse_configured(
+        _: Self::Parts<'_>,
+        _: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
+        ResultMaybeCompatible::Compatible(())
+    }
+
+    fn to_json(i: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value(i)?)
+    }
+
+    fn fmt(i: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "{i}")
+    }
+
+    fn any_matches(
+        i: Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        filter(&i.to_string())
+    }
+
+    fn serialize<S: Serializer>(
+        i: Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_i64(i)
+    }
+}

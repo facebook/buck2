@@ -27,12 +27,22 @@ use buck2_util::size_assert;
 use derive_more::Display;
 use dupe::Dupe;
 use pagable::Pagable;
+use serde::Serializer;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
 use crate::attrs::arena::ArgMacroView;
 use crate::attrs::arena::ArgPartView;
-use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::semantics::Configure;
+use crate::attrs::arena::semantics::Fmt;
+use crate::attrs::arena::semantics::JsonKey;
+use crate::attrs::arena::semantics::MatchesAny;
+use crate::attrs::arena::semantics::Semantics;
+use crate::attrs::arena::semantics::SerializeKind;
+use crate::attrs::arena::semantics::ToJson;
+use crate::attrs::arena::semantics::Traverse;
+use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -482,9 +492,17 @@ impl Display for QueryExpansion {
     }
 }
 
-impl_semantics!(ArgSimple: concat "arg" {
-    traverse(v, (s,), t, pkg, tr) { Ok(()) }
-    configure(v, (s,), t, ctx, name) {
+impl Semantics for kinds::ArgSimple {
+    const CONCAT: Option<&'static str> = Some("arg");
+
+    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn configure(
+        (s,): Self::Parts<'_>,
+        Configure { v, t, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Arg(ty) => {
                 ResultMaybeCompatible::Compatible(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
@@ -495,16 +513,51 @@ impl_semantics!(ArgSimple: concat "arg" {
             _ => mismatch(v, t).into(),
         }
     }
-    traverse_configured(v, (s,), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
-    json(v, (s,), ctx) { Ok(to_value(s)?) }
-    fmt(v, (s,), ctx, f) { write!(f, "\"{s}\"") }
-    any_matches(v, (s,), filter) { filter(s) }
-    json_key(v, (s,), ctx) { Ok(Cow::Borrowed(s)) }
-    serialize<S>(v, (s,), ctx, ser) { ser.serialize_str(s) }
-});
 
-impl_semantics!(ArgParts: concat "arg" {
-    traverse(v, (parts,), t, pkg, tr) {
+    fn traverse_configured(
+        _: Self::Parts<'_>,
+        _: TraverseConfigured<'_, '_>,
+    ) -> ResultMaybeCompatible<()> {
+        ResultMaybeCompatible::Compatible(())
+    }
+
+    fn to_json((s,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value(s)?)
+    }
+
+    fn fmt((s,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "\"{s}\"")
+    }
+
+    fn any_matches(
+        (s,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        filter(s)
+    }
+
+    fn json_key<'a>(
+        (s,): Self::Parts<'a>,
+        _: JsonKey<'_, 'a>,
+    ) -> buck2_error::Result<Cow<'a, str>> {
+        Ok(Cow::Borrowed(s))
+    }
+
+    fn serialize<S: Serializer>(
+        (s,): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(s)
+    }
+}
+
+impl Semantics for kinds::ArgParts {
+    const CONCAT: Option<&'static str> = Some("arg");
+
+    fn traverse<'a>(
+        (parts,): Self::Parts<'a>,
+        Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
+    ) -> buck2_error::Result<()> {
         if !matches!(&inner_type(t).0.inner, AttrTypeInner::Arg(_)) {
             return Err(mismatch(v, t));
         }
@@ -514,13 +567,26 @@ impl_semantics!(ArgParts: concat "arg" {
             };
             match mac {
                 ArgMacroView::UserKeyedPlaceholder { label, .. } => tr.dep(label)?,
-                ArgMacroView::Location { label, dep_kind: MacroDepKind::Exec } => tr.exec_dep(label)?,
-                ArgMacroView::Location { label, dep_kind: MacroDepKind::Toolchain } => {
-                    tr.toolchain_dep(label)?
-                }
-                ArgMacroView::Location { label, dep_kind: MacroDepKind::Regular } => tr.dep(label)?,
-                ArgMacroView::Exe { label, exec_dep: true } => tr.exec_dep(label)?,
-                ArgMacroView::Exe { label, exec_dep: false } => tr.dep(label)?,
+                ArgMacroView::Location {
+                    label,
+                    dep_kind: MacroDepKind::Exec,
+                } => tr.exec_dep(label)?,
+                ArgMacroView::Location {
+                    label,
+                    dep_kind: MacroDepKind::Toolchain,
+                } => tr.toolchain_dep(label)?,
+                ArgMacroView::Location {
+                    label,
+                    dep_kind: MacroDepKind::Regular,
+                } => tr.dep(label)?,
+                ArgMacroView::Exe {
+                    label,
+                    exec_dep: true,
+                } => tr.exec_dep(label)?,
+                ArgMacroView::Exe {
+                    label,
+                    exec_dep: false,
+                } => tr.dep(label)?,
                 ArgMacroView::Source(path) => {
                     let pkg = pkg.ok_or_else(|| {
                         internal_error!("Expected a package when traversing arg source macro")
@@ -542,7 +608,11 @@ impl_semantics!(ArgParts: concat "arg" {
         }
         Ok(())
     }
-    configure(v, (parts,), t, ctx, name) {
+
+    fn configure(
+        (parts,): Self::Parts<'_>,
+        Configure { v, t, ctx, .. }: Configure<'_, '_>,
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Arg(ty) => {
                 let configured = parts
@@ -557,9 +627,36 @@ impl_semantics!(ArgParts: concat "arg" {
             _ => mismatch(v, t).into(),
         }
     }
-    json(v, (parts,), ctx) { Ok(to_value(parts.to_string())?) }
-    fmt(v, (parts,), ctx, f) { write!(f, "\"{parts}\"") }
-    any_matches(v, (parts,), filter) { filter(&parts.to_string()) }
-    json_key(v, (parts,), ctx) { Ok(Cow::Owned(parts.to_string())) }
-    serialize<S>(v, (parts,), ctx, ser) { ser.serialize_str(&parts.to_string()) }
-});
+
+    fn to_json(
+        (parts,): Self::Parts<'_>,
+        _: ToJson<'_, '_>,
+    ) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value(parts.to_string())?)
+    }
+
+    fn fmt((parts,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "\"{parts}\"")
+    }
+
+    fn any_matches(
+        (parts,): Self::Parts<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+    ) -> buck2_error::Result<bool> {
+        filter(&parts.to_string())
+    }
+
+    fn json_key<'a>(
+        (parts,): Self::Parts<'a>,
+        _: JsonKey<'_, 'a>,
+    ) -> buck2_error::Result<Cow<'a, str>> {
+        Ok(Cow::Owned(parts.to_string()))
+    }
+
+    fn serialize<S: Serializer>(
+        (parts,): Self::Parts<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+    ) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(&parts.to_string())
+    }
+}
