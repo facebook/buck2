@@ -41,6 +41,7 @@ use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkLazyAttrs;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkLazyResolvedAttrs;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
+use crate::bxl::starlark_defs::result::StarlarkActionError;
 use crate::bxl::starlark_defs::result::StarlarkError;
 use crate::bxl::starlark_defs::result::StarlarkResult;
 use crate::bxl::starlark_defs::target_universe::StarlarkTargetUniverse;
@@ -77,6 +78,7 @@ use crate::bxl::starlark_defs::visibility_intersection::StarlarkVisibilityInters
     StarlarkLazyCtx<'_> as LazyContext,
     StarlarkLazy as Lazy,
     StarlarkError as Error,
+    StarlarkActionError as ActionError,
     StarlarkResult<'_> as Result,
     StarlarkLazyUqueryCtx as LazyUqueryContext,
     StarlarkLazyCqueryCtx as LazyCqueryContext,

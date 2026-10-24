@@ -42,10 +42,28 @@ resolve_without_catch = bxl_main(
     },
 )
 
+def _check_action_error(error: bxl.ActionError, expected_target: TargetLabel):
+    _assert_eq("bxl.ActionError", type(error))
+    _assert_eq(True, isinstance(error, bxl.ActionError))
+    _assert_eq("TargetLabel", type(error.target))
+    _assert_eq(expected_target, error.target)
+    _assert_eq("root", error.target.cell)
+    _assert_eq("", error.target.package)
+    _assert_eq("artifact_fails", error.target.name)
+    _assert_eq("upstream stdout", error.stdout)
+    _assert_eq("upstream stderr", error.stderr)
+
 def _catch(ctx: bxl.Context):
     result = ctx.lazy.resolve_dynamic_value(_dynamic_value(ctx, ctx.cli_args.target)).catch().resolve()
     _assert_eq(False, result.is_ok())
-    ctx.output.print(result.unwrap_err().message)
+    error = result.unwrap_err()
+    if ctx.cli_args.target == "callback_fails":
+        _assert_eq(None, error.action_error)
+        _assert_eq(True, "producer callback failed" in error.root_message)
+        _assert_eq(False, "Error running dynamic analysis" in error.root_message)
+    elif ctx.cli_args.target == "artifact_fails":
+        _check_action_error(error.action_error, ctx.configured_targets("root//:artifact_fails").label.raw_target())
+    ctx.output.print(error.message)
 
 catch = bxl_main(
     impl = _catch,

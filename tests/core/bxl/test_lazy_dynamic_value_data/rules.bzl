@@ -65,7 +65,10 @@ callback_fails = rule(impl = _callback_fails_impl, attrs = {})
 
 def _artifact_fails_impl(ctx):
     out = ctx.actions.declare_output("out.txt", has_content_based_path = False)
-    ctx.actions.run(cmd_args(["false", out.as_output()]), category = "failing_upstream")
+    ctx.actions.run(
+        cmd_args(["sh", "-c", "printf 'upstream stdout'; printf 'upstream stderr' >&2; exit 1", "--", out.as_output()]),
+        category = "failing_upstream",
+    )
     value = ctx.actions.dynamic_output_new(_read_failed_artifact(src = out))
     return [DefaultInfo(), DynamicValueInfo(value = value)]
 
