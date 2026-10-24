@@ -9,8 +9,8 @@
  */
 
 use buck2_core::soft_error;
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
@@ -33,7 +33,7 @@ enum AnyError {
 fn to_literal<'v>(
     value: Value<'v>,
     ctx: &dyn AttrCoercionContext<'v>,
-) -> buck2_error::Result<CoercedAttr> {
+) -> buck2_error::Result<AttrToken> {
     if value.is_none() {
         ctx.attr_arena().encode_none()
     } else if let Some(x) = value.unpack_bool() {
@@ -76,7 +76,7 @@ impl AttrTypeCoerce for AnyAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         to_literal(value, ctx)
     }
 

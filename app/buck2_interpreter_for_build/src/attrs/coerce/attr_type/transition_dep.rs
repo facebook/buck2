@@ -8,8 +8,8 @@
  * above-listed licenses.
  */
 
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr_type::transition_dep::TransitionDepAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
@@ -25,7 +25,7 @@ impl AttrTypeCoerce for TransitionDepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         let (dep, transition) = if self.transition.is_some() {
             (ctx.coerce_providers_label(value.unpack_str_err()?)?, None)
         } else {

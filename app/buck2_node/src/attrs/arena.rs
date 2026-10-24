@@ -476,6 +476,18 @@ pub struct AttrWord(u32);
 )]
 pub struct CoercedAttrHash(pub u64);
 
+/// A value encoded into an arena: its ref, and the content hash a parent
+/// folds into its own. This is what coercion hands around and what the
+/// per-kind encoders return.
+#[derive(Copy, Clone, Dupe, PartialEq, Eq, Debug, Allocative)]
+pub struct AttrToken(pub AttrWord, pub CoercedAttrHash);
+
+impl AttrToken {
+    pub fn word(self) -> AttrWord {
+        self.0
+    }
+}
+
 impl AttrKind {
     /// Kinds encoded in the word itself, never as a record.
     fn is_inline(self) -> bool {
@@ -772,32 +784,27 @@ pub struct OwnedCoercedAttr {
 
 impl OwnedCoercedAttr {
     pub fn try_new(attr: &CoercedAttr) -> buck2_error::Result<OwnedCoercedAttr> {
-        // An `Encoded` value is a ref into the builder that minted it; a
-        // fresh builder would pass the ref through and decode garbage.
-        if matches!(attr, CoercedAttr::Encoded(..)) {
-            return Err(internal_error!(
-                "Encoded attr requires its minting builder; use `seal_from_builder`"
-            ));
-        }
-        Self::seal_from_builder(CoercedAttrArenaBuilder::default(), attr)
+        let mut builder = CoercedAttrArenaBuilder::default();
+        let token = builder.encode(attr)?;
+        Self::seal_from_builder(builder, token)
     }
 
     /// A value `f` encodes into storage of its own.
     pub fn new_with(
-        f: impl FnOnce(&mut CoercedAttrArenaBuilder) -> buck2_error::Result<CoercedAttr>,
+        f: impl FnOnce(&mut CoercedAttrArenaBuilder) -> buck2_error::Result<AttrToken>,
     ) -> buck2_error::Result<OwnedCoercedAttr> {
         let mut builder = CoercedAttrArenaBuilder::default();
         let value = f(&mut builder)?;
-        Self::seal_from_builder(builder, &value)
+        Self::seal_from_builder(builder, value)
     }
 
-    /// Seal `builder` into this value's own storage. Any `Encoded` nodes in
-    /// `attr` must be refs minted by `builder`.
+    /// Seal `builder` into this value's own storage; `token` must have been
+    /// minted by `builder`.
     pub fn seal_from_builder(
         mut builder: CoercedAttrArenaBuilder,
-        attr: &CoercedAttr,
+        token: AttrToken,
     ) -> buck2_error::Result<OwnedCoercedAttr> {
-        let (word, _hash) = builder.encode_root(attr)?;
+        let word = builder.root(token);
         let storage = Arc::new(PackageAttrStorage::default());
         storage.seal(builder.finish());
         Ok(OwnedCoercedAttr { storage, word })
@@ -3713,15 +3720,8 @@ pub struct CoercedAttrArenaBuilder {
 
 /// The builder's result for one value: a ref plus the content hash a parent
 /// folds into its own.
-fn token((r, h): (AttrWord, CoercedAttrHash)) -> CoercedAttr {
-    CoercedAttr::Encoded(r, h)
-}
-
-fn parts(attr: CoercedAttr) -> (AttrWord, CoercedAttrHash) {
-    match attr {
-        CoercedAttr::Encoded(r, h) => (r, h),
-        _ => unreachable!("should be encoded: the builder only produces `Encoded` values"),
-    }
+fn token((r, h): (AttrWord, CoercedAttrHash)) -> AttrToken {
+    AttrToken(r, h)
 }
 
 /// Interns a whole value into `table`; the word is `kind` with the table
@@ -3985,58 +3985,56 @@ impl CoercedAttrArenaBuilder {
     /// [`Self::encode`] for a root: a top-level attribute value referenced
     /// from outside the arena. The sealed arena retains an identity-grade
     /// strong hash for every root (`CoercedAttrArena::root_strong_hash`).
-    pub fn encode_root(
-        &mut self,
-        attr: &CoercedAttr,
-    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
-        let (r, h) = self.encode(attr)?;
-        self.roots.push(r);
-        Ok((r, h))
+    pub fn encode_root(&mut self, attr: &CoercedAttr) -> buck2_error::Result<AttrToken> {
+        let token = self.encode(attr)?;
+        self.root(token);
+        Ok(token)
     }
 
-    /// Encode one value straight from its parts (children may already be
-    /// `Encoded`), so the enum form never materializes for arena-bound
-    /// values. The result is the value's `Encoded` token; [`Self::encode`]
-    /// and [`Self::encode_root`] are the whole-tree imports and hand back
-    /// the ref and hash themselves.
-    pub fn encode_string(&mut self, s: &str) -> buck2_error::Result<CoercedAttr> {
+    /// Mark an encoded value as a root: a top-level attribute value referenced
+    /// from outside the arena, for which the sealed arena retains an
+    /// identity-grade strong hash.
+    pub fn root(&mut self, token: AttrToken) -> AttrWord {
+        self.roots.push(token.0);
+        token.0
+    }
+
+    /// Per-kind encoders: each takes a value's parts, with children as
+    /// tokens this builder minted, and returns the value's token. Coercion
+    /// builds arena contents through these alone.
+    pub fn encode_string(&mut self, s: &str) -> buck2_error::Result<AttrToken> {
         self.encode_str(AttrKind::String, s).map(token)
     }
 
-    pub fn encode_select_fail(&mut self, message: &str) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_select_fail(&mut self, message: &str) -> buck2_error::Result<AttrToken> {
         self.encode_str(AttrKind::SelectFail, message).map(token)
     }
 
-    pub fn encode_select_incompatible(
-        &mut self,
-        message: &str,
-    ) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_select_incompatible(&mut self, message: &str) -> buck2_error::Result<AttrToken> {
         self.encode_str(AttrKind::SelectIncompatible, message)
             .map(token)
     }
 
-    pub fn encode_list(&mut self, items: &[CoercedAttr]) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_list(&mut self, items: &[AttrToken]) -> buck2_error::Result<AttrToken> {
         self.encode_seq(AttrKind::List, items).map(token)
     }
 
-    pub fn encode_tuple(&mut self, items: &[CoercedAttr]) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_tuple(&mut self, items: &[AttrToken]) -> buck2_error::Result<AttrToken> {
         self.encode_seq(AttrKind::Tuple, items).map(token)
     }
 
     /// A `+` chain of selects, already flattened to its operands.
-    pub fn encode_concat(&mut self, items: &[CoercedAttr]) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_concat(&mut self, items: &[AttrToken]) -> buck2_error::Result<AttrToken> {
         self.encode_seq(AttrKind::Concat, items).map(token)
     }
 
     pub fn encode_dict(
         &mut self,
-        pairs: &[(CoercedAttr, CoercedAttr)],
-    ) -> buck2_error::Result<CoercedAttr> {
+        pairs: &[(AttrToken, AttrToken)],
+    ) -> buck2_error::Result<AttrToken> {
         let mut refs = EncodeScratchRefs::with_capacity(pairs.len() * 2);
         let mut hashes = EncodeScratchHashes::with_capacity(pairs.len() * 2);
-        for (k, v) in pairs.iter() {
-            let (kr, kh) = self.encode(k)?;
-            let (vr, vh) = self.encode(v)?;
+        for &(AttrToken(kr, kh), AttrToken(vr, vh)) in pairs.iter() {
             refs.push(kr);
             refs.push(vr);
             hashes.push(kh);
@@ -4044,33 +4042,29 @@ impl CoercedAttrArenaBuilder {
         }
         let hash = content_hash(AttrKind::Dict, |h| hashes.hash(h));
         let r = self.encode_record(AttrKind::Dict, hash, &[pairs.len() as u32], &refs)?;
-        Ok(CoercedAttr::Encoded(r, hash))
+        Ok(AttrToken(r, hash))
     }
 
-    pub fn encode_one_of(
-        &mut self,
-        idx: u32,
-        inner: &CoercedAttr,
-    ) -> buck2_error::Result<CoercedAttr> {
-        let (cr, ch) = self.encode(inner)?;
+    pub fn encode_one_of(&mut self, idx: u32, inner: AttrToken) -> buck2_error::Result<AttrToken> {
+        let AttrToken(cr, ch) = inner;
         let hash = mix_kind(AttrKind::OneOf, ch.0 ^ ((idx as u64) << 32));
         let r = self.encode_record(AttrKind::OneOf, hash, &[idx], &[cr])?;
-        Ok(CoercedAttr::Encoded(r, hash))
+        Ok(AttrToken(r, hash))
     }
 
     pub fn encode_selector(
         &mut self,
-        entries: &[(ConfigurationSettingKey, CoercedAttr)],
-        default: Option<&CoercedAttr>,
-    ) -> buck2_error::Result<CoercedAttr> {
+        entries: &[(ConfigurationSettingKey, AttrToken)],
+        default: Option<AttrToken>,
+    ) -> buck2_error::Result<AttrToken> {
         CoercedSelector::check_all_keys_unique(entries)?;
         self.encode_selector_parts(entries, default).map(token)
     }
 
     fn encode_selector_parts(
         &mut self,
-        entries: &[(ConfigurationSettingKey, CoercedAttr)],
-        default: Option<&CoercedAttr>,
+        entries: &[(ConfigurationSettingKey, AttrToken)],
+        default: Option<AttrToken>,
     ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
         let mut key_idxs = EncodeScratchFields::with_capacity(1 + entries.len());
         let mut keys_hasher = BuckHasher::default();
@@ -4085,10 +4079,7 @@ impl CoercedAttrArenaBuilder {
         let keys_ref = self.encode_record(AttrKind::SelectorKeys, keys_hash, &key_idxs, &[])?;
 
         let (default_ref, default_hash) = match default {
-            Some(d) => {
-                let (r, h) = self.encode(d)?;
-                (r, Some(h))
-            }
+            Some(AttrToken(r, h)) => (r, Some(h)),
             None => (ABSENT_REF, None),
         };
         let mut refs = EncodeScratchRefs::with_capacity(2 + entries.len());
@@ -4099,8 +4090,7 @@ impl CoercedAttrArenaBuilder {
         Hash::hash(&(AttrKind::Selector as u8), &mut hash);
         keys_hash.hash(&mut hash);
         default_hash.hash(&mut hash);
-        for (_, v) in entries.iter() {
-            let (vr, vh) = self.encode(v)?;
+        for &(_, AttrToken(vr, vh)) in entries.iter() {
             refs.push(vr);
             hasher_parts.push(vh);
         }
@@ -4110,50 +4100,50 @@ impl CoercedAttrArenaBuilder {
         Ok((r, hash))
     }
 
-    pub fn encode_none(&mut self) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::Encoded(
+    pub fn encode_none(&mut self) -> buck2_error::Result<AttrToken> {
+        Ok(AttrToken(
             AttrWord::inline(AttrKind::None, 0)?,
             FIXED_KIND_HASHES[0],
         ))
     }
 
-    pub fn encode_bool(&mut self, b: bool) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_bool(&mut self, b: bool) -> buck2_error::Result<AttrToken> {
         let (kind, h) = if b {
             (AttrKind::BoolTrue, FIXED_KIND_HASHES[2])
         } else {
             (AttrKind::BoolFalse, FIXED_KIND_HASHES[1])
         };
-        Ok(CoercedAttr::Encoded(AttrWord::inline(kind, 0)?, h))
+        Ok(AttrToken(AttrWord::inline(kind, 0)?, h))
     }
 
-    pub fn encode_int(&mut self, i: i64) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_int(&mut self, i: i64) -> buck2_error::Result<AttrToken> {
         // Inline and record ints share a hash tag: same value, same hash,
         // whichever encoding it lands in.
         let hash = mix_kind(AttrKind::Int, i as u64);
         if (INT_INLINE_MIN..=INT_INLINE_MAX).contains(&i) {
-            return Ok(CoercedAttr::Encoded(
+            return Ok(AttrToken(
                 AttrWord::inline(AttrKind::Int, (i as u32) & INLINE_PAYLOAD_MASK)?,
                 hash,
             ));
         }
         let z = zigzag(i);
         let r = self.encode_record(AttrKind::Int, hash, &[z as u32, (z >> 32) as u32], &[])?;
-        Ok(CoercedAttr::Encoded(r, hash))
+        Ok(AttrToken(r, hash))
     }
 
-    pub fn encode_enum_variant(&mut self, s: &str) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_enum_variant(&mut self, s: &str) -> buck2_error::Result<AttrToken> {
         self.encode_str(AttrKind::EnumVariant, s).map(token)
     }
 
-    pub fn encode_dep(&mut self, l: &ProvidersLabel) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_dep(&mut self, l: &ProvidersLabel) -> buck2_error::Result<AttrToken> {
         self.encode_providers_label(AttrKind::Dep, l).map(token)
     }
 
-    pub fn encode_label(&mut self, l: &ProvidersLabel) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_label(&mut self, l: &ProvidersLabel) -> buck2_error::Result<AttrToken> {
         self.encode_providers_label(AttrKind::Label, l).map(token)
     }
 
-    pub fn encode_source_label(&mut self, l: &ProvidersLabel) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_source_label(&mut self, l: &ProvidersLabel) -> buck2_error::Result<AttrToken> {
         self.encode_providers_label(AttrKind::SourceLabel, l)
             .map(token)
     }
@@ -4161,7 +4151,7 @@ impl CoercedAttrArenaBuilder {
     pub fn encode_configuration_dep(
         &mut self,
         l: &ProvidersLabel,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         self.encode_providers_label(AttrKind::ConfigurationDep, l)
             .map(token)
     }
@@ -4169,25 +4159,22 @@ impl CoercedAttrArenaBuilder {
     pub fn encode_split_transition_dep(
         &mut self,
         l: &ProvidersLabel,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         self.encode_providers_label(AttrKind::SplitTransitionDep, l)
             .map(token)
     }
 
-    pub fn encode_plugin_dep(&mut self, l: &TargetLabel) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_plugin_dep(&mut self, l: &TargetLabel) -> buck2_error::Result<AttrToken> {
         let idx = self.target_label_idx(l.dupe());
         let hash = content_hash(AttrKind::PluginDep, |h| l.hash(h));
-        Ok(CoercedAttr::Encoded(
-            AttrWord::inline(AttrKind::PluginDep, idx)?,
-            hash,
-        ))
+        Ok(AttrToken(AttrWord::inline(AttrKind::PluginDep, idx)?, hash))
     }
 
     pub fn encode_explicit_configured_dep(
         &mut self,
         label: &ProvidersLabel,
         platform: &TargetLabel,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         let (label_idx, label_hash) = self.providers_label_idx_and_hash(label);
         let platform_idx = self.target_label_idx(platform.dupe());
         let hash = content_hash(AttrKind::ExplicitConfiguredDep, |h| {
@@ -4200,7 +4187,7 @@ impl CoercedAttrArenaBuilder {
             &[label_idx, platform_idx],
             &[],
         )?;
-        Ok(CoercedAttr::Encoded(r, hash))
+        Ok(AttrToken(r, hash))
     }
 
     /// `transition` is the dynamic transition target, `None` when the attr
@@ -4209,7 +4196,7 @@ impl CoercedAttrArenaBuilder {
         &mut self,
         dep: &ProvidersLabel,
         transition: Option<&ProvidersLabel>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         let (dep_idx, dep_hash) = self.providers_label_idx_and_hash(dep);
         let (transition_field, transition_hash) = match transition {
             Some(t) => {
@@ -4227,12 +4214,12 @@ impl CoercedAttrArenaBuilder {
             &[dep_idx, transition_field],
             &[],
         )?;
-        Ok(CoercedAttr::Encoded(r, hash))
+        Ok(AttrToken(r, hash))
     }
 
-    pub fn encode_source_file(&mut self, p: &CoercedPath) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_source_file(&mut self, p: &CoercedPath) -> buck2_error::Result<AttrToken> {
         let (idx, path_hash) = self.source_path_idx_and_hash(p);
-        Ok(CoercedAttr::Encoded(
+        Ok(AttrToken(
             AttrWord::inline(AttrKind::SourceFile, idx)?,
             mix_kind(AttrKind::SourceFile, path_hash),
         ))
@@ -4242,7 +4229,7 @@ impl CoercedAttrArenaBuilder {
     pub fn encode_arg(
         &mut self,
         arg: &StringWithMacros<ProvidersLabel>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         match arg {
             StringWithMacros::StringPart(part) => {
                 self.encode_str(AttrKind::ArgSimple, part).map(token)
@@ -4258,7 +4245,7 @@ impl CoercedAttrArenaBuilder {
                 let hash = content_hash(AttrKind::ArgParts, |h| hashes.hash(h));
                 let r =
                     self.encode_record(AttrKind::ArgParts, hash, &[parts.len() as u32], &refs)?;
-                Ok(CoercedAttr::Encoded(r, hash))
+                Ok(AttrToken(r, hash))
             }
         }
     }
@@ -4267,18 +4254,18 @@ impl CoercedAttrArenaBuilder {
     pub fn encode_query(
         &mut self,
         q: &QueryAttrBase<ProvidersLabel>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         let parsed = buck2_query_parser::parse_expr(&q.query)?;
         let (er, eh) = self.encode_query_expr(&parsed, &q.query, &q.resolved_literals)?;
         let hash = content_hash(AttrKind::Query, |h| eh.hash(h));
         let r = self.encode_record(AttrKind::Query, hash, &[], &[er])?;
-        Ok(CoercedAttr::Encoded(r, hash))
+        Ok(AttrToken(r, hash))
     }
 
     pub fn encode_visibility(
         &mut self,
         v: &VisibilitySpecification,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         intern_whole(
             &mut self.value_dedup,
             &mut self.arena.visibility,
@@ -4291,7 +4278,7 @@ impl CoercedAttrArenaBuilder {
     pub fn encode_within_view(
         &mut self,
         v: &WithinViewSpecification,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         intern_whole(
             &mut self.value_dedup,
             &mut self.arena.within_view,
@@ -4301,10 +4288,7 @@ impl CoercedAttrArenaBuilder {
         .map(token)
     }
 
-    pub fn encode_target_modifiers(
-        &mut self,
-        m: &CfgModifiers,
-    ) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_target_modifiers(&mut self, m: &CfgModifiers) -> buck2_error::Result<AttrToken> {
         intern_whole(
             &mut self.value_dedup,
             &mut self.arena.modifiers,
@@ -4314,7 +4298,7 @@ impl CoercedAttrArenaBuilder {
         .map(token)
     }
 
-    pub fn encode_metadata(&mut self, m: &MetadataMap) -> buck2_error::Result<CoercedAttr> {
+    pub fn encode_metadata(&mut self, m: &MetadataMap) -> buck2_error::Result<AttrToken> {
         let hash = content_hash(AttrKind::Metadata, |h| m.hash(h));
         if let Some(&(_, r)) = self.value_dedup.find(hash.0, |&(h, r)| {
             h == hash.0 && r.inline_parts().is_none() && {
@@ -4323,63 +4307,82 @@ impl CoercedAttrArenaBuilder {
                     && self.arena.metadata[rec.head.raw(0) as usize] == *m
             }
         }) {
-            return Ok(CoercedAttr::Encoded(r, hash));
+            return Ok(AttrToken(r, hash));
         }
         let idx = self.arena.metadata.len() as u32;
         self.arena.metadata.push(m.clone());
         let r = self.encode_record(AttrKind::Metadata, hash, &[idx], &[])?;
-        Ok(CoercedAttr::Encoded(r, hash))
+        Ok(AttrToken(r, hash))
     }
 
-    /// Encode one attribute value (recursively) into the arena. Returns the
-    /// ref and the value's content hash.
-    pub fn encode(
-        &mut self,
-        attr: &CoercedAttr,
-    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+    /// Import an owned attribute value (recursively) into the arena. Only
+    /// tests build owned values; coercion encodes through the per-kind
+    /// entry points.
+    pub fn encode(&mut self, attr: &CoercedAttr) -> buck2_error::Result<AttrToken> {
         match attr {
-            // Already encoded during coercion.
-            CoercedAttr::Encoded(r, h) => Ok((*r, *h)),
-            CoercedAttr::None => self.encode_none().map(parts),
-            CoercedAttr::Bool(BoolLiteral(b)) => self.encode_bool(*b).map(parts),
-            CoercedAttr::Int(i) => self.encode_int(*i).map(parts),
-            CoercedAttr::String(StringLiteral(s)) => self.encode_str(AttrKind::String, s),
-            CoercedAttr::EnumVariant(StringLiteral(s)) => self.encode_str(AttrKind::EnumVariant, s),
-            CoercedAttr::List(ListLiteral(xs)) => self.encode_seq(AttrKind::List, xs),
-            CoercedAttr::Tuple(TupleLiteral(xs)) => self.encode_seq(AttrKind::Tuple, xs),
-            CoercedAttr::Concat(CoercedConcat(xs)) => self.encode_seq(AttrKind::Concat, xs),
-            CoercedAttr::Dict(DictLiteral(pairs)) => self.encode_dict(pairs).map(parts),
+            CoercedAttr::None => self.encode_none(),
+            CoercedAttr::Bool(BoolLiteral(b)) => self.encode_bool(*b),
+            CoercedAttr::Int(i) => self.encode_int(*i),
+            CoercedAttr::String(StringLiteral(s)) => self.encode_string(s),
+            CoercedAttr::EnumVariant(StringLiteral(s)) => self.encode_enum_variant(s),
+            CoercedAttr::List(ListLiteral(xs)) => {
+                let items = self.encode_all(xs)?;
+                self.encode_list(&items)
+            }
+            CoercedAttr::Tuple(TupleLiteral(xs)) => {
+                let items = self.encode_all(xs)?;
+                self.encode_tuple(&items)
+            }
+            CoercedAttr::Concat(CoercedConcat(xs)) => {
+                let items = self.encode_all(xs)?;
+                self.encode_concat(&items)
+            }
+            CoercedAttr::Dict(DictLiteral(pairs)) => {
+                let mut tokens = Vec::with_capacity(pairs.len());
+                for (k, v) in pairs.iter() {
+                    tokens.push((self.encode(k)?, self.encode(v)?));
+                }
+                self.encode_dict(&tokens)
+            }
             CoercedAttr::Selector(s) => {
+                let mut entries = Vec::with_capacity(s.entries.len());
+                for (k, v) in s.entries.iter() {
+                    entries.push((k.dupe(), self.encode(v)?));
+                }
+                let default = s.default.as_ref().map(|d| self.encode(d)).transpose()?;
                 // Keys were validated unique when the selector was built.
-                self.encode_selector_parts(&s.entries, s.default.as_ref())
+                self.encode_selector_parts(&entries, default).map(token)
             }
-            CoercedAttr::OneOf(child, idx) => self.encode_one_of(*idx, child).map(parts),
-            CoercedAttr::Dep(l) => self.encode_providers_label(AttrKind::Dep, l),
-            CoercedAttr::Label(l) => self.encode_providers_label(AttrKind::Label, l),
-            CoercedAttr::SourceLabel(l) => self.encode_providers_label(AttrKind::SourceLabel, l),
-            CoercedAttr::ConfigurationDep(l) => {
-                self.encode_providers_label(AttrKind::ConfigurationDep, l)
+            CoercedAttr::OneOf(child, idx) => {
+                let child = self.encode(child)?;
+                self.encode_one_of(*idx, child)
             }
-            CoercedAttr::SplitTransitionDep(l) => {
-                self.encode_providers_label(AttrKind::SplitTransitionDep, l)
+            CoercedAttr::Dep(l) => self.encode_dep(l),
+            CoercedAttr::Label(l) => self.encode_label(l),
+            CoercedAttr::SourceLabel(l) => self.encode_source_label(l),
+            CoercedAttr::ConfigurationDep(l) => self.encode_configuration_dep(l),
+            CoercedAttr::SplitTransitionDep(l) => self.encode_split_transition_dep(l),
+            CoercedAttr::PluginDep(l) => self.encode_plugin_dep(l),
+            CoercedAttr::SourceFile(p) => self.encode_source_file(p),
+            CoercedAttr::Arg(arg) => self.encode_arg(arg),
+            CoercedAttr::Query(q) => self.encode_query(&q.query),
+            CoercedAttr::SelectFail(s) => self.encode_select_fail(s),
+            CoercedAttr::SelectIncompatible(s) => self.encode_select_incompatible(s),
+            CoercedAttr::ExplicitConfiguredDep(d) => {
+                self.encode_explicit_configured_dep(&d.label, &d.platform)
             }
-            CoercedAttr::PluginDep(l) => self.encode_plugin_dep(l).map(parts),
-            CoercedAttr::SourceFile(p) => self.encode_source_file(p).map(parts),
-            CoercedAttr::Arg(arg) => self.encode_arg(arg).map(parts),
-            CoercedAttr::Query(q) => self.encode_query(&q.query).map(parts),
-            CoercedAttr::SelectFail(s) => self.encode_select_fail(s).map(parts),
-            CoercedAttr::SelectIncompatible(s) => self.encode_select_incompatible(s).map(parts),
-            CoercedAttr::ExplicitConfiguredDep(d) => self
-                .encode_explicit_configured_dep(&d.label, &d.platform)
-                .map(parts),
-            CoercedAttr::TransitionDep(d) => self
-                .encode_transition_dep(&d.dep, d.get_dynamic_transition())
-                .map(parts),
-            CoercedAttr::Visibility(v) => self.encode_visibility(v).map(parts),
-            CoercedAttr::WithinView(v) => self.encode_within_view(v).map(parts),
-            CoercedAttr::Metadata(m) => self.encode_metadata(m).map(parts),
-            CoercedAttr::TargetModifiers(m) => self.encode_target_modifiers(m).map(parts),
+            CoercedAttr::TransitionDep(d) => {
+                self.encode_transition_dep(&d.dep, d.get_dynamic_transition())
+            }
+            CoercedAttr::Visibility(v) => self.encode_visibility(v),
+            CoercedAttr::WithinView(v) => self.encode_within_view(v),
+            CoercedAttr::Metadata(m) => self.encode_metadata(m),
+            CoercedAttr::TargetModifiers(m) => self.encode_target_modifiers(m),
         }
+    }
+
+    fn encode_all(&mut self, xs: &[CoercedAttr]) -> buck2_error::Result<Vec<AttrToken>> {
+        xs.iter().map(|c| self.encode(c)).collect()
     }
 
     /// Path table index and content hash, via the `ArcS` pointer lookaside
@@ -4734,12 +4737,11 @@ impl CoercedAttrArenaBuilder {
     fn encode_seq(
         &mut self,
         kind: AttrKind,
-        children: &[CoercedAttr],
+        children: &[AttrToken],
     ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
         let mut refs = EncodeScratchRefs::with_capacity(children.len());
         let mut hashes = EncodeScratchHashes::with_capacity(children.len());
-        for c in children {
-            let (r, h) = self.encode(c)?;
+        for &AttrToken(r, h) in children {
             refs.push(r);
             hashes.push(h);
         }
@@ -5058,11 +5060,11 @@ mod tests {
         assert_eq!(arena.visibility.len(), 2);
         assert_eq!(arena.metadata.len(), 1);
         let mut b = CoercedAttrArena::builder();
-        let (r1, _) = b.encode(&visibility).unwrap();
-        let (r2, _) = b.encode(&visibility).unwrap();
+        let AttrToken(r1, _) = b.encode(&visibility).unwrap();
+        let AttrToken(r2, _) = b.encode(&visibility).unwrap();
         assert_eq!(r1, r2, "re-encoding should dedup to the same entry");
-        let (m1, _) = b.encode(&metadata).unwrap();
-        let (m2, _) = b.encode(&metadata).unwrap();
+        let AttrToken(m1, _) = b.encode(&metadata).unwrap();
+        let AttrToken(m2, _) = b.encode(&metadata).unwrap();
         assert_eq!(m1, m2);
     }
 
@@ -5089,8 +5091,8 @@ mod tests {
 
         // Same dep with and without a dynamic transition: distinct records.
         let mut b = CoercedAttrArena::builder();
-        let (r1, h1) = b.encode(&fixed_transition).unwrap();
-        let (r2, h2) = b.encode(&dynamic_transition).unwrap();
+        let AttrToken(r1, h1) = b.encode(&fixed_transition).unwrap();
+        let AttrToken(r2, h2) = b.encode(&dynamic_transition).unwrap();
         assert_ne!(r1, r2);
         assert_ne!(h1, h2);
         assert_eq!(
@@ -5143,12 +5145,12 @@ mod tests {
         assert_eq!(arena.modifiers.len(), 3);
 
         let mut b = CoercedAttrArena::builder();
-        let (r, _) = b.encode(&value).unwrap();
-        let (again, _) = b
+        let AttrToken(r, _) = b.encode(&value).unwrap();
+        let AttrToken(again, _) = b
             .encode(&CoercedAttr::TargetModifiers(modifiers(json.clone())))
             .unwrap();
         assert_eq!(r, again, "an equal value should intern to the same entry");
-        let (r2, _) = b.encode(&non_list).unwrap();
+        let AttrToken(r2, _) = b.encode(&non_list).unwrap();
         let arena = b.finish();
         assert_eq!(arena.modifiers.len(), 2);
         let CoercedAttrRefKind::Modifiers(m) = arena.view(r).kind() else {
@@ -5193,7 +5195,7 @@ mod tests {
         let value = CoercedAttr::TargetModifiers(package);
         roundtrip(std::slice::from_ref(&value));
         let mut b = CoercedAttrArena::builder();
-        let (r, _) = b.encode(&value).unwrap();
+        let AttrToken(r, _) = b.encode(&value).unwrap();
         let arena = b.finish();
         assert_eq!(
             arena.view(r).to_json(&AttrFmtContext::NO_CONTEXT).unwrap(),
@@ -5209,8 +5211,8 @@ mod tests {
 
         // Same message, different outcome: distinct values.
         let mut b = CoercedAttrArena::builder();
-        let (r1, h1) = b.encode(&fail).unwrap();
-        let (r2, h2) = b.encode(&incompatible).unwrap();
+        let AttrToken(r1, h1) = b.encode(&fail).unwrap();
+        let AttrToken(r2, h2) = b.encode(&incompatible).unwrap();
         assert_ne!(r1, r2);
         assert_ne!(h1, h2);
         let arena = b.finish();
@@ -5242,9 +5244,9 @@ mod tests {
             CoercedSelector::new(entries("two"), None).unwrap(),
         ));
         let mut b = CoercedAttrArena::builder();
-        let (r1, _) = b.encode(&sel1).unwrap();
+        let AttrToken(r1, _) = b.encode(&sel1).unwrap();
         let bytes_after_first = b.arena.bytes.len();
-        let (r2, _) = b.encode(&sel2).unwrap();
+        let AttrToken(r2, _) = b.encode(&sel2).unwrap();
         // Second selector shares the keys record and the None value: it
         // adds only its own record (tag, count, 4 one-byte refs: keys,
         // absent default, 2 values) plus the new "two" text record (tag,
@@ -5306,8 +5308,8 @@ mod tests {
         roundtrip_canonical(&[attr.clone(), arg.clone()]);
 
         let mut b = CoercedAttrArena::builder();
-        let (ra, _) = b.encode(&attr).unwrap();
-        let (rg, _) = b.encode(&arg).unwrap();
+        let AttrToken(ra, _) = b.encode(&attr).unwrap();
+        let AttrToken(rg, _) = b.encode(&arg).unwrap();
         let arena = b.finish();
         let CoercedAttrRefKind::Query(q) = arena.view(ra).kind() else {
             panic!("should decode as a query");
@@ -5420,7 +5422,7 @@ mod tests {
         let mut b = CoercedAttrArena::builder();
         b.encode(&arg("--deps=", QueryExpansion::Target)).unwrap();
         let bytes_after = b.arena.bytes.len();
-        let (r2, _) = b.encode(&arg("--other=", QueryExpansion::Target)).unwrap();
+        let AttrToken(r2, _) = b.encode(&arg("--other=", QueryExpansion::Target)).unwrap();
         let (_, width) = b.arena.tag(r2);
         assert_eq!(
             b.arena.bytes.len(),
@@ -5483,9 +5485,9 @@ mod tests {
             PackageRelativePath::new("other.h").unwrap().to_arc(),
         ));
         let mut bld = CoercedAttrArena::builder();
-        let (r1, h1) = bld.encode(&a).unwrap();
-        let (r2, h2) = bld.encode(&b).unwrap();
-        let (r3, _) = bld.encode(&other).unwrap();
+        let AttrToken(r1, h1) = bld.encode(&a).unwrap();
+        let AttrToken(r2, h2) = bld.encode(&b).unwrap();
+        let AttrToken(r3, _) = bld.encode(&other).unwrap();
         assert_eq!(r1, r2, "same listing allocation should dedup by pointer");
         assert_eq!(h1, h2);
         assert_ne!(r1, r3);
@@ -5509,9 +5511,9 @@ mod tests {
             ])))
         };
         let mut b = CoercedAttrArena::builder();
-        let (r1, h1) = b.encode(&arg("gen1")).unwrap();
+        let AttrToken(r1, h1) = b.encode(&arg("gen1")).unwrap();
         let bytes_after_first = b.arena.bytes.len();
-        let (r2, h2) = b.encode(&arg("gen2")).unwrap();
+        let AttrToken(r2, h2) = b.encode(&arg("gen2")).unwrap();
         assert_ne!(r1, r2);
         assert_ne!(h1, h2);
         let (_, width) = b.arena.tag(r2);
@@ -5522,7 +5524,7 @@ mod tests {
             bytes_after_first + 4 + (1 + 1 + 2 * width as usize),
             "second arg should add its own record and one macro record; the text record is shared"
         );
-        let (r3, _) = b.encode(&arg("gen1")).unwrap();
+        let AttrToken(r3, _) = b.encode(&arg("gen1")).unwrap();
         assert_eq!(r1, r3, "identical arg should dedup to one node");
     }
 

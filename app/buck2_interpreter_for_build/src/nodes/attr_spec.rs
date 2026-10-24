@@ -96,9 +96,8 @@ impl AttributeSpecExt for AttributeSpec {
         let name = match indices.next() {
             Some((name_name, attr_idx, _attr)) if name_name == NAME_ATTRIBUTE.name => {
                 let name = param_parser.next()?;
-                let (word, _hash) = internals.with_attr_arena_builder(|builder| {
-                    let name = builder.encode_string(name)?;
-                    builder.encode_root(&name)
+                let word = internals.with_attr_arena_builder(|builder| {
+                    builder.encode_string(name).map(|name| builder.root(name))
                 })?;
                 attr_pairs.push((attr_idx, word));
                 name
@@ -159,23 +158,24 @@ impl AttributeSpecExt for AttributeSpec {
 
                 match coerced {
                     CoercedValue::Custom(v) => {
-                        let (word, _hash) =
-                            internals.with_attr_arena_builder(|builder| builder.encode_root(&v))?;
+                        let word = internals.with_attr_arena_builder(|builder| builder.root(v));
                         attr_pairs.push((attr_idx, word));
                         default_allowed_deps.insert(attr_name, attribute.default_allowed_deps());
                     }
                     CoercedValue::Default => {}
                 }
             } else if attr_is_visibility {
-                let (word, _hash) = internals.with_attr_arena_builder(|builder| {
-                    let v = builder.encode_visibility(internals.super_package.visibility())?;
-                    builder.encode_root(&v)
+                let word = internals.with_attr_arena_builder(|builder| {
+                    builder
+                        .encode_visibility(internals.super_package.visibility())
+                        .map(|v| builder.root(v))
                 })?;
                 attr_pairs.push((attr_idx, word));
             } else if attr_is_within_view {
-                let (word, _hash) = internals.with_attr_arena_builder(|builder| {
-                    let v = builder.encode_within_view(internals.super_package.within_view())?;
-                    builder.encode_root(&v)
+                let word = internals.with_attr_arena_builder(|builder| {
+                    builder
+                        .encode_within_view(internals.super_package.within_view())
+                        .map(|v| builder.root(v))
                 })?;
                 attr_pairs.push((attr_idx, word));
             }

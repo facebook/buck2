@@ -30,7 +30,7 @@ use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueIdentity;
 
-use super::coerced_attr::CoercedAttr;
+use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::attr_type::AttrType;
@@ -101,15 +101,15 @@ impl<'v> CoerceMemoKey<'v> {
 /// the module's extra value so `'v` is the heap lifetime that retains every
 /// keyed pointer: the table provably cannot outlive the values it identifies.
 #[derive(Default, Debug, Allocative)]
-pub struct CoerceMemoTable<'v>(RefCell<BuckMutMap<CoerceMemoKey<'v>, CoercedAttr>>);
+pub struct CoerceMemoTable<'v>(RefCell<BuckMutMap<CoerceMemoKey<'v>, AttrToken>>);
 
 impl<'v> CoerceMemoTable<'v> {
-    pub fn lookup(&self, key: CoerceMemoKey<'v>) -> Option<CoercedAttr> {
-        self.0.borrow().get(&key).cloned()
+    pub fn lookup(&self, key: CoerceMemoKey<'v>) -> Option<AttrToken> {
+        self.0.borrow().get(&key).copied()
     }
 
-    pub fn insert(&self, key: CoerceMemoKey<'v>, value: &CoercedAttr) {
-        self.0.borrow_mut().insert(key, value.clone());
+    pub fn insert(&self, key: CoerceMemoKey<'v>, value: AttrToken) {
+        self.0.borrow_mut().insert(key, value);
     }
 }
 
@@ -144,11 +144,11 @@ pub trait AttrCoercionContext<'v> {
     /// Memo hooks for the package-arena pipeline: cache coercion results for
     /// frozen starlark values (see `CoerceMemoKey`). Contexts without a memo
     /// return `None` / ignore inserts.
-    fn coerce_memo_lookup(&self, _key: CoerceMemoKey<'v>) -> Option<CoercedAttr> {
+    fn coerce_memo_lookup(&self, _key: CoerceMemoKey<'v>) -> Option<AttrToken> {
         None
     }
 
-    fn coerce_memo_insert(&self, _key: CoerceMemoKey<'v>, _value: &CoercedAttr) {}
+    fn coerce_memo_insert(&self, _key: CoerceMemoKey<'v>, _value: AttrToken) {}
 
     /// The arena builder every value coerced in this context is encoded
     /// into. It is borrowed for one `encode_*` call at a time, so a value's

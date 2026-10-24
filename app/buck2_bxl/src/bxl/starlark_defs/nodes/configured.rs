@@ -42,10 +42,10 @@ use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::arena::CoercedAttrArenaBuilder;
 use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr_type::arg::StringWithMacros;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::display::AttrDisplayWithContext;
@@ -93,13 +93,13 @@ mod attr_resolution_ctx;
 fn attr_with_stripped_cfg(attr: &ConfiguredAttr) -> buck2_error::Result<OwnedCoercedAttr> {
     let mut b = CoercedAttrArenaBuilder::default();
     let root = strip_cfg_into(attr, &mut b)?;
-    OwnedCoercedAttr::seal_from_builder(b, &root)
+    OwnedCoercedAttr::seal_from_builder(b, root)
 }
 
 fn strip_cfg_into(
     attr: &ConfiguredAttr,
     b: &mut CoercedAttrArenaBuilder,
-) -> buck2_error::Result<CoercedAttr> {
+) -> buck2_error::Result<AttrToken> {
     Ok(match attr {
         ConfiguredAttr::Bool(v) => b.encode_bool(v.0)?,
         ConfiguredAttr::Int(v) => b.encode_int(*v)?,
@@ -129,7 +129,7 @@ fn strip_cfg_into(
         ConfiguredAttr::None => b.encode_none()?,
         ConfiguredAttr::OneOf(attr, i) => {
             let inner = strip_cfg_into(attr, b)?;
-            b.encode_one_of(*i, &inner)?
+            b.encode_one_of(*i, inner)?
         }
         ConfiguredAttr::Visibility(v) => b.encode_visibility(v)?,
         ConfiguredAttr::WithinView(v) => b.encode_within_view(v)?,

@@ -14,6 +14,7 @@ use std::sync::LazyLock;
 
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_hash::BuckMutSet;
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr_type::arg::ArgAttrType;
 use buck2_node::attrs::attr_type::arg::MacroBase;
 use buck2_node::attrs::attr_type::arg::MacroDepKind;
@@ -26,7 +27,6 @@ use buck2_node::attrs::attr_type::arg::parser::ParsedMacro;
 use buck2_node::attrs::attr_type::arg::parser::parse_macros;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::attr_type::query::QueryMacroBase;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
@@ -67,7 +67,7 @@ impl AttrTypeCoerce for ArgAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         let value = value.unpack_str_err()?;
 
         let mut items = parse_macros(value)?.into_items();
@@ -246,6 +246,7 @@ mod tests {
     use buck2_node::attrs::arena::OwnedCoercedAttr;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::attr_type::arg::MacroBase;
+    use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::configured_attr_info_for_tests::ConfiguredAttrInfoForTests;

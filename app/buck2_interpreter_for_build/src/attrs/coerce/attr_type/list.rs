@@ -8,8 +8,8 @@
  * above-listed licenses.
  */
 
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr_type::list::ListAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::UnpackValue;
@@ -27,7 +27,7 @@ impl AttrTypeCoerce for ListAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         let list = coerce_list(value)?;
         let items = list
             .iter()

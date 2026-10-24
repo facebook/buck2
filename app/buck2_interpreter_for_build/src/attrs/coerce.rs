@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::values::Value;
@@ -29,7 +29,7 @@ pub trait AttrTypeCoerce {
         configurable: AttrIsConfigurable,
         _ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr>;
+    ) -> buck2_error::Result<AttrToken>;
 
     fn starlark_type(&self) -> TyMaybeSelect;
 }

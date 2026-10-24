@@ -233,11 +233,7 @@ fn any_nested_dict_is_interned() -> buck2_error::Result<()> {
             heap.alloc(AllocList([AllocDict([("key", 1)])])),
         )?;
         assert_eq!(first, second);
-        let (CoercedAttr::Encoded(first, _), CoercedAttr::Encoded(second, _)) = (first, second)
-        else {
-            panic!("expected arena-encoded lists");
-        };
-        assert_eq!(first, second);
+        assert_eq!(first.word(), second.word());
         Ok(())
     })
 }

@@ -21,12 +21,12 @@ use dupe::Dupe;
 use pagable::Pagable;
 use starlark_map::Hashed;
 
+use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
@@ -55,7 +55,7 @@ pub struct Attribute {
 }
 
 /// Encodes an attribute's constant default into the storage that will hold it.
-pub type DefaultEncoder = fn(&mut CoercedAttrArenaBuilder) -> buck2_error::Result<CoercedAttr>;
+pub type DefaultEncoder = fn(&mut CoercedAttrArenaBuilder) -> buck2_error::Result<AttrToken>;
 
 impl Attribute {
     pub fn new_const(default: Option<DefaultEncoder>, doc: &str, coercer: AttrType) -> Self {
@@ -72,15 +72,15 @@ impl Attribute {
     }
 
     /// Like [`Self::new`], for a default coerced through an arena-encoding
-    /// context: any `Encoded` nodes in the value are refs into the paired
-    /// interner, which becomes the default's own sealed storage.
+    /// context: the token was minted by the paired builder, which becomes
+    /// the default's own sealed storage.
     pub fn new_from_builder(
-        default: Option<(CoercedAttrArenaBuilder, CoercedAttr)>,
+        default: Option<(CoercedAttrArenaBuilder, AttrToken)>,
         doc: &str,
         coercer: AttrType,
     ) -> buck2_error::Result<Self> {
         let default = default
-            .map(|(interner, d)| OwnedCoercedAttr::seal_from_builder(interner, &d))
+            .map(|(builder, d)| OwnedCoercedAttr::seal_from_builder(builder, d))
             .transpose()?;
         Self::new_sealed(default, doc, coercer)
     }
@@ -170,7 +170,7 @@ impl Display for Attribute {
 /// Attribute which may be either a custom value supplied by the user, or missing/None to indicate use the default.
 #[derive(Eq, PartialEq)]
 pub enum CoercedValue {
-    Custom(CoercedAttr),
+    Custom(AttrToken),
     Default,
 }
 

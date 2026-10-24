@@ -80,8 +80,8 @@ impl CoercedSelector {
         Ok(CoercedSelector { entries, default })
     }
 
-    pub(crate) fn check_all_keys_unique(
-        entries: &[(ConfigurationSettingKey, CoercedAttr)],
+    pub(crate) fn check_all_keys_unique<V>(
+        entries: &[(ConfigurationSettingKey, V)],
     ) -> buck2_error::Result<()> {
         fn duplicate_key(key: &ConfigurationSettingKey) -> buck2_error::Error {
             buck2_error!(
@@ -225,13 +225,6 @@ pub enum CoercedAttr {
     SourceFile(CoercedPath),
     Metadata(MetadataMap),
     TargetModifiers(CfgModifiers),
-    /// A value already encoded into the package arena during coercion.
-    /// Never escapes coercion: `AttrValues::from_pairs` consumes it; every
-    /// other consumer errors.
-    Encoded(
-        crate::attrs::arena::AttrWord,
-        crate::attrs::arena::CoercedAttrHash,
-    ),
 }
 
 // This is just to help understand any impact that changes have to the size of this.

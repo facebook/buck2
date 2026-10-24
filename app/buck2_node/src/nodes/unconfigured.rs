@@ -31,7 +31,6 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::coerced_deps_collector::CoercedDeps;
@@ -867,17 +866,13 @@ pub mod testing {
             let mut builder = crate::attrs::arena::CoercedAttrArena::builder();
             let mut attributes = AttrValues::with_capacity(storage.dupe(), attrs.len() + 1);
 
-            attributes
-                .push_sorted(
-                    &mut builder,
-                    NAME_ATTRIBUTE.id,
-                    CoercedAttr::String(StringLiteral(label.name().as_str().into())),
-                )
-                .unwrap();
+            let name = builder.encode_string(label.name().as_str()).unwrap();
+            attributes.push_sorted(&mut builder, NAME_ATTRIBUTE.id, name);
 
             for (name, _attr, val) in attrs.into_iter() {
                 let idx = attr_spec.attribute_id_by_name(name).unwrap();
-                attributes.push_sorted(&mut builder, idx, val).unwrap();
+                let val = builder.encode(&val).unwrap();
+                attributes.push_sorted(&mut builder, idx, val);
             }
 
             storage.seal(builder.finish());

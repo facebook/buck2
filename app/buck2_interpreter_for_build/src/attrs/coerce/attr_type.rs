@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::arena::CoercedAttrRef;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::AttrTypeInner;
@@ -53,7 +54,7 @@ pub trait AttrTypeExt {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         self.this().0.inner.coerce_item(configurable, ctx, value)
     }
 
@@ -62,7 +63,7 @@ pub trait AttrTypeExt {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         self.coerce_with_default(configurable, ctx, value, None)
     }
 
@@ -72,7 +73,7 @@ pub trait AttrTypeExt {
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
         default: Option<CoercedAttrRef<'_>>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         CoercedAttr::coerce(self.this(), configurable, ctx, value, default)
     }
 
@@ -93,7 +94,7 @@ pub trait AttrTypeInnerExt {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr>;
+    ) -> buck2_error::Result<AttrToken>;
 
     fn starlark_type(&self) -> TyMaybeSelect;
 }
@@ -104,7 +105,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         match self {
             Self::Any(x) => x.coerce_item(configurable, ctx, value),
             Self::Arg(x) => x.coerce_item(configurable, ctx, value),

@@ -13,8 +13,8 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr_type::metadata::MetadataAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::metadata::key::MetadataKeyRef;
@@ -34,7 +34,7 @@ impl AttrTypeCoerce for MetadataAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         if configurable == AttrIsConfigurable::Yes {
             return Err(internal_error!("Metadata attribute is not configurable"));
         }

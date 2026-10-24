@@ -10,8 +10,8 @@
 
 use std::iter;
 
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr_type::tuple::TupleAttrType;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::IterDupedExt;
@@ -37,7 +37,7 @@ impl AttrTypeCoerce for TupleAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-    ) -> buck2_error::Result<CoercedAttr> {
+    ) -> buck2_error::Result<AttrToken> {
         let coerce = |items: &[Value<'v>]| {
             // Use comparison rather than equality below. If the tuple is too short,
             // it is implicitly extended using None.

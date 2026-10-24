@@ -69,12 +69,8 @@ impl CoerceOwned for BuildAttrCoercionContext {
         attr: &AttrType,
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
-        let CoercedAttr::Encoded(r, _) = attr.coerce(AttrIsConfigurable::Yes, self, value)? else {
-            return Err(buck2_error::internal_error!(
-                "coercion results are arena-encoded"
-            ));
-        };
-        self.attr_arena().view(r).to_coerced()
+        let token = attr.coerce(AttrIsConfigurable::Yes, self, value)?;
+        self.attr_arena().view(token.word()).to_coerced()
     }
 }
 

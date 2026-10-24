@@ -30,8 +30,8 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
+use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::arena::CoercedAttrArenaBuilder;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -364,11 +364,11 @@ impl<'c, 'v> AttrCoercionContext<'v> for MemoizedCoercionCtx<'c, 'v> {
         AttrCoercionContext::coerce_providers_label(self.base, value)
     }
 
-    fn coerce_memo_lookup(&self, key: CoerceMemoKey<'v>) -> Option<CoercedAttr> {
+    fn coerce_memo_lookup(&self, key: CoerceMemoKey<'v>) -> Option<AttrToken> {
         self.memo.lookup(key)
     }
 
-    fn coerce_memo_insert(&self, key: CoerceMemoKey<'v>, value: &CoercedAttr) {
+    fn coerce_memo_insert(&self, key: CoerceMemoKey<'v>, value: AttrToken) {
         self.memo.insert(key, value);
     }
 

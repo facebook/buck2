@@ -19,12 +19,12 @@ use buck2_util::vec2::Vec2;
 use dupe::Dupe;
 use pagable::Pagable;
 
+use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::AttrWord;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::arena::PackageAttrStorage;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::spec::AttributeId;
 
 /// One explicitly-set attribute, by arena ref. Hashing and equality read
@@ -109,20 +109,20 @@ impl AttrValues {
         self.sorted.shrink_to_fit();
     }
 
-    /// Encode `value` into the package arena and record it for `id`. The
-    /// builder must be the one whose output will seal this value's storage.
+    /// Record `value` for `id` as a root of the package arena. The builder
+    /// must be the one that minted `value` and whose output will seal this
+    /// value's storage.
     pub fn push_sorted(
         &mut self,
         builder: &mut CoercedAttrArenaBuilder,
         id: AttributeId,
-        value: CoercedAttr,
-    ) -> buck2_error::Result<()> {
+        value: AttrToken,
+    ) {
         if let Some((last_id, _)) = self.sorted.last() {
             assert!(&id > last_id, "attributed must be sorted");
         }
-        let (r, _content_hash) = builder.encode_root(&value)?;
+        let r = builder.root(value);
         self.sorted.push(id, ArenaAttrValue { r });
-        Ok(())
     }
 
     /// Adopt a full, sorted set of already-encoded per-target rows (coercion

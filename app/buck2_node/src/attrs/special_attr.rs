@@ -93,7 +93,7 @@ impl SpecialAttr {
             }
             SpecialAttr::TargetModifiers(m) => builder.encode_target_modifiers(m)?,
         };
-        OwnedCoercedAttr::seal_from_builder(builder, &encoded)
+        OwnedCoercedAttr::seal_from_builder(builder, encoded)
     }
 }
 
