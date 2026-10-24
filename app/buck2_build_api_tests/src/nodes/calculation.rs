@@ -30,7 +30,6 @@ use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey
 use buck2_interpreter_for_build::super_package::package_value::SuperPackageValuesImpl;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::dep::DepAttr;
 use buck2_node::attrs::attr_type::dep::DepAttrTransition;
@@ -117,7 +116,7 @@ async fn test_get_node() -> buck2_error::Result<()> {
                 "",
                 AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
             )?,
-            AnyAttrType::empty_list(),
+            CoercedAttr::List(ListLiteral::default()),
         ),
     ];
 

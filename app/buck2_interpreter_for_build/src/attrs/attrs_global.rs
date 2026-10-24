@@ -18,7 +18,6 @@ use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
@@ -590,7 +589,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         let coercer = AttrType::list(element_type.dupe());
 
         Ok(StarlarkAttribute::new(Attribute::new(
-            Some(AnyAttrType::empty_list()),
+            Some(|b| b.encode_list(&[])),
             doc,
             coercer,
         )?))

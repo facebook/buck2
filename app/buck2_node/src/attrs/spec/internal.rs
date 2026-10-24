@@ -17,9 +17,7 @@ use buck2_hash::BuckFixedSortedSet;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::AttrType;
-use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
 use crate::attrs::spec::AttributeId;
 use crate::metadata::map::MetadataMap;
@@ -46,7 +44,7 @@ pub(crate) const DEFAULT_TARGET_PLATFORM_ATTRIBUTE: InternalAttribute = Internal
     name: "default_target_platform",
     attr: || {
         Attribute::new_const(
-            Some(CoercedAttr::None),
+            Some(|b| b.encode_none()),
             "specifies the default target platform, used when no platforms are specified on the command line",
             AttrType::option(AttrType::configuration_dep(
                 ConfigurationDepKind::DefaultTargetPlatform,
@@ -64,7 +62,7 @@ pub const TARGET_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribut
     name: "target_compatible_with",
     attr: || {
         Attribute::new_const(
-            Some(AnyAttrType::empty_list()),
+            Some(|b| b.encode_list(&[])),
             "a list of constraints that are required to be satisfied for this target to be compatible with a configuration",
             AttrType::list(AttrType::configuration_dep(
                 ConfigurationDepKind::CompatibilityAttribute,
@@ -79,7 +77,7 @@ pub const LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalA
     name: "compatible_with",
     attr: || {
         Attribute::new_const(
-            Some(AnyAttrType::empty_list()),
+            Some(|b| b.encode_list(&[])),
             "a list of constraints that are required to be satisfied for this target to be compatible with a configuration",
             AttrType::list(AttrType::configuration_dep(
                 ConfigurationDepKind::CompatibilityAttribute,
@@ -94,7 +92,7 @@ pub const EXEC_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribute 
     name: "exec_compatible_with",
     attr: || {
         Attribute::new_const(
-            Some(AnyAttrType::empty_list()),
+            Some(|b| b.encode_list(&[])),
             "a list of constraints that are required to be satisfied for this target to be compatible with an execution platform",
             AttrType::list(AttrType::configuration_dep(
                 ConfigurationDepKind::CompatibilityAttribute,
@@ -109,7 +107,7 @@ pub const VISIBILITY_ATTRIBUTE: InternalAttribute = InternalAttribute {
     name: "visibility",
     attr: || {
         Attribute::new_const(
-            Some(CoercedAttr::Visibility(VisibilitySpecification::DEFAULT)),
+            Some(|b| b.encode_visibility(&VisibilitySpecification::DEFAULT)),
             "a list of visibility patterns restricting what targets can depend on this one",
             AttrType::visibility(),
         )
@@ -123,7 +121,7 @@ pub const WITHIN_VIEW_ATTRIBUTE: InternalAttribute = InternalAttribute {
     name: "within_view",
     attr: || {
         Attribute::new_const(
-            Some(CoercedAttr::WithinView(WithinViewSpecification::PUBLIC)),
+            Some(|b| b.encode_within_view(&WithinViewSpecification::PUBLIC)),
             "a list of visibility patterns restricting what this target can depend on",
             AttrType::within_view(),
         )
@@ -136,7 +134,7 @@ pub(crate) const METADATA_ATTRIBUTE: InternalAttribute = InternalAttribute {
     name: "metadata",
     attr: || {
         Attribute::new_const(
-            Some(CoercedAttr::Metadata(MetadataMap::default())),
+            Some(|b| b.encode_metadata(&MetadataMap::default())),
             "a key-value map of metadata associated with this target",
             AttrType::metadata(),
         )
@@ -149,7 +147,7 @@ pub(crate) const TESTS_ATTRIBUTE: InternalAttribute = InternalAttribute {
     name: "tests",
     attr: || {
         Attribute::new_const(
-            Some(AnyAttrType::empty_list()),
+            Some(|b| b.encode_list(&[])),
             "a list of targets that provide tests for this one",
             AttrType::list(AttrType::label()),
         )
@@ -162,7 +160,7 @@ pub(crate) const TARGET_MODIFIERS_ATTRIBUTE: InternalAttribute = InternalAttribu
     name: "modifiers",
     attr: || {
         Attribute::new_const(
-            Some(CoercedAttr::TargetModifiers(CfgModifiers::empty())),
+            Some(|b| b.encode_target_modifiers(&CfgModifiers::empty())),
             "an array of modifiers associated with this target",
             AttrType::target_modifiers(),
         )
@@ -193,7 +191,7 @@ pub const INCOMING_TRANSITION_ATTRIBUTE: OptionalInternalAttribute = OptionalInt
     name: "incoming_transition",
     attr: || {
         Attribute::new_const(
-            Some(CoercedAttr::None),
+            Some(|b| b.encode_none()),
             "specifies the incoming transition to apply to this target",
             AttrType::option(AttrType::configuration_dep(
                 ConfigurationDepKind::Transition,

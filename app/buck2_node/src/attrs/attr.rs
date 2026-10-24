@@ -54,17 +54,20 @@ pub struct Attribute {
     coercer: AttrType,
 }
 
+/// Encodes an attribute's constant default into the storage that will hold it.
+pub type DefaultEncoder = fn(&mut CoercedAttrArenaBuilder) -> buck2_error::Result<CoercedAttr>;
+
 impl Attribute {
-    pub fn new_const(default: Option<CoercedAttr>, doc: &str, coercer: AttrType) -> Self {
+    pub fn new_const(default: Option<DefaultEncoder>, doc: &str, coercer: AttrType) -> Self {
         Self::new(default, doc, coercer).expect("Attribute::new_const failed")
     }
 
     pub fn new(
-        default: Option<CoercedAttr>,
+        default: Option<DefaultEncoder>,
         doc: &str,
         coercer: AttrType,
     ) -> buck2_error::Result<Self> {
-        let default = default.map(|d| OwnedCoercedAttr::try_new(&d)).transpose()?;
+        let default = default.map(OwnedCoercedAttr::new_with).transpose()?;
         Self::new_sealed(default, doc, coercer)
     }
 

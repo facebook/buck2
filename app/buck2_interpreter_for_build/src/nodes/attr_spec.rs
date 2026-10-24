@@ -17,8 +17,6 @@ use buck2_hash::IntentionallyStdHashMap;
 use buck2_node::attrs::arena::AttrWord;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr::CoercedValue;
-use buck2_node::attrs::attr_type::string::StringLiteral;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
@@ -29,8 +27,6 @@ use buck2_node::attrs::spec::internal::NAME_ATTRIBUTE;
 use buck2_node::attrs::spec::internal::VISIBILITY_ATTRIBUTE;
 use buck2_node::attrs::spec::internal::WITHIN_VIEW_ATTRIBUTE;
 use buck2_node::attrs::spec::internal::attr_is_configurable;
-use buck2_util::arc_str::ArcStr;
-use dupe::Dupe;
 use starlark::docs::DocString;
 use starlark::eval::ParametersParser;
 use starlark::eval::ParametersSpec;
@@ -101,7 +97,8 @@ impl AttributeSpecExt for AttributeSpec {
             Some((name_name, attr_idx, _attr)) if name_name == NAME_ATTRIBUTE.name => {
                 let name = param_parser.next()?;
                 let (word, _hash) = internals.with_attr_arena_builder(|builder| {
-                    builder.encode_root(&CoercedAttr::String(StringLiteral(ArcStr::from(name))))
+                    let name = builder.encode_string(name)?;
+                    builder.encode_root(&name)
                 })?;
                 attr_pairs.push((attr_idx, word));
                 name
@@ -148,15 +145,15 @@ impl AttributeSpecExt for AttributeSpec {
 
                 if attr_is_visibility {
                     if coerced == CoercedValue::Default {
-                        coerced = CoercedValue::Custom(CoercedAttr::Visibility(
-                            internals.super_package.visibility().dupe(),
-                        ));
+                        coerced = CoercedValue::Custom(internals.with_attr_arena_builder(|b| {
+                            b.encode_visibility(internals.super_package.visibility())
+                        })?);
                     }
                 } else if attr_is_within_view {
                     if coerced == CoercedValue::Default {
-                        coerced = CoercedValue::Custom(CoercedAttr::WithinView(
-                            internals.super_package.within_view().dupe(),
-                        ));
+                        coerced = CoercedValue::Custom(internals.with_attr_arena_builder(|b| {
+                            b.encode_within_view(internals.super_package.within_view())
+                        })?);
                     }
                 }
 
@@ -171,16 +168,14 @@ impl AttributeSpecExt for AttributeSpec {
                 }
             } else if attr_is_visibility {
                 let (word, _hash) = internals.with_attr_arena_builder(|builder| {
-                    builder.encode_root(&CoercedAttr::Visibility(
-                        internals.super_package.visibility().dupe(),
-                    ))
+                    let v = builder.encode_visibility(internals.super_package.visibility())?;
+                    builder.encode_root(&v)
                 })?;
                 attr_pairs.push((attr_idx, word));
             } else if attr_is_within_view {
                 let (word, _hash) = internals.with_attr_arena_builder(|builder| {
-                    builder.encode_root(&CoercedAttr::WithinView(
-                        internals.super_package.within_view().dupe(),
-                    ))
+                    let v = builder.encode_within_view(internals.super_package.within_view())?;
+                    builder.encode_root(&v)
                 })?;
                 attr_pairs.push((attr_idx, word));
             }

@@ -782,6 +782,15 @@ impl OwnedCoercedAttr {
         Self::seal_from_builder(CoercedAttrArenaBuilder::default(), attr)
     }
 
+    /// A value `f` encodes into storage of its own.
+    pub fn new_with(
+        f: impl FnOnce(&mut CoercedAttrArenaBuilder) -> buck2_error::Result<CoercedAttr>,
+    ) -> buck2_error::Result<OwnedCoercedAttr> {
+        let mut builder = CoercedAttrArenaBuilder::default();
+        let value = f(&mut builder)?;
+        Self::seal_from_builder(builder, &value)
+    }
+
     /// Seal `builder` into this value's own storage. Any `Encoded` nodes in
     /// `attr` must be refs minted by `builder`.
     pub fn seal_from_builder(
