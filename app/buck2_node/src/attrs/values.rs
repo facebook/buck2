@@ -143,20 +143,24 @@ impl PartialEq for AttrValues {
         if self.sorted.len() != other.sorted.len() {
             return false;
         }
-        // Refs are arena-local: compare ids, then identity hashes (which
-        // already imply equality), then content across the two arenas as a
-        // belt until the identity hashes have soaked.
+        // Refs are arena-local: compare ids, then identity hashes. The
+        // 128-bit blake3 content hash IS equality (`CoercedAttrArena::strong_of`);
+        // debug builds keep verifying that structurally.
         self.sorted
             .iter()
             .zip(other.sorted.iter())
             .all(|((id_a, a), (id_b, b))| {
-                id_a == id_b
-                    && self.strong(*a) == other.strong(*b)
-                    && self
-                        .storage
-                        .arena()
-                        .view(a.r)
-                        .content_eq(&other.storage.arena().view(b.r))
+                let eq = id_a == id_b && self.strong(*a) == other.strong(*b);
+                if eq {
+                    debug_assert!(
+                        self.storage
+                            .arena()
+                            .view(a.r)
+                            .content_eq(&other.storage.arena().view(b.r)),
+                        "identity hashes matched but content differs"
+                    );
+                }
+                eq
             })
     }
 }

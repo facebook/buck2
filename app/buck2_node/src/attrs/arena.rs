@@ -715,7 +715,6 @@ impl PackageAttrStorage {
 pub struct OwnedCoercedAttr {
     storage: Arc<PackageAttrStorage>,
     word: AttrWord,
-    hash: CoercedAttrHash,
 }
 
 impl OwnedCoercedAttr {
@@ -736,14 +735,10 @@ impl OwnedCoercedAttr {
         mut builder: CoercedAttrArenaBuilder,
         attr: &CoercedAttr,
     ) -> buck2_error::Result<OwnedCoercedAttr> {
-        let (word, hash) = builder.encode_root(attr)?;
+        let (word, _hash) = builder.encode_root(attr)?;
         let storage = Arc::new(PackageAttrStorage::default());
         storage.seal(builder.finish());
-        Ok(OwnedCoercedAttr {
-            storage,
-            word,
-            hash,
-        })
+        Ok(OwnedCoercedAttr { storage, word })
     }
 
     pub fn as_ref(&self) -> CoercedAttrRef<'_> {
@@ -761,7 +756,16 @@ impl OwnedCoercedAttr {
 
 impl PartialEq for OwnedCoercedAttr {
     fn eq(&self, other: &OwnedCoercedAttr) -> bool {
-        self.hash == other.hash && self.as_ref().content_eq(&other.as_ref())
+        // The 128-bit blake3 content hash IS equality (`CoercedAttrArena::
+        // strong_of`); debug builds keep verifying that structurally.
+        let eq = self.strong_hash() == other.strong_hash();
+        if eq {
+            debug_assert!(
+                self.as_ref().content_eq(&other.as_ref()),
+                "identity hashes matched but content differs"
+            );
+        }
+        eq
     }
 }
 
@@ -769,7 +773,7 @@ impl Eq for OwnedCoercedAttr {}
 
 impl Hash for OwnedCoercedAttr {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash.hash(state);
+        self.strong_hash().hash(state);
     }
 }
 
