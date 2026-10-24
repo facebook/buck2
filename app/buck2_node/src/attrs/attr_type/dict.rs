@@ -13,15 +13,25 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_keyed_container;
 use pagable::Pagable;
 use serde_json::Value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::AttrRefDisplay;
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::semantics::inner_type;
+use crate::attrs::arena::semantics::mismatch;
+use crate::attrs::arena::semantics::ser_err;
+use crate::attrs::arena::semantics::ser_keyed;
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::any_matches::AnyMatches;
+use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
@@ -121,3 +131,93 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for DictLiteral<C> {
         Ok(res.into())
     }
 }
+
+impl_semantics!(Dict: concat "dict" {
+    traverse(v, (pairs,), t, pkg, tr) {
+        let inner = inner_type(t);
+        let (kt, vt) = match &inner.0.inner {
+            AttrTypeInner::Any(_) => (inner, inner),
+            AttrTypeInner::Dict(ty) => (&ty.key, &ty.value),
+            _ => return Err(mismatch(v, t)),
+        };
+        for (k, val) in pairs.iter() {
+            k.traverse(kt, pkg, tr)?;
+            val.traverse(vt, pkg, tr)?;
+        }
+        Ok(())
+    }
+    configure(v, (pairs,), t, ctx, name) {
+        let (kt, vt) = match &inner_type(t).0.inner {
+            AttrTypeInner::Any(_) => (AttrType::any_ref(), AttrType::any_ref()),
+            AttrTypeInner::Dict(ty) => (&ty.key, &ty.value),
+            _ => return mismatch(v, t).into(),
+        };
+        ResultMaybeCompatible::Compatible(ConfiguredAttr::Dict(DictLiteral(
+            pairs
+                .iter()
+                .map(|(k, val)| {
+                    let k2 = k.configure(kt, ctx, name)?;
+                    let v2 = val.configure(vt, ctx, name)?;
+                    ResultMaybeCompatible::Compatible((k2, v2))
+                })
+                .collect::<ResultMaybeCompatible<Vec<_>>>()?
+                .into(),
+        )))
+    }
+    traverse_configured(v, (pairs,), t, pkg, ctx, tr, name) {
+        let (kt, vt) = match &inner_type(t).0.inner {
+            AttrTypeInner::Any(_) => return ResultMaybeCompatible::Compatible(()),
+            AttrTypeInner::Dict(ty) => (&ty.key, &ty.value),
+            _ => return mismatch(v, t).into(),
+        };
+        for (k, val) in pairs.iter() {
+            k.traverse_configured(kt, pkg, ctx, tr, name)?;
+            val.traverse_configured(vt, pkg, ctx, tr, name)?;
+        }
+        ResultMaybeCompatible::Compatible(())
+    }
+    json(v, (pairs,), ctx) {
+        let mut res = serde_json::Map::with_capacity(pairs.len());
+        for (k, val) in pairs.iter() {
+            res.insert(
+                k.to_json(ctx)?
+                    .as_str()
+                    .ok_or_else(|| internal_error!("dict keys must render to JSON strings"))?
+                    .to_owned(),
+                val.to_json(ctx)?,
+            );
+        }
+        Ok(serde_json::Value::Object(res))
+    }
+    fmt(v, (pairs,), ctx, f) {
+        fmt_keyed_container(
+            f,
+            "{",
+            "}",
+            ": ",
+            pairs
+                .iter()
+                .map(|(k, val)| (AttrRefDisplay { ctx, r: k }, AttrRefDisplay { ctx, r: val })),
+        )
+    }
+    any_matches(v, (pairs,), filter) {
+        for (k, val) in pairs.iter() {
+            if k.any_matches(filter)? || val.any_matches(filter)? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+    serialize<S>(v, (pairs,), ctx, ser) {
+        ser_keyed(
+            pairs
+                .iter()
+                .map(|(k, val)| Ok((k.json_key(ctx)?, val)))
+                .collect::<buck2_error::Result<Vec<_>>>()
+                .map_err(ser_err::<S>)?
+                .into_iter(),
+            ctx,
+            ser,
+        )
+    }
+});

@@ -9,11 +9,27 @@
  */
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use dupe::Dupe;
 use pagable::Pagable;
+use serde::Serialize;
 use strong_hash::StrongHash;
+
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::attr_type::any_matches::AnyMatches;
+use crate::attrs::configured_attr::ConfiguredAttr;
 
 #[derive(
     Debug, Pagable, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe, StrongHash
 )]
 pub struct TargetModifiersAttrType;
+
+impl_semantics!(Modifiers {
+    traverse(v, (m,), t, pkg, tr) { Ok(()) }
+    configure(v, (m,), t, ctx, name) { ResultMaybeCompatible::Compatible(ConfiguredAttr::TargetModifiers(m.dupe())) }
+    traverse_configured(v, (m,), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
+    json(v, (m,), ctx) { Ok(m.to_json()) }
+    fmt(v, (m,), ctx, f) { write!(f, "{}", m) }
+    any_matches(v, (m,), filter) { m.any_matches(filter) }
+    serialize<S>(v, (m,), ctx, ser) { m.to_json().serialize(ser) }
+});

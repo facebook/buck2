@@ -50,7 +50,7 @@ pub(super) const TAG_WIDTH_SHIFT: u8 = 6;
 
 /// The tail of a record body, sized.
 #[derive(Copy, Clone)]
-pub(super) enum TailLen {
+pub(crate) enum TailLen {
     None,
     Text(u32),
     Refs(u32),

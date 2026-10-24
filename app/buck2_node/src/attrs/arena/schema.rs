@@ -300,7 +300,7 @@ impl AttrKind {
 
 /// How a kind's values are stored.
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub(super) enum Storage {
+pub(crate) enum Storage {
     /// No record: the word carries the kind and the single field's value.
     Inline,
     /// A record of head fields and child refs, deduped by content.
@@ -311,7 +311,7 @@ pub(super) enum Storage {
 
 /// A kind whose values are a sequence of typed fields: everything about it
 /// derives from the field list.
-pub(super) trait SchemaKind: 'static {
+pub(crate) trait SchemaKind: 'static {
     const KIND: AttrKind;
     const STORAGE: Storage;
     type Fields: FieldList;
@@ -326,7 +326,7 @@ pub(super) trait SchemaKind: 'static {
 /// and monomorphizes a visitor per kind, so every operation that is uniform
 /// over kinds is written once. Schema kinds get this from their fields;
 /// the record-internal tagged unions implement it by hand.
-pub(super) trait Kind {
+pub(crate) trait Kind {
     const KIND: AttrKind;
     /// Whether values hold no deps: no labels, paths or children, so
     /// traversals have nothing to visit.
@@ -446,7 +446,7 @@ impl Kind for kinds::Int {
 
 /// The label set of a `SelectorKeys` record: `[n, idx...]`.
 #[derive(Copy, Clone)]
-pub(super) struct KeysParts<'a> {
+pub(crate) struct KeysParts<'a> {
     pub(super) keys: RefRun<'a>,
 }
 

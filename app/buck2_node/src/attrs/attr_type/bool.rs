@@ -13,13 +13,20 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use dupe::Dupe;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::semantics::inner_type;
+use crate::attrs::arena::semantics::mismatch;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::any_matches::AnyMatches;
+use crate::attrs::configured_attr::ConfiguredAttr;
 
 #[derive(
     Debug, Eq, PartialEq, Hash, Pagable, Allocative, Clone, Copy, Dupe, StrongHash
@@ -62,3 +69,37 @@ impl AnyMatches for BoolLiteral {
             || filter(if self.0 { "true" } else { "false" })?)
     }
 }
+
+impl_semantics!(BoolFalse {
+    traverse(v, (), t, pkg, tr) { Ok(()) }
+    configure(v, (), t, ctx, name) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::Bool(_) | AttrTypeInner::Any(_) => {
+                ResultMaybeCompatible::Compatible(ConfiguredAttr::Bool(BoolLiteral(false)))
+            }
+            _ => mismatch(v, t).into(),
+        }
+    }
+    traverse_configured(v, (), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
+    json(v, (), ctx) { Ok(to_value(false)?) }
+    fmt(v, (), ctx, f) { write!(f, "{}", BoolLiteral(false)) }
+    any_matches(v, (), filter) { BoolLiteral(false).any_matches(filter) }
+    serialize<S>(v, (), ctx, ser) { ser.serialize_bool(false) }
+});
+
+impl_semantics!(BoolTrue {
+    traverse(v, (), t, pkg, tr) { Ok(()) }
+    configure(v, (), t, ctx, name) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::Bool(_) | AttrTypeInner::Any(_) => {
+                ResultMaybeCompatible::Compatible(ConfiguredAttr::Bool(BoolLiteral(true)))
+            }
+            _ => mismatch(v, t).into(),
+        }
+    }
+    traverse_configured(v, (), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
+    json(v, (), ctx) { Ok(to_value(true)?) }
+    fmt(v, (), ctx, f) { write!(f, "{}", BoolLiteral(true)) }
+    any_matches(v, (), filter) { BoolLiteral(true).any_matches(filter) }
+    serialize<S>(v, (), ctx, ser) { ser.serialize_bool(true) }
+});

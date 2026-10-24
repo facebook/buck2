@@ -11,13 +11,21 @@
 use std::hash::Hasher;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 use pagable::Pagable;
+use serde::Serialize;
+use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::semantics::inner_type;
+use crate::attrs::arena::semantics::mismatch;
+use crate::attrs::attr_type::AttrTypeInner;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -117,3 +125,32 @@ impl ConfiguredExplicitConfiguredDep {
         traversal.dep(&self.label)
     }
 }
+
+impl_semantics!(ExplicitConfiguredDep {
+    traverse(v, (label, platform), t, pkg, tr) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::ConfiguredDep(_) => {
+                tr.dep(label)?;
+                tr.configuration_dep(
+                    &ProvidersLabel::default_for(platform.dupe()),
+                    ConfigurationDepKind::ConfiguredDepPlatform,
+                )
+            }
+            _ => Err(mismatch(v, t)),
+        }
+    }
+    configure(v, (label, platform), t, ctx, name) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::ConfiguredDep(ty) => {
+                ResultMaybeCompatible::Compatible(ty.configure(ctx, label, platform.dupe())?)
+            }
+            _ => mismatch(v, t).into(),
+        }
+    }
+    json(v, (label, platform), ctx) { Ok(to_value([label.to_string(), platform.to_string()])?) }
+    fmt(v, (label, platform), ctx, f) { write!(f, "({label}, {platform})") }
+    any_matches(v, (label, platform), filter) { filter(&format!("({label}, {platform})")) }
+    serialize<S>(v, (label, platform), ctx, ser) {
+        [label.to_string(), platform.to_string()].serialize(ser)
+    }
+});

@@ -13,15 +13,23 @@ use std::fmt::Display;
 use std::hash::Hasher;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use pagable::Pagable;
+use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::semantics::inner_type;
+use crate::attrs::arena::semantics::mismatch;
+use crate::attrs::arena::semantics::query_view;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::configuration_context::AttrConfigurationContext;
+use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
 use crate::attrs::traversal::CoercedAttrTraversal;
@@ -210,3 +218,31 @@ impl QueryAttrBase<ProvidersLabel> {
         Ok(())
     }
 }
+
+impl_semantics!(Query {
+    traverse(v, (expr,), t, pkg, tr) {
+        // Queries have no inputs or configuration deps: literal labels only,
+        // in expression order.
+        if !matches!(&inner_type(t).0.inner, AttrTypeInner::Query(_)) {
+            return Err(mismatch(v, t));
+        }
+        let mut labels = Vec::new();
+        expr.labels(&mut labels);
+        for label in labels {
+            tr.dep(label)?;
+        }
+        Ok(())
+    }
+    configure(v, (expr,), t, ctx, name) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::Query(_) => ResultMaybeCompatible::Compatible(ConfiguredAttr::Query(
+                Box::new(query_view(v).configure(ctx)),
+            )),
+            _ => mismatch(v, t).into(),
+        }
+    }
+    json(v, (expr,), ctx) { Ok(to_value(query_view(v).query().0)?) }
+    fmt(v, (expr,), ctx, f) { write!(f, "\"{}\"", query_view(v).query().0) }
+    any_matches(v, (expr,), filter) { filter(&query_view(v).query().0) }
+    serialize<S>(v, (expr,), ctx, ser) { ser.serialize_str(&query_view(v).query().0) }
+});

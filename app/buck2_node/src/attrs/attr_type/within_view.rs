@@ -9,11 +9,27 @@
  */
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use dupe::Dupe;
 use pagable::Pagable;
+use serde::Serialize;
 use strong_hash::StrongHash;
+
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::attr_type::any_matches::AnyMatches;
+use crate::attrs::configured_attr::ConfiguredAttr;
 
 #[derive(
     Debug, Pagable, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe, StrongHash
 )]
 pub struct WithinViewAttrType;
+
+impl_semantics!(WithinView {
+    traverse(v, (s,), t, pkg, tr) { Ok(()) }
+    configure(v, (s,), t, ctx, name) { ResultMaybeCompatible::Compatible(ConfiguredAttr::WithinView(s.clone())) }
+    traverse_configured(v, (s,), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
+    json(v, (s,), ctx) { Ok(s.to_json()) }
+    fmt(v, (s,), ctx, f) { write!(f, "{}", s) }
+    any_matches(v, (s,), filter) { s.any_matches(filter) }
+    serialize<S>(v, (s,), ctx, ser) { s.to_json().serialize(ser) }
+});

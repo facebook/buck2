@@ -15,14 +15,21 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::internal_error;
 use dupe::Dupe;
 use pagable::Pagable;
+use serde::Serialize;
+use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::semantics::inner_type;
+use crate::attrs::arena::semantics::mismatch;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -161,3 +168,34 @@ impl CoercedTransitionDep {
         }
     }
 }
+
+impl_semantics!(TransitionDep {
+    traverse(v, (dep, transition), t, pkg, tr) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::TransitionDep(ty) => ty.traverse(dep, transition, tr),
+            _ => Err(mismatch(v, t)),
+        }
+    }
+    configure(v, (dep, transition), t, ctx, name) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::TransitionDep(ty) => {
+                ResultMaybeCompatible::Compatible(ty.configure(dep, transition, ctx)?)
+            }
+            _ => mismatch(v, t).into(),
+        }
+    }
+    json(v, (dep, transition), ctx) {
+        match transition {
+            Some(tr) => Ok(to_value([dep.to_string(), tr.to_string()])?),
+            None => Ok(to_value(dep.to_string())?),
+        }
+    }
+    fmt(v, (dep, transition), ctx, f) { std::fmt::Display::fmt(dep, f) }
+    any_matches(v, (dep, transition), filter) { filter(&dep.to_string()) }
+    serialize<S>(v, (dep, transition), ctx, ser) {
+        match transition {
+            Some(tr) => [dep.to_string(), tr.to_string()].serialize(ser),
+            None => ser.serialize_str(&dep.to_string()),
+        }
+    }
+});

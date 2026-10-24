@@ -140,7 +140,7 @@ impl<'a> QueryView<'a> {
         (out, ResolvedQueryLiterals(lits))
     }
 
-    pub(super) fn configure(
+    pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
     ) -> QueryAttr<ConfiguredProvidersLabel> {
@@ -168,7 +168,7 @@ impl PartialEq for QueryView<'_> {
 /// Handle to one stored query-expression node ([`AttrKind::QueryExpr`]);
 /// `view` decodes it shallowly.
 #[derive(Copy, Clone)]
-pub(super) struct QueryExprRef<'a> {
+pub(crate) struct QueryExprRef<'a> {
     pub(super) arena: &'a CoercedAttrArena,
     pub(super) r: AttrWord,
 }
@@ -377,7 +377,7 @@ impl<'a> QueryExprRef<'a> {
     }
 
     /// Collects the node's literal labels, in expression order.
-    pub(super) fn labels(&self, out: &mut Vec<&'a ProvidersLabel>) {
+    pub(crate) fn labels(&self, out: &mut Vec<&'a ProvidersLabel>) {
         match self.view() {
             QueryExprView::Label(l) => out.push(l),
             QueryExprView::Function { args, .. } => {

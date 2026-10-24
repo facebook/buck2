@@ -251,6 +251,11 @@ impl<'a> AttrRefSelectorEntries<'a> {
 }
 
 impl<'a> CoercedAttrRef<'a> {
+    /// The ref itself: equal words in one arena are the same value.
+    pub(crate) fn word(&self) -> AttrWord {
+        self.r
+    }
+
     pub fn kind(&self) -> CoercedAttrRefKind<'a> {
         dispatch(self.arena.kind_of(self.r), ToRefKind { v: *self })
     }
@@ -259,7 +264,7 @@ impl<'a> CoercedAttrRef<'a> {
 impl<'a> CoercedAttrRef<'a> {
     /// The decoded parts if this value is of kind `K`: the typed downcast,
     /// for readers that want one kind rather than the sum `kind()` gives.
-    pub(super) fn parts<K: Kind>(&self) -> Option<K::Parts<'a>> {
+    pub(crate) fn parts<K: Kind>(&self) -> Option<K::Parts<'a>> {
         (self.arena.kind_of(self.r) == K::KIND).then(|| K::decode(self.arena, self.r))
     }
 
@@ -358,7 +363,7 @@ impl<'a> CoercedAttrRef<'a> {
 
     /// The error for a select where no condition matched and no default
     /// was set.
-    pub(super) fn select_no_match_error(
+    pub(crate) fn select_no_match_error(
         ctx: &dyn AttrConfigurationContext,
         entries: AttrRefSelectorEntries<'a>,
     ) -> buck2_error::Error {
@@ -373,7 +378,7 @@ impl<'a> CoercedAttrRef<'a> {
 
     /// Resolve a select against the configuration: most specific matching
     /// entry, or `Ok(None)` for "use the default / no match".
-    pub(super) fn select_view(
+    pub(crate) fn select_view(
         ctx: &dyn AttrConfigurationContext,
         select: CoercedAttrRef<'a>,
         entries: AttrRefSelectorEntries<'a>,
@@ -528,7 +533,7 @@ impl<'a> CoercedAttrRef<'a> {
 
     /// The leaves `ConfiguredAttr::concat` would see for this value: selects
     /// resolved, nested concats inlined.
-    pub(super) fn concat_leaves(
+    pub(crate) fn concat_leaves(
         &self,
         ctx: &dyn AttrConfigurationContext,
         out: &mut SmallVec<[CoercedAttrRef<'a>; 4]>,
@@ -540,7 +545,7 @@ impl<'a> CoercedAttrRef<'a> {
     }
 
     /// The class of values this one concatenates with, if any.
-    pub(super) fn concat_class(&self) -> Option<&'static str> {
+    pub(crate) fn concat_class(&self) -> Option<&'static str> {
         dispatch(self.arena.kind_of(self.r), ConcatClass {})
     }
 }
@@ -590,9 +595,9 @@ impl<'a> CoercedAttrRef<'a> {
 
 /// `as_display` for owned [`CoercedAttrRef`]s: the standard adapter borrows its
 /// value, which cannot outlive a closure mapping `Copy` views.
-pub(super) struct AttrRefDisplay<'a, 'c> {
-    pub(super) ctx: &'c AttrFmtContext,
-    pub(super) r: CoercedAttrRef<'a>,
+pub(crate) struct AttrRefDisplay<'a, 'c> {
+    pub(crate) ctx: &'c AttrFmtContext,
+    pub(crate) r: CoercedAttrRef<'a>,
 }
 
 impl Display for AttrRefDisplay<'_, '_> {
@@ -679,7 +684,7 @@ impl<'a> CoercedAttrRef<'a> {
     /// The value's rendering when it is used as a JSON object key.
     ///
     /// Errors for values that render as anything but a string.
-    pub(super) fn json_key(&self, ctx: &AttrFmtContext) -> buck2_error::Result<Cow<'a, str>> {
+    pub(crate) fn json_key(&self, ctx: &AttrFmtContext) -> buck2_error::Result<Cow<'a, str>> {
         dispatch(self.arena.kind_of(self.r), JsonKey { v: *self, ctx })
     }
 }

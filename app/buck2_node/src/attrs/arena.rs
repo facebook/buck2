@@ -22,7 +22,8 @@
 //!
 //!   head    the record's immediate content (counts, table indices, split
 //!           ints) as `width + 1`-byte little-endian fields; how many, and
-//!           what follows, is the kind's layout (`AttrKind::layout`);
+//!           what follows, is the kind's field list (its row in the
+//!           kinds table);
 //!   tail    text bytes (length in the first head field), or child refs,
 //!           `width + 1` bytes each: bit 0 set = an inline leaf, kind in the
 //!           next five bits and payload above; bit 0 clear = a record ref,
@@ -72,7 +73,7 @@ mod fields;
 mod owned;
 mod query_expr;
 mod schema;
-mod semantics;
+pub(crate) mod semantics;
 mod storage;
 #[cfg(test)]
 mod tests;
@@ -84,11 +85,13 @@ pub use arg::ArgQueryView;
 pub use builder::CoercedAttrArenaBuilder;
 pub use owned::OwnedCoercedAttr;
 pub use query_expr::QueryView;
+pub(crate) use schema::kinds;
 pub use storage::AttrToken;
 pub use storage::AttrWord;
 pub use storage::CoercedAttrArena;
 pub use storage::CoercedAttrHash;
 pub use view::ArgParts;
+pub(crate) use view::AttrRefDisplay;
 pub use view::AttrRefSelectorEntries;
 pub use view::AttrView;
 pub use view::CoercedAttrRef;

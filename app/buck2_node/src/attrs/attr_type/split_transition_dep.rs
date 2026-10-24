@@ -8,12 +8,14 @@
  * above-listed licenses.
  */
 
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -22,6 +24,11 @@ use dupe::Dupe;
 use pagable::Pagable;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::semantics::inner_type;
+use crate::attrs::arena::semantics::json_label;
+use crate::attrs::arena::semantics::mismatch;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
@@ -112,3 +119,23 @@ impl ConfiguredSplitTransitionDep {
         Ok(false)
     }
 }
+
+impl_semantics!(SplitTransitionDep {
+    traverse(v, (l,), t, pkg, tr) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::SplitTransitionDep(ty) => tr.split_transition_dep(l, &ty.transition),
+            _ => Err(mismatch(v, t)),
+        }
+    }
+    configure(v, (l,), t, ctx, name) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::SplitTransitionDep(ty) => ResultMaybeCompatible::Compatible(ty.configure(l, ctx)?),
+            _ => mismatch(v, t).into(),
+        }
+    }
+    json(v, (l,), ctx) { json_label(l) }
+    fmt(v, (l,), ctx, f) { std::fmt::Display::fmt(l, f) }
+    any_matches(v, (l,), filter) { filter(&l.to_string()) }
+    json_key(v, (l,), ctx) { Ok(Cow::Owned(l.to_string())) }
+    serialize<S>(v, (l,), ctx, ser) { ser.serialize_str(&l.to_string()) }
+});

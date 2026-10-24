@@ -14,6 +14,8 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
+use buck2_error::internal_error;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_container;
 use pagable::Pagable;
@@ -21,8 +23,17 @@ use serde_json::Value;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::semantics::any_matches_seq;
+use crate::attrs::arena::semantics::fmt_seq;
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::semantics::inner_type;
+use crate::attrs::arena::semantics::json_seq;
+use crate::attrs::arena::semantics::mismatch;
+use crate::attrs::arena::semantics::ser_seq;
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::any_matches::AnyMatches;
+use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
@@ -98,3 +109,66 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for TupleLiteral<C> {
         )?)
     }
 }
+
+impl_semantics!(Tuple {
+    traverse(v, (items,), t, pkg, tr) {
+        let inner = inner_type(t);
+        match &inner.0.inner {
+            AttrTypeInner::Any(_) => {
+                for item in items.iter() {
+                    item.traverse(inner, pkg, tr)?;
+                }
+            }
+            AttrTypeInner::Tuple(ty) => {
+                if items.len() != ty.xs.len() {
+                    return Err(internal_error!("Inconsistent number of elements in tuple"));
+                }
+                for (item, item_t) in items.iter().zip(&ty.xs) {
+                    item.traverse(item_t, pkg, tr)?;
+                }
+            }
+            _ => return Err(mismatch(v, t)),
+        }
+        Ok(())
+    }
+    configure(v, (items,), t, ctx, name) {
+        let configured = match &inner_type(t).0.inner {
+            AttrTypeInner::Any(_) => items
+                .iter()
+                .map(|item| item.configure(AttrType::any_ref(), ctx, name))
+                .collect::<ResultMaybeCompatible<Vec<_>>>()?
+                .into(),
+            AttrTypeInner::Tuple(ty) => {
+                if items.len() != ty.xs.len() {
+                    return internal_error!("Inconsistent number of elements in tuple").into();
+                }
+                items
+                    .iter()
+                    .zip(&ty.xs)
+                    .map(|(item, item_t)| item.configure(item_t, ctx, name))
+                    .collect::<ResultMaybeCompatible<_>>()?
+            }
+            _ => return mismatch(v, t).into(),
+        };
+        ResultMaybeCompatible::Compatible(ConfiguredAttr::Tuple(TupleLiteral(configured)))
+    }
+    traverse_configured(v, (items,), t, pkg, ctx, tr, name) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::Any(_) => {}
+            AttrTypeInner::Tuple(ty) => {
+                if items.len() != ty.xs.len() {
+                    return internal_error!("Inconsistent number of elements in tuple").into();
+                }
+                for (item, item_t) in items.iter().zip(&ty.xs) {
+                    item.traverse_configured(item_t, pkg, ctx, tr, name)?;
+                }
+            }
+            _ => return mismatch(v, t).into(),
+        }
+        ResultMaybeCompatible::Compatible(())
+    }
+    json(v, (items,), ctx) { json_seq(items, ctx) }
+    fmt(v, (items,), ctx, f) { fmt_seq(items, "(", ")", ctx, f) }
+    any_matches(v, (items,), filter) { any_matches_seq(items, filter) }
+    serialize<S>(v, (items,), ctx, ser) { ser_seq(items, ctx, ser) }
+});

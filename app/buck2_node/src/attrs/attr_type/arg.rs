@@ -10,25 +10,36 @@
 
 pub mod parser;
 
+use std::borrow::Cow;
 use std::fmt::Display;
 use std::hash::Hasher;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
+use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
 use derive_more::Display;
 use dupe::Dupe;
 use pagable::Pagable;
+use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::ArgMacroView;
+use crate::attrs::arena::ArgPartView;
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::semantics::inner_type;
+use crate::attrs::arena::semantics::mismatch;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::query::QueryMacroBase;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
+use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
 use crate::attrs::traversal::CoercedAttrTraversal;
@@ -470,3 +481,85 @@ impl Display for QueryExpansion {
         Ok(())
     }
 }
+
+impl_semantics!(ArgSimple: concat "arg" {
+    traverse(v, (s,), t, pkg, tr) { Ok(()) }
+    configure(v, (s,), t, ctx, name) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::Arg(ty) => {
+                ResultMaybeCompatible::Compatible(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
+                    string_with_macros: StringWithMacros::StringPart(ArcStr::from(s)),
+                    anon_target_compatible: ty.anon_target_compatible,
+                }))
+            }
+            _ => mismatch(v, t).into(),
+        }
+    }
+    traverse_configured(v, (s,), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
+    json(v, (s,), ctx) { Ok(to_value(s)?) }
+    fmt(v, (s,), ctx, f) { write!(f, "\"{s}\"") }
+    any_matches(v, (s,), filter) { filter(s) }
+    json_key(v, (s,), ctx) { Ok(Cow::Borrowed(s)) }
+    serialize<S>(v, (s,), ctx, ser) { ser.serialize_str(s) }
+});
+
+impl_semantics!(ArgParts: concat "arg" {
+    traverse(v, (parts,), t, pkg, tr) {
+        if !matches!(&inner_type(t).0.inner, AttrTypeInner::Arg(_)) {
+            return Err(mismatch(v, t));
+        }
+        for part in parts.iter() {
+            let ArgPartView::Macro { mac, .. } = part else {
+                continue;
+            };
+            match mac {
+                ArgMacroView::UserKeyedPlaceholder { label, .. } => tr.dep(label)?,
+                ArgMacroView::Location { label, dep_kind: MacroDepKind::Exec } => tr.exec_dep(label)?,
+                ArgMacroView::Location { label, dep_kind: MacroDepKind::Toolchain } => {
+                    tr.toolchain_dep(label)?
+                }
+                ArgMacroView::Location { label, dep_kind: MacroDepKind::Regular } => tr.dep(label)?,
+                ArgMacroView::Exe { label, exec_dep: true } => tr.exec_dep(label)?,
+                ArgMacroView::Exe { label, exec_dep: false } => tr.dep(label)?,
+                ArgMacroView::Source(path) => {
+                    let pkg = pkg.ok_or_else(|| {
+                        internal_error!("Expected a package when traversing arg source macro")
+                    })?;
+                    for x in path.inputs() {
+                        tr.input(SourcePathRef::new(pkg, x))?;
+                    }
+                }
+                // Literal labels only, in expression order.
+                ArgMacroView::Query(q) => {
+                    let mut labels = Vec::new();
+                    q.literal_labels(&mut labels);
+                    for label in labels {
+                        tr.dep(label)?;
+                    }
+                }
+                ArgMacroView::UserUnkeyedPlaceholder(_) => {}
+            }
+        }
+        Ok(())
+    }
+    configure(v, (parts,), t, ctx, name) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::Arg(ty) => {
+                let configured = parts
+                    .iter()
+                    .map(|p| p.configure(ctx))
+                    .collect::<buck2_error::Result<Box<[_]>>>()?;
+                ResultMaybeCompatible::Compatible(ConfiguredAttr::Arg(ConfiguredStringWithMacros {
+                    string_with_macros: StringWithMacros::ManyParts(configured),
+                    anon_target_compatible: ty.anon_target_compatible,
+                }))
+            }
+            _ => mismatch(v, t).into(),
+        }
+    }
+    json(v, (parts,), ctx) { Ok(to_value(parts.to_string())?) }
+    fmt(v, (parts,), ctx, f) { write!(f, "\"{parts}\"") }
+    any_matches(v, (parts,), filter) { filter(&parts.to_string()) }
+    json_key(v, (parts,), ctx) { Ok(Cow::Owned(parts.to_string())) }
+    serialize<S>(v, (parts,), ctx, ser) { ser.serialize_str(&parts.to_string()) }
+});

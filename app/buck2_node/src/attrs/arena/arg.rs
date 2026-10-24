@@ -392,7 +392,7 @@ impl PartialEq for ArgQueryView<'_> {
 
 impl<'a> ArgPartView<'a> {
     /// Mirror of `MacroBase::<ProvidersLabel>::configure` off the view.
-    pub(super) fn configure(
+    pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
     ) -> buck2_error::Result<ConfiguredStringWithMacrosPart> {

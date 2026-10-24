@@ -13,6 +13,7 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_container;
 use pagable::Pagable;
@@ -20,8 +21,17 @@ use serde_json::Value;
 use serde_json::to_value;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::semantics::any_matches_seq;
+use crate::attrs::arena::semantics::fmt_seq;
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::semantics::inner_type;
+use crate::attrs::arena::semantics::json_seq;
+use crate::attrs::arena::semantics::mismatch;
+use crate::attrs::arena::semantics::ser_seq;
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::any_matches::AnyMatches;
+use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
@@ -95,3 +105,48 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for ListLiteral<C> {
         )?)
     }
 }
+
+impl_semantics!(List: concat "list" {
+    traverse(v, (items,), t, pkg, tr) {
+        let inner = inner_type(t);
+        let item_t = match &inner.0.inner {
+            AttrTypeInner::Any(_) => inner,
+            AttrTypeInner::List(ty) => &ty.inner,
+            _ => return Err(mismatch(v, t)),
+        };
+        for item in items.iter() {
+            item.traverse(item_t, pkg, tr)?;
+        }
+        Ok(())
+    }
+    configure(v, (items,), t, ctx, name) {
+        let inner = inner_type(t);
+        let item_t = match &inner.0.inner {
+            AttrTypeInner::Any(_) => AttrType::any_ref(),
+            AttrTypeInner::List(ty) => &ty.inner,
+            _ => return mismatch(v, t).into(),
+        };
+        ResultMaybeCompatible::Compatible(ConfiguredAttr::List(ListLiteral(
+            items
+                .iter()
+                .map(|item| item.configure(item_t, ctx, name))
+                .collect::<ResultMaybeCompatible<Vec<_>>>()?
+                .into(),
+        )))
+    }
+    traverse_configured(v, (items,), t, pkg, ctx, tr, name) {
+        let item_t = match &inner_type(t).0.inner {
+            AttrTypeInner::Any(_) => return ResultMaybeCompatible::Compatible(()),
+            AttrTypeInner::List(ty) => &ty.inner,
+            _ => return mismatch(v, t).into(),
+        };
+        for item in items.iter() {
+            item.traverse_configured(item_t, pkg, ctx, tr, name)?;
+        }
+        ResultMaybeCompatible::Compatible(())
+    }
+    json(v, (items,), ctx) { json_seq(items, ctx) }
+    fmt(v, (items,), ctx, f) { fmt_seq(items, "[", "]", ctx, f) }
+    any_matches(v, (items,), filter) { any_matches_seq(items, filter) }
+    serialize<S>(v, (items,), ctx, ser) { ser_seq(items, ctx, ser) }
+});

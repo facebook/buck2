@@ -8,15 +8,26 @@
  * above-listed licenses.
  */
 
+use std::borrow::Cow;
 use std::fmt;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_hash::BuckFixedInsertionSet;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_util::arc_str::ArcStr;
 use pagable::Pagable;
+use serde_json::to_value;
 use strong_hash::StrongHash;
+
+use crate::attrs::arena::semantics::fmt_text;
+use crate::attrs::arena::semantics::impl_semantics;
+use crate::attrs::arena::semantics::inner_type;
+use crate::attrs::arena::semantics::mismatch;
+use crate::attrs::attr_type::AttrTypeInner;
+use crate::attrs::attr_type::string::StringLiteral;
+use crate::attrs::configured_attr::ConfiguredAttr;
 
 #[derive(Debug, Pagable, Eq, PartialEq, Hash, Allocative)]
 pub struct EnumAttrType {
@@ -69,3 +80,21 @@ impl EnumAttrType {
         write!(f, "]{arg})")
     }
 }
+
+impl_semantics!(EnumVariant {
+    traverse(v, (s,), t, pkg, tr) { Ok(()) }
+    configure(v, (s,), t, ctx, name) {
+        match &inner_type(t).0.inner {
+            AttrTypeInner::Enum(_) => ResultMaybeCompatible::Compatible(
+                ConfiguredAttr::EnumVariant(StringLiteral(ArcStr::from(s))),
+            ),
+            _ => mismatch(v, t).into(),
+        }
+    }
+    traverse_configured(v, (s,), t, pkg, ctx, tr, name) { ResultMaybeCompatible::Compatible(()) }
+    json(v, (s,), ctx) { Ok(to_value(s)?) }
+    fmt(v, (s,), ctx, f) { fmt_text(s, ctx, f) }
+    any_matches(v, (s,), filter) { filter(s) }
+    json_key(v, (s,), ctx) { Ok(Cow::Borrowed(s)) }
+    serialize<S>(v, (s,), ctx, ser) { ser.serialize_str(s) }
+});
