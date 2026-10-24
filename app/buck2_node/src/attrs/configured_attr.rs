@@ -58,7 +58,7 @@ use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
-#[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, Pagable)]
+#[derive(Eq, PartialEq, Hash, StrongHash, Clone, Allocative, Debug, Pagable)]
 pub enum ConfiguredAttr {
     Bool(BoolLiteral),
     Int(i64),

@@ -504,13 +504,13 @@ impl ConfiguredTargetNode {
     /// Hashes the attributes _after_ configuration, so changing unconfigured branches that
     /// are not taken will not change the hash.
     pub fn target_hash<H: Hasher>(&self, state: &mut H) {
-        self.label().hash(state);
-        self.rule_type().hash(state);
+        self.label().strong_hash(state);
+        self.rule_type().strong_hash(state);
         self.attrs(AttrInspectOptions::All).for_each(|x| {
             // We deliberately don't hash the attribute, as if the value being passed to analysis
             // stays the same, we don't care if the attribute that generated it changed.
-            x.name.hash(state);
-            x.value.hash(state);
+            x.name.strong_hash(state);
+            x.value.strong_hash(state);
         });
     }
 

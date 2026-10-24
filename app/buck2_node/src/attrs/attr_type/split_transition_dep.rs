@@ -56,7 +56,7 @@ impl SplitTransitionDepAttrType {
     }
 }
 
-#[derive(Hash, PartialEq, Eq, Debug, Clone, Allocative, Pagable)]
+#[derive(Hash, StrongHash, PartialEq, Eq, Debug, Clone, Allocative, Pagable)]
 pub struct ConfiguredSplitTransitionDep {
     pub deps: BuckFixedSortedMap<String, ConfiguredProvidersLabel>,
     pub required_providers: ProviderIdSet,

@@ -81,6 +81,7 @@ pub struct UnconfiguredExplicitConfiguredDep {
 #[derive(
     derive_more::Display,
     Hash,
+    StrongHash,
     PartialEq,
     Eq,
     Debug,
