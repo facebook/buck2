@@ -66,6 +66,7 @@
 //!   before their parents), so a ref cannot be observed half-built and
 //!   deltas are never negative.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::fmt::Write as _;
@@ -85,6 +86,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_hash::BuckHasher;
@@ -109,6 +111,10 @@ use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use ref_cast::RefCast;
+use serde::Serialize;
+use serde::Serializer;
+use serde::ser::SerializeMap;
+use serde::ser::SerializeSeq;
 use serde_json::to_value;
 use smallvec::SmallVec;
 use smallvec::smallvec;
@@ -151,6 +157,7 @@ use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
+use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::provider_id_set::ProviderIdSet;
@@ -3157,6 +3164,220 @@ impl std::fmt::Debug for CoercedAttrRef<'_> {
         match self.to_coerced() {
             Ok(a) => write!(f, "CoercedAttrRef({a:?})"),
             Err(_) => write!(f, "CoercedAttrRef(<decode error>)"),
+        }
+    }
+}
+
+/// An attribute value handed to a callback: a normal attr, which the package
+/// arena stores, or a special attr, which is built per call and served as
+/// built.
+///
+/// Encoding a special attr would cost an arena build and a root hash per
+/// call, and nothing reads its identity.
+#[derive(Debug)]
+pub enum AttrView<'a> {
+    Normal(CoercedAttrRef<'a>),
+    Special(CoercedAttr),
+}
+
+impl AttrView<'_> {
+    pub fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
+        match self {
+            AttrView::Normal(r) => r.any_matches(filter),
+            AttrView::Special(a) => a.any_matches(filter),
+        }
+    }
+}
+
+impl crate::attrs::display::AttrDisplayWithContext for AttrView<'_> {
+    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AttrView::Normal(r) => AttrDisplayWithContext::fmt(r, ctx, f),
+            AttrView::Special(a) => AttrDisplayWithContext::fmt(a, ctx, f),
+        }
+    }
+}
+
+impl AttrSerializeWithContext for AttrView<'_> {
+    fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            AttrView::Normal(r) => r.serialize_with_ctx(ctx, s),
+            AttrView::Special(a) => a.serialize_with_ctx(ctx, s),
+        }
+    }
+}
+
+/// A value rendered in place of its parent, so nested values serialize without
+/// an intermediate tree.
+struct AttrRefSerialize<'a> {
+    attr: CoercedAttrRef<'a>,
+    ctx: &'a AttrFmtContext,
+}
+
+impl Serialize for AttrRefSerialize<'_> {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.attr.serialize_with_ctx(self.ctx, s)
+    }
+}
+
+impl<'a> CoercedAttrRef<'a> {
+    /// The value's rendering when it is used as a JSON object key.
+    ///
+    /// Errors for values that render as anything but a string.
+    fn json_key(&self, ctx: &AttrFmtContext) -> buck2_error::Result<Cow<'a, str>> {
+        Ok(match self.kind() {
+            CoercedAttrRefKind::String(s)
+            | CoercedAttrRefKind::EnumVariant(s)
+            | CoercedAttrRefKind::ArgSimple(s) => Cow::Borrowed(s),
+            CoercedAttrRefKind::Arg(parts) => Cow::Owned(parts.to_string()),
+            CoercedAttrRefKind::OneOf(l, _) => l.json_key(ctx)?,
+            CoercedAttrRefKind::Dep(l)
+            | CoercedAttrRefKind::Label(l)
+            | CoercedAttrRefKind::SourceLabel(l)
+            | CoercedAttrRefKind::ConfigurationDep(l)
+            | CoercedAttrRefKind::SplitTransitionDep(l) => Cow::Owned(l.to_string()),
+            CoercedAttrRefKind::PluginDep(t) => Cow::Owned(t.to_string()),
+            CoercedAttrRefKind::SourceFile(p) => {
+                Cow::Owned(source_file_display(ctx, p).to_string())
+            }
+            CoercedAttrRefKind::Legacy(a) => Cow::Owned(
+                a.to_json(ctx)?
+                    .as_str()
+                    .internal_error("dict keys must render to JSON strings")?
+                    .to_owned(),
+            ),
+            _ => return Err(internal_error!("dict keys must render to JSON strings")),
+        })
+    }
+}
+
+impl AttrSerializeWithContext for CoercedAttrRef<'_> {
+    fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        fn err<S: Serializer>(e: buck2_error::Error) -> S::Error {
+            serde::ser::Error::custom(format!("{e}"))
+        }
+        // Keyed values collect into a `BTreeMap` to match `serde_json::Map`:
+        // keys emit in sorted order, and a repeated key keeps its last value.
+        fn keyed<'a, S: Serializer>(
+            entries: impl Iterator<Item = (Cow<'a, str>, CoercedAttrRef<'a>)>,
+            ctx: &'a AttrFmtContext,
+            s: S,
+        ) -> Result<S::Ok, S::Error> {
+            let sorted: BTreeMap<Cow<'a, str>, CoercedAttrRef<'a>> = entries.collect();
+            let mut map = s.serialize_map(Some(sorted.len()))?;
+            for (k, v) in sorted {
+                map.serialize_entry(&k, &AttrRefSerialize { attr: v, ctx })?;
+            }
+            map.end()
+        }
+        fn seq<'a, S: Serializer>(
+            items: AttrRefSeq<'a>,
+            ctx: &'a AttrFmtContext,
+            s: S,
+        ) -> Result<S::Ok, S::Error> {
+            let mut seq = s.serialize_seq(Some(items.len()))?;
+            for v in items.iter() {
+                seq.serialize_element(&AttrRefSerialize { attr: v, ctx })?;
+            }
+            seq.end()
+        }
+
+        match self.kind() {
+            CoercedAttrRefKind::None => s.serialize_unit(),
+            CoercedAttrRefKind::Bool(b) => s.serialize_bool(b),
+            CoercedAttrRefKind::Int(i) => s.serialize_i64(i),
+            CoercedAttrRefKind::String(v)
+            | CoercedAttrRefKind::EnumVariant(v)
+            | CoercedAttrRefKind::ArgSimple(v) => s.serialize_str(v),
+            CoercedAttrRefKind::Arg(parts) => s.serialize_str(&parts.to_string()),
+            CoercedAttrRefKind::List(items) | CoercedAttrRefKind::Tuple(items) => {
+                seq(items, ctx, s)
+            }
+            CoercedAttrRefKind::Dict(pairs) => keyed(
+                pairs
+                    .iter()
+                    .map(|(k, v)| Ok((k.json_key(ctx)?, v)))
+                    .collect::<buck2_error::Result<Vec<_>>>()
+                    .map_err(err::<S>)?
+                    .into_iter(),
+                ctx,
+                s,
+            ),
+            CoercedAttrRefKind::Selector { entries, default } => {
+                let mut map = s.serialize_map(Some(2))?;
+                map.serialize_entry("__type", "selector")?;
+                struct Entries<'a> {
+                    entries: AttrRefSelectorEntries<'a>,
+                    default: Option<CoercedAttrRef<'a>>,
+                    ctx: &'a AttrFmtContext,
+                }
+                impl Serialize for Entries<'_> {
+                    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+                    where
+                        S: Serializer,
+                    {
+                        keyed(
+                            self.entries
+                                .iter()
+                                .map(|(k, v)| (Cow::Owned(k.to_string()), v))
+                                .chain(self.default.map(|d| (Cow::Borrowed("DEFAULT"), d))),
+                            self.ctx,
+                            s,
+                        )
+                    }
+                }
+                map.serialize_entry(
+                    "entries",
+                    &Entries {
+                        entries,
+                        default,
+                        ctx,
+                    },
+                )?;
+                map.end()
+            }
+            CoercedAttrRefKind::Concat(items) => {
+                let mut map = s.serialize_map(Some(2))?;
+                map.serialize_entry("__type", "concat")?;
+                struct Items<'a> {
+                    items: AttrRefSeq<'a>,
+                    ctx: &'a AttrFmtContext,
+                }
+                impl Serialize for Items<'_> {
+                    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+                    where
+                        S: Serializer,
+                    {
+                        seq(self.items, self.ctx, s)
+                    }
+                }
+                map.serialize_entry("items", &Items { items, ctx })?;
+                map.end()
+            }
+            CoercedAttrRefKind::OneOf(l, _) => l.serialize_with_ctx(ctx, s),
+            CoercedAttrRefKind::Dep(l)
+            | CoercedAttrRefKind::Label(l)
+            | CoercedAttrRefKind::SourceLabel(l)
+            | CoercedAttrRefKind::ConfigurationDep(l)
+            | CoercedAttrRefKind::SplitTransitionDep(l) => s.serialize_str(&l.to_string()),
+            CoercedAttrRefKind::PluginDep(t) => s.serialize_str(&t.to_string()),
+            CoercedAttrRefKind::SourceFile(p) => {
+                s.serialize_str(&source_file_display(ctx, p).to_string())
+            }
+            CoercedAttrRefKind::Query(q) => s.serialize_str(&q.query().0),
+            CoercedAttrRefKind::Legacy(a) => a.to_json(ctx).map_err(err::<S>)?.serialize(s),
         }
     }
 }
