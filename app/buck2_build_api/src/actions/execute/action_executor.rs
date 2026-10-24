@@ -59,6 +59,7 @@ use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
+use buck2_execute::execute::write_action_cache::WriteActionCache;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::output_size::OutputCountAndBytes;
@@ -483,6 +484,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
             remote_dep_file_cache_checker,
             cache_uploader,
             output_trees_download_config,
+            write_action_cache,
         } = self.get_command_executor_from_dice(artifact_fs, executor_config)?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
@@ -503,6 +505,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
                 action_cache_checker,
                 remote_dep_file_cache_checker,
                 cache_uploader,
+                write_action_cache,
                 artifact_fs.dupe(),
                 executor_config.options,
                 platform,
@@ -685,6 +688,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
 
     fn may_probe_cas(&self) -> bool {
         self.executor.invocation_re_settings.may_probe_cas
+    }
+
+    fn write_action_cache(&self) -> Option<&dyn WriteActionCache> {
+        self.executor.command_executor.write_action_cache()
     }
 
     fn re_platform(&self) -> &remote_execution::Platform {

@@ -274,7 +274,7 @@ impl WriteAction {
     async fn execute_cached(
         &self,
         ctx: &dyn ActionExecutionCtx,
-        cache: WriteCache,
+        cache: WriteCache<'_>,
     ) -> buck2_error::Result<(ArtifactValue, ActionExecutionKind)> {
         let key = self.cache_key(ctx)?;
         if let Some(cached) = cache.lookup(ctx, &key).await {
@@ -322,7 +322,7 @@ impl WriteAction {
     async fn execute_verifying(
         &self,
         ctx: &dyn ActionExecutionCtx,
-        cache: WriteCache,
+        cache: WriteCache<'_>,
     ) -> buck2_error::Result<(ArtifactValue, ActionExecutionKind)> {
         let key = self.cache_key(ctx)?;
         let cached = cache.lookup(ctx, &key).await;

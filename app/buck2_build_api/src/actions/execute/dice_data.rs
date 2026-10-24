@@ -19,6 +19,7 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;
+use buck2_execute::execute::write_action_cache::WriteActionCache;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use dice::DiceComputations;
@@ -35,6 +36,8 @@ pub struct CommandExecutorResponse {
     pub remote_dep_file_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
     pub cache_uploader: Arc<dyn UploadCache>,
     pub output_trees_download_config: OutputTreesDownloadConfig,
+    /// The action cache as write actions use it; `None` where the executor reads no cache.
+    pub write_action_cache: Option<Arc<dyn WriteActionCache>>,
 }
 
 pub trait SetCommandExecutor {

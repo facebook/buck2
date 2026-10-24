@@ -43,6 +43,7 @@ use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::write_action_cache::WriteActionCache;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
@@ -60,6 +61,7 @@ use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_execute_impl::executors::stacked::StackedExecutor;
 use buck2_execute_impl::executors::to_re_platform::RePlatformFieldsToRePlatform;
 use buck2_execute_impl::executors::worker::WorkerPool;
+use buck2_execute_impl::executors::write_action_cache::ReWriteActionCache;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
 use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
@@ -231,6 +233,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 cache_uploader: Arc::new(NoOpCacheUploader {}),
                 output_trees_download_config: self.output_trees_download_config.dupe(),
+                write_action_cache: None,
             });
         }
 
@@ -278,6 +281,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                         cache_uploader: Arc::new(NoOpCacheUploader {}),
                         output_trees_download_config: self.output_trees_download_config.dupe(),
+                        write_action_cache: None,
                     })
                 }
             }
@@ -302,6 +306,19 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 )?;
 
                 let re_client = self.get_prepared_re_client(remote_options.re_use_case);
+
+                let write_action_cache: Option<Arc<dyn WriteActionCache>> =
+                    if disable_caching || !remote_options.remote_cache_enabled {
+                        None
+                    } else {
+                        Some(Arc::new(ReWriteActionCache {
+                            re_client: re_client.dupe(),
+                            platform: remote_options.re_properties.clone(),
+                            cache_upload_permission_checker: self
+                                .cache_upload_permission_checker
+                                .dupe(),
+                        }))
+                    };
 
                 let cache_checker_new = || -> (Arc<dyn PreparedCommandOptionalExecutor>, Arc<dyn PreparedCommandOptionalExecutor>) {
                     if disable_caching {
@@ -470,6 +487,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     remote_dep_file_cache_checker,
                     cache_uploader,
                     output_trees_download_config: self.output_trees_download_config.dupe(),
+                    write_action_cache,
                 })
             }
         };

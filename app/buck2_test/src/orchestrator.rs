@@ -1600,6 +1600,7 @@ impl BuckTestOrchestrator<'_> {
             remote_dep_file_cache_checker: _,
             cache_uploader,
             output_trees_download_config: _,
+            write_action_cache: _,
         } = dice.get_command_executor_from_dice(fs, executor_config)?;
 
         let (cache_uploader, action_cache_checker) = match stage {
@@ -1622,6 +1623,7 @@ impl BuckTestOrchestrator<'_> {
             action_cache_checker,
             Arc::new(NoOpCommandOptionalExecutor {}),
             cache_uploader,
+            None,
             fs.dupe(),
             executor_config.options,
             platform,
@@ -1649,12 +1651,14 @@ impl BuckTestOrchestrator<'_> {
             remote_dep_file_cache_checker: _,
             cache_uploader: _,
             output_trees_download_config: _,
+            write_action_cache: _,
         } = dice.get_command_executor_from_dice(fs, &executor_config)?;
         let executor = CommandExecutor::new(
             executor,
             Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCacheUploader {}),
+            None,
             fs.dupe(),
             executor_config.options,
             platform,
@@ -2904,6 +2908,7 @@ mod tests {
             Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCacheUploader {}),
+            None,
             fs.dupe(),
             CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),

@@ -58,6 +58,7 @@ use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
+use buck2_execute::execute::write_action_cache::WriteActionCache;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
@@ -351,6 +352,10 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// [`Self::cas_configured`] instead: its content is named by the user's checksum, and the
     /// CAS serves it in place of the URL rather than in place of a cache.
     fn may_probe_cas(&self) -> bool;
+
+    /// The action cache as write actions use it, under this action's executor configuration;
+    /// `None` where that executor reads no cache.
+    fn write_action_cache(&self) -> Option<&dyn WriteActionCache>;
 
     fn re_platform(&self) -> &remote_execution::Platform;
 

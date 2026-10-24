@@ -46,10 +46,11 @@ use buck2_execute::digest::CasDigestFromReExt;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobsBuilder;
+use buck2_execute::execute::write_action_cache::PopulateOutcome;
+use buck2_execute::execute::write_action_cache::WriteActionCache;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::WriteRequest;
-use buck2_execute::re::client::ActionCacheWriteType;
 use buck2_execute::re::ttl::re_expiration_from_ttl;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutMap;
@@ -69,12 +70,9 @@ const KEY_VERSION: u32 = 0;
 /// no entry's digest is one a real action could have, or the reverse.
 const ACTION_MARKER: &str = "buck2-write-action-cache";
 
-/// The one output's name in an entry. Two writes with the same content share an entry whatever
-/// their output paths, so the name says nothing about either.
-const OUTPUT_NAME: &str = "content";
-
 #[derive(Copy, Clone, Dupe)]
-pub(crate) struct WriteCache {
+pub(crate) struct WriteCache<'a> {
+    cache: &'a dyn WriteActionCache,
     mode: WriteActionCacheMode,
 }
 
@@ -119,17 +117,18 @@ pub(crate) struct KeyInputs<'a> {
     pub(crate) artifact_path_mapping: Option<&'a BuckMutMap<&'a Artifact, ContentBasedPathHash>>,
 }
 
-impl WriteCache {
-    /// The cache this invocation's write actions go through, if any.
-    pub(crate) fn for_ctx(ctx: &dyn ActionExecutionCtx) -> Option<Self> {
+impl<'a> WriteCache<'a> {
+    /// The cache this action goes through, if any.
+    pub(crate) fn for_ctx(ctx: &'a dyn ActionExecutionCtx) -> Option<Self> {
         if !ctx.may_probe_cas() {
             return None;
         }
+        let cache = ctx.write_action_cache()?;
         match ctx.run_action_knobs().write_action_cache {
             WriteActionCacheMode::Off => None,
             mode @ (WriteActionCacheMode::Verify
             | WriteActionCacheMode::Use
-            | WriteActionCacheMode::Populate) => Some(Self { mode }),
+            | WriteActionCacheMode::Populate) => Some(Self { cache, mode }),
         }
     }
 
@@ -151,14 +150,9 @@ impl WriteCache {
         key: &WriteCacheKey,
     ) -> Option<CachedContent> {
         let action = action(key, ctx);
-        let use_case = ctx.invocation_re_use_case();
-        let response = match ctx
-            .re_client()
-            .with_use_case(use_case)
-            .action_cache(action.action.dupe(), ctx.re_platform())
-            .await
-        {
-            Ok(Some(response)) => response,
+        let use_case = self.cache.use_case();
+        let result = match self.cache.lookup(&action).await {
+            Ok(Some(result)) => result,
             Ok(None) => {
                 WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.misses);
                 return None;
@@ -173,7 +167,6 @@ impl WriteCache {
                 return None;
             }
         };
-        let result = response.action_result;
         let digest = match (result.exit_code, result.output_files.as_slice()) {
             (0, [file]) => FileDigest::from_re(&file.digest.digest, ctx.digest_config())
                 .map(|digest| (digest, file.ttl))
@@ -231,61 +224,35 @@ impl WriteCache {
         let digest =
             TrackedFileDigest::from_content(&request.content, digest_config.cas_digest_config());
         let action = action(key, ctx);
-        let use_case = ctx.invocation_re_use_case();
-        let client = ctx.re_client().with_use_case(use_case);
-
-        // The action cache reads an entry's action back from the CAS before accepting the
-        // entry, so the action's blobs go up with the content.
-        let mut blobs = action.blobs.to_inlined_blobs();
-        blobs.push(RE::InlinedBlobWithDigest {
-            blob: request.content.clone(),
-            digest: digest.to_re(),
-            ..Default::default()
-        });
-        client
-            .upload_files_and_directories(vec![], vec![], blobs)
-            .await
-            .buck_error_context("Uploading a write's content")?;
-
-        let mut result = RE::TActionResult2 {
-            output_files: vec![RE::TFile {
-                digest: RE::DigestWithStatus {
-                    digest: digest.to_re(),
-                    ..Default::default()
-                },
-                name: OUTPUT_NAME.to_owned(),
-                existed: false,
-                executable: request.is_executable,
-                ttl: 0,
-                ..Default::default()
-            }],
-            exit_code: 0,
-            ..Default::default()
-        };
-        let response = client
-            .write_action_result(
-                action.action.dupe(),
-                &mut result,
-                ctx.re_platform(),
-                ActionCacheWriteType::WriteAction,
+        match self
+            .cache
+            .populate(
+                &action,
+                &request.content,
+                &digest,
+                request.is_executable,
+                digest_config,
             )
-            .await
-            .buck_error_context("Recording a write's content in the action cache")?;
-        WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.populated);
-        // The entry does not outlive its outputs, so its TTL is a lower bound on the content's.
-        if response.ttl_seconds > 0 {
-            digest.update_expires(re_expiration_from_ttl(
-                Timestamp::now(),
-                response.ttl_seconds,
-                &action.action,
-            ));
+            .await?
+        {
+            PopulateOutcome::Populated => {}
+            PopulateOutcome::PermissionDenied { reason } => {
+                return Err(buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Not permitted to write the action cache: {reason}"
+                ));
+            }
         }
+        WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.populated);
 
         let value = ArtifactValue::file(FileMetadata {
             digest,
             is_executable: request.is_executable,
         });
-        Ok((value, Arc::new(CasDownloadInfo::new_uploaded(use_case))))
+        Ok((
+            value,
+            Arc::new(CasDownloadInfo::new_uploaded(self.cache.use_case())),
+        ))
     }
 }
 

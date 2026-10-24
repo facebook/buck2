@@ -55,6 +55,7 @@ use crate::execute::request::ExecutorPreference;
 use crate::execute::request::RemoteWorkerSpec;
 use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionResult;
+use crate::execute::write_action_cache::WriteActionCache;
 
 #[derive(Copy, Dupe, Clone, Debug, PartialEq, Eq)]
 pub struct ActionExecutionTimingData {
@@ -88,6 +89,7 @@ struct CommandExecutorData {
     options: CommandGenerationOptions,
     re_platform: RE::Platform,
     cache_uploader: Arc<dyn UploadCache>,
+    write_action_cache: Option<Arc<dyn WriteActionCache>>,
 }
 
 impl CommandExecutor {
@@ -96,6 +98,7 @@ impl CommandExecutor {
         action_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
         remote_dep_file_cache_checker: Arc<dyn PreparedCommandOptionalExecutor>,
         cache_uploader: Arc<dyn UploadCache>,
+        write_action_cache: Option<Arc<dyn WriteActionCache>>,
         artifact_fs: ArtifactFs,
         options: CommandGenerationOptions,
         re_platform: RE::Platform,
@@ -108,7 +111,13 @@ impl CommandExecutor {
             options,
             re_platform,
             cache_uploader,
+            write_action_cache,
         }))
+    }
+
+    /// The action cache as write actions use it; `None` where this executor reads no cache.
+    pub fn write_action_cache(&self) -> Option<&dyn WriteActionCache> {
+        self.0.write_action_cache.as_deref()
     }
 
     pub fn fs(&self) -> &ArtifactFs {
