@@ -98,6 +98,11 @@ impl Error {
         self.root().action_error()
     }
 
+    /// The root error message, without contextual messages or late formatting.
+    pub fn root_message(&self) -> &str {
+        self.root().description()
+    }
+
     pub(crate) fn iter_context(&self) -> impl Iterator<Item = &ContextValue> {
         self.iter_kinds().filter_map(|kind| match kind {
             ErrorKind::WithContext(ctx, _) => Some(ctx),
