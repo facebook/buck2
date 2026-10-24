@@ -337,7 +337,7 @@ impl AnonTargetAttr {
             ),
             (AttrTypeInner::Option(_), CoercedAttrRefKind::None) => AnonTargetAttr::None,
             (AttrTypeInner::Option(t), _) => AnonTargetAttr::from_attr_ref(attr_name, r, &t.inner)?,
-            (AttrTypeInner::OneOf(t), CoercedAttrRefKind::OneOf(l, i)) => {
+            (AttrTypeInner::OneOf(t), CoercedAttrRefKind::OneOf((i, l))) => {
                 let item_ty = &t.xs[i as usize];
                 let inner = AnonTargetAttr::from_attr_ref(attr_name, l, item_ty)?;
                 AnonTargetAttr::OneOf(Box::new(inner), i)

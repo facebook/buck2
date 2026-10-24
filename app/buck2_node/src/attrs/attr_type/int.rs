@@ -36,12 +36,12 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 pub struct IntAttrType;
 
 impl Semantics for kinds::Int {
-    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+    fn traverse<'a>(_: Self::View<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
     }
 
     fn configure(
-        i: Self::Parts<'_>,
+        i: Self::View<'_>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
@@ -53,29 +53,29 @@ impl Semantics for kinds::Int {
     }
 
     fn traverse_configured(
-        _: Self::Parts<'_>,
+        _: Self::View<'_>,
         _: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(i: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(i: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(i)?)
     }
 
-    fn fmt(i: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(i: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "{i}")
     }
 
     fn any_matches(
-        i: Self::Parts<'_>,
+        i: Self::View<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         filter(&i.to_string())
     }
 
     fn serialize<S: Serializer>(
-        i: Self::Parts<'_>,
+        i: Self::View<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_i64(i)

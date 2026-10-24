@@ -18,7 +18,6 @@ use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
-use buck2_core::target::label::label::TargetLabel;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_util::strong_hasher::StrongHash128;
@@ -28,14 +27,14 @@ use serde::Serialize;
 use serde::Serializer;
 use smallvec::SmallVec;
 
+use crate::attrs::arena::CoercedAttrRefKind;
 use crate::attrs::arena::arg::ArgPartView;
-use crate::attrs::arena::query_expr::QueryView;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::kinds::decode;
+use crate::attrs::arena::kinds::dispatch;
+use crate::attrs::arena::kinds::dispatch_value;
 use crate::attrs::arena::schema::EqParts;
 use crate::attrs::arena::schema::Kind;
-use crate::attrs::arena::schema::ToRefKind;
-use crate::attrs::arena::schema::dispatch;
-use crate::attrs::arena::schema::dispatch_value;
-use crate::attrs::arena::schema::kinds;
 use crate::attrs::arena::semantics::ConcatClass;
 use crate::attrs::arena::semantics::ConcatLeaves;
 use crate::attrs::arena::semantics::Configure;
@@ -51,7 +50,6 @@ use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::attr_type::AttrType;
-use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -73,53 +71,6 @@ use crate::visibility::WithinViewSpecification;
 pub struct CoercedAttrRef<'a> {
     pub(super) arena: &'a CoercedAttrArena,
     pub(super) r: AttrWord,
-}
-
-/// Shallow decode of a [`CoercedAttrRef`]: one case per value kind, with
-/// children left as refs.
-pub enum CoercedAttrRefKind<'a> {
-    None,
-    Bool(bool),
-    Int(i64),
-    String(&'a str),
-    EnumVariant(&'a str),
-    ArgSimple(&'a str),
-    Arg(Refs<'a, ArgParts>),
-    List(Refs<'a, Values>),
-    Tuple(Refs<'a, Values>),
-    Dict(Refs<'a, Pairs>),
-    Selector {
-        entries: AttrRefSelectorEntries<'a>,
-        default: Option<CoercedAttrRef<'a>>,
-    },
-    Concat(Refs<'a, Values>),
-    OneOf(CoercedAttrRef<'a>, u32),
-    Dep(&'a ProvidersLabel),
-    Label(&'a ProvidersLabel),
-    SourceLabel(&'a ProvidersLabel),
-    ConfigurationDep(&'a ProvidersLabel),
-    SplitTransitionDep(&'a ProvidersLabel),
-    PluginDep(&'a TargetLabel),
-    SourceFile(&'a CoercedPath),
-    Query(QueryView<'a>),
-    /// The message of a `select_fail()` leaf.
-    SelectFail(&'a str),
-    /// The message of a `select_incompatible()` leaf.
-    SelectIncompatible(&'a str),
-    ExplicitConfiguredDep {
-        label: &'a ProvidersLabel,
-        platform: &'a TargetLabel,
-    },
-    /// `transition` is the dynamic transition target; `None` when the attr
-    /// type fixes the transition.
-    TransitionDep {
-        dep: &'a ProvidersLabel,
-        transition: Option<&'a ProvidersLabel>,
-    },
-    Visibility(&'a VisibilitySpecification),
-    WithinView(&'a WithinViewSpecification),
-    Modifiers(&'a CfgModifiers),
-    Metadata(&'a MetadataMap),
 }
 
 /// Content equality: the same kind with equal parts, across arenas.
@@ -258,39 +209,39 @@ impl<'a> CoercedAttrRef<'a> {
     }
 
     pub fn kind(&self) -> CoercedAttrRefKind<'a> {
-        dispatch(self.arena.kind_of(self.r), ToRefKind { v: *self })
+        decode(self.arena, self.r)
     }
 }
 
 impl<'a> CoercedAttrRef<'a> {
     /// The decoded parts if this value is of kind `K`: the typed downcast,
     /// for readers that want one kind rather than the sum `kind()` gives.
-    pub(crate) fn parts<K: Kind>(&self) -> Option<K::Parts<'a>> {
+    pub(crate) fn downcast<K: Kind>(&self) -> Option<K::View<'a>> {
         (self.arena.kind_of(self.r) == K::KIND).then(|| K::decode(self.arena, self.r))
     }
 
     pub fn unpack_visibility(&self) -> Option<&'a VisibilitySpecification> {
-        self.parts::<kinds::Visibility>()
+        self.downcast::<kinds::Visibility>()
     }
 
     pub fn unpack_within_view(&self) -> Option<&'a WithinViewSpecification> {
-        self.parts::<kinds::WithinView>()
+        self.downcast::<kinds::WithinView>()
     }
 
     pub fn unpack_metadata(&self) -> Option<&'a MetadataMap> {
-        self.parts::<kinds::Metadata>()
+        self.downcast::<kinds::Metadata>()
     }
 
     pub fn unpack_target_modifiers(&self) -> Option<&'a CfgModifiers> {
-        self.parts::<kinds::Modifiers>()
+        self.downcast::<kinds::Modifiers>()
     }
 
     /// Whether evaluating this value can ever yield `None`, directly or
     /// through a `select()` branch.
     pub fn may_return_none(&self) -> bool {
-        self.parts::<kinds::None>().is_some()
+        self.downcast::<kinds::None>().is_some()
             || self
-                .parts::<kinds::Selector>()
+                .downcast::<kinds::Selector>()
                 .is_some_and(|(entries, default)| {
                     entries.iter().any(|(_, v)| v.may_return_none())
                         || default.is_some_and(|d| d.may_return_none())
@@ -573,10 +524,10 @@ impl<'a> CoercedAttrRef<'a> {
     /// Errors on any other kind: only for attributes the coercer has already
     /// verified to be a (non-configurable) configuration dep.
     pub fn unpack_configuration_dep(&self) -> buck2_error::Result<Option<&'a ProvidersLabel>> {
-        if self.parts::<kinds::None>().is_some() {
+        if self.downcast::<kinds::None>().is_some() {
             return Ok(None);
         }
-        self.parts::<kinds::ConfigurationDep>()
+        self.downcast::<kinds::ConfigurationDep>()
             .ok_or_else(|| {
                 internal_error!("should be a configuration dep: verified by the attr coercer")
             })
@@ -585,12 +536,12 @@ impl<'a> CoercedAttrRef<'a> {
 
     /// The list elements, or `None` when the value is not a list.
     pub fn unpack_list(&self) -> Option<impl Iterator<Item = CoercedAttrRef<'a>> + use<'a>> {
-        self.parts::<kinds::List>().map(|items| items.iter())
+        self.downcast::<kinds::List>().map(|items| items.iter())
     }
 
     /// The string content, or `None` when the value is not a string.
     pub fn unpack_str(&self) -> Option<&'a str> {
-        self.parts::<kinds::String>()
+        self.downcast::<kinds::String>()
     }
 }
 

@@ -32,18 +32,16 @@ use crate::attrs::arena::builder::EncodeScratchFields;
 use crate::attrs::arena::builder::EncodeScratchRefs;
 use crate::attrs::arena::builder::content_hash;
 use crate::attrs::arena::fields::IdHasher;
-use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::kinds::AttrKind;
 use crate::attrs::arena::schema::Kind;
 use crate::attrs::arena::schema::Storage;
-use crate::attrs::arena::schema::kinds;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::CoercedAttrHash;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::TailLen;
-use crate::attrs::arena::view::CoercedAttrRef;
-use crate::attrs::arena::view::CoercedAttrRefKind;
 use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::query::QueryAttrBase;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
@@ -79,10 +77,9 @@ pub(super) fn binary_op_from_bits(bits: u32) -> BinaryOp {
 }
 
 impl Kind for kinds::QueryExpr {
-    const KIND: AttrKind = AttrKind::QueryExpr;
     const STORAGE: Storage = Storage::Record;
     const SCALAR: bool = false;
-    type Parts<'a> = QueryExprRef<'a>;
+    type View<'a> = QueryExprRef<'a>;
 
     fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
         let nfields = 3u32.checked_add(peek(1)?)?;
@@ -91,13 +88,6 @@ impl Kind for kinds::QueryExpr {
 
     fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> QueryExprRef<'a> {
         QueryExprRef { arena, r }
-    }
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, _parts: QueryExprRef<'a>) -> CoercedAttrRefKind<'a>
-    where
-        Self: 'a,
-    {
-        unreachable!("query expression nodes are not attribute values")
     }
 
     fn copy_into(
@@ -116,68 +106,17 @@ impl Kind for kinds::QueryExpr {
     }
 }
 
-/// Decoded view of an `attrs.query()` value record.
-#[derive(Copy, Clone)]
-pub struct QueryView<'a> {
-    pub(super) arena: &'a CoercedAttrArena,
-    pub(super) r: AttrWord,
-}
-
-impl<'a> QueryView<'a> {
-    pub(super) fn expr(&self) -> QueryExprRef<'a> {
-        QueryExprRef {
-            arena: self.arena,
-            r: self.arena.open(self.r).refs().get(0),
-        }
-    }
-
-    /// The canonical reprint of the stored expression plus its literal map,
-    /// with offsets into the reprint.
-    pub fn query(&self) -> (String, ResolvedQueryLiterals<ProvidersLabel>) {
-        let mut out = String::new();
-        let mut lits = BTreeMap::new();
-        self.expr().reprint(&mut out, &mut |span, l| {
-            lits.insert(span, l.dupe());
-        });
-        (out, ResolvedQueryLiterals(lits))
-    }
-
-    pub(crate) fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> QueryAttr<ConfiguredProvidersLabel> {
-        let mut query = String::new();
-        let mut lits = BTreeMap::new();
-        self.expr().reprint(&mut query, &mut |span, l| {
-            lits.insert(span, ctx.configure_target(l));
-        });
-        QueryAttr {
-            providers: ProviderIdSet::EMPTY,
-            query: QueryAttrBase {
-                query,
-                resolved_literals: ResolvedQueryLiterals(lits),
-            },
-        }
-    }
-}
-
-impl PartialEq for QueryView<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.query() == other.query()
-    }
-}
-
 /// Handle to one stored query-expression node ([`AttrKind::QueryExpr`]);
 /// `view` decodes it shallowly.
 #[derive(Copy, Clone)]
-pub(crate) struct QueryExprRef<'a> {
+pub struct QueryExprRef<'a> {
     pub(super) arena: &'a CoercedAttrArena,
     pub(super) r: AttrWord,
 }
 
 /// Shallow decode of a [`QueryExprRef`]. Children decode lazily via further
 /// `view` calls.
-pub(super) enum QueryExprView<'a> {
+pub(super) enum QueryExprKind<'a> {
     None,
     /// Bare word (set members, unresolved tokens).
     Word(&'a str),
@@ -238,34 +177,65 @@ impl<'a> QueryExprOpSeq<'a> {
 }
 
 impl<'a> QueryExprRef<'a> {
-    pub(super) fn view(&self) -> QueryExprView<'a> {
+    /// The canonical reprint of the stored expression plus its literal map,
+    /// with offsets into the reprint. One walk produces both, so the map's
+    /// spans always agree with the returned text.
+    pub fn query(&self) -> (String, ResolvedQueryLiterals<ProvidersLabel>) {
+        let mut out = String::new();
+        let mut lits = BTreeMap::new();
+        self.reprint(&mut out, &mut |span, l| {
+            lits.insert(span, l.dupe());
+        });
+        (out, ResolvedQueryLiterals(lits))
+    }
+
+    /// The `attrs.query()` value this expression is, configured.
+    pub(crate) fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> QueryAttr<ConfiguredProvidersLabel> {
+        let mut query = String::new();
+        let mut lits = BTreeMap::new();
+        self.reprint(&mut query, &mut |span, l| {
+            lits.insert(span, ctx.configure_target(l));
+        });
+        QueryAttr {
+            providers: ProviderIdSet::EMPTY,
+            query: QueryAttrBase {
+                query,
+                resolved_literals: ResolvedQueryLiterals(lits),
+            },
+        }
+    }
+
+    pub(super) fn kind(&self) -> QueryExprKind<'a> {
         let arena = self.arena;
         let rec = arena.open(self.r);
         let subtag = rec.head.raw(0);
         let nv = rec.head.raw(1);
         let vals = rec.head.skip(2);
         match subtag {
-            Q_EXPR_NONE => QueryExprView::None,
+            Q_EXPR_NONE => QueryExprKind::None,
             Q_EXPR_WORD | Q_EXPR_STRING => {
                 let text = arena.str_at(rec.refs().get(0));
                 if subtag == Q_EXPR_WORD {
-                    QueryExprView::Word(text)
+                    QueryExprKind::Word(text)
                 } else {
-                    QueryExprView::String(text)
+                    QueryExprKind::String(text)
                 }
             }
-            Q_EXPR_INT => QueryExprView::Int(vals.raw(0) as u64 | ((vals.raw(1) as u64) << 32)),
-            Q_EXPR_LABEL => QueryExprView::Label(&arena.providers_labels[vals.raw(0) as usize]),
+            Q_EXPR_INT => QueryExprKind::Int(vals.raw(0) as u64 | ((vals.raw(1) as u64) << 32)),
+            Q_EXPR_LABEL => QueryExprKind::Label(&arena.providers_labels[vals.raw(0) as usize]),
             Q_EXPR_FUNCTION => {
                 let refs = rec.refs();
-                QueryExprView::Function {
+                QueryExprKind::Function {
                     name: arena.str_at(refs.get(0)),
                     args: QueryExprSeq { run: refs.skip(1) },
                 }
             }
             Q_EXPR_BINOP => {
                 let refs = rec.refs();
-                QueryExprView::BinOp {
+                QueryExprKind::BinOp {
                     first: QueryExprRef {
                         arena,
                         r: refs.get(0),
@@ -279,9 +249,9 @@ impl<'a> QueryExprRef<'a> {
             Q_EXPR_SET | Q_EXPR_FILESET => {
                 let seq = QueryExprSeq { run: rec.refs() };
                 if subtag == Q_EXPR_SET {
-                    QueryExprView::Set(seq)
+                    QueryExprKind::Set(seq)
                 } else {
-                    QueryExprView::FileSet(seq)
+                    QueryExprKind::FileSet(seq)
                 }
             }
             _ => unreachable!("should be valid: query nodes are only written by the encoder"),
@@ -297,17 +267,17 @@ impl<'a> QueryExprRef<'a> {
         out: &mut String,
         lit: &mut dyn FnMut((usize, usize), &'a ProvidersLabel),
     ) {
-        match self.view() {
-            QueryExprView::None => out.push_str("None"),
-            QueryExprView::Word(t) if buck2_query_parser::is_unquoted_word(t) => out.push_str(t),
-            QueryExprView::Word(t) | QueryExprView::String(t) => {
+        match self.kind() {
+            QueryExprKind::None => out.push_str("None"),
+            QueryExprKind::Word(t) if buck2_query_parser::is_unquoted_word(t) => out.push_str(t),
+            QueryExprKind::Word(t) | QueryExprKind::String(t) => {
                 let quote = Self::quote_for(t);
                 out.push(quote);
                 out.push_str(t);
                 out.push(quote);
             }
-            QueryExprView::Int(v) => write!(out, "{v}").expect("should write: String"),
-            QueryExprView::Label(label) => {
+            QueryExprKind::Int(v) => write!(out, "{v}").expect("should write: String"),
+            QueryExprKind::Label(label) => {
                 let mut start = out.len();
                 write!(out, "{label}").expect("should write: String");
                 // Target names and subtarget brackets reach outside the
@@ -322,7 +292,7 @@ impl<'a> QueryExprRef<'a> {
                     lit((start, out.len() - start), label);
                 }
             }
-            QueryExprView::Function { name, args } => {
+            QueryExprKind::Function { name, args } => {
                 out.push_str(name);
                 out.push('(');
                 for (i, a) in args.iter().enumerate() {
@@ -333,7 +303,7 @@ impl<'a> QueryExprRef<'a> {
                 }
                 out.push(')');
             }
-            QueryExprView::BinOp { first, rest } => {
+            QueryExprKind::BinOp { first, rest } => {
                 for _ in 0..rest.len() {
                     out.push('(');
                 }
@@ -351,8 +321,8 @@ impl<'a> QueryExprRef<'a> {
                     out.push(')');
                 }
             }
-            QueryExprView::Set(items) => Self::reprint_set("set(", items, out, lit),
-            QueryExprView::FileSet(items) => Self::reprint_set("fileset(", items, out, lit),
+            QueryExprKind::Set(items) => Self::reprint_set("set(", items, out, lit),
+            QueryExprKind::FileSet(items) => Self::reprint_set("fileset(", items, out, lit),
         }
     }
 
@@ -380,28 +350,28 @@ impl<'a> QueryExprRef<'a> {
 
     /// Collects the node's literal labels, in expression order.
     pub(crate) fn labels(&self, out: &mut Vec<&'a ProvidersLabel>) {
-        match self.view() {
-            QueryExprView::Label(l) => out.push(l),
-            QueryExprView::Function { args, .. } => {
+        match self.kind() {
+            QueryExprKind::Label(l) => out.push(l),
+            QueryExprKind::Function { args, .. } => {
                 for a in args.iter() {
                     a.labels(out);
                 }
             }
-            QueryExprView::BinOp { first, rest } => {
+            QueryExprKind::BinOp { first, rest } => {
                 first.labels(out);
                 for (_, ex) in rest.iter() {
                     ex.labels(out);
                 }
             }
-            QueryExprView::Set(items) | QueryExprView::FileSet(items) => {
+            QueryExprKind::Set(items) | QueryExprKind::FileSet(items) => {
                 for v in items.iter() {
                     v.labels(out);
                 }
             }
-            QueryExprView::None
-            | QueryExprView::Word(_)
-            | QueryExprView::String(_)
-            | QueryExprView::Int(_) => {}
+            QueryExprKind::None
+            | QueryExprKind::Word(_)
+            | QueryExprKind::String(_)
+            | QueryExprKind::Int(_) => {}
         }
     }
 }
@@ -422,27 +392,33 @@ impl QueryExprRef<'_> {
     }
 }
 
+impl PartialEq for QueryExprRef<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.same_expr(other)
+    }
+}
+
 impl StrongHash for QueryExprRef<'_> {
     fn strong_hash<H: Hasher>(&self, h: &mut H) {
-        match self.view() {
-            QueryExprView::None => h.write_u32(Q_EXPR_NONE),
-            QueryExprView::Word(t) => {
+        match self.kind() {
+            QueryExprKind::None => h.write_u32(Q_EXPR_NONE),
+            QueryExprKind::Word(t) => {
                 h.write_u32(Q_EXPR_WORD);
                 t.strong_hash(h);
             }
-            QueryExprView::String(t) => {
+            QueryExprKind::String(t) => {
                 h.write_u32(Q_EXPR_STRING);
                 t.strong_hash(h);
             }
-            QueryExprView::Int(v) => {
+            QueryExprKind::Int(v) => {
                 h.write_u32(Q_EXPR_INT);
                 h.write_u64(v);
             }
-            QueryExprView::Label(l) => {
+            QueryExprKind::Label(l) => {
                 h.write_u32(Q_EXPR_LABEL);
                 l.strong_hash(h);
             }
-            QueryExprView::Function { name, args } => {
+            QueryExprKind::Function { name, args } => {
                 h.write_u32(Q_EXPR_FUNCTION);
                 name.strong_hash(h);
                 h.write_u32(args.len());
@@ -450,7 +426,7 @@ impl StrongHash for QueryExprRef<'_> {
                     a.strong_hash(h);
                 }
             }
-            QueryExprView::BinOp { first, rest } => {
+            QueryExprKind::BinOp { first, rest } => {
                 h.write_u32(Q_EXPR_BINOP);
                 first.strong_hash(h);
                 h.write_u32(rest.len());
@@ -459,14 +435,14 @@ impl StrongHash for QueryExprRef<'_> {
                     ex.strong_hash(h);
                 }
             }
-            QueryExprView::Set(items) => {
+            QueryExprKind::Set(items) => {
                 h.write_u32(Q_EXPR_SET);
                 h.write_u32(items.len());
                 for v in items.iter() {
                     v.strong_hash(h);
                 }
             }
-            QueryExprView::FileSet(items) => {
+            QueryExprKind::FileSet(items) => {
                 h.write_u32(Q_EXPR_FILESET);
                 h.write_u32(items.len());
                 for v in items.iter() {
@@ -611,33 +587,33 @@ impl CoercedAttrArenaBuilder {
         &mut self,
         e: QueryExprRef<'_>,
     ) -> buck2_error::Result<AttrToken> {
-        let node = match e.view() {
-            QueryExprView::None => QueryNode::None,
-            QueryExprView::Word(t) => QueryNode::Word(t),
-            QueryExprView::String(t) => QueryNode::String(t),
-            QueryExprView::Int(v) => QueryNode::Int(v),
-            QueryExprView::Label(l) => QueryNode::Label(l),
-            QueryExprView::Function { name, args } => QueryNode::Function {
+        let node = match e.kind() {
+            QueryExprKind::None => QueryNode::None,
+            QueryExprKind::Word(t) => QueryNode::Word(t),
+            QueryExprKind::String(t) => QueryNode::String(t),
+            QueryExprKind::Int(v) => QueryNode::Int(v),
+            QueryExprKind::Label(l) => QueryNode::Label(l),
+            QueryExprKind::Function { name, args } => QueryNode::Function {
                 name,
                 args: args
                     .iter()
                     .map(|a| self.encode_query_expr_view(a))
                     .collect::<buck2_error::Result<_>>()?,
             },
-            QueryExprView::BinOp { first, rest } => QueryNode::BinOp {
+            QueryExprKind::BinOp { first, rest } => QueryNode::BinOp {
                 first: self.encode_query_expr_view(first)?,
                 rest: rest
                     .iter()
                     .map(|(op, ex)| Ok((op, self.encode_query_expr_view(ex)?)))
                     .collect::<buck2_error::Result<_>>()?,
             },
-            QueryExprView::Set(items) => QueryNode::Set(
+            QueryExprKind::Set(items) => QueryNode::Set(
                 items
                     .iter()
                     .map(|v| self.encode_query_expr_view(v))
                     .collect::<buck2_error::Result<_>>()?,
             ),
-            QueryExprView::FileSet(items) => QueryNode::FileSet(
+            QueryExprKind::FileSet(items) => QueryNode::FileSet(
                 items
                     .iter()
                     .map(|v| self.encode_query_expr_view(v))

@@ -24,12 +24,8 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
-use crate::attrs::arena::CoercedAttrRef;
-use crate::attrs::arena::CoercedAttrRefKind;
-use crate::attrs::arena::QueryExprRef;
 use crate::attrs::arena::fields::ExprChild;
 use crate::attrs::arena::kinds;
-use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
@@ -41,7 +37,6 @@ use crate::attrs::arena::semantics::ToJson;
 use crate::attrs::arena::semantics::Traverse;
 use crate::attrs::arena::semantics::inner_type;
 use crate::attrs::arena::semantics::mismatch;
-use crate::attrs::arena::semantics::query_view;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::dep::DepAttrType;
@@ -237,12 +232,7 @@ impl QueryAttrBase<ProvidersLabel> {
 }
 
 impl SchemaKind for kinds::Query {
-    const KIND: AttrKind = AttrKind::Query;
     type Fields = ExprChild;
-
-    fn wrap<'a>(v: CoercedAttrRef<'a>, _: QueryExprRef<'a>) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::Query(query_view(v))
-    }
 }
 
 impl CoercedAttrArenaBuilder {
@@ -253,7 +243,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::Query {
     fn traverse<'a>(
-        expr: Self::Parts<'a>,
+        expr: Self::View<'a>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         // Queries have no inputs or configuration deps: literal labels only,
@@ -270,39 +260,36 @@ impl Semantics for kinds::Query {
     }
 
     fn configure(
-        _: Self::Parts<'_>,
+        expr: Self::View<'_>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
             AttrTypeInner::Query(_) => ResultMaybeCompatible::Compatible(ConfiguredAttr::Query(
-                Box::new(query_view(v).configure(ctx)),
+                Box::new(expr.configure(ctx)),
             )),
             _ => mismatch(v, t).into(),
         }
     }
 
-    fn to_json(
-        _: Self::Parts<'_>,
-        ToJson { v, .. }: ToJson<'_, '_>,
-    ) -> buck2_error::Result<serde_json::Value> {
-        Ok(to_value(query_view(v).query().0)?)
+    fn to_json(expr: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+        Ok(to_value(expr.query().0)?)
     }
 
-    fn fmt(_: Self::Parts<'_>, Fmt { v, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
-        write!(f, "\"{}\"", query_view(v).query().0)
+    fn fmt(expr: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+        write!(f, "\"{}\"", expr.query().0)
     }
 
     fn any_matches(
-        _: Self::Parts<'_>,
-        MatchesAny { v, filter }: MatchesAny<'_, '_>,
+        expr: Self::View<'_>,
+        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
-        filter(&query_view(v).query().0)
+        filter(&expr.query().0)
     }
 
     fn serialize<S: Serializer>(
-        _: Self::Parts<'_>,
-        SerializeKind { v, ser, .. }: SerializeKind<'_, '_, S>,
+        expr: Self::View<'_>,
+        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
-        ser.serialize_str(&query_view(v).query().0)
+        ser.serialize_str(&expr.query().0)
     }
 }

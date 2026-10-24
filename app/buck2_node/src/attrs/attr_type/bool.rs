@@ -24,11 +24,8 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
-use crate::attrs::arena::CoercedAttrRef;
-use crate::attrs::arena::CoercedAttrRefKind;
 use crate::attrs::arena::fields::Flag;
 use crate::attrs::arena::kinds;
-use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
@@ -88,12 +85,7 @@ impl AnyMatches for BoolLiteral {
 }
 
 impl SchemaKind for kinds::Bool {
-    const KIND: AttrKind = AttrKind::Bool;
     type Fields = Flag;
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, b: bool) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::Bool(b)
-    }
 }
 
 impl CoercedAttrArenaBuilder {
@@ -103,12 +95,12 @@ impl CoercedAttrArenaBuilder {
 }
 
 impl Semantics for kinds::Bool {
-    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+    fn traverse<'a>(_: Self::View<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
     }
 
     fn configure(
-        b: Self::Parts<'_>,
+        b: Self::View<'_>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
@@ -120,29 +112,29 @@ impl Semantics for kinds::Bool {
     }
 
     fn traverse_configured(
-        _: Self::Parts<'_>,
+        _: Self::View<'_>,
         _: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(b: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(b: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(b)?)
     }
 
-    fn fmt(b: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(b: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "{}", BoolLiteral(b))
     }
 
     fn any_matches(
-        b: Self::Parts<'_>,
+        b: Self::View<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         BoolLiteral(b).any_matches(filter)
     }
 
     fn serialize<S: Serializer>(
-        b: Self::Parts<'_>,
+        b: Self::View<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_bool(b)

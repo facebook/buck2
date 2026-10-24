@@ -24,10 +24,10 @@ use dupe::Dupe;
 use smallvec::SmallVec;
 
 use crate::attrs::arena::fields::RecordWriter;
-use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::kinds::AttrKind;
+use crate::attrs::arena::kinds::dispatch;
 use crate::attrs::arena::schema::CopyParts;
 use crate::attrs::arena::schema::Storage;
-use crate::attrs::arena::schema::dispatch;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;

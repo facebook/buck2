@@ -33,16 +33,11 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::ArgMacroView;
 use crate::attrs::arena::ArgPartView;
-use crate::attrs::arena::ArgParts;
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
-use crate::attrs::arena::CoercedAttrRef;
-use crate::attrs::arena::CoercedAttrRefKind;
-use crate::attrs::arena::Refs;
 use crate::attrs::arena::fields::ArgChildren;
 use crate::attrs::arena::fields::Text;
 use crate::attrs::arena::kinds;
-use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
@@ -504,12 +499,7 @@ impl Display for QueryExpansion {
 }
 
 impl SchemaKind for kinds::ArgSimple {
-    const KIND: AttrKind = AttrKind::ArgSimple;
     type Fields = Text;
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, s: &'a str) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::ArgSimple(s)
-    }
 }
 
 impl CoercedAttrArenaBuilder {
@@ -521,12 +511,12 @@ impl CoercedAttrArenaBuilder {
 impl Semantics for kinds::ArgSimple {
     const CONCAT: Option<&'static str> = Some("arg");
 
-    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+    fn traverse<'a>(_: Self::View<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
     }
 
     fn configure(
-        s: Self::Parts<'_>,
+        s: Self::View<'_>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
@@ -541,59 +531,54 @@ impl Semantics for kinds::ArgSimple {
     }
 
     fn traverse_configured(
-        _: Self::Parts<'_>,
+        _: Self::View<'_>,
         _: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(s: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(s: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(s)?)
     }
 
-    fn fmt(s: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(s: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "\"{s}\"")
     }
 
     fn any_matches(
-        s: Self::Parts<'_>,
+        s: Self::View<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         filter(s)
     }
 
-    fn json_key<'a>(s: Self::Parts<'a>, _: JsonKey<'_, 'a>) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(s: Self::View<'a>, _: JsonKey<'_, 'a>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Borrowed(s))
     }
 
     fn serialize<S: Serializer>(
-        s: Self::Parts<'_>,
+        s: Self::View<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(s)
     }
 }
 
-impl SchemaKind for kinds::ArgParts {
-    const KIND: AttrKind = AttrKind::ArgParts;
+impl SchemaKind for kinds::Arg {
     type Fields = ArgChildren;
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, parts: Refs<'a, ArgParts>) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::Arg(parts)
-    }
 }
 
 impl CoercedAttrArenaBuilder {
     pub fn encode_arg_parts(&mut self, parts: &[AttrToken]) -> buck2_error::Result<AttrToken> {
-        encode_kind::<kinds::ArgParts>(self, parts)
+        encode_kind::<kinds::Arg>(self, parts)
     }
 }
 
-impl Semantics for kinds::ArgParts {
+impl Semantics for kinds::Arg {
     const CONCAT: Option<&'static str> = Some("arg");
 
     fn traverse<'a>(
-        parts: Self::Parts<'a>,
+        parts: Self::View<'a>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         if !matches!(&inner_type(t).0.inner, AttrTypeInner::Arg(_)) {
@@ -648,7 +633,7 @@ impl Semantics for kinds::ArgParts {
     }
 
     fn configure(
-        parts: Self::Parts<'_>,
+        parts: Self::View<'_>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
@@ -666,33 +651,30 @@ impl Semantics for kinds::ArgParts {
         }
     }
 
-    fn to_json(
-        parts: Self::Parts<'_>,
-        _: ToJson<'_, '_>,
-    ) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(parts: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(parts.to_string())?)
     }
 
-    fn fmt(parts: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(parts: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "\"{parts}\"")
     }
 
     fn any_matches(
-        parts: Self::Parts<'_>,
+        parts: Self::View<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         filter(&parts.to_string())
     }
 
     fn json_key<'a>(
-        parts: Self::Parts<'a>,
+        parts: Self::View<'a>,
         _: JsonKey<'_, 'a>,
     ) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Owned(parts.to_string()))
     }
 
     fn serialize<S: Serializer>(
-        parts: Self::Parts<'_>,
+        parts: Self::View<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&parts.to_string())

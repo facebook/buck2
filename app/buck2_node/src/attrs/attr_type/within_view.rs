@@ -18,11 +18,8 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
-use crate::attrs::arena::CoercedAttrRef;
-use crate::attrs::arena::CoercedAttrRefKind;
 use crate::attrs::arena::fields::Idx;
 use crate::attrs::arena::kinds;
-use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
@@ -43,12 +40,7 @@ use crate::visibility::WithinViewSpecification;
 pub struct WithinViewAttrType;
 
 impl SchemaKind for kinds::WithinView {
-    const KIND: AttrKind = AttrKind::WithinView;
     type Fields = Idx<WithinViewSpecification>;
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, v: &'a WithinViewSpecification) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::WithinView(v)
-    }
 }
 
 impl CoercedAttrArenaBuilder {
@@ -61,41 +53,38 @@ impl CoercedAttrArenaBuilder {
 }
 
 impl Semantics for kinds::WithinView {
-    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+    fn traverse<'a>(_: Self::View<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
     }
 
-    fn configure(
-        s: Self::Parts<'_>,
-        _: Configure<'_, '_>,
-    ) -> ResultMaybeCompatible<ConfiguredAttr> {
+    fn configure(s: Self::View<'_>, _: Configure<'_, '_>) -> ResultMaybeCompatible<ConfiguredAttr> {
         ResultMaybeCompatible::Compatible(ConfiguredAttr::WithinView(s.clone()))
     }
 
     fn traverse_configured(
-        _: Self::Parts<'_>,
+        _: Self::View<'_>,
         _: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(s: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(s: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         Ok(s.to_json())
     }
 
-    fn fmt(s: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(s: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "{}", s)
     }
 
     fn any_matches(
-        s: Self::Parts<'_>,
+        s: Self::View<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         s.any_matches(filter)
     }
 
     fn serialize<S: Serializer>(
-        s: Self::Parts<'_>,
+        s: Self::View<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         s.to_json().serialize(ser)

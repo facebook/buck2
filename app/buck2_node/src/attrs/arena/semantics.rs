@@ -25,7 +25,6 @@ use serde::ser::SerializeSeq;
 use serde_json::to_value;
 use smallvec::SmallVec;
 
-use crate::attrs::arena::query_expr::QueryView;
 use crate::attrs::arena::schema::Kind;
 use crate::attrs::arena::view::AttrRefDisplay;
 use crate::attrs::arena::view::AttrRefSerialize;
@@ -53,16 +52,16 @@ pub(crate) trait Semantics: Kind {
     /// concatenate; `None` means addition is not supported.
     const CONCAT: Option<&'static str> = None;
 
-    fn parts<'a>(v: CoercedAttrRef<'a>) -> Self::Parts<'a> {
+    fn view<'a>(v: CoercedAttrRef<'a>) -> Self::View<'a> {
         Self::decode(v.arena, v.r)
     }
 
     /// Type-threaded traversal over the value's deps.
-    fn traverse<'a>(parts: Self::Parts<'a>, op: Traverse<'_, 'a>) -> buck2_error::Result<()>;
+    fn traverse<'a>(parts: Self::View<'a>, op: Traverse<'_, 'a>) -> buck2_error::Result<()>;
 
     /// The configured form of the value.
     fn configure(
-        parts: Self::Parts<'_>,
+        parts: Self::View<'_>,
         op: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr>;
 
@@ -70,7 +69,7 @@ pub(crate) trait Semantics: Kind {
     /// configure the small configured value and traverse that; containers,
     /// selects and concats recurse.
     fn traverse_configured(
-        parts: Self::Parts<'_>,
+        parts: Self::View<'_>,
         TraverseConfigured {
             v,
             t,
@@ -94,27 +93,25 @@ pub(crate) trait Semantics: Kind {
     /// The leaves `ConfiguredAttr::concat` would see: selects resolved,
     /// nested concats inlined. A plain value is its own leaf.
     fn concat_leaves<'a>(
-        _parts: Self::Parts<'a>,
+        _parts: Self::View<'a>,
         ConcatLeaves { v, out, .. }: ConcatLeaves<'_, 'a>,
     ) -> ResultMaybeCompatible<()> {
         out.push(v);
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(
-        parts: Self::Parts<'_>,
-        op: ToJson<'_, '_>,
-    ) -> buck2_error::Result<serde_json::Value>;
+    fn to_json(parts: Self::View<'_>, op: ToJson<'_, '_>)
+    -> buck2_error::Result<serde_json::Value>;
 
-    fn fmt(parts: Self::Parts<'_>, op: Fmt<'_, '_, '_>) -> std::fmt::Result;
+    fn fmt(parts: Self::View<'_>, op: Fmt<'_, '_, '_>) -> std::fmt::Result;
 
     /// Whether any leaf's string form matches the filter.
-    fn any_matches(parts: Self::Parts<'_>, op: MatchesAny<'_, '_>) -> buck2_error::Result<bool>;
+    fn any_matches(parts: Self::View<'_>, op: MatchesAny<'_, '_>) -> buck2_error::Result<bool>;
 
     /// The value's rendering as a JSON object key; an error for values that
     /// render as anything but a string.
     fn json_key<'a>(
-        _parts: Self::Parts<'a>,
+        _parts: Self::View<'a>,
         _op: JsonKey<'_, 'a>,
     ) -> buck2_error::Result<Cow<'a, str>> {
         Err(internal_error!("dict keys must render to JSON strings"))
@@ -122,7 +119,7 @@ pub(crate) trait Semantics: Kind {
 
     /// Serialize the value's JSON form without building a `serde_json::Value`.
     fn serialize<S: Serializer>(
-        parts: Self::Parts<'_>,
+        parts: Self::View<'_>,
         op: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error>;
 }
@@ -176,14 +173,6 @@ pub(crate) fn mismatch(v: CoercedAttrRef<'_>, t: &AttrType) -> buck2_error::Erro
         v.as_display_no_ctx(),
         t
     )
-}
-
-/// The `attrs.query()` view of a `Query` value.
-pub(crate) fn query_view(v: CoercedAttrRef<'_>) -> QueryView<'_> {
-    QueryView {
-        arena: v.arena,
-        r: v.r,
-    }
 }
 
 /// Selects the [`Semantics`] type for a value's tag at runtime,
@@ -262,7 +251,7 @@ pub(crate) struct Traverse<'x, 'a> {
 impl ValueVisitor for Traverse<'_, '_> {
     type Out = buck2_error::Result<()>;
     fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::traverse(K::parts(self.v), self)
+        K::traverse(K::view(self.v), self)
     }
 }
 
@@ -276,7 +265,7 @@ pub(crate) struct Configure<'x, 'a> {
 impl ValueVisitor for Configure<'_, '_> {
     type Out = ResultMaybeCompatible<ConfiguredAttr>;
     fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::configure(K::parts(self.v), self)
+        K::configure(K::view(self.v), self)
     }
 }
 
@@ -292,7 +281,7 @@ pub(crate) struct TraverseConfigured<'x, 'a> {
 impl ValueVisitor for TraverseConfigured<'_, '_> {
     type Out = ResultMaybeCompatible<()>;
     fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::traverse_configured(K::parts(self.v), self)
+        K::traverse_configured(K::view(self.v), self)
     }
 }
 
@@ -305,7 +294,7 @@ pub(crate) struct ConcatLeaves<'x, 'a> {
 impl ValueVisitor for ConcatLeaves<'_, '_> {
     type Out = ResultMaybeCompatible<()>;
     fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::concat_leaves(K::parts(self.v), self)
+        K::concat_leaves(K::view(self.v), self)
     }
 }
 
@@ -326,7 +315,7 @@ pub(crate) struct ToJson<'x, 'a> {
 impl ValueVisitor for ToJson<'_, '_> {
     type Out = buck2_error::Result<serde_json::Value>;
     fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::to_json(K::parts(self.v), self)
+        K::to_json(K::view(self.v), self)
     }
 }
 
@@ -339,7 +328,7 @@ pub(crate) struct Fmt<'x, 'y, 'a> {
 impl ValueVisitor for Fmt<'_, '_, '_> {
     type Out = std::fmt::Result;
     fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::fmt(K::parts(self.v), self)
+        K::fmt(K::view(self.v), self)
     }
 }
 
@@ -351,7 +340,7 @@ pub(crate) struct MatchesAny<'x, 'a> {
 impl ValueVisitor for MatchesAny<'_, '_> {
     type Out = buck2_error::Result<bool>;
     fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::any_matches(K::parts(self.v), self)
+        K::any_matches(K::view(self.v), self)
     }
 }
 
@@ -363,7 +352,7 @@ pub(crate) struct JsonKey<'x, 'a> {
 impl<'a> ValueVisitor for JsonKey<'_, 'a> {
     type Out = buck2_error::Result<Cow<'a, str>>;
     fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::json_key(K::parts(self.v), self)
+        K::json_key(K::view(self.v), self)
     }
 }
 
@@ -377,6 +366,6 @@ pub(crate) struct SerializeKind<'x, 'a, S> {
 impl<S: Serializer> ValueVisitor for SerializeKind<'_, '_, S> {
     type Out = Result<S::Ok, S::Error>;
     fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::serialize(K::parts(self.v), self)
+        K::serialize(K::view(self.v), self)
     }
 }

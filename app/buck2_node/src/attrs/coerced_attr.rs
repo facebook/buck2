@@ -31,7 +31,6 @@ use crate::attrs::arena::AttrRefSelectorEntries;
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
-use crate::attrs::arena::CoercedAttrRefKind;
 use crate::attrs::arena::Refs;
 use crate::attrs::arena::Values;
 use crate::attrs::arena::fields::Children;
@@ -39,7 +38,6 @@ use crate::attrs::arena::fields::OptChild;
 use crate::attrs::arena::fields::SelectorEntries;
 use crate::attrs::arena::fields::Text;
 use crate::attrs::arena::kinds;
-use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::ConcatLeaves;
@@ -159,12 +157,7 @@ pub(crate) fn select_incompatible_to_json(
 }
 
 impl SchemaKind for kinds::SelectFail {
-    const KIND: AttrKind = AttrKind::SelectFail;
     type Fields = Text;
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, message: &'a str) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::SelectFail(message)
-    }
 }
 
 impl CoercedAttrArenaBuilder {
@@ -174,42 +167,39 @@ impl CoercedAttrArenaBuilder {
 }
 
 impl Semantics for kinds::SelectFail {
-    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+    fn traverse<'a>(_: Self::View<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
     }
 
-    fn configure(
-        m: Self::Parts<'_>,
-        _: Configure<'_, '_>,
-    ) -> ResultMaybeCompatible<ConfiguredAttr> {
+    fn configure(m: Self::View<'_>, _: Configure<'_, '_>) -> ResultMaybeCompatible<ConfiguredAttr> {
         select_fail(m)
     }
 
     fn traverse_configured(
-        m: Self::Parts<'_>,
+        m: Self::View<'_>,
         _: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         select_fail(m)
     }
 
-    fn concat_leaves<'a>(m: Self::Parts<'a>, _: ConcatLeaves<'_, 'a>) -> ResultMaybeCompatible<()> {
+    fn concat_leaves<'a>(m: Self::View<'a>, _: ConcatLeaves<'_, 'a>) -> ResultMaybeCompatible<()> {
         select_fail(m)
     }
 
-    fn to_json(m: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(m: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         select_fail_to_json(m)
     }
 
-    fn fmt(m: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(m: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "select_fail(\"{m}\")")
     }
 
-    fn any_matches(_: Self::Parts<'_>, _: MatchesAny<'_, '_>) -> buck2_error::Result<bool> {
+    fn any_matches(_: Self::View<'_>, _: MatchesAny<'_, '_>) -> buck2_error::Result<bool> {
         Ok(false)
     }
 
     fn serialize<S: Serializer>(
-        m: Self::Parts<'_>,
+        m: Self::View<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         select_fail_to_json(m).map_err(ser_err::<S>)?.serialize(ser)
@@ -217,12 +207,7 @@ impl Semantics for kinds::SelectFail {
 }
 
 impl SchemaKind for kinds::SelectIncompatible {
-    const KIND: AttrKind = AttrKind::SelectIncompatible;
     type Fields = Text;
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, message: &'a str) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::SelectIncompatible(message)
-    }
 }
 
 impl CoercedAttrArenaBuilder {
@@ -232,45 +217,45 @@ impl CoercedAttrArenaBuilder {
 }
 
 impl Semantics for kinds::SelectIncompatible {
-    fn traverse<'a>(_: Self::Parts<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+    fn traverse<'a>(_: Self::View<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
     }
 
     fn configure(
-        m: Self::Parts<'_>,
+        m: Self::View<'_>,
         Configure { ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         select_incompatible(m, ctx)
     }
 
     fn traverse_configured(
-        m: Self::Parts<'_>,
+        m: Self::View<'_>,
         TraverseConfigured { ctx, .. }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         select_incompatible(m, ctx)
     }
 
     fn concat_leaves<'a>(
-        m: Self::Parts<'a>,
+        m: Self::View<'a>,
         ConcatLeaves { ctx, .. }: ConcatLeaves<'_, 'a>,
     ) -> ResultMaybeCompatible<()> {
         select_incompatible(m, ctx)
     }
 
-    fn to_json(m: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(m: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         select_incompatible_to_json(m)
     }
 
-    fn fmt(m: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(m: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "select_incompatible(\"{m}\")")
     }
 
-    fn any_matches(_: Self::Parts<'_>, _: MatchesAny<'_, '_>) -> buck2_error::Result<bool> {
+    fn any_matches(_: Self::View<'_>, _: MatchesAny<'_, '_>) -> buck2_error::Result<bool> {
         Ok(false)
     }
 
     fn serialize<S: Serializer>(
-        m: Self::Parts<'_>,
+        m: Self::View<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         select_incompatible_to_json(m)
@@ -297,15 +282,7 @@ fn select_incompatible<T>(
 }
 
 impl SchemaKind for kinds::Selector {
-    const KIND: AttrKind = AttrKind::Selector;
     type Fields = (SelectorEntries, OptChild);
-
-    fn wrap<'a>(
-        _v: CoercedAttrRef<'a>,
-        (entries, default): (AttrRefSelectorEntries<'a>, Option<CoercedAttrRef<'a>>),
-    ) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::Selector { entries, default }
-    }
 }
 
 impl CoercedAttrArenaBuilder {
@@ -320,7 +297,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::Selector {
     fn traverse<'a>(
-        (entries, default): Self::Parts<'a>,
+        (entries, default): Self::View<'a>,
         Traverse { t, pkg, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         for (key, val) in entries.iter() {
@@ -334,7 +311,7 @@ impl Semantics for kinds::Selector {
     }
 
     fn configure(
-        (entries, default): Self::Parts<'_>,
+        (entries, default): Self::View<'_>,
         Configure { v, t, ctx, name }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match CoercedAttrRef::select_view(ctx, v, entries, default, name)? {
@@ -344,7 +321,7 @@ impl Semantics for kinds::Selector {
     }
 
     fn traverse_configured(
-        (entries, default): Self::Parts<'_>,
+        (entries, default): Self::View<'_>,
         TraverseConfigured {
             v,
             t,
@@ -362,7 +339,7 @@ impl Semantics for kinds::Selector {
     }
 
     fn concat_leaves<'a>(
-        (entries, default): Self::Parts<'a>,
+        (entries, default): Self::View<'a>,
         ConcatLeaves { v, ctx, out }: ConcatLeaves<'_, 'a>,
     ) -> ResultMaybeCompatible<()> {
         match CoercedAttrRef::select_view(ctx, v, entries, default, None) {
@@ -373,7 +350,7 @@ impl Semantics for kinds::Selector {
     }
 
     fn to_json(
-        (entries, default): Self::Parts<'_>,
+        (entries, default): Self::View<'_>,
         ToJson { ctx, .. }: ToJson<'_, '_>,
     ) -> buck2_error::Result<serde_json::Value> {
         let mut map = serde_json::Map::new();
@@ -393,7 +370,7 @@ impl Semantics for kinds::Selector {
     }
 
     fn fmt(
-        (entries, default): Self::Parts<'_>,
+        (entries, default): Self::View<'_>,
         Fmt { ctx, f, .. }: Fmt<'_, '_, '_>,
     ) -> std::fmt::Result {
         write!(f, "select(")?;
@@ -411,7 +388,7 @@ impl Semantics for kinds::Selector {
     }
 
     fn any_matches(
-        (entries, default): Self::Parts<'_>,
+        (entries, default): Self::View<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         for (_, val) in entries.iter() {
@@ -428,7 +405,7 @@ impl Semantics for kinds::Selector {
     }
 
     fn serialize<S: Serializer>(
-        (entries, default): Self::Parts<'_>,
+        (entries, default): Self::View<'_>,
         SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         struct Entries<'a> {
@@ -463,12 +440,7 @@ impl Semantics for kinds::Selector {
 }
 
 impl SchemaKind for kinds::Concat {
-    const KIND: AttrKind = AttrKind::Concat;
     type Fields = Children;
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, items: Refs<'a, Values>) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::Concat(items)
-    }
 }
 
 impl CoercedAttrArenaBuilder {
@@ -479,7 +451,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::Concat {
     fn traverse<'a>(
-        items: Self::Parts<'a>,
+        items: Self::View<'a>,
         Traverse { t, pkg, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         for item in items.iter() {
@@ -489,7 +461,7 @@ impl Semantics for kinds::Concat {
     }
 
     fn configure(
-        items: Self::Parts<'_>,
+        items: Self::View<'_>,
         Configure { t, ctx, name, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         let singleton = items.len() == 1;
@@ -510,7 +482,7 @@ impl Semantics for kinds::Concat {
     }
 
     fn traverse_configured(
-        items: Self::Parts<'_>,
+        items: Self::View<'_>,
         TraverseConfigured {
             t,
             pkg,
@@ -536,7 +508,7 @@ impl Semantics for kinds::Concat {
     }
 
     fn concat_leaves<'a>(
-        items: Self::Parts<'a>,
+        items: Self::View<'a>,
         ConcatLeaves { ctx, out, .. }: ConcatLeaves<'_, 'a>,
     ) -> ResultMaybeCompatible<()> {
         for item in items.iter() {
@@ -546,7 +518,7 @@ impl Semantics for kinds::Concat {
     }
 
     fn to_json(
-        items: Self::Parts<'_>,
+        items: Self::View<'_>,
         ToJson { ctx, .. }: ToJson<'_, '_>,
     ) -> buck2_error::Result<serde_json::Value> {
         Ok(serde_json::Value::Object(serde_json::Map::from_iter([
@@ -558,7 +530,7 @@ impl Semantics for kinds::Concat {
         ])))
     }
 
-    fn fmt(items: Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(items: Self::View<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         items
             .iter()
             .map(|a| AttrRefDisplay { ctx, r: a })
@@ -567,14 +539,14 @@ impl Semantics for kinds::Concat {
     }
 
     fn any_matches(
-        items: Self::Parts<'_>,
+        items: Self::View<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         any_matches_seq(items, filter)
     }
 
     fn serialize<S: Serializer>(
-        items: Self::Parts<'_>,
+        items: Self::View<'_>,
         SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         struct Items<'a> {
@@ -605,7 +577,7 @@ fn validate_concat<'a>(t: &AttrType, leaves: &[CoercedAttrRef<'a>]) -> buck2_err
         let mut inner: SmallVec<[CoercedAttrRef<'a>; 4]> = SmallVec::with_capacity(leaves.len());
         let mut variant = None;
         for leaf in leaves {
-            let Some((i, v)) = leaf.parts::<kinds::OneOf>() else {
+            let Some((i, v)) = leaf.downcast::<kinds::OneOf>() else {
                 return Err(internal_error!(
                     "expecting oneof variant, got: {}",
                     leaf.as_display_no_ctx()
@@ -631,7 +603,7 @@ fn validate_concat<'a>(t: &AttrType, leaves: &[CoercedAttrRef<'a>]) -> buck2_err
             None => Ok(()),
         };
     }
-    if first.parts::<kinds::OneOf>().is_some() {
+    if first.downcast::<kinds::OneOf>().is_some() {
         return Err(internal_error!(
             "Inconsistent attr value (`{}`) and attr type (`{}`)",
             first.as_display_no_ctx(),
@@ -655,11 +627,11 @@ fn validate_concat<'a>(t: &AttrType, leaves: &[CoercedAttrRef<'a>]) -> buck2_err
             ));
         }
     }
-    if let Some(first_pairs) = first.parts::<kinds::Dict>() {
+    if let Some(first_pairs) = first.downcast::<kinds::Dict>() {
         let mut seen: Vec<CoercedAttrRef<'a>> = first_pairs.iter().map(|(k, _)| k).collect();
         for leaf in rest {
             let pairs = leaf
-                .parts::<kinds::Dict>()
+                .downcast::<kinds::Dict>()
                 .expect("should be a dict: same concat class as the first leaf");
             for (k, _) in pairs.iter() {
                 if seen

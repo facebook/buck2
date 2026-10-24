@@ -24,13 +24,8 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
-use crate::attrs::arena::CoercedAttrRef;
-use crate::attrs::arena::CoercedAttrRefKind;
-use crate::attrs::arena::Refs;
-use crate::attrs::arena::Values;
 use crate::attrs::arena::fields::Children;
 use crate::attrs::arena::kinds;
-use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
@@ -126,12 +121,7 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for ListLiteral<C> {
 }
 
 impl SchemaKind for kinds::List {
-    const KIND: AttrKind = AttrKind::List;
     type Fields = Children;
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, items: Refs<'a, Values>) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::List(items)
-    }
 }
 
 impl CoercedAttrArenaBuilder {
@@ -144,7 +134,7 @@ impl Semantics for kinds::List {
     const CONCAT: Option<&'static str> = Some("list");
 
     fn traverse<'a>(
-        items: Self::Parts<'a>,
+        items: Self::View<'a>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         let inner = inner_type(t);
@@ -160,7 +150,7 @@ impl Semantics for kinds::List {
     }
 
     fn configure(
-        items: Self::Parts<'_>,
+        items: Self::View<'_>,
         Configure { v, t, ctx, name }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         let inner = inner_type(t);
@@ -179,7 +169,7 @@ impl Semantics for kinds::List {
     }
 
     fn traverse_configured(
-        items: Self::Parts<'_>,
+        items: Self::View<'_>,
         TraverseConfigured {
             v,
             t,
@@ -201,25 +191,25 @@ impl Semantics for kinds::List {
     }
 
     fn to_json(
-        items: Self::Parts<'_>,
+        items: Self::View<'_>,
         ToJson { ctx, .. }: ToJson<'_, '_>,
     ) -> buck2_error::Result<serde_json::Value> {
         json_seq(items, ctx)
     }
 
-    fn fmt(items: Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(items: Self::View<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         fmt_seq(items, "[", "]", ctx, f)
     }
 
     fn any_matches(
-        items: Self::Parts<'_>,
+        items: Self::View<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         any_matches_seq(items, filter)
     }
 
     fn serialize<S: Serializer>(
-        items: Self::Parts<'_>,
+        items: Self::View<'_>,
         SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser_seq(items, ctx, ser)

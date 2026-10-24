@@ -110,7 +110,7 @@ impl StarlarkSelectDict {
         &self,
     ) -> buck2_error::Result<(AttrRefSelectorEntries<'_>, Option<CoercedAttrRef<'_>>)> {
         match self.selector.as_ref().kind() {
-            CoercedAttrRefKind::Selector { entries, default } => Ok((entries, default)),
+            CoercedAttrRefKind::Selector(entries_and_default) => Ok(entries_and_default),
             _ => Err(internal_error!(
                 "SelectDict handle must reference a selector value"
             )),

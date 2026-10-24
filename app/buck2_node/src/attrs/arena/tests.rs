@@ -745,7 +745,7 @@ fn test_query_attr_shares_expression_with_query_macro() {
     else {
         panic!("should decode as a query macro");
     };
-    assert_eq!(q.expr().r, m.expr().r, "expression record should be shared");
+    assert_eq!(q.r, m.expr().r, "expression record should be shared");
     let (reprint, lits) = q.query();
     assert_eq!(reprint, "deps(root//pkg:dep)");
     assert_eq!(lits.0.len(), 1);

@@ -74,10 +74,10 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::IdHasher;
-use crate::attrs::arena::schema::AttrKind;
+use crate::attrs::arena::kinds::AttrKind;
+use crate::attrs::arena::kinds::dispatch;
 use crate::attrs::arena::schema::HashParts;
 use crate::attrs::arena::schema::Shape;
-use crate::attrs::arena::schema::dispatch;
 use crate::attrs::arena::view::CoercedAttrRef;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::metadata::map::MetadataMap;

@@ -29,12 +29,9 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
-use crate::attrs::arena::CoercedAttrRef;
-use crate::attrs::arena::CoercedAttrRefKind;
 use crate::attrs::arena::fields::Label;
 use crate::attrs::arena::fields::OptLabel;
 use crate::attrs::arena::kinds;
-use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
@@ -187,15 +184,7 @@ impl CoercedTransitionDep {
 }
 
 impl SchemaKind for kinds::TransitionDep {
-    const KIND: AttrKind = AttrKind::TransitionDep;
     type Fields = (Label, OptLabel);
-
-    fn wrap<'a>(
-        _v: CoercedAttrRef<'a>,
-        (dep, transition): (&'a ProvidersLabel, Option<&'a ProvidersLabel>),
-    ) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::TransitionDep { dep, transition }
-    }
 }
 
 impl CoercedAttrArenaBuilder {
@@ -210,7 +199,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::TransitionDep {
     fn traverse<'a>(
-        (dep, transition): Self::Parts<'a>,
+        (dep, transition): Self::View<'a>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         match &inner_type(t).0.inner {
@@ -220,7 +209,7 @@ impl Semantics for kinds::TransitionDep {
     }
 
     fn configure(
-        (dep, transition): Self::Parts<'_>,
+        (dep, transition): Self::View<'_>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
@@ -232,7 +221,7 @@ impl Semantics for kinds::TransitionDep {
     }
 
     fn to_json(
-        (dep, transition): Self::Parts<'_>,
+        (dep, transition): Self::View<'_>,
         _: ToJson<'_, '_>,
     ) -> buck2_error::Result<serde_json::Value> {
         match transition {
@@ -241,19 +230,19 @@ impl Semantics for kinds::TransitionDep {
         }
     }
 
-    fn fmt((dep, _): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt((dep, _): Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         std::fmt::Display::fmt(dep, f)
     }
 
     fn any_matches(
-        (dep, _): Self::Parts<'_>,
+        (dep, _): Self::View<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         filter(&dep.to_string())
     }
 
     fn serialize<S: Serializer>(
-        (dep, transition): Self::Parts<'_>,
+        (dep, transition): Self::View<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         match transition {

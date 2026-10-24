@@ -15,14 +15,15 @@ use std::hash::Hasher;
 
 use buck2_core::provider::label::ProvidersLabel;
 use strong_hash::StrongHash;
-use strum::FromRepr;
 
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Cursor;
 use crate::attrs::arena::fields::FieldList;
 use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::fields::RecordWriter;
-use crate::attrs::arena::semantics::ValueVisitor;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::kinds::AttrKind;
+use crate::attrs::arena::kinds::dispatch;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
@@ -30,106 +31,87 @@ use crate::attrs::arena::storage::INLINE_KIND_MASK;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::TailLen;
 use crate::attrs::arena::view::CoercedAttrRef;
-use crate::attrs::arena::view::CoercedAttrRefKind;
 
-/// Every record kind once: its name and tag. Each becomes an [`AttrKind`]
-/// variant, a unit type in [`kinds`] that the kind's trait impls hang off
-/// (its [`SchemaKind`] beside its attribute type, or a hand-written
-/// [`Kind`]), and an arm of the dispatchers. `internal` marks the record
-/// kinds that are never attribute values.
+/// Defines everything that follows from the list of kinds as a whole. The
+/// invocation names each item it defines; `unit` kinds have no view,
+/// `value` kinds' view-enum cases hold the kind's [`Kind::View`], and
+/// `internal` kinds are records inside other records, never attribute
+/// values.
 macro_rules! arena_kinds {
     (
-        $(
-            $(#[$doc:meta])*
-            $name:ident = $tag:literal $(: $internal:ident)? ,
-        )*
+        $(#[$tag_doc:meta])* enum $tag:ident;
+        $(#[$view_doc:meta])* enum $view:ident<$lt:lifetime>;
+        impl $kind_tag:ident;
+        fn $dispatch:ident;
+        fn $dispatch_value:ident;
+        fn $decode:ident;
+        unit { $( $(#[$udoc:meta])* $u:ident = $utag:literal, )* }
+        value { $( $(#[$vdoc:meta])* $v:ident = $vtag:literal, )* }
+        internal { $( $(#[$idoc:meta])* $i:ident = $itag:literal, )* }
     ) => {
-        /// Record kinds.
-        #[derive(Copy, Clone, PartialEq, Eq, Debug, FromRepr)]
+        $(#[$tag_doc])*
+        #[derive(Copy, Clone, PartialEq, Eq, Debug, ::strum::FromRepr)]
         #[repr(u8)]
-        pub(crate) enum AttrKind {
-            $( $(#[$doc])* $name = $tag, )*
+        pub(crate) enum $tag {
+            $( $(#[$udoc])* $u = $utag, )*
+            $( $(#[$vdoc])* $v = $vtag, )*
+            $( $(#[$idoc])* $i = $itag, )*
         }
 
-        /// Each kind as a type, for [`Kind`] impls and [`dispatch`].
-        pub(crate) mod kinds {
-            $( pub(crate) struct $name; )*
+        $( pub(crate) struct $u; )*
+        $( pub(crate) struct $v; )*
+        $( pub(crate) struct $i; )*
+
+        $( impl $kind_tag for $u { const KIND: $tag = $tag::$u; } )*
+        $( impl $kind_tag for $v { const KIND: $tag = $tag::$v; } )*
+        $( impl $kind_tag for $i { const KIND: $tag = $tag::$i; } )*
+
+        $(#[$view_doc])*
+        // Each case's type is a kind's view, reached through the crate-private
+        // kind type and trait; what a consumer gets is the concrete type.
+        #[allow(private_interfaces)]
+        pub enum $view<$lt> {
+            $( $u, )*
+            $( $v(<$v as $crate::attrs::arena::schema::Kind>::View<$lt>), )*
         }
 
         /// Runs `v` for the [`Kind`] type of `kind`.
-        pub(super) fn dispatch<V: KindVisitor>(kind: AttrKind, v: V) -> V::Out {
+        pub(super) fn $dispatch<V: KindVisitor>(kind: $tag, v: V) -> V::Out {
             match kind {
-                $( AttrKind::$name => v.visit::<kinds::$name>(), )*
+                $( $tag::$u => v.visit::<$u>(), )*
+                $( $tag::$v => v.visit::<$v>(), )*
+                $( $tag::$i => v.visit::<$i>(), )*
             }
         }
 
         /// Runs `v` for the [`Semantics`] type of `kind`, which must be an
         /// attribute value kind.
-        pub(super) fn dispatch_value<V: ValueVisitor>(kind: AttrKind, v: V) -> V::Out {
+        pub(super) fn $dispatch_value<V: ValueVisitor>(kind: $tag, v: V) -> V::Out {
             match kind {
-                $( AttrKind::$name => arena_kinds!(@value v $name $($internal)?), )*
+                $( $tag::$u => v.visit::<$u>(), )*
+                $( $tag::$v => v.visit::<$v>(), )*
+                $( $tag::$i => unreachable!("not an attribute value: {:?}", $tag::$i), )*
+            }
+        }
+
+        /// The decoded view of the value at `r`.
+        pub(super) fn $decode<$lt>(
+            arena: &$lt $crate::attrs::arena::CoercedAttrArena,
+            r: $crate::attrs::arena::AttrWord,
+        ) -> $view<$lt> {
+            match arena.kind_of(r) {
+                $( $tag::$u => $view::$u, )*
+                $( $tag::$v => $view::$v(<$v as $crate::attrs::arena::schema::Kind>::decode(arena, r)), )*
+                $( $tag::$i => unreachable!("not an attribute value: {:?}", $tag::$i), )*
             }
         }
     };
-    (@value $v:ident $name:ident internal) => {
-        unreachable!("not an attribute value: {:?}", AttrKind::$name)
-    };
-    (@value $v:ident $name:ident) => {
-        $v.visit::<kinds::$name>()
-    };
 }
+pub(crate) use arena_kinds;
 
-arena_kinds! {
-    None = 0,
-    Bool = 1,
-    /// Inline as a 26-bit sign-extended payload when it fits; otherwise a
-    /// record with head `[lo, hi]`: the zigzag-encoded value in 32-bit halves.
-    Int = 2,
-    WithinView = 3,
-    String = 4,
-    EnumVariant = 5,
-    List = 6,
-    Tuple = 7,
-    Dict = 8,
-    Selector = 9,
-    Concat = 10,
-    OneOf = 11,
-    Dep = 12,
-    Label = 13,
-    SourceLabel = 14,
-    ConfigurationDep = 15,
-    SplitTransitionDep = 16,
-    PluginDep = 17,
-    SourceFile = 18,
-    Visibility = 19,
-    /// `Arg` with no macros (`StringWithMacros::StringPart`) -- most `Arg`
-    /// values in real graphs contain no macros.
-    ArgSimple = 20,
-    /// Head: `[n, idx...]`: `n` providers-label table indices, a selector's
-    /// key set. Never appears as an attribute value ref.
-    SelectorKeys = 21: internal,
-    /// Parts are `ArgSimple` or `ArgMacro` records.
-    ArgParts = 22,
-    /// Head: `[header, payload index, n]`; refs: `n` per the header's
-    /// variant tag. Never appears as an attribute value ref.
-    ArgMacro = 23: internal,
-    /// Head: `[subtag, nv, nv values, n]`; refs: `n` per `Q_EXPR_*`. Encodes
-    /// the parsed form of a query macro's expression; target literals are
-    /// label table indices, text is shared text records. Never appears as
-    /// an attribute value ref.
-    QueryExpr = 24: internal,
-    /// The parsed form of an `attrs.query()` value.
-    Query = 25,
-    /// A `select_fail()` / `select_incompatible()` leaf holding the message.
-    SelectFail = 26,
-    SelectIncompatible = 27,
-    /// An `attrs.configured_dep()` value.
-    ExplicitConfiguredDep = 28,
-    /// The dynamic transition target is absent when the attr type fixes the
-    /// transition.
-    TransitionDep = 29,
-    Modifiers = 30,
-    Metadata = 31,
+/// The tag of a kind, from its row in the kinds list.
+pub(crate) trait KindTag {
+    const KIND: AttrKind;
 }
 
 impl AttrKind {
@@ -138,9 +120,7 @@ impl AttrKind {
     pub(super) fn is_inline(self) -> bool {
         dispatch(self, IsInline)
     }
-}
 
-impl AttrKind {
     /// Kinds whose values hold no deps, inputs, or labels: a traversal can
     /// pass over them without decoding. Select outcomes are scalar for the
     /// unconfigured walk only; the configured walk must report them.
@@ -177,8 +157,7 @@ pub(crate) const fn storage_class(
 
 /// A kind whose values are a sequence of typed fields: everything about it
 /// derives from the field list.
-pub(crate) trait SchemaKind: 'static {
-    const KIND: AttrKind;
+pub(crate) trait SchemaKind: KindTag + 'static {
     type Fields: FieldList;
     /// How values are stored follows from the fields and the tag: a text
     /// tail makes a text record; no tail and at most one head field fit the
@@ -190,69 +169,50 @@ pub(crate) trait SchemaKind: 'static {
         <Self::Fields as FieldList>::HEAD,
         <Self::Fields as FieldList>::HAS_REFS,
     );
-    /// The public view case for decoded fields.
-    fn wrap<'a>(
-        v: CoercedAttrRef<'a>,
-        parts: <Self::Fields as FieldList>::View<'a>,
-    ) -> CoercedAttrRefKind<'a>;
 }
 
 /// One record kind as a type. [`dispatch`] selects it from a value's tag
 /// and monomorphizes a visitor per kind, so every operation that is uniform
 /// over kinds is written once. Schema kinds get this from their fields;
 /// the record-internal tagged unions implement it by hand.
-pub(crate) trait Kind {
-    const KIND: AttrKind;
+pub(crate) trait Kind: KindTag {
     const STORAGE: Storage;
     /// Whether values hold no deps: no labels, paths or children, so
     /// traversals have nothing to visit.
     const SCALAR: bool;
     /// The decoded value: leaves as borrowed side-table values or
     /// immediates, children as refs.
-    type Parts<'a>: Copy;
+    type View<'a>: Copy;
     /// Head field count and tail of a record, reading head fields through
     /// `peek`; `None` when a field the layout depends on is missing.
     fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)>;
-    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> Self::Parts<'a>;
-    /// The public view case. Record kinds that are not attribute values
-    /// (`ArgMacro`, `QueryExpr`, `SelectorKeys`) have none.
-    fn wrap<'a>(v: CoercedAttrRef<'a>, parts: Self::Parts<'a>) -> CoercedAttrRefKind<'a>
-    where
-        Self: 'a;
+    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> Self::View<'a>;
     /// Re-encode into `b`, children first.
     fn copy_into(
-        parts: Self::Parts<'_>,
+        parts: Self::View<'_>,
         b: &mut CoercedAttrArenaBuilder,
     ) -> buck2_error::Result<AttrToken>;
     /// Identity hash of the parts; the kind byte is already written.
-    fn identity(parts: Self::Parts<'_>, h: &mut IdHasher<'_>);
-    fn same(a: Self::Parts<'_>, b: Self::Parts<'_>) -> bool;
+    fn identity(parts: Self::View<'_>, h: &mut IdHasher<'_>);
+    fn same(a: Self::View<'_>, b: Self::View<'_>) -> bool;
 }
 
 impl<K: SchemaKind> Kind for K {
-    const KIND: AttrKind = K::KIND;
     const STORAGE: Storage = K::STORAGE;
     const SCALAR: bool = !<K::Fields as FieldList>::DEPS;
-    type Parts<'a> = <K::Fields as FieldList>::View<'a>;
+    type View<'a> = <K::Fields as FieldList>::View<'a>;
 
     fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
         K::Fields::shape(peek)
     }
 
-    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> Self::Parts<'a> {
+    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> Self::View<'a> {
         let mut c = Cursor::new(arena, r);
         K::Fields::decode(&mut c)
     }
 
-    fn wrap<'a>(v: CoercedAttrRef<'a>, parts: Self::Parts<'a>) -> CoercedAttrRefKind<'a>
-    where
-        Self: 'a,
-    {
-        K::wrap(v, parts)
-    }
-
     fn copy_into(
-        parts: Self::Parts<'_>,
+        parts: Self::View<'_>,
         b: &mut CoercedAttrArenaBuilder,
     ) -> buck2_error::Result<AttrToken> {
         let mut w = RecordWriter::new(K::KIND);
@@ -260,11 +220,11 @@ impl<K: SchemaKind> Kind for K {
         b.emit(K::STORAGE, w)
     }
 
-    fn identity(parts: Self::Parts<'_>, h: &mut IdHasher<'_>) {
+    fn identity(parts: Self::View<'_>, h: &mut IdHasher<'_>) {
         K::Fields::identity(parts, h)
     }
 
-    fn same(a: Self::Parts<'_>, b: Self::Parts<'_>) -> bool {
+    fn same(a: Self::View<'_>, b: Self::View<'_>) -> bool {
         K::Fields::same(a, b)
     }
 }
@@ -289,10 +249,9 @@ pub(super) trait KindVisitor {
 /// `Int`: inline when the value fits the payload, otherwise a record of the
 /// zigzag value in 32-bit halves; one kind either way.
 impl Kind for kinds::Int {
-    const KIND: AttrKind = AttrKind::Int;
     const STORAGE: Storage = Storage::Record;
     const SCALAR: bool = true;
-    type Parts<'a> = i64;
+    type View<'a> = i64;
 
     fn shape(_peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
         Some((2, TailLen::None))
@@ -300,13 +259,6 @@ impl Kind for kinds::Int {
 
     fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> i64 {
         arena.int_at(r)
-    }
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, parts: i64) -> CoercedAttrRefKind<'a>
-    where
-        Self: 'a,
-    {
-        CoercedAttrRefKind::Int(parts)
     }
 
     fn copy_into(parts: i64, b: &mut CoercedAttrArenaBuilder) -> buck2_error::Result<AttrToken> {
@@ -338,10 +290,9 @@ impl<'a> KeysParts<'a> {
 }
 
 impl Kind for kinds::SelectorKeys {
-    const KIND: AttrKind = AttrKind::SelectorKeys;
     const STORAGE: Storage = Storage::Record;
     const SCALAR: bool = false;
-    type Parts<'a> = KeysParts<'a>;
+    type View<'a> = KeysParts<'a>;
 
     fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
         Some((1u32.checked_add(peek(0)?)?, TailLen::None))
@@ -351,13 +302,6 @@ impl Kind for kinds::SelectorKeys {
         KeysParts {
             keys: arena.open(r).head.skip(1),
         }
-    }
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, _parts: KeysParts<'a>) -> CoercedAttrRefKind<'a>
-    where
-        Self: 'a,
-    {
-        unreachable!("selector keys records are not attribute values")
     }
 
     fn copy_into(
@@ -434,18 +378,6 @@ impl KindVisitor for HashParts<'_, '_, '_> {
     type Out = ();
     fn visit<K: Kind + 'static>(self) {
         K::identity(K::decode(self.v.arena, self.v.r), self.h)
-    }
-}
-
-/// Decodes a value to its public view: [`CoercedAttrRef::kind`].
-pub(super) struct ToRefKind<'a> {
-    pub(super) v: CoercedAttrRef<'a>,
-}
-
-impl<'a> KindVisitor for ToRefKind<'a> {
-    type Out = CoercedAttrRefKind<'a>;
-    fn visit<K: Kind + 'static>(self) -> Self::Out {
-        K::wrap(self.v, K::decode(self.v.arena, self.v.r))
     }
 }
 

@@ -24,12 +24,9 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
-use crate::attrs::arena::CoercedAttrRef;
-use crate::attrs::arena::CoercedAttrRefKind;
 use crate::attrs::arena::fields::Label;
 use crate::attrs::arena::fields::Target;
 use crate::attrs::arena::kinds;
-use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::semantics::Configure;
@@ -144,15 +141,7 @@ impl ConfiguredExplicitConfiguredDep {
 }
 
 impl SchemaKind for kinds::ExplicitConfiguredDep {
-    const KIND: AttrKind = AttrKind::ExplicitConfiguredDep;
     type Fields = (Label, Target);
-
-    fn wrap<'a>(
-        _v: CoercedAttrRef<'a>,
-        (label, platform): (&'a ProvidersLabel, &'a TargetLabel),
-    ) -> CoercedAttrRefKind<'a> {
-        CoercedAttrRefKind::ExplicitConfiguredDep { label, platform }
-    }
 }
 
 impl CoercedAttrArenaBuilder {
@@ -167,7 +156,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::ExplicitConfiguredDep {
     fn traverse<'a>(
-        (label, platform): Self::Parts<'a>,
+        (label, platform): Self::View<'a>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         match &inner_type(t).0.inner {
@@ -183,7 +172,7 @@ impl Semantics for kinds::ExplicitConfiguredDep {
     }
 
     fn configure(
-        (label, platform): Self::Parts<'_>,
+        (label, platform): Self::View<'_>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
@@ -195,25 +184,25 @@ impl Semantics for kinds::ExplicitConfiguredDep {
     }
 
     fn to_json(
-        (label, platform): Self::Parts<'_>,
+        (label, platform): Self::View<'_>,
         _: ToJson<'_, '_>,
     ) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value([label.to_string(), platform.to_string()])?)
     }
 
-    fn fmt((label, platform): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt((label, platform): Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "({label}, {platform})")
     }
 
     fn any_matches(
-        (label, platform): Self::Parts<'_>,
+        (label, platform): Self::View<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         filter(&format!("({label}, {platform})"))
     }
 
     fn serialize<S: Serializer>(
-        (label, platform): Self::Parts<'_>,
+        (label, platform): Self::View<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         [label.to_string(), platform.to_string()].serialize(ser)

@@ -18,7 +18,6 @@ use std::hash::Hasher;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_util::arc_str::ArcStr;
-use dupe::Dupe;
 use smallvec::SmallVec;
 use smallvec::smallvec;
 use strong_hash::StrongHash;
@@ -26,19 +25,17 @@ use strong_hash::StrongHash;
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::builder::content_hash;
 use crate::attrs::arena::fields::IdHasher;
+use crate::attrs::arena::kinds;
+use crate::attrs::arena::kinds::AttrKind;
 use crate::attrs::arena::query_expr::QueryExprRef;
-use crate::attrs::arena::schema::AttrKind;
 use crate::attrs::arena::schema::Kind;
 use crate::attrs::arena::schema::Storage;
-use crate::attrs::arena::schema::kinds;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::TailLen;
 use crate::attrs::arena::view::ArgParts;
-use crate::attrs::arena::view::CoercedAttrRef;
-use crate::attrs::arena::view::CoercedAttrRefKind;
 use crate::attrs::arena::view::Refs;
 use crate::attrs::attr_type::arg::ConfiguredMacro;
 use crate::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
@@ -143,10 +140,9 @@ impl CoercedAttrArena {
 /// An `ArgMacro` record decodes to its part view; the `String` case is an
 /// `ArgSimple` record and never reaches here.
 impl Kind for kinds::ArgMacro {
-    const KIND: AttrKind = AttrKind::ArgMacro;
     const STORAGE: Storage = Storage::Record;
     const SCALAR: bool = false;
-    type Parts<'a> = ArgPartView<'a>;
+    type View<'a> = ArgPartView<'a>;
 
     fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
         Some((3, TailLen::Refs(peek(2)?)))
@@ -154,13 +150,6 @@ impl Kind for kinds::ArgMacro {
 
     fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> ArgPartView<'a> {
         arena.arg_part_at(r)
-    }
-
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, _parts: ArgPartView<'a>) -> CoercedAttrRefKind<'a>
-    where
-        Self: 'a,
-    {
-        unreachable!("arg macro records are not attribute values")
     }
 
     fn copy_into(
@@ -349,12 +338,7 @@ impl<'a> ArgQueryView<'a> {
     /// with offsets into the reprint. One walk produces both, so the map's
     /// spans always agree with the returned text.
     pub fn query(&self) -> (String, ResolvedQueryLiterals<ProvidersLabel>) {
-        let mut out = String::new();
-        let mut lits = BTreeMap::new();
-        self.expr().reprint(&mut out, &mut |span, l| {
-            lits.insert(span, l.dupe());
-        });
-        (out, ResolvedQueryLiterals(lits))
+        self.expr().query()
     }
 
     /// The stored expression's literal labels, in expression order (the

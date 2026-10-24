@@ -189,8 +189,8 @@ pub(crate) fn ref_to_value<'v>(
             }
             heap.alloc(res)
         }
-        CoercedAttrRefKind::OneOf(l, _) => ref_to_value(l, owner, pkg, heap)?,
-        CoercedAttrRefKind::Selector { .. } => {
+        CoercedAttrRefKind::OneOf((_, l)) => ref_to_value(l, owner, pkg, heap)?,
+        CoercedAttrRefKind::Selector(_) => {
             heap.alloc(StarlarkSelectDict::new(owner.sub(attr), pkg.dupe()))
         }
         CoercedAttrRefKind::Concat(_) => {
@@ -217,10 +217,10 @@ pub(crate) fn ref_to_value<'v>(
             heap.alloc(StarlarkSelectIncompatible::new(heap.alloc_str(message)))
         }
         // TODO(@wendyy) - this needs better support
-        CoercedAttrRefKind::ExplicitConfiguredDep { label, .. } => {
+        CoercedAttrRefKind::ExplicitConfiguredDep((label, _)) => {
             heap.alloc(StarlarkProvidersLabel::new(label.dupe()))
         }
-        CoercedAttrRefKind::TransitionDep { dep, transition } => {
+        CoercedAttrRefKind::TransitionDep((dep, transition)) => {
             let label = StarlarkProvidersLabel::new(dep.dupe());
             match transition {
                 Some(t) => heap.alloc((label, StarlarkProvidersLabel::new(t.dupe()))),
