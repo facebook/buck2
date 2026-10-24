@@ -825,3 +825,19 @@ class UqueryTest(BuckTestCase):
             "nattrfilter(buck.type, other_rule, root//bin:the_binary)"
         )
         assert out.stdout == "root//bin:the_binary\n"
+
+    @buck_test(data_dir="query_attrs")
+    async def test_query_attribute_text(self, buck: Buck) -> None:
+        # Query text in attributes and macros renders as the parsed expression:
+        # labels resolve to canonical form, and a label that is not a bare query
+        # word is quoted.
+        out = await buck.uquery(
+            "--output-attribute", "^q$", "--output-attribute", "^arg$", "//:holder"
+        )
+        assert json.loads(out.stdout) == {
+            "root//:holder": {
+                # Query macros render with two spaces after the expansion kind.
+                "arg": "$(query_targets  deps('root//:libc++'))",
+                "q": "deps(root//:dep)",
+            }
+        }
