@@ -692,8 +692,7 @@ pub struct SelectorEntries;
 
 impl Field for SelectorEntries {
     const DEPS: bool = true;
-    const HEAD: u32 = 1;
-    const HAS_REFS: bool = true;
+    const INLINE: bool = false;
     const HAS_TEXT: bool = false;
     type View<'a> = AttrRefSelectorEntries<'a>;
     type Spec<'s> = &'s [(ConfigurationSettingKey, AttrToken)];

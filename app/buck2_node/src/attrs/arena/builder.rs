@@ -219,14 +219,18 @@ impl CoercedAttrArenaBuilder {
                     .expect("should have text: text storage has a `Text` field");
                 self.encode_str(w.kind, text)
             }
-            Storage::Inline => {
+            Storage::Inline
+                if w.refs.is_empty()
+                    && w.head.len() <= 1
+                    && w.head.first().is_none_or(|&p| p <= INLINE_PAYLOAD_MASK) =>
+            {
                 let payload = w.head.first().copied().unwrap_or(0);
                 Ok(AttrToken(
-                    AttrWord::inline(w.kind, payload)?,
+                    AttrWord::inline(w.kind, payload),
                     CoercedAttrHash(w.h.finish()),
                 ))
             }
-            Storage::Record => {
+            Storage::Inline | Storage::Record => {
                 let hash = CoercedAttrHash(w.h.finish());
                 let r = self.encode_record(w.kind, hash, &w.head, &w.refs)?;
                 Ok(AttrToken(r, hash))
@@ -240,7 +244,7 @@ impl CoercedAttrArenaBuilder {
         let hash = mix_kind(CoercedAttrKind::Int, i as u64);
         if (INT_INLINE_MIN..=INT_INLINE_MAX).contains(&i) {
             return Ok(AttrToken(
-                AttrWord::inline(CoercedAttrKind::Int, (i as u32) & INLINE_PAYLOAD_MASK)?,
+                AttrWord::inline(CoercedAttrKind::Int, (i as u32) & INLINE_PAYLOAD_MASK),
                 hash,
             ));
         }

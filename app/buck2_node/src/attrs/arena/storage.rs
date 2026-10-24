@@ -185,20 +185,10 @@ pub(super) const INT_INLINE_MAX: i64 = (1 << (INLINE_PAYLOAD_BITS - 1)) - 1;
 pub(super) const INT_INLINE_MIN: i64 = -(1 << (INLINE_PAYLOAD_BITS - 1));
 
 impl AttrWord {
-    /// An inline leaf. Ints that do not fit the payload spill to records, so
-    /// overflow means one package holds more distinct values of `kind` than
-    /// the payload can index.
-    pub(super) fn inline(kind: CoercedAttrKind, payload: u32) -> buck2_error::Result<AttrWord> {
-        if payload > INLINE_PAYLOAD_MASK {
-            return Err(buck2_error!(
-                buck2_error::ErrorTag::Input,
-                "too many distinct `{kind:?}` attribute values in one package: at most {} are supported",
-                INLINE_PAYLOAD_MASK as u64 + 1
-            ));
-        }
-        Ok(AttrWord(
-            INLINE_BIT | ((kind as u32) << INLINE_KIND_SHIFT) | payload,
-        ))
+    /// An inline leaf; `payload` must fit [`INLINE_PAYLOAD_MASK`].
+    pub(super) fn inline(kind: CoercedAttrKind, payload: u32) -> AttrWord {
+        debug_assert!(payload <= INLINE_PAYLOAD_MASK);
+        AttrWord(INLINE_BIT | ((kind as u32) << INLINE_KIND_SHIFT) | payload)
     }
 
     /// Whether this is an inline leaf rather than a record ref.
@@ -311,7 +301,6 @@ pub(super) fn validate_records(bytes: &[u8]) -> Result<(), String> {
         let rec = pos;
         let t = bytes[pos];
         let kind = CoercedAttrKind::from_repr(t & TAG_KIND_MASK)
-            .filter(|k| !k.is_inline())
             .ok_or_else(|| format!("record at {rec} has invalid tag {t:#x}"))?;
         let width = (t >> TAG_WIDTH_SHIFT) + 1;
         let start = pos + 1;

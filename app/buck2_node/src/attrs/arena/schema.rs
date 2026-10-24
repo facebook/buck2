@@ -123,12 +123,6 @@ pub trait KindTag {
 }
 
 impl CoercedAttrKind {
-    /// Whether values of this kind are inline leaves (payload in the
-    /// word) rather than records in the buffer.
-    pub(super) fn is_inline(self) -> bool {
-        dispatch(self, IsInline)
-    }
-
     /// Kinds whose values hold no deps, inputs, or labels: a traversal can
     /// pass over them without decoding. Select outcomes are scalar for the
     /// unconfigured walk only; the configured walk must report them.
@@ -140,7 +134,8 @@ impl CoercedAttrKind {
 /// How a kind's values are stored.
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Storage {
-    /// No record: the word carries the kind and the single field's value.
+    /// The word carries the kind and the single field's value whenever that
+    /// value fits the payload; a record of that one field otherwise.
     Inline,
     /// A record of head fields and child refs, deduped by content.
     Record,
@@ -148,15 +143,10 @@ pub enum Storage {
     Text,
 }
 
-pub(crate) const fn storage_class(
-    kind: CoercedAttrKind,
-    has_text: bool,
-    head: u32,
-    has_refs: bool,
-) -> Storage {
+pub(crate) const fn storage_class(kind: CoercedAttrKind, has_text: bool, inline: bool) -> Storage {
     if has_text {
         Storage::Text
-    } else if !has_refs && head <= 1 && (kind as u32) <= INLINE_KIND_MASK {
+    } else if inline && (kind as u32) <= INLINE_KIND_MASK {
         Storage::Inline
     } else {
         Storage::Record
@@ -167,15 +157,13 @@ pub(crate) const fn storage_class(
 /// everything about it derives from that field.
 pub trait SchemaKind: KindTag + 'static {
     type Fields: Field;
-    /// How values are stored follows from the fields and the tag: a text
-    /// tail makes a text record; no tail and at most one head field fit the
-    /// word, if the tag fits the word's kind bits; anything else is a
-    /// record.
+    /// How values are stored follows from the field and the tag: a text
+    /// tail makes a text record; a single head value fits the word, if the
+    /// tag fits the word's kind bits; anything else is a record.
     const STORAGE: Storage = storage_class(
         Self::KIND,
         <Self::Fields as Field>::HAS_TEXT,
-        <Self::Fields as Field>::HEAD,
-        <Self::Fields as Field>::HAS_REFS,
+        <Self::Fields as Field>::INLINE,
     );
 }
 
@@ -284,16 +272,6 @@ impl Kind for kinds::Int {
 
     fn same(a: i64, b: i64) -> bool {
         a == b
-    }
-}
-
-/// [`CoercedAttrKind::is_inline`].
-pub(super) struct IsInline;
-
-impl KindVisitor for IsInline {
-    type Out = bool;
-    fn visit<K: Kind + 'static>(self) -> bool {
-        matches!(K::STORAGE, Storage::Inline)
     }
 }
 

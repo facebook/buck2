@@ -205,10 +205,10 @@ impl Extent {
 pub trait Field {
     /// Whether the field can hold a dep: a label, a path or a child.
     const DEPS: bool;
-    /// What the field occupies, statically: head fields, whether it adds
-    /// refs to the tail, whether it is the text tail.
-    const HEAD: u32;
-    const HAS_REFS: bool;
+    /// Whether the field is at most one head value and nothing else, so a
+    /// value whose only field this is can live in the word's payload.
+    const INLINE: bool;
+    /// Whether the field is the text tail.
     const HAS_TEXT: bool;
     /// Decoded form, borrowed from the arena.
     type View<'a>: Copy;
@@ -236,8 +236,7 @@ pub trait Field {
 /// No fields.
 impl Field for () {
     const DEPS: bool = false;
-    const HEAD: u32 = 0;
-    const HAS_REFS: bool = false;
+    const INLINE: bool = true;
     const HAS_TEXT: bool = false;
     type View<'a> = ();
     type Spec<'s> = ();
@@ -274,8 +273,7 @@ impl Field for () {
 /// Two fields in sequence.
 impl<A: Field, B: Field> Field for (A, B) {
     const DEPS: bool = A::DEPS || B::DEPS;
-    const HEAD: u32 = A::HEAD + B::HEAD;
-    const HAS_REFS: bool = A::HAS_REFS || B::HAS_REFS;
+    const INLINE: bool = false;
     const HAS_TEXT: bool = A::HAS_TEXT || B::HAS_TEXT;
     type View<'a> = (A::View<'a>, B::View<'a>);
     type Spec<'s> = (A::Spec<'s>, B::Spec<'s>);
@@ -439,8 +437,7 @@ pub type Path = Idx<CoercedPath>;
 
 impl<T: Interned> Field for Idx<T> {
     const DEPS: bool = T::DEPS;
-    const HEAD: u32 = 1;
-    const HAS_REFS: bool = false;
+    const INLINE: bool = true;
     const HAS_TEXT: bool = false;
     type View<'a> = &'a T;
     type Spec<'s> = &'s T;
@@ -486,8 +483,7 @@ pub struct OptLabel;
 
 impl Field for OptLabel {
     const DEPS: bool = true;
-    const HEAD: u32 = 1;
-    const HAS_REFS: bool = false;
+    const INLINE: bool = true;
     const HAS_TEXT: bool = false;
     type View<'a> = Option<&'a ProvidersLabel>;
     type Spec<'s> = Option<&'s ProvidersLabel>;
@@ -543,8 +539,7 @@ pub struct Flag;
 
 impl Field for Flag {
     const DEPS: bool = false;
-    const HEAD: u32 = 1;
-    const HAS_REFS: bool = false;
+    const INLINE: bool = true;
     const HAS_TEXT: bool = false;
     type View<'a> = bool;
     type Spec<'s> = bool;
@@ -589,8 +584,7 @@ pub struct U32;
 
 impl Field for U32 {
     const DEPS: bool = false;
-    const HEAD: u32 = 1;
-    const HAS_REFS: bool = false;
+    const INLINE: bool = true;
     const HAS_TEXT: bool = false;
     type View<'a> = u32;
     type Spec<'s> = u32;
@@ -636,8 +630,7 @@ pub struct Text;
 
 impl Field for Text {
     const DEPS: bool = false;
-    const HEAD: u32 = 1;
-    const HAS_REFS: bool = false;
+    const INLINE: bool = false;
     const HAS_TEXT: bool = true;
     type View<'a> = &'a str;
     type Spec<'s> = &'s str;
@@ -685,8 +678,7 @@ pub struct Child;
 
 impl Field for Child {
     const DEPS: bool = true;
-    const HEAD: u32 = 0;
-    const HAS_REFS: bool = true;
+    const INLINE: bool = false;
     const HAS_TEXT: bool = false;
     type View<'a> = CoercedAttrRef<'a>;
     type Spec<'s> = AttrToken;
@@ -739,8 +731,7 @@ pub struct OptChild;
 
 impl Field for OptChild {
     const DEPS: bool = true;
-    const HEAD: u32 = 0;
-    const HAS_REFS: bool = true;
+    const INLINE: bool = false;
     const HAS_TEXT: bool = false;
     type View<'a> = Option<CoercedAttrRef<'a>>;
     type Spec<'s> = Option<AttrToken>;
@@ -802,8 +793,7 @@ pub type ChildPairs = ChildrenOf<Pairs>;
 
 impl<T: RefItem + 'static> Field for ChildrenOf<T> {
     const DEPS: bool = true;
-    const HEAD: u32 = 1;
-    const HAS_REFS: bool = true;
+    const INLINE: bool = false;
     const HAS_TEXT: bool = false;
     type View<'a> = Refs<'a, T>;
     type Spec<'s> = &'s T::Spec;
@@ -873,8 +863,7 @@ pub struct ChildOf<K>(std::marker::PhantomData<K>);
 
 impl<K: Kind> Field for ChildOf<K> {
     const DEPS: bool = !K::SCALAR;
-    const HEAD: u32 = 0;
-    const HAS_REFS: bool = true;
+    const INLINE: bool = false;
     const HAS_TEXT: bool = false;
     type View<'a> = K::View<'a>;
     type Spec<'s> = AttrToken;
