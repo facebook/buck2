@@ -27,8 +27,11 @@ use buck2_hash::IntentionallyStdHashMap;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_type::StarlarkFileType;
+use buck2_node::attrs::arena::OwnedCoercedAttr;
+use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
+use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::Expr;
 use buck2_query_parser::spanned::Spanned;
@@ -40,6 +43,7 @@ use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::values::Value;
 
+use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::buckconfig::LegacyConfigsViewForStarlark;
 use crate::interpreter::build_context::BuildContext;
@@ -48,12 +52,33 @@ use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
 
-pub fn coercion_ctx<'v>() -> impl AttrCoercionContext<'v> {
+pub fn coercion_ctx() -> EnumCoercionCtx {
     coercion_ctx_listing(PackageListing::testing_empty())
 }
 
-pub fn coercion_ctx_listing<'v>(package_listing: PackageListing) -> impl AttrCoercionContext<'v> {
+pub fn coercion_ctx_listing(package_listing: PackageListing) -> EnumCoercionCtx {
     EnumCoercionCtx(build_coercion_ctx(package_listing))
+}
+
+/// Coercion for tests that assert on the encoded value: coerces through this
+/// context and seals the result into its own single-value storage.
+pub trait CoerceSealed {
+    fn coerce_sealed<'v>(
+        &self,
+        attr: &AttrType,
+        value: Value<'v>,
+    ) -> buck2_error::Result<OwnedCoercedAttr>;
+}
+
+impl CoerceSealed for EnumCoercionCtx {
+    fn coerce_sealed<'v>(
+        &self,
+        attr: &AttrType,
+        value: Value<'v>,
+    ) -> buck2_error::Result<OwnedCoercedAttr> {
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, self, value)?;
+        OwnedCoercedAttr::try_new(&coerced)
+    }
 }
 
 /// Test-only view of a context that keeps the trait's default (plain-enum)
