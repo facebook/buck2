@@ -15,6 +15,7 @@ use std::hash::Hasher;
 
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Cursor;
+use crate::attrs::arena::fields::Extent;
 use crate::attrs::arena::fields::Field;
 use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::fields::RecordWriter;
@@ -22,7 +23,6 @@ use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::INLINE_KIND_MASK;
-use crate::attrs::arena::storage::TailLen;
 use crate::attrs::arena::view::CoercedAttrRef;
 use crate::attrs::coerced::kinds;
 use crate::attrs::coerced::kinds::CoercedAttrKind;
@@ -196,9 +196,9 @@ pub trait Kind: KindTag {
     /// The decoded value: leaves as borrowed side-table values or
     /// immediates, children as refs.
     type View<'a>: Copy;
-    /// Head field count and tail of a record, reading head fields through
-    /// `peek`; `None` when a field the layout depends on is missing.
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)>;
+    /// What a record occupies, reading head fields through `peek`; `None`
+    /// when a field the layout depends on is missing.
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent>;
     fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> Self::View<'a>;
     /// Re-encode into `b`, children first.
     fn copy_into(
@@ -215,9 +215,8 @@ impl<K: SchemaKind> Kind for K {
     const SCALAR: bool = !<K::Fields as Field>::DEPS;
     type View<'a> = <K::Fields as Field>::View<'a>;
 
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
-        let p = K::Fields::shape(peek, 0)?;
-        Some((p.head, tail_len(p.refs, p.text)))
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent> {
+        K::Fields::shape(peek, 0)
     }
 
     fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> Self::View<'a> {
@@ -240,14 +239,6 @@ impl<K: SchemaKind> Kind for K {
 
     fn same(a: Self::View<'_>, b: Self::View<'_>) -> bool {
         K::Fields::same(a, b)
-    }
-}
-
-fn tail_len(refs: Option<u32>, text: Option<u32>) -> TailLen {
-    match (text, refs) {
-        (Some(t), _) => TailLen::Text(t),
-        (None, Some(n)) => TailLen::Refs(n),
-        (None, None) => TailLen::None,
     }
 }
 
@@ -275,8 +266,8 @@ impl Kind for kinds::Int {
     const SCALAR: bool = true;
     type View<'a> = i64;
 
-    fn shape(_peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
-        Some((2, TailLen::None))
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent> {
+        Some(Extent::head(2))
     }
 
     fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> i64 {
@@ -322,7 +313,7 @@ pub(super) struct Shape<'f> {
 }
 
 impl KindVisitor for Shape<'_> {
-    type Out = Option<(u32, TailLen)>;
+    type Out = Option<Extent>;
     fn visit<K: Kind + 'static>(self) -> Self::Out {
         K::shape(self.peek)
     }

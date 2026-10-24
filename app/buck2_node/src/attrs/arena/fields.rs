@@ -180,16 +180,17 @@ impl<'s> RecordWriter<'s> {
     }
 }
 
-/// What a field occupies in a record.
-pub struct Part {
+/// What a field, or a whole record, occupies: head fields, then a tail of
+/// refs or of text.
+pub struct Extent {
     pub(crate) head: u32,
     pub(crate) refs: Option<u32>,
     pub(crate) text: Option<u32>,
 }
 
-impl Part {
-    const fn head(n: u32) -> Part {
-        Part {
+impl Extent {
+    pub(crate) const fn head(n: u32) -> Extent {
+        Extent {
             head: n,
             refs: None,
             text: None,
@@ -216,7 +217,7 @@ pub trait Field {
     type Spec<'s>: Copy;
     /// What the field occupies, reading head fields through `peek`; `at` is
     /// the field's first head index.
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part>;
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Extent>;
     fn decode<'a>(c: &mut Cursor<'a>) -> Self::View<'a>;
     fn encode<'s>(
         spec: Self::Spec<'s>,
@@ -241,8 +242,8 @@ impl Field for () {
     type View<'a> = ();
     type Spec<'s> = ();
 
-    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
-        Some(Part::head(0))
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Extent> {
+        Some(Extent::head(0))
     }
 
     fn decode<'a>(_c: &mut Cursor<'a>) {}
@@ -279,14 +280,14 @@ impl<A: Field, B: Field> Field for (A, B) {
     type View<'a> = (A::View<'a>, B::View<'a>);
     type Spec<'s> = (A::Spec<'s>, B::Spec<'s>);
 
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part> {
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Extent> {
         let a = A::shape(peek, at)?;
         let b = B::shape(peek, at.checked_add(a.head)?)?;
         let refs = match (a.refs, b.refs) {
             (None, None) => None,
             (x, y) => Some(x.unwrap_or(0).checked_add(y.unwrap_or(0))?),
         };
-        Some(Part {
+        Some(Extent {
             head: a.head.checked_add(b.head)?,
             refs,
             text: a.text.or(b.text),
@@ -444,8 +445,8 @@ impl<T: Interned> Field for Idx<T> {
     type View<'a> = &'a T;
     type Spec<'s> = &'s T;
 
-    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
-        Some(Part::head(1))
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Extent> {
+        Some(Extent::head(1))
     }
 
     fn decode<'a>(c: &mut Cursor<'a>) -> &'a T {
@@ -491,8 +492,8 @@ impl Field for OptLabel {
     type View<'a> = Option<&'a ProvidersLabel>;
     type Spec<'s> = Option<&'s ProvidersLabel>;
 
-    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
-        Some(Part::head(1))
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Extent> {
+        Some(Extent::head(1))
     }
 
     fn decode<'a>(c: &mut Cursor<'a>) -> Option<&'a ProvidersLabel> {
@@ -548,8 +549,8 @@ impl Field for Flag {
     type View<'a> = bool;
     type Spec<'s> = bool;
 
-    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
-        Some(Part::head(1))
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Extent> {
+        Some(Extent::head(1))
     }
 
     fn decode<'a>(c: &mut Cursor<'a>) -> bool {
@@ -594,8 +595,8 @@ impl Field for U32 {
     type View<'a> = u32;
     type Spec<'s> = u32;
 
-    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
-        Some(Part::head(1))
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Extent> {
+        Some(Extent::head(1))
     }
 
     fn decode<'a>(c: &mut Cursor<'a>) -> u32 {
@@ -641,8 +642,8 @@ impl Field for Text {
     type View<'a> = &'a str;
     type Spec<'s> = &'s str;
 
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part> {
-        Some(Part {
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Extent> {
+        Some(Extent {
             head: 1,
             refs: None,
             text: Some(peek(at)?),
@@ -690,8 +691,8 @@ impl Field for Child {
     type View<'a> = CoercedAttrRef<'a>;
     type Spec<'s> = AttrToken;
 
-    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
-        Some(Part {
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Extent> {
+        Some(Extent {
             head: 0,
             refs: Some(1),
             text: None,
@@ -744,8 +745,8 @@ impl Field for OptChild {
     type View<'a> = Option<CoercedAttrRef<'a>>;
     type Spec<'s> = Option<AttrToken>;
 
-    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
-        Some(Part {
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Extent> {
+        Some(Extent {
             head: 0,
             refs: Some(1),
             text: None,
@@ -807,8 +808,8 @@ impl<T: RefItem + 'static> Field for ChildrenOf<T> {
     type View<'a> = Refs<'a, T>;
     type Spec<'s> = &'s T::Spec;
 
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part> {
-        Some(Part {
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Extent> {
+        Some(Extent {
             head: 1,
             refs: Some(peek(at)?.checked_mul(T::STRIDE)?),
             text: None,
@@ -878,8 +879,8 @@ impl<K: Kind> Field for ChildOf<K> {
     type View<'a> = K::View<'a>;
     type Spec<'s> = AttrToken;
 
-    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
-        Some(Part {
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Extent> {
+        Some(Extent {
             head: 0,
             refs: Some(1),
             text: None,

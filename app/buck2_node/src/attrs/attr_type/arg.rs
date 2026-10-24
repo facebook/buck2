@@ -44,6 +44,7 @@ use crate::attrs::arena::Refs;
 use crate::attrs::arena::builder::content_hash;
 use crate::attrs::arena::fields::ChildrenOf;
 use crate::attrs::arena::fields::Cursor;
+use crate::attrs::arena::fields::Extent;
 use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::fields::Text;
 use crate::attrs::arena::schema::Kind;
@@ -51,7 +52,6 @@ use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::storage::RefRun;
-use crate::attrs::arena::storage::TailLen;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::query::QueryAttrBase;
 use crate::attrs::attr_type::query::QueryExprRef;
@@ -852,8 +852,12 @@ impl Kind for kinds::ArgMacro {
     const SCALAR: bool = false;
     type View<'a> = ArgPartView<'a>;
 
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
-        Some((3, TailLen::Refs(peek(2)?)))
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent> {
+        Some(Extent {
+            head: 3,
+            refs: Some(peek(2)?),
+            text: None,
+        })
     }
 
     fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> ArgPartView<'a> {

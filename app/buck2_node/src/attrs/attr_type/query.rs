@@ -41,13 +41,13 @@ use crate::attrs::arena::builder::EncodeScratchRefs;
 use crate::attrs::arena::builder::content_hash;
 use crate::attrs::arena::fields::ChildOf;
 use crate::attrs::arena::fields::Cursor;
+use crate::attrs::arena::fields::Extent;
 use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::schema::Kind;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::storage::RefRun;
-use crate::attrs::arena::storage::TailLen;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::dep::DepAttrType;
@@ -348,9 +348,13 @@ impl Kind for kinds::QueryExpr {
     const SCALAR: bool = false;
     type View<'a> = QueryExprRef<'a>;
 
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
-        let nfields = 3u32.checked_add(peek(1)?)?;
-        Some((nfields, TailLen::Refs(peek(nfields - 1)?)))
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent> {
+        let head = 3u32.checked_add(peek(1)?)?;
+        Some(Extent {
+            head,
+            refs: Some(peek(head - 1)?),
+            text: None,
+        })
     }
 
     fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> QueryExprRef<'a> {

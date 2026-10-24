@@ -42,10 +42,10 @@ use crate::attrs::arena::Values;
 use crate::attrs::arena::builder::EncodeScratchFields;
 use crate::attrs::arena::fields::Children;
 use crate::attrs::arena::fields::Cursor;
+use crate::attrs::arena::fields::Extent;
 use crate::attrs::arena::fields::Field;
 use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::fields::OptChild;
-use crate::attrs::arena::fields::Part;
 use crate::attrs::arena::fields::RecordWriter;
 use crate::attrs::arena::fields::Text;
 use crate::attrs::arena::schema::Kind;
@@ -53,7 +53,6 @@ use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::storage::RefRun;
-use crate::attrs::arena::storage::TailLen;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
@@ -699,8 +698,8 @@ impl Field for SelectorEntries {
     type View<'a> = AttrRefSelectorEntries<'a>;
     type Spec<'s> = &'s [(ConfigurationSettingKey, AttrToken)];
 
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part> {
-        Some(Part {
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Extent> {
+        Some(Extent {
             head: 1,
             refs: Some(peek(at)?.checked_add(1)?),
             text: None,
@@ -786,8 +785,8 @@ impl Kind for kinds::SelectorKeys {
     const SCALAR: bool = false;
     type View<'a> = KeysParts<'a>;
 
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
-        Some((1u32.checked_add(peek(0)?)?, TailLen::None))
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent> {
+        Some(Extent::head(1u32.checked_add(peek(0)?)?))
     }
 
     fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> KeysParts<'a> {

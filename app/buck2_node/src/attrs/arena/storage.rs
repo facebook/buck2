@@ -92,7 +92,7 @@ pub(super) const TAG_WIDTH_SHIFT: u8 = 6;
 
 /// The tail of a record body, sized.
 #[derive(Copy, Clone)]
-pub enum TailLen {
+enum TailLen {
     None,
     Text(u32),
     Refs(u32),
@@ -101,11 +101,14 @@ pub enum TailLen {
 /// Head field count and tail of a `kind` record whose head field `i` reads
 /// as `field(i)`; `None` when a field the layout depends on is missing.
 #[inline]
-pub(super) fn shape(
-    kind: CoercedAttrKind,
-    field: impl Fn(u32) -> Option<u32>,
-) -> Option<(u32, TailLen)> {
-    dispatch(kind, Shape { peek: &field })
+fn shape(kind: CoercedAttrKind, field: impl Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
+    let e = dispatch(kind, Shape { peek: &field })?;
+    let tail = match (e.text, e.refs) {
+        (Some(len), _) => TailLen::Text(len),
+        (None, Some(n)) => TailLen::Refs(n),
+        (None, None) => TailLen::None,
+    };
+    Some((e.head, tail))
 }
 
 /// A `width`-byte little-endian field at `at`, if in bounds.
