@@ -27,6 +27,7 @@ use dupe::Dupe;
 use itertools::Itertools;
 use pagable::Pagable;
 
+use crate::attrs::coerced::kinds;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::nodes::targets_map::TargetsMap;
 use crate::nodes::unconfigured::TargetNode;
@@ -40,8 +41,12 @@ use crate::super_package::SuperPackage;
 /// though.
 pub fn is_generated_target(node: TargetNodeRef) -> bool {
     node.attr_or_none("labels", AttrInspectOptions::All)
-        .and_then(|labels| labels.value.unpack_list())
-        .is_some_and(|mut items| items.any(|x| x.unpack_str() == Some("generated")))
+        .and_then(|labels| labels.value.downcast::<kinds::List>())
+        .is_some_and(|items| {
+            items
+                .iter()
+                .any(|x| x.downcast::<kinds::String>() == Some("generated"))
+        })
 }
 
 #[derive(Debug, buck2_error::Error)]

@@ -54,24 +54,21 @@ macro_rules! arena_kinds {
         $(#[$tag_doc])*
         #[derive(Copy, Clone, PartialEq, Eq, Debug, ::strum::FromRepr)]
         #[repr(u8)]
-        pub(crate) enum $tag {
+        pub enum $tag {
             $( $(#[$udoc])* $u = $utag, )*
             $( $(#[$vdoc])* $v = $vtag, )*
             $( $(#[$idoc])* $i = $itag, )*
         }
 
-        $( pub(crate) struct $u; )*
-        $( pub(crate) struct $v; )*
-        $( pub(crate) struct $i; )*
+        $( pub struct $u; )*
+        $( pub struct $v; )*
+        $( pub struct $i; )*
 
         $( impl $kind_tag for $u { const KIND: $tag = $tag::$u; } )*
         $( impl $kind_tag for $v { const KIND: $tag = $tag::$v; } )*
         $( impl $kind_tag for $i { const KIND: $tag = $tag::$i; } )*
 
         $(#[$view_doc])*
-        // Each case's type is a kind's view, reached through the crate-private
-        // kind type and trait; what a consumer gets is the concrete type.
-        #[allow(private_interfaces)]
         pub enum $view<$lt> {
             $( $u, )*
             $( $v(<$v as $crate::attrs::arena::schema::Kind>::View<$lt>), )*
@@ -125,7 +122,7 @@ macro_rules! arena_kinds {
 pub(crate) use arena_kinds;
 
 /// The tag of a kind, from its row in the kinds list.
-pub(crate) trait KindTag {
+pub trait KindTag {
     const KIND: CoercedAttrKind;
 }
 
@@ -146,7 +143,7 @@ impl CoercedAttrKind {
 
 /// How a kind's values are stored.
 #[derive(Copy, Clone, PartialEq, Eq)]
-pub(crate) enum Storage {
+pub enum Storage {
     /// No record: the word carries the kind and the single field's value.
     Inline,
     /// A record of head fields and child refs, deduped by content.
@@ -172,7 +169,7 @@ pub(crate) const fn storage_class(
 
 /// A kind whose values are a sequence of typed fields: everything about it
 /// derives from the field list.
-pub(crate) trait SchemaKind: KindTag + 'static {
+pub trait SchemaKind: KindTag + 'static {
     type Fields: FieldList;
     /// How values are stored follows from the fields and the tag: a text
     /// tail makes a text record; no tail and at most one head field fit the
@@ -190,7 +187,12 @@ pub(crate) trait SchemaKind: KindTag + 'static {
 /// and monomorphizes a visitor per kind, so every operation that is uniform
 /// over kinds is written once. Schema kinds get this from their fields;
 /// the record-internal tagged unions implement it by hand.
-pub(crate) trait Kind: KindTag {
+///
+/// This trait, and everything a kind's `View` is spelled through, is `pub`
+/// inside crate-private modules: the public [`CoercedAttrRef::downcast`]
+/// returns `K::View`, and an associated type may only be given in terms of
+/// nominally public items. None of it is reachable from outside the crate.
+pub trait Kind: KindTag {
     const STORAGE: Storage;
     /// Whether values hold no deps: no labels, paths or children, so
     /// traversals have nothing to visit.
@@ -291,7 +293,7 @@ impl Kind for kinds::Int {
 
 /// The label set of a `SelectorKeys` record: `[n, idx...]`.
 #[derive(Copy, Clone)]
-pub(crate) struct KeysParts<'a> {
+pub struct KeysParts<'a> {
     pub(super) keys: RefRun<'a>,
 }
 

@@ -17,6 +17,7 @@ use buck2_hash::IntentionallyStdHashMap;
 use buck2_node::attrs::arena::AttrToken;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr::CoercedValue;
+use buck2_node::attrs::coerced::kinds;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
@@ -178,7 +179,10 @@ impl AttributeSpecExt for AttributeSpec {
         // For now `within_view` is always set, but let's make code more robust.
         if let Some(within_view_word) = attr_values.get(WITHIN_VIEW_ATTRIBUTE.id) {
             internals.with_attr_arena_ref(|arena_builder| -> buck2_error::Result<()> {
-                let within_view = match arena_builder.view(within_view_word).unpack_within_view() {
+                let within_view = match arena_builder
+                    .view(within_view_word)
+                    .downcast::<kinds::WithinView>()
+                {
                     Some(within_view) => within_view,
                     _ => return Err(internal_error!("`within_view` coerced incorrectly")),
                 };

@@ -11,7 +11,6 @@
 //! Decoded views of attribute values.
 
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_error::internal_error;
 use buck2_util::strong_hasher::StrongHash128;
 
 use crate::attrs::arena::arg::ArgPartView;
@@ -22,13 +21,8 @@ use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::coerced::CoercedAttrRefKind;
-use crate::attrs::coerced::kinds;
 use crate::attrs::coerced::kinds::decode;
 use crate::attrs::coerced::kinds::dispatch;
-use crate::metadata::map::MetadataMap;
-use crate::modifiers::CfgModifiers;
-use crate::visibility::VisibilitySpecification;
-use crate::visibility::WithinViewSpecification;
 
 /// A decoded (shallow) view of one attribute value. Children decode lazily via
 /// further `view` calls.
@@ -181,24 +175,10 @@ impl<'a> CoercedAttrRef<'a> {
 impl<'a> CoercedAttrRef<'a> {
     /// The decoded parts if this value is of kind `K`: the typed downcast,
     /// for readers that want one kind rather than the sum `kind()` gives.
-    pub(crate) fn downcast<K: Kind>(&self) -> Option<K::View<'a>> {
+    ///
+    /// `K` is one of the kind types in [`crate::attrs::coerced::kinds`].
+    pub fn downcast<K: Kind>(&self) -> Option<K::View<'a>> {
         (self.arena.kind_of(self.r) == K::KIND).then(|| K::decode(self.arena, self.r))
-    }
-
-    pub fn unpack_visibility(&self) -> Option<&'a VisibilitySpecification> {
-        self.downcast::<kinds::Visibility>()
-    }
-
-    pub fn unpack_within_view(&self) -> Option<&'a WithinViewSpecification> {
-        self.downcast::<kinds::WithinView>()
-    }
-
-    pub fn unpack_metadata(&self) -> Option<&'a MetadataMap> {
-        self.downcast::<kinds::Metadata>()
-    }
-
-    pub fn unpack_target_modifiers(&self) -> Option<&'a CfgModifiers> {
-        self.downcast::<kinds::Modifiers>()
     }
 
     /// The stored identity-grade content hash, if this ref was interned as
@@ -220,32 +200,5 @@ impl<'a> CoercedAttrRef<'a> {
                     b: *other,
                 },
             )
-    }
-}
-
-impl<'a> CoercedAttrRef<'a> {
-    /// The configuration-dep label, or `None` for an explicit `None` value.
-    ///
-    /// Errors on any other kind: only for attributes the coercer has already
-    /// verified to be a (non-configurable) configuration dep.
-    pub fn unpack_configuration_dep(&self) -> buck2_error::Result<Option<&'a ProvidersLabel>> {
-        if self.downcast::<kinds::None>().is_some() {
-            return Ok(None);
-        }
-        self.downcast::<kinds::ConfigurationDep>()
-            .ok_or_else(|| {
-                internal_error!("should be a configuration dep: verified by the attr coercer")
-            })
-            .map(Some)
-    }
-
-    /// The list elements, or `None` when the value is not a list.
-    pub fn unpack_list(&self) -> Option<impl Iterator<Item = CoercedAttrRef<'a>> + use<'a>> {
-        self.downcast::<kinds::List>().map(|items| items.iter())
-    }
-
-    /// The string content, or `None` when the value is not a string.
-    pub fn unpack_str(&self) -> Option<&'a str> {
-        self.downcast::<kinds::String>()
     }
 }

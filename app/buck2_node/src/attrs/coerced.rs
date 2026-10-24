@@ -21,4 +21,5 @@ pub mod semantics;
 pub mod traverse;
 
 pub use attr_view::AttrView;
+pub use kinds::CoercedAttrKind;
 pub use kinds::CoercedAttrRefKind;

@@ -10,6 +10,9 @@
 
 //! Field types: what a head field, a run of refs or the text tail of a
 //! record means, and how each is read, encoded, hashed and compared.
+//!
+//! Items are `pub` in this crate-private module for the reason given on
+//! [`Kind`](crate::attrs::arena::schema::Kind).
 
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -51,7 +54,7 @@ use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
 /// The blake3 identity hasher plus the per-arena memo child hashes use.
-pub(crate) struct IdHasher<'m> {
+pub struct IdHasher<'m> {
     pub(super) h: Blake3StrongHasher,
     pub(super) memo: &'m mut BuckMutMap<u32, StrongHash128>,
 }
@@ -65,7 +68,7 @@ impl IdHasher<'_> {
 
 /// Reads one value's fields in order: the inline payload, or a record's
 /// head fields and tail.
-pub(crate) struct Cursor<'a> {
+pub struct Cursor<'a> {
     pub(super) arena: &'a CoercedAttrArena,
     pub(super) r: AttrWord,
     /// Head fields of a record; `None` for an inline word.
@@ -135,7 +138,7 @@ impl<'a> Cursor<'a> {
 
 /// Head fields, child refs and weak content hash of one value being
 /// encoded, gathered field by field.
-pub(crate) struct RecordWriter<'s> {
+pub struct RecordWriter<'s> {
     pub(super) kind: CoercedAttrKind,
     pub(super) head: EncodeScratchFields,
     pub(super) refs: EncodeScratchRefs,
@@ -170,7 +173,7 @@ impl<'s> RecordWriter<'s> {
 }
 
 /// What a field occupies in a record.
-pub(crate) struct Part {
+pub struct Part {
     pub(super) head: u32,
     pub(super) refs: Option<u32>,
     pub(super) text: Option<u32>,
@@ -190,7 +193,7 @@ impl Part {
 /// the text tail means. Each field knows how to read itself, how to encode
 /// its input form, how to re-encode its decoded form into another arena,
 /// and how it hashes and compares.
-pub(crate) trait Field {
+pub trait Field {
     /// Whether the field can hold a dep: a label, a path or a child.
     const DEPS: bool;
     /// What the field occupies, statically: head fields, whether it adds
@@ -222,7 +225,7 @@ pub(crate) trait Field {
 }
 
 /// A kind's fields as a tuple.
-pub(crate) trait FieldList {
+pub trait FieldList {
     const DEPS: bool;
     const HEAD: u32;
     const HAS_REFS: bool;
@@ -500,12 +503,12 @@ pub(crate) fn intern_by_content<T: Hash + PartialEq + Clone>(
 }
 
 /// A table index field for an [`Interned`] value.
-pub(crate) struct Idx<T>(std::marker::PhantomData<T>);
+pub struct Idx<T>(std::marker::PhantomData<T>);
 
 /// Providers-label, target-label and path table indices.
-pub(crate) type Label = Idx<ProvidersLabel>;
-pub(crate) type Target = Idx<TargetLabel>;
-pub(crate) type Path = Idx<CoercedPath>;
+pub type Label = Idx<ProvidersLabel>;
+pub type Target = Idx<TargetLabel>;
+pub type Path = Idx<CoercedPath>;
 
 impl<T: Interned> Field for Idx<T> {
     const DEPS: bool = T::DEPS;
@@ -552,7 +555,7 @@ impl<T: Interned> Field for Idx<T> {
 }
 
 /// A providers-label table index plus one, or zero for absent.
-pub(crate) struct OptLabel;
+pub struct OptLabel;
 
 impl Field for OptLabel {
     const DEPS: bool = true;
@@ -609,7 +612,7 @@ impl Field for OptLabel {
 
 /// A boolean head field: the payload of an inline leaf that is either
 /// true or false.
-pub(crate) struct Flag;
+pub struct Flag;
 
 impl Field for Flag {
     const DEPS: bool = false;
@@ -655,7 +658,7 @@ impl Field for Flag {
 }
 
 /// An immediate head field.
-pub(crate) struct U32;
+pub struct U32;
 
 impl Field for U32 {
     const DEPS: bool = false;
@@ -702,7 +705,7 @@ impl Field for U32 {
 
 /// The UTF-8 text tail, with its byte length as the head field. Text
 /// storage writes the record; the field only carries the text.
-pub(crate) struct Text;
+pub struct Text;
 
 impl Field for Text {
     const DEPS: bool = false;
@@ -751,7 +754,7 @@ impl Field for Text {
 }
 
 /// One child ref.
-pub(crate) struct Child;
+pub struct Child;
 
 impl Field for Child {
     const DEPS: bool = true;
@@ -805,7 +808,7 @@ impl Field for Child {
 
 /// One child ref that may be absent (a selector's default): the identity
 /// hash writes a presence flag, then the child.
-pub(crate) struct OptChild;
+pub struct OptChild;
 
 impl Field for OptChild {
     const DEPS: bool = true;
@@ -863,14 +866,14 @@ impl Field for OptChild {
 
 /// A count head field, then that many items of `T`, each `T::STRIDE`
 /// child refs.
-pub(crate) struct ChildrenOf<T>(std::marker::PhantomData<T>);
+pub struct ChildrenOf<T>(std::marker::PhantomData<T>);
 
 /// Child values.
-pub(crate) type Children = ChildrenOf<Values>;
+pub type Children = ChildrenOf<Values>;
 /// (key, value) child pairs.
-pub(crate) type ChildPairs = ChildrenOf<Pairs>;
+pub type ChildPairs = ChildrenOf<Pairs>;
 /// Arg parts.
-pub(crate) type ArgChildren = ChildrenOf<ArgParts>;
+pub type ArgChildren = ChildrenOf<ArgParts>;
 
 impl<T: RefItem + 'static> Field for ChildrenOf<T> {
     const DEPS: bool = true;
@@ -941,7 +944,7 @@ impl<T: RefItem + 'static> Field for ChildrenOf<T> {
 
 /// A selector's entries: a count head field, a ref to the shared
 /// `SelectorKeys` record, then that many value refs.
-pub(crate) struct SelectorEntries;
+pub struct SelectorEntries;
 
 impl Field for SelectorEntries {
     const DEPS: bool = true;
@@ -1023,7 +1026,7 @@ impl Field for SelectorEntries {
 
 /// A ref to a `QueryExpr` record. Its identity hash is the expression's,
 /// inline; equality compares reprints.
-pub(crate) struct ExprChild;
+pub struct ExprChild;
 
 impl Field for ExprChild {
     const DEPS: bool = true;

@@ -13,6 +13,7 @@ use std::borrow::Cow;
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_error::internal_error;
 use dupe::Dupe;
 use pagable::Pagable;
 use serde::Serializer;
@@ -20,6 +21,7 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::fields::Label;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
@@ -138,5 +140,22 @@ impl Semantics for kinds::ConfigurationDep {
         SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&l.to_string())
+    }
+}
+
+impl<'a> CoercedAttrRef<'a> {
+    /// The configuration-dep label, or `None` for an explicit `None` value.
+    ///
+    /// Errors on any other kind: only for attributes the coercer has already
+    /// verified to be a (non-configurable) configuration dep.
+    pub fn unpack_configuration_dep(&self) -> buck2_error::Result<Option<&'a ProvidersLabel>> {
+        if self.downcast::<kinds::None>().is_some() {
+            return Ok(None);
+        }
+        self.downcast::<kinds::ConfigurationDep>()
+            .ok_or_else(|| {
+                internal_error!("should be a configuration dep: verified by the attr coercer")
+            })
+            .map(Some)
     }
 }

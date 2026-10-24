@@ -32,6 +32,7 @@ use strong_hash::StrongHash;
 use crate::attrs::arena::CoercedAttrArena;
 use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
+use crate::attrs::coerced::kinds;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::coerced_deps_collector::CoercedDeps;
 use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
@@ -372,7 +373,7 @@ impl TargetNode {
 
     pub fn visibility(&self) -> buck2_error::Result<&VisibilitySpecification> {
         match self.0.attributes.get(VISIBILITY_ATTRIBUTE.id) {
-            Some(a) => match a.unpack_visibility() {
+            Some(a) => match a.downcast::<kinds::Visibility>() {
                 Some(v) => Ok(v),
                 _ => {
                     // This code is unreachable: visibility attributes are validated
@@ -755,7 +756,7 @@ impl<'a> TargetNodeRef<'a> {
 
     pub fn metadata(self) -> buck2_error::Result<Option<&'a MetadataMap>> {
         self.known_attr_or_none(METADATA_ATTRIBUTE.id, AttrInspectOptions::All)
-            .map(|attr| match attr.value.unpack_metadata() {
+            .map(|attr| match attr.value.downcast::<kinds::Metadata>() {
                 Some(m) => Ok(m),
                 x => Err(internal_error!("`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{:?}` instead", x)),
             })
@@ -765,7 +766,7 @@ impl<'a> TargetNodeRef<'a> {
     /// The target's own `modifiers`, shared with the stored value.
     pub fn target_modifiers(self) -> buck2_error::Result<Option<CfgModifiers>> {
         self.known_attr_or_none(TARGET_MODIFIERS_ATTRIBUTE.id, AttrInspectOptions::All)
-            .map(|attr| match attr.value.unpack_target_modifiers() {
+            .map(|attr| match attr.value.downcast::<kinds::Modifiers>() {
                 Some(m) => Ok(m.dupe()),
                 x => Err(internal_error!(
                     "`modifiers` attribute should be coerced as modifiers. Found `{:?}` instead",
