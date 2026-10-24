@@ -21,39 +21,75 @@ use pagable::Pagable;
 
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::AttrWord;
+use crate::attrs::arena::CoercedAttrArena;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::OwnedCoercedAttr;
-use crate::attrs::arena::PackageAttrStorage;
 use crate::attrs::spec::AttributeId;
 
-/// One explicitly-set attribute, by arena ref. Hashing and equality read
-/// the identity-grade strong hash from the arena's root table, so the row
-/// carries no per-row hash of its own.
-#[derive(Debug, Copy, Clone, Dupe, Allocative, Pagable)]
-pub struct ArenaAttrValue {
-    r: AttrWord,
+/// The explicitly-set attribute values of one target while its package is
+/// still evaluating: `(id, word)` rows into the package's arena builder, in
+/// ascending id order. Becomes [`AttrValues`] once the arena seals.
+#[derive(Debug, Default)]
+pub struct UnsealedAttrValues {
+    sorted: Vec2<AttributeId, AttrWord>,
+}
+
+impl UnsealedAttrValues {
+    pub fn with_capacity(capacity: usize) -> UnsealedAttrValues {
+        UnsealedAttrValues {
+            sorted: Vec2::with_capacity(capacity),
+        }
+    }
+
+    /// Record `value` for `id`, as a root of the arena `builder` builds; ids
+    /// must be pushed in ascending order.
+    pub fn push(
+        &mut self,
+        builder: &mut CoercedAttrArenaBuilder,
+        id: AttributeId,
+        value: AttrToken,
+    ) {
+        if let Some((last_id, _)) = self.sorted.last() {
+            assert!(&id > last_id, "attributes must be sorted");
+        }
+        self.sorted.push(id, builder.root(value));
+    }
+
+    pub fn get(&self, id: AttributeId) -> Option<AttrWord> {
+        self.sorted
+            .iter()
+            .find(|(next_id, _)| **next_id == id)
+            .map(|(_, w)| *w)
+    }
+
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (AttributeId, AttrWord)> {
+        self.sorted.iter().map(|(id, w)| (*id, *w))
+    }
 }
 
 /// Per-target attribute values, backed by the package's shared attr arena.
+/// Hashing and equality read each value's identity-grade strong hash from the
+/// arena's root table, so the rows carry no per-row hash of their own.
 #[derive(Debug, Clone, Allocative, Pagable)]
 pub struct AttrValues {
-    storage: Arc<PackageAttrStorage>,
-    sorted: Vec2<AttributeId, ArenaAttrValue>,
+    arena: Arc<CoercedAttrArena>,
+    sorted: Vec2<AttributeId, AttrWord>,
 }
 
 impl AttrValues {
-    pub fn with_capacity(storage: Arc<PackageAttrStorage>, capacity: usize) -> AttrValues {
-        AttrValues {
-            storage,
-            sorted: Vec2::with_capacity(capacity),
-        }
+    /// `values` must have been built against the builder that produced
+    /// `arena`.
+    pub fn new(arena: Arc<CoercedAttrArena>, values: UnsealedAttrValues) -> AttrValues {
+        let mut sorted = values.sorted;
+        sorted.shrink_to_fit();
+        AttrValues { arena, sorted }
     }
 
     pub(crate) fn get_by_index(&self, index: usize) -> Option<(AttributeId, CoercedAttrRef<'_>)> {
         self.sorted
             .get(index)
-            .map(|(id, v)| (*id, self.storage.arena().view(v.r)))
+            .map(|(id, w)| (*id, self.arena.view(*w)))
     }
 
     pub(crate) fn get_owned_by_index(
@@ -62,7 +98,7 @@ impl AttrValues {
     ) -> Option<(AttributeId, OwnedCoercedAttr)> {
         self.sorted
             .get(index)
-            .map(|(id, v)| (*id, OwnedCoercedAttr::from_parts(self.storage.dupe(), v.r)))
+            .map(|(id, w)| (*id, OwnedCoercedAttr::from_parts(self.arena.dupe(), *w)))
     }
 
     #[expect(
@@ -73,13 +109,13 @@ impl AttrValues {
         self.sorted.len()
     }
 
-    pub fn get(&self, id: AttributeId) -> Option<CoercedAttrRef<'_>> {
+    fn word(&self, id: AttributeId) -> Option<AttrWord> {
         // Could use binary search here, but for small attr map like 20
         // linear search is faster.
         for (next_id, next_value) in self.sorted.iter() {
             if next_id >= &id {
                 if next_id == &id {
-                    return Some(self.storage.arena().view(next_value.r));
+                    return Some(*next_value);
                 }
 
                 // Attributes are sorted in `self`, no need to check the rest.
@@ -89,74 +125,22 @@ impl AttrValues {
         None
     }
 
-    /// Like `get`, but as an owned handle sharing this target's storage.
+    pub fn get(&self, id: AttributeId) -> Option<CoercedAttrRef<'_>> {
+        self.word(id).map(|w| self.arena.view(w))
+    }
+
+    /// Like `get`, but as an owned handle sharing this target's arena.
     pub fn get_owned(&self, id: AttributeId) -> Option<OwnedCoercedAttr> {
-        for (next_id, next_value) in self.sorted.iter() {
-            if next_id >= &id {
-                if next_id == &id {
-                    return Some(OwnedCoercedAttr::from_parts(
-                        self.storage.dupe(),
-                        next_value.r,
-                    ));
-                }
-                return None;
-            }
-        }
-        None
-    }
-
-    pub fn shrink_to_fit(&mut self) {
-        self.sorted.shrink_to_fit();
-    }
-
-    /// Record `value` for `id` as a root of the package arena. The builder
-    /// must be the one that minted `value` and whose output will seal this
-    /// value's storage.
-    pub fn push_sorted(
-        &mut self,
-        builder: &mut CoercedAttrArenaBuilder,
-        id: AttributeId,
-        value: AttrToken,
-    ) {
-        if let Some((last_id, _)) = self.sorted.last() {
-            assert!(&id > last_id, "attributed must be sorted");
-        }
-        let r = builder.root(value);
-        self.sorted.push(id, ArenaAttrValue { r });
-    }
-
-    /// Adopt a full, sorted set of already-encoded per-target rows (coercion
-    /// encodes values as they are parsed). The rows must be sorted by id
-    /// (parse order guarantees it).
-    pub fn from_encoded_pairs(
-        storage: Arc<PackageAttrStorage>,
-        pairs: Vec<(AttributeId, AttrWord)>,
-    ) -> AttrValues {
-        let mut values = AttrValues::with_capacity(storage, pairs.len());
-        for (id, r) in pairs {
-            if let Some((last_id, _)) = values.sorted.last() {
-                assert!(&id > last_id, "attributes must be sorted");
-            }
-            values.sorted.push(id, ArenaAttrValue { r });
-        }
-        values.shrink_to_fit();
-        values
+        self.word(id)
+            .map(|w| OwnedCoercedAttr::from_parts(self.arena.dupe(), w))
     }
 
     /// The identity-grade strong hash of one row's value, from the arena's
     /// root table.
-    fn strong(&self, v: ArenaAttrValue) -> StrongHash128 {
-        self.storage
-            .arena()
-            .root_strong_hash(v.r)
+    fn strong(&self, w: AttrWord) -> StrongHash128 {
+        self.arena
+            .root_strong_hash(w)
             .expect("should be a root: rows are interned as roots")
-    }
-
-    pub fn ids_and_refs(&self) -> impl Iterator<Item = (AttributeId, CoercedAttrRef<'_>)> {
-        let arena = self.storage.arena();
-        self.sorted
-            .iter()
-            .map(move |(id, v)| (*id, arena.view(v.r)))
     }
 }
 
@@ -175,10 +159,7 @@ impl PartialEq for AttrValues {
                 let eq = id_a == id_b && self.strong(*a) == other.strong(*b);
                 if eq {
                     debug_assert!(
-                        self.storage
-                            .arena()
-                            .view(a.r)
-                            .content_eq(&other.storage.arena().view(b.r)),
+                        self.arena.view(*a).content_eq(&other.arena.view(*b)),
                         "identity hashes matched but content differs"
                     );
                 }
@@ -191,9 +172,9 @@ impl Eq for AttrValues {}
 
 impl Hash for AttrValues {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        for (id, v) in self.sorted.iter() {
+        for (id, w) in self.sorted.iter() {
             id.hash(state);
-            self.strong(*v).hash(state);
+            self.strong(*w).hash(state);
         }
     }
 }

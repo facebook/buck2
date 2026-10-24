@@ -28,7 +28,7 @@ use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::unconfigured::RuleKind;
-use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::unconfigured::UnsealedTargetNode;
 use buck2_node::rule::Rule;
 use buck2_node::rule::RuleIncomingTransition;
 use buck2_node::rule_type::RuleType;
@@ -78,7 +78,7 @@ use crate::interpreter::build_context::PerFileTypeContext;
 use crate::interpreter::extra_value::InterpreterExtraValue;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::nodes::attr_spec::AttributeSpecExt;
-use crate::nodes::unconfigured::TargetNodeExt;
+use crate::nodes::unconfigured::UnsealedTargetNodeExt;
 use crate::plugins::PluginKindArg;
 
 pub static NAME_ATTRIBUTE_FIELD: &str = "name";
@@ -568,7 +568,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkRuleCallable<'v> {
                 base: internals.attr_coercion_context(),
                 memo: &InterpreterExtraValue::get(eval.module())?.coerce_memo,
             };
-            let target_node = TargetNode::from_params(
+            let target_node = UnsealedTargetNode::from_params(
                 self.rule.dupe(),
                 internals.package(),
                 internals,

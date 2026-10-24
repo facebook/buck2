@@ -29,6 +29,7 @@ use dupe::Dupe;
 use pagable::Pagable;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::CoercedAttrArena;
 use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
@@ -46,6 +47,7 @@ use crate::attrs::spec::internal::VISIBILITY_ATTRIBUTE;
 use crate::attrs::special_attr::SpecialAttr;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
+use crate::attrs::values::UnsealedAttrValues;
 use crate::call_stack::StarlarkCallStack;
 use crate::call_stack::StarlarkTargetCallStackRoot;
 use crate::metadata::map::MetadataMap;
@@ -232,6 +234,36 @@ impl TargetNodeData {
     /// file share the same allocation.
     pub fn visibility_intersection(&self) -> &VisibilityIntersection {
         &self.package.visibility_intersection
+    }
+}
+
+/// A target as recorded while its package is still evaluating: everything a
+/// [`TargetNode`] holds except the package's attr arena, which exists only
+/// once evaluation ends.
+#[derive(Debug)]
+pub struct UnsealedTargetNode {
+    pub rule: Arc<Rule>,
+    pub package: Arc<Package>,
+    pub label: TargetLabel,
+    pub attributes: UnsealedAttrValues,
+    pub call_stack: Option<StarlarkCallStack>,
+    pub package_cfg_modifiers: Option<CfgModifiers>,
+    pub test_config_unification_rollout: bool,
+}
+
+impl UnsealedTargetNode {
+    /// The node, given the sealed arena its attribute values were encoded
+    /// into.
+    pub fn seal(self, arena: &Arc<CoercedAttrArena>) -> TargetNode {
+        TargetNode::new(
+            self.rule,
+            self.package,
+            self.label,
+            AttrValues::new(arena.dupe(), self.attributes),
+            self.call_stack,
+            self.package_cfg_modifiers,
+            self.test_config_unification_rollout,
+        )
     }
 }
 
@@ -861,20 +893,19 @@ pub mod testing {
                     .collect(),
             );
 
-            let storage = Arc::new(crate::attrs::arena::PackageAttrStorage::default());
-            let mut builder = crate::attrs::arena::CoercedAttrArena::builder();
-            let mut attributes = AttrValues::with_capacity(storage.dupe(), attrs.len() + 1);
+            let mut builder = CoercedAttrArena::builder();
+            let mut attributes = UnsealedAttrValues::with_capacity(attrs.len() + 1);
 
             let name = builder.encode_string(label.name().as_str()).unwrap();
-            attributes.push_sorted(&mut builder, NAME_ATTRIBUTE.id, name);
+            attributes.push(&mut builder, NAME_ATTRIBUTE.id, name);
 
             for (name, _attr, val) in attrs.into_iter() {
                 let idx = attr_spec.attribute_id_by_name(name).unwrap();
                 let val = builder.encode_view(val.as_ref()).unwrap();
-                attributes.push_sorted(&mut builder, idx, val);
+                attributes.push(&mut builder, idx, val);
             }
 
-            storage.seal(builder.finish());
+            let attributes = AttrValues::new(Arc::new(builder.finish()), attributes);
 
             let buildfile_path = Arc::new(BuildFilePath::new(
                 label.pkg().dupe(),

@@ -10,7 +10,6 @@
 
 use std::cell::RefCell;
 use std::cell::RefMut;
-use std::fmt;
 use std::fmt::Debug;
 use std::mem;
 use std::sync::Arc;
@@ -23,12 +22,10 @@ use buck2_core::target::name::TargetNameRef;
 use buck2_events::dispatch::console_message;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_node::attrs::arena::CoercedAttrArenaBuilder;
-use buck2_node::attrs::arena::PackageAttrStorage;
 use buck2_node::nodes::eval_result::EvaluationResult;
-use buck2_node::nodes::targets_map::TargetsMap;
-use buck2_node::nodes::targets_map::TargetsMapBuilder;
 use buck2_node::nodes::targets_map::TargetsMapRecordError;
-use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::nodes::targets_map::UnsealedTargetsMap;
+use buck2_node::nodes::unconfigured::UnsealedTargetNode;
 use buck2_node::oncall::Oncall;
 use buck2_node::package::Package;
 use buck2_node::super_package::SuperPackage;
@@ -48,17 +45,15 @@ impl From<ModuleInternals> for EvaluationResult {
             imports,
             buildfile_path,
             super_package,
-            attr_storage,
             attr_coercion_context,
             ..
         } = internals;
-        let builder = attr_coercion_context.take_attr_arena_builder();
-        attr_storage.seal(builder.finish());
-        let recorder = match state.into_inner() {
-            State::BeforeTargets(_) => TargetsRecorder::new(),
-            State::RecordingTargets(RecordingTargets { recorder, .. }) => recorder,
+        let arena = Arc::new(attr_coercion_context.take_attr_arena_builder().finish());
+        let targets = match state.into_inner() {
+            State::BeforeTargets(_) => UnsealedTargetsMap::new(),
+            State::RecordingTargets(RecordingTargets { targets, .. }) => targets,
         };
-        EvaluationResult::new(buildfile_path, imports, super_package, recorder.take())
+        EvaluationResult::new(buildfile_path, imports, super_package, targets.seal(&arena))
     }
 }
 
@@ -71,7 +66,7 @@ struct BeforeTargets {
 #[derive(Debug)]
 struct RecordingTargets {
     package: Arc<Package>,
-    recorder: TargetsRecorder,
+    targets: UnsealedTargetsMap,
 }
 
 #[derive(Debug)]
@@ -89,10 +84,6 @@ enum State {
 #[derive(Debug)]
 pub struct ModuleInternals {
     attr_coercion_context: BuildAttrCoercionContext,
-    /// Shared storage for this package's coerced attribute values. Every
-    /// `TargetNode` holds an `Arc`; sealed when the `EvaluationResult` is
-    /// assembled.
-    attr_storage: Arc<PackageAttrStorage>,
     buildfile_path: Arc<BuildFilePath>,
     /// Have you seen an oncall annotation yet
     state: RefCell<State>,
@@ -149,7 +140,6 @@ impl ModuleInternals {
     ) -> Self {
         Self {
             attr_coercion_context,
-            attr_storage: Arc::new(PackageAttrStorage::default()),
             buildfile_path,
             state: RefCell::new(State::BeforeTargets(BeforeTargets::default())),
             imports,
@@ -163,10 +153,6 @@ impl ModuleInternals {
 
     pub(crate) fn attr_coercion_context(&self) -> &BuildAttrCoercionContext {
         &self.attr_coercion_context
-    }
-
-    pub(crate) fn attr_storage(&self) -> &Arc<PackageAttrStorage> {
-        &self.attr_storage
     }
 
     pub(crate) fn with_attr_arena_builder<R>(
@@ -183,8 +169,8 @@ impl ModuleInternals {
         self.attr_coercion_context.with_attr_arena_ref(f)
     }
 
-    pub fn record(&self, target_node: TargetNode) -> buck2_error::Result<()> {
-        match self.recording_targets().recorder.record(target_node) {
+    pub fn record(&self, target_node: UnsealedTargetNode) -> buck2_error::Result<()> {
+        match self.recording_targets().targets.record(target_node) {
             Ok(()) => Ok(()),
             Err(e @ TargetsMapRecordError::RegisteredTargetTwice { .. }) => {
                 if self.skip_targets_with_duplicate_names {
@@ -240,7 +226,7 @@ impl ModuleInternals {
                                     .visibility_intersection()
                                     .for_defining_package(self.buildfile_path.package()),
                             }),
-                            recorder: TargetsRecorder::new(),
+                            targets: UnsealedTargetsMap::new(),
                         });
                     }
                     State::RecordingTargets(r) => return r,
@@ -258,7 +244,7 @@ impl ModuleInternals {
         // fail although no target has been declared.
         match &*self.state.borrow() {
             State::BeforeTargets(_) => false,
-            State::RecordingTargets(r) => r.recorder.targets.contains_key(name),
+            State::RecordingTargets(r) => r.targets.contains_key(name),
         }
     }
 
@@ -290,32 +276,5 @@ impl ModuleInternals {
     pub(crate) fn sub_packages(&self) -> impl Iterator<Item = &PackageRelativePath> {
         self.package_listing
             .subpackages_within(PackageRelativePath::empty())
-    }
-}
-
-// Records the targets declared when evaluating a build file.
-struct TargetsRecorder {
-    targets: TargetsMapBuilder,
-}
-
-impl Debug for TargetsRecorder {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TargetsRecorder").finish_non_exhaustive()
-    }
-}
-
-impl TargetsRecorder {
-    fn new() -> Self {
-        Self {
-            targets: TargetsMapBuilder::new(),
-        }
-    }
-
-    fn record(&mut self, target_node: TargetNode) -> Result<(), TargetsMapRecordError> {
-        self.targets.record(target_node)
-    }
-
-    fn take(self) -> TargetsMap {
-        self.targets.build()
     }
 }

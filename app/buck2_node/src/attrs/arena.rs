@@ -73,7 +73,6 @@ use std::fmt::Write as _;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
-use std::sync::OnceLock;
 
 use allocative::Allocative;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
@@ -757,44 +756,19 @@ pub struct CoercedAttrArena {
     root_strong: Vec<StrongHash128>,
 }
 
-/// Per-package attribute storage shared by every `TargetNode` of the package.
-///
-/// Created before evaluation starts (values are built incrementally during
-/// evaluation and each holds an `Arc` of this), sealed exactly once when the
-/// package's `EvaluationResult` is assembled. Attribute reads before sealing
-/// are a logic error.
-#[derive(Debug, Default, Allocative, Pagable)]
-pub struct PackageAttrStorage {
-    arena: OnceLock<CoercedAttrArena>,
-}
-
-impl PackageAttrStorage {
-    pub fn seal(&self, arena: CoercedAttrArena) {
-        self.arena
-            .set(arena)
-            .expect("package attr storage sealed twice");
-    }
-
-    pub fn arena(&self) -> &CoercedAttrArena {
-        self.arena
-            .get()
-            .expect("should be sealed: attrs are only read after package evaluation completes")
-    }
-}
-
 /// The owned form of one attribute value, for holders that outlive any
-/// package (rule defaults): arena-encoded in its own single-value storage,
+/// package (rule defaults): arena-encoded in its own single-value arena,
 /// so it needs no package. Equality and hashing are
 /// content-based, so two `OwnedCoercedAttr`s encoding equal values compare
-/// equal regardless of which storage holds them.
+/// equal regardless of which arena holds them.
 #[derive(Clone, Dupe, Debug, Allocative, Pagable)]
 pub struct OwnedCoercedAttr {
-    storage: Arc<PackageAttrStorage>,
+    arena: Arc<CoercedAttrArena>,
     word: AttrWord,
 }
 
 impl OwnedCoercedAttr {
-    /// A value `f` encodes into storage of its own.
+    /// A value `f` encodes into an arena of its own.
     pub fn new_with(
         f: impl FnOnce(&mut CoercedAttrArenaBuilder) -> buck2_error::Result<AttrToken>,
     ) -> buck2_error::Result<OwnedCoercedAttr> {
@@ -803,46 +777,46 @@ impl OwnedCoercedAttr {
         Self::seal_from_builder(builder, value)
     }
 
-    /// Seal `builder` into this value's own storage; `token` must have been
+    /// Seal `builder` into this value's own arena; `token` must have been
     /// minted by `builder`.
     pub fn seal_from_builder(
         mut builder: CoercedAttrArenaBuilder,
         token: AttrToken,
     ) -> buck2_error::Result<OwnedCoercedAttr> {
         let word = builder.root(token);
-        let storage = Arc::new(PackageAttrStorage::default());
-        storage.seal(builder.finish());
-        Ok(OwnedCoercedAttr { storage, word })
+        Ok(OwnedCoercedAttr {
+            arena: Arc::new(builder.finish()),
+            word,
+        })
     }
 
-    /// A handle to the storage `word` points into, without re-encoding.
-    pub(crate) fn from_parts(storage: Arc<PackageAttrStorage>, word: AttrWord) -> OwnedCoercedAttr {
-        OwnedCoercedAttr { storage, word }
+    /// A handle to a value of `arena`, without re-encoding.
+    pub(crate) fn from_parts(arena: Arc<CoercedAttrArena>, word: AttrWord) -> OwnedCoercedAttr {
+        OwnedCoercedAttr { arena, word }
     }
 
-    /// A handle to `child`, which must be a view into this value's storage.
+    /// A handle to `child`, which must be a view into this value's arena.
     pub fn sub(&self, child: CoercedAttrRef<'_>) -> OwnedCoercedAttr {
         debug_assert!(
-            std::ptr::eq(self.storage.arena(), child.arena),
-            "child view is not backed by this value's storage"
+            std::ptr::eq(&*self.arena, child.arena),
+            "child view is not backed by this value's arena"
         );
         OwnedCoercedAttr {
-            storage: self.storage.dupe(),
+            arena: self.arena.dupe(),
             word: child.r,
         }
     }
 
     pub fn as_ref(&self) -> CoercedAttrRef<'_> {
-        self.storage.arena().view(self.word)
+        self.arena.view(self.word)
     }
 
     /// The identity-grade strong hash of the value. Roots read the retained
     /// hash; interior values (`sub` handles) compute it on demand.
     pub fn strong_hash(&self) -> StrongHash128 {
-        let arena = self.storage.arena();
-        arena
+        self.arena
             .root_strong_hash(self.word)
-            .unwrap_or_else(|| arena.strong_of(self.word, &mut BuckMutMap::default()))
+            .unwrap_or_else(|| self.arena.strong_of(self.word, &mut BuckMutMap::default()))
     }
 }
 

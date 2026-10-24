@@ -11,6 +11,7 @@
 use std::borrow::Borrow;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::target::label::label::TargetLabel;
@@ -21,8 +22,10 @@ use buck2_util::indent::indent;
 use dupe::Dupe;
 use pagable::Pagable;
 
+use crate::attrs::arena::CoercedAttrArena;
 use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::unconfigured::TargetNodeRef;
+use crate::nodes::unconfigured::UnsealedTargetNode;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -156,7 +159,7 @@ impl TargetsMapBuilder {
     }
 }
 
-/// For tests.
+/// For tests. Panics on a repeated target name.
 impl FromIterator<TargetNode> for TargetsMap {
     fn from_iter<T: IntoIterator<Item = TargetNode>>(iter: T) -> Self {
         let mut builder = TargetsMapBuilder::new();
@@ -164,5 +167,69 @@ impl FromIterator<TargetNode> for TargetsMap {
             builder.record(target_node).unwrap();
         }
         builder.build()
+    }
+}
+
+#[derive(Debug)]
+struct UnsealedNameIndexed(UnsealedTargetNode);
+
+impl PartialEq for UnsealedNameIndexed {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.label.name() == other.0.label.name()
+    }
+}
+
+impl Eq for UnsealedNameIndexed {}
+
+impl Hash for UnsealedNameIndexed {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.label.name().hash(state);
+    }
+}
+
+impl Borrow<TargetNameRef> for UnsealedNameIndexed {
+    fn borrow(&self) -> &TargetNameRef {
+        self.0.label.name()
+    }
+}
+
+/// The targets of a build file as they are declared, before the package's
+/// attr arena is sealed; [`Self::seal`] turns it into the [`TargetsMap`].
+#[derive(Debug, Default)]
+pub struct UnsealedTargetsMap {
+    map: BuckMutInsertionSet<UnsealedNameIndexed>,
+}
+
+impl UnsealedTargetsMap {
+    pub fn new() -> UnsealedTargetsMap {
+        UnsealedTargetsMap::default()
+    }
+
+    pub fn contains_key(&self, name: &TargetNameRef) -> bool {
+        self.map.contains(name)
+    }
+
+    pub fn record(&mut self, target_node: UnsealedTargetNode) -> Result<(), TargetsMapRecordError> {
+        let label = target_node.label.dupe();
+        if self.map.insert(UnsealedNameIndexed(target_node)) {
+            return Ok(());
+        }
+        let UnsealedNameIndexed(first) = self.map.get(label.name()).unwrap();
+        Err(TargetsMapRecordError::RegisteredTargetTwice(
+            label,
+            first.call_stack.as_ref().map(|s| s.to_string()),
+        ))
+    }
+
+    /// The targets as nodes over `arena`, which must be the sealed form of
+    /// the builder their attribute values were encoded into.
+    pub fn seal(self, arena: &Arc<CoercedAttrArena>) -> TargetsMap {
+        TargetsMap {
+            map: self
+                .map
+                .into_iter()
+                .map(|UnsealedNameIndexed(node)| NameIndexed(node.seal(arena)))
+                .collect(),
+        }
     }
 }

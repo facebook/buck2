@@ -20,7 +20,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use super::anon_target_attr_validation::AnonRuleAttrValidation;
-use crate::attrs::arena::AttrWord;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::OwnedCoercedAttr;
@@ -31,6 +30,7 @@ use crate::attrs::spec::internal::INCOMING_TRANSITION_ATTRIBUTE;
 use crate::attrs::spec::internal::common_internal_attrs;
 use crate::attrs::spec::internal::is_internal_attr;
 use crate::attrs::values::AttrValues;
+use crate::attrs::values::UnsealedAttrValues;
 use crate::rule::RuleIncomingTransition;
 
 pub mod internal;
@@ -266,29 +266,27 @@ impl AttributeSpec {
             })
     }
 
-    /// Like [`Self::attrs`], but over already-encoded `(id, word)`
-    /// rows viewed through the still-unsealed package interner: coercion
-    /// encodes values as they are parsed, and validation plus the deps
-    /// cache read them before the arena seals. Defaults come from each
-    /// attribute's own sealed storage.
-    pub fn attrs_over_encoded_pairs<'v>(
+    /// Like [`Self::attrs`], but over a target's rows while its package is
+    /// still evaluating, viewed through the package's arena builder: the
+    /// `within_view` check reads them before the arena seals. Defaults come
+    /// from each attribute's own arena.
+    pub fn unsealed_attrs<'v>(
         &'v self,
-        interner: &'v CoercedAttrArenaBuilder,
-        pairs: &'v [(AttributeId, AttrWord)],
+        builder: &'v CoercedAttrArenaBuilder,
+        attr_values: &'v UnsealedAttrValues,
         opts: AttrInspectOptions,
     ) -> impl Iterator<Item = CoercedAttrFull<'v>> {
-        let mut pos = 0;
-        let mut entry = pairs.first();
+        let mut rows = attr_values.iter();
+        let mut entry = rows.next();
 
         self.attr_specs()
             .filter_map(move |(name, idx, attr)| match entry {
-                Some((entry_idx, word)) if *entry_idx == idx => {
-                    pos += 1;
-                    entry = pairs.get(pos);
+                Some((entry_idx, word)) if entry_idx == idx => {
+                    entry = rows.next();
                     Some(CoercedAttrFull {
                         name,
                         attr,
-                        value: interner.view(*word),
+                        value: builder.view(word),
                     })
                 }
                 _ => {
