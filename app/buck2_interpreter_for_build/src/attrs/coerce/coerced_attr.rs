@@ -140,7 +140,7 @@ impl CoercedAttrExr for CoercedAttr {
                                 .ok_or_else(|| SelectError::KeyNotString(k.to_repr()))?;
                             let v = match default_attr {
                                 Some(default_attr) if v.is_none() => {
-                                    ctx.attr_arena().encode(&default_attr.to_coerced()?)?
+                                    ctx.attr_arena().encode_view(default_attr)?
                                 }
                                 _ => match CoercedAttr::coerce(
                                     attr,

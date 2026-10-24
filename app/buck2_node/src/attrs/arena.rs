@@ -246,162 +246,238 @@ fn binary_op_from_bits(bits: u32) -> BinaryOp {
     }
 }
 
-/// Record kinds. Each variant documents its head and refs; a kind with
-/// neither is a tag-only record.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, FromRepr)]
-#[repr(u8)]
-enum AttrKind {
-    /// Inline, no payload.
-    None = 0,
-    BoolFalse = 1,
-    BoolTrue = 2,
+/// Every kind once: its tag, its storage class, and its fields in order. A
+/// field type says what a head field or the tail *means* (a providers-label
+/// table index, a count plus that many child refs, UTF-8 text), so decoding,
+/// copying between arenas, identity hashing, content equality and the
+/// record's byte layout all derive from this row. `custom` kinds are the
+/// tagged unions inside a record (`ArgMacro`, `QueryExpr`), plus `Int` and
+/// `SelectorKeys`, which implement [`Kind`] by hand.
+macro_rules! arena_kinds {
+    (
+        $(
+            $(#[$doc:meta])*
+            $name:ident = $tag:literal : $body:tt ;
+        )*
+    ) => {
+        /// Record kinds.
+        #[derive(Copy, Clone, PartialEq, Eq, Debug, FromRepr)]
+        #[repr(u8)]
+        enum AttrKind {
+            $( $(#[$doc])* $name = $tag, )*
+        }
+
+        impl AttrKind {
+            /// Whether values of this kind are inline leaves (payload in the
+            /// word) rather than records in the buffer.
+            fn is_inline(self) -> bool {
+                match self {
+                    $( AttrKind::$name => arena_kinds!(@inline $body), )*
+                }
+            }
+        }
+
+        /// Each kind as a type, for [`Kind`] impls and [`dispatch`].
+        mod kinds {
+            $( pub(super) struct $name; )*
+        }
+
+        /// Runs `v` for the [`Kind`] type of `kind`.
+        fn dispatch<V: KindVisitor>(kind: AttrKind, v: V) -> V::Out {
+            match kind {
+                $( AttrKind::$name => v.visit::<kinds::$name>(), )*
+            }
+        }
+
+        $( arena_kinds!(@impl $name $body); )*
+    };
+    (@inline { inline $($rest:tt)* }) => { true };
+    (@inline { record $($rest:tt)* }) => { false };
+    (@inline { text $($rest:tt)* }) => { false };
+    (@inline { custom inline }) => { true };
+    (@inline { custom record }) => { false };
+    (@impl $name:ident { custom $storage:ident }) => {};
+    (@impl $name:ident {
+        $storage:ident ($($fname:ident : $f:ty = $spec:ty),* $(,)?) $(as $enc:ident)? => |$v:ident| $wrap:expr
+    }) => {
+        impl SchemaKind for kinds::$name {
+            const KIND: AttrKind = AttrKind::$name;
+            const STORAGE: Storage = arena_kinds!(@storage $storage);
+            type Fields = ($($f,)*);
+            #[allow(unused_variables)]
+            fn wrap<'a>(
+                $v: CoercedAttrRef<'a>,
+                ($($fname,)*): <($($f,)*) as FieldList>::View<'a>,
+            ) -> CoercedAttrRefKind<'a> {
+                $wrap
+            }
+        }
+
+        arena_kinds!(@encoder $name ($($fname : $spec),*) $($enc)?);
+    };
+    (@encoder $name:ident ($($fname:ident : $spec:ty),*)) => {};
+    (@encoder $name:ident ($($fname:ident : $spec:ty),*) $enc:ident) => {
+        impl CoercedAttrArenaBuilder {
+            /// Encode one value of this kind from its parts; children are
+            /// tokens this builder minted.
+            pub fn $enc(
+                &mut self,
+                $($fname: $spec),*
+            ) -> buck2_error::Result<AttrToken> {
+                encode_kind::<kinds::$name>(self, ($($fname,)*))
+            }
+        }
+    };
+    (@storage inline) => { Storage::Inline };
+    (@storage record) => { Storage::Record };
+    (@storage text) => { Storage::Text };
+}
+
+arena_kinds! {
+    None = 0: { inline () as encode_none => |_v| CoercedAttrRefKind::None };
+    /// `encode_bool` picks the kind.
+    BoolFalse = 1: { inline () => |_v| CoercedAttrRefKind::Bool(false) };
+    BoolTrue = 2: { inline () => |_v| CoercedAttrRefKind::Bool(true) };
     /// Inline as a 26-bit sign-extended payload when it fits; otherwise a
     /// record with head `[lo, hi]`: the zigzag-encoded value in 32-bit halves.
-    Int = 3,
-    /// Inline; payload: within_view table index.
-    WithinView = 4,
-    /// Head: `[byte_len]`; tail: the UTF-8 bytes.
-    String = 5,
-    /// Same layout as `String`.
-    EnumVariant = 6,
-    /// Head: `[n]`; refs: `n` items.
-    List = 7,
-    Tuple = 8,
-    /// Head: `[n]`; refs: `2n`, interleaved key, value.
-    Dict = 9,
-    /// Head: `[n]`; refs: `[keys, default or absent, n values]`. `keys` is a
-    /// `SelectorKeys` record.
-    Selector = 10,
-    /// Head: `[n]`; refs: `n` items.
-    Concat = 11,
-    /// Head: `[oneof_variant_idx]`; refs: `[item]`.
-    OneOf = 12,
-    /// Inline; payload: providers-label table index.
-    Dep = 13,
-    Label = 14,
-    SourceLabel = 15,
-    ConfigurationDep = 16,
-    SplitTransitionDep = 17,
-    /// Inline; payload: target-label table index.
-    PluginDep = 18,
-    /// Inline; payload: path table index.
-    SourceFile = 19,
-    /// Inline; payload: visibility table index.
-    Visibility = 20,
+    Int = 3: { custom record };
+    WithinView = 4: {
+        inline (
+            v: Whole<WithinViewSpecification> = &WithinViewSpecification,
+        ) as encode_within_view
+            => |_v| CoercedAttrRefKind::WithinView(v)
+    };
+    String = 5: { text (s: Text = &str) as encode_string => |_v| CoercedAttrRefKind::String(s) };
+    EnumVariant = 6: {
+        text (s: Text = &str) as encode_enum_variant
+            => |_v| CoercedAttrRefKind::EnumVariant(s)
+    };
+    List = 7: {
+        record (items: Children = &[AttrToken]) as encode_list
+            => |_v| CoercedAttrRefKind::List(items)
+    };
+    Tuple = 8: {
+        record (items: Children = &[AttrToken]) as encode_tuple
+            => |_v| CoercedAttrRefKind::Tuple(items)
+    };
+    Dict = 9: {
+        record (pairs: ChildPairs = &[(AttrToken, AttrToken)]) as encode_dict
+            => |_v| CoercedAttrRefKind::Dict(pairs)
+    };
+    Selector = 10: {
+        record (
+            entries: SelectorEntries = &[(ConfigurationSettingKey, AttrToken)],
+            default: OptChild = Option<AttrToken>,
+        ) as encode_selector
+            => |_v| CoercedAttrRefKind::Selector { entries, default }
+    };
+    Concat = 11: {
+        record (items: Children = &[AttrToken]) as encode_concat
+            => |_v| CoercedAttrRefKind::Concat(items)
+    };
+    OneOf = 12: {
+        record (
+            idx: U32 = u32,
+            inner: Child = AttrToken,
+        ) as encode_one_of
+            => |_v| CoercedAttrRefKind::OneOf(inner, idx)
+    };
+    Dep = 13: {
+        inline (l: Label = &ProvidersLabel) as encode_dep
+            => |_v| CoercedAttrRefKind::Dep(l)
+    };
+    Label = 14: {
+        inline (l: Label = &ProvidersLabel) as encode_label
+            => |_v| CoercedAttrRefKind::Label(l)
+    };
+    SourceLabel = 15: {
+        inline (l: Label = &ProvidersLabel) as encode_source_label
+            => |_v| CoercedAttrRefKind::SourceLabel(l)
+    };
+    ConfigurationDep = 16: {
+        inline (l: Label = &ProvidersLabel) as encode_configuration_dep
+            => |_v| CoercedAttrRefKind::ConfigurationDep(l)
+    };
+    SplitTransitionDep = 17: {
+        inline (l: Label = &ProvidersLabel) as encode_split_transition_dep
+            => |_v| CoercedAttrRefKind::SplitTransitionDep(l)
+    };
+    PluginDep = 18: {
+        inline (l: Target = &TargetLabel) as encode_plugin_dep
+            => |_v| CoercedAttrRefKind::PluginDep(l)
+    };
+    SourceFile = 19: {
+        inline (p: Path = &CoercedPath) as encode_source_file
+            => |_v| CoercedAttrRefKind::SourceFile(p)
+    };
+    Visibility = 20: {
+        inline (
+            v: Whole<VisibilitySpecification> = &VisibilitySpecification,
+        ) as encode_visibility
+            => |_v| CoercedAttrRefKind::Visibility(v)
+    };
     /// `Arg` with no macros (`StringWithMacros::StringPart`) -- most `Arg`
-    /// values in real graphs contain no macros. Same layout as `String`.
-    ArgSimple = 21,
+    /// values in real graphs contain no macros.
+    ArgSimple = 21: {
+        text (s: Text = &str) as encode_arg_simple
+            => |_v| CoercedAttrRefKind::ArgSimple(s)
+    };
     /// Head: `[n, idx...]`: `n` providers-label table indices, a selector's
-    /// key set.
-    SelectorKeys = 22,
-    /// Head: `[n]`; refs: `n` parts, `ArgSimple` or `ArgMacro` records.
-    ArgParts = 23,
+    /// key set. Never appears as an attribute value ref.
+    SelectorKeys = 22: { custom record };
+    /// Parts are `ArgSimple` or `ArgMacro` records.
+    ArgParts = 23: {
+        record (parts: ArgChildren = &[AttrToken]) as encode_arg_parts
+            => |_v| CoercedAttrRefKind::Arg(parts)
+    };
     /// Head: `[header, payload index, n]`; refs: `n` per the header's
     /// variant tag. Never appears as an attribute value ref.
-    ArgMacro = 24,
+    ArgMacro = 24: { custom record };
     /// Head: `[subtag, nv, nv values, n]`; refs: `n` per `Q_EXPR_*`. Encodes
     /// the parsed form of a query macro's expression; target literals are
     /// label table indices, text is shared text records. Never appears as
     /// an attribute value ref.
-    QueryExpr = 25,
-    /// Refs: `[expr]`: a `QueryExpr` record, the parsed form of an
-    /// `attrs.query()` value.
-    Query = 26,
-    /// A `select_fail()` / `select_incompatible()` leaf; same layout as
-    /// `String`, holding the message.
-    SelectFail = 27,
-    SelectIncompatible = 28,
-    /// Head: `[label, platform]`: providers-label and target-label table
-    /// indices of an `attrs.configured_dep()` value.
-    ExplicitConfiguredDep = 29,
-    /// Head: `[dep, transition]`: a providers-label table index, and the
-    /// dynamic transition target's index plus one, or zero when the attr
-    /// type fixes the transition.
-    TransitionDep = 30,
-    /// Inline; payload: modifiers table index.
-    Modifiers = 31,
-    /// Head: `[metadata table index]`.
-    Metadata = 32,
-}
-
-/// How a kind's record body is laid out: how many head fields it has and
-/// what follows them. One definition serves decoding and page-in
-/// validation.
-#[derive(Copy, Clone)]
-struct Layout {
-    head: HeadLen,
-    tail: TailKind,
-}
-
-#[derive(Copy, Clone)]
-enum HeadLen {
-    Fixed(u32),
-    /// `SelectorKeys`: the count in field 0, then that many indices.
-    OnePlusField0,
-    /// `QueryExpr`: subtag, a value count in field 1, that many values, and
-    /// a ref count.
-    ThreePlusField1,
-}
-
-#[derive(Copy, Clone)]
-enum TailKind {
-    None,
-    /// Bytes, as many as field 0 says.
-    Text,
-    Refs(RefCount),
-}
-
-#[derive(Copy, Clone)]
-enum RefCount {
-    Field0,
-    TwiceField0,
-    Field0Plus2,
-    One,
-    Field2,
-    LastField,
-}
-
-impl AttrKind {
-    fn layout(self) -> Layout {
-        use HeadLen::*;
-        use RefCount::*;
-        use TailKind::*;
-        let (head, tail) = match self {
-            AttrKind::Int | AttrKind::ExplicitConfiguredDep | AttrKind::TransitionDep => {
-                (Fixed(2), None)
-            }
-            AttrKind::String
-            | AttrKind::EnumVariant
-            | AttrKind::ArgSimple
-            | AttrKind::SelectFail
-            | AttrKind::SelectIncompatible => (Fixed(1), Text),
-            AttrKind::List | AttrKind::Tuple | AttrKind::Concat | AttrKind::ArgParts => {
-                (Fixed(1), Refs(Field0))
-            }
-            AttrKind::Dict => (Fixed(1), Refs(TwiceField0)),
-            AttrKind::Selector => (Fixed(1), Refs(Field0Plus2)),
-            AttrKind::OneOf => (Fixed(1), Refs(One)),
-            AttrKind::Query => (Fixed(0), Refs(One)),
-            AttrKind::SelectorKeys => (OnePlusField0, None),
-            AttrKind::ArgMacro => (Fixed(3), Refs(Field2)),
-            AttrKind::QueryExpr => (ThreePlusField1, Refs(LastField)),
-            AttrKind::Metadata => (Fixed(1), None),
-            AttrKind::None
-            | AttrKind::BoolFalse
-            | AttrKind::BoolTrue
-            | AttrKind::Dep
-            | AttrKind::Label
-            | AttrKind::SourceLabel
-            | AttrKind::ConfigurationDep
-            | AttrKind::SplitTransitionDep
-            | AttrKind::PluginDep
-            | AttrKind::SourceFile
-            | AttrKind::Visibility
-            | AttrKind::WithinView
-            | AttrKind::Modifiers => unreachable!("should be inline: leaf kinds have no record"),
-        };
-        Layout { head, tail }
-    }
+    QueryExpr = 25: { custom record };
+    /// The parsed form of an `attrs.query()` value.
+    Query = 26: {
+        record (expr: ExprChild = (AttrWord, CoercedAttrHash)) as encode_parsed_query
+            => |v| CoercedAttrRefKind::Query(QueryView { arena: v.arena, r: v.r })
+    };
+    /// A `select_fail()` / `select_incompatible()` leaf holding the message.
+    SelectFail = 27: {
+        text (message: Text = &str) as encode_select_fail
+            => |_v| CoercedAttrRefKind::SelectFail(message)
+    };
+    SelectIncompatible = 28: {
+        text (message: Text = &str) as encode_select_incompatible
+            => |_v| CoercedAttrRefKind::SelectIncompatible(message)
+    };
+    /// An `attrs.configured_dep()` value.
+    ExplicitConfiguredDep = 29: {
+        record (
+            label: Label = &ProvidersLabel,
+            platform: Target = &TargetLabel,
+        ) as encode_explicit_configured_dep
+            => |_v| CoercedAttrRefKind::ExplicitConfiguredDep { label, platform }
+    };
+    /// The dynamic transition target is absent when the attr type fixes the
+    /// transition.
+    TransitionDep = 30: {
+        record (
+            dep: Label = &ProvidersLabel,
+            transition: OptLabel = Option<&ProvidersLabel>,
+        ) as encode_transition_dep
+            => |_v| CoercedAttrRefKind::TransitionDep { dep, transition }
+    };
+    Modifiers = 31: {
+        inline (m: Whole<CfgModifiers> = &CfgModifiers) as encode_target_modifiers
+            => |_v| CoercedAttrRefKind::Modifiers(m)
+    };
+    /// A record, not an inline leaf: the tag does not fit the inline kind bits.
+    Metadata = 32: {
+        record (m: Whole<MetadataMap> = &MetadataMap) as encode_metadata
+            => |_v| CoercedAttrRefKind::Metadata(m)
+    };
 }
 
 /// The tail of a record body, sized.
@@ -416,25 +492,7 @@ enum TailLen {
 /// as `field(i)`; `None` when a field the layout depends on is missing.
 #[inline]
 fn shape(kind: AttrKind, field: impl Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
-    let Layout { head, tail } = kind.layout();
-    let nfields = match head {
-        HeadLen::Fixed(n) => n,
-        HeadLen::OnePlusField0 => 1 + field(0)?,
-        HeadLen::ThreePlusField1 => 3 + field(1)?,
-    };
-    let tail = match tail {
-        TailKind::None => TailLen::None,
-        TailKind::Text => TailLen::Text(field(0)?),
-        TailKind::Refs(count) => TailLen::Refs(match count {
-            RefCount::Field0 => field(0)?,
-            RefCount::TwiceField0 => field(0)?.checked_mul(2)?,
-            RefCount::Field0Plus2 => field(0)?.checked_add(2)?,
-            RefCount::One => 1,
-            RefCount::Field2 => field(2)?,
-            RefCount::LastField => field(nfields - 1)?,
-        }),
-    };
-    Some((nfields, tail))
+    dispatch(kind, Shape { peek: &field })
 }
 
 /// A `width`-byte little-endian field at `at`, if in bounds.
@@ -490,25 +548,6 @@ impl AttrToken {
 
 impl AttrKind {
     /// Kinds encoded in the word itself, never as a record.
-    fn is_inline(self) -> bool {
-        matches!(
-            self,
-            AttrKind::None
-                | AttrKind::BoolFalse
-                | AttrKind::BoolTrue
-                | AttrKind::Dep
-                | AttrKind::Label
-                | AttrKind::SourceLabel
-                | AttrKind::ConfigurationDep
-                | AttrKind::SplitTransitionDep
-                | AttrKind::PluginDep
-                | AttrKind::SourceFile
-                | AttrKind::Visibility
-                | AttrKind::WithinView
-                | AttrKind::Modifiers
-        )
-    }
-
     /// A select branch that is an outcome rather than a value: an error or
     /// an incompatibility once the select resolves to it.
     fn is_select_outcome(self) -> bool {
@@ -519,22 +558,7 @@ impl AttrKind {
     /// pass over them without decoding. Select outcomes are scalar for the
     /// unconfigured walk only; the configured walk must report them.
     fn is_scalar(self) -> bool {
-        matches!(
-            self,
-            AttrKind::None
-                | AttrKind::BoolFalse
-                | AttrKind::BoolTrue
-                | AttrKind::Int
-                | AttrKind::String
-                | AttrKind::EnumVariant
-                | AttrKind::ArgSimple
-                | AttrKind::SelectFail
-                | AttrKind::SelectIncompatible
-                | AttrKind::Visibility
-                | AttrKind::WithinView
-                | AttrKind::Modifiers
-                | AttrKind::Metadata
-        )
+        dispatch(self, IsScalar)
     }
 }
 
@@ -934,138 +958,44 @@ impl CoercedAttrArena {
         }
     }
 
-    /// Identity-grade content hash of one value: blake3 over the value's kind,
-    /// its immediate content via `StrongHash`, and its children's strong hashes.
-    /// Equal content yields equal hashes across arenas and processes.
+    /// Identity-grade content hash of one value: blake3 over the value's kind
+    /// and its parts, children by their own identity hashes. Equal content
+    /// yields equal hashes across arenas and processes.
     fn strong_of(&self, r: AttrWord, memo: &mut BuckMutMap<u32, StrongHash128>) -> StrongHash128 {
         if let Some(&h) = memo.get(&r.0) {
             return h;
         }
-        let mut h = Blake3StrongHasher::new();
         let kind = self.kind_of(r);
-        h.write_u8(kind as u8);
-        // Macro records are child structure of `ArgParts`, not attribute
-        // values — `CoercedAttrRefKind` has no case for them — so they hash here
-        // rather than through the value walk below.
-        if kind == AttrKind::ArgMacro {
-            match self.arg_part_at(r) {
-                ArgPartView::String(_) => {
-                    unreachable!("should be a macro: `ArgMacro` refs decode to macro parts")
-                }
-                ArgPartView::Macro { write_to_file, mac } => {
-                    write_to_file.strong_hash(&mut h);
-                    match mac {
-                        ArgMacroView::Location { label, dep_kind } => {
-                            h.write_u8(ARG_MACRO_TAG_LOCATION as u8);
-                            h.write_u8(dep_kind_bits(dep_kind) as u8);
-                            label.strong_hash(&mut h);
-                        }
-                        ArgMacroView::Exe { label, exec_dep } => {
-                            h.write_u8(ARG_MACRO_TAG_EXE as u8);
-                            exec_dep.strong_hash(&mut h);
-                            label.strong_hash(&mut h);
-                        }
-                        ArgMacroView::UserUnkeyedPlaceholder(var) => {
-                            h.write_u8(ARG_MACRO_TAG_UNKEYED as u8);
-                            var.strong_hash(&mut h);
-                        }
-                        ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
-                            h.write_u8(ARG_MACRO_TAG_KEYED as u8);
-                            var.strong_hash(&mut h);
-                            label.strong_hash(&mut h);
-                            arg.strong_hash(&mut h);
-                        }
-                        ArgMacroView::Source(path) => {
-                            h.write_u8(ARG_MACRO_TAG_SOURCE as u8);
-                            path.strong_hash(&mut h);
-                        }
-                        ArgMacroView::Query(q) => {
-                            h.write_u8(ARG_MACRO_TAG_QUERY as u8);
-                            let (kind, sep) = q.expansion_parts();
-                            h.write_u8(kind as u8);
-                            sep.strong_hash(&mut h);
-                            q.expr().strong_hash(&mut h);
-                        }
-                    }
-                }
-            }
-            let hash = h.finalize128();
-            memo.insert(r.0, hash);
-            return hash;
-        }
-        match self.view(r).kind() {
-            CoercedAttrRefKind::None => {}
-            // True/false are distinct kinds; the tag byte is the content.
-            CoercedAttrRefKind::Bool(_) => {}
-            CoercedAttrRefKind::Int(i) => h.write_i64(i),
-            CoercedAttrRefKind::String(s)
-            | CoercedAttrRefKind::EnumVariant(s)
-            | CoercedAttrRefKind::ArgSimple(s)
-            | CoercedAttrRefKind::SelectFail(s)
-            | CoercedAttrRefKind::SelectIncompatible(s) => s.strong_hash(&mut h),
-            CoercedAttrRefKind::Arg(arg) => {
-                h.write_usize(arg.len());
-                for w in arg.run.iter() {
-                    self.strong_of(w, memo).strong_hash(&mut h);
-                }
-            }
-            CoercedAttrRefKind::List(items)
-            | CoercedAttrRefKind::Tuple(items)
-            | CoercedAttrRefKind::Concat(items) => {
-                h.write_usize(items.len());
-                for v in items.iter() {
-                    self.strong_of(v.r, memo).strong_hash(&mut h);
-                }
-            }
-            CoercedAttrRefKind::Dict(pairs) => {
-                h.write_usize(pairs.len());
-                for (k, v) in pairs.iter() {
-                    self.strong_of(k.r, memo).strong_hash(&mut h);
-                    self.strong_of(v.r, memo).strong_hash(&mut h);
-                }
-            }
-            CoercedAttrRefKind::Selector { entries, default } => {
-                h.write_usize(entries.len());
-                for (k, v) in entries.iter() {
-                    k.strong_hash(&mut h);
-                    self.strong_of(v.r, memo).strong_hash(&mut h);
-                }
-                match default {
-                    Some(d) => {
-                        h.write_u8(1);
-                        self.strong_of(d.r, memo).strong_hash(&mut h);
-                    }
-                    None => h.write_u8(0),
-                }
-            }
-            CoercedAttrRefKind::OneOf(l, idx) => {
-                h.write_u32(idx);
-                self.strong_of(l.r, memo).strong_hash(&mut h);
-            }
-            CoercedAttrRefKind::Dep(l)
-            | CoercedAttrRefKind::Label(l)
-            | CoercedAttrRefKind::SourceLabel(l)
-            | CoercedAttrRefKind::ConfigurationDep(l)
-            | CoercedAttrRefKind::SplitTransitionDep(l) => l.strong_hash(&mut h),
-            CoercedAttrRefKind::PluginDep(t) => t.strong_hash(&mut h),
-            CoercedAttrRefKind::SourceFile(p) => p.strong_hash(&mut h),
-            CoercedAttrRefKind::Query(q) => q.expr().strong_hash(&mut h),
-            CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
-                label.strong_hash(&mut h);
-                platform.strong_hash(&mut h);
-            }
-            CoercedAttrRefKind::TransitionDep { dep, transition } => {
-                dep.strong_hash(&mut h);
-                transition.strong_hash(&mut h);
-            }
-            CoercedAttrRefKind::Visibility(v) => v.strong_hash(&mut h),
-            CoercedAttrRefKind::WithinView(v) => v.strong_hash(&mut h),
-            CoercedAttrRefKind::Modifiers(m) => m.strong_hash(&mut h),
-            CoercedAttrRefKind::Metadata(m) => m.strong_hash(&mut h),
-        }
-        let hash = h.finalize128();
+        let mut h = IdHasher {
+            h: Blake3StrongHasher::new(),
+            memo,
+        };
+        h.h.write_u8(kind as u8);
+        dispatch(
+            kind,
+            HashParts {
+                v: self.view(r),
+                h: &mut h,
+            },
+        );
+        let hash = h.h.finalize128();
         memo.insert(r.0, hash);
         hash
+    }
+
+    /// The value of an `Int`, inline or record.
+    fn int_at(&self, r: AttrWord) -> i64 {
+        match r.inline_parts() {
+            // Sign-extend the 26-bit payload.
+            Some((_, p)) => {
+                let shifted = (p << (32 - INLINE_PAYLOAD_BITS)) as i32;
+                (shifted >> (32 - INLINE_PAYLOAD_BITS)) as i64
+            }
+            None => {
+                let rec = self.open(r);
+                unzigzag(rec.head.raw(0) as u64 | ((rec.head.raw(1) as u64) << 32))
+            }
+        }
     }
 
     /// Raw bytes of a text record, without UTF-8 validation: the string-dedup
@@ -1205,7 +1135,7 @@ impl<'a> RefRun<'a> {
 
     /// The raw values in order. One bounds check for the whole run; the
     /// width is matched once so each arm is a fixed-stride loop.
-    fn iter_raw(&self) -> impl Iterator<Item = u32> + use<'a> {
+    fn iter_raw(&self) -> impl ExactSizeIterator<Item = u32> + use<'a> {
         let w = self.width as usize;
         let bytes = &self.arena.bytes[self.start..self.start + self.len as usize * w];
         match w {
@@ -1232,12 +1162,1307 @@ impl<'a> RefRun<'a> {
         }
     }
 
-    fn iter(&self) -> impl Iterator<Item = AttrWord> + use<'a> {
+    fn iter(&self) -> impl ExactSizeIterator<Item = AttrWord> + use<'a> {
         let rec = self.rec;
         self.iter_raw().map(move |f| {
             AttrWord::from_field(f, rec)
                 .expect("should be present: only a selector default may be absent")
         })
+    }
+}
+
+/// How a kind's values are stored.
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum Storage {
+    /// No record: the word carries the kind and the single field's value.
+    Inline,
+    /// A record of head fields and child refs, deduped by content.
+    Record,
+    /// A text record, deduped by bytes.
+    Text,
+}
+
+/// A kind whose values are a sequence of typed fields: everything about it
+/// derives from the field list.
+trait SchemaKind: 'static {
+    const KIND: AttrKind;
+    const STORAGE: Storage;
+    type Fields: FieldList;
+    /// The public view case for decoded fields.
+    fn wrap<'a>(
+        v: CoercedAttrRef<'a>,
+        parts: <Self::Fields as FieldList>::View<'a>,
+    ) -> CoercedAttrRefKind<'a>;
+}
+
+/// One record kind as a type. [`dispatch`] selects it from a value's tag
+/// and monomorphizes a visitor per kind, so every operation that is uniform
+/// over kinds is written once. Schema kinds get this from their fields;
+/// the record-internal tagged unions implement it by hand.
+trait Kind {
+    const KIND: AttrKind;
+    /// Whether values hold no deps: no labels, paths or children, so
+    /// traversals have nothing to visit.
+    const SCALAR: bool;
+    /// The decoded value: leaves as borrowed side-table values or
+    /// immediates, children as refs.
+    type Parts<'a>: Copy;
+    /// Head field count and tail of a record, reading head fields through
+    /// `peek`; `None` when a field the layout depends on is missing.
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)>;
+    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> Self::Parts<'a>;
+    /// The public view case. Record kinds that are not attribute values
+    /// (`ArgMacro`, `QueryExpr`, `SelectorKeys`) have none.
+    fn wrap<'a>(v: CoercedAttrRef<'a>, parts: Self::Parts<'a>) -> CoercedAttrRefKind<'a>
+    where
+        Self: 'a;
+    /// Re-encode into `b`, children first.
+    fn copy_into(
+        parts: Self::Parts<'_>,
+        b: &mut CoercedAttrArenaBuilder,
+    ) -> buck2_error::Result<AttrToken>;
+    /// Identity hash of the parts; the kind byte is already written.
+    fn identity(parts: Self::Parts<'_>, h: &mut IdHasher<'_>);
+    fn same(a: Self::Parts<'_>, b: Self::Parts<'_>) -> bool;
+}
+
+impl<K: SchemaKind> Kind for K {
+    const KIND: AttrKind = K::KIND;
+    const SCALAR: bool = !<K::Fields as FieldList>::DEPS;
+    type Parts<'a> = <K::Fields as FieldList>::View<'a>;
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
+        K::Fields::shape(peek)
+    }
+
+    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> Self::Parts<'a> {
+        let mut c = Cursor::new(arena, r);
+        K::Fields::decode(&mut c)
+    }
+
+    fn wrap<'a>(v: CoercedAttrRef<'a>, parts: Self::Parts<'a>) -> CoercedAttrRefKind<'a>
+    where
+        Self: 'a,
+    {
+        K::wrap(v, parts)
+    }
+
+    fn copy_into(
+        parts: Self::Parts<'_>,
+        b: &mut CoercedAttrArenaBuilder,
+    ) -> buck2_error::Result<AttrToken> {
+        let mut w = RecordWriter::new(K::KIND);
+        K::Fields::reemit(parts, b, &mut w)?;
+        b.emit(K::STORAGE, w)
+    }
+
+    fn identity(parts: Self::Parts<'_>, h: &mut IdHasher<'_>) {
+        K::Fields::identity(parts, h)
+    }
+
+    fn same(a: Self::Parts<'_>, b: Self::Parts<'_>) -> bool {
+        K::Fields::same(a, b)
+    }
+}
+
+/// Encode a schema kind's value from its field specs.
+fn encode_kind<K: SchemaKind>(
+    b: &mut CoercedAttrArenaBuilder,
+    spec: <K::Fields as FieldList>::Spec<'_>,
+) -> buck2_error::Result<AttrToken> {
+    let mut w = RecordWriter::new(K::KIND);
+    K::Fields::encode(spec, b, &mut w)?;
+    b.emit(K::STORAGE, w)
+}
+
+/// Selects the [`Kind`] type for a tag at runtime, monomorphizing the
+/// visitor per kind.
+trait KindVisitor {
+    type Out;
+    fn visit<K: Kind + 'static>(self) -> Self::Out;
+}
+
+/// The blake3 identity hasher plus the per-arena memo child hashes use.
+struct IdHasher<'m> {
+    h: Blake3StrongHasher,
+    memo: &'m mut BuckMutMap<u32, StrongHash128>,
+}
+
+impl IdHasher<'_> {
+    /// A child's whole-value identity hash, memoized per record.
+    fn child(&mut self, c: CoercedAttrRef<'_>) {
+        c.arena.strong_of(c.r, self.memo).strong_hash(&mut self.h);
+    }
+}
+
+/// Content equality: the same kind with equal parts, across arenas.
+impl PartialEq for CoercedAttrRef<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.content_eq(other)
+    }
+}
+
+/// Reads one value's fields in order: the inline payload, or a record's
+/// head fields and tail.
+struct Cursor<'a> {
+    arena: &'a CoercedAttrArena,
+    r: AttrWord,
+    /// Head fields of a record; `None` for an inline word.
+    head: Option<RefRun<'a>>,
+    tail: Tail<'a>,
+    head_i: u32,
+    ref_i: u32,
+}
+
+impl<'a> Cursor<'a> {
+    fn new(arena: &'a CoercedAttrArena, r: AttrWord) -> Cursor<'a> {
+        let (head, tail) = if r.inline_parts().is_some() {
+            (None, Tail::None)
+        } else {
+            let rec = arena.open(r);
+            (Some(rec.head), rec.tail)
+        };
+        Cursor {
+            arena,
+            r,
+            head,
+            tail,
+            head_i: 0,
+            ref_i: 0,
+        }
+    }
+
+    /// The next head field, or the inline payload.
+    fn raw(&mut self) -> u32 {
+        match self.head {
+            None => {
+                self.r
+                    .inline_parts()
+                    .expect("should be inline: no record head")
+                    .1
+            }
+            Some(head) => {
+                let v = head.raw(self.head_i);
+                self.head_i += 1;
+                v
+            }
+        }
+    }
+
+    fn text(&self) -> &'a str {
+        self.arena.str_at(self.r)
+    }
+
+    /// The next `n` refs of the tail.
+    fn refs(&mut self, n: u32) -> RefRun<'a> {
+        let Tail::Refs(run) = self.tail else {
+            unreachable!("should have refs: the kind's fields say so")
+        };
+        let out = RefRun {
+            len: n,
+            ..run.skip(self.ref_i)
+        };
+        self.ref_i += n;
+        out
+    }
+
+    /// The next ref of the tail; `None` for an absent slot.
+    fn child(&mut self) -> Option<AttrWord> {
+        self.refs(1).get_opt(0)
+    }
+}
+
+/// Head fields, child refs and weak content hash of one value being
+/// encoded, gathered field by field.
+struct RecordWriter<'s> {
+    kind: AttrKind,
+    head: EncodeScratchFields,
+    refs: EncodeScratchRefs,
+    text: Option<&'s str>,
+    h: BuckHasher,
+}
+
+impl<'s> RecordWriter<'s> {
+    fn new(kind: AttrKind) -> RecordWriter<'s> {
+        let mut h = BuckHasher::default();
+        Hash::hash(&(kind as u8), &mut h);
+        RecordWriter {
+            kind,
+            head: EncodeScratchFields::new(),
+            refs: EncodeScratchRefs::new(),
+            text: None,
+            h,
+        }
+    }
+
+    fn head(&mut self, v: u32) {
+        self.head.push(v);
+    }
+
+    fn r(&mut self, w: AttrWord) {
+        self.refs.push(w);
+    }
+
+    fn hash<T: Hash + ?Sized>(&mut self, t: &T) {
+        t.hash(&mut self.h);
+    }
+}
+
+/// What a field occupies in a record.
+struct Part {
+    head: u32,
+    refs: Option<u32>,
+    text: Option<u32>,
+}
+
+impl Part {
+    const fn head(n: u32) -> Part {
+        Part {
+            head: n,
+            refs: None,
+            text: None,
+        }
+    }
+}
+
+/// One typed component of a record: what a head field, a run of refs or
+/// the text tail means. Each field knows how to read itself, how to encode
+/// its input form, how to re-encode its decoded form into another arena,
+/// and how it hashes and compares.
+trait Field {
+    /// Whether the field can hold a dep: a label, a path or a child.
+    const DEPS: bool;
+    /// Decoded form, borrowed from the arena.
+    type View<'a>: Copy;
+    /// Input form for encoding: leaf values by reference, children as
+    /// tokens.
+    type Spec<'s>: Copy;
+    /// What the field occupies, reading head fields through `peek`; `at` is
+    /// the field's first head index.
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part>;
+    fn decode<'a>(c: &mut Cursor<'a>) -> Self::View<'a>;
+    fn encode<'s>(
+        spec: Self::Spec<'s>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()>;
+    fn reemit<'a>(
+        view: Self::View<'a>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()>;
+    fn identity(view: Self::View<'_>, h: &mut IdHasher<'_>);
+    fn same(a: Self::View<'_>, b: Self::View<'_>) -> bool;
+}
+
+/// A kind's fields as a tuple.
+trait FieldList {
+    const DEPS: bool;
+    type View<'a>: Copy;
+    type Spec<'s>: Copy;
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)>;
+    fn decode<'a>(c: &mut Cursor<'a>) -> Self::View<'a>;
+    fn encode<'s>(
+        spec: Self::Spec<'s>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()>;
+    fn reemit<'a>(
+        view: Self::View<'a>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()>;
+    fn identity(view: Self::View<'_>, h: &mut IdHasher<'_>);
+    fn same(a: Self::View<'_>, b: Self::View<'_>) -> bool;
+}
+
+fn tail_len(refs: Option<u32>, text: Option<u32>) -> TailLen {
+    match (text, refs) {
+        (Some(t), _) => TailLen::Text(t),
+        (None, Some(n)) => TailLen::Refs(n),
+        (None, None) => TailLen::None,
+    }
+}
+
+impl FieldList for () {
+    const DEPS: bool = false;
+    type View<'a> = ();
+    type Spec<'s> = ();
+
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
+        Some((0, TailLen::None))
+    }
+
+    fn decode<'a>(_c: &mut Cursor<'a>) {}
+
+    fn encode<'s>(
+        (): (),
+        _b: &mut CoercedAttrArenaBuilder,
+        _w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        (): (),
+        _b: &mut CoercedAttrArenaBuilder,
+        _w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn identity((): (), _h: &mut IdHasher<'_>) {}
+
+    fn same((): (), (): ()) -> bool {
+        true
+    }
+}
+
+macro_rules! field_tuples {
+    ($( ($($F:ident $a:ident $b:ident),+) ;)*) => { $(
+        impl<$($F: Field),+> FieldList for ($($F,)+) {
+            const DEPS: bool = $($F::DEPS)||+;
+            type View<'a> = ($($F::View<'a>,)+);
+            type Spec<'s> = ($($F::Spec<'s>,)+);
+
+            fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
+                let mut at = 0u32;
+                let mut refs: Option<u32> = None;
+                let mut text = None;
+                $(
+                    let p = $F::shape(peek, at)?;
+                    at = at.checked_add(p.head)?;
+                    if let Some(n) = p.refs {
+                        refs = Some(refs.unwrap_or(0).checked_add(n)?);
+                    }
+                    text = text.or(p.text);
+                )+
+                Some((at, tail_len(refs, text)))
+            }
+
+            fn decode<'a>(c: &mut Cursor<'a>) -> Self::View<'a> {
+                ($($F::decode(c),)+)
+            }
+
+            fn encode<'s>(
+                ($($a,)+): Self::Spec<'s>,
+                b: &mut CoercedAttrArenaBuilder,
+                w: &mut RecordWriter<'s>,
+            ) -> buck2_error::Result<()> {
+                $( $F::encode($a, b, w)?; )+
+                Ok(())
+            }
+
+            fn reemit<'a>(
+                ($($a,)+): Self::View<'a>,
+                b: &mut CoercedAttrArenaBuilder,
+                w: &mut RecordWriter<'a>,
+            ) -> buck2_error::Result<()> {
+                $( $F::reemit($a, b, w)?; )+
+                Ok(())
+            }
+
+            fn identity(($($a,)+): Self::View<'_>, h: &mut IdHasher<'_>) {
+                $( $F::identity($a, h); )+
+            }
+
+            fn same(($($a,)+): Self::View<'_>, ($($b,)+): Self::View<'_>) -> bool {
+                $( $F::same($a, $b) )&&+
+            }
+        }
+    )* };
+}
+
+field_tuples! {
+    (A a0 b0);
+    (A a0 b0, B a1 b1);
+}
+
+/// A leaf field whose decoded and input forms are both `&T`: it hashes as
+/// `T`'s `StrongHash` and compares as `T`'s equality.
+macro_rules! leaf_field {
+    ($(
+        $(#[$doc:meta])*
+        $name:ident : $t:ty, deps = $deps:literal,
+        |$c:ident| $decode:expr,
+        |$spec:ident, $b:ident, $w:ident| $encode:expr;
+    )*) => { $(
+        $(#[$doc])*
+        struct $name;
+
+        impl Field for $name {
+            const DEPS: bool = $deps;
+            type View<'a> = &'a $t;
+            type Spec<'s> = &'s $t;
+
+            fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
+                Some(Part::head(1))
+            }
+
+            fn decode<'a>($c: &mut Cursor<'a>) -> &'a $t {
+                $decode
+            }
+
+            fn encode<'s>(
+                $spec: &'s $t,
+                $b: &mut CoercedAttrArenaBuilder,
+                $w: &mut RecordWriter<'s>,
+            ) -> buck2_error::Result<()> {
+                $encode
+            }
+
+            fn reemit<'a>(
+                view: &'a $t,
+                b: &mut CoercedAttrArenaBuilder,
+                w: &mut RecordWriter<'a>,
+            ) -> buck2_error::Result<()> {
+                Self::encode(view, b, w)
+            }
+
+            fn identity(view: &$t, h: &mut IdHasher<'_>) {
+                view.strong_hash(&mut h.h);
+            }
+
+            fn same(a: &$t, b: &$t) -> bool {
+                a == b
+            }
+        }
+    )* };
+}
+
+leaf_field! {
+    /// A providers-label table index.
+    Label: ProvidersLabel, deps = true,
+    |c| &c.arena.providers_labels[c.raw() as usize],
+    |l, b, w| {
+        let (idx, hash) = b.providers_label_idx_and_hash(l);
+        w.head(idx);
+        w.hash(&hash);
+        Ok(())
+    };
+    /// A target-label table index.
+    Target: TargetLabel, deps = true,
+    |c| &c.arena.target_labels[c.raw() as usize],
+    |t, b, w| {
+        w.head(b.target_label_idx(t.dupe()));
+        w.hash(t);
+        Ok(())
+    };
+    /// A path table index.
+    Path: CoercedPath, deps = true,
+    |c| &c.arena.paths[c.raw() as usize],
+    |p, b, w| {
+        let (idx, hash) = b.source_path_idx_and_hash(p);
+        w.head(idx);
+        w.hash(&hash);
+        Ok(())
+    };
+}
+
+/// A whole value interned into its own table, one entry per distinct
+/// value; the field is the table index.
+struct Whole<T>(std::marker::PhantomData<T>);
+
+/// A side table of whole values and its content dedup.
+trait WholeTable: Hash + PartialEq + Clone + StrongHash + 'static {
+    fn table(arena: &CoercedAttrArena) -> &Vec<Self>;
+    fn table_mut(
+        b: &mut CoercedAttrArenaBuilder,
+    ) -> (&mut hashbrown::HashTable<(u64, u32)>, &mut Vec<Self>);
+}
+
+macro_rules! whole_tables {
+    ($($t:ty => $table:ident, $dedup:ident;)*) => { $(
+        impl WholeTable for $t {
+            fn table(arena: &CoercedAttrArena) -> &Vec<Self> {
+                &arena.$table
+            }
+            fn table_mut(
+                b: &mut CoercedAttrArenaBuilder,
+            ) -> (&mut hashbrown::HashTable<(u64, u32)>, &mut Vec<Self>) {
+                (&mut b.$dedup, &mut b.arena.$table)
+            }
+        }
+    )* };
+}
+
+whole_tables! {
+    VisibilitySpecification => visibility, visibility_dedup;
+    WithinViewSpecification => within_view, within_view_dedup;
+    CfgModifiers => modifiers, modifiers_dedup;
+    MetadataMap => metadata, metadata_dedup;
+}
+
+impl<T: WholeTable> Field for Whole<T> {
+    const DEPS: bool = false;
+    type View<'a> = &'a T;
+    type Spec<'s> = &'s T;
+
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
+        Some(Part::head(1))
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> &'a T {
+        &T::table(c.arena)[c.raw() as usize]
+    }
+
+    fn encode<'s>(
+        v: &'s T,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        let (idx, hash) = b.intern_whole::<T>(v);
+        w.head(idx);
+        w.hash(&hash);
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        view: &'a T,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        Self::encode(view, b, w)
+    }
+
+    fn identity(view: &T, h: &mut IdHasher<'_>) {
+        view.strong_hash(&mut h.h);
+    }
+
+    fn same(a: &T, b: &T) -> bool {
+        a == b
+    }
+}
+
+/// A providers-label table index plus one, or zero for absent.
+struct OptLabel;
+
+impl Field for OptLabel {
+    const DEPS: bool = true;
+    type View<'a> = Option<&'a ProvidersLabel>;
+    type Spec<'s> = Option<&'s ProvidersLabel>;
+
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
+        Some(Part::head(1))
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> Option<&'a ProvidersLabel> {
+        match c.raw() {
+            0 => None,
+            i => Some(&c.arena.providers_labels[(i - 1) as usize]),
+        }
+    }
+
+    fn encode<'s>(
+        l: Option<&'s ProvidersLabel>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        let (field, hash) = match l {
+            Some(l) => {
+                let (idx, hash) = b.providers_label_idx_and_hash(l);
+                (idx + 1, Some(hash))
+            }
+            None => (0, None),
+        };
+        w.head(field);
+        w.hash(&hash);
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        view: Option<&'a ProvidersLabel>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        Self::encode(view, b, w)
+    }
+
+    fn identity(view: Option<&ProvidersLabel>, h: &mut IdHasher<'_>) {
+        view.strong_hash(&mut h.h);
+    }
+
+    fn same(a: Option<&ProvidersLabel>, b: Option<&ProvidersLabel>) -> bool {
+        a == b
+    }
+}
+
+/// An immediate head field.
+struct U32;
+
+impl Field for U32 {
+    const DEPS: bool = false;
+    type View<'a> = u32;
+    type Spec<'s> = u32;
+
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
+        Some(Part::head(1))
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> u32 {
+        c.raw()
+    }
+
+    fn encode<'s>(
+        v: u32,
+        _b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        w.head(v);
+        w.hash(&v);
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        view: u32,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        Self::encode(view, b, w)
+    }
+
+    fn identity(view: u32, h: &mut IdHasher<'_>) {
+        h.h.write_u32(view);
+    }
+
+    fn same(a: u32, b: u32) -> bool {
+        a == b
+    }
+}
+
+/// The UTF-8 text tail, with its byte length as the head field. Text
+/// storage writes the record; the field only carries the text.
+struct Text;
+
+impl Field for Text {
+    const DEPS: bool = false;
+    type View<'a> = &'a str;
+    type Spec<'s> = &'s str;
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part> {
+        Some(Part {
+            head: 1,
+            refs: None,
+            text: Some(peek(at)?),
+        })
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> &'a str {
+        c.text()
+    }
+
+    fn encode<'s>(
+        s: &'s str,
+        _b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        w.text = Some(s);
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        view: &'a str,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        Self::encode(view, b, w)
+    }
+
+    fn identity(view: &str, h: &mut IdHasher<'_>) {
+        view.strong_hash(&mut h.h);
+    }
+
+    fn same(a: &str, b: &str) -> bool {
+        a == b
+    }
+}
+
+/// One child ref.
+struct Child;
+
+impl Field for Child {
+    const DEPS: bool = true;
+    type View<'a> = CoercedAttrRef<'a>;
+    type Spec<'s> = AttrToken;
+
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
+        Some(Part {
+            head: 0,
+            refs: Some(1),
+            text: None,
+        })
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> CoercedAttrRef<'a> {
+        c.arena.view(
+            c.child()
+                .expect("should be present: only a selector default may be absent"),
+        )
+    }
+
+    fn encode<'s>(
+        t: AttrToken,
+        _b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        w.r(t.0);
+        w.hash(&t.1);
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        view: CoercedAttrRef<'a>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        Self::encode(b.encode_view(view)?, b, w)
+    }
+
+    fn identity(view: CoercedAttrRef<'_>, h: &mut IdHasher<'_>) {
+        h.child(view);
+    }
+
+    fn same(a: CoercedAttrRef<'_>, b: CoercedAttrRef<'_>) -> bool {
+        a.content_eq(&b)
+    }
+}
+
+/// One child ref that may be absent (a selector's default): the identity
+/// hash writes a presence flag, then the child.
+struct OptChild;
+
+impl Field for OptChild {
+    const DEPS: bool = true;
+    type View<'a> = Option<CoercedAttrRef<'a>>;
+    type Spec<'s> = Option<AttrToken>;
+
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
+        Some(Part {
+            head: 0,
+            refs: Some(1),
+            text: None,
+        })
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> Option<CoercedAttrRef<'a>> {
+        c.child().map(|w| c.arena.view(w))
+    }
+
+    fn encode<'s>(
+        t: Option<AttrToken>,
+        _b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        w.r(t.map_or(ABSENT_REF, |t| t.0));
+        w.hash(&t.map(|t| t.1));
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        view: Option<CoercedAttrRef<'a>>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        let t = view.map(|v| b.encode_view(v)).transpose()?;
+        Self::encode(t, b, w)
+    }
+
+    fn identity(view: Option<CoercedAttrRef<'_>>, h: &mut IdHasher<'_>) {
+        match view {
+            Some(c) => {
+                h.h.write_u8(1);
+                h.child(c);
+            }
+            None => h.h.write_u8(0),
+        }
+    }
+
+    fn same(a: Option<CoercedAttrRef<'_>>, b: Option<CoercedAttrRef<'_>>) -> bool {
+        a == b
+    }
+}
+
+/// A count head field, then that many items of `T`, each `T::STRIDE`
+/// child refs.
+struct ChildrenOf<T>(std::marker::PhantomData<T>);
+
+/// Child values.
+type Children = ChildrenOf<Values>;
+/// (key, value) child pairs.
+type ChildPairs = ChildrenOf<Pairs>;
+/// Arg parts.
+type ArgChildren = ChildrenOf<ArgParts>;
+
+impl<T: RefItem + 'static> Field for ChildrenOf<T> {
+    const DEPS: bool = true;
+    type View<'a> = Refs<'a, T>;
+    type Spec<'s> = &'s T::Spec;
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part> {
+        Some(Part {
+            head: 1,
+            refs: Some(peek(at)?.checked_mul(T::STRIDE)?),
+            text: None,
+        })
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> Refs<'a, T> {
+        let n = c.raw();
+        Refs {
+            run: c.refs(n * T::STRIDE),
+            _item: std::marker::PhantomData,
+        }
+    }
+
+    fn encode<'s>(
+        items: &'s T::Spec,
+        _b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        let mut n = 0;
+        let head_at = w.head.len();
+        w.head(0);
+        for (i, t) in T::tokens(items).enumerate() {
+            w.r(t.0);
+            w.hash(&t.1);
+            n = i + 1;
+        }
+        w.head[head_at] = (n as u32) / T::STRIDE;
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        view: Refs<'a, T>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        w.head(view.len() as u32);
+        for c in view.children() {
+            let t = b.encode_view(c)?;
+            w.r(t.0);
+            w.hash(&t.1);
+        }
+        Ok(())
+    }
+
+    fn identity(view: Refs<'_, T>, h: &mut IdHasher<'_>) {
+        h.h.write_usize(view.len());
+        for c in view.children() {
+            h.child(c);
+        }
+    }
+
+    fn same(a: Refs<'_, T>, b: Refs<'_, T>) -> bool {
+        a.len() == b.len() && a.children().zip(b.children()).all(|(x, y)| x == y)
+    }
+}
+
+/// A selector's entries: a count head field, a ref to the shared
+/// `SelectorKeys` record, then that many value refs.
+struct SelectorEntries;
+
+impl Field for SelectorEntries {
+    const DEPS: bool = true;
+    type View<'a> = AttrRefSelectorEntries<'a>;
+    type Spec<'s> = &'s [(ConfigurationSettingKey, AttrToken)];
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Part> {
+        Some(Part {
+            head: 1,
+            refs: Some(peek(at)?.checked_add(1)?),
+            text: None,
+        })
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> AttrRefSelectorEntries<'a> {
+        let n = c.raw();
+        let keys = c
+            .child()
+            .expect("should be present: a selector always has a keys record");
+        AttrRefSelectorEntries {
+            keys: c.arena.open(keys).head.skip(1),
+            values: c.refs(n),
+        }
+    }
+
+    fn encode<'s>(
+        entries: &'s [(ConfigurationSettingKey, AttrToken)],
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        CoercedSelector::check_all_keys_unique(entries)?;
+        let (keys, keys_hash) = b.encode_selector_keys(entries.iter().map(|(k, _)| &k.0))?;
+        w.head(entries.len() as u32);
+        w.r(keys);
+        w.hash(&keys_hash);
+        for (_, v) in entries {
+            w.r(v.0);
+            w.hash(&v.1);
+        }
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        view: AttrRefSelectorEntries<'a>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        let (keys, keys_hash) = b.encode_selector_keys(view.iter().map(|(k, _)| k))?;
+        w.head(view.len() as u32);
+        w.r(keys);
+        w.hash(&keys_hash);
+        for (_, v) in view.iter() {
+            let t = b.encode_view(v)?;
+            w.r(t.0);
+            w.hash(&t.1);
+        }
+        Ok(())
+    }
+
+    fn identity(view: AttrRefSelectorEntries<'_>, h: &mut IdHasher<'_>) {
+        h.h.write_usize(view.len());
+        for (k, v) in view.iter() {
+            k.strong_hash(&mut h.h);
+            h.child(v);
+        }
+    }
+
+    fn same(a: AttrRefSelectorEntries<'_>, b: AttrRefSelectorEntries<'_>) -> bool {
+        a.len() == b.len()
+            && a.iter()
+                .zip(b.iter())
+                .all(|((ka, va), (kb, vb))| ka == kb && va == vb)
+    }
+}
+
+/// A ref to a `QueryExpr` record. Its identity hash is the expression's,
+/// inline; equality compares reprints.
+struct ExprChild;
+
+impl Field for ExprChild {
+    const DEPS: bool = true;
+    type View<'a> = QueryExprRef<'a>;
+    type Spec<'s> = (AttrWord, CoercedAttrHash);
+
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Part> {
+        Some(Part {
+            head: 0,
+            refs: Some(1),
+            text: None,
+        })
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> QueryExprRef<'a> {
+        QueryExprRef {
+            arena: c.arena,
+            r: c.child()
+                .expect("should be present: a query always has an expression"),
+        }
+    }
+
+    fn encode<'s>(
+        (r, hash): (AttrWord, CoercedAttrHash),
+        _b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        w.r(r);
+        w.hash(&hash);
+        Ok(())
+    }
+
+    fn reemit<'a>(
+        view: QueryExprRef<'a>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        Self::encode(b.encode_query_expr_view(view)?, b, w)
+    }
+
+    fn identity(view: QueryExprRef<'_>, h: &mut IdHasher<'_>) {
+        view.strong_hash(&mut h.h);
+    }
+
+    fn same(a: QueryExprRef<'_>, b: QueryExprRef<'_>) -> bool {
+        a.same_expr(&b)
+    }
+}
+
+/// `Int`: inline when the value fits the payload, otherwise a record of the
+/// zigzag value in 32-bit halves; one kind either way.
+impl Kind for kinds::Int {
+    const KIND: AttrKind = AttrKind::Int;
+    const SCALAR: bool = true;
+    type Parts<'a> = i64;
+
+    fn shape(_peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
+        Some((2, TailLen::None))
+    }
+
+    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> i64 {
+        arena.int_at(r)
+    }
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, parts: i64) -> CoercedAttrRefKind<'a>
+    where
+        Self: 'a,
+    {
+        CoercedAttrRefKind::Int(parts)
+    }
+
+    fn copy_into(parts: i64, b: &mut CoercedAttrArenaBuilder) -> buck2_error::Result<AttrToken> {
+        b.encode_int(parts)
+    }
+
+    fn identity(parts: i64, h: &mut IdHasher<'_>) {
+        h.h.write_i64(parts);
+    }
+
+    fn same(a: i64, b: i64) -> bool {
+        a == b
+    }
+}
+
+/// The label set of a `SelectorKeys` record: `[n, idx...]`.
+#[derive(Copy, Clone)]
+struct KeysParts<'a> {
+    keys: RefRun<'a>,
+}
+
+impl<'a> KeysParts<'a> {
+    fn iter(&self) -> impl ExactSizeIterator<Item = &'a ProvidersLabel> + 'a {
+        let arena = self.keys.arena;
+        self.keys
+            .iter_raw()
+            .map(move |k| &arena.providers_labels[k as usize])
+    }
+}
+
+impl Kind for kinds::SelectorKeys {
+    const KIND: AttrKind = AttrKind::SelectorKeys;
+    const SCALAR: bool = false;
+    type Parts<'a> = KeysParts<'a>;
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
+        Some((1u32.checked_add(peek(0)?)?, TailLen::None))
+    }
+
+    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> KeysParts<'a> {
+        KeysParts {
+            keys: arena.open(r).head.skip(1),
+        }
+    }
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, _parts: KeysParts<'a>) -> CoercedAttrRefKind<'a>
+    where
+        Self: 'a,
+    {
+        unreachable!("selector keys records are not attribute values")
+    }
+
+    fn copy_into(
+        parts: KeysParts<'_>,
+        b: &mut CoercedAttrArenaBuilder,
+    ) -> buck2_error::Result<AttrToken> {
+        b.encode_selector_keys(parts.iter()).map(token)
+    }
+
+    fn identity(parts: KeysParts<'_>, h: &mut IdHasher<'_>) {
+        h.h.write_u32(parts.keys.len());
+        for k in parts.iter() {
+            k.strong_hash(&mut h.h);
+        }
+    }
+
+    fn same(a: KeysParts<'_>, b: KeysParts<'_>) -> bool {
+        a.keys.len() == b.keys.len() && a.iter().zip(b.iter()).all(|(x, y)| x == y)
+    }
+}
+
+/// An `ArgMacro` record decodes to its part view; the `String` case is an
+/// `ArgSimple` record and never reaches here.
+impl Kind for kinds::ArgMacro {
+    const KIND: AttrKind = AttrKind::ArgMacro;
+    const SCALAR: bool = false;
+    type Parts<'a> = ArgPartView<'a>;
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
+        Some((3, TailLen::Refs(peek(2)?)))
+    }
+
+    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> ArgPartView<'a> {
+        arena.arg_part_at(r)
+    }
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, _parts: ArgPartView<'a>) -> CoercedAttrRefKind<'a>
+    where
+        Self: 'a,
+    {
+        unreachable!("arg macro records are not attribute values")
+    }
+
+    fn copy_into(
+        parts: ArgPartView<'_>,
+        b: &mut CoercedAttrArenaBuilder,
+    ) -> buck2_error::Result<AttrToken> {
+        b.encode_arg_part_view(parts).map(token)
+    }
+
+    fn identity(parts: ArgPartView<'_>, h: &mut IdHasher<'_>) {
+        let h = &mut h.h;
+        let ArgPartView::Macro { write_to_file, mac } = parts else {
+            unreachable!("should be a macro: `ArgMacro` refs decode to macro parts")
+        };
+        write_to_file.strong_hash(h);
+        match mac {
+            ArgMacroView::Location { label, dep_kind } => {
+                h.write_u8(ARG_MACRO_TAG_LOCATION as u8);
+                h.write_u8(dep_kind_bits(dep_kind) as u8);
+                label.strong_hash(h);
+            }
+            ArgMacroView::Exe { label, exec_dep } => {
+                h.write_u8(ARG_MACRO_TAG_EXE as u8);
+                exec_dep.strong_hash(h);
+                label.strong_hash(h);
+            }
+            ArgMacroView::UserUnkeyedPlaceholder(var) => {
+                h.write_u8(ARG_MACRO_TAG_UNKEYED as u8);
+                var.strong_hash(h);
+            }
+            ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
+                h.write_u8(ARG_MACRO_TAG_KEYED as u8);
+                var.strong_hash(h);
+                label.strong_hash(h);
+                arg.strong_hash(h);
+            }
+            ArgMacroView::Source(path) => {
+                h.write_u8(ARG_MACRO_TAG_SOURCE as u8);
+                path.strong_hash(h);
+            }
+            ArgMacroView::Query(q) => {
+                h.write_u8(ARG_MACRO_TAG_QUERY as u8);
+                let (kind, sep) = q.expansion_parts();
+                h.write_u8(kind as u8);
+                sep.strong_hash(h);
+                q.expr().strong_hash(h);
+            }
+        }
+    }
+
+    fn same(a: ArgPartView<'_>, b: ArgPartView<'_>) -> bool {
+        a == b
+    }
+}
+
+impl Kind for kinds::QueryExpr {
+    const KIND: AttrKind = AttrKind::QueryExpr;
+    const SCALAR: bool = false;
+    type Parts<'a> = QueryExprRef<'a>;
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
+        let nfields = 3u32.checked_add(peek(1)?)?;
+        Some((nfields, TailLen::Refs(peek(nfields - 1)?)))
+    }
+
+    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> QueryExprRef<'a> {
+        QueryExprRef { arena, r }
+    }
+
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, _parts: QueryExprRef<'a>) -> CoercedAttrRefKind<'a>
+    where
+        Self: 'a,
+    {
+        unreachable!("query expression nodes are not attribute values")
+    }
+
+    fn copy_into(
+        parts: QueryExprRef<'_>,
+        b: &mut CoercedAttrArenaBuilder,
+    ) -> buck2_error::Result<AttrToken> {
+        b.encode_query_expr_view(parts).map(token)
+    }
+
+    fn identity(parts: QueryExprRef<'_>, h: &mut IdHasher<'_>) {
+        parts.strong_hash(&mut h.h);
+    }
+
+    fn same(a: QueryExprRef<'_>, b: QueryExprRef<'_>) -> bool {
+        a.same_expr(&b)
+    }
+}
+
+/// [`AttrKind::is_scalar`].
+struct IsScalar;
+
+impl KindVisitor for IsScalar {
+    type Out = bool;
+    fn visit<K: Kind + 'static>(self) -> bool {
+        K::SCALAR
+    }
+}
+
+/// Record shape from a kind's fields: [`shape`].
+struct Shape<'f> {
+    peek: &'f dyn Fn(u32) -> Option<u32>,
+}
+
+impl KindVisitor for Shape<'_> {
+    type Out = Option<(u32, TailLen)>;
+    fn visit<K: Kind + 'static>(self) -> Self::Out {
+        K::shape(self.peek)
+    }
+}
+
+/// Copies a value into a builder: [`CoercedAttrArenaBuilder::encode_view`].
+struct CopyParts<'b, 'a> {
+    v: CoercedAttrRef<'a>,
+    b: &'b mut CoercedAttrArenaBuilder,
+}
+
+impl KindVisitor for CopyParts<'_, '_> {
+    type Out = buck2_error::Result<AttrToken>;
+    fn visit<K: Kind + 'static>(self) -> Self::Out {
+        K::copy_into(K::decode(self.v.arena, self.v.r), self.b)
+    }
+}
+
+/// Folds a value's parts into the identity hasher: [`CoercedAttrArena::strong_of`].
+struct HashParts<'h, 'm, 'a> {
+    v: CoercedAttrRef<'a>,
+    h: &'h mut IdHasher<'m>,
+}
+
+impl KindVisitor for HashParts<'_, '_, '_> {
+    type Out = ();
+    fn visit<K: Kind + 'static>(self) {
+        K::identity(K::decode(self.v.arena, self.v.r), self.h)
+    }
+}
+
+/// Decodes a value to its public view: [`CoercedAttrRef::kind`].
+struct ToRefKind<'a> {
+    v: CoercedAttrRef<'a>,
+}
+
+impl<'a> KindVisitor for ToRefKind<'a> {
+    type Out = CoercedAttrRefKind<'a>;
+    fn visit<K: Kind + 'static>(self) -> Self::Out {
+        K::wrap(self.v, K::decode(self.v.arena, self.v.r))
+    }
+}
+
+/// Compares two values of the same kind: [`CoercedAttrRef::content_eq`].
+struct EqParts<'a, 'b> {
+    a: CoercedAttrRef<'a>,
+    b: CoercedAttrRef<'b>,
+}
+
+impl KindVisitor for EqParts<'_, '_> {
+    type Out = bool;
+    fn visit<K: Kind + 'static>(self) -> bool {
+        K::same(
+            K::decode(self.a.arena, self.a.r),
+            K::decode(self.b.arena, self.b.r),
+        )
     }
 }
 
@@ -1258,15 +2483,15 @@ pub enum CoercedAttrRefKind<'a> {
     String(&'a str),
     EnumVariant(&'a str),
     ArgSimple(&'a str),
-    Arg(AttrRefArgParts<'a>),
-    List(AttrRefSeq<'a>),
-    Tuple(AttrRefSeq<'a>),
-    Dict(AttrRefDict<'a>),
+    Arg(Refs<'a, ArgParts>),
+    List(Refs<'a, Values>),
+    Tuple(Refs<'a, Values>),
+    Dict(Refs<'a, Pairs>),
     Selector {
         entries: AttrRefSelectorEntries<'a>,
         default: Option<CoercedAttrRef<'a>>,
     },
-    Concat(AttrRefSeq<'a>),
+    Concat(Refs<'a, Values>),
     OneOf(CoercedAttrRef<'a>, u32),
     Dep(&'a ProvidersLabel),
     Label(&'a ProvidersLabel),
@@ -1294,24 +2519,6 @@ pub enum CoercedAttrRefKind<'a> {
     WithinView(&'a WithinViewSpecification),
     Modifiers(&'a CfgModifiers),
     Metadata(&'a MetadataMap),
-}
-
-/// View of the parts of an `Arg` value containing macros.
-#[derive(Copy, Clone)]
-pub struct AttrRefArgParts<'a> {
-    /// Part refs (`ArgSimple` or `ArgMacro` records), one per part.
-    run: RefRun<'a>,
-}
-
-impl<'a> AttrRefArgParts<'a> {
-    pub fn len(&self) -> usize {
-        self.run.len() as usize
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = ArgPartView<'a>> + 'a {
-        let arena = self.run.arena;
-        self.run.iter().map(move |w| arena.arg_part_at(w))
-    }
 }
 
 /// One decoded part of an `Arg` value containing macros.
@@ -1386,7 +2593,7 @@ impl std::fmt::Display for ArgMacroView<'_> {
 
 /// Mirrors `Display for StringWithMacros`: the parts concatenated, string
 /// parts raw and macro parts as `$(...)`, without surrounding quotes.
-impl std::fmt::Display for AttrRefArgParts<'_> {
+impl std::fmt::Display for Refs<'_, ArgParts> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for part in self.iter() {
             match part {
@@ -1785,6 +2992,21 @@ impl<'a> QueryExprRef<'a> {
 }
 
 /// Subtag plus content, children in order.
+impl QueryExprRef<'_> {
+    /// Equal expressions reprint identically with identical literal maps.
+    fn same_expr(&self, other: &QueryExprRef<'_>) -> bool {
+        fn reprinted(e: &QueryExprRef<'_>) -> (String, BTreeMap<(usize, usize), ProvidersLabel>) {
+            let mut out = String::new();
+            let mut lits = BTreeMap::new();
+            e.reprint(&mut out, &mut |span, l| {
+                lits.insert(span, l.dupe());
+            });
+            (out, lits)
+        }
+        reprinted(self) == reprinted(other)
+    }
+}
+
 impl StrongHash for QueryExprRef<'_> {
     fn strong_hash<H: Hasher>(&self, h: &mut H) {
         match self.view() {
@@ -1918,45 +3140,98 @@ impl<'a> ArgPartView<'a> {
     }
 }
 
-/// View of a sequence value's child refs (`len`/`iter`).
-#[derive(Copy, Clone)]
-pub struct AttrRefSeq<'a> {
+/// A run of child refs viewed as items of `T`: a sequence's values, a
+/// dict's (key, value) pairs, or an arg's parts. `len`/`iter` only; the
+/// items decode lazily.
+pub struct Refs<'a, T> {
     run: RefRun<'a>,
+    _item: std::marker::PhantomData<T>,
 }
 
-impl<'a> AttrRefSeq<'a> {
+impl<T> Copy for Refs<'_, T> {}
+impl<T> Clone for Refs<'_, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+/// How a [`Refs`] run decodes: `STRIDE` refs per item.
+pub trait RefItem: Sized {
+    const STRIDE: u32;
+    type Item<'a>;
+    /// Input form of the items for encoding, borrowed.
+    type Spec: ?Sized;
+    fn item<'a>(refs: Refs<'a, Self>, i: u32) -> Self::Item<'a>;
+    fn tokens(spec: &Self::Spec) -> impl Iterator<Item = AttrToken> + '_;
+}
+
+/// One child value per ref.
+pub struct Values;
+
+impl RefItem for Values {
+    const STRIDE: u32 = 1;
+    type Item<'a> = CoercedAttrRef<'a>;
+    type Spec = [AttrToken];
+    fn item<'a>(refs: Refs<'a, Self>, i: u32) -> CoercedAttrRef<'a> {
+        refs.run.arena.view(refs.run.get(i))
+    }
+    fn tokens(spec: &[AttrToken]) -> impl Iterator<Item = AttrToken> + '_ {
+        spec.iter().copied()
+    }
+}
+
+/// A (key, value) pair per two refs.
+pub struct Pairs;
+
+impl RefItem for Pairs {
+    const STRIDE: u32 = 2;
+    type Item<'a> = (CoercedAttrRef<'a>, CoercedAttrRef<'a>);
+    type Spec = [(AttrToken, AttrToken)];
+    fn item<'a>(refs: Refs<'a, Self>, i: u32) -> Self::Item<'a> {
+        let run = refs.run;
+        (
+            run.arena.view(run.get(2 * i)),
+            run.arena.view(run.get(2 * i + 1)),
+        )
+    }
+    fn tokens(spec: &[(AttrToken, AttrToken)]) -> impl Iterator<Item = AttrToken> + '_ {
+        spec.iter().flat_map(|(k, v)| [*k, *v])
+    }
+}
+
+/// One arg part (`ArgSimple` or `ArgMacro` record) per ref.
+pub struct ArgParts;
+
+impl RefItem for ArgParts {
+    const STRIDE: u32 = 1;
+    type Item<'a> = ArgPartView<'a>;
+    type Spec = [AttrToken];
+    fn item<'a>(refs: Refs<'a, Self>, i: u32) -> ArgPartView<'a> {
+        refs.run.arena.arg_part_at(refs.run.get(i))
+    }
+    fn tokens(spec: &[AttrToken]) -> impl Iterator<Item = AttrToken> + '_ {
+        spec.iter().copied()
+    }
+}
+
+impl<'a, T: RefItem> Refs<'a, T> {
     pub fn len(&self) -> usize {
-        self.run.len() as usize
+        (self.run.len() / T::STRIDE) as usize
     }
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = CoercedAttrRef<'a>> + use<'a> {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = T::Item<'a>> + use<'a, T> {
+        let refs = *self;
+        (0..self.len() as u32).map(move |i| T::item(refs, i))
+    }
+
+    /// Every child ref in storage order, whatever the item shape.
+    fn children(&self) -> impl ExactSizeIterator<Item = CoercedAttrRef<'a>> + use<'a, T> {
         let arena = self.run.arena;
         self.run.iter().map(move |r| arena.view(r))
-    }
-}
-
-/// View of a dict value's (key, value) child refs.
-#[derive(Copy, Clone)]
-pub struct AttrRefDict<'a> {
-    /// Interleaved key, value refs, two per entry.
-    run: RefRun<'a>,
-}
-
-impl<'a> AttrRefDict<'a> {
-    pub fn len(&self) -> usize {
-        (self.run.len() / 2) as usize
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (CoercedAttrRef<'a>, CoercedAttrRef<'a>)> + 'a {
-        let arena = self.run.arena;
-        self.run
-            .iter()
-            .tuples()
-            .map(move |(k, v)| (arena.view(k), arena.view(v)))
     }
 }
 
@@ -1974,7 +3249,9 @@ impl<'a> AttrRefSelectorEntries<'a> {
         self.values.len() as usize
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&'a ProvidersLabel, CoercedAttrRef<'a>)> + 'a {
+    pub fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (&'a ProvidersLabel, CoercedAttrRef<'a>)> + 'a {
         let arena = self.values.arena;
         self.keys
             .iter_raw()
@@ -1985,237 +3262,43 @@ impl<'a> AttrRefSelectorEntries<'a> {
 
 impl<'a> CoercedAttrRef<'a> {
     pub fn kind(&self) -> CoercedAttrRefKind<'a> {
-        let arena = self.arena;
-        let r = self.r;
-        if let Some((kind, p)) = r.inline_parts() {
-            return match kind {
-                AttrKind::None => CoercedAttrRefKind::None,
-                AttrKind::BoolFalse => CoercedAttrRefKind::Bool(false),
-                AttrKind::BoolTrue => CoercedAttrRefKind::Bool(true),
-                AttrKind::Int => {
-                    // Sign-extend the 26-bit payload.
-                    let shifted = (p << (32 - INLINE_PAYLOAD_BITS)) as i32;
-                    CoercedAttrRefKind::Int((shifted >> (32 - INLINE_PAYLOAD_BITS)) as i64)
-                }
-                AttrKind::Dep => CoercedAttrRefKind::Dep(&arena.providers_labels[p as usize]),
-                AttrKind::Label => CoercedAttrRefKind::Label(&arena.providers_labels[p as usize]),
-                AttrKind::SourceLabel => {
-                    CoercedAttrRefKind::SourceLabel(&arena.providers_labels[p as usize])
-                }
-                AttrKind::ConfigurationDep => {
-                    CoercedAttrRefKind::ConfigurationDep(&arena.providers_labels[p as usize])
-                }
-                AttrKind::SplitTransitionDep => {
-                    CoercedAttrRefKind::SplitTransitionDep(&arena.providers_labels[p as usize])
-                }
-                AttrKind::PluginDep => {
-                    CoercedAttrRefKind::PluginDep(&arena.target_labels[p as usize])
-                }
-                AttrKind::SourceFile => CoercedAttrRefKind::SourceFile(&arena.paths[p as usize]),
-                AttrKind::Visibility => {
-                    CoercedAttrRefKind::Visibility(&arena.visibility[p as usize])
-                }
-                AttrKind::WithinView => {
-                    CoercedAttrRefKind::WithinView(&arena.within_view[p as usize])
-                }
-                AttrKind::Modifiers => CoercedAttrRefKind::Modifiers(&arena.modifiers[p as usize]),
-                _ => unreachable!("should be a leaf kind: only leaves are inline"),
-            };
-        }
-        let rec = arena.open(r);
-        match rec.kind {
-            AttrKind::None
-            | AttrKind::BoolFalse
-            | AttrKind::BoolTrue
-            | AttrKind::Dep
-            | AttrKind::Label
-            | AttrKind::SourceLabel
-            | AttrKind::ConfigurationDep
-            | AttrKind::SplitTransitionDep
-            | AttrKind::PluginDep
-            | AttrKind::SourceFile
-            | AttrKind::Visibility
-            | AttrKind::WithinView
-            | AttrKind::Modifiers => unreachable!("should be inline: leaf kinds have no record"),
-            AttrKind::Metadata => {
-                CoercedAttrRefKind::Metadata(&arena.metadata[rec.head.raw(0) as usize])
-            }
-            AttrKind::Int => CoercedAttrRefKind::Int(unzigzag(
-                rec.head.raw(0) as u64 | ((rec.head.raw(1) as u64) << 32),
-            )),
-            AttrKind::String => CoercedAttrRefKind::String(arena.str_at(r)),
-            AttrKind::EnumVariant => CoercedAttrRefKind::EnumVariant(arena.str_at(r)),
-            AttrKind::ArgSimple => CoercedAttrRefKind::ArgSimple(arena.str_at(r)),
-            AttrKind::Query => CoercedAttrRefKind::Query(QueryView { arena, r }),
-            AttrKind::SelectFail => CoercedAttrRefKind::SelectFail(arena.str_at(r)),
-            AttrKind::SelectIncompatible => CoercedAttrRefKind::SelectIncompatible(arena.str_at(r)),
-            AttrKind::ExplicitConfiguredDep => CoercedAttrRefKind::ExplicitConfiguredDep {
-                label: &arena.providers_labels[rec.head.raw(0) as usize],
-                platform: &arena.target_labels[rec.head.raw(1) as usize],
-            },
-            AttrKind::TransitionDep => CoercedAttrRefKind::TransitionDep {
-                dep: &arena.providers_labels[rec.head.raw(0) as usize],
-                transition: match rec.head.raw(1) {
-                    0 => None,
-                    i => Some(&arena.providers_labels[(i - 1) as usize]),
-                },
-            },
-            AttrKind::ArgParts => CoercedAttrRefKind::Arg(AttrRefArgParts { run: rec.refs() }),
-            AttrKind::ArgMacro => {
-                unreachable!("arg macro records are not attribute values")
-            }
-            AttrKind::QueryExpr => {
-                unreachable!("query expression nodes are not attribute values")
-            }
-            AttrKind::SelectorKeys => {
-                unreachable!("selector keys records are not attribute values")
-            }
-            AttrKind::List => CoercedAttrRefKind::List(AttrRefSeq { run: rec.refs() }),
-            AttrKind::Tuple => CoercedAttrRefKind::Tuple(AttrRefSeq { run: rec.refs() }),
-            AttrKind::Concat => CoercedAttrRefKind::Concat(AttrRefSeq { run: rec.refs() }),
-            AttrKind::Dict => CoercedAttrRefKind::Dict(AttrRefDict { run: rec.refs() }),
-            AttrKind::Selector => {
-                let refs = rec.refs();
-                let keys = arena.open(refs.get(0));
-                CoercedAttrRefKind::Selector {
-                    entries: AttrRefSelectorEntries {
-                        keys: keys.head.skip(1),
-                        values: refs.skip(2),
-                    },
-                    default: refs.get_opt(1).map(|d| arena.view(d)),
-                }
-            }
-            AttrKind::OneOf => {
-                let child = arena.view(rec.refs().get(0));
-                CoercedAttrRefKind::OneOf(child, rec.head.raw(0))
-            }
-        }
-    }
-
-    /// Reconstruct an owned [`CoercedAttr`]. Bridge for consumers that take
-    /// owned enum values, and for round-trip testing.
-    pub fn to_coerced(&self) -> buck2_error::Result<CoercedAttr> {
-        Ok(match self.kind() {
-            CoercedAttrRefKind::None => CoercedAttr::None,
-            CoercedAttrRefKind::Bool(b) => CoercedAttr::Bool(BoolLiteral(b)),
-            CoercedAttrRefKind::Int(i) => CoercedAttr::Int(i),
-            CoercedAttrRefKind::String(s) => CoercedAttr::String(StringLiteral(ArcStr::from(s))),
-            CoercedAttrRefKind::EnumVariant(s) => {
-                CoercedAttr::EnumVariant(StringLiteral(ArcStr::from(s)))
-            }
-            CoercedAttrRefKind::ArgSimple(s) => {
-                CoercedAttr::Arg(StringWithMacros::StringPart(ArcStr::from(s)))
-            }
-            CoercedAttrRefKind::Arg(parts) => CoercedAttr::Arg(StringWithMacros::ManyParts(
-                parts.iter().map(|p| p.to_part()).collect(),
-            )),
-            CoercedAttrRefKind::List(seq) => CoercedAttr::List(ListLiteral(
-                seq.iter()
-                    .map(|v| v.to_coerced())
-                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
-            )),
-            CoercedAttrRefKind::Tuple(seq) => CoercedAttr::Tuple(TupleLiteral(
-                seq.iter()
-                    .map(|v| v.to_coerced())
-                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
-            )),
-            CoercedAttrRefKind::Dict(pairs) => CoercedAttr::Dict(DictLiteral(
-                pairs
-                    .iter()
-                    .map(|(k, v)| Ok((k.to_coerced()?, v.to_coerced()?)))
-                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
-            )),
-            CoercedAttrRefKind::Selector { entries, default } => {
-                let entries = entries
-                    .iter()
-                    .map(|(key, v)| Ok((ConfigurationSettingKey(key.dupe()), v.to_coerced()?)))
-                    .collect::<buck2_error::Result<ArcSlice<_>>>()?;
-                let default = default.map(|d| d.to_coerced()).transpose()?;
-                CoercedAttr::Selector(Arc::new(
-                    CoercedSelector::new(entries, default)
-                        .internal_error("should be valid: encoded from a valid selector")?,
-                ))
-            }
-            CoercedAttrRefKind::Concat(seq) => CoercedAttr::Concat(CoercedConcat(
-                seq.iter()
-                    .map(|v| v.to_coerced())
-                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
-            )),
-            CoercedAttrRefKind::OneOf(child, idx) => {
-                CoercedAttr::OneOf(Box::new(child.to_coerced()?), idx)
-            }
-            CoercedAttrRefKind::Dep(l) => CoercedAttr::Dep(l.dupe()),
-            CoercedAttrRefKind::Label(l) => CoercedAttr::Label(l.dupe()),
-            CoercedAttrRefKind::SourceLabel(l) => CoercedAttr::SourceLabel(l.dupe()),
-            CoercedAttrRefKind::ConfigurationDep(l) => CoercedAttr::ConfigurationDep(l.dupe()),
-            CoercedAttrRefKind::SplitTransitionDep(l) => CoercedAttr::SplitTransitionDep(l.dupe()),
-            CoercedAttrRefKind::PluginDep(l) => CoercedAttr::PluginDep(l.dupe()),
-            CoercedAttrRefKind::SourceFile(p) => CoercedAttr::SourceFile(p.clone()),
-            CoercedAttrRefKind::Query(q) => CoercedAttr::Query(Box::new(q.to_query_attr())),
-            CoercedAttrRefKind::SelectFail(s) => CoercedAttr::SelectFail(ArcStr::from(s)),
-            CoercedAttrRefKind::SelectIncompatible(s) => {
-                CoercedAttr::SelectIncompatible(ArcStr::from(s))
-            }
-            CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
-                CoercedAttr::ExplicitConfiguredDep(Box::new(UnconfiguredExplicitConfiguredDep {
-                    label: label.dupe(),
-                    platform: platform.dupe(),
-                }))
-            }
-            CoercedAttrRefKind::TransitionDep { dep, transition } => {
-                CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
-                    dep: dep.dupe(),
-                    transition: transition.map(|t| Arc::new(TransitionId::Target(t.dupe()))),
-                }))
-            }
-            CoercedAttrRefKind::Visibility(v) => CoercedAttr::Visibility(v.clone()),
-            CoercedAttrRefKind::WithinView(v) => CoercedAttr::WithinView(v.clone()),
-            CoercedAttrRefKind::Modifiers(m) => CoercedAttr::TargetModifiers(m.dupe()),
-            CoercedAttrRefKind::Metadata(m) => CoercedAttr::Metadata(m.clone()),
-        })
+        dispatch(self.arena.kind_of(self.r), ToRefKind { v: *self })
     }
 }
 
 impl<'a> CoercedAttrRef<'a> {
+    /// The decoded parts if this value is of kind `K`: the typed downcast,
+    /// for readers that want one kind rather than the sum `kind()` gives.
+    fn parts<K: Kind>(&self) -> Option<K::Parts<'a>> {
+        (self.arena.kind_of(self.r) == K::KIND).then(|| K::decode(self.arena, self.r))
+    }
+
     pub fn unpack_visibility(&self) -> Option<&'a VisibilitySpecification> {
-        match self.kind() {
-            CoercedAttrRefKind::Visibility(v) => Some(v),
-            _ => None,
-        }
+        self.parts::<kinds::Visibility>().map(|(v,)| v)
     }
 
     pub fn unpack_within_view(&self) -> Option<&'a WithinViewSpecification> {
-        match self.kind() {
-            CoercedAttrRefKind::WithinView(v) => Some(v),
-            _ => None,
-        }
+        self.parts::<kinds::WithinView>().map(|(v,)| v)
     }
 
     pub fn unpack_metadata(&self) -> Option<&'a MetadataMap> {
-        match self.kind() {
-            CoercedAttrRefKind::Metadata(m) => Some(m),
-            _ => None,
-        }
+        self.parts::<kinds::Metadata>().map(|(m,)| m)
     }
 
     pub fn unpack_target_modifiers(&self) -> Option<&'a CfgModifiers> {
-        match self.kind() {
-            CoercedAttrRefKind::Modifiers(m) => Some(m),
-            _ => None,
-        }
+        self.parts::<kinds::Modifiers>().map(|(m,)| m)
     }
 
     /// Whether evaluating this value can ever yield `None`, directly or
     /// through a `select()` branch.
     pub fn may_return_none(&self) -> bool {
-        match self.kind() {
-            CoercedAttrRefKind::None => true,
-            CoercedAttrRefKind::Selector { entries, default } => {
-                entries.iter().any(|(_, v)| v.may_return_none())
-                    || default.is_some_and(|d| d.may_return_none())
-            }
-            _ => false,
-        }
+        self.parts::<kinds::None>().is_some()
+            || self
+                .parts::<kinds::Selector>()
+                .is_some_and(|(entries, default)| {
+                    entries.iter().any(|(_, v)| v.may_return_none())
+                        || default.is_some_and(|d| d.may_return_none())
+                })
     }
 
     /// The stored identity-grade content hash, if this ref was interned as
@@ -2228,93 +3311,15 @@ impl<'a> CoercedAttrRef<'a> {
     /// arena-local, so cutoff comparisons between old and new values must
     /// compare content.
     pub fn content_eq(&self, other: &CoercedAttrRef<'_>) -> bool {
-        match (self.kind(), other.kind()) {
-            (CoercedAttrRefKind::None, CoercedAttrRefKind::None) => true,
-            (CoercedAttrRefKind::Bool(a), CoercedAttrRefKind::Bool(b)) => a == b,
-            (CoercedAttrRefKind::Int(a), CoercedAttrRefKind::Int(b)) => a == b,
-            (CoercedAttrRefKind::String(a), CoercedAttrRefKind::String(b)) => a == b,
-            (CoercedAttrRefKind::EnumVariant(a), CoercedAttrRefKind::EnumVariant(b)) => a == b,
-            (CoercedAttrRefKind::ArgSimple(a), CoercedAttrRefKind::ArgSimple(b)) => a == b,
-            (CoercedAttrRefKind::Arg(a), CoercedAttrRefKind::Arg(b)) => {
-                a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| x == y)
-            }
-            (CoercedAttrRefKind::List(a), CoercedAttrRefKind::List(b))
-            | (CoercedAttrRefKind::Tuple(a), CoercedAttrRefKind::Tuple(b))
-            | (CoercedAttrRefKind::Concat(a), CoercedAttrRefKind::Concat(b)) => {
-                a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| x.content_eq(&y))
-            }
-            (CoercedAttrRefKind::Dict(a), CoercedAttrRefKind::Dict(b)) => {
-                a.len() == b.len()
-                    && a.iter()
-                        .zip(b.iter())
-                        .all(|((ka, va), (kb, vb))| ka.content_eq(&kb) && va.content_eq(&vb))
-            }
-            (
-                CoercedAttrRefKind::Selector {
-                    entries: ea,
-                    default: da,
+        let kind = self.arena.kind_of(self.r);
+        kind == other.arena.kind_of(other.r)
+            && dispatch(
+                kind,
+                EqParts {
+                    a: *self,
+                    b: *other,
                 },
-                CoercedAttrRefKind::Selector {
-                    entries: eb,
-                    default: db,
-                },
-            ) => {
-                ea.len() == eb.len()
-                    && match (da, db) {
-                        (None, None) => true,
-                        (Some(x), Some(y)) => x.content_eq(&y),
-                        _ => false,
-                    }
-                    && ea
-                        .iter()
-                        .zip(eb.iter())
-                        .all(|((ka, va), (kb, vb))| ka == kb && va.content_eq(&vb))
-            }
-            (CoercedAttrRefKind::OneOf(a, ia), CoercedAttrRefKind::OneOf(b, ib)) => {
-                ia == ib && a.content_eq(&b)
-            }
-            (CoercedAttrRefKind::Dep(a), CoercedAttrRefKind::Dep(b))
-            | (CoercedAttrRefKind::Label(a), CoercedAttrRefKind::Label(b))
-            | (CoercedAttrRefKind::SourceLabel(a), CoercedAttrRefKind::SourceLabel(b))
-            | (CoercedAttrRefKind::ConfigurationDep(a), CoercedAttrRefKind::ConfigurationDep(b))
-            | (
-                CoercedAttrRefKind::SplitTransitionDep(a),
-                CoercedAttrRefKind::SplitTransitionDep(b),
-            ) => a == b,
-            (CoercedAttrRefKind::PluginDep(a), CoercedAttrRefKind::PluginDep(b)) => a == b,
-            (CoercedAttrRefKind::SourceFile(a), CoercedAttrRefKind::SourceFile(b)) => a == b,
-            (CoercedAttrRefKind::Query(a), CoercedAttrRefKind::Query(b)) => a == b,
-            (CoercedAttrRefKind::SelectFail(a), CoercedAttrRefKind::SelectFail(b))
-            | (
-                CoercedAttrRefKind::SelectIncompatible(a),
-                CoercedAttrRefKind::SelectIncompatible(b),
-            ) => a == b,
-            (
-                CoercedAttrRefKind::ExplicitConfiguredDep {
-                    label: la,
-                    platform: pa,
-                },
-                CoercedAttrRefKind::ExplicitConfiguredDep {
-                    label: lb,
-                    platform: pb,
-                },
-            ) => la == lb && pa == pb,
-            (
-                CoercedAttrRefKind::TransitionDep {
-                    dep: da,
-                    transition: ta,
-                },
-                CoercedAttrRefKind::TransitionDep {
-                    dep: db,
-                    transition: tb,
-                },
-            ) => da == db && ta == tb,
-            (CoercedAttrRefKind::Visibility(a), CoercedAttrRefKind::Visibility(b)) => a == b,
-            (CoercedAttrRefKind::WithinView(a), CoercedAttrRefKind::WithinView(b)) => a == b,
-            (CoercedAttrRefKind::Modifiers(a), CoercedAttrRefKind::Modifiers(b)) => a == b,
-            (CoercedAttrRefKind::Metadata(a), CoercedAttrRefKind::Metadata(b)) => a == b,
-            _ => false,
-        }
+            )
     }
 
     /// Type-threaded traversal over the value's deps. Callback borrows come
@@ -2530,6 +3535,89 @@ impl<'a> CoercedAttrRef<'a> {
                 )),
             },
         }
+    }
+
+    /// Reconstruct an owned [`CoercedAttr`]. Bridge for consumers that take
+    /// owned enum values, and for round-trip testing.
+    pub fn to_coerced(&self) -> buck2_error::Result<CoercedAttr> {
+        Ok(match self.kind() {
+            CoercedAttrRefKind::None => CoercedAttr::None,
+            CoercedAttrRefKind::Bool(b) => CoercedAttr::Bool(BoolLiteral(b)),
+            CoercedAttrRefKind::Int(i) => CoercedAttr::Int(i),
+            CoercedAttrRefKind::String(s) => CoercedAttr::String(StringLiteral(ArcStr::from(s))),
+            CoercedAttrRefKind::EnumVariant(s) => {
+                CoercedAttr::EnumVariant(StringLiteral(ArcStr::from(s)))
+            }
+            CoercedAttrRefKind::ArgSimple(s) => {
+                CoercedAttr::Arg(StringWithMacros::StringPart(ArcStr::from(s)))
+            }
+            CoercedAttrRefKind::Arg(parts) => CoercedAttr::Arg(StringWithMacros::ManyParts(
+                parts.iter().map(|p| p.to_part()).collect(),
+            )),
+            CoercedAttrRefKind::List(seq) => CoercedAttr::List(ListLiteral(
+                seq.iter()
+                    .map(|v| v.to_coerced())
+                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
+            )),
+            CoercedAttrRefKind::Tuple(seq) => CoercedAttr::Tuple(TupleLiteral(
+                seq.iter()
+                    .map(|v| v.to_coerced())
+                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
+            )),
+            CoercedAttrRefKind::Dict(pairs) => CoercedAttr::Dict(DictLiteral(
+                pairs
+                    .iter()
+                    .map(|(k, v)| Ok((k.to_coerced()?, v.to_coerced()?)))
+                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
+            )),
+            CoercedAttrRefKind::Selector { entries, default } => {
+                let entries = entries
+                    .iter()
+                    .map(|(key, v)| Ok((ConfigurationSettingKey(key.dupe()), v.to_coerced()?)))
+                    .collect::<buck2_error::Result<ArcSlice<_>>>()?;
+                let default = default.map(|d| d.to_coerced()).transpose()?;
+                CoercedAttr::Selector(Arc::new(
+                    CoercedSelector::new(entries, default)
+                        .internal_error("should be valid: encoded from a valid selector")?,
+                ))
+            }
+            CoercedAttrRefKind::Concat(seq) => CoercedAttr::Concat(CoercedConcat(
+                seq.iter()
+                    .map(|v| v.to_coerced())
+                    .collect::<buck2_error::Result<ArcSlice<_>>>()?,
+            )),
+            CoercedAttrRefKind::OneOf(child, idx) => {
+                CoercedAttr::OneOf(Box::new(child.to_coerced()?), idx)
+            }
+            CoercedAttrRefKind::Dep(l) => CoercedAttr::Dep(l.dupe()),
+            CoercedAttrRefKind::Label(l) => CoercedAttr::Label(l.dupe()),
+            CoercedAttrRefKind::SourceLabel(l) => CoercedAttr::SourceLabel(l.dupe()),
+            CoercedAttrRefKind::ConfigurationDep(l) => CoercedAttr::ConfigurationDep(l.dupe()),
+            CoercedAttrRefKind::SplitTransitionDep(l) => CoercedAttr::SplitTransitionDep(l.dupe()),
+            CoercedAttrRefKind::PluginDep(l) => CoercedAttr::PluginDep(l.dupe()),
+            CoercedAttrRefKind::SourceFile(p) => CoercedAttr::SourceFile(p.clone()),
+            CoercedAttrRefKind::Query(q) => CoercedAttr::Query(Box::new(q.to_query_attr())),
+            CoercedAttrRefKind::SelectFail(s) => CoercedAttr::SelectFail(ArcStr::from(s)),
+            CoercedAttrRefKind::SelectIncompatible(s) => {
+                CoercedAttr::SelectIncompatible(ArcStr::from(s))
+            }
+            CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
+                CoercedAttr::ExplicitConfiguredDep(Box::new(UnconfiguredExplicitConfiguredDep {
+                    label: label.dupe(),
+                    platform: platform.dupe(),
+                }))
+            }
+            CoercedAttrRefKind::TransitionDep { dep, transition } => {
+                CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
+                    dep: dep.dupe(),
+                    transition: transition.map(|t| Arc::new(TransitionId::Target(t.dupe()))),
+                }))
+            }
+            CoercedAttrRefKind::Visibility(v) => CoercedAttr::Visibility(v.clone()),
+            CoercedAttrRefKind::WithinView(v) => CoercedAttr::WithinView(v.clone()),
+            CoercedAttrRefKind::Modifiers(m) => CoercedAttr::TargetModifiers(m.dupe()),
+            CoercedAttrRefKind::Metadata(m) => CoercedAttr::Metadata(m.clone()),
+        })
     }
 }
 
@@ -3307,29 +4395,24 @@ impl<'a> CoercedAttrRef<'a> {
     /// Errors on any other kind: only for attributes the coercer has already
     /// verified to be a (non-configurable) configuration dep.
     pub fn unpack_configuration_dep(&self) -> buck2_error::Result<Option<&'a ProvidersLabel>> {
-        match self.kind() {
-            CoercedAttrRefKind::None => Ok(None),
-            CoercedAttrRefKind::ConfigurationDep(l) => Ok(Some(l)),
-            _ => Err(internal_error!(
-                "should be a configuration dep: verified by the attr coercer"
-            )),
+        if self.parts::<kinds::None>().is_some() {
+            return Ok(None);
         }
+        self.parts::<kinds::ConfigurationDep>()
+            .map(|(l,)| Some(l))
+            .ok_or_else(|| {
+                internal_error!("should be a configuration dep: verified by the attr coercer")
+            })
     }
 
     /// The list elements, or `None` when the value is not a list.
     pub fn unpack_list(&self) -> Option<impl Iterator<Item = CoercedAttrRef<'a>> + use<'a>> {
-        match self.kind() {
-            CoercedAttrRefKind::List(items) => Some(items.iter()),
-            _ => None,
-        }
+        self.parts::<kinds::List>().map(|(items,)| items.iter())
     }
 
     /// The string content, or `None` when the value is not a string.
     pub fn unpack_str(&self) -> Option<&'a str> {
-        match self.kind() {
-            CoercedAttrRefKind::String(s) => Some(s),
-            _ => None,
-        }
+        self.parts::<kinds::String>().map(|(s,)| s)
     }
 }
 
@@ -3552,7 +4635,7 @@ impl AttrSerializeWithContext for CoercedAttrRef<'_> {
             map.end()
         }
         fn seq<'a, S: Serializer>(
-            items: AttrRefSeq<'a>,
+            items: Refs<'a, Values>,
             ctx: &'a AttrFmtContext,
             s: S,
         ) -> Result<S::Ok, S::Error> {
@@ -3621,7 +4704,7 @@ impl AttrSerializeWithContext for CoercedAttrRef<'_> {
                 let mut map = s.serialize_map(Some(2))?;
                 map.serialize_entry("__type", "concat")?;
                 struct Items<'a> {
-                    items: AttrRefSeq<'a>,
+                    items: Refs<'a, Values>,
                     ctx: &'a AttrFmtContext,
                 }
                 impl Serialize for Items<'_> {
@@ -3713,6 +4796,11 @@ pub struct CoercedAttrArenaBuilder {
     /// Directories are excluded: their value includes the expanded file
     /// list, so the dir pointer alone does not imply value equality.
     path_by_ptr: hashbrown::HashTable<(ArcS<PackageRelativePath>, u32, u64)>,
+    /// Whole-value tables' content dedup: value hash to table index.
+    visibility_dedup: hashbrown::HashTable<(u64, u32)>,
+    within_view_dedup: hashbrown::HashTable<(u64, u32)>,
+    modifiers_dedup: hashbrown::HashTable<(u64, u32)>,
+    metadata_dedup: hashbrown::HashTable<(u64, u32)>,
     /// Words interned as roots (top-level attribute values); the sealed
     /// arena retains an identity-grade strong hash for exactly these.
     roots: Vec<AttrWord>,
@@ -3722,31 +4810,6 @@ pub struct CoercedAttrArenaBuilder {
 /// folds into its own.
 fn token((r, h): (AttrWord, CoercedAttrHash)) -> AttrToken {
     AttrToken(r, h)
-}
-
-/// Interns a whole value into `table`; the word is `kind` with the table
-/// index as payload. One entry per distinct value.
-fn intern_whole<T: Hash + PartialEq + Clone>(
-    value_dedup: &mut hashbrown::HashTable<(u64, AttrWord)>,
-    table: &mut Vec<T>,
-    kind: AttrKind,
-    value: &T,
-) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
-    let hash = content_hash(kind, |h| value.hash(h));
-    if let Some(&(_, r)) = value_dedup.find(hash.0, |&(h, r)| {
-        h == hash.0
-            && matches!(
-                r.inline_parts(),
-                Some((k, idx)) if k == kind && table[idx as usize] == *value
-            )
-    }) {
-        return Ok((r, hash));
-    }
-    let idx = table.len() as u32;
-    table.push(value.clone());
-    let r = AttrWord::inline(kind, idx)?;
-    value_dedup.insert_unique(hash.0, (hash.0, r), |&(h, _)| h);
-    Ok((r, hash))
 }
 
 fn content_hash(tag: AttrKind, f: impl FnOnce(&mut BuckHasher)) -> CoercedAttrHash {
@@ -3772,16 +4835,6 @@ fn mix_kind(kind: AttrKind, h: u64) -> CoercedAttrHash {
     CoercedAttrHash(x ^ (x >> 31))
 }
 
-/// Content hashes of the payload-free kinds, computed once.
-static FIXED_KIND_HASHES: std::sync::LazyLock<[CoercedAttrHash; 3]> =
-    std::sync::LazyLock::new(|| {
-        [
-            mix_kind(AttrKind::None, 0),
-            mix_kind(AttrKind::BoolFalse, 0),
-            mix_kind(AttrKind::BoolTrue, 0),
-        ]
-    });
-
 /// Head fields of one record while encoding; `SelectorKeys` and
 /// `QueryExpr` heads can run long, everything else is one to three fields.
 type EncodeScratchFields = SmallVec<[u32; 32]>;
@@ -3789,10 +4842,6 @@ type EncodeScratchFields = SmallVec<[u32; 32]>;
 /// Child refs gathered alongside [`EncodeScratchFields`]: covers values with up
 /// to 32 children on the stack — beyond typical select/list/dict fan-out.
 type EncodeScratchRefs = SmallVec<[AttrWord; 32]>;
-
-/// Child content hashes gathered alongside [`EncodeScratchRefs`]; same
-/// sizing rationale.
-type EncodeScratchHashes = SmallVec<[CoercedAttrHash; 32]>;
 
 /// Smallest width (1-4 bytes) holding `v`.
 #[inline]
@@ -3999,121 +5048,71 @@ impl CoercedAttrArenaBuilder {
         token.0
     }
 
-    /// Per-kind encoders: each takes a value's parts, with children as
-    /// tokens this builder minted, and returns the value's token. Coercion
-    /// builds arena contents through these alone.
-    pub fn encode_string(&mut self, s: &str) -> buck2_error::Result<AttrToken> {
-        self.encode_str(AttrKind::String, s).map(token)
-    }
-
-    pub fn encode_select_fail(&mut self, message: &str) -> buck2_error::Result<AttrToken> {
-        self.encode_str(AttrKind::SelectFail, message).map(token)
-    }
-
-    pub fn encode_select_incompatible(&mut self, message: &str) -> buck2_error::Result<AttrToken> {
-        self.encode_str(AttrKind::SelectIncompatible, message)
-            .map(token)
-    }
-
-    pub fn encode_list(&mut self, items: &[AttrToken]) -> buck2_error::Result<AttrToken> {
-        self.encode_seq(AttrKind::List, items).map(token)
-    }
-
-    pub fn encode_tuple(&mut self, items: &[AttrToken]) -> buck2_error::Result<AttrToken> {
-        self.encode_seq(AttrKind::Tuple, items).map(token)
-    }
-
-    /// A `+` chain of selects, already flattened to its operands.
-    pub fn encode_concat(&mut self, items: &[AttrToken]) -> buck2_error::Result<AttrToken> {
-        self.encode_seq(AttrKind::Concat, items).map(token)
-    }
-
-    pub fn encode_dict(
-        &mut self,
-        pairs: &[(AttrToken, AttrToken)],
-    ) -> buck2_error::Result<AttrToken> {
-        let mut refs = EncodeScratchRefs::with_capacity(pairs.len() * 2);
-        let mut hashes = EncodeScratchHashes::with_capacity(pairs.len() * 2);
-        for &(AttrToken(kr, kh), AttrToken(vr, vh)) in pairs.iter() {
-            refs.push(kr);
-            refs.push(vr);
-            hashes.push(kh);
-            hashes.push(vh);
+    /// Interns a whole value into its table, one entry per distinct value:
+    /// the table index and the value's content hash.
+    fn intern_whole<T: WholeTable>(&mut self, v: &T) -> (u32, u64) {
+        let mut h = BuckHasher::default();
+        v.hash(&mut h);
+        let hash = h.finish();
+        let (dedup, table) = T::table_mut(self);
+        if let Some(&(_, i)) = dedup.find(hash, |&(h, i)| h == hash && table[i as usize] == *v) {
+            return (i, hash);
         }
-        let hash = content_hash(AttrKind::Dict, |h| hashes.hash(h));
-        let r = self.encode_record(AttrKind::Dict, hash, &[pairs.len() as u32], &refs)?;
-        Ok(AttrToken(r, hash))
+        let i = table.len() as u32;
+        table.push(v.clone());
+        dedup.insert_unique(hash, (hash, i), |&(h, _)| h);
+        (i, hash)
     }
 
-    pub fn encode_one_of(&mut self, idx: u32, inner: AttrToken) -> buck2_error::Result<AttrToken> {
-        let AttrToken(cr, ch) = inner;
-        let hash = mix_kind(AttrKind::OneOf, ch.0 ^ ((idx as u64) << 32));
-        let r = self.encode_record(AttrKind::OneOf, hash, &[idx], &[cr])?;
-        Ok(AttrToken(r, hash))
+    /// Writes one gathered value per its kind's storage class.
+    fn emit(&mut self, storage: Storage, w: RecordWriter<'_>) -> buck2_error::Result<AttrToken> {
+        match storage {
+            Storage::Text => {
+                let text = w
+                    .text
+                    .expect("should have text: text storage has a `Text` field");
+                self.encode_str(w.kind, text).map(token)
+            }
+            Storage::Inline => {
+                let payload = w.head.first().copied().unwrap_or(0);
+                Ok(AttrToken(
+                    AttrWord::inline(w.kind, payload)?,
+                    CoercedAttrHash(w.h.finish()),
+                ))
+            }
+            Storage::Record => {
+                let hash = CoercedAttrHash(w.h.finish());
+                let r = self.encode_record(w.kind, hash, &w.head, &w.refs)?;
+                Ok(AttrToken(r, hash))
+            }
+        }
     }
 
-    pub fn encode_selector(
+    /// The shared `SelectorKeys` record of a selector's key set.
+    fn encode_selector_keys<'k>(
         &mut self,
-        entries: &[(ConfigurationSettingKey, AttrToken)],
-        default: Option<AttrToken>,
-    ) -> buck2_error::Result<AttrToken> {
-        CoercedSelector::check_all_keys_unique(entries)?;
-        self.encode_selector_parts(entries, default).map(token)
-    }
-
-    fn encode_selector_parts(
-        &mut self,
-        entries: &[(ConfigurationSettingKey, AttrToken)],
-        default: Option<AttrToken>,
+        keys: impl ExactSizeIterator<Item = &'k ProvidersLabel>,
     ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
-        let mut key_idxs = EncodeScratchFields::with_capacity(1 + entries.len());
+        let mut key_idxs = EncodeScratchFields::with_capacity(1 + keys.len());
+        key_idxs.push(keys.len() as u32);
         let mut keys_hasher = BuckHasher::default();
         Hash::hash(&(AttrKind::SelectorKeys as u8), &mut keys_hasher);
-        for (key, _) in entries.iter() {
-            let (key_idx, key_hash) = self.providers_label_idx_and_hash(&key.0);
+        for key in keys {
+            let (key_idx, key_hash) = self.providers_label_idx_and_hash(key);
             key_idxs.push(key_idx);
             key_hash.hash(&mut keys_hasher);
         }
         let keys_hash = CoercedAttrHash(keys_hasher.finish());
-        key_idxs.insert(0, entries.len() as u32);
-        let keys_ref = self.encode_record(AttrKind::SelectorKeys, keys_hash, &key_idxs, &[])?;
-
-        let (default_ref, default_hash) = match default {
-            Some(AttrToken(r, h)) => (r, Some(h)),
-            None => (ABSENT_REF, None),
-        };
-        let mut refs = EncodeScratchRefs::with_capacity(2 + entries.len());
-        refs.push(keys_ref);
-        refs.push(default_ref);
-        let mut hasher_parts = EncodeScratchHashes::new();
-        let mut hash = BuckHasher::default();
-        Hash::hash(&(AttrKind::Selector as u8), &mut hash);
-        keys_hash.hash(&mut hash);
-        default_hash.hash(&mut hash);
-        for &(_, AttrToken(vr, vh)) in entries.iter() {
-            refs.push(vr);
-            hasher_parts.push(vh);
-        }
-        hasher_parts.hash(&mut hash);
-        let hash = CoercedAttrHash(hash.finish());
-        let r = self.encode_record(AttrKind::Selector, hash, &[entries.len() as u32], &refs)?;
-        Ok((r, hash))
-    }
-
-    pub fn encode_none(&mut self) -> buck2_error::Result<AttrToken> {
-        Ok(AttrToken(
-            AttrWord::inline(AttrKind::None, 0)?,
-            FIXED_KIND_HASHES[0],
-        ))
+        let r = self.encode_record(AttrKind::SelectorKeys, keys_hash, &key_idxs, &[])?;
+        Ok((r, keys_hash))
     }
 
     pub fn encode_bool(&mut self, b: bool) -> buck2_error::Result<AttrToken> {
-        let (kind, h) = if b {
-            (AttrKind::BoolTrue, FIXED_KIND_HASHES[2])
+        if b {
+            encode_kind::<kinds::BoolTrue>(self, ())
         } else {
-            (AttrKind::BoolFalse, FIXED_KIND_HASHES[1])
-        };
-        Ok(AttrToken(AttrWord::inline(kind, 0)?, h))
+            encode_kind::<kinds::BoolFalse>(self, ())
+        }
     }
 
     pub fn encode_int(&mut self, i: i64) -> buck2_error::Result<AttrToken> {
@@ -4131,121 +5130,19 @@ impl CoercedAttrArenaBuilder {
         Ok(AttrToken(r, hash))
     }
 
-    pub fn encode_enum_variant(&mut self, s: &str) -> buck2_error::Result<AttrToken> {
-        self.encode_str(AttrKind::EnumVariant, s).map(token)
-    }
-
-    pub fn encode_dep(&mut self, l: &ProvidersLabel) -> buck2_error::Result<AttrToken> {
-        self.encode_providers_label(AttrKind::Dep, l).map(token)
-    }
-
-    pub fn encode_label(&mut self, l: &ProvidersLabel) -> buck2_error::Result<AttrToken> {
-        self.encode_providers_label(AttrKind::Label, l).map(token)
-    }
-
-    pub fn encode_source_label(&mut self, l: &ProvidersLabel) -> buck2_error::Result<AttrToken> {
-        self.encode_providers_label(AttrKind::SourceLabel, l)
-            .map(token)
-    }
-
-    pub fn encode_configuration_dep(
-        &mut self,
-        l: &ProvidersLabel,
-    ) -> buck2_error::Result<AttrToken> {
-        self.encode_providers_label(AttrKind::ConfigurationDep, l)
-            .map(token)
-    }
-
-    pub fn encode_split_transition_dep(
-        &mut self,
-        l: &ProvidersLabel,
-    ) -> buck2_error::Result<AttrToken> {
-        self.encode_providers_label(AttrKind::SplitTransitionDep, l)
-            .map(token)
-    }
-
-    pub fn encode_plugin_dep(&mut self, l: &TargetLabel) -> buck2_error::Result<AttrToken> {
-        let idx = self.target_label_idx(l.dupe());
-        let hash = content_hash(AttrKind::PluginDep, |h| l.hash(h));
-        Ok(AttrToken(AttrWord::inline(AttrKind::PluginDep, idx)?, hash))
-    }
-
-    pub fn encode_explicit_configured_dep(
-        &mut self,
-        label: &ProvidersLabel,
-        platform: &TargetLabel,
-    ) -> buck2_error::Result<AttrToken> {
-        let (label_idx, label_hash) = self.providers_label_idx_and_hash(label);
-        let platform_idx = self.target_label_idx(platform.dupe());
-        let hash = content_hash(AttrKind::ExplicitConfiguredDep, |h| {
-            label_hash.hash(h);
-            platform.hash(h);
-        });
-        let r = self.encode_record(
-            AttrKind::ExplicitConfiguredDep,
-            hash,
-            &[label_idx, platform_idx],
-            &[],
-        )?;
-        Ok(AttrToken(r, hash))
-    }
-
-    /// `transition` is the dynamic transition target, `None` when the attr
-    /// type fixes the transition.
-    pub fn encode_transition_dep(
-        &mut self,
-        dep: &ProvidersLabel,
-        transition: Option<&ProvidersLabel>,
-    ) -> buck2_error::Result<AttrToken> {
-        let (dep_idx, dep_hash) = self.providers_label_idx_and_hash(dep);
-        let (transition_field, transition_hash) = match transition {
-            Some(t) => {
-                let (idx, h) = self.providers_label_idx_and_hash(t);
-                (idx + 1, Some(h))
-            }
-            None => (0, None),
-        };
-        let hash = content_hash(AttrKind::TransitionDep, |h| {
-            (dep_hash, transition_hash).hash(h)
-        });
-        let r = self.encode_record(
-            AttrKind::TransitionDep,
-            hash,
-            &[dep_idx, transition_field],
-            &[],
-        )?;
-        Ok(AttrToken(r, hash))
-    }
-
-    pub fn encode_source_file(&mut self, p: &CoercedPath) -> buck2_error::Result<AttrToken> {
-        let (idx, path_hash) = self.source_path_idx_and_hash(p);
-        Ok(AttrToken(
-            AttrWord::inline(AttrKind::SourceFile, idx)?,
-            mix_kind(AttrKind::SourceFile, path_hash),
-        ))
-    }
-
     /// Encode an `arg()` value: simple text and macros as records.
     pub fn encode_arg(
         &mut self,
         arg: &StringWithMacros<ProvidersLabel>,
     ) -> buck2_error::Result<AttrToken> {
         match arg {
-            StringWithMacros::StringPart(part) => {
-                self.encode_str(AttrKind::ArgSimple, part).map(token)
-            }
+            StringWithMacros::StringPart(part) => self.encode_arg_simple(part),
             StringWithMacros::ManyParts(parts) => {
-                let mut refs = EncodeScratchRefs::with_capacity(parts.len());
-                let mut hashes = EncodeScratchHashes::with_capacity(parts.len());
-                for part in parts.iter() {
-                    let (r, h) = self.encode_arg_part(part)?;
-                    refs.push(r);
-                    hashes.push(h);
-                }
-                let hash = content_hash(AttrKind::ArgParts, |h| hashes.hash(h));
-                let r =
-                    self.encode_record(AttrKind::ArgParts, hash, &[parts.len() as u32], &refs)?;
-                Ok(AttrToken(r, hash))
+                let parts = parts
+                    .iter()
+                    .map(|p| self.encode_arg_part(p).map(token))
+                    .collect::<buck2_error::Result<SmallVec<[AttrToken; 8]>>>()?;
+                self.encode_arg_parts(&parts)
             }
         }
     }
@@ -4256,63 +5153,194 @@ impl CoercedAttrArenaBuilder {
         q: &QueryAttrBase<ProvidersLabel>,
     ) -> buck2_error::Result<AttrToken> {
         let parsed = buck2_query_parser::parse_expr(&q.query)?;
-        let (er, eh) = self.encode_query_expr(&parsed, &q.query, &q.resolved_literals)?;
-        let hash = content_hash(AttrKind::Query, |h| eh.hash(h));
-        let r = self.encode_record(AttrKind::Query, hash, &[], &[er])?;
-        Ok(AttrToken(r, hash))
+        let expr = self.encode_query_expr(&parsed, &q.query, &q.resolved_literals)?;
+        self.encode_parsed_query(expr)
     }
 
-    pub fn encode_visibility(
+    /// Copy a value out of another arena into this one, node by node through
+    /// the per-kind encoders: the token this returns has the same content and
+    /// identity hash as `v`, deduped against what this arena already holds.
+    pub fn encode_view(&mut self, v: CoercedAttrRef<'_>) -> buck2_error::Result<AttrToken> {
+        dispatch(v.arena.kind_of(v.r), CopyParts { v, b: self })
+    }
+
+    /// [`Self::encode_arg_part`] from a decoded part: the same records and
+    /// the same hashes, so copies dedup against parsed originals.
+    fn encode_arg_part_view(
         &mut self,
-        v: &VisibilitySpecification,
-    ) -> buck2_error::Result<AttrToken> {
-        intern_whole(
-            &mut self.value_dedup,
-            &mut self.arena.visibility,
-            AttrKind::Visibility,
-            v,
-        )
-        .map(token)
-    }
-
-    pub fn encode_within_view(
-        &mut self,
-        v: &WithinViewSpecification,
-    ) -> buck2_error::Result<AttrToken> {
-        intern_whole(
-            &mut self.value_dedup,
-            &mut self.arena.within_view,
-            AttrKind::WithinView,
-            v,
-        )
-        .map(token)
-    }
-
-    pub fn encode_target_modifiers(&mut self, m: &CfgModifiers) -> buck2_error::Result<AttrToken> {
-        intern_whole(
-            &mut self.value_dedup,
-            &mut self.arena.modifiers,
-            AttrKind::Modifiers,
-            m,
-        )
-        .map(token)
-    }
-
-    pub fn encode_metadata(&mut self, m: &MetadataMap) -> buck2_error::Result<AttrToken> {
-        let hash = content_hash(AttrKind::Metadata, |h| m.hash(h));
-        if let Some(&(_, r)) = self.value_dedup.find(hash.0, |&(h, r)| {
-            h == hash.0 && r.inline_parts().is_none() && {
-                let rec = self.arena.open(r);
-                rec.kind == AttrKind::Metadata
-                    && self.arena.metadata[rec.head.raw(0) as usize] == *m
+        part: ArgPartView<'_>,
+    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+        let (write_to_file, mac) = match part {
+            ArgPartView::String(s) => return self.encode_str(AttrKind::ArgSimple, s),
+            ArgPartView::Macro { write_to_file, mac } => (write_to_file, mac),
+        };
+        let wtf_bit = if write_to_file { ARG_MACRO_WTF_BIT } else { 0 };
+        let (tag, flag, payload, refs, hash_parts): (
+            u32,
+            u32,
+            u32,
+            SmallVec<[AttrWord; 2]>,
+            SmallVec<[u64; 3]>,
+        ) = match mac {
+            ArgMacroView::Location { label, dep_kind } => {
+                let (idx, lh) = self.providers_label_idx_and_hash(label);
+                (
+                    ARG_MACRO_TAG_LOCATION,
+                    dep_kind_bits(dep_kind),
+                    idx,
+                    smallvec![],
+                    smallvec![lh],
+                )
             }
-        }) {
-            return Ok(AttrToken(r, hash));
+            ArgMacroView::Exe { label, exec_dep } => {
+                let (idx, lh) = self.providers_label_idx_and_hash(label);
+                (
+                    ARG_MACRO_TAG_EXE,
+                    exec_dep as u32,
+                    idx,
+                    smallvec![],
+                    smallvec![lh],
+                )
+            }
+            ArgMacroView::UserUnkeyedPlaceholder(name) => {
+                let (sr, sh) = self.encode_str(AttrKind::String, name)?;
+                (ARG_MACRO_TAG_UNKEYED, 0, 0, smallvec![sr], smallvec![sh.0])
+            }
+            ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
+                let (vr, vh) = self.encode_str(AttrKind::String, var)?;
+                let (idx, lh) = self.providers_label_idx_and_hash(label);
+                let mut refs: SmallVec<[AttrWord; 2]> = smallvec![vr];
+                let mut parts: SmallVec<[u64; 3]> = smallvec![vh.0, lh];
+                let mut flag = 0;
+                if let Some(a) = arg {
+                    let (ar, ah) = self.encode_str(AttrKind::String, a)?;
+                    refs.push(ar);
+                    parts.push(ah.0);
+                    flag = 1;
+                }
+                (ARG_MACRO_TAG_KEYED, flag, idx, refs, parts)
+            }
+            ArgMacroView::Source(path) => {
+                let (idx, path_hash) = self.source_path_idx_and_hash(path);
+                (
+                    ARG_MACRO_TAG_SOURCE,
+                    0,
+                    idx,
+                    smallvec![],
+                    smallvec![path_hash],
+                )
+            }
+            ArgMacroView::Query(q) => {
+                let (er, eh) = self.encode_query_expr_view(q.expr())?;
+                let (expansion, sep) = q.expansion_parts();
+                let mut refs: SmallVec<[AttrWord; 2]> = smallvec![er];
+                let (sep_hash, sep_flag) = match sep {
+                    Some(sp) => {
+                        let (sr, sh) = self.encode_str(AttrKind::String, sp)?;
+                        refs.push(sr);
+                        (Some(sh), ARG_QUERY_HAS_SEP)
+                    }
+                    None => (None, 0),
+                };
+                let flags = expansion | sep_flag;
+                let hash = content_hash(AttrKind::ArgMacro, |h| {
+                    (ARG_MACRO_TAG_QUERY, flags, write_to_file, eh, sep_hash).hash(h)
+                });
+                let head = self.arg_macro_head(ARG_MACRO_TAG_QUERY, flags, wtf_bit, 0, refs.len());
+                let r = self.encode_record(AttrKind::ArgMacro, hash, &head, &refs)?;
+                return Ok((r, hash));
+            }
+        };
+        let hash = content_hash(AttrKind::ArgMacro, |h| {
+            (tag, flag, write_to_file, &hash_parts).hash(h)
+        });
+        let head = self.arg_macro_head(tag, flag, wtf_bit, payload, refs.len());
+        let r = self.encode_record(AttrKind::ArgMacro, hash, &head, &refs)?;
+        Ok((r, hash))
+    }
+
+    /// [`Self::encode_query_expr_inner`] from a decoded expression: node for
+    /// node and hash for hash.
+    fn encode_query_expr_view(
+        &mut self,
+        e: QueryExprRef<'_>,
+    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+        match e.view() {
+            QueryExprView::None => {
+                let hash = content_hash(AttrKind::QueryExpr, |h| Q_EXPR_NONE.hash(h));
+                self.encode_query_node(hash, Q_EXPR_NONE, &[], &[])
+            }
+            QueryExprView::Word(t) | QueryExprView::String(t) => {
+                let subtag = if matches!(e.view(), QueryExprView::Word(_)) {
+                    Q_EXPR_WORD
+                } else {
+                    Q_EXPR_STRING
+                };
+                let (sr, sh) = self.encode_str(AttrKind::String, t)?;
+                let hash = content_hash(AttrKind::QueryExpr, |h| (subtag, sh).hash(h));
+                self.encode_query_node(hash, subtag, &[], &[sr])
+            }
+            QueryExprView::Int(v) => {
+                let hash = content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_INT, v).hash(h));
+                self.encode_query_node(hash, Q_EXPR_INT, &[v as u32, (v >> 32) as u32], &[])
+            }
+            QueryExprView::Label(label) => {
+                let (idx, lh) = self.providers_label_idx_and_hash(label);
+                let hash = content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_LABEL, lh).hash(h));
+                self.encode_query_node(hash, Q_EXPR_LABEL, &[idx], &[])
+            }
+            QueryExprView::Function { name, args } => {
+                let (nr, nh) = self.encode_str(AttrKind::String, name)?;
+                let mut refs = EncodeScratchRefs::with_capacity(1 + args.len() as usize);
+                refs.push(nr);
+                let mut hashes =
+                    SmallVec::<[CoercedAttrHash; 8]>::with_capacity(args.len() as usize);
+                for a in args.iter() {
+                    let (ar, ah) = self.encode_query_expr_view(a)?;
+                    refs.push(ar);
+                    hashes.push(ah);
+                }
+                let hash = content_hash(AttrKind::QueryExpr, |h| {
+                    (Q_EXPR_FUNCTION, nh, &hashes).hash(h)
+                });
+                self.encode_query_node(hash, Q_EXPR_FUNCTION, &[], &refs)
+            }
+            QueryExprView::BinOp { first, rest } => {
+                let (fr, fh) = self.encode_query_expr_view(first)?;
+                let mut refs = EncodeScratchRefs::with_capacity(1 + rest.len() as usize);
+                refs.push(fr);
+                let mut ops = SmallVec::<[u32; 8]>::with_capacity(rest.len() as usize);
+                let mut hashes =
+                    SmallVec::<[CoercedAttrHash; 8]>::with_capacity(rest.len() as usize);
+                for (op, ex) in rest.iter() {
+                    let opw = binary_op_bits(op);
+                    let (xr, xh) = self.encode_query_expr_view(ex)?;
+                    ops.push(opw);
+                    refs.push(xr);
+                    hashes.push(CoercedAttrHash(xh.0 ^ ((opw as u64) << 60)));
+                }
+                let hash =
+                    content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_BINOP, fh, &hashes).hash(h));
+                self.encode_query_node(hash, Q_EXPR_BINOP, &ops, &refs)
+            }
+            QueryExprView::Set(items) | QueryExprView::FileSet(items) => {
+                let subtag = if matches!(e.view(), QueryExprView::Set(_)) {
+                    Q_EXPR_SET
+                } else {
+                    Q_EXPR_FILESET
+                };
+                let mut refs = EncodeScratchRefs::with_capacity(items.len() as usize);
+                let mut hashes =
+                    SmallVec::<[CoercedAttrHash; 16]>::with_capacity(items.len() as usize);
+                for v in items.iter() {
+                    let (mr, mh) = self.encode_query_expr_view(v)?;
+                    refs.push(mr);
+                    hashes.push(mh);
+                }
+                let hash = content_hash(AttrKind::QueryExpr, |h| (subtag, &hashes).hash(h));
+                self.encode_query_node(hash, subtag, &[], &refs)
+            }
         }
-        let idx = self.arena.metadata.len() as u32;
-        self.arena.metadata.push(m.clone());
-        let r = self.encode_record(AttrKind::Metadata, hash, &[idx], &[])?;
-        Ok(AttrToken(r, hash))
     }
 
     /// Import an owned attribute value (recursively) into the arena. Only
@@ -4350,8 +5378,7 @@ impl CoercedAttrArenaBuilder {
                     entries.push((k.dupe(), self.encode(v)?));
                 }
                 let default = s.default.as_ref().map(|d| self.encode(d)).transpose()?;
-                // Keys were validated unique when the selector was built.
-                self.encode_selector_parts(&entries, default).map(token)
+                self.encode_selector(&entries, default)
             }
             CoercedAttr::OneOf(child, idx) => {
                 let child = self.encode(child)?;
@@ -4440,15 +5467,6 @@ impl CoercedAttrArenaBuilder {
         let mut lh = BuckHasher::default();
         l.hash(&mut lh);
         (idx, lh.finish())
-    }
-
-    fn encode_providers_label(
-        &mut self,
-        kind: AttrKind,
-        l: &ProvidersLabel,
-    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
-        let (idx, label_hash) = self.providers_label_idx_and_hash(l);
-        Ok((AttrWord::inline(kind, idx)?, mix_kind(kind, label_hash)))
     }
 
     /// Encode one arg part: string parts are `ArgSimple` text records;
@@ -4733,22 +5751,6 @@ impl CoercedAttrArenaBuilder {
             .insert_unique(byte_hash, (byte_hash, r), |&(h, _)| h);
         Ok((r, hash))
     }
-
-    fn encode_seq(
-        &mut self,
-        kind: AttrKind,
-        children: &[AttrToken],
-    ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
-        let mut refs = EncodeScratchRefs::with_capacity(children.len());
-        let mut hashes = EncodeScratchHashes::with_capacity(children.len());
-        for &AttrToken(r, h) in children {
-            refs.push(r);
-            hashes.push(h);
-        }
-        let hash = content_hash(kind, |h| hashes.hash(h));
-        let r = self.encode_record(kind, hash, &[children.len() as u32], &refs)?;
-        Ok((r, hash))
-    }
 }
 
 #[cfg(test)]
@@ -4793,6 +5795,7 @@ mod tests {
         let mut b = CoercedAttrArena::builder();
         let refs: Vec<AttrWord> = attrs.iter().map(|a| b.encode(a).unwrap().0).collect();
         let arena = b.finish();
+        assert_copies(&arena, &refs);
         for (a, r) in attrs.iter().zip(&refs) {
             let view = arena.view(*r);
             let decoded = view.to_coerced().unwrap();
@@ -4847,11 +5850,103 @@ mod tests {
             let back = view.to_coerced().unwrap();
             assert_eq!(a, &back, "round-trip should preserve the value");
         }
+        assert_copies(&arena, &refs);
         arena
+    }
+
+    /// `encode_view` into a fresh arena reproduces each value: same content,
+    /// same identity hash, same rendering.
+    fn assert_copies(arena: &CoercedAttrArena, refs: &[AttrWord]) {
+        for &r in refs {
+            let mut b = CoercedAttrArena::builder();
+            let AttrToken(c, _) = b.encode_view(arena.view(r)).unwrap();
+            let copy = b.finish();
+            assert!(
+                copy.view(c).content_eq(&arena.view(r)),
+                "copy should have the same content: {}",
+                arena.view(r).as_display_no_ctx()
+            );
+            assert_eq!(
+                copy.strong_of(c, &mut BuckMutMap::default()),
+                arena.strong_of(r, &mut BuckMutMap::default()),
+                "copy should have the same identity hash: {}",
+                arena.view(r).as_display_no_ctx()
+            );
+            assert_eq!(
+                copy.view(c).as_display_no_ctx().to_string(),
+                arena.view(r).as_display_no_ctx().to_string()
+            );
+        }
     }
 
     fn s(v: &str) -> CoercedAttr {
         CoercedAttr::String(StringLiteral(ArcStr::from(v)))
+    }
+
+    /// Near-miss values must stay distinct under both the identity hash and
+    /// content equality: the shared decomposition may not coarsen either.
+    #[test]
+    fn test_near_miss_values_are_distinct() {
+        let l = label("pkg", "t");
+        let sel = |default: Option<CoercedAttr>| {
+            CoercedAttr::Selector(Arc::new(
+                CoercedSelector::new(
+                    ArcSlice::new([(ConfigurationSettingKey(label("cfg", "a")), s("x"))]),
+                    default,
+                )
+                .unwrap(),
+            ))
+        };
+        let values = vec![
+            CoercedAttr::None,
+            CoercedAttr::Bool(BoolLiteral(true)),
+            CoercedAttr::Bool(BoolLiteral(false)),
+            CoercedAttr::Int(1),
+            CoercedAttr::Int(2),
+            s("a"),
+            s(""),
+            CoercedAttr::EnumVariant(StringLiteral(ArcStr::from("a"))),
+            CoercedAttr::Arg(StringWithMacros::StringPart(ArcStr::from("a"))),
+            CoercedAttr::SelectFail(ArcStr::from("a")),
+            CoercedAttr::SelectIncompatible(ArcStr::from("a")),
+            CoercedAttr::List(ListLiteral(ArcSlice::new([s("a")]))),
+            CoercedAttr::List(ListLiteral(ArcSlice::new([s("a"), s("a")]))),
+            CoercedAttr::Tuple(TupleLiteral(ArcSlice::new([s("a")]))),
+            CoercedAttr::Concat(CoercedConcat(ArcSlice::new([s("a")]))),
+            CoercedAttr::Dict(DictLiteral(ArcSlice::new([(s("a"), CoercedAttr::Int(1))]))),
+            CoercedAttr::Dep(l.dupe()),
+            CoercedAttr::Label(l.dupe()),
+            CoercedAttr::SourceLabel(l.dupe()),
+            CoercedAttr::ConfigurationDep(l.dupe()),
+            CoercedAttr::SplitTransitionDep(l.dupe()),
+            CoercedAttr::OneOf(Box::new(s("a")), 0),
+            CoercedAttr::OneOf(Box::new(s("a")), 1),
+            sel(None),
+            sel(Some(s("d"))),
+        ];
+        roundtrip(&values);
+        let mut b = CoercedAttrArena::builder();
+        let refs: Vec<AttrWord> = values.iter().map(|a| b.encode(a).unwrap().0).collect();
+        let arena = b.finish();
+        let mut memo = BuckMutMap::default();
+        for (i, &ri) in refs.iter().enumerate() {
+            for &rj in &refs[i + 1..] {
+                let (vi, vj) = (arena.view(ri), arena.view(rj));
+                assert!(
+                    !vi.content_eq(&vj),
+                    "{} and {} must differ",
+                    vi.as_display_no_ctx(),
+                    vj.as_display_no_ctx()
+                );
+                assert_ne!(
+                    arena.strong_of(ri, &mut memo),
+                    arena.strong_of(rj, &mut memo),
+                    "{} and {} must hash apart",
+                    vi.as_display_no_ctx(),
+                    vj.as_display_no_ctx()
+                );
+            }
+        }
     }
 
     #[test]

@@ -16,10 +16,11 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::internal_error;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::arena::AttrRefSelectorEntries;
-use buck2_node::attrs::arena::AttrRefSeq;
 use buck2_node::attrs::arena::CoercedAttrRef;
 use buck2_node::attrs::arena::CoercedAttrRefKind;
 use buck2_node::attrs::arena::OwnedCoercedAttr;
+use buck2_node::attrs::arena::Refs;
+use buck2_node::attrs::arena::Values;
 use buck2_node::attrs::coerced_attr::CoercedSelectorKeyRef;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
@@ -284,7 +285,7 @@ impl StarlarkSelectConcat {
         Self { concat, pkg }
     }
 
-    fn items(&self) -> buck2_error::Result<AttrRefSeq<'_>> {
+    fn items(&self) -> buck2_error::Result<Refs<'_, Values>> {
         match self.concat.as_ref().kind() {
             CoercedAttrRefKind::Concat(items) => Ok(items),
             _ => Err(internal_error!(
