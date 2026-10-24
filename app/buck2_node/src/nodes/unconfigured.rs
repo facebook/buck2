@@ -351,9 +351,7 @@ impl TargetNode {
                     // better error with all the context than panic.
                     Err(internal_error!(
                         "`visibility` attribute coerced incorrectly (`{0}`)",
-                        a.to_coerced()
-                            .map(|c| c.as_display_no_ctx().to_string())
-                            .unwrap_or_else(|e| format!("<undecodable: {e}>")),
+                        a.as_display_no_ctx(),
                     ))
                 }
             },

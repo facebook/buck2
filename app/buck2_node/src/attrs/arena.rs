@@ -1231,8 +1231,8 @@ pub struct CoercedAttrRef<'a> {
     r: AttrWord,
 }
 
-/// Shallow decode of an [`CoercedAttrRef`]. Mirrors [`CoercedAttr`] leaf
-/// for leaf, container for container.
+/// Shallow decode of a [`CoercedAttrRef`]: one case per value kind, with
+/// children left as refs.
 pub enum CoercedAttrRefKind<'a> {
     None,
     Bool(bool),
@@ -2299,9 +2299,8 @@ impl<'a> CoercedAttrRef<'a> {
         }
     }
 
-    /// Type-threaded traversal, mirroring `CoercedAttr::traverse` /
-    /// `CoercedAttrWithType::pack`. Callback borrows come from the arena's
-    /// side tables, so they carry the arena's lifetime.
+    /// Type-threaded traversal over the value's deps. Callback borrows come
+    /// from the arena's side tables, so they carry the arena's lifetime.
     pub fn traverse(
         &self,
         t: &AttrType,
@@ -2517,12 +2516,11 @@ impl<'a> CoercedAttrRef<'a> {
 }
 
 impl<'a> CoercedAttrRef<'a> {
-    /// Native mirror of `CoercedAttr::configure` (via
-    /// `CoercedAttrWithType::pack`): builds the `ConfiguredAttr` straight off
-    /// the arena without materializing a transient `CoercedAttr` tree.
+    /// Builds the `ConfiguredAttr` straight off the arena: selects resolve on
+    /// the view, and only the configured form is materialized.
     ///
-    /// TODO(jtbraun): apply `ErrorTag::ConfigureAttr` to errors and replicate the
-    /// `select_first_match_differs` soft error, matching the enum path.
+    /// TODO(jtbraun): tag errors with `ErrorTag::ConfigureAttr` and emit the
+    /// `select_first_match_differs` soft error.
     pub fn configure(
         &self,
         t: &AttrType,
@@ -3120,8 +3118,7 @@ impl<'a> CoercedAttrRef<'a> {
 }
 
 impl<'a> CoercedAttrRef<'a> {
-    /// The value's JSON rendering. Mirrors `CoercedAttr::to_json` arm for
-    /// arm.
+    /// The value's JSON rendering.
     pub fn to_json(
         &self,
         ctx: &crate::attrs::fmt_context::AttrFmtContext,
@@ -3217,8 +3214,7 @@ impl<'a> CoercedAttrRef<'a> {
         }
     }
 
-    /// Whether any leaf's string form matches the filter. Mirrors
-    /// `CoercedAttr::any_matches` arm for arm.
+    /// Whether any leaf's string form matches the filter.
     pub fn any_matches(
         &self,
         filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
@@ -3329,7 +3325,6 @@ impl Display for AttrRefDisplay<'_, '_> {
     }
 }
 
-/// Mirrors `AttrDisplayWithContext for CoercedAttr` arm for arm.
 impl crate::attrs::display::AttrDisplayWithContext for CoercedAttrRef<'_> {
     fn fmt(
         &self,
@@ -4780,7 +4775,6 @@ mod tests {
         for (a, r) in attrs.iter().zip(&refs) {
             let view = arena.view(*r);
             let decoded = view.to_coerced().unwrap();
-            output_parity(&decoded, view);
 
             // fixed point: encoding the decoded value round-trips exactly
             let mut b2 = CoercedAttrArena::builder();
@@ -4831,32 +4825,8 @@ mod tests {
             let view = arena.view(*r);
             let back = view.to_coerced().unwrap();
             assert_eq!(a, &back, "round-trip should preserve the value");
-            output_parity(a, view);
         }
         arena
-    }
-
-    /// The native output paths must render exactly what the enum's do.
-    fn output_parity(a: &CoercedAttr, view: CoercedAttrRef<'_>) {
-        let ctx = &crate::attrs::fmt_context::AttrFmtContext::NO_CONTEXT;
-        assert_eq!(
-            a.as_display(ctx).to_string(),
-            view.as_display(ctx).to_string(),
-            "display should match the enum rendering"
-        );
-        assert_eq!(
-            a.to_json(ctx).unwrap(),
-            view.to_json(ctx).unwrap(),
-            "JSON should match the enum rendering"
-        );
-        for probe in ["a", ":", "x", "1", "no-such-string"] {
-            let filter = |s: &str| Ok(s.contains(probe));
-            assert_eq!(
-                a.any_matches(&filter).unwrap(),
-                view.any_matches(&filter).unwrap(),
-                "any_matches({probe:?}) should match the enum result"
-            );
-        }
     }
 
     fn s(v: &str) -> CoercedAttr {

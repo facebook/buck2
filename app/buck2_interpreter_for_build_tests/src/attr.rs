@@ -22,6 +22,7 @@ use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_interpreter_for_build::attrs::coerce::testing::EnumCoercionCtx;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::interpreter::testing::cells;
+use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -39,7 +40,8 @@ fn value_to_string(value: &CoercedAttr, pkg: PackageLabel) -> buck2_error::Resul
         package: Some(pkg),
         options: Default::default(),
     };
-    match value.to_json(&ctx)?.as_str() {
+    let encoded = OwnedCoercedAttr::try_new(value)?;
+    match encoded.as_ref().to_json(&ctx)?.as_str() {
         Some(s) => Ok(s.to_owned()),
         None => Err(buck2_error::buck2_error!(
             buck2_error::ErrorTag::Input,

@@ -16,7 +16,6 @@ use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
-use dupe::Dupe;
 use pagable::Pagable;
 use strong_hash::StrongHash;
 
@@ -61,25 +60,6 @@ impl StrongHashWithoutConfig for QueryAttr<ConfiguredProvidersLabel> {
         let Self { providers, query } = self;
         providers.strong_hash(state);
         query.strong_hash_without_config(state);
-    }
-}
-
-impl QueryAttr<ProvidersLabel> {
-    pub(crate) fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> buck2_error::Result<QueryAttr<ConfiguredProvidersLabel>> {
-        Ok(QueryAttr {
-            query: self.query.configure(ctx)?,
-            providers: self.providers.dupe(),
-        })
-    }
-
-    pub(crate) fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> buck2_error::Result<()> {
-        self.query.traverse(traversal)
     }
 }
 

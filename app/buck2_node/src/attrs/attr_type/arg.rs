@@ -141,53 +141,6 @@ impl StringWithMacros<ConfiguredProvidersLabel> {
     }
 }
 
-impl StringWithMacros<ProvidersLabel> {
-    pub(crate) fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-        anon_target_compatible: bool,
-    ) -> buck2_error::Result<ConfiguredStringWithMacros> {
-        match self {
-            Self::StringPart(part) => Ok(ConfiguredStringWithMacros {
-                string_with_macros: StringWithMacros::StringPart(part.clone()),
-                anon_target_compatible,
-            }),
-            Self::ManyParts(parts) => Ok(ConfiguredStringWithMacros {
-                string_with_macros: StringWithMacros::ManyParts(
-                    parts
-                        .iter()
-                        .map(|p| p.configure(ctx))
-                        .collect::<Result<Vec<_>, _>>()?
-                        .into_boxed_slice(),
-                ),
-                anon_target_compatible,
-            }),
-        }
-    }
-
-    pub(crate) fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn CoercedAttrTraversal<'a>,
-        pkg: Option<PackageLabel>,
-    ) -> buck2_error::Result<()> {
-        match self {
-            Self::StringPart(..) => {}
-            Self::ManyParts(parts) => {
-                for part in parts.iter() {
-                    match part {
-                        StringWithMacrosPart::String(_) => {}
-                        StringWithMacrosPart::Macro(_, m) => {
-                            m.traverse(traversal, pkg)?;
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub enum StringWithMacrosPart<P: ProvidersLabelMaybeConfigured> {
     String(ArcStr),
@@ -473,22 +426,6 @@ impl<P: ProvidersLabelMaybeConfigured> Display for StringWithMacrosPart<P> {
             StringWithMacrosPart::Macro(write_to_file, m) => {
                 write!(f, "$({}{})", if *write_to_file { "@" } else { "" }, m)
             }
-        }
-    }
-}
-
-impl StringWithMacrosPart<ProvidersLabel> {
-    pub(crate) fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> buck2_error::Result<ConfiguredStringWithMacrosPart> {
-        match self {
-            StringWithMacrosPart::String(val) => {
-                Ok(ConfiguredStringWithMacrosPart::String(val.clone()))
-            }
-            StringWithMacrosPart::Macro(write_to_file, unconfigured) => Ok(
-                ConfiguredStringWithMacrosPart::Macro(*write_to_file, unconfigured.configure(ctx)?),
-            ),
         }
     }
 }

@@ -12,6 +12,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -25,7 +26,8 @@ fn value_to_string(value: &CoercedAttr, pkg: PackageLabel) -> buck2_error::Resul
         package: Some(pkg),
         options: Default::default(),
     };
-    match value.to_json(&ctx)?.as_str() {
+    let encoded = OwnedCoercedAttr::try_new(value)?;
+    match encoded.as_ref().to_json(&ctx)?.as_str() {
         Some(s) => Ok(s.to_owned()),
         None => Err(buck2_error::buck2_error!(
             buck2_error::ErrorTag::Input,

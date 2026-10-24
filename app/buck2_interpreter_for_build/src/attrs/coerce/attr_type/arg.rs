@@ -245,6 +245,7 @@ mod tests {
     use buck2_core::target::label::label::TargetLabel;
     use buck2_error::buck2_error;
     use buck2_hash::buck_mut_insertion_set;
+    use buck2_node::attrs::arena::OwnedCoercedAttr;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::attr_type::arg::MacroBase;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
@@ -300,7 +301,8 @@ mod tests {
             );
 
             let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-            let configured = coerced
+            let configured = OwnedCoercedAttr::try_new(&coerced)?
+                .as_ref()
                 .configure(&attr, &configuration_ctx(), None)
                 .require_compatible()?;
             assert_eq!(
@@ -376,7 +378,10 @@ mod tests {
                 let value = env.heap().alloc(input);
                 let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
                 assert_eq!(
-                    coerced.as_display_no_ctx().to_string(),
+                    OwnedCoercedAttr::try_new(&coerced)?
+                        .as_ref()
+                        .as_display_no_ctx()
+                        .to_string(),
                     format!(r#""{expected}""#)
                 );
             }

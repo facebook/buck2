@@ -17,10 +17,10 @@ use std::sync::Arc;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::constraints::ConstraintKey;
 use buck2_core::configuration::constraints::ConstraintValue;
+use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::attr_type::string::StringLiteral;
-use buck2_node::attrs::attr_type::tuple::TupleLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedConcat;
 use buck2_node::attrs::coerced_attr::CoercedSelector;
@@ -36,10 +36,19 @@ fn hash(value: &impl Hash) -> u64 {
     hasher.finish()
 }
 
-fn interner_hash(value: &CoercedAttr) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    value.hash_for_interning(&mut hasher);
-    hasher.finish()
+trait EncodedToJson {
+    fn encoded_to_json(&self) -> String;
+}
+
+impl EncodedToJson for CoercedAttr {
+    fn encoded_to_json(&self) -> String {
+        OwnedCoercedAttr::try_new(self)
+            .unwrap()
+            .as_ref()
+            .to_json(&AttrFmtContext::NO_CONTEXT)
+            .unwrap()
+            .to_string()
+    }
 }
 
 #[test]
@@ -79,11 +88,8 @@ fn selector_equals_accounts_for_ordering() {
 
     assert!(s1 == s2);
     assert_eq!(hash(&s1), hash(&s2));
-    assert_eq!(interner_hash(&s1), interner_hash(&s2));
     let nested_s1 = CoercedAttr::List(ListLiteral(ArcSlice::new([s1.clone()])));
     let nested_s2 = CoercedAttr::List(ListLiteral(ArcSlice::new([s2])));
-    assert_ne!(interner_hash(&nested_s1), interner_hash(&nested_s2));
-    assert_eq!(interner_hash(&nested_s1), interner_hash(&nested_s1.clone()));
     assert_eq!(hash(&nested_s1), hash(&nested_s2));
     assert_eq!(nested_s1, nested_s2);
 
@@ -105,14 +111,6 @@ fn selector_equals_accounts_for_ordering() {
     ));
 
     assert!(s1 != s2);
-}
-
-#[test]
-fn interner_hash_distinguishes_variants() {
-    let values = ArcSlice::new([CoercedAttr::None]);
-    let list = CoercedAttr::List(ListLiteral(values.dupe()));
-    let tuple = CoercedAttr::Tuple(TupleLiteral(values));
-    assert_ne!(interner_hash(&list), interner_hash(&tuple));
 }
 
 #[test]
@@ -297,9 +295,7 @@ fn test_to_json_concat() {
             CoercedAttr::String(StringLiteral(ArcStr::from("c"))),
             CoercedAttr::String(StringLiteral(ArcStr::from("d"))),
         ])))
-        .to_json(&AttrFmtContext::NO_CONTEXT)
-        .unwrap()
-        .to_string()
+        .encoded_to_json()
     );
 }
 
@@ -323,9 +319,7 @@ fn test_to_json_selector() {
             )
             .unwrap()
         ))
-        .to_json(&AttrFmtContext::NO_CONTEXT)
-        .unwrap()
-        .to_string()
+        .encoded_to_json()
     );
 }
 

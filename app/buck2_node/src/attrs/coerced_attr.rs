@@ -9,70 +9,36 @@
  */
 
 use core::fmt;
-use std::fmt::Display;
 use std::hash::Hash;
-use std::hash::Hasher;
-use std::mem;
 use std::ops::Deref;
-use std::ptr;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
-use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::config_setting::ConfigSettingData;
-use buck2_core::package::PackageLabel;
-use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_data::error::ErrorTag;
-use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
-use buck2_hash::BuckHasher;
 use buck2_hash::BuckHasherBuilder;
 use buck2_hash::BuckMutSet;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::size_assert;
-use display_container::fmt_keyed_container;
-use dupe::Dupe;
-use itertools::Itertools;
 use pagable::Pagable;
-use serde::Serialize;
-use serde::Serializer;
-use serde_json::to_value;
 use smallvec::SmallVec;
 use strong_hash::StrongHash;
 
 use super::values::TargetModifiersValue;
-use crate::attrs::attr_type::AttrType;
-use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::arg::StringWithMacros;
-use crate::attrs::attr_type::attr_config::source_file_display;
 use crate::attrs::attr_type::bool::BoolLiteral;
-use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
-use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
-use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dict::DictLiteral;
-use crate::attrs::attr_type::label::LabelAttrType;
 use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::attr_type::transition_dep::CoercedTransitionDep;
 use crate::attrs::attr_type::tuple::TupleLiteral;
-use crate::attrs::coerced_attr_with_type::CoercedAttrWithType;
 use crate::attrs::coerced_path::CoercedPath;
-use crate::attrs::configuration_context::AttrConfigurationContext;
-use crate::attrs::configured_attr::ConfiguredAttr;
-use crate::attrs::display::AttrDisplayWithContext;
-use crate::attrs::display::AttrDisplayWithContextExt;
-use crate::attrs::fmt_context::AttrFmtContext;
-use crate::attrs::json::ToJsonWithContext;
-use crate::attrs::serialize::AttrSerializeWithContext;
-use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
@@ -97,122 +63,21 @@ impl fmt::Display for CoercedSelectorKeyRef<'_> {
     }
 }
 
-#[derive(Debug, Clone, Allocative, Pagable)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, StrongHash, Allocative, Pagable)]
 pub struct CoercedSelector {
     pub(crate) entries: ArcSlice<(ConfigurationSettingKey, CoercedAttr)>,
     pub(crate) default: Option<CoercedAttr>,
-    /// Package-local interning fingerprint, never used for semantic or target hashing.
-    intern_hash: u64,
 }
 
-size_assert::words_of_type!(CoercedSelector, 6);
-
-impl PartialEq for CoercedSelector {
-    fn eq(&self, other: &Self) -> bool {
-        self.entries == other.entries && self.default == other.default
-    }
-}
-
-impl Eq for CoercedSelector {}
-
-impl Hash for CoercedSelector {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.entries.hash(state);
-        self.default.hash(state);
-    }
-}
-
-impl StrongHash for CoercedSelector {
-    fn strong_hash<H: Hasher>(&self, state: &mut H) {
-        self.entries.strong_hash(state);
-        self.default.strong_hash(state);
-    }
-}
-
-impl AttrDisplayWithContext for CoercedSelector {
-    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "select(")?;
-        fmt_keyed_container(
-            f,
-            "{",
-            "}",
-            ": ",
-            self.all_entries().map(|(k, v)| {
-                (
-                    match k {
-                        CoercedSelectorKeyRef::Target(k) => format!("\"{k}\""),
-                        CoercedSelectorKeyRef::Default => "\"DEFAULT\"".to_owned(),
-                    },
-                    v.as_display(ctx),
-                )
-            }),
-        )?;
-        write!(f, ")")?;
-        Ok(())
-    }
-}
-
-impl AttrSerializeWithContext for CoercedSelector {
-    fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.to_json(ctx)
-            .map_err(|e| serde::ser::Error::custom(format!("{e}")))?
-            .serialize(s)
-    }
-}
+size_assert::words_of_type!(CoercedSelector, 5);
 
 impl CoercedSelector {
-    /// Package-local lookup fingerprint; semantic equality must still be checked.
-    #[doc(hidden)]
-    pub fn hash_for_interning(&self) -> u64 {
-        self.intern_hash
-    }
-
-    pub(crate) fn entries_hash_for_interning(
-        entries: &[(ConfigurationSettingKey, CoercedAttr)],
-    ) -> u64 {
-        let mut hasher = BuckHasher::default();
-        entries.len().hash(&mut hasher);
-        for (key, value) in entries {
-            key.hash(&mut hasher);
-            value.hash_for_interning(&mut hasher);
-        }
-        hasher.finish()
-    }
-
     pub fn new(
         entries: ArcSlice<(ConfigurationSettingKey, CoercedAttr)>,
         default: Option<CoercedAttr>,
     ) -> buck2_error::Result<CoercedSelector> {
-        let entries_hash = Self::entries_hash_for_interning(&entries);
-        Self::new_with_entries_hash(entries, default, entries_hash)
-    }
-
-    pub(crate) fn new_with_entries_hash(
-        entries: ArcSlice<(ConfigurationSettingKey, CoercedAttr)>,
-        default: Option<CoercedAttr>,
-        entries_hash: u64,
-    ) -> buck2_error::Result<CoercedSelector> {
         Self::check_all_keys_unique(&entries)?;
-        let intern_hash = {
-            let mut hasher = BuckHasher::default();
-            entries_hash.hash(&mut hasher);
-            match &default {
-                Some(value) => {
-                    true.hash(&mut hasher);
-                    value.hash_for_interning(&mut hasher);
-                }
-                None => false.hash(&mut hasher),
-            }
-            hasher.finish()
-        };
-        Ok(CoercedSelector {
-            entries,
-            default,
-            intern_hash,
-        })
+        Ok(CoercedSelector { entries, default })
     }
 
     pub(crate) fn check_all_keys_unique(
@@ -269,33 +134,6 @@ impl CoercedSelector {
             )
     }
 
-    fn all_values(&self) -> impl Iterator<Item = &'_ CoercedAttr> {
-        self.all_entries().map(|(_, v)| v)
-    }
-
-    pub fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
-        let mut map = serde_json::Map::new();
-        for (key, value) in self.all_entries() {
-            match key {
-                CoercedSelectorKeyRef::Target(k) => {
-                    map.insert(k.to_string(), value.to_json(ctx)?);
-                }
-                CoercedSelectorKeyRef::Default => {
-                    map.insert("DEFAULT".to_owned(), value.to_json(ctx)?);
-                }
-            }
-        }
-        let select = serde_json::Value::Object(map);
-
-        Ok(serde_json::Value::Object(serde_json::Map::from_iter([
-            (
-                "__type".to_owned(),
-                serde_json::Value::String("selector".to_owned()),
-            ),
-            ("entries".to_owned(), select),
-        ])))
-    }
-
     pub(crate) fn fail_to_json(message: &str) -> Result<serde_json::Value, buck2_error::Error> {
         Ok(serde_json::Value::Object(serde_json::Map::from_iter([
             (
@@ -333,43 +171,6 @@ impl Deref for CoercedConcat {
 
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()
-    }
-}
-
-impl CoercedConcat {
-    pub fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
-        Ok(serde_json::Value::Object(serde_json::Map::from_iter([
-            (
-                "__type".to_owned(),
-                serde_json::Value::String("concat".to_owned()),
-            ),
-            (
-                "items".to_owned(),
-                serde_json::Value::Array(
-                    self.0
-                        .iter()
-                        .map(|item| CoercedAttr::to_json(item, ctx))
-                        .collect::<Result<Vec<_>, _>>()?,
-                ),
-            ),
-        ])))
-    }
-}
-
-impl AttrDisplayWithContext for CoercedConcat {
-    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.iter().map(|a| a.as_display(ctx)).format("+").fmt(f)
-    }
-}
-
-impl AttrSerializeWithContext for CoercedConcat {
-    fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.to_json(ctx)
-            .map_err(|e| serde::ser::Error::custom(format!("{e}")))?
-            .serialize(s)
     }
 }
 
@@ -437,284 +238,7 @@ pub enum CoercedAttr {
 // We store a lot of these, so we try to keep it to a reasonable size.
 size_assert::words_of_type!(CoercedAttr, 3);
 
-/// Provides roughly the stringified version of the starlark code that would produce this attr. For example, a dictionary
-/// of string keys and values may result in `{"key1":"value1","key2":"value2"}` (note that strings will explicitly include
-/// the wrapping `"`).
-impl AttrDisplayWithContext for CoercedAttr {
-    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CoercedAttr::Selector(s) => s.fmt(ctx, f),
-            CoercedAttr::SelectFail(s) => write!(f, "select_fail(\"{}\")", s),
-            CoercedAttr::SelectIncompatible(s) => write!(f, "select_incompatible(\"{}\")", s),
-            CoercedAttr::Concat(c) => c.fmt(ctx, f),
-            CoercedAttr::Bool(v) => {
-                write!(f, "{v}")
-            }
-            CoercedAttr::Int(v) => {
-                write!(f, "{v}")
-            }
-            CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => {
-                AttrDisplayWithContext::fmt(v, ctx, f)
-            }
-            CoercedAttr::List(list) => AttrDisplayWithContext::fmt(list, ctx, f),
-            CoercedAttr::Tuple(v) => AttrDisplayWithContext::fmt(v, ctx, f),
-            CoercedAttr::Dict(v) => AttrDisplayWithContext::fmt(v, ctx, f),
-            CoercedAttr::None => write!(f, "None"),
-            CoercedAttr::OneOf(box l, _) => AttrDisplayWithContext::fmt(l, ctx, f),
-            CoercedAttr::Visibility(v) => Display::fmt(v, f),
-            CoercedAttr::WithinView(v) => Display::fmt(v, f),
-            CoercedAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
-            CoercedAttr::SplitTransitionDep(e) => Display::fmt(e, f),
-            CoercedAttr::TransitionDep(e) => Display::fmt(e, f),
-            CoercedAttr::ConfigurationDep(e) => write!(f, "\"{e}\""),
-            CoercedAttr::PluginDep(e) => write!(f, "\"{e}\""),
-            CoercedAttr::Dep(e) => write!(f, "\"{e}\""),
-            CoercedAttr::SourceLabel(e) => write!(f, "\"{e}\""),
-            CoercedAttr::Label(e) => write!(f, "\"{e}\""),
-            CoercedAttr::Arg(e) => write!(f, "\"{e}\""),
-            CoercedAttr::Query(e) => write!(f, "\"{}\"", e.query.query),
-            CoercedAttr::SourceFile(e) => write!(f, "\"{}\"", source_file_display(ctx, e)),
-            CoercedAttr::Metadata(m) => write!(f, "{m}"),
-            CoercedAttr::TargetModifiers(m) => write!(f, "{m}"),
-            CoercedAttr::Encoded(..) => write!(f, "<encoded attr>"),
-        }
-    }
-}
-
-impl AttrSerializeWithContext for CoercedAttr {
-    fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // TODO this is inefficient. We should impl Serialize and derive value from this instead.
-        self.to_json(ctx)
-            .map_err(|e| serde::ser::Error::custom(format!("{e}")))?
-            .serialize(s)
-    }
-}
-
 impl CoercedAttr {
-    /// Hashes for package-local interning using child allocation identities and cached selectors.
-    /// Equal children from distinct allocations can have different interning hashes.
-    #[doc(hidden)]
-    pub fn hash_for_interning<H: Hasher>(&self, state: &mut H) {
-        match self {
-            Self::Selector(selector) => {
-                mem::discriminant(self).hash(state);
-                selector.intern_hash.hash(state)
-            }
-            Self::Concat(values) => {
-                mem::discriminant(self).hash(state);
-                values.len().hash(state);
-                for value in values.iter() {
-                    value.hash_for_interning(state);
-                }
-            }
-            Self::List(ListLiteral(values)) | Self::Tuple(TupleLiteral(values)) => {
-                mem::discriminant(self).hash(state);
-                ptr::hash(&values[..] as *const [_], state)
-            }
-            Self::Dict(values) => {
-                mem::discriminant(self).hash(state);
-                ptr::hash(&values[..] as *const [_], state)
-            }
-            Self::OneOf(value, index) => {
-                mem::discriminant(self).hash(state);
-                value.hash_for_interning(state);
-                index.hash(state);
-            }
-            value => value.hash(state),
-        }
-    }
-
-    /// Converts the coerced attr to a serde_json Value. This is generally just used for debugging or introspective
-    /// things, a lot of the types will be dropped without special handling. For example, an artifact will just end
-    /// up as the stringified version of its coerced value (i.e. while `//a:b` might represent some list of targets,
-    /// in to_json it just appears as the string "//a:b").
-    pub fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
-        match self {
-            CoercedAttr::Selector(s) => s.to_json(ctx),
-            CoercedAttr::SelectFail(string_literal) => {
-                CoercedSelector::fail_to_json(string_literal)
-            }
-            CoercedAttr::SelectIncompatible(string_literal) => {
-                CoercedSelector::incompatible_to_json(string_literal)
-            }
-            CoercedAttr::Concat(c) => c.to_json(ctx),
-            CoercedAttr::Bool(v) => Ok(to_value(v)?),
-            CoercedAttr::Int(v) => Ok(to_value(v)?),
-            CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => Ok(to_value(v)?),
-            CoercedAttr::List(list) => list.to_json(ctx),
-            CoercedAttr::Tuple(list) => list.to_json(ctx),
-            CoercedAttr::Dict(dict) => dict.to_json(ctx),
-            CoercedAttr::None => Ok(serde_json::Value::Null),
-            CoercedAttr::OneOf(box l, _) => l.to_json(ctx),
-            CoercedAttr::Visibility(v) => Ok(v.to_json()),
-            CoercedAttr::WithinView(v) => Ok(v.to_json()),
-            CoercedAttr::ExplicitConfiguredDep(e) => {
-                Ok(to_value([e.label.to_string(), e.platform.to_string()])?)
-            }
-            CoercedAttr::SplitTransitionDep(e) => Ok(to_value(e.to_string())?),
-            CoercedAttr::TransitionDep(e) => match e.get_dynamic_transition() {
-                Some(tr) => Ok(to_value([e.dep.to_string(), tr.to_string()])?),
-                None => Ok(to_value(e.dep.to_string())?),
-            },
-            CoercedAttr::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
-            CoercedAttr::PluginDep(e) => Ok(to_value(e.to_string())?),
-            CoercedAttr::Dep(e) => Ok(to_value(e.to_string())?),
-            CoercedAttr::SourceLabel(e) => Ok(to_value(e.to_string())?),
-            CoercedAttr::Label(e) => Ok(to_value(e.to_string())?),
-            CoercedAttr::Arg(e) => Ok(to_value(e.to_string())?),
-            CoercedAttr::Query(e) => Ok(to_value(&e.query.query)?),
-            CoercedAttr::SourceFile(e) => Ok(to_value(source_file_display(ctx, e).to_string())?),
-            CoercedAttr::Metadata(m) => Ok(m.to_value()),
-            CoercedAttr::TargetModifiers(m) => Ok(m.to_value()),
-            CoercedAttr::Encoded(..) => {
-                Err(internal_error!("Encoded attr must not escape coercion").into())
-            }
-        }
-    }
-
-    /// Returns `true` if the result of evaluating this literal can ever be None.
-    pub fn may_return_none(&self) -> bool {
-        match self {
-            CoercedAttr::None => true,
-            CoercedAttr::Selector(s) => s.all_values().any(|x| x.may_return_none()),
-            CoercedAttr::Concat(_) => false,
-            _ => false,
-        }
-    }
-
-    /// Traverses the coerced attribute and provides the traverser callbacks for all deps (those in select conditions
-    /// are passed as configuration deps).
-    pub fn traverse<'a>(
-        &'a self,
-        t: &AttrType,
-        pkg: Option<PackageLabel>,
-        traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> buck2_error::Result<()> {
-        match CoercedAttrWithType::pack(self, t)? {
-            CoercedAttrWithType::Selector(
-                CoercedSelector {
-                    entries, default, ..
-                },
-                t,
-            ) => {
-                for (condition, value) in entries.iter() {
-                    traversal.configuration_dep(&condition.0, ConfigurationDepKind::SelectKey)?;
-                    value.traverse(t, pkg, traversal)?;
-                }
-                if let Some(v) = default {
-                    v.traverse(t, pkg, traversal)?;
-                }
-                Ok(())
-            }
-            CoercedAttrWithType::Concat(items, t) => {
-                for item in items {
-                    item.traverse(t, pkg, traversal)?;
-                }
-                Ok(())
-            }
-            CoercedAttrWithType::SelectFail(..) => Ok(()),
-            CoercedAttrWithType::SelectIncompatible(..) => Ok(()),
-
-            CoercedAttrWithType::None => Ok(()),
-            CoercedAttrWithType::Some(attr, t) => attr.traverse(&t.inner, pkg, traversal),
-
-            CoercedAttrWithType::AnyList(list) => {
-                for v in list.iter() {
-                    // This is no-op now, but any may contain selects in the future.
-                    v.traverse(t, pkg, traversal)?;
-                }
-                Ok(())
-            }
-            CoercedAttrWithType::AnyTuple(tuple) => {
-                for v in tuple.iter() {
-                    v.traverse(t, pkg, traversal)?;
-                }
-                Ok(())
-            }
-            CoercedAttrWithType::AnyDict(dict) => {
-                for (k, v) in dict.iter() {
-                    k.traverse(t, pkg, traversal)?;
-                    v.traverse(t, pkg, traversal)?;
-                }
-                Ok(())
-            }
-
-            CoercedAttrWithType::Bool(..) => Ok(()),
-            CoercedAttrWithType::Int(..) => Ok(()),
-            CoercedAttrWithType::String(..) => Ok(()),
-            CoercedAttrWithType::EnumVariant(..) => Ok(()),
-            CoercedAttrWithType::List(list, t) => {
-                for v in list.iter() {
-                    v.traverse(&t.inner, pkg, traversal)?;
-                }
-                Ok(())
-            }
-            CoercedAttrWithType::Tuple(list, t) => {
-                if list.len() != t.xs.len() {
-                    return Err(internal_error!("Inconsistent number of elements in tuple"));
-                }
-
-                for (v, vt) in list.iter().zip(&t.xs) {
-                    v.traverse(vt, pkg, traversal)?;
-                }
-                Ok(())
-            }
-            CoercedAttrWithType::Dict(dict, t) => {
-                for (k, v) in dict.iter() {
-                    k.traverse(&t.key, pkg, traversal)?;
-                    v.traverse(&t.value, pkg, traversal)?;
-                }
-                Ok(())
-            }
-
-            CoercedAttrWithType::OneOf(l, i, t) => {
-                let item_type = t.xs.get(i as usize).internal_error("invalid enum")?;
-                l.traverse(item_type, pkg, traversal)
-            }
-            CoercedAttrWithType::Visibility(..) => Ok(()),
-            CoercedAttrWithType::WithinView(..) => Ok(()),
-            CoercedAttrWithType::ExplicitConfiguredDep(dep, _t) => {
-                traversal.dep(&dep.label)?;
-                traversal.configuration_dep(
-                    &ProvidersLabel::default_for(dep.platform.dupe()),
-                    ConfigurationDepKind::ConfiguredDepPlatform,
-                )
-            }
-            CoercedAttrWithType::SplitTransitionDep(dep, t) => {
-                traversal.split_transition_dep(dep, &t.transition)
-            }
-            CoercedAttrWithType::TransitionDep(dep, t) => {
-                t.traverse(&dep.dep, dep.get_dynamic_transition(), traversal)
-            }
-            CoercedAttrWithType::ConfigurationDep(dep, t) => traversal.configuration_dep(dep, t.0),
-            CoercedAttrWithType::PluginDep(dep, t) => traversal.plugin_dep(dep, t.kind()),
-            CoercedAttrWithType::Dep(dep, t) => {
-                DepAttr::<ProvidersLabel>::traverse(dep, t, traversal)
-            }
-            CoercedAttrWithType::SourceLabel(s, _t) => traversal.dep(s),
-            CoercedAttrWithType::Label(label, _t) => traversal.label(label),
-            CoercedAttrWithType::Arg(arg, _t) => arg.traverse(traversal, pkg),
-            CoercedAttrWithType::Query(query, _t) => query.traverse(traversal),
-            CoercedAttrWithType::SourceFile(source, _t) => {
-                let pkg = pkg.ok_or_else(|| {
-                    buck2_error::internal_error!(
-                        "Expected a package when traversing coerced source attribute: `{}`.",
-                        source.path()
-                    )
-                })?;
-                for x in source.inputs() {
-                    traversal.input(SourcePathRef::new(pkg, x))?;
-                }
-                Ok(())
-            }
-            CoercedAttrWithType::Metadata(..) => Ok(()),
-            CoercedAttrWithType::TargetModifiers(..) => Ok(()),
-        }
-    }
-
     /// If more than one select key matches, select the most specific.
     pub fn select_the_most_specific<'a, 'x>(
         select_entries: impl IntoIterator<
@@ -810,280 +334,6 @@ impl CoercedAttr {
                     // If all values are the same, return that value
                     Ok(Some(first_value))
                 }
-            }
-        }
-    }
-
-    fn select<'a>(
-        ctx: &dyn AttrConfigurationContext,
-        select: &'a CoercedSelector,
-        attr_name: Option<&str>,
-    ) -> buck2_error::Result<&'a CoercedAttr> {
-        let CoercedSelector {
-            entries, default, ..
-        } = select;
-        let matched_cfg_keys = ctx.matched_cfg_keys();
-        let resolved_entries: Vec<_> = entries
-            .iter()
-            .filter_map(|(k, v)| matched_cfg_keys.setting_matches(k).map(|conf| (k, conf, v)))
-            .collect();
-
-        if let Some(v) = Self::select_the_most_specific(resolved_entries.iter().copied())? {
-            // Compute first match for comparison (data collection for future migration)
-            let first_match = Self::select_the_first_match(resolved_entries.iter().copied());
-            // Compare with first match and emit soft error if they differ
-            match first_match {
-                Some(first) if first != v => {
-                    let first_key = &resolved_entries[0].0;
-                    let most_specific_key = resolved_entries
-                        .iter()
-                        .find(|(_, _, attr)| std::ptr::eq(*attr, v))
-                        .map(|(k, _, _)| k);
-                    let all_matched_keys: String = resolved_entries
-                        .iter()
-                        .map(|(k, _, _)| format!("  `{}`", k))
-                        .join("\n");
-                    let target_info = ctx
-                        .target_label()
-                        .map_or("<unknown>".to_owned(), |l| l.to_string());
-                    let attr_info = attr_name.unwrap_or("<unknown>");
-                    let _unused = soft_error!(
-                        "select_first_match_differs",
-                        buck2_error!(
-                            buck2_error::ErrorTag::Input,
-                            "Target `{}` (configuration `{}`), attribute `{}`:\n\
-                            First matching select key `{}` has different value than most specific match `{}`.\n\
-                            All matched keys:\n{}\n\
-                            Select expression: {}",
-                            target_info,
-                            ctx.cfg().cfg(),
-                            attr_info,
-                            first_key,
-                            most_specific_key.map_or("<unknown>".to_owned(), |k| k.to_string()),
-                            all_matched_keys,
-                            select.as_display_no_ctx()
-                        ),
-                        quiet: true,
-                        error_on_oss: true,
-                    );
-                }
-                _ => {}
-            }
-            Ok(v)
-        } else {
-            default.as_ref().ok_or_else(|| {
-                buck2_error!(
-                    buck2_error::ErrorTag::Input,
-                    "None of {} conditions matched configuration `{}` and no default was set:\n{}",
-                    entries.len(),
-                    ctx.cfg().cfg(),
-                    entries.iter().map(|(s, _)| format!("  {s}")).join("\n"),
-                )
-            })
-        }
-    }
-
-    /// Returns the "configured" representation of the attribute in the provided context.
-    /// This handles the resolution of the select() conditions and delegates to
-    /// the actual attr type for handling any appropriate configuration-time
-    /// processing.
-    ///
-    /// Returns `ResultMaybeCompatible::Incompatible` if a select resolves to an
-    /// incompatible branch (from a select_incompatible()), indicating the target is not compatible
-    /// with the current configuration.
-    pub fn configure(
-        &self,
-        ty: &AttrType,
-        ctx: &dyn AttrConfigurationContext,
-        // TODO(nero): Remove this parameter after we migrate to first select match.
-        // Attribute name, used for soft error message of select_first_match_differs
-        attr_name: Option<&str>,
-    ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        self.configure_inner(ty, ctx, attr_name)
-            .tag(ErrorTag::ConfigureAttr)
-    }
-
-    fn configure_inner(
-        &self,
-        ty: &AttrType,
-        ctx: &dyn AttrConfigurationContext,
-        attr_name: Option<&str>,
-    ) -> ResultMaybeCompatible<ConfiguredAttr> {
-        let configured = match CoercedAttrWithType::pack(self, ty)? {
-            CoercedAttrWithType::Selector(select, t) => {
-                Self::select(ctx, select, attr_name)?.configure(t, ctx, attr_name)?
-            }
-            CoercedAttrWithType::Concat(items, t) => {
-                let singleton = items.len() == 1;
-                let mut configured = Vec::with_capacity(items.len());
-                for item in items {
-                    configured.push(item.configure(t, ctx, attr_name)?);
-                }
-                let mut iter = configured.into_iter();
-                let first = iter.next().internal_error("concat with no items")?;
-                if singleton {
-                    first
-                } else {
-                    first.concat(t, &mut iter.map(Ok))?
-                }
-            }
-            CoercedAttrWithType::SelectFail(message, _) => {
-                return buck2_error!(
-                    buck2_error::ErrorTag::Input,
-                    "select resolved to select_fail(): {message}"
-                )
-                .into();
-            }
-            CoercedAttrWithType::SelectIncompatible(message, _) => {
-                return ResultMaybeCompatible::Incompatible(ctx.incompatible_platform_reason(
-                    IncompatiblePlatformReasonCause::SelectIncompatible(message.dupe()),
-                ));
-            }
-            CoercedAttrWithType::AnyList(list) => ConfiguredAttr::List(ListLiteral(
-                list.iter()
-                    .map(|v| v.configure(AttrType::any_ref(), ctx, attr_name))
-                    .collect::<ResultMaybeCompatible<Vec<_>>>()?
-                    .into(),
-            )),
-            CoercedAttrWithType::AnyTuple(tuple) => ConfiguredAttr::Tuple(TupleLiteral(
-                tuple
-                    .iter()
-                    .map(|v| v.configure(AttrType::any_ref(), ctx, attr_name))
-                    .collect::<ResultMaybeCompatible<Vec<_>>>()?
-                    .into(),
-            )),
-            CoercedAttrWithType::AnyDict(dict) => ConfiguredAttr::Dict(DictLiteral(
-                dict.iter()
-                    .map(|(k, v)| {
-                        let k2 = k.configure(AttrType::any_ref(), ctx, attr_name)?;
-                        let v2 = v.configure(AttrType::any_ref(), ctx, attr_name)?;
-                        ResultMaybeCompatible::Compatible((k2, v2))
-                    })
-                    .collect::<ResultMaybeCompatible<Vec<_>>>()?
-                    .into(),
-            )),
-
-            CoercedAttrWithType::Bool(v, _t) => ConfiguredAttr::Bool(v),
-            CoercedAttrWithType::Int(v, _t) => ConfiguredAttr::Int(v),
-            CoercedAttrWithType::String(v, _t) => ConfiguredAttr::String(v.dupe()),
-            CoercedAttrWithType::EnumVariant(v, _t) => ConfiguredAttr::EnumVariant(v.dupe()),
-            CoercedAttrWithType::List(list, t) => ConfiguredAttr::List(ListLiteral(
-                list.iter()
-                    .map(|v| v.configure(&t.inner, ctx, attr_name))
-                    .collect::<ResultMaybeCompatible<Vec<_>>>()?
-                    .into(),
-            )),
-            CoercedAttrWithType::Tuple(list, t) => {
-                if list.len() != t.xs.len() {
-                    return internal_error!("Inconsistent number of elements in tuple").into();
-                }
-                ConfiguredAttr::Tuple(TupleLiteral(
-                    list.iter()
-                        .zip(&t.xs)
-                        .map(|(v, vt)| v.configure(vt, ctx, attr_name))
-                        .collect::<ResultMaybeCompatible<_>>()?,
-                ))
-            }
-            CoercedAttrWithType::Dict(dict, t) => ConfiguredAttr::Dict(DictLiteral(
-                dict.iter()
-                    .map(|(k, v)| {
-                        let k2 = k.configure(&t.key, ctx, attr_name)?;
-                        let v2 = v.configure(&t.value, ctx, attr_name)?;
-                        ResultMaybeCompatible::Compatible((k2, v2))
-                    })
-                    .collect::<ResultMaybeCompatible<Vec<_>>>()?
-                    .into(),
-            )),
-            CoercedAttrWithType::None => ConfiguredAttr::None,
-            CoercedAttrWithType::Some(attr, t) => attr.configure(&t.inner, ctx, attr_name)?,
-            CoercedAttrWithType::OneOf(l, i, t) => {
-                let item_ty = &t.xs[i as usize];
-                let configured = l.configure(item_ty, ctx, attr_name)?;
-                ConfiguredAttr::OneOf(Box::new(configured), i)
-            }
-            CoercedAttrWithType::Visibility(v, _) => ConfiguredAttr::Visibility(v.clone()),
-            CoercedAttrWithType::WithinView(v, _) => ConfiguredAttr::WithinView(v.clone()),
-            CoercedAttrWithType::ExplicitConfiguredDep(dep, t) => {
-                t.configure(ctx, &dep.label, dep.platform.dupe())?
-            }
-            CoercedAttrWithType::SplitTransitionDep(dep, t) => t.configure(dep, ctx)?,
-            CoercedAttrWithType::TransitionDep(dep, t) => {
-                t.configure(&dep.dep, dep.get_dynamic_transition(), ctx)?
-            }
-            CoercedAttrWithType::ConfigurationDep(dep, _) => {
-                ConfigurationDepAttrType::configure(ctx, dep)?
-            }
-            CoercedAttrWithType::PluginDep(dep, t) => {
-                ConfiguredAttr::PluginDep(dep.dupe(), t.kind().dupe())
-            }
-            CoercedAttrWithType::Dep(dep, t) => t.configure(dep, ctx)?,
-            CoercedAttrWithType::SourceLabel(source, _) => {
-                ConfiguredAttr::SourceLabel(source.configure_pair(ctx.cfg().cfg_pair().dupe()))
-            }
-            CoercedAttrWithType::Label(label, _) => LabelAttrType::configure(ctx, label)?,
-            CoercedAttrWithType::Arg(arg, attr_type) => {
-                ConfiguredAttr::Arg(arg.configure(ctx, attr_type.anon_target_compatible)?)
-            }
-            CoercedAttrWithType::Query(query, _) => {
-                ConfiguredAttr::Query(Box::new(query.configure(ctx)?))
-            }
-            CoercedAttrWithType::SourceFile(s, _) => ConfiguredAttr::SourceFile(s.clone()),
-            CoercedAttrWithType::Metadata(m, _) => ConfiguredAttr::Metadata(m.clone()),
-            CoercedAttrWithType::TargetModifiers(m, _) => ConfiguredAttr::TargetModifiers(m.dupe()),
-        };
-        ResultMaybeCompatible::Compatible(configured)
-    }
-
-    /// Checks if this attr matches the filter. For selectors and container-like things, will return true if any
-    /// contained item matches the filter.
-    pub fn any_matches(
-        &self,
-        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool> {
-        match self {
-            CoercedAttr::Selector(s) => {
-                for value in s.all_values() {
-                    if value.any_matches(filter)? {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
-            CoercedAttr::Concat(c) => {
-                for item in &*c.0 {
-                    if item.any_matches(filter)? {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
-            CoercedAttr::SelectFail(_) => Ok(false),
-            CoercedAttr::SelectIncompatible(_) => Ok(false),
-            CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => filter(v),
-            CoercedAttr::List(vals) => vals.any_matches(filter),
-            CoercedAttr::Tuple(vals) => vals.any_matches(filter),
-            CoercedAttr::Dict(d) => d.any_matches(filter),
-            CoercedAttr::None => Ok(false),
-            CoercedAttr::Bool(b) => b.any_matches(filter),
-            CoercedAttr::Int(i) => filter(&i.to_string()),
-            CoercedAttr::OneOf(l, _) => l.any_matches(filter),
-            CoercedAttr::Visibility(v) => v.any_matches(filter),
-            CoercedAttr::WithinView(v) => v.any_matches(filter),
-            CoercedAttr::ExplicitConfiguredDep(e) => filter(&e.to_string()),
-            CoercedAttr::TransitionDep(v) => filter(&v.dep.to_string()),
-            CoercedAttr::SplitTransitionDep(e) => filter(&e.to_string()),
-            CoercedAttr::ConfigurationDep(e) => filter(&e.to_string()),
-            CoercedAttr::PluginDep(e) => filter(&e.to_string()),
-            CoercedAttr::Dep(e) => filter(&e.to_string()),
-            CoercedAttr::SourceLabel(e) => filter(&e.to_string()),
-            CoercedAttr::Label(e) => filter(&e.to_string()),
-            CoercedAttr::Arg(e) => filter(&e.to_string()),
-            CoercedAttr::Query(e) => filter(&e.query.query),
-            CoercedAttr::SourceFile(e) => filter(&e.path().to_string()),
-            CoercedAttr::Metadata(e) => e.any_matches(filter),
-            CoercedAttr::TargetModifiers(e) => e.any_matches(filter),
-            CoercedAttr::Encoded(..) => {
-                Err(internal_error!("Encoded attr must not escape coercion"))
             }
         }
     }
