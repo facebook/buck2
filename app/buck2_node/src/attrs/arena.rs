@@ -76,6 +76,7 @@ use allocative::Allocative;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::package::PackageLabel;
+use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
@@ -85,9 +86,11 @@ use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_hash::BuckHasher;
 use buck2_hash::BuckMutMap;
+use buck2_util::arc_str::ArcS;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::pointer_identity::StaticPointerIdentity;
+use buck2_util::pointer_identity::mix_addr;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use buck2_util::strong_hasher::StrongHash128;
 use display_container::fmt_container;
@@ -2332,6 +2335,18 @@ pub struct CoercedAttrArenaBuilder {
     /// Keyed by pointer identity: `TargetLabel`s are globally interned,
     /// so equal labels share one allocation.
     target_label_dedup: BuckMutMap<StaticPointerIdentity<TargetLabel>, u32>,
+    /// Source-file lookaside, probed by data address: (retained path, path
+    /// table index, path content hash). Every path here comes from coercion
+    /// — source attrs and `$(source ...)` arg macros alike — which resolves
+    /// files against the package listing and hands out the listing's own
+    /// `ArcS`. The same file referenced from either form therefore shares
+    /// one allocation, and pointer equality implies path equality. Each
+    /// entry retains its `ArcS`, so a keyed address can never be freed — or
+    /// reused — while the map lives. Files absent from the listing
+    /// (missing-file soft error) carry fresh allocations and never hit.
+    /// Directories are excluded: their value includes the expanded file
+    /// list, so the dir pointer alone does not imply value equality.
+    path_by_ptr: hashbrown::HashTable<(ArcS<PackageRelativePath>, u32, u64)>,
     /// Words interned as roots (top-level attribute values); the sealed
     /// arena retains an identity-grade strong hash for exactly these.
     roots: Vec<AttrWord>,
@@ -2365,6 +2380,12 @@ fn content_hash(tag: AttrKind, f: impl FnOnce(&mut BuckHasher)) -> CoercedAttrHa
     Hash::hash(&(tag as u8), &mut h);
     f(&mut h);
     CoercedAttrHash(h.finish())
+}
+
+/// Bucket hash for the source-file lookaside: mixes the `ArcS` data
+/// address (identity, not content).
+fn path_addr_hash(f: &ArcS<PackageRelativePath>) -> u64 {
+    mix_addr(f.as_str().as_ptr().addr())
 }
 
 /// Fold a precomputed component hash under a kind tag: one multiply-rotate
@@ -2769,12 +2790,10 @@ impl CoercedAttrArenaBuilder {
     }
 
     pub fn encode_source_file(&mut self, p: &CoercedPath) -> buck2_error::Result<CoercedAttr> {
-        let idx = self.arena.paths.len() as u32;
-        self.arena.paths.push(p.clone());
-        let hash = content_hash(AttrKind::SourceFile, |h| p.hash(h));
+        let (idx, path_hash) = self.source_path_idx_and_hash(p);
         Ok(CoercedAttr::Encoded(
             AttrWord::inline(AttrKind::SourceFile, idx)?,
-            hash,
+            mix_kind(AttrKind::SourceFile, path_hash),
         ))
     }
 
@@ -2870,6 +2889,37 @@ impl CoercedAttrArenaBuilder {
             | CoercedAttr::Metadata(_)
             | CoercedAttr::TargetModifiers(_)) => self.encode_legacy(legacy).map(parts),
         }
+    }
+
+    /// Path table index and content hash, via the `ArcS` pointer lookaside
+    /// for files (see `path_by_ptr`).
+    fn source_path_idx_and_hash(&mut self, p: &CoercedPath) -> (u32, u64) {
+        let file = match p {
+            CoercedPath::File(f) => {
+                let bucket = path_addr_hash(f);
+                if let Some((idx, hash)) = self
+                    .path_by_ptr
+                    .find(bucket, |(a, _, _)| {
+                        std::ptr::eq(a.as_str().as_ptr(), f.as_str().as_ptr())
+                    })
+                    .map(|&(_, idx, hash)| (idx, hash))
+                {
+                    return (idx, hash);
+                }
+                Some((f.dupe(), bucket))
+            }
+            CoercedPath::Directory(_) => None,
+        };
+        let idx = self.arena.paths.len() as u32;
+        self.arena.paths.push(p.clone());
+        let mut hasher = BuckHasher::default();
+        p.hash(&mut hasher);
+        let hash = hasher.finish();
+        if let Some((f, bucket)) = file {
+            self.path_by_ptr
+                .insert_unique(bucket, (f, idx, hash), |(a, _, _)| path_addr_hash(a));
+        }
+        (idx, hash)
     }
 
     /// Table index and content hash for a label. Default-providers labels
@@ -2968,18 +3018,13 @@ impl CoercedAttrArenaBuilder {
                 (ARG_MACRO_TAG_KEYED, flag, idx, refs, parts)
             }
             MacroBase::Source(path) => {
-                // Like `SourceFile`: the path side table has no dedup, so
-                // identical source macros do not share (rare in practice).
-                let idx = self.arena.paths.len() as u32;
-                self.arena.paths.push(path.clone());
-                let mut ph = BuckHasher::default();
-                path.hash(&mut ph);
+                let (idx, path_hash) = self.source_path_idx_and_hash(path);
                 (
                     ARG_MACRO_TAG_SOURCE,
                     0,
                     idx,
                     smallvec![],
-                    smallvec![ph.finish()],
+                    smallvec![path_hash],
                 )
             }
             MacroBase::Query(_) => {
@@ -3402,6 +3447,25 @@ mod tests {
         ]);
         let arena = roundtrip(&[CoercedAttr::Arg(StringWithMacros::ManyParts(parts))]);
         assert_eq!(arena.legacy.len(), 0, "macro args should encode natively");
+    }
+
+    #[test]
+    fn test_source_file_pointer_dedup() {
+        use buck2_core::package::package_relative_path::PackageRelativePath;
+        let shared = PackageRelativePath::new("hdrs/common.h").unwrap().to_arc();
+        let a = CoercedAttr::SourceFile(CoercedPath::File(shared.dupe()));
+        let b = CoercedAttr::SourceFile(CoercedPath::File(shared));
+        let other = CoercedAttr::SourceFile(CoercedPath::File(
+            PackageRelativePath::new("other.h").unwrap().to_arc(),
+        ));
+        let mut bld = CoercedAttrArena::builder();
+        let (r1, h1) = bld.encode(&a).unwrap();
+        let (r2, h2) = bld.encode(&b).unwrap();
+        let (r3, _) = bld.encode(&other).unwrap();
+        assert_eq!(r1, r2, "same listing allocation should dedup by pointer");
+        assert_eq!(h1, h2);
+        assert_ne!(r1, r3);
+        assert_eq!(bld.arena.paths.len(), 2);
     }
 
     #[test]
