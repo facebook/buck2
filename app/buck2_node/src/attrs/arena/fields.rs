@@ -55,7 +55,7 @@ use crate::visibility::WithinViewSpecification;
 
 /// The blake3 identity hasher plus the per-arena memo child hashes use.
 pub struct IdHasher<'m> {
-    pub(super) h: Blake3StrongHasher,
+    pub(crate) h: Blake3StrongHasher,
     pub(super) memo: &'m mut BuckMutMap<u32, StrongHash128>,
 }
 
@@ -69,7 +69,7 @@ impl IdHasher<'_> {
 /// Reads one value's fields in order: the inline payload, or a record's
 /// head fields and tail.
 pub struct Cursor<'a> {
-    pub(super) arena: &'a CoercedAttrArena,
+    pub(crate) arena: &'a CoercedAttrArena,
     pub(super) r: AttrWord,
     /// Head fields of a record; `None` for an inline word.
     pub(super) head: Option<RefRun<'a>>,
@@ -79,7 +79,7 @@ pub struct Cursor<'a> {
 }
 
 impl<'a> Cursor<'a> {
-    pub(super) fn new(arena: &'a CoercedAttrArena, r: AttrWord) -> Cursor<'a> {
+    pub(crate) fn new(arena: &'a CoercedAttrArena, r: AttrWord) -> Cursor<'a> {
         let (head, tail) = if r.is_inline() {
             (None, Tail::None)
         } else {
@@ -97,7 +97,7 @@ impl<'a> Cursor<'a> {
     }
 
     /// The next head field, or the inline payload.
-    pub(super) fn raw(&mut self) -> u32 {
+    pub(crate) fn raw(&mut self) -> u32 {
         match self.head {
             None => {
                 self.r
@@ -113,12 +113,12 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    pub(super) fn text(&self) -> &'a str {
+    pub(crate) fn text(&self) -> &'a str {
         self.arena.str_at(self.r)
     }
 
     /// The next `n` refs of the tail.
-    pub(super) fn refs(&mut self, n: u32) -> RefRun<'a> {
+    pub(crate) fn refs(&mut self, n: u32) -> RefRun<'a> {
         let Tail::Refs(run) = self.tail else {
             unreachable!("should have refs: the kind's fields say so")
         };
@@ -131,7 +131,7 @@ impl<'a> Cursor<'a> {
     }
 
     /// The next ref of the tail; `None` for an absent slot.
-    pub(super) fn child(&mut self) -> Option<AttrWord> {
+    pub(crate) fn child(&mut self) -> Option<AttrWord> {
         self.refs(1).get_opt(0)
     }
 }

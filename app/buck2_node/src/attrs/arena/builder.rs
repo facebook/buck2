@@ -95,7 +95,7 @@ pub struct CoercedAttrArenaBuilder {
     pub(super) roots: Vec<AttrWord>,
 }
 
-pub(super) fn content_hash(
+pub(crate) fn content_hash(
     tag: CoercedAttrKind,
     f: impl FnOnce(&mut BuckHasher),
 ) -> CoercedAttrHash {
@@ -123,11 +123,11 @@ pub(super) fn mix_kind(kind: CoercedAttrKind, h: u64) -> CoercedAttrHash {
 
 /// Head fields of one record while encoding; `SelectorKeys` and
 /// `QueryExpr` heads can run long, everything else is one to three fields.
-pub(super) type EncodeScratchFields = SmallVec<[u32; 32]>;
+pub(crate) type EncodeScratchFields = SmallVec<[u32; 32]>;
 
 /// Child refs gathered alongside [`EncodeScratchFields`]: covers values with up
 /// to 32 children on the stack — beyond typical select/list/dict fan-out.
-pub(super) type EncodeScratchRefs = SmallVec<[AttrWord; 32]>;
+pub(crate) type EncodeScratchRefs = SmallVec<[AttrWord; 32]>;
 
 impl CoercedAttrArenaBuilder {
     /// View an already-encoded value while still building (reads between
@@ -180,7 +180,7 @@ impl CoercedAttrArenaBuilder {
     /// same content hash has the same head and refs (children are deduped
     /// before parents, so equal content implies equal child refs within
     /// this arena).
-    pub(super) fn encode_record(
+    pub(crate) fn encode_record(
         &mut self,
         kind: CoercedAttrKind,
         hash: CoercedAttrHash,
@@ -282,7 +282,7 @@ impl CoercedAttrArenaBuilder {
 
     /// Path table index and content hash, via the `ArcS` pointer lookaside
     /// for files (see `path_by_ptr`).
-    pub(super) fn source_path_idx_and_hash(&mut self, p: &CoercedPath) -> (u32, u64) {
+    pub(crate) fn source_path_idx_and_hash(&mut self, p: &CoercedPath) -> (u32, u64) {
         let file = match p {
             CoercedPath::File(f) => {
                 let bucket = path_addr_hash(f);
@@ -314,7 +314,7 @@ impl CoercedAttrArenaBuilder {
     /// (the common case) key by the interned target label's address:
     /// pointer equality implies label equality, and the hash is computed
     /// once per unique label.
-    pub(super) fn providers_label_idx_and_hash(&mut self, l: &ProvidersLabel) -> (u32, u64) {
+    pub(crate) fn providers_label_idx_and_hash(&mut self, l: &ProvidersLabel) -> (u32, u64) {
         if matches!(
             l.name(),
             buck2_core::provider::label::ProvidersName::Default
@@ -336,7 +336,7 @@ impl CoercedAttrArenaBuilder {
         (idx, lh.finish())
     }
 
-    pub(super) fn encode_str(
+    pub(crate) fn encode_str(
         &mut self,
         kind: CoercedAttrKind,
         s: &str,

@@ -363,11 +363,11 @@ pub struct CoercedAttrArena {
     /// Globally interned `ProvidersLabel`s, indexed by `Dep`, `Label`,
     /// `SourceLabel`, `ConfigurationDep`, `SplitTransitionDep`, and
     /// `SelectorKeys` records.
-    pub(super) providers_labels: Vec<ProvidersLabel>,
+    pub(crate) providers_labels: Vec<ProvidersLabel>,
     /// Globally interned `TargetLabel`s, indexed by `PluginDep` records.
     pub(super) target_labels: Vec<TargetLabel>,
     /// Source paths, indexed by `SourceFile` records.
-    pub(super) paths: Vec<CoercedPath>,
+    pub(crate) paths: Vec<CoercedPath>,
     /// Whole-value leaves by table index, one entry per distinct value in
     /// the package.
     pub(super) visibility: Vec<VisibilitySpecification>,
@@ -511,7 +511,7 @@ impl CoercedAttrArena {
         }
     }
 
-    pub(super) fn str_at(&self, r: AttrWord) -> &str {
+    pub(crate) fn str_at(&self, r: AttrWord) -> &str {
         let bytes = self.bytes_at(r);
         debug_assert!(std::str::from_utf8(bytes).is_ok());
         // SAFETY: text records are written from `&str`, and a buffer from
@@ -699,8 +699,8 @@ impl<'a> Rec<'a> {
 /// A run of fixed-width values inside one record: ref fields (see
 /// [`AttrWord::to_field`]) or raw indices (`SelectorKeys`).
 #[derive(Copy, Clone)]
-pub(super) struct RefRun<'a> {
-    pub(super) arena: &'a CoercedAttrArena,
+pub(crate) struct RefRun<'a> {
+    pub(crate) arena: &'a CoercedAttrArena,
     pub(super) rec: u32,
     pub(super) start: usize,
     pub(super) len: u32,
@@ -710,7 +710,7 @@ pub(super) struct RefRun<'a> {
 impl<'a> RefRun<'a> {
     /// The `i`th fixed-width value, little-endian.
     #[inline]
-    pub(super) fn raw(&self, i: u32) -> u32 {
+    pub(crate) fn raw(&self, i: u32) -> u32 {
         let w = self.width as usize;
         let b = &self.arena.bytes[self.start + i as usize * w..][..w];
         match w {
@@ -722,7 +722,7 @@ impl<'a> RefRun<'a> {
     }
 
     #[inline]
-    pub(super) fn get(&self, i: u32) -> AttrWord {
+    pub(crate) fn get(&self, i: u32) -> AttrWord {
         self.get_opt(i)
             .expect("should be present: only a selector default may be absent")
     }
@@ -732,12 +732,12 @@ impl<'a> RefRun<'a> {
         AttrWord::from_field(self.raw(i), self.rec)
     }
 
-    pub(super) fn len(&self) -> u32 {
+    pub(crate) fn len(&self) -> u32 {
         self.len
     }
 
     /// The run without its first `n` refs.
-    pub(super) fn skip(&self, n: u32) -> RefRun<'a> {
+    pub(crate) fn skip(&self, n: u32) -> RefRun<'a> {
         RefRun {
             start: self.start + n as usize * self.width as usize,
             len: self.len - n,
@@ -747,7 +747,7 @@ impl<'a> RefRun<'a> {
 
     /// The raw values in order. One bounds check for the whole run; the
     /// width is matched once so each arm is a fixed-stride loop.
-    pub(super) fn iter_raw(&self) -> impl ExactSizeIterator<Item = u32> + use<'a> {
+    pub(crate) fn iter_raw(&self) -> impl ExactSizeIterator<Item = u32> + use<'a> {
         let w = self.width as usize;
         let bytes = &self.arena.bytes[self.start..self.start + self.len as usize * w];
         match w {
@@ -774,7 +774,7 @@ impl<'a> RefRun<'a> {
         }
     }
 
-    pub(super) fn iter(&self) -> impl ExactSizeIterator<Item = AttrWord> + use<'a> {
+    pub(crate) fn iter(&self) -> impl ExactSizeIterator<Item = AttrWord> + use<'a> {
         let rec = self.rec;
         self.iter_raw().map(move |f| {
             AttrWord::from_field(f, rec)

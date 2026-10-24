@@ -43,7 +43,7 @@ impl PartialEq for CoercedAttrRef<'_> {
 /// dict's (key, value) pairs, or an arg's parts. `len`/`iter` only; the
 /// items decode lazily.
 pub struct Refs<'a, T> {
-    pub(super) run: RefRun<'a>,
+    pub(crate) run: RefRun<'a>,
     pub(super) _item: std::marker::PhantomData<T>,
 }
 

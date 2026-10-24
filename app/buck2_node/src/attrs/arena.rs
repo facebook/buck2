@@ -37,12 +37,12 @@
 //!   deltas are never negative.
 
 mod arg;
-mod builder;
+pub(crate) mod builder;
 pub(crate) mod fields;
 mod owned;
 mod query_expr;
 pub(crate) mod schema;
-mod storage;
+pub(crate) mod storage;
 #[cfg(test)]
 mod tests;
 mod view;
