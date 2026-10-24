@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_node::attrs::arena::CoercedAttrRef;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::AttrTypeInner;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -70,7 +71,7 @@ pub trait AttrTypeExt {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-        default: Option<&CoercedAttr>,
+        default: Option<CoercedAttrRef<'_>>,
     ) -> buck2_error::Result<CoercedAttr> {
         CoercedAttr::coerce(self.this(), configurable, ctx, value, default)
     }

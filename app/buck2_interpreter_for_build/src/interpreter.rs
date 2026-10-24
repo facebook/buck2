@@ -17,7 +17,7 @@ pub(crate) mod check_starlark_stack_size;
 pub mod configuror;
 pub mod context;
 pub mod dice_calculation_delegate;
-mod extra_value;
+pub(crate) mod extra_value;
 pub mod functions;
 pub mod global_interpreter_state;
 pub mod globals;

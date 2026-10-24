@@ -18,8 +18,10 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use super::anon_target_attr_validation::AnonRuleAttrValidation;
+use crate::attrs::arena::AttrWord;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::attr::Attribute;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::spec::internal::INCOMING_TRANSITION_ATTRIBUTE;
@@ -86,6 +88,12 @@ impl AttributeSpec {
         Ok(AttributeSpec {
             attributes: attributes.freeze(),
         })
+    }
+
+    /// The rule default for `idx` as a view into the attribute's own sealed
+    /// storage, if the attribute has one.
+    fn default_value(&self, idx: AttributeId) -> Option<CoercedAttrRef<'_>> {
+        self.attribute_by_id(idx).default_as_ref()
     }
 
     pub fn from(
@@ -195,7 +203,7 @@ impl AttributeSpec {
             attr_values.len()
         };
         let mut pos = 0;
-        let mut entry: Option<(AttributeId, &CoercedAttr)> = attr_values.get_by_index(0);
+        let mut entry: Option<(AttributeId, CoercedAttrRef<'v>)> = attr_values.get_by_index(0);
 
         self.attr_specs()
             .filter_map(move |(name, idx, attr)| match entry {
@@ -209,22 +217,55 @@ impl AttributeSpec {
                     })
                 }
                 _ => {
-                    let default: &CoercedAttr = match attr.default() {
-                        Some(default) => default,
-                        None => panic!("no default for attribute `{name}`"),
-                    };
+                    let value = self
+                        .default_value(idx)
+                        .unwrap_or_else(|| panic!("no default for attribute `{name}`"));
                     if opts.include_default() {
-                        Some(CoercedAttrFull {
-                            name,
-                            attr,
-                            value: default,
-                        })
+                        Some(CoercedAttrFull { name, attr, value })
                     } else {
                         None
                     }
                 }
             })
             .with_exact_size(len)
+    }
+
+    /// Like [`Self::attrs`], but over already-encoded `(id, word)`
+    /// rows viewed through the still-unsealed package interner: coercion
+    /// encodes values as they are parsed, and validation plus the deps
+    /// cache read them before the arena seals. Defaults come from each
+    /// attribute's own sealed storage.
+    pub fn attrs_over_encoded_pairs<'v>(
+        &'v self,
+        interner: &'v CoercedAttrArenaBuilder,
+        pairs: &'v [(AttributeId, AttrWord)],
+        opts: AttrInspectOptions,
+    ) -> impl Iterator<Item = CoercedAttrFull<'v>> {
+        let mut pos = 0;
+        let mut entry = pairs.first();
+
+        self.attr_specs()
+            .filter_map(move |(name, idx, attr)| match entry {
+                Some((entry_idx, word)) if *entry_idx == idx => {
+                    pos += 1;
+                    entry = pairs.get(pos);
+                    Some(CoercedAttrFull {
+                        name,
+                        attr,
+                        value: interner.view(*word),
+                    })
+                }
+                _ => {
+                    let value = self
+                        .default_value(idx)
+                        .unwrap_or_else(|| panic!("no default for attribute `{name}`"));
+                    if opts.include_default() {
+                        Some(CoercedAttrFull { name, attr, value })
+                    } else {
+                        None
+                    }
+                }
+            })
     }
 
     pub fn known_attr_or_none<'v>(
@@ -236,7 +277,7 @@ impl AttributeSpec {
         let value = if let Some(attr) = attr_values.get(idx) {
             attr
         } else if opts.include_default() {
-            self.attribute_by_id(idx).default()?
+            self.default_value(idx)?
         } else {
             return None;
         };

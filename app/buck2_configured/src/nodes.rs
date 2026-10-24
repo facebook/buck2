@@ -59,7 +59,6 @@ use buck2_error::internal_error;
 use buck2_hash::BuckFixedSortedMap;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutInsertionSet;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
 use buck2_node::attrs::configuration_context::PlatformConfigurationError;
@@ -1125,11 +1124,10 @@ async fn compute_configured_target_node(
         RuleIncomingTransition::Fixed(transition_id) => Some(transition_id.dupe()),
         RuleIncomingTransition::FromAttribute => target_node
             .attr_or_none(INCOMING_TRANSITION_ATTRIBUTE.name, AttrInspectOptions::All)
-            .and_then(|v| match v.value {
-                CoercedAttr::None => None,
-                CoercedAttr::ConfigurationDep(l) => Some(Arc::new(TransitionId::Target(l.dupe()))),
-                _ => unreachable!("Verified by attr coercer"),
-            }),
+            .map(|v| v.value.unpack_configuration_dep())
+            .transpose()?
+            .flatten()
+            .map(|l| Arc::new(TransitionId::Target(l.dupe()))),
     };
 
     if let Some(transition_id) = transition_id {

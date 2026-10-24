@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
@@ -23,7 +22,6 @@ use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
-use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::dict::DictAttrType;
 use crate::attrs::attr_type::dict::DictLiteral;
@@ -103,7 +101,6 @@ pub enum CoercedAttrWithType<'a, 't> {
     ),
     SplitTransitionDep(&'a ProvidersLabel, &'t SplitTransitionDepAttrType),
     TransitionDep(&'a CoercedTransitionDep, &'t TransitionDepAttrType),
-    ConfiguredDep(&'a DepAttr<ConfiguredProvidersLabel>),
     ConfigurationDep(&'a ProvidersLabel, ConfigurationDepAttrType),
     PluginDep(&'a TargetLabel, &'t PluginDepAttrType),
     Dep(&'a ProvidersLabel, &'t DepAttrType),
@@ -165,9 +162,6 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             }
             (CoercedAttr::SplitTransitionDep(d), AttrTypeInner::SplitTransitionDep(t)) => {
                 Ok(CoercedAttrWithType::SplitTransitionDep(d, t))
-            }
-            (CoercedAttr::ConfiguredDepForForwardNode(d), _) => {
-                Ok(CoercedAttrWithType::ConfiguredDep(d))
             }
             (CoercedAttr::ConfigurationDep(d), AttrTypeInner::ConfigurationDep(t)) => {
                 Ok(CoercedAttrWithType::ConfigurationDep(d, *t))
@@ -251,7 +245,6 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | CoercedAttr::ExplicitConfiguredDep(_)
             | CoercedAttr::TransitionDep(_)
             | CoercedAttr::SplitTransitionDep(_)
-            | CoercedAttr::ConfiguredDepForForwardNode(_)
             | CoercedAttr::ConfigurationDep(_)
             | CoercedAttr::PluginDep(_)
             | CoercedAttr::Dep(_)

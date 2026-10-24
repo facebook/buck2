@@ -66,10 +66,10 @@ impl AttributeCoerceExt for Attribute {
             }
         }
 
-        match self.default() {
+        match self.default_as_ref() {
             default if !value.is_none() => self
                 .coercer()
-                .coerce_with_default(configurable, coercer_ctx, value, default.map(|x| &**x))
+                .coerce_with_default(configurable, coercer_ctx, value, default)
                 .map(CoercedValue::Custom)
                 .with_buck_error_context(|| {
                     format!("Error coercing attribute `{param_name}` of type `{self}`")

@@ -48,7 +48,7 @@ use buck2_hash::BuckMutMap;
 use buck2_interpreter::dice::starlark_provider::DynEvalKindKey;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::attrs::spec::AttributeSpec;
-use buck2_node::attrs::values::AttrValues;
+use buck2_node::attrs::values::SortedAttrValues;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use cmp_any::PartialEqAny;
@@ -76,7 +76,7 @@ use crate::anon_target_attr_resolve::AnonTargetAttrResolutionContext;
 /// from the same value passed explicitly. Attribute names are not stored;
 /// ids resolve against the [`AttributeSpec`] of the rule identified by the
 /// `rule_type` stored alongside this in [`AnonTarget`].
-pub(crate) type AnonAttrValues = AttrValues<AnonTargetAttr>;
+pub(crate) type AnonAttrValues = SortedAttrValues<AnonTargetAttr>;
 
 #[derive(Eq, PartialEq, Clone, Debug, Allocative, Pagable)]
 pub(crate) struct AnonTarget {

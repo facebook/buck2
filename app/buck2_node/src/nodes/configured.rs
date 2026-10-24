@@ -45,6 +45,7 @@ use pagable::Pagable;
 use starlark_map::Hashed;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::CoercedAttrRefKind;
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::any_matches::AnyMatches;
@@ -54,7 +55,6 @@ use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::configuration_context::AttrConfigurationContextImpl;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_attr_full::ConfiguredAttrFull;
@@ -107,30 +107,31 @@ impl Dupe for ConfiguredTargetNode {}
 #[derive(Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 enum TargetNodeOrForward {
     TargetNode(TargetNode),
-    // Coerced attr is always a dependency.
-    Forward(CoercedAttr, ConfiguredTargetNode),
+    /// The node this one forwards to. A forward node's only attribute is a
+    /// configured dep on that node, served from its label.
+    Forward(ConfiguredTargetNode),
 }
 
 const ACTUAL_ATTR_NAME: &str = "actual";
 
-impl TargetNodeOrForward {
-    fn attrs(
-        &self,
-        opts: AttrInspectOptions,
-    ) -> impl ExactSizeIterator<Item = CoercedAttrFull<'_>> + '_ {
-        match self {
-            TargetNodeOrForward::TargetNode(target_node) => Either::Left(target_node.attrs(opts)),
-            TargetNodeOrForward::Forward(actual, _) => {
-                let actual_attr = Some(CoercedAttrFull {
-                    name: ACTUAL_ATTR_NAME,
-                    attr: ConfiguredTargetNode::actual_attribute(),
-                    value: actual,
-                });
-                Either::Right(actual_attr.into_iter())
-            }
-        }
+/// The forward node's `actual` attribute, configured: a dep on `forwarded`.
+fn actual_attr(forwarded: &ConfiguredTargetNode) -> ConfiguredAttrFull<'static> {
+    let label = forwarded.label();
+    ConfiguredAttrFull {
+        name: ACTUAL_ATTR_NAME,
+        attr: ConfiguredTargetNode::actual_attribute(),
+        value: ConfiguredAttr::Dep(Box::new(DepAttr {
+            attr_type: DepAttrType::new(
+                ProviderIdSet::EMPTY,
+                DepAttrTransition::Identity(PluginKindSet::EMPTY),
+            ),
+            label: ProvidersLabel::default_for(label.unconfigured().dupe())
+                .configure(label.cfg().dupe()),
+        })),
     }
+}
 
+impl TargetNodeOrForward {
     fn rule_type(&self) -> &RuleType {
         match self {
             TargetNodeOrForward::TargetNode(target_node) => target_node.rule_type(),
@@ -141,63 +142,42 @@ impl TargetNodeOrForward {
     fn underlying_rule_type(&self) -> &RuleType {
         match self {
             TargetNodeOrForward::TargetNode(target_node) => target_node.rule_type(),
-            TargetNodeOrForward::Forward(_, node) => node.underlying_rule_type(),
+            TargetNodeOrForward::Forward(node) => node.underlying_rule_type(),
         }
     }
 
     fn rule_kind(&self) -> RuleKind {
         match self {
             TargetNodeOrForward::TargetNode(x) => x.rule_kind(),
-            TargetNodeOrForward::Forward(_, x) => x.rule_kind(),
+            TargetNodeOrForward::Forward(x) => x.rule_kind(),
         }
     }
 
     fn buildfile_path(&self) -> &BuildFilePath {
         match self {
             TargetNodeOrForward::TargetNode(target_node) => target_node.buildfile_path(),
-            TargetNodeOrForward::Forward(_, x) => x.buildfile_path(),
+            TargetNodeOrForward::Forward(x) => x.buildfile_path(),
         }
     }
 
     fn is_visible_to(&self, target: TargetLabel) -> buck2_error::Result<bool> {
         match self {
             TargetNodeOrForward::TargetNode(node) => node.is_visible_to(&target),
-            TargetNodeOrForward::Forward(_, forward) => forward.is_visible_to(&target),
+            TargetNodeOrForward::Forward(forward) => forward.is_visible_to(&target),
         }
     }
 
     fn not_visible_to_error(&self, consumer: TargetLabel) -> crate::visibility::VisibilityError {
         match self {
             TargetNodeOrForward::TargetNode(node) => node.not_visible_to_error(consumer),
-            TargetNodeOrForward::Forward(_, forward) => forward.not_visible_to_error(consumer),
+            TargetNodeOrForward::Forward(forward) => forward.not_visible_to_error(consumer),
         }
     }
 
     fn oncall(&self) -> Option<&str> {
         match self {
             TargetNodeOrForward::TargetNode(node) => node.oncall(),
-            TargetNodeOrForward::Forward(_, forward) => forward.oncall(),
-        }
-    }
-
-    fn attr_or_none<'a>(
-        &'a self,
-        name: &str,
-        opts: AttrInspectOptions,
-    ) -> Option<CoercedAttrFull<'a>> {
-        match self {
-            TargetNodeOrForward::TargetNode(target_node) => target_node.attr_or_none(name, opts),
-            TargetNodeOrForward::Forward(actual, _) => {
-                if name == ACTUAL_ATTR_NAME {
-                    Some(CoercedAttrFull {
-                        name: ACTUAL_ATTR_NAME,
-                        attr: ConfiguredTargetNode::actual_attribute(),
-                        value: actual,
-                    })
-                } else {
-                    None
-                }
-            }
+            TargetNodeOrForward::Forward(forward) => forward.oncall(),
         }
     }
 }
@@ -305,25 +285,10 @@ impl ConfiguredTargetNode {
             "Creating a forward node to identical target label would be a mistake"
         );
 
-        // TODO(nga): how to obtain the correct providers name?
-        let providers_name = ProvidersName::Default;
-        let providers_label = ProvidersLabel::new(name.unconfigured().dupe(), providers_name);
-
-        let configured_providers_label =
-            providers_label.configure(transitioned_node.label().cfg().dupe());
         Ok(ConfiguredTargetNode(triomphe::Arc::new(Hashed::new(
             ConfiguredTargetNodeData {
                 label: Hashed::new(name.dupe()),
-                target_node: TargetNodeOrForward::Forward(
-                    CoercedAttr::ConfiguredDepForForwardNode(Box::new(DepAttr {
-                        attr_type: DepAttrType::new(
-                            ProviderIdSet::EMPTY,
-                            DepAttrTransition::Identity(PluginKindSet::EMPTY),
-                        ),
-                        label: configured_providers_label,
-                    })),
-                    transitioned_node.dupe(),
-                ),
+                target_node: TargetNodeOrForward::Forward(transitioned_node.dupe()),
                 // We have no attributes with selects, so resolved configurations is empty.
                 resolved_configuration: MatchedConfigurationSettingKeysWithCfg::new(
                     name.cfg_pair().check_no_exec_cfg()?,
@@ -459,7 +424,7 @@ impl ConfiguredTargetNode {
     pub fn target_node(&self) -> &TargetNode {
         match &self.0.target_node {
             TargetNodeOrForward::TargetNode(n) => n,
-            TargetNodeOrForward::Forward(_, n) => n.target_node(),
+            TargetNodeOrForward::Forward(n) => n.target_node(),
         }
     }
 
@@ -523,14 +488,14 @@ impl ConfiguredTargetNode {
     pub fn call_stack(&self) -> Option<String> {
         match &self.0.target_node {
             TargetNodeOrForward::TargetNode(n) => n.call_stack(),
-            TargetNodeOrForward::Forward(_, n) => n.call_stack(),
+            TargetNodeOrForward::Forward(n) => n.call_stack(),
         }
     }
 
     pub fn root_location(&self) -> Option<StarlarkTargetCallStackRoot> {
         match &self.0.target_node {
             TargetNodeOrForward::TargetNode(n) => n.root_location(),
-            TargetNodeOrForward::Forward(_, n) => n.root_location(),
+            TargetNodeOrForward::Forward(n) => n.root_location(),
         }
     }
 
@@ -570,7 +535,7 @@ impl ConfiguredTargetNode {
     pub fn forward_target(&self) -> Option<&ConfiguredTargetNode> {
         match &self.0.target_node {
             TargetNodeOrForward::TargetNode(_) => None,
-            TargetNodeOrForward::Forward(_, n) => Some(n),
+            TargetNodeOrForward::Forward(n) => Some(n),
         }
     }
 
@@ -795,36 +760,49 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
         self,
         opts: AttrInspectOptions,
     ) -> impl ExactSizeIterator<Item = ConfiguredAttrFull<'a>> + 'a {
-        self.0.get().target_node.attrs(opts).map(move |a| {
-            a.configure(&self.attr_configuration_context())
-                .expect_compatible("checked attr configuration in constructor")
-        })
+        match &self.0.get().target_node {
+            TargetNodeOrForward::TargetNode(n) => Either::Left(n.attrs(opts).map(move |a| {
+                a.configure(&self.attr_configuration_context())
+                    .expect_compatible("checked attr configuration in constructor")
+            })),
+            TargetNodeOrForward::Forward(n) => Either::Right(iter::once(actual_attr(n))),
+        }
     }
 
-    /// Like [`attrs`](Self::attrs), but only configures attributes whose unconfigured
-    /// form passes `filter`. Configuration is the expensive step, so callers that
-    /// need a subset should filter with this rather than discarding configured attrs.
+    /// Like [`attrs`](Self::attrs), but only configures attributes whose name
+    /// and definition pass `filter`. Configuration is the expensive step, so
+    /// callers that need a subset should filter with this rather than
+    /// discarding configured attrs.
     pub fn filter_attrs(
         self,
         opts: AttrInspectOptions,
-        filter: impl Fn(&CoercedAttrFull) -> bool + 'a,
+        filter: impl Fn(&str, &Attribute) -> bool + 'a,
     ) -> impl Iterator<Item = ConfiguredAttrFull<'a>> + 'a {
-        self.0
-            .get()
-            .target_node
-            .attrs(opts)
-            .filter(move |a| filter(a))
-            .map(move |a| {
-                a.configure(&self.attr_configuration_context())
-                    .expect_compatible("checked attr configuration in constructor")
-            })
+        match &self.0.get().target_node {
+            TargetNodeOrForward::TargetNode(n) => Either::Left(
+                n.attrs(opts)
+                    .filter(move |a| filter(a.name, a.attr))
+                    .map(move |a| {
+                        a.configure(&self.attr_configuration_context())
+                            .expect_compatible("checked attr configuration in constructor")
+                    }),
+            ),
+            TargetNodeOrForward::Forward(n) => Either::Right(
+                filter(ACTUAL_ATTR_NAME, ConfiguredTargetNode::actual_attribute())
+                    .then(|| actual_attr(n))
+                    .into_iter(),
+            ),
+        }
     }
 
     pub fn get(self, attr: &str, opts: AttrInspectOptions) -> Option<ConfiguredAttrFull<'a>> {
-        self.0.get().target_node.attr_or_none(attr, opts).map(|v| {
-            v.configure(&self.attr_configuration_context())
-                .expect_compatible("checked attr configuration in constructor")
-        })
+        match &self.0.get().target_node {
+            TargetNodeOrForward::TargetNode(n) => n.attr_or_none(attr, opts).map(|v| {
+                v.configure(&self.attr_configuration_context())
+                    .expect_compatible("checked attr configuration in constructor")
+            }),
+            TargetNodeOrForward::Forward(n) => (attr == ACTUAL_ATTR_NAME).then(|| actual_attr(n)),
+        }
     }
 
     pub(crate) fn attr_matches(
@@ -832,17 +810,22 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
         key: &str,
         filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
     ) -> buck2_error::Result<bool> {
-        match self
-            .0
-            .get()
-            .target_node
-            .attr_or_none(key, AttrInspectOptions::All)
-        {
-            Some(attr) => match attr.value {
-                CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => filter(v),
-                CoercedAttr::List(values)
+        let coerced = match &self.0.get().target_node {
+            TargetNodeOrForward::TargetNode(n) => n.attr_or_none(key, AttrInspectOptions::All),
+            TargetNodeOrForward::Forward(n) if key == ACTUAL_ATTR_NAME => {
+                return actual_attr(n).value.any_matches(filter);
+            }
+            TargetNodeOrForward::Forward(_) => None,
+        };
+        match coerced {
+            Some(attr) => match attr.value.kind() {
+                CoercedAttrRefKind::String(v) | CoercedAttrRefKind::EnumVariant(v) => filter(v),
+                CoercedAttrRefKind::List(values)
                     if values.iter().all(|v| {
-                        matches!(v, CoercedAttr::String(_) | CoercedAttr::EnumVariant(_))
+                        matches!(
+                            v.kind(),
+                            CoercedAttrRefKind::String(_) | CoercedAttrRefKind::EnumVariant(_)
+                        )
                     }) =>
                 {
                     attr.value.any_matches(filter)
@@ -910,8 +893,8 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             }
         }
 
-        for a in self.filter_attrs(AttrInspectOptions::All, |a| {
-            a.attr.coercer().0.may_have_queries
+        for a in self.filter_attrs(AttrInspectOptions::All, |_, attr| {
+            attr.coercer().0.may_have_queries
         }) {
             a.traverse(self.label().pkg(), &mut traversal).unwrap();
         }
@@ -929,7 +912,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
     pub fn uses_plugins(self) -> &'a [PluginKind] {
         match &self.0.get().target_node {
             TargetNodeOrForward::TargetNode(target_node) => target_node.uses_plugins(),
-            TargetNodeOrForward::Forward(_, _) => &[],
+            TargetNodeOrForward::Forward(_) => &[],
         }
     }
 
@@ -1120,22 +1103,21 @@ mod tests {
         )
     }
 
-    fn configured_node_with_dep(dep: ConfiguredProvidersLabel) -> ConfiguredTargetNode {
+    /// A node in `cfg` with one dep attribute, which configures to `dep`
+    /// in `cfg`.
+    fn configured_node_with_dep(dep: TargetLabel, cfg: ConfigurationData) -> ConfiguredTargetNode {
         ConfiguredTargetNode::testing_new(
-            TargetLabel::testing_parse("cell//pkg:root")
-                .configure(ConfigurationData::testing_new()),
+            TargetLabel::testing_parse("cell//pkg:root").configure(cfg),
             "test_rule",
             ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
             vec![(
                 "dep",
-                ConfiguredTargetNode::actual_attribute().clone(),
-                CoercedAttr::ConfiguredDepForForwardNode(Box::new(DepAttr {
-                    attr_type: DepAttrType::new(
-                        ProviderIdSet::EMPTY,
-                        DepAttrTransition::Identity(PluginKindSet::EMPTY),
-                    ),
-                    label: dep,
-                })),
+                Attribute::new_const(
+                    None,
+                    "",
+                    AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY),
+                ),
+                CoercedAttr::Dep(ProvidersLabel::default_for(dep)),
             )],
             None,
         )
@@ -1298,24 +1280,16 @@ mod tests {
     #[test]
     fn target_hash_without_configured_labels_hashes_only_unconfigured_dependency_label() {
         let dep = TargetLabel::testing_parse("cell//dep:target");
-        let first_label =
-            ConfiguredProvidersLabel::default_for(dep.configure(ConfigurationData::testing_new()));
-        let second_label =
-            ConfiguredProvidersLabel::default_for(dep.configure(ConfigurationData::unspecified()));
-        let changed_label = ConfiguredProvidersLabel::default_for(
-            TargetLabel::testing_parse("cell//dep:changed")
-                .configure(ConfigurationData::unspecified()),
-        );
+        let changed_dep = TargetLabel::testing_parse("cell//dep:changed");
 
-        assert_ne!(first_label, second_label);
-        assert_eq!(
-            first_label.target().unconfigured(),
-            second_label.target().unconfigured(),
+        let first = configured_node_with_dep(dep.dupe(), ConfigurationData::testing_new());
+        let second = configured_node_with_dep(dep, ConfigurationData::unspecified());
+        let changed = configured_node_with_dep(changed_dep, ConfigurationData::unspecified());
+        assert_ne!(
+            first.get("dep", AttrInspectOptions::All).unwrap().value,
+            second.get("dep", AttrInspectOptions::All).unwrap().value,
+            "the configured dep labels should differ in configuration",
         );
-
-        let first = configured_node_with_dep(first_label);
-        let second = configured_node_with_dep(second_label);
-        let changed = configured_node_with_dep(changed_label);
 
         assert_eq!(
             target_hash_without_configured_labels(&first),

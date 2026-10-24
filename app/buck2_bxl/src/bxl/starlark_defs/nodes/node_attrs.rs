@@ -35,7 +35,7 @@ impl NodeAttributeGetter for StarlarkTargetNode {
         let node = &self.0;
         let pkg = node.label().pkg();
         match node.attr_or_none(key, AttrInspectOptions::All) {
-            Some(attr) => Ok(NoneOr::Other(attr.value.to_value(pkg, heap)?)),
+            Some(attr) => Ok(NoneOr::Other(attr.value.to_coerced()?.to_value(pkg, heap)?)),
             None => Ok(NoneOr::None),
         }
     }
@@ -50,7 +50,7 @@ impl NodeAttributeGetter for StarlarkTargetNode {
         attrs_iter
             .map(|attr| {
                 let name = heap.alloc_str_intern(attr.name);
-                let value = attr.value.to_value(pkg, heap)?;
+                let value = attr.value.to_coerced()?.to_value(pkg, heap)?;
                 Ok((name, value))
             })
             .collect::<buck2_error::Result<BuckMutInsertionMap<_, _>>>()

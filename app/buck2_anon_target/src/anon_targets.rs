@@ -283,8 +283,8 @@ impl AnonTargetKey {
             let value = match provided.get(k) {
                 Some(v) => Self::coerce_to_anon_target_attr(a.coercer(), *v, &anon_attr_ctx)
                     .with_buck_error_context(|| format!("Error coercing attribute `{k}`"))?,
-                None => match a.default() {
-                    Some(x) => Self::coerced_to_anon_target_attr(k, x, a.coercer())?,
+                None => match a.default_as_ref() {
+                    Some(x) => Self::coerced_to_anon_target_attr(k, &x.to_coerced()?, a.coercer())?,
                     None => return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into()),
                 },
             };

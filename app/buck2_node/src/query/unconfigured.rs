@@ -17,10 +17,18 @@ use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
 use dupe::Dupe;
 
+use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::unconfigured::TargetNodeData;
+
+/// Decode fails only on a corrupt arena; name the attribute when it does.
+fn decode_attr(name: &str, value: CoercedAttrRef<'_>) -> CoercedAttr {
+    value
+        .to_coerced()
+        .unwrap_or_else(|e| panic!("arena decode failed for attr `{name}`: {e}"))
+}
 
 impl LabeledNode for TargetNode {
     type Key = TargetLabel;
@@ -96,7 +104,7 @@ impl QueryTarget for TargetNode {
         mut func: F,
     ) -> Result<(), E> {
         for a in self.attrs(AttrInspectOptions::All) {
-            func(a.name, a.value)?;
+            func(a.name, &decode_attr(a.name, a.value))?;
         }
         Ok(())
     }
@@ -109,7 +117,7 @@ impl QueryTarget for TargetNode {
         mut func: F,
     ) -> Result<(), E> {
         for a in self.attrs(AttrInspectOptions::DefinedOnly) {
-            func(a.name, a.value)?;
+            func(a.name, &decode_attr(a.name, a.value))?;
         }
         Ok(())
     }
@@ -119,11 +127,10 @@ impl QueryTarget for TargetNode {
         key: &str,
         mut func: F,
     ) -> buck2_error::Result<R> {
-        Ok(func(
-            self.attr_or_none(key, AttrInspectOptions::All)
-                .as_ref()
-                .map(|a| a.value),
-        ))
+        let attr = self
+            .attr_or_none(key, AttrInspectOptions::All)
+            .map(|a| decode_attr(a.name, a.value));
+        Ok(func(attr.as_ref()))
     }
 
     fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(
@@ -132,7 +139,7 @@ impl QueryTarget for TargetNode {
         mut func: F,
     ) -> buck2_error::Result<R> {
         Ok(match self.attr_or_none(key, AttrInspectOptions::All) {
-            Some(attr) => func(Some(attr.value)),
+            Some(attr) => func(Some(&decode_attr(attr.name, attr.value))),
             None => match self.special_attr_or_none(key) {
                 Some(special) => func(Some(&special)),
                 None => func(None),

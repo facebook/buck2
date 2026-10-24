@@ -14,6 +14,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_interpreter::types::select_fail::StarlarkSelectFail;
 use buck2_interpreter::types::select_incompatible::StarlarkSelectIncompatible;
+use buck2_node::attrs::arena::CoercedAttrRef;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedConcat;
@@ -21,6 +22,7 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::coercion_context::CoerceMemoKey;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
+use buck2_util::arc_str::ArcSlice;
 use starlark::values::Value;
 use starlark::values::dict::DictRef;
 
@@ -46,7 +48,7 @@ pub trait CoercedAttrExr: Sized {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-        default_attr: Option<&Self>,
+        default_attr: Option<CoercedAttrRef<'_>>,
     ) -> buck2_error::Result<Self>;
 
     fn coerce_inner<'v>(
@@ -54,7 +56,7 @@ pub trait CoercedAttrExr: Sized {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-        default_attr: Option<&Self>,
+        default_attr: Option<CoercedAttrRef<'_>>,
     ) -> buck2_error::Result<Self>;
 }
 
@@ -64,7 +66,7 @@ impl CoercedAttrExr for CoercedAttr {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-        default_attr: Option<&Self>,
+        default_attr: Option<CoercedAttrRef<'_>>,
     ) -> buck2_error::Result<Self> {
         // Identity memo for frozen inputs: .bzl constants and macro defaults
         // hand the same frozen value to many targets, so the coercion result
@@ -87,7 +89,7 @@ impl CoercedAttrExr for CoercedAttr {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
-        default_attr: Option<&Self>,
+        default_attr: Option<CoercedAttrRef<'_>>,
     ) -> buck2_error::Result<Self> {
         // A Selector in starlark is currently implemented as simply a Value (holding a
         // dict if valid).
@@ -118,7 +120,7 @@ impl CoercedAttrExr for CoercedAttr {
                                 .unpack_str()
                                 .ok_or_else(|| SelectError::KeyNotString(k.to_repr()))?;
                             let v = match default_attr {
-                                Some(default_attr) if v.is_none() => default_attr.clone(),
+                                Some(default_attr) if v.is_none() => default_attr.to_coerced()?,
                                 _ => match CoercedAttr::coerce(
                                     attr,
                                     configurable,
@@ -193,7 +195,7 @@ impl CoercedAttrExr for CoercedAttr {
                         }
                     }
 
-                    Ok(CoercedAttr::Concat(CoercedConcat(ctx.intern_list(items))))
+                    Ok(CoercedAttr::Concat(CoercedConcat(ArcSlice::from(items))))
                 }
             }
         } else {

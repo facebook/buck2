@@ -13,6 +13,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_util::strong_hasher::StrongHash128;
 use buck2_util::vec2;
 use buck2_util::vec2::Vec2;
 use dupe::Dupe;
@@ -20,35 +21,182 @@ use pagable::Pagable;
 use strong_hash::StrongHash;
 
 use super::attr_type::any_matches::AnyMatches;
+use crate::attrs::arena::AttrWord;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::PackageAttrStorage;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::spec::AttributeId;
 use crate::metadata::value::hash_json_value;
 use crate::modifiers::CfgModifiers;
 
-/// Attribute values sorted by [`AttributeId`].
+/// One explicitly-set attribute, by arena ref. Hashing and equality read
+/// the identity-grade strong hash from the arena's root table, so the row
+/// carries no per-row hash of its own.
+#[derive(Debug, Copy, Clone, Dupe, Allocative, Pagable)]
+pub struct ArenaAttrValue {
+    r: AttrWord,
+}
+
+/// Per-target attribute values, backed by the package's shared attr arena.
+#[derive(Debug, Clone, Allocative, Pagable)]
+pub struct AttrValues {
+    storage: Arc<PackageAttrStorage>,
+    sorted: Vec2<AttributeId, ArenaAttrValue>,
+}
+
+impl AttrValues {
+    pub fn with_capacity(storage: Arc<PackageAttrStorage>, capacity: usize) -> AttrValues {
+        AttrValues {
+            storage,
+            sorted: Vec2::with_capacity(capacity),
+        }
+    }
+
+    pub(crate) fn get_by_index(&self, index: usize) -> Option<(AttributeId, CoercedAttrRef<'_>)> {
+        self.sorted
+            .get(index)
+            .map(|(id, v)| (*id, self.storage.arena().view(v.r)))
+    }
+
+    #[expect(
+        clippy::len_without_is_empty,
+        reason = "`len` exists to size pre-allocations; no caller needs an emptiness check"
+    )]
+    pub fn len(&self) -> usize {
+        self.sorted.len()
+    }
+
+    pub fn get(&self, id: AttributeId) -> Option<CoercedAttrRef<'_>> {
+        // Could use binary search here, but for small attr map like 20
+        // linear search is faster.
+        for (next_id, next_value) in self.sorted.iter() {
+            if next_id >= &id {
+                if next_id == &id {
+                    return Some(self.storage.arena().view(next_value.r));
+                }
+
+                // Attributes are sorted in `self`, no need to check the rest.
+                return None;
+            }
+        }
+        None
+    }
+
+    pub fn shrink_to_fit(&mut self) {
+        self.sorted.shrink_to_fit();
+    }
+
+    /// Encode `value` into the package arena and record it for `id`. The
+    /// builder must be the one whose output will seal this value's storage.
+    pub fn push_sorted(
+        &mut self,
+        builder: &mut CoercedAttrArenaBuilder,
+        id: AttributeId,
+        value: CoercedAttr,
+    ) -> buck2_error::Result<()> {
+        if let Some((last_id, _)) = self.sorted.last() {
+            assert!(&id > last_id, "attributed must be sorted");
+        }
+        let (r, _content_hash) = builder.encode_root(&value)?;
+        self.sorted.push(id, ArenaAttrValue { r });
+        Ok(())
+    }
+
+    /// Adopt a full, sorted set of already-encoded per-target rows (coercion
+    /// encodes values as they are parsed). The rows must be sorted by id
+    /// (parse order guarantees it).
+    pub fn from_encoded_pairs(
+        storage: Arc<PackageAttrStorage>,
+        pairs: Vec<(AttributeId, AttrWord)>,
+    ) -> AttrValues {
+        let mut values = AttrValues::with_capacity(storage, pairs.len());
+        for (id, r) in pairs {
+            if let Some((last_id, _)) = values.sorted.last() {
+                assert!(&id > last_id, "attributes must be sorted");
+            }
+            values.sorted.push(id, ArenaAttrValue { r });
+        }
+        values.shrink_to_fit();
+        values
+    }
+
+    /// The identity-grade strong hash of one row's value, from the arena's
+    /// root table.
+    fn strong(&self, v: ArenaAttrValue) -> StrongHash128 {
+        self.storage
+            .arena()
+            .root_strong_hash(v.r)
+            .expect("should be a root: rows are interned as roots")
+    }
+
+    pub fn ids_and_refs(&self) -> impl Iterator<Item = (AttributeId, CoercedAttrRef<'_>)> {
+        let arena = self.storage.arena();
+        self.sorted
+            .iter()
+            .map(move |(id, v)| (*id, arena.view(v.r)))
+    }
+}
+
+impl PartialEq for AttrValues {
+    fn eq(&self, other: &Self) -> bool {
+        if self.sorted.len() != other.sorted.len() {
+            return false;
+        }
+        // Refs are arena-local: compare ids, then identity hashes (which
+        // already imply equality), then content across the two arenas as a
+        // belt until the identity hashes have soaked.
+        self.sorted
+            .iter()
+            .zip(other.sorted.iter())
+            .all(|((id_a, a), (id_b, b))| {
+                id_a == id_b
+                    && self.strong(*a) == other.strong(*b)
+                    && self
+                        .storage
+                        .arena()
+                        .view(a.r)
+                        .content_eq(&other.storage.arena().view(b.r))
+            })
+    }
+}
+
+impl Eq for AttrValues {}
+
+impl Hash for AttrValues {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for (id, v) in self.sorted.iter() {
+            id.hash(state);
+            self.strong(*v).hash(state);
+        }
+    }
+}
+
+/// Attribute values sorted by [`AttributeId`], stored directly (not arena
+/// encoded).
 ///
 /// Invariant: entries are sorted by strictly ascending id. [`Self::new`]
 /// establishes this and no mutation is possible afterwards. The
 /// deterministic order is relied upon by `Eq`/`Hash`, by [`Self::get`], and
 /// by merge walks against id-ordered `AttributeSpec::attr_specs()` iteration.
 ///
-/// What is stored depends on the use: `TargetNode` stores only explicitly
-/// set attributes (`V = CoercedAttr`, the default) and looks defaults up
-/// through the `AttributeSpec`; anon targets store every non-internal
-/// attribute with defaults materialized.
+/// What is stored depends on the use: `AnonTarget` stores every
+/// non-internal attribute (`V = AnonTargetAttr`) with defaults
+/// materialized; `TargetNode` stores arena refs through the arena-backed
+/// [`AttrValues`] instead.
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable)]
-pub struct AttrValues<V = CoercedAttr> {
+pub struct SortedAttrValues<V> {
     sorted: Vec2<AttributeId, V>,
 }
 
-impl<V> AttrValues<V> {
+impl<V> SortedAttrValues<V> {
     /// Sorts `entries` by id and shrinks them to fit (attr values are
     /// typically retained for the lifetime of a node). Ids must be unique.
     ///
     /// Callers typically build entries in id order already (walking the
     /// `AttributeSpec`); construction then costs only one verification pass
     /// over the ids, with no sorting or copying.
-    pub fn new(mut entries: Vec2<AttributeId, V>) -> AttrValues<V> {
+    pub fn new(mut entries: Vec2<AttributeId, V>) -> SortedAttrValues<V> {
         if !entries.iter().is_sorted_by(|a, b| a.0 < b.0) {
             entries.sort_by(|(a_id, _), (b_id, _)| a_id.cmp(b_id));
             assert!(
@@ -57,11 +205,7 @@ impl<V> AttrValues<V> {
             );
         }
         entries.shrink_to_fit();
-        AttrValues { sorted: entries }
-    }
-
-    pub(crate) fn get_by_index(&self, index: usize) -> Option<(AttributeId, &V)> {
-        self.sorted.get(index).map(|(id, v)| (*id, v))
+        SortedAttrValues { sorted: entries }
     }
 
     #[expect(
@@ -99,15 +243,15 @@ impl<V> AttrValues<V> {
     }
 }
 
-impl<V> Default for AttrValues<V> {
-    fn default() -> AttrValues<V> {
-        AttrValues {
+impl<V> Default for SortedAttrValues<V> {
+    fn default() -> SortedAttrValues<V> {
+        SortedAttrValues {
             sorted: Vec2::new(),
         }
     }
 }
 
-impl<'a, V> IntoIterator for &'a AttrValues<V> {
+impl<'a, V> IntoIterator for &'a SortedAttrValues<V> {
     type Item = (&'a AttributeId, &'a V);
     type IntoIter = vec2::Iter<'a, AttributeId, V>;
 

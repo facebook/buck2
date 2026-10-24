@@ -22,6 +22,8 @@ use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::target::name::TargetNameRef;
 use buck2_events::dispatch::console_message;
 use buck2_interpreter::package_imports::ImplicitImport;
+use buck2_node::attrs::arena::CoercedAttrArenaBuilder;
+use buck2_node::attrs::arena::PackageAttrStorage;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::targets_map::TargetsMap;
 use buck2_node::nodes::targets_map::TargetsMapBuilder;
@@ -46,8 +48,12 @@ impl From<ModuleInternals> for EvaluationResult {
             imports,
             buildfile_path,
             super_package,
+            attr_storage,
+            attr_coercion_context,
             ..
         } = internals;
+        let builder = attr_coercion_context.take_attr_arena_builder();
+        attr_storage.seal(builder.finish());
         let recorder = match state.into_inner() {
             State::BeforeTargets(_) => TargetsRecorder::new(),
             State::RecordingTargets(RecordingTargets { recorder, .. }) => recorder,
@@ -83,6 +89,10 @@ enum State {
 #[derive(Debug)]
 pub struct ModuleInternals {
     attr_coercion_context: BuildAttrCoercionContext,
+    /// Shared storage for this package's coerced attribute values. Every
+    /// `TargetNode` holds an `Arc`; sealed when the `EvaluationResult` is
+    /// assembled.
+    attr_storage: Arc<PackageAttrStorage>,
     buildfile_path: Arc<BuildFilePath>,
     /// Have you seen an oncall annotation yet
     state: RefCell<State>,
@@ -139,6 +149,7 @@ impl ModuleInternals {
     ) -> Self {
         Self {
             attr_coercion_context,
+            attr_storage: Arc::new(PackageAttrStorage::default()),
             buildfile_path,
             state: RefCell::new(State::BeforeTargets(BeforeTargets::default())),
             imports,
@@ -152,6 +163,24 @@ impl ModuleInternals {
 
     pub(crate) fn attr_coercion_context(&self) -> &BuildAttrCoercionContext {
         &self.attr_coercion_context
+    }
+
+    pub(crate) fn attr_storage(&self) -> &Arc<PackageAttrStorage> {
+        &self.attr_storage
+    }
+
+    pub(crate) fn with_attr_arena_builder<R>(
+        &self,
+        f: impl FnOnce(&mut CoercedAttrArenaBuilder) -> R,
+    ) -> R {
+        self.attr_coercion_context.with_attr_arena_builder(f)
+    }
+
+    pub(crate) fn with_attr_arena_ref<R>(
+        &self,
+        f: impl FnOnce(&CoercedAttrArenaBuilder) -> R,
+    ) -> R {
+        self.attr_coercion_context.with_attr_arena_ref(f)
     }
 
     pub fn record(&self, target_node: TargetNode) -> buck2_error::Result<()> {

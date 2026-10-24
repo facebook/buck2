@@ -582,10 +582,25 @@ pub struct OwnedCoercedAttr {
 
 impl OwnedCoercedAttr {
     pub fn try_new(attr: &CoercedAttr) -> buck2_error::Result<OwnedCoercedAttr> {
-        let mut interner = CoercedAttrArenaBuilder::default();
-        let (word, hash) = interner.encode_root(attr)?;
+        // An `Encoded` value is a ref into the builder that minted it; a
+        // fresh builder would pass the ref through and decode garbage.
+        if matches!(attr, CoercedAttr::Encoded(..)) {
+            return Err(internal_error!(
+                "Encoded attr requires its minting builder; use `seal_from_builder`"
+            ));
+        }
+        Self::seal_from_builder(CoercedAttrArenaBuilder::default(), attr)
+    }
+
+    /// Seal `builder` into this value's own storage. Any `Encoded` nodes in
+    /// `attr` must be refs minted by `builder`.
+    pub fn seal_from_builder(
+        mut builder: CoercedAttrArenaBuilder,
+        attr: &CoercedAttr,
+    ) -> buck2_error::Result<OwnedCoercedAttr> {
+        let (word, hash) = builder.encode_root(attr)?;
         let storage = Arc::new(PackageAttrStorage::default());
-        storage.seal(interner.finish());
+        storage.seal(builder.finish());
         Ok(OwnedCoercedAttr {
             storage,
             word,
@@ -635,7 +650,7 @@ impl CoercedAttrArena {
     }
 
     /// The identity-grade content hash of a root value, if `r` was interned
-    /// as a root (`CoercedAttrArenaBuilder::intern_root`).
+    /// as a root (`CoercedAttrArenaBuilder::encode_root`).
     pub fn root_strong_hash(&self, r: AttrWord) -> Option<StrongHash128> {
         self.root_words
             .binary_search(&r.0)
@@ -1146,6 +1161,12 @@ impl<'a> CoercedAttrRef<'a> {
             CoercedAttrRefKind::Legacy(a) => a.may_return_none(),
             _ => false,
         }
+    }
+
+    /// The stored identity-grade content hash, if this ref was interned as
+    /// a root. Equal content yields equal hashes across arenas and processes.
+    pub fn root_strong_hash(&self) -> Option<StrongHash128> {
+        self.arena.root_strong_hash(self.r)
     }
 
     /// Structural equality across (possibly different) arenas. Refs are
@@ -2410,7 +2431,6 @@ impl CoercedAttrArenaBuilder {
             | CoercedAttr::WithinView(_)
             | CoercedAttr::ExplicitConfiguredDep(_)
             | CoercedAttr::TransitionDep(_)
-            | CoercedAttr::ConfiguredDepForForwardNode(_)
             | CoercedAttr::Query(_)
             | CoercedAttr::Metadata(_)
             | CoercedAttr::TargetModifiers(_)) => self.encode_legacy(legacy).map(parts),

@@ -23,7 +23,6 @@ use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePathRef;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
@@ -412,7 +411,6 @@ pub enum CoercedAttr {
     ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
     TransitionDep(Box<CoercedTransitionDep>),
     SplitTransitionDep(ProvidersLabel),
-    ConfiguredDepForForwardNode(Box<DepAttr<ConfiguredProvidersLabel>>),
     ConfigurationDep(ProvidersLabel),
     PluginDep(TargetLabel),
     Dep(ProvidersLabel),
@@ -467,7 +465,6 @@ impl AttrDisplayWithContext for CoercedAttr {
             CoercedAttr::ExplicitConfiguredDep(e) => Display::fmt(e, f),
             CoercedAttr::SplitTransitionDep(e) => Display::fmt(e, f),
             CoercedAttr::TransitionDep(e) => Display::fmt(e, f),
-            CoercedAttr::ConfiguredDepForForwardNode(e) => write!(f, "\"{e}\""),
             CoercedAttr::ConfigurationDep(e) => write!(f, "\"{e}\""),
             CoercedAttr::PluginDep(e) => write!(f, "\"{e}\""),
             CoercedAttr::Dep(e) => write!(f, "\"{e}\""),
@@ -556,7 +553,6 @@ impl CoercedAttr {
             CoercedAttr::ExplicitConfiguredDep(e) => e.to_json(),
             CoercedAttr::SplitTransitionDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::TransitionDep(e) => e.to_json(),
-            CoercedAttr::ConfiguredDepForForwardNode(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::PluginDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::Dep(e) => Ok(to_value(e.to_string())?),
@@ -679,7 +675,6 @@ impl CoercedAttr {
                 traversal.split_transition_dep(dep, &t.transition)
             }
             CoercedAttrWithType::TransitionDep(dep, t) => dep.traverse(traversal, t),
-            CoercedAttrWithType::ConfiguredDep(dep) => traversal.dep(&dep.label.unconfigured()),
             CoercedAttrWithType::ConfigurationDep(dep, t) => traversal.configuration_dep(dep, t.0),
             CoercedAttrWithType::PluginDep(dep, t) => traversal.plugin_dep(dep, t.kind()),
             CoercedAttrWithType::Dep(dep, t) => {
@@ -999,7 +994,6 @@ impl CoercedAttr {
             }
             CoercedAttrWithType::SplitTransitionDep(dep, t) => t.configure(dep, ctx)?,
             CoercedAttrWithType::TransitionDep(dep, t) => t.configure(dep, ctx)?,
-            CoercedAttrWithType::ConfiguredDep(dep) => ConfiguredAttr::Dep(Box::new(dep.clone())),
             CoercedAttrWithType::ConfigurationDep(dep, _) => {
                 ConfigurationDepAttrType::configure(ctx, dep)?
             }
@@ -1062,7 +1056,6 @@ impl CoercedAttr {
             CoercedAttr::ExplicitConfiguredDep(e) => e.any_matches(filter),
             CoercedAttr::TransitionDep(v) => v.any_matches(filter),
             CoercedAttr::SplitTransitionDep(e) => filter(&e.to_string()),
-            CoercedAttr::ConfiguredDepForForwardNode(e) => filter(&e.to_string()),
             CoercedAttr::ConfigurationDep(e) => filter(&e.to_string()),
             CoercedAttr::PluginDep(e) => filter(&e.to_string()),
             CoercedAttr::Dep(e) => filter(&e.to_string()),

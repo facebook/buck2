@@ -13,9 +13,9 @@ use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_hash::BuckFixedSortedSet;
+use buck2_node::attrs::arena::CoercedAttrRef;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityPatternList;
@@ -59,7 +59,7 @@ enum CheckWithinViewError {
 /// every dep matches both the target's own `within_view` and the cap propagated
 /// from `enforce_within_view_intersection()` in ancestor `PACKAGE` files.
 pub(crate) fn check_within_view(
-    attr: &CoercedAttr,
+    attr: CoercedAttrRef<'_>,
     pkg: PackageLabel,
     attr_type: &AttrType,
     within_view: &WithinViewSpecification,

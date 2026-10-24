@@ -19,7 +19,7 @@ use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::plugins::PluginKindSet;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
-use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx;
+use buck2_interpreter_for_build::attrs::coerce::testing::EnumCoercionCtx;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_node::attrs::attr_type::AttrType;
@@ -133,7 +133,7 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
             CellRelativePath::unchecked_new("foo"),
         )?;
         let enclosing_package = (package.dupe(), PackageListing::testing_empty());
-        let coercer_ctx = BuildAttrCoercionContext::new_with_package(
+        let coercer_ctx = EnumCoercionCtx(BuildAttrCoercionContext::new_with_package(
             cell_resolver,
             cell_alias_resolver,
             enclosing_package,
@@ -142,7 +142,7 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
                 package.as_cell_path().to_owned(),
             ),
             InferTargetNames::No,
-        );
+        ));
         let label_coercer = AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY);
         let string_coercer = AttrType::string();
         let enum_coercer = AttrType::enumeration(vec![
@@ -237,16 +237,30 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
 #[test]
 fn any_nested_dict_is_interned() -> buck2_error::Result<()> {
     Heap::temp(|heap| {
-        let ctx = coercion_ctx();
+        let cell_resolver = cells(None)?.1;
+        let ctx = BuildAttrCoercionContext::new_no_package(
+            cell_resolver.dupe(),
+            CellName::testing_new("root"),
+            cell_resolver.root_cell_cell_alias_resolver().dupe(),
+            InferTargetNames::No,
+        );
         let attr = AttrType::any();
-        let value = heap.alloc(AllocList([AllocDict([("key", 1)])]));
-        let first = attr.coerce(AttrIsConfigurable::Yes, &ctx, value)?;
-        let second = attr.coerce(AttrIsConfigurable::Yes, &ctx, value)?;
+        let first = attr.coerce(
+            AttrIsConfigurable::Yes,
+            &ctx,
+            heap.alloc(AllocList([AllocDict([("key", 1)])])),
+        )?;
+        let second = attr.coerce(
+            AttrIsConfigurable::Yes,
+            &ctx,
+            heap.alloc(AllocList([AllocDict([("key", 1)])])),
+        )?;
         assert_eq!(first, second);
-        let (CoercedAttr::List(first), CoercedAttr::List(second)) = (first, second) else {
-            panic!("expected coerced lists");
+        let (CoercedAttr::Encoded(first, _), CoercedAttr::Encoded(second, _)) = (first, second)
+        else {
+            panic!("expected arena-encoded lists");
         };
-        assert_eq!(first.as_ptr(), second.as_ptr());
+        assert_eq!(first, second);
         Ok(())
     })
 }

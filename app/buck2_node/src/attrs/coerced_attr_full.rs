@@ -12,8 +12,8 @@ use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::package::PackageLabel;
 use buck2_error::BuckErrorContext;
 
+use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::attr::Attribute;
-use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr_full::ConfiguredAttrFull;
 use crate::attrs::traversal::CoercedAttrTraversal;
@@ -22,7 +22,7 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 pub struct CoercedAttrFull<'a> {
     pub name: &'a str,
     pub attr: &'a Attribute,
-    pub value: &'a CoercedAttr,
+    pub value: CoercedAttrRef<'a>,
 }
 
 impl<'a> CoercedAttrFull<'a> {

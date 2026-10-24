@@ -11,9 +11,6 @@
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Debug;
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::sync::Arc;
 
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::CellAliasResolver;
@@ -32,19 +29,19 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
-use buck2_hash::BuckHasher;
+use buck2_node::attrs::arena::CoercedAttrArenaBuilder;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
-use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
+use buck2_node::attrs::coercion_context::CoerceMemoKey;
+use buck2_node::attrs::coercion_context::CoerceMemoTable;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::Expr;
 use buck2_query_parser::spanned::Spanned;
-use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use bumpalo::Bump;
 use dupe::Dupe;
@@ -53,7 +50,6 @@ use hashbrown::HashTable;
 use hashbrown::hash_table;
 use tracing::info;
 
-use super::interner::AttrCoercionInterner;
 use crate::attrs::coerce::arc_str_interner::ArcStrInterner;
 use crate::attrs::coerce::str_hash::str_hash;
 
@@ -100,17 +96,15 @@ pub struct BuildAttrCoercionContext {
     /// allocating a key to perform a query using `entry` API.
     /// Strings are owned by `alloc`, using bump allocator makes evaluation 0.5% faster.
     label_cache: RefCell<HashTable<(u64, *const str, ProvidersLabel)>>,
+    /// Interns strings embedded as `ArcStr` fields inside composite values
+    /// (macro `Arg` parts, `select_fail`/`select_incompatible` messages),
+    /// which have no arena node of their own.
     str_interner: ArcStrInterner,
-    list_interner: AttrCoercionInterner<ArcSlice<CoercedAttr>>,
-    // TODO(scottcao): Dict and selects need separate interners right now because
-    // they have different key types. We can optimize this by interning keys and values
-    // separately and use the same interner for dict and select values. This will also
-    // reduce key duplication in selects since select keys are more likely to be deduplicated
-    // than select values
-    dict_interner: AttrCoercionInterner<ArcSlice<(CoercedAttr, CoercedAttr)>>,
-    select_interner: AttrCoercionInterner<ArcSlice<(ConfigurationSettingKey, CoercedAttr)>>,
-    // Entry slices alone do not share the default or the selector wrapper.
-    selector_interner: AttrCoercionInterner<Arc<CoercedSelector>>,
+    /// The node constructors (`build_*_attr`) encode attribute values into
+    /// this arena as coercion proceeds. Package contexts seal it into the
+    /// package's shared storage; bzl contexts (rule defaults) seal it into
+    /// the value's own storage.
+    attr_arena_builder: RefCell<CoercedAttrArenaBuilder>,
 }
 
 impl Debug for BuildAttrCoercionContext {
@@ -141,11 +135,26 @@ impl BuildAttrCoercionContext {
             alloc: Bump::new(),
             label_cache: RefCell::new(HashTable::new()),
             str_interner: ArcStrInterner::new(),
-            list_interner: AttrCoercionInterner::new(),
-            dict_interner: AttrCoercionInterner::new(),
-            select_interner: AttrCoercionInterner::new(),
-            selector_interner: AttrCoercionInterner::new(),
+            attr_arena_builder: RefCell::new(CoercedAttrArenaBuilder::default()),
         }
+    }
+
+    pub(crate) fn with_attr_arena_builder<R>(
+        &self,
+        f: impl FnOnce(&mut CoercedAttrArenaBuilder) -> R,
+    ) -> R {
+        f(&mut self.attr_arena_builder.borrow_mut())
+    }
+
+    pub(crate) fn with_attr_arena_ref<R>(
+        &self,
+        f: impl FnOnce(&CoercedAttrArenaBuilder) -> R,
+    ) -> R {
+        f(&self.attr_arena_builder.borrow())
+    }
+
+    pub(crate) fn take_attr_arena_builder(self) -> CoercedAttrArenaBuilder {
+        self.attr_arena_builder.into_inner()
     }
 
     pub fn new_no_package(
@@ -255,49 +264,43 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
         }
     }
 
+    fn build_string_attr(&self, value: &str) -> buck2_error::Result<CoercedAttr> {
+        self.attr_arena_builder.borrow_mut().encode_string(value)
+    }
+
+    fn build_list_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
+        self.attr_arena_builder.borrow_mut().encode_list(&items)
+    }
+
+    fn build_tuple_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
+        self.attr_arena_builder.borrow_mut().encode_tuple(&items)
+    }
+
+    fn build_dict_attr(
+        &self,
+        pairs: Vec<(CoercedAttr, CoercedAttr)>,
+    ) -> buck2_error::Result<CoercedAttr> {
+        self.attr_arena_builder.borrow_mut().encode_dict(&pairs)
+    }
+
+    fn build_one_of_attr(&self, inner: CoercedAttr, idx: u32) -> buck2_error::Result<CoercedAttr> {
+        self.attr_arena_builder
+            .borrow_mut()
+            .encode_one_of(idx, &inner)
+    }
+
+    fn build_selector_attr(
+        &self,
+        entries: Vec<(ConfigurationSettingKey, CoercedAttr)>,
+        default: Option<CoercedAttr>,
+    ) -> buck2_error::Result<CoercedAttr> {
+        self.attr_arena_builder
+            .borrow_mut()
+            .encode_selector(&entries, default.as_ref())
+    }
+
     fn intern_str(&self, value: &str) -> ArcStr {
         self.str_interner.intern(value)
-    }
-
-    fn intern_list(&self, value: Vec<CoercedAttr>) -> ArcSlice<CoercedAttr> {
-        let hash = {
-            let mut hasher = BuckHasher::default();
-            value.len().hash(&mut hasher);
-            for value in &value {
-                value.hash_for_interning(&mut hasher);
-            }
-            hasher.finish()
-        };
-        self.list_interner.intern_hashed(value, hash)
-    }
-
-    fn intern_dict(
-        &self,
-        value: Vec<(CoercedAttr, CoercedAttr)>,
-    ) -> ArcSlice<(CoercedAttr, CoercedAttr)> {
-        let hash = {
-            let mut hasher = BuckHasher::default();
-            value.len().hash(&mut hasher);
-            for (key, value) in &value {
-                key.hash_for_interning(&mut hasher);
-                value.hash_for_interning(&mut hasher);
-            }
-            hasher.finish()
-        };
-        self.dict_interner.intern_hashed(value, hash)
-    }
-
-    fn intern_select_hashed(
-        &self,
-        value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
-        hash: u64,
-    ) -> ArcSlice<(ConfigurationSettingKey, CoercedAttr)> {
-        self.select_interner.intern_hashed(value, hash)
-    }
-
-    fn intern_selector(&self, value: CoercedSelector) -> Arc<CoercedSelector> {
-        let hash = value.hash_for_interning();
-        self.selector_interner.intern_hashed(value, hash)
     }
 
     fn coerce_path(&self, value: &str, allow_directory: bool) -> buck2_error::Result<CoercedPath> {
@@ -367,194 +370,177 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
     }
 }
 
+/// Coercion context for one buildfile evaluation: delegates to the package's
+/// `BuildAttrCoercionContext` and memoizes per-value results in the module's
+/// heap-scoped table, which is what proves the memo cannot outlive the
+/// values it keys.
+pub struct MemoizedCoercionCtx<'c, 'v> {
+    pub base: &'c BuildAttrCoercionContext,
+    pub memo: &'v CoerceMemoTable<'v>,
+}
+
+impl<'c, 'v> AttrCoercionContext<'v> for MemoizedCoercionCtx<'c, 'v> {
+    fn coerce_providers_label(&self, value: &str) -> buck2_error::Result<ProvidersLabel> {
+        AttrCoercionContext::coerce_providers_label(self.base, value)
+    }
+
+    fn coerce_memo_lookup(&self, key: CoerceMemoKey<'v>) -> Option<CoercedAttr> {
+        self.memo.lookup(key)
+    }
+
+    fn coerce_memo_insert(&self, key: CoerceMemoKey<'v>, value: &CoercedAttr) {
+        self.memo.insert(key, value);
+    }
+
+    fn build_string_attr(&self, value: &str) -> buck2_error::Result<CoercedAttr> {
+        AttrCoercionContext::build_string_attr(self.base, value)
+    }
+
+    fn build_list_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
+        AttrCoercionContext::build_list_attr(self.base, items)
+    }
+
+    fn build_tuple_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
+        AttrCoercionContext::build_tuple_attr(self.base, items)
+    }
+
+    fn build_dict_attr(
+        &self,
+        pairs: Vec<(CoercedAttr, CoercedAttr)>,
+    ) -> buck2_error::Result<CoercedAttr> {
+        AttrCoercionContext::build_dict_attr(self.base, pairs)
+    }
+
+    fn build_one_of_attr(&self, inner: CoercedAttr, idx: u32) -> buck2_error::Result<CoercedAttr> {
+        AttrCoercionContext::build_one_of_attr(self.base, inner, idx)
+    }
+
+    fn build_selector_attr(
+        &self,
+        entries: Vec<(ConfigurationSettingKey, CoercedAttr)>,
+        default: Option<CoercedAttr>,
+    ) -> buck2_error::Result<CoercedAttr> {
+        AttrCoercionContext::build_selector_attr(self.base, entries, default)
+    }
+
+    fn intern_str(&self, value: &str) -> ArcStr {
+        AttrCoercionContext::intern_str(self.base, value)
+    }
+
+    fn coerce_path(&self, value: &str, allow_directory: bool) -> buck2_error::Result<CoercedPath> {
+        AttrCoercionContext::coerce_path(self.base, value, allow_directory)
+    }
+
+    fn coerce_target_pattern(
+        &self,
+        pattern: &str,
+    ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>> {
+        AttrCoercionContext::coerce_target_pattern(self.base, pattern)
+    }
+
+    fn visit_query_function_literals<'q>(
+        &self,
+        visitor: &mut dyn QueryLiteralVisitor<'q>,
+        expr: &Spanned<Expr<'q>>,
+        query: &'q str,
+    ) -> buck2_error::Result<()> {
+        AttrCoercionContext::visit_query_function_literals(self.base, visitor, expr, query)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
-    use buck2_core::cells::CellResolver;
-    use buck2_core::cells::cell_root_path::CellRootPathBuf;
-    use buck2_core::cells::name::CellName;
-    use buck2_core::pattern::pattern::InferTargetNames;
-    use buck2_node::attrs::attr_type::AttrType;
+    use buck2_common::package_listing::listing::PackageListing;
+    use buck2_common::package_listing::listing::testing::PackageListingExt;
+    use buck2_core::provider::label::ProvidersLabel;
+    use buck2_core::provider::label::testing::ProvidersLabelTestExt;
+    use buck2_node::attrs::attr_type::bool::BoolLiteral;
     use buck2_node::attrs::coerced_attr::CoercedAttr;
     use buck2_node::attrs::coercion_context::AttrCoercionContext;
-    use buck2_node::attrs::configurable::AttrIsConfigurable;
     use buck2_node::configuration::resolved::ConfigurationSettingKey;
-    use dupe::Dupe;
-    use pagable::PagableDeserialize;
-    use pagable::PagableSerialize;
-    use pagable::testing::TestingDeserializer;
-    use pagable::testing::TestingSerializer;
-    use starlark::environment::GlobalsBuilder;
-    use starlark::environment::Module;
 
-    use super::BuildAttrCoercionContext;
-    use crate::attrs::coerce::attr_type::AttrTypeExt;
-    use crate::attrs::coerce::testing::coercion_ctx;
-    use crate::attrs::coerce::testing::to_value;
-    use crate::interpreter::selector::register_select;
+    use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
+    use crate::attrs::coerce::testing::EnumCoercionCtx;
+    use crate::attrs::coerce::testing::build_coercion_ctx;
 
-    #[test]
-    fn selector_interning_preserves_defaults_and_ownership() -> buck2_error::Result<()> {
-        let ctx = coercion_ctx();
-        let entries = || {
-            vec![(
-                ConfigurationSettingKey::testing_parse("cell1//pkg:setting"),
-                CoercedAttr::Int(1),
-            )]
-        };
-        let first = ctx.intern_select(entries(), Some(CoercedAttr::Int(2)))?;
-        let same = ctx.intern_select(entries(), Some(CoercedAttr::Int(2)))?;
-        assert!(Arc::ptr_eq(&first, &same));
-
-        let different = ctx.intern_select(entries(), Some(CoercedAttr::Int(3)))?;
-        assert_ne!(first, different);
-        let absent = ctx.intern_select(entries(), None)?;
-        let explicit_none = ctx.intern_select(entries(), Some(CoercedAttr::None))?;
-        assert_ne!(absent, explicit_none);
-
-        let nested = ctx.intern_select(entries(), Some(CoercedAttr::Selector(first.clone())))?;
-        let same_nested = ctx.intern_select(entries(), Some(CoercedAttr::Selector(same)))?;
-        assert!(Arc::ptr_eq(&nested, &same_nested));
-
-        let attr = CoercedAttr::Selector(first.clone());
-        let CoercedAttr::Selector(cloned) = attr.clone() else {
-            unreachable!()
-        };
-        assert!(Arc::ptr_eq(&first, &cloned));
-        drop(ctx);
-        assert_eq!(first.all_entries().count(), 2);
-        assert_eq!(attr, CoercedAttr::Selector(cloned));
-        Ok(())
+    fn decode(ctx: &BuildAttrCoercionContext, attr: CoercedAttr) -> CoercedAttr {
+        match attr {
+            CoercedAttr::Encoded(r, _) => {
+                ctx.with_attr_arena_ref(|b| b.view(r).to_coerced()).unwrap()
+            }
+            other => panic!("arena context should return `Encoded`, got `{other:?}`"),
+        }
     }
 
-    #[test]
-    fn shared_selectors_survive_paging_roundtrip() -> buck2_error::Result<()> {
-        let ctx = coercion_ctx();
-        let entries = || {
-            vec![(
-                ConfigurationSettingKey::testing_parse("cell1//pkg:setting"),
-                CoercedAttr::Int(1),
-            )]
-        };
-        let selector = ctx.intern_select(entries(), Some(CoercedAttr::Int(2)))?;
-        let attrs = vec![
-            CoercedAttr::Selector(selector.clone()),
-            CoercedAttr::Selector(selector.clone()),
-            CoercedAttr::Selector(ctx.intern_select(entries(), None)?),
-            CoercedAttr::Selector(ctx.intern_select(entries(), Some(CoercedAttr::None))?),
-            CoercedAttr::Selector(
-                ctx.intern_select(entries(), Some(CoercedAttr::Selector(selector)))?,
-            ),
-        ];
-        drop(ctx);
-
-        let mut serializer = TestingSerializer::new();
-        attrs.pagable_serialize(&mut serializer).unwrap();
-        let bytes = serializer.finish();
-        let mut deserializer = TestingDeserializer::new(&bytes);
-        let restored = Vec::<CoercedAttr>::pagable_deserialize(&mut deserializer).unwrap();
-        assert_eq!(attrs, restored);
-        let (CoercedAttr::Selector(first), CoercedAttr::Selector(second)) =
-            (&restored[0], &restored[1])
-        else {
-            panic!("expected selectors");
-        };
-        assert!(Arc::ptr_eq(first, second));
-        assert_ne!(restored[2], restored[3]);
-        let CoercedAttr::Selector(nested) = &restored[4] else {
-            panic!("expected nested selector");
-        };
-        let (_, CoercedAttr::Selector(child)) = nested.all_entries().last().unwrap() else {
-            panic!("expected selector default");
-        };
-        assert!(Arc::ptr_eq(first, child));
-        Ok(())
+    fn key(name: &str) -> ConfigurationSettingKey {
+        ConfigurationSettingKey(ProvidersLabel::testing_new("root", "cfg", name, None))
     }
 
-    fn concat_context() -> BuildAttrCoercionContext {
-        let cell_name = CellName::testing_new("root");
-        let cells =
-            CellResolver::testing_with_name_and_path(cell_name, CellRootPathBuf::testing_new(""));
-        let aliases = cells.root_cell_cell_alias_resolver().dupe();
-        BuildAttrCoercionContext::new_no_package(cells, cell_name, aliases, InferTargetNames::No)
+    // Children built through each context's own path: the arena side
+    // exercises `Encoded` child refs inside every container.
+    fn items<'v>(ctx: &impl AttrCoercionContext<'v>) -> Vec<CoercedAttr> {
+        vec![
+            ctx.build_string_attr("a").unwrap(),
+            CoercedAttr::Int(7),
+            CoercedAttr::Bool(BoolLiteral(true)),
+        ]
     }
 
-    #[test]
-    fn test_concat_interns_only_final_sequence() -> buck2_error::Result<()> {
-        // ast-grep-ignore: rust/buck2-no-starlark-module
-        Module::with_temp_heap(|env| {
-            let ctx = concat_context();
-            let globals = GlobalsBuilder::standard().with(register_select).build();
-            let attr = AttrType::string();
-            let operands: Vec<_> = (0..64)
-                .map(|i| format!("select({{\"DEFAULT\": \"{i}\"}})"))
-                .collect();
-            let left = operands.join(" + ");
-            let right = operands.iter().rev().fold(String::new(), |sum, value| {
-                if sum.is_empty() {
-                    value.clone()
-                } else {
-                    format!("{value} + ({sum})")
-                }
-            });
-            let coerce = |expression: &str| {
-                attr.coerce(
-                    AttrIsConfigurable::Yes,
-                    &ctx,
-                    to_value(&env, &globals, expression),
-                )
-            };
-            let left = coerce(&left)?;
-            let right = coerce(&right)?;
-            assert_eq!(left, right);
-            let (CoercedAttr::Concat(left), CoercedAttr::Concat(right)) = (&left, &right) else {
-                panic!("sum must remain a concat");
-            };
-            assert_eq!(64, left.len());
-            assert_eq!(left.as_ptr(), right.as_ptr());
-            assert_eq!(
-                1,
-                ctx.list_interner.len(),
-                "intermediate concat prefixes must not be retained"
-            );
-            assert_eq!(64, ctx.selector_interner.len());
-            let reversed = operands.into_iter().rev().collect::<Vec<_>>().join(" + ");
-            let reversed = coerce(&reversed)?;
-            assert_ne!(CoercedAttr::Concat(left.clone()), reversed);
-            assert_eq!(2, ctx.list_interner.len());
-            Ok(())
-        })
+    fn pairs<'v>(ctx: &impl AttrCoercionContext<'v>) -> Vec<(CoercedAttr, CoercedAttr)> {
+        vec![(ctx.build_string_attr("k").unwrap(), CoercedAttr::Int(3))]
     }
 
+    fn entries<'v>(
+        ctx: &impl AttrCoercionContext<'v>,
+    ) -> Vec<(ConfigurationSettingKey, CoercedAttr)> {
+        vec![
+            (key("a"), ctx.build_string_attr("on-a").unwrap()),
+            (key("b"), CoercedAttr::None),
+        ]
+    }
+
+    /// The arena constructor overrides must encode the same value the
+    /// trait's default (plain-enum) constructors produce, including with
+    /// already-`Encoded` children.
     #[test]
-    fn test_concat_preserves_first_coercion_error() {
-        // ast-grep-ignore: rust/buck2-no-starlark-module
-        Module::with_temp_heap(|env| {
-            let ctx = concat_context();
-            let globals = GlobalsBuilder::standard().with(register_select).build();
-            let attr = AttrType::string();
-            let error = |expression: &str| {
-                format!(
-                    "{:#}",
-                    attr.coerce(
-                        AttrIsConfigurable::Yes,
-                        &ctx,
-                        to_value(&env, &globals, expression),
-                    )
-                    .unwrap_err()
-                )
-            };
-            let first = r#"select({"DEFAULT": 1})"#;
-            let second = r#"select({"DEFAULT": 2})"#;
-            assert_eq!(
-                error(first),
-                error(&format!("{first} + ({second} + {first})"))
-            );
-            assert_eq!(
-                error(second),
-                error(&format!("({second} + {first}) + {second}"))
-            );
-        });
+    fn test_arena_constructors_match_enum_path() {
+        let plain = EnumCoercionCtx(build_coercion_ctx(PackageListing::testing_empty()));
+        let arena = build_coercion_ctx(PackageListing::testing_empty());
+
+        let expect = plain.build_string_attr("foo").unwrap();
+        let got = arena.build_string_attr("foo").unwrap();
+        assert_eq!(expect, decode(&arena, got), "string constructor differs");
+
+        let expect = plain.build_list_attr(items(&plain)).unwrap();
+        let got = AttrCoercionContext::build_list_attr(&arena, items(&arena)).unwrap();
+        assert_eq!(expect, decode(&arena, got), "list constructor differs");
+
+        let expect = plain.build_tuple_attr(items(&plain)).unwrap();
+        let got = AttrCoercionContext::build_tuple_attr(&arena, items(&arena)).unwrap();
+        assert_eq!(expect, decode(&arena, got), "tuple constructor differs");
+
+        let expect = plain.build_dict_attr(pairs(&plain)).unwrap();
+        let got = AttrCoercionContext::build_dict_attr(&arena, pairs(&arena)).unwrap();
+        assert_eq!(expect, decode(&arena, got), "dict constructor differs");
+
+        let expect = plain
+            .build_one_of_attr(plain.build_string_attr("variant").unwrap(), 2)
+            .unwrap();
+        let got = AttrCoercionContext::build_one_of_attr(
+            &arena,
+            AttrCoercionContext::build_string_attr(&arena, "variant").unwrap(),
+            2,
+        )
+        .unwrap();
+        assert_eq!(expect, decode(&arena, got), "one_of constructor differs");
+
+        for default in [None, Some(CoercedAttr::Int(9))] {
+            let expect = plain
+                .build_selector_attr(entries(&plain), default.clone())
+                .unwrap();
+            let got =
+                AttrCoercionContext::build_selector_attr(&arena, entries(&arena), default).unwrap();
+            assert_eq!(expect, decode(&arena, got), "selector constructor differs");
+        }
     }
 }

@@ -91,17 +91,19 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
         let special_attrs_iter = this.0.special_attrs();
         let attrs = attrs_iter
-            .map(|a| {
-                (
+            .map(|a| -> buck2_error::Result<_> {
+                Ok((
                     a.name,
-                    StarlarkCoercedAttr(a.value.clone(), this.0.label().pkg().dupe()),
-                )
+                    StarlarkCoercedAttr(a.value.to_coerced()?, this.0.label().pkg().dupe()),
+                ))
             })
             .chain(special_attrs_iter.map(|(name, attr)| {
-                (name, StarlarkCoercedAttr(attr, this.0.label().pkg().dupe()))
+                Ok((name, StarlarkCoercedAttr(attr, this.0.label().pkg().dupe())))
             }));
 
-        Ok(heap.alloc(AllocStruct(attrs)))
+        Ok(itertools::process_results(attrs, |attrs| {
+            heap.alloc(AllocStruct(attrs))
+        })?)
     }
 
     /// Gets the attribute from the unconfigured target node.

@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::cell::RefCell;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -17,17 +18,21 @@ use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_hash::BuckMutMap;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::Expr;
 use buck2_query_parser::spanned::Spanned;
-use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::strong_hasher::StrongHash128;
+use starlark::any::ProvidesStaticType;
+use starlark::values::Trace;
+use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueIdentity;
 
 use super::coerced_attr::CoercedAttr;
 use super::coerced_attr::CoercedSelector;
+use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::list::ListLiteral;
@@ -61,10 +66,10 @@ pub struct CoerceMemoKey<'v> {
     /// coerce the same input to different results (or reject it), while
     /// structurally equal types coerce identically and may share entries.
     coercer: StrongHash128,
-    /// The attribute default, by identity-grade content hash (`None` when
-    /// the attribute has no default): selector coercion resolves entries
-    /// against it, so the same input under a different default can produce
-    /// a different result.
+    /// The attribute default, by stored root content hash (`None` when the
+    /// attribute has no default): selector coercion resolves entries against
+    /// it, so the same input under a different default can produce a
+    /// different result.
     default: Option<StrongHash128>,
     /// Whether `select()` is permitted: affects both the result shape and
     /// whether coercion succeeds at all.
@@ -73,11 +78,11 @@ pub struct CoerceMemoKey<'v> {
 
 impl<'v> CoerceMemoKey<'v> {
     /// `None` for non-frozen values (mutable, so not memoizable) and for
-    /// defaults with no cheaply available content hash.
+    /// defaults that are not arena roots (no stored identity hash to key by).
     pub fn new(
         value: Value<'v>,
         coercer: &AttrType,
-        default_attr: Option<&CoercedAttr>,
+        default_attr: Option<CoercedAttrRef<'_>>,
         configurable: AttrIsConfigurable,
     ) -> Option<Self> {
         if !value.is_frozen() {
@@ -85,9 +90,7 @@ impl<'v> CoerceMemoKey<'v> {
         }
         let default = match default_attr {
             None => None,
-            // Heap defaults carry no stored hash; hashing one per coercion
-            // would cost more than the memo saves.
-            Some(_) => return None,
+            Some(d) => Some(d.root_strong_hash()?),
         };
         Some(CoerceMemoKey {
             value: value.identity(),
@@ -96,6 +99,32 @@ impl<'v> CoerceMemoKey<'v> {
             configurable: configurable == AttrIsConfigurable::Yes,
         })
     }
+}
+
+/// Identity-keyed coercion results for one module evaluation. Allocated in
+/// the module's extra value so `'v` is the heap lifetime that retains every
+/// keyed pointer: the table provably cannot outlive the values it identifies.
+#[derive(Default, Debug, Allocative)]
+pub struct CoerceMemoTable<'v>(RefCell<BuckMutMap<CoerceMemoKey<'v>, CoercedAttr>>);
+
+impl<'v> CoerceMemoTable<'v> {
+    pub fn lookup(&self, key: CoerceMemoKey<'v>) -> Option<CoercedAttr> {
+        self.0.borrow().get(&key).cloned()
+    }
+
+    pub fn insert(&self, key: CoerceMemoKey<'v>, value: &CoercedAttr) {
+        self.0.borrow_mut().insert(key, value.clone());
+    }
+}
+
+unsafe impl<'v> ProvidesStaticType<'v> for CoerceMemoTable<'v> {
+    type StaticType = CoerceMemoTable<'static>;
+}
+
+// SAFETY: keys are identities of frozen values, which the GC neither owns
+// nor moves, and `CoercedAttr` holds no starlark values.
+unsafe impl<'v> Trace<'v> for CoerceMemoTable<'v> {
+    fn trace(&mut self, _tracer: &Tracer<'v>) {}
 }
 
 /// The context for attribute coercion. Mostly just contains information about
@@ -135,18 +164,20 @@ pub trait AttrCoercionContext<'v> {
     }
 
     fn build_list_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::List(ListLiteral(self.intern_list(items))))
+        Ok(CoercedAttr::List(ListLiteral(items.into_iter().collect())))
     }
 
     fn build_tuple_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::Tuple(TupleLiteral(self.intern_list(items))))
+        Ok(CoercedAttr::Tuple(TupleLiteral(
+            items.into_iter().collect(),
+        )))
     }
 
     fn build_dict_attr(
         &self,
         pairs: Vec<(CoercedAttr, CoercedAttr)>,
     ) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::Dict(DictLiteral(self.intern_dict(pairs))))
+        Ok(CoercedAttr::Dict(DictLiteral(pairs.into_iter().collect())))
     }
 
     fn build_one_of_attr(&self, inner: CoercedAttr, idx: u32) -> buck2_error::Result<CoercedAttr> {
@@ -158,47 +189,14 @@ pub trait AttrCoercionContext<'v> {
         entries: Vec<(ConfigurationSettingKey, CoercedAttr)>,
         default: Option<CoercedAttr>,
     ) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::Selector(self.intern_select(entries, default)?))
+        Ok(CoercedAttr::Selector(Arc::new(CoercedSelector::new(
+            entries.into_iter().collect(),
+            default,
+        )?)))
     }
 
     /// Reuse previously allocated string if possible.
     fn intern_str(&self, value: &str) -> ArcStr;
-
-    // Reuse previously allocated slices if possible.
-    fn intern_list(&self, value: Vec<CoercedAttr>) -> ArcSlice<CoercedAttr>;
-
-    // Reuse previously allocated selects if possible.
-    fn intern_select(
-        &self,
-        value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
-        default: Option<CoercedAttr>,
-    ) -> buck2_error::Result<Arc<CoercedSelector>> {
-        let hash = CoercedSelector::entries_hash_for_interning(&value);
-        let entries = self.intern_select_hashed(value, hash);
-        let selector = CoercedSelector::new_with_entries_hash(entries, default, hash)?;
-        Ok(self.intern_selector(selector))
-    }
-
-    /// Returns an owner with the same ordered entries and default. Contexts may override this
-    /// to reuse an equal selector; the default implementation allocates a fresh owner.
-    #[doc(hidden)]
-    fn intern_selector(&self, value: CoercedSelector) -> Arc<CoercedSelector> {
-        Arc::new(value)
-    }
-
-    /// Returns canonical entries structurally equal to `value`, using `hash` only for lookup.
-    #[doc(hidden)]
-    fn intern_select_hashed(
-        &self,
-        value: Vec<(ConfigurationSettingKey, CoercedAttr)>,
-        hash: u64,
-    ) -> ArcSlice<(ConfigurationSettingKey, CoercedAttr)>;
-
-    // Reuse previously allocated dicts if possible.
-    fn intern_dict(
-        &self,
-        value: Vec<(CoercedAttr, CoercedAttr)>,
-    ) -> ArcSlice<(CoercedAttr, CoercedAttr)>;
 
     /// Attempt to convert a string into a BuckPath
     fn coerce_path(&self, value: &str, allow_directory: bool) -> buck2_error::Result<CoercedPath>;

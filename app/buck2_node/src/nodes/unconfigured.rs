@@ -291,21 +291,16 @@ impl TargetNode {
         self.as_ref().uses_plugins()
     }
 
-    pub fn get_default_target_platform(&self) -> Option<&TargetLabel> {
-        match self.known_attr_or_none(
-            DEFAULT_TARGET_PLATFORM_ATTRIBUTE.id,
-            AttrInspectOptions::All,
-        ) {
-            Some(v) => match v.value {
-                CoercedAttr::None => None,
-                CoercedAttr::ConfigurationDep(t) => Some(t.target()),
-                CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
-                    unreachable!("coercer verified attribute is not configurable")
-                }
-                _ => unreachable!("coercer verified the attribute is dep"),
-            },
-            None => None,
-        }
+    pub fn get_default_target_platform(&self) -> buck2_error::Result<Option<&TargetLabel>> {
+        Ok(self
+            .known_attr_or_none(
+                DEFAULT_TARGET_PLATFORM_ATTRIBUTE.id,
+                AttrInspectOptions::All,
+            )
+            .map(|v| v.value.unpack_configuration_dep())
+            .transpose()?
+            .flatten()
+            .map(|t| t.target()))
     }
 
     #[inline]
@@ -346,16 +341,20 @@ impl TargetNode {
 
     pub fn visibility(&self) -> buck2_error::Result<&VisibilitySpecification> {
         match self.0.attributes.get(VISIBILITY_ATTRIBUTE.id) {
-            Some(CoercedAttr::Visibility(v)) => Ok(v),
-            Some(a) => {
-                // This code is unreachable: visibility attributes are validated
-                // at the coercion stage. But if we did it wrong,
-                // better error with all the context than panic.
-                Err(internal_error!(
-                    "`visibility` attribute coerced incorrectly (`{0}`)",
-                    a.as_display_no_ctx().to_string(),
-                ))
-            }
+            Some(a) => match a.unpack_legacy() {
+                Some(CoercedAttr::Visibility(v)) => Ok(v),
+                _ => {
+                    // This code is unreachable: visibility attributes are validated
+                    // at the coercion stage. But if we did it wrong,
+                    // better error with all the context than panic.
+                    Err(internal_error!(
+                        "`visibility` attribute coerced incorrectly (`{0}`)",
+                        a.to_coerced()
+                            .map(|c| c.as_display_no_ctx().to_string())
+                            .unwrap_or_else(|e| format!("<undecodable: {e}>")),
+                    ))
+                }
+            },
             None => {
                 static DEFAULT: VisibilitySpecification = VisibilitySpecification::DEFAULT;
                 Ok(&DEFAULT)
@@ -523,7 +522,7 @@ impl TargetNode {
             // We deliberately don't hash the attribute, as if the value being passed to analysis
             // stays the same, we don't care if the attribute that generated it changed.
             x.name.hash(state);
-            x.value.hash(state);
+            x.value.hash_coerced(state);
         });
         self.test_config_unification_rollout().hash(state);
     }
@@ -679,8 +678,8 @@ impl<'a> TargetNodeRef<'a> {
 
     pub fn metadata(self) -> buck2_error::Result<Option<&'a MetadataMap>> {
         self.known_attr_or_none(METADATA_ATTRIBUTE.id, AttrInspectOptions::All)
-            .map(|attr| match attr.value {
-                CoercedAttr::Metadata(m) => Ok(m),
+            .map(|attr| match attr.value.unpack_legacy() {
+                Some(CoercedAttr::Metadata(m)) => Ok(m),
                 x => Err(internal_error!("`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{:?}` instead", x)),
             })
             .transpose()
@@ -688,8 +687,8 @@ impl<'a> TargetNodeRef<'a> {
 
     pub fn target_modifiers(self) -> buck2_error::Result<Option<&'a TargetModifiersValue>> {
         self.known_attr_or_none(TARGET_MODIFIERS_ATTRIBUTE.id, AttrInspectOptions::All)
-            .map(|attr| match attr.value {
-                CoercedAttr::TargetModifiers(m) => Ok(m),
+            .map(|attr| match attr.value.unpack_legacy() {
+                Some(CoercedAttr::TargetModifiers(m)) => Ok(m),
                 x => Err(internal_error!(
                     "`modifiers` attribute should be coerced as a JSON value. Found `{:?}` instead",
                     x
@@ -779,7 +778,6 @@ impl<'a> TargetNodeRef<'a> {
 pub mod testing {
     use buck2_core::package::PackageLabel;
     use buck2_fs::paths::file_name::FileNameBuf;
-    use buck2_util::vec2::Vec2;
     use serde_json::map::Map;
     use serde_json::value::Value;
 
@@ -817,18 +815,24 @@ pub mod testing {
                     .collect(),
             );
 
-            let mut attributes = Vec2::with_capacity(attrs.len() + 1);
+            let storage = Arc::new(crate::attrs::arena::PackageAttrStorage::default());
+            let mut builder = crate::attrs::arena::CoercedAttrArena::builder();
+            let mut attributes = AttrValues::with_capacity(storage.dupe(), attrs.len() + 1);
 
-            attributes.push(
-                NAME_ATTRIBUTE.id,
-                CoercedAttr::String(StringLiteral(label.name().as_str().into())),
-            );
+            attributes
+                .push_sorted(
+                    &mut builder,
+                    NAME_ATTRIBUTE.id,
+                    CoercedAttr::String(StringLiteral(label.name().as_str().into())),
+                )
+                .unwrap();
 
             for (name, _attr, val) in attrs.into_iter() {
                 let idx = attr_spec.attribute_id_by_name(name).unwrap();
-                attributes.push(idx, val);
+                attributes.push_sorted(&mut builder, idx, val).unwrap();
             }
-            let attributes = AttrValues::new(attributes);
+
+            storage.seal(builder.finish());
 
             let buildfile_path = Arc::new(BuildFilePath::new(
                 label.pkg().dupe(),

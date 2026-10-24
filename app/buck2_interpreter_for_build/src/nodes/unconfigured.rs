@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use buck2_core::target::label::label::TargetLabel;
+use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -38,6 +39,7 @@ pub trait TargetNodeExt: Sized {
         rule: Arc<Rule>,
         package: Arc<Package>,
         internals: &ModuleInternals,
+        coercion_ctx: &dyn AttrCoercionContext<'v>,
         param_parser: &mut ParametersParser<'v, '_>,
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
@@ -53,7 +55,8 @@ impl TargetNodeExt for TargetNode {
         internals: &ModuleInternals,
         param_parser: &mut ParametersParser<'v, '_>,
     ) -> buck2_error::Result<Self> {
-        let (name, indices, attr_values) = rule.attributes.start_parse(param_parser, 1)?;
+        let (name, indices, attr_pairs) =
+            rule.attributes.start_parse(param_parser, 1, internals)?;
 
         for (_, _, _) in indices {
             // Consume all the arguments.
@@ -61,13 +64,16 @@ impl TargetNodeExt for TargetNode {
             param_parser.next_opt::<Value>()?;
         }
 
+        let attr_values =
+            AttrValues::from_encoded_pairs(internals.attr_storage().dupe(), attr_pairs);
+
         let package_cfg_modifiers = internals.super_package.cfg_modifiers().duped();
         let label = TargetLabel::new(internals.buildfile_path().package().dupe(), name);
         Ok(TargetNode::new(
             rule.dupe(),
             package,
             label,
-            AttrValues::new(attr_values),
+            attr_values,
             None,
             package_cfg_modifiers,
             internals.super_package.test_config_unification_rollout(),
@@ -80,6 +86,7 @@ impl TargetNodeExt for TargetNode {
         rule: Arc<Rule>,
         package: Arc<Package>,
         internals: &ModuleInternals,
+        coercion_ctx: &dyn AttrCoercionContext<'v>,
         param_parser: &mut ParametersParser<'v, '_>,
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
@@ -94,12 +101,15 @@ impl TargetNodeExt for TargetNode {
             );
         }
 
-        let (target_name, attr_values) =
+        let (target_name, attr_pairs) =
             rule.attributes
-                .parse_params(param_parser, arg_count, internals)?;
+                .parse_params(param_parser, arg_count, internals, coercion_ctx)?;
         let package_name = internals.buildfile_path().package();
 
         let label = TargetLabel::new(package_name.dupe(), target_name);
+        let attr_values =
+            AttrValues::from_encoded_pairs(internals.attr_storage().dupe(), attr_pairs);
+
         let package_cfg_modifiers = internals.super_package.cfg_modifiers().duped();
 
         Ok(TargetNode::new(

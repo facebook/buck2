@@ -19,7 +19,6 @@ use buck2_core::package::source_path::SourcePath;
 use buck2_error::internal_error;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_hash::BuckMutInsertionMap;
-use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::select_fail::StarlarkSelectFail;
 use buck2_interpreter::types::select_incompatible::StarlarkSelectIncompatible;
@@ -190,9 +189,6 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::ExplicitConfiguredDep(d) => heap.alloc(
                 // TODO(@wendyy) - this needs better support
                 StarlarkProvidersLabel::new(d.as_ref().label.dupe()),
-            ),
-            CoercedAttr::ConfiguredDepForForwardNode(d) => heap.alloc(
-                StarlarkConfiguredProvidersLabel::new(d.as_ref().label.dupe()),
             ),
             CoercedAttr::TransitionDep(d) => {
                 let label = StarlarkProvidersLabel::new(d.dep.dupe());

@@ -10,7 +10,6 @@
 
 use std::fmt;
 use std::fmt::Display;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::package::source_path::SourcePathRef;
@@ -22,6 +21,9 @@ use dupe::Dupe;
 use pagable::Pagable;
 use starlark_map::Hashed;
 
+use crate::attrs::arena::CoercedAttrArenaBuilder;
+use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -31,13 +33,13 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Pagable, Allocative)]
 enum AttributeDefault {
     No,
-    Yes(Arc<CoercedAttr>),
+    Yes(OwnedCoercedAttr),
     YesWithAllowed {
-        default: Arc<CoercedAttr>,
+        default: OwnedCoercedAttr,
         allowed_deps: Hashed<BuckFixedSortedSet<TargetLabel>>,
     },
     // N.B. DefaultOnly attributes are not checked for within_view, so we don't have to track allowed_deps for them
-    DefaultOnly(Arc<CoercedAttr>),
+    DefaultOnly(OwnedCoercedAttr),
 }
 
 /// Starlark compatible container for results from e.g. `attrs.string()`
@@ -53,19 +55,42 @@ pub struct Attribute {
 }
 
 impl Attribute {
-    pub fn new_const(default: Option<Arc<CoercedAttr>>, doc: &str, coercer: AttrType) -> Self {
+    pub fn new_const(default: Option<CoercedAttr>, doc: &str, coercer: AttrType) -> Self {
         Self::new(default, doc, coercer).expect("Attribute::new_const failed")
     }
 
     pub fn new(
-        default: Option<Arc<CoercedAttr>>,
+        default: Option<CoercedAttr>,
+        doc: &str,
+        coercer: AttrType,
+    ) -> buck2_error::Result<Self> {
+        let default = default.map(|d| OwnedCoercedAttr::try_new(&d)).transpose()?;
+        Self::new_sealed(default, doc, coercer)
+    }
+
+    /// Like [`Self::new`], for a default coerced through an arena-encoding
+    /// context: any `Encoded` nodes in the value are refs into the paired
+    /// interner, which becomes the default's own sealed storage.
+    pub fn new_from_builder(
+        default: Option<(CoercedAttrArenaBuilder, CoercedAttr)>,
+        doc: &str,
+        coercer: AttrType,
+    ) -> buck2_error::Result<Self> {
+        let default = default
+            .map(|(interner, d)| OwnedCoercedAttr::seal_from_builder(interner, &d))
+            .transpose()?;
+        Self::new_sealed(default, doc, coercer)
+    }
+
+    fn new_sealed(
+        default: Option<OwnedCoercedAttr>,
         doc: &str,
         coercer: AttrType,
     ) -> buck2_error::Result<Self> {
         Ok(Attribute {
             default: match default {
                 Some(default) => {
-                    let allowed_deps = collect_default_deps(&default, &coercer)?;
+                    let allowed_deps = collect_default_deps(default.as_ref(), &coercer)?;
                     if allowed_deps.is_empty() {
                         AttributeDefault::Yes(default)
                     } else {
@@ -82,7 +107,7 @@ impl Attribute {
         })
     }
 
-    pub fn new_default_only(default: Arc<CoercedAttr>, doc: &str, coercer: AttrType) -> Self {
+    pub fn new_default_only(default: OwnedCoercedAttr, doc: &str, coercer: AttrType) -> Self {
         Attribute {
             default: AttributeDefault::DefaultOnly(default),
             doc: doc.to_owned(),
@@ -98,12 +123,18 @@ impl Attribute {
         matches!(self.default, AttributeDefault::DefaultOnly(_))
     }
 
-    pub fn default(&self) -> Option<&Arc<CoercedAttr>> {
+    /// The default value as a view into its sealed storage.
+    pub fn default_as_ref(&self) -> Option<CoercedAttrRef<'_>> {
+        self.default_as_owned().map(OwnedCoercedAttr::as_ref)
+    }
+
+    /// The default value in its owned form, for constructing another
+    /// attribute around the same default (`attrs.default_only`).
+    pub fn default_as_owned(&self) -> Option<&OwnedCoercedAttr> {
         match &self.default {
-            AttributeDefault::Yes(x) | AttributeDefault::YesWithAllowed { default: x, .. } => {
-                Some(x)
-            }
-            AttributeDefault::DefaultOnly(x) => Some(x),
+            AttributeDefault::Yes(x)
+            | AttributeDefault::YesWithAllowed { default: x, .. }
+            | AttributeDefault::DefaultOnly(x) => Some(x),
             AttributeDefault::No => None,
         }
     }
@@ -126,7 +157,7 @@ impl Display for Attribute {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.coercer.fmt_with_default(
             f,
-            self.default()
+            self.default_as_ref()
                 .map(|x| x.as_display_no_ctx().to_string())
                 .as_deref(),
         )
@@ -141,7 +172,7 @@ pub enum CoercedValue {
 }
 
 fn collect_default_deps(
-    default: &Arc<CoercedAttr>,
+    default: CoercedAttrRef<'_>,
     attr_type: &AttrType,
 ) -> buck2_error::Result<BuckFixedSortedSet<TargetLabel>> {
     struct CollectDefaultsTraversal<'a> {
