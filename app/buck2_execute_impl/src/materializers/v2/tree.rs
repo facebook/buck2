@@ -233,6 +233,8 @@ pub(crate) struct Grant {
 pub(crate) struct Effects<R> {
     pub(crate) grants: Vec<(R, Grant)>,
     pub(crate) change: TreeChange,
+    /// Tracked roots whose last lease the operation ended, with nothing waiting for them.
+    pub(crate) freed: Vec<ProjectRelativePathBuf>,
 }
 
 impl<R> Default for Effects<R> {
@@ -240,6 +242,7 @@ impl<R> Default for Effects<R> {
         Self {
             grants: Vec::new(),
             change: TreeChange::default(),
+            freed: Vec::new(),
         }
     }
 }
@@ -249,6 +252,7 @@ impl<R> Effects<R> {
     pub(crate) fn extend(&mut self, later: Effects<R>) {
         self.grants.extend(later.grants);
         self.change.extend(later.change);
+        self.freed.extend(later.freed);
     }
 }
 
@@ -833,7 +837,17 @@ impl<R> DiskTree<R> {
         self.remove_lease(&path);
         let mut effects = Effects::default();
         self.grant_waiting(&path, &mut effects);
+        if self.is_freed(&path) {
+            effects.freed.push(path);
+        }
         effects
+    }
+
+    /// Whether `path` is a tracked root that nothing holds or waits for.
+    fn is_freed(&self, path: &ProjectRelativePath) -> bool {
+        self.root.get(path.iter()).is_some_and(|node| {
+            node.tracked.is_some() && node.lease.is_none() && node.waiting.is_empty()
+        })
     }
 
     /// Ends a write hold, filing the tasks the holder hands back under their roots. A writer of
@@ -858,6 +872,9 @@ impl<R> DiskTree<R> {
             {
                 task.cancel();
             }
+        }
+        if self.is_freed(&path) {
+            effects.freed.push(path);
         }
         effects
     }

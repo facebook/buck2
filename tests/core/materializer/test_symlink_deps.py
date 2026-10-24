@@ -65,10 +65,9 @@ class SymlinkDepsTest(BuckTestCase):
 
         # The symlink's target is not on disk (nor, depending on the materializer,
         # the symlink), so the restarted daemon has to put it there before the
-        # consumer can read through the link.
+        # consumer can read through the link. What it put there is the consumer's
+        # to see: a materializer may take it back once the consumer is done.
         assert await read_through(buck, "root//:check_dir_to_artifact") == "TEXT"
-        assert (link_dir / "link").read_text().strip() == "TEXT"
-        assert target.exists()
 
     @buck_test(skip_for_os=["windows"])
     async def test_symlinked_dir_to_source_file(self, buck: Buck) -> None:

@@ -279,6 +279,21 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             }
         }
 
+        let strict = configs.strict_leases.then(|| {
+            let (tx, rx) = mpsc::unbounded_channel();
+            let weak = WeakSender {
+                tx: sender.tx.downgrade(),
+                shared: shared.dupe(),
+            };
+            tokio::spawn(remove_freed_roots(
+                io.dupe(),
+                blocking_executor.dupe(),
+                store,
+                weak,
+                rx,
+            ));
+            tx
+        });
         let processor = Processor {
             sender: sender.dupe(),
             tree,
@@ -287,6 +302,7 @@ impl<T: IoHandler + Allocative> DiskStateMaterializer<T> {
             touched: (!matches!(configs.update_access_times, AccessTimesUpdates::Disabled))
                 .then(BuckMutSet::default),
             shared: shared.dupe(),
+            strict,
         };
         let thread = thread_spawn("buck2-dsm", move || processor.run(rx))
             .buck_error_context("Cannot start materializer thread")?;
@@ -2025,6 +2041,98 @@ pub(crate) struct Processor {
     /// times are not persisted (`buck2.update_access_times = disabled`).
     touched: Option<BuckMutSet<ProjectRelativePathBuf>>,
     shared: Arc<Shared>,
+    /// Where intermediate roots nothing holds any more go to be removed from disk, under
+    /// `strict_leases`.
+    strict: Option<mpsc::UnboundedSender<Freed>>,
+}
+
+/// A tracked root nothing holds any more, for `remove_freed_roots`.
+struct Freed {
+    path: ProjectRelativePathBuf,
+    last_access_time: Timestamp,
+    entry: DiskEntry,
+}
+
+/// Directories under buck-out whose roots are read after the command that made them, by the
+/// test runner and by whoever expands an external cell; `strict_leases` leaves those alone.
+const READ_AFTER_THE_COMMAND: &[&str] = &["test", "external_cells"];
+
+/// Under `strict_leases`: removes each root it is handed from disk, so that nothing reads it
+/// without a lease. Only what can be put back goes: every file of the root must be in the stash
+/// or known to the CAS, which is the invariant every report and download keeps, and a root whose
+/// files are not stays and is reported.
+async fn remove_freed_roots<T: IoHandler>(
+    io: Arc<T>,
+    blocking_executor: Arc<dyn BlockingExecutor>,
+    store: &'static BlobStore,
+    sender: WeakSender,
+    mut freed: mpsc::UnboundedReceiver<Freed>,
+) {
+    while let Some(root) = freed.recv().await {
+        let Some(sender) = sender.upgrade() else {
+            return;
+        };
+        remove_freed_root(&io, &blocking_executor, store, &sender, root).await;
+    }
+}
+
+async fn remove_freed_root<T: IoHandler>(
+    io: &Arc<T>,
+    blocking_executor: &Arc<dyn BlockingExecutor>,
+    store: &BlobStore,
+    sender: &Sender,
+    freed: Freed,
+) {
+    let Freed {
+        path,
+        last_access_time,
+        entry,
+    } = freed;
+    let buck_out = io.buck_out_path();
+    if READ_AFTER_THE_COMMAND.iter().any(|dir| {
+        path.starts_with(buck_out.join(ProjectRelativePathBuf::unchecked_new(dir.to_string())))
+    }) {
+        return;
+    }
+    let config = io.digest_config().cas_digest_config();
+    for digest in entry.tracked_digests(config) {
+        if digest.stash().is_none() && store.cas_expiry(digest.data()).is_none() {
+            let _ignored = buck2_core::soft_error!(
+                "disk_state_materializer_unrecoverable_root",
+                internal_error!(
+                    "`{path}` holds `{digest}`, which neither the stash nor the CAS is known to have"
+                ),
+                quiet: true
+            );
+            return;
+        }
+    }
+    // Taken as the cleaner takes a stale root: refused when anything has used, held or waited
+    // for it since it was freed.
+    let taken = match sender
+        .take_for_cleaning(vec![(path.clone(), Expect::Tracked { last_access_time })])
+        .await
+    {
+        Ok(mut taken) => taken.pop().flatten(),
+        Err(_) => return,
+    };
+    let Some(Granted { mut held, .. }) = taken else {
+        return;
+    };
+    held.settle_except(None).await;
+    let fs = io.fs().dupe();
+    let removed = path.clone();
+    if let Err(e) = blocking_executor
+        .execute_io_inline(move || cleanup_path(&fs, &removed))
+        .await
+    {
+        let _ignored = buck2_core::soft_error!(
+            "disk_state_materializer_strict_remove_failed",
+            e.context(format!("Removing `{path}` on its release")),
+            quiet: true
+        );
+    }
+    drop(held);
 }
 
 impl Processor {
@@ -2161,6 +2269,7 @@ impl Processor {
         self.apply(Effects {
             grants: Vec::new(),
             change,
+            freed: Vec::new(),
         });
     }
 
@@ -2170,18 +2279,38 @@ impl Processor {
             self.apply(Effects {
                 grants: Vec::new(),
                 change,
+                freed: Vec::new(),
             });
         }
     }
 
     /// Mirrors what an operation changed and hands its grants to their requesters.
     fn apply(&mut self, effects: Effects<oneshot::Sender<Granted>>) {
-        self.account(&effects.change);
-        self.persist(effects.change);
-        for (reply, grant) in effects.grants {
+        let Effects {
+            grants,
+            change,
+            freed,
+        } = effects;
+        self.account(&change);
+        self.persist(change);
+        for (reply, grant) in grants {
             // A requester gone already drops the grant, whose guard releases the root through
             // this same channel.
             let _ignored = reply.send(self.granted(grant));
+        }
+        if let Some(strict) = &self.strict {
+            for path in freed {
+                if let Lookup::Exact(tracked) = self.tree.lookup(&path)
+                    && tracked.classification == ArtifactClassification::IntermediateOnly
+                {
+                    // The remover gone takes the mode with it.
+                    let _ignored = strict.send(Freed {
+                        last_access_time: tracked.last_access_time,
+                        entry: tracked.entry.dupe(),
+                        path,
+                    });
+                }
+            }
         }
     }
 

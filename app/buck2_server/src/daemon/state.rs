@@ -484,6 +484,13 @@ impl TenantState {
                 })?
                 .unwrap_or(false);
 
+            let strict_leases = root_config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "materializer_strict_leases",
+                })?
+                .unwrap_or(false);
+
             let mut clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
             // The disk-state core's TTLs are refreshed by the daemon-wide walk whatever the knob
             // says of the deferred core's own refresher.
@@ -512,6 +519,7 @@ impl TenantState {
                 verbose_materializer_log,
                 clean_stale_config,
                 readonly_outputs,
+                strict_leases,
             }
         };
         let materializer_defers_writes =

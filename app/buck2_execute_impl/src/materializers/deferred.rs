@@ -277,6 +277,10 @@ pub struct DeferredMaterializerConfigs {
     /// Whether the files a materializer tracks are read-only from the moment it tracks them
     /// (`buck2.readonly_outputs`).
     pub readonly_outputs: bool,
+    /// Removes a tracked intermediate root from disk the moment its last lease is released, so
+    /// that a reader that outlives its lease fails where it would otherwise work by luck. For
+    /// buck2's own tests of the disk-state core; the deferred core ignores it.
+    pub strict_leases: bool,
 }
 
 pub struct TtlRefreshConfiguration {
@@ -1047,6 +1051,7 @@ impl DeferredMaterializerAccessor<NoDiskIoHandler> {
                 verbose_materializer_log: false,
                 clean_stale_config: CleanStaleConfig::default(),
                 readonly_outputs: false,
+                strict_leases: false,
             },
             EventDispatcher::null(),
         )

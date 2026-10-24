@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::file_digest_interner;
@@ -137,7 +138,29 @@ fn configs() -> DeferredMaterializerConfigs {
         verbose_materializer_log: false,
         clean_stale_config: CleanStaleConfig::default(),
         readonly_outputs: false,
+        strict_leases: false,
     }
+}
+
+/// A materializer under `strict_leases`, with or without a stash to put released roots back
+/// from.
+fn make_strict(
+    fs: &ProjectRoot,
+    with_stash: bool,
+) -> (
+    Arc<DiskStateMaterializer<StubIoHandler>>,
+    Arc<StubIoHandler>,
+) {
+    let mut configs = configs();
+    configs.strict_leases = true;
+    make_with_configs_and_stash(
+        fs,
+        StubIoHandler::new(fs.dupe()),
+        None,
+        None,
+        configs,
+        with_stash,
+    )
 }
 
 fn make(
@@ -193,18 +216,36 @@ fn make_with_configs(
     Arc<DiskStateMaterializer<StubIoHandler>>,
     Arc<StubIoHandler>,
 ) {
+    make_with_configs_and_stash(fs, io, db, state, configs, true)
+}
+
+fn make_with_configs_and_stash(
+    fs: &ProjectRoot,
+    io: StubIoHandler,
+    db: Option<MaterializerStateSqliteDb>,
+    state: Option<crate::sqlite::materializer_db::MaterializerState>,
+    configs: DeferredMaterializerConfigs,
+    with_stash: bool,
+) -> (
+    Arc<DiskStateMaterializer<StubIoHandler>>,
+    Arc<StubIoHandler>,
+) {
     let io = Arc::new(io);
     // A store of this materializer's own, over the process's table as in the daemon, with its
-    // stash under this test's buck-out.
+    // stash under this test's buck-out. Every test in the process shares the table, and so sees
+    // the records every other test's stash makes: a test whose outcome rests on whether the
+    // stash holds its content stashes bytes no other test does.
     let store: &'static BlobStore = Box::leak(Box::new(BlobStore::new(file_digest_interner())));
-    assert!(
-        store.attach_stash(
-            fs.root()
-                .join(ForwardRelativePath::unchecked_new("buck-out/v2/stash")),
-            CasDigestConfig::testing_default(),
-            Arc::new(DummyBlockingExecutor { fs: fs.dupe() }),
-        )
-    );
+    if with_stash {
+        assert!(
+            store.attach_stash(
+                fs.root()
+                    .join(ForwardRelativePath::unchecked_new("buck-out/v2/stash")),
+                CasDigestConfig::testing_default(),
+                Arc::new(DummyBlockingExecutor { fs: fs.dupe() }),
+            )
+        );
+    }
     let dm = DiskStateMaterializer::new_with_io(
         io.dupe(),
         store,
@@ -1680,6 +1721,139 @@ async fn test_what_nothing_holds_leaves_the_store() -> buck2_error::Result<()> {
         let nowhere = temp.path().resolve(path("buck-out/v2/gen/nowhere"));
         assert!(!in_store(&dm, b"orphan", &nowhere).await?);
         drop(held);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+/// Polls `check` until it holds. The deadline is far beyond what the remover needs, since a
+/// loaded test runner, the OSS cargo test run among them, stretches the handful of thread and
+/// task hops a removal takes.
+async fn eventually(
+    mut check: impl AsyncFnMut() -> buck2_error::Result<bool>,
+) -> buck2_error::Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        if check().await? {
+            return Ok(());
+        }
+        assert!(Instant::now() < deadline, "the condition never held");
+        sleep(Duration::from_millis(5)).await;
+    }
+}
+
+/// Writes `content` at `p` and reports it as `value` under a lease over it, as a producer does.
+/// The caller keeps `value`, as the action's dice value would: the stash holds a blob only
+/// while some tracked digest of it is held.
+async fn write_and_report(
+    dm: &DiskStateMaterializer<StubIoHandler>,
+    fs: &ProjectRoot,
+    p: &ProjectRelativePathBuf,
+    content: &str,
+    value: &ArtifactValue,
+) -> buck2_error::Result<WriteLease> {
+    let lease = dm.as_dyn().prepare_outputs(vec![p.clone()]).await?;
+    fs.write_file(p, content, false)?;
+    dm.as_dyn()
+        .declare_existing(
+            &lease,
+            vec![DeclareArtifactPayload {
+                path: p.clone(),
+                artifact: value.dupe(),
+            }],
+        )
+        .await?;
+    Ok(lease)
+}
+
+#[tokio::test]
+async fn test_strict_leases_remove_a_released_root_and_serve_it_again() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path();
+        let (dm, _io) = make_strict(fs, true);
+        let p = path("buck-out/v2/gen/out");
+        // Content no other test stashes: the digest table is the process's, and a record another
+        // test's stash made for the same bytes would stand in for this one's.
+        let value = file("removed and served again");
+
+        let lease = write_and_report(&dm, fs, &p, "removed and served again", &value).await?;
+        assert!(dm.has_artifact_at(p.clone()).await?);
+        drop(lease);
+        // Released: the root goes, from the tree and from disk.
+        eventually(async || Ok(!dm.has_artifact_at(p.clone()).await?)).await?;
+        assert!(!fs.resolve(&p).exists());
+
+        // And comes back from the stash when asked for.
+        let response = dm
+            .as_dyn()
+            .materialize(request(vec![(p.clone(), value.dupe())]))
+            .await?;
+        let lease = response.ensure_results_ok()?;
+        assert_eq!(
+            std::fs::read_to_string(fs.resolve(&p))?,
+            "removed and served again"
+        );
+        drop(lease);
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_strict_leases_keep_final_outputs_and_what_is_read_after_the_command()
+-> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path();
+        let (dm, _io) = make_strict(fs, true);
+
+        // A final output stays: the user reads it after the command.
+        let out = path("buck-out/v2/gen/out");
+        let x = file("a final output");
+        drop(write_and_report(&dm, fs, &out, "a final output", &x).await?);
+        eventually(async || Ok(!dm.has_artifact_at(out.clone()).await?)).await?;
+        let mut final_output = request(vec![(out.clone(), x.dupe())]);
+        final_output.purpose = MaterializationPurpose::FinalOutput { required: true };
+        drop(
+            dm.as_dyn()
+                .materialize(final_output)
+                .await?
+                .ensure_results_ok()?,
+        );
+
+        // So does a test's output, which the runner reads after the command.
+        let test_output = path("buck-out/v2/test/execution/out");
+        let t = file("a test's output");
+        drop(write_and_report(&dm, fs, &test_output, "a test's output", &t).await?);
+
+        sleep(A_BIT).await;
+        assert!(dm.has_artifact_at(out.clone()).await?);
+        assert!(fs.resolve(&out).exists());
+        assert!(dm.has_artifact_at(test_output.clone()).await?);
+        assert!(fs.resolve(&test_output).exists());
+        abort(dm);
+        Ok(())
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_strict_leases_keep_a_root_nothing_could_put_back() -> buck2_error::Result<()> {
+    ignore_stack_overflow_checks_for_future(async {
+        let temp = ProjectRootTemp::new()?;
+        let fs = temp.path();
+        // No stash: a report's content exists nowhere but at its path.
+        let (dm, _io) = make_strict(fs, false);
+        let p = path("buck-out/v2/gen/out");
+        let value = file("nothing could put this back");
+
+        drop(write_and_report(&dm, fs, &p, "nothing could put this back", &value).await?);
+        sleep(A_BIT).await;
+        assert!(dm.has_artifact_at(p.clone()).await?);
+        assert!(fs.resolve(&p).exists());
         abort(dm);
         Ok(())
     })

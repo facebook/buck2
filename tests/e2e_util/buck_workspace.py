@@ -242,6 +242,10 @@ async def buck_fixture(  # noqa C901 : "too complex"
             extra_config_lines.append(f"[buck2]\nmaterializer = {materializer}\n")
         # Core tests run with read-only outputs, under either materializer.
         extra_config_lines.append("[buck2]\nreadonly_outputs = true\n")
+        if materializer == "v2":
+            # The disk-state twins run strict: a root leaves disk the moment its last lease
+            # does, so a reader without one fails here rather than by chance in use.
+            extra_config_lines.append("[buck2]\nmaterializer_strict_leases = true\n")
 
         for section, config in marker.extra_buck_config.items():
             extra_config_lines.append(f"[{section}]\n")
