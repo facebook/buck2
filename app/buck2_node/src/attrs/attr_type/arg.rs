@@ -37,22 +37,22 @@ use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::ArgChildren;
 use crate::attrs::arena::fields::Text;
-use crate::attrs::arena::kinds;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
-use crate::attrs::arena::semantics::Configure;
-use crate::attrs::arena::semantics::Fmt;
-use crate::attrs::arena::semantics::JsonKey;
-use crate::attrs::arena::semantics::MatchesAny;
-use crate::attrs::arena::semantics::Semantics;
-use crate::attrs::arena::semantics::SerializeKind;
-use crate::attrs::arena::semantics::ToJson;
-use crate::attrs::arena::semantics::Traverse;
-use crate::attrs::arena::semantics::TraverseConfigured;
-use crate::attrs::arena::semantics::inner_type;
-use crate::attrs::arena::semantics::mismatch;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::query::QueryMacroBase;
+use crate::attrs::coerced::configure::Configure;
+use crate::attrs::coerced::configure::TraverseConfigured;
+use crate::attrs::coerced::kinds;
+use crate::attrs::coerced::render::Fmt;
+use crate::attrs::coerced::render::JsonKey;
+use crate::attrs::coerced::render::MatchesAny;
+use crate::attrs::coerced::render::SerializeKind;
+use crate::attrs::coerced::render::ToJson;
+use crate::attrs::coerced::semantics::Semantics;
+use crate::attrs::coerced::semantics::inner_type;
+use crate::attrs::coerced::semantics::mismatch;
+use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -495,6 +495,51 @@ impl Display for QueryExpansion {
         };
 
         Ok(())
+    }
+}
+
+impl<'a> ArgPartView<'a> {
+    /// Mirror of `MacroBase::<ProvidersLabel>::configure` off the view.
+    pub(crate) fn configure(
+        &self,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> buck2_error::Result<ConfiguredStringWithMacrosPart> {
+        Ok(match self {
+            ArgPartView::String(s) => StringWithMacrosPart::String(ArcStr::from(*s)),
+            ArgPartView::Macro { write_to_file, mac } => StringWithMacrosPart::Macro(
+                *write_to_file,
+                match mac {
+                    ArgMacroView::Location { label, dep_kind } => ConfiguredMacro::Location {
+                        label: match dep_kind {
+                            MacroDepKind::Exec => ctx.configure_exec_target(label)?,
+                            MacroDepKind::Toolchain => ctx.configure_toolchain_target(label),
+                            MacroDepKind::Regular => ctx.configure_target(label),
+                        },
+                        dep_kind: *dep_kind,
+                    },
+                    ArgMacroView::Exe { label, exec_dep } => ConfiguredMacro::Exe {
+                        label: if *exec_dep {
+                            ctx.configure_exec_target(label)?
+                        } else {
+                            ctx.configure_target(label)
+                        },
+                        exec_dep: *exec_dep,
+                    },
+                    ArgMacroView::UserUnkeyedPlaceholder(name) => {
+                        ConfiguredMacro::UserUnkeyedPlaceholder(Box::from(*name))
+                    }
+                    ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
+                        ConfiguredMacro::UserKeyedPlaceholder(Box::new((
+                            Box::from(*var),
+                            ctx.configure_target(label),
+                            arg.map(Box::from),
+                        )))
+                    }
+                    ArgMacroView::Source(path) => ConfiguredMacro::Source((*path).clone()),
+                    ArgMacroView::Query(q) => ConfiguredMacro::Query(Box::new(q.configure(ctx))),
+                },
+            ),
+        })
     }
 }
 

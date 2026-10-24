@@ -16,11 +16,11 @@
 use crate::attrs::arena::schema::KindTag;
 use crate::attrs::arena::schema::KindVisitor;
 use crate::attrs::arena::schema::arena_kinds;
-use crate::attrs::arena::semantics::ValueVisitor;
+use crate::attrs::coerced::semantics::ValueVisitor;
 
 arena_kinds! {
     /// Record kinds, by tag.
-    enum AttrKind;
+    enum CoercedAttrKind;
     /// Shallow decode of a [`crate::attrs::arena::CoercedAttrRef`]: one case
     /// per value kind, holding the kind's view, with children left as refs.
     enum CoercedAttrRefKind<'a>;

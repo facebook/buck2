@@ -34,6 +34,7 @@ use crate::attrs::attr_type::arg::UnconfiguredMacro;
 use crate::attrs::attr_type::query::QueryAttrBase;
 use crate::attrs::attr_type::query::QueryMacroBase;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
+use crate::attrs::coerced::CoercedAttrRefKind;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;

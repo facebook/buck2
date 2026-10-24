@@ -45,7 +45,6 @@ use pagable::Pagable;
 use starlark_map::Hashed;
 use strong_hash::StrongHash;
 
-use crate::attrs::arena::CoercedAttrRefKind;
 use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::AttrType;
@@ -55,6 +54,7 @@ use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::attr_type::string::StringLiteral;
+use crate::attrs::coerced::CoercedAttrRefKind;
 use crate::attrs::configuration_context::AttrConfigurationContextImpl;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_attr_full::ConfiguredAttrFull;

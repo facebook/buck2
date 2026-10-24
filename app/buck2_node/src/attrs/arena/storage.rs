@@ -74,11 +74,11 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::IdHasher;
-use crate::attrs::arena::kinds::AttrKind;
-use crate::attrs::arena::kinds::dispatch;
 use crate::attrs::arena::schema::HashParts;
 use crate::attrs::arena::schema::Shape;
 use crate::attrs::arena::view::CoercedAttrRef;
+use crate::attrs::coerced::kinds::CoercedAttrKind;
+use crate::attrs::coerced::kinds::dispatch;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::metadata::map::MetadataMap;
 use crate::modifiers::CfgModifiers;
@@ -101,7 +101,10 @@ pub(crate) enum TailLen {
 /// Head field count and tail of a `kind` record whose head field `i` reads
 /// as `field(i)`; `None` when a field the layout depends on is missing.
 #[inline]
-pub(super) fn shape(kind: AttrKind, field: impl Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
+pub(super) fn shape(
+    kind: CoercedAttrKind,
+    field: impl Fn(u32) -> Option<u32>,
+) -> Option<(u32, TailLen)> {
     dispatch(kind, Shape { peek: &field })
 }
 
@@ -182,7 +185,7 @@ impl AttrWord {
     /// An inline leaf. Ints that do not fit the payload spill to records, so
     /// overflow means one package holds more distinct values of `kind` than
     /// the payload can index.
-    pub(super) fn inline(kind: AttrKind, payload: u32) -> buck2_error::Result<AttrWord> {
+    pub(super) fn inline(kind: CoercedAttrKind, payload: u32) -> buck2_error::Result<AttrWord> {
         if payload > INLINE_PAYLOAD_MASK {
             return Err(buck2_error!(
                 buck2_error::ErrorTag::Input,
@@ -203,12 +206,13 @@ impl AttrWord {
 
     /// The kind and payload of an inline leaf, or `None` for a record ref.
     #[inline]
-    pub(super) fn inline_parts(self) -> Option<(AttrKind, u32)> {
+    pub(super) fn inline_parts(self) -> Option<(CoercedAttrKind, u32)> {
         if !self.is_inline() {
             return None;
         }
-        let kind = AttrKind::from_repr(((self.0 >> INLINE_KIND_SHIFT) & INLINE_KIND_MASK) as u8)
-            .expect("should be valid: words are only minted with known kinds");
+        let kind =
+            CoercedAttrKind::from_repr(((self.0 >> INLINE_KIND_SHIFT) & INLINE_KIND_MASK) as u8)
+                .expect("should be valid: words are only minted with known kinds");
         Some((kind, self.0 & INLINE_PAYLOAD_MASK))
     }
 
@@ -303,7 +307,7 @@ pub(super) fn validate_records(bytes: &[u8]) -> Result<(), String> {
     while pos < bytes.len() {
         let rec = pos;
         let t = bytes[pos];
-        let kind = AttrKind::from_repr(t & TAG_KIND_MASK)
+        let kind = CoercedAttrKind::from_repr(t & TAG_KIND_MASK)
             .filter(|k| !k.is_inline())
             .ok_or_else(|| format!("record at {rec} has invalid tag {t:#x}"))?;
         let width = (t >> TAG_WIDTH_SHIFT) + 1;
@@ -409,15 +413,15 @@ impl CoercedAttrArena {
 
     /// The record's kind and the byte width of its refs. Record refs only.
     #[inline]
-    pub(super) fn tag(&self, r: AttrWord) -> (AttrKind, u8) {
+    pub(super) fn tag(&self, r: AttrWord) -> (CoercedAttrKind, u8) {
         let t = self.bytes[r.off()];
-        let kind = AttrKind::from_repr(t & TAG_KIND_MASK)
+        let kind = CoercedAttrKind::from_repr(t & TAG_KIND_MASK)
             .expect("should be valid: records are only written by the encoder");
         (kind, (t >> TAG_WIDTH_SHIFT) + 1)
     }
 
     #[inline]
-    pub(super) fn kind_of(&self, r: AttrWord) -> AttrKind {
+    pub(crate) fn kind_of(&self, r: AttrWord) -> CoercedAttrKind {
         match r.inline_parts() {
             Some((kind, _)) => kind,
             None => self.tag(r).0,
@@ -537,7 +541,7 @@ impl CoercedAttrArena {
     /// and ref in the smallest width that fits the largest of them.
     pub(super) fn append_record(
         &mut self,
-        kind: AttrKind,
+        kind: CoercedAttrKind,
         fields: &[u32],
         text: &[u8],
         refs: &[AttrWord],
@@ -594,7 +598,7 @@ impl CoercedAttrArena {
     pub(super) fn record_matches(
         &self,
         r: AttrWord,
-        kind: AttrKind,
+        kind: CoercedAttrKind,
         fields: &[u32],
         text: &[u8],
         refs: &[AttrWord],
@@ -669,7 +673,7 @@ impl CoercedAttrArena {
 /// One located record: its head fields and tail.
 #[derive(Copy, Clone)]
 pub(super) struct Rec<'a> {
-    pub(super) kind: AttrKind,
+    pub(super) kind: CoercedAttrKind,
     pub(super) head: RefRun<'a>,
     pub(super) tail: Tail<'a>,
 }

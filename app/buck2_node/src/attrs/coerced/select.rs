@@ -26,7 +26,6 @@ use serde::Serializer;
 use serde::ser::SerializeMap;
 use smallvec::SmallVec;
 
-use crate::attrs::arena::AttrRefDisplay;
 use crate::attrs::arena::AttrRefSelectorEntries;
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
@@ -37,27 +36,28 @@ use crate::attrs::arena::fields::Children;
 use crate::attrs::arena::fields::OptChild;
 use crate::attrs::arena::fields::SelectorEntries;
 use crate::attrs::arena::fields::Text;
-use crate::attrs::arena::kinds;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
-use crate::attrs::arena::semantics::ConcatLeaves;
-use crate::attrs::arena::semantics::Configure;
-use crate::attrs::arena::semantics::Fmt;
-use crate::attrs::arena::semantics::MatchesAny;
-use crate::attrs::arena::semantics::Semantics;
-use crate::attrs::arena::semantics::SerializeKind;
-use crate::attrs::arena::semantics::ToJson;
-use crate::attrs::arena::semantics::Traverse;
-use crate::attrs::arena::semantics::TraverseConfigured;
-use crate::attrs::arena::semantics::any_matches_seq;
-use crate::attrs::arena::semantics::inner_type;
-use crate::attrs::arena::semantics::json_seq;
-use crate::attrs::arena::semantics::ser_err;
-use crate::attrs::arena::semantics::ser_keyed;
-use crate::attrs::arena::semantics::ser_seq;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
+use crate::attrs::coerced::configure::ConcatLeaves;
+use crate::attrs::coerced::configure::Configure;
+use crate::attrs::coerced::configure::TraverseConfigured;
+use crate::attrs::coerced::kinds;
+use crate::attrs::coerced::render::AttrRefDisplay;
+use crate::attrs::coerced::render::Fmt;
+use crate::attrs::coerced::render::MatchesAny;
+use crate::attrs::coerced::render::SerializeKind;
+use crate::attrs::coerced::render::ToJson;
+use crate::attrs::coerced::render::any_matches_seq;
+use crate::attrs::coerced::render::json_seq;
+use crate::attrs::coerced::render::ser_err;
+use crate::attrs::coerced::render::ser_keyed;
+use crate::attrs::coerced::render::ser_seq;
+use crate::attrs::coerced::semantics::Semantics;
+use crate::attrs::coerced::semantics::inner_type;
+use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
@@ -655,7 +655,7 @@ fn validate_concat<'a>(t: &AttrType, leaves: &[CoercedAttrRef<'a>]) -> buck2_err
 mod tests {
     use dupe::Dupe;
 
-    use crate::attrs::coerced_attr::check_select_keys_unique;
+    use crate::attrs::coerced::select::check_select_keys_unique;
     use crate::configuration::resolved::ConfigurationSettingKey;
 
     #[test]
@@ -682,5 +682,19 @@ mod tests {
         assert!(check_select_keys_unique(&long).is_ok());
         long[10].0 = long[0].0.dupe();
         assert!(check_select_keys_unique(&long).is_err());
+    }
+}
+
+impl<'a> CoercedAttrRef<'a> {
+    /// Whether evaluating this value can ever yield `None`, directly or
+    /// through a `select()` branch.
+    pub fn may_return_none(&self) -> bool {
+        self.downcast::<kinds::None>().is_some()
+            || self
+                .downcast::<kinds::Selector>()
+                .is_some_and(|(entries, default)| {
+                    entries.iter().any(|(_, v)| v.may_return_none())
+                        || default.is_some_and(|d| d.may_return_none())
+                })
     }
 }

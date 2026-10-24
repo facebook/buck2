@@ -243,9 +243,9 @@ mod tests {
     use buck2_core::target::label::label::TargetLabel;
     use buck2_error::buck2_error;
     use buck2_hash::buck_mut_insertion_set;
-    use buck2_node::attrs::arena::CoercedAttrRefKind;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::attr_type::arg::MacroBase;
+    use buck2_node::attrs::coerced::CoercedAttrRefKind;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::configured_attr_info_for_tests::ConfiguredAttrInfoForTests;

@@ -21,9 +21,6 @@ use crate::attrs::arena::fields::Cursor;
 use crate::attrs::arena::fields::FieldList;
 use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::fields::RecordWriter;
-use crate::attrs::arena::kinds;
-use crate::attrs::arena::kinds::AttrKind;
-use crate::attrs::arena::kinds::dispatch;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
@@ -31,6 +28,9 @@ use crate::attrs::arena::storage::INLINE_KIND_MASK;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::TailLen;
 use crate::attrs::arena::view::CoercedAttrRef;
+use crate::attrs::coerced::kinds;
+use crate::attrs::coerced::kinds::CoercedAttrKind;
+use crate::attrs::coerced::kinds::dispatch;
 
 /// Defines everything that follows from the list of kinds as a whole. The
 /// invocation names each item it defines; `unit` kinds have no view,
@@ -76,7 +76,7 @@ macro_rules! arena_kinds {
         }
 
         /// Runs `v` for the [`Kind`] type of `kind`.
-        pub(super) fn $dispatch<V: KindVisitor>(kind: $tag, v: V) -> V::Out {
+        pub(crate) fn $dispatch<V: KindVisitor>(kind: $tag, v: V) -> V::Out {
             match kind {
                 $( $tag::$u => v.visit::<$u>(), )*
                 $( $tag::$v => v.visit::<$v>(), )*
@@ -86,7 +86,7 @@ macro_rules! arena_kinds {
 
         /// Runs `v` for the [`Semantics`] type of `kind`, which must be an
         /// attribute value kind.
-        pub(super) fn $dispatch_value<V: ValueVisitor>(kind: $tag, v: V) -> V::Out {
+        pub(crate) fn $dispatch_value<V: ValueVisitor>(kind: $tag, v: V) -> V::Out {
             match kind {
                 $( $tag::$u => v.visit::<$u>(), )*
                 $( $tag::$v => v.visit::<$v>(), )*
@@ -95,7 +95,7 @@ macro_rules! arena_kinds {
         }
 
         /// The decoded view of the value at `r`.
-        pub(super) fn $decode<$lt>(
+        pub(crate) fn $decode<$lt>(
             arena: &$lt $crate::attrs::arena::CoercedAttrArena,
             r: $crate::attrs::arena::AttrWord,
         ) -> $view<$lt> {
@@ -111,10 +111,10 @@ pub(crate) use arena_kinds;
 
 /// The tag of a kind, from its row in the kinds list.
 pub(crate) trait KindTag {
-    const KIND: AttrKind;
+    const KIND: CoercedAttrKind;
 }
 
-impl AttrKind {
+impl CoercedAttrKind {
     /// Whether values of this kind are inline leaves (payload in the
     /// word) rather than records in the buffer.
     pub(super) fn is_inline(self) -> bool {
@@ -124,7 +124,7 @@ impl AttrKind {
     /// Kinds whose values hold no deps, inputs, or labels: a traversal can
     /// pass over them without decoding. Select outcomes are scalar for the
     /// unconfigured walk only; the configured walk must report them.
-    pub(super) fn is_scalar(self) -> bool {
+    pub(crate) fn is_scalar(self) -> bool {
         dispatch(self, IsScalar)
     }
 }
@@ -141,7 +141,7 @@ pub(crate) enum Storage {
 }
 
 pub(crate) const fn storage_class(
-    kind: AttrKind,
+    kind: CoercedAttrKind,
     has_text: bool,
     head: u32,
     has_refs: bool,
@@ -241,7 +241,7 @@ pub(crate) fn encode_kind<K: SchemaKind>(
 
 /// Selects the [`Kind`] type for a tag at runtime, monomorphizing the
 /// visitor per kind.
-pub(super) trait KindVisitor {
+pub(crate) trait KindVisitor {
     type Out;
     fn visit<K: Kind + 'static>(self) -> Self::Out;
 }
@@ -323,7 +323,7 @@ impl Kind for kinds::SelectorKeys {
     }
 }
 
-/// [`AttrKind::is_inline`].
+/// [`CoercedAttrKind::is_inline`].
 pub(super) struct IsInline;
 
 impl KindVisitor for IsInline {
@@ -333,7 +333,7 @@ impl KindVisitor for IsInline {
     }
 }
 
-/// [`AttrKind::is_scalar`].
+/// [`CoercedAttrKind::is_scalar`].
 pub(super) struct IsScalar;
 
 impl KindVisitor for IsScalar {

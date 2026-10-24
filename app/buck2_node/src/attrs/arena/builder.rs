@@ -24,8 +24,6 @@ use dupe::Dupe;
 use smallvec::SmallVec;
 
 use crate::attrs::arena::fields::RecordWriter;
-use crate::attrs::arena::kinds::AttrKind;
-use crate::attrs::arena::kinds::dispatch;
 use crate::attrs::arena::schema::CopyParts;
 use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::storage::AttrToken;
@@ -37,6 +35,8 @@ use crate::attrs::arena::storage::INT_INLINE_MAX;
 use crate::attrs::arena::storage::INT_INLINE_MIN;
 use crate::attrs::arena::storage::zigzag;
 use crate::attrs::arena::view::CoercedAttrRef;
+use crate::attrs::coerced::kinds::CoercedAttrKind;
+use crate::attrs::coerced::kinds::dispatch;
 use crate::attrs::coerced_path::CoercedPath;
 
 /// Builds an [`CoercedAttrArena`], deduplicating structurally equal values and
@@ -95,7 +95,10 @@ pub struct CoercedAttrArenaBuilder {
     pub(super) roots: Vec<AttrWord>,
 }
 
-pub(super) fn content_hash(tag: AttrKind, f: impl FnOnce(&mut BuckHasher)) -> CoercedAttrHash {
+pub(super) fn content_hash(
+    tag: CoercedAttrKind,
+    f: impl FnOnce(&mut BuckHasher),
+) -> CoercedAttrHash {
     let mut h = BuckHasher::default();
     Hash::hash(&(tag as u8), &mut h);
     f(&mut h);
@@ -111,7 +114,7 @@ pub(super) fn path_addr_hash(f: &ArcS<PackageRelativePath>) -> u64 {
 /// Fold a precomputed component hash under a kind tag: one multiply-rotate
 /// mix (splitmix-style) instead of a full hasher instantiation.
 #[inline]
-pub(super) fn mix_kind(kind: AttrKind, h: u64) -> CoercedAttrHash {
+pub(super) fn mix_kind(kind: CoercedAttrKind, h: u64) -> CoercedAttrHash {
     let x = h ^ (kind as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
     let x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     let x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
@@ -179,7 +182,7 @@ impl CoercedAttrArenaBuilder {
     /// this arena).
     pub(super) fn encode_record(
         &mut self,
-        kind: AttrKind,
+        kind: CoercedAttrKind,
         hash: CoercedAttrHash,
         fields: &[u32],
         refs: &[AttrWord],
@@ -239,29 +242,34 @@ impl CoercedAttrArenaBuilder {
         let mut key_idxs = EncodeScratchFields::with_capacity(1 + keys.len());
         key_idxs.push(keys.len() as u32);
         let mut keys_hasher = BuckHasher::default();
-        Hash::hash(&(AttrKind::SelectorKeys as u8), &mut keys_hasher);
+        Hash::hash(&(CoercedAttrKind::SelectorKeys as u8), &mut keys_hasher);
         for key in keys {
             let (key_idx, key_hash) = self.providers_label_idx_and_hash(key);
             key_idxs.push(key_idx);
             key_hash.hash(&mut keys_hasher);
         }
         let keys_hash = CoercedAttrHash(keys_hasher.finish());
-        let r = self.encode_record(AttrKind::SelectorKeys, keys_hash, &key_idxs, &[])?;
+        let r = self.encode_record(CoercedAttrKind::SelectorKeys, keys_hash, &key_idxs, &[])?;
         Ok(AttrToken(r, keys_hash))
     }
 
     pub fn encode_int(&mut self, i: i64) -> buck2_error::Result<AttrToken> {
         // Inline and record ints share a hash tag: same value, same hash,
         // whichever encoding it lands in.
-        let hash = mix_kind(AttrKind::Int, i as u64);
+        let hash = mix_kind(CoercedAttrKind::Int, i as u64);
         if (INT_INLINE_MIN..=INT_INLINE_MAX).contains(&i) {
             return Ok(AttrToken(
-                AttrWord::inline(AttrKind::Int, (i as u32) & INLINE_PAYLOAD_MASK)?,
+                AttrWord::inline(CoercedAttrKind::Int, (i as u32) & INLINE_PAYLOAD_MASK)?,
                 hash,
             ));
         }
         let z = zigzag(i);
-        let r = self.encode_record(AttrKind::Int, hash, &[z as u32, (z >> 32) as u32], &[])?;
+        let r = self.encode_record(
+            CoercedAttrKind::Int,
+            hash,
+            &[z as u32, (z >> 32) as u32],
+            &[],
+        )?;
         Ok(AttrToken(r, hash))
     }
 
@@ -328,7 +336,11 @@ impl CoercedAttrArenaBuilder {
         (idx, lh.finish())
     }
 
-    pub(super) fn encode_str(&mut self, kind: AttrKind, s: &str) -> buck2_error::Result<AttrToken> {
+    pub(super) fn encode_str(
+        &mut self,
+        kind: CoercedAttrKind,
+        s: &str,
+    ) -> buck2_error::Result<AttrToken> {
         let bytes = s.as_bytes();
         let mut byte_hasher = BuckHasher::default();
         bytes.hash(&mut byte_hasher);

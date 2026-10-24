@@ -17,7 +17,7 @@ use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
 use dupe::Dupe;
 
-use crate::attrs::arena::AttrView;
+use crate::attrs::coerced::AttrView;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::nodes::unconfigured::TargetNode;
 use crate::nodes::unconfigured::TargetNodeData;

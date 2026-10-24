@@ -18,18 +18,18 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
-use crate::attrs::arena::kinds;
 use crate::attrs::arena::schema::SchemaKind;
 use crate::attrs::arena::schema::encode_kind;
-use crate::attrs::arena::semantics::Configure;
-use crate::attrs::arena::semantics::Fmt;
-use crate::attrs::arena::semantics::MatchesAny;
-use crate::attrs::arena::semantics::Semantics;
-use crate::attrs::arena::semantics::SerializeKind;
-use crate::attrs::arena::semantics::ToJson;
-use crate::attrs::arena::semantics::Traverse;
-use crate::attrs::arena::semantics::TraverseConfigured;
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::coerced::configure::Configure;
+use crate::attrs::coerced::configure::TraverseConfigured;
+use crate::attrs::coerced::kinds;
+use crate::attrs::coerced::render::Fmt;
+use crate::attrs::coerced::render::MatchesAny;
+use crate::attrs::coerced::render::SerializeKind;
+use crate::attrs::coerced::render::ToJson;
+use crate::attrs::coerced::semantics::Semantics;
+use crate::attrs::coerced::traverse::Traverse;
 use crate::attrs::configured_attr::ConfiguredAttr;
 
 #[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative, StrongHash)]

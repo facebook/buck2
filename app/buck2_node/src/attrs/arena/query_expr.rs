@@ -32,8 +32,6 @@ use crate::attrs::arena::builder::EncodeScratchFields;
 use crate::attrs::arena::builder::EncodeScratchRefs;
 use crate::attrs::arena::builder::content_hash;
 use crate::attrs::arena::fields::IdHasher;
-use crate::attrs::arena::kinds;
-use crate::attrs::arena::kinds::AttrKind;
 use crate::attrs::arena::schema::Kind;
 use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::storage::AttrToken;
@@ -45,6 +43,8 @@ use crate::attrs::arena::storage::TailLen;
 use crate::attrs::attr_type::query::QueryAttr;
 use crate::attrs::attr_type::query::QueryAttrBase;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
+use crate::attrs::coerced::kinds;
+use crate::attrs::coerced::kinds::CoercedAttrKind;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::provider_id_set::ProviderIdSet;
 
@@ -106,7 +106,7 @@ impl Kind for kinds::QueryExpr {
     }
 }
 
-/// Handle to one stored query-expression node ([`AttrKind::QueryExpr`]);
+/// Handle to one stored query-expression node ([`CoercedAttrKind::QueryExpr`]);
 /// `view` decodes it shallowly.
 #[derive(Copy, Clone)]
 pub struct QueryExprRef<'a> {
@@ -484,7 +484,7 @@ fn set_parts(
         subtag,
         smallvec![],
         items.iter().map(|i| i.0).collect(),
-        content_hash(AttrKind::QueryExpr, |h| (subtag, &hashes).hash(h)),
+        content_hash(CoercedAttrKind::QueryExpr, |h| (subtag, &hashes).hash(h)),
     )
 }
 
@@ -636,26 +636,26 @@ impl CoercedAttrArenaBuilder {
                 Q_EXPR_NONE,
                 smallvec![],
                 EncodeScratchRefs::new(),
-                content_hash(AttrKind::QueryExpr, |h| Q_EXPR_NONE.hash(h)),
+                content_hash(CoercedAttrKind::QueryExpr, |h| Q_EXPR_NONE.hash(h)),
             ),
             QueryNode::Word(t) | QueryNode::String(t) => {
                 let subtag = match node {
                     QueryNode::Word(_) => Q_EXPR_WORD,
                     _ => Q_EXPR_STRING,
                 };
-                let AttrToken(sr, sh) = self.encode_str(AttrKind::String, t)?;
+                let AttrToken(sr, sh) = self.encode_str(CoercedAttrKind::String, t)?;
                 (
                     subtag,
                     smallvec![],
                     smallvec![sr],
-                    content_hash(AttrKind::QueryExpr, |h| (subtag, sh).hash(h)),
+                    content_hash(CoercedAttrKind::QueryExpr, |h| (subtag, sh).hash(h)),
                 )
             }
             QueryNode::Int(v) => (
                 Q_EXPR_INT,
                 smallvec![v as u32, (v >> 32) as u32],
                 EncodeScratchRefs::new(),
-                content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_INT, v).hash(h)),
+                content_hash(CoercedAttrKind::QueryExpr, |h| (Q_EXPR_INT, v).hash(h)),
             ),
             QueryNode::Label(label) => {
                 let (idx, lh) = self.providers_label_idx_and_hash(label);
@@ -663,11 +663,11 @@ impl CoercedAttrArenaBuilder {
                     Q_EXPR_LABEL,
                     smallvec![idx],
                     EncodeScratchRefs::new(),
-                    content_hash(AttrKind::QueryExpr, |h| (Q_EXPR_LABEL, lh).hash(h)),
+                    content_hash(CoercedAttrKind::QueryExpr, |h| (Q_EXPR_LABEL, lh).hash(h)),
                 )
             }
             QueryNode::Function { name, args } => {
-                let AttrToken(nr, nh) = self.encode_str(AttrKind::String, name)?;
+                let AttrToken(nr, nh) = self.encode_str(CoercedAttrKind::String, name)?;
                 let hashes: SmallVec<[CoercedAttrHash; 8]> = args.iter().map(|a| a.1).collect();
                 let refs = std::iter::once(nr)
                     .chain(args.iter().map(|a| a.0))
@@ -676,7 +676,7 @@ impl CoercedAttrArenaBuilder {
                     Q_EXPR_FUNCTION,
                     smallvec![],
                     refs,
-                    content_hash(AttrKind::QueryExpr, |h| {
+                    content_hash(CoercedAttrKind::QueryExpr, |h| {
                         (Q_EXPR_FUNCTION, nh, &hashes).hash(h)
                     }),
                 )
@@ -696,7 +696,7 @@ impl CoercedAttrArenaBuilder {
                     Q_EXPR_BINOP,
                     ops,
                     refs,
-                    content_hash(AttrKind::QueryExpr, |h| {
+                    content_hash(CoercedAttrKind::QueryExpr, |h| {
                         (Q_EXPR_BINOP, first.1, &hashes).hash(h)
                     }),
                 )
@@ -709,7 +709,7 @@ impl CoercedAttrArenaBuilder {
         head.push(values.len() as u32);
         head.extend_from_slice(&values);
         head.push(refs.len() as u32);
-        let r = self.encode_record(AttrKind::QueryExpr, hash, &head, &refs)?;
+        let r = self.encode_record(CoercedAttrKind::QueryExpr, hash, &head, &refs)?;
         Ok(AttrToken(r, hash))
     }
 }

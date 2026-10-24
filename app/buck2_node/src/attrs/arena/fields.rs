@@ -26,7 +26,6 @@ use strong_hash::StrongHash;
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::builder::EncodeScratchFields;
 use crate::attrs::arena::builder::EncodeScratchRefs;
-use crate::attrs::arena::kinds::AttrKind;
 use crate::attrs::arena::query_expr::QueryExprRef;
 use crate::attrs::arena::storage::ABSENT_REF;
 use crate::attrs::arena::storage::AttrToken;
@@ -42,7 +41,8 @@ use crate::attrs::arena::view::Pairs;
 use crate::attrs::arena::view::RefItem;
 use crate::attrs::arena::view::Refs;
 use crate::attrs::arena::view::Values;
-use crate::attrs::coerced_attr::check_select_keys_unique;
+use crate::attrs::coerced::kinds::CoercedAttrKind;
+use crate::attrs::coerced::select::check_select_keys_unique;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
@@ -136,7 +136,7 @@ impl<'a> Cursor<'a> {
 /// Head fields, child refs and weak content hash of one value being
 /// encoded, gathered field by field.
 pub(crate) struct RecordWriter<'s> {
-    pub(super) kind: AttrKind,
+    pub(super) kind: CoercedAttrKind,
     pub(super) head: EncodeScratchFields,
     pub(super) refs: EncodeScratchRefs,
     pub(super) text: Option<&'s str>,
@@ -144,7 +144,7 @@ pub(crate) struct RecordWriter<'s> {
 }
 
 impl<'s> RecordWriter<'s> {
-    pub(super) fn new(kind: AttrKind) -> RecordWriter<'s> {
+    pub(super) fn new(kind: CoercedAttrKind) -> RecordWriter<'s> {
         let mut h = BuckHasher::default();
         Hash::hash(&(kind as u8), &mut h);
         RecordWriter {

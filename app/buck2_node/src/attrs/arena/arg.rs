@@ -17,7 +17,6 @@ use std::hash::Hasher;
 
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_util::arc_str::ArcStr;
 use smallvec::SmallVec;
 use smallvec::smallvec;
 use strong_hash::StrongHash;
@@ -25,8 +24,6 @@ use strong_hash::StrongHash;
 use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::builder::content_hash;
 use crate::attrs::arena::fields::IdHasher;
-use crate::attrs::arena::kinds;
-use crate::attrs::arena::kinds::AttrKind;
 use crate::attrs::arena::query_expr::QueryExprRef;
 use crate::attrs::arena::schema::Kind;
 use crate::attrs::arena::schema::Storage;
@@ -37,8 +34,6 @@ use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::TailLen;
 use crate::attrs::arena::view::ArgParts;
 use crate::attrs::arena::view::Refs;
-use crate::attrs::attr_type::arg::ConfiguredMacro;
-use crate::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
 use crate::attrs::attr_type::arg::MacroBase;
 use crate::attrs::attr_type::arg::MacroDepKind;
 use crate::attrs::attr_type::arg::QueryExpansion;
@@ -47,6 +42,8 @@ use crate::attrs::attr_type::arg::StringWithMacrosPart;
 use crate::attrs::attr_type::query::QueryAttrBase;
 use crate::attrs::attr_type::query::QueryMacroBase;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
+use crate::attrs::coerced::kinds;
+use crate::attrs::coerced::kinds::CoercedAttrKind;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 
@@ -102,8 +99,8 @@ impl CoercedAttrArena {
 
     pub(super) fn arg_part_at(&self, r: AttrWord) -> ArgPartView<'_> {
         match self.kind_of(r) {
-            AttrKind::ArgSimple => ArgPartView::String(self.str_at(r)),
-            AttrKind::ArgMacro => {
+            CoercedAttrKind::ArgSimple => ArgPartView::String(self.str_at(r)),
+            CoercedAttrKind::ArgMacro => {
                 let (header, payload, refs) = self.arg_macro_parts(r);
                 let flag = (header >> ARG_MACRO_FLAG_SHIFT) & ARG_MACRO_FLAG_MASK;
                 let mac = match header & ARG_MACRO_TAG_MASK {
@@ -347,7 +344,7 @@ impl<'a> ArgQueryView<'a> {
         self.expr().labels(out);
     }
 
-    pub(super) fn configure(
+    pub(crate) fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
     ) -> QueryMacroBase<ConfiguredProvidersLabel> {
@@ -371,51 +368,6 @@ impl PartialEq for ArgQueryView<'_> {
         self.flags() == other.flags()
             && self.separator() == other.separator()
             && self.query() == other.query()
-    }
-}
-
-impl<'a> ArgPartView<'a> {
-    /// Mirror of `MacroBase::<ProvidersLabel>::configure` off the view.
-    pub(crate) fn configure(
-        &self,
-        ctx: &dyn AttrConfigurationContext,
-    ) -> buck2_error::Result<ConfiguredStringWithMacrosPart> {
-        Ok(match self {
-            ArgPartView::String(s) => StringWithMacrosPart::String(ArcStr::from(*s)),
-            ArgPartView::Macro { write_to_file, mac } => StringWithMacrosPart::Macro(
-                *write_to_file,
-                match mac {
-                    ArgMacroView::Location { label, dep_kind } => ConfiguredMacro::Location {
-                        label: match dep_kind {
-                            MacroDepKind::Exec => ctx.configure_exec_target(label)?,
-                            MacroDepKind::Toolchain => ctx.configure_toolchain_target(label),
-                            MacroDepKind::Regular => ctx.configure_target(label),
-                        },
-                        dep_kind: *dep_kind,
-                    },
-                    ArgMacroView::Exe { label, exec_dep } => ConfiguredMacro::Exe {
-                        label: if *exec_dep {
-                            ctx.configure_exec_target(label)?
-                        } else {
-                            ctx.configure_target(label)
-                        },
-                        exec_dep: *exec_dep,
-                    },
-                    ArgMacroView::UserUnkeyedPlaceholder(name) => {
-                        ConfiguredMacro::UserUnkeyedPlaceholder(Box::from(*name))
-                    }
-                    ArgMacroView::UserKeyedPlaceholder { var, label, arg } => {
-                        ConfiguredMacro::UserKeyedPlaceholder(Box::new((
-                            Box::from(*var),
-                            ctx.configure_target(label),
-                            arg.map(Box::from),
-                        )))
-                    }
-                    ArgMacroView::Source(path) => ConfiguredMacro::Source((*path).clone()),
-                    ArgMacroView::Query(q) => ConfiguredMacro::Query(Box::new(q.configure(ctx))),
-                },
-            ),
-        })
     }
 }
 
@@ -472,7 +424,9 @@ impl CoercedAttrArenaBuilder {
         part: &StringWithMacrosPart<ProvidersLabel>,
     ) -> buck2_error::Result<AttrToken> {
         let (write_to_file, m) = match part {
-            StringWithMacrosPart::String(s) => return self.encode_str(AttrKind::ArgSimple, s),
+            StringWithMacrosPart::String(s) => {
+                return self.encode_str(CoercedAttrKind::ArgSimple, s);
+            }
             StringWithMacrosPart::Macro(write_to_file, m) => (*write_to_file, m),
         };
         let parts = match m {
@@ -521,7 +475,7 @@ impl CoercedAttrArenaBuilder {
         part: ArgPartView<'_>,
     ) -> buck2_error::Result<AttrToken> {
         let (write_to_file, mac) = match part {
-            ArgPartView::String(s) => return self.encode_str(AttrKind::ArgSimple, s),
+            ArgPartView::String(s) => return self.encode_str(CoercedAttrKind::ArgSimple, s),
             ArgPartView::Macro { write_to_file, mac } => (write_to_file, mac),
         };
         let parts = match mac {
@@ -580,17 +534,17 @@ impl CoercedAttrArenaBuilder {
                 )
             }
             MacroParts::UserUnkeyedPlaceholder(name) => {
-                let AttrToken(sr, sh) = self.encode_str(AttrKind::String, name)?;
+                let AttrToken(sr, sh) = self.encode_str(CoercedAttrKind::String, name)?;
                 (ARG_MACRO_TAG_UNKEYED, 0, 0, smallvec![sr], smallvec![sh.0])
             }
             MacroParts::UserKeyedPlaceholder { var, label, arg } => {
-                let AttrToken(vr, vh) = self.encode_str(AttrKind::String, var)?;
+                let AttrToken(vr, vh) = self.encode_str(CoercedAttrKind::String, var)?;
                 let (idx, lh) = self.providers_label_idx_and_hash(label);
                 let mut refs: SmallVec<[AttrWord; 2]> = smallvec![vr];
                 let mut parts: SmallVec<[u64; 3]> = smallvec![vh.0, lh];
                 let mut flag = 0;
                 if let Some(a) = arg {
-                    let AttrToken(ar, ah) = self.encode_str(AttrKind::String, a)?;
+                    let AttrToken(ar, ah) = self.encode_str(CoercedAttrKind::String, a)?;
                     refs.push(ar);
                     parts.push(ah.0);
                     flag = 1;
@@ -616,7 +570,7 @@ impl CoercedAttrArenaBuilder {
                 let mut parts: SmallVec<[u64; 3]> = smallvec![expr.1.0];
                 let mut flags = expansion;
                 if let Some(sp) = sep {
-                    let AttrToken(sr, sh) = self.encode_str(AttrKind::String, sp)?;
+                    let AttrToken(sr, sh) = self.encode_str(CoercedAttrKind::String, sp)?;
                     refs.push(sr);
                     parts.push(sh.0);
                     flags |= ARG_QUERY_HAS_SEP;
@@ -624,7 +578,7 @@ impl CoercedAttrArenaBuilder {
                 (ARG_MACRO_TAG_QUERY, flags, 0, refs, parts)
             }
         };
-        let hash = content_hash(AttrKind::ArgMacro, |h| {
+        let hash = content_hash(CoercedAttrKind::ArgMacro, |h| {
             (tag, flag, write_to_file, &hash_parts).hash(h)
         });
         let wtf_bit = if write_to_file { ARG_MACRO_WTF_BIT } else { 0 };
@@ -633,7 +587,7 @@ impl CoercedAttrArenaBuilder {
             payload,
             refs.len() as u32,
         ];
-        let r = self.encode_record(AttrKind::ArgMacro, hash, &head, &refs)?;
+        let r = self.encode_record(CoercedAttrKind::ArgMacro, hash, &head, &refs)?;
         Ok(AttrToken(r, hash))
     }
 }

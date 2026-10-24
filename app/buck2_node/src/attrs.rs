@@ -12,7 +12,7 @@ pub(crate) mod anon_target_attr_validation;
 pub mod arena;
 pub mod attr;
 pub mod attr_type;
-pub mod coerced_attr;
+pub mod coerced;
 pub mod coerced_attr_full;
 pub mod coerced_deps_collector;
 pub mod coerced_path;
