@@ -16,9 +16,9 @@ use buck2_core::package::PackageLabel;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced::configure::TraverseConfigured;
+use crate::attrs::coerced::kinds::ValueVisitor;
 use crate::attrs::coerced::kinds::dispatch_value;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::ValueVisitor;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
 impl<'a> CoercedAttrRef<'a> {
@@ -35,7 +35,7 @@ impl<'a> CoercedAttrRef<'a> {
             return Ok(());
         }
         dispatch_value(
-            kind,
+            *self,
             Traverse {
                 v: *self,
                 t,
@@ -55,16 +55,16 @@ pub(crate) struct Traverse<'x, 'a> {
     pub(crate) tr: &'x mut dyn CoercedAttrTraversal<'a>,
 }
 
-impl ValueVisitor for Traverse<'_, '_> {
+impl<'a> ValueVisitor<'a> for Traverse<'_, 'a> {
     type Out = buck2_error::Result<()>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::traverse(K::view(self.v), self)
+    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+        K::traverse(view, self)
     }
 }
 
-impl ValueVisitor for TraverseConfigured<'_, '_> {
+impl<'a> ValueVisitor<'a> for TraverseConfigured<'_, 'a> {
     type Out = ResultMaybeCompatible<()>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::traverse_configured(K::view(self.v), self)
+    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+        K::traverse_configured(view, self)
     }
 }

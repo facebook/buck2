@@ -582,28 +582,28 @@ impl Semantics for kinds::ArgSimple {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(s: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(s: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(s)?)
     }
 
-    fn fmt(s: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(s: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "\"{s}\"")
     }
 
     fn any_matches(
         s: Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(s)
     }
 
-    fn json_key<'a>(s: Self::View<'a>, _: JsonKey<'_, 'a>) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(s: Self::View<'a>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Borrowed(s))
     }
 
     fn serialize<S: Serializer>(
         s: Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(s)
     }
@@ -696,31 +696,28 @@ impl Semantics for kinds::Arg {
         }
     }
 
-    fn to_json(parts: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(parts: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(parts.to_string())?)
     }
 
-    fn fmt(parts: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(parts: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "\"{parts}\"")
     }
 
     fn any_matches(
         parts: Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&parts.to_string())
     }
 
-    fn json_key<'a>(
-        parts: Self::View<'a>,
-        _: JsonKey<'_, 'a>,
-    ) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(parts: Self::View<'a>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Owned(parts.to_string()))
     }
 
     fn serialize<S: Serializer>(
         parts: Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&parts.to_string())
     }

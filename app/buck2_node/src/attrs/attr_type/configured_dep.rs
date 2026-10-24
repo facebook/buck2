@@ -185,25 +185,25 @@ impl Semantics for kinds::ExplicitConfiguredDep {
 
     fn to_json(
         (label, platform): Self::View<'_>,
-        _: ToJson<'_, '_>,
+        _: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value([label.to_string(), platform.to_string()])?)
     }
 
-    fn fmt((label, platform): Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt((label, platform): Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "({label}, {platform})")
     }
 
     fn any_matches(
         (label, platform): Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&format!("({label}, {platform})"))
     }
 
     fn serialize<S: Serializer>(
         (label, platform): Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         [label.to_string(), platform.to_string()].serialize(ser)
     }

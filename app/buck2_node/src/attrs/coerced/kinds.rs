@@ -16,7 +16,7 @@
 use crate::attrs::arena::schema::KindTag;
 use crate::attrs::arena::schema::KindVisitor;
 use crate::attrs::arena::schema::arena_kinds;
-use crate::attrs::coerced::semantics::ValueVisitor;
+use crate::attrs::coerced::semantics::Semantics;
 
 arena_kinds! {
     /// Record kinds, by tag.
@@ -28,6 +28,7 @@ arena_kinds! {
     fn dispatch;
     fn dispatch_value;
     fn decode;
+    trait ValueVisitor: Semantics;
     // Kinds whose values carry nothing beyond the kind.
     unit {
         None = 0,

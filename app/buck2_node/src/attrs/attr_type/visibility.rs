@@ -68,24 +68,24 @@ impl Semantics for kinds::Visibility {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(s: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(s: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(s.to_json())
     }
 
-    fn fmt(s: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(s: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "{}", s)
     }
 
     fn any_matches(
         s: Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         s.any_matches(filter)
     }
 
     fn serialize<S: Serializer>(
         s: Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         s.to_json().serialize(ser)
     }

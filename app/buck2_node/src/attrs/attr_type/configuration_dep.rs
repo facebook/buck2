@@ -114,28 +114,28 @@ impl Semantics for kinds::ConfigurationDep {
         }
     }
 
-    fn to_json(l: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(l: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         json_label(l)
     }
 
-    fn fmt(l: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(l: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "\"{l}\"")
     }
 
     fn any_matches(
         l: Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&l.to_string())
     }
 
-    fn json_key<'a>(l: Self::View<'a>, _: JsonKey<'_, 'a>) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(l: Self::View<'a>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Owned(l.to_string()))
     }
 
     fn serialize<S: Serializer>(
         l: Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&l.to_string())
     }

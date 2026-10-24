@@ -222,7 +222,7 @@ impl Semantics for kinds::TransitionDep {
 
     fn to_json(
         (dep, transition): Self::View<'_>,
-        _: ToJson<'_, '_>,
+        _: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         match transition {
             Some(tr) => Ok(to_value([dep.to_string(), tr.to_string()])?),
@@ -230,20 +230,20 @@ impl Semantics for kinds::TransitionDep {
         }
     }
 
-    fn fmt((dep, _): Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt((dep, _): Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         std::fmt::Display::fmt(dep, f)
     }
 
     fn any_matches(
         (dep, _): Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&dep.to_string())
     }
 
     fn serialize<S: Serializer>(
         (dep, transition): Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         match transition {
             Some(tr) => [dep.to_string(), tr.to_string()].serialize(ser),

@@ -33,7 +33,8 @@ use crate::attrs::coerced::kinds::CoercedAttrKind;
 use crate::attrs::coerced::kinds::dispatch;
 
 /// Defines everything that follows from the list of kinds as a whole. The
-/// invocation names each item it defines; `unit` kinds have no view,
+/// invocation names each item it defines, and the per-kind trait the value
+/// visitor is bounded on; `unit` kinds have no view,
 /// `value` kinds' view-enum cases hold the kind's [`Kind::View`], and
 /// `internal` kinds are records inside other records, never attribute
 /// values.
@@ -45,6 +46,7 @@ macro_rules! arena_kinds {
         fn $dispatch:ident;
         fn $dispatch_value:ident;
         fn $decode:ident;
+        trait $visitor:ident: $semantics:ident;
         unit { $( $(#[$udoc:meta])* $u:ident = $utag:literal, )* }
         value { $( $(#[$vdoc:meta])* $v:ident = $vtag:literal, )* }
         internal { $( $(#[$idoc:meta])* $i:ident = $itag:literal, )* }
@@ -84,12 +86,25 @@ macro_rules! arena_kinds {
             }
         }
 
-        /// Runs `v` for the [`Semantics`] type of `kind`, which must be an
-        /// attribute value kind.
-        pub(crate) fn $dispatch_value<V: ValueVisitor>(kind: $tag, v: V) -> V::Out {
-            match kind {
-                $( $tag::$u => v.visit::<$u>(), )*
-                $( $tag::$v => v.visit::<$v>(), )*
+        /// A visitor over the attribute value kinds, each of which implements
+        /// `$semantics`; `visit` receives the value's decoded view.
+        pub(crate) trait $visitor<$lt> {
+            type Out;
+            fn visit<K: $semantics + 'static>(
+                self,
+                view: <K as $crate::attrs::arena::schema::Kind>::View<$lt>,
+            ) -> Self::Out;
+        }
+
+        /// Decodes `v` and runs `op` for its kind, which must be an attribute
+        /// value kind.
+        pub(crate) fn $dispatch_value<$lt, V: $visitor<$lt>>(
+            v: $crate::attrs::arena::CoercedAttrRef<$lt>,
+            op: V,
+        ) -> V::Out {
+            match v.arena.kind_of(v.r) {
+                $( $tag::$u => op.visit::<$u>(<$u as $crate::attrs::arena::schema::Kind>::decode(v.arena, v.r)), )*
+                $( $tag::$v => op.visit::<$v>(<$v as $crate::attrs::arena::schema::Kind>::decode(v.arena, v.r)), )*
                 $( $tag::$i => unreachable!("not an attribute value: {:?}", $tag::$i), )*
             }
         }

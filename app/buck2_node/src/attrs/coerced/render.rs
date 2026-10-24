@@ -25,9 +25,9 @@ use serde_json::to_value;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::Refs;
 use crate::attrs::arena::Values;
+use crate::attrs::coerced::kinds::ValueVisitor;
 use crate::attrs::coerced::kinds::dispatch_value;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::ValueVisitor;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
@@ -39,7 +39,7 @@ impl<'a> CoercedAttrRef<'a> {
         &self,
         ctx: &crate::attrs::fmt_context::AttrFmtContext,
     ) -> buck2_error::Result<serde_json::Value> {
-        dispatch_value(self.arena.kind_of(self.r), ToJson { v: *self, ctx })
+        dispatch_value(*self, ToJson { ctx })
     }
 
     /// Whether any leaf's string form matches the filter.
@@ -47,14 +47,14 @@ impl<'a> CoercedAttrRef<'a> {
         &self,
         filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
     ) -> buck2_error::Result<bool> {
-        dispatch_value(self.arena.kind_of(self.r), MatchesAny { v: *self, filter })
+        dispatch_value(*self, MatchesAny { filter })
     }
 
     /// The value's rendering when it is used as a JSON object key.
     ///
     /// Errors for values that render as anything but a string.
     pub(crate) fn json_key(&self, ctx: &AttrFmtContext) -> buck2_error::Result<Cow<'a, str>> {
-        dispatch_value(self.arena.kind_of(self.r), JsonKey { v: *self, ctx })
+        dispatch_value(*self, JsonKey { ctx })
     }
 }
 
@@ -77,7 +77,7 @@ impl crate::attrs::display::AttrDisplayWithContext for CoercedAttrRef<'_> {
         ctx: &crate::attrs::fmt_context::AttrFmtContext,
         f: &mut std::fmt::Formatter<'_>,
     ) -> std::fmt::Result {
-        dispatch_value(self.arena.kind_of(self.r), Fmt { v: *self, ctx, f })
+        dispatch_value(*self, Fmt { ctx, f })
     }
 }
 
@@ -108,14 +108,7 @@ impl AttrSerializeWithContext for CoercedAttrRef<'_> {
     where
         S: Serializer,
     {
-        dispatch_value(
-            self.arena.kind_of(self.r),
-            SerializeKind {
-                v: *self,
-                ctx,
-                ser: s,
-            },
-        )
+        dispatch_value(*self, SerializeKind { ctx, ser: s })
     }
 }
 
@@ -206,65 +199,60 @@ pub(crate) fn json_label(l: &ProvidersLabel) -> buck2_error::Result<serde_json::
     Ok(to_value(l.to_string())?)
 }
 
-pub(crate) struct ToJson<'x, 'a> {
-    pub(crate) v: CoercedAttrRef<'a>,
+pub(crate) struct ToJson<'x> {
     pub(crate) ctx: &'x AttrFmtContext,
 }
 
-impl ValueVisitor for ToJson<'_, '_> {
+impl<'a> ValueVisitor<'a> for ToJson<'_> {
     type Out = buck2_error::Result<serde_json::Value>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::to_json(K::view(self.v), self)
+    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+        K::to_json(view, self)
     }
 }
 
-pub(crate) struct Fmt<'x, 'y, 'a> {
-    pub(crate) v: CoercedAttrRef<'a>,
+pub(crate) struct Fmt<'x, 'y> {
     pub(crate) ctx: &'x AttrFmtContext,
     pub(crate) f: &'x mut std::fmt::Formatter<'y>,
 }
 
-impl ValueVisitor for Fmt<'_, '_, '_> {
+impl<'a> ValueVisitor<'a> for Fmt<'_, '_> {
     type Out = std::fmt::Result;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::fmt(K::view(self.v), self)
+    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+        K::fmt(view, self)
     }
 }
 
-pub(crate) struct MatchesAny<'x, 'a> {
-    pub(crate) v: CoercedAttrRef<'a>,
+pub(crate) struct MatchesAny<'x> {
     pub(crate) filter: &'x dyn Fn(&str) -> buck2_error::Result<bool>,
 }
 
-impl ValueVisitor for MatchesAny<'_, '_> {
+impl<'a> ValueVisitor<'a> for MatchesAny<'_> {
     type Out = buck2_error::Result<bool>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::any_matches(K::view(self.v), self)
+    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+        K::any_matches(view, self)
     }
 }
 
-pub(crate) struct JsonKey<'x, 'a> {
-    pub(crate) v: CoercedAttrRef<'a>,
+pub(crate) struct JsonKey<'x> {
     pub(crate) ctx: &'x AttrFmtContext,
 }
 
-impl<'a> ValueVisitor for JsonKey<'_, 'a> {
+impl<'a> ValueVisitor<'a> for JsonKey<'_> {
     type Out = buck2_error::Result<Cow<'a, str>>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::json_key(K::view(self.v), self)
+    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+        K::json_key(view, self)
     }
 }
 
 /// [`AttrSerializeWithContext`] for a value: generic over the serializer.
-pub(crate) struct SerializeKind<'x, 'a, S> {
-    pub(crate) v: CoercedAttrRef<'a>,
+pub(crate) struct SerializeKind<'x, S> {
     pub(crate) ctx: &'x AttrFmtContext,
     pub(crate) ser: S,
 }
 
-impl<S: Serializer> ValueVisitor for SerializeKind<'_, '_, S> {
+impl<'a, S: Serializer> ValueVisitor<'a> for SerializeKind<'_, S> {
     type Out = Result<S::Ok, S::Error>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::serialize(K::view(self.v), self)
+    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+        K::serialize(view, self)
     }
 }

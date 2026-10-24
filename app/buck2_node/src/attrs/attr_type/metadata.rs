@@ -65,24 +65,24 @@ impl Semantics for kinds::Metadata {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(m: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(m: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(m.to_value())
     }
 
-    fn fmt(m: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(m: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "{}", m)
     }
 
     fn any_matches(
         m: Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         m.any_matches(filter)
     }
 
     fn serialize<S: Serializer>(
         m: Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         m.to_value().serialize(ser)
     }

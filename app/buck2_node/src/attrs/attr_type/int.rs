@@ -59,24 +59,24 @@ impl Semantics for kinds::Int {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(i: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(i: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(i)?)
     }
 
-    fn fmt(i: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(i: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "{i}")
     }
 
     fn any_matches(
         i: Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&i.to_string())
     }
 
     fn serialize<S: Serializer>(
         i: Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_i64(i)
     }

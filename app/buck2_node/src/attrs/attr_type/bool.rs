@@ -118,24 +118,24 @@ impl Semantics for kinds::Bool {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(b: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(b: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(b)?)
     }
 
-    fn fmt(b: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(b: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "{}", BoolLiteral(b))
     }
 
     fn any_matches(
         b: Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         BoolLiteral(b).any_matches(filter)
     }
 
     fn serialize<S: Serializer>(
         b: Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_bool(b)
     }

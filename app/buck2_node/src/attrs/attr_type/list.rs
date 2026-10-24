@@ -192,25 +192,25 @@ impl Semantics for kinds::List {
 
     fn to_json(
         items: Self::View<'_>,
-        ToJson { ctx, .. }: ToJson<'_, '_>,
+        ToJson { ctx }: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         json_seq(items, ctx)
     }
 
-    fn fmt(items: Self::View<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(items: Self::View<'_>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
         fmt_seq(items, "[", "]", ctx, f)
     }
 
     fn any_matches(
         items: Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         any_matches_seq(items, filter)
     }
 
     fn serialize<S: Serializer>(
         items: Self::View<'_>,
-        SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ctx, ser }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser_seq(items, ctx, ser)
     }

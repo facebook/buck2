@@ -226,7 +226,7 @@ impl Semantics for kinds::Dict {
 
     fn to_json(
         pairs: Self::View<'_>,
-        ToJson { ctx, .. }: ToJson<'_, '_>,
+        ToJson { ctx }: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         let mut res = serde_json::Map::with_capacity(pairs.len());
         for (k, val) in pairs.iter() {
@@ -241,7 +241,7 @@ impl Semantics for kinds::Dict {
         Ok(serde_json::Value::Object(res))
     }
 
-    fn fmt(pairs: Self::View<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(pairs: Self::View<'_>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
         fmt_keyed_container(
             f,
             "{",
@@ -255,7 +255,7 @@ impl Semantics for kinds::Dict {
 
     fn any_matches(
         pairs: Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         for (k, val) in pairs.iter() {
             if k.any_matches(filter)? || val.any_matches(filter)? {
@@ -267,7 +267,7 @@ impl Semantics for kinds::Dict {
 
     fn serialize<S: Serializer>(
         pairs: Self::View<'_>,
-        SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ctx, ser }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser_keyed(
             pairs

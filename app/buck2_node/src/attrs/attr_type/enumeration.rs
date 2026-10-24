@@ -130,28 +130,28 @@ impl Semantics for kinds::EnumVariant {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(s: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(s: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(s)?)
     }
 
-    fn fmt(s: Self::View<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(s: Self::View<'_>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
         fmt_text(s, ctx, f)
     }
 
     fn any_matches(
         s: Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(s)
     }
 
-    fn json_key<'a>(s: Self::View<'a>, _: JsonKey<'_, 'a>) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(s: Self::View<'a>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Borrowed(s))
     }
 
     fn serialize<S: Serializer>(
         s: Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(s)
     }

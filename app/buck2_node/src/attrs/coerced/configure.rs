@@ -25,9 +25,9 @@ use smallvec::SmallVec;
 use crate::attrs::arena::AttrRefSelectorEntries;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::attr_type::AttrType;
+use crate::attrs::coerced::kinds::ValueVisitor;
 use crate::attrs::coerced::kinds::dispatch_value;
 use crate::attrs::coerced::semantics::Semantics;
-use crate::attrs::coerced::semantics::ValueVisitor;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -47,7 +47,7 @@ impl<'a> CoercedAttrRef<'a> {
         attr_name: Option<&str>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         dispatch_value(
-            self.arena.kind_of(self.r),
+            *self,
             Configure {
                 v: *self,
                 t,
@@ -215,7 +215,7 @@ impl<'a> CoercedAttrRef<'a> {
         attr_name: Option<&str>,
     ) -> ResultMaybeCompatible<()> {
         dispatch_value(
-            self.arena.kind_of(self.r),
+            *self,
             TraverseConfigured {
                 v: *self,
                 t,
@@ -234,15 +234,12 @@ impl<'a> CoercedAttrRef<'a> {
         ctx: &dyn AttrConfigurationContext,
         out: &mut SmallVec<[CoercedAttrRef<'a>; 4]>,
     ) -> ResultMaybeCompatible<()> {
-        dispatch_value(
-            self.arena.kind_of(self.r),
-            ConcatLeaves { v: *self, ctx, out },
-        )
+        dispatch_value(*self, ConcatLeaves { v: *self, ctx, out })
     }
 
     /// The class of values this one concatenates with, if any.
     pub(crate) fn concat_class(&self) -> Option<&'static str> {
-        dispatch_value(self.arena.kind_of(self.r), ConcatClass)
+        dispatch_value(*self, ConcatClass)
     }
 }
 
@@ -253,10 +250,10 @@ pub(crate) struct Configure<'x, 'a> {
     pub(crate) name: Option<&'x str>,
 }
 
-impl ValueVisitor for Configure<'_, '_> {
+impl<'a> ValueVisitor<'a> for Configure<'_, 'a> {
     type Out = ResultMaybeCompatible<ConfiguredAttr>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::configure(K::view(self.v), self)
+    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+        K::configure(view, self)
     }
 }
 
@@ -275,18 +272,18 @@ pub(crate) struct ConcatLeaves<'x, 'a> {
     pub(crate) out: &'x mut SmallVec<[CoercedAttrRef<'a>; 4]>,
 }
 
-impl ValueVisitor for ConcatLeaves<'_, '_> {
+impl<'a> ValueVisitor<'a> for ConcatLeaves<'_, 'a> {
     type Out = ResultMaybeCompatible<()>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
-        K::concat_leaves(K::view(self.v), self)
+    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+        K::concat_leaves(view, self)
     }
 }
 
 pub(crate) struct ConcatClass;
 
-impl ValueVisitor for ConcatClass {
+impl<'a> ValueVisitor<'a> for ConcatClass {
     type Out = Option<&'static str>;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out {
+    fn visit<K: Semantics + 'static>(self, _view: K::View<'a>) -> Self::Out {
         K::CONCAT
     }
 }

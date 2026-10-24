@@ -76,21 +76,21 @@ impl Semantics for kinds::None {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json((): Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json((): Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(serde_json::Value::Null)
     }
 
-    fn fmt((): Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt((): Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "None")
     }
 
-    fn any_matches((): Self::View<'_>, _: MatchesAny<'_, '_>) -> buck2_error::Result<bool> {
+    fn any_matches((): Self::View<'_>, _: MatchesAny<'_>) -> buck2_error::Result<bool> {
         Ok(false)
     }
 
     fn serialize<S: Serializer>(
         (): Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_unit()
     }

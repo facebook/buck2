@@ -186,21 +186,21 @@ impl Semantics for kinds::SelectFail {
         select_fail(m)
     }
 
-    fn to_json(m: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(m: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         select_fail_to_json(m)
     }
 
-    fn fmt(m: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(m: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "select_fail(\"{m}\")")
     }
 
-    fn any_matches(_: Self::View<'_>, _: MatchesAny<'_, '_>) -> buck2_error::Result<bool> {
+    fn any_matches(_: Self::View<'_>, _: MatchesAny<'_>) -> buck2_error::Result<bool> {
         Ok(false)
     }
 
     fn serialize<S: Serializer>(
         m: Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         select_fail_to_json(m).map_err(ser_err::<S>)?.serialize(ser)
     }
@@ -242,21 +242,21 @@ impl Semantics for kinds::SelectIncompatible {
         select_incompatible(m, ctx)
     }
 
-    fn to_json(m: Self::View<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(m: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         select_incompatible_to_json(m)
     }
 
-    fn fmt(m: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(m: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "select_incompatible(\"{m}\")")
     }
 
-    fn any_matches(_: Self::View<'_>, _: MatchesAny<'_, '_>) -> buck2_error::Result<bool> {
+    fn any_matches(_: Self::View<'_>, _: MatchesAny<'_>) -> buck2_error::Result<bool> {
         Ok(false)
     }
 
     fn serialize<S: Serializer>(
         m: Self::View<'_>,
-        SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         select_incompatible_to_json(m)
             .map_err(ser_err::<S>)?
@@ -351,7 +351,7 @@ impl Semantics for kinds::Selector {
 
     fn to_json(
         (entries, default): Self::View<'_>,
-        ToJson { ctx, .. }: ToJson<'_, '_>,
+        ToJson { ctx }: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         let mut map = serde_json::Map::new();
         for (key, value) in entries.iter() {
@@ -369,10 +369,7 @@ impl Semantics for kinds::Selector {
         ])))
     }
 
-    fn fmt(
-        (entries, default): Self::View<'_>,
-        Fmt { ctx, f, .. }: Fmt<'_, '_, '_>,
-    ) -> std::fmt::Result {
+    fn fmt((entries, default): Self::View<'_>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "select(")?;
         fmt_keyed_container(
             f,
@@ -389,7 +386,7 @@ impl Semantics for kinds::Selector {
 
     fn any_matches(
         (entries, default): Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         for (_, val) in entries.iter() {
             if val.any_matches(filter)? {
@@ -406,7 +403,7 @@ impl Semantics for kinds::Selector {
 
     fn serialize<S: Serializer>(
         (entries, default): Self::View<'_>,
-        SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ctx, ser }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         struct Entries<'a> {
             entries: AttrRefSelectorEntries<'a>,
@@ -519,7 +516,7 @@ impl Semantics for kinds::Concat {
 
     fn to_json(
         items: Self::View<'_>,
-        ToJson { ctx, .. }: ToJson<'_, '_>,
+        ToJson { ctx }: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         Ok(serde_json::Value::Object(serde_json::Map::from_iter([
             (
@@ -530,7 +527,7 @@ impl Semantics for kinds::Concat {
         ])))
     }
 
-    fn fmt(items: Self::View<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(items: Self::View<'_>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
         items
             .iter()
             .map(|a| AttrRefDisplay { ctx, r: a })
@@ -540,14 +537,14 @@ impl Semantics for kinds::Concat {
 
     fn any_matches(
         items: Self::View<'_>,
-        MatchesAny { filter, .. }: MatchesAny<'_, '_>,
+        MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         any_matches_seq(items, filter)
     }
 
     fn serialize<S: Serializer>(
         items: Self::View<'_>,
-        SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
+        SerializeKind { ctx, ser }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         struct Items<'a> {
             items: Refs<'a, Values>,

@@ -45,10 +45,6 @@ pub(crate) trait Semantics: Kind {
     /// concatenate; `None` means addition is not supported.
     const CONCAT: Option<&'static str> = None;
 
-    fn view<'a>(v: CoercedAttrRef<'a>) -> Self::View<'a> {
-        Self::decode(v.arena, v.r)
-    }
-
     /// Type-threaded traversal over the value's deps.
     fn traverse<'a>(parts: Self::View<'a>, op: Traverse<'_, 'a>) -> buck2_error::Result<()>;
 
@@ -93,27 +89,23 @@ pub(crate) trait Semantics: Kind {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(parts: Self::View<'_>, op: ToJson<'_, '_>)
-    -> buck2_error::Result<serde_json::Value>;
+    fn to_json(parts: Self::View<'_>, op: ToJson<'_>) -> buck2_error::Result<serde_json::Value>;
 
-    fn fmt(parts: Self::View<'_>, op: Fmt<'_, '_, '_>) -> std::fmt::Result;
+    fn fmt(parts: Self::View<'_>, op: Fmt<'_, '_>) -> std::fmt::Result;
 
     /// Whether any leaf's string form matches the filter.
-    fn any_matches(parts: Self::View<'_>, op: MatchesAny<'_, '_>) -> buck2_error::Result<bool>;
+    fn any_matches(parts: Self::View<'_>, op: MatchesAny<'_>) -> buck2_error::Result<bool>;
 
     /// The value's rendering as a JSON object key; an error for values that
     /// render as anything but a string.
-    fn json_key<'a>(
-        _parts: Self::View<'a>,
-        _op: JsonKey<'_, 'a>,
-    ) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(_parts: Self::View<'a>, _op: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
         Err(internal_error!("dict keys must render to JSON strings"))
     }
 
     /// Serialize the value's JSON form without building a `serde_json::Value`.
     fn serialize<S: Serializer>(
         parts: Self::View<'_>,
-        op: SerializeKind<'_, '_, S>,
+        op: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error>;
 }
 
@@ -135,12 +127,4 @@ pub(crate) fn mismatch(v: CoercedAttrRef<'_>, t: &AttrType) -> buck2_error::Erro
         v.as_display_no_ctx(),
         t
     )
-}
-
-/// Selects the [`Semantics`] type for a value's tag at runtime,
-/// monomorphizing the visitor per kind. The record-internal kinds are not
-/// attribute values and never reach a value operation.
-pub(crate) trait ValueVisitor {
-    type Out;
-    fn visit<K: Semantics + 'static>(self) -> Self::Out;
 }
