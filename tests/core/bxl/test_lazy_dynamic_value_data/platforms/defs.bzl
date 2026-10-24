@@ -30,17 +30,3 @@ def _execution_platform(ctx):
     ]
 
 execution_platforms = rule(attrs = {}, impl = _execution_platform)
-
-def _target_platform(ctx):
-    return [
-        DefaultInfo(),
-        PlatformInfo(
-            label = str(ctx.label.raw_target()),
-            configuration = ConfigurationInfo(constraints = {}, values = {}),
-        ),
-    ]
-
-target_platform = rule(
-    impl = _target_platform,
-    attrs = {},
-)
