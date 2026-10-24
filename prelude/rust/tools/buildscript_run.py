@@ -238,6 +238,8 @@ def main() -> None:  # noqa: C901
         env["CXX"] = os.path.abspath(env["CXX"])
     if os.sep in env.get("AR", ""):
         env["AR"] = os.path.abspath(env["AR"])
+    if os.sep in env.get("TARGET_CC", ""):
+        env["TARGET_CC"] = os.path.abspath(env["TARGET_CC"])
 
     ensure_rustc_available(
         env=env,
