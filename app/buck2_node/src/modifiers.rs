@@ -154,8 +154,14 @@ struct CfgModifiersData {
     /// in the merged list. Only `PACKAGE` values have one.
     parent: Option<CfgModifiers>,
     value: Modifier,
-    /// 128 bits of blake3 over the parent's hash and the value, computed
-    /// once: the interner's key, and the value's identity across processes.
+    /// A target attribute's JSON text as written, when it renders
+    /// differently from `value`: what users see of the attribute.
+    // TODO(jtbraun): render users the parsed value, and drop this, once the
+    // normalized form is announced.
+    source: Option<ArcStr>,
+    /// 128 bits of blake3 over the parent's hash, the value and the source,
+    /// computed once: the interner's key, and the value's identity across
+    /// processes.
     content_hash: StrongHash128,
 }
 
@@ -177,12 +183,22 @@ interner!(INTERNER, BuckHasher, CfgModifiersData);
 
 impl CfgModifiers {
     fn new(parent: Option<CfgModifiers>, value: Modifier) -> Self {
+        Self::new_with_source(parent, value, None)
+    }
+
+    fn new_with_source(
+        parent: Option<CfgModifiers>,
+        value: Modifier,
+        source: Option<ArcStr>,
+    ) -> Self {
         let mut hasher = Blake3StrongHasher::new();
         parent.map(|p| p.content_hash()).hash(&mut hasher);
         value.strong_hash(&mut hasher);
+        source.as_deref().hash(&mut hasher);
         Self(INTERNER.intern(CfgModifiersData {
             parent,
             value,
+            source,
             content_hash: hasher.finalize128(),
         }))
     }
@@ -198,7 +214,11 @@ impl CfgModifiers {
 
     /// A target's `modifiers` attribute: a list of modifiers.
     pub fn from_target<'a>(value: impl ModifierSource<'a>, labels: &ModifierLabelParser) -> Self {
-        Self::new(None, parse_list(value, labels))
+        let parsed = parse_list(value, labels);
+        let source = value.json_text();
+        let source = (render(&parsed, &mut JsonRenderer).to_string() != source)
+            .then(|| ArcStr::from(source.as_str()));
+        Self::new_with_source(None, parsed, source)
     }
 
     /// A `PACKAGE`'s merged modifiers: a list of tagged modifier groups,
@@ -282,15 +302,21 @@ impl CfgModifiers {
         );
     }
 
-    /// The value in the JSON shape the cfg constructor consumes.
+    /// The value as users see it, as JSON.
     pub fn to_json(&self) -> serde_json::Value {
-        self.render(&mut JsonRenderer)
+        self.render_for_users(&mut JsonRenderer)
     }
 
-    /// The value as a Starlark value in the shape the cfg constructor
-    /// consumes.
+    /// The value as users see it, as a Starlark value.
     pub fn alloc_starlark<'v>(&self, heap: Heap<'v>) -> Value<'v> {
-        self.render(&mut StarlarkRenderer(heap))
+        self.render_for_users(&mut StarlarkRenderer(heap))
+    }
+
+    fn render_for_users<R: ModifierRenderer>(self, renderer: &mut R) -> R::Out {
+        match &self.0.source {
+            Some(source) => renderer.raw_json(source),
+            None => self.render(renderer),
+        }
     }
 
     /// Every entry the cfg constructor will reject, with what is wrong with
@@ -324,9 +350,10 @@ impl StarlarkTypeRepr for CfgModifiers {
     }
 }
 
+/// The parsed value in the shape the cfg constructor consumes.
 impl<'v> AllocValue<'v> for CfgModifiers {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        self.alloc_starlark(heap)
+        self.render(&mut StarlarkRenderer(heap))
     }
 }
 
@@ -689,6 +716,11 @@ mod tests {
         ])
     }
 
+    /// What the cfg constructor sees.
+    fn parsed(m: CfgModifiers) -> serde_json::Value {
+        m.render(&mut JsonRenderer)
+    }
+
     fn target(json: serde_json::Value) -> CfgModifiers {
         CfgModifiers::from_target(&json, &ModifierLabelParser::new(&cells()))
     }
@@ -753,6 +785,41 @@ mod tests {
         );
     }
 
+    /// Users see a target's modifiers as written; the cfg constructor sees
+    /// the parsed value, with canonical labels and duplicate keys merged.
+    #[test]
+    fn test_non_canonical_modifiers_render_as_written() {
+        let written = json!([
+            "//os:linux",
+            {"_type": "ModifiersMatch", "//os:linux": "cfg//a:b", "root//os:linux": "cfg//a:c"},
+        ]);
+        let m = target(written.clone());
+        assert_eq!(m.to_json(), written);
+        assert_eq!(m.to_string(), written.to_string());
+        Heap::temp(|heap| {
+            assert_eq!(
+                m.alloc_starlark(heap).to_json_value().unwrap(),
+                written,
+                "BXL and rules see the value as written"
+            );
+            let parsed = heap.alloc(m).to_json_value().unwrap();
+            assert_eq!(parsed[0], json!("root//os:linux"));
+            assert_eq!(
+                parsed[1].as_object().unwrap().len(),
+                2,
+                "the cfg constructor sees one key for one target: {parsed}"
+            );
+        });
+        assert_ne!(
+            m,
+            target(json!([
+                "root//os:linux",
+                {"_type": "ModifiersMatch", "root//os:linux": "cfg//a:c"},
+            ])),
+            "a different spelling is a different value"
+        );
+    }
+
     #[test]
     fn test_starlark_tuple_is_a_list() {
         Heap::temp(|heap| {
@@ -811,20 +878,17 @@ mod tests {
             "//os:linux": "cfg//compiler:clang",
             "root//os:linux": "cfg//compiler:gcc",
         }]));
-        assert_eq!(
-            m.to_json(),
-            json!([{
-                "_type": "ModifiersMatch",
-                "root//os:linux": "cfg//compiler:clang",
-            }])
-        );
         let canonical = target(json!([{
             "_type": "ModifiersMatch",
             "root//os:linux": "cfg//compiler:clang",
         }]));
-        assert!(
-            std::ptr::eq(&*m.0, &*canonical.0),
-            "the dropped spelling should not be part of the value"
+        assert_eq!(parsed(m), parsed(canonical));
+        assert_eq!(
+            parsed(canonical),
+            json!([{
+                "_type": "ModifiersMatch",
+                "root//os:linux": "cfg//compiler:clang",
+            }])
         );
     }
 
