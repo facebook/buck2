@@ -791,16 +791,34 @@ impl OwnedCoercedAttr {
         Ok(OwnedCoercedAttr { storage, word })
     }
 
+    /// A handle to the storage `word` points into, without re-encoding.
+    pub(crate) fn from_parts(storage: Arc<PackageAttrStorage>, word: AttrWord) -> OwnedCoercedAttr {
+        OwnedCoercedAttr { storage, word }
+    }
+
+    /// A handle to `child`, which must be a view into this value's storage.
+    pub fn sub(&self, child: CoercedAttrRef<'_>) -> OwnedCoercedAttr {
+        debug_assert!(
+            std::ptr::eq(self.storage.arena(), child.arena),
+            "child view is not backed by this value's storage"
+        );
+        OwnedCoercedAttr {
+            storage: self.storage.dupe(),
+            word: child.r,
+        }
+    }
+
     pub fn as_ref(&self) -> CoercedAttrRef<'_> {
         self.storage.arena().view(self.word)
     }
 
-    /// The identity-grade strong hash of the value.
+    /// The identity-grade strong hash of the value. Roots read the retained
+    /// hash; interior values (`sub` handles) compute it on demand.
     pub fn strong_hash(&self) -> StrongHash128 {
-        self.storage
-            .arena()
+        let arena = self.storage.arena();
+        arena
             .root_strong_hash(self.word)
-            .expect("should be present: sealed with its value as a root")
+            .unwrap_or_else(|| arena.strong_of(self.word, &mut BuckMutMap::default()))
     }
 }
 

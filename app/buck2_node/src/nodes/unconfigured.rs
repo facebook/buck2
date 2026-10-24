@@ -29,6 +29,7 @@ use dupe::Dupe;
 use pagable::Pagable;
 use strong_hash::StrongHash;
 
+use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
@@ -441,6 +442,27 @@ impl TargetNode {
         self.as_ref().known_attr_or_none(id, opts)
     }
 
+    /// Like [`Self::attr_or_none`], but as an owned handle sharing this
+    /// target's storage, for holders that outlive the borrow of the node.
+    #[inline]
+    pub fn owned_attr_or_none(
+        &self,
+        key: &str,
+        opts: AttrInspectOptions,
+    ) -> Option<OwnedCoercedAttr> {
+        self.as_ref().owned_attr_or_none(key, opts)
+    }
+
+    /// Like [`Self::attrs`], but yielding owned handles sharing this
+    /// target's storage.
+    #[inline]
+    pub fn owned_attrs(
+        &self,
+        opts: AttrInspectOptions,
+    ) -> impl Iterator<Item = (&str, OwnedCoercedAttr)> {
+        self.as_ref().owned_attrs(opts)
+    }
+
     /// Get attribute.
     ///
     /// * `None` if attribute is known but not set and no default.
@@ -627,6 +649,33 @@ impl<'a> TargetNodeRef<'a> {
             .rule
             .attributes
             .attrs(&self.0.get().attributes, opts)
+    }
+
+    /// Like [`Self::attr_or_none`], but as an owned handle sharing this
+    /// target's storage, for holders that outlive the borrow of the node.
+    pub fn owned_attr_or_none(
+        &self,
+        key: &str,
+        opts: AttrInspectOptions,
+    ) -> Option<OwnedCoercedAttr> {
+        self.0
+            .get()
+            .rule
+            .attributes
+            .owned_attr_or_none(&self.0.get().attributes, key, opts)
+    }
+
+    /// Like [`Self::attrs`], but yielding owned handles sharing this
+    /// target's storage.
+    pub fn owned_attrs(
+        self,
+        opts: AttrInspectOptions,
+    ) -> impl Iterator<Item = (&'a str, OwnedCoercedAttr)> + 'a {
+        self.0
+            .get()
+            .rule
+            .attributes
+            .owned_attrs(&self.0.get().attributes, opts)
     }
 
     /// Get special attribute value if it exists, otherwise return None.

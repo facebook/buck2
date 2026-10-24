@@ -24,6 +24,7 @@ use super::attr_type::any_matches::AnyMatches;
 use crate::attrs::arena::AttrWord;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::arena::PackageAttrStorage;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::spec::AttributeId;
@@ -59,6 +60,15 @@ impl AttrValues {
             .map(|(id, v)| (*id, self.storage.arena().view(v.r)))
     }
 
+    pub(crate) fn get_owned_by_index(
+        &self,
+        index: usize,
+    ) -> Option<(AttributeId, OwnedCoercedAttr)> {
+        self.sorted
+            .get(index)
+            .map(|(id, v)| (*id, OwnedCoercedAttr::from_parts(self.storage.dupe(), v.r)))
+    }
+
     #[expect(
         clippy::len_without_is_empty,
         reason = "`len` exists to size pre-allocations; no caller needs an emptiness check"
@@ -77,6 +87,22 @@ impl AttrValues {
                 }
 
                 // Attributes are sorted in `self`, no need to check the rest.
+                return None;
+            }
+        }
+        None
+    }
+
+    /// Like `get`, but as an owned handle sharing this target's storage.
+    pub fn get_owned(&self, id: AttributeId) -> Option<OwnedCoercedAttr> {
+        for (next_id, next_value) in self.sorted.iter() {
+            if next_id >= &id {
+                if next_id == &id {
+                    return Some(OwnedCoercedAttr::from_parts(
+                        self.storage.dupe(),
+                        next_value.r,
+                    ));
+                }
                 return None;
             }
         }

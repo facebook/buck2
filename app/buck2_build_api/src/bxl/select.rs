@@ -9,18 +9,21 @@
  */
 
 use std::fmt::Display;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::package::PackageLabel;
+use buck2_core::provider::label::ProvidersLabel;
+use buck2_error::internal_error;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
-use buck2_node::attrs::coerced_attr::CoercedConcat;
-use buck2_node::attrs::coerced_attr::CoercedSelector;
+use buck2_node::attrs::arena::AttrRefSelectorEntries;
+use buck2_node::attrs::arena::AttrRefSeq;
+use buck2_node::attrs::arena::CoercedAttrRef;
+use buck2_node::attrs::arena::CoercedAttrRefKind;
+use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedSelectorKeyRef;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
-use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use derivative::Derivative;
 use dupe::Dupe;
 use either::Either;
@@ -44,7 +47,7 @@ use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
-use crate::bxl::unconfigured_attribute::CoercedAttrExt;
+use crate::bxl::unconfigured_attribute::ref_to_value;
 
 type SelectDictKey<'v> = Either<StarlarkProvidersLabel, StringValue<'v>>;
 
@@ -58,8 +61,9 @@ type SelectDictKey<'v> = Either<StarlarkProvidersLabel, StringValue<'v>>;
     StarlarkPagable
 )]
 pub struct StarlarkSelectDict {
+    /// Handle to a `Selector` value in its owning storage.
     #[starlark_pagable(pagable)]
-    selector: Arc<CoercedSelector>,
+    selector: OwnedCoercedAttr,
     #[starlark_pagable(pagable)]
     pkg: PackageLabel,
 }
@@ -70,7 +74,7 @@ impl Display for StarlarkSelectDict {
             package: Some(self.pkg),
             options: Default::default(),
         };
-        self.selector.fmt(&ctx, f)
+        self.selector.as_ref().fmt(&ctx, f)
     }
 }
 
@@ -83,7 +87,7 @@ impl Serialize for StarlarkSelectDict {
             package: Some(self.pkg),
             options: Default::default(),
         };
-        self.selector.serialize_with_ctx(&ctx, serializer)
+        self.selector.as_ref().serialize_with_ctx(&ctx, serializer)
     }
 }
 
@@ -96,8 +100,20 @@ enum SelectDictKeyArg<'v> {
 }
 
 impl StarlarkSelectDict {
-    pub fn new(selector: Arc<CoercedSelector>, pkg: PackageLabel) -> Self {
+    /// `selector` must reference a `Selector` value.
+    pub fn new(selector: OwnedCoercedAttr, pkg: PackageLabel) -> Self {
         Self { selector, pkg }
+    }
+
+    fn entries(
+        &self,
+    ) -> buck2_error::Result<(AttrRefSelectorEntries<'_>, Option<CoercedAttrRef<'_>>)> {
+        match self.selector.as_ref().kind() {
+            CoercedAttrRefKind::Selector { entries, default } => Ok((entries, default)),
+            _ => Err(internal_error!(
+                "SelectDict handle must reference a selector value"
+            )),
+        }
     }
 
     fn get<'v>(
@@ -105,26 +121,31 @@ impl StarlarkSelectDict {
         key: SelectDictKeyArg<'v>,
         heap: Heap<'v>,
     ) -> buck2_error::Result<NoneOr<Value<'v>>> {
-        match key {
-            SelectDictKeyArg::Label(label) => {
-                let key = ConfigurationSettingKey(label.label().dupe());
-                let key_ref = CoercedSelectorKeyRef::Target(&key);
-                self.selector
-                    .all_entries()
-                    .find(|(k, _)| *k == key_ref)
-                    .map_or_else(
-                        || Ok(NoneOr::None),
-                        |(_, v)| v.to_value(self.pkg, heap).map(NoneOr::Other),
-                    )
+        let (entries, default) = self.entries()?;
+        let found = match key {
+            SelectDictKeyArg::Label(label) => entries
+                .iter()
+                .find(|(k, _)| *k == label.label())
+                .map(|(_, v)| v),
+            SelectDictKeyArg::Str(key) => {
+                if key == CoercedSelectorKeyRef::DEFAULT_KEY_STR {
+                    default
+                } else {
+                    entries
+                        .iter()
+                        .find(|(k, _)| k.to_string() == key)
+                        .map(|(_, v)| v)
+                }
             }
-            SelectDictKeyArg::Str(key) => self
-                .selector
-                .all_entries()
-                .find(|(k, _)| k.to_string() == key)
-                .map_or_else(
-                    || Ok(NoneOr::None),
-                    |(_, v)| v.to_value(self.pkg, heap).map(NoneOr::Other),
-                ),
+        };
+        match found {
+            Some(v) => Ok(NoneOr::Other(ref_to_value(
+                v,
+                &self.selector,
+                self.pkg,
+                heap,
+            )?)),
+            None => Ok(NoneOr::None),
         }
     }
 }
@@ -141,15 +162,13 @@ impl<'v> StarlarkValue<'v> for StarlarkSelectDict {
 }
 
 #[inline(always)]
-fn key_to_starlark_type<'v>(key: &CoercedSelectorKeyRef) -> SelectDictKey<'v> {
-    match key {
-        CoercedSelectorKeyRef::Target(configuration_setting_key) => Either::Left(
-            StarlarkProvidersLabel::new(configuration_setting_key.0.dupe()),
-        ),
-        CoercedSelectorKeyRef::Default => {
-            Either::Right(const_frozen_string!(CoercedSelectorKeyRef::DEFAULT_KEY_STR).at())
-        }
-    }
+fn target_key<'v>(label: &ProvidersLabel) -> SelectDictKey<'v> {
+    Either::Left(StarlarkProvidersLabel::new(label.dupe()))
+}
+
+#[inline(always)]
+fn default_key<'v>() -> SelectDictKey<'v> {
+    Either::Right(const_frozen_string!(CoercedSelectorKeyRef::DEFAULT_KEY_STR).at())
 }
 
 /// In bxl, `Select = bxl.SelectDict | bxl.SelectConcat`. `bxl.SelectDict` is a dict-like object that represents a select.
@@ -185,14 +204,19 @@ fn select_dict_methods(builder: &mut MethodsBuilder) {
         this: &'v StarlarkSelectDict,
         heap: Heap<'v>,
     ) -> starlark::Result<Vec<(SelectDictKey<'v>, Value<'v>)>> {
-        let items: Vec<(SelectDictKey, Value)> = this
-            .selector
-            .all_entries()
+        let (entries, default) = this.entries()?;
+        let mut items: Vec<(SelectDictKey, Value)> = entries
+            .iter()
             .map(|(k, v)| {
-                v.to_value(this.pkg.dupe(), heap)
-                    .map(|v| (key_to_starlark_type(&k), v))
+                ref_to_value(v, &this.selector, this.pkg.dupe(), heap).map(|v| (target_key(k), v))
             })
             .collect::<buck2_error::Result<_>>()?;
+        if let Some(d) = default {
+            items.push((
+                default_key(),
+                ref_to_value(d, &this.selector, this.pkg.dupe(), heap)?,
+            ));
+        }
         Ok(items)
     }
 
@@ -208,11 +232,11 @@ fn select_dict_methods(builder: &mut MethodsBuilder) {
     ///         ctx.output.print(key)
     /// ```
     fn select_keys<'v>(this: &'v StarlarkSelectDict) -> starlark::Result<Vec<SelectDictKey<'v>>> {
-        let keys = this
-            .selector
-            .all_entries()
-            .map(|(k, _)| key_to_starlark_type(&k))
-            .collect();
+        let (entries, default) = this.entries()?;
+        let mut keys: Vec<SelectDictKey> = entries.iter().map(|(k, _)| target_key(k)).collect();
+        if default.is_some() {
+            keys.push(default_key());
+        }
         Ok(keys)
     }
 
@@ -247,15 +271,26 @@ fn select_dict_methods(builder: &mut MethodsBuilder) {
     StarlarkPagable
 )]
 pub struct StarlarkSelectConcat {
+    /// Handle to a `Concat` value in its owning storage.
     #[starlark_pagable(pagable)]
-    concat: CoercedConcat,
+    concat: OwnedCoercedAttr,
     #[starlark_pagable(pagable)]
     pkg: PackageLabel,
 }
 
 impl StarlarkSelectConcat {
-    pub fn new(concat: CoercedConcat, pkg: PackageLabel) -> Self {
+    /// `concat` must reference a `Concat` value.
+    pub fn new(concat: OwnedCoercedAttr, pkg: PackageLabel) -> Self {
         Self { concat, pkg }
+    }
+
+    fn items(&self) -> buck2_error::Result<AttrRefSeq<'_>> {
+        match self.concat.as_ref().kind() {
+            CoercedAttrRefKind::Concat(items) => Ok(items),
+            _ => Err(internal_error!(
+                "SelectConcat handle must reference a concat value"
+            )),
+        }
     }
 }
 
@@ -268,7 +303,7 @@ impl Serialize for StarlarkSelectConcat {
             package: Some(self.pkg),
             options: Default::default(),
         };
-        self.concat.serialize_with_ctx(&ctx, serializer)
+        self.concat.as_ref().serialize_with_ctx(&ctx, serializer)
     }
 }
 
@@ -278,7 +313,7 @@ impl Display for StarlarkSelectConcat {
             package: Some(self.pkg),
             options: Default::default(),
         };
-        self.concat.fmt(&ctx, f)
+        self.concat.as_ref().fmt(&ctx, f)
     }
 }
 
@@ -293,7 +328,7 @@ impl<'v> StarlarkValue<'v> for StarlarkSelectConcat {
     }
 
     fn length(&self) -> starlark::Result<i32> {
-        Ok(self.concat.0.len() as i32)
+        Ok(self.items()?.len() as i32)
     }
 }
 
@@ -344,9 +379,9 @@ fn select_concat_methods(builder: &mut MethodsBuilder) {
         heap: Heap<'v>,
     ) -> starlark::Result<Vec<Value<'v>>> {
         let list = this
-            .concat
+            .items()?
             .iter()
-            .map(|a| a.to_value(this.pkg.dupe(), heap))
+            .map(|a| ref_to_value(a, &this.concat, this.pkg.dupe(), heap))
             .collect::<buck2_error::Result<_>>()?;
         Ok(list)
     }
@@ -358,7 +393,7 @@ fn select_concat_methods(builder: &mut MethodsBuilder) {
     /// Note: You can use `len()` to get the length too.
     #[starlark(attribute)]
     fn length(this: &StarlarkSelectConcat) -> starlark::Result<i32> {
-        Ok(this.concat.0.len() as i32)
+        Ok(this.items()?.len() as i32)
     }
 }
 

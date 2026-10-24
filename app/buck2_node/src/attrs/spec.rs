@@ -13,6 +13,8 @@ use buck2_hash::BuckFixedInsertionMap;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::index_map::Entry;
 use buck2_util::exact_size_iter::IterExactSize;
+use dupe::Dupe;
+use dupe::OptionDupedExt;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
@@ -21,6 +23,7 @@ use super::anon_target_attr_validation::AnonRuleAttrValidation;
 use crate::attrs::arena::AttrWord;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::OwnedCoercedAttr;
 use crate::attrs::attr::Attribute;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::inspect_options::AttrInspectOptions;
@@ -230,6 +233,39 @@ impl AttributeSpec {
             .with_exact_size(len)
     }
 
+    /// Like [`Self::attrs`], but yielding owned handles that share the
+    /// target's storage (or the attribute's own, for defaults), for holders
+    /// that outlive the borrow of the node.
+    pub fn owned_attrs<'v>(
+        &'v self,
+        attr_values: &'v AttrValues,
+        opts: AttrInspectOptions,
+    ) -> impl Iterator<Item = (&'v str, OwnedCoercedAttr)> + 'v {
+        let mut pos = 0;
+        let mut entry: Option<(AttributeId, OwnedCoercedAttr)> = attr_values.get_owned_by_index(0);
+
+        self.attr_specs()
+            .filter_map(move |(name, idx, _attr)| match entry.take() {
+                Some((entry_idx, value)) if entry_idx == idx => {
+                    pos += 1;
+                    entry = attr_values.get_owned_by_index(pos);
+                    Some((name, value))
+                }
+                cur => {
+                    entry = cur;
+                    if opts.include_default() {
+                        let value = self
+                            .attribute_by_id(idx)
+                            .default_as_owned()
+                            .unwrap_or_else(|| panic!("no default for attribute `{name}`"));
+                        Some((name, value.dupe()))
+                    } else {
+                        None
+                    }
+                }
+            })
+    }
+
     /// Like [`Self::attrs`], but over already-encoded `(id, word)`
     /// rows viewed through the still-unsealed package interner: coercion
     /// encodes values as they are parsed, and validation plus the deps
@@ -287,6 +323,24 @@ impl AttributeSpec {
             attr: self.attribute_by_id(idx),
             value,
         })
+    }
+
+    /// Like [`Self::attr_or_none`], but as an owned handle sharing the
+    /// target's storage (or the attribute's own, for a default).
+    pub fn owned_attr_or_none(
+        &self,
+        attr_values: &AttrValues,
+        name: &str,
+        opts: AttrInspectOptions,
+    ) -> Option<OwnedCoercedAttr> {
+        let idx = self.attribute_id_by_name(name)?;
+        if let Some(owned) = attr_values.get_owned(idx) {
+            return Some(owned);
+        }
+        if opts.include_default() {
+            return self.attribute_by_id(idx).default_as_owned().duped();
+        }
+        None
     }
 
     pub fn attr_or_none<'v>(

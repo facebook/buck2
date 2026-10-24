@@ -42,6 +42,7 @@ use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
+use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr_type::arg::StringWithMacros;
 use buck2_node::attrs::attr_type::dict::DictLiteral;
 use buck2_node::attrs::attr_type::list::ListLiteral;
@@ -891,9 +892,10 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkConfiguredAttr,
         _heap: Heap<'v>,
     ) -> starlark::Result<StarlarkCoercedAttr> {
+        let stripped = attr_with_stripped_cfg(&this.0)
+            .buck_error_context("Failed to strip configuration from attribute")?;
         Ok(StarlarkCoercedAttr(
-            attr_with_stripped_cfg(&this.0)
-                .buck_error_context("Failed to strip configuration from attribute")?,
+            OwnedCoercedAttr::try_new(&stripped)?,
             this.1.dupe(),
         ))
     }

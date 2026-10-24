@@ -23,7 +23,9 @@ use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel
 use buck2_interpreter::types::select_fail::StarlarkSelectFail;
 use buck2_interpreter::types::select_incompatible::StarlarkSelectIncompatible;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::arena::CoercedAttrRef;
+use buck2_node::attrs::arena::CoercedAttrRefKind;
+use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
@@ -55,7 +57,7 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact
 
 #[derive(Debug, ProvidesStaticType, From, Allocative, Pagable, StarlarkPagable)]
 pub struct StarlarkCoercedAttr(
-    #[starlark_pagable(pagable)] pub CoercedAttr,
+    #[starlark_pagable(pagable)] pub OwnedCoercedAttr,
     #[starlark_pagable(pagable)] pub PackageLabel,
 );
 
@@ -63,7 +65,7 @@ starlark_simple_value!(StarlarkCoercedAttr);
 
 impl Display for StarlarkCoercedAttr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(
+        self.0.as_ref().fmt(
             &AttrFmtContext {
                 package: Some(self.1.dupe()),
                 options: Default::default(),
@@ -78,7 +80,7 @@ impl Serialize for StarlarkCoercedAttr {
     where
         S: Serializer,
     {
-        self.0.serialize_with_ctx(
+        self.0.as_ref().serialize_with_ctx(
             &AttrFmtContext {
                 package: Some(self.1.dupe()),
                 options: Default::default(),
@@ -130,107 +132,127 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-pub trait CoercedAttrExt {
+pub trait OwnedCoercedAttrExt {
     fn to_value<'v>(&self, pkg: PackageLabel, heap: Heap<'v>) -> buck2_error::Result<Value<'v>>;
 }
 
-impl CoercedAttrExt for CoercedAttr {
+impl OwnedCoercedAttrExt for OwnedCoercedAttr {
     /// Converts the coerced attr to a starlark value
     fn to_value<'v>(&self, pkg: PackageLabel, heap: Heap<'v>) -> buck2_error::Result<Value<'v>> {
-        Ok(match &self {
-            CoercedAttr::Bool(v) => heap.alloc(v.0),
-            CoercedAttr::Int(v) => heap.alloc(*v),
-            CoercedAttr::String(s) | CoercedAttr::EnumVariant(s) => heap.alloc(s.as_str()),
-            CoercedAttr::List(list) => heap.alloc(
-                list.iter()
-                    .map(|v| v.to_value(pkg.dupe(), heap))
-                    .collect::<Result<Vec<_>, _>>()?,
-            ),
-            CoercedAttr::Tuple(v) => heap.alloc(AllocTuple(
-                v.iter()
-                    .map(|v| v.to_value(pkg.dupe(), heap))
-                    .collect::<Result<Vec<_>, _>>()?,
-            )),
-            CoercedAttr::Dict(map) => {
-                let mut res = BuckMutInsertionMap::with_capacity(map.len());
+        ref_to_value(self.as_ref(), self, pkg, heap)
+    }
+}
 
-                for (k, v) in map.iter() {
-                    res.insert_hashed(
-                        k.to_value(pkg.dupe(), heap)?.get_hashed().map_err(|e| {
+/// Converts one value of `owner`'s storage to a starlark value. `attr` must
+/// be a view into `owner`'s storage: select values allocated here hold
+/// `owner.sub(..)` handles to render their entries lazily.
+pub(crate) fn ref_to_value<'v>(
+    attr: CoercedAttrRef<'_>,
+    owner: &OwnedCoercedAttr,
+    pkg: PackageLabel,
+    heap: Heap<'v>,
+) -> buck2_error::Result<Value<'v>> {
+    Ok(match attr.kind() {
+        CoercedAttrRefKind::None => Value::new_none(),
+        CoercedAttrRefKind::Bool(b) => heap.alloc(b),
+        CoercedAttrRefKind::Int(i) => heap.alloc(i),
+        CoercedAttrRefKind::String(s) | CoercedAttrRefKind::EnumVariant(s) => heap.alloc(s),
+        // Mirrors `Display for StringWithMacros`: a simple arg renders as its
+        // text, a macro-bearing one as its parts with `$(...)` wrappers.
+        CoercedAttrRefKind::ArgSimple(s) => heap.alloc(s),
+        CoercedAttrRefKind::Arg(parts) => heap.alloc(parts.to_string()),
+        CoercedAttrRefKind::List(seq) => heap.alloc(
+            seq.iter()
+                .map(|v| ref_to_value(v, owner, pkg.dupe(), heap))
+                .collect::<buck2_error::Result<Vec<_>>>()?,
+        ),
+        CoercedAttrRefKind::Tuple(seq) => heap.alloc(AllocTuple(
+            seq.iter()
+                .map(|v| ref_to_value(v, owner, pkg.dupe(), heap))
+                .collect::<buck2_error::Result<Vec<_>>>()?,
+        )),
+        CoercedAttrRefKind::Dict(pairs) => {
+            let mut res = BuckMutInsertionMap::with_capacity(pairs.len());
+            for (k, v) in pairs.iter() {
+                res.insert_hashed(
+                    ref_to_value(k, owner, pkg.dupe(), heap)?
+                        .get_hashed()
+                        .map_err(|e| {
                             from_starlark_with_options(
                                 e,
                                 buck2_error::starlark_error::NativeErrorHandling::Unknown,
                                 false,
                             )
                         })?,
-                        v.to_value(pkg.dupe(), heap)?,
-                    );
-                }
+                    ref_to_value(v, owner, pkg.dupe(), heap)?,
+                );
+            }
+            heap.alloc(res)
+        }
+        CoercedAttrRefKind::OneOf(l, _) => ref_to_value(l, owner, pkg, heap)?,
+        CoercedAttrRefKind::Selector { .. } => {
+            heap.alloc(StarlarkSelectDict::new(owner.sub(attr), pkg.dupe()))
+        }
+        CoercedAttrRefKind::Concat(_) => {
+            heap.alloc(StarlarkSelectConcat::new(owner.sub(attr), pkg.dupe()))
+        }
+        CoercedAttrRefKind::Dep(d) => heap.alloc(StarlarkProvidersLabel::new(d.dupe())),
+        CoercedAttrRefKind::Label(l) => heap.alloc(StarlarkProvidersLabel::new(l.dupe())),
+        CoercedAttrRefKind::SourceLabel(s) => heap.alloc(StarlarkProvidersLabel::new(s.dupe())),
+        CoercedAttrRefKind::ConfigurationDep(c) => {
+            // TODO(T198210718)
+            heap.alloc(StarlarkTargetLabel::new(c.target().dupe()))
+        }
+        CoercedAttrRefKind::SplitTransitionDep(d) => {
+            heap.alloc(StarlarkProvidersLabel::new(d.dupe()))
+        }
+        CoercedAttrRefKind::PluginDep(d) => heap.alloc(StarlarkTargetLabel::new(d.dupe())),
+        CoercedAttrRefKind::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
+            SourceArtifact::new(SourcePath::new(pkg.to_owned(), f.path().dupe())),
+        ))),
+        CoercedAttrRefKind::SelectFail(message) => {
+            heap.alloc(StarlarkSelectFail::new(heap.alloc_str(message)))
+        }
+        CoercedAttrRefKind::SelectIncompatible(message) => {
+            heap.alloc(StarlarkSelectIncompatible::new(heap.alloc_str(message)))
+        }
+        // TODO(@wendyy) - this needs better support
+        CoercedAttrRefKind::ExplicitConfiguredDep { label, .. } => {
+            heap.alloc(StarlarkProvidersLabel::new(label.dupe()))
+        }
+        CoercedAttrRefKind::TransitionDep { dep, transition } => {
+            let label = StarlarkProvidersLabel::new(dep.dupe());
+            match transition {
+                Some(t) => heap.alloc((label, StarlarkProvidersLabel::new(t.dupe()))),
+                None => heap.alloc(label),
+            }
+        }
+        CoercedAttrRefKind::Query(q) => heap.alloc(q.query().0),
+        CoercedAttrRefKind::Visibility(VisibilitySpecification(specs))
+        | CoercedAttrRefKind::WithinView(WithinViewSpecification(specs)) => {
+            pattern_list_to_value(specs, heap)?
+        }
+        CoercedAttrRefKind::Metadata(data) => heap.alloc(data.to_value()),
+        CoercedAttrRefKind::Modifiers(data) => heap.alloc(data.to_value()),
+    })
+}
 
-                heap.alloc(res)
-            }
-            CoercedAttr::None => Value::new_none(),
-            CoercedAttr::OneOf(l, _) => l.as_ref().to_value(pkg, heap)?,
-            CoercedAttr::Visibility(VisibilitySpecification(specs))
-            | CoercedAttr::WithinView(WithinViewSpecification(specs)) => match specs {
-                VisibilityPatternList::Public => heap.alloc(AllocList(["PUBLIC"])),
-                VisibilityPatternList::List(specs) => {
-                    heap.alloc(AllocList(specs.iter().map(|s| match s {
-                        VisibilityPattern::Parsed(p) => heap.alloc(p.to_string()),
-                        VisibilityPattern::TargetNameGlob(r) => r.alloc_starlark_value(heap),
-                    })))
-                }
-                VisibilityPatternList::Intersection(_) => {
-                    return Err(internal_error!(
-                        "Intersection visibility cannot be serialized as attribute"
-                    ));
-                }
-            },
-            CoercedAttr::ExplicitConfiguredDep(d) => heap.alloc(
-                // TODO(@wendyy) - this needs better support
-                StarlarkProvidersLabel::new(d.as_ref().label.dupe()),
-            ),
-            CoercedAttr::TransitionDep(d) => {
-                let label = StarlarkProvidersLabel::new(d.dep.dupe());
-                match d.get_dynamic_transition() {
-                    Some(t) => heap.alloc((label, StarlarkProvidersLabel::new(t.dupe()))),
-                    None => heap.alloc(label),
-                }
-            }
-            CoercedAttr::SplitTransitionDep(d) => heap.alloc(StarlarkProvidersLabel::new(d.dupe())),
-            CoercedAttr::ConfigurationDep(c) => {
-                // TODO(T198210718)
-                heap.alloc(StarlarkTargetLabel::new(c.target().dupe()))
-            }
-            CoercedAttr::PluginDep(d) => heap.alloc(StarlarkTargetLabel::new(d.dupe())),
-            CoercedAttr::Dep(d) => heap.alloc(StarlarkProvidersLabel::new(d.dupe())),
-            CoercedAttr::SourceLabel(s) => heap.alloc(StarlarkProvidersLabel::new(s.dupe())),
-            CoercedAttr::Label(l) => heap.alloc(StarlarkProvidersLabel::new(l.dupe())),
-            CoercedAttr::Arg(arg) => heap.alloc(arg.to_string()),
-            CoercedAttr::Query(query) => heap.alloc(&query.query.query),
-            CoercedAttr::SourceFile(f) => heap.alloc(StarlarkArtifact::new(Artifact::from(
-                SourceArtifact::new(SourcePath::new(pkg.to_owned(), f.path().dupe())),
-            ))),
-            CoercedAttr::Metadata(data) => heap.alloc(data.to_value()),
-            CoercedAttr::TargetModifiers(data) => heap.alloc(data.to_value()),
-            CoercedAttr::Encoded(..) => {
-                return Err(buck2_error::internal_error!(
-                    "Encoded attr must not escape coercion"
-                ));
-            }
-            CoercedAttr::Selector(selector) => {
-                let select_dict = StarlarkSelectDict::new(selector.dupe(), pkg.dupe());
-                heap.alloc(select_dict)
-            }
-            CoercedAttr::SelectFail(message) => {
-                let select_fail = StarlarkSelectFail::new(heap.alloc_str(message));
-                heap.alloc(select_fail)
-            }
-            CoercedAttr::SelectIncompatible(message) => {
-                let select_incompatible = StarlarkSelectIncompatible::new(heap.alloc_str(message));
-                heap.alloc(select_incompatible)
-            }
-            CoercedAttr::Concat(c) => heap.alloc(StarlarkSelectConcat::new(c.clone(), pkg.dupe())),
-        })
-    }
+fn pattern_list_to_value<'v>(
+    specs: &VisibilityPatternList,
+    heap: Heap<'v>,
+) -> buck2_error::Result<Value<'v>> {
+    Ok(match specs {
+        VisibilityPatternList::Public => heap.alloc(AllocList(["PUBLIC"])),
+        VisibilityPatternList::List(specs) => {
+            heap.alloc(AllocList(specs.iter().map(|s| match s {
+                VisibilityPattern::Parsed(p) => heap.alloc(p.to_string()),
+                VisibilityPattern::TargetNameGlob(r) => r.alloc_starlark_value(heap),
+            })))
+        }
+        VisibilityPatternList::Intersection(_) => {
+            return Err(internal_error!(
+                "Intersection visibility cannot be serialized as attribute"
+            ));
+        }
+    })
 }
