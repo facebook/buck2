@@ -40,7 +40,6 @@ mod arg;
 pub(crate) mod builder;
 pub(crate) mod fields;
 mod owned;
-mod query_expr;
 pub(crate) mod schema;
 pub(crate) mod storage;
 #[cfg(test)]
@@ -52,7 +51,6 @@ pub use arg::ArgPartView;
 pub use arg::ArgQueryView;
 pub use builder::CoercedAttrArenaBuilder;
 pub use owned::OwnedCoercedAttr;
-pub use query_expr::QueryExprRef;
 pub use storage::AttrToken;
 pub use storage::AttrWord;
 pub use storage::CoercedAttrArena;

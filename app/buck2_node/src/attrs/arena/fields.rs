@@ -117,6 +117,19 @@ impl<'a> Cursor<'a> {
         self.arena.str_at(self.r)
     }
 
+    /// The next `n` head fields as a run.
+    pub(crate) fn raws(&mut self, n: u32) -> RefRun<'a> {
+        let head = self
+            .head
+            .expect("should be a record: inline words have one payload");
+        let out = RefRun {
+            len: n,
+            ..head.skip(self.head_i)
+        };
+        self.head_i += n;
+        out
+    }
+
     /// The next `n` refs of the tail.
     pub(crate) fn refs(&mut self, n: u32) -> RefRun<'a> {
         let Tail::Refs(run) = self.tail else {
