@@ -25,11 +25,11 @@ pub(crate) mod str_hash;
 pub mod testing;
 
 pub trait AttrTypeCoerce {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        _ctx: &dyn AttrCoercionContext,
-        value: Value,
+        _ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr>;
 
     fn starlark_type(&self) -> TyMaybeSelect;

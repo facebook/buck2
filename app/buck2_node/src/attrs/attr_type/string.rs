@@ -21,7 +21,9 @@ use strong_hash::StrongHash;
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::fmt_context::AttrFmtContext;
 
-#[derive(Debug, Pagable, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
+#[derive(
+    Debug, Pagable, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe, StrongHash
+)]
 pub struct StringAttrType;
 
 #[derive(

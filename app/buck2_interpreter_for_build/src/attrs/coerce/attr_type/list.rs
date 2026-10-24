@@ -9,7 +9,6 @@
  */
 
 use buck2_node::attrs::attr_type::list::ListAttrType;
-use buck2_node::attrs::attr_type::list::ListLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -23,20 +22,18 @@ use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 impl AttrTypeCoerce for ListAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         let list = coerce_list(value)?;
-        Ok(CoercedAttr::List(ListLiteral(
-            ctx.intern_list(
-                list.iter()
-                    .map(|v| (self.inner).coerce(configurable, ctx, *v))
-                    .collect::<Result<Vec<_>, _>>()?,
-            ),
-        )))
+        ctx.build_list_attr(
+            list.iter()
+                .map(|v| (self.inner).coerce(configurable, ctx, *v))
+                .collect::<Result<Vec<_>, _>>()?,
+        )
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

@@ -27,7 +27,7 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 
-#[derive(Debug, Hash, Pagable, Eq, PartialEq, Allocative)]
+#[derive(Debug, Hash, Pagable, Eq, PartialEq, Allocative, StrongHash)]
 pub struct DictAttrType {
     pub key: AttrType,
     pub value: AttrType,

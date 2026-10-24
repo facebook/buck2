@@ -18,6 +18,7 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedConcat;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
+use buck2_node::attrs::coercion_context::CoerceMemoKey;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use starlark::values::Value;
@@ -40,21 +41,52 @@ enum SelectError {
 }
 
 pub trait CoercedAttrExr: Sized {
-    fn coerce(
+    fn coerce<'v>(
         attr: &AttrType,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
+        default_attr: Option<&Self>,
+    ) -> buck2_error::Result<Self>;
+
+    fn coerce_inner<'v>(
+        attr: &AttrType,
+        configurable: AttrIsConfigurable,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
         default_attr: Option<&Self>,
     ) -> buck2_error::Result<Self>;
 }
 
 impl CoercedAttrExr for CoercedAttr {
-    fn coerce(
+    fn coerce<'v>(
         attr: &AttrType,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
+        default_attr: Option<&Self>,
+    ) -> buck2_error::Result<Self> {
+        // Identity memo for frozen inputs: .bzl constants and macro defaults
+        // hand the same frozen value to many targets, so the coercion result
+        // (usually an arena `Encoded` ref) can be reused wholesale.
+        let memo_key = CoerceMemoKey::new(value, attr, default_attr, configurable);
+        if let Some(key) = memo_key {
+            if let Some(hit) = ctx.coerce_memo_lookup(key) {
+                return Ok(hit);
+            }
+        }
+        let result = Self::coerce_inner(attr, configurable, ctx, value, default_attr)?;
+        if let Some(key) = memo_key {
+            ctx.coerce_memo_insert(key, &result);
+        }
+        Ok(result)
+    }
+
+    fn coerce_inner<'v>(
+        attr: &AttrType,
+        configurable: AttrIsConfigurable,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
         default_attr: Option<&Self>,
     ) -> buck2_error::Result<Self> {
         // A Selector in starlark is currently implemented as simply a Value (holding a
@@ -128,7 +160,7 @@ impl CoercedAttrExr for CoercedAttr {
 
                         assert_eq!(entries.capacity(), entries.len());
 
-                        Ok(CoercedAttr::Selector(ctx.intern_select(entries, default)?))
+                        ctx.build_selector_attr(entries, default)
                     } else {
                         Err(SelectError::ValueNotDict(v.get().to_repr()).into())
                     }

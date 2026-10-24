@@ -13,10 +13,11 @@ use std::fmt;
 use allocative::Allocative;
 use buck2_error::BuckErrorOptionContext;
 use pagable::Pagable;
+use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::AttrType;
 
-#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative, StrongHash)]
 pub struct OneOfAttrType {
     pub xs: Vec<AttrType>,
 }

@@ -20,11 +20,11 @@ use crate::attrs::coerce::AttrTypeCoerce;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 impl AttrTypeCoerce for IntAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         _configurable: AttrIsConfigurable,
-        _ctx: &dyn AttrCoercionContext,
-        value: Value,
+        _ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         Ok(CoercedAttr::Int(i64::unpack_value_err(value)?))
     }

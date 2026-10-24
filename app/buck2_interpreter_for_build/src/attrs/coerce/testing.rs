@@ -40,11 +40,11 @@ use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
 
-pub fn coercion_ctx() -> impl AttrCoercionContext {
+pub fn coercion_ctx<'v>() -> impl AttrCoercionContext<'v> {
     coercion_ctx_listing(PackageListing::testing_empty())
 }
 
-pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercionContext {
+pub fn coercion_ctx_listing<'v>(package_listing: PackageListing) -> impl AttrCoercionContext<'v> {
     let package = PackageLabel::testing();
     let aliases = IntentionallyStdHashMap::from([(
         NonEmptyCellAlias::new("cell1".to_owned()).unwrap(),

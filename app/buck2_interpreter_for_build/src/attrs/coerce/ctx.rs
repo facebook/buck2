@@ -235,7 +235,7 @@ impl BuildAttrCoercionContext {
     }
 }
 
-impl AttrCoercionContext for BuildAttrCoercionContext {
+impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
     fn coerce_providers_label(&self, value: &str) -> buck2_error::Result<ProvidersLabel> {
         let hash = str_hash(value);
         let mut label_cache = self.label_cache.borrow_mut();

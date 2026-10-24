@@ -62,11 +62,11 @@ enum MacroError {
 }
 
 impl AttrTypeCoerce for ArgAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         _configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         let value = value.unpack_str_err()?;
 
@@ -136,9 +136,9 @@ impl AttrTypeCoerce for ArgAttrType {
 }
 
 /// A simple helper for a macro that accepts a single target argument (the most common case, by far).
-fn get_single_target_arg(
+fn get_single_target_arg<'v>(
     args: Vec<String>,
-    ctx: &dyn AttrCoercionContext,
+    ctx: &dyn AttrCoercionContext<'v>,
 ) -> buck2_error::Result<ProvidersLabel> {
     if args.len() != 1 {
         return Err(MacroError::ExpectedSingleTargetArgument(args).into());
@@ -147,8 +147,8 @@ fn get_single_target_arg(
 }
 
 pub trait UnconfiguredMacroExt {
-    fn new_location(
-        ctx: &dyn AttrCoercionContext,
+    fn new_location<'v>(
+        ctx: &dyn AttrCoercionContext<'v>,
         args: Vec<String>,
         dep_kind: MacroDepKind,
     ) -> buck2_error::Result<UnconfiguredMacro> {
@@ -158,8 +158,8 @@ pub trait UnconfiguredMacroExt {
         })
     }
 
-    fn new_exe(
-        ctx: &dyn AttrCoercionContext,
+    fn new_exe<'v>(
+        ctx: &dyn AttrCoercionContext<'v>,
         args: Vec<String>,
         exec_dep: bool,
     ) -> buck2_error::Result<UnconfiguredMacro> {
@@ -169,8 +169,8 @@ pub trait UnconfiguredMacroExt {
         })
     }
 
-    fn new_source(
-        ctx: &dyn AttrCoercionContext,
+    fn new_source<'v>(
+        ctx: &dyn AttrCoercionContext<'v>,
         args: Vec<String>,
     ) -> buck2_error::Result<UnconfiguredMacro> {
         if args.len() != 1 {
@@ -181,8 +181,8 @@ pub trait UnconfiguredMacroExt {
             .map(UnconfiguredMacro::Source)
     }
 
-    fn new_user_keyed_placeholder(
-        ctx: &dyn AttrCoercionContext,
+    fn new_user_keyed_placeholder<'v>(
+        ctx: &dyn AttrCoercionContext<'v>,
         var_name: String,
         mut args: Vec<String>,
     ) -> buck2_error::Result<UnconfiguredMacro> {
@@ -199,8 +199,8 @@ pub trait UnconfiguredMacroExt {
         ))))
     }
 
-    fn new_query(
-        ctx: &dyn AttrCoercionContext,
+    fn new_query<'v>(
+        ctx: &dyn AttrCoercionContext<'v>,
         expansion_type: &str,
         args: Vec<String>,
     ) -> buck2_error::Result<UnconfiguredMacro> {

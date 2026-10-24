@@ -12,11 +12,14 @@ use allocative::Allocative;
 use buck2_core::provider::label::ProvidersLabel;
 use dupe::Dupe;
 use pagable::Pagable;
+use strong_hash::StrongHash;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 
-#[derive(Debug, Pagable, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative)]
+#[derive(
+    Debug, Pagable, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative, StrongHash
+)]
 pub struct LabelAttrType;
 
 impl LabelAttrType {

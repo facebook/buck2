@@ -47,29 +47,29 @@ mod within_view;
 pub trait AttrTypeExt {
     fn this(&self) -> &AttrType;
 
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         self.this().0.inner.coerce_item(configurable, ctx, value)
     }
 
-    fn coerce(
+    fn coerce<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         self.coerce_with_default(configurable, ctx, value, None)
     }
 
-    fn coerce_with_default(
+    fn coerce_with_default<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
         default: Option<&CoercedAttr>,
     ) -> buck2_error::Result<CoercedAttr> {
         CoercedAttr::coerce(self.this(), configurable, ctx, value, default)
@@ -87,22 +87,22 @@ impl AttrTypeExt for AttrType {
 }
 
 pub trait AttrTypeInnerExt {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr>;
 
     fn starlark_type(&self) -> TyMaybeSelect;
 }
 
 impl AttrTypeInnerExt for AttrTypeInner {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         match self {
             Self::Any(x) => x.coerce_item(configurable, ctx, value),

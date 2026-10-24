@@ -28,7 +28,7 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Pagable, Allocative)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Pagable, Allocative, StrongHash)]
 pub struct TupleAttrType {
     pub xs: Vec<AttrType>,
 }

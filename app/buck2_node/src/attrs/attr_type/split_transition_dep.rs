@@ -27,7 +27,7 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
 use crate::provider_id_set::ProviderIdSet;
 
-#[derive(Debug, Pagable, PartialEq, Eq, Hash, Allocative)]
+#[derive(Debug, Pagable, PartialEq, Eq, Hash, Allocative, StrongHash)]
 pub struct SplitTransitionDepAttrType {
     pub required_providers: ProviderIdSet,
     pub transition: Arc<TransitionId>,

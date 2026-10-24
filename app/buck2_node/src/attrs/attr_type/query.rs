@@ -29,7 +29,7 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
 /// Attribute type created with `attrs.query(...)`.
-#[derive(Debug, Pagable, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Pagable, Eq, PartialEq, Hash, Allocative, StrongHash)]
 pub struct QueryAttrType {
     pub inner: DepAttrType,
 }

@@ -21,7 +21,9 @@ use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 
-#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative, Clone, Copy, Dupe)]
+#[derive(
+    Debug, Eq, PartialEq, Hash, Pagable, Allocative, Clone, Copy, Dupe, StrongHash
+)]
 pub struct BoolAttrType;
 
 #[derive(

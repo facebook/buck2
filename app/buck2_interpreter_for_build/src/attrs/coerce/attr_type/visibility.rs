@@ -39,11 +39,11 @@ enum VisibilityAttrTypeCoerceError {
 }
 
 impl AttrTypeCoerce for VisibilityAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         if configurable == AttrIsConfigurable::Yes {
             return Err(VisibilityAttrTypeCoerceError::AttrTypeNotConfigurable.into());
@@ -61,8 +61,8 @@ impl AttrTypeCoerce for VisibilityAttrType {
     }
 }
 
-pub(crate) fn parse_visibility_with_view(
-    ctx: &dyn AttrCoercionContext,
+pub(crate) fn parse_visibility_with_view<'v>(
+    ctx: &dyn AttrCoercionContext<'v>,
     attr: Value,
 ) -> buck2_error::Result<VisibilityWithinViewBuilder> {
     let list = match coerce_list(attr) {

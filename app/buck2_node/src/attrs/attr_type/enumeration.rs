@@ -16,10 +16,20 @@ use buck2_hash::BuckFixedInsertionSet;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_util::arc_str::ArcStr;
 use pagable::Pagable;
+use strong_hash::StrongHash;
 
 #[derive(Debug, Pagable, Eq, PartialEq, Hash, Allocative)]
 pub struct EnumAttrType {
     pub variants: BuckFixedInsertionSet<ArcStr>,
+}
+
+impl StrongHash for EnumAttrType {
+    fn strong_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.variants.len().strong_hash(state);
+        for v in self.variants.iter() {
+            v.strong_hash(state);
+        }
+    }
 }
 
 #[derive(Debug, buck2_error::Error)]

@@ -11,7 +11,6 @@
 use std::iter;
 
 use buck2_node::attrs::attr_type::tuple::TupleAttrType;
-use buck2_node::attrs::attr_type::tuple::TupleLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -33,13 +32,13 @@ enum TupleError {
 }
 
 impl AttrTypeCoerce for TupleAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
-        let coerce = |items: &[Value]| {
+        let coerce = |items: &[Value<'v>]| {
             // Use comparison rather than equality below. If the tuple is too short,
             // it is implicitly extended using None.
             if items.len() <= self.xs.len() {
@@ -51,7 +50,7 @@ impl AttrTypeCoerce for TupleAttrType {
                 {
                     res.push(c.coerce(configurable, ctx, v)?);
                 }
-                Ok(CoercedAttr::Tuple(TupleLiteral(ctx.intern_list(res))))
+                ctx.build_tuple_attr(res)
             } else {
                 Err(TupleError::TooManyElements(self.xs.len()).into())
             }

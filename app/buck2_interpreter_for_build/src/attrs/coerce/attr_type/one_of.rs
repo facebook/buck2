@@ -20,17 +20,17 @@ use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::error::CoercionError;
 
 impl AttrTypeCoerce for OneOfAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         let mut errs = Vec::new();
         // Bias towards the start of the list - try and use success/failure from first in preference
         for (i, x) in self.xs.iter().enumerate() {
             match x.coerce_item(configurable, ctx, value) {
-                Ok(v) => return Ok(CoercedAttr::OneOf(Box::new(v), i as u32)),
+                Ok(v) => return ctx.build_one_of_attr(v, i as u32),
                 Err(e) => {
                     // TODO(nga): anyhow error creation is expensive.
                     errs.push(e)

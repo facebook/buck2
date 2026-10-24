@@ -29,7 +29,7 @@ use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
-#[derive(Debug, Pagable, PartialEq, Eq, Hash, Allocative)]
+#[derive(Debug, Pagable, PartialEq, Eq, Hash, Allocative, StrongHash)]
 pub struct TransitionDepAttrType {
     pub required_providers: ProviderIdSet,
     pub transition: Option<Arc<TransitionId>>,

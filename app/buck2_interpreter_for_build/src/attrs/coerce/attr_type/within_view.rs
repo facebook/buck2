@@ -21,11 +21,11 @@ use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::attr_type::visibility::parse_visibility_with_view;
 
 impl AttrTypeCoerce for WithinViewAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         if configurable == AttrIsConfigurable::Yes {
             return Err(internal_error!("Within view attribute is not configurable"));

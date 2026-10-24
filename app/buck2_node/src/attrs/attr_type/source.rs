@@ -11,8 +11,11 @@
 use allocative::Allocative;
 use dupe::Dupe;
 use pagable::Pagable;
+use strong_hash::StrongHash;
 
-#[derive(Debug, Pagable, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
+#[derive(
+    Debug, Pagable, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe, StrongHash
+)]
 pub struct SourceAttrType {
     pub allow_directory: bool,
 }

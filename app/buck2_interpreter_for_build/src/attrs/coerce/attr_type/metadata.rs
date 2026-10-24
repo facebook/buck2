@@ -29,11 +29,11 @@ use crate::attrs::coerce::AttrTypeCoerce;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 impl AttrTypeCoerce for MetadataAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        _ctx: &dyn AttrCoercionContext,
-        value: Value,
+        _ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         if configurable == AttrIsConfigurable::Yes {
             return Err(internal_error!("Metadata attribute is not configurable"));

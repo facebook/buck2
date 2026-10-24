@@ -39,7 +39,7 @@ pub trait AttributeCoerceExt {
         &self,
         param_name: &str,
         configurable: AttrIsConfigurable,
-        coercer_ctx: &dyn AttrCoercionContext,
+        coercer_ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedValue>;
 
@@ -55,7 +55,7 @@ impl AttributeCoerceExt for Attribute {
         &self,
         param_name: &str,
         configurable: AttrIsConfigurable,
-        coercer_ctx: &dyn AttrCoercionContext,
+        coercer_ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedValue> {
         if self.is_default_only() {

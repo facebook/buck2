@@ -53,7 +53,9 @@ pub enum MacroDepKind {
     Toolchain,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative, Pagable)]
+#[derive(
+    Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative, Pagable, StrongHash
+)]
 pub struct ArgAttrType {
     pub anon_target_compatible: bool,
 }

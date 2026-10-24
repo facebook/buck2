@@ -35,11 +35,11 @@ fn cleanup_path(value: &str) -> &str {
 }
 
 impl AttrTypeCoerce for SourceAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         _configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         let source_label = value.unpack_str_err()?;
 

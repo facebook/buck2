@@ -11,7 +11,6 @@
 use std::cmp::Ordering;
 
 use buck2_node::attrs::attr_type::dict::DictAttrType;
-use buck2_node::attrs::attr_type::dict::DictLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -24,11 +23,11 @@ use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
 impl AttrTypeCoerce for DictAttrType {
-    fn coerce_item(
+    fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        ctx: &dyn AttrCoercionContext,
-        value: Value,
+        ctx: &dyn AttrCoercionContext<'v>,
+        value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         let dict = DictRef::unpack_value_err(value)?;
         let mut res = Vec::with_capacity(dict.len());
@@ -52,7 +51,7 @@ impl AttrTypeCoerce for DictAttrType {
                 ));
             }
         }
-        Ok(CoercedAttr::Dict(DictLiteral(ctx.intern_dict(res))))
+        ctx.build_dict_attr(res)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {
