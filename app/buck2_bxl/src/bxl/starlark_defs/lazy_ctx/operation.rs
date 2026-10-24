@@ -142,7 +142,7 @@ impl LazyResult {
             ))),
             LazyResult::Catch(res) => {
                 let val = match *res {
-                    Ok(res) => Ok(res.into_value(heap, bxl_eval_extra)?),
+                    Ok(res) => res.into_value(heap, bxl_eval_extra),
                     Err(e) => Err(e),
                 };
                 Ok(heap.alloc(StarlarkResult::from_result(val)))
