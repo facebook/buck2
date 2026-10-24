@@ -27,6 +27,7 @@ pub mod network_speed_average;
 pub mod os;
 pub mod per_thread_instruction_counter;
 pub mod pgo;
+pub mod pointer_identity;
 pub mod process;
 pub mod process_stats;
 pub mod properly_reaped_child;

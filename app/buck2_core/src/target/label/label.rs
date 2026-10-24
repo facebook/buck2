@@ -26,6 +26,7 @@ use allocative::Visitor;
 use buck2_data::ToProtoMessage;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckHasher;
+use buck2_util::pointer_identity::StaticPointerIdentity;
 use dupe::Dupe;
 use lock_free_hashtable::atomic_value::AtomicValue;
 use pagable::PagableDeserialize;
@@ -428,6 +429,16 @@ impl TargetLabel {
 
     pub(crate) fn as_raw(&self) -> *const () {
         self.0.as_ptr() as *const ()
+    }
+
+    /// TargetLabels are statically interned and never evicted; paging
+    /// serializes a content copy, and page-in re-interns to the same
+    /// allocation. Pointer equality therefore holds exactly for equal
+    /// labels. The label's identity beyond lifetime of this daemon process
+    /// should be a StrongHash of its content; this one is only cheaper,
+    /// never a substitute.
+    pub fn pointer_identity(&self) -> StaticPointerIdentity<TargetLabel> {
+        StaticPointerIdentity::new(self.header())
     }
 
     /// Simple and incorrect target label parser which can be used in tests.
