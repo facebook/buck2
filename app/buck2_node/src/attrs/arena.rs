@@ -158,8 +158,8 @@ enum AttrKind {
     Tuple = 8,
     /// Head: `[n]`; refs: `2n`, interleaved key, value.
     Dict = 9,
-    /// Head: `[n]`; refs: `[default or absent, k0, v0, k1, v1, ...]`; keys
-    /// are inline `Label` leaves.
+    /// Head: `[n]`; refs: `[keys, default or absent, n values]`. `keys` is a
+    /// `SelectorKeys` record.
     Selector = 10,
     /// Head: `[n]`; refs: `n` items.
     Concat = 11,
@@ -181,6 +181,9 @@ enum AttrKind {
     /// `Arg` with no macros (`StringWithMacros::StringPart`) -- most `Arg`
     /// values in real graphs contain no macros. Same layout as `String`.
     ArgSimple = 21,
+    /// Head: `[n, idx...]`: `n` providers-label table indices, a selector's
+    /// key set.
+    SelectorKeys = 22,
 }
 
 /// How a kind's record body is laid out: how many head fields it has and
@@ -195,6 +198,8 @@ struct Layout {
 #[derive(Copy, Clone)]
 enum HeadLen {
     Fixed(u32),
+    /// `SelectorKeys`: the count in field 0, then that many indices.
+    OnePlusField0,
 }
 
 #[derive(Copy, Clone)]
@@ -209,7 +214,7 @@ enum TailKind {
 enum RefCount {
     Field0,
     TwiceField0,
-    TwiceField0Plus1,
+    Field0Plus2,
     One,
 }
 
@@ -223,8 +228,9 @@ impl AttrKind {
             AttrKind::String | AttrKind::EnumVariant | AttrKind::ArgSimple => (Fixed(1), Text),
             AttrKind::List | AttrKind::Tuple | AttrKind::Concat => (Fixed(1), Refs(Field0)),
             AttrKind::Dict => (Fixed(1), Refs(TwiceField0)),
-            AttrKind::Selector => (Fixed(1), Refs(TwiceField0Plus1)),
+            AttrKind::Selector => (Fixed(1), Refs(Field0Plus2)),
             AttrKind::OneOf => (Fixed(1), Refs(One)),
+            AttrKind::SelectorKeys => (OnePlusField0, None),
             AttrKind::None
             | AttrKind::BoolFalse
             | AttrKind::BoolTrue
@@ -254,14 +260,17 @@ enum TailLen {
 #[inline]
 fn shape(kind: AttrKind, field: impl Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
     let Layout { head, tail } = kind.layout();
-    let HeadLen::Fixed(nfields) = head;
+    let nfields = match head {
+        HeadLen::Fixed(n) => n,
+        HeadLen::OnePlusField0 => 1 + field(0)?,
+    };
     let tail = match tail {
         TailKind::None => TailLen::None,
         TailKind::Text => TailLen::Text(field(0)?),
         TailKind::Refs(count) => TailLen::Refs(match count {
             RefCount::Field0 => field(0)?,
             RefCount::TwiceField0 => field(0)?.checked_mul(2)?,
-            RefCount::TwiceField0Plus1 => field(0)?.checked_mul(2)?.checked_add(1)?,
+            RefCount::Field0Plus2 => field(0)?.checked_add(2)?,
             RefCount::One => 1,
         }),
     };
@@ -523,7 +532,8 @@ pub struct CoercedAttrArena {
     /// value.
     bytes: RecordBytes,
     /// Globally interned `ProvidersLabel`s, indexed by `Dep`, `Label`,
-    /// `SourceLabel`, `ConfigurationDep`, and `SplitTransitionDep` leaves.
+    /// `SourceLabel`, `ConfigurationDep`, `SplitTransitionDep`, and
+    /// `SelectorKeys` records.
     providers_labels: Vec<ProvidersLabel>,
     /// Globally interned `TargetLabel`s, indexed by `PluginDep` records.
     target_labels: Vec<TargetLabel>,
@@ -814,8 +824,8 @@ impl<'a> Rec<'a> {
     }
 }
 
-/// A run of fixed-width values inside one record: head fields or ref
-/// fields (see [`AttrWord::to_field`]).
+/// A run of fixed-width values inside one record: ref fields (see
+/// [`AttrWord::to_field`]) or raw indices (`SelectorKeys`).
 #[derive(Copy, Clone)]
 struct RefRun<'a> {
     arena: &'a CoercedAttrArena,
@@ -982,29 +992,23 @@ impl<'a> AttrRefDict<'a> {
 /// View of a selector value's (configuration setting key, value) entries.
 #[derive(Copy, Clone)]
 pub struct AttrRefSelectorEntries<'a> {
-    /// Interleaved key, value refs; keys are inline `Label` leaves.
-    run: RefRun<'a>,
+    /// Providers-label table indices, from the shared `SelectorKeys` record.
+    keys: RefRun<'a>,
+    /// Value refs, one per key, stored in the selector record.
+    values: RefRun<'a>,
 }
 
 impl<'a> AttrRefSelectorEntries<'a> {
     pub fn len(&self) -> usize {
-        self.run.len() as usize / 2
+        self.values.len() as usize
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&'a ProvidersLabel, CoercedAttrRef<'a>)> + 'a {
-        let arena = self.run.arena;
-        let mut refs = self.run.iter();
-        std::iter::from_fn(move || {
-            let k = refs.next()?;
-            let v = refs
-                .next()
-                .expect("should be paired: entries are key, value");
-            let idx = match k.inline_parts() {
-                Some((AttrKind::Label, idx)) => idx,
-                _ => unreachable!("should be a label leaf: selector keys are encoded inline"),
-            };
-            Some((&arena.providers_labels[idx as usize], arena.view(v)))
-        })
+        let arena = self.values.arena;
+        self.keys
+            .iter_raw()
+            .zip(self.values.iter())
+            .map(move |(k, v)| (&arena.providers_labels[k as usize], arena.view(v)))
     }
 }
 
@@ -1060,15 +1064,22 @@ impl<'a> CoercedAttrRef<'a> {
             AttrKind::String => CoercedAttrRefKind::String(arena.str_at(r)),
             AttrKind::EnumVariant => CoercedAttrRefKind::EnumVariant(arena.str_at(r)),
             AttrKind::ArgSimple => CoercedAttrRefKind::ArgSimple(arena.str_at(r)),
+            AttrKind::SelectorKeys => {
+                unreachable!("selector keys records are not attribute values")
+            }
             AttrKind::List => CoercedAttrRefKind::List(AttrRefSeq { run: rec.refs() }),
             AttrKind::Tuple => CoercedAttrRefKind::Tuple(AttrRefSeq { run: rec.refs() }),
             AttrKind::Concat => CoercedAttrRefKind::Concat(AttrRefSeq { run: rec.refs() }),
             AttrKind::Dict => CoercedAttrRefKind::Dict(AttrRefDict { run: rec.refs() }),
             AttrKind::Selector => {
                 let refs = rec.refs();
+                let keys = arena.open(refs.get(0));
                 CoercedAttrRefKind::Selector {
-                    entries: AttrRefSelectorEntries { run: refs.skip(1) },
-                    default: refs.get_opt(0).map(|d| arena.view(d)),
+                    entries: AttrRefSelectorEntries {
+                        keys: keys.head.skip(1),
+                        values: refs.skip(2),
+                    },
+                    default: refs.get_opt(1).map(|d| arena.view(d)),
                 }
             }
             AttrKind::OneOf => {
@@ -1980,8 +1991,12 @@ static FIXED_KIND_HASHES: std::sync::LazyLock<[CoercedAttrHash; 3]> =
         ]
     });
 
-/// Child refs of one record while encoding: covers values with up to 32
-/// children on the stack — beyond typical select/list/dict fan-out.
+/// Head fields of one record while encoding; `SelectorKeys` heads can
+/// run long, everything else is one to three fields.
+type EncodeScratchFields = SmallVec<[u32; 32]>;
+
+/// Child refs gathered alongside [`EncodeScratchFields`]: covers values with up
+/// to 32 children on the stack — beyond typical select/list/dict fan-out.
 type EncodeScratchRefs = SmallVec<[AttrWord; 32]>;
 
 /// Child content hashes gathered alongside [`EncodeScratchRefs`]; same
@@ -2246,6 +2261,18 @@ impl CoercedAttrArenaBuilder {
         entries: &[(ConfigurationSettingKey, CoercedAttr)],
         default: Option<&CoercedAttr>,
     ) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+        let mut key_idxs = EncodeScratchFields::with_capacity(1 + entries.len());
+        let mut keys_hasher = BuckHasher::default();
+        Hash::hash(&(AttrKind::SelectorKeys as u8), &mut keys_hasher);
+        for (key, _) in entries.iter() {
+            let (key_idx, key_hash) = self.providers_label_idx_and_hash(&key.0);
+            key_idxs.push(key_idx);
+            key_hash.hash(&mut keys_hasher);
+        }
+        let keys_hash = CoercedAttrHash(keys_hasher.finish());
+        key_idxs.insert(0, entries.len() as u32);
+        let keys_ref = self.encode_record(AttrKind::SelectorKeys, keys_hash, &key_idxs, &[])?;
+
         let (default_ref, default_hash) = match default {
             Some(d) => {
                 let (r, h) = self.encode(d)?;
@@ -2253,18 +2280,17 @@ impl CoercedAttrArenaBuilder {
             }
             None => (ABSENT_REF, None),
         };
-        let mut refs = EncodeScratchRefs::with_capacity(1 + 2 * entries.len());
+        let mut refs = EncodeScratchRefs::with_capacity(2 + entries.len());
+        refs.push(keys_ref);
         refs.push(default_ref);
         let mut hasher_parts = EncodeScratchHashes::new();
         let mut hash = BuckHasher::default();
         Hash::hash(&(AttrKind::Selector as u8), &mut hash);
+        keys_hash.hash(&mut hash);
         default_hash.hash(&mut hash);
-        for (key, v) in entries.iter() {
-            let (key_idx, key_hash) = self.providers_label_idx_and_hash(&key.0);
+        for (_, v) in entries.iter() {
             let (vr, vh) = self.encode(v)?;
-            refs.push(AttrWord::inline(AttrKind::Label, key_idx)?);
             refs.push(vr);
-            key_hash.hash(&mut hash);
             hasher_parts.push(vh);
         }
         hasher_parts.hash(&mut hash);
@@ -2761,6 +2787,53 @@ mod tests {
             CoercedAttr::SelectFail(ArcStr::from("nope")),
             CoercedAttr::Metadata(Default::default()),
         ]);
+    }
+
+    #[test]
+    fn test_selector_keys_shared_across_values() {
+        let entries = |v: &str| {
+            ArcSlice::new([
+                (ConfigurationSettingKey(label("cfg", "a")), s(v)),
+                (
+                    ConfigurationSettingKey(label("cfg", "b")),
+                    CoercedAttr::None,
+                ),
+            ])
+        };
+        let sel1 = CoercedAttr::Selector(Arc::new(
+            CoercedSelector::new(entries("one"), None).unwrap(),
+        ));
+        let sel2 = CoercedAttr::Selector(Arc::new(
+            CoercedSelector::new(entries("two"), None).unwrap(),
+        ));
+        let mut b = CoercedAttrArena::builder();
+        let (r1, _) = b.encode(&sel1).unwrap();
+        let bytes_after_first = b.arena.bytes.len();
+        let (r2, _) = b.encode(&sel2).unwrap();
+        // Second selector shares the keys record and the None value: it
+        // adds only its own record (tag, count, 4 one-byte refs: keys,
+        // absent default, 2 values) plus the new "two" text record (tag,
+        // length, 3 bytes) -- NOT a second keys record.
+        let added = b.arena.bytes.len() - bytes_after_first;
+        assert_eq!(
+            added,
+            (1 + 1 + 4) + (1 + 1 + 3),
+            "expected keys record to be shared"
+        );
+        let keys_of = |b: &CoercedAttrArenaBuilder, r: AttrWord| b.arena.open(r).refs().get(0);
+        assert_eq!(
+            keys_of(&b, r1),
+            keys_of(&b, r2),
+            "selectors should share one keys record"
+        );
+        drop(b.finish());
+        // Round-trip both.
+        let mut b2 = CoercedAttrArena::builder();
+        let r1 = b2.encode(&sel1).unwrap().0;
+        let r2 = b2.encode(&sel2).unwrap().0;
+        let arena2 = b2.finish();
+        assert_eq!(arena2.view(r1).to_coerced().unwrap(), sel1);
+        assert_eq!(arena2.view(r2).to_coerced().unwrap(), sel2);
     }
 
     #[test]
