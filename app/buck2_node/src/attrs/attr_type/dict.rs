@@ -153,9 +153,9 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for DictLiteral<C> {
 
 impl SchemaKind for kinds::Dict {
     const KIND: AttrKind = AttrKind::Dict;
-    type Fields = (ChildPairs,);
+    type Fields = ChildPairs;
 
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, (pairs,): (Refs<'a, Pairs>,)) -> CoercedAttrRefKind<'a> {
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, pairs: Refs<'a, Pairs>) -> CoercedAttrRefKind<'a> {
         CoercedAttrRefKind::Dict(pairs)
     }
 }
@@ -165,7 +165,7 @@ impl CoercedAttrArenaBuilder {
         &mut self,
         pairs: &[(AttrToken, AttrToken)],
     ) -> buck2_error::Result<AttrToken> {
-        encode_kind::<kinds::Dict>(self, (pairs,))
+        encode_kind::<kinds::Dict>(self, pairs)
     }
 }
 
@@ -173,7 +173,7 @@ impl Semantics for kinds::Dict {
     const CONCAT: Option<&'static str> = Some("dict");
 
     fn traverse<'a>(
-        (pairs,): Self::Parts<'a>,
+        pairs: Self::Parts<'a>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         let inner = inner_type(t);
@@ -190,7 +190,7 @@ impl Semantics for kinds::Dict {
     }
 
     fn configure(
-        (pairs,): Self::Parts<'_>,
+        pairs: Self::Parts<'_>,
         Configure { v, t, ctx, name }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         let (kt, vt) = match &inner_type(t).0.inner {
@@ -212,7 +212,7 @@ impl Semantics for kinds::Dict {
     }
 
     fn traverse_configured(
-        (pairs,): Self::Parts<'_>,
+        pairs: Self::Parts<'_>,
         TraverseConfigured {
             v,
             t,
@@ -235,7 +235,7 @@ impl Semantics for kinds::Dict {
     }
 
     fn to_json(
-        (pairs,): Self::Parts<'_>,
+        pairs: Self::Parts<'_>,
         ToJson { ctx, .. }: ToJson<'_, '_>,
     ) -> buck2_error::Result<serde_json::Value> {
         let mut res = serde_json::Map::with_capacity(pairs.len());
@@ -251,7 +251,7 @@ impl Semantics for kinds::Dict {
         Ok(serde_json::Value::Object(res))
     }
 
-    fn fmt((pairs,): Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(pairs: Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         fmt_keyed_container(
             f,
             "{",
@@ -264,7 +264,7 @@ impl Semantics for kinds::Dict {
     }
 
     fn any_matches(
-        (pairs,): Self::Parts<'_>,
+        pairs: Self::Parts<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         for (k, val) in pairs.iter() {
@@ -276,7 +276,7 @@ impl Semantics for kinds::Dict {
     }
 
     fn serialize<S: Serializer>(
-        (pairs,): Self::Parts<'_>,
+        pairs: Self::Parts<'_>,
         SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser_keyed(

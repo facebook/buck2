@@ -44,12 +44,9 @@ pub struct WithinViewAttrType;
 
 impl SchemaKind for kinds::WithinView {
     const KIND: AttrKind = AttrKind::WithinView;
-    type Fields = (Idx<WithinViewSpecification>,);
+    type Fields = Idx<WithinViewSpecification>;
 
-    fn wrap<'a>(
-        _v: CoercedAttrRef<'a>,
-        (v,): (&'a WithinViewSpecification,),
-    ) -> CoercedAttrRefKind<'a> {
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, v: &'a WithinViewSpecification) -> CoercedAttrRefKind<'a> {
         CoercedAttrRefKind::WithinView(v)
     }
 }
@@ -59,7 +56,7 @@ impl CoercedAttrArenaBuilder {
         &mut self,
         v: &WithinViewSpecification,
     ) -> buck2_error::Result<AttrToken> {
-        encode_kind::<kinds::WithinView>(self, (v,))
+        encode_kind::<kinds::WithinView>(self, v)
     }
 }
 
@@ -69,7 +66,7 @@ impl Semantics for kinds::WithinView {
     }
 
     fn configure(
-        (s,): Self::Parts<'_>,
+        s: Self::Parts<'_>,
         _: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         ResultMaybeCompatible::Compatible(ConfiguredAttr::WithinView(s.clone()))
@@ -82,23 +79,23 @@ impl Semantics for kinds::WithinView {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json((s,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(s: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         Ok(s.to_json())
     }
 
-    fn fmt((s,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(s: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "{}", s)
     }
 
     fn any_matches(
-        (s,): Self::Parts<'_>,
+        s: Self::Parts<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         s.any_matches(filter)
     }
 
     fn serialize<S: Serializer>(
-        (s,): Self::Parts<'_>,
+        s: Self::Parts<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         s.to_json().serialize(ser)

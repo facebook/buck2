@@ -62,22 +62,22 @@ impl PluginDepAttrType {
 
 impl SchemaKind for kinds::PluginDep {
     const KIND: AttrKind = AttrKind::PluginDep;
-    type Fields = (Target,);
+    type Fields = Target;
 
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, (l,): (&'a TargetLabel,)) -> CoercedAttrRefKind<'a> {
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, l: &'a TargetLabel) -> CoercedAttrRefKind<'a> {
         CoercedAttrRefKind::PluginDep(l)
     }
 }
 
 impl CoercedAttrArenaBuilder {
     pub fn encode_plugin_dep(&mut self, l: &TargetLabel) -> buck2_error::Result<AttrToken> {
-        encode_kind::<kinds::PluginDep>(self, (l,))
+        encode_kind::<kinds::PluginDep>(self, l)
     }
 }
 
 impl Semantics for kinds::PluginDep {
     fn traverse<'a>(
-        (l,): Self::Parts<'a>,
+        l: Self::Parts<'a>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         match &inner_type(t).0.inner {
@@ -87,7 +87,7 @@ impl Semantics for kinds::PluginDep {
     }
 
     fn configure(
-        (l,): Self::Parts<'_>,
+        l: Self::Parts<'_>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
@@ -99,7 +99,7 @@ impl Semantics for kinds::PluginDep {
     }
 
     fn traverse_configured(
-        (l,): Self::Parts<'_>,
+        l: Self::Parts<'_>,
         TraverseConfigured { v, t, tr, .. }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         match &inner_type(t).0.inner {
@@ -114,30 +114,27 @@ impl Semantics for kinds::PluginDep {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json((l,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(l: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(l.to_string())?)
     }
 
-    fn fmt((l,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(l: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "\"{l}\"")
     }
 
     fn any_matches(
-        (l,): Self::Parts<'_>,
+        l: Self::Parts<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         filter(&l.to_string())
     }
 
-    fn json_key<'a>(
-        (l,): Self::Parts<'a>,
-        _: JsonKey<'_, 'a>,
-    ) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(l: Self::Parts<'a>, _: JsonKey<'_, 'a>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Owned(l.to_string()))
     }
 
     fn serialize<S: Serializer>(
-        (l,): Self::Parts<'_>,
+        l: Self::Parts<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&l.to_string())

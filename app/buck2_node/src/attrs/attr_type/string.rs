@@ -79,16 +79,16 @@ impl AttrDisplayWithContext for StringLiteral {
 
 impl SchemaKind for kinds::String {
     const KIND: AttrKind = AttrKind::String;
-    type Fields = (Text,);
+    type Fields = Text;
 
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, (s,): (&'a str,)) -> CoercedAttrRefKind<'a> {
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, s: &'a str) -> CoercedAttrRefKind<'a> {
         CoercedAttrRefKind::String(s)
     }
 }
 
 impl CoercedAttrArenaBuilder {
     pub fn encode_string(&mut self, s: &str) -> buck2_error::Result<AttrToken> {
-        encode_kind::<kinds::String>(self, (s,))
+        encode_kind::<kinds::String>(self, s)
     }
 }
 
@@ -100,7 +100,7 @@ impl Semantics for kinds::String {
     }
 
     fn configure(
-        (s,): Self::Parts<'_>,
+        s: Self::Parts<'_>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &inner_type(t).0.inner {
@@ -118,30 +118,27 @@ impl Semantics for kinds::String {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json((s,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(s: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(s)?)
     }
 
-    fn fmt((s,): Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(s: Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         fmt_text(s, ctx, f)
     }
 
     fn any_matches(
-        (s,): Self::Parts<'_>,
+        s: Self::Parts<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         filter(s)
     }
 
-    fn json_key<'a>(
-        (s,): Self::Parts<'a>,
-        _: JsonKey<'_, 'a>,
-    ) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(s: Self::Parts<'a>, _: JsonKey<'_, 'a>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Borrowed(s))
     }
 
     fn serialize<S: Serializer>(
-        (s,): Self::Parts<'_>,
+        s: Self::Parts<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(s)

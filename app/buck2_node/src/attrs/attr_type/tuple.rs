@@ -131,22 +131,22 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for TupleLiteral<C> {
 
 impl SchemaKind for kinds::Tuple {
     const KIND: AttrKind = AttrKind::Tuple;
-    type Fields = (Children,);
+    type Fields = Children;
 
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, (items,): (Refs<'a, Values>,)) -> CoercedAttrRefKind<'a> {
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, items: Refs<'a, Values>) -> CoercedAttrRefKind<'a> {
         CoercedAttrRefKind::Tuple(items)
     }
 }
 
 impl CoercedAttrArenaBuilder {
     pub fn encode_tuple(&mut self, items: &[AttrToken]) -> buck2_error::Result<AttrToken> {
-        encode_kind::<kinds::Tuple>(self, (items,))
+        encode_kind::<kinds::Tuple>(self, items)
     }
 }
 
 impl Semantics for kinds::Tuple {
     fn traverse<'a>(
-        (items,): Self::Parts<'a>,
+        items: Self::Parts<'a>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         let inner = inner_type(t);
@@ -170,7 +170,7 @@ impl Semantics for kinds::Tuple {
     }
 
     fn configure(
-        (items,): Self::Parts<'_>,
+        items: Self::Parts<'_>,
         Configure { v, t, ctx, name }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         let configured = match &inner_type(t).0.inner {
@@ -195,7 +195,7 @@ impl Semantics for kinds::Tuple {
     }
 
     fn traverse_configured(
-        (items,): Self::Parts<'_>,
+        items: Self::Parts<'_>,
         TraverseConfigured {
             v,
             t,
@@ -221,25 +221,25 @@ impl Semantics for kinds::Tuple {
     }
 
     fn to_json(
-        (items,): Self::Parts<'_>,
+        items: Self::Parts<'_>,
         ToJson { ctx, .. }: ToJson<'_, '_>,
     ) -> buck2_error::Result<serde_json::Value> {
         json_seq(items, ctx)
     }
 
-    fn fmt((items,): Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(items: Self::Parts<'_>, Fmt { ctx, f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         fmt_seq(items, "(", ")", ctx, f)
     }
 
     fn any_matches(
-        (items,): Self::Parts<'_>,
+        items: Self::Parts<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         any_matches_seq(items, filter)
     }
 
     fn serialize<S: Serializer>(
-        (items,): Self::Parts<'_>,
+        items: Self::Parts<'_>,
         SerializeKind { ctx, ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser_seq(items, ctx, ser)

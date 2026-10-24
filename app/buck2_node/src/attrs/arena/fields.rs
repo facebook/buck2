@@ -349,8 +349,51 @@ macro_rules! field_tuples {
 }
 
 field_tuples! {
-    (A a0 b0);
     (A a0 b0, B a1 b1);
+}
+
+/// A single field is its own field list: its view and spec are the field's,
+/// not a one-tuple around them.
+impl<F: Field> FieldList for F {
+    const DEPS: bool = F::DEPS;
+    const HEAD: u32 = F::HEAD;
+    const HAS_REFS: bool = F::HAS_REFS;
+    const HAS_TEXT: bool = F::HAS_TEXT;
+    type View<'a> = F::View<'a>;
+    type Spec<'s> = F::Spec<'s>;
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<(u32, TailLen)> {
+        let p = F::shape(peek, 0)?;
+        Some((p.head, tail_len(p.refs, p.text)))
+    }
+
+    fn decode<'a>(c: &mut Cursor<'a>) -> Self::View<'a> {
+        F::decode(c)
+    }
+
+    fn encode<'s>(
+        spec: Self::Spec<'s>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        F::encode(spec, b, w)
+    }
+
+    fn reemit<'a>(
+        view: Self::View<'a>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        F::reemit(view, b, w)
+    }
+
+    fn identity(view: Self::View<'_>, h: &mut IdHasher<'_>) {
+        F::identity(view, h)
+    }
+
+    fn same(a: Self::View<'_>, b: Self::View<'_>) -> bool {
+        F::same(a, b)
+    }
 }
 
 /// A value interned into one of the arena's side tables: the field is the
@@ -496,7 +539,7 @@ impl<T: Interned> Field for Idx<T> {
         b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
-        Self::encode(view, b, w)
+        <Self as Field>::encode(view, b, w)
     }
 
     fn identity(view: &T, h: &mut IdHasher<'_>) {
@@ -552,7 +595,7 @@ impl Field for OptLabel {
         b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
-        Self::encode(view, b, w)
+        <Self as Field>::encode(view, b, w)
     }
 
     fn identity(view: Option<&ProvidersLabel>, h: &mut IdHasher<'_>) {
@@ -598,7 +641,7 @@ impl Field for U32 {
         b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
-        Self::encode(view, b, w)
+        <Self as Field>::encode(view, b, w)
     }
 
     fn identity(view: u32, h: &mut IdHasher<'_>) {
@@ -648,7 +691,7 @@ impl Field for Text {
         b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
-        Self::encode(view, b, w)
+        <Self as Field>::encode(view, b, w)
     }
 
     fn identity(view: &str, h: &mut IdHasher<'_>) {
@@ -701,7 +744,7 @@ impl Field for Child {
         b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
-        Self::encode(b.encode_view(view)?, b, w)
+        <Self as Field>::encode(b.encode_view(view)?, b, w)
     }
 
     fn identity(view: CoercedAttrRef<'_>, h: &mut IdHasher<'_>) {
@@ -753,7 +796,7 @@ impl Field for OptChild {
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
         let t = view.map(|v| b.encode_view(v)).transpose()?;
-        Self::encode(t, b, w)
+        <Self as Field>::encode(t, b, w)
     }
 
     fn identity(view: Option<CoercedAttrRef<'_>>, h: &mut IdHasher<'_>) {
@@ -974,7 +1017,7 @@ impl Field for ExprChild {
         b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
-        Self::encode(b.encode_query_expr_view(view)?, b, w)
+        <Self as Field>::encode(b.encode_query_expr_view(view)?, b, w)
     }
 
     fn identity(view: QueryExprRef<'_>, h: &mut IdHasher<'_>) {

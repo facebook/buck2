@@ -270,19 +270,19 @@ impl<'a> CoercedAttrRef<'a> {
     }
 
     pub fn unpack_visibility(&self) -> Option<&'a VisibilitySpecification> {
-        self.parts::<kinds::Visibility>().map(|(v,)| v)
+        self.parts::<kinds::Visibility>()
     }
 
     pub fn unpack_within_view(&self) -> Option<&'a WithinViewSpecification> {
-        self.parts::<kinds::WithinView>().map(|(v,)| v)
+        self.parts::<kinds::WithinView>()
     }
 
     pub fn unpack_metadata(&self) -> Option<&'a MetadataMap> {
-        self.parts::<kinds::Metadata>().map(|(m,)| m)
+        self.parts::<kinds::Metadata>()
     }
 
     pub fn unpack_target_modifiers(&self) -> Option<&'a CfgModifiers> {
-        self.parts::<kinds::Modifiers>().map(|(m,)| m)
+        self.parts::<kinds::Modifiers>()
     }
 
     /// Whether evaluating this value can ever yield `None`, directly or
@@ -577,20 +577,20 @@ impl<'a> CoercedAttrRef<'a> {
             return Ok(None);
         }
         self.parts::<kinds::ConfigurationDep>()
-            .map(|(l,)| Some(l))
             .ok_or_else(|| {
                 internal_error!("should be a configuration dep: verified by the attr coercer")
             })
+            .map(Some)
     }
 
     /// The list elements, or `None` when the value is not a list.
     pub fn unpack_list(&self) -> Option<impl Iterator<Item = CoercedAttrRef<'a>> + use<'a>> {
-        self.parts::<kinds::List>().map(|(items,)| items.iter())
+        self.parts::<kinds::List>().map(|items| items.iter())
     }
 
     /// The string content, or `None` when the value is not a string.
     pub fn unpack_str(&self) -> Option<&'a str> {
-        self.parts::<kinds::String>().map(|(s,)| s)
+        self.parts::<kinds::String>()
     }
 }
 

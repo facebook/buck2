@@ -238,22 +238,22 @@ impl QueryAttrBase<ProvidersLabel> {
 
 impl SchemaKind for kinds::Query {
     const KIND: AttrKind = AttrKind::Query;
-    type Fields = (ExprChild,);
+    type Fields = ExprChild;
 
-    fn wrap<'a>(v: CoercedAttrRef<'a>, (_,): (QueryExprRef<'a>,)) -> CoercedAttrRefKind<'a> {
+    fn wrap<'a>(v: CoercedAttrRef<'a>, _: QueryExprRef<'a>) -> CoercedAttrRefKind<'a> {
         CoercedAttrRefKind::Query(query_view(v))
     }
 }
 
 impl CoercedAttrArenaBuilder {
     pub fn encode_parsed_query(&mut self, expr: AttrToken) -> buck2_error::Result<AttrToken> {
-        encode_kind::<kinds::Query>(self, (expr,))
+        encode_kind::<kinds::Query>(self, expr)
     }
 }
 
 impl Semantics for kinds::Query {
     fn traverse<'a>(
-        (expr,): Self::Parts<'a>,
+        expr: Self::Parts<'a>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         // Queries have no inputs or configuration deps: literal labels only,

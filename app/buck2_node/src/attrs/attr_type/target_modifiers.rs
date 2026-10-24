@@ -44,16 +44,16 @@ pub struct TargetModifiersAttrType;
 
 impl SchemaKind for kinds::Modifiers {
     const KIND: AttrKind = AttrKind::Modifiers;
-    type Fields = (Idx<CfgModifiers>,);
+    type Fields = Idx<CfgModifiers>;
 
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, (m,): (&'a CfgModifiers,)) -> CoercedAttrRefKind<'a> {
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, m: &'a CfgModifiers) -> CoercedAttrRefKind<'a> {
         CoercedAttrRefKind::Modifiers(m)
     }
 }
 
 impl CoercedAttrArenaBuilder {
     pub fn encode_target_modifiers(&mut self, m: &CfgModifiers) -> buck2_error::Result<AttrToken> {
-        encode_kind::<kinds::Modifiers>(self, (m,))
+        encode_kind::<kinds::Modifiers>(self, m)
     }
 }
 
@@ -63,7 +63,7 @@ impl Semantics for kinds::Modifiers {
     }
 
     fn configure(
-        (m,): Self::Parts<'_>,
+        m: Self::Parts<'_>,
         _: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         ResultMaybeCompatible::Compatible(ConfiguredAttr::TargetModifiers(m.dupe()))
@@ -76,23 +76,23 @@ impl Semantics for kinds::Modifiers {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json((m,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(m: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         Ok(m.to_json())
     }
 
-    fn fmt((m,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(m: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "{}", m)
     }
 
     fn any_matches(
-        (m,): Self::Parts<'_>,
+        m: Self::Parts<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         m.any_matches(filter)
     }
 
     fn serialize<S: Serializer>(
-        (m,): Self::Parts<'_>,
+        m: Self::Parts<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         m.to_json().serialize(ser)

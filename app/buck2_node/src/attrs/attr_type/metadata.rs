@@ -44,16 +44,16 @@ pub struct MetadataAttrType;
 
 impl SchemaKind for kinds::Metadata {
     const KIND: AttrKind = AttrKind::Metadata;
-    type Fields = (Idx<MetadataMap>,);
+    type Fields = Idx<MetadataMap>;
 
-    fn wrap<'a>(_v: CoercedAttrRef<'a>, (m,): (&'a MetadataMap,)) -> CoercedAttrRefKind<'a> {
+    fn wrap<'a>(_v: CoercedAttrRef<'a>, m: &'a MetadataMap) -> CoercedAttrRefKind<'a> {
         CoercedAttrRefKind::Metadata(m)
     }
 }
 
 impl CoercedAttrArenaBuilder {
     pub fn encode_metadata(&mut self, m: &MetadataMap) -> buck2_error::Result<AttrToken> {
-        encode_kind::<kinds::Metadata>(self, (m,))
+        encode_kind::<kinds::Metadata>(self, m)
     }
 }
 
@@ -63,7 +63,7 @@ impl Semantics for kinds::Metadata {
     }
 
     fn configure(
-        (m,): Self::Parts<'_>,
+        m: Self::Parts<'_>,
         _: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         ResultMaybeCompatible::Compatible(ConfiguredAttr::Metadata(m.clone()))
@@ -76,23 +76,23 @@ impl Semantics for kinds::Metadata {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json((m,): Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(m: Self::Parts<'_>, _: ToJson<'_, '_>) -> buck2_error::Result<serde_json::Value> {
         Ok(m.to_value())
     }
 
-    fn fmt((m,): Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
+    fn fmt(m: Self::Parts<'_>, Fmt { f, .. }: Fmt<'_, '_, '_>) -> std::fmt::Result {
         write!(f, "{}", m)
     }
 
     fn any_matches(
-        (m,): Self::Parts<'_>,
+        m: Self::Parts<'_>,
         MatchesAny { filter, .. }: MatchesAny<'_, '_>,
     ) -> buck2_error::Result<bool> {
         m.any_matches(filter)
     }
 
     fn serialize<S: Serializer>(
-        (m,): Self::Parts<'_>,
+        m: Self::Parts<'_>,
         SerializeKind { ser, .. }: SerializeKind<'_, '_, S>,
     ) -> Result<S::Ok, S::Error> {
         m.to_value().serialize(ser)
