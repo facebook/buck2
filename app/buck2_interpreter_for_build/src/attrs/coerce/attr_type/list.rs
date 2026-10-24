@@ -29,11 +29,11 @@ impl AttrTypeCoerce for ListAttrType {
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         let list = coerce_list(value)?;
-        ctx.build_list_attr(
-            list.iter()
-                .map(|v| (self.inner).coerce(configurable, ctx, *v))
-                .collect::<Result<Vec<_>, _>>()?,
-        )
+        let items = list
+            .iter()
+            .map(|v| (self.inner).coerce(configurable, ctx, *v))
+            .collect::<Result<Vec<_>, _>>()?;
+        ctx.attr_arena().encode_list(&items)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

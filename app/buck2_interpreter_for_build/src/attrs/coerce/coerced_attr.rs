@@ -17,12 +17,10 @@ use buck2_interpreter::types::select_incompatible::StarlarkSelectIncompatible;
 use buck2_node::attrs::arena::CoercedAttrRef;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
-use buck2_node::attrs::coerced_attr::CoercedConcat;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::coercion_context::CoerceMemoKey;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
-use buck2_util::arc_str::ArcSlice;
 use starlark::values::Value;
 use starlark::values::dict::DictRef;
 
@@ -58,6 +56,26 @@ pub trait CoercedAttrExr: Sized {
         value: Value<'v>,
         default_attr: Option<CoercedAttrRef<'_>>,
     ) -> buck2_error::Result<Self>;
+}
+
+/// Coerces one operand of a `+` chain of selects into `items`, flattening
+/// nested sums so the whole chain encodes as one concat.
+fn coerce_sum_operand<'v>(
+    attr: &AttrType,
+    configurable: AttrIsConfigurable,
+    ctx: &dyn AttrCoercionContext<'v>,
+    value: Value<'v>,
+    items: &mut Vec<CoercedAttr>,
+) -> buck2_error::Result<()> {
+    if let Some(selector) = StarlarkSelector::from_value(value)
+        && let StarlarkSelector::Sum(l, r) = *selector
+    {
+        coerce_sum_operand(attr, configurable, ctx, l, items)?;
+        coerce_sum_operand(attr, configurable, ctx, r, items)
+    } else {
+        items.push(CoercedAttr::coerce(attr, configurable, ctx, value, None)?);
+        Ok(())
+    }
 }
 
 impl CoercedAttrExr for CoercedAttr {
@@ -132,15 +150,14 @@ impl CoercedAttrExr for CoercedAttr {
                                     Err(e) => {
                                         if let Some(select_fail) = StarlarkSelectFail::from_value(v)
                                         {
-                                            CoercedAttr::SelectFail(
-                                                ctx.intern_str(select_fail.as_str()),
-                                            )
+                                            ctx.attr_arena()
+                                                .encode_select_fail(select_fail.as_str())?
                                         } else if let Some(select_incompatible) =
                                             StarlarkSelectIncompatible::from_value(v)
                                         {
-                                            CoercedAttr::SelectIncompatible(
-                                                ctx.intern_str(select_incompatible.as_str()),
-                                            )
+                                            ctx.attr_arena().encode_select_incompatible(
+                                                select_incompatible.as_str(),
+                                            )?
                                         } else {
                                             return Err(e);
                                         }
@@ -162,7 +179,7 @@ impl CoercedAttrExr for CoercedAttr {
 
                         assert_eq!(entries.capacity(), entries.len());
 
-                        ctx.build_selector_attr(entries, default)
+                        ctx.attr_arena().encode_selector(&entries, default.as_ref())
                     } else {
                         Err(SelectError::ValueNotDict(v.get().to_repr()).into())
                     }
@@ -175,27 +192,10 @@ impl CoercedAttrExr for CoercedAttr {
                         )
                         .into());
                     }
-                    // Intern only the complete sum: retaining every growing prefix
-                    // in the package interner would require quadratic memory.
-                    let mut pending = vec![r, l];
                     let mut items = Vec::new();
-                    while let Some(value) = pending.pop() {
-                        if let Some(selector) = StarlarkSelector::from_value(value)
-                            && let StarlarkSelector::Sum(l, r) = *selector
-                        {
-                            pending.push(r);
-                            pending.push(l);
-                        } else {
-                            match CoercedAttr::coerce(attr, configurable, ctx, value, None)? {
-                                CoercedAttr::Concat(concat) => {
-                                    items.extend(concat.iter().cloned());
-                                }
-                                item => items.push(item),
-                            }
-                        }
-                    }
-
-                    Ok(CoercedAttr::Concat(CoercedConcat(ArcSlice::from(items))))
+                    coerce_sum_operand(attr, configurable, ctx, l, &mut items)?;
+                    coerce_sum_operand(attr, configurable, ctx, r, &mut items)?;
+                    ctx.attr_arena().encode_concat(&items)
                 }
             }
         } else {

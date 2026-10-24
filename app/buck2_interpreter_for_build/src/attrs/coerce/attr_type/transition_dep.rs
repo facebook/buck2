@@ -8,10 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
-use buck2_core::configuration::transition::id::TransitionId;
-use buck2_node::attrs::attr_type::transition_dep::CoercedTransitionDep;
 use buck2_node::attrs::attr_type::transition_dep::TransitionDepAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -40,10 +36,8 @@ impl AttrTypeCoerce for TransitionDepAttrType {
             )
         };
 
-        Ok(CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
-            dep,
-            transition: transition.map(|t| Arc::new(TransitionId::Target(t))),
-        })))
+        ctx.attr_arena()
+            .encode_transition_dep(&dep, transition.as_ref())
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

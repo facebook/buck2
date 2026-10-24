@@ -20,22 +20,15 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::InferTargetNames;
-use buck2_core::pattern::pattern::ParsedPattern;
-use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_hash::IntentionallyStdHashMap;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::attrs::arena::OwnedCoercedAttr;
 use buck2_node::attrs::attr_type::AttrType;
-use buck2_node::attrs::coerced_path::CoercedPath;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
-use buck2_query_parser::Expr;
-use buck2_query_parser::spanned::Spanned;
-use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use starlark::environment::Globals;
 use starlark::environment::Module;
@@ -52,16 +45,41 @@ use crate::interpreter::bzl_eval_ctx::BzlEvalCtx;
 use crate::interpreter::cell_info::InterpreterCellInfo;
 use crate::interpreter::functions::host_info::HostInfo;
 
-pub fn coercion_ctx() -> EnumCoercionCtx {
+pub fn coercion_ctx() -> BuildAttrCoercionContext {
     coercion_ctx_listing(PackageListing::testing_empty())
 }
 
-pub fn coercion_ctx_listing(package_listing: PackageListing) -> EnumCoercionCtx {
-    EnumCoercionCtx(build_coercion_ctx(package_listing))
+pub fn coercion_ctx_listing(package_listing: PackageListing) -> BuildAttrCoercionContext {
+    build_coercion_ctx(package_listing)
 }
 
-/// Coercion for tests that assert on the encoded value: coerces through this
-/// context and seals the result into its own single-value storage.
+/// Coercion for tests that assert on owned `CoercedAttr` values: coerces
+/// into this context's arena and decodes the result back out.
+pub trait CoerceOwned {
+    fn coerce_owned<'v>(
+        &self,
+        attr: &AttrType,
+        value: Value<'v>,
+    ) -> buck2_error::Result<CoercedAttr>;
+}
+
+impl CoerceOwned for BuildAttrCoercionContext {
+    fn coerce_owned<'v>(
+        &self,
+        attr: &AttrType,
+        value: Value<'v>,
+    ) -> buck2_error::Result<CoercedAttr> {
+        let CoercedAttr::Encoded(r, _) = attr.coerce(AttrIsConfigurable::Yes, self, value)? else {
+            return Err(buck2_error::internal_error!(
+                "coercion results are arena-encoded"
+            ));
+        };
+        self.attr_arena().view(r).to_coerced()
+    }
+}
+
+/// Coercion for tests that assert on the encoded value: coerces into this
+/// context's arena and seals the result into its own single-value storage.
 pub trait CoerceSealed {
     fn coerce_sealed<'v>(
         &self,
@@ -70,49 +88,13 @@ pub trait CoerceSealed {
     ) -> buck2_error::Result<OwnedCoercedAttr>;
 }
 
-impl CoerceSealed for EnumCoercionCtx {
+impl CoerceSealed for BuildAttrCoercionContext {
     fn coerce_sealed<'v>(
         &self,
         attr: &AttrType,
         value: Value<'v>,
     ) -> buck2_error::Result<OwnedCoercedAttr> {
-        let coerced = attr.coerce(AttrIsConfigurable::Yes, self, value)?;
-        OwnedCoercedAttr::try_new(&coerced)
-    }
-}
-
-/// Test-only view of a context that keeps the trait's default (plain-enum)
-/// attr constructors instead of the arena-encoding overrides, so tests can
-/// assert on `CoercedAttr` values directly.
-pub struct EnumCoercionCtx(pub BuildAttrCoercionContext);
-
-impl<'v> AttrCoercionContext<'v> for EnumCoercionCtx {
-    fn coerce_providers_label(&self, value: &str) -> buck2_error::Result<ProvidersLabel> {
-        AttrCoercionContext::coerce_providers_label(&self.0, value)
-    }
-
-    fn intern_str(&self, value: &str) -> ArcStr {
-        AttrCoercionContext::intern_str(&self.0, value)
-    }
-
-    fn coerce_path(&self, value: &str, allow_directory: bool) -> buck2_error::Result<CoercedPath> {
-        AttrCoercionContext::coerce_path(&self.0, value, allow_directory)
-    }
-
-    fn coerce_target_pattern(
-        &self,
-        pattern: &str,
-    ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>> {
-        AttrCoercionContext::coerce_target_pattern(&self.0, pattern)
-    }
-
-    fn visit_query_function_literals<'q>(
-        &self,
-        visitor: &mut dyn QueryLiteralVisitor<'q>,
-        expr: &Spanned<Expr<'q>>,
-        query: &'q str,
-    ) -> buck2_error::Result<()> {
-        AttrCoercionContext::visit_query_function_literals(&self.0, visitor, expr, query)
+        OwnedCoercedAttr::try_new(&self.coerce_owned(attr, value)?)
     }
 }
 

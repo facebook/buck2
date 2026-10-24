@@ -32,7 +32,7 @@ impl AttrTypeCoerce for MetadataAttrType {
     fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        _ctx: &dyn AttrCoercionContext<'v>,
+        ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         if configurable == AttrIsConfigurable::Yes {
@@ -59,7 +59,8 @@ impl AttrTypeCoerce for MetadataAttrType {
             map.insert(key.to_owned(), MetadataValue::new(value));
         }
 
-        Ok(CoercedAttr::Metadata(MetadataMap::new(map)))
+        let m = MetadataMap::new(map);
+        ctx.attr_arena().encode_metadata(&m)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

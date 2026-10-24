@@ -25,8 +25,8 @@ impl AttrTypeCoerce for ConfigurationDepAttrType {
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
-        ctx.coerce_providers_label(value.unpack_str_err()?)
-            .map(CoercedAttr::ConfigurationDep)
+        let label = ctx.coerce_providers_label(value.unpack_str_err()?)?;
+        ctx.attr_arena().encode_configuration_dep(&label)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

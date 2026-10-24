@@ -27,7 +27,7 @@ impl AttrTypeCoerce for SplitTransitionDepAttrType {
     ) -> buck2_error::Result<CoercedAttr> {
         let label = ctx.coerce_providers_label(value.unpack_str_err()?)?;
 
-        Ok(CoercedAttr::SplitTransitionDep(label))
+        ctx.attr_arena().encode_split_transition_dep(&label)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

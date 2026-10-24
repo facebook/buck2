@@ -30,7 +30,7 @@ impl AttrTypeCoerce for OneOfAttrType {
         // Bias towards the start of the list - try and use success/failure from first in preference
         for (i, x) in self.xs.iter().enumerate() {
             match x.coerce_item(configurable, ctx, value) {
-                Ok(v) => return ctx.build_one_of_attr(v, i as u32),
+                Ok(v) => return ctx.attr_arena().encode_one_of(i as u32, &v),
                 Err(e) => {
                     // TODO(nga): anyhow error creation is expensive.
                     errs.push(e)

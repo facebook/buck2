@@ -9,7 +9,7 @@
  */
 
 use std::cell::RefCell;
-use std::sync::Arc;
+use std::cell::RefMut;
 
 use allocative::Allocative;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -31,16 +31,11 @@ use starlark::values::Value;
 use starlark::values::ValueIdentity;
 
 use super::coerced_attr::CoercedAttr;
-use super::coerced_attr::CoercedSelector;
+use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::attr_type::AttrType;
-use crate::attrs::attr_type::dict::DictLiteral;
-use crate::attrs::attr_type::list::ListLiteral;
-use crate::attrs::attr_type::string::StringLiteral;
-use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configurable::AttrIsConfigurable;
-use crate::configuration::resolved::ConfigurationSettingKey;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
@@ -154,46 +149,10 @@ pub trait AttrCoercionContext<'v> {
 
     fn coerce_memo_insert(&self, _key: CoerceMemoKey<'v>, _value: &CoercedAttr) {}
 
-    /// Attr constructors: callers hand over the parts of a value and the
-    /// context owns the result representation. The defaults assemble plain
-    /// enum values; an arena context encodes the parts directly instead, so
-    /// the enum form (and its allocations) never materializes for values
-    /// headed into a package arena.
-    fn build_string_attr(&self, value: &str) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::String(StringLiteral(self.intern_str(value))))
-    }
-
-    fn build_list_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::List(ListLiteral(items.into_iter().collect())))
-    }
-
-    fn build_tuple_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::Tuple(TupleLiteral(
-            items.into_iter().collect(),
-        )))
-    }
-
-    fn build_dict_attr(
-        &self,
-        pairs: Vec<(CoercedAttr, CoercedAttr)>,
-    ) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::Dict(DictLiteral(pairs.into_iter().collect())))
-    }
-
-    fn build_one_of_attr(&self, inner: CoercedAttr, idx: u32) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::OneOf(Box::new(inner), idx))
-    }
-
-    fn build_selector_attr(
-        &self,
-        entries: Vec<(ConfigurationSettingKey, CoercedAttr)>,
-        default: Option<CoercedAttr>,
-    ) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::Selector(Arc::new(CoercedSelector::new(
-            entries.into_iter().collect(),
-            default,
-        )?)))
-    }
+    /// The arena builder every value coerced in this context is encoded
+    /// into. It is borrowed for one `encode_*` call at a time, so a value's
+    /// children are encoded before the value.
+    fn attr_arena(&self) -> RefMut<'_, CoercedAttrArenaBuilder>;
 
     /// Reuse previously allocated string if possible.
     fn intern_str(&self, value: &str) -> ArcStr;

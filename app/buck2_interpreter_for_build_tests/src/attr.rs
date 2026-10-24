@@ -19,7 +19,7 @@ use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::plugins::PluginKindSet;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
-use buck2_interpreter_for_build::attrs::coerce::testing::EnumCoercionCtx;
+use buck2_interpreter_for_build::attrs::coerce::testing::CoerceOwned;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_node::attrs::arena::OwnedCoercedAttr;
@@ -135,7 +135,7 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
             CellRelativePath::unchecked_new("foo"),
         )?;
         let enclosing_package = (package.dupe(), PackageListing::testing_empty());
-        let coercer_ctx = EnumCoercionCtx(BuildAttrCoercionContext::new_with_package(
+        let coercer_ctx = BuildAttrCoercionContext::new_with_package(
             cell_resolver,
             cell_alias_resolver,
             enclosing_package,
@@ -144,7 +144,7 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
                 package.as_cell_path().to_owned(),
             ),
             InferTargetNames::No,
-        ));
+        );
         let label_coercer = AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY);
         let string_coercer = AttrType::string();
         let enum_coercer = AttrType::enumeration(vec![
@@ -162,35 +162,16 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
             .is_err()
         );
 
-        let label_value1 = label_coercer.coerce(
-            AttrIsConfigurable::Yes,
-            &coercer_ctx,
-            heap.alloc("root//foo:bar"),
-        )?;
-        let label_value2 = label_coercer.coerce(
-            AttrIsConfigurable::Yes,
-            &coercer_ctx,
-            heap.alloc("root//foo:bar[baz]"),
-        )?;
-        let label_value3 =
-            label_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc(":bar"))?;
-        let label_value4 = label_coercer.coerce(
-            AttrIsConfigurable::Yes,
-            &coercer_ctx,
-            heap.alloc(":bar[baz]"),
-        )?;
-        let invalid_label_value1 = label_coercer.coerce(
-            AttrIsConfigurable::Yes,
-            &coercer_ctx,
-            heap.alloc("root//foo/..."),
-        );
-        let invalid_label_value2 = label_coercer.coerce(
-            AttrIsConfigurable::Yes,
-            &coercer_ctx,
-            heap.alloc("root//foo:"),
-        );
-        let invalid_label_value3 =
-            label_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("1"));
+        let label_value1 = coercer_ctx.coerce_owned(&label_coercer, heap.alloc("root//foo:bar"))?;
+        let label_value2 =
+            coercer_ctx.coerce_owned(&label_coercer, heap.alloc("root//foo:bar[baz]"))?;
+        let label_value3 = coercer_ctx.coerce_owned(&label_coercer, heap.alloc(":bar"))?;
+        let label_value4 = coercer_ctx.coerce_owned(&label_coercer, heap.alloc(":bar[baz]"))?;
+        let invalid_label_value1 =
+            coercer_ctx.coerce_owned(&label_coercer, heap.alloc("root//foo/..."));
+        let invalid_label_value2 =
+            coercer_ctx.coerce_owned(&label_coercer, heap.alloc("root//foo:"));
+        let invalid_label_value3 = coercer_ctx.coerce_owned(&label_coercer, heap.alloc("1"));
 
         assert_eq!(
             "root//foo:bar",
@@ -212,20 +193,14 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
         assert!(invalid_label_value2.is_err());
         assert!(invalid_label_value3.is_err());
 
-        let string_value1 =
-            string_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("str"))?;
+        let string_value1 = coercer_ctx.coerce_owned(&string_coercer, heap.alloc("str"))?;
         assert_eq!("str", value_to_string(&string_value1, package.dupe())?);
 
-        let enum_valid1 =
-            enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("red"))?;
-        let enum_valid2 =
-            enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("green"))?;
-        let enum_valid3 =
-            enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("RED"))?;
-        let enum_invalid1 =
-            enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("orange"));
-        let enum_invalid2 =
-            enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc(false));
+        let enum_valid1 = coercer_ctx.coerce_owned(&enum_coercer, heap.alloc("red"))?;
+        let enum_valid2 = coercer_ctx.coerce_owned(&enum_coercer, heap.alloc("green"))?;
+        let enum_valid3 = coercer_ctx.coerce_owned(&enum_coercer, heap.alloc("RED"))?;
+        let enum_invalid1 = coercer_ctx.coerce_owned(&enum_coercer, heap.alloc("orange"));
+        let enum_invalid2 = coercer_ctx.coerce_owned(&enum_coercer, heap.alloc(false));
         assert_eq!("red", value_to_string(&enum_valid1, package.dupe())?);
         assert_eq!("green", value_to_string(&enum_valid2, package.dupe())?);
         assert_eq!("red", value_to_string(&enum_valid3, package.dupe())?);

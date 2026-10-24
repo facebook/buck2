@@ -4009,6 +4009,11 @@ impl CoercedAttrArenaBuilder {
         self.encode_seq(AttrKind::Tuple, items).map(token)
     }
 
+    /// A `+` chain of selects, already flattened to its operands.
+    pub fn encode_concat(&mut self, items: &[CoercedAttr]) -> buck2_error::Result<CoercedAttr> {
+        self.encode_seq(AttrKind::Concat, items).map(token)
+    }
+
     pub fn encode_dict(
         &mut self,
         pairs: &[(CoercedAttr, CoercedAttr)],

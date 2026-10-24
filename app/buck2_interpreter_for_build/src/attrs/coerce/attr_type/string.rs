@@ -25,7 +25,7 @@ impl AttrTypeCoerce for StringAttrType {
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
-        ctx.build_string_attr(value.unpack_str_err()?)
+        ctx.attr_arena().encode_string(value.unpack_str_err()?)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

@@ -23,10 +23,10 @@ impl AttrTypeCoerce for IntAttrType {
     fn coerce_item<'v>(
         &self,
         _configurable: AttrIsConfigurable,
-        _ctx: &dyn AttrCoercionContext<'v>,
+        ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::Int(i64::unpack_value_err(value)?))
+        ctx.attr_arena().encode_int(i64::unpack_value_err(value)?)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

@@ -10,7 +10,6 @@
 
 use buck2_core::soft_error;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
-use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -36,38 +35,38 @@ fn to_literal<'v>(
     ctx: &dyn AttrCoercionContext<'v>,
 ) -> buck2_error::Result<CoercedAttr> {
     if value.is_none() {
-        Ok(CoercedAttr::None)
+        ctx.attr_arena().encode_none()
     } else if let Some(x) = value.unpack_bool() {
-        Ok(CoercedAttr::Bool(BoolLiteral(x)))
+        ctx.attr_arena().encode_bool(x)
     } else if let Some(x) = i64::unpack_value(value)? {
-        Ok(CoercedAttr::Int(x))
+        ctx.attr_arena().encode_int(x)
     } else if let Some(x) = DictRef::from_value(value) {
-        ctx.build_dict_attr(
-            x.iter()
-                .map(|(k, v)| Ok((to_literal(k, ctx)?, to_literal(v, ctx)?)))
-                .collect::<buck2_error::Result<Vec<_>>>()?,
-        )
+        let pairs = x
+            .iter()
+            .map(|(k, v)| Ok((to_literal(k, ctx)?, to_literal(v, ctx)?)))
+            .collect::<buck2_error::Result<Vec<_>>>()?;
+        ctx.attr_arena().encode_dict(&pairs)
     } else if let Some(x) = TupleRef::from_value(value) {
-        ctx.build_tuple_attr(
-            x.iter()
-                .map(|v| to_literal(v, ctx))
-                .collect::<buck2_error::Result<Vec<_>>>()?,
-        )
+        let items = x
+            .iter()
+            .map(|v| to_literal(v, ctx))
+            .collect::<buck2_error::Result<Vec<_>>>()?;
+        ctx.attr_arena().encode_tuple(&items)
     } else if let Some(x) = ListRef::from_value(value) {
-        ctx.build_list_attr(
-            x.iter()
-                .map(|v| to_literal(v, ctx))
-                .collect::<buck2_error::Result<Vec<_>>>()?,
-        )
+        let items = x
+            .iter()
+            .map(|v| to_literal(v, ctx))
+            .collect::<buck2_error::Result<Vec<_>>>()?;
+        ctx.attr_arena().encode_list(&items)
     } else if let Some(s) = value.unpack_str() {
-        ctx.build_string_attr(s)
+        ctx.attr_arena().encode_string(s)
     } else {
         soft_error!(
             "coerce_to_any",
             AnyError::CannotCoerce(value.get_type(), value.to_repr()).into(),
             error_on_oss: true
         )?;
-        ctx.build_string_attr(&value.to_str())
+        ctx.attr_arena().encode_string(&value.to_str())
     }
 }
 

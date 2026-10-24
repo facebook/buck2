@@ -50,7 +50,7 @@ impl AttrTypeCoerce for TupleAttrType {
                 {
                     res.push(c.coerce(configurable, ctx, v)?);
                 }
-                ctx.build_tuple_attr(res)
+                ctx.attr_arena().encode_tuple(&res)
             } else {
                 Err(TupleError::TooManyElements(self.xs.len()).into())
             }

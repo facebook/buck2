@@ -30,9 +30,8 @@ impl AttrTypeCoerce for WithinViewAttrType {
         if configurable == AttrIsConfigurable::Yes {
             return Err(internal_error!("Within view attribute is not configurable"));
         }
-        Ok(CoercedAttr::WithinView(
-            parse_visibility_with_view(ctx, value)?.build_within_view(),
-        ))
+        let v = parse_visibility_with_view(ctx, value)?.build_within_view();
+        ctx.attr_arena().encode_within_view(&v)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

@@ -73,9 +73,8 @@ impl AttrTypeCoerce for ArgAttrType {
         let mut items = parse_macros(value)?.into_items();
         if let [parser::ArgItem::String(val)] = items.as_mut_slice() {
             // Specialize single-item StringWithMacros, which are in fact the common case.
-            return Ok(CoercedAttr::Arg(UnconfiguredStringWithMacros::StringPart(
-                ctx.intern_str(&mem::take(val)),
-            )));
+            let arg = UnconfiguredStringWithMacros::StringPart(ctx.intern_str(&mem::take(val)));
+            return ctx.attr_arena().encode_arg(&arg);
         }
 
         let mut parts = Vec::with_capacity(items.len());
@@ -125,9 +124,8 @@ impl AttrTypeCoerce for ArgAttrType {
             }
         }
 
-        Ok(CoercedAttr::Arg(UnconfiguredStringWithMacros::ManyParts(
-            parts.into_boxed_slice(),
-        )))
+        let arg = UnconfiguredStringWithMacros::ManyParts(parts.into_boxed_slice());
+        ctx.attr_arena().encode_arg(&arg)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {
@@ -258,7 +256,7 @@ mod tests {
     use starlark::environment::Module;
 
     use super::*;
-    use crate::attrs::coerce::attr_type::AttrTypeExt;
+    use crate::attrs::coerce::testing::CoerceOwned;
     use crate::attrs::coerce::testing::coercion_ctx;
     use crate::attrs::coerce::testing::to_value;
     use crate::interpreter::selector::register_select;
@@ -300,7 +298,7 @@ mod tests {
                 r#""$(exe //:foo) " + select({"DEFAULT": "$(location //:bar)"})"#,
             );
 
-            let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+            let coerced = coercion_ctx().coerce_owned(&attr, value)?;
             let configured = OwnedCoercedAttr::try_new(&coerced)?
                 .as_ref()
                 .configure(&attr, &configuration_ctx(), None)
@@ -332,9 +330,7 @@ mod tests {
                 ("$(find . -name foo)", "find", 3),
             ] {
                 let value = env.heap().alloc(input);
-                let error = attr
-                    .coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)
-                    .unwrap_err();
+                let error = coercion_ctx().coerce_owned(&attr, value).unwrap_err();
                 assert!(
                     format!("{error:#}").contains(&format!(
                         "Unrecognized macro `{name}` (with {arg_count} args). If this is shell command substitution rather than a buck macro, escape it as `\\$({name} ...)`"
@@ -351,7 +347,7 @@ mod tests {
         Module::with_temp_heap(|env| {
             let attr = AttrType::arg(true);
             let value = env.heap().alloc(r"\$(find . -name foo)");
-            let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+            let coerced = coercion_ctx().coerce_owned(&attr, value)?;
             assert_eq!(
                 coerced,
                 CoercedAttr::Arg(UnconfiguredStringWithMacros::StringPart(
@@ -376,7 +372,7 @@ mod tests {
                 ),
             ] {
                 let value = env.heap().alloc(input);
-                let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+                let coerced = coercion_ctx().coerce_owned(&attr, value)?;
                 assert_eq!(
                     OwnedCoercedAttr::try_new(&coerced)?
                         .as_ref()

@@ -9,7 +9,6 @@
  */
 
 use buck2_node::attrs::attr_type::bool::BoolAttrType;
-use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -24,12 +23,11 @@ impl AttrTypeCoerce for BoolAttrType {
     fn coerce_item<'v>(
         &self,
         _configurable: AttrIsConfigurable,
-        _ctx: &dyn AttrCoercionContext<'v>,
+        ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::Bool(BoolLiteral(
-            UnpackValue::unpack_value_err(value)?,
-        )))
+        ctx.attr_arena()
+            .encode_bool(UnpackValue::unpack_value_err(value)?)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

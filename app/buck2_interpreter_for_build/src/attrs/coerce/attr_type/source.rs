@@ -48,7 +48,7 @@ impl AttrTypeCoerce for SourceAttrType {
         // valid path, so testing for it doesn't cost us any path coercions.
         let label_err = if source_label.contains(':') || source_label.contains("//") {
             match ctx.coerce_providers_label(source_label) {
-                Ok(l) => return Ok(CoercedAttr::SourceLabel(l)),
+                Ok(l) => return ctx.attr_arena().encode_source_label(&l),
                 Err(e) => Some(e),
             }
         } else {
@@ -57,7 +57,7 @@ impl AttrTypeCoerce for SourceAttrType {
         };
 
         let path_err = match ctx.coerce_path(cleanup_path(source_label), self.allow_directory) {
-            Ok(path) => return Ok(CoercedAttr::SourceFile(path)),
+            Ok(path) => return ctx.attr_arena().encode_source_file(&path),
             Err(path_err) => path_err,
         };
 

@@ -51,7 +51,7 @@ impl AttrTypeCoerce for DictAttrType {
                 ));
             }
         }
-        ctx.build_dict_attr(res)
+        ctx.attr_arena().encode_dict(&res)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

@@ -14,14 +14,12 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorOptionContext;
-use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::provider_id_set::ProviderIdSet;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::parse_expr;
 use starlark::typing::Ty;
@@ -108,10 +106,8 @@ impl AttrTypeCoerce for QueryAttrType {
         ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
-        Ok(CoercedAttr::Query(Box::new(QueryAttr {
-            query: Self::coerce(ctx, value.unpack_str_err()?.to_owned())?,
-            providers: ProviderIdSet::EMPTY,
-        })))
+        let query = Self::coerce(ctx, value.unpack_str_err()?.to_owned())?;
+        ctx.attr_arena().encode_query(&query)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

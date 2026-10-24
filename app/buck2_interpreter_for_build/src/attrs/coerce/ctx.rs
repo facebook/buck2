@@ -9,6 +9,7 @@
  */
 
 use std::cell::RefCell;
+use std::cell::RefMut;
 use std::fmt;
 use std::fmt::Debug;
 
@@ -36,7 +37,6 @@ use buck2_node::attrs::coerced_path::CoercedPath;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::coercion_context::CoerceMemoKey;
 use buck2_node::attrs::coercion_context::CoerceMemoTable;
-use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::query::query_functions::CONFIGURED_GRAPH_QUERY_FUNCTIONS;
 use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
@@ -245,6 +245,10 @@ impl BuildAttrCoercionContext {
 }
 
 impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
+    fn attr_arena(&self) -> RefMut<'_, CoercedAttrArenaBuilder> {
+        self.attr_arena_builder.borrow_mut()
+    }
+
     fn coerce_providers_label(&self, value: &str) -> buck2_error::Result<ProvidersLabel> {
         let hash = str_hash(value);
         let mut label_cache = self.label_cache.borrow_mut();
@@ -262,41 +266,6 @@ impl<'v> AttrCoercionContext<'v> for BuildAttrCoercionContext {
                 Ok(label)
             }
         }
-    }
-
-    fn build_string_attr(&self, value: &str) -> buck2_error::Result<CoercedAttr> {
-        self.attr_arena_builder.borrow_mut().encode_string(value)
-    }
-
-    fn build_list_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
-        self.attr_arena_builder.borrow_mut().encode_list(&items)
-    }
-
-    fn build_tuple_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
-        self.attr_arena_builder.borrow_mut().encode_tuple(&items)
-    }
-
-    fn build_dict_attr(
-        &self,
-        pairs: Vec<(CoercedAttr, CoercedAttr)>,
-    ) -> buck2_error::Result<CoercedAttr> {
-        self.attr_arena_builder.borrow_mut().encode_dict(&pairs)
-    }
-
-    fn build_one_of_attr(&self, inner: CoercedAttr, idx: u32) -> buck2_error::Result<CoercedAttr> {
-        self.attr_arena_builder
-            .borrow_mut()
-            .encode_one_of(idx, &inner)
-    }
-
-    fn build_selector_attr(
-        &self,
-        entries: Vec<(ConfigurationSettingKey, CoercedAttr)>,
-        default: Option<CoercedAttr>,
-    ) -> buck2_error::Result<CoercedAttr> {
-        self.attr_arena_builder
-            .borrow_mut()
-            .encode_selector(&entries, default.as_ref())
     }
 
     fn intern_str(&self, value: &str) -> ArcStr {
@@ -380,6 +349,10 @@ pub struct MemoizedCoercionCtx<'c, 'v> {
 }
 
 impl<'c, 'v> AttrCoercionContext<'v> for MemoizedCoercionCtx<'c, 'v> {
+    fn attr_arena(&self) -> RefMut<'_, CoercedAttrArenaBuilder> {
+        AttrCoercionContext::attr_arena(self.base)
+    }
+
     fn coerce_providers_label(&self, value: &str) -> buck2_error::Result<ProvidersLabel> {
         AttrCoercionContext::coerce_providers_label(self.base, value)
     }
@@ -390,37 +363,6 @@ impl<'c, 'v> AttrCoercionContext<'v> for MemoizedCoercionCtx<'c, 'v> {
 
     fn coerce_memo_insert(&self, key: CoerceMemoKey<'v>, value: &CoercedAttr) {
         self.memo.insert(key, value);
-    }
-
-    fn build_string_attr(&self, value: &str) -> buck2_error::Result<CoercedAttr> {
-        AttrCoercionContext::build_string_attr(self.base, value)
-    }
-
-    fn build_list_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
-        AttrCoercionContext::build_list_attr(self.base, items)
-    }
-
-    fn build_tuple_attr(&self, items: Vec<CoercedAttr>) -> buck2_error::Result<CoercedAttr> {
-        AttrCoercionContext::build_tuple_attr(self.base, items)
-    }
-
-    fn build_dict_attr(
-        &self,
-        pairs: Vec<(CoercedAttr, CoercedAttr)>,
-    ) -> buck2_error::Result<CoercedAttr> {
-        AttrCoercionContext::build_dict_attr(self.base, pairs)
-    }
-
-    fn build_one_of_attr(&self, inner: CoercedAttr, idx: u32) -> buck2_error::Result<CoercedAttr> {
-        AttrCoercionContext::build_one_of_attr(self.base, inner, idx)
-    }
-
-    fn build_selector_attr(
-        &self,
-        entries: Vec<(ConfigurationSettingKey, CoercedAttr)>,
-        default: Option<CoercedAttr>,
-    ) -> buck2_error::Result<CoercedAttr> {
-        AttrCoercionContext::build_selector_attr(self.base, entries, default)
     }
 
     fn intern_str(&self, value: &str) -> ArcStr {
@@ -445,102 +387,5 @@ impl<'c, 'v> AttrCoercionContext<'v> for MemoizedCoercionCtx<'c, 'v> {
         query: &'q str,
     ) -> buck2_error::Result<()> {
         AttrCoercionContext::visit_query_function_literals(self.base, visitor, expr, query)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use buck2_common::package_listing::listing::PackageListing;
-    use buck2_common::package_listing::listing::testing::PackageListingExt;
-    use buck2_core::provider::label::ProvidersLabel;
-    use buck2_core::provider::label::testing::ProvidersLabelTestExt;
-    use buck2_node::attrs::attr_type::bool::BoolLiteral;
-    use buck2_node::attrs::coerced_attr::CoercedAttr;
-    use buck2_node::attrs::coercion_context::AttrCoercionContext;
-    use buck2_node::configuration::resolved::ConfigurationSettingKey;
-
-    use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
-    use crate::attrs::coerce::testing::EnumCoercionCtx;
-    use crate::attrs::coerce::testing::build_coercion_ctx;
-
-    fn decode(ctx: &BuildAttrCoercionContext, attr: CoercedAttr) -> CoercedAttr {
-        match attr {
-            CoercedAttr::Encoded(r, _) => {
-                ctx.with_attr_arena_ref(|b| b.view(r).to_coerced()).unwrap()
-            }
-            other => panic!("arena context should return `Encoded`, got `{other:?}`"),
-        }
-    }
-
-    fn key(name: &str) -> ConfigurationSettingKey {
-        ConfigurationSettingKey(ProvidersLabel::testing_new("root", "cfg", name, None))
-    }
-
-    // Children built through each context's own path: the arena side
-    // exercises `Encoded` child refs inside every container.
-    fn items<'v>(ctx: &impl AttrCoercionContext<'v>) -> Vec<CoercedAttr> {
-        vec![
-            ctx.build_string_attr("a").unwrap(),
-            CoercedAttr::Int(7),
-            CoercedAttr::Bool(BoolLiteral(true)),
-        ]
-    }
-
-    fn pairs<'v>(ctx: &impl AttrCoercionContext<'v>) -> Vec<(CoercedAttr, CoercedAttr)> {
-        vec![(ctx.build_string_attr("k").unwrap(), CoercedAttr::Int(3))]
-    }
-
-    fn entries<'v>(
-        ctx: &impl AttrCoercionContext<'v>,
-    ) -> Vec<(ConfigurationSettingKey, CoercedAttr)> {
-        vec![
-            (key("a"), ctx.build_string_attr("on-a").unwrap()),
-            (key("b"), CoercedAttr::None),
-        ]
-    }
-
-    /// The arena constructor overrides must encode the same value the
-    /// trait's default (plain-enum) constructors produce, including with
-    /// already-`Encoded` children.
-    #[test]
-    fn test_arena_constructors_match_enum_path() {
-        let plain = EnumCoercionCtx(build_coercion_ctx(PackageListing::testing_empty()));
-        let arena = build_coercion_ctx(PackageListing::testing_empty());
-
-        let expect = plain.build_string_attr("foo").unwrap();
-        let got = arena.build_string_attr("foo").unwrap();
-        assert_eq!(expect, decode(&arena, got), "string constructor differs");
-
-        let expect = plain.build_list_attr(items(&plain)).unwrap();
-        let got = AttrCoercionContext::build_list_attr(&arena, items(&arena)).unwrap();
-        assert_eq!(expect, decode(&arena, got), "list constructor differs");
-
-        let expect = plain.build_tuple_attr(items(&plain)).unwrap();
-        let got = AttrCoercionContext::build_tuple_attr(&arena, items(&arena)).unwrap();
-        assert_eq!(expect, decode(&arena, got), "tuple constructor differs");
-
-        let expect = plain.build_dict_attr(pairs(&plain)).unwrap();
-        let got = AttrCoercionContext::build_dict_attr(&arena, pairs(&arena)).unwrap();
-        assert_eq!(expect, decode(&arena, got), "dict constructor differs");
-
-        let expect = plain
-            .build_one_of_attr(plain.build_string_attr("variant").unwrap(), 2)
-            .unwrap();
-        let got = AttrCoercionContext::build_one_of_attr(
-            &arena,
-            AttrCoercionContext::build_string_attr(&arena, "variant").unwrap(),
-            2,
-        )
-        .unwrap();
-        assert_eq!(expect, decode(&arena, got), "one_of constructor differs");
-
-        for default in [None, Some(CoercedAttr::Int(9))] {
-            let expect = plain
-                .build_selector_attr(entries(&plain), default.clone())
-                .unwrap();
-            let got =
-                AttrCoercionContext::build_selector_attr(&arena, entries(&arena), default).unwrap();
-            assert_eq!(expect, decode(&arena, got), "selector constructor differs");
-        }
     }
 }

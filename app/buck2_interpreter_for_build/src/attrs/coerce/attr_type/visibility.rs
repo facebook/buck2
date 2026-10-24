@@ -48,9 +48,8 @@ impl AttrTypeCoerce for VisibilityAttrType {
         if configurable == AttrIsConfigurable::Yes {
             return Err(VisibilityAttrTypeCoerceError::AttrTypeNotConfigurable.into());
         }
-        Ok(CoercedAttr::Visibility(
-            parse_visibility_with_view(ctx, value)?.build_visibility(),
-        ))
+        let v = parse_visibility_with_view(ctx, value)?.build_visibility();
+        ctx.attr_arena().encode_visibility(&v)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

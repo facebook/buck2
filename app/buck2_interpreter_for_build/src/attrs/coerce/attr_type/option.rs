@@ -27,7 +27,7 @@ impl AttrTypeCoerce for OptionAttrType {
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         if value.is_none() {
-            Ok(CoercedAttr::None)
+            ctx.attr_arena().encode_none()
         } else {
             Ok(self.inner.coerce_item(configurable, ctx, value)?)
         }

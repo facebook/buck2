@@ -27,7 +27,7 @@ impl AttrTypeCoerce for TargetModifiersAttrType {
     fn coerce_item<'v>(
         &self,
         configurable: AttrIsConfigurable,
-        _ctx: &dyn AttrCoercionContext<'v>,
+        ctx: &dyn AttrCoercionContext<'v>,
         value: Value<'v>,
     ) -> buck2_error::Result<CoercedAttr> {
         if configurable == AttrIsConfigurable::Yes {
@@ -43,9 +43,8 @@ impl AttrTypeCoerce for TargetModifiersAttrType {
                 )
             })?;
 
-        Ok(CoercedAttr::TargetModifiers(TargetModifiersValue::new(
-            value,
-        )))
+        ctx.attr_arena()
+            .encode_target_modifiers(&TargetModifiersValue::new(value))
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

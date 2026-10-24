@@ -9,7 +9,6 @@
  */
 
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
-use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -30,7 +29,7 @@ impl AttrTypeCoerce for DepAttrType {
     ) -> buck2_error::Result<CoercedAttr> {
         let label = ctx.coerce_providers_label(value.unpack_str_err()?)?;
 
-        Ok(CoercedAttr::Dep(label))
+        ctx.attr_arena().encode_dep(&label)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {
@@ -51,9 +50,8 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
 
         let platform = ctx.coerce_target_label(platform_string)?;
 
-        Ok(CoercedAttr::ExplicitConfiguredDep(Box::new(
-            UnconfiguredExplicitConfiguredDep { label, platform },
-        )))
+        ctx.attr_arena()
+            .encode_explicit_configured_dep(&label, &platform)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

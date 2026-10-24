@@ -27,7 +27,7 @@ impl AttrTypeCoerce for LabelAttrType {
     ) -> buck2_error::Result<CoercedAttr> {
         let label = ctx.coerce_providers_label(value.unpack_str_err()?)?;
 
-        Ok(CoercedAttr::Label(label))
+        ctx.attr_arena().encode_label(&label)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {
