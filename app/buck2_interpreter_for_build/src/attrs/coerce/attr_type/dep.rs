@@ -14,7 +14,6 @@ use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use dupe::Dupe;
 use starlark::typing::Ty;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -53,11 +52,7 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
         let platform = ctx.coerce_target_label(platform_string)?;
 
         Ok(CoercedAttr::ExplicitConfiguredDep(Box::new(
-            UnconfiguredExplicitConfiguredDep {
-                attr_type: self.dupe(),
-                label,
-                platform,
-            },
+            UnconfiguredExplicitConfiguredDep { label, platform },
         )))
     }
 

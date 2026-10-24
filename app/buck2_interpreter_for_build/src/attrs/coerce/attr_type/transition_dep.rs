@@ -36,15 +36,13 @@ impl AttrTypeCoerce for TransitionDepAttrType {
             let (dep, transition) = UnpackValue::unpack_value_err(value)?;
             (
                 ctx.coerce_providers_label(dep)?,
-                Some(Arc::new(TransitionId::Target(
-                    ctx.coerce_providers_label(transition)?,
-                ))),
+                Some(ctx.coerce_providers_label(transition)?),
             )
         };
 
         Ok(CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
             dep,
-            transition,
+            transition: transition.map(|t| Arc::new(TransitionId::Target(t))),
         })))
     }
 

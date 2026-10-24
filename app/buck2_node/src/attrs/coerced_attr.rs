@@ -54,7 +54,6 @@ use crate::attrs::attr_type::attr_config::source_file_display;
 use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dict::DictLiteral;
@@ -297,7 +296,7 @@ impl CoercedSelector {
         ])))
     }
 
-    fn fail_to_json(message: &ArcStr) -> Result<serde_json::Value, buck2_error::Error> {
+    pub(crate) fn fail_to_json(message: &str) -> Result<serde_json::Value, buck2_error::Error> {
         Ok(serde_json::Value::Object(serde_json::Map::from_iter([
             (
                 "__type".to_owned(),
@@ -305,12 +304,14 @@ impl CoercedSelector {
             ),
             (
                 "message".to_owned(),
-                serde_json::Value::String(message.to_string()),
+                serde_json::Value::String(message.to_owned()),
             ),
         ])))
     }
 
-    fn incompatible_to_json(message: &ArcStr) -> Result<serde_json::Value, buck2_error::Error> {
+    pub(crate) fn incompatible_to_json(
+        message: &str,
+    ) -> Result<serde_json::Value, buck2_error::Error> {
         Ok(serde_json::Value::Object(serde_json::Map::from_iter([
             (
                 "__type".to_owned(),
@@ -318,7 +319,7 @@ impl CoercedSelector {
             ),
             (
                 "message".to_owned(),
-                serde_json::Value::String(message.to_string()),
+                serde_json::Value::String(message.to_owned()),
             ),
         ])))
     }
@@ -550,9 +551,14 @@ impl CoercedAttr {
             CoercedAttr::OneOf(box l, _) => l.to_json(ctx),
             CoercedAttr::Visibility(v) => Ok(v.to_json()),
             CoercedAttr::WithinView(v) => Ok(v.to_json()),
-            CoercedAttr::ExplicitConfiguredDep(e) => e.to_json(),
+            CoercedAttr::ExplicitConfiguredDep(e) => {
+                Ok(to_value([e.label.to_string(), e.platform.to_string()])?)
+            }
             CoercedAttr::SplitTransitionDep(e) => Ok(to_value(e.to_string())?),
-            CoercedAttr::TransitionDep(e) => e.to_json(),
+            CoercedAttr::TransitionDep(e) => match e.get_dynamic_transition() {
+                Some(tr) => Ok(to_value([e.dep.to_string(), tr.to_string()])?),
+                None => Ok(to_value(e.dep.to_string())?),
+            },
             CoercedAttr::ConfigurationDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::PluginDep(e) => Ok(to_value(e.to_string())?),
             CoercedAttr::Dep(e) => Ok(to_value(e.to_string())?),
@@ -670,11 +676,19 @@ impl CoercedAttr {
             }
             CoercedAttrWithType::Visibility(..) => Ok(()),
             CoercedAttrWithType::WithinView(..) => Ok(()),
-            CoercedAttrWithType::ExplicitConfiguredDep(dep, _t) => dep.traverse(traversal),
+            CoercedAttrWithType::ExplicitConfiguredDep(dep, _t) => {
+                traversal.dep(&dep.label)?;
+                traversal.configuration_dep(
+                    &ProvidersLabel::default_for(dep.platform.dupe()),
+                    ConfigurationDepKind::ConfiguredDepPlatform,
+                )
+            }
             CoercedAttrWithType::SplitTransitionDep(dep, t) => {
                 traversal.split_transition_dep(dep, &t.transition)
             }
-            CoercedAttrWithType::TransitionDep(dep, t) => dep.traverse(traversal, t),
+            CoercedAttrWithType::TransitionDep(dep, t) => {
+                t.traverse(&dep.dep, dep.get_dynamic_transition(), traversal)
+            }
             CoercedAttrWithType::ConfigurationDep(dep, t) => traversal.configuration_dep(dep, t.0),
             CoercedAttrWithType::PluginDep(dep, t) => traversal.plugin_dep(dep, t.kind()),
             CoercedAttrWithType::Dep(dep, t) => {
@@ -989,11 +1003,13 @@ impl CoercedAttr {
             }
             CoercedAttrWithType::Visibility(v, _) => ConfiguredAttr::Visibility(v.clone()),
             CoercedAttrWithType::WithinView(v, _) => ConfiguredAttr::WithinView(v.clone()),
-            CoercedAttrWithType::ExplicitConfiguredDep(dep, _) => {
-                ExplicitConfiguredDepAttrType::configure(ctx, dep)?
+            CoercedAttrWithType::ExplicitConfiguredDep(dep, t) => {
+                t.configure(ctx, &dep.label, dep.platform.dupe())?
             }
             CoercedAttrWithType::SplitTransitionDep(dep, t) => t.configure(dep, ctx)?,
-            CoercedAttrWithType::TransitionDep(dep, t) => t.configure(dep, ctx)?,
+            CoercedAttrWithType::TransitionDep(dep, t) => {
+                t.configure(&dep.dep, dep.get_dynamic_transition(), ctx)?
+            }
             CoercedAttrWithType::ConfigurationDep(dep, _) => {
                 ConfigurationDepAttrType::configure(ctx, dep)?
             }
@@ -1053,8 +1069,8 @@ impl CoercedAttr {
             CoercedAttr::OneOf(l, _) => l.any_matches(filter),
             CoercedAttr::Visibility(v) => v.any_matches(filter),
             CoercedAttr::WithinView(v) => v.any_matches(filter),
-            CoercedAttr::ExplicitConfiguredDep(e) => e.any_matches(filter),
-            CoercedAttr::TransitionDep(v) => v.any_matches(filter),
+            CoercedAttr::ExplicitConfiguredDep(e) => filter(&e.to_string()),
+            CoercedAttr::TransitionDep(v) => filter(&v.dep.to_string()),
             CoercedAttr::SplitTransitionDep(e) => filter(&e.to_string()),
             CoercedAttr::ConfigurationDep(e) => filter(&e.to_string()),
             CoercedAttr::PluginDep(e) => filter(&e.to_string()),

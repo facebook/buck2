@@ -18,12 +18,10 @@ use dupe::Dupe;
 use pagable::Pagable;
 use strong_hash::StrongHash;
 
-use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
-use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
 /// Represents attrs.configured_dep()
@@ -36,23 +34,15 @@ pub struct ExplicitConfiguredDepAttrType {
 
 impl ExplicitConfiguredDepAttrType {
     pub(crate) fn configure(
+        &self,
         ctx: &dyn AttrConfigurationContext,
-        dep_attr: &UnconfiguredExplicitConfiguredDep,
+        label: &ProvidersLabel,
+        platform: TargetLabel,
     ) -> buck2_error::Result<ConfiguredAttr> {
-        let configured = Self::configure_target_with_platform(ctx, dep_attr)?;
-        Ok(ConfiguredAttr::ExplicitConfiguredDep(Box::new(configured)))
-    }
-
-    fn configure_target_with_platform(
-        ctx: &dyn AttrConfigurationContext,
-        dep_attr: &UnconfiguredExplicitConfiguredDep,
-    ) -> buck2_error::Result<ConfiguredExplicitConfiguredDep> {
-        let configuration = ctx.platform_cfg(&dep_attr.platform)?;
-        let configured_label = dep_attr.label.configure(configuration.dupe());
-        Ok(ConfiguredExplicitConfiguredDep::new(
-            dep_attr.attr_type.dupe(),
-            configured_label,
-        ))
+        let configuration = ctx.platform_cfg(&platform)?;
+        Ok(ConfiguredAttr::ExplicitConfiguredDep(Box::new(
+            ConfiguredExplicitConfiguredDep::new(self.dupe(), label.configure(configuration)),
+        )))
     }
 }
 
@@ -71,7 +61,6 @@ impl ExplicitConfiguredDepAttrType {
 )]
 #[display("({}, {})", label, platform)]
 pub struct UnconfiguredExplicitConfiguredDep {
-    pub attr_type: ExplicitConfiguredDepAttrType,
     pub label: ProvidersLabel,
     pub platform: TargetLabel,
 }
@@ -126,30 +115,5 @@ impl ConfiguredExplicitConfiguredDep {
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {
         traversal.dep(&self.label)
-    }
-}
-
-impl UnconfiguredExplicitConfiguredDep {
-    pub(crate) fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
-        Ok(serde_json::to_value([
-            self.label.to_string(),
-            self.platform.to_string(),
-        ])?)
-    }
-
-    pub(crate) fn any_matches(
-        &self,
-        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool> {
-        filter(&self.to_string())
-    }
-
-    pub fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn CoercedAttrTraversal<'a>,
-    ) -> buck2_error::Result<()> {
-        traversal.dep(&self.label)?;
-        let label = ProvidersLabel::default_for(self.platform.dupe());
-        traversal.configuration_dep(&label, ConfigurationDepKind::ConfiguredDepPlatform)
     }
 }

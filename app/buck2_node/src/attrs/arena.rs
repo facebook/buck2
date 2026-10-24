@@ -48,9 +48,9 @@
 //!
 //! One [`CoercedAttrArena`] holds every attribute value coerced for one package:
 //! the byte buffer plus typed side tables — shares of globally interned
-//! labels and of the package listing's paths, and a `Legacy` table of plain
-//! [`CoercedAttr`]s for variants too rare in real graphs to warrant a
-//! native encoding. An arena is *sealed* when its package finishes
+//! labels and of the package listing's paths, and tables of the whole-value
+//! leaves (visibility, within_view, metadata, modifiers), one entry per
+//! distinct value. An arena is *sealed* when its package finishes
 //! evaluating: writes end, reads begin (distinct from starlark *freezing*,
 //! which happens earlier, to the values attrs are coerced from). Three
 //! properties carry the design:
@@ -76,8 +76,10 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::config_setting::ConfigSettingData;
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePathRef;
@@ -86,7 +88,6 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
-use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_hash::BuckHasher;
@@ -137,6 +138,7 @@ use crate::attrs::attr_type::attr_config::source_file_display;
 use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
+use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::dep::DepAttr;
 use crate::attrs::attr_type::dict::DictLiteral;
 use crate::attrs::attr_type::label::LabelAttrType;
@@ -146,6 +148,7 @@ use crate::attrs::attr_type::query::QueryAttrBase;
 use crate::attrs::attr_type::query::QueryMacroBase;
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
 use crate::attrs::attr_type::string::StringLiteral;
+use crate::attrs::attr_type::transition_dep::CoercedTransitionDep;
 use crate::attrs::attr_type::tuple::TupleLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr::CoercedConcat;
@@ -159,8 +162,12 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::traversal::CoercedAttrTraversal;
+use crate::attrs::values::TargetModifiersValue;
 use crate::configuration::resolved::ConfigurationSettingKey;
+use crate::metadata::map::MetadataMap;
 use crate::provider_id_set::ProviderIdSet;
+use crate::visibility::VisibilitySpecification;
+use crate::visibility::WithinViewSpecification;
 
 /// Tag byte of a record: `[ width:2 | kind:6 ]`. `width` is the byte width
 /// of every head field and ref in the record, minus one.
@@ -250,6 +257,8 @@ enum AttrKind {
     /// Inline as a 26-bit sign-extended payload when it fits; otherwise a
     /// record with head `[lo, hi]`: the zigzag-encoded value in 32-bit halves.
     Int = 3,
+    /// Inline; payload: within_view table index.
+    WithinView = 4,
     /// Head: `[byte_len]`; tail: the UTF-8 bytes.
     String = 5,
     /// Same layout as `String`.
@@ -276,9 +285,8 @@ enum AttrKind {
     PluginDep = 18,
     /// Inline; payload: path table index.
     SourceFile = 19,
-    /// Inline; payload: legacy table index: variants without a native
-    /// encoding.
-    Legacy = 20,
+    /// Inline; payload: visibility table index.
+    Visibility = 20,
     /// `Arg` with no macros (`StringWithMacros::StringPart`) -- most `Arg`
     /// values in real graphs contain no macros. Same layout as `String`.
     ArgSimple = 21,
@@ -286,7 +294,6 @@ enum AttrKind {
     /// key set.
     SelectorKeys = 22,
     /// Head: `[n]`; refs: `n` parts, `ArgSimple` or `ArgMacro` records.
-    /// Args containing query macros stay `Legacy`.
     ArgParts = 23,
     /// Head: `[header, payload index, n]`; refs: `n` per the header's
     /// variant tag. Never appears as an attribute value ref.
@@ -299,6 +306,21 @@ enum AttrKind {
     /// Refs: `[expr]`: a `QueryExpr` record, the parsed form of an
     /// `attrs.query()` value.
     Query = 26,
+    /// A `select_fail()` / `select_incompatible()` leaf; same layout as
+    /// `String`, holding the message.
+    SelectFail = 27,
+    SelectIncompatible = 28,
+    /// Head: `[label, platform]`: providers-label and target-label table
+    /// indices of an `attrs.configured_dep()` value.
+    ExplicitConfiguredDep = 29,
+    /// Head: `[dep, transition]`: a providers-label table index, and the
+    /// dynamic transition target's index plus one, or zero when the attr
+    /// type fixes the transition.
+    TransitionDep = 30,
+    /// Inline; payload: modifiers table index.
+    Modifiers = 31,
+    /// Head: `[metadata table index]`.
+    Metadata = 32,
 }
 
 /// How a kind's record body is laid out: how many head fields it has and
@@ -344,8 +366,14 @@ impl AttrKind {
         use RefCount::*;
         use TailKind::*;
         let (head, tail) = match self {
-            AttrKind::Int => (Fixed(2), None),
-            AttrKind::String | AttrKind::EnumVariant | AttrKind::ArgSimple => (Fixed(1), Text),
+            AttrKind::Int | AttrKind::ExplicitConfiguredDep | AttrKind::TransitionDep => {
+                (Fixed(2), None)
+            }
+            AttrKind::String
+            | AttrKind::EnumVariant
+            | AttrKind::ArgSimple
+            | AttrKind::SelectFail
+            | AttrKind::SelectIncompatible => (Fixed(1), Text),
             AttrKind::List | AttrKind::Tuple | AttrKind::Concat | AttrKind::ArgParts => {
                 (Fixed(1), Refs(Field0))
             }
@@ -356,6 +384,7 @@ impl AttrKind {
             AttrKind::SelectorKeys => (OnePlusField0, None),
             AttrKind::ArgMacro => (Fixed(3), Refs(Field2)),
             AttrKind::QueryExpr => (ThreePlusField1, Refs(LastField)),
+            AttrKind::Metadata => (Fixed(1), None),
             AttrKind::None
             | AttrKind::BoolFalse
             | AttrKind::BoolTrue
@@ -366,7 +395,9 @@ impl AttrKind {
             | AttrKind::SplitTransitionDep
             | AttrKind::PluginDep
             | AttrKind::SourceFile
-            | AttrKind::Legacy => unreachable!("should be inline: leaf kinds have no record"),
+            | AttrKind::Visibility
+            | AttrKind::WithinView
+            | AttrKind::Modifiers => unreachable!("should be inline: leaf kinds have no record"),
         };
         Layout { head, tail }
     }
@@ -459,12 +490,21 @@ impl AttrKind {
                 | AttrKind::SplitTransitionDep
                 | AttrKind::PluginDep
                 | AttrKind::SourceFile
-                | AttrKind::Legacy
+                | AttrKind::Visibility
+                | AttrKind::WithinView
+                | AttrKind::Modifiers
         )
     }
 
+    /// A select branch that is an outcome rather than a value: an error or
+    /// an incompatibility once the select resolves to it.
+    fn is_select_outcome(self) -> bool {
+        matches!(self, AttrKind::SelectFail | AttrKind::SelectIncompatible)
+    }
+
     /// Kinds whose values hold no deps, inputs, or labels: a traversal can
-    /// pass over them without decoding.
+    /// pass over them without decoding. Select outcomes are scalar for the
+    /// unconfigured walk only; the configured walk must report them.
     fn is_scalar(self) -> bool {
         matches!(
             self,
@@ -475,6 +515,12 @@ impl AttrKind {
                 | AttrKind::String
                 | AttrKind::EnumVariant
                 | AttrKind::ArgSimple
+                | AttrKind::SelectFail
+                | AttrKind::SelectIncompatible
+                | AttrKind::Visibility
+                | AttrKind::WithinView
+                | AttrKind::Modifiers
+                | AttrKind::Metadata
         )
     }
 }
@@ -667,8 +713,12 @@ pub struct CoercedAttrArena {
     target_labels: Vec<TargetLabel>,
     /// Source paths, indexed by `SourceFile` records.
     paths: Vec<CoercedPath>,
-    /// Whole values for `Legacy` records: variants without a native encoding.
-    legacy: Vec<CoercedAttr>,
+    /// Whole-value leaves by table index, one entry per distinct value in
+    /// the package.
+    visibility: Vec<VisibilitySpecification>,
+    within_view: Vec<WithinViewSpecification>,
+    modifiers: Vec<TargetModifiersValue>,
+    metadata: Vec<MetadataMap>,
     /// Identity-grade content hashes for root values (the values referenced
     /// from outside the arena: one per unique top-level attribute value),
     /// sorted by word for binary search. Read on the value-identity paths:
@@ -913,7 +963,9 @@ impl CoercedAttrArena {
             CoercedAttrRefKind::Int(i) => h.write_i64(i),
             CoercedAttrRefKind::String(s)
             | CoercedAttrRefKind::EnumVariant(s)
-            | CoercedAttrRefKind::ArgSimple(s) => s.strong_hash(&mut h),
+            | CoercedAttrRefKind::ArgSimple(s)
+            | CoercedAttrRefKind::SelectFail(s)
+            | CoercedAttrRefKind::SelectIncompatible(s) => s.strong_hash(&mut h),
             CoercedAttrRefKind::Arg(arg) => {
                 h.write_usize(arg.len());
                 for w in arg.run.iter() {
@@ -961,7 +1013,18 @@ impl CoercedAttrArena {
             CoercedAttrRefKind::PluginDep(t) => t.strong_hash(&mut h),
             CoercedAttrRefKind::SourceFile(p) => p.strong_hash(&mut h),
             CoercedAttrRefKind::Query(q) => q.expr().strong_hash(&mut h),
-            CoercedAttrRefKind::Legacy(a) => a.strong_hash(&mut h),
+            CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
+                label.strong_hash(&mut h);
+                platform.strong_hash(&mut h);
+            }
+            CoercedAttrRefKind::TransitionDep { dep, transition } => {
+                dep.strong_hash(&mut h);
+                transition.strong_hash(&mut h);
+            }
+            CoercedAttrRefKind::Visibility(v) => v.strong_hash(&mut h),
+            CoercedAttrRefKind::WithinView(v) => v.strong_hash(&mut h),
+            CoercedAttrRefKind::Modifiers(m) => m.strong_hash(&mut h),
+            CoercedAttrRefKind::Metadata(m) => m.strong_hash(&mut h),
         }
         let hash = h.finalize128();
         memo.insert(r.0, hash);
@@ -1149,8 +1212,8 @@ pub struct CoercedAttrRef<'a> {
     r: AttrWord,
 }
 
-/// Shallow decode of an [`CoercedAttrRef`]. Mirrors the hot subset of
-/// [`CoercedAttr`]; everything else surfaces as `Legacy`.
+/// Shallow decode of an [`CoercedAttrRef`]. Mirrors [`CoercedAttr`] leaf
+/// for leaf, container for container.
 pub enum CoercedAttrRefKind<'a> {
     None,
     Bool(bool),
@@ -1176,7 +1239,24 @@ pub enum CoercedAttrRefKind<'a> {
     PluginDep(&'a TargetLabel),
     SourceFile(&'a CoercedPath),
     Query(QueryView<'a>),
-    Legacy(&'a CoercedAttr),
+    /// The message of a `select_fail()` leaf.
+    SelectFail(&'a str),
+    /// The message of a `select_incompatible()` leaf.
+    SelectIncompatible(&'a str),
+    ExplicitConfiguredDep {
+        label: &'a ProvidersLabel,
+        platform: &'a TargetLabel,
+    },
+    /// `transition` is the dynamic transition target; `None` when the attr
+    /// type fixes the transition.
+    TransitionDep {
+        dep: &'a ProvidersLabel,
+        transition: Option<&'a ProvidersLabel>,
+    },
+    Visibility(&'a VisibilitySpecification),
+    WithinView(&'a WithinViewSpecification),
+    Modifiers(&'a TargetModifiersValue),
+    Metadata(&'a MetadataMap),
 }
 
 /// View of the parts of an `Arg` value containing macros.
@@ -1895,7 +1975,13 @@ impl<'a> CoercedAttrRef<'a> {
                     CoercedAttrRefKind::PluginDep(&arena.target_labels[p as usize])
                 }
                 AttrKind::SourceFile => CoercedAttrRefKind::SourceFile(&arena.paths[p as usize]),
-                AttrKind::Legacy => CoercedAttrRefKind::Legacy(&arena.legacy[p as usize]),
+                AttrKind::Visibility => {
+                    CoercedAttrRefKind::Visibility(&arena.visibility[p as usize])
+                }
+                AttrKind::WithinView => {
+                    CoercedAttrRefKind::WithinView(&arena.within_view[p as usize])
+                }
+                AttrKind::Modifiers => CoercedAttrRefKind::Modifiers(&arena.modifiers[p as usize]),
                 _ => unreachable!("should be a leaf kind: only leaves are inline"),
             };
         }
@@ -1911,7 +1997,12 @@ impl<'a> CoercedAttrRef<'a> {
             | AttrKind::SplitTransitionDep
             | AttrKind::PluginDep
             | AttrKind::SourceFile
-            | AttrKind::Legacy => unreachable!("should be inline: leaf kinds have no record"),
+            | AttrKind::Visibility
+            | AttrKind::WithinView
+            | AttrKind::Modifiers => unreachable!("should be inline: leaf kinds have no record"),
+            AttrKind::Metadata => {
+                CoercedAttrRefKind::Metadata(&arena.metadata[rec.head.raw(0) as usize])
+            }
             AttrKind::Int => CoercedAttrRefKind::Int(unzigzag(
                 rec.head.raw(0) as u64 | ((rec.head.raw(1) as u64) << 32),
             )),
@@ -1919,6 +2010,19 @@ impl<'a> CoercedAttrRef<'a> {
             AttrKind::EnumVariant => CoercedAttrRefKind::EnumVariant(arena.str_at(r)),
             AttrKind::ArgSimple => CoercedAttrRefKind::ArgSimple(arena.str_at(r)),
             AttrKind::Query => CoercedAttrRefKind::Query(QueryView { arena, r }),
+            AttrKind::SelectFail => CoercedAttrRefKind::SelectFail(arena.str_at(r)),
+            AttrKind::SelectIncompatible => CoercedAttrRefKind::SelectIncompatible(arena.str_at(r)),
+            AttrKind::ExplicitConfiguredDep => CoercedAttrRefKind::ExplicitConfiguredDep {
+                label: &arena.providers_labels[rec.head.raw(0) as usize],
+                platform: &arena.target_labels[rec.head.raw(1) as usize],
+            },
+            AttrKind::TransitionDep => CoercedAttrRefKind::TransitionDep {
+                dep: &arena.providers_labels[rec.head.raw(0) as usize],
+                transition: match rec.head.raw(1) {
+                    0 => None,
+                    i => Some(&arena.providers_labels[(i - 1) as usize]),
+                },
+            },
             AttrKind::ArgParts => CoercedAttrRefKind::Arg(AttrRefArgParts { run: rec.refs() }),
             AttrKind::ArgMacro => {
                 unreachable!("arg macro records are not attribute values")
@@ -2011,17 +2115,55 @@ impl<'a> CoercedAttrRef<'a> {
             CoercedAttrRefKind::PluginDep(l) => CoercedAttr::PluginDep(l.dupe()),
             CoercedAttrRefKind::SourceFile(p) => CoercedAttr::SourceFile(p.clone()),
             CoercedAttrRefKind::Query(q) => CoercedAttr::Query(Box::new(q.to_query_attr())),
-            CoercedAttrRefKind::Legacy(a) => a.clone(),
+            CoercedAttrRefKind::SelectFail(s) => CoercedAttr::SelectFail(ArcStr::from(s)),
+            CoercedAttrRefKind::SelectIncompatible(s) => {
+                CoercedAttr::SelectIncompatible(ArcStr::from(s))
+            }
+            CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
+                CoercedAttr::ExplicitConfiguredDep(Box::new(UnconfiguredExplicitConfiguredDep {
+                    label: label.dupe(),
+                    platform: platform.dupe(),
+                }))
+            }
+            CoercedAttrRefKind::TransitionDep { dep, transition } => {
+                CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
+                    dep: dep.dupe(),
+                    transition: transition.map(|t| Arc::new(TransitionId::Target(t.dupe()))),
+                }))
+            }
+            CoercedAttrRefKind::Visibility(v) => CoercedAttr::Visibility(v.clone()),
+            CoercedAttrRefKind::WithinView(v) => CoercedAttr::WithinView(v.clone()),
+            CoercedAttrRefKind::Modifiers(m) => CoercedAttr::TargetModifiers(m.dupe()),
+            CoercedAttrRefKind::Metadata(m) => CoercedAttr::Metadata(m.clone()),
         })
     }
 }
 
 impl<'a> CoercedAttrRef<'a> {
-    /// The stored enum value for variants without a native encoding, if this
-    /// value is one.
-    pub fn unpack_legacy(&self) -> Option<&'a CoercedAttr> {
+    pub fn unpack_visibility(&self) -> Option<&'a VisibilitySpecification> {
         match self.kind() {
-            CoercedAttrRefKind::Legacy(a) => Some(a),
+            CoercedAttrRefKind::Visibility(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn unpack_within_view(&self) -> Option<&'a WithinViewSpecification> {
+        match self.kind() {
+            CoercedAttrRefKind::WithinView(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn unpack_metadata(&self) -> Option<&'a MetadataMap> {
+        match self.kind() {
+            CoercedAttrRefKind::Metadata(m) => Some(m),
+            _ => None,
+        }
+    }
+
+    pub fn unpack_target_modifiers(&self) -> Option<&'a TargetModifiersValue> {
+        match self.kind() {
+            CoercedAttrRefKind::Modifiers(m) => Some(m),
             _ => None,
         }
     }
@@ -2035,7 +2177,6 @@ impl<'a> CoercedAttrRef<'a> {
                 entries.iter().any(|(_, v)| v.may_return_none())
                     || default.is_some_and(|d| d.may_return_none())
             }
-            CoercedAttrRefKind::Legacy(a) => a.may_return_none(),
             _ => false,
         }
     }
@@ -2106,7 +2247,35 @@ impl<'a> CoercedAttrRef<'a> {
             (CoercedAttrRefKind::PluginDep(a), CoercedAttrRefKind::PluginDep(b)) => a == b,
             (CoercedAttrRefKind::SourceFile(a), CoercedAttrRefKind::SourceFile(b)) => a == b,
             (CoercedAttrRefKind::Query(a), CoercedAttrRefKind::Query(b)) => a == b,
-            (CoercedAttrRefKind::Legacy(a), CoercedAttrRefKind::Legacy(b)) => a == b,
+            (CoercedAttrRefKind::SelectFail(a), CoercedAttrRefKind::SelectFail(b))
+            | (
+                CoercedAttrRefKind::SelectIncompatible(a),
+                CoercedAttrRefKind::SelectIncompatible(b),
+            ) => a == b,
+            (
+                CoercedAttrRefKind::ExplicitConfiguredDep {
+                    label: la,
+                    platform: pa,
+                },
+                CoercedAttrRefKind::ExplicitConfiguredDep {
+                    label: lb,
+                    platform: pb,
+                },
+            ) => la == lb && pa == pb,
+            (
+                CoercedAttrRefKind::TransitionDep {
+                    dep: da,
+                    transition: ta,
+                },
+                CoercedAttrRefKind::TransitionDep {
+                    dep: db,
+                    transition: tb,
+                },
+            ) => da == db && ta == tb,
+            (CoercedAttrRefKind::Visibility(a), CoercedAttrRefKind::Visibility(b)) => a == b,
+            (CoercedAttrRefKind::WithinView(a), CoercedAttrRefKind::WithinView(b)) => a == b,
+            (CoercedAttrRefKind::Modifiers(a), CoercedAttrRefKind::Modifiers(b)) => a == b,
+            (CoercedAttrRefKind::Metadata(a), CoercedAttrRefKind::Metadata(b)) => a == b,
             _ => false,
         }
     }
@@ -2124,9 +2293,7 @@ impl<'a> CoercedAttrRef<'a> {
             return Ok(());
         }
         match self.kind() {
-            // Selects and legacy values are type-transparent here: legacy
-            // delegates to the enum path with the full type so Option/Any
-            // unwrapping stays in one place.
+            // Selects are type-transparent here.
             CoercedAttrRefKind::Selector { entries, default } => {
                 for (key, v) in entries.iter() {
                     traversal.configuration_dep(key, ConfigurationDepKind::SelectKey)?;
@@ -2144,7 +2311,10 @@ impl<'a> CoercedAttrRef<'a> {
                 Ok(())
             }
             CoercedAttrRefKind::None => Ok(()),
-            CoercedAttrRefKind::Legacy(a) => a.traverse(t, pkg, traversal),
+            CoercedAttrRefKind::Visibility(_)
+            | CoercedAttrRefKind::WithinView(_)
+            | CoercedAttrRefKind::Modifiers(_)
+            | CoercedAttrRefKind::Metadata(_) => Ok(()),
             kind => Self::traverse_typed(kind, t, pkg, traversal),
         }
     }
@@ -2305,6 +2475,20 @@ impl<'a> CoercedAttrRef<'a> {
                     }
                     Ok(())
                 }
+                (
+                    CoercedAttrRefKind::ExplicitConfiguredDep { label, platform },
+                    AttrTypeInner::ConfiguredDep(_),
+                ) => {
+                    traversal.dep(label)?;
+                    traversal.configuration_dep(
+                        &ProvidersLabel::default_for(platform.dupe()),
+                        ConfigurationDepKind::ConfiguredDepPlatform,
+                    )
+                }
+                (
+                    CoercedAttrRefKind::TransitionDep { dep, transition },
+                    AttrTypeInner::TransitionDep(ty),
+                ) => ty.traverse(dep, transition, traversal),
                 _ => Err(internal_error!(
                     "attr arena traverse: kind and type mismatch"
                 )),
@@ -2351,9 +2535,10 @@ impl<'a> CoercedAttrRef<'a> {
                 }
             }
             CoercedAttrRefKind::None => ConfiguredAttr::None,
-            // Full type: pack handles Option/Any unwrapping and the
-            // SelectFail/SelectIncompatible outcomes for legacy values.
-            CoercedAttrRefKind::Legacy(a) => return a.configure(t, ctx, attr_name),
+            CoercedAttrRefKind::Visibility(v) => ConfiguredAttr::Visibility(v.clone()),
+            CoercedAttrRefKind::WithinView(v) => ConfiguredAttr::WithinView(v.clone()),
+            CoercedAttrRefKind::Modifiers(m) => ConfiguredAttr::TargetModifiers(m.dupe()),
+            CoercedAttrRefKind::Metadata(m) => ConfiguredAttr::Metadata(m.clone()),
             kind => return Self::configure_typed(kind, t, ctx, attr_name),
         };
         ResultMaybeCompatible::Compatible(configured)
@@ -2445,12 +2630,38 @@ impl<'a> CoercedAttrRef<'a> {
         }
     }
 
+    /// The result of a select resolving to `select_fail()` or
+    /// `select_incompatible()`: type-transparent, so it is the same whatever
+    /// the attribute's type and whether the value is configured or only
+    /// traversed. `None` for any other kind.
+    fn select_outcome<T>(
+        kind: &CoercedAttrRefKind<'a>,
+        ctx: &dyn AttrConfigurationContext,
+    ) -> Option<ResultMaybeCompatible<T>> {
+        Some(match kind {
+            CoercedAttrRefKind::SelectFail(message) => buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "select resolved to select_fail(): {message}"
+            )
+            .into(),
+            CoercedAttrRefKind::SelectIncompatible(message) => {
+                ResultMaybeCompatible::Incompatible(ctx.incompatible_platform_reason(
+                    IncompatiblePlatformReasonCause::SelectIncompatible(ArcStr::from(*message)),
+                ))
+            }
+            _ => return None,
+        })
+    }
+
     fn configure_typed(
         kind: CoercedAttrRefKind<'a>,
         t: &AttrType,
         ctx: &dyn AttrConfigurationContext,
         attr_name: Option<&str>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
+        if let Some(outcome) = Self::select_outcome(&kind, ctx) {
+            return outcome;
+        }
         let configured = match &t.0.inner {
             AttrTypeInner::Option(opt) => {
                 return Self::configure_typed(kind, &opt.inner, ctx, attr_name);
@@ -2513,6 +2724,14 @@ impl<'a> CoercedAttrRef<'a> {
                 (CoercedAttrRefKind::Query(q), AttrTypeInner::Query(_)) => {
                     ConfiguredAttr::Query(Box::new(q.configure(ctx)))
                 }
+                (
+                    CoercedAttrRefKind::ExplicitConfiguredDep { label, platform },
+                    AttrTypeInner::ConfiguredDep(ty),
+                ) => ty.configure(ctx, label, platform.dupe())?,
+                (
+                    CoercedAttrRefKind::TransitionDep { dep, transition },
+                    AttrTypeInner::TransitionDep(ty),
+                ) => ty.configure(dep, transition, ctx)?,
                 (CoercedAttrRefKind::SourceLabel(s), AttrTypeInner::Source(_)) => {
                     ConfiguredAttr::SourceLabel(s.configure_pair(ctx.cfg().cfg_pair().dupe()))
                 }
@@ -2609,10 +2828,14 @@ impl<'a> CoercedAttrRef<'a> {
         traversal: &mut dyn ConfiguredAttrTraversal,
         attr_name: Option<&str>,
     ) -> ResultMaybeCompatible<()> {
-        if self.arena.kind_of(self.r).is_scalar() {
+        let kind = self.arena.kind_of(self.r);
+        if kind.is_scalar() && !kind.is_select_outcome() {
             return ResultMaybeCompatible::Compatible(());
         }
         match self.kind() {
+            kind @ (CoercedAttrRefKind::SelectFail(_)
+            | CoercedAttrRefKind::SelectIncompatible(_)) => Self::select_outcome(&kind, ctx)
+                .expect("should be a select outcome: the arm matched one"),
             CoercedAttrRefKind::Selector { entries, default } => {
                 match Self::select_view(ctx, entries, default) {
                     Ok(Some(selected)) => {
@@ -2625,15 +2848,7 @@ impl<'a> CoercedAttrRef<'a> {
             CoercedAttrRefKind::Concat(items) => {
                 let mut leaves: SmallVec<[CoercedAttrRef<'a>; 4]> = SmallVec::new();
                 for item in items.iter() {
-                    if !item.concat_leaves(ctx, &mut leaves)? {
-                        // A leaf only the owned path can inspect: validate
-                        // and traverse the whole concat there.
-                        let configured = self.configure(t, ctx, attr_name)?;
-                        return match configured.traverse(pkg, traversal) {
-                            Ok(()) => ResultMaybeCompatible::Compatible(()),
-                            Err(e) => e.into(),
-                        };
-                    }
+                    item.concat_leaves(ctx, &mut leaves)?;
                 }
                 if leaves.len() > 1
                     && let Err(e) = Self::validate_concat(t, &leaves)
@@ -2645,13 +2860,10 @@ impl<'a> CoercedAttrRef<'a> {
                 }
                 ResultMaybeCompatible::Compatible(())
             }
-            CoercedAttrRefKind::Legacy(a) => {
-                let configured = a.configure(t, ctx, attr_name)?;
-                match configured.traverse(pkg, traversal) {
-                    Ok(()) => ResultMaybeCompatible::Compatible(()),
-                    Err(e) => e.into(),
-                }
-            }
+            CoercedAttrRefKind::Visibility(_)
+            | CoercedAttrRefKind::WithinView(_)
+            | CoercedAttrRefKind::Modifiers(_)
+            | CoercedAttrRefKind::Metadata(_) => ResultMaybeCompatible::Compatible(()),
             kind => Self::traverse_configured_typed(kind, t, pkg, ctx, traversal, attr_name),
         }
     }
@@ -2744,14 +2956,16 @@ impl<'a> CoercedAttrRef<'a> {
     }
 
     /// Flattens one concat item into the leaves `ConfiguredAttr::concat`
-    /// would see: selects resolved, nested concats inlined. `false` when a
-    /// leaf is only inspectable through the owned path.
+    /// would see: selects resolved, nested concats inlined.
     fn concat_leaves(
         &self,
         ctx: &dyn AttrConfigurationContext,
         out: &mut SmallVec<[CoercedAttrRef<'a>; 4]>,
-    ) -> ResultMaybeCompatible<bool> {
+    ) -> ResultMaybeCompatible<()> {
         match self.kind() {
+            kind @ (CoercedAttrRefKind::SelectFail(_)
+            | CoercedAttrRefKind::SelectIncompatible(_)) => Self::select_outcome(&kind, ctx)
+                .expect("should be a select outcome: the arm matched one"),
             CoercedAttrRefKind::Selector { entries, default } => {
                 match Self::select_view(ctx, entries, default) {
                     Ok(Some(selected)) => selected.concat_leaves(ctx, out),
@@ -2761,16 +2975,13 @@ impl<'a> CoercedAttrRef<'a> {
             }
             CoercedAttrRefKind::Concat(items) => {
                 for item in items.iter() {
-                    if !item.concat_leaves(ctx, out)? {
-                        return ResultMaybeCompatible::Compatible(false);
-                    }
+                    item.concat_leaves(ctx, out)?;
                 }
-                ResultMaybeCompatible::Compatible(true)
+                ResultMaybeCompatible::Compatible(())
             }
-            CoercedAttrRefKind::Legacy(_) => ResultMaybeCompatible::Compatible(false),
             _ => {
                 out.push(*self);
-                ResultMaybeCompatible::Compatible(true)
+                ResultMaybeCompatible::Compatible(())
             }
         }
     }
@@ -2891,7 +3102,7 @@ impl<'a> CoercedAttrRef<'a> {
 
 impl<'a> CoercedAttrRef<'a> {
     /// The value's JSON rendering. Mirrors `CoercedAttr::to_json` arm for
-    /// arm; `Legacy` delegates to it.
+    /// arm.
     pub fn to_json(
         &self,
         ctx: &crate::attrs::fmt_context::AttrFmtContext,
@@ -2971,12 +3182,24 @@ impl<'a> CoercedAttrRef<'a> {
                 Ok(to_value(source_file_display(ctx, p).to_string())?)
             }
             CoercedAttrRefKind::Query(q) => Ok(to_value(q.query().0)?),
-            CoercedAttrRefKind::Legacy(a) => a.to_json(ctx),
+            CoercedAttrRefKind::SelectFail(s) => CoercedSelector::fail_to_json(s),
+            CoercedAttrRefKind::SelectIncompatible(s) => CoercedSelector::incompatible_to_json(s),
+            CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
+                Ok(to_value([label.to_string(), platform.to_string()])?)
+            }
+            CoercedAttrRefKind::TransitionDep { dep, transition } => match transition {
+                Some(tr) => Ok(to_value([dep.to_string(), tr.to_string()])?),
+                None => Ok(to_value(dep.to_string())?),
+            },
+            CoercedAttrRefKind::Visibility(v) => Ok(v.to_json()),
+            CoercedAttrRefKind::WithinView(v) => Ok(v.to_json()),
+            CoercedAttrRefKind::Modifiers(m) => Ok(m.to_value()),
+            CoercedAttrRefKind::Metadata(m) => Ok(m.to_value()),
         }
     }
 
     /// Whether any leaf's string form matches the filter. Mirrors
-    /// `CoercedAttr::any_matches` arm for arm; `Legacy` delegates to it.
+    /// `CoercedAttr::any_matches` arm for arm.
     pub fn any_matches(
         &self,
         filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
@@ -3029,7 +3252,17 @@ impl<'a> CoercedAttrRef<'a> {
             CoercedAttrRefKind::PluginDep(t) => filter(&t.to_string()),
             CoercedAttrRefKind::SourceFile(p) => filter(&p.path().to_string()),
             CoercedAttrRefKind::Query(q) => filter(&q.query().0),
-            CoercedAttrRefKind::Legacy(a) => a.any_matches(filter),
+            CoercedAttrRefKind::SelectFail(_) | CoercedAttrRefKind::SelectIncompatible(_) => {
+                Ok(false)
+            }
+            CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
+                filter(&format!("({label}, {platform})"))
+            }
+            CoercedAttrRefKind::TransitionDep { dep, .. } => filter(&dep.to_string()),
+            CoercedAttrRefKind::Visibility(v) => v.any_matches(filter),
+            CoercedAttrRefKind::WithinView(v) => v.any_matches(filter),
+            CoercedAttrRefKind::Modifiers(m) => m.any_matches(filter),
+            CoercedAttrRefKind::Metadata(m) => m.any_matches(filter),
         }
     }
 
@@ -3077,8 +3310,7 @@ impl Display for AttrRefDisplay<'_, '_> {
     }
 }
 
-/// Mirrors `AttrDisplayWithContext for CoercedAttr` arm for arm; `Legacy`
-/// delegates to it.
+/// Mirrors `AttrDisplayWithContext for CoercedAttr` arm for arm.
 impl crate::attrs::display::AttrDisplayWithContext for CoercedAttrRef<'_> {
     fn fmt(
         &self,
@@ -3150,7 +3382,16 @@ impl crate::attrs::display::AttrDisplayWithContext for CoercedAttrRef<'_> {
             CoercedAttrRefKind::PluginDep(t) => write!(f, "\"{t}\""),
             CoercedAttrRefKind::SourceFile(p) => write!(f, "\"{}\"", source_file_display(ctx, p)),
             CoercedAttrRefKind::Query(q) => write!(f, "\"{}\"", q.query().0),
-            CoercedAttrRefKind::Legacy(a) => AttrDisplayWithContext::fmt(a, ctx, f),
+            CoercedAttrRefKind::SelectFail(s) => write!(f, "select_fail(\"{s}\")"),
+            CoercedAttrRefKind::SelectIncompatible(s) => write!(f, "select_incompatible(\"{s}\")"),
+            CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
+                write!(f, "({label}, {platform})")
+            }
+            CoercedAttrRefKind::TransitionDep { dep, .. } => std::fmt::Display::fmt(dep, f),
+            CoercedAttrRefKind::Visibility(v) => std::fmt::Display::fmt(v, f),
+            CoercedAttrRefKind::WithinView(v) => std::fmt::Display::fmt(v, f),
+            CoercedAttrRefKind::Modifiers(m) => write!(f, "{m}"),
+            CoercedAttrRefKind::Metadata(m) => write!(f, "{m}"),
         }
     }
 }
@@ -3245,12 +3486,12 @@ impl<'a> CoercedAttrRef<'a> {
             CoercedAttrRefKind::SourceFile(p) => {
                 Cow::Owned(source_file_display(ctx, p).to_string())
             }
-            CoercedAttrRefKind::Legacy(a) => Cow::Owned(
-                a.to_json(ctx)?
-                    .as_str()
-                    .internal_error("dict keys must render to JSON strings")?
-                    .to_owned(),
-            ),
+            CoercedAttrRefKind::Visibility(_)
+            | CoercedAttrRefKind::WithinView(_)
+            | CoercedAttrRefKind::Modifiers(_)
+            | CoercedAttrRefKind::Metadata(_) => {
+                return Err(internal_error!("dict keys must render to JSON strings"));
+            }
             _ => return Err(internal_error!("dict keys must render to JSON strings")),
         })
     }
@@ -3372,8 +3613,24 @@ impl AttrSerializeWithContext for CoercedAttrRef<'_> {
             CoercedAttrRefKind::SourceFile(p) => {
                 s.serialize_str(&source_file_display(ctx, p).to_string())
             }
+            CoercedAttrRefKind::SelectFail(m) => CoercedSelector::fail_to_json(m)
+                .map_err(err::<S>)?
+                .serialize(s),
+            CoercedAttrRefKind::SelectIncompatible(m) => CoercedSelector::incompatible_to_json(m)
+                .map_err(err::<S>)?
+                .serialize(s),
+            CoercedAttrRefKind::ExplicitConfiguredDep { label, platform } => {
+                [label.to_string(), platform.to_string()].serialize(s)
+            }
+            CoercedAttrRefKind::TransitionDep { dep, transition } => match transition {
+                Some(tr) => [dep.to_string(), tr.to_string()].serialize(s),
+                None => s.serialize_str(&dep.to_string()),
+            },
             CoercedAttrRefKind::Query(q) => s.serialize_str(&q.query().0),
-            CoercedAttrRefKind::Legacy(a) => a.to_json(ctx).map_err(err::<S>)?.serialize(s),
+            CoercedAttrRefKind::Visibility(v) => v.to_json().serialize(s),
+            CoercedAttrRefKind::WithinView(v) => v.to_json().serialize(s),
+            CoercedAttrRefKind::Modifiers(m) => m.to_value().serialize(s),
+            CoercedAttrRefKind::Metadata(m) => m.to_value().serialize(s),
         }
     }
 }
@@ -3393,7 +3650,8 @@ pub struct CoercedAttrArenaBuilder {
     /// Records by content hash. Keys ARE hashes, so the table is a raw
     /// `HashTable` probed with the hash directly -- no rehash of the key.
     /// Inline leaves never enter (their words are already canonical),
-    /// except `Legacy`, whose table index is what the probe finds.
+    /// except the whole-value kinds, whose table index is what the probe
+    /// finds.
     value_dedup: hashbrown::HashTable<(u64, AttrWord)>,
     /// Text records by full byte hash; raw `HashTable`, hash used directly.
     /// One record per (kind, content): `String`/`EnumVariant`/`ArgSimple`
@@ -3439,6 +3697,31 @@ fn parts(attr: CoercedAttr) -> (AttrWord, CoercedAttrHash) {
         CoercedAttr::Encoded(r, h) => (r, h),
         _ => unreachable!("should be encoded: the builder only produces `Encoded` values"),
     }
+}
+
+/// Interns a whole value into `table`; the word is `kind` with the table
+/// index as payload. One entry per distinct value.
+fn intern_whole<T: Hash + PartialEq + Clone>(
+    value_dedup: &mut hashbrown::HashTable<(u64, AttrWord)>,
+    table: &mut Vec<T>,
+    kind: AttrKind,
+    value: &T,
+) -> buck2_error::Result<(AttrWord, CoercedAttrHash)> {
+    let hash = content_hash(kind, |h| value.hash(h));
+    if let Some(&(_, r)) = value_dedup.find(hash.0, |&(h, r)| {
+        h == hash.0
+            && matches!(
+                r.inline_parts(),
+                Some((k, idx)) if k == kind && table[idx as usize] == *value
+            )
+    }) {
+        return Ok((r, hash));
+    }
+    let idx = table.len() as u32;
+    table.push(value.clone());
+    let r = AttrWord::inline(kind, idx)?;
+    value_dedup.insert_unique(hash.0, (hash.0, r), |&(h, _)| h);
+    Ok((r, hash))
 }
 
 fn content_hash(tag: AttrKind, f: impl FnOnce(&mut BuckHasher)) -> CoercedAttrHash {
@@ -3513,7 +3796,10 @@ impl CoercedAttrArenaBuilder {
         arena.providers_labels.shrink_to_fit();
         arena.target_labels.shrink_to_fit();
         arena.paths.shrink_to_fit();
-        arena.legacy.shrink_to_fit();
+        arena.visibility.shrink_to_fit();
+        arena.within_view.shrink_to_fit();
+        arena.modifiers.shrink_to_fit();
+        arena.metadata.shrink_to_fit();
 
         // Strong hashes are computed at seal, from content the arena
         // already holds: the intern hot path never touches blake3, and a
@@ -3692,6 +3978,18 @@ impl CoercedAttrArenaBuilder {
         self.encode_str(AttrKind::String, s).map(token)
     }
 
+    pub fn encode_select_fail(&mut self, message: &str) -> buck2_error::Result<CoercedAttr> {
+        self.encode_str(AttrKind::SelectFail, message).map(token)
+    }
+
+    pub fn encode_select_incompatible(
+        &mut self,
+        message: &str,
+    ) -> buck2_error::Result<CoercedAttr> {
+        self.encode_str(AttrKind::SelectIncompatible, message)
+            .map(token)
+    }
+
     pub fn encode_list(&mut self, items: &[CoercedAttr]) -> buck2_error::Result<CoercedAttr> {
         self.encode_seq(AttrKind::List, items).map(token)
     }
@@ -3855,6 +4153,53 @@ impl CoercedAttrArenaBuilder {
         ))
     }
 
+    pub fn encode_explicit_configured_dep(
+        &mut self,
+        label: &ProvidersLabel,
+        platform: &TargetLabel,
+    ) -> buck2_error::Result<CoercedAttr> {
+        let (label_idx, label_hash) = self.providers_label_idx_and_hash(label);
+        let platform_idx = self.target_label_idx(platform.dupe());
+        let hash = content_hash(AttrKind::ExplicitConfiguredDep, |h| {
+            label_hash.hash(h);
+            platform.hash(h);
+        });
+        let r = self.encode_record(
+            AttrKind::ExplicitConfiguredDep,
+            hash,
+            &[label_idx, platform_idx],
+            &[],
+        )?;
+        Ok(CoercedAttr::Encoded(r, hash))
+    }
+
+    /// `transition` is the dynamic transition target, `None` when the attr
+    /// type fixes the transition.
+    pub fn encode_transition_dep(
+        &mut self,
+        dep: &ProvidersLabel,
+        transition: Option<&ProvidersLabel>,
+    ) -> buck2_error::Result<CoercedAttr> {
+        let (dep_idx, dep_hash) = self.providers_label_idx_and_hash(dep);
+        let (transition_field, transition_hash) = match transition {
+            Some(t) => {
+                let (idx, h) = self.providers_label_idx_and_hash(t);
+                (idx + 1, Some(h))
+            }
+            None => (0, None),
+        };
+        let hash = content_hash(AttrKind::TransitionDep, |h| {
+            (dep_hash, transition_hash).hash(h)
+        });
+        let r = self.encode_record(
+            AttrKind::TransitionDep,
+            hash,
+            &[dep_idx, transition_field],
+            &[],
+        )?;
+        Ok(CoercedAttr::Encoded(r, hash))
+    }
+
     pub fn encode_source_file(&mut self, p: &CoercedPath) -> buck2_error::Result<CoercedAttr> {
         let (idx, path_hash) = self.source_path_idx_and_hash(p);
         Ok(CoercedAttr::Encoded(
@@ -3863,8 +4208,7 @@ impl CoercedAttrArenaBuilder {
         ))
     }
 
-    /// Encode an `arg()` value: simple text and recognized macros natively,
-    /// args carrying query macros whole into the legacy table.
+    /// Encode an `arg()` value: simple text and macros as records.
     pub fn encode_arg(
         &mut self,
         arg: &StringWithMacros<ProvidersLabel>,
@@ -3901,23 +4245,59 @@ impl CoercedAttrArenaBuilder {
         Ok(CoercedAttr::Encoded(r, hash))
     }
 
-    /// Intern a whole-value variant into the legacy table.
-    pub fn encode_legacy(&mut self, legacy: &CoercedAttr) -> buck2_error::Result<CoercedAttr> {
-        let hash = content_hash(AttrKind::Legacy, |h| legacy.hash(h));
+    pub fn encode_visibility(
+        &mut self,
+        v: &VisibilitySpecification,
+    ) -> buck2_error::Result<CoercedAttr> {
+        intern_whole(
+            &mut self.value_dedup,
+            &mut self.arena.visibility,
+            AttrKind::Visibility,
+            v,
+        )
+        .map(token)
+    }
+
+    pub fn encode_within_view(
+        &mut self,
+        v: &WithinViewSpecification,
+    ) -> buck2_error::Result<CoercedAttr> {
+        intern_whole(
+            &mut self.value_dedup,
+            &mut self.arena.within_view,
+            AttrKind::WithinView,
+            v,
+        )
+        .map(token)
+    }
+
+    pub fn encode_target_modifiers(
+        &mut self,
+        m: &TargetModifiersValue,
+    ) -> buck2_error::Result<CoercedAttr> {
+        intern_whole(
+            &mut self.value_dedup,
+            &mut self.arena.modifiers,
+            AttrKind::Modifiers,
+            m,
+        )
+        .map(token)
+    }
+
+    pub fn encode_metadata(&mut self, m: &MetadataMap) -> buck2_error::Result<CoercedAttr> {
+        let hash = content_hash(AttrKind::Metadata, |h| m.hash(h));
         if let Some(&(_, r)) = self.value_dedup.find(hash.0, |&(h, r)| {
-            h == hash.0
-                && matches!(
-                    r.inline_parts(),
-                    Some((AttrKind::Legacy, idx)) if &self.arena.legacy[idx as usize] == legacy
-                )
+            h == hash.0 && r.inline_parts().is_none() && {
+                let rec = self.arena.open(r);
+                rec.kind == AttrKind::Metadata
+                    && self.arena.metadata[rec.head.raw(0) as usize] == *m
+            }
         }) {
             return Ok(CoercedAttr::Encoded(r, hash));
         }
-        let idx = self.arena.legacy.len() as u32;
-        self.arena.legacy.push(legacy.clone());
-        let r = AttrWord::inline(AttrKind::Legacy, idx)?;
-        self.value_dedup
-            .insert_unique(hash.0, (hash.0, r), |&(h, _)| h);
+        let idx = self.arena.metadata.len() as u32;
+        self.arena.metadata.push(m.clone());
+        let r = self.encode_record(AttrKind::Metadata, hash, &[idx], &[])?;
         Ok(CoercedAttr::Encoded(r, hash))
     }
 
@@ -3957,14 +4337,18 @@ impl CoercedAttrArenaBuilder {
             CoercedAttr::SourceFile(p) => self.encode_source_file(p).map(parts),
             CoercedAttr::Arg(arg) => self.encode_arg(arg).map(parts),
             CoercedAttr::Query(q) => self.encode_query(&q.query).map(parts),
-            legacy @ (CoercedAttr::SelectFail(_)
-            | CoercedAttr::SelectIncompatible(_)
-            | CoercedAttr::Visibility(_)
-            | CoercedAttr::WithinView(_)
-            | CoercedAttr::ExplicitConfiguredDep(_)
-            | CoercedAttr::TransitionDep(_)
-            | CoercedAttr::Metadata(_)
-            | CoercedAttr::TargetModifiers(_)) => self.encode_legacy(legacy).map(parts),
+            CoercedAttr::SelectFail(s) => self.encode_select_fail(s).map(parts),
+            CoercedAttr::SelectIncompatible(s) => self.encode_select_incompatible(s).map(parts),
+            CoercedAttr::ExplicitConfiguredDep(d) => self
+                .encode_explicit_configured_dep(&d.label, &d.platform)
+                .map(parts),
+            CoercedAttr::TransitionDep(d) => self
+                .encode_transition_dep(&d.dep, d.get_dynamic_transition())
+                .map(parts),
+            CoercedAttr::Visibility(v) => self.encode_visibility(v).map(parts),
+            CoercedAttr::WithinView(v) => self.encode_within_view(v).map(parts),
+            CoercedAttr::Metadata(m) => self.encode_metadata(m).map(parts),
+            CoercedAttr::TargetModifiers(m) => self.encode_target_modifiers(m).map(parts),
         }
     }
 
@@ -4342,6 +4726,7 @@ mod tests {
     use super::*;
     use crate::attrs::attr_type::string::StringLiteral;
     use crate::attrs::display::AttrDisplayWithContextExt;
+    use crate::visibility::VisibilitySpecification;
 
     fn label(pkg: &str, name: &str) -> ProvidersLabel {
         ProvidersLabel::testing_new("root", pkg, name, None)
@@ -4651,12 +5036,86 @@ mod tests {
         roundtrip(&[dep, sel, sel_no_default, concat]);
     }
 
+    /// Whole-value leaves intern into their own tables, one entry per
+    /// distinct value.
     #[test]
-    fn test_legacy_variants() {
-        roundtrip(&[
-            CoercedAttr::SelectFail(ArcStr::from("nope")),
-            CoercedAttr::Metadata(Default::default()),
+    fn test_whole_value_leaves_intern_into_tables() {
+        let visibility =
+            CoercedAttr::Visibility(VisibilitySpecification::testing_parse(&["root//a/..."]));
+        let metadata = CoercedAttr::Metadata(Default::default());
+        let arena = roundtrip(&[
+            visibility.clone(),
+            CoercedAttr::Visibility(VisibilitySpecification::DEFAULT),
+            visibility.clone(),
+            metadata.clone(),
+            metadata.clone(),
         ]);
+        assert_eq!(arena.visibility.len(), 2);
+        assert_eq!(arena.metadata.len(), 1);
+        let mut b = CoercedAttrArena::builder();
+        let (r1, _) = b.encode(&visibility).unwrap();
+        let (r2, _) = b.encode(&visibility).unwrap();
+        assert_eq!(r1, r2, "re-encoding should dedup to the same entry");
+        let (m1, _) = b.encode(&metadata).unwrap();
+        let (m2, _) = b.encode(&metadata).unwrap();
+        assert_eq!(m1, m2);
+    }
+
+    #[test]
+    fn test_dep_like_leaves_encode_natively() {
+        let configured_dep =
+            CoercedAttr::ExplicitConfiguredDep(Box::new(UnconfiguredExplicitConfiguredDep {
+                label: label("pkg", "dep"),
+                platform: label("platforms", "linux").target().dupe(),
+            }));
+        let fixed_transition = CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
+            dep: label("pkg", "dep"),
+            transition: None,
+        }));
+        let dynamic_transition = CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
+            dep: label("pkg", "dep"),
+            transition: Some(Arc::new(TransitionId::Target(label("transitions", "t")))),
+        }));
+        roundtrip(&[
+            configured_dep,
+            fixed_transition.clone(),
+            dynamic_transition.clone(),
+        ]);
+
+        // Same dep with and without a dynamic transition: distinct records.
+        let mut b = CoercedAttrArena::builder();
+        let (r1, h1) = b.encode(&fixed_transition).unwrap();
+        let (r2, h2) = b.encode(&dynamic_transition).unwrap();
+        assert_ne!(r1, r2);
+        assert_ne!(h1, h2);
+        assert_eq!(
+            b.encode(&dynamic_transition).unwrap().0,
+            r2,
+            "re-encoding should dedup to the same record"
+        );
+    }
+
+    #[test]
+    fn test_select_outcomes_are_text_records() {
+        let fail = CoercedAttr::SelectFail(ArcStr::from("nope"));
+        let incompatible = CoercedAttr::SelectIncompatible(ArcStr::from("nope"));
+        roundtrip(&[fail.clone(), incompatible.clone()]);
+
+        // Same message, different outcome: distinct values.
+        let mut b = CoercedAttrArena::builder();
+        let (r1, h1) = b.encode(&fail).unwrap();
+        let (r2, h2) = b.encode(&incompatible).unwrap();
+        assert_ne!(r1, r2);
+        assert_ne!(h1, h2);
+        let arena = b.finish();
+        assert_eq!(
+            arena.view(r1).as_display_no_ctx().to_string(),
+            "select_fail(\"nope\")"
+        );
+        assert_eq!(
+            arena.view(r2).as_display_no_ctx().to_string(),
+            "select_incompatible(\"nope\")"
+        );
     }
 
     #[test]
@@ -4710,12 +5169,7 @@ mod tests {
     fn test_arg_simple_and_many_parts_encode_natively() {
         let simple = CoercedAttr::Arg(StringWithMacros::StringPart(ArcStr::from("-DFOO=1")));
         let many = CoercedAttr::Arg(StringWithMacros::ManyParts(Box::new([])));
-        let arena = roundtrip(&[simple, many]);
-        assert_eq!(
-            arena.legacy.len(),
-            0,
-            "simple and macro args should both encode natively"
-        );
+        roundtrip(&[simple, many]);
     }
 
     /// An `attrs.query()` value and a query macro over the same expression
@@ -4743,8 +5197,7 @@ mod tests {
                 })),
             ),
         ])));
-        let arena = roundtrip_canonical(&[attr.clone(), arg.clone()]);
-        assert_eq!(arena.legacy.len(), 0, "query attrs should encode natively");
+        roundtrip_canonical(&[attr.clone(), arg.clone()]);
 
         let mut b = CoercedAttrArena::builder();
         let (ra, _) = b.encode(&attr).unwrap();
@@ -4810,8 +5263,7 @@ mod tests {
                 ))),
             ),
         ]);
-        let arena = roundtrip(&[CoercedAttr::Arg(StringWithMacros::ManyParts(parts))]);
-        assert_eq!(arena.legacy.len(), 0, "macro args should encode natively");
+        roundtrip(&[CoercedAttr::Arg(StringWithMacros::ManyParts(parts))]);
     }
 
     #[test]
@@ -4847,7 +5299,7 @@ mod tests {
                 })),
             ),
         ])));
-        let arena = roundtrip_canonical(&[
+        roundtrip_canonical(&[
             arg("--deps=", QueryExpansion::Target),
             arg(
                 "--deps=",
@@ -4856,11 +5308,6 @@ mod tests {
             arg("--deps=", QueryExpansion::TargetAndOutput(None)),
             no_lits,
         ]);
-        assert_eq!(
-            arena.legacy.len(),
-            0,
-            "query-macro args should encode natively"
-        );
 
         // Same macro in a different arg: only the new arg record and the
         // new text record allocate; the query macro record is shared.

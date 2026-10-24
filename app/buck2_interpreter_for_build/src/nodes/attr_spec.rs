@@ -193,8 +193,8 @@ impl AttributeSpecExt for AttributeSpec {
             .map(|(_, word)| *word);
         if let Some(within_view_word) = within_view_word {
             internals.with_attr_arena_ref(|arena_builder| -> buck2_error::Result<()> {
-                let within_view = match arena_builder.view(within_view_word).unpack_legacy() {
-                    Some(CoercedAttr::WithinView(within_view)) => within_view,
+                let within_view = match arena_builder.view(within_view_word).unpack_within_view() {
+                    Some(within_view) => within_view,
                     _ => return Err(internal_error!("`within_view` coerced incorrectly")),
                 };
                 for a in self.attrs_over_encoded_pairs(

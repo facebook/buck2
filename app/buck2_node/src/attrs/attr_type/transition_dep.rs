@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hasher;
@@ -17,6 +18,7 @@ use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_error::internal_error;
 use dupe::Dupe;
 use pagable::Pagable;
 use strong_hash::StrongHash;
@@ -43,26 +45,46 @@ impl TransitionDepAttrType {
         }
     }
 
+    /// `dynamic` is the value's own transition target, present exactly when
+    /// the attr type fixes no transition.
     pub(crate) fn configure(
         &self,
-        attr: &CoercedTransitionDep,
+        dep: &ProvidersLabel,
+        dynamic: Option<&ProvidersLabel>,
         ctx: &dyn AttrConfigurationContext,
     ) -> buck2_error::Result<ConfiguredAttr> {
+        let transition = self.transition(dynamic)?;
         Ok(ConfiguredAttr::TransitionDep(Box::new(
             ConfiguredTransitionDep {
-                dep: ctx.configure_transition_target(&attr.dep, self.get_transition(attr))?,
+                dep: ctx.configure_transition_target(dep, &transition)?,
                 required_providers: self.required_providers.dupe(),
             },
         )))
     }
 
-    pub(crate) fn get_transition<'a>(
-        &'a self,
-        attr: &'a CoercedTransitionDep,
-    ) -> &'a Arc<TransitionId> {
-        match self.transition.as_ref() {
-            Some(t) => t,
-            None => attr.transition.as_ref().unwrap(),
+    pub(crate) fn traverse<'a>(
+        &self,
+        dep: &'a ProvidersLabel,
+        dynamic: Option<&ProvidersLabel>,
+        traversal: &mut dyn CoercedAttrTraversal<'a>,
+    ) -> buck2_error::Result<()> {
+        let transition = self.transition(dynamic)?;
+        if let TransitionId::Target(label) = &**transition {
+            traversal.configuration_dep(label, ConfigurationDepKind::Transition)?;
+        }
+        traversal.transition_dep(dep, &transition)
+    }
+
+    fn transition(
+        &self,
+        dynamic: Option<&ProvidersLabel>,
+    ) -> buck2_error::Result<Cow<'_, Arc<TransitionId>>> {
+        match (&self.transition, dynamic) {
+            (Some(t), _) => Ok(Cow::Borrowed(t)),
+            (None, Some(label)) => Ok(Cow::Owned(Arc::new(TransitionId::Target(label.dupe())))),
+            (None, None) => Err(internal_error!(
+                "transition dep value without a transition in either the attr type or the value"
+            )),
         }
     }
 }
@@ -131,38 +153,6 @@ pub struct CoercedTransitionDep {
 }
 
 impl CoercedTransitionDep {
-    pub(crate) fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
-        match self.get_dynamic_transition() {
-            Some(tr) => Ok(serde_json::to_value([
-                self.dep.to_string(),
-                tr.to_string(),
-            ])?),
-            None => Ok(serde_json::to_value(self.dep.to_string())?),
-        }
-    }
-
-    pub(crate) fn any_matches(
-        &self,
-        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool> {
-        filter(&self.dep.to_string())
-    }
-
-    pub(crate) fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn CoercedAttrTraversal<'a>,
-        t: &TransitionDepAttrType,
-    ) -> buck2_error::Result<()> {
-        let transition = t.get_transition(self);
-        match &**transition {
-            TransitionId::MagicObject { .. } => (),
-            TransitionId::Target(label) => {
-                traversal.configuration_dep(label, ConfigurationDepKind::Transition)?
-            }
-        };
-        traversal.transition_dep(&self.dep, transition)
-    }
-
     /// If there's a dynamic transition, return the target
     pub fn get_dynamic_transition(&self) -> Option<&ProvidersLabel> {
         match &**self.transition.as_ref()? {

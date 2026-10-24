@@ -341,8 +341,8 @@ impl TargetNode {
 
     pub fn visibility(&self) -> buck2_error::Result<&VisibilitySpecification> {
         match self.0.attributes.get(VISIBILITY_ATTRIBUTE.id) {
-            Some(a) => match a.unpack_legacy() {
-                Some(CoercedAttr::Visibility(v)) => Ok(v),
+            Some(a) => match a.unpack_visibility() {
+                Some(v) => Ok(v),
                 _ => {
                     // This code is unreachable: visibility attributes are validated
                     // at the coercion stage. But if we did it wrong,
@@ -684,8 +684,8 @@ impl<'a> TargetNodeRef<'a> {
 
     pub fn metadata(self) -> buck2_error::Result<Option<&'a MetadataMap>> {
         self.known_attr_or_none(METADATA_ATTRIBUTE.id, AttrInspectOptions::All)
-            .map(|attr| match attr.value.unpack_legacy() {
-                Some(CoercedAttr::Metadata(m)) => Ok(m),
+            .map(|attr| match attr.value.unpack_metadata() {
+                Some(m) => Ok(m),
                 x => Err(internal_error!("`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{:?}` instead", x)),
             })
             .transpose()
@@ -693,8 +693,8 @@ impl<'a> TargetNodeRef<'a> {
 
     pub fn target_modifiers(self) -> buck2_error::Result<Option<&'a TargetModifiersValue>> {
         self.known_attr_or_none(TARGET_MODIFIERS_ATTRIBUTE.id, AttrInspectOptions::All)
-            .map(|attr| match attr.value.unpack_legacy() {
-                Some(CoercedAttr::TargetModifiers(m)) => Ok(m),
+            .map(|attr| match attr.value.unpack_target_modifiers() {
+                Some(m) => Ok(m),
                 x => Err(internal_error!(
                     "`modifiers` attribute should be coerced as a JSON value. Found `{:?}` instead",
                     x
