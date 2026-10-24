@@ -19,11 +19,14 @@ use buck2_error::internal_error;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
+use buck2_execute::execute::blobs::ActionBlobs;
+use buck2_execute::execute::request::ActionMetadataBlobData;
 use buck2_execute::execute::write_action_cache::PopulateOutcome;
 use buck2_execute::execute::write_action_cache::WriteActionCache;
 use buck2_execute::re::client::ActionCacheWriteType;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::ttl::re_expiration_from_ttl;
+use dupe::Dupe;
 use jiff::Timestamp;
 use remote_execution as RE;
 use remote_execution::TActionResult2;
@@ -46,21 +49,20 @@ pub struct ReWriteActionCache {
 }
 
 impl ReWriteActionCache {
+    /// Uploads `content` with `blobs`, whichever the CAS lacks, as an action's inputs are
+    /// uploaded: behind the CAS semaphore, with the presence check in front.
     async fn upload_blobs(
         &self,
-        mut blobs: Vec<RE::InlinedBlobWithDigest>,
+        mut blobs: ActionBlobs,
         content: &[u8],
         digest: &TrackedFileDigest,
     ) -> buck2_error::Result<()> {
-        blobs.push(RE::InlinedBlobWithDigest {
-            blob: content.to_vec(),
-            digest: digest.to_re(),
-            ..Default::default()
-        });
+        blobs.add_blob(digest.dupe(), ActionMetadataBlobData(content.to_vec()));
         self.re_client
-            .upload_files_and_directories(vec![], vec![], blobs)
+            .upload_blobs(&blobs)
             .await
-            .buck_error_context("Uploading a write's content")
+            .buck_error_context("Uploading a write's content")?;
+        Ok(())
     }
 }
 
@@ -85,8 +87,14 @@ impl WriteActionCache for ReWriteActionCache {
         Ok(response.map(|response| response.action_result))
     }
 
-    async fn upload(&self, content: &[u8], digest: &TrackedFileDigest) -> buck2_error::Result<()> {
-        self.upload_blobs(Vec::new(), content, digest).await
+    async fn upload(
+        &self,
+        content: &[u8],
+        digest: &TrackedFileDigest,
+        digest_config: DigestConfig,
+    ) -> buck2_error::Result<()> {
+        self.upload_blobs(ActionBlobs::new(digest_config), content, digest)
+            .await
     }
 
     async fn populate(
@@ -112,7 +120,7 @@ impl WriteActionCache for ReWriteActionCache {
 
         // The action cache reads an entry's action back from the CAS before accepting the
         // entry, so the action's blobs go up with the content.
-        self.upload_blobs(action.blobs.to_inlined_blobs(), content, digest)
+        self.upload_blobs(action.blobs.clone(), content, digest)
             .await?;
 
         let mut result = TActionResult2 {

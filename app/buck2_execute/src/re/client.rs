@@ -329,6 +329,21 @@ impl RemoteExecutionClient {
             .await
     }
 
+    /// Uploads whichever of `blobs` the CAS does not hold, as `upload` does for an action's
+    /// inputs: behind the CAS semaphore, with the presence check in front.
+    pub async fn upload_blobs(
+        &self,
+        blobs: &ActionBlobs,
+        use_case: RemoteExecutorUseCase,
+    ) -> buck2_error::Result<UploadStats> {
+        let _cas = self.data.client.cas_semaphore.acquire().await;
+
+        self.data
+            .uploads
+            .op(Uploader::upload_blobs(self, blobs, use_case))
+            .await
+    }
+
     pub async fn upload_files_and_directories(
         &self,
         files_with_digest: Vec<NamedDigest>,

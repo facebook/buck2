@@ -258,11 +258,12 @@ impl<'a> WriteCache<'a> {
         ctx: &dyn ActionExecutionCtx,
         request: &WriteRequest,
     ) -> buck2_error::Result<(ArtifactValue, Arc<CasDownloadInfo>)> {
-        let digest = TrackedFileDigest::from_content(
-            &request.content,
-            ctx.digest_config().cas_digest_config(),
-        );
-        self.cache.upload(&request.content, &digest).await?;
+        let digest_config = ctx.digest_config();
+        let digest =
+            TrackedFileDigest::from_content(&request.content, digest_config.cas_digest_config());
+        self.cache
+            .upload(&request.content, &digest, digest_config)
+            .await?;
         WriteActionCacheStats::bump(&WRITE_ACTION_CACHE_STATS.uploaded);
         let value = ArtifactValue::file(FileMetadata {
             digest,
