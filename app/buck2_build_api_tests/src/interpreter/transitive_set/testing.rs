@@ -8,9 +8,7 @@
  * above-listed licenses.
  */
 
-use std::sync::Mutex;
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::Ordering;
+use std::cell::Cell;
 
 use buck2_build_api::artifact_groups::deferred::TransitiveSetIndex;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
@@ -36,11 +34,6 @@ use starlark::values::ValueTyped;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 
-/// Global mutex to serialize tests that use `make_tset()`, which increments a shared
-/// global counter (LAST_ID). Without serialization, parallel test execution causes
-/// non-deterministic TransitiveSetIndex assignment, leading to intermittent failures.
-pub static TSET_TEST_LOCK: Mutex<()> = Mutex::new(());
-
 #[starlark_module]
 pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
     fn make_tset<'v>(
@@ -49,9 +42,19 @@ pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
         children: Option<Value<'v>>, // An iterable.
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<TransitiveSet<'v>> {
-        static LAST_ID: AtomicU32 = AtomicU32::new(0);
+        // Per thread, so a test's indices start at zero whatever other tests
+        // run alongside it: `libtest` runs each test on its own thread, and
+        // the test harnesses built on `make_tset` index their sets by
+        // position.
+        thread_local! {
+            static LAST_ID: Cell<u32> = const { Cell::new(0) };
+        }
 
-        let tset_id = TransitiveSetIndex::testing_new(LAST_ID.fetch_add(1, Ordering::Relaxed));
+        let tset_id = TransitiveSetIndex::testing_new(LAST_ID.with(|id| {
+            let next = id.get();
+            id.set(next + 1);
+            next
+        }));
 
         let set = TransitiveSet::new_from_values(
             TransitiveSetKey::new(DeferredHolderKey::testing_new("cell//more:tsets"), tset_id),
@@ -129,8 +132,6 @@ fn freeze_defs_module(code: &str) -> buck2_error::Result<FrozenModule> {
 /// render identically.
 #[test]
 fn test_child_definition_from_other_incarnation_is_accepted() -> buck2_error::Result<()> {
-    let _guard = TSET_TEST_LOCK.lock().unwrap();
-
     let defs = "FooSet = transitive_set()";
 
     let first = freeze_defs_module(defs)?;
@@ -171,7 +172,6 @@ fn test_child_definition_from_other_incarnation_is_accepted() -> buck2_error::Re
 
 #[test]
 fn test_new_transitive_set() -> buck2_error::Result<()> {
-    let _guard = TSET_TEST_LOCK.lock().unwrap();
     let set = new_transitive_set(indoc!(
         r#"
         FooSet = transitive_set()
