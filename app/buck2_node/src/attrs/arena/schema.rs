@@ -166,8 +166,8 @@ pub trait SchemaKind: KindTag + 'static {
 
 /// One record kind as a type. [`dispatch`] selects it from a value's tag
 /// and monomorphizes a visitor per kind, so every operation that is uniform
-/// over kinds is written once. Schema kinds get this from their fields;
-/// the record-internal tagged unions implement it by hand.
+/// over kinds is written once. Implemented once, for every [`SchemaKind`],
+/// from the kind's declared field.
 ///
 /// This trait, and everything a kind's `View` is spelled through, is `pub`
 /// inside crate-private modules: the public [`CoercedAttrRef::downcast`]

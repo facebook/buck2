@@ -92,16 +92,6 @@ pub struct CoercedAttrArenaBuilder {
     pub(super) roots: Vec<AttrWord>,
 }
 
-pub(crate) fn content_hash(
-    tag: CoercedAttrKind,
-    f: impl FnOnce(&mut BuckHasher),
-) -> CoercedAttrHash {
-    let mut h = BuckHasher::default();
-    Hash::hash(&(tag as u8), &mut h);
-    f(&mut h);
-    CoercedAttrHash(h.finish())
-}
-
 /// Bucket hash for the source-file lookaside: mixes the `ArcS` data
 /// address (identity, not content).
 pub(super) fn path_addr_hash(f: &ArcS<PackageRelativePath>) -> u64 {

@@ -36,16 +36,13 @@ use crate::attrs::arena::AttrWord;
 use crate::attrs::arena::CoercedAttrArena;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::CoercedAttrHash;
-use crate::attrs::arena::builder::EncodeScratchFields;
-use crate::attrs::arena::builder::EncodeScratchRefs;
-use crate::attrs::arena::builder::content_hash;
 use crate::attrs::arena::fields::ChildOf;
 use crate::attrs::arena::fields::Cursor;
 use crate::attrs::arena::fields::Extent;
+use crate::attrs::arena::fields::Field;
 use crate::attrs::arena::fields::IdHasher;
-use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::fields::RecordWriter;
 use crate::attrs::arena::schema::SchemaKind;
-use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -343,38 +340,63 @@ fn binary_op_from_bits(bits: u32) -> BinaryOp {
     }
 }
 
-impl Kind for kinds::QueryExpr {
-    const STORAGE: Storage = Storage::Record;
-    const SCALAR: bool = false;
-    type View<'a> = QueryExprRef<'a>;
+/// One query-expression node: head `[subtag, nv, values..., n]` then `n`
+/// refs; the view is a handle that decodes the node on demand.
+pub struct Node;
 
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent> {
-        let head = 3u32.checked_add(peek(1)?)?;
+impl Field for Node {
+    const DEPS: bool = true;
+    const INLINE: bool = false;
+    const HAS_TEXT: bool = false;
+    type View<'a> = QueryExprRef<'a>;
+    type Spec<'s> = &'s QueryNode<'s>;
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Extent> {
+        let head = 3u32.checked_add(peek(at + 1)?)?;
         Some(Extent {
             head,
-            refs: Some(peek(head - 1)?),
+            refs: Some(peek(at + head - 1)?),
             text: None,
         })
     }
 
-    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> QueryExprRef<'a> {
-        QueryExprRef { arena, r }
+    fn decode<'a>(c: &mut Cursor<'a>) -> QueryExprRef<'a> {
+        QueryExprRef {
+            arena: c.arena,
+            r: c.r,
+        }
     }
 
-    fn copy_into(
-        parts: QueryExprRef<'_>,
+    fn encode<'s>(
+        node: &'s QueryNode<'s>,
         b: &mut CoercedAttrArenaBuilder,
-    ) -> buck2_error::Result<AttrToken> {
-        b.encode_query_expr_view(parts)
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        write_node(b, w, node)
     }
 
-    fn identity(parts: QueryExprRef<'_>, h: &mut IdHasher<'_>) {
-        parts.strong_hash(&mut h.h);
+    /// Node for node and hash for hash the same as [`Self::encode`] from
+    /// the parsed expression.
+    fn reemit<'a>(
+        e: QueryExprRef<'a>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        let node = node_of_view(b, e)?;
+        write_node(b, w, &node)
+    }
+
+    fn identity(e: QueryExprRef<'_>, h: &mut IdHasher<'_>) {
+        e.strong_hash(&mut h.h);
     }
 
     fn same(a: QueryExprRef<'_>, b: QueryExprRef<'_>) -> bool {
         a.same_expr(&b)
     }
+}
+
+impl SchemaKind for kinds::QueryExpr {
+    type Fields = Node;
 }
 
 /// Handle to one stored query-expression node ([`CoercedAttrKind::QueryExpr`]);
@@ -723,7 +745,7 @@ impl StrongHash for QueryExprRef<'_> {
 /// One node of a query expression as its record stores it, children
 /// already encoded. Both the parser's expression and a decoded node convert
 /// to this, so the record layout and its content hash are defined once.
-enum QueryNode<'a> {
+pub enum QueryNode<'a> {
     None,
     Word(&'a str),
     String(&'a str),
@@ -741,18 +763,82 @@ enum QueryNode<'a> {
     FileSet(SmallVec<[AttrToken; 16]>),
 }
 
-/// The record parts of a `set(...)` or `fileset(...)` node over encoded members.
-fn set_parts(
-    subtag: u32,
-    items: &[AttrToken],
-) -> (u32, SmallVec<[u32; 8]>, EncodeScratchRefs, CoercedAttrHash) {
-    let hashes: SmallVec<[CoercedAttrHash; 16]> = items.iter().map(|i| i.1).collect();
-    (
-        subtag,
-        smallvec![],
-        items.iter().map(|i| i.0).collect(),
-        content_hash(CoercedAttrKind::QueryExpr, |h| (subtag, &hashes).hash(h)),
-    )
+/// Writes one node record: `[subtag, nv, values..., n]` then refs; the
+/// content hash folds the subtag and the node's content.
+fn write_node(
+    b: &mut CoercedAttrArenaBuilder,
+    w: &mut RecordWriter<'_>,
+    node: &QueryNode<'_>,
+) -> buck2_error::Result<()> {
+    let mut values: SmallVec<[u32; 8]> = smallvec![];
+    let mut refs: SmallVec<[AttrWord; 16]> = smallvec![];
+    let subtag = match node {
+        QueryNode::None => {
+            w.hash(&Q_EXPR_NONE);
+            Q_EXPR_NONE
+        }
+        QueryNode::Word(t) | QueryNode::String(t) => {
+            let subtag = match node {
+                QueryNode::Word(_) => Q_EXPR_WORD,
+                _ => Q_EXPR_STRING,
+            };
+            let AttrToken(sr, sh) = b.encode_str(CoercedAttrKind::String, t)?;
+            refs.push(sr);
+            w.hash(&(subtag, sh));
+            subtag
+        }
+        QueryNode::Int(v) => {
+            values.extend([*v as u32, (*v >> 32) as u32]);
+            w.hash(&(Q_EXPR_INT, v));
+            Q_EXPR_INT
+        }
+        QueryNode::Label(label) => {
+            let (idx, lh) = b.providers_label_idx_and_hash(label);
+            values.push(idx);
+            w.hash(&(Q_EXPR_LABEL, lh));
+            Q_EXPR_LABEL
+        }
+        QueryNode::Function { name, args } => {
+            let AttrToken(nr, nh) = b.encode_str(CoercedAttrKind::String, name)?;
+            refs.push(nr);
+            refs.extend(args.iter().map(|a| a.0));
+            let hashes: SmallVec<[CoercedAttrHash; 8]> = args.iter().map(|a| a.1).collect();
+            w.hash(&(Q_EXPR_FUNCTION, nh, &hashes));
+            Q_EXPR_FUNCTION
+        }
+        QueryNode::BinOp { first, rest } => {
+            values.extend(rest.iter().map(|(op, _)| binary_op_bits(*op)));
+            refs.push(first.0);
+            refs.extend(rest.iter().map(|(_, x)| x.0));
+            let hashes: SmallVec<[CoercedAttrHash; 8]> = rest
+                .iter()
+                .zip(&values)
+                .map(|((_, x), &opw)| CoercedAttrHash(x.1.0 ^ ((opw as u64) << 60)))
+                .collect();
+            w.hash(&(Q_EXPR_BINOP, first.1, &hashes));
+            Q_EXPR_BINOP
+        }
+        QueryNode::Set(items) | QueryNode::FileSet(items) => {
+            let subtag = match node {
+                QueryNode::Set(_) => Q_EXPR_SET,
+                _ => Q_EXPR_FILESET,
+            };
+            refs.extend(items.iter().map(|i| i.0));
+            let hashes: SmallVec<[CoercedAttrHash; 16]> = items.iter().map(|i| i.1).collect();
+            w.hash(&(subtag, &hashes));
+            subtag
+        }
+    };
+    w.head(subtag);
+    w.head(values.len() as u32);
+    for v in values {
+        w.head(v);
+    }
+    w.head(refs.len() as u32);
+    for r in refs {
+        w.r(r);
+    }
+    Ok(())
 }
 
 impl CoercedAttrArenaBuilder {
@@ -854,129 +940,53 @@ impl CoercedAttrArenaBuilder {
         &mut self,
         e: QueryExprRef<'_>,
     ) -> buck2_error::Result<AttrToken> {
-        let node = match e.kind() {
-            QueryExprKind::None => QueryNode::None,
-            QueryExprKind::Word(t) => QueryNode::Word(t),
-            QueryExprKind::String(t) => QueryNode::String(t),
-            QueryExprKind::Int(v) => QueryNode::Int(v),
-            QueryExprKind::Label(l) => QueryNode::Label(l),
-            QueryExprKind::Function { name, args } => QueryNode::Function {
-                name,
-                args: args
-                    .iter()
-                    .map(|a| self.encode_query_expr_view(a))
-                    .collect::<buck2_error::Result<_>>()?,
-            },
-            QueryExprKind::BinOp { first, rest } => QueryNode::BinOp {
-                first: self.encode_query_expr_view(first)?,
-                rest: rest
-                    .iter()
-                    .map(|(op, ex)| Ok((op, self.encode_query_expr_view(ex)?)))
-                    .collect::<buck2_error::Result<_>>()?,
-            },
-            QueryExprKind::Set(items) => QueryNode::Set(
-                items
-                    .iter()
-                    .map(|v| self.encode_query_expr_view(v))
-                    .collect::<buck2_error::Result<_>>()?,
-            ),
-            QueryExprKind::FileSet(items) => QueryNode::FileSet(
-                items
-                    .iter()
-                    .map(|v| self.encode_query_expr_view(v))
-                    .collect::<buck2_error::Result<_>>()?,
-            ),
-        };
-        self.encode_query_node(node)
+        let node = node_of_view(self, e)?;
+        encode_kind::<kinds::QueryExpr>(self, &node)
     }
+}
 
-    /// One `QueryExpr` record: `[subtag, nv, values..., n]` then refs; the
-    /// content hash folds the subtag and the node's content.
+/// A decoded node as the spec of its copy, children already copied.
+fn node_of_view<'a>(
+    b: &mut CoercedAttrArenaBuilder,
+    e: QueryExprRef<'a>,
+) -> buck2_error::Result<QueryNode<'a>> {
+    Ok(match e.kind() {
+        QueryExprKind::None => QueryNode::None,
+        QueryExprKind::Word(t) => QueryNode::Word(t),
+        QueryExprKind::String(t) => QueryNode::String(t),
+        QueryExprKind::Int(v) => QueryNode::Int(v),
+        QueryExprKind::Label(l) => QueryNode::Label(l),
+        QueryExprKind::Function { name, args } => QueryNode::Function {
+            name,
+            args: args
+                .iter()
+                .map(|a| b.encode_query_expr_view(a))
+                .collect::<buck2_error::Result<_>>()?,
+        },
+        QueryExprKind::BinOp { first, rest } => QueryNode::BinOp {
+            first: b.encode_query_expr_view(first)?,
+            rest: rest
+                .iter()
+                .map(|(op, ex)| Ok((op, b.encode_query_expr_view(ex)?)))
+                .collect::<buck2_error::Result<_>>()?,
+        },
+        QueryExprKind::Set(items) => QueryNode::Set(
+            items
+                .iter()
+                .map(|v| b.encode_query_expr_view(v))
+                .collect::<buck2_error::Result<_>>()?,
+        ),
+        QueryExprKind::FileSet(items) => QueryNode::FileSet(
+            items
+                .iter()
+                .map(|v| b.encode_query_expr_view(v))
+                .collect::<buck2_error::Result<_>>()?,
+        ),
+    })
+}
+
+impl CoercedAttrArenaBuilder {
     fn encode_query_node(&mut self, node: QueryNode<'_>) -> buck2_error::Result<AttrToken> {
-        let (subtag, values, refs, hash): (
-            u32,
-            SmallVec<[u32; 8]>,
-            EncodeScratchRefs,
-            CoercedAttrHash,
-        ) = match node {
-            QueryNode::None => (
-                Q_EXPR_NONE,
-                smallvec![],
-                EncodeScratchRefs::new(),
-                content_hash(CoercedAttrKind::QueryExpr, |h| Q_EXPR_NONE.hash(h)),
-            ),
-            QueryNode::Word(t) | QueryNode::String(t) => {
-                let subtag = match node {
-                    QueryNode::Word(_) => Q_EXPR_WORD,
-                    _ => Q_EXPR_STRING,
-                };
-                let AttrToken(sr, sh) = self.encode_str(CoercedAttrKind::String, t)?;
-                (
-                    subtag,
-                    smallvec![],
-                    smallvec![sr],
-                    content_hash(CoercedAttrKind::QueryExpr, |h| (subtag, sh).hash(h)),
-                )
-            }
-            QueryNode::Int(v) => (
-                Q_EXPR_INT,
-                smallvec![v as u32, (v >> 32) as u32],
-                EncodeScratchRefs::new(),
-                content_hash(CoercedAttrKind::QueryExpr, |h| (Q_EXPR_INT, v).hash(h)),
-            ),
-            QueryNode::Label(label) => {
-                let (idx, lh) = self.providers_label_idx_and_hash(label);
-                (
-                    Q_EXPR_LABEL,
-                    smallvec![idx],
-                    EncodeScratchRefs::new(),
-                    content_hash(CoercedAttrKind::QueryExpr, |h| (Q_EXPR_LABEL, lh).hash(h)),
-                )
-            }
-            QueryNode::Function { name, args } => {
-                let AttrToken(nr, nh) = self.encode_str(CoercedAttrKind::String, name)?;
-                let hashes: SmallVec<[CoercedAttrHash; 8]> = args.iter().map(|a| a.1).collect();
-                let refs = std::iter::once(nr)
-                    .chain(args.iter().map(|a| a.0))
-                    .collect();
-                (
-                    Q_EXPR_FUNCTION,
-                    smallvec![],
-                    refs,
-                    content_hash(CoercedAttrKind::QueryExpr, |h| {
-                        (Q_EXPR_FUNCTION, nh, &hashes).hash(h)
-                    }),
-                )
-            }
-            QueryNode::BinOp { first, rest } => {
-                let ops: SmallVec<[u32; 8]> =
-                    rest.iter().map(|(op, _)| binary_op_bits(*op)).collect();
-                let hashes: SmallVec<[CoercedAttrHash; 8]> = rest
-                    .iter()
-                    .zip(&ops)
-                    .map(|((_, x), &opw)| CoercedAttrHash(x.1.0 ^ ((opw as u64) << 60)))
-                    .collect();
-                let refs = std::iter::once(first.0)
-                    .chain(rest.iter().map(|(_, x)| x.0))
-                    .collect();
-                (
-                    Q_EXPR_BINOP,
-                    ops,
-                    refs,
-                    content_hash(CoercedAttrKind::QueryExpr, |h| {
-                        (Q_EXPR_BINOP, first.1, &hashes).hash(h)
-                    }),
-                )
-            }
-            QueryNode::Set(items) => set_parts(Q_EXPR_SET, &items),
-            QueryNode::FileSet(items) => set_parts(Q_EXPR_FILESET, &items),
-        };
-        let mut head = EncodeScratchFields::with_capacity(3 + values.len());
-        head.push(subtag);
-        head.push(values.len() as u32);
-        head.extend_from_slice(&values);
-        head.push(refs.len() as u32);
-        let r = self.encode_record(CoercedAttrKind::QueryExpr, hash, &head, &refs)?;
-        Ok(AttrToken(r, hash))
+        encode_kind::<kinds::QueryExpr>(self, &node)
     }
 }
