@@ -65,8 +65,8 @@ impl Display for CycleError {
 impl std::error::Error for CycleError {}
 
 impl Hash for dyn RequestedKey {
-    fn hash<H: Hasher>(&self, mut state: &mut H) {
-        self.hash(&mut state)
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.hash(state)
     }
 }
 
