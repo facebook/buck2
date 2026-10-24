@@ -3113,7 +3113,6 @@ dependencies = [
  "buck2_error",
  "buck2_fs",
  "buck2_node",
- "buck2_util",
  "dupe",
 ]
 
