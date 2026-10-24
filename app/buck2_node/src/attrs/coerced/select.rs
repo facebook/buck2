@@ -11,7 +11,6 @@
 use core::fmt;
 use std::borrow::Cow;
 use std::fmt::Display;
-use std::hash::Hash;
 use std::hash::Hasher;
 
 use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
@@ -19,7 +18,6 @@ use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
-use buck2_hash::BuckHasher;
 use buck2_hash::BuckHasherBuilder;
 use buck2_hash::BuckMutSet;
 use buck2_util::arc_str::ArcStr;
@@ -32,14 +30,10 @@ use smallvec::SmallVec;
 use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrToken;
-use crate::attrs::arena::AttrWord;
-use crate::attrs::arena::CoercedAttrArena;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
-use crate::attrs::arena::CoercedAttrHash;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::Refs;
 use crate::attrs::arena::Values;
-use crate::attrs::arena::builder::EncodeScratchFields;
 use crate::attrs::arena::fields::Children;
 use crate::attrs::arena::fields::Cursor;
 use crate::attrs::arena::fields::Extent;
@@ -50,7 +44,6 @@ use crate::attrs::arena::fields::RecordWriter;
 use crate::attrs::arena::fields::Text;
 use crate::attrs::arena::schema::Kind;
 use crate::attrs::arena::schema::SchemaKind;
-use crate::attrs::arena::schema::Storage;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::attr_type::AttrType;
@@ -60,7 +53,6 @@ use crate::attrs::coerced::configure::ConcatLeaves;
 use crate::attrs::coerced::configure::Configure;
 use crate::attrs::coerced::configure::TraverseConfigured;
 use crate::attrs::coerced::kinds;
-use crate::attrs::coerced::kinds::CoercedAttrKind;
 use crate::attrs::coerced::render::AttrRefDisplay;
 use crate::attrs::coerced::render::Fmt;
 use crate::attrs::coerced::render::MatchesAny;
@@ -722,8 +714,7 @@ impl Field for SelectorEntries {
         w: &mut RecordWriter<'s>,
     ) -> buck2_error::Result<()> {
         check_select_keys_unique(entries)?;
-        let AttrToken(keys, keys_hash) =
-            b.encode_selector_keys(entries.iter().map(|(k, _)| &k.0))?;
+        let AttrToken(keys, keys_hash) = encode_kind::<kinds::SelectorKeys>(b, entries)?;
         w.head(entries.len() as u32);
         w.r(keys);
         w.hash(&keys_hash);
@@ -739,7 +730,8 @@ impl Field for SelectorEntries {
         b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
-        let AttrToken(keys, keys_hash) = b.encode_selector_keys(view.iter().map(|(k, _)| k))?;
+        let AttrToken(keys, keys_hash) =
+            <kinds::SelectorKeys as Kind>::copy_into(KeysParts { keys: view.keys }, b)?;
         w.head(view.len() as u32);
         w.r(keys);
         w.hash(&keys_hash);
@@ -779,26 +771,40 @@ impl<'a> KeysParts<'a> {
             .map(move |k| &arena.providers_labels[k as usize])
     }
 }
-impl Kind for kinds::SelectorKeys {
-    const STORAGE: Storage = Storage::Record;
-    const SCALAR: bool = false;
-    type View<'a> = KeysParts<'a>;
+/// A selector's key set: a count, then that many label indices. The spec
+/// is the selector's entries, whose keys this stores.
+pub struct Keys;
 
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent> {
-        Some(Extent::head(1u32.checked_add(peek(0)?)?))
+impl Field for Keys {
+    const DEPS: bool = true;
+    const INLINE: bool = false;
+    const HAS_TEXT: bool = false;
+    type View<'a> = KeysParts<'a>;
+    type Spec<'s> = &'s [(ConfigurationSettingKey, AttrToken)];
+
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>, at: u32) -> Option<Extent> {
+        Some(Extent::head(1u32.checked_add(peek(at)?)?))
     }
 
-    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> KeysParts<'a> {
-        let mut c = Cursor::new(arena, r);
+    fn decode<'a>(c: &mut Cursor<'a>) -> KeysParts<'a> {
         let n = c.raw();
         KeysParts { keys: c.raws(n) }
     }
 
-    fn copy_into(
-        parts: KeysParts<'_>,
+    fn encode<'s>(
+        entries: &'s [(ConfigurationSettingKey, AttrToken)],
         b: &mut CoercedAttrArenaBuilder,
-    ) -> buck2_error::Result<AttrToken> {
-        b.encode_selector_keys(parts.iter())
+        w: &mut RecordWriter<'s>,
+    ) -> buck2_error::Result<()> {
+        write_keys(b, w, entries.iter().map(|(k, _)| &k.0))
+    }
+
+    fn reemit<'a>(
+        parts: KeysParts<'a>,
+        b: &mut CoercedAttrArenaBuilder,
+        w: &mut RecordWriter<'a>,
+    ) -> buck2_error::Result<()> {
+        write_keys(b, w, parts.iter())
     }
 
     fn identity(parts: KeysParts<'_>, h: &mut IdHasher<'_>) {
@@ -812,25 +818,23 @@ impl Kind for kinds::SelectorKeys {
         a.keys.len() == b.keys.len() && a.iter().zip(b.iter()).all(|(x, y)| x == y)
     }
 }
-impl CoercedAttrArenaBuilder {
-    /// The shared `SelectorKeys` record of a selector's key set.
-    fn encode_selector_keys<'k>(
-        &mut self,
-        keys: impl ExactSizeIterator<Item = &'k ProvidersLabel>,
-    ) -> buck2_error::Result<AttrToken> {
-        let mut key_idxs = EncodeScratchFields::with_capacity(1 + keys.len());
-        key_idxs.push(keys.len() as u32);
-        let mut keys_hasher = BuckHasher::default();
-        Hash::hash(&(CoercedAttrKind::SelectorKeys as u8), &mut keys_hasher);
-        for key in keys {
-            let (key_idx, key_hash) = self.providers_label_idx_and_hash(key);
-            key_idxs.push(key_idx);
-            key_hash.hash(&mut keys_hasher);
-        }
-        let keys_hash = CoercedAttrHash(keys_hasher.finish());
-        let r = self.encode_record(CoercedAttrKind::SelectorKeys, keys_hash, &key_idxs, &[])?;
-        Ok(AttrToken(r, keys_hash))
+
+fn write_keys<'k>(
+    b: &mut CoercedAttrArenaBuilder,
+    w: &mut RecordWriter<'_>,
+    keys: impl ExactSizeIterator<Item = &'k ProvidersLabel>,
+) -> buck2_error::Result<()> {
+    w.head(keys.len() as u32);
+    for key in keys {
+        let (idx, hash) = b.providers_label_idx_and_hash(key);
+        w.head(idx);
+        w.hash(&hash);
     }
+    Ok(())
+}
+
+impl SchemaKind for kinds::SelectorKeys {
+    type Fields = Keys;
 }
 
 #[cfg(test)]
