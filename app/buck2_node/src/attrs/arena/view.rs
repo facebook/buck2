@@ -13,7 +13,6 @@
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_util::strong_hasher::StrongHash128;
 
-use crate::attrs::arena::arg::ArgPartView;
 use crate::attrs::arena::schema::EqParts;
 use crate::attrs::arena::schema::Kind;
 use crate::attrs::arena::storage::AttrToken;
@@ -95,21 +94,6 @@ impl RefItem for Pairs {
     }
     fn tokens(spec: &[(AttrToken, AttrToken)]) -> impl Iterator<Item = AttrToken> + '_ {
         spec.iter().flat_map(|(k, v)| [*k, *v])
-    }
-}
-
-/// One arg part (`ArgSimple` or `ArgMacro` record) per ref.
-pub struct ArgParts;
-
-impl RefItem for ArgParts {
-    const STRIDE: u32 = 1;
-    type Item<'a> = ArgPartView<'a>;
-    type Spec = [AttrToken];
-    fn item<'a>(refs: Refs<'a, Self>, i: u32) -> ArgPartView<'a> {
-        refs.run.arena.arg_part_at(refs.run.get(i))
-    }
-    fn tokens(spec: &[AttrToken]) -> impl Iterator<Item = AttrToken> + '_ {
-        spec.iter().copied()
     }
 }
 

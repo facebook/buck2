@@ -685,17 +685,6 @@ pub(super) enum Tail<'a> {
     Refs(RefRun<'a>),
 }
 
-impl<'a> Rec<'a> {
-    /// The ref tail of a record whose layout has one.
-    #[inline]
-    pub(super) fn refs(&self) -> RefRun<'a> {
-        match self.tail {
-            Tail::Refs(run) => run,
-            _ => unreachable!("should have refs: the kind's layout says so"),
-        }
-    }
-}
-
 /// A run of fixed-width values inside one record: ref fields (see
 /// [`AttrWord::to_field`]) or raw indices (`SelectorKeys`).
 #[derive(Copy, Clone)]

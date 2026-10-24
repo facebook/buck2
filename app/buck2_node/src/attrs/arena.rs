@@ -36,7 +36,6 @@
 //!   before their parents), so a ref cannot be observed half-built and
 //!   deltas are never negative.
 
-mod arg;
 pub(crate) mod builder;
 pub(crate) mod fields;
 mod owned;
@@ -46,16 +45,12 @@ pub(crate) mod storage;
 mod tests;
 mod view;
 
-pub use arg::ArgMacroView;
-pub use arg::ArgPartView;
-pub use arg::ArgQueryView;
 pub use builder::CoercedAttrArenaBuilder;
 pub use owned::OwnedCoercedAttr;
 pub use storage::AttrToken;
 pub use storage::AttrWord;
 pub use storage::CoercedAttrArena;
 pub use storage::CoercedAttrHash;
-pub use view::ArgParts;
 pub use view::AttrRefSelectorEntries;
 pub use view::CoercedAttrRef;
 pub use view::Pairs;

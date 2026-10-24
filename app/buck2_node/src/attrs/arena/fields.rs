@@ -37,7 +37,6 @@ use crate::attrs::arena::storage::CoercedAttrArena;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::arena::storage::Tail;
 use crate::attrs::arena::storage::TailLen;
-use crate::attrs::arena::view::ArgParts;
 use crate::attrs::arena::view::AttrRefSelectorEntries;
 use crate::attrs::arena::view::CoercedAttrRef;
 use crate::attrs::arena::view::Pairs;
@@ -885,8 +884,6 @@ pub struct ChildrenOf<T>(std::marker::PhantomData<T>);
 pub type Children = ChildrenOf<Values>;
 /// (key, value) child pairs.
 pub type ChildPairs = ChildrenOf<Pairs>;
-/// Arg parts.
-pub type ArgChildren = ChildrenOf<ArgParts>;
 
 impl<T: RefItem + 'static> Field for ChildrenOf<T> {
     const DEPS: bool = true;

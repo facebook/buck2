@@ -26,6 +26,8 @@ use crate::attrs::arena::storage::INT_INLINE_MIN;
 use crate::attrs::arena::storage::OFFSET_MASK;
 use crate::attrs::arena::storage::RecordBytes;
 use crate::attrs::arena::storage::TAG_WIDTH_SHIFT;
+use crate::attrs::attr_type::arg::ArgMacroView;
+use crate::attrs::attr_type::arg::ArgPartView;
 use crate::attrs::attr_type::arg::MacroDepKind;
 use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::arg::StringWithMacros;
@@ -689,7 +691,8 @@ fn test_selector_keys_shared_across_values() {
         (1 + 1 + 4) + (1 + 1 + 3),
         "expected keys record to be shared"
     );
-    let keys_of = |b: &CoercedAttrArenaBuilder, r: AttrWord| b.arena.open(r).refs().get(0);
+    let keys_of =
+        |b: &CoercedAttrArenaBuilder, r: AttrWord| fields::Cursor::new(&b.arena, r).refs(1).get(0);
     assert_eq!(
         keys_of(&b, r1),
         keys_of(&b, r2),
