@@ -40,6 +40,16 @@ pub trait NodeLookup<T: LabeledNode> {
 #[async_trait]
 pub trait AsyncNodeLookup<T: LabeledNode>: Send + Sync {
     async fn get(&self, label: &T::Key) -> buck2_error::Result<T>;
+
+    /// `get`, told which node's expansion is asking. Lookups that load on
+    /// demand can credit the load to the requester.
+    async fn get_from(
+        &self,
+        label: &T::Key,
+        _requester: Option<&T::Key>,
+    ) -> buck2_error::Result<T> {
+        self.get(label).await
+    }
 }
 
 /// Node lookup when node key is the same as the node.
@@ -62,6 +72,10 @@ impl<T: LabeledNode<Key = T>> AsyncNodeLookup<T> for NodeLookupId {
 impl<T: LabeledNode, A: AsyncNodeLookup<T>> AsyncNodeLookup<T> for &A {
     async fn get(&self, label: &T::Key) -> buck2_error::Result<T> {
         (*self).get(label).await
+    }
+
+    async fn get_from(&self, label: &T::Key, requester: Option<&T::Key>) -> buck2_error::Result<T> {
+        (*self).get_from(label, requester).await
     }
 }
 
@@ -150,10 +164,10 @@ pub async fn async_depth_limited_traversal<
             if visited.contains_key(target) {
                 return;
             }
-            visited.insert(target.clone(), parent);
+            visited.insert(target.clone(), parent.clone());
             let target = target.clone();
             queue.push_back(async move {
-                let result = nodes.get(&target).await;
+                let result = nodes.get_from(&target, parent.as_ref()).await;
                 (target, depth, result)
             })
         };

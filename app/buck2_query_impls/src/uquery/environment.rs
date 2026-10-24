@@ -9,8 +9,11 @@
  */
 
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::Instant;
 
 use async_trait::async_trait;
+use buck2_build_api::build_signals::HasBuildSignals;
 use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::file_ops::error::FileReadErrorContext;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
@@ -29,6 +32,7 @@ use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_hash::BuckMutInsertionSet;
 use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -117,6 +121,10 @@ pub(crate) struct UqueryEnvironment<'c> {
     delegate: &'c dyn UqueryDelegate,
     literals: Arc<dyn QueryLiterals<TargetNode> + 'c>,
     allow_partial_graph: bool,
+    /// Packages whose load this environment has already credited to a
+    /// requester, or that a literal loaded; only the first request for a
+    /// package is the one that started its load.
+    reported_loads: Mutex<BuckMutSet<PackageLabel>>,
 }
 
 pub(crate) struct PreresolvedQueryLiterals<T: QueryTarget> {
@@ -157,6 +165,29 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
     }
 }
 
+impl PreresolvedQueryLiterals<TargetNode> {
+    /// Packages of the targets the literals resolved to.
+    pub(crate) fn packages(&self) -> BuckMutSet<PackageLabel> {
+        let mut packages = BuckMutSet::default();
+        let mut last: Option<PackageLabel> = None;
+        for targets in self
+            .resolved_literals
+            .values()
+            .filter_map(|r| r.as_ref().ok())
+        {
+            for target in targets.iter() {
+                let pkg = target.label().pkg();
+                // Targets of one package are adjacent; skip rehashing them.
+                if last.as_ref() != Some(&pkg) {
+                    packages.insert(pkg.dupe());
+                    last = Some(pkg);
+                }
+            }
+        }
+        packages
+    }
+}
+
 #[async_trait]
 impl<T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
     async fn eval_literals(
@@ -184,12 +215,14 @@ impl<'c> UqueryEnvironment<'c> {
     pub(crate) fn new(
         delegate: &'c dyn UqueryDelegate,
         literals: Arc<dyn QueryLiterals<TargetNode> + 'c>,
+        literal_packages: BuckMutSet<PackageLabel>,
         allow_partial_graph: bool,
     ) -> Self {
         Self {
             delegate,
             literals,
             allow_partial_graph,
+            reported_loads: Mutex::new(literal_packages),
         }
     }
 
@@ -222,6 +255,28 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
 
     async fn get_node(&self, node_ref: &TargetLabel) -> buck2_error::Result<Self::Target> {
         UqueryEnvironment::get_node(self, node_ref).await
+    }
+
+    async fn get_node_from(
+        &self,
+        node_ref: &TargetLabel,
+        requester: Option<&TargetLabel>,
+    ) -> buck2_error::Result<Self::Target> {
+        // The traversal, not a tracked computation, is what asks for this package, so
+        // tell build signals which node's expansion requested it, once the request returns.
+        let report = requester.filter(|from| {
+            from.pkg() != node_ref.pkg()
+                && self.reported_loads.lock().unwrap().insert(node_ref.pkg())
+        });
+        let requested_at = Instant::now();
+        let node = UqueryEnvironment::get_node(self, node_ref).await;
+        if let Some(from) = report {
+            let ctx = self.delegate.ctx();
+            if let Some(signals) = ctx.per_transaction_data().get_build_signals() {
+                signals.load_discovered(node_ref.pkg(), from.pkg(), requested_at);
+            }
+        }
+        node
     }
 
     async fn get_node_for_default_configured_target(

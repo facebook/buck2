@@ -551,6 +551,39 @@ class CriticalPathTest(BuckTestCase):
         assert (SUB_LOAD, ROOT_LOAD) in edges, f"got edges: {sorted(edges)}"
 
     @buck_test()
+    async def test_uquery_load_edge(self, buck: Buck) -> None:
+        _use_logging_backend(buck)
+        await buck.uquery("deps(//:cross_pkg)")
+        edges = await _discovery_edges(buck)
+        # No tracked computation requests root//sub here: the deps traversal does, while
+        # expanding //:cross_pkg, and reports root// as the requester.
+        assert (SUB_LOAD, ROOT_LOAD) in edges, (
+            "expected the uquery traversal to credit root//sub's load to root//, "
+            f"got edges: {sorted(edges)}"
+        )
+
+    @buck_test()
+    async def test_uquery_package_cycle_has_no_load_cycle(self, buck: Buck) -> None:
+        _use_logging_backend(buck)
+        await buck.uquery("deps(//:pkg_cycle_top)")
+        edges = await _discovery_edges(buck)
+        _assert_no_load_cycle(edges)
+        assert (SUB_LOAD, ROOT_LOAD) in edges, f"got edges: {sorted(edges)}"
+
+    @buck_test()
+    async def test_uquery_preloaded_package_has_no_discovery_edge(
+        self, buck: Buck
+    ) -> None:
+        _use_logging_backend(buck)
+        # The literal //sub:preloaded_literal loads root//sub alongside root//, before the
+        # traversal expands //:preloaded_top, so nothing discovered root//sub.
+        await buck.uquery("deps(set(//:preloaded_top //sub:preloaded_literal))")
+        edges = await _discovery_edges(buck)
+        assert (SUB_LOAD, ROOT_LOAD) not in edges, (
+            f"root//sub was loaded by a literal, not discovered: {sorted(edges)}"
+        )
+
+    @buck_test()
     async def test_configuration_dep_load_edge(self, buck: Buck) -> None:
         with open(buck.cwd / ".buckconfig", "a") as f:
             f.write("[buck2]\n")

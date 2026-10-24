@@ -371,7 +371,16 @@ enum BuildSignal {
     TestListing(TestListingSignal),
     Install(InstallSignal),
     PageIn(PageInSignal),
+    LoadDiscovery(LoadDiscoverySignal),
     BuildFinished,
+}
+
+/// A package load requested on behalf of a node of another package by code
+/// outside any tracked computation; see `BuildSignals::load_discovered`.
+struct LoadDiscoverySignal {
+    package: PackageLabel,
+    discovered_by: PackageLabel,
+    requested_at: Instant,
 }
 
 /// Data for a BuildSignal that is the result of a DICE key evaluation.
@@ -502,6 +511,21 @@ impl BuildSignalSender {
 }
 
 impl BuildSignals for BuildSignalSender {
+    fn load_discovered(
+        &self,
+        package: PackageLabel,
+        discovered_by: PackageLabel,
+        requested_at: Instant,
+    ) {
+        let _ignored = self
+            .sender
+            .send(BuildSignal::LoadDiscovery(LoadDiscoverySignal {
+                package,
+                discovered_by,
+                requested_at,
+            }));
+    }
+
     fn top_level_target(
         &self,
         label: ConfiguredTargetLabel,
@@ -920,6 +944,7 @@ where
                 BuildSignal::TestListing(test_listing) => self.process_test_listing(test_listing),
                 BuildSignal::Install(install) => self.process_install(install),
                 BuildSignal::PageIn(page_in) => self.process_page_in(page_in),
+                BuildSignal::LoadDiscovery(discovery) => self.process_load_discovery(discovery),
                 BuildSignal::BuildFinished => {
                     self.flush_unmatched_page_ins();
                     break;
@@ -1094,9 +1119,9 @@ where
     /// configuration against a set of select keys is a computation with no target of its own
     /// (keyed by configuration and key set, shared by every target using those keys), so the
     /// key-target packages it loads wait in `discoveries_awaiting_package` until a packaged
-    /// computation depends on it. Loads nobody's tracked computation depended on, which is
-    /// how target patterns and query traversals drive loads, have no discoverer and get no
-    /// edge.
+    /// computation depends on it. Loads no tracked computation depended on have no
+    /// discoverer here; query traversals report theirs through `process_load_discovery`,
+    /// and target-pattern loads get no edge.
     ///
     /// Only a package whose load finished before the discovered load began can have
     /// discovered it; see `load_could_discover`. Requests from packages that loaded later
@@ -1130,19 +1155,50 @@ where
             return;
         };
         for pkg in discovered {
-            if pkg == from_pkg || self.load_could_discover(from_pkg, pkg) != Some(true) {
-                continue;
+            if self.load_could_discover(from_pkg, pkg) == Some(true) {
+                self.credit_load_discovery(pkg, from_pkg.dupe(), end);
             }
-            let discovered = NodeKey::InterpreterResultsKey(InterpreterResultsKey(pkg));
-            let from = NodeKey::InterpreterResultsKey(InterpreterResultsKey(from_pkg.dupe()));
-            match self.first_requester_for_load.entry(discovered) {
-                std::collections::hash_map::Entry::Vacant(e) => {
-                    e.insert((from, end));
-                }
-                std::collections::hash_map::Entry::Occupied(mut e) => {
-                    if end < e.get().1 {
-                        e.insert((from, end));
-                    }
+        }
+    }
+
+    /// A query traversal asked for `package` while expanding a node of `discovered_by`;
+    /// nothing tracked encloses that request, so the traversal reports it once the request
+    /// returns. The load has been signaled by then if this command evaluated it, and the
+    /// request started it only if it began no earlier than the request.
+    fn process_load_discovery(&mut self, discovery: LoadDiscoverySignal) {
+        if self
+            .load_spans
+            .get(&discovery.package)
+            .is_some_and(|span| span.start() >= discovery.requested_at)
+        {
+            self.credit_load_discovery(
+                discovery.package,
+                discovery.discovered_by,
+                discovery.requested_at,
+            );
+        }
+    }
+
+    /// Credit `discovered`'s load to `from_pkg`'s load unless an earlier discoverer is
+    /// already on record. A package does not discover itself.
+    fn credit_load_discovery(
+        &mut self,
+        discovered: PackageLabel,
+        from_pkg: PackageLabel,
+        at: Instant,
+    ) {
+        if discovered == from_pkg {
+            return;
+        }
+        let discovered = NodeKey::InterpreterResultsKey(InterpreterResultsKey(discovered));
+        let from = NodeKey::InterpreterResultsKey(InterpreterResultsKey(from_pkg));
+        match self.first_requester_for_load.entry(discovered) {
+            std::collections::hash_map::Entry::Vacant(e) => {
+                e.insert((from, at));
+            }
+            std::collections::hash_map::Entry::Occupied(mut e) => {
+                if at < e.get().1 {
+                    e.insert((from, at));
                 }
             }
         }
@@ -1925,6 +1981,81 @@ mod tests {
             receiver.first_requester_for_load.get(&load_key("cell//e")),
             None,
             "cell//a:v reaches cell//e only through two package-less computations"
+        );
+    }
+
+    /// A query traversal reports which node's expansion requested a package: the first
+    /// report wins, a later one does not displace it, and a package never discovers itself.
+    #[test]
+    fn load_discovery_reports_credit_the_requesting_package() {
+        let mut receiver = receiver();
+        let t0 = Instant::now();
+        let later = t0 + Duration::from_secs(1);
+        let discovery = |package: &str, discovered_by: &str, at: Instant| LoadDiscoverySignal {
+            package: PackageLabel::testing_parse(package),
+            discovered_by: PackageLabel::testing_parse(discovered_by),
+            requested_at: at,
+        };
+
+        receiver.process_evaluation(plain_evaluation(load_key("cell//a"), vec![], t0));
+        receiver.process_evaluation(plain_evaluation(load_key("cell//b"), vec![], t0));
+        receiver.process_load_discovery(discovery("cell//b", "cell//a", t0));
+        receiver.process_load_discovery(discovery("cell//b", "cell//c", later));
+        receiver.process_load_discovery(discovery("cell//a", "cell//a", t0));
+
+        let edges: BuckMutMap<NodeKey, NodeKey> = receiver
+            .first_requester_for_load
+            .iter()
+            .map(|(k, (v, _))| (k.dupe(), v.dupe()))
+            .collect();
+        assert_eq!(
+            edges.get(&load_key("cell//b")),
+            Some(&load_key("cell//a")),
+            "the first reported requester should win"
+        );
+        assert_eq!(
+            edges.get(&load_key("cell//a")),
+            None,
+            "a package does not discover itself"
+        );
+    }
+
+    /// A traversal's request discovered a load only if the load began no earlier than the
+    /// request, and only if this command evaluated it.
+    #[test]
+    fn load_discovery_reports_require_the_request_to_start_the_load() {
+        let mut receiver = receiver();
+        let t0 = Instant::now();
+        let later = t0 + Duration::from_secs(1);
+        let discovery = |package: &str, at: Instant| LoadDiscoverySignal {
+            package: PackageLabel::testing_parse(package),
+            discovered_by: PackageLabel::testing_parse("cell//a"),
+            requested_at: at,
+        };
+
+        receiver.process_evaluation(plain_evaluation(load_key("cell//a"), vec![], t0));
+        receiver.process_evaluation(plain_evaluation(load_key("cell//b"), vec![], t0));
+        receiver.process_evaluation(plain_evaluation(load_key("cell//c"), vec![], later));
+        receiver.process_load_discovery(discovery("cell//b", later));
+        receiver.process_load_discovery(discovery("cell//c", t0));
+        receiver.process_load_discovery(discovery("cell//d", t0));
+
+        let edge = |package: &str| {
+            receiver
+                .first_requester_for_load
+                .get(&load_key(package))
+                .map(|(from, _)| from.dupe())
+        };
+        assert_eq!(
+            edge("cell//b"),
+            None,
+            "cell//b began loading before the request"
+        );
+        assert_eq!(edge("cell//c"), Some(load_key("cell//a")));
+        assert_eq!(
+            edge("cell//d"),
+            None,
+            "this command did not evaluate cell//d's load"
         );
     }
 

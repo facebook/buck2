@@ -9,12 +9,14 @@
  */
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::DeferredBuildSignals;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
+use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_events::span::SpanId;
@@ -91,6 +93,17 @@ pub trait BuildSignals: Send + Sync + 'static {
         duration: NodeDuration,
         deps: &[ActionKey],
         waiting_data: WaitingData,
+    );
+
+    /// A package load requested at `requested_at` on behalf of a node of
+    /// `discovered_by`, by code that drives loads outside any tracked computation
+    /// (query traversals). Must be called after the request returns. Credits the
+    /// load to that package's load on the critical path if the request started it.
+    fn load_discovered(
+        &self,
+        package: PackageLabel,
+        discovered_by: PackageLabel,
+        requested_at: Instant,
     );
 }
 

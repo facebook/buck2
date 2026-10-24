@@ -41,3 +41,7 @@ cp(
 # -> root//:pkg_cycle_leaf.
 cp(name = "pkg_cycle_top", dep = "//sub:pkg_cycle_mid")
 write(name = "pkg_cycle_leaf", visibility = ["PUBLIC"])
+
+# `root//sub:preloaded_literal` shares a package with `preloaded_top`'s dep, so querying both
+# loads root//sub before any traversal reaches it.
+cp(name = "preloaded_top", dep = "//sub:preloaded_dep")
