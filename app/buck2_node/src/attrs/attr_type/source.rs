@@ -25,7 +25,8 @@ use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Label;
 use crate::attrs::arena::fields::Path;
-use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::attr_config::source_file_display;
@@ -51,7 +52,7 @@ pub struct SourceAttrType {
     pub allow_directory: bool,
 }
 
-impl SchemaKind for kinds::SourceLabel {
+impl Kind for kinds::SourceLabel {
     type Fields = Label;
 }
 
@@ -63,7 +64,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::SourceLabel {
     fn traverse<'a>(
-        l: Self::View<'a>,
+        l: View<'a, Self>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         match &t.non_optional().0.inner {
@@ -73,7 +74,7 @@ impl Semantics for kinds::SourceLabel {
     }
 
     fn configure(
-        l: Self::View<'_>,
+        l: View<'_, Self>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &t.non_optional().0.inner {
@@ -85,7 +86,7 @@ impl Semantics for kinds::SourceLabel {
     }
 
     fn traverse_configured(
-        l: Self::View<'_>,
+        l: View<'_, Self>,
         TraverseConfigured { v, t, ctx, tr, .. }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         match &t.non_optional().0.inner {
@@ -100,34 +101,34 @@ impl Semantics for kinds::SourceLabel {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(l: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(l: View<'_, Self>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         json_label(l)
     }
 
-    fn fmt(l: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt(l: View<'_, Self>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "\"{l}\"")
     }
 
     fn any_matches(
-        l: Self::View<'_>,
+        l: View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&l.to_string())
     }
 
-    fn json_key<'a>(l: Self::View<'a>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(l: View<'a, Self>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Owned(l.to_string()))
     }
 
     fn serialize<S: Serializer>(
-        l: Self::View<'_>,
+        l: View<'_, Self>,
         SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&l.to_string())
     }
 }
 
-impl SchemaKind for kinds::SourceFile {
+impl Kind for kinds::SourceFile {
     type Fields = Path;
 }
 
@@ -139,7 +140,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::SourceFile {
     fn traverse<'a>(
-        p: Self::View<'a>,
+        p: View<'a, Self>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         match &t.non_optional().0.inner {
@@ -157,7 +158,7 @@ impl Semantics for kinds::SourceFile {
     }
 
     fn configure(
-        p: Self::View<'_>,
+        p: View<'_, Self>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &t.non_optional().0.inner {
@@ -169,7 +170,7 @@ impl Semantics for kinds::SourceFile {
     }
 
     fn traverse_configured(
-        p: Self::View<'_>,
+        p: View<'_, Self>,
         TraverseConfigured { v, t, pkg, tr, .. }: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         match &t.non_optional().0.inner {
@@ -186,32 +187,32 @@ impl Semantics for kinds::SourceFile {
     }
 
     fn to_json(
-        p: Self::View<'_>,
+        p: View<'_, Self>,
         ToJson { ctx }: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(source_file_display(ctx, p).to_string())?)
     }
 
-    fn fmt(p: Self::View<'_>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt(p: View<'_, Self>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "\"{}\"", source_file_display(ctx, p))
     }
 
     fn any_matches(
-        p: Self::View<'_>,
+        p: View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&p.path().to_string())
     }
 
     fn json_key<'a>(
-        p: Self::View<'a>,
+        p: View<'a, Self>,
         JsonKey { ctx }: JsonKey<'_>,
     ) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Owned(source_file_display(ctx, p).to_string()))
     }
 
     fn serialize<S: Serializer>(
-        p: Self::View<'_>,
+        p: View<'_, Self>,
         SerializeKind { ctx, ser }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&source_file_display(ctx, p).to_string())

@@ -25,6 +25,7 @@ use serde_json::to_value;
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::Refs;
 use crate::attrs::arena::Values;
+use crate::attrs::arena::schema::View;
 use crate::attrs::coerced::kinds::ValueVisitor;
 use crate::attrs::coerced::kinds::dispatch_value;
 use crate::attrs::coerced::semantics::Semantics;
@@ -205,7 +206,7 @@ pub(crate) struct ToJson<'x> {
 
 impl<'a> ValueVisitor<'a> for ToJson<'_> {
     type Out = buck2_error::Result<serde_json::Value>;
-    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+    fn visit<K: Semantics + 'static>(self, view: View<'a, K>) -> Self::Out {
         K::to_json(view, self)
     }
 }
@@ -217,7 +218,7 @@ pub(crate) struct Fmt<'x, 'y> {
 
 impl<'a> ValueVisitor<'a> for Fmt<'_, '_> {
     type Out = std::fmt::Result;
-    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+    fn visit<K: Semantics + 'static>(self, view: View<'a, K>) -> Self::Out {
         K::fmt(view, self)
     }
 }
@@ -228,7 +229,7 @@ pub(crate) struct MatchesAny<'x> {
 
 impl<'a> ValueVisitor<'a> for MatchesAny<'_> {
     type Out = buck2_error::Result<bool>;
-    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+    fn visit<K: Semantics + 'static>(self, view: View<'a, K>) -> Self::Out {
         K::any_matches(view, self)
     }
 }
@@ -239,7 +240,7 @@ pub(crate) struct JsonKey<'x> {
 
 impl<'a> ValueVisitor<'a> for JsonKey<'_> {
     type Out = buck2_error::Result<Cow<'a, str>>;
-    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+    fn visit<K: Semantics + 'static>(self, view: View<'a, K>) -> Self::Out {
         K::json_key(view, self)
     }
 }
@@ -252,7 +253,7 @@ pub(crate) struct SerializeKind<'x, S> {
 
 impl<'a, S: Serializer> ValueVisitor<'a> for SerializeKind<'_, S> {
     type Out = Result<S::Ok, S::Error>;
-    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+    fn visit<K: Semantics + 'static>(self, view: View<'a, K>) -> Self::Out {
         K::serialize(view, self)
     }
 }

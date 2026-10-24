@@ -14,6 +14,7 @@ use buck2_util::strong_hasher::StrongHash128;
 
 use crate::attrs::arena::schema::EqParts;
 use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
 use crate::attrs::arena::storage::CoercedAttrArena;
@@ -135,7 +136,7 @@ impl<'a> CoercedAttrRef<'a> {
     /// for readers that want one kind rather than the sum `kind()` gives.
     ///
     /// `K` is one of the kind types in [`crate::attrs::coerced::kinds`].
-    pub fn downcast<K: Kind>(&self) -> Option<K::View<'a>> {
+    pub fn downcast<K: Kind>(&self) -> Option<View<'a, K>> {
         (self.arena.kind_of(self.r) == K::KIND).then(|| K::decode(self.arena, self.r))
     }
 

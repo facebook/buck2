@@ -49,7 +49,7 @@ use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::fields::RecordWriter;
 use crate::attrs::arena::fields::Text;
 use crate::attrs::arena::schema::Kind;
-use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -559,7 +559,7 @@ impl<'a> ArgPartView<'a> {
     }
 }
 
-impl SchemaKind for kinds::ArgSimple {
+impl Kind for kinds::ArgSimple {
     type Fields = Text;
 }
 
@@ -572,12 +572,12 @@ impl CoercedAttrArenaBuilder {
 impl Semantics for kinds::ArgSimple {
     const CONCAT: Option<&'static str> = Some("arg");
 
-    fn traverse<'a>(_: Self::View<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+    fn traverse<'a>(_: View<'a, Self>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
     }
 
     fn configure(
-        s: Self::View<'_>,
+        s: View<'_, Self>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &t.non_optional().0.inner {
@@ -592,40 +592,40 @@ impl Semantics for kinds::ArgSimple {
     }
 
     fn traverse_configured(
-        _: Self::View<'_>,
+        _: View<'_, Self>,
         _: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(s: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(s: View<'_, Self>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(s)?)
     }
 
-    fn fmt(s: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt(s: View<'_, Self>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "\"{s}\"")
     }
 
     fn any_matches(
-        s: Self::View<'_>,
+        s: View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(s)
     }
 
-    fn json_key<'a>(s: Self::View<'a>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(s: View<'a, Self>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Borrowed(s))
     }
 
     fn serialize<S: Serializer>(
-        s: Self::View<'_>,
+        s: View<'_, Self>,
         SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(s)
     }
 }
 
-impl SchemaKind for kinds::Arg {
+impl Kind for kinds::Arg {
     type Fields = ChildrenOf<ArgParts>;
 }
 
@@ -639,7 +639,7 @@ impl Semantics for kinds::Arg {
     const CONCAT: Option<&'static str> = Some("arg");
 
     fn traverse<'a>(
-        parts: Self::View<'a>,
+        parts: View<'a, Self>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         if !matches!(&t.non_optional().0.inner, AttrTypeInner::Arg(_)) {
@@ -694,7 +694,7 @@ impl Semantics for kinds::Arg {
     }
 
     fn configure(
-        parts: Self::View<'_>,
+        parts: View<'_, Self>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &t.non_optional().0.inner {
@@ -712,27 +712,27 @@ impl Semantics for kinds::Arg {
         }
     }
 
-    fn to_json(parts: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(parts: View<'_, Self>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(parts.to_string())?)
     }
 
-    fn fmt(parts: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt(parts: View<'_, Self>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "\"{parts}\"")
     }
 
     fn any_matches(
-        parts: Self::View<'_>,
+        parts: View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&parts.to_string())
     }
 
-    fn json_key<'a>(parts: Self::View<'a>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(parts: View<'a, Self>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Owned(parts.to_string()))
     }
 
     fn serialize<S: Serializer>(
-        parts: Self::View<'_>,
+        parts: View<'_, Self>,
         SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&parts.to_string())
@@ -951,7 +951,7 @@ impl Field for Macro {
     }
 }
 
-impl SchemaKind for kinds::ArgMacro {
+impl Kind for kinds::ArgMacro {
     type Fields = Macro;
 }
 

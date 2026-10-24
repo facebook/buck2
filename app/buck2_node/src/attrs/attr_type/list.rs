@@ -25,7 +25,8 @@ use strong_hash::StrongHash;
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Children;
-use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::any_matches::AnyMatches;
@@ -118,7 +119,7 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for ListLiteral<C> {
     }
 }
 
-impl SchemaKind for kinds::List {
+impl Kind for kinds::List {
     type Fields = Children;
 }
 
@@ -132,7 +133,7 @@ impl Semantics for kinds::List {
     const CONCAT: Option<&'static str> = Some("list");
 
     fn traverse<'a>(
-        items: Self::View<'a>,
+        items: View<'a, Self>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         let item_t = t.list_item().ok_or_else(|| mismatch(v, t))?;
@@ -143,7 +144,7 @@ impl Semantics for kinds::List {
     }
 
     fn configure(
-        items: Self::View<'_>,
+        items: View<'_, Self>,
         Configure { v, t, ctx, name }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         let item_t = t.list_item().ok_or_else(|| mismatch(v, t))?;
@@ -157,7 +158,7 @@ impl Semantics for kinds::List {
     }
 
     fn traverse_configured(
-        items: Self::View<'_>,
+        items: View<'_, Self>,
         TraverseConfigured {
             v,
             t,
@@ -175,25 +176,25 @@ impl Semantics for kinds::List {
     }
 
     fn to_json(
-        items: Self::View<'_>,
+        items: View<'_, Self>,
         ToJson { ctx }: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         json_seq(items, ctx)
     }
 
-    fn fmt(items: Self::View<'_>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt(items: View<'_, Self>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
         fmt_seq(items, "[", "]", ctx, f)
     }
 
     fn any_matches(
-        items: Self::View<'_>,
+        items: View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         any_matches_seq(items, filter)
     }
 
     fn serialize<S: Serializer>(
-        items: Self::View<'_>,
+        items: View<'_, Self>,
         SerializeKind { ctx, ser }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser_seq(items, ctx, ser)

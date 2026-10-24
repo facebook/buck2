@@ -19,6 +19,7 @@ use serde::Serializer;
 
 use crate::attrs::arena::CoercedAttrRef;
 use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced::configure::ConcatLeaves;
 use crate::attrs::coerced::configure::Configure;
@@ -45,11 +46,11 @@ pub(crate) trait Semantics: Kind {
     const CONCAT: Option<&'static str> = None;
 
     /// Type-threaded traversal over the value's deps.
-    fn traverse<'a>(parts: Self::View<'a>, op: Traverse<'_, 'a>) -> buck2_error::Result<()>;
+    fn traverse<'a>(parts: View<'a, Self>, op: Traverse<'_, 'a>) -> buck2_error::Result<()>;
 
     /// The configured form of the value.
     fn configure(
-        parts: Self::View<'_>,
+        parts: View<'_, Self>,
         op: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr>;
 
@@ -57,7 +58,7 @@ pub(crate) trait Semantics: Kind {
     /// configure the small configured value and traverse that; containers,
     /// selects and concats recurse.
     fn traverse_configured(
-        parts: Self::View<'_>,
+        parts: View<'_, Self>,
         TraverseConfigured {
             v,
             t,
@@ -77,29 +78,29 @@ pub(crate) trait Semantics: Kind {
     /// The leaves `ConfiguredAttr::concat` would see: selects resolved,
     /// nested concats inlined. A plain value is its own leaf.
     fn concat_leaves<'a>(
-        _parts: Self::View<'a>,
+        _parts: View<'a, Self>,
         ConcatLeaves { v, out, .. }: ConcatLeaves<'_, 'a>,
     ) -> ResultMaybeCompatible<()> {
         out.push(v);
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(parts: Self::View<'_>, op: ToJson<'_>) -> buck2_error::Result<serde_json::Value>;
+    fn to_json(parts: View<'_, Self>, op: ToJson<'_>) -> buck2_error::Result<serde_json::Value>;
 
-    fn fmt(parts: Self::View<'_>, op: Fmt<'_, '_>) -> std::fmt::Result;
+    fn fmt(parts: View<'_, Self>, op: Fmt<'_, '_>) -> std::fmt::Result;
 
     /// Whether any leaf's string form matches the filter.
-    fn any_matches(parts: Self::View<'_>, op: MatchesAny<'_>) -> buck2_error::Result<bool>;
+    fn any_matches(parts: View<'_, Self>, op: MatchesAny<'_>) -> buck2_error::Result<bool>;
 
     /// The value's rendering as a JSON object key; an error for values that
     /// render as anything but a string.
-    fn json_key<'a>(_parts: Self::View<'a>, _op: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(_parts: View<'a, Self>, _op: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
         Err(internal_error!("dict keys must render to JSON strings"))
     }
 
     /// Serialize the value's JSON form without building a `serde_json::Value`.
     fn serialize<S: Serializer>(
-        parts: Self::View<'_>,
+        parts: View<'_, Self>,
         op: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error>;
 }

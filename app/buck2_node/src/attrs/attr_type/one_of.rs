@@ -23,7 +23,8 @@ use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Child;
 use crate::attrs::arena::fields::U32;
-use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -74,7 +75,7 @@ impl OneOfAttrType {
     }
 }
 
-impl SchemaKind for kinds::OneOf {
+impl Kind for kinds::OneOf {
     type Fields = (U32, Child);
 }
 
@@ -86,7 +87,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::OneOf {
     fn traverse<'a>(
-        (idx, inner): Self::View<'a>,
+        (idx, inner): View<'a, Self>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         match &t.non_optional().0.inner {
@@ -102,7 +103,7 @@ impl Semantics for kinds::OneOf {
     }
 
     fn configure(
-        (idx, inner): Self::View<'_>,
+        (idx, inner): View<'_, Self>,
         Configure { v, t, ctx, name }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &t.non_optional().0.inner {
@@ -119,7 +120,7 @@ impl Semantics for kinds::OneOf {
     }
 
     fn traverse_configured(
-        (idx, inner): Self::View<'_>,
+        (idx, inner): View<'_, Self>,
         TraverseConfigured {
             v,
             t,
@@ -142,32 +143,32 @@ impl Semantics for kinds::OneOf {
     }
 
     fn to_json(
-        (_, inner): Self::View<'_>,
+        (_, inner): View<'_, Self>,
         ToJson { ctx }: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         inner.to_json(ctx)
     }
 
-    fn fmt((_, inner): Self::View<'_>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt((_, inner): View<'_, Self>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
         AttrDisplayWithContext::fmt(&inner, ctx, f)
     }
 
     fn any_matches(
-        (_, inner): Self::View<'_>,
+        (_, inner): View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         inner.any_matches(filter)
     }
 
     fn json_key<'a>(
-        (_, inner): Self::View<'a>,
+        (_, inner): View<'a, Self>,
         JsonKey { ctx }: JsonKey<'_>,
     ) -> buck2_error::Result<Cow<'a, str>> {
         inner.json_key(ctx)
     }
 
     fn serialize<S: Serializer>(
-        (_, inner): Self::View<'_>,
+        (_, inner): View<'_, Self>,
         SerializeKind { ctx, ser }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         inner.serialize_with_ctx(ctx, ser)

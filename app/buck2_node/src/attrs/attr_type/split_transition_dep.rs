@@ -28,7 +28,8 @@ use strong_hash::StrongHash;
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Label;
-use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::coerced::configure::Configure;
@@ -133,7 +134,7 @@ impl ConfiguredSplitTransitionDep {
     }
 }
 
-impl SchemaKind for kinds::SplitTransitionDep {
+impl Kind for kinds::SplitTransitionDep {
     type Fields = Label;
 }
 
@@ -148,7 +149,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::SplitTransitionDep {
     fn traverse<'a>(
-        l: Self::View<'a>,
+        l: View<'a, Self>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         match &t.non_optional().0.inner {
@@ -158,7 +159,7 @@ impl Semantics for kinds::SplitTransitionDep {
     }
 
     fn configure(
-        l: Self::View<'_>,
+        l: View<'_, Self>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &t.non_optional().0.inner {
@@ -169,27 +170,27 @@ impl Semantics for kinds::SplitTransitionDep {
         }
     }
 
-    fn to_json(l: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(l: View<'_, Self>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         json_label(l)
     }
 
-    fn fmt(l: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt(l: View<'_, Self>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         std::fmt::Display::fmt(l, f)
     }
 
     fn any_matches(
-        l: Self::View<'_>,
+        l: View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&l.to_string())
     }
 
-    fn json_key<'a>(l: Self::View<'a>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(l: View<'a, Self>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Owned(l.to_string()))
     }
 
     fn serialize<S: Serializer>(
-        l: Self::View<'_>,
+        l: View<'_, Self>,
         SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&l.to_string())

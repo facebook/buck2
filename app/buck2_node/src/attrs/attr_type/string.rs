@@ -25,7 +25,8 @@ use strong_hash::StrongHash;
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Text;
-use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::coerced::configure::Configure;
@@ -73,7 +74,7 @@ impl AttrDisplayWithContext for StringLiteral {
     }
 }
 
-impl SchemaKind for kinds::String {
+impl Kind for kinds::String {
     type Fields = Text;
 }
 
@@ -86,12 +87,12 @@ impl CoercedAttrArenaBuilder {
 impl Semantics for kinds::String {
     const CONCAT: Option<&'static str> = Some("string");
 
-    fn traverse<'a>(_: Self::View<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+    fn traverse<'a>(_: View<'a, Self>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
     }
 
     fn configure(
-        s: Self::View<'_>,
+        s: View<'_, Self>,
         Configure { v, t, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &t.non_optional().0.inner {
@@ -103,33 +104,33 @@ impl Semantics for kinds::String {
     }
 
     fn traverse_configured(
-        _: Self::View<'_>,
+        _: View<'_, Self>,
         _: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json(s: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(s: View<'_, Self>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(s)?)
     }
 
-    fn fmt(s: Self::View<'_>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt(s: View<'_, Self>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
         fmt_text(s, ctx, f)
     }
 
     fn any_matches(
-        s: Self::View<'_>,
+        s: View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(s)
     }
 
-    fn json_key<'a>(s: Self::View<'a>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
+    fn json_key<'a>(s: View<'a, Self>, _: JsonKey<'_>) -> buck2_error::Result<Cow<'a, str>> {
         Ok(Cow::Borrowed(s))
     }
 
     fn serialize<S: Serializer>(
-        s: Self::View<'_>,
+        s: View<'_, Self>,
         SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(s)

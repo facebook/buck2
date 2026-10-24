@@ -18,7 +18,8 @@ use strong_hash::StrongHash;
 
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
-use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced::configure::Configure;
@@ -47,7 +48,7 @@ impl OptionAttrType {
     }
 }
 
-impl SchemaKind for kinds::None {
+impl Kind for kinds::None {
     type Fields = ();
 }
 
@@ -58,38 +59,38 @@ impl CoercedAttrArenaBuilder {
 }
 
 impl Semantics for kinds::None {
-    fn traverse<'a>((): Self::View<'a>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
+    fn traverse<'a>((): View<'a, Self>, _: Traverse<'_, 'a>) -> buck2_error::Result<()> {
         Ok(())
     }
 
     fn configure(
-        (): Self::View<'_>,
+        (): View<'_, Self>,
         _: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         ResultMaybeCompatible::Compatible(ConfiguredAttr::None)
     }
 
     fn traverse_configured(
-        (): Self::View<'_>,
+        (): View<'_, Self>,
         _: TraverseConfigured<'_, '_>,
     ) -> ResultMaybeCompatible<()> {
         ResultMaybeCompatible::Compatible(())
     }
 
-    fn to_json((): Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json((): View<'_, Self>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(serde_json::Value::Null)
     }
 
-    fn fmt((): Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt((): View<'_, Self>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "None")
     }
 
-    fn any_matches((): Self::View<'_>, _: MatchesAny<'_>) -> buck2_error::Result<bool> {
+    fn any_matches((): View<'_, Self>, _: MatchesAny<'_>) -> buck2_error::Result<bool> {
         Ok(false)
     }
 
     fn serialize<S: Serializer>(
-        (): Self::View<'_>,
+        (): View<'_, Self>,
         SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_unit()

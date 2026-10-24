@@ -30,6 +30,7 @@ use crate::attrs::arena::builder::CoercedAttrArenaBuilder;
 use crate::attrs::arena::builder::EncodeScratchFields;
 use crate::attrs::arena::builder::EncodeScratchRefs;
 use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::storage::ABSENT_REF;
 use crate::attrs::arena::storage::AttrToken;
 use crate::attrs::arena::storage::AttrWord;
@@ -936,7 +937,7 @@ impl<K: Kind> Field for ChildOf<K> {
     const DEPS: bool = !K::SCALAR;
     const INLINE: bool = false;
     const HAS_TEXT: bool = false;
-    type View<'a> = K::View<'a>;
+    type View<'a> = View<'a, K>;
     type Spec<'s> = AttrToken;
 
     fn shape(_peek: &dyn Fn(u32) -> Option<u32>, _at: u32) -> Option<Extent> {
@@ -947,7 +948,7 @@ impl<K: Kind> Field for ChildOf<K> {
         })
     }
 
-    fn decode<'a>(c: &mut Cursor<'a>) -> K::View<'a> {
+    fn decode<'a>(c: &mut Cursor<'a>) -> View<'a, K> {
         K::decode(
             c.arena,
             c.child()
@@ -966,18 +967,18 @@ impl<K: Kind> Field for ChildOf<K> {
     }
 
     fn reemit<'a>(
-        view: K::View<'a>,
+        view: View<'a, K>,
         b: &mut CoercedAttrArenaBuilder,
         w: &mut RecordWriter<'a>,
     ) -> buck2_error::Result<()> {
         <Self as Field>::encode(K::copy_into(view, b)?, b, w)
     }
 
-    fn identity(view: K::View<'_>, h: &mut IdHasher<'_>) {
+    fn identity(view: View<'_, K>, h: &mut IdHasher<'_>) {
         K::identity(view, h);
     }
 
-    fn same(a: K::View<'_>, b: K::View<'_>) -> bool {
+    fn same(a: View<'_, K>, b: View<'_, K>) -> bool {
         K::same(a, b)
     }
 }

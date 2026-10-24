@@ -64,7 +64,7 @@ macro_rules! arena_kinds {
         $(#[$view_doc])*
         pub enum $view<$lt> {
             $( $u, )*
-            $( $v(<$v as $crate::attrs::arena::schema::Kind>::View<$lt>), )*
+            $( $v($crate::attrs::arena::schema::View<$lt, $v>), )*
         }
 
         /// Runs `v` for the [`Kind`] type of `kind`.
@@ -82,7 +82,7 @@ macro_rules! arena_kinds {
             type Out;
             fn visit<K: $semantics + 'static>(
                 self,
-                view: <K as $crate::attrs::arena::schema::Kind>::View<$lt>,
+                view: $crate::attrs::arena::schema::View<$lt, K>,
             ) -> Self::Out;
         }
 
@@ -150,10 +150,20 @@ pub(crate) const fn storage_class(kind: CoercedAttrKind, has_text: bool, inline:
     }
 }
 
-/// A kind whose values are one [`Field`], or a tuple of them in sequence:
-/// everything about it derives from that field.
-pub trait SchemaKind: KindTag + 'static {
+/// One record kind as a type: a tag from the kinds list and the [`Field`]
+/// its values are, one field or a tuple of them in sequence. Everything
+/// else about the kind derives from that field. [`dispatch`] selects the
+/// type from a value's tag and monomorphizes a visitor per kind, so every
+/// operation that is uniform over kinds is written once.
+///
+/// This trait, and everything a kind's [`View`] is spelled through, is
+/// `pub` inside crate-private modules: the public
+/// [`CoercedAttrRef::downcast`] returns the view, and an associated type
+/// may only be given in terms of nominally public items. None of it is
+/// reachable from outside the crate.
+pub trait Kind: KindTag + 'static {
     type Fields: Field;
+
     /// How values are stored follows from the field and the tag: a text
     /// tail makes a text record; a single head value fits the word, if the
     /// tag fits the word's kind bits; anything else is a record.
@@ -162,73 +172,48 @@ pub trait SchemaKind: KindTag + 'static {
         <Self::Fields as Field>::HAS_TEXT,
         <Self::Fields as Field>::INLINE,
     );
-}
 
-/// One record kind as a type. [`dispatch`] selects it from a value's tag
-/// and monomorphizes a visitor per kind, so every operation that is uniform
-/// over kinds is written once. Implemented once, for every [`SchemaKind`],
-/// from the kind's declared field.
-///
-/// This trait, and everything a kind's `View` is spelled through, is `pub`
-/// inside crate-private modules: the public [`CoercedAttrRef::downcast`]
-/// returns `K::View`, and an associated type may only be given in terms of
-/// nominally public items. None of it is reachable from outside the crate.
-pub trait Kind: KindTag {
-    const STORAGE: Storage;
     /// Whether values hold no deps: no labels, paths or children, so
     /// traversals have nothing to visit.
-    const SCALAR: bool;
-    /// The decoded value: leaves as borrowed side-table values or
-    /// immediates, children as refs.
-    type View<'a>: Copy;
+    const SCALAR: bool = !<Self::Fields as Field>::DEPS;
+
     /// What a record occupies, reading head fields through `peek`; `None`
     /// when a field the layout depends on is missing.
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent>;
-    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> Self::View<'a>;
+    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent> {
+        Self::Fields::shape(peek, 0)
+    }
+
+    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> View<'a, Self> {
+        let mut c = Cursor::new(arena, r);
+        Self::Fields::decode(&mut c)
+    }
+
     /// Re-encode into `b`, children first.
     fn copy_into(
-        parts: Self::View<'_>,
-        b: &mut CoercedAttrArenaBuilder,
-    ) -> buck2_error::Result<AttrToken>;
-    /// Identity hash of the parts; the kind byte is already written.
-    fn identity(parts: Self::View<'_>, h: &mut IdHasher<'_>);
-    fn same(a: Self::View<'_>, b: Self::View<'_>) -> bool;
-}
-
-impl<K: SchemaKind> Kind for K {
-    const STORAGE: Storage = K::STORAGE;
-    const SCALAR: bool = !<K::Fields as Field>::DEPS;
-    type View<'a> = <K::Fields as Field>::View<'a>;
-
-    fn shape(peek: &dyn Fn(u32) -> Option<u32>) -> Option<Extent> {
-        K::Fields::shape(peek, 0)
-    }
-
-    fn decode<'a>(arena: &'a CoercedAttrArena, r: AttrWord) -> Self::View<'a> {
-        let mut c = Cursor::new(arena, r);
-        K::Fields::decode(&mut c)
-    }
-
-    fn copy_into(
-        parts: Self::View<'_>,
+        parts: View<'_, Self>,
         b: &mut CoercedAttrArenaBuilder,
     ) -> buck2_error::Result<AttrToken> {
-        let mut w = RecordWriter::new(K::KIND);
-        K::Fields::reemit(parts, b, &mut w)?;
-        b.emit(K::STORAGE, w)
+        let mut w = RecordWriter::new(Self::KIND);
+        Self::Fields::reemit(parts, b, &mut w)?;
+        b.emit(Self::STORAGE, w)
     }
 
-    fn identity(parts: Self::View<'_>, h: &mut IdHasher<'_>) {
-        K::Fields::identity(parts, h)
+    /// Identity hash of the parts; the kind byte is already written.
+    fn identity(parts: View<'_, Self>, h: &mut IdHasher<'_>) {
+        Self::Fields::identity(parts, h)
     }
 
-    fn same(a: Self::View<'_>, b: Self::View<'_>) -> bool {
-        K::Fields::same(a, b)
+    fn same(a: View<'_, Self>, b: View<'_, Self>) -> bool {
+        Self::Fields::same(a, b)
     }
 }
 
-/// Encode a schema kind's value from its field specs.
-pub(crate) fn encode_kind<K: SchemaKind>(
+/// The decoded value of a kind: leaves as borrowed side-table values or
+/// immediates, children as refs.
+pub type View<'a, K> = <<K as Kind>::Fields as Field>::View<'a>;
+
+/// Encode a kind's value from its field specs.
+pub(crate) fn encode_kind<K: Kind>(
     b: &mut CoercedAttrArenaBuilder,
     spec: <K::Fields as Field>::Spec<'_>,
 ) -> buck2_error::Result<AttrToken> {

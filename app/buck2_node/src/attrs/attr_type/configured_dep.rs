@@ -26,7 +26,8 @@ use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Label;
 use crate::attrs::arena::fields::Target;
-use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
@@ -139,7 +140,7 @@ impl ConfiguredExplicitConfiguredDep {
     }
 }
 
-impl SchemaKind for kinds::ExplicitConfiguredDep {
+impl Kind for kinds::ExplicitConfiguredDep {
     type Fields = (Label, Target);
 }
 
@@ -155,7 +156,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::ExplicitConfiguredDep {
     fn traverse<'a>(
-        (label, platform): Self::View<'a>,
+        (label, platform): View<'a, Self>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         match &t.non_optional().0.inner {
@@ -171,7 +172,7 @@ impl Semantics for kinds::ExplicitConfiguredDep {
     }
 
     fn configure(
-        (label, platform): Self::View<'_>,
+        (label, platform): View<'_, Self>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &t.non_optional().0.inner {
@@ -183,25 +184,25 @@ impl Semantics for kinds::ExplicitConfiguredDep {
     }
 
     fn to_json(
-        (label, platform): Self::View<'_>,
+        (label, platform): View<'_, Self>,
         _: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value([label.to_string(), platform.to_string()])?)
     }
 
-    fn fmt((label, platform): Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt((label, platform): View<'_, Self>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "({label}, {platform})")
     }
 
     fn any_matches(
-        (label, platform): Self::View<'_>,
+        (label, platform): View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&format!("({label}, {platform})"))
     }
 
     fn serialize<S: Serializer>(
-        (label, platform): Self::View<'_>,
+        (label, platform): View<'_, Self>,
         SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         [label.to_string(), platform.to_string()].serialize(ser)

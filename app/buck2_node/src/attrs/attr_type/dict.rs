@@ -26,7 +26,8 @@ use strong_hash::StrongHash;
 use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::ChildPairs;
-use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::any_matches::AnyMatches;
@@ -144,7 +145,7 @@ impl<C: Eq + ToJsonWithContext> ToJsonWithContext for DictLiteral<C> {
     }
 }
 
-impl SchemaKind for kinds::Dict {
+impl Kind for kinds::Dict {
     type Fields = ChildPairs;
 }
 
@@ -161,7 +162,7 @@ impl Semantics for kinds::Dict {
     const CONCAT: Option<&'static str> = Some("dict");
 
     fn traverse<'a>(
-        pairs: Self::View<'a>,
+        pairs: View<'a, Self>,
         Traverse { v, t, pkg, tr }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         let (kt, vt) = t.dict_items().ok_or_else(|| mismatch(v, t))?;
@@ -173,7 +174,7 @@ impl Semantics for kinds::Dict {
     }
 
     fn configure(
-        pairs: Self::View<'_>,
+        pairs: View<'_, Self>,
         Configure { v, t, ctx, name }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         let (kt, vt) = t.dict_items().ok_or_else(|| mismatch(v, t))?;
@@ -191,7 +192,7 @@ impl Semantics for kinds::Dict {
     }
 
     fn traverse_configured(
-        pairs: Self::View<'_>,
+        pairs: View<'_, Self>,
         TraverseConfigured {
             v,
             t,
@@ -210,7 +211,7 @@ impl Semantics for kinds::Dict {
     }
 
     fn to_json(
-        pairs: Self::View<'_>,
+        pairs: View<'_, Self>,
         ToJson { ctx }: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         let mut res = serde_json::Map::with_capacity(pairs.len());
@@ -226,7 +227,7 @@ impl Semantics for kinds::Dict {
         Ok(serde_json::Value::Object(res))
     }
 
-    fn fmt(pairs: Self::View<'_>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt(pairs: View<'_, Self>, Fmt { ctx, f }: Fmt<'_, '_>) -> std::fmt::Result {
         fmt_keyed_container(
             f,
             "{",
@@ -239,7 +240,7 @@ impl Semantics for kinds::Dict {
     }
 
     fn any_matches(
-        pairs: Self::View<'_>,
+        pairs: View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         for (k, val) in pairs.iter() {
@@ -251,7 +252,7 @@ impl Semantics for kinds::Dict {
     }
 
     fn serialize<S: Serializer>(
-        pairs: Self::View<'_>,
+        pairs: View<'_, Self>,
         SerializeKind { ctx, ser }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser_keyed(

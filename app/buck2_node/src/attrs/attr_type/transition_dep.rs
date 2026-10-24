@@ -31,7 +31,8 @@ use crate::attrs::arena::AttrToken;
 use crate::attrs::arena::CoercedAttrArenaBuilder;
 use crate::attrs::arena::fields::Label;
 use crate::attrs::arena::fields::OptLabel;
-use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::attr_type::AttrTypeInner;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
@@ -182,7 +183,7 @@ impl CoercedTransitionDep {
     }
 }
 
-impl SchemaKind for kinds::TransitionDep {
+impl Kind for kinds::TransitionDep {
     type Fields = (Label, OptLabel);
 }
 
@@ -198,7 +199,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::TransitionDep {
     fn traverse<'a>(
-        (dep, transition): Self::View<'a>,
+        (dep, transition): View<'a, Self>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         match &t.non_optional().0.inner {
@@ -208,7 +209,7 @@ impl Semantics for kinds::TransitionDep {
     }
 
     fn configure(
-        (dep, transition): Self::View<'_>,
+        (dep, transition): View<'_, Self>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &t.non_optional().0.inner {
@@ -220,7 +221,7 @@ impl Semantics for kinds::TransitionDep {
     }
 
     fn to_json(
-        (dep, transition): Self::View<'_>,
+        (dep, transition): View<'_, Self>,
         _: ToJson<'_>,
     ) -> buck2_error::Result<serde_json::Value> {
         match transition {
@@ -229,19 +230,19 @@ impl Semantics for kinds::TransitionDep {
         }
     }
 
-    fn fmt((dep, _): Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt((dep, _): View<'_, Self>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         std::fmt::Display::fmt(dep, f)
     }
 
     fn any_matches(
-        (dep, _): Self::View<'_>,
+        (dep, _): View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&dep.to_string())
     }
 
     fn serialize<S: Serializer>(
-        (dep, transition): Self::View<'_>,
+        (dep, transition): View<'_, Self>,
         SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         match transition {

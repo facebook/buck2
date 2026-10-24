@@ -42,7 +42,8 @@ use crate::attrs::arena::fields::Extent;
 use crate::attrs::arena::fields::Field;
 use crate::attrs::arena::fields::IdHasher;
 use crate::attrs::arena::fields::RecordWriter;
-use crate::attrs::arena::schema::SchemaKind;
+use crate::attrs::arena::schema::Kind;
+use crate::attrs::arena::schema::View;
 use crate::attrs::arena::schema::encode_kind;
 use crate::attrs::arena::storage::RefRun;
 use crate::attrs::attr_type::AttrTypeInner;
@@ -249,7 +250,7 @@ impl QueryAttrBase<ProvidersLabel> {
     }
 }
 
-impl SchemaKind for kinds::Query {
+impl Kind for kinds::Query {
     type Fields = ChildOf<kinds::QueryExpr>;
 }
 
@@ -261,7 +262,7 @@ impl CoercedAttrArenaBuilder {
 
 impl Semantics for kinds::Query {
     fn traverse<'a>(
-        expr: Self::View<'a>,
+        expr: View<'a, Self>,
         Traverse { v, t, tr, .. }: Traverse<'_, 'a>,
     ) -> buck2_error::Result<()> {
         // Queries have no inputs or configuration deps: literal labels only,
@@ -278,7 +279,7 @@ impl Semantics for kinds::Query {
     }
 
     fn configure(
-        expr: Self::View<'_>,
+        expr: View<'_, Self>,
         Configure { v, t, ctx, .. }: Configure<'_, '_>,
     ) -> ResultMaybeCompatible<ConfiguredAttr> {
         match &t.non_optional().0.inner {
@@ -289,23 +290,23 @@ impl Semantics for kinds::Query {
         }
     }
 
-    fn to_json(expr: Self::View<'_>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
+    fn to_json(expr: View<'_, Self>, _: ToJson<'_>) -> buck2_error::Result<serde_json::Value> {
         Ok(to_value(expr.query().0)?)
     }
 
-    fn fmt(expr: Self::View<'_>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
+    fn fmt(expr: View<'_, Self>, Fmt { f, .. }: Fmt<'_, '_>) -> std::fmt::Result {
         write!(f, "\"{}\"", expr.query().0)
     }
 
     fn any_matches(
-        expr: Self::View<'_>,
+        expr: View<'_, Self>,
         MatchesAny { filter }: MatchesAny<'_>,
     ) -> buck2_error::Result<bool> {
         filter(&expr.query().0)
     }
 
     fn serialize<S: Serializer>(
-        expr: Self::View<'_>,
+        expr: View<'_, Self>,
         SerializeKind { ser, .. }: SerializeKind<'_, S>,
     ) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&expr.query().0)
@@ -395,7 +396,7 @@ impl Field for Node {
     }
 }
 
-impl SchemaKind for kinds::QueryExpr {
+impl Kind for kinds::QueryExpr {
     type Fields = Node;
 }
 

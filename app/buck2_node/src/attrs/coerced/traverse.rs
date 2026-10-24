@@ -14,6 +14,7 @@ use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::package::PackageLabel;
 
 use crate::attrs::arena::CoercedAttrRef;
+use crate::attrs::arena::schema::View;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced::configure::TraverseConfigured;
 use crate::attrs::coerced::kinds::ValueVisitor;
@@ -57,14 +58,14 @@ pub(crate) struct Traverse<'x, 'a> {
 
 impl<'a> ValueVisitor<'a> for Traverse<'_, 'a> {
     type Out = buck2_error::Result<()>;
-    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+    fn visit<K: Semantics + 'static>(self, view: View<'a, K>) -> Self::Out {
         K::traverse(view, self)
     }
 }
 
 impl<'a> ValueVisitor<'a> for TraverseConfigured<'_, 'a> {
     type Out = ResultMaybeCompatible<()>;
-    fn visit<K: Semantics + 'static>(self, view: K::View<'a>) -> Self::Out {
+    fn visit<K: Semantics + 'static>(self, view: View<'a, K>) -> Self::Out {
         K::traverse_configured(view, self)
     }
 }
