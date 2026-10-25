@@ -11,7 +11,6 @@
 #![feature(trait_alias)]
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
-#![feature(used_with_arg)]
 
 pub mod artifact;
 pub mod artifact_utils;

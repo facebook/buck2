@@ -10,7 +10,6 @@
 
 #![feature(arbitrary_self_types)]
 #![feature(try_blocks)]
-#![feature(used_with_arg)]
 
 use std::sync::Once;
 

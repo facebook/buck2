@@ -414,7 +414,7 @@ itertools = "0.15.0"
 jiff = { version = "0.2.37", features = ["serde", "tzdb-bundle-always"] }
 libc = "0.2.186"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
-linkme = { version = "0.3.37", features = ["used_linker"] }
+linkme = "0.3.37"
 lock_free_hashtable = { version = "0.2.0", path = "shed/lock_free_hashtable", features = ["allocative"] }
 lock_free_vec = { path = "shed/lock_free_vec" }
 logos = "0.16.1"

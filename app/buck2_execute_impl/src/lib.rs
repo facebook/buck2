@@ -10,7 +10,6 @@
 
 #![feature(box_patterns)]
 #![feature(try_trait_v2)]
-#![feature(used_with_arg)]
 
 pub mod executors;
 mod incremental_actions_helper;

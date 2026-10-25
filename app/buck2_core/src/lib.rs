@@ -11,7 +11,6 @@
 #![feature(never_type)]
 #![cfg_attr(test, feature(pattern))]
 #![feature(impl_trait_in_assoc_type)]
-#![feature(used_with_arg)]
 #![feature(try_trait_v2)]
 #![feature(try_trait_v2_residual)]
 

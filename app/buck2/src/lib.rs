@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(used_with_arg)]
-
 use std::thread;
 
 use buck2_client::commands::build::BuildCommand;

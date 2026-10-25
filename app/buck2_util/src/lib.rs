@@ -11,7 +11,6 @@
 #![feature(decl_macro)]
 #![cfg_attr(not(windows), feature(linkage))]
 #![feature(once_cell_try)]
-#![feature(used_with_arg)]
 
 pub mod arc_str;
 pub mod async_move_clone;

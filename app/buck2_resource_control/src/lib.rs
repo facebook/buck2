@@ -9,7 +9,6 @@
  */
 
 #![feature(trait_alias)]
-#![feature(used_with_arg)]
 
 use futures::Stream;
 use tokio::sync::mpsc;

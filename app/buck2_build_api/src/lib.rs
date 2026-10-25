@@ -13,7 +13,6 @@
 #![feature(slice_iter_mut_as_mut_slice)]
 #![feature(arbitrary_self_types)]
 #![feature(once_cell_try)]
-#![feature(used_with_arg)]
 #![feature(iterator_try_collect)]
 #![feature(async_fn_traits)]
 #![feature(unboxed_closures)]
