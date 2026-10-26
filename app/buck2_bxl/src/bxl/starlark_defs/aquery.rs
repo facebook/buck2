@@ -168,7 +168,6 @@ async fn unpack_action_nodes<'v>(
                 &this.global_cfg_options_override,
                 &this.ctx,
                 dice,
-                true,
                 false,
             )
             .await?
