@@ -167,9 +167,13 @@ pub enum ExecutionPlatformError {
     )]
     ResolutionNotPerformed,
     #[error(
-        "Execution group `{group}` is not declared by this rule. Declared groups: [{declared}]"
+        "Execution group `{group}` is not declared by this rule. Declared groups: [{declared}]{message}"
     )]
-    ExecutionGroupNotDeclared { group: String, declared: String },
+    ExecutionGroupNotDeclared {
+        group: String,
+        declared: String,
+        message: String,
+    },
 }
 
 /// Base data shared between Partial and Resolved states.
@@ -242,6 +246,14 @@ impl ExecutionPlatformResolutionBase {
                     .map(|g| format!("`{}`", g.group))
                     .collect::<Vec<_>>()
                     .join(", "),
+                message: match named.same_name_in(groups.iter().map(|g| &g.group)) {
+                    Some(_) => format!(
+                        ". The declared `{}` is a different group with the same name: each \
+                         `exec_group()` call creates its own group",
+                        named.name()
+                    ),
+                    None => String::new(),
+                },
             }
             .into()
         })
@@ -707,6 +719,31 @@ mod tests {
         assert!(
             err.to_string()
                 .contains("Execution group `Resources` is not declared by this rule. Declared groups: [`Link`]"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_undeclared_execution_group_with_declared_name() {
+        let resolution = partial("default").finalize_with_execution_groups(
+            BuckFixedSortedMap::new(),
+            vec![ExecutionGroupResolutionPartial {
+                group: link(),
+                partial: partial("link"),
+                exec_dep_cfgs: BuckFixedSortedMap::new(),
+            }],
+        );
+        let other_link =
+            NamedExecutionGroup::new("Link".to_owned(), CellPath::testing_new("root//other.bzl"));
+        let err = resolution
+            .base_cfg_for_group(&ExecutionGroup::Named(other_link))
+            .unwrap_err();
+        assert!(
+            err.to_string().contains(
+                "Execution group `Link` is not declared by this rule. Declared groups: [`Link`]. \
+                 The declared `Link` is a different group with the same name: each \
+                 `exec_group()` call creates its own group"
+            ),
             "{err}"
         );
     }

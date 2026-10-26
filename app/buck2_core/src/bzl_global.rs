@@ -77,4 +77,9 @@ impl BzlGlobalId {
     pub fn name(&self) -> &str {
         &self.0.deref_static().name
     }
+
+    /// The `.bzl` file that defines the value.
+    pub fn defining_file(&self) -> CellPath {
+        self.0.deref_static().cell
+    }
 }

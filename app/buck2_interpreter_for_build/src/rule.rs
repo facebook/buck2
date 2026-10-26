@@ -14,6 +14,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_core::cells::CellResolver;
 use buck2_core::execution_types::execution_group::ExecutionGroup;
 use buck2_core::execution_types::execution_group::NamedExecutionGroup;
 use buck2_core::plugins::PluginKind;
@@ -171,9 +172,9 @@ enum RuleError {
     #[error("{0} rules do not support incoming transitions")]
     RuleDoesNotSupportIncomingTransition(&'static str),
     #[error(
-        "Execution groups of a rule must have distinct names; `{name}` is listed more than once"
+        "Execution groups of a rule must have distinct names; `{name}` is listed more than once{defined_in}"
     )]
-    DuplicateExecutionGroup { name: String },
+    DuplicateExecutionGroup { name: String, defined_in: String },
     #[error(
         "Toolchain rules cannot use execution groups; their exec deps belong to the execution group of the rule depending on the toolchain"
     )]
@@ -183,12 +184,13 @@ enum RuleError {
     )]
     ExecutionGroupsOnConfigurationRule,
     #[error(
-        "Attribute `{attr}` uses execution group `{group}`, which the rule does not declare. Declared execution groups: [{declared}]"
+        "Attribute `{attr}` uses execution group `{group}`, which the rule does not declare. Declared execution groups: [{declared}]{message}"
     )]
     UndeclaredExecutionGroup {
         attr: String,
         group: String,
         declared: String,
+        message: String,
     },
 }
 
@@ -271,8 +273,12 @@ impl<'v> StarlarkRuleCallable<'v> {
             }
         }
 
-        let (execution_groups, default_execution_group) =
-            validate_execution_groups(execution_groups, rule_kind, &sorted_validated_attrs)?;
+        let (execution_groups, default_execution_group) = validate_execution_groups(
+            execution_groups,
+            rule_kind,
+            &sorted_validated_attrs,
+            build_context.cell_resolver(),
+        )?;
 
         let attributes = AttributeSpec::from(
             sorted_validated_attrs,
@@ -403,7 +409,18 @@ fn validate_execution_groups(
     execution_groups: Vec<ExecutionGroup>,
     rule_kind: RuleKind,
     attrs: &[(String, Attribute)],
+    cell_resolver: &CellResolver,
 ) -> buck2_error::Result<(Vec<NamedExecutionGroup>, bool)> {
+    // The project-relative path of the file that defines `group`, or its cell path when that
+    // does not resolve, so the error that names the file always surfaces.
+    let defining_file = |group: &NamedExecutionGroup| {
+        let file = group.defining_file();
+        match cell_resolver.resolve_path(file) {
+            Ok(path) => path.to_string(),
+            Err(_) => file.to_string(),
+        }
+    };
+
     if !execution_groups.is_empty() {
         match rule_kind {
             RuleKind::Normal => {}
@@ -421,6 +438,7 @@ fn validate_execution_groups(
             ExecutionGroup::Default if default_listed => {
                 return Err(RuleError::DuplicateExecutionGroup {
                     name: group.to_string(),
+                    defined_in: String::new(),
                 }
                 .into());
             }
@@ -431,9 +449,19 @@ fn validate_execution_groups(
             ExecutionGroup::Named(group) => group,
         };
         // Names, not `(name, .bzl file)`, must be distinct: users see a target's groups by name.
-        if declared.iter().any(|g| g.name() == group.name()) {
+        if let Some(first) = declared.iter().find(|g| g.name() == group.name()) {
+            let defined_in = if *first == group {
+                String::new()
+            } else {
+                format!(
+                    " (defined in `{}` and in `{}`)",
+                    defining_file(first),
+                    defining_file(&group)
+                )
+            };
             return Err(RuleError::DuplicateExecutionGroup {
                 name: group.name().to_owned(),
+                defined_in,
             }
             .into());
         }
@@ -457,6 +485,15 @@ fn validate_execution_groups(
                 .map(|g| format!("`{g}`"))
                 .collect::<Vec<_>>()
                 .join(", "),
+            message: match group.same_name_in(&declared) {
+                Some(d) => format!(
+                    ". The declared `{}` is defined in `{}`, this one in `{}`",
+                    group.name(),
+                    defining_file(d),
+                    defining_file(&group)
+                ),
+                None => String::new(),
+            },
         }
         .into());
     }

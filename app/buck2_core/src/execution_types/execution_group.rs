@@ -41,6 +41,21 @@ impl NamedExecutionGroup {
     pub fn name(&self) -> &str {
         self.0.name()
     }
+
+    /// The `.bzl` file that defines the group.
+    pub fn defining_file(&self) -> CellPath {
+        self.0.defining_file()
+    }
+
+    /// The group in `declared` that has this group's name but is a different group, if any.
+    pub fn same_name_in<'a>(
+        &self,
+        declared: impl IntoIterator<Item = &'a NamedExecutionGroup>,
+    ) -> Option<&'a NamedExecutionGroup> {
+        declared
+            .into_iter()
+            .find(|d| d.name() == self.name() && *d != self)
+    }
 }
 
 /// The execution group an action or exec dep belongs to.

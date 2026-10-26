@@ -141,6 +141,15 @@ class ExecutionGroupsTest(BuckTestCase):
         )
 
     @buck_test()
+    async def test_attr_with_group_of_declared_name_from_other_file(
+        self, buck: Buck
+    ) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/undeclared_same_name:t"),
+            stderr_regex="Attribute `_tool` uses execution group `G`, which the rule does not declare. Declared execution groups: \\[`G`\\]. The declared `G` is defined in `errors/undeclared_same_name/rules.bzl`, this one in `errors/same_name/other.bzl`",
+        )
+
+    @buck_test()
     async def test_default_group_listed(self, buck: Buck) -> None:
         node = await _cquery_node(buck, "root//errors/default_listed:t")
         assert "buck.exec_group_platforms" not in node
@@ -157,6 +166,13 @@ class ExecutionGroupsTest(BuckTestCase):
         await expect_failure(
             buck.uquery("root//errors/duplicate:t"),
             stderr_regex="Execution groups of a rule must have distinct names; `G` is listed more than once",
+        )
+
+    @buck_test()
+    async def test_groups_with_same_name_from_different_files(self, buck: Buck) -> None:
+        await expect_failure(
+            buck.uquery("root//errors/same_name:t"),
+            stderr_regex="Execution groups of a rule must have distinct names; `G` is listed more than once \\(defined in `errors/same_name/rules.bzl` and in `errors/same_name/other.bzl`\\)",
         )
 
     @buck_test()
