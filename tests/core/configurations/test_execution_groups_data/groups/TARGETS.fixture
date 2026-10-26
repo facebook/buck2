@@ -1,4 +1,4 @@
-load(":rules.bzl", "binary", "bundle", "same_platform", "same_platform_toolchain", "tool", "toolchain")
+load(":rules.bzl", "binary", "bundle", "plain", "same_platform", "same_platform_toolchain", "tool", "toolchain")
 
 tool(
     name = "macos_tool",
@@ -39,3 +39,5 @@ toolchain(
 )
 
 same_platform_toolchain(name = "same_platform_toolchain")
+
+plain(name = "plain")

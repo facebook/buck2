@@ -7,10 +7,18 @@
 # above-listed licenses.
 
 import json
+from typing import Any
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
+
+
+async def _cquery_node(buck: Buck, target: str) -> dict[str, Any]:
+    result = await buck.cquery("--output-all-attributes", target)
+    nodes = json.loads(result.stdout)
+    assert len(nodes) == 1, nodes
+    return next(iter(nodes.values()))
 
 
 def _platform(platform: str) -> str:
@@ -19,6 +27,22 @@ def _platform(platform: str) -> str:
 
 
 class ExecutionGroupsTest(BuckTestCase):
+    @buck_test()
+    async def test_toolchains_select_only_their_group_platform(
+        self, buck: Buck
+    ) -> None:
+        node = await _cquery_node(buck, "root//groups:bundle")
+        # The macOS-only and remote-only toolchains constrain only their own groups, so the default
+        # group has no constraints and resolves to the first platform.
+        assert _platform(node["buck.execution_platform"]) == "root//config:linux_local"
+        assert {
+            group: _platform(platform)
+            for group, platform in node["buck.exec_group_platforms"].items()
+        } == {
+            "Resources": "root//config:macos_local",
+            "Package": "root//config:linux_remote",
+        }
+
     @buck_test()
     async def test_group_toolchain_deps_use_group_platform(self, buck: Buck) -> None:
         result = await buck.cquery("deps(root//groups:bundle, 2)")
@@ -31,6 +55,19 @@ class ExecutionGroupsTest(BuckTestCase):
             dep.startswith("root//groups:remote_tool (root//config:linux_remote")
             for dep in deps
         ), deps
+
+    @buck_test()
+    async def test_exec_deps_select_only_their_group_platform(self, buck: Buck) -> None:
+        node = await _cquery_node(buck, "root//groups:binary")
+        assert _platform(node["buck.execution_platform"]) == "root//config:linux_remote"
+        # `Unused` has no deps, so it resolves to the first platform.
+        assert {
+            group: _platform(platform)
+            for group, platform in node["buck.exec_group_platforms"].items()
+        } == {
+            "Link": "root//config:linux_local",
+            "Unused": "root//config:linux_local",
+        }
 
     @buck_test()
     async def test_exec_dep_in_two_groups_is_configured_for_each(
@@ -69,6 +106,12 @@ class ExecutionGroupsTest(BuckTestCase):
         assert len(toolchain) == 1, deps
 
     @buck_test()
+    async def test_rule_without_groups_has_no_group_platforms(self, buck: Buck) -> None:
+        node = await _cquery_node(buck, "root//groups:plain")
+        assert "buck.execution_platform" in node
+        assert "buck.exec_group_platforms" not in node
+
+    @buck_test()
     async def test_unbound_node_keeps_group_deps(self, buck: Buck) -> None:
         # The `select()` key `:constraint` is configured unbound, which resolves no execution
         # platforms. Its analysis reads its grouped exec dep and toolchain dep, so they must still
@@ -87,7 +130,8 @@ class ExecutionGroupsTest(BuckTestCase):
 
     @buck_test()
     async def test_default_group_listed(self, buck: Buck) -> None:
-        await buck.uquery("root//errors/default_listed:t")
+        node = await _cquery_node(buck, "root//errors/default_listed:t")
+        assert "buck.exec_group_platforms" not in node
 
     @buck_test()
     async def test_default_group_listed_twice(self, buck: Buck) -> None:

@@ -403,6 +403,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// You should store the result of this function call for further usage in the code rather than calling
     /// `attrs_eager()` each time you need to access the attrs.
     ///
+    /// The result includes the special attributes (those that start with `buck.`, as in
+    /// `buck2 cquery -A`). `buck.exec_group_platforms` is present only for targets whose rule
+    /// declares named execution groups.
+    ///
     /// Right now, it is not recommended to use this method. Instead, use `get_attr` and `get_attrs` methods.
     /// We will deprecate this method in the future.
     ///
@@ -448,6 +452,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// You should store the result of this function call for further usage in the code rather than calling
     /// `attrs_lazy()` each time to get the `lazy_attrs` object. Note that if the `get()` is `None`,
     /// then any methods called on `None` will result in an error.
+    ///
+    /// `get()` also returns the special attributes (those that start with `buck.`, as in
+    /// `buck2 cquery -A`). `buck.exec_group_platforms` is present only for targets whose rule
+    /// declares named execution groups.
     ///
     /// Right now, it is not recommended to use this method. Instead, use `get_attr` and `get_attrs` methods.
     /// We will deprecate this method in the future.

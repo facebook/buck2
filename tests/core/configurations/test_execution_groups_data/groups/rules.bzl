@@ -85,3 +85,6 @@ same_platform_toolchain = rule(
     },
     exec_groups = [Link],
 )
+
+# `exec_group = None` is the default group, so wrappers can pass an optional group through.
+plain = rule(impl = _noop_impl, attrs = {"_tool": attrs.exec_dep(default = "//groups:any_tool", exec_group = None)})
