@@ -23,13 +23,17 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_certs::validate::CertState;
-use buck2_certs::validate::check_cert_state;
+use buck2_certs::validate::CertStateReport;
+use buck2_certs::validate::INVALID_CERTS_TAG;
+use buck2_certs::validate::check_cert_state_for;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_events::dispatch::console_warning;
+use buck2_events::dispatch::instant_event;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_hash::BuckMutInsertionMap;
 use buck2_hash::BuckMutMap;
@@ -105,8 +109,17 @@ impl<'a> ResultReporter<'a> {
         };
 
         if !error_list.is_empty() {
-            if let Some(e) = check_cert_state(cert_state).await {
-                error_list.push(e);
+            let report = check_cert_state_for(cert_state, error_list.iter()).await;
+            if report.cert_error().is_some() {
+                instant_event(buck2_data::TagEvent {
+                    tags: vec![INVALID_CERTS_TAG.to_owned()],
+                });
+            }
+            match report {
+                CertStateReport::Valid => {}
+                // Appended rather than wrapped so that the actual error stays visible.
+                CertStateReport::Explains(e) => error_list.push(e),
+                CertStateReport::Hint(e) => console_warning(e.to_string()),
             }
         }
 

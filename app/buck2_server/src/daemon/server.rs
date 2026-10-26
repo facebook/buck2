@@ -29,7 +29,9 @@ use async_trait::async_trait;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_certs::validate::CertState;
-use buck2_certs::validate::check_cert_state;
+use buck2_certs::validate::CertStateReport;
+use buck2_certs::validate::INVALID_CERTS_TAG;
+use buck2_certs::validate::check_cert_state_for;
 use buck2_certs::validate::validate_certs;
 use buck2_cli_proto::daemon_api_server::*;
 use buck2_cli_proto::*;
@@ -785,12 +787,23 @@ impl BuckdServer {
                         drop(memory_reporter);
                         match result {
                             Ok(_) => dispatch.command_result(result_to_command_result(result)),
-                            Err(e) => match check_cert_state(cert_state).await {
-                                Some(err) => dispatch.command_result(error_to_command_result(
-                                    err.context(format!("{e:?}")),
-                                )),
-                                _ => dispatch.command_result(error_to_command_result(e)),
-                            },
+                            Err(e) => {
+                                let report = check_cert_state_for(cert_state, [&e]).await;
+                                if report.cert_error().is_some() {
+                                    dispatch.instant_event(buck2_data::TagEvent {
+                                        tags: vec![INVALID_CERTS_TAG.to_owned()],
+                                    });
+                                }
+                                let e = match report {
+                                    CertStateReport::Valid => e,
+                                    CertStateReport::Explains(err) => err.context(format!("{e:?}")),
+                                    CertStateReport::Hint(err) => {
+                                        dispatch.console_warning(err.to_string());
+                                        e
+                                    }
+                                };
+                                dispatch.command_result(error_to_command_result(e))
+                            }
                         }
                     }
                     .boxed()
@@ -833,10 +846,16 @@ impl BuckdServer {
 
         match self.run_streaming_erased(command).await {
             Ok(resp) => Ok(resp),
-            Err(e) => match check_cert_state(self.0.cert_state.dupe()).await {
-                Some(err) => Ok(error_to_response_stream(err.context(format!("{e:?}")))),
-                _ => Ok(error_to_response_stream(e)),
-            },
+            Err(e) => {
+                // There is no event stream to send a hint on yet, so a user error gets the cert
+                // error as context, which does not change its classification.
+                let e = match check_cert_state_for(self.0.cert_state.dupe(), [&e]).await {
+                    CertStateReport::Valid => e,
+                    CertStateReport::Explains(err) => err.context(format!("{e:?}")),
+                    CertStateReport::Hint(err) => e.context(err.to_string()),
+                };
+                Ok(error_to_response_stream(e))
+            }
         }
     }
 
