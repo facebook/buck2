@@ -23,6 +23,7 @@ pub mod async_once_cell;
 pub mod build_file_path;
 pub mod bxl;
 pub mod bzl;
+pub mod bzl_global;
 pub mod category;
 pub mod cells;
 pub mod ci;
