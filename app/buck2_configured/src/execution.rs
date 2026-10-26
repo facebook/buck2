@@ -54,6 +54,8 @@ use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
 use buck2_node::execution::EXECUTION_PLATFORMS_BUCKCONFIG;
+use buck2_node::execution::ExecutionPlatformCandidateOutcomes;
+use buck2_node::execution::ExecutionPlatformDiagnosis;
 use buck2_node::execution::GET_EXECUTION_PLATFORMS;
 use buck2_node::execution::GetExecutionPlatforms;
 use buck2_node::execution::GetExecutionPlatformsImpl;
@@ -1045,8 +1047,8 @@ impl Key for ExecutionPlatformsKey {
 struct Diagnose;
 
 impl ResolutionMode for Diagnose {
-    type Accumulator = Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>;
-    type Output = Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>;
+    type Accumulator = ExecutionPlatformCandidateOutcomes;
+    type Output = ExecutionPlatformCandidateOutcomes;
 
     fn visit(
         mut accumulator: Self::Accumulator,
@@ -1075,7 +1077,7 @@ impl ResolutionMode for Diagnose {
 async fn diagnose_execution_platform_resolution(
     ctx: &mut DiceComputations<'_>,
     target: &TargetConfiguredTargetLabel,
-) -> buck2_error::Result<Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>> {
+) -> buck2_error::Result<ExecutionPlatformDiagnosis> {
     let node = ctx.get_target_node(target.unconfigured()).await?;
     let mut preamble = compute_configured_node_preamble(ctx, target.inner(), &node)
         .await
@@ -1085,12 +1087,44 @@ async fn diagnose_execution_platform_resolution(
         .require_compatible()?;
 
     let cfg_ctx = preamble.attr_cfg_ctx(target.inner());
-    let constraints =
-        ExecutionPlatformConstraints::new(node.as_ref(), &preamble.gathered_deps, &cfg_ctx)?;
+    let cell = CellNameForConfigurationResolution(target.pkg().cell_name());
+    let default =
+        match ExecutionPlatformConstraints::new(node.as_ref(), &preamble.gathered_deps, &cfg_ctx) {
+            Ok(constraints) => diagnose_constraints(ctx, cell, &constraints).await,
+            Err(e) => Err(e),
+        };
 
+    let gathered_deps = &preamble.gathered_deps;
+    let cfg_ctx = &cfg_ctx;
+    let execution_groups = ctx
+        .compute_join(node.execution_groups(), async |ctx, group| {
+            let outcomes = match ExecutionPlatformConstraints::for_execution_group(
+                node.as_ref(),
+                gathered_deps,
+                group,
+                cfg_ctx,
+            ) {
+                Ok(constraints) => diagnose_constraints(ctx, cell, &constraints).await,
+                Err(e) => Err(e),
+            };
+            (group.dupe(), outcomes)
+        })
+        .await;
+
+    Ok(ExecutionPlatformDiagnosis {
+        default,
+        execution_groups,
+    })
+}
+
+async fn diagnose_constraints(
+    ctx: &mut DiceComputations<'_>,
+    cell: CellNameForConfigurationResolution,
+    constraints: &ExecutionPlatformConstraints,
+) -> buck2_error::Result<ExecutionPlatformCandidateOutcomes> {
     resolve_execution_platform_candidates::<Diagnose>(
         ctx,
-        CellNameForConfigurationResolution(target.pkg().cell_name()),
+        cell,
         &constraints.exec_compatible_with,
         &constraints.exec_deps,
         &constraints.toolchain_deps,
@@ -1139,7 +1173,7 @@ impl GetExecutionPlatformsImpl for GetExecutionPlatformsInstance {
         &self,
         dice: &mut DiceComputations<'_>,
         target: &TargetConfiguredTargetLabel,
-    ) -> buck2_error::Result<Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>> {
+    ) -> buck2_error::Result<ExecutionPlatformDiagnosis> {
         diagnose_execution_platform_resolution(dice, target).await
     }
 }

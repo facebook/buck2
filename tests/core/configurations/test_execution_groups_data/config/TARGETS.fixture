@@ -57,3 +57,13 @@ platforms(
         ":macos_local",
     ],
 )
+
+platforms(
+    name = "platforms_error_fallback",
+    fallback = "error",
+    platforms = [
+        ":linux_local",
+        ":linux_remote",
+        ":macos_local",
+    ],
+)

@@ -12,6 +12,7 @@ from typing import Any
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, BuckTestCase
+from buck2.tests.e2e_util.helper.golden import golden_replace_cfg_hash
 
 
 async def _cquery_node(buck: Buck, target: str) -> dict[str, Any]:
@@ -108,6 +109,67 @@ class ExecutionGroupsTest(BuckTestCase):
     @buck_test()
     async def test_group_exec_dep_passed_to_anon_target(self, buck: Buck) -> None:
         await buck.aquery("root//anon_tool:t")
+
+    @buck_test()
+    async def test_audit_reports_skipped_platforms_per_group(self, buck: Buck) -> None:
+        result = await buck.audit(
+            "execution-platform-resolution",
+            "root//groups:binary",
+            "root//groups:bundle",
+            "root//groups:same_platform",
+            "root//groups:plugin_user",
+        )
+        golden_replace_cfg_hash(
+            output=result.stdout, rel_path="audit_groups.txt.golden"
+        )
+
+    @buck_test()
+    async def test_audit_explains_group_without_platform(self, buck: Buck) -> None:
+        result = await buck.audit(
+            "execution-platform-resolution", "root//errors/no_group_platform:t"
+        )
+        golden_replace_cfg_hash(
+            output=result.stdout, rel_path="audit_no_group_platform.txt.golden"
+        )
+
+    @buck_test()
+    async def test_audit_reports_group_diagnosis_error_under_group(
+        self, buck: Buck
+    ) -> None:
+        result = await buck.audit(
+            "execution-platform-resolution", "root//errors/group_diagnosis_error:t"
+        )
+        golden_replace_cfg_hash(
+            output=result.stdout, rel_path="audit_group_diagnosis_error.txt.golden"
+        )
+
+    @buck_test()
+    async def test_audit_reports_default_diagnosis_error_under_default(
+        self, buck: Buck
+    ) -> None:
+        result = await buck.audit(
+            "execution-platform-resolution", "root//errors/default_diagnosis_error:t"
+        )
+        golden_replace_cfg_hash(
+            output=result.stdout, rel_path="audit_default_diagnosis_error.txt.golden"
+        )
+
+    @buck_test()
+    async def test_audit_explains_group_without_platform_error_fallback(
+        self, buck: Buck
+    ) -> None:
+        # With `fallback = "error"` the group's resolution fails configuration, and the error points
+        # to this audit command.
+        result = await buck.audit(
+            "execution-platform-resolution",
+            "root//errors/no_group_platform:t",
+            "-c",
+            "build.execution_platforms=root//config:platforms_error_fallback",
+        )
+        golden_replace_cfg_hash(
+            output=result.stdout,
+            rel_path="audit_no_group_platform_error_fallback.txt.golden",
+        )
 
     @buck_test()
     async def test_rule_without_groups_has_no_group_platforms(self, buck: Buck) -> None:

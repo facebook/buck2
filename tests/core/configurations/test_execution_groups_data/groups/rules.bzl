@@ -11,6 +11,8 @@ Package = exec_group()
 Link = exec_group()
 Unused = exec_group()
 
+ToolPlugin = plugins.kind()
+
 def _tool_impl(ctx):
     script = ctx.actions.write(
         "tool.py",
@@ -84,6 +86,17 @@ same_platform_toolchain = rule(
         "_toolchain_in_link": attrs.toolchain_dep(default = "//groups:any_toolchain", exec_group = Link),
     },
     exec_groups = [Link],
+)
+
+# Gets `local_tool` as an exec dep from a plugin rather than from an attribute value.
+plugin_user = rule(
+    impl = _noop_impl,
+    attrs = {
+        "_linker": attrs.exec_dep(default = "//groups:any_tool", exec_group = Link),
+        "_plugin": attrs.plugin_dep(kind = ToolPlugin, default = "//groups:local_tool"),
+    },
+    exec_groups = [Link],
+    uses_plugins = [ToolPlugin],
 )
 
 # `exec_group = None` is the default group, so wrappers can pass an optional group through.
