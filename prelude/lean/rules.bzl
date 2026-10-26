@@ -11,11 +11,14 @@
 load("@prelude//lean:rules.bzl", "lean_library")
 """
 
+load(":binary.bzl", _lean_binary = "lean_binary", _lean_test = "lean_test")
 load(":library.bzl", _lean_library = "lean_library")
 load(":providers.bzl", _LeanLibraryInfo = "LeanLibraryInfo", _LeanToolchainInfo = "LeanToolchainInfo")
 load(":toolchain.bzl", _lean_toolchain = "lean_toolchain")
 
 LeanLibraryInfo = _LeanLibraryInfo
 LeanToolchainInfo = _LeanToolchainInfo
+lean_binary = _lean_binary
 lean_library = _lean_library
+lean_test = _lean_test
 lean_toolchain = _lean_toolchain
