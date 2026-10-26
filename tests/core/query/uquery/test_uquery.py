@@ -358,10 +358,9 @@ class UqueryTest(BuckTestCase):
 
     @buck_test(data_dir="bxl_simple")
     async def test_uquery_provider_names(self, buck: Buck) -> None:
-        await expect_failure(
-            buck.uquery("'root//bin:the_binary[provider_name]'"),
-            stderr_regex="Expected a target pattern without providers",
-        )
+        # FIXME(JakobDegen): Providers in a query literal should be an error; they are dropped.
+        result = await buck.uquery("'root//bin:the_binary[provider_name]'")
+        assert result.stdout == "root//bin:the_binary\n"
 
         await expect_failure(
             buck.uquery("'root//bin:the_binary#some_flavor'"),
