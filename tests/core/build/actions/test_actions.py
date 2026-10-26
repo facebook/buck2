@@ -23,6 +23,7 @@ from buck2.tests.e2e_util.helper.utils import filter_events
 # Taken from the ActionExecutionKind enum in data.proto.
 ACTION_EXECUTION_KIND_LOCAL = 1
 ACTION_EXECUTION_KIND_REMOTE = 2
+ACTION_EXECUTION_KIND_REMOTE_DEDUPLICATED = 13
 
 
 # In Windows, we convert all symlinks to be absolute and mostly canonical
@@ -230,7 +231,10 @@ class ActionsTest(BuckTestCase):
             "ActionExecution",
         )
         remote = [
-            a for a in actions if a["execution_kind"] == ACTION_EXECUTION_KIND_REMOTE
+            a
+            for a in actions
+            if a["execution_kind"]
+            in (ACTION_EXECUTION_KIND_REMOTE, ACTION_EXECUTION_KIND_REMOTE_DEDUPLICATED)
         ]
         assert len(remote) == 1, actions
         assert remote[0].get("hostname") is None
