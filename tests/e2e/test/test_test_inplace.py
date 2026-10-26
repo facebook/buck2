@@ -711,6 +711,13 @@ class TestInplaceTest(BuckTestCase):
             "--build-test-info",
         )
 
+        # The test must still be sleeping by the time we cancel it, however long
+        # RE took to schedule it.
+        slow_duration = 600
+        # RE scheduling latency is unbounded in practice, so allow plenty of time
+        # for the test to start before giving up.
+        start_timeout = 300
+
         tests = buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:cancellation_re",
             get_mode_from_platform(),
@@ -719,7 +726,7 @@ class TestInplaceTest(BuckTestCase):
             "--no-remote-cache",
             "--",
             "--env",
-            "SLOW_DURATION=60",
+            f"SLOW_DURATION={slow_duration}",
             "--env",
             "PIDS=/tmp",
         )
@@ -736,18 +743,19 @@ class TestInplaceTest(BuckTestCase):
             # what-ran returns things that started
             return "test.run" in stdout
 
-        for _i in range(30):
+        for _i in range(start_timeout):
             await asyncio.sleep(1)
             if await has_started():
                 break
         else:
-            raise Exception("Tests never started")
+            raise Exception(f"Tests never started within {start_timeout} seconds")
 
         tests.send_signal(signal.SIGINT)
-        await tests.communicate()  # Wait for the command to exit
+        # Cancellation must tear the test down instead of waiting it out.
+        await asyncio.wait_for(tests.communicate(), timeout=60)
 
         # Run a command that cannot execute concurrerntly and check it does not
-        # take 60 seconds to run, which means we went idle.
+        # wait for the cancelled test, which means we went idle.
         await asyncio.wait_for(buck.audit_config("-c", "foo.bar=True"), timeout=10)
 
     @buck_test(inplace=True, skip_for_os=["windows"])
